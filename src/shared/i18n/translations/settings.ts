@@ -93,7 +93,7 @@ export const settingsTranslations: Translations = {
 
   settings_change_password:    { ru: 'Сменить пароль', en: 'Change password' },
   settings_auto_summarize:     { ru: 'Автоматическое саммари заметок', en: 'Auto-summarize notes' },
-  settings_auto_summarize_hint: { ru: 'ИИ автоматически строит психологический портрет и темы по вашим заметкам в фоновом режиме', en: 'AI will build your psychological portrait and themes from notes in background' },
+  settings_auto_summarize_hint: { ru: 'Пока включено, текст заметок сам отправляется поставщику ИИ (RouterAI, Россия): по нему строятся темы, сводки, векторы для поиска и психологический портрет. Выключено — ничего в фоне не уходит', en: 'While on, note text is sent to the AI provider (RouterAI, Russia) on its own: it builds themes, summaries, search vectors and a psychological portrait. Off — nothing leaves in the background' },
   settings_security:           { ru: 'Безопасность', en: 'Security' },
   settings_current_password:   { ru: 'Текущий пароль', en: 'Current password' },
   settings_new_password:       { ru: 'Новый пароль', en: 'New password' },

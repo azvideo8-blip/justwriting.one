@@ -25,8 +25,10 @@ export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabPr
   const [autoSync, setAutoSync] = React.useState(
     localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false'
   );
+  // Согласие, а не настройка: фоновый разбор отправляет текст заметок стороннему
+  // поставщику ИИ, поэтому выключен, пока человек не включил его сам.
   const [autoSummarize, setAutoSummarize] = React.useState(
-    localStorage.getItem(STORAGE_KEYS.AUTO_SUMMARIZE_ENABLED) !== 'false'
+    localStorage.getItem(STORAGE_KEYS.AUTO_SUMMARIZE_ENABLED) === 'true'
   );
   const [analyticsConsent, setAnalyticsConsent] = React.useState(
     localStorage.getItem('analytics_consent') === 'true'

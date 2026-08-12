@@ -63,10 +63,18 @@ export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<un
   try {
     await client.query('begin');
 
-    // Every table that holds this person's data references public.users(uid)
-    // with ON DELETE CASCADE, so one delete takes documents, versions, drafts,
-    // summaries, embeddings, limits and the telemetry cooldown with it. Listing
-    // them by hand would go stale the first time a table is added.
+    // local_store_records carries user_id WITHOUT a foreign key to
+    // public.users, so the cascade below does not reach it. Nothing writes to
+    // it yet — it is the table meant to take AI dialogues, chat memory, the
+    // portrait, profile facets and the life story once those move to the
+    // cloud. Deleting it here means the day that lands, a
+    // deleted account does not quietly keep the most personal material there
+    // is. Replace with the foreign key when the column gets one.
+    await client.query('delete from public.local_store_records where user_id = $1', [uid]);
+
+    // The remaining tables reference public.users(uid) with ON DELETE CASCADE,
+    // so one delete takes documents, versions, drafts, summaries, embeddings,
+    // limits and the telemetry cooldown with it.
     await client.query('delete from public.users where uid = $1', [uid]);
 
     // Then the account itself. Deleting the profile without this leaves a login
