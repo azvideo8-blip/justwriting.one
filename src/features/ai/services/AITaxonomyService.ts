@@ -103,7 +103,6 @@ export const AITaxonomyService = {
 export interface SummaryLike {
   themes?: string[];
   insights?: string[];
-  mentionedPeople?: { name: string; role: string }[];
 }
 
 export function buildSummaryDigest(summaries: SummaryLike[], maxNotes = 200, maxChars = 50000): string {
@@ -112,12 +111,10 @@ export function buildSummaryDigest(summaries: SummaryLike[], maxNotes = 200, max
   for (const s of summaries.slice(0, maxNotes)) {
     const themes = (s.themes ?? []).filter(Boolean);
     const insights = (s.insights ?? []).filter(Boolean);
-    const people = (s.mentionedPeople ?? []).map(p => `${p.name} (${p.role})`).filter(Boolean);
-    if (themes.length === 0 && insights.length === 0 && people.length === 0) continue;
+    if (themes.length === 0 && insights.length === 0) continue;
     const parts: string[] = [];
     if (themes.length) parts.push(`Темы: ${themes.join(', ')}`);
     if (insights.length) parts.push(`Инсайты: ${insights.join('; ')}`);
-    if (people.length) parts.push(`Люди: ${people.join(', ')}`);
     const block = parts.join('\n');
     if (totalLen + block.length + 5 > maxChars) break;
     blocks.push(block);
@@ -154,7 +151,7 @@ async function deriveAndStore(origin: 'bootstrap' | 'rederive'): Promise<'ok' | 
   const digest = buildSummaryDigest(summaries);
   // Server schema requires 20..60000 chars. buildSummaryDigest caps the upper
   // bound; guard the lower one too so a sparse corpus never sends a payload that
-  // 400s (most notes may have no themes/insights/people → tiny digest).
+  // 400s (most notes may have no themes/insights → tiny digest).
   if (digest.length < 20) return 'skip';
 
   try {

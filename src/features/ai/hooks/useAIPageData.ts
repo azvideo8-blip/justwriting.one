@@ -13,8 +13,6 @@ import { useDailyLimit } from '../hooks/useDailyLimit';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 import { personaVisual, usePersonaRole } from '../constants/personaVisuals';
 import { reportError } from '../../../shared/errors/reportError';
-import { lemmatizeRussianName } from '../utils/temporalQueryParser';
-import { AIPeopleService } from '../services/AIPeopleService';
 
 import { useDialogueManager } from './useDialogueManager';
 import { usePersonaManager } from './usePersonaManager';
@@ -137,8 +135,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const [proactiveHint, setProactiveHint] = useState<string | null>(null);
   const proactiveShownRef = useRef(false);
 
-  const [consentNames, setConsentNames] = useState<string[]>([]);
-  const [pendingSendParams, setPendingSendParams] = useState<{ text: string; overrideText?: string | undefined } | null>(null);
 
   const [followUps, setFollowUps] = useState<string[]>(CHAT_FOLLOW_UPS);
   const lastFollowUpKeyRef = useRef('');
@@ -335,70 +331,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     const text = (overrideText ?? inputText).trim();
     if ((!text && pendingAttachments.length === 0) || isLoading) return;
 
-    try {
-      const promptNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
-      const pendingConsent: string[] = [];
-      const db = await getLocalDb();
-
-      const RUSSIAN_CAPITALIZED_STOP_WORDS = new Set([
-        'Я', 'Мы', 'Ты', 'Вы', 'Он', 'Она', 'Оно', 'Они',
-        'Как', 'Что', 'Где', 'Когда', 'Почему', 'Зачем', 'Кто', 'Кому', 'Чем',
-        'Если', 'Хотя', 'Чтобы', 'Потому', 'Поэтому', 'Зато',
-        'Да', 'Нет', 'И', 'А', 'Но', 'Или', 'Даже', 'Лишь', 'Только',
-        'Вчера', 'Сегодня', 'Завтра', 'Утром', 'Днем', 'Вечером', 'Ночью',
-        'Мой', 'Твой', 'Свой', 'Наш', 'Ваш', 'Этот', 'Тот', 'Весь', 'Все', 'Всё',
-        'Надо', 'Хочу', 'Могу', 'Очень', 'Просто', 'Быстро', 'Тоже', 'Так',
-        'Там', 'Тут', 'Здесь', 'Где-то', 'Как-то', 'Иногда', 'Часто', 'Редко',
-        'Опять', 'Снова', 'Вдруг', 'Сразу', 'Потом', 'Тогда', 'Сейчас', 'Теперь',
-        'Было', 'Были', 'Будет', 'Будут', 'Есть', 'Нету', 'Раз', 'Два', 'Три',
-        'Привет', 'Пока', 'Спасибо', 'Пожалуйста', 'Здравствуйте', 'Добрый',
-      ]);
-
-      for (const name of promptNames) {
-        if (RUSSIAN_CAPITALIZED_STOP_WORDS.has(name)) continue;
-        const lemmatized = lemmatizeRussianName(name);
-        if (!lemmatized || lemmatized.length < 2) continue;
-        const key = lemmatized.toLowerCase();
-        const person = await db.get('aiPeopleIndex', key);
-        // Only ask consent for someone actually mentioned in the user's notes
-        // (present in the index with note references) who has no decision yet —
-        // not for every capitalized word, e.g. the imperative verbs in starters
-        // like "Разбери мой день" which are not people at all.
-        if (person && person.noteIds.length > 0 && person.status === undefined) {
-          pendingConsent.push(name);
-        }
-      }
-
-      if (pendingConsent.length > 0) {
-        setConsentNames(pendingConsent);
-        setPendingSendParams({ text, overrideText });
-        return;
-      }
-    } catch (e) {
-      console.warn('[useAIPageData] consent check failed:', e);
-    }
-
     await executeSendMessage(text, overrideText);
   }, [inputText, pendingAttachments, isLoading, executeSendMessage]);
-
-  const handleConfirmConsent = useCallback(async (status: 'active' | 'ignored') => {
-    if (!pendingSendParams || consentNames.length === 0) return;
-    try {
-      for (const name of consentNames) {
-        const lemmatized = lemmatizeRussianName(name);
-        const key = lemmatized.toLowerCase();
-        await AIPeopleService.updateStatus(key, lemmatized, status);
-      }
-    } catch (e) {
-      console.error('[useAIPageData] failed to update people status:', e);
-    }
-
-    const { text, overrideText } = pendingSendParams;
-    setConsentNames([]);
-    setPendingSendParams(null);
-
-    await executeSendMessage(text, overrideText);
-  }, [consentNames, pendingSendParams, executeSendMessage]);
 
   const handleSuggestion = (text: string) => { void handleSendMessage(text); };
 
@@ -567,8 +501,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     activePersona, activeRole, headerVisual,
     convPersonaId, convPersonaName, convVisual,
     handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
-    handleConfirmConsent,
-    consentNames,
     responseLength,
     reasoning,
     proactiveHint,

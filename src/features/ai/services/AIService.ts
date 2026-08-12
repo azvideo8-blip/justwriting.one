@@ -28,7 +28,6 @@ export interface AISummaryPayload {
   quotableSentence?: string;
   themes: string[];
   extractedFacts: string[];
-  mentionedPeople?: { name: string; role: string }[];
   commitments?: string[];
   valence?: number;
   arousal?: number;

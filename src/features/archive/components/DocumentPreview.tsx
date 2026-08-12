@@ -503,16 +503,6 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
                     </ul>
                   </div>
                 )}
-                {(summary.mentionedPeople ?? []).length > 0 && (
-                  <div>
-                    <span className="text-text-main/60">Люди:</span>
-                    <span className="ml-1">
-                      {(summary.mentionedPeople ?? []).map((p, i) => (
-                        <span key={i} className="mr-1.5">{p.name}{p.role ? ` (${p.role})` : ''}{i < (summary.mentionedPeople ?? []).length - 1 ? ',' : ''}</span>
-                      ))}
-                    </span>
-                  </div>
-                )}
               </div>
             )}
           </div>

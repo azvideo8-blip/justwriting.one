@@ -39,23 +39,32 @@ describe('AITaxonomyService storage', () => {
 });
 
 describe('buildSummaryDigest', () => {
-  it('compacts each summary to themes/insights/people lines', () => {
+  it('compacts each summary to themes/insights lines', () => {
     const digest = buildSummaryDigest([
-      { themes: ['деньги', 'работа'], insights: ['Тревога из-за дохода'], mentionedPeople: [{ name: 'Саша', role: 'жена' }] },
+      { themes: ['деньги', 'работа'], insights: ['Тревога из-за дохода'] },
     ]);
     expect(digest).toContain('деньги');
     expect(digest).toContain('Тревога из-за дохода');
-    expect(digest).toContain('Саша');
+  });
+
+  // D4.17: имена третьих лиц больше не извлекаются и не должны попадать в
+  // текст, который уходит поставщику ИИ на вывод таксономии — даже если поле
+  // осталось в старой записи, сохранённой до удаления функции.
+  it('never passes names on to the provider, even from a legacy record', () => {
+    const legacy = { themes: ['семья'], insights: [], mentionedPeople: [{ name: 'Саша', role: 'жена' }] };
+    const digest = buildSummaryDigest([legacy as never]);
+    expect(digest).not.toContain('Саша');
+    expect(digest).not.toContain('жена');
   });
 
   it('caps the number of notes included', () => {
-    const many = Array.from({ length: 500 }, (_, i) => ({ themes: [`t${i}`], insights: [], mentionedPeople: [] }));
+    const many = Array.from({ length: 500 }, (_, i) => ({ themes: [`t${i}`], insights: [] }));
     const digest = buildSummaryDigest(many, 200);
     expect(digest.split('\n---\n').length).toBeLessThanOrEqual(200);
   });
 
   it('skips empty summaries', () => {
-    const digest = buildSummaryDigest([{ themes: [], insights: [], mentionedPeople: [] }]);
+    const digest = buildSummaryDigest([{ themes: [], insights: [] }]);
     expect(digest).toBe('');
   });
 });

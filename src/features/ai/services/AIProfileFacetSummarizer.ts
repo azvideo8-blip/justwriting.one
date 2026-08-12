@@ -95,7 +95,7 @@ export const AIProfileFacetSummarizer = {
 
         let summarized = false;
         if (excerpts.length > 0) {
-          const focus = f.isPerson ? f.label : (f.fixedLabel ? f.label : undefined);
+          const focus = f.fixedLabel ? f.label : undefined;
           let res = await AIService.summarizeFacet({ notes: excerpts, focus });
           if (!res.ok || (!res.label && !res.summary)) {
             await new Promise(r => setTimeout(r, 300));
@@ -103,7 +103,7 @@ export const AIProfileFacetSummarizer = {
           }
           if (res.ok && res.summary) {
             f.summary = res.summary;
-            if (!f.fixedLabel && !f.isPerson && res.label) f.label = res.label;
+            if (!f.fixedLabel && res.label) f.label = res.label;
             summarized = true;
             AIBackgroundBudget.spend(1);
             summarizedCount++;

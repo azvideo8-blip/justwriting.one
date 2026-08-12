@@ -24,7 +24,7 @@ vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: vi.fn(async () => ({
     getAll: vi.fn(async (store: string) =>
       store === 'aiSummaries'
-        ? [{ documentId: 'n1', themes: ['доверие'], insights: [], mentionedPeople: [{ name: 'Имя1', role: 'терапевт' }] }]
+        ? [{ documentId: 'n1', themes: ['доверие'], insights: [] }]
         : [],
     ),
     put: putMock,
@@ -35,17 +35,25 @@ vi.mock('../AIEmbeddingService', () => ({
 }));
 
 const rows: SummaryRow[] = [
-  { documentId: 'n1', themes: ['отвержение', 'доверие'], insights: ['боится просить'], mentionedPeople: [{ name: 'Имя1', role: 'терапевт' }] },
-  { documentId: 'n2', themes: ['отвержение'], insights: [], mentionedPeople: [{ name: 'Имя1', role: 'терапевт' }, { name: 'Имя2', role: 'знакомая' }] },
-  { documentId: 'n3', themes: ['деньги'], insights: [], mentionedPeople: [] },
+  { documentId: 'n1', themes: ['отвержение', 'доверие'], insights: ['боится просить'] },
+  { documentId: 'n2', themes: ['отвержение'], insights: [] },
+  { documentId: 'n3', themes: ['деньги'], insights: [] },
 ];
 
 describe('buildEvidence', () => {
-  it('aggregates dedup people-roles for the facet notes only', () => {
+  it('covers the facet notes only', () => {
     const ev = buildEvidence(['n1', 'n2'], rows);
-    expect(ev).toContain('Имя1 — терапевт');
-    expect(ev).toContain('Имя2 — знакомая');
+    expect(ev).toContain('отвержение');
     expect(ev).not.toContain('деньги'); // n3 excluded
+  });
+
+  // D4.17: судья читает доказательства вслух модели — имён среди них быть не
+  // должно ни при каких входных данных, включая старые записи с полем.
+  it('never puts names into the evidence sent to the provider', () => {
+    const legacy = [{ documentId: 'n9', themes: ['семья'], insights: [], mentionedPeople: [{ name: 'Имя1', role: 'терапевт' }] }];
+    const ev = buildEvidence(['n9'], legacy as never);
+    expect(ev).not.toContain('Имя1');
+    expect(ev).not.toContain('терапевт');
   });
 
   it('includes top themes by frequency', () => {
@@ -53,7 +61,7 @@ describe('buildEvidence', () => {
     expect(ev).toContain('отвержение');
   });
 
-  it('returns a non-empty string even with no people', () => {
+  it('returns a non-empty string for a bare note', () => {
     const ev = buildEvidence(['n3'], rows);
     expect(ev).toContain('деньги');
     expect(typeof ev).toBe('string');

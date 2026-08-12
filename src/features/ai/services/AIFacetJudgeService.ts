@@ -7,34 +7,27 @@ export interface SummaryRow {
   documentId: string;
   themes?: string[];
   insights?: string[];
-  mentionedPeople?: { name: string; role: string }[];
 }
 
 export function buildEvidence(
   noteIds: string[],
   summaries: SummaryRow[],
-  opts: { maxThemes?: number; maxPeople?: number; dialogueIds?: string[]; dialogueEventMap?: Map<string, { summary: string }> } = {},
+  opts: { maxThemes?: number; dialogueIds?: string[]; dialogueEventMap?: Map<string, { summary: string }> } = {},
 ): string {
-  const { maxThemes = 8, maxPeople = 10, dialogueIds = [], dialogueEventMap = new Map() } = opts;
+  const { maxThemes = 8, dialogueIds = [], dialogueEventMap = new Map() } = opts;
   const idSet = new Set(noteIds);
   const rows = summaries.filter(s => idSet.has(s.documentId));
 
-  const people = new Map<string, string>(); // name -> role (first non-empty)
   const themeFreq = new Map<string, number>();
   const insights: string[] = [];
   for (const r of rows) {
-    for (const p of r.mentionedPeople ?? []) {
-      if (p.name && !people.has(p.name)) people.set(p.name, p.role || '?');
-    }
     for (const t of r.themes ?? []) themeFreq.set(t, (themeFreq.get(t) ?? 0) + 1);
     for (const i of r.insights ?? []) if (i) insights.push(i);
   }
 
   const topThemes = [...themeFreq.entries()].sort((a, b) => b[1] - a[1]).slice(0, maxThemes).map(([t]) => t);
-  const peopleList = [...people.entries()].slice(0, maxPeople).map(([n, role]) => `${n} — ${role}`);
 
   const parts: string[] = [];
-  if (peopleList.length) parts.push(`Люди (имя — роль): ${peopleList.join('; ')}`);
   if (topThemes.length) parts.push(`Темы: ${topThemes.join(', ')}`);
   if (insights.length) parts.push(`Инсайты: ${insights.slice(0, 6).join('; ')}`);
 

@@ -28,7 +28,6 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заме�
 - quotableSentence: одна дословная яркая цитата (предложение) из текста. Верни ДОСЛОВНО как в оригинале.
 - themes: 1–3 основные темы.
 - extractedFacts: конкретные факты ПРОШЕДШЕГО или НАСТОЯЩЕГО времени из текста. Сохраняй оговорки. НЕ включай планы/мечты/будущее.
-- mentionedPeople: объекты { name, role } для реальных людей по имени. Если нет — [].
 - commitments: планы/обещания/намерения автора на будущее. Если нет — [].
 - valence: число от -1 до 1 (эмоциональный тон).
 - arousal: число от 0 до 1 (энергия/возбуждение).
@@ -148,7 +147,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     summary?: string; tone: string; frequentWords: string[];
     authorPhrases?: string[]; insights: string[];
     quotableSentence?: string; themes: string[]; extractedFacts: string[];
-    mentionedPeople?: { name: string; role: string }[];
     commitments?: string[]; valence?: number; arousal?: number;
     echo?: string; eventDate?: string;
   };
@@ -203,10 +201,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     quotableSentence: validatedQuote ? sanitizeAiResponse(validatedQuote) : undefined,
     themes: (parsed_json.themes ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
     extractedFacts: (parsed_json.extractedFacts ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
-    mentionedPeople: (parsed_json.mentionedPeople ?? []).map(p => ({
-      name: sanitizeAiResponse(p.name ?? ''),
-      role: sanitizeAiResponse(p.role ?? ''),
-    })).filter(p => p.name.length > 0 && cyrRatio(p.name) >= 0.3),
     commitments: (parsed_json.commitments ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
     valence: typeof parsed_json.valence === 'number' ? parsed_json.valence : undefined,
     arousal: typeof parsed_json.arousal === 'number' ? parsed_json.arousal : undefined,

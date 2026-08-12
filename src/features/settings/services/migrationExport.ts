@@ -16,7 +16,6 @@ const VERBATIM_STORES: { store: string; keyPath: string }[] = [
   { store: 'aiTimeline', keyPath: 'documentId' },
   { store: 'aiBeliefs', keyPath: 'id' },
   { store: 'aiBeliefRejections', keyPath: 'id' },
-  { store: 'aiPeopleIndex', keyPath: 'key' },
   { store: 'aiPortrait', keyPath: 'id' },
   { store: 'aiProfileFacets', keyPath: 'id' },
   { store: 'aiThemeLedger', keyPath: 'id' },

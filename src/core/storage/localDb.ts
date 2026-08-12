@@ -123,7 +123,6 @@ export interface AIDocumentSummary {
   quotableSentence?: string;
   themes: string[];
   extractedFacts: string[];
-  mentionedPeople?: { name: string; role: string }[];
   processedAt: number;
   commitments?: string[];
   valence?: number;
@@ -155,16 +154,6 @@ export interface AIMonthlyDigest {
   themes: string[];    // recurring themes
   noteCount: number;
   generatedAt: number;
-}
-
-export interface AIPeopleIndexEntry {
-  key: string;         // person name lowercased (canonical)
-  name: string;         // display name (capitalized)
-  role: string;         // most recent role seen
-  noteIds: string[];    // all documentIds where mentioned
-  lastMentionedAt: number;  // timestamp of most recent note
-  mentionCount: number;
-  status?: 'active' | 'ignored' | undefined;
 }
 
 export interface AIDocumentEmbedding {
@@ -233,8 +222,6 @@ export interface AIProfileFacet {
   dirty?: boolean;
   /** Ratio of notes with non-empty insights (0–1). High = candidate for a post. */
   insightDensity?: number;
-  /** True for person facets (people), false for domain/topic facets. */
-  isPerson?: boolean;
   /** True for domain facets with a fixed taxonomy label (not discovered). */
   fixedLabel?: boolean;
   /** True when the facet has only a local fallback summary and still needs an LLM summary. */
@@ -340,11 +327,6 @@ interface JustWritingDB extends DBSchema {
   aiMonthlyDigest: {
     key: string;
     value: AIMonthlyDigest;
-  };
-  aiPeopleIndex: {
-    key: string;
-    value: AIPeopleIndexEntry;
-    indexes: { 'by-lastMentioned': number };
   };
   aiCommitments: {
     key: string;
@@ -459,7 +441,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 19, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 20, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -528,12 +510,8 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
           db.createObjectStore('aiMonthlyDigest', { keyPath: 'month' });
         }
       }
-      if (oldVersion < 12) {
-        if (!db.objectStoreNames.contains('aiPeopleIndex')) {
-          const peopleStore = db.createObjectStore('aiPeopleIndex', { keyPath: 'key' });
-          peopleStore.createIndex('by-lastMentioned', 'lastMentionedAt');
-        }
-      }
+      // Версия 12 заводила стор aiPeopleIndex — картотеку упомянутых в заметках
+      // людей. Удалена в 20 (D4.17), поэтому здесь больше не создаётся.
       if (oldVersion < 13) {
         if (!db.objectStoreNames.contains('aiCommitments')) {
           db.createObjectStore('aiCommitments', { keyPath: 'id' });
@@ -582,6 +560,32 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         if (!db.objectStoreNames.contains('aiBeliefRejections')) {
           const rejStore = db.createObjectStore('aiBeliefRejections', { keyPath: 'id' });
           rejStore.createIndex('by-timestamp', 'timestamp');
+        }
+      }
+      if (oldVersion < 20) {
+        // D4.17: картотека упомянутых людей убрана из продукта. Мало перестать
+        // писать — накопленное нужно снести, иначе имена и характер отношений
+        // остаются лежать на устройстве после «удаления» функции.
+        // Имя стора больше не входит в схему, отсюда приведение типа.
+        const rawDb = db as unknown as { objectStoreNames: DOMStringList; deleteObjectStore(name: string): void };
+        if (rawDb.objectStoreNames.contains('aiPeopleIndex')) {
+          rawDb.deleteObjectStore('aiPeopleIndex');
+        }
+        // Те же имена лежат внутри сохранённых сводок. Курсор синхронный —
+        // транзакция обновления живёт до конца обхода.
+        // ponytail: если обход почему-то оборвётся, стор уже удалён, а поле в
+        // сводках останется до следующего пересчёта сводки — не блокер.
+        if (db.objectStoreNames.contains('aiSummaries')) {
+          const req = transaction.objectStore('aiSummaries').openCursor();
+          void req.then(function strip(cursor): unknown {
+            if (!cursor) return undefined;
+            const value = { ...cursor.value } as AIDocumentSummary & { mentionedPeople?: unknown };
+            if ('mentionedPeople' in value) {
+              delete value.mentionedPeople;
+              void cursor.update(value);
+            }
+            return cursor.continue().then(strip);
+          });
         }
       }
     },

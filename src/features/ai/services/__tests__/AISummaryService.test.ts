@@ -60,7 +60,6 @@ describe('AISummaryService', () => {
     insights: ['insight 1'],
     themes: ['theme 1'],
     extractedFacts: ['fact 1'],
-    mentionedPeople: [],
     processedAt: 1672531200000,
   };
 
@@ -92,8 +91,7 @@ describe('AISummaryService', () => {
         insights: ['insight 1'],
         themes: ['theme 1'],
         extractedFacts: ['fact 1'],
-        mentionedPeople: [],
-        processedAt: 1672531200000,
+            processedAt: 1672531200000,
       });
 
       expect(mockGetDoc).toHaveBeenCalled();

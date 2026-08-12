@@ -39,9 +39,6 @@ export async function decodeCloudSummary(
   const themes = Array.isArray(decrypted.themes) ? decrypted.themes.map(String) : [];
   const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
   const commitments = Array.isArray(decrypted.commitments) ? decrypted.commitments.map(String) : [];
-  const mentionedPeople = Array.isArray(decrypted.mentionedPeople)
-    ? decrypted.mentionedPeople.filter((p: unknown) => typeof p === 'object' && p !== null && 'name' in (p as Record<string, unknown>)) as { name: string; role: string }[]
-    : [];
   const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
   const valence = typeof decrypted.valence === 'number' ? decrypted.valence : undefined;
   const arousal = typeof decrypted.arousal === 'number' ? decrypted.arousal : undefined;
@@ -53,7 +50,6 @@ export async function decodeCloudSummary(
     insights,
     themes,
     extractedFacts,
-    mentionedPeople,
     processedAt,
   };
   if (authorPhrases) result.authorPhrases = authorPhrases;
@@ -169,36 +165,6 @@ export const AISummaryService = {
       }
     }
 
-    // Upsert people index
-    if (summary.mentionedPeople && summary.mentionedPeople.length > 0) {
-      for (const p of summary.mentionedPeople) {
-        if (!p.name?.trim()) continue;
-        const key = p.name.trim().toLowerCase();
-        const existingPerson = await db.get('aiPeopleIndex', key);
-        const noteIds = existingPerson ? [...existingPerson.noteIds] : [];
-        if (!noteIds.includes(summary.documentId)) {
-          noteIds.push(summary.documentId);
-        }
-        const lastMentionedAt = doc?.lastSessionAt ?? Date.now();
-        const role = p.role?.trim() || existingPerson?.role || '';
-        
-        const name = p.name.trim();
-        const displayName = name.charAt(0).toUpperCase() + name.slice(1);
-
-        await db.put('aiPeopleIndex', {
-          key,
-          name: displayName,
-          role,
-          noteIds,
-          lastMentionedAt,
-          mentionCount: noteIds.length,
-          // Preserve a prior consent decision — re-summarizing a note must not
-          // reset an "ignored"/"active" person back to undefined.
-          ...(existingPerson?.status !== undefined ? { status: existingPerson.status } : {}),
-        });
-      }
-    }
-
     const uid = getCurrentUser()?.uid;
     if (uid) {
       await saveSummaryToCloud(uid, withUuid).catch(e => {
@@ -211,21 +177,6 @@ export const AISummaryService = {
     const db = await getLocalDb();
     await db.delete('aiSummaries', documentId);
     await db.delete('aiTimeline', documentId);
-
-    // Remove from people index
-    const people = await db.getAll('aiPeopleIndex');
-    for (const p of people) {
-      if (p.noteIds.includes(documentId)) {
-        const updatedNoteIds = p.noteIds.filter(id => id !== documentId);
-        if (updatedNoteIds.length === 0) {
-          await db.delete('aiPeopleIndex', p.key);
-        } else {
-          p.noteIds = updatedNoteIds;
-          p.mentionCount = updatedNoteIds.length;
-          await db.put('aiPeopleIndex', p);
-        }
-      }
-    }
   },
 
   async exportAsMarkdown(documentId: string, docTitle: string): Promise<string> {

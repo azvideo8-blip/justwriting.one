@@ -246,22 +246,7 @@ export const AIProfileFacetBuilder = {
       const summaries = await db.getAll('aiSummaries');
       const summaryMap = new Map(summaries.map(s => [s.documentId, s]));
 
-      const personNotes = new Map<string, { name: string; role: string; noteIds: string[] }>();
-      for (const s of summaries) {
-        for (const p of s.mentionedPeople ?? []) {
-          if (!p.name || p.name.length < 2 || p.name.length > 30) continue;
-          const trimmed = p.name.trim();
-          if (!trimmed) continue;
-          const canon = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-          const key = canon.toLowerCase();
-          let entry = personNotes.get(key);
-          if (!entry) { entry = { name: canon, role: p.role, noteIds: [] }; personNotes.set(key, entry); }
-          if (!entry.noteIds.includes(s.documentId)) entry.noteIds.push(s.documentId);
-          if (p.role && !entry.role) entry.role = p.role;
-        }
-      }
-
-      const totalSpecs = specs.length + [...personNotes.values()].filter(pn => pn.noteIds.length >= MIN_FACET_NOTES).length;
+      const totalSpecs = specs.length;
       const buildId = `${Date.now()}`;
       const facets: AIProfileFacet[] = [];
 
@@ -313,56 +298,6 @@ export const AIProfileFacetBuilder = {
         });
       }
 
-      for (const [, pn] of personNotes) {
-        if (pn.noteIds.length < MIN_FACET_NOTES) continue;
-        onProgress?.({ done: facets.length + 1, total: totalSpecs });
-
-        let firstAt = Infinity;
-        let lastAt = 0;
-        const texts: string[] = [];
-        let personChunkCount = 0;
-        for (const id of pn.noteIds) {
-          const ts = docMap.get(id)?.lastSessionAt ?? 0;
-          if (ts) { firstAt = Math.min(firstAt, ts); lastAt = Math.max(lastAt, ts); }
-          for (const e of embeddings) {
-            if (e.documentId === id) {
-              texts.push(...(e.chunkTexts ?? []));
-              personChunkCount += e.vectors?.length ?? 0;
-            }
-          }
-        }
-
-        const excerptSeeds = texts.filter(t => t.trim()).slice(0, MAX_EXCERPTS).map(t => t.slice(0, EXCERPT_CHARS));
-
-        const meanVec = embeddings
-          .filter(e => pn.noteIds.includes(e.documentId) && e.vectors.length > 0)
-          .flatMap(e => e.vectors);
-        const centroid = meanVec.length > 0
-          ? normalize(meanVec.reduce((acc, v) => acc.map((x, i) => x + (v[i] ?? 0)), new Array(meanVec[0]!.length).fill(0) as number[]))
-          : [];
-
-        facets.push({
-          id: `${buildId}_${facets.length}`,
-          label: pn.name,
-          summary: `Упоминания о ${pn.name} (${pn.role}) в ${pn.noteIds.length} заметках.`,
-          centroid,
-          noteIds: pn.noteIds,
-          primaryNoteIds: pn.noteIds,
-          secondaryNoteIds: [],
-          noteCount: pn.noteIds.length,
-          chunkCount: personChunkCount,
-          isPerson: true,
-          firstAt: firstAt === Infinity ? 0 : firstAt,
-          lastAt,
-          updatedAt: Date.now(),
-          buildId,
-          pendingSummary: true,
-          _excerptSeed: excerptSeeds,
-          insightDensity: pn.noteIds.length > 0
-            ? pn.noteIds.filter(id => { const s = summaryMap.get(id); return s && (s.insights?.length ?? 0) > 0; }).length / pn.noteIds.length
-            : 0,
-        });
-      }
 
       const newFacets = facets;
       const newIds = new Set(newFacets.map(f => f.id));

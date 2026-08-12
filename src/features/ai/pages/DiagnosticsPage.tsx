@@ -856,7 +856,6 @@ function MassAnalyzeNotes() {
               contentHash: hash,
             };
             if (result.summary.summary !== undefined) s.summary = result.summary.summary;
-            if (result.summary.mentionedPeople !== undefined) s.mentionedPeople = result.summary.mentionedPeople;
             if (result.summary.commitments !== undefined) s.commitments = result.summary.commitments;
             if (result.summary.valence !== undefined) s.valence = result.summary.valence;
             if (result.summary.arousal !== undefined) s.arousal = result.summary.arousal;

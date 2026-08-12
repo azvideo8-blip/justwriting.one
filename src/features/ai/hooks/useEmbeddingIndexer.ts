@@ -110,7 +110,9 @@ export function useEmbeddingIndexer(): void {
 
   const runBatch = useCallback(async () => {
     if (runningRef.current) return;
-    if (localStorage.getItem('auto_summarize_enabled') === 'false') return;
+    // Opt-in: весь фоновый проход отправляет текст заметок стороннему поставщику
+    // ИИ, поэтому молчание = согласия нет. Включается тумблером в настройках.
+    if (localStorage.getItem('auto_summarize_enabled') !== 'true') return;
     const now = Date.now();
     if (now < backoffUntilRef.current) return;
 
@@ -156,7 +158,7 @@ export function useEmbeddingIndexer(): void {
       // Note summarization runs FIRST so it gets first claim on the shared
       // background budget — facets, threads, taxonomy and the monthly digest
       // all draw from the same daily pool and used to starve fresh notes.
-      if (localStorage.getItem('auto_summarize_enabled') !== 'false') {
+      if (localStorage.getItem('auto_summarize_enabled') === 'true') {
         const staleSumIds = await findStaleSummaries();
         if (staleSumIds.length > 0) {
           const db = await getLocalDb();
@@ -202,7 +204,6 @@ export function useEmbeddingIndexer(): void {
                 contentHash: hash,
               };
               if (res.summary.summary !== undefined) s.summary = res.summary.summary;
-              if (res.summary.mentionedPeople !== undefined) s.mentionedPeople = res.summary.mentionedPeople;
               if (res.summary.commitments !== undefined) s.commitments = res.summary.commitments;
               if (res.summary.valence !== undefined) s.valence = res.summary.valence;
               if (res.summary.arousal !== undefined) s.arousal = res.summary.arousal;

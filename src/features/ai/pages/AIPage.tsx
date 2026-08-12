@@ -66,7 +66,6 @@ export function AIPage() {
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
     handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
-    handleConfirmConsent, consentNames,
     responseLength,
     reasoning,
     proactiveHint,
@@ -1060,39 +1059,6 @@ export function AIPage() {
         )}
       </AnimatePresence>
 
-      {consentNames.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-surface-card border border-border-subtle shadow-xl animate-in zoom-in-95 duration-200">
-            <div className="p-6">
-              <div className="w-10 h-10 rounded-xl bg-brand-soft/10 text-brand-soft flex items-center justify-center mb-4">
-                <Brain size={20} />
-              </div>
-              <h3 className="text-base font-bold text-text-main mb-2">Новое имя в записях</h3>
-              <p className="text-xs text-text-main/60 leading-relaxed mb-6">
-                Кажется, в ваших записях упоминается <span className="font-semibold text-text-main">
-                  {consentNames.join(', ')}
-                </span>. Хотите, чтобы я помнил факты об {consentNames.length > 1 ? 'этих людях' : 'этом человеке'}?
-              </p>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleConfirmConsent('active')}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-brand-soft text-white hover:bg-brand-soft-hover transition-colors shadow-sm cursor-pointer border border-transparent"
-                >
-                  Да, отслеживать
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleConfirmConsent('ignored')}
-                  className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-text-main/5 text-text-main hover:bg-text-main/10 transition-colors border border-border-subtle cursor-pointer"
-                >
-                  Нет, игнорировать
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

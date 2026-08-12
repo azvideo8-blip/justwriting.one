@@ -11,11 +11,10 @@ import { AIService } from '../services/AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { parseTemporalQuery, MONTHS_MAP, lemmatizeRussianName, type TemporalQuery } from '../utils/temporalQueryParser';
+import { parseTemporalQuery, MONTHS_MAP, type TemporalQuery } from '../utils/temporalQueryParser';
 import { AITimelineService } from '../services/AITimelineService';
 import { AIThemeLedgerService } from '../services/AIThemeLedgerService';
 import { AIMonthlyDigestService } from '../services/AIMonthlyDigestService';
-import { AIPeopleService } from '../services/AIPeopleService';
 import { relativeDate } from '../../../core/utils/dateUtils';
 import { looksLikeNoteSearch, shouldRunFullSearch, looksLikeAggregateQuery } from '../utils/aiChatTransport';
 import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch';
@@ -149,53 +148,6 @@ export function useAIChatContext(personaId: string): {
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
 
-    // Scan prompt for Russian proper names and check if they are ignored
-    const promptNames = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
-    const ignoredNames = new Set<string>();
-    const ignoredDocumentIds = new Set<string>();
-
-    const RUSSIAN_CAPITALIZED_STOP_WORDS = new Set([
-      'Я', 'Мы', 'Ты', 'Вы', 'Он', 'Она', 'Оно', 'Они',
-      'Как', 'Что', 'Где', 'Когда', 'Почему', 'Зачем', 'Кто', 'Кому', 'Чем',
-      'Если', 'Хотя', 'Чтобы', 'Потому', 'Поэтому', 'Зато',
-      'Да', 'Нет', 'И', 'А', 'Но', 'Или', 'Даже', 'Лишь', 'Только',
-      'Вчера', 'Сегодня', 'Завтра', 'Утром', 'Днем', 'Вечером', 'Ночью',
-      'Мой', 'Твой', 'Свой', 'Наш', 'Ваш', 'Этот', 'Тот', 'Весь', 'Все', 'Всё',
-      'Надо', 'Хочу', 'Могу', 'Очень', 'Просто', 'Быстро', 'Тоже', 'Так',
-      'Там', 'Тут', 'Здесь', 'Где-то', 'Как-то', 'Иногда', 'Часто', 'Редко',
-      'Опять', 'Снова', 'Вдруг', 'Сразу', 'Потом', 'Тогда', 'Сейчас', 'Теперь',
-      'Было', 'Были', 'Будет', 'Будут', 'Есть', 'Нету', 'Раз', 'Два', 'Три',
-      'Привет', 'Пока', 'Спасибо', 'Пожалуйста', 'Здравствуйте', 'Добрый',
-    ]);
-
-    for (const name of promptNames) {
-      if (RUSSIAN_CAPITALIZED_STOP_WORDS.has(name)) continue;
-      const lemmatized = lemmatizeRussianName(name);
-      if (!lemmatized || lemmatized.length < 2) continue;
-      const key = lemmatized.toLowerCase();
-      try {
-        const person = await db.get('aiPeopleIndex', key);
-        if (person?.status === 'ignored') {
-          ignoredNames.add(key);
-          if (person.noteIds?.length) {
-            person.noteIds.forEach(id => ignoredDocumentIds.add(id));
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    // Global exclusion: a person marked 'ignored' must stay out of the model's
-    // context on EVERY turn, not only when this message happens to name them.
-    // The loop above only sees names present in `text`, so without this pass a
-    // generic question still retrieves their notes.
-    try {
-      for (const person of await db.getAll('aiPeopleIndex')) {
-        if (person.status !== 'ignored') continue;
-        ignoredNames.add(person.key);
-        person.noteIds?.forEach(id => ignoredDocumentIds.add(id));
-      }
-    } catch { /* ignore */ }
-
     let turnEmb: number[] | undefined;
     if (text.trim().length > 0) {
       try {
@@ -302,9 +254,8 @@ export function useAIChatContext(personaId: string): {
 
               if (matched.length > 0) {
                 const blocks = matched.map(m => {
-                  const allowedIds = m.facet.noteIds.filter(id => !ignoredDocumentIds.has(id));
-                  allowedIds.forEach(id => facetNoteIds.add(id));
-                  const notesMeta = allowedIds.length > 0 ? ` (заметки: ${allowedIds.length})` : '';
+                  m.facet.noteIds.forEach(id => facetNoteIds.add(id));
+                  const notesMeta = m.facet.noteIds.length > 0 ? ` (заметки: ${m.facet.noteIds.length})` : '';
                   return `Раздел "${m.facet.label}": ${m.facet.summary || 'описание отсутствует'}${notesMeta}`;
                 });
                 searchContext = `[Профиль пользователя: авто-выделенные темы]\n` + blocks.join('\n');
@@ -573,37 +524,11 @@ export function useAIChatContext(personaId: string): {
           ...lastSearchNamesRef.current,
         ])];
 
-        if (temporalQuery.type === 'person') {
-          const beforePerson = allNotes.length;
-          try {
-            const matchedPeople = await AIPeopleService.search(temporalQuery.personName!);
-            const noteIds = [...new Set(matchedPeople.flatMap(p => p.noteIds))];
-            for (const docId of noteIds) {
-              if (ignoredDocumentIds.has(docId)) continue;
-              const doc = await db.get('documents', docId);
-              if (!doc) continue;
-              const content = await LocalVersionService.getLatestContent(docId);
-              if (!content) continue;
-              allNotes.push({
-                documentId: docId,
-                title: doc.title || 'Без названия',
-                content,
-                score: 1.0,
-                lastSessionAt: doc.lastSessionAt,
-              });
-            }
-          } catch (e) {
-            reportError(e, { action: '[useAIChatContext] temporal query person failed' });
-          }
-          // The people index is a shortcut, not an authority. It is built by a
-          // background pass, so it is empty on a fresh device and incomplete
-          // until that pass catches up — and skipping the note search on its
-          // say-so answered "ничего не нашлось" to "что я писал про Сашу" while
-          // the name sat in dozens of notes that a keyword search finds at once.
-          // Skip the general search only when the index actually knew the person.
-          skipSemantic = allNotes.length > beforePerson;
-        }
-
+        // Раньше здесь была картотека людей: имя → её noteIds. Картотека убрана
+        // (D4.17), и вопрос про человека идёт обычным путём — поиском по тексту
+        // заметок ниже, где имя и так ищется по candidateNames. Индекс всё равно
+        // был лишь ускорением: на свежем устройстве он пуст, и общий поиск
+        // отвечал на «что я писал про Сашу» лучше него.
         if (!skipSemantic) {
           const searchQuery = explicitSearch ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
           try {
@@ -633,7 +558,7 @@ export function useAIChatContext(personaId: string): {
             }
 
             setAIStage('search');
-            const searchResult = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime, ignoredDocIds: ignoredDocumentIds });
+            const searchResult = await searchNotesMulti(searchQueries, 10, { queryVector: queryEmb, allEmbeddings, minTime, maxTime });
             const notes = searchResult.notes;
             if (searchResult.failed) searchFailed = true;
             if (searchResult.degraded) semanticIndexMissing = true;
@@ -803,11 +728,10 @@ export function useAIChatContext(personaId: string): {
           try {
             const allEmb = await AIEmbeddingService.getAll();
             let filteredEmb = allEmb;
-            if (minTime !== undefined || maxTime !== undefined || ignoredDocumentIds.size > 0) {
+            if (minTime !== undefined || maxTime !== undefined) {
               const allowed = new Set<string>();
               const docs = await db.getAll('documents');
               for (const doc of docs) {
-                if (ignoredDocumentIds.has(doc.id)) continue;
                 const ts = doc.lastSessionAt;
                 if (ts && (minTime === undefined || ts >= minTime) && (maxTime === undefined || ts <= maxTime)) {
                   allowed.add(doc.id);

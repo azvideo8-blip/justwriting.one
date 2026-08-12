@@ -67,6 +67,25 @@ describe('useEmbeddingIndexer', () => {
     vi.useRealTimers();
   });
 
+  /**
+   * Согласия по умолчанию нет: без явного 'true' проход не должен ни читать
+   * заметки, ни отправлять их текст поставщику ИИ. Раньше ключ отсутствовал у
+   * всех новых пользователей и конвейер работал сам.
+   */
+  it('does nothing until the flag is explicitly enabled', async () => {
+    localStorage.removeItem('auto_summarize_enabled');
+    vi.mocked(indexerUtils.findStaleDocuments).mockResolvedValue(['doc_1']);
+    vi.mocked(indexerUtils.findStaleSummaries).mockResolvedValue(['doc_1']);
+
+    renderHook(() => useEmbeddingIndexer());
+    await vi.advanceTimersByTimeAsync(10000);
+
+    expect(vi.mocked(indexerUtils.findStaleDocuments)).not.toHaveBeenCalled();
+    expect(vi.mocked(indexerUtils.findStaleSummaries)).not.toHaveBeenCalled();
+    expect(vi.mocked(indexerUtils.indexDocument)).not.toHaveBeenCalled();
+    expect(vi.mocked(AIService.summarize)).not.toHaveBeenCalled();
+  });
+
   it('emits activity log on backoff from indexDocument', async () => {
     vi.mocked(indexerUtils.findStaleDocuments).mockResolvedValue(['doc_1']);
     vi.mocked(indexerUtils.indexDocument).mockResolvedValue('daily');
