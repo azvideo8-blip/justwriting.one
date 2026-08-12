@@ -20,6 +20,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.66",
     "@sentry/react": "^10.46.0",
+    "@supabase/supabase-js": "^2.112.2",
     "@types/pg": "^8.21.0",
     "ai": "^6.0.191",
     "clsx": "^2.1.1",
