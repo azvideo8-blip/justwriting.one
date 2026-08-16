@@ -319,7 +319,11 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                         }).catch((err: unknown) => {
                           reportError(err, { action: 'sendPasswordReset' });
                           const fe = err as { code?: string };
-                          setForgotError(fe.code === 'auth/user-not-found' ? t('auth_error_user_not_found') : t('auth_error_generic'));
+                          if (fe.code === 'auth/user-not-found') {
+                            setForgotSent(true);
+                          } else {
+                            setForgotError(t('auth_error_generic'));
+                          }
                         }).finally(() => {
                           setForgotLoading(false);
                         });
