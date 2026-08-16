@@ -4,58 +4,203 @@ import { IDataProvider, ProviderRecord } from './types';
 const toMs = (v: unknown) => (typeof v === 'string' ? Date.parse(v) : v);
 const toIso = (v: unknown) => (typeof v === 'number' ? new Date(v).toISOString() : v instanceof Date ? v.toISOString() : v);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function convertTimestampsToDb(data: ProviderRecord): ProviderRecord {
-  const payload: ProviderRecord = { ...data };
-  const dateFields = ['savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt'];
-  for (const field of dateFields) {
-    if (payload[field] !== undefined && payload[field] !== null) {
-      payload[field] = toIso(payload[field]);
+const DATE_COLUMNS = new Set([
+  'saved_at', 'session_started_at', 'updated_at', 'first_session_at', 'last_session_at',
+  'created_at', 'privacy_accepted_at',
+]);
+
+const DATE_FIELDS_CLIENT = new Set([
+  'savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt',
+  'createdAt', 'privacyAcceptedAt',
+]);
+
+const USER_FIELDS: Record<string, string> = {
+  uid: 'uid',
+  email: 'email',
+  nickname: 'nickname',
+  encryptionSalt: 'encryption_salt',
+  encryptedDataKey: 'encrypted_data_key',
+  encryptionMeta: 'encryption_meta',
+  labels: 'labels',
+  earnedAchievements: 'earned_achievements',
+  totalWordCount: 'total_word_count',
+  totalWords: 'total_word_count',
+  sessionsCount: 'sessions_count',
+  streakDays: 'streak_days',
+  totalDuration: 'total_duration',
+  avgWpm: 'avg_wpm',
+  avgSessionWords: 'avg_session_words',
+  privacyAcceptedAt: 'privacy_accepted_at',
+  privacyVersion: 'privacy_version',
+  aiPortrait: 'ai_portrait',
+  _encrypted: '_encrypted',
+  role: 'role',
+  createdAt: 'created_at',
+};
+
+const DOCUMENT_FIELDS: Record<string, string> = {
+  uuid: 'uuid',
+  id: 'uuid',
+  userId: 'user_id',
+  title: 'title',
+  currentVersion: 'current_version',
+  totalWords: 'total_words',
+  totalDuration: 'total_duration',
+  sessionsCount: 'sessions_count',
+  firstSessionAt: 'first_session_at',
+  lastSessionAt: 'last_session_at',
+  isPublic: 'is_public',
+  tags: 'tags',
+  labelId: 'label_id',
+  mood: 'mood',
+  createdAt: 'created_at',
+};
+
+const VERSION_FIELDS: Record<string, string> = {
+  documentId: 'document_uuid',
+  documentUuid: 'document_uuid',
+  userId: 'user_id',
+  version: 'version',
+  content: 'content',
+  wordCount: 'word_count',
+  wordsAdded: 'words_added',
+  charsAdded: 'chars_added',
+  duration: 'duration',
+  wpm: 'wpm',
+  goalWords: 'goal_words',
+  goalTime: 'goal_time',
+  goalReached: 'goal_reached',
+  savedAt: 'saved_at',
+  sessionStartedAt: 'session_started_at',
+  mood: 'mood',
+  _encrypted: '_encrypted',
+  createdAt: 'created_at',
+};
+
+const DRAFT_FIELDS: Record<string, string> = {
+  userId: 'user_id',
+  title: 'title',
+  content: 'content',
+  seconds: 'seconds',
+  wpm: 'wpm',
+  wordCount: 'word_count',
+  initialWordCount: 'initial_word_count',
+  activeSessionId: 'active_session_id',
+  sessionStartTime: 'session_start_time',
+  accumulatedDuration: 'accumulated_duration',
+  totalPauseSeconds: 'total_pause_seconds',
+  savedDocumentId: 'saved_document_id',
+  tags: 'tags',
+  labelId: 'label_id',
+  pinnedThoughts: 'pinned_thoughts',
+  _encrypted: '_encrypted',
+  updatedAt: 'updated_at',
+};
+
+const AI_SUMMARY_FIELDS: Record<string, string> = {
+  documentId: 'document_id',
+  documentUuid: 'document_id',
+  userId: 'user_id',
+  summary: 'summary',
+  tone: 'tone',
+  frequentWords: 'frequent_words',
+  authorPhrases: 'author_phrases',
+  insights: 'insights',
+  quotableSentence: 'quotable_sentence',
+  themes: 'themes',
+  extractedFacts: 'extracted_facts',
+  processedAt: 'processed_at',
+  commitments: 'commitments',
+  valence: 'valence',
+  arousal: 'arousal',
+  echo: 'echo',
+  contentHash: 'content_hash',
+  eventDate: 'event_date',
+  promptVersion: 'prompt_version',
+  _encrypted: '_encrypted',
+  createdAt: 'created_at',
+};
+
+const AI_EMBEDDING_FIELDS: Record<string, string> = {
+  documentId: 'document_id',
+  documentUuid: 'document_id',
+  userId: 'user_id',
+  vectorsJson: 'vectors_json',
+  vectorJson: 'vector_json',
+  chunkTextsJson: 'chunk_texts_json',
+  model: 'model',
+  dim: 'dim',
+  contentHash: 'content_hash',
+  processedAt: 'processed_at',
+  schemaV: 'schema_v',
+  _encrypted: '_encrypted',
+  createdAt: 'created_at',
+};
+
+function createReverseMap(fields: Record<string, string>): Record<string, string> {
+  const rev: Record<string, string> = {};
+  for (const [clientKey, dbCol] of Object.entries(fields)) {
+    if (!rev[dbCol] || clientKey === 'documentId' || clientKey === 'uuid' || clientKey === 'totalWordCount') {
+      rev[dbCol] = clientKey;
     }
   }
-  return payload;
+  return rev;
 }
 
-const DATE_FIELDS = [
-  'savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt',
-  'created_at', 'privacy_accepted_at', 'first_session_at', 'last_session_at',
-  'saved_at', 'session_started_at',
-];
+const USER_REV = createReverseMap(USER_FIELDS);
+const DOCUMENT_REV = createReverseMap(DOCUMENT_FIELDS);
+const VERSION_REV = createReverseMap(VERSION_FIELDS);
+const DRAFT_REV = createReverseMap(DRAFT_FIELDS);
+const AI_SUMMARY_REV = createReverseMap(AI_SUMMARY_FIELDS);
+const AI_EMBEDDING_REV = createReverseMap(AI_EMBEDDING_FIELDS);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function convertTimestampsFromDb(data: ProviderRecord): ProviderRecord {
-  const payload: ProviderRecord = { ...data, id: data.uuid || data.uid || data.document_id || data.id };
-  for (const field of DATE_FIELDS) {
-    if (payload[field] !== undefined && payload[field] !== null) {
-      payload[field] = toMs(payload[field]);
+function toDb(fields: Record<string, string>, data: ProviderRecord): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const validCols = new Set(Object.values(fields));
+
+  for (const [k, v] of Object.entries(data)) {
+    if (v === undefined) continue;
+    const dbCol = fields[k] ?? (validCols.has(k) ? k : undefined);
+    if (!dbCol || dbCol === 'id') continue;
+
+    if (DATE_COLUMNS.has(dbCol) || DATE_FIELDS_CLIENT.has(k)) {
+      result[dbCol] = v === null ? null : toIso(v);
+    } else {
+      result[dbCol] = v;
+    }
+  }
+  return result;
+}
+
+function fromDb(rev: Record<string, string>, row: Record<string, unknown>): ProviderRecord {
+  const result: ProviderRecord = {};
+  for (const [col, val] of Object.entries(row)) {
+    const clientKey = rev[col] || col;
+    if (DATE_COLUMNS.has(col) || DATE_FIELDS_CLIENT.has(clientKey)) {
+      result[clientKey] = val === null ? null : toMs(val);
+    } else if (val === null) {
+      // Omit null values for non-date fields to preserve Zod schema default and optional behavior
+      continue;
+    } else {
+      result[clientKey] = val;
     }
   }
 
-  // Postgres returns null for a column that was never filled; Firestore simply
-  // omitted the field. Zod treats the two differently: `.default()` and
-  // `.optional()` fire on undefined and reject null, so a note with no mood or
-  // no title came back as "expected string, received null" and failed to parse.
-  //
-  // Dropping the key restores the shape the schemas were written against. Date
-  // fields are the exception and keep their null: firestoreTimestampSchema is a
-  // union that lists null explicitly and has no .optional(), so removing the key
-  // would break them from the other side.
-  for (const key of Object.keys(payload)) {
-    if (payload[key] === null && !DATE_FIELDS.includes(key)) {
-      delete payload[key];
-    }
+  const idVal = row.uuid ?? row.uid ?? row.document_id ?? row.id ?? row.user_id ?? result.uuid ?? result.uid ?? result.documentId ?? result.id ?? result.userId;
+  if (idVal !== undefined && idVal !== null) {
+    result.id = String(idVal);
   }
-
-  return payload;
+  return result;
 }
 
 export const SupabaseDataProvider: IDataProvider = {
   async createDocument(userId: string, data: ProviderRecord): Promise<string> {
-    const payload = convertTimestampsToDb(data);
-    const docId = (payload.id || payload.uuid) as string;
+    const docId = (data.uuid || data.id || crypto.randomUUID()) as string;
+    const payload = toDb(DOCUMENT_FIELDS, { ...data, uuid: docId, userId });
+    delete payload.id;
     const { error } = await getSupabase()
       .from('documents')
-      .insert({ ...payload, user_id: userId, uuid: docId, id: undefined });
+      .insert(payload);
     if (error != null) throw error;
     return docId;
   },
@@ -69,7 +214,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .maybeSingle();
     if (error != null) throw error;
     if (!data) return null;
-    return convertTimestampsFromDb(data);
+    return fromDb(DOCUMENT_REV, data);
   },
 
   async getUserDocuments(userId: string): Promise<ProviderRecord[]> {
@@ -78,11 +223,14 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .eq('user_id', userId);
     if (error != null) throw error;
-    return (data ?? []).map(convertTimestampsFromDb);
+    return (data ?? []).map(row => fromDb(DOCUMENT_REV, row));
   },
 
   async updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
+    const payload = toDb(DOCUMENT_FIELDS, data);
+    delete payload.id;
+    delete payload.uuid;
+    delete payload.user_id;
     const { error } = await getSupabase()
       .from('documents')
       .update(payload)
@@ -103,24 +251,34 @@ export const SupabaseDataProvider: IDataProvider = {
       lastSessionAt?: Date;
     }
   ): Promise<void> {
+    let sessionsCount = stats.sessionsCount;
+    if (sessionsCount === undefined) {
+      const { data } = await getSupabase()
+        .from('documents')
+        .select('sessions_count')
+        .eq('user_id', userId)
+        .eq('uuid', documentId)
+        .maybeSingle();
+      sessionsCount = ((data?.sessions_count as number) || 0) + 1;
+    }
+
     const updateData: Record<string, unknown> = {
       totalWords: stats.totalWords,
       totalDuration: stats.totalDuration,
       currentVersion: stats.currentVersion,
+      sessionsCount,
+      lastSessionAt: stats.lastSessionAt !== undefined ? stats.lastSessionAt : new Date(),
     };
     if (stats.mood !== undefined) updateData.mood = stats.mood;
-    updateData.lastSessionAt = stats.lastSessionAt !== undefined ? toIso(stats.lastSessionAt) : toIso(new Date());
 
-    if (stats.sessionsCount !== undefined) {
-      updateData.sessionsCount = stats.sessionsCount;
-    } else {
-      const { data } = await getSupabase().from('documents').select('sessionsCount:sessions_count').eq('user_id', userId).eq('uuid', documentId).maybeSingle();
-      updateData.sessionsCount = (data?.sessionsCount || 0) + 1;
-    }
+    const payload = toDb(DOCUMENT_FIELDS, updateData);
+    delete payload.id;
+    delete payload.uuid;
+    delete payload.user_id;
 
     const { error } = await getSupabase()
       .from('documents')
-      .update(updateData)
+      .update(payload)
       .eq('user_id', userId)
       .eq('uuid', documentId);
     if (error != null) throw error;
@@ -138,9 +296,9 @@ export const SupabaseDataProvider: IDataProvider = {
   async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
     const { error } = await getSupabase()
       .from('documents')
-      .update({ labelId: null })
+      .update({ label_id: null })
       .eq('user_id', userId)
-      .eq('labelId', labelId);
+      .eq('label_id', labelId);
     if (error != null) throw error;
   },
 
@@ -164,11 +322,12 @@ export const SupabaseDataProvider: IDataProvider = {
     }
   },
 
-  async addVersion(userId: string, documentId: string, versionId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
+  async addVersion(userId: string, documentId: string, _versionId: string, data: ProviderRecord): Promise<void> {
+    const payload = toDb(VERSION_FIELDS, { ...data, userId, documentId });
+    delete payload.id;
     const { error } = await getSupabase()
       .from('versions')
-      .upsert({ ...payload, user_id: userId, document_uuid: documentId, id: undefined });
+      .upsert(payload);
     if (error != null) throw error;
   },
 
@@ -179,7 +338,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .eq('document_uuid', documentId);
     if (error != null) throw error;
-    return (data ?? []).map(convertTimestampsFromDb);
+    return (data ?? []).map(row => fromDb(VERSION_REV, row));
   },
 
   async getLatestVersion(userId: string, documentId: string): Promise<ProviderRecord | null> {
@@ -193,14 +352,14 @@ export const SupabaseDataProvider: IDataProvider = {
       .maybeSingle();
     if (error != null) throw error;
     if (!data) return null;
-    return convertTimestampsFromDb(data);
+    return fromDb(VERSION_REV, data);
   },
 
   async updateVersion(userId: string, documentId: string, versionId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
-    // The versionId is usually the stringified version number. Wait, the ticket doesn't specify if versionId is the id or the version column.
-    // In firestore versions/{versionId} versionId was the version number as string usually.
-    // Let's assume versionId == version
+    const payload = toDb(VERSION_FIELDS, data);
+    delete payload.id;
+    delete payload.document_uuid;
+    delete payload.user_id;
     const { error } = await getSupabase()
       .from('versions')
       .update(payload)
@@ -235,11 +394,12 @@ export const SupabaseDataProvider: IDataProvider = {
       .maybeSingle();
     if (error != null) throw error;
     if (!data) return null;
-    return convertTimestampsFromDb(data);
+    return fromDb(USER_REV, data);
   },
 
   async updateProfile(userId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
+    const payload = toDb(USER_FIELDS, data);
+    delete payload.uid;
     const { error } = await getSupabase()
       .from('users')
       .update(payload)
@@ -251,7 +411,7 @@ export const SupabaseDataProvider: IDataProvider = {
     const channel = getSupabase().channel(`profile:${userId}`)
       .on('postgres_changes',
           { event: '*', schema: 'public', table: 'users', filter: `uid=eq.${userId}` },
-          p => onUpdate(convertTimestampsFromDb(p.new as ProviderRecord)))
+          p => onUpdate(fromDb(USER_REV, p.new as ProviderRecord)))
       .subscribe();
     return () => { void getSupabase().removeChannel(channel); };
   },
@@ -262,7 +422,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .limit(limitCount);
     if (error != null) throw error;
-    return (data ?? []).map(convertTimestampsFromDb);
+    return (data ?? []).map(row => fromDb(USER_REV, row));
   },
 
   async getDraft(userId: string): Promise<ProviderRecord | null> {
@@ -273,21 +433,20 @@ export const SupabaseDataProvider: IDataProvider = {
       .maybeSingle();
     if (error != null) throw error;
     if (!data) return null;
-    return convertTimestampsFromDb(data);
+    return fromDb(DRAFT_REV, data);
   },
 
   async saveDraft(userId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
-    payload.updated_at = toIso(new Date());
+    const payload = toDb(DRAFT_FIELDS, { ...data, updatedAt: new Date(), userId });
     const { error } = await getSupabase()
       .from('drafts')
-      .upsert({ ...payload, user_id: userId });
+      .upsert(payload);
     if (error != null) throw error;
   },
 
   async updateDraft(userId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
-    payload.updated_at = toIso(new Date());
+    const payload = toDb(DRAFT_FIELDS, { ...data, updatedAt: new Date() });
+    delete payload.user_id;
     const { error } = await getSupabase()
       .from('drafts')
       .update(payload)
@@ -312,14 +471,23 @@ export const SupabaseDataProvider: IDataProvider = {
       .maybeSingle();
     if (error != null) throw error;
     if (!data) return null;
-    return convertTimestampsFromDb(data);
+    return fromDb(AI_SUMMARY_REV, data);
   },
 
   async saveSummary(userId: string, documentId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
+    const payload = toDb(AI_SUMMARY_FIELDS, { ...data, userId, documentId });
     const { error } = await getSupabase()
       .from('ai_summaries')
-      .upsert({ ...payload, user_id: userId, document_id: documentId });
+      .upsert(payload);
+    if (error != null) throw error;
+  },
+
+  async deleteSummary(userId: string, documentId: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('ai_summaries')
+      .delete()
+      .eq('user_id', userId)
+      .eq('document_id', documentId);
     if (error != null) throw error;
   },
 
@@ -329,7 +497,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .eq('user_id', userId);
     if (error != null) throw error;
-    return (data ?? []).map(convertTimestampsFromDb);
+    return (data ?? []).map(row => fromDb(AI_SUMMARY_REV, row));
   },
 
   async getEmbedding(userId: string, documentId: string): Promise<ProviderRecord | null> {
@@ -341,14 +509,23 @@ export const SupabaseDataProvider: IDataProvider = {
       .maybeSingle();
     if (error != null) throw error;
     if (!data) return null;
-    return convertTimestampsFromDb(data);
+    return fromDb(AI_EMBEDDING_REV, data);
   },
 
   async saveEmbedding(userId: string, documentId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
+    const payload = toDb(AI_EMBEDDING_FIELDS, { ...data, userId, documentId });
     const { error } = await getSupabase()
       .from('ai_embeddings')
-      .upsert({ ...payload, user_id: userId, document_id: documentId });
+      .upsert(payload);
+    if (error != null) throw error;
+  },
+
+  async deleteEmbedding(userId: string, documentId: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('ai_embeddings')
+      .delete()
+      .eq('user_id', userId)
+      .eq('document_id', documentId);
     if (error != null) throw error;
   },
 
@@ -367,7 +544,7 @@ export const SupabaseDataProvider: IDataProvider = {
     const { data, error } = await q;
     if (error != null) throw error;
     
-    const items = (data ?? []).map(convertTimestampsFromDb);
+    const items = (data ?? []).map(row => fromDb(AI_EMBEDDING_REV, row));
     const nextCursorId = data != null && data.length > 0 ? data[data.length - 1].document_id as string : undefined;
     return { items, ...(nextCursorId ? { nextCursorId } : {}), readCount: data?.length || 0 };
   },
@@ -386,7 +563,7 @@ export const SupabaseDataProvider: IDataProvider = {
     
     const { data, error } = await q;
     if (error != null) throw error;
-    return (data ?? []).map(convertTimestampsFromDb);
+    return (data ?? []).map(row => fromDb(AI_EMBEDDING_REV, row));
   },
 
   async getAIProfile(userId: string): Promise<ProviderRecord | null> {
@@ -402,16 +579,15 @@ export const SupabaseDataProvider: IDataProvider = {
   },
 
   async saveEncryptionMeta(userId: string, data: ProviderRecord): Promise<void> {
-    const payload = convertTimestampsToDb(data);
-    delete payload.encryptionSalt;
-    delete payload.encryptedDataKey;
+    const payload = toDb(USER_FIELDS, data);
+    delete payload.uid;
     
     const { error } = await getSupabase()
       .from('users')
       .update({
         ...payload,
         encryption_salt: null,
-        encrypted_data_key: null
+        encrypted_data_key: null,
       })
       .eq('uid', userId);
     if (error != null) throw error;
@@ -420,7 +596,7 @@ export const SupabaseDataProvider: IDataProvider = {
   async hasLegacyKey(userId: string): Promise<boolean> {
     const profile = await this.getProfile(userId);
     if (!profile) return false;
-    return !!profile.encryptedMasterKey && !profile.mKeyVersion;
+    return !!profile.encryptedDataKey && !profile.encryptionMeta;
   },
 
   async applySyncChanges(userId: string, changes: {
@@ -429,15 +605,17 @@ export const SupabaseDataProvider: IDataProvider = {
     versionsToUpdate: Array<{ documentId: string; versionId: string; data: ProviderRecord }>;
   }): Promise<void> {
     for (const update of changes.docsToUpdate) {
-      const payload = convertTimestampsToDb(update.data);
-      await getSupabase().from('documents').upsert({ ...payload, user_id: userId, uuid: update.id, id: undefined });
+      const payload = toDb(DOCUMENT_FIELDS, { ...update.data, uuid: update.id, userId });
+      delete payload.id;
+      await getSupabase().from('documents').upsert(payload);
     }
     for (const delId of changes.docsToDelete) {
       await getSupabase().from('documents').delete().eq('user_id', userId).eq('uuid', delId);
     }
     for (const update of changes.versionsToUpdate) {
-      const payload = convertTimestampsToDb(update.data);
-      await getSupabase().from('versions').upsert({ ...payload, user_id: userId, document_uuid: update.documentId, id: undefined });
+      const payload = toDb(VERSION_FIELDS, { ...update.data, documentId: update.documentId, userId });
+      delete payload.id;
+      await getSupabase().from('versions').upsert(payload);
     }
   },
 
@@ -447,7 +625,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .eq('user_id', userId);
     if (error != null) throw error;
-    return (data ?? []).map(d => ({ id: d.user_id as string, data: convertTimestampsFromDb(d) }));
+    return (data ?? []).map(d => ({ id: d.user_id as string, data: fromDb(DRAFT_REV, d) }));
   },
 
   async executeMigrationBatch(ops: {
@@ -459,11 +637,13 @@ export const SupabaseDataProvider: IDataProvider = {
     data: ProviderRecord;
   }[]): Promise<void> {
     for (const op of ops) {
-      const payload = convertTimestampsToDb(op.data);
       if (op.type === 'version' && op.documentId && op.versionId) {
-        await getSupabase().from('versions').upsert({ ...payload, user_id: op.userId, document_uuid: op.documentId, id: undefined });
+        const payload = toDb(VERSION_FIELDS, { ...op.data, documentId: op.documentId, userId: op.userId });
+        delete payload.id;
+        await getSupabase().from('versions').upsert(payload);
       } else if (op.type === 'draft' && op.draftId) {
-        await getSupabase().from('drafts').upsert({ ...payload, user_id: op.userId });
+        const payload = toDb(DRAFT_FIELDS, { ...op.data, userId: op.userId });
+        await getSupabase().from('drafts').upsert(payload);
       }
     }
   }
