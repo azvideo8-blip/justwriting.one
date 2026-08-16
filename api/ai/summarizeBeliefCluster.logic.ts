@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
+import { chargeCall, refundCall, parseCharge } from './policy';
 
 const BELIEF_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -29,7 +30,7 @@ const SYSTEM_PROMPT = `Ты анализируешь группу связанн
 export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
   if (!parsed.success) {
-    console.error('[summarizeBeliefCluster] validation failed:', JSON.stringify(parsed.error.issues));
+    console.error('[summarizeBeliefCluster] validation failed:', parsed.error.issues.map(i => `${i.path.join('.')}:${i.code}`).join(', '));
     throw new AiError('invalid-argument', 'Invalid payload.');
   }
 
@@ -49,14 +50,14 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
     }
   }
 
-  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
-    throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
+  // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
+  // дневного лимита человека; всё остальное — из фонового, как раньше.
+  const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
+  await chargeCall(ctx, uid, charge);
 
   const reservation = await ctx.tryReserveGlobalRequest(2048);
   if (!reservation) {
-    await ctx.refundBulkLimit(uid);
+    await refundCall(ctx, uid, charge);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -92,7 +93,7 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
     const cleanBelief = sanitizeAiResponse(result.text.trim());
     return { belief: cleanBelief };
   } catch (e) {
-    await ctx.refundBulkLimit(uid);
+    await refundCall(ctx, uid, charge);
     if (!settled) await ctx.refundGlobalRequest(reservation);
     console.error('[summarizeBeliefCluster] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);

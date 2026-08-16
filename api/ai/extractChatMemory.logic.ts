@@ -34,7 +34,7 @@ const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
   if (!parsed.success) {
-    console.error('[AI memory] validation failed:', JSON.stringify(parsed.error.issues));
+    console.error('[AI memory] validation failed:', parsed.error.issues.map(i => `${i.path.join('.')}:${i.code}`).join(', '));
     throw new AiError('invalid-argument', 'Invalid payload.');
   }
 

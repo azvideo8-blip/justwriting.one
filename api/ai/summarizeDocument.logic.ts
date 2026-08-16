@@ -162,7 +162,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   } catch {
     await ctx.refundBulkLimit(uid);
     await ctx.refundGlobalRequest(reservation);
-    console.error('[AI summarize] failed to parse model output:', text.slice(0, 500));
+    console.error('[AI summarize] failed to parse model output, length:', text.length);
     generation?.end({ output: text, level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
     throw new AiError('internal', 'Failed to parse summary.');

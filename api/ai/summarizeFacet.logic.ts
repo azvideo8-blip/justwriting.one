@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
+import { chargeCall, refundCall, parseCharge } from './policy';
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -20,7 +21,7 @@ const SYSTEM_PROMPT = 'Ты анализируешь группу фрагмен
 export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
   if (!parsed.success) {
-    console.error('[AI facet] validation failed:', JSON.stringify(parsed.error.issues));
+    console.error('[AI facet] validation failed:', parsed.error.issues.map(i => `${i.path.join('.')}:${i.code}`).join(', '));
     throw new AiError('invalid-argument', 'Invalid payload.');
   }
 
@@ -40,10 +41,10 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     throw new AiError('invalid-argument', 'Disallowed patterns in focus.');
   }
 
-  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
-    throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
+  // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
+  // дневного лимита человека; всё остальное — из фонового, как раньше.
+  const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
+  await chargeCall(ctx, uid, charge);
 
   const focus = parsed.data.focus ? sanitizeAiInput(parsed.data.focus) : '';
   const system = focus
@@ -57,7 +58,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
 
   const reservation = await ctx.tryReserveGlobalRequest(2048);
   if (!reservation) {
-    await ctx.refundBulkLimit(uid);
+    await refundCall(ctx, uid, charge);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -94,7 +95,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     let finalLabel = label;
     const truncated = summary.length > 0 && !/[.!?]$/.test(summary);
     if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 200)) {
-      await ctx.refundBulkLimit(uid);
+      await refundCall(ctx, uid, charge);
       finalLabel = '';
       summary = '';
     }
@@ -107,7 +108,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     const cleanSummary = sanitizeAiResponse(summary);
     return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
-    await ctx.refundBulkLimit(uid);
+    await refundCall(ctx, uid, charge);
     await ctx.refundGlobalRequest(reservation);
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
