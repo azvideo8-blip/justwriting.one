@@ -541,6 +541,43 @@ BEGIN
 END $$;
 
 -- ============================================================
+-- users: Cannot insert a user row with role='admin' (JW-SEC-04)
+-- ============================================================
+-- Seed Charlie in auth.users only
+INSERT INTO auth.users (id, email) VALUES
+  ('00000000-0000-0000-0000-000000000003', 'charlie@test.com')
+ON CONFLICT DO NOTHING;
+
+-- Impersonate Charlie
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000003"}';
+SET role = 'authenticated';
+
+-- Charlie cannot insert profile with role='admin'
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.users (uid, email, nickname, role)
+    VALUES ('00000000-0000-0000-0000-000000000003', 'charlie@test.com', 'Charlie', 'admin');
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+    WHEN others THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Charlie inserted profile with role=admin';
+  END IF;
+END $$;
+
+-- Charlie CAN insert profile with role='user' or default role
+DO $$
+BEGIN
+  INSERT INTO public.users (uid, email, nickname, role)
+  VALUES ('00000000-0000-0000-0000-000000000003', 'charlie@test.com', 'Charlie', 'user');
+END $$;
+
+-- ============================================================
 -- Summary: count passed checks
 -- ============================================================
 DO $$
