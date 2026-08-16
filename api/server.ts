@@ -8,10 +8,20 @@ function json(res: http.ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-function readBody(req: http.IncomingMessage): Promise<string> {
+// Max payload size: 4MB (note version content schema allows up to 700k chars ~2MB in UTF-8, 4MB provides safety margin)
+function readBody(req: http.IncomingMessage, maxBytes = 4 * 1024 * 1024): Promise<string> {
   return new Promise((resolve, reject) => {
+    let size = 0;
     const chunks: Buffer[] = [];
-    req.on('data', (c) => chunks.push(c));
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > maxBytes) {
+        req.destroy();
+        reject(new Error('PAYLOAD_TOO_LARGE'));
+        return;
+      }
+      chunks.push(c);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks).toString()));
     req.on('error', reject);
   });
@@ -47,12 +57,12 @@ const server = http.createServer((req, res) => {
 
   // POST /api/csp-report — CSP violation sink
   if (method === 'POST' && url === '/api/csp-report') {
-    const raw = await readBody(req);
     try {
+      const raw = await readBody(req);
       const body = JSON.parse(raw);
       const report = body?.['csp-report'] ?? body;
       console.warn('[csp-report]', JSON.stringify(report));
-    } catch { /* ignore malformed */ }
+    } catch { /* ignore malformed or payload too large */ }
     res.writeHead(204);
     return res.end();
   }

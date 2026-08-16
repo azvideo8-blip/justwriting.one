@@ -10,11 +10,20 @@ function json(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-/** Read request body as string */
-function readBody(req: IncomingMessage): Promise<string> {
+// Max payload size: 4MB (note version content schema allows up to 700k chars ~2MB in UTF-8, 4MB provides safety margin)
+function readBody(req: IncomingMessage, maxBytes = 4 * 1024 * 1024): Promise<string> {
   return new Promise((resolve, reject) => {
+    let size = 0;
     const chunks: Buffer[] = [];
-    req.on('data', (c) => chunks.push(c));
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > maxBytes) {
+        req.destroy();
+        reject(new Error('PAYLOAD_TOO_LARGE'));
+        return;
+      }
+      chunks.push(c);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks).toString()));
     req.on('error', reject);
   });
@@ -45,7 +54,10 @@ export async function handle(req: IncomingMessage, res: ServerResponse) {
     try {
       const raw = await readBody(req);
       payload = raw ? JSON.parse(raw) : {};
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
+        return json(res, 413, { error: 'Payload too large' });
+      }
       return json(res, 400, { error: 'Invalid JSON body' });
     }
 
