@@ -4,17 +4,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // не осталось. Проверяем не «вызвался ли delete», а то, что задет тот стор,
 // который каскад не забирает.
 const query = vi.fn().mockResolvedValue({ rows: [] });
+const poolQuery = vi.fn().mockResolvedValue({ rows: [{ uid: 'uid_1' }] });
 const release = vi.fn();
 
 vi.mock('pg', () => ({
   Pool: class {
+    query(...args: unknown[]) {
+      return poolQuery(...args);
+    }
     connect() {
       return Promise.resolve({ query, release });
     }
   },
 }));
 
-const { deleteAccountLogic } = await import('../account');
+const { deleteAccountLogic, sendTelemetryLogic } = await import('../account');
 
 describe('deleteAccountLogic', () => {
   beforeEach(() => {
@@ -46,5 +50,39 @@ describe('deleteAccountLogic', () => {
 
     await expect(deleteAccountLogic(null, 'uid_1')).rejects.toThrow('Account deletion failed.');
     expect(query.mock.calls.map(c => String(c[0]))).toContain('rollback');
+  });
+});
+
+describe('sendTelemetryLogic (JW-SEC-06)', () => {
+  beforeEach(() => {
+    poolQuery.mockReset();
+  });
+
+  it('parameterizes interval in cooldown query with $2::interval', async () => {
+    poolQuery.mockResolvedValueOnce({ rows: [{ uid: 'uid_1' }] }); // cooldown query
+    poolQuery.mockResolvedValueOnce({ rows: [] }); // insert into anonymized_telemetry
+
+    const payload = {
+      telemetryId: 'tel_123',
+      notesCountBucket: '1-10',
+    };
+
+    const res = await sendTelemetryLogic(null, 'uid_1', payload);
+    expect(res).toEqual({ success: true });
+
+    expect(poolQuery).toHaveBeenCalledTimes(2);
+    const [cooldownSql, cooldownParams] = poolQuery.mock.calls[0] as [string, unknown[]];
+    expect(cooldownSql).toContain('where telemetry_cooldown.last_sent_at < now() - $2::interval');
+    expect(cooldownParams).toEqual(['uid_1', '24 hours']);
+  });
+
+  it('throws resource-exhausted when rate limit is exceeded', async () => {
+    poolQuery.mockResolvedValueOnce({ rows: [] }); // 0 rows returned = rate limited
+
+    const payload = {
+      telemetryId: 'tel_123',
+    };
+
+    await expect(sendTelemetryLogic(null, 'uid_1', payload)).rejects.toThrow('Telemetry rate limit exceeded.');
   });
 });

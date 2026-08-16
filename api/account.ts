@@ -38,9 +38,9 @@ export async function sendTelemetryLogic(_ctx: unknown, uid: string, data: unkno
   const { rows } = await pool.query(
     `insert into telemetry_cooldown (uid, last_sent_at) values ($1, now())
      on conflict (uid) do update set last_sent_at = now()
-       where telemetry_cooldown.last_sent_at < now() - interval '${TELEMETRY_MIN_INTERVAL}'
+       where telemetry_cooldown.last_sent_at < now() - $2::interval
      returning uid`,
-    [uid],
+    [uid, TELEMETRY_MIN_INTERVAL],
   );
   if (rows.length === 0) throw new AiError('resource-exhausted', 'Telemetry rate limit exceeded.');
 
