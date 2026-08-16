@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { requireSession } from '../auth';
+import { requireSession, verifyJwt } from '../auth';
 import { handle } from '../dispatcher';
 
 function makeToken(header: object, payload: object, secret: string): string {
@@ -128,5 +128,53 @@ describe('JW-SEC-02: auth SUPABASE_JWT_SECRET handling', () => {
 
     expect(responseStatus).toBe(401);
     expect(JSON.parse(responseBody)).toEqual({ error: 'Unauthenticated' });
+  });
+});
+
+describe('JW-SEC-05: JWT algorithm validation (HS256 strictly, typ softly)', () => {
+  const secret = 'test-secret';
+
+  it('rejects token with alg: none', () => {
+    const token = makeToken(
+      { alg: 'none', typ: 'JWT' },
+      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    expect(verifyJwt(token, secret)).toBeNull();
+  });
+
+  it('rejects token with alg: RS256', () => {
+    const token = makeToken(
+      { alg: 'RS256', typ: 'JWT' },
+      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    expect(verifyJwt(token, secret)).toBeNull();
+  });
+
+  it('rejects token with invalid typ', () => {
+    const token = makeToken(
+      { alg: 'HS256', typ: 'INVALID_TYPE' },
+      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    expect(verifyJwt(token, secret)).toBeNull();
+  });
+
+  it('accepts token without typ field (soft typ check)', () => {
+    const token = makeToken(
+      { alg: 'HS256' }, // no typ field
+      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    const session = verifyJwt(token, secret);
+    expect(session).not.toBeNull();
+    expect(session?.uid).toBe('user-1');
+  });
+
+  it('safely returns null on malformed or garbage header without throwing', () => {
+    expect(verifyJwt('garbage.body.sig', secret)).toBeNull();
+    expect(verifyJwt('not-a-jwt', secret)).toBeNull();
+    expect(verifyJwt('', secret)).toBeNull();
   });
 });
