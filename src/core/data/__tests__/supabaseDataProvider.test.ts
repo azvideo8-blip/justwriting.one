@@ -2,10 +2,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SupabaseDataProvider } from '../supabaseDataProvider';
 import * as supabaseClientModule from '../../supabase/client';
 
+interface MockQueryBuilder {
+  select: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  upsert: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
+  gt: ReturnType<typeof vi.fn>;
+  contains: ReturnType<typeof vi.fn>;
+  maybeSingle: ReturnType<typeof vi.fn>;
+  then: ReturnType<typeof vi.fn>;
+}
+
 describe('SupabaseDataProvider', () => {
   let mockFrom: ReturnType<typeof vi.fn>;
   let mockChannel: ReturnType<typeof vi.fn>;
-  let mockQueryBuilder: Record<string, ReturnType<typeof vi.fn>>;
+  let mockQueryBuilder: MockQueryBuilder;
 
   beforeEach(() => {
     mockQueryBuilder = {
@@ -63,7 +79,7 @@ describe('SupabaseDataProvider', () => {
         mood: 'happy',
       });
       // Ensure unknownProperty and auto-generated id are not present
-      const insertedPayload = mockQueryBuilder.insert.mock.calls[0][0];
+      const insertedPayload = mockQueryBuilder.insert.mock.calls[0]?.[0] as Record<string, unknown>;
       expect(insertedPayload).not.toHaveProperty('unknownProperty');
       expect(insertedPayload).not.toHaveProperty('id');
     });
