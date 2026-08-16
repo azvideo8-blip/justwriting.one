@@ -28,5 +28,7 @@ export function verifyJwt(token: string, secret: string): Session | null {
 export function requireSession(req: import('node:http').IncomingMessage): Session | null {
   const header = req.headers.authorization ?? '';
   if (!header.startsWith('Bearer ')) return null;
-  return verifyJwt(header.slice(7), process.env.SUPABASE_JWT_SECRET ?? '');
+  const secret = process.env.SUPABASE_JWT_SECRET;
+  if (!secret) throw new Error('SUPABASE_JWT_SECRET not configured');
+  return verifyJwt(header.slice(7), secret);
 }

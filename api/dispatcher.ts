@@ -22,32 +22,37 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 /** Main dispatcher entry point */
 export async function handle(req: IncomingMessage, res: ServerResponse) {
-  const method = req.method ?? 'GET';
-  const url = req.url ?? '/';
-
-  // Only POST under /api/* is supported for AI calls
-  if (method !== 'POST' || !url.startsWith('/api/')) {
-    return json(res, 404, { error: 'Not found' });
-  }
-
-  // Authenticate via Supabase JWT
-  const session = requireSession(req);
-  if (!session || !session.uid) {
-    return json(res, 401, { error: 'Unauthenticated' });
-  }
-
-  // Resolve handler name (e.g., /api/chatWithAI -> "chatWithAI")
-  const endpoint = url.slice('/api/'.length).split('?')[0] ?? '';
-
-  // Parse JSON payload
-  let payload: unknown = {};
   try {
-    const raw = await readBody(req);
-    payload = raw ? JSON.parse(raw) : {};
-  } catch {
-    return json(res, 400, { error: 'Invalid JSON body' });
-  }
+    const method = req.method ?? 'GET';
+    const url = req.url ?? '/';
 
-  const { status, body } = await handleAiEndpoint(endpoint, session.uid, payload);
-  return json(res, status, body);
+    // Only POST under /api/* is supported for AI calls
+    if (method !== 'POST' || !url.startsWith('/api/')) {
+      return json(res, 404, { error: 'Not found' });
+    }
+
+    // Authenticate via Supabase JWT
+    const session = requireSession(req);
+    if (!session || !session.uid) {
+      return json(res, 401, { error: 'Unauthenticated' });
+    }
+
+    // Resolve handler name (e.g., /api/chatWithAI -> "chatWithAI")
+    const endpoint = url.slice('/api/'.length).split('?')[0] ?? '';
+
+    // Parse JSON payload
+    let payload: unknown = {};
+    try {
+      const raw = await readBody(req);
+      payload = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(res, 400, { error: 'Invalid JSON body' });
+    }
+
+    const { status, body } = await handleAiEndpoint(endpoint, session.uid, payload);
+    return json(res, status, body);
+  } catch (err: unknown) {
+    console.error('[dispatcher error]', err);
+    return json(res, 500, { error: 'Internal server error' });
+  }
 }
