@@ -10,6 +10,8 @@ import {
   VERIFICATION_PLAINTEXT,
 } from './EncryptionMetaService';
 import { encryptAllExistingNotes, type MigrationProgress } from '../crypto/encryptMigration';
+import { hasLegacyEncryption } from './LegacyKeyMigration';
+import { DataProvider } from '../data';
 
 export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   return deriveMasterKey(password, salt);
@@ -36,7 +38,30 @@ async function verifyKey(dataKey: CryptoKey, verification: string): Promise<bool
   }
 }
 
+export class VaultAlreadyExistsError extends Error {
+  constructor() {
+    super('VAULT_EXISTS');
+    this.name = 'VaultAlreadyExistsError';
+  }
+}
+
 export async function initializeEncryption(userId: string, password: string): Promise<void> {
+  // Здесь генерируется НОВЫЙ data key, поэтому запись меты поверх существующей
+  // навсегда отвязывает уже зашифрованные заметки: старый ключ после этого
+  // взять негде. Создаём сейф только при положительном ответе «в профиле
+  // ничего нет».
+  //
+  // Ошибку чтения профиля сознательно не глотаем: «не удалось прочитать» —
+  // это не «меты нет». Исключение уходит наружу, и точка входа показывает
+  // отказ, а не заводит второй сейф поверх первого.
+  //
+  // Проверяются оба вида: новая encryption_meta и старая пара
+  // encryption_salt + encrypted_data_key (для неё правильный путь —
+  // миграция в LegacyKeyMigration, а не создание заново).
+  const profile = await DataProvider.getEncryptionMeta(userId);
+  const legacy = hasLegacyEncryption(profile as { encryptionSalt?: string; encryptedDataKey?: string } | null);
+  if ((profile?.encryptionMeta != null) || legacy) throw new VaultAlreadyExistsError();
+
   const salt = generateSalt();
   const masterKey = await deriveMasterKey(password, salt);
   const dataKey = await generateDataKey();
@@ -166,4 +191,5 @@ export const EncryptionService = {
   encryptAll,
   isVaultUnlocked,
   WrongPasswordError,
+  VaultAlreadyExistsError,
 };

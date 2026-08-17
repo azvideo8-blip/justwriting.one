@@ -80,7 +80,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
       setConfirmVaultPassword('');
     } catch (err) {
       reportError(err, { action: 'initializeEncryptionInSettings', userId });
-      setVaultError(t('error_generic_action'));
+      setVaultError(err instanceof EncryptionService.VaultAlreadyExistsError ? t('enc_setup_vault_exists') : t('error_generic_action'));
     } finally {
       setVaultLoading(false);
     }

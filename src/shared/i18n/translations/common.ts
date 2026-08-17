@@ -129,6 +129,7 @@ export const commonTranslations: Translations = {
   enc_setup_subtitle: { ru: 'Придумай пароль шифрования. Он защитит твои заметки сквозным шифрованием.', en: 'Create an encryption password. It will protect your notes with end-to-end encryption.' },
   enc_setup_submit: { ru: 'Включить шифрование', en: 'Enable Encryption' },
   enc_setup_success: { ru: 'Шифрование настроено', en: 'Encryption set up' },
+  enc_setup_vault_exists: { ru: 'Для этого аккаунта сейф уже создан, поэтому новый заводить нельзя: старые записи станет нечем расшифровать. Обнови страницу и введи пароль существующего сейфа.', en: 'This account already has a vault, so a new one cannot be created — it would leave your existing notes undecryptable. Reload the page and enter your existing vault password.' },
   enc_change_title: { ru: 'Сменить пароль шифрования', en: 'Change Encryption Password' },
   enc_change_subtitle: { ru: 'Введи текущий и новый пароль шифрования.', en: 'Enter your current and new encryption password.' },
   enc_change_submit: { ru: 'Сменить пароль', en: 'Change Password' },

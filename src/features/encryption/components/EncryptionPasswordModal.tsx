@@ -11,6 +11,7 @@ import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import {
   initializeEncryption,
+  VaultAlreadyExistsError,
   unlockVault,
   changePassword,
   WrongPasswordError,
@@ -76,7 +77,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       onDone();
     } catch (err) {
       reportError(err, { action: 'initializeEncryption', userId });
-      setError(t('error_generic_action'));
+      setError(err instanceof VaultAlreadyExistsError ? t('enc_setup_vault_exists') : t('error_generic_action'));
     } finally {
       setLoading(false);
     }
