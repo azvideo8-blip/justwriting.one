@@ -1,6 +1,6 @@
 // functions/src/ai/extractChatMemory.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
 
@@ -27,6 +27,9 @@ Focus on:
 - Psychological insights the USER voiced or explicitly endorsed (patterns, realizations) — not the assistant's
 - Commitments or intentions the USER expressed (goals, plans, decisions)
 - Communication preferences: direct feedback the USER gave about the assistant's tone, pacing, style, length, or quality (e.g. 'User dislikes verbose intros', 'User prefers bullet points', 'User wants shorter answers').
+
+CRITICAL — modality: 'fact' is ONLY for what already happened. Anything the user intends, plans, wants, or still has to do is 'commitment', even when stated with full resolve ("I'm definitely buying it this month"). Resolve is not a fact. An offer received is a fact of the offer, never a fact of the purchase. Phrase a commitment as an intention, never as a completed action.
+
 Keep each memory unit to 1-2 sentences, phrased in the first person as the user's own words, in the user's language. Return ONLY valid JSON array.`;
 
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
@@ -89,9 +92,14 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
       await ctx.refundBulkLimit(uid);
     }
 
-    memories = (Array.isArray(memories) ? memories : []).filter(m =>
-      m != null && typeof m.text === 'string' && typeof m.kind === 'string' && VALID_KINDS.includes(m.kind) && !hasInjectionAttempt(m.text),
-    );
+    // Тот же случай, что и в summarizeDocument: намерение, записанное моделью
+    // как 'fact', позже звучит в чате как состоявшееся. Модальность не
+    // оставляем на усмотрение модели — переводим в 'commitment' по маркерам.
+    memories = (Array.isArray(memories) ? memories : [])
+      .filter(m =>
+        m != null && typeof m.text === 'string' && typeof m.kind === 'string' && VALID_KINDS.includes(m.kind) && !hasInjectionAttempt(m.text),
+      )
+      .map(m => (m.kind === 'fact' && isIrrealis(m.text) ? { ...m, kind: 'commitment' } : m));
 
     return { memories };
   } catch (e) {

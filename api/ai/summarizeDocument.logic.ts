@@ -1,6 +1,6 @@
 // functions/src/ai/summarizeDocument.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid } from './pure';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, splitFactsByModality } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
 
@@ -27,8 +27,17 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заме�
 - insights: ключевые мысли или внутренние наблюдения — только то, что реально написано.
 - quotableSentence: одна дословная яркая цитата (предложение) из текста. Верни ДОСЛОВНО как в оригинале.
 - themes: 1–3 основные темы.
-- extractedFacts: конкретные факты ПРОШЕДШЕГО или НАСТОЯЩЕГО времени из текста. Сохраняй оговорки. НЕ включай планы/мечты/будущее.
-- commitments: планы/обещания/намерения автора на будущее. Если нет — [].
+- extractedFacts: только то, что УЖЕ ПРОИЗОШЛО или происходит сейчас. Сохраняй оговорки автора.
+- commitments: всё, что ещё НЕ произошло: планы, намерения, желания, обязательства, то, что нужно сделать. Если нет — [].
+
+ГРАНИЦА МЕЖДУ extractedFacts И commitments — САМОЕ ВАЖНОЕ В ЭТОЙ ЗАДАЧЕ.
+Признаки того, что событие НЕ произошло: «куплю», «собираюсь», «планирую», «хочу», «буду», «нужно», «надо», «придётся», «наверное», «видимо», «возможно», «думаю, что», «завтра», «потом», «если». При любом из них строка идёт в commitments, а НЕ в extractedFacts.
+Отдельно: намерение, высказанное решительно («точно куплю», «решил купить», «на этот месяц покупаю»), всё равно остаётся намерением, пока в тексте нет сообщения о состоявшемся действии. Решимость — не факт.
+Предложение, поступившее автору («предложили аудит за 10к»), — это факт получения предложения, а НЕ факт покупки или оплаты.
+Примеры:
+«Завтра видимо куплю подписку» → commitments: «планирует купить подписку», extractedFacts: [].
+«Предложили аудит за 10к, но денег пока нет, нужно заработать» → extractedFacts: «получил предложение об аудите за 10 тысяч», commitments: «планирует заработать и заказать аудит».
+Формулируй commitments как намерение («планирует…», «собирается…»), а не как совершённое действие.
 - valence: число от -1 до 1 (эмоциональный тон).
 - arousal: число от 0 до 1 (энергия/возбуждение).
 - echo: одна фраза, связывающая заметку с recentContext. Если связь неочевидна — "".
@@ -200,12 +209,20 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     insights: (parsed_json.insights ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
     quotableSentence: validatedQuote ? sanitizeAiResponse(validatedQuote) : undefined,
     themes: (parsed_json.themes ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
-    extractedFacts: (parsed_json.extractedFacts ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
-    commitments: (parsed_json.commitments ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
+    ...(() => {
+      // Модель регулярно кладёт намерение в факты вопреки промпту, а факты
+      // уходят в контекст чата под ярлыком «Факты» — и чат сообщает человеку,
+      // что он уже купил то, что только собирался. Разделяем детерминированно.
+      const { facts, commitments } = splitFactsByModality(
+        (parsed_json.extractedFacts ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
+        (parsed_json.commitments ?? []).map(s => sanitizeAiResponse(s)).filter(isUsable),
+      );
+      return { extractedFacts: facts, commitments };
+    })(),
     valence: typeof parsed_json.valence === 'number' ? parsed_json.valence : undefined,
     arousal: typeof parsed_json.arousal === 'number' ? parsed_json.arousal : undefined,
     echo: isUsable(rawEcho) ? rawEcho : undefined,
     eventDate: validEventDate,
-    promptVersion: 2,
+    promptVersion: 3,
   };
 }

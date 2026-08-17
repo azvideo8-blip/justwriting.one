@@ -189,11 +189,14 @@ export function classifyProviderFailure(err: unknown): { code: 'unavailable' | '
   return { code: 'internal', reason: 'UNKNOWN' };
 }
 
+// Одна общая дневная корзина: из неё платит и чат, и обновление профиля
+// (D4.24). Обновление стоит десяток-полтора вызовов, поэтому при прежних 10
+// запросах в сутки оно не помещалось в лимит целиком и обрывалось на середине.
 export const DAILY_LIMIT = (() => {
   const raw = process.env.AI_DAILY_LIMIT;
-  if (!raw) return 10;
+  if (!raw) return 30;
   const parsed = parseInt(raw, 10);
-  return Number.isNaN(parsed) ? 10 : parsed;
+  return Number.isNaN(parsed) ? 30 : parsed;
 })();
 
 function envInt(name: string, fallback: number): number {
@@ -214,8 +217,72 @@ export const TIER_LIMITS = {
 
 
 // Per-user daily cap with an admin bump: users with role 'admin' get
-// AI_ADMIN_DAILY_LIMIT (default 20 — experiment), everyone else keeps DAILY_LIMIT (10).
-export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 20);
+// AI_ADMIN_DAILY_LIMIT, everyone else keeps DAILY_LIMIT (30).
+export const ADMIN_DAILY_LIMIT = envInt('AI_ADMIN_DAILY_LIMIT', 60);
+
+// ── Модальность извлечённых фактов ───────────────────────────────────────────
+//
+// extractedFacts попадает в контекст чата под ярлыком «Факты», и дальше модель
+// говорит о них как о состоявшемся. Промпт требует складывать планы в
+// commitments, но модель регулярно кладёт в факты «завтра куплю подписку» или
+// «нужно заработать», и чат отвечает «ты купил подписку», «ты оплатил юриста».
+// Пользователь читает про свою жизнь то, чего не было.
+//
+// Поэтому классификация не оставлена на усмотрение модели: намерение узнаётся
+// по маркерам здесь. Асимметрия сознательная — лишний перенос факта в планы
+// стоит строчки шума в списке открытых планов, а оставленное в фактах намерение
+// становится ложным утверждением о жизни человека. При сомнении переносим.
+//
+// Список намеренно узкий и состоит из явных маркеров. Русское будущее время
+// первого лица («куплю», «заплачу») морфологически не отличить от настоящего
+// без разбора, поэтому ловим не сам глагол, а обрамление: намерение,
+// долженствование, неуверенность и отнесение в будущее.
+const IRREALIS_MARKERS = [
+  // намерение
+  'собираюсь', 'собирается', 'собираются', 'планирую', 'планирует', 'планируют',
+  'намерен', 'намерена', 'хочу', 'хочет', 'хотел бы', 'хотела бы', 'мечтаю', 'мечтает',
+  'задумал', 'задумала', 'решил купить', 'план такой',
+  // долженствование
+  'нужно', 'надо', 'должен', 'должна', 'придётся', 'придется', 'предстоит',
+  // неуверенность
+  'наверное', 'наверно', 'видимо', 'возможно', 'вероятно', 'скорее всего',
+  'может быть', 'думаю, что', 'думаю что',
+  // отнесение в будущее
+  'буду', 'будет', 'будем', 'будут', 'завтра', 'послезавтра', 'потом', 'позже',
+  'на этой неделе', 'на следующей', 'в следующем', 'в следующую', 'если ',
+] as const;
+
+const normalizeForModality = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
+
+/** true, если строка описывает намерение, а не состоявшееся событие. */
+export function isIrrealis(fact: string): boolean {
+  const t = normalizeForModality(fact);
+  return IRREALIS_MARKERS.some(m => t.includes(normalizeForModality(m)));
+}
+
+/**
+ * Переносит намерения из фактов в планы. Возвращает новые массивы; порядок
+ * сохраняется, дубликаты в планах не создаются.
+ */
+export function splitFactsByModality(
+  facts: readonly string[],
+  commitments: readonly string[],
+): { facts: string[]; commitments: string[] } {
+  const keptFacts: string[] = [];
+  const movedFacts: string[] = [];
+  for (const f of facts) {
+    if (isIrrealis(f)) movedFacts.push(f);
+    else keptFacts.push(f);
+  }
+  const seen = new Set(commitments.map(normalizeForModality));
+  const added = movedFacts.filter(f => {
+    const key = normalizeForModality(f);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { facts: keptFacts, commitments: [...commitments, ...added] };
+}
 
 // ── Bulk Daily limit ─────────────────────────────────────────────────────────
 export const BULK_DAILY_LIMIT = (() => {
