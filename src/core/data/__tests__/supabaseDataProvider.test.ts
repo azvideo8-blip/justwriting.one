@@ -272,6 +272,31 @@ describe('SupabaseDataProvider', () => {
       );
     });
 
+    // session_start_time — epoch-ms, а не дата: карта полей не должна уводить её
+    // в ISO-строку, иначе bigint-колонка получит текст. Колонка была `real` и
+    // округляла метку на секунды, см. миграцию 0010.
+    it('saveDraft keeps sessionStartTime an exact epoch-ms number', async () => {
+      await SupabaseDataProvider.saveDraft('user-1', {
+        content: 'Draft content',
+        sessionStartTime: 1786752000000,
+        accumulatedDuration: 42,
+      });
+
+      const payload = mockQueryBuilder.upsert.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(payload.session_start_time).toBe(1786752000000);
+      expect(payload.accumulated_duration).toBe(42);
+    });
+
+    it('getDraft returns sessionStartTime unchanged', async () => {
+      mockQueryBuilder.maybeSingle.mockResolvedValueOnce({
+        data: { user_id: 'user-1', content: 'c', session_start_time: 1786752000000 },
+        error: null,
+      });
+
+      const draft = await SupabaseDataProvider.getDraft('user-1');
+      expect(draft?.sessionStartTime).toBe(1786752000000);
+    });
+
     it('getDraft reads draft and maps snake_case to camelCase', async () => {
       mockQueryBuilder.maybeSingle.mockResolvedValueOnce({
         data: {
