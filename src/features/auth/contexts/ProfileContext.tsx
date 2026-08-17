@@ -43,7 +43,17 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               if (parsed.success) {
                 profileSetBySnapshotRef.current = true;
                 setProfile(parsed.data as UserProfile);
-                setEncryptionEnabled(user.uid, !!(parsed.data.encryptionSalt && parsed.data.encryptedDataKey) || !!parsed.data.encryptionMeta);
+                // Флаг только включаем и никогда не снимаем по снапшоту.
+                // Снапшот приходит из postgres_changes, а логическая репликация
+                // не присылает неизменённые TOAST-значения: у аккаунта с сейфом
+                // encryption_meta может просто отсутствовать в payload. Снять
+                // флаг на этом означало бы решить «шифрования нет» по отсутствию
+                // ответа, после чего maybeEncrypt отдаёт заметки в облако
+                // открытым текстом. Оставленный флаг в худшем случае даёт
+                // ENCRYPT_REQUIRED на запертом сейфе — отказ записи, не утечку.
+                if (!!(parsed.data.encryptionSalt && parsed.data.encryptedDataKey) || !!parsed.data.encryptionMeta) {
+                  setEncryptionEnabled(user.uid, true);
+                }
                 setProfileLoaded(user.uid, true);
               } else {
                 if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
@@ -57,7 +67,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             }
           } else {
             // No profile doc exists. Create it.
-            setEncryptionEnabled(user.uid, false);
+            //
+            // Флаг шифрования здесь не снимаем: пустой снапшот не доказывает,
+            // что профиль пропал, а authoritative getProfile ниже может вернуть
+            // профиль с сейфом — и раньше флаг успевал сброситься до этой
+            // проверки. Новому аккаунту сброс не нужен: getEncryptionEnabled
+            // возвращает false, когда для uid ничего не записано.
             if (creationAttemptedRef.current) return;
             creationAttemptedRef.current = true;
 
