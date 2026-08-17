@@ -72,3 +72,47 @@ export function getMaxTokens(isInternal: boolean, reasoning: boolean | null | un
   if (isInternal) return INTERNAL_CALL_RESTRICTIONS.maxTokens;
   return reasoning ? 16384 : 8192;
 }
+
+// ── Кто платит за вызов ──────────────────────────────────────────────────────
+//
+// Фоновые эндпоинты по умолчанию списываются с отдельного фонового лимита
+// (BULK_DAILY_LIMIT). Обновление профиля — работа, заказанная человеком, и она
+// должна стоить ему видимых запросов из дневного лимита, иначе она бесплатна.
+//
+// Клиент присылает пометку `charge: 'user'`. Доверять ей безопасно: она может
+// только повысить себе цену. Отсутствие пометки = фоновый лимит, как раньше,
+// поэтому подделать удешевление нельзя.
+//
+// Кулдаун между чатовыми запросами (10 с) здесь сознательно не применяется:
+// обновление профиля делает десяток вызовов подряд, и кулдаун превратил бы его
+// в отказ на втором. Дневной счётчик при этом общий с чатом — именно он и
+// ограничивает частоту.
+
+import type { AiContext } from './context';
+import { AiError } from './context';
+
+export type ChargeTarget = 'bulk' | 'user';
+
+export function parseCharge(value: unknown): ChargeTarget {
+  return value === 'user' ? 'user' : 'bulk';
+}
+
+/** Списывает вызов с нужного счётчика. Бросает AiError, если лимит исчерпан. */
+export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarget): Promise<void> {
+  if (charge === 'user') {
+    const allowed = await ctx.checkDailyLimit(uid);
+    if (!allowed) throw new AiError('resource-exhausted', 'Daily limit reached.');
+    return;
+  }
+  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
+  if (!allowed) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
+}
+
+/** Возврат списанного, когда вызов не состоялся (нет глобальной квоты и т. п.). */
+export async function refundCall(ctx: AiContext, uid: string, charge: ChargeTarget): Promise<void> {
+  if (charge === 'user') {
+    await ctx.refundDailyLimit(uid);
+    return;
+  }
+  await ctx.refundBulkLimit(uid);
+}
