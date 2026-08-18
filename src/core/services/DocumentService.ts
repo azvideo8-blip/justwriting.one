@@ -99,6 +99,10 @@ export const DocumentService = {
     await DataProvider.updateDocument(userId, documentId, { labelId: labelId ?? null });
   },
 
+  async updateExcludedFromAI(userId: string, documentId: string, excludedFromAI: boolean): Promise<void> {
+    await DataProvider.updateDocument(userId, documentId, { excludedFromAI });
+  },
+
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     await DataProvider.deleteDocument(userId, documentId);
   },

@@ -27,6 +27,9 @@ export interface LocalDocument {
   localOnly?: boolean | undefined;
   mood?: string | undefined;
   aiProcessed?: boolean | undefined;
+  /** «Не показывать ИИ»: заметка исключена из разбора и из любого поиска,
+   *  результат которого уходит поставщику. */
+  excludedFromAI?: boolean | undefined;
 }
 
 export interface LocalVersion {
@@ -441,7 +444,7 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
   if (dbOpenPromise) return dbOpenPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 20, {
+  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 21, {
     upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
@@ -587,6 +590,9 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
             return cursor.continue().then(strip);
           });
         }
+      }
+      if (oldVersion < 21) {
+        // D4.18: absent excludedFromAI means false — no data migration needed.
       }
     },
 

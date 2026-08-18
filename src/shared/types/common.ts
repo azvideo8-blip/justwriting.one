@@ -73,6 +73,7 @@ export interface Session extends SessionCore {
   _aiAction?: string | undefined;
   _aiProcessedAt?: number | string | null | undefined;
   _aiResultText?: string | undefined;
+  excludedFromAI?: boolean | undefined;
 }
 
 export interface SessionPayload extends SessionCore {
@@ -98,6 +99,7 @@ export interface Document {
   tags: string[];
   labelId?: string | undefined;
   mood?: string | undefined;
+  excludedFromAI?: boolean | undefined;
 }
 
 export interface Version {

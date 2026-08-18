@@ -86,6 +86,7 @@ export async function loadAllSessions(userId: string, user: AppUser | null): Pro
         _totalDuration: doc.totalDuration,
         _sessionsCount: doc.sessionsCount,
         _firstSessionAt: doc.firstSessionAt,
+        excludedFromAI: doc.excludedFromAI ?? false,
         ...( _contentError ? { _contentError: true } : {}),
       });
     }
@@ -125,6 +126,7 @@ export async function loadAllSessions(userId: string, user: AppUser | null): Pro
             _sessionsCount: cloudDoc.sessionsCount,
             _firstSessionAt: toDate(cloudDoc.firstSessionAt)?.getTime(),
             _contentNotLoaded: true,
+            excludedFromAI: cloudDoc.excludedFromAI ?? false,
           };
         });
 

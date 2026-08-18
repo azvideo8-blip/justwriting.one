@@ -12,6 +12,7 @@ import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ReactNode, useEffect, useRef } from 'react';
 import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
+import { SyncConsentModal, useSyncConsentCheck } from '../features/settings/components/SyncConsentModal';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { getOrCreateGuestId } from '../core/storage/localDb';
 
@@ -38,6 +39,7 @@ function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
 function PrivacyGuard({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuthStatus();
   const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
+  const { showConsent, setShowConsent } = useSyncConsentCheck();
   useBackgroundSync();
 
   // One-time backfill: give canonical uuids to notes created before C1.1.
@@ -59,6 +61,9 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
       {children}
       {isAuthenticated && showPrivacy && (
         <PrivacyModal onAccepted={() => setShowPrivacy(false)} />
+      )}
+      {isAuthenticated && !showPrivacy && showConsent && user && (
+        <SyncConsentModal userId={user.uid} onClose={() => setShowConsent(false)} />
       )}
     </>
   );

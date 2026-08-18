@@ -260,6 +260,15 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
+  async updateExcludedFromAI(id: string, excludedFromAI: boolean): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, excludedFromAI });
+    await tx.done;
+  },
+
   async migrateDocumentOwner(documentId: string, newOwnerId: string): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'versions'], 'readwrite');

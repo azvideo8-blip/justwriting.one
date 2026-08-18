@@ -53,6 +53,7 @@ const DOCUMENT_FIELDS: Record<string, string> = {
   tags: 'tags',
   labelId: 'label_id',
   mood: 'mood',
+  excludedFromAI: 'excluded_from_ai',
   createdAt: 'created_at',
 };
 

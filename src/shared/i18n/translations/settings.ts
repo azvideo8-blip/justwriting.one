@@ -146,4 +146,15 @@ export const settingsTranslations: Translations = {
   settings_auto_hide_cursor_desc: { ru: 'Прячет курсор при печати', en: 'Hides cursor while typing' },
   settings_writing_experience: { ru: 'Опыт письма', en: 'Writing experience' },
   settings_theme_system: { ru: 'Системная', en: 'System' },
+  sync_consent_title: { ru: 'Синхронизация с облаком', en: 'Cloud sync' },
+  sync_consent_body: {
+    ru: 'Включить автоматическую синхронизацию заметок с облаком? Заметки будут доступны на всех твоих устройствах.',
+    en: 'Enable automatic cloud sync for your notes? Your notes will be accessible across all your devices.',
+  },
+  sync_consent_enable: { ru: 'Включить синхронизацию', en: 'Turn sync on' },
+  sync_consent_keep_off: { ru: 'Оставить выключенной', en: 'Leave it off' },
+  sync_consent_hint: {
+    ru: 'Этот выбор всегда можно изменить в Настройках.',
+    en: 'You can always change this choice in Settings.',
+  },
 };

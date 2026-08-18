@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { ExternalLink, Trash2, Pencil, MoreVertical } from 'lucide-react';
+import { ExternalLink, EyeOff, Trash2, Pencil, MoreVertical } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -34,9 +34,11 @@ interface NoteRowProps {
   aiProcessed?: boolean | undefined;
   aiLoading?: boolean | undefined;
   onAIClick?: (() => void) | undefined;
+  aiExclusionLoading?: boolean | undefined;
+  onAIExclusionClick?: (() => void) | undefined;
 }
 
-function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, aiLoading, onAIClick }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, aiLoading, onAIClick, aiExclusionLoading, onAIExclusionClick }: NoteRowProps) {
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
   const [editingTitle, setEditingTitle] = useState(false);
@@ -237,7 +239,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
            />
         ) : (
           <div
-            className="text-[15px] font-medium text-text-main leading-snug truncate hover:text-brand-soft transition-colors"
+            className="text-[15px] font-medium text-text-main leading-snug truncate hover:text-brand-soft transition-colors flex items-center gap-1.5"
             onClick={e => e.stopPropagation()}
             onDoubleClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
             onTouchStart={handleTouchStart}
@@ -245,7 +247,14 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             onTouchEnd={handleTouchEnd}
             title={t('archive_edit_title_hint')}
           >
-            {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
+            {session.excludedFromAI && (
+              <span title={t('ai_note_excluded')} className="inline-flex shrink-0 text-accent-danger/80">
+                <EyeOff size={13} aria-label={t('ai_note_excluded')} />
+              </span>
+            )}
+            <span className="truncate">
+              {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
+            </span>
           </div>
         )}
         {session.content && (
@@ -286,6 +295,9 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   aiProcessed={aiProcessed}
                   aiLoading={aiLoading}
                   {...(onAIClick ? { onAIClick } : {})}
+                  aiExcluded={!!session.excludedFromAI}
+                  aiExclusionLoading={!!aiExclusionLoading}
+                  {...(onAIExclusionClick ? { onAIExclusionClick } : {})}
                 />
               )}
             </AnimatePresence>
@@ -368,6 +380,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 hasPendingSync: !!session._hasPendingSync,
               }}
               userId={userId}
+              {...(onAIExclusionClick ? { exclusion: { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick } } : {})}
               {...(onAIClick ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } } : {})}
               onStorageChange={() => onStorageChange?.()}
             />

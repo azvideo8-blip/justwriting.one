@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.0',
+    date: '2026-08-18',
+    items: [
+      { category: 'new', ru: 'Заметки больше не разбираются сами. Раньше приложение отправляло их текст поставщику ИИ по таймеру, без нажатия; теперь у каждой заметки есть кнопка разбора, и текст уходит только по ней. Повторное нажатие удаляет сводку и вектор — и на устройстве, и в облаке', en: 'Notes are no longer analysed on their own. The app used to send their text to the AI provider on a timer, with no button pressed; now each note has an analyse button and the text leaves only when it is pressed. Pressing again deletes the summary and the vector, on the device and in the cloud' },
+      { category: 'new', ru: 'У заметки появилась кнопка «Не показывать ИИ». Помеченная заметка не попадает ни в один запрос: ни в поиск по словам, ни в поиск по смыслу, ни в связанные, ни в прикреплённые к вопросу вручную. Признак хранится вместе с заметкой, поэтому действует и на других устройствах', en: 'A note can now be hidden from AI. A hidden note enters no request at all — not keyword search, not semantic search, not related notes, not a note attached by hand. The flag is stored with the note, so it holds on other devices too' },
+      { category: 'new', ru: 'Портрет, грани профиля и обзоры пересчитываются кнопкой «Обновить профиль» в разделе «Обо мне». Перед запуском показана цена: сколько будет запросов, сколько это займёт и сколько останется от дневного лимита', en: 'The portrait, profile facets and reviews are recomputed by a "Refresh profile" button in the About me section. The price is shown before it starts: how many requests, how long, and what is left of the daily limit' },
+      { category: 'new', ru: 'Приложение один раз спрашивает про синхронизацию с облаком вместо того, чтобы решать за вас. В вопросе названы обе стороны: включить — заметки копируются на сервер; оставить выключенной — они живут только в этом браузере', en: 'The app asks once about cloud sync instead of deciding for you. The question names both sides: turn it on and notes are copied to the server; leave it off and they live in this browser alone' },
+      { category: 'fix', ru: 'Приложение больше не заводит картотеку упомянутых в заметках людей — с именами, ролями и накопленными фактами. Эти люди о сервисе не знают и согласия не давали. Вопрос «что я писал про Катю» работает по-прежнему, поиском по тексту заметок', en: 'The app no longer keeps a card index of people mentioned in notes — names, roles and accumulated facts. Those people do not know the service exists and gave no consent. Asking "what did I write about Katya" still works, through note text search' },
+      { category: 'improvement', ru: 'Шрифты раздаются со своего домена, а не с серверов Google: раньше при каждой загрузке страницы ваш адрес уходил в США, ещё до входа в приложение', en: 'Fonts are served from our own domain rather than from Google: your address used to leave for the US on every page load, before you even signed in' },
+      { category: 'improvement', ru: 'Дневной лимит запросов к ИИ поднят с 10 до 30 — при прежнем одно обновление профиля съедало весь день', en: 'The daily AI request limit is raised from 10 to 30 — with the old one, a single profile refresh ate the whole day' },
+    ],
+  },
+  {
     version: '0.7.71',
     date: '2026-08-03',
     items: [

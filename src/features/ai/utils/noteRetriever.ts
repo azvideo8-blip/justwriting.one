@@ -42,12 +42,19 @@ const MAX_CACHE_ENTRIES = 50;
 let miniSearchInstance: MiniSearch | null = null;
 let miniSearchBuiltAt = 0;
 
+export function invalidateMiniSearchCache(): void {
+  miniSearchInstance = null;
+  miniSearchBuiltAt = 0;
+  searchCache.length = 0;
+}
+
 async function getMiniSearch(): Promise<MiniSearch> {
   if (miniSearchInstance && Date.now() - miniSearchBuiltAt < CACHE_TTL_MS) return miniSearchInstance;
   const db = await getLocalDb();
   const docs = await db.getAll('documents');
   const entries: { id: string; title: string; content: string }[] = [];
   for (const doc of docs) {
+    if (doc.excludedFromAI) continue;
     const content = await LocalVersionService.getLatestContent(doc.id);
     if (!content) continue;
     entries.push({
@@ -139,7 +146,7 @@ async function getExactTitleMatchIds(query: string, ids: string[]): Promise<Set<
 
 type EmbeddingEntry = Awaited<ReturnType<typeof AIEmbeddingService.getAll>>[number];
 
-export async function searchNotes(query: string, maxResults = 5, opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; ignoredDocIds?: Set<string> | undefined }): Promise<RetrievedNote[]> {
+export async function searchNotes(query: string, maxResults = 5, opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined }): Promise<RetrievedNote[]> {
   let queryVec = opts?.queryVector;
   if (!queryVec) {
     const embedResult = await AIService.embed({ content: query });
@@ -162,7 +169,7 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
-      if (opts?.ignoredDocIds?.has(doc.id)) continue;
+      if (doc.excludedFromAI) continue;
       const ts = doc.lastSessionAt;
       if (!hasTimeFilter) { allowed.add(doc.id); continue; }
       if (ts && (opts?.minTime === undefined || ts >= opts.minTime) && (opts?.maxTime === undefined || ts <= opts.maxTime)) {
@@ -186,11 +193,11 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   );
 
   let keywordMatches = await keywordSearch(query, KEYWORD_TOP);
-  if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+  if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
-      if (opts?.ignoredDocIds?.has(doc.id)) continue;
+      if (doc.excludedFromAI) continue;
       const ts = doc.lastSessionAt;
       if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
         allowed.add(doc.id);
@@ -311,7 +318,7 @@ async function loadNotes(
   const db = await getLocalDb();
   for (const docId of ids) {
     const doc = await db.get('documents', docId);
-    if (!doc) continue;
+    if (!doc || doc.excludedFromAI) continue;
     const chunkIdx = chunkIndexMap?.get(docId);
 
     let content = '';
@@ -383,7 +390,7 @@ function putCache(query: string, results: RetrievedNote[]) {
 export async function searchNotesMulti(
   queries: string[],
   maxResults = 5,
-  opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; ignoredDocIds?: Set<string> | undefined },
+  opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined },
 ): Promise<{ notes: RetrievedNote[]; failed: boolean; degraded?: boolean }> {
   if (queries.length === 0) return { notes: [], failed: false };
 
@@ -441,7 +448,7 @@ export async function searchNotesMulti(
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
-      if (opts?.ignoredDocIds?.has(doc.id)) continue;
+      if (doc.excludedFromAI) continue;
       const ts = doc.lastSessionAt;
       if (!hasTimeFilter) { allowed.add(doc.id); continue; }
       if (ts && (opts?.minTime === undefined || ts >= opts.minTime) && (opts?.maxTime === undefined || ts <= opts.maxTime)) {
@@ -474,11 +481,11 @@ export async function searchNotesMulti(
     let kwResults = await keywordSearch(q, KEYWORD_TOP);
     const decay = Math.pow(0.5, queryIdx);
     queryIdx++;
-    if (opts?.minTime !== undefined || opts?.maxTime !== undefined || opts?.ignoredDocIds !== undefined) {
+    if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {
       const allowed = new Set<string>();
       const docs = await db.getAll('documents');
       for (const doc of docs) {
-        if (opts?.ignoredDocIds?.has(doc.id)) continue;
+        if (doc.excludedFromAI) continue;
         const ts = doc.lastSessionAt;
         if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
           allowed.add(doc.id);

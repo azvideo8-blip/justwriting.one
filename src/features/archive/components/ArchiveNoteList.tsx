@@ -12,6 +12,7 @@ import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { AISummaryService } from '../../../core/services/AISummaryService';
 import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
+import { toggleAIExclusion } from '../services/archiveCrud';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
@@ -71,16 +72,38 @@ export function ArchiveNoteList({
   const { confirm: confirmDialog } = useConfirmDialog();
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
   const [aiLoadingMap, setAiLoadingMap] = useState<Record<string, boolean>>({});
+  const [aiExclusionLoadingMap, setAiExclusionLoadingMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void AISummaryService.hasAll().then(setAiProcessedMap);
   }, []);
 
+  const handleAIExclusionClick = async (session: ArchiveSession) => {
+    if (!session.id || aiExclusionLoadingMap[session.id]) return;
+    const newExcluded = !session.excludedFromAI;
+    setAiExclusionLoadingMap(m => ({ ...m, [session.id]: true }));
+    try {
+      const user = getCurrentUser();
+      await toggleAIExclusion(session, newExcluded, user, userId);
+      session.excludedFromAI = newExcluded;
+      if (newExcluded) {
+        setAiProcessedMap(m => ({ ...m, [session.id]: false }));
+      }
+      onStorageChange();
+      showToast(newExcluded ? t('ai_note_excluded') : t('ai_note_include'), 'success');
+    } catch (e) {
+      reportError(e, { action: 'archive_toggle_ai_exclusion', documentId: session.id });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setAiExclusionLoadingMap(m => ({ ...m, [session.id]: false }));
+    }
+  };
+
   // Заметка разбирается только по этому нажатию — фонового разбора нет.
   // Второе нажатие на разобранной заметке удаляет сводку и вектор, в том числе
   // облачные копии: иначе «удалить разбор» ничего бы не удаляло.
   const handleAIClick = async (session: ArchiveSession) => {
-    if (!session.id || aiLoadingMap[session.id]) return;
+    if (!session.id || aiLoadingMap[session.id] || session.excludedFromAI) return;
 
     if (aiProcessedMap[session.id]) {
       const ok = await confirmDialog({
@@ -238,6 +261,8 @@ export function ArchiveNoteList({
             aiProcessed={!!aiProcessedMap[session.id]}
             aiLoading={!!aiLoadingMap[session.id]}
             onAIClick={() => void handleAIClick(session)}
+            aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+            onAIExclusionClick={() => void handleAIExclusionClick(session)}
           />
         )}
       />
@@ -346,6 +371,8 @@ export function ArchiveNoteList({
                 aiProcessed={!!aiProcessedMap[session.id]}
                 aiLoading={!!aiLoadingMap[session.id]}
                 onAIClick={() => void handleAIClick(session)}
+                aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+                onAIExclusionClick={() => void handleAIExclusionClick(session)}
               />
             ))}
           </div>

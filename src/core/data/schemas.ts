@@ -66,6 +66,7 @@ export const documentDbSchema = z.object({
   firstSessionAt: firestoreTimestampSchema,
   lastSessionAt: firestoreTimestampSchema,
   mood: z.string().optional(),
+  excludedFromAI: z.boolean().optional().default(false),
 });
 
 export const versionDbSchema = z.object({

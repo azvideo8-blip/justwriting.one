@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   AI_DAILY_USAGE: 'ai_daily_usage',
   AI_DAILY_REMAINING: 'ai_daily_remaining',
   AUTO_SYNC_ENABLED: 'auto_sync_enabled',
+  AUTO_SYNC_ASKED: 'auto_sync_asked',
   DIAGNOSTICS_UNLOCKED: 'diagnostics_unlocked',
   PRIVACY_ACCEPTED: (uid: string) => `privacy_accepted_${uid}`,
   STREAK_FREEZES: 'jw_streak_freezes',

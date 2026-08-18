@@ -186,23 +186,35 @@ export function useAIChatContext(personaId: string): {
     let searchContext: string | undefined;
 
     if (attached) {
-      if (attached.content.includes('[#')) {
-        searchContext = attached.content;
-      } else {
-        const yyyymmdd = attached.documentId ? (await getDocDate(attached.documentId)) : formatDateYYYYMMDD(Date.now());
-        const docId = attached.documentId || 'attached-note';
-        const label = attachedIsSticky
-          ? '[Заметка, к которой привязан этот диалог — пользователь НЕ присылал её сейчас, не говори «присланная/прикреплённая заметка»]'
-          : '[Прикрепленная заметка]';
-        searchContext = `[#${docId} · ${yyyymmdd}]\n${label}\n${attached.content}`;
-      }
-      
+      let isAttachedExcluded = false;
       if (attached.documentId) {
-        injectedDocumentIds.push(attached.documentId);
+        try {
+          const db = await getLocalDb();
+          const doc = await db.get('documents', attached.documentId);
+          if (doc?.excludedFromAI) {
+            isAttachedExcluded = true;
+          }
+        } catch { /* ignore */ }
       }
-      const matches = attached.content.matchAll(/\[#([a-zA-Z0-9_-]+)\]/g);
-      for (const m of matches) {
-        if (m[1]) injectedDocumentIds.push(m[1]);
+      if (!isAttachedExcluded) {
+        if (attached.content.includes('[#')) {
+          searchContext = attached.content;
+        } else {
+          const yyyymmdd = attached.documentId ? (await getDocDate(attached.documentId)) : formatDateYYYYMMDD(Date.now());
+          const docId = attached.documentId || 'attached-note';
+          const label = attachedIsSticky
+            ? '[Заметка, к которой привязан этот диалог — пользователь НЕ присылал её сейчас, не говори «присланная/прикреплённая заметка»]'
+            : '[Прикрепленная заметка]';
+          searchContext = `[#${docId} · ${yyyymmdd}]\n${label}\n${attached.content}`;
+        }
+        
+        if (attached.documentId) {
+          injectedDocumentIds.push(attached.documentId);
+        }
+        const matches = attached.content.matchAll(/\[#([a-zA-Z0-9_-]+)\]/g);
+        for (const m of matches) {
+          if (m[1]) injectedDocumentIds.push(m[1]);
+        }
       }
     }
 
@@ -595,7 +607,7 @@ export function useAIChatContext(personaId: string): {
 
             for (const docId of [...extraIds, ...nameIds]) {
               const doc = await db.get('documents', docId);
-              if (!doc) continue;
+              if (!doc || doc.excludedFromAI) continue;
               const content = await LocalVersionService.getLatestContent(docId);
               if (!content) continue;
               allNotes.push({
@@ -635,6 +647,14 @@ export function useAIChatContext(personaId: string): {
         }
 
         try {
+          if (allNotes.length > 0) {
+            const allLocalDocs = await db.getAll('documents');
+            const excludedSet = new Set(allLocalDocs.filter(d => d.excludedFromAI).map(d => d.id));
+            if (excludedSet.size > 0) {
+              allNotes = allNotes.filter(n => !excludedSet.has(n.documentId));
+            }
+          }
+
           if (allNotes.length > 0) {
             const BUDGET_CHARS = 25_000;
             const now = Date.now();

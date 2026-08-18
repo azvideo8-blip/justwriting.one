@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { X, ExternalLink, EyeOff, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../../../core/services/StorageService';
@@ -39,6 +39,9 @@ interface MobileNoteActionsSheetProps {
   aiProcessed?: boolean | undefined;
   aiLoading?: boolean | undefined;
   onAIClick?: (() => void) | undefined;
+  aiExcluded?: boolean | undefined;
+  aiExclusionLoading?: boolean | undefined;
+  onAIExclusionClick?: (() => void) | undefined;
 }
 
 export function MobileNoteActionsSheet({
@@ -55,6 +58,9 @@ export function MobileNoteActionsSheet({
   aiProcessed,
   aiLoading,
   onAIClick,
+  aiExcluded,
+  aiExclusionLoading,
+  onAIExclusionClick,
 }: MobileNoteActionsSheetProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -254,18 +260,38 @@ export function MobileNoteActionsSheet({
                 </Button>
               )}
 
+              {onAIExclusionClick && (
+                <Button
+                  onClick={() => {
+                    if (!aiExclusionLoading) {
+                      onAIExclusionClick();
+                      onClose();
+                    }
+                  }}
+                  disabled={!!aiExclusionLoading}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  {aiExclusionLoading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <EyeOff size={18} className={aiExcluded ? 'text-accent-danger' : 'text-text-main/60'} />
+                  )}
+                  <span>{aiExcluded ? t('ai_note_include') : t('ai_note_exclude')}</span>
+                </Button>
+              )}
+
               {onAIClick && (
                 <Button
-                  onClick={() => { if (!aiLoading) onAIClick(); }}
-                  disabled={!!aiLoading}
-                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                  onClick={() => { if (!aiLoading && !aiExcluded) { onAIClick(); onClose(); } }}
+                  disabled={!!aiLoading || !!aiExcluded}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left disabled:opacity-40"
                 >
                   {aiLoading ? (
                     <Loader2 size={18} className="animate-spin" />
                   ) : (
                     <Sparkles size={18} className={aiProcessed ? 'text-brand-soft' : undefined} />
                   )}
-                  <span>{aiProcessed ? t('ai_note_clear') : t('ai_note_analyze')}</span>
+                  <span>{aiExcluded ? t('ai_note_excluded') : aiProcessed ? t('ai_note_clear') : t('ai_note_analyze')}</span>
                 </Button>
               )}
 

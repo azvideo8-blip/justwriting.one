@@ -19,7 +19,7 @@ import { indexDocument, sha256Hex } from '../utils/embeddingIndexer';
 
 export type AnalyzeResult =
   | { ok: true }
-  | { ok: false; error: 'NO_CONTENT' | 'TOO_SHORT' | AIErrorCode };
+  | { ok: false; error: 'NO_CONTENT' | 'TOO_SHORT' | 'EXCLUDED' | AIErrorCode };
 
 type AIErrorCode = 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' | 'NETWORK' | 'MISCONFIGURED';
 
@@ -39,12 +39,13 @@ export const NoteAnalysisService = {
   /** Сводка + вектор для одной заметки. Портрет, грани и дайджесты не трогает:
    *  они пересчитываются отдельно и по отдельному действию. */
   async analyze(documentId: string): Promise<AnalyzeResult> {
+    const db = await getLocalDb();
+    const doc = await db.get('documents', documentId);
+    if (doc?.excludedFromAI) return { ok: false, error: 'EXCLUDED' };
+
     const content = await latestContent(documentId);
     if (!content || content.trim().length === 0) return { ok: false, error: 'NO_CONTENT' };
     if (content.length < MIN_CONTENT_CHARS) return { ok: false, error: 'TOO_SHORT' };
-
-    const db = await getLocalDb();
-    const doc = await db.get('documents', documentId);
 
     // Три последние сводки дают модели минимальный контекст «что было рядом» —
     // без него echo и темы получаются оторванными от остальных заметок.

@@ -18,6 +18,7 @@ export function documentFromDb(dbDoc: DocumentDb): Document {
     tags: dbDoc.tags,
     labelId: dbDoc.labelId ?? undefined,
     mood: dbDoc.mood,
+    excludedFromAI: dbDoc.excludedFromAI ?? false,
   } as Document;
 }
 

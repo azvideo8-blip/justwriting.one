@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Cloud, HardDrive, Loader2, Sparkles } from 'lucide-react';
+import { Cloud, EyeOff, HardDrive, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -26,8 +26,14 @@ interface StorageDoc {
 /** Разбор заметки ИИ: третья кнопка в ряду, рядом с устройством и облаком.
  *  Заметки не разбираются сами — только по этому нажатию. Повторное нажатие
  *  на разобранной заметке удаляет сводку и вектор, включая облачные копии. */
-interface AIAnalysis {
+export interface AIAnalysis {
   processed: boolean;
+  loading: boolean;
+  onClick: () => void;
+}
+
+export interface AIExclusion {
+  excluded: boolean;
   loading: boolean;
   onClick: () => void;
 }
@@ -37,7 +43,8 @@ type ConfirmState =
   | { kind: 'delete-local-only' }
   | { kind: 'delete-local' }
   | { kind: 'delete-cloud-only' }
-  | { kind: 'delete-cloud' };
+  | { kind: 'delete-cloud' }
+  | { kind: 'exclude-ai' };
 
 const IDLE: ConfirmState = { kind: 'idle' };
 
@@ -46,11 +53,13 @@ export function StorageIcons({
   userId,
   onStorageChange,
   ai,
+  exclusion,
 }: {
   doc: StorageDoc;
   userId: string;
   onStorageChange: () => void;
   ai?: AIAnalysis | undefined;
+  exclusion?: AIExclusion | undefined;
 }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -139,6 +148,9 @@ export function StorageIcons({
           }
           showToast(t('storage_deleted_cloud'), 'success');
           break;
+        case 'exclude-ai':
+          if (exclusion) exclusion.onClick();
+          break;
       }
       onStorageChange();
     } catch (e) {
@@ -158,6 +170,8 @@ export function StorageIcons({
         return t('storage_confirm_delete_local');
       case 'delete-cloud':
         return t('storage_confirm_delete_cloud');
+      case 'exclude-ai':
+        return t('ai_note_exclude_confirm');
     }
   })();
 
@@ -170,6 +184,8 @@ export function StorageIcons({
         return t('storage_confirm_delete_local_hint');
       case 'delete-cloud':
         return t('storage_confirm_delete_cloud_hint');
+      case 'exclude-ai':
+        return t('ai_note_exclude_confirm_hint');
     }
   })();
 
@@ -222,18 +238,43 @@ export function StorageIcons({
         )}
       />
 
-      {ai && (
+      {exclusion && (
         <IconButton
-          icon={ai.loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-          label={ai.loading ? t('common_loading') : ai.processed ? t('ai_note_clear') : t('ai_note_analyze')}
-          onClick={(e) => { e.stopPropagation(); if (!ai.loading) ai.onClick(); }}
-          disabled={ai.loading}
+          icon={exclusion.loading ? <Loader2 size={14} className="animate-spin" /> : <EyeOff size={14} />}
+          label={exclusion.loading ? t('common_loading') : exclusion.excluded ? t('ai_note_include') : t('ai_note_exclude')}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (exclusion.loading) return;
+            if (exclusion.excluded) {
+              exclusion.onClick();
+            } else {
+              setConfirmState({ kind: 'exclude-ai' });
+            }
+          }}
+          disabled={exclusion.loading}
           size="sm"
           className={cn(
             "w-6 h-6 rounded-lg",
-            ai.loading && "text-brand-soft",
-            !ai.loading && ai.processed && "text-brand-soft hover:text-accent-danger hover:bg-accent-danger/10",
-            !ai.loading && !ai.processed && "text-text-main/60 hover:text-brand-soft hover:bg-brand-soft/10 cursor-pointer",
+            exclusion.loading && "text-text-main/60",
+            !exclusion.loading && exclusion.excluded && "text-accent-danger hover:bg-accent-danger/10",
+            !exclusion.loading && !exclusion.excluded && "text-text-main/60 hover:text-text-main hover:bg-text-main/10 cursor-pointer",
+          )}
+        />
+      )}
+
+      {ai && (
+        <IconButton
+          icon={ai.loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          label={ai.loading ? t('common_loading') : exclusion?.excluded ? t('ai_note_excluded') : ai.processed ? t('ai_note_clear') : t('ai_note_analyze')}
+          onClick={(e) => { e.stopPropagation(); if (!ai.loading && !exclusion?.excluded) ai.onClick(); }}
+          disabled={ai.loading || !!exclusion?.excluded}
+          size="sm"
+          className={cn(
+            "w-6 h-6 rounded-lg",
+            exclusion?.excluded && "text-text-main/20 cursor-not-allowed",
+            !exclusion?.excluded && ai.loading && "text-brand-soft",
+            !exclusion?.excluded && !ai.loading && ai.processed && "text-brand-soft hover:text-accent-danger hover:bg-accent-danger/10",
+            !exclusion?.excluded && !ai.loading && !ai.processed && "text-text-main/60 hover:text-brand-soft hover:bg-brand-soft/10 cursor-pointer",
           )}
         />
       )}
@@ -264,7 +305,7 @@ export function StorageIcons({
                   onClick={() => void handleConfirmDelete()}
                   className="flex-1 py-2 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-sm font-medium hover:bg-accent-danger/20"
                 >
-                  {t('storage_delete_confirm')}
+                  {confirmState.kind === 'exclude-ai' ? t('ai_note_exclude') : t('storage_delete_confirm')}
                 </Button>
                 <Button
                   variant="ghost"

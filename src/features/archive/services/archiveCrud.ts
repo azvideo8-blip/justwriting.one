@@ -8,9 +8,62 @@ import { ArchiveSession } from '../types';
 import { reportError } from '../../../shared/errors/reportError';
 import { AISummaryService } from '../../../core/services/AISummaryService';
 import { AIEmbeddingService } from '../../../core/services/AIEmbeddingService';
+import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
+import { invalidateMiniSearchCache } from '../../ai/utils/noteRetriever';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
 type ArchiveFieldValue = string[] | string | Date | undefined;
+
+export async function toggleAIExclusion(
+  session: ArchiveSession,
+  excluded: boolean,
+  user: AppUser | null,
+  _userId: string
+): Promise<{ success: boolean; cloudSyncFailed?: boolean }> {
+  let cloudSyncFailed = false;
+
+  if (session._isLocal) {
+    await LocalDocumentService.updateExcludedFromAI(session.id, excluded);
+    if (excluded) {
+      await NoteAnalysisService.clear(session.id);
+    }
+    if (session._linkedCloudId && user) {
+      await DocumentService.updateExcludedFromAI(user.uid, session._linkedCloudId, excluded).catch(e => {
+        cloudSyncFailed = true;
+        reportError(e, { action: 'toggleAIExclusion_cloud', documentId: session._linkedCloudId });
+        void SyncService.addToQueue(session.id);
+      });
+    }
+    invalidateMiniSearchCache();
+    return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
+  }
+
+  // Cloud-only document
+  if (user) {
+    try {
+      await DocumentService.updateExcludedFromAI(user.uid, session.id, excluded);
+      if (excluded) {
+        await NoteAnalysisService.clear(session.id);
+      }
+    } catch (e) {
+      reportError(e, { action: 'toggleAIExclusion_cloudOnly', documentId: session.id });
+      cloudSyncFailed = true;
+      try {
+        const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
+        await LocalDocumentService.updateExcludedFromAI(localId, excluded);
+        if (excluded) {
+          await NoteAnalysisService.clear(localId);
+        }
+        void SyncService.addToQueue(localId);
+      } catch (localErr) {
+        reportError(localErr, { action: 'toggleAIExclusion_localFallback', documentId: session.id });
+        throw localErr;
+      }
+    }
+    invalidateMiniSearchCache();
+  }
+  return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
+}
 
 export async function updateArchiveField(
   session: ArchiveSession,

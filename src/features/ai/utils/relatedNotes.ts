@@ -80,7 +80,7 @@ export async function findRelatedNotes(
   for (const emb of allEmbeddings) {
     if (ignored.has(emb.documentId)) continue;
     const doc = docMap.get(emb.documentId);
-    if (!doc) continue;
+    if (!doc || doc.excludedFromAI) continue;
 
     // Age filter
     const ts = doc.lastSessionAt || doc.firstSessionAt || 0;
