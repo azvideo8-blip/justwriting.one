@@ -55,7 +55,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
   const [pendingCount, setPendingCount] = useState(0);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
-    () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false'
+    () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
   );
   const [showPending, setShowPending] = useState(false);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

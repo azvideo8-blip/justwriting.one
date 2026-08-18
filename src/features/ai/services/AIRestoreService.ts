@@ -355,12 +355,6 @@ async function rebuildTimelineEntry(
   if (summary.arousal !== undefined) entry.arousal = summary.arousal;
   await db.put('aiTimeline', entry);
 
-  if ((summary.themes?.length ?? 0) > 0) {
-    try {
-      const { enqueuePendingThemeTouch } = await import('./AIThemeLedgerService');
-      enqueuePendingThemeTouch(doc.id);
-    } catch (e) {
-      reportError(e, { action: 'reattach_enqueueThemeTouch', documentId: doc.id });
-    }
-  }
+  // Очередь тем не наполняем: её разбирал фоновый проход, которого больше
+  // нет (см. AISummaryService.save).
 }

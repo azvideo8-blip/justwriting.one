@@ -129,15 +129,9 @@ export const AISummaryService = {
         }
         await db.put('aiTimeline', timelineEntry);
 
-        // Enqueue theme touch for background processing (AG-MIND-W1a-fix)
-        if ((summary.themes?.length ?? 0) > 0) {
-          try {
-            const { enqueuePendingThemeTouch } = await import('./AIThemeLedgerService');
-            enqueuePendingThemeTouch(summary.documentId);
-          } catch (e) {
-            console.warn('[AISummaryService] Failed to enqueue Theme Ledger touch:', e);
-          }
-        }
+        // Очередь тем больше не наполняется: разбирал её фоновый проход, а он
+        // убран — заметки обрабатываются только по нажатию. Реестр тем,
+        // портрет, грани и дайджесты ждут отдельной кнопки пересчёта (D4.24).
 
 
         // Upsert commitments
@@ -151,17 +145,6 @@ export const AISummaryService = {
           }
         }
 
-        // Trigger monthly digest generation fire-and-forget
-        try {
-          const { AIMonthlyDigestService } = await import('./AIMonthlyDigestService');
-          const existingDigest = await AIMonthlyDigestService.get(monthStr);
-          const oneDayMs = 24 * 60 * 60 * 1000;
-          if (!existingDigest || (Date.now() - existingDigest.generatedAt > oneDayMs)) {
-            void AIMonthlyDigestService.generateForMonth(monthStr);
-          }
-        } catch (e) {
-          console.warn('[AISummaryService] Failed to generate monthly digest:', e);
-        }
       }
     }
 

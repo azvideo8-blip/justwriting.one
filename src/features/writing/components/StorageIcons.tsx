@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Cloud, HardDrive, Loader2 } from 'lucide-react';
+import { Cloud, HardDrive, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -23,6 +23,15 @@ interface StorageDoc {
   hasPendingSync?: boolean | undefined;
 }
 
+/** Разбор заметки ИИ: третья кнопка в ряду, рядом с устройством и облаком.
+ *  Заметки не разбираются сами — только по этому нажатию. Повторное нажатие
+ *  на разобранной заметке удаляет сводку и вектор, включая облачные копии. */
+interface AIAnalysis {
+  processed: boolean;
+  loading: boolean;
+  onClick: () => void;
+}
+
 type ConfirmState =
   | { kind: 'idle' }
   | { kind: 'delete-local-only' }
@@ -36,10 +45,12 @@ export function StorageIcons({
   doc,
   userId,
   onStorageChange,
+  ai,
 }: {
   doc: StorageDoc;
   userId: string;
   onStorageChange: () => void;
+  ai?: AIAnalysis | undefined;
 }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -210,6 +221,22 @@ export function StorageIcons({
           !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/60 cursor-default"
         )}
       />
+
+      {ai && (
+        <IconButton
+          icon={ai.loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          label={ai.loading ? t('common_loading') : ai.processed ? t('ai_note_clear') : t('ai_note_analyze')}
+          onClick={(e) => { e.stopPropagation(); if (!ai.loading) ai.onClick(); }}
+          disabled={ai.loading}
+          size="sm"
+          className={cn(
+            "w-6 h-6 rounded-lg",
+            ai.loading && "text-brand-soft",
+            !ai.loading && ai.processed && "text-brand-soft hover:text-accent-danger hover:bg-accent-danger/10",
+            !ai.loading && !ai.processed && "text-text-main/60 hover:text-brand-soft hover:bg-brand-soft/10 cursor-pointer",
+          )}
+        />
+      )}
 
       <AnimatePresence>
         {confirmState.kind !== 'idle' && (

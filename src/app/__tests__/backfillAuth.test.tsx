@@ -18,8 +18,8 @@ vi.mock('@/features/auth/components/PrivacyModal', () => ({
   usePrivacyCheck: () => ({ showPrivacy: false, setShowPrivacy: vi.fn() }),
 }));
 
-vi.mock('@/features/ai/hooks/useEmbeddingIndexer', () => ({
-  useEmbeddingIndexer: vi.fn(),
+vi.mock('@/features/ai/hooks/useBackgroundSync', () => ({
+  useBackgroundSync: vi.fn(),
 }));
 
 vi.mock('@/core/services/LocalDocumentService', () => ({

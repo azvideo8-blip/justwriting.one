@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, ExternalLink, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw } from 'lucide-react';
+import { X, ExternalLink, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../../../core/services/StorageService';
@@ -35,6 +35,10 @@ interface MobileNoteActionsSheetProps {
   onDelete: () => void;
   onLabelChange: (labelId: string | undefined) => void;
   onStorageChange: () => void;
+  /** Разбор заметки ИИ — тот же обработчик, что у кнопки ✨ в списке. */
+  aiProcessed?: boolean | undefined;
+  aiLoading?: boolean | undefined;
+  onAIClick?: (() => void) | undefined;
 }
 
 export function MobileNoteActionsSheet({
@@ -48,6 +52,9 @@ export function MobileNoteActionsSheet({
   onDelete,
   onLabelChange,
   onStorageChange,
+  aiProcessed,
+  aiLoading,
+  onAIClick,
 }: MobileNoteActionsSheetProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -244,6 +251,21 @@ export function MobileNoteActionsSheet({
                       <span>{t('storage_upload_to_cloud') || 'Загрузить в облако'}</span>
                     </>
                   )}
+                </Button>
+              )}
+
+              {onAIClick && (
+                <Button
+                  onClick={() => { if (!aiLoading) onAIClick(); }}
+                  disabled={!!aiLoading}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  {aiLoading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={18} className={aiProcessed ? 'text-brand-soft' : undefined} />
+                  )}
+                  <span>{aiProcessed ? t('ai_note_clear') : t('ai_note_analyze')}</span>
                 </Button>
               )}
 

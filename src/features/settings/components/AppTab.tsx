@@ -22,13 +22,10 @@ export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabPr
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(userId);
+  // Выключено по умолчанию: отправка заметок в облако — решение человека, а не
+  // приложения. Вручную синхронизировать можно кнопкой облака у самой заметки.
   const [autoSync, setAutoSync] = React.useState(
-    localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false'
-  );
-  // Согласие, а не настройка: фоновый разбор отправляет текст заметок стороннему
-  // поставщику ИИ, поэтому выключен, пока человек не включил его сам.
-  const [autoSummarize, setAutoSummarize] = React.useState(
-    localStorage.getItem(STORAGE_KEYS.AUTO_SUMMARIZE_ENABLED) === 'true'
+    localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
   );
   const [analyticsConsent, setAnalyticsConsent] = React.useState(
     localStorage.getItem('analytics_consent') === 'true'
@@ -46,12 +43,6 @@ export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabPr
     const newVal = !autoSync;
     setAutoSync(newVal);
     localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, String(newVal));
-  };
-
-  const toggleAutoSummarize = () => {
-    const newVal = !autoSummarize;
-    setAutoSummarize(newVal);
-    localStorage.setItem(STORAGE_KEYS.AUTO_SUMMARIZE_ENABLED, String(newVal));
   };
 
   const toggleAnalytics = () => {
@@ -104,27 +95,8 @@ export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabPr
           </div>
         )}
 
-        <div className="flex items-center justify-between px-1 mb-3">
-          <div className="flex-1 text-left pr-4">
-            <span className="text-sm text-text-main/60">{t('settings_auto_summarize')}</span>
-            <p className="text-xs text-text-main/60 mt-0.5">{t('settings_auto_summarize_hint')}</p>
-          </div>
-          <button
-            onClick={toggleAutoSummarize}
-            role="switch"
-            aria-checked={autoSummarize}
-            className={cn(
-              "relative w-10 h-5 rounded-full transition-colors shrink-0",
-              autoSummarize ? "bg-brand-soft" : "bg-text-main/20"
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
-                autoSummarize ? "left-5" : "left-0.5"
-              )}
-            />
-          </button>
+        <div className="px-1 mb-3 text-xs text-text-main/60">
+          {t('settings_ai_manual_hint')}
         </div>
 
         {isGuest && (

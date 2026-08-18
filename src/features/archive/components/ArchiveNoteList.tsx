@@ -11,7 +11,8 @@ import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { AISummaryService } from '../../../core/services/AISummaryService';
-import { AIService } from '../../../core/services/AIService';
+import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
@@ -67,6 +68,7 @@ export function ArchiveNoteList({
   const reducedMotion = useReducedMotion();
   const { tp } = useLanguage();
   const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirmDialog();
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
   const [aiLoadingMap, setAiLoadingMap] = useState<Record<string, boolean>>({});
 
@@ -74,36 +76,42 @@ export function ArchiveNoteList({
     void AISummaryService.hasAll().then(setAiProcessedMap);
   }, []);
 
-  // First click on a note's AI button generates its summary; once a summary
-  // exists, the button opens the AI chat for that document.
+  // Заметка разбирается только по этому нажатию — фонового разбора нет.
+  // Второе нажатие на разобранной заметке удаляет сводку и вектор, в том числе
+  // облачные копии: иначе «удалить разбор» ничего бы не удаляло.
   const handleAIClick = async (session: ArchiveSession) => {
+    if (!session.id || aiLoadingMap[session.id]) return;
+
     if (aiProcessedMap[session.id]) {
-      onOpen(session);
+      const ok = await confirmDialog({
+        title: t('ai_note_clear_confirm'),
+        message: t('ai_note_clear_confirm_hint'),
+      });
+      if (!ok) return;
+      setAiLoadingMap(m => ({ ...m, [session.id]: true }));
+      try {
+        await NoteAnalysisService.clear(session.id);
+        setAiProcessedMap(m => ({ ...m, [session.id]: false }));
+        showToast(t('ai_note_cleared'), 'success');
+      } catch (e) {
+        reportError(e, { action: 'archive_clear_analysis', documentId: session.id });
+        showToast(t('error_generic_action'), 'error');
+      } finally {
+        setAiLoadingMap(m => ({ ...m, [session.id]: false }));
+      }
       return;
     }
-    if (!session.id || !session.content || aiLoadingMap[session.id]) return;
+
     setAiLoadingMap(m => ({ ...m, [session.id]: true }));
     try {
-      const res = await AIService.summarize({ content: session.content, mood: session.mood });
+      const res = await NoteAnalysisService.analyze(session.id);
       if (res.ok) {
-        await AISummaryService.save({
-          documentId: session.id,
-          tone: res.summary.tone,
-          frequentWords: res.summary.frequentWords,
-          insights: res.summary.insights,
-          themes: res.summary.themes,
-          extractedFacts: res.summary.extractedFacts,
-          processedAt: Date.now(),
-        });
         setAiProcessedMap(m => ({ ...m, [session.id]: true }));
-        const { getLocalDb } = await import('../../../core/storage/localDb');
-        const db = await getLocalDb();
-        const doc = await db.get('documents', session.id);
-        if (doc) await db.put('documents', { ...doc, aiProcessed: true });
-        const { AIProfileService } = await import('../../ai/services/AIProfileService');
-        AIProfileService.generate().catch(e => reportError(e, { action: 'archive_summary_portrait' }));
+        showToast(t('ai_note_analyzed'), 'success');
       } else {
         const errMap: Record<string, string> = {
+          NO_CONTENT: t('ai_note_too_short'),
+          TOO_SHORT: t('ai_note_too_short'),
           AUTH_REQUIRED: getCurrentUser() ? t('ai_error_session') : t('ai_error_auth'),
           DAILY_LIMIT: t('ai_error_rate_limit'),
           RATE_LIMIT: t('ai_error_rate_limit'),
@@ -113,7 +121,8 @@ export function ArchiveNoteList({
         };
         showToast(errMap[res.error] ?? t('ai_error_server'), 'error');
       }
-    } catch {
+    } catch (e) {
+      reportError(e, { action: 'archive_analyze_note', documentId: session.id });
       showToast(t('ai_error_server'), 'error');
     } finally {
       setAiLoadingMap(m => ({ ...m, [session.id]: false }));

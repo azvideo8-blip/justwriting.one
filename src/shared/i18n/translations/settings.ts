@@ -92,8 +92,7 @@ export const settingsTranslations: Translations = {
   sync_indicator_label: { ru: 'Синхронизация', en: 'Sync' },
 
   settings_change_password:    { ru: 'Сменить пароль', en: 'Change password' },
-  settings_auto_summarize:     { ru: 'Автоматическое саммари заметок', en: 'Auto-summarize notes' },
-  settings_auto_summarize_hint: { ru: 'Пока включено, текст заметок сам отправляется поставщику ИИ (RouterAI, Россия): по нему строятся темы, сводки, векторы для поиска и психологический портрет. Выключено — ничего в фоне не уходит', en: 'While on, note text is sent to the AI provider (RouterAI, Russia) on its own: it builds themes, summaries, search vectors and a psychological portrait. Off — nothing leaves in the background' },
+  settings_ai_manual_hint: { ru: 'Заметки не разбираются сами. Чтобы ИИ прочитал заметку — нажмите ✨ рядом с ней в архиве; повторное нажатие удаляет разбор. Текст уходит поставщику ИИ (RouterAI, Россия) только в момент нажатия', en: 'Notes are never analysed on their own. To let the AI read one, press ✨ next to it in the archive; pressing again deletes the analysis. Text goes to the AI provider (RouterAI, Russia) only at that moment' },
   settings_security:           { ru: 'Безопасность', en: 'Security' },
   settings_current_password:   { ru: 'Текущий пароль', en: 'Current password' },
   settings_new_password:       { ru: 'Новый пароль', en: 'New password' },

@@ -16,7 +16,7 @@ import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { getOrCreateGuestId } from '../core/storage/localDb';
 
 import { LocalDocumentService } from '../core/services/LocalDocumentService';
-import { useEmbeddingIndexer } from '../features/ai/hooks/useEmbeddingIndexer';
+import { useBackgroundSync } from '../features/ai/hooks/useBackgroundSync';
 import { useOnlineStatus } from '../shared/hooks/useOnlineStatus';
 
 import { SyncService } from '../core/services/SyncService';
@@ -38,7 +38,7 @@ function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
 function PrivacyGuard({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuthStatus();
   const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
-  useEmbeddingIndexer();
+  useBackgroundSync();
 
   // One-time backfill: give canonical uuids to notes created before C1.1.
   // Uses useAuthStatus() so the effect fires once auth resolves —
@@ -73,7 +73,7 @@ function SyncManager() {
 
   // Browser online recovery
   useEffect(() => {
-    if (isBrowserOnline && !prevBrowserOnline.current && user && localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'false') {
+    if (isBrowserOnline && !prevBrowserOnline.current && user && localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true') {
       SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
     }
     prevBrowserOnline.current = isBrowserOnline;

@@ -110,12 +110,11 @@ async function computeLocalEcho(content: string, docId: string): Promise<string>
     const { getLocalDb } = await import('../../../core/storage/localDb');
     const db = await getLocalDb();
     const emb = await db.get('aiEmbeddings', docId);
-    let vector = emb?.vectors?.[0];
-    if (!vector) {
-      const { AIService } = await import('../../ai/services/AIService');
-      const res = await AIService.embed({ content: content.slice(0, 1000) });
-      vector = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
-    }
+    // Только уже посчитанный вектор. Раньше здесь при его отсутствии
+    // вычислялся новый — то есть завершение сессии само отправляло начало
+    // заметки поставщику ИИ, без спроса. Нет вектора — нет эха: заметка
+    // получит его, когда её разберут нажатием ✨.
+    const vector = emb?.vectors?.[0];
     if (!vector) {
       return '';
     }

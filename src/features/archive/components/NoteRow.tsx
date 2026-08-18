@@ -36,7 +36,7 @@ interface NoteRowProps {
   onAIClick?: (() => void) | undefined;
 }
 
-function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed: _aiProcessed, aiLoading: _aiLoading, onAIClick: _onAIClick }: NoteRowProps) {
+function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStorageChange, onTitleChange, onDateChange, onLabelChange, userId, labels, allTags, searchQuery, aiProcessed, aiLoading, onAIClick }: NoteRowProps) {
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
   const [editingTitle, setEditingTitle] = useState(false);
@@ -283,6 +283,9 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   onDelete={() => onDelete?.(session)}
                   onLabelChange={(labelId) => onLabelChange?.(session, labelId)}
                   onStorageChange={() => onStorageChange?.()}
+                  aiProcessed={aiProcessed}
+                  aiLoading={aiLoading}
+                  {...(onAIClick ? { onAIClick } : {})}
                 />
               )}
             </AnimatePresence>
@@ -365,6 +368,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 hasPendingSync: !!session._hasPendingSync,
               }}
               userId={userId}
+              {...(onAIClick ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } } : {})}
               onStorageChange={() => onStorageChange?.()}
             />
             <IconButton onClick={e => { e.stopPropagation(); onDelete?.(session); }}
