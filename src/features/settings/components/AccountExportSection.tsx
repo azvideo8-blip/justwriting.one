@@ -305,25 +305,45 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                       ),
                     })}
                   </div>
-                  {importResult.skipped.documents +
-                    importResult.skipped.versions +
-                    importResult.skipped.drafts +
-                    importResult.skipped.aiSummaries +
-                    importResult.skipped.aiEmbeddings +
-                    Object.values(importResult.skipped.verbatim).reduce((a, b) => a + b, 0) > 0 && (
-                    <div className="text-text-main/50">
-                      {t('settings_migration_import_skipped', {
-                        count: String(
-                          importResult.skipped.documents +
-                            importResult.skipped.versions +
-                            importResult.skipped.drafts +
-                            importResult.skipped.aiSummaries +
-                            importResult.skipped.aiEmbeddings +
-                            Object.values(importResult.skipped.verbatim).reduce((a, b) => a + b, 0)
-                        ),
-                      })}
-                    </div>
-                  )}
+                  {(() => {
+                    // Разделяем пропуски по смыслу. «Уже существует» — обычное
+                    // дело при повторном запуске и ничего не значит. Несошедшаяся
+                    // контрольная сумма означает, что текст в файле повреждён и
+                    // эта версия НЕ перенесена. Складывать их в одно число значит
+                    // прятать потерю данных за словом «пропущено».
+                    const details = importResult.skipped.details;
+                    const existing = details.filter(d => d.reason.includes('already exists')).length;
+                    const damaged = details.filter(d => d.reason.startsWith('checksum mismatch'));
+                    const other = details.filter(
+                      d => !d.reason.includes('already exists') && !d.reason.startsWith('checksum mismatch'),
+                    );
+                    return (
+                      <>
+                        {existing > 0 && (
+                          <div className="text-text-main/50">
+                            {t('settings_migration_import_skipped_existing', { count: String(existing) })}
+                          </div>
+                        )}
+                        {other.length > 0 && (
+                          <div className="text-text-main/50">
+                            {t('settings_migration_import_skipped_other', { count: String(other.length) })}
+                          </div>
+                        )}
+                        {damaged.length > 0 && (
+                          <div className="text-accent-danger">
+                            <div className="font-medium">
+                              {t('settings_migration_import_damaged', { count: String(damaged.length) })}
+                            </div>
+                            <ul className="mt-1 space-y-0.5">
+                              {damaged.slice(0, 20).map(d => (
+                                <li key={d.id}>{d.store} · {d.id}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   {importResult.droppedOnPurpose.peopleIndexRecords +
                     importResult.droppedOnPurpose.summariesWithMentionedPeople > 0 && (
                     <div className="text-text-main/50">

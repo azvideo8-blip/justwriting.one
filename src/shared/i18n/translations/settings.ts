@@ -154,6 +154,9 @@ export const settingsTranslations: Translations = {
     ru: 'Пропущено: {count} записей (уже существуют или повреждены)',
     en: 'Skipped: {count} records (already exist or corrupted)',
   },
+  settings_migration_import_skipped_existing: { ru: 'Уже были на устройстве, пропущено: {count}', en: 'Already on the device, skipped: {count}' },
+  settings_migration_import_skipped_other: { ru: 'Пропущено по другим причинам: {count}', en: 'Skipped for other reasons: {count}' },
+  settings_migration_import_damaged: { ru: 'ПОВРЕЖДЕНО и не перенесено: {count}. Эти записи не совпали с контрольной суммой — текст в файле испорчен', en: 'DAMAGED and not imported: {count}. These records did not match their checksum — the text in the file is corrupted' },
   settings_migration_import_dropped: {
     ru: 'Исключено по соображениям приватности: {count} записей',
     en: 'Dropped for privacy: {count} records',

@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.4',
+    date: '2026-08-18',
+    items: [
+      { category: 'fix', ru: 'Отчёт о загрузке архива больше не складывает «уже существует» и «повреждено» в одно число: первое ничего не значит, второе означает потерянный текст. Повреждённые записи перечислены поимённо', en: 'The archive import report no longer adds "already exists" and "damaged" into one number: the first means nothing, the second means lost text. Damaged records are listed by name' },
+    ],
+  },
+  {
     version: '0.8.3',
     date: '2026-08-18',
     items: [
