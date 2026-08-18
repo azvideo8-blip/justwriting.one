@@ -110,7 +110,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       }
     } catch (err: unknown) {
       reportError(err, { action: 'emailAuth', mode });
-      const firebaseError = err as { code?: string; message?: string };
+      const firebaseError = err as { code?: string; message?: string; status?: number };
       let msg = t('auth_error_generic');
       // SEC-35: Generic unified error for credential failures to prevent user enumeration
       if (
@@ -125,13 +125,19 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         msg = t('auth_error_weak_password');
       }
 
-      if (firebaseError.code === 'auth/operation-not-allowed') {
+      if (
+        firebaseError.status === 429 ||
+        firebaseError.code === 'auth/too-many-requests' ||
+        firebaseError.code === 'over_request_rate_limit' ||
+        firebaseError.code === 'over_email_send_rate_limit' ||
+        firebaseError.code === 'too_many_requests'
+      ) {
+        msg = t('auth_error_rate_limited');
+      } else if (firebaseError.code === 'auth/operation-not-allowed') {
         msg = t('auth_error_operation_not_allowed');
-      }
-      if (firebaseError.code === 'auth/network-request-failed') {
+      } else if (firebaseError.code === 'auth/network-request-failed') {
         msg = t('auth_error_network');
-      }
-      if (firebaseError.code === 'auth/internal-error') {
+      } else if (firebaseError.code === 'auth/internal-error') {
         msg = t('auth_error_internal');
       }
       setError(msg);
@@ -318,9 +324,17 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                           setForgotSent(true);
                         }).catch((err: unknown) => {
                           reportError(err, { action: 'sendPasswordReset' });
-                          const fe = err as { code?: string };
+                          const fe = err as { code?: string; status?: number };
                           if (fe.code === 'auth/user-not-found') {
                             setForgotSent(true);
+                          } else if (
+                            fe.status === 429 ||
+                            fe.code === 'auth/too-many-requests' ||
+                            fe.code === 'over_request_rate_limit' ||
+                            fe.code === 'over_email_send_rate_limit' ||
+                            fe.code === 'too_many_requests'
+                          ) {
+                            setForgotError(t('auth_error_rate_limited'));
                           } else {
                             setForgotError(t('auth_error_generic'));
                           }

@@ -78,6 +78,20 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 
 `/api/chat` в данный момент возвращает 501 Not Implemented. Это нормальное поведение. Настоящая реализация появится позже, когда будет куда ходить, поэтому не ожидайте работающего чата из коробки на данном этапе.
 
+## Rate Limiting & Auth Protection
+
+1. **Nginx Layer (`deploy/nginx.conf`)**:
+   - `/auth/`: strictly rate limited with `limit_req zone=auth_limit burst=5 nodelay` (5 req/min per IP) to prevent password brute-force and credential stuffing.
+   - `/api/`: rate limited with `limit_req zone=api_limit burst=30 nodelay` (60 req/min per IP) with high burst to allow batch operations while preventing DoS and runaway AI spending.
+   - `/rest/`, `/realtime/`, `/storage/`: not subject to strict auth throttling so regular note synchronization operates smoothly.
+
+2. **Supabase / GoTrue Layer (`/opt/justwriting/supabase/.env`)**:
+   - `GOTRUE_RATE_LIMIT_EMAIL_SENT=30` (30 emails/hr)
+   - `GOTRUE_RATE_LIMIT_VERIFY=30` (30 verifications/hr)
+   - `GOTRUE_RATE_LIMIT_TOKEN_REFRESH=30` (30 refresh/hr)
+   - `GOTRUE_RATE_LIMIT_HEADER=X-Forwarded-For`
+   - *Note*: GoTrue rate limits protect email sending and token endpoint abuse, but do NOT protect against password brute-forcing; password brute-force protection is enforced by Nginx `limit_req` on `/auth/`.
+
 ## Environment variables
 
 | Name | Required | Description |
@@ -90,3 +104,4 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 | `AI_BASE_URL` | no | Provider base URL, default `https://routerai.ru/api/v1` |
 | `SENTRY_DSN` | no | Error tracking |
 | `POSTHOG_API_KEY` | no | Analytics |
+
