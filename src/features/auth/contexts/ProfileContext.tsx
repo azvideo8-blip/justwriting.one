@@ -42,7 +42,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               const parsed = userProfileDbSchema.safeParse(data);
               if (parsed.success) {
                 profileSetBySnapshotRef.current = true;
-                setProfile(parsed.data as UserProfile);
+                // Слияние, а не замена. Логическая репликация не присылает
+                // неизменённые TOAST-значения, и fromDb выбрасывает null'ы —
+                // поэтому в снапшоте может просто не быть encryption_meta у
+                // аккаунта с сейфом. Замена целиком означала бы, что после
+                // любой чужой записи в строку интерфейс решает «шифрование не
+                // настроено»: раздел настроек предлагает завести сейф поверх
+                // существующего, а импорт архива блокируется.
+                setProfile(prev => (prev ? { ...prev, ...parsed.data } as UserProfile : parsed.data as UserProfile));
                 // Флаг только включаем и никогда не снимаем по снапшоту.
                 // Снапшот приходит из postgres_changes, а логическая репликация
                 // не присылает неизменённые TOAST-значения: у аккаунта с сейфом

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.3 — 2026-08-18
+
+- **[RU]** Настройки больше не утверждают, что шифрование не настроено, когда сейф уже создан. Профиль собирался из уведомлений об изменениях, а они не присылают поля, которые в этот раз не менялись — сведения о сейфе просто исчезали из объекта после любой посторонней записи. Раздел предлагал завести сейф поверх существующего, а загрузка архива оказывалась заблокированной. Теперь новые сведения дополняют прежние, а не заменяют их целиком.
+- **[EN]** Settings no longer claim encryption is not set up when the vault already exists. The profile was assembled from change notifications, and those omit fields that did not change this time — so the vault details simply vanished from the object after any unrelated write. The section offered to create a vault on top of the existing one, and the archive import stayed disabled. New details now extend the previous ones instead of replacing them wholesale.
+- **[RU]** Профиль загружается сразу при входе, а не ждёт первой записи в него. На прежнем хранилище подписка отдавала текущее состояние сама; на новом — только последующие изменения, и до первой записи приложение считало, что у человека нет ни имени, ни роли, ни сейфа.
+- **[EN]** The profile is loaded at sign-in instead of waiting for the first write to it. On the previous storage the subscription delivered the current state by itself; on the new one it delivers only subsequent changes, so until the first write the app believed the person had no name, no role and no vault.
+
 ## 0.8.2 — 2026-08-18
 
 - **[RU]** Форма регистрации убрана из окна входа: сервис пока работает в одиночном режиме, и на сервере регистрация закрыта. Оставленная форма отвечала бы отказом — это хуже, чем её отсутствие.

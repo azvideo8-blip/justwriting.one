@@ -409,12 +409,25 @@ export const SupabaseDataProvider: IDataProvider = {
   },
 
   subscribeToProfile(userId: string, onUpdate: (data: ProviderRecord | null) => void): () => void {
+    let cancelled = false;
+
+    // Первичное чтение обязательно. Firestore onSnapshot отдавал текущий
+    // документ сразу, а postgres_changes присылает только изменения: без этого
+    // профиль оставался пустым до первой чужой записи в строку, и приложение
+    // считало, что у человека нет ни ника, ни роли, ни сейфа шифрования.
+    void (async () => {
+      const { data, error } = await getSupabase().from('users').select('*').eq('uid', userId).maybeSingle();
+      if (cancelled) return;
+      if (error != null) { onUpdate(null); return; }
+      onUpdate(data ? fromDb(USER_REV, data as ProviderRecord) : null);
+    })();
+
     const channel = getSupabase().channel(`profile:${userId}`)
       .on('postgres_changes',
           { event: '*', schema: 'public', table: 'users', filter: `uid=eq.${userId}` },
           p => onUpdate(fromDb(USER_REV, p.new as ProviderRecord)))
       .subscribe();
-    return () => { void getSupabase().removeChannel(channel); };
+    return () => { cancelled = true; void getSupabase().removeChannel(channel); };
   },
 
   async getUsers(limitCount: number): Promise<ProviderRecord[]> {

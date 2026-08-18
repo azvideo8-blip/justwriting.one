@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.3',
+    date: '2026-08-18',
+    items: [
+      { category: 'fix', ru: 'Настройки больше не утверждают, что шифрование не настроено, когда сейф уже создан: сведения о сейфе исчезали из профиля после любой посторонней записи, и раздел предлагал завести сейф поверх существующего, а загрузка архива блокировалась', en: 'Settings no longer claim encryption is not set up when the vault already exists: the vault details vanished from the profile after any unrelated write, so the section offered to create a vault on top of the existing one and the archive import stayed disabled' },
+      { category: 'fix', ru: 'Профиль загружается сразу при входе, а не ждёт первой записи в него: до этого приложение какое-то время считало, что у человека нет ни имени, ни роли, ни сейфа', en: 'The profile is loaded at sign-in instead of waiting for the first write to it: until then the app believed for a while that the person had no name, no role and no vault' },
+    ],
+  },
+  {
     version: '0.8.2',
     date: '2026-08-18',
     items: [
