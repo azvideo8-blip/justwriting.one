@@ -52,6 +52,12 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
   }
 
   let settled = false;
+  // Цикл ниже может сходить в модель дважды, а глобальная резервация одна.
+  // Раньше recordUsage вызывался на каждой итерации с той же резервацией, и
+  // токены повторной попытки записывались вторым вызовом по одному слоту.
+  // Копим по попыткам и записываем ровно один раз в finally — тогда учёт
+  // токенов совпадает с реально потраченным, а слот остаётся один.
+  let tokensIn = 0, tokensOut = 0, usedModel = TAXO_MODEL;
   try {
     let domains: { label: string; seed: string }[] = [];
     let extraUserInstruction = '';
@@ -65,7 +71,10 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
         abortMs: 110_000,
         model: TAXO_MODEL,
       });
-      ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'taxonomy' }, reservation).catch(() => {});
+      tokensIn += result.tokensIn;
+      tokensOut += result.tokensOut;
+      usedModel = result.model;
+      // Токены уже потрачены: возвращать резервацию нельзя, даже если дальше упадём.
       settled = true;
 
       let txt = result.text.trim();
@@ -113,5 +122,9 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
     }
     if (e instanceof AiError) throw e;
     throw new AiError('internal', 'Taxonomy derivation failed.');
+  } finally {
+    if (settled) {
+      ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'taxonomy' }, reservation).catch(() => {});
+    }
   }
 }
