@@ -48,14 +48,12 @@ const server = http.createServer((req, res) => {
     return json(res, 200, { status: 'ready', checks: [] });
   }
 
-  // POST /api/* — route to AI dispatcher
-  if (method === 'POST' && url.startsWith('/api/')) {
-    // Delegate to dispatcher which handles auth, rate limiting, and AI handlers
-    await dispatch(req, res);
-    return;
-  }
-
-  // POST /api/csp-report — CSP violation sink
+  // POST /api/csp-report — приёмник нарушений политики безопасности.
+  //
+  // Обязан стоять ВЫШЕ перехвата /api/*: тот уходит в диспетчер, который
+  // требует токен, и отчёт получает 401. Браузер шлёт отчёты без всякой
+  // авторизации и по определению не может её приложить — с 1 по 18 августа
+  // из-за этого не дошёл ни один отчёт, а обработчик ниже был недостижим.
   if (method === 'POST' && url === '/api/csp-report') {
     try {
       const raw = await readBody(req);
@@ -65,6 +63,13 @@ const server = http.createServer((req, res) => {
     } catch { /* ignore malformed or payload too large */ }
     res.writeHead(204);
     return res.end();
+  }
+
+  // POST /api/* — route to AI dispatcher
+  if (method === 'POST' && url.startsWith('/api/')) {
+    // Delegate to dispatcher which handles auth, rate limiting, and AI handlers
+    await dispatch(req, res);
+    return;
   }
 
   json(res, 404, { error: 'Not found' });
