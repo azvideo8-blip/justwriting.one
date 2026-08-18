@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { handle as dispatch } from './dispatcher';
-// ── Firebase Admin init (lazy) ─────────────────────────────────────────
+import { handleChat } from './chat';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function json(res: http.ServerResponse, status: number, body: unknown) {
@@ -40,20 +40,10 @@ const server = http.createServer((req, res) => {
 
   // GET /ready — readiness: "dependencies available, send traffic"
   if (method === 'GET' && url === '/ready') {
-    // Пока проверять нечего: Supabase не подключён, а Firestore этот рантайм
-    // ставится ради того, чтобы перестать использовать. Поэтому готовность
-    // сейчас означает ровно то же, что и живость. Когда появится Supabase,
-    // сюда должна прийти проверка соединения с ним — до тех пор балансировщик
-    // по /ready ничего осмысленного не узнаёт, и в README про это сказано.
     return json(res, 200, { status: 'ready', checks: [] });
   }
 
   // POST /api/csp-report — приёмник нарушений политики безопасности.
-  //
-  // Обязан стоять ВЫШЕ перехвата /api/*: тот уходит в диспетчер, который
-  // требует токен, и отчёт получает 401. Браузер шлёт отчёты без всякой
-  // авторизации и по определению не может её приложить — с 1 по 18 августа
-  // из-за этого не дошёл ни один отчёт, а обработчик ниже был недостижим.
   if (method === 'POST' && url === '/api/csp-report') {
     try {
       const raw = await readBody(req);
@@ -63,6 +53,12 @@ const server = http.createServer((req, res) => {
     } catch { /* ignore malformed or payload too large */ }
     res.writeHead(204);
     return res.end();
+  }
+
+  // POST /api/chat — streaming chat endpoint (must be above /api/* dispatcher)
+  if (method === 'POST' && url === '/api/chat') {
+    await handleChat(req, res);
+    return;
   }
 
   // POST /api/* — route to AI dispatcher

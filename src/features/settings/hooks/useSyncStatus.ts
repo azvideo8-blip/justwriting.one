@@ -4,11 +4,12 @@ import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../../../core/services/SyncService';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
-export type SyncStatus = 'synced' | 'offline' | 'cloud_unavailable' | 'pending';
+export type SyncStatus = 'synced' | 'offline' | 'cloud_unavailable' | 'pending' | 'unsynced';
 
 export interface SyncStatusState {
   status: SyncStatus;
   pendingCount: number;
+  unsyncedCount: number;
   /** false when user disabled auto-sync — indicator should be hidden */
   autoSyncEnabled: boolean;
 }
@@ -19,30 +20,39 @@ const POLL_INTERVAL_MS = 10_000;
 // Shared across all useSyncStatus() instances (Sidebar, BottomNav, AppShell, AppTab
 // can all be mounted at once) so they don't each run their own IndexedDB poll.
 let sharedPendingCount = 0;
+let sharedUnsyncedCount = 0;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let activeSubscribers = 0;
-const pendingListeners = new Set<(count: number) => void>();
+let currentSubscribedUserId: string | null = null;
+const statusListeners = new Set<(counts: { pending: number; unsynced: number }) => void>();
 
-async function pollPendingCount() {
+async function pollSyncStatus(userId: string | null) {
   try {
-    sharedPendingCount = await SyncService.getPendingCount();
-    pendingListeners.forEach(fn => fn(sharedPendingCount));
+    const [pending, unsynced] = await Promise.all([
+      SyncService.getPendingCount(),
+      userId ? SyncService.getUnsyncedCount(userId) : Promise.resolve(0),
+    ]);
+    sharedPendingCount = pending;
+    sharedUnsyncedCount = unsynced;
+    statusListeners.forEach(fn => fn({ pending, unsynced }));
   } catch { /* non-critical */ }
 }
 
-function subscribePendingCount(listener: (count: number) => void): () => void {
-  pendingListeners.add(listener);
+function subscribeSyncStatus(userId: string | null, listener: (counts: { pending: number; unsynced: number }) => void): () => void {
+  statusListeners.add(listener);
   activeSubscribers++;
+  currentSubscribedUserId = userId;
   if (!pollTimer) {
-    void pollPendingCount();
-    pollTimer = setInterval(() => void pollPendingCount(), POLL_INTERVAL_MS);
+    void pollSyncStatus(userId);
+    pollTimer = setInterval(() => void pollSyncStatus(currentSubscribedUserId), POLL_INTERVAL_MS);
   }
   return () => {
-    pendingListeners.delete(listener);
+    statusListeners.delete(listener);
     activeSubscribers--;
     if (activeSubscribers === 0 && pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
+      currentSubscribedUserId = null;
     }
   };
 }
@@ -54,6 +64,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   const isBrowserOnline = useOnlineStatus();
 
   const [pendingCount, setPendingCount] = useState(0);
+  const [unsyncedCount, setUnsyncedCount] = useState(0);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
     () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
   );
@@ -74,16 +85,25 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  // Subscribe to the shared pending-count poll (deduped across hook instances)
+  // Subscribe to the shared sync status poll (deduped across hook instances)
   useEffect(() => {
     if (!userId || !autoSyncEnabled) {
       // Defer to avoid synchronous setState in effect body
-      const t = setTimeout(() => setPendingCount(0), 0);
+      const t = setTimeout(() => {
+        setPendingCount(0);
+        setUnsyncedCount(0);
+      }, 0);
       return () => clearTimeout(t);
     }
 
-    const t = setTimeout(() => setPendingCount(sharedPendingCount), 0);
-    const unsubscribe = subscribePendingCount(setPendingCount);
+    const t = setTimeout(() => {
+      setPendingCount(sharedPendingCount);
+      setUnsyncedCount(sharedUnsyncedCount);
+    }, 0);
+    const unsubscribe = subscribeSyncStatus(userId, counts => {
+      setPendingCount(counts.pending);
+      setUnsyncedCount(counts.unsynced);
+    });
     return () => { clearTimeout(t); unsubscribe(); };
   }, [userId, autoSyncEnabled]);
 
@@ -139,10 +159,11 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     status = 'synced';
   } else if (!isBrowserOnline) {
     status = 'offline';
-
   } else if (pendingCount > 0 && showPending) {
     status = 'pending';
+  } else if (unsyncedCount > 0) {
+    status = 'unsynced';
   }
 
-  return { status, pendingCount, autoSyncEnabled };
+  return { status, pendingCount, unsyncedCount, autoSyncEnabled };
 }

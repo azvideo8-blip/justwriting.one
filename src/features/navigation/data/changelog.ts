@@ -18,6 +18,8 @@ export const CHANGELOG: ChangelogRelease[] = [
     date: '2026-08-18',
     items: [
       { category: 'improvement', ru: 'В отчёте о загрузке архива видно, почему именно запись пропущена, а не только сколько таких: причины перечислены с числами', en: 'The archive import report shows why a record was skipped, not just how many: the reasons are listed with counts' },
+      { category: 'fix', ru: 'Ответ ИИ снова приходит по мере набора, а не целиком в конце: потоковый обработчик остался от прежней площадки и на новом сервере не был подключён — каждый запрос молча уходил на запасной путь с другими настройками', en: 'AI answers arrive as they are written again, not in one lump: the streaming handler was left over from the previous platform and was never wired up on the new server, so every request quietly fell back to a different path with different settings' },
+      { category: 'fix', ru: 'Импортированные заметки уезжают в облако, а не остаются только на устройстве. Панель больше не докладывает «всё синхронизировано», глядя на пустую очередь: теперь она сравнивает, у скольких заметок есть облачная копия, и предлагает отправить остальные', en: 'Imported notes travel to the cloud instead of staying on the device. The panel no longer reports "everything synced" by looking at an empty queue: it now compares how many notes have a cloud copy and offers to upload the rest' },
     ],
   },
   {

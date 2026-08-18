@@ -8,6 +8,8 @@ import {
 } from "../../../core/storage/localDb";
 import { invalidateMiniSearchCache } from "../../ai/utils/noteRetriever";
 import { type MigrationManifest } from "./migrationExport";
+import { SyncService } from "../../../core/services/SyncService";
+import { getSessionKey } from "../../../core/crypto/encrypt";
 
 export interface MigrationImportResult {
   success: boolean;
@@ -32,6 +34,13 @@ export interface MigrationImportResult {
     peopleIndexRecords: number;
     summariesWithMentionedPeople: number;
     unknownStores: Record<string, number>;
+  };
+  upload?: {
+    status: "completed" | "vault_locked" | "skipped_no_notes" | "failed";
+    attempted: number;
+    uploaded: number;
+    queued: number;
+    reason?: string;
   };
   error?: string;
 }
@@ -118,6 +127,7 @@ export async function importMigrationManifest(
 
   // Map manifest localId -> resolved DB document id
   const docIdMap = new Map<string, string>();
+  const importedDocIds: string[] = [];
 
   // ── 1. Documents ────────────────────────────────────────────────────────
   const incomingDocs = Array.isArray(manifest.documents) ? manifest.documents : [];
@@ -171,6 +181,7 @@ export async function importMigrationManifest(
     existingDocsById.set(targetId, localDoc);
     existingDocsByUuid.set(doc.uuid, localDoc);
     imported.documents++;
+    importedDocIds.push(targetId);
   }
 
   // ── 2. Versions ─────────────────────────────────────────────────────────
@@ -424,10 +435,67 @@ export async function importMigrationManifest(
   // ── 7. Cache Invalidation ─────────────────────────────────────────────
   invalidateMiniSearchCache();
 
+  // ── 8. Cloud Queue / Upload ────────────────────────────────────────────
+  // Ticket C7: Imported notes must reach the cloud or be queued for upload.
+  // DEFENSE IN DEPTH: The primary encryption enforcement is at the bottom layer in
+  // maybeEncrypt (which throws ENCRYPT_REQUIRED / LOCKED if encryption is enabled but no
+  // session key exists). Checking getSessionKey() here is for a clear, proactive user-facing
+  // decision: if the vault is locked, we do not attempt cloud upload, but immediately queue
+  // all imported notes into syncQueue so they upload when the vault is unlocked.
+  let upload: MigrationImportResult["upload"] = undefined;
+  if (importedDocIds.length > 0) {
+    const hasKey = !!getSessionKey();
+    if (!hasKey) {
+      for (const docId of importedDocIds) {
+        try {
+          await SyncService.addToQueue(docId);
+        } catch { /* non-critical */ }
+      }
+      upload = {
+        status: "vault_locked",
+        attempted: 0,
+        uploaded: 0,
+        queued: importedDocIds.length,
+        reason: "Vault is locked. Notes are saved locally and queued for upload upon unlock.",
+      };
+    } else {
+      try {
+        const syncRes = await SyncService.syncAllUnlinked(targetUserId);
+        upload = {
+          status: "completed",
+          attempted: importedDocIds.length,
+          uploaded: syncRes.synced,
+          queued: syncRes.failed,
+        };
+      } catch (uploadErr) {
+        for (const docId of importedDocIds) {
+          try {
+            await SyncService.addToQueue(docId);
+          } catch { /* non-critical */ }
+        }
+        upload = {
+          status: "failed",
+          attempted: importedDocIds.length,
+          uploaded: 0,
+          queued: importedDocIds.length,
+          reason: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
+        };
+      }
+    }
+  } else {
+    upload = {
+      status: "skipped_no_notes",
+      attempted: 0,
+      uploaded: 0,
+      queued: 0,
+    };
+  }
+
   return {
     success: true,
     imported,
     skipped,
     droppedOnPurpose,
+    upload,
   };
 }

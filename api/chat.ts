@@ -1,176 +1,42 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
-import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-import { getAppCheck } from 'firebase-admin/app-check';
 import { z } from 'zod';
+import { requireSession } from './auth';
+import { postgresAiContext } from './postgresAiContext';
 import { hasInjectionAttempt } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
 import { validateInternalCallRestrictions, getMaxTokens } from '../src/shared/ai/aiPolicy.js';
+import type { GlobalReservation } from './ai/context';
 
-// Must match the database the Cloud Functions and frontend use (shared/firestore.ts,
-// VITE_FIREBASE_FIRESTORE_DATABASE_ID). Bare getFirestore() targets "(default)", which
-// is a different, empty database — that mismatch hid usage stats and broke limit resets.
-const FIRESTORE_DATABASE_ID = process.env.FIRESTORE_DATABASE_ID
-  ?? 'ai-studio-26638cb9-0855-4980-84cb-072afd2a063d';
-const db = () => getFirestore(FIRESTORE_DATABASE_ID);
-
-function envInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = parseInt(raw, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+function json(res: ServerResponse, status: number, body: unknown) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
 }
 
-// Project-wide daily request/token budget guard. Keep in sync with
-// functions/src/shared/aiUtils.ts TIER_LIMITS.
-const TIER_LIMITS = {
-  requestsPerDay: envInt('AI_TIER_RPD', 10_000),
-  tokensPerDay: envInt('AI_TIER_TPD', 25_000_000),
-};
-
-interface GlobalReservation {
-  date: string;
-  shardId: string;
-  allowance: number;
-  // Set once refunded. recordUsage/refund must both be no-ops afterwards:
-  // an error path refunds and then still falls through to recordUsage, which
-  // would subtract the allowance a second time and drive the shard negative.
-  refunded?: boolean;
-}
-
-// Atomically check and reserve a slot in the project-wide daily cap.
-// Uses distributed sharding (10 shards) with bounded transaction reads (checks up to 3 shards).
-async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
-  const date = new Date().toISOString().slice(0, 10);
-  const fs = db();
-  const NUM_SHARDS = 10;
-  const requestsLimit = Math.ceil(TIER_LIMITS.requestsPerDay / NUM_SHARDS);
-  const tokensLimit = Math.ceil(TIER_LIMITS.tokensPerDay / NUM_SHARDS);
-
-  return await fs.runTransaction(async tx => {
-    const shardsCol = fs.collection(`aiGlobalDaily/${date}/shards`);
-    let chosenShardId = '';
-    let chosenData = null;
-    
-    // Bounded search: check up to 3 shards to find one with capacity.
-    const attempts = 3;
-    const baseShard = Math.floor(Math.random() * NUM_SHARDS);
-    for (let i = 0; i < attempts; i++) {
-      const sId = ((baseShard + i) % NUM_SHARDS).toString();
-      const shardRef = shardsCol.doc(sId);
-      const snap = await tx.get(shardRef);
-      const data = snap.data() || { requests: 0, promptTokens: 0, completionTokens: 0 };
-      
-      const reqs = data.requests ?? 0;
-      const tkns = (data.promptTokens ?? 0) + (data.completionTokens ?? 0);
-      
-      if (reqs < requestsLimit && tkns < tokensLimit) {
-        chosenShardId = sId;
-        chosenData = data;
-        break;
+function readBody(req: IncomingMessage, maxBytes = 4 * 1024 * 1024): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > maxBytes) {
+        req.destroy();
+        reject(new Error('PAYLOAD_TOO_LARGE'));
+        return;
       }
-    }
-
-    if (!chosenShardId || !chosenData) return null;
-
-    const shardRef = shardsCol.doc(chosenShardId);
-    tx.set(shardRef, {
-      requests: (chosenData.requests ?? 0) + 1,
-      promptTokens: (chosenData.promptTokens ?? 0) + allowance,
-      date,
-      updatedAt: FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    return { date, shardId: chosenShardId, allowance };
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    req.on('error', reject);
   });
 }
 
-// ── Firebase Admin init ───────────────────────────────────────────────────────
-if (getApps().length === 0) {
-  const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
-  let credentialConfig: ServiceAccount | undefined;
-  if (sa) {
-    try {
-      let trimmed = sa.trim();
-      
-      // Handle outer quotes
-      if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-        try {
-          const unwrapped = JSON.parse(trimmed);
-          if (typeof unwrapped === 'string') {
-            trimmed = unwrapped.trim();
-          } else {
-            credentialConfig = unwrapped;
-          }
-        } catch {
-          trimmed = trimmed.slice(1, -1).trim();
-        }
-      }
-
-      if (!credentialConfig) {
-        // Handle missing curly braces
-        if (!trimmed.startsWith('{') && (trimmed.includes('"type"') || trimmed.includes('type:'))) {
-          try {
-            credentialConfig = JSON.parse(`{${trimmed}}`);
-          } catch {
-            // fallback to standard parsing
-          }
-        }
-      }
-
-      if (!credentialConfig) {
-        credentialConfig = JSON.parse(trimmed);
-      }
-    } catch (err) {
-      console.error('Failed to parse service account key:', err);
-    }
-  }
-
-  if (sa && !credentialConfig) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT is set but could not be parsed as valid JSON — refusing to silently fall back to applicationDefault().');
-  }
-
-  initializeApp({
-    credential: credentialConfig
-      ? cert(credentialConfig)
-      : applicationDefault(),
-  });
-}
-
-// RouterAI is the sole AI provider — OpenAI-compatible, so only the base URL
-// moves. Kept in one const because the streaming path below fetches it directly
-// rather than going through the SDK client. See functions/src/shared/aiProvider.ts
-// for why the env names still say OPENROUTER.
 const AI_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
-// Обработка только в российском контуре. Подтверждено поддержкой RouterAI
-// 2026-08-12: серверы авторизации и биллинга стоят в РФ, содержимое запросов не
-// сохраняется (Zero Data Retention), НО без этого параметра запрос может уйти к
-// зарубежному провайдеру модели. То есть по умолчанию текст заметок пересекает
-// границу — а это трансграничная передача, для которой нужно отдельное
-// уведомление до начала потока (ст. 12 152-ФЗ). Параметр обязателен на каждом
-// запросе, который несёт пользовательский текст.
-//
-// ПРОВЕРЕНО ЖИВЫМИ ЗАПРОСАМИ 2026-08-18: с `country: 'ru'` наша модель отвечает
-// 503 «No available providers». Внутри российского контура у RouterAI работают
-// только модели Yandex, а моделей эмбеддингов нет ни одной. Поэтому параметр
-// вынесен в переменную окружения и по умолчанию НЕ шлётся: иначе весь ИИ
-// отвечал бы 503.
-//
-// Пустое значение означает «ограничения нет» — то есть запрос может уйти за
-// границу, и это требует уведомления по ст. 12 152-ФЗ. Включать `ru` можно
-// только вместе с переходом на модель, которая внутри контура существует.
 export const AI_PROVIDER_COUNTRY = process.env.AI_PROVIDER_COUNTRY ?? '';
-const providerRouting = AI_PROVIDER_COUNTRY
-  ? { country: AI_PROVIDER_COUNTRY }
-  : undefined;
+const providerRouting = AI_PROVIDER_COUNTRY ? { country: AI_PROVIDER_COUNTRY } : undefined;
 
-// Клиент SDK строит тело сам, поэтому параметр дописывается в перехватчике —
-// иначе его пришлось бы протаскивать через маппинг опций провайдера и он молча
-// потерялся бы при первом обновлении библиотеки.
 const ruOnlyFetch: typeof fetch = async (input, init) => {
   if (typeof init?.body === 'string') {
     try {
@@ -200,237 +66,18 @@ async function getChatModel() {
   return openrouter.chat(ACTIVE_CHAT_MODEL);
 }
 
-// CHATFIX-6: buildSystemPrompt and sanitizeAiInput moved to shared module
-// (src/shared/ai/buildChatPrompt.ts). Local wrappers kept for backwards compat.
 function sanitizeAiInput(content: string): string {
   return sanitizeAiInputShared(content);
 }
 
-// Day-safe, shard-specific refund. Clamps shard requests to >= 0.
-async function refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void> {
-  if (!res || !res.date || !res.shardId || res.refunded) return;
-  res.refunded = true;
-  const fs = db();
-
-  try {
-    await fs.runTransaction(async tx => {
-      const shardRef = fs.doc(`aiGlobalDaily/${res.date}/shards/${res.shardId}`);
-      const snap = await tx.get(shardRef);
-      if (!snap.exists) return;
-
-      const data = snap.data();
-      const requests = Math.max(0, (data?.requests ?? 0) - 1);
-      const promptTokens = Math.max(0, (data?.promptTokens ?? 0) - res.allowance);
-
-      tx.set(shardRef, {
-        requests,
-        promptTokens,
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-    });
-  } catch (e) {
-    console.error('[api/chat] refundGlobalRequest failed:', e);
-  }
-}
-
-// Best-effort refund of one per-user daily limit slot.
-// Uses a transaction with date check and Math.max(0, ...) clamping to
-// prevent cross-day refunds and negative counts.
-async function refundDailyLimit(uid: string): Promise<void> {
-  const date = new Date().toISOString().slice(0, 10);
-  const fs = db();
-  const ref = fs.doc(`aiDailyLimit/${uid}`);
-  try {
-    await fs.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = snap.data();
-      if (!data || data.date !== date) return;
-      tx.update(ref, { count: Math.max(0, (data.count ?? 0) - 1) });
-    });
-  } catch (e) {
-    console.error('[api/chat] refundDailyLimit failed:', e);
-  }
-}
-
-const INTERNAL_DAILY_LIMIT = 100;
-const INTERNAL_COOLDOWN_MS = 2000;
-
-async function checkAndIncrementInternalLimit(uid: string): Promise<boolean> {
-  if (await isAdmin(uid)) return true;
-
-  const fs = db();
-  const now = Date.now();
-  const date = new Date().toISOString().slice(0, 10);
-  const cooldownRef = fs.doc(`aiInternalCooldown/${uid}`);
-  const dailyRef = fs.doc(`aiInternalDailyLimit/${uid}`);
-
-  return fs.runTransaction(async (tx) => {
-    const [cooldownSnap, dailySnap] = await Promise.all([
-      tx.get(cooldownRef),
-      tx.get(dailyRef),
-    ]);
-    const cooldownData = cooldownSnap.data();
-    if (cooldownData && now - cooldownData.lastRequestAt < INTERNAL_COOLDOWN_MS) return false;
-    const dailyData = dailySnap.data();
-    if (dailyData && dailyData.date === date && dailyData.count >= INTERNAL_DAILY_LIMIT) return false;
-    tx.set(cooldownRef, { lastRequestAt: now }, { merge: true });
-    if (!dailyData || dailyData.date !== date) {
-      tx.set(dailyRef, { count: 1, date });
-    } else {
-      tx.update(dailyRef, { count: dailyData.count + 1 });
-    }
-    return true;
-  });
-}
-
-async function refundInternalDailyLimit(uid: string): Promise<void> {
-  const date = new Date().toISOString().slice(0, 10);
-  const fs = db();
-  const ref = fs.doc(`aiInternalDailyLimit/${uid}`);
-  try {
-    await fs.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = snap.data();
-      if (!data || data.date !== date) return;
-      tx.update(ref, { count: Math.max(0, (data.count ?? 0) - 1) });
-    });
-  } catch (e) {
-    console.error('[api/chat] refundInternalDailyLimit failed:', e);
-  }
-}
-
-// ── Daily limit ───────────────────────────────────────────────────────────────
-const DAILY_LIMIT = (() => {
-  const n = parseInt(process.env.AI_DAILY_LIMIT ?? '30', 10);
-  return Number.isNaN(n) ? 10 : n;
-})();
-
-// Admins (role 'admin') get a higher personal cap. Mirror of
-// functions/src/shared/aiUtils.ts getUserDailyLimit. Default 20 (experiment).
-const ADMIN_DAILY_LIMIT = (() => {
-  const n = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '60', 10);
-  return Number.isNaN(n) ? 20 : n;
-})();
-
-async function userDailyLimit(uid: string, claimRole?: unknown): Promise<number> {
-  if (claimRole === 'admin') return ADMIN_DAILY_LIMIT;
-  try {
-    const snap = await db().doc(`users/${uid}`).get();
-    if (snap.data()?.role === 'admin') return ADMIN_DAILY_LIMIT;
-  } catch { /* fall through to default */ }
-  return DAILY_LIMIT;
-}
-
-// LX-2a: Admins get effectively no limit — skip checkAndIncrementLimit entirely.
-// Prefer the verified token claim (the source firestore.rules trusts); fall back to
-// the Firestore field so a just-promoted admin works before their token refreshes.
-async function isAdmin(uid: string, claimRole?: unknown): Promise<boolean> {
-  if (claimRole === 'admin') return true;
-  try {
-    const snap = await db().doc(`users/${uid}`).get();
-    return snap.data()?.role === 'admin';
-  } catch { return false; }
-}
-
-const COOLDOWN_MS = 10_000;
-
-// LX-2a: Admins skip the per-user limit.
-async function checkAndIncrementLimit(uid: string, reasoning?: boolean | null, claimRole?: unknown): Promise<boolean> {
-  // Admins bypass the per-user limit
-  if (await isAdmin(uid, claimRole)) return true;
-
-  const fs = db();
-  const now = Date.now();
-  const date = new Date().toISOString().slice(0, 10);
-  const cooldownRef = fs.doc(`aiCooldown/${uid}`);
-  const dailyRef = fs.doc(`aiDailyLimit/${uid}`);
-
-  // TICKET-049: Reasoning mode gets reduced limit (5 instead of 10)
-  const baseLimit = await userDailyLimit(uid, claimRole);
-  const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
-
-  return fs.runTransaction(async (tx) => {
-    const [cooldownSnap, dailySnap] = await Promise.all([
-      tx.get(cooldownRef),
-      tx.get(dailyRef),
-    ]);
-    const cooldownData = cooldownSnap.data();
-    if (cooldownData && now - cooldownData.lastRequestAt < COOLDOWN_MS) return false;
-    const dailyData = dailySnap.data();
-    if (dailyData && dailyData.date === date && dailyData.count >= limit) return false;
-    tx.set(cooldownRef, { lastRequestAt: now }, { merge: true });
-    if (!dailyData || dailyData.date !== date) {
-      tx.set(dailyRef, { count: 1, date });
-    } else {
-      tx.update(dailyRef, { count: dailyData.count + 1 });
-    }
-    return true;
-  });
-}
-
-// Mirror functions/src/shared/aiUtils.ts recordUsage so streamed chats show up in
-// admin AI stats (getAIUsageStats reads the `daily` collection group).
-async function recordUsage(
-  uid: string,
-  tokensIn: number,
-  tokensOut: number,
-  model: string,
-  res?: GlobalReservation | null
-): Promise<void> {
-  const date = new Date().toISOString().slice(0, 10);
-  const fs = db();
-  const batch = fs.batch();
-  const payload = {
-    date,
-    promptTokens: FieldValue.increment(tokensIn),
-    completionTokens: FieldValue.increment(tokensOut),
-    requests: FieldValue.increment(1),
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-  batch.set(fs.doc(`aiUsage/${uid}/daily/${date}`), payload, { merge: true });
-  
-  const NUM_SHARDS = 10;
-  if (res && res.date && res.shardId && !res.refunded) {
-    batch.set(fs.doc(`aiGlobalDaily/${res.date}/shards/${res.shardId}`), {
-      promptTokens: FieldValue.increment(tokensIn - res.allowance),
-      completionTokens: FieldValue.increment(tokensOut),
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-  } else {
-    const shardId = Math.floor(Math.random() * NUM_SHARDS).toString();
-    batch.set(fs.doc(`aiGlobalDaily/${date}/shards/${shardId}`), {
-      date,
-      promptTokens: FieldValue.increment(tokensIn),
-      completionTokens: FieldValue.increment(tokensOut),
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-  }
-  
-  // Per-request event for admin breakdown
-  const eventRef = fs.collection(`aiUsage/${uid}/events`).doc();
-  batch.set(eventRef, { date, ts: FieldValue.serverTimestamp(), tokensIn, tokensOut, model, fn: 'chat-stream' });
-  await batch.commit();
-}
-
-// RSN: Reasoning mode. DeepSeek's chain-of-thought lands in the separate
-// `reasoning` delta channel, which @ai-sdk/openai does NOT surface (it only
-// maps OpenAI o-series reasoning summaries). So for reasoning mode we stream
-// OpenRouter's /chat/completions directly, reading both channels and
-// synthesizing the plain-text section markers the client parser expects
-// ("ХОД МЫСЛИ:" / "ОТВЕТ:"). If the active model emits no reasoning, we just
-// stream the answer (no empty reasoning section). Provider behaviour here has
-// flipped twice: Fireworks always emitted reasoning for capable models,
-// OpenRouter only on explicit `reasoning: {effort}`, and RouterAI is back to
-// emitting it by default — which is why the non-reasoning path now has to ask
-// for silence rather than rely on it. Measured on RouterAI, the chain-of-thought
-// arrives under `reasoning`, not `reasoning_content`; both are read below.
 type OrDelta = { reasoning_content?: string; reasoning?: string; content?: string };
 type OrChunk = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
   choices?: Array<{ delta?: OrDelta }>;
 };
+
 async function streamOpenRouterReasoning(
-  res: VercelResponse,
+  res: ServerResponse,
   uid: string,
   model: string,
   system: string,
@@ -440,14 +87,14 @@ async function streamOpenRouterReasoning(
 ): Promise<void> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    await refundGlobalRequest(reservation);
+    await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid);
     } else {
-      await refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid);
     }
     console.error('OPENROUTER_API_KEY not set');
-    res.status(500).end('Internal server error');
+    json(res, 500, { error: 'Internal server error' });
     return;
   }
   const controller = new AbortController();
@@ -473,146 +120,134 @@ async function streamOpenRouterReasoning(
     });
   } catch (err) {
     clearTimeout(timeoutId);
-    // Log the cause: this path answers a flat 504, so without this an upstream
-    // reset (ECONNRESET) is indistinguishable from our own abort in the logs.
     console.error('[api/chat] upstream request failed:', err);
-    await refundGlobalRequest(reservation);
+    await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid);
     } else {
-      await refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid);
     }
-    res.status(504).end('UPSTREAM_TIMEOUT');
+    res.writeHead(504, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('UPSTREAM_TIMEOUT');
     return;
   }
-
 
   if (!upstream.ok || !upstream.body) {
-    await refundGlobalRequest(reservation);
+    await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid);
     } else {
-      await refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid);
     }
-    res.status(502).end('UPSTREAM_ERROR');
+    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('UPSTREAM_ERROR');
     return;
   }
 
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.writeHead(200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+  });
 
-   const reader = upstream.body.getReader();
-   const decoder = new TextDecoder();
-   let buffer = '';
-   let wroteReasoningHeader = false;
-   let wroteAnswerHeader = false;
-   let tokensIn = 0;
-   let tokensOut = 0;
-   // LX-1: Accumulate content when no reasoning_content channel, to detect
-  // inline "ОТВЕТ:" marker and relabel the preamble as "ХОД МЫСЛИ:".
-   let contentAccum = '';
-   let sawNativeReasoning = false;
- 
-   try {
-   for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    for (const raw of lines) {
-      const line = raw.trim();
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (data === '[DONE]') continue;
-      let chunk: OrChunk;
-      try { chunk = JSON.parse(data) as OrChunk; } catch { continue; }
-      if (chunk.usage) {
-        tokensIn = chunk.usage.prompt_tokens ?? tokensIn;
-        tokensOut = chunk.usage.completion_tokens ?? tokensOut;
-      }
-      const delta = chunk.choices?.[0]?.delta;
-      if (!delta) continue;
-      const reasoning = delta.reasoning_content ?? delta.reasoning;
-      const content = delta.content;
-      if (reasoning) {
-        sawNativeReasoning = true;
-        if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
-        res.write(reasoning);
-      }
-      if (content) {
-        if (sawNativeReasoning) {
-          // Normal path: native reasoning channel was used, content is the answer
-          if (!wroteAnswerHeader) {
-            if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
-            wroteAnswerHeader = true;
-          }
-          res.write(content);
-        } else {
-          // LX-1: No native reasoning channel — check if content contains inline "ОТВЕТ:"
-          contentAccum += content;
-          // Check if we've hit the "ОТВЕТ:" marker on its own line
-          const answerMarkerRe = /^ОТВЕТ:\s*$/im;
-          const markerMatch = contentAccum.match(answerMarkerRe);
-          if (markerMatch && !wroteAnswerHeader) {
-            const markerIdx = markerMatch.index ?? 0;
-            const beforeMarker = contentAccum.slice(0, markerIdx).trim();
-            const afterMarker = contentAccum.slice(markerIdx).replace(answerMarkerRe, '').trim();
-            // Emit preamble as reasoning
-            if (beforeMarker) {
-              if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
-              res.write(beforeMarker);
-            }
-            // Emit answer
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let wroteReasoningHeader = false;
+  let wroteAnswerHeader = false;
+  let tokensIn = 0;
+  let tokensOut = 0;
+  let contentAccum = '';
+  let sawNativeReasoning = false;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') continue;
+        let chunk: OrChunk;
+        try { chunk = JSON.parse(data) as OrChunk; } catch { continue; }
+        if (chunk.usage) {
+          tokensIn = chunk.usage.prompt_tokens ?? tokensIn;
+          tokensOut = chunk.usage.completion_tokens ?? tokensOut;
+        }
+        const delta = chunk.choices?.[0]?.delta;
+        if (!delta) continue;
+        const reasoning = delta.reasoning_content ?? delta.reasoning;
+        const content = delta.content;
+        if (reasoning) {
+          sawNativeReasoning = true;
+          if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+          res.write(reasoning);
+        }
+        if (content) {
+          if (sawNativeReasoning) {
             if (!wroteAnswerHeader) {
               if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
               wroteAnswerHeader = true;
             }
-            res.write(afterMarker);
-          } else if (!wroteAnswerHeader) {
-            // Haven't found marker yet — buffer and don't emit yet.
-            // But if the accumulated content is short, just wait.
-            // If it's getting long without a marker, emit as answer (fallback).
-            if (contentAccum.length > 2000 && !wroteReasoningHeader) {
-              // No marker found in first 2K chars — likely no inline leak, emit as answer
+            res.write(content);
+          } else {
+            contentAccum += content;
+            const answerMarkerRe = /^ОТВЕТ:\s*$/im;
+            const markerMatch = contentAccum.match(answerMarkerRe);
+            if (markerMatch && !wroteAnswerHeader) {
+              const markerIdx = markerMatch.index ?? 0;
+              const beforeMarker = contentAccum.slice(0, markerIdx).trim();
+              const afterMarker = contentAccum.slice(markerIdx).replace(answerMarkerRe, '').trim();
+              if (beforeMarker) {
+                if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+                res.write(beforeMarker);
+              }
               if (!wroteAnswerHeader) {
+                if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
                 wroteAnswerHeader = true;
               }
-              res.write(contentAccum);
-              contentAccum = '';
+              res.write(afterMarker);
+            } else if (!wroteAnswerHeader) {
+              if (contentAccum.length > 2000 && !wroteReasoningHeader) {
+                if (!wroteAnswerHeader) {
+                  wroteAnswerHeader = true;
+                }
+                res.write(contentAccum);
+                contentAccum = '';
+              }
+            } else {
+              res.write(content);
             }
-          } else {
-            // Already in answer mode — emit content directly
-            res.write(content);
           }
         }
       }
     }
-   }
-    } catch (streamErr) {
-      console.error('[api/chat] stream read failed:', streamErr);
-      await refundGlobalRequest(reservation);
-      if (isInternalCall) {
-        await refundInternalDailyLimit(uid);
-      } else {
-        await refundDailyLimit(uid);
-      }
+  } catch (streamErr) {
+    console.error('[api/chat] stream read failed:', streamErr);
+    await postgresAiContext.refundGlobalRequest(reservation);
+    if (isInternalCall) {
+      await postgresAiContext.refundBulkLimit(uid);
+    } else {
+      await postgresAiContext.refundDailyLimit(uid);
     }
-   // LX-1: Flush any remaining buffered content (no marker was found)
+  }
+
   if (contentAccum && !wroteAnswerHeader) {
     if (wroteReasoningHeader) { res.write('\n\nОТВЕТ:\n'); }
     wroteAnswerHeader = true;
     res.write(contentAccum);
   }
   try {
-    await recordUsage(uid, tokensIn, tokensOut, model, reservation);
+    await postgresAiContext.recordUsage(uid, tokensIn, tokensOut, { model, fn: 'chat-stream' }, reservation);
   } catch (e) {
     console.error('[api/chat] usage record failed:', e);
   }
   res.end();
 }
 
-// ── Input schema ──────────────────────────────────────────────────────────────
 const inputSchema = z.object({
   personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom']),
   customSystemPrompt: z.string().max(500).nullish(),
@@ -627,51 +262,40 @@ const inputSchema = z.object({
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(10_000).nullish(),
   memoryContext: z.string().max(20_000).nullish(),
-
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish(),
 });
 
-// ── Handler ───────────────────────────────────────────────────────────────────
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') { res.status(405).end(); return; }
+export async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method !== 'POST') {
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    return;
+  }
 
-  // Auth
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return; }
-  const idToken = auth.slice(7);
+  const session = requireSession(req);
+  if (!session || !session.uid) {
+    return json(res, 401, { error: 'Unauthorized' });
+  }
+  const uid = session.uid;
 
-  let uid: string;
-  let claimRole: unknown;
+  let body: unknown;
   try {
-    const decoded = await getAuth().verifyIdToken(idToken);
-    uid = decoded.uid;
-    claimRole = decoded.role;
-  } catch {
-    res.status(401).json({ error: 'Unauthorized' }); return;
+    const raw = await readBody(req);
+    body = raw ? JSON.parse(raw) : {};
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
+      return json(res, 413, { error: 'Payload too large' });
+    }
+    return json(res, 400, { error: 'Bad Request' });
   }
 
-  // App Check verification (if enabled via env)
-  if (process.env.APP_CHECK_ENFORCE === 'true') {
-    const appCheckToken = req.headers['x-firebase-appcheck'];
-    if (typeof appCheckToken !== 'string') {
-      res.status(401).json({ error: 'Unauthorized: App Check token required' });
-      return;
-    }
-    try {
-      await getAppCheck().verifyToken(appCheckToken);
-    } catch {
-      res.status(401).json({ error: 'Unauthorized: Invalid App Check token' });
-      return;
-    }
+  const parsed = inputSchema.safeParse(body);
+  if (!parsed.success) {
+    return json(res, 400, { error: 'Bad Request' });
   }
 
-  // Parse body
-  const parsed = inputSchema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: 'Bad Request' }); return; }
-
-  // Internal call validation via centralized policy
   let isInternalCall = false;
   try {
     const policyResult = validateInternalCallRestrictions({
@@ -684,119 +308,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     isInternalCall = policyResult.isInternal;
   } catch {
-    res.status(400).json({ error: 'Bad Request' }); return;
+    return json(res, 400, { error: 'Bad Request' });
   }
 
-  // Daily limit check: internal calls use a separate dedicated quota.
   if (isInternalCall) {
-    const allowed = await checkAndIncrementInternalLimit(uid);
-    if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
+    const allowed = await postgresAiContext.checkAndIncrementBulkLimit(uid);
+    if (!allowed) { return json(res, 429, { error: 'DAILY_LIMIT' }); }
   } else {
-    const allowed = await checkAndIncrementLimit(uid, parsed.data.reasoning, claimRole);
-    if (!allowed) { res.status(429).json({ error: 'DAILY_LIMIT' }); return; }
+    const limitResult = await postgresAiContext.checkAndIncrementLimit(uid, parsed.data.reasoning === true);
+    if (limitResult === 'DAILY_LIMIT') {
+      return json(res, 429, { error: 'DAILY_LIMIT' });
+    }
+    if (limitResult === 'RATE_LIMIT') {
+      return json(res, 429, { error: 'RATE_LIMIT' });
+    }
   }
 
-  // Project-wide free-tier guard (across all users + resets)
   const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning);
-  const reservation = await tryReserveGlobalRequest(maxOutputTokens);
+  const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens);
   if (!reservation) {
     if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid);
     } else {
-      await refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid);
     }
-    res.status(429).json({ error: 'GLOBAL_LIMIT' }); return;
+    return json(res, 429, { error: 'GLOBAL_LIMIT' });
   }
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, memoryContext, responseLength, reasoning } = parsed.data;
 
-  // Injection guard for custom prompts
-  if (personaId === 'custom' && customSystemPrompt) {
-    if (hasInjectionAttempt(customSystemPrompt)) {
-      await refundDailyLimit(uid); await refundGlobalRequest(reservation);
-      res.status(400).json({ error: 'Bad Request' }); return;
-    }
+  // Injection guards
+  if (personaId === 'custom' && customSystemPrompt && hasInjectionAttempt(customSystemPrompt)) {
+    await postgresAiContext.refundDailyLimit(uid);
+    await postgresAiContext.refundGlobalRequest(reservation);
+    return json(res, 400, { error: 'Bad Request' });
   }
 
-  // S-3: Injection guard for ALL message turns (not just user) — a client-fabricated
-  // assistant message is the real injection vector.
-  if (messages.some(m => hasInjectionAttempt(m.content))) {
-    if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
-    } else {
-      await refundDailyLimit(uid);
-    }
-    await refundGlobalRequest(reservation);
-    res.status(400).json({ error: 'Bad Request' }); return;
-  }
-
-  if (documentContent && hasInjectionAttempt(documentContent)) {
-    if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
-    } else {
-      await refundDailyLimit(uid);
-    }
-    await refundGlobalRequest(reservation);
-    res.status(400).json({ error: 'Bad Request' }); return;
-  }
-
-  if (memoryContext && hasInjectionAttempt(memoryContext)) {
-    if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
-    } else {
-      await refundDailyLimit(uid);
-    }
-    await refundGlobalRequest(reservation);
-    res.status(400).json({ error: 'Bad Request' }); return;
-  }
-
-  if (userPortrait && hasInjectionAttempt(userPortrait)) {
-    if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
-    } else {
-      await refundDailyLimit(uid);
-    }
-    await refundGlobalRequest(reservation);
-    res.status(400).json({ error: 'Bad Request' }); return;
-  }
-
-  if (documentMood && hasInjectionAttempt(documentMood)) {
-    if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
-    } else {
-      await refundDailyLimit(uid);
-    }
-    await refundGlobalRequest(reservation);
-    res.status(400).json({ error: 'Bad Request' }); return;
+  if (
+    messages.some(m => hasInjectionAttempt(m.content)) ||
+    (documentContent && hasInjectionAttempt(documentContent)) ||
+    (memoryContext && hasInjectionAttempt(memoryContext)) ||
+    (userPortrait && hasInjectionAttempt(userPortrait)) ||
+    (documentMood && hasInjectionAttempt(documentMood))
+  ) {
+    if (isInternalCall) await postgresAiContext.refundBulkLimit(uid);
+    else await postgresAiContext.refundDailyLimit(uid);
+    await postgresAiContext.refundGlobalRequest(reservation);
+    return json(res, 400, { error: 'Bad Request' });
   }
 
   const sanitizedCustomPrompt = customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined;
   const sanitizedPortrait = userPortrait ? sanitizeAiInput(userPortrait) : undefined;
   const sanitizedMemory = memoryContext ? sanitizeAiInput(memoryContext) : undefined;
-  let systemPrompt = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, memoryContext: sanitizedMemory, responseLength, reasoning, documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
-
-  // OPT-5: Context is now in system prompt, no fake user/assistant turn
   const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
 
-  // Stream. maxOutputTokens caps total output INCLUDING thinking tokens;
-  // at 1024 the thinking budget could consume it all and truncate the reply
-  // mid-sentence. 8192 leaves ample room for a complete answer.
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
-  // RSN: reasoning mode. DeepSeek v4 Pro on OpenRouter emits its chain-of-thought
-  // in the `reasoning` delta channel when requested via reasoning:{effort},
-  // which @ai-sdk/openai drops. We stream OpenRouter directly to surface it and
-  // synthesize the "ХОД МЫСЛИ:/ОТВЕТ:" markers the client parser expects.
-  // IMPORTANT: build the prompt WITHOUT the marker instruction (as 'detailed') —
-  // if we ask the model to also print the markers, it duplicates them into
-  // `content` and the output gets garbled. The native channel is the source.
   if (reasoning) {
-    const baseReasoningSystem = buildChatSystemPrompt({ personaId, customSystemPrompt: sanitizedCustomPrompt, userPortrait: sanitizedPortrait, responseLength: responseLength ?? 'detailed', documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined, documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined });
-    // DeepSeek tends to reason internally in Chinese; force the chain-of-thought
-    // (reasoning_content) into Russian so the visible "ход мысли" is readable.
+    const baseReasoningSystem = buildChatSystemPrompt({
+      personaId,
+      customSystemPrompt: sanitizedCustomPrompt,
+      userPortrait: sanitizedPortrait,
+      responseLength: responseLength ?? 'detailed',
+      documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
+      documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
+    });
     const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.`;
-    // DeepSeek follows a language directive in the latest USER turn far more
-    // reliably than one in the system prompt — append it to the last user message.
     const reasoningMessages = providerMessages.map((m, i) =>
       i === providerMessages.length - 1 && m.role === 'user'
         ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
@@ -806,11 +383,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // This is the non-reasoning branch — reasoning mode returned above via
-  // streamOpenRouterReasoning. RouterAI reasons by default, so silence has to be
-  // requested: without this the model spends maxOutputTokens thinking and the user
-  // watches an empty stream. See functions/src/shared/aiProvider.ts for the
-  // measurements behind picking reasoningEffort over the `reasoning` object.
+  const systemPrompt = buildChatSystemPrompt({
+    personaId,
+    customSystemPrompt: sanitizedCustomPrompt,
+    userPortrait: sanitizedPortrait,
+    memoryContext: sanitizedMemory,
+    responseLength,
+    reasoning,
+    documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
+    documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
+  });
+
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
@@ -819,18 +402,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     providerOptions: { openai: { reasoningEffort: 'none' } },
     onFinish: async ({ totalUsage }) => {
       try {
-        await recordUsage(uid, totalUsage?.inputTokens ?? 0, totalUsage?.outputTokens ?? 0, activeModel, reservation);
+        await postgresAiContext.recordUsage(
+          uid,
+          totalUsage?.inputTokens ?? 0,
+          totalUsage?.outputTokens ?? 0,
+          { model: activeModel, fn: 'chat-stream' },
+          reservation,
+        );
       } catch (e) {
         console.error('[api/chat] usage record failed:', e);
       }
     },
     onError: async (e) => {
       console.error('[api/chat] streamText failed:', e);
-      await refundGlobalRequest(reservation);
+      await postgresAiContext.refundGlobalRequest(reservation);
       if (isInternalCall) {
-        await refundInternalDailyLimit(uid);
+        await postgresAiContext.refundBulkLimit(uid);
       } else {
-        await refundDailyLimit(uid);
+        await postgresAiContext.refundDailyLimit(uid);
       }
     },
   });
@@ -839,12 +428,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     result.pipeTextStreamToResponse(res);
   } catch (streamErr) {
     console.error('[api/chat] pipe failed:', streamErr);
-    await refundGlobalRequest(reservation);
+    await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await refundInternalDailyLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid);
     } else {
-      await refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid);
     }
-    if (!res.headersSent) res.status(500).json({ error: 'Stream failed' });
+    if (!res.headersSent) json(res, 500, { error: 'Stream failed' });
   }
 }
+
+export default handleChat;

@@ -1,5 +1,5 @@
-import React from 'react';
-import { LogIn, BarChart3 } from 'lucide-react';
+import React, { useState } from 'react';
+import { LogIn, BarChart3, Upload, Loader2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -10,6 +10,9 @@ import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { analytics } from '../../../core/analytics/analytics';
 import { useSyncStatus } from '../hooks/useSyncStatus';
+import { SyncService } from '../../../core/services/SyncService';
+import { useToast } from '../../../shared/components/Toast';
+import { reportError } from '../../../shared/errors/reportError';
 
 interface AppTabProps {
   userId: string;
@@ -18,10 +21,12 @@ interface AppTabProps {
 
 export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabProps) {
   const { t, language, setLanguage } = useLanguage();
+  const { showToast } = useToast();
   const { themeId, setThemeId, themes } = useTheme();
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(userId);
+  const [syncingAll, setSyncingAll] = useState(false);
   // Выключено по умолчанию: отправка заметок в облако — решение человека, а не
   // приложения. Вручную синхронизировать можно кнопкой облака у самой заметки.
   const [autoSync, setAutoSync] = React.useState(
@@ -30,6 +35,28 @@ export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabPr
   const [analyticsConsent, setAnalyticsConsent] = React.useState(
     localStorage.getItem('analytics_consent') === 'true'
   );
+
+  const handleSyncAll = async () => {
+    setSyncingAll(true);
+    try {
+      const res = await SyncService.syncAllUnlinked(userId);
+      showToast(
+        t('settings_sync_all_unlinked_done', { synced: String(res.synced) }),
+        'success'
+      );
+      if (res.failed > 0) {
+        showToast(
+          t('settings_sync_all_unlinked_failed', { failed: String(res.failed) }),
+          'error'
+        );
+      }
+    } catch (err) {
+      reportError(err, { action: 'syncAllUnlinked' });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setSyncingAll(false);
+    }
+  };
 
   const THEME_ACCENT: Record<string, string> = {
     modern:    '#1e1e22',
@@ -86,6 +113,7 @@ export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabPr
             {syncStatus.status === 'offline' && t('sync_paused_no_network')}
             {syncStatus.status === 'cloud_unavailable' && t('sync_paused_cloud_unavailable')}
             {syncStatus.status === 'pending' && t('sync_paused_pending', { count: String(syncStatus.pendingCount) })}
+            {syncStatus.status === 'unsynced' && t('sync_paused_unsynced', { count: String(syncStatus.unsyncedCount) })}
           </div>
         )}
 
@@ -93,6 +121,28 @@ export function AppTab({ userId, onRefreshLifeLog: _onRefreshLifeLog }: AppTabPr
           <div className="px-1 mb-3 text-xs text-emerald-400/60">
             {t('offline_synced')}
           </div>
+        )}
+
+        {isAuthenticated && (
+          <Button
+            onClick={() => void handleSyncAll()}
+            disabled={syncingAll}
+            data-testid="sync-all-unlinked-btn"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors mb-3 disabled:opacity-50"
+          >
+            {syncingAll ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                {t('settings_sync_all_unlinked_progress')}
+              </>
+            ) : (
+              <>
+                <Upload size={14} />
+                {t('settings_sync_all_unlinked_button')}
+                {syncStatus.unsyncedCount > 0 && ` (${syncStatus.unsyncedCount})`}
+              </>
+            )}
+          </Button>
         )}
 
         <div className="px-1 mb-3 text-xs text-text-main/60">

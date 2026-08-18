@@ -165,6 +165,26 @@ export const settingsTranslations: Translations = {
     ru: 'Ошибка импорта: {error}',
     en: 'Import error: {error}',
   },
+  settings_sync_all_unlinked_button: { ru: 'Отправить все заметки в облако', en: 'Upload all notes to cloud' },
+  settings_sync_all_unlinked_progress: { ru: 'Отправляю заметки в облако...', en: 'Uploading notes to cloud...' },
+  settings_sync_all_unlinked_done: { ru: 'Синхронизировано: {synced} заметок', en: 'Synced: {synced} documents' },
+  settings_sync_all_unlinked_failed: { ru: 'Не удалось отправить: {failed} заметок', en: 'Failed to upload: {failed} documents' },
+  settings_migration_import_upload_done: {
+    ru: 'Загружено в облако: {uploaded} заметок (в очереди: {queued})',
+    en: 'Uploaded to cloud: {uploaded} documents (queued: {queued})',
+  },
+  settings_migration_import_upload_locked: {
+    ru: 'Сейф заперт: {queued} заметок сохранены локально и поставлены в очередь выгрузки',
+    en: 'Vault is locked: {queued} documents saved locally and queued for cloud upload',
+  },
+  settings_migration_import_upload_failed: {
+    ru: 'Ошибка отправки в облако ({reason}): {queued} заметок поставлены в очередь',
+    en: 'Cloud upload error ({reason}): {queued} documents queued for retry',
+  },
+  sync_paused_unsynced: {
+    ru: 'Не синхронизировано заметок: {count}',
+    en: 'Unsynced documents: {count}',
+  },
   settings_all_editor_settings: { ru: 'Все настройки редактора →', en: 'All editor settings →' },
   settings_encryption_management: { ru: 'Настройки шифрования и аккаунта →', en: 'Encryption & Account settings →' },
   settings_typewriter: { ru: 'Пишущая машинка', en: 'Typewriter scrolling' },

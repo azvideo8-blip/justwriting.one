@@ -658,4 +658,58 @@ describe("C1 migrationImport", () => {
       "Размышления автора о будущем и личных целях."
     );
   });
+
+  it("C7 Acceptance 2 & 4: importing a manifest when vault is locked queues all imported documents in syncQueue", async () => {
+    const checksum = await sha256Hex("Текст заметки");
+    const manifest: MigrationManifest = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      documents: [
+        {
+          localId: "doc_locked_1",
+          uuid: "uuid-locked-1",
+          title: "Заметка при запертом сейфе",
+          currentVersion: 1,
+          totalWords: 2,
+          totalDuration: 10,
+          sessionsCount: 1,
+          firstSessionAt: 1000,
+          lastSessionAt: 1000,
+          tags: [],
+          versions: [
+            {
+              id: "v_lock_1",
+              version: 1,
+              content: "Текст заметки",
+              wordCount: 2,
+              wordsAdded: 2,
+              charsAdded: 13,
+              duration: 10,
+              wpm: 60,
+              savedAt: 1000,
+              sessionStartedAt: 1000,
+            },
+          ],
+        },
+      ],
+      drafts: [],
+      aiSummaries: [],
+      aiEmbeddings: [],
+      verbatim: [],
+      counters: { documents: 1, versions: 1, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+      checksums: { v_lock_1: checksum },
+      skipped: [],
+    };
+
+    const res = await importMigrationManifest(manifest, "u_test");
+    expect(res.success).toBe(true);
+    expect(res.imported.documents).toBe(1);
+    expect(res.upload).toBeDefined();
+    expect(res.upload?.status).toBe("vault_locked");
+    expect(res.upload?.queued).toBe(1);
+
+    const db = await getLocalDb();
+    const queue = await db.getAll("syncQueue");
+    expect(queue.some(item => item.documentId === "doc_locked_1")).toBe(true);
+  });
 });
