@@ -1,0 +1,10 @@
+[Unit]
+Description=Резервная копия базы justwriting
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/justwriting/backup/pg-backup.sh
+StandardOutput=journal
+StandardError=journal

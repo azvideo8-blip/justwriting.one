@@ -1,0 +1,12 @@
+[Unit]
+Description=Ежедневная резервная копия базы justwriting
+
+[Timer]
+# Ночью по московскому времени, со случайным разбросом, чтобы копия не
+# приходилась ровно на тот же момент, что и обновление сертификатов.
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target
