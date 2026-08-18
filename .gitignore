@@ -23,3 +23,6 @@ test-results/
 # TokenSave local code-graph DB
 .tokensave/
 .claude/settings.local.json
+
+# Python bytecode (scripts/fetch-fonts.py)
+__pycache__/
