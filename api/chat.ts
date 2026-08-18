@@ -153,7 +153,20 @@ const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-
 // границу — а это трансграничная передача, для которой нужно отдельное
 // уведомление до начала потока (ст. 12 152-ФЗ). Параметр обязателен на каждом
 // запросе, который несёт пользовательский текст.
-export const RU_ONLY_ROUTING = { country: 'ru' } as const;
+//
+// ПРОВЕРЕНО ЖИВЫМИ ЗАПРОСАМИ 2026-08-18: с `country: 'ru'` наша модель отвечает
+// 503 «No available providers». Внутри российского контура у RouterAI работают
+// только модели Yandex, а моделей эмбеддингов нет ни одной. Поэтому параметр
+// вынесен в переменную окружения и по умолчанию НЕ шлётся: иначе весь ИИ
+// отвечал бы 503.
+//
+// Пустое значение означает «ограничения нет» — то есть запрос может уйти за
+// границу, и это требует уведомления по ст. 12 152-ФЗ. Включать `ru` можно
+// только вместе с переходом на модель, которая внутри контура существует.
+export const AI_PROVIDER_COUNTRY = process.env.AI_PROVIDER_COUNTRY ?? '';
+const providerRouting = AI_PROVIDER_COUNTRY
+  ? { country: AI_PROVIDER_COUNTRY }
+  : undefined;
 
 // Клиент SDK строит тело сам, поэтому параметр дописывается в перехватчике —
 // иначе его пришлось бы протаскивать через маппинг опций провайдера и он молча
@@ -162,8 +175,8 @@ const ruOnlyFetch: typeof fetch = async (input, init) => {
   if (typeof init?.body === 'string') {
     try {
       const parsed: unknown = JSON.parse(init.body);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        init = { ...init, body: JSON.stringify({ ...parsed, provider: RU_ONLY_ROUTING }) };
+      if (providerRouting && parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        init = { ...init, body: JSON.stringify({ ...parsed, provider: providerRouting }) };
       }
     } catch { /* не JSON — отдаём как есть */ }
   }
@@ -453,7 +466,7 @@ async function streamOpenRouterReasoning(
         messages: [{ role: 'system', content: system }, ...messages],
         stream: true,
         max_tokens: 16384,
-        provider: RU_ONLY_ROUTING,
+        ...(providerRouting ? { provider: providerRouting } : {}),
         reasoning: { effort: 'high' },
         stream_options: { include_usage: true },
       }),

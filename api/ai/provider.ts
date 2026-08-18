@@ -8,6 +8,14 @@
 // them — on a Firebase deployment that the VPS migration retires. The VPS AI
 // proxy gets provider-neutral AI_* names instead.
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
+// Ограничение контура обработки. Пусто = ограничения нет, запрос может уйти к
+// зарубежному провайдеру модели (ст. 12 152-ФЗ). Проверено 2026-08-18: с
+// `country: 'ru'` доступны только модели Yandex, а эмбеддингов внутри контура
+// нет вовсе — поэтому по умолчанию не шлём. См. api/chat.ts.
+const PROVIDER_ROUTING = process.env.AI_PROVIDER_COUNTRY
+  ? { country: process.env.AI_PROVIDER_COUNTRY }
+  : undefined;
+
 const OPENROUTER_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const OPENROUTER_EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL ?? 'qwen/qwen3-embedding-8b';
 
@@ -86,11 +94,7 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     model: activeModel,
     messages: oaMessages,
     max_tokens: maxTokens ?? 4096,
-    // Без этого параметра запрос может уйти к зарубежному провайдеру модели —
-    // подтверждено поддержкой RouterAI 2026-08-12. Здесь через тело проходит
-    // текст заметок, поэтому параметр обязателен. См. RU_ONLY_ROUTING в
-    // api/chat.ts.
-    provider: { country: 'ru' },
+    ...(PROVIDER_ROUTING ? { provider: PROVIDER_ROUTING } : {}),
   };
 
   // Every caller of generate() wants an answer, not a chain of thought: these are
@@ -261,9 +265,7 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
         body: JSON.stringify({
           model: OPENROUTER_EMBED_MODEL,
           input: texts,
-          // Векторы считаются по тексту заметки — тот же контур, что и всё
-          // остальное.
-          provider: { country: 'ru' },
+          ...(PROVIDER_ROUTING ? { provider: PROVIDER_ROUTING } : {}),
         }),
         signal: controller.signal,
       });
