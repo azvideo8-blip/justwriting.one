@@ -23,6 +23,12 @@ interface LoginPageProps {
   onClose?: () => void;
 }
 
+// Регистрация закрыта: сервис работает в одиночном режиме, на сервере стоит
+// DISABLE_SIGNUP=true. Форма без этого флага осталась бы на месте и отвечала
+// бы отказом — хуже, чем её отсутствие. Ставить true одновременно с открытием
+// регистрации на сервере, не раньше.
+const SIGNUP_ENABLED = false;
+
 export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -251,12 +257,14 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               {mode === 'login' ? t('auth_sign_in') : t('auth_sign_up')}
             </Button>
 
-          <Button 
-            onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-            className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main"
-          >
-            {mode === 'login' ? t('auth_no_account') : t('auth_has_account')}
-          </Button>
+          {SIGNUP_ENABLED && (
+            <Button
+              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+              className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main"
+            >
+              {mode === 'login' ? t('auth_no_account') : t('auth_has_account')}
+            </Button>
+          )}
 
           {mode === 'login' && (
             <Button

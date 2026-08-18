@@ -1,0 +1,31 @@
+<!-- Письмо подтверждения адреса. Шаблон отдаётся с нашего же домена и
+     подставляется в GoTrue через GOTRUE_MAILER_TEMPLATES_CONFIRMATION.
+     Заводской шаблон был англоязычным и безымянным — человек получал письмо
+     «Confirm Your Email» неизвестно от кого и отправлял его в спам. -->
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #1a1a1a; max-width: 520px;">
+  <p style="margin: 0 0 20px;">Здравствуйте!</p>
+
+  <p style="margin: 0 0 20px;">
+    Вы завели аккаунт в <strong>justwriting</strong> — тихом редакторе для свободного письма.
+    Осталось подтвердить, что этот адрес действительно ваш.
+  </p>
+
+  <p style="margin: 0 0 28px;">
+    <a href="{{ .ConfirmationURL }}"
+       style="display: inline-block; padding: 12px 24px; background: #6d5ce7; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 600;">
+      Подтвердить адрес
+    </a>
+  </p>
+
+  <p style="margin: 0 0 20px; color: #555;">
+    Если кнопка не открывается, введите код вручную: <strong>{{ .Token }}</strong>
+  </p>
+
+  <p style="margin: 0 0 8px; color: #555;">
+    Если вы этого не делали, просто удалите письмо — без подтверждения аккаунт не заработает.
+  </p>
+
+  <p style="margin: 24px 0 0; color: #888; font-size: 14px;">
+    justwriting · <a href="https://justwriting.ru" style="color: #6d5ce7;">justwriting.ru</a>
+  </p>
+</div>

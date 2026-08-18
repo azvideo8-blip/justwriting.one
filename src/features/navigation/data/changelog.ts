@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.2',
+    date: '2026-08-18',
+    items: [
+      { category: 'improvement', ru: 'Письма от сервиса приходят на русском и от имени justwriting. Прежде это были заводские англоязычные письма без отправителя, которые почтовые службы охотно считали спамом', en: 'Service emails now arrive in Russian and from justwriting. They used to be the factory English ones with no sender identity, which mail services were happy to treat as spam' },
+      { category: 'fix', ru: 'Форма регистрации убрана из окна входа: сервис пока работает в одиночном режиме, и регистрация закрыта на сервере — форма отвечала бы отказом', en: 'The sign-up form is gone from the login window: the service runs single-user for now and registration is closed on the server, so the form would only answer with a refusal' },
+    ],
+  },
+  {
     version: '0.8.1',
     date: '2026-08-18',
     items: [

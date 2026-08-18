@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2 — 2026-08-18
+
+- **[RU]** Форма регистрации убрана из окна входа: сервис пока работает в одиночном режиме, и на сервере регистрация закрыта. Оставленная форма отвечала бы отказом — это хуже, чем её отсутствие.
+- **[EN]** The sign-up form is gone from the login window: the service runs single-user for now and registration is closed on the server. A form left in place would answer with a refusal, which is worse than not having it.
+- **[RU]** Письма от сервиса приходят на русском и от имени justwriting — подтверждение адреса и смена пароля. Прежде это были заводские англоязычные письма без отправителя, которые почтовые службы охотно считали спамом. В письме о смене пароля прямо сказано, что пароль входа и пароль сейфа шифрования — разные вещи и смена первого не открывает заметки.
+- **[EN]** Service emails now arrive in Russian and from justwriting — address confirmation and password reset. They used to be the factory English ones with no sender identity, which mail services were happy to treat as spam. The password reset email says plainly that the login password and the encryption vault password are different things, and changing the first does not unlock the notes.
+
 ## 0.8.1 — 2026-08-18
 
 - **[RU]** В настройках появилась загрузка архива, выгруженного из прежней версии приложения. Выгрузка существовала давно, а обратной стороны не было вовсе — перенести свои записи было нечем. Импорт сверяет контрольные суммы каждой версии текста, не создаёт вторых копий при повторном запуске и сохраняет связь заметки с её разбором. По итогу показывает отчёт: сколько перенесено, что пропущено и почему.
