@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.1',
+    date: '2026-08-18',
+    items: [
+      { category: 'new', ru: 'В настройках появилась загрузка архива, выгруженного из прежней версии приложения: выгрузка была давно, а забрать данные обратно было нечем. Импорт сверяет контрольные суммы, не создаёт вторых копий при повторном запуске, сохраняет связь заметки с её разбором и показывает отчёт — что перенесено, что пропущено и почему', en: 'Settings can now load an archive exported from an earlier version of the app: the export had existed for a long time with nothing to read it back. The import verifies checksums, creates no second copies when run twice, keeps each note attached to its analysis, and ends with a report of what was imported, skipped, and why' },
+      { category: 'improvement', ru: 'Загрузка архива недоступна, пока не создан сейф шифрования: на устройстве текст лежит открытым, а в облако уезжает зашифрованным, поэтому порядок — сначала сейф, потом архив, потом синхронизация', en: 'The archive import stays disabled until an encryption vault exists: text is stored in the clear on the device and encrypted on its way to the cloud, so the order is vault first, then archive, then sync' },
+      { category: 'fix', ru: 'Отчёты о нарушениях политики безопасности снова доходят: сервер отвечал на них отказом в доступе, хотя браузер отправляет их без авторизации и приложить её не может', en: 'Security policy violation reports arrive again: the server answered them with an authorisation error, though the browser sends them unauthenticated and cannot do otherwise' },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-08-18',
     items: [

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.1 — 2026-08-18
+
+- **[RU]** В настройках появилась загрузка архива, выгруженного из прежней версии приложения. Выгрузка существовала давно, а обратной стороны не было вовсе — перенести свои записи было нечем. Импорт сверяет контрольные суммы каждой версии текста, не создаёт вторых копий при повторном запуске и сохраняет связь заметки с её разбором. По итогу показывает отчёт: сколько перенесено, что пропущено и почему.
+- **[EN]** Settings can now load an archive exported from an earlier version of the app. The export had existed for a long time with no counterpart, so there was no way to bring your own writing across. The import verifies the checksum of every version of the text, creates no second copies when run twice, and keeps each note attached to its own analysis. It ends with a report: what was imported, what was skipped and why.
+- **[RU]** Загрузка недоступна, пока не создан сейф шифрования, и рядом сказано почему: на устройстве текст лежит открытым, а в облако уезжает зашифрованным, поэтому порядок — сначала сейф, потом архив, потом синхронизация.
+- **[EN]** The import stays disabled until an encryption vault exists, and says why: text is stored in the clear on the device and encrypted on its way to the cloud, so the order is vault first, then the archive, then sync.
+- **[RU]** Из переносимого архива не восстанавливается картотека упомянутых людей и упоминания в сводках: они удалены из приложения в 0.8.0, и файл, сделанный старой версией, не должен возвращать их обратно. Сколько таких записей исключено, видно в отчёте.
+- **[EN]** The archive does not restore the index of mentioned people or the mentions inside summaries: those were removed from the app in 0.8.0, and a file made by an older version must not bring them back. The report says how many such records were left out.
+
 ## 0.8.0 — 2026-08-18
 
 - **[RU]** У каждой заметки появилась кнопка «Не показывать ИИ». Помеченная заметка не попадает ни в один запрос к поставщику: ни в поиск по словам, ни в поиск по смыслу, ни в связанные заметки, ни в прикреплённые к вопросу вручную. Разбор на ней запрещён, а уже посчитанные сводка и вектор удаляются — и на устройстве, и в облаке. Признак уезжает в облако вместе с заметкой: иначе на втором устройстве она снова оказалась бы открыта, а человек об этом не узнал бы.
