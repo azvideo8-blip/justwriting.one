@@ -22,11 +22,13 @@ vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockImplementation(async (doc, fields, a
 });
 
 const {
+  mockGetDocument,
   mockGetUserDocuments,
   mockGetVersions,
   mockGetMigrationDrafts,
   mockExecuteMigrationBatch
 } = vi.hoisted(() => ({
+  mockGetDocument: vi.fn(),
   mockGetUserDocuments: vi.fn(),
   mockGetVersions: vi.fn(),
   mockGetMigrationDrafts: vi.fn(),
@@ -35,6 +37,7 @@ const {
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getDocument: mockGetDocument,
     getUserDocuments: mockGetUserDocuments,
     getVersions: mockGetVersions,
     getMigrationDrafts: mockGetMigrationDrafts,
@@ -48,9 +51,10 @@ describe('encryptAllExistingNotes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockGetDocument.mockResolvedValue(null);
   });
 
-  it('encrypts all unencrypted documents', async () => {
+  it('encrypts all unencrypted documents, versions, and drafts', async () => {
     mockGetUserDocuments.mockResolvedValue([{ id: 'doc1' }]);
     mockGetVersions.mockImplementation(async (_u, docId) => docId === 'doc1' ? [{ id: 'ver1', content: 'world', _encrypted: false }] : []);
     mockGetMigrationDrafts.mockResolvedValue([{ id: 'draft1', data: { content: 'test', _encrypted: false } }]);
@@ -58,9 +62,9 @@ describe('encryptAllExistingNotes', () => {
     const progressCallback = vi.fn();
     const progress = await encryptAllExistingNotes(userId, progressCallback);
 
-    expect(progress.total).toBe(2); // 1 version + 1 draft
-    expect(progress.processed).toBe(2);
-    expect(progress.encrypted).toBe(2);
+    expect(progress.total).toBe(3); // 1 doc + 1 version + 1 draft
+    expect(progress.processed).toBe(3);
+    expect(progress.encrypted).toBe(3);
     expect(progress.errors).toBe(0);
     expect(progressCallback).toHaveBeenCalled();
   });
@@ -106,9 +110,9 @@ describe('encryptAllExistingNotes', () => {
     vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockRejectedValueOnce(new Error('Crypt error'));
 
     const progress = await encryptAllExistingNotes(userId);
-    expect(progress.total).toBe(1);
-    expect(progress.processed).toBe(1);
-    expect(progress.encrypted).toBe(0);
+    expect(progress.total).toBe(2); // 1 doc + 1 version
+    expect(progress.processed).toBe(2);
+    expect(progress.encrypted).toBe(1);
     expect(progress.errors).toBe(1);
   });
 
@@ -131,7 +135,6 @@ describe('encryptAllExistingNotes', () => {
     mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', _encrypted: false }]);
     mockGetMigrationDrafts.mockResolvedValue([]);
 
-    // Simulate vault locking mid-run: key present for initial check, null after.
     let callCount = 0;
     const spy = vi.spyOn(encryptModule, 'getSessionKey');
     spy.mockImplementation(() => {
@@ -142,7 +145,6 @@ describe('encryptAllExistingNotes', () => {
 
     await expect(encryptAllExistingNotes(userId)).rejects.toThrow('Vault locked during migration');
 
-    // Restore original mock for subsequent tests
     spy.mockImplementation(() => ({} as CryptoKey));
   });
 
@@ -156,7 +158,7 @@ describe('encryptAllExistingNotes', () => {
     });
 
     const progress = await encryptAllExistingNotes(userId);
-    expect(progress.encrypted).toBe(1);
+    expect(progress.encrypted).toBe(2);
     expect(progress.errors).toBe(0);
   });
 
@@ -190,7 +192,7 @@ describe('encryptAllExistingNotes', () => {
     mockGetMigrationDrafts.mockResolvedValue([]);
 
     const progress = await encryptAllExistingNotes(userId);
-    expect(progress.encrypted).toBe(1);
+    expect(progress.encrypted).toBe(2);
     expect(progress.errors).toBe(0);
   });
 });
@@ -201,6 +203,7 @@ describe('encryptSingleDocument', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockGetDocument.mockResolvedValue({ id: 'doc1', _encrypted: true });
   });
 
   it('encrypts all unencrypted versions of a single document', async () => {
@@ -244,5 +247,15 @@ describe('encryptSingleDocument', () => {
   it('throws when versions query fails', async () => {
     mockGetVersions.mockRejectedValue(new Error('Firestore error'));
     await expect(encryptSingleDocument(userId, 'doc1')).rejects.toThrow('Firestore error');
+  });
+
+  it('encrypts unencrypted document row as well', async () => {
+    mockGetDocument.mockResolvedValue({ id: 'doc1', title: 'Hello', _encrypted: false });
+    mockGetVersions.mockResolvedValue([]);
+
+    const result = await encryptSingleDocument(userId, 'doc1');
+    expect(result.processed).toBe(1);
+    expect(result.encrypted).toBe(1);
+    expect(result.errors).toBe(0);
   });
 });

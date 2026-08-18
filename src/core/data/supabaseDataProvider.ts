@@ -1,17 +1,19 @@
 import { getSupabase } from '../supabase/client';
 import { IDataProvider, ProviderRecord } from './types';
+import { maybeEncrypt, maybeDecrypt } from '../crypto/cryptoHelpers';
+import { reportError } from '../../shared/errors/reportError';
 
 const toMs = (v: unknown) => (typeof v === 'string' ? Date.parse(v) : v);
 const toIso = (v: unknown) => (typeof v === 'number' ? new Date(v).toISOString() : v instanceof Date ? v.toISOString() : v);
 
 const DATE_COLUMNS = new Set([
   'saved_at', 'session_started_at', 'updated_at', 'first_session_at', 'last_session_at',
-  'created_at', 'privacy_accepted_at',
+  'created_at', 'privacy_accepted_at', 'ai_consent_at',
 ]);
 
 const DATE_FIELDS_CLIENT = new Set([
   'savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt',
-  'createdAt', 'privacyAcceptedAt',
+  'createdAt', 'privacyAcceptedAt', 'aiConsentAt',
 ]);
 
 const USER_FIELDS: Record<string, string> = {
@@ -56,6 +58,7 @@ const DOCUMENT_FIELDS: Record<string, string> = {
   labelId: 'label_id',
   mood: 'mood',
   excludedFromAI: 'excluded_from_ai',
+  _encrypted: '_encrypted',
   createdAt: 'created_at',
 };
 
@@ -306,22 +309,74 @@ export const SupabaseDataProvider: IDataProvider = {
   },
 
   async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
-    const { data } = await getSupabase().from('documents').select('uuid, tags').eq('user_id', userId).contains('tags', [oldTag]);
-    if (data == null || data.length === 0) return;
+    const { data, error } = await getSupabase()
+      .from('documents')
+      .select('uuid, tags, _encrypted')
+      .eq('user_id', userId);
+    if (error != null || data == null || data.length === 0) return;
+
     for (const doc of data) {
-      const tags = (doc.tags || []) as string[];
-      const newTags = Array.from(new Set(tags.map(t => (t === oldTag ? newTag : t))));
-      await getSupabase().from('documents').update({ tags: newTags }).eq('user_id', userId).eq('uuid', doc.uuid);
+      let tags: string[] = [];
+      try {
+        const decrypted = await maybeDecrypt(
+          { tags: doc.tags, _encrypted: doc._encrypted },
+          [],
+          ['tags']
+        );
+        tags = Array.isArray(decrypted.tags) ? (decrypted.tags as string[]) : [];
+      } catch (e) {
+        reportError(e, { action: 'renameTagInAllDocs_decrypt', docUuid: doc.uuid });
+        continue;
+      }
+
+      if (tags.includes(oldTag)) {
+        const newTags = Array.from(new Set(tags.map(t => (t === oldTag ? newTag : t))));
+        const encrypted = await maybeEncrypt({ tags: newTags }, [], ['tags'], userId);
+        await getSupabase()
+          .from('documents')
+          .update({
+            tags: encrypted.tags,
+            _encrypted: (encrypted._encrypted as boolean) ?? doc._encrypted ?? false,
+          })
+          .eq('user_id', userId)
+          .eq('uuid', doc.uuid);
+      }
     }
   },
 
   async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
-    const { data } = await getSupabase().from('documents').select('uuid, tags').eq('user_id', userId).contains('tags', [tag]);
-    if (data == null || data.length === 0) return;
+    const { data, error } = await getSupabase()
+      .from('documents')
+      .select('uuid, tags, _encrypted')
+      .eq('user_id', userId);
+    if (error != null || data == null || data.length === 0) return;
+
     for (const doc of data) {
-      const tags = (doc.tags || []) as string[];
-      const newTags = tags.filter(t => t !== tag);
-      await getSupabase().from('documents').update({ tags: newTags }).eq('user_id', userId).eq('uuid', doc.uuid);
+      let tags: string[] = [];
+      try {
+        const decrypted = await maybeDecrypt(
+          { tags: doc.tags, _encrypted: doc._encrypted },
+          [],
+          ['tags']
+        );
+        tags = Array.isArray(decrypted.tags) ? (decrypted.tags as string[]) : [];
+      } catch (e) {
+        reportError(e, { action: 'removeTagFromAllDocs_decrypt', docUuid: doc.uuid });
+        continue;
+      }
+
+      if (tags.includes(tag)) {
+        const newTags = tags.filter(t => t !== tag);
+        const encrypted = await maybeEncrypt({ tags: newTags }, [], ['tags'], userId);
+        await getSupabase()
+          .from('documents')
+          .update({
+            tags: encrypted.tags,
+            _encrypted: (encrypted._encrypted as boolean) ?? doc._encrypted ?? false,
+          })
+          .eq('user_id', userId)
+          .eq('uuid', doc.uuid);
+      }
     }
   },
 
@@ -645,7 +700,7 @@ export const SupabaseDataProvider: IDataProvider = {
   },
 
   async executeMigrationBatch(ops: {
-    type: 'version' | 'draft';
+    type: 'version' | 'draft' | 'document';
     userId: string;
     documentId?: string;
     versionId?: string;
@@ -660,6 +715,10 @@ export const SupabaseDataProvider: IDataProvider = {
       } else if (op.type === 'draft' && op.draftId) {
         const payload = toDb(DRAFT_FIELDS, { ...op.data, userId: op.userId });
         await getSupabase().from('drafts').upsert(payload);
+      } else if (op.type === 'document' && op.documentId) {
+        const payload = toDb(DOCUMENT_FIELDS, { ...op.data, uuid: op.documentId, userId: op.userId });
+        delete payload.id;
+        await getSupabase().from('documents').update(payload).eq('user_id', op.userId).eq('uuid', op.documentId);
       }
     }
   }

@@ -533,6 +533,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       setDialogue(fresh ?? dialogue);
       const msg = e instanceof Error ? e.message : 'SERVER_ERROR';
       if (msg === 'ABORTED') { /* user stopped — no error */ }
+      else if (msg === 'AI_CONSENT_REQUIRED') setError('Для общения с ИИ требуется согласие на обработку данных');
       else if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
       else if (msg === 'GLOBAL_LIMIT') { setError('Лимит приложения исчерпан — попробуйте позже'); }
       else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');

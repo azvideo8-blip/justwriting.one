@@ -135,6 +135,7 @@ export function ArchiveNoteList({
         const errMap: Record<string, string> = {
           NO_CONTENT: t('ai_note_too_short'),
           TOO_SHORT: t('ai_note_too_short'),
+          AI_CONSENT_REQUIRED: t('archive_preview_ai_consent_required'),
           AUTH_REQUIRED: getCurrentUser() ? t('ai_error_session') : t('ai_error_auth'),
           DAILY_LIMIT: t('ai_error_rate_limit'),
           RATE_LIMIT: t('ai_error_rate_limit'),

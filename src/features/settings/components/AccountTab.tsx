@@ -11,6 +11,7 @@ import { Section } from './SettingsHelpers';
 import { AccountProfileSection } from './AccountProfileSection';
 import { AccountVaultSection } from './AccountVaultSection';
 import { AccountExportSection } from './AccountExportSection';
+import { AccountAISection } from './AccountAISection';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 
@@ -164,6 +165,8 @@ export function AccountTab({ userId }: AccountTabProps) {
               </div>
             )}
           </div>
+
+          <AccountAISection userId={userId} />
 
           <AccountExportSection userId={userId} />
 

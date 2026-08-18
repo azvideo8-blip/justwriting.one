@@ -155,9 +155,9 @@ describe('WritingDraftService', () => {
     });
   });
 
-  describe('saveToFirestore', () => {
+  describe('saveDraftToCloud', () => {
     it('does nothing if no userId', async () => {
-            const wrote = await WritingDraftService.saveToFirestore({ userId: '', content: '', updatedAt: 0 } as unknown as LocalDraft);
+            const wrote = await WritingDraftService.saveDraftToCloud({ userId: '', content: '', updatedAt: 0 } as unknown as LocalDraft);
       expect(DataProvider.saveDraft).not.toHaveBeenCalled();
       // Reports "did not write" so the caller can't record a stale cloud copy
       // as a successful save.
@@ -166,7 +166,7 @@ describe('WritingDraftService', () => {
 
     it('does nothing if profile not loaded', async () => {
       vi.mocked(isProfileLoaded).mockReturnValue(false);
-            const wrote = await WritingDraftService.saveToFirestore({ userId: mockUserId, content: '', updatedAt: 0 } as unknown as LocalDraft);
+            const wrote = await WritingDraftService.saveDraftToCloud({ userId: mockUserId, content: '', updatedAt: 0 } as unknown as LocalDraft);
       expect(DataProvider.saveDraft).not.toHaveBeenCalled();
       expect(wrote).toBe(false);
     });
@@ -175,7 +175,7 @@ describe('WritingDraftService', () => {
       vi.mocked(isProfileLoaded).mockReturnValue(true);
             vi.mocked(maybeEncrypt).mockResolvedValue({ content: 'enc', userId: mockUserId, title: 'T' });
       const draft = { userId: mockUserId, content: 'hello', title: 'T', updatedAt: 1000 };
-      await WritingDraftService.saveToFirestore(draft as unknown as LocalDraft);
+      await WritingDraftService.saveDraftToCloud(draft as unknown as LocalDraft);
       expect(DataProvider.saveDraft).toHaveBeenCalledWith(
         mockUserId,
         expect.objectContaining({ content: 'enc', title: 'T' })
@@ -189,7 +189,7 @@ describe('WritingDraftService', () => {
       const draft = { userId: mockUserId, content: 'hello', updatedAt: 1000 };
       // The error must survive intact: the caller classifies permanent vs
       // transient failures by `code`, which the old generic wrapper discarded.
-      await expect(WritingDraftService.saveToFirestore(draft as unknown as LocalDraft)).rejects.toBe(original);
+      await expect(WritingDraftService.saveDraftToCloud(draft as unknown as LocalDraft)).rejects.toBe(original);
     });
 
     it('skips the write when nothing but the clock changed', async () => {
@@ -198,19 +198,19 @@ describe('WritingDraftService', () => {
       const uid = 'user_unchanged';
       const base = { userId: uid, content: 'hello', title: 'T', wordCount: 1 };
 
-      await WritingDraftService.saveToFirestore({ ...base, seconds: 30, updatedAt: 1000 } as unknown as LocalDraft);
+      await WritingDraftService.saveDraftToCloud({ ...base, seconds: 30, updatedAt: 1000 } as unknown as LocalDraft);
       expect(DataProvider.saveDraft).toHaveBeenCalledTimes(1);
 
       // The 30s cloud autosave firing again on an untouched draft: only the
       // elapsed counters moved, so this must not reach Firestore.
-      const wrote = await WritingDraftService.saveToFirestore(
+      const wrote = await WritingDraftService.saveDraftToCloud(
         { ...base, seconds: 60, totalPauseSeconds: 12, updatedAt: 31_000 } as unknown as LocalDraft
       );
       expect(DataProvider.saveDraft).toHaveBeenCalledTimes(1);
       // Still reported as current — the cloud copy is not stale.
       expect(wrote).toBe(true);
 
-      await WritingDraftService.saveToFirestore(
+      await WritingDraftService.saveDraftToCloud(
         { ...base, content: 'hello world', seconds: 90, updatedAt: 61_000 } as unknown as LocalDraft
       );
       expect(DataProvider.saveDraft).toHaveBeenCalledTimes(2);
@@ -223,9 +223,9 @@ describe('WritingDraftService', () => {
       const uid = 'user_retyped';
       const draft = { userId: uid, content: 'again', updatedAt: 1000 } as unknown as LocalDraft;
 
-      await WritingDraftService.saveToFirestore(draft);
+      await WritingDraftService.saveDraftToCloud(draft);
       await WritingDraftService.deleteDraft(uid);
-      await WritingDraftService.saveToFirestore(draft);
+      await WritingDraftService.saveDraftToCloud(draft);
       expect(DataProvider.saveDraft).toHaveBeenCalledTimes(2);
     });
 
@@ -233,8 +233,8 @@ describe('WritingDraftService', () => {
       vi.mocked(isProfileLoaded).mockReturnValue(true);
             // We can simulate abort by calling save twice quickly
       const draft = { userId: mockUserId, content: 'hello', updatedAt: 1000 };
-      const p1 = WritingDraftService.saveToFirestore(draft as unknown as LocalDraft);
-      const p2 = WritingDraftService.saveToFirestore(draft as unknown as LocalDraft);
+      const p1 = WritingDraftService.saveDraftToCloud(draft as unknown as LocalDraft);
+      const p2 = WritingDraftService.saveDraftToCloud(draft as unknown as LocalDraft);
       await expect(p2).resolves.toBe(true);
       // p1 either resolves early because of abort check, or completes before abort
       // either way it should not throw. An aborted save counts as success: a

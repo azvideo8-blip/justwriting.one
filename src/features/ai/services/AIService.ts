@@ -12,7 +12,7 @@ const GEN_TIMEOUT_MS = 115_000;
 export type AIAction = 'accents' | 'ideas' | 'summarize' | 'continue' | 'gratitude' | 'achievements';
 export type AIMessage = { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined };
 export type AIErrorCode =
-  | 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG'
+  | 'AUTH_REQUIRED' | 'AI_CONSENT_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG'
   | 'UPSTREAM' | 'SERVER_ERROR' | 'NETWORK';
 
 export type AIResult =
@@ -39,6 +39,7 @@ export interface AISummaryPayload {
 function mapAIError(e: unknown): AIErrorCode {
   const code = (e as { code?: string }).code;
   const message = (e as { message?: string }).message ?? '';
+  if (code === 'AI_CONSENT_REQUIRED' || message === 'AI_CONSENT_REQUIRED') return 'AI_CONSENT_REQUIRED';
   // Связь оборвалась, а не сервис сломался. Раньше всё это попадало в
   // SERVER_ERROR и писалось в журнал уровнем error, так что день с отвалившимся
   // прокси выглядел как день с поломанным приложением.
@@ -50,7 +51,7 @@ function mapAIError(e: unknown): AIErrorCode {
   if (code === 'functions/internal' && message.trim().toLowerCase() === 'internal') return 'NETWORK';
   if (message === 'Timeout' || (e as { isTimeout?: boolean }).isTimeout) return 'NETWORK';
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'NETWORK';
-  if (code === 'functions/unauthenticated') return 'AUTH_REQUIRED';
+  if (code === 'functions/unauthenticated' || message === 'AUTH_REQUIRED') return 'AUTH_REQUIRED';
   if (code === 'functions/resource-exhausted') {
     const errData = (e as { details?: { errorType?: string } }).details;
     if (errData?.errorType === 'DAILY_LIMIT' || message.toLowerCase().includes('daily limit')) return 'DAILY_LIMIT';

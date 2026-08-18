@@ -57,7 +57,7 @@ export async function persistDraft(
   const promises: [Promise<unknown>, Promise<unknown>] = [
     WritingDraftService.saveToLocal(draft),
     shouldRemoteSave
-      ? WritingDraftService.saveToFirestore(draft)
+      ? WritingDraftService.saveDraftToCloud(draft)
       : Promise.resolve(true),
   ];
 

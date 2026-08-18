@@ -5,7 +5,7 @@ import { WritingDraftService } from '../../services/WritingDraftService';
 vi.mock('../../services/WritingDraftService', () => ({
   WritingDraftService: {
     saveToLocal: vi.fn().mockResolvedValue(undefined),
-    saveToFirestore: vi.fn().mockResolvedValue(true),
+    saveDraftToCloud: vi.fn().mockResolvedValue(true),
     clearLegacyDraft: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -69,11 +69,11 @@ describe('persistDraft', () => {
     vi.clearAllMocks();
   });
 
-  it('calls saveToLocal and saveToFirestore in parallel', async () => {
+  it('calls saveToLocal and saveDraftToCloud in parallel', async () => {
     const draft = { userId: 'u1', content: 'test' } as any;
     await persistDraft(draft);
     expect(WritingDraftService.saveToLocal).toHaveBeenCalledWith(draft);
-    expect(WritingDraftService.saveToFirestore).toHaveBeenCalledWith(draft);
+    expect(WritingDraftService.saveDraftToCloud).toHaveBeenCalledWith(draft);
   });
 
   it('localOk=true when saveToLocal resolves', async () => {
@@ -82,17 +82,17 @@ describe('persistDraft', () => {
     expect(result.remoteOk).toBe(true);
   });
 
-  it('remoteOk=false when saveToFirestore rejects, localOk still true', async () => {
+  it('remoteOk=false when saveDraftToCloud rejects, localOk still true', async () => {
     const mockError = new Error('fail');
-    (WritingDraftService.saveToFirestore as any).mockRejectedValueOnce(mockError);
+    (WritingDraftService.saveDraftToCloud as any).mockRejectedValueOnce(mockError);
     const result = await persistDraft({ userId: 'u1' } as any);
     expect(result.localOk).toBe(true);
     expect(result.remoteOk).toBe(false);
     expect(result.remoteError).toBe(mockError);
   });
 
-  it('remoteOk=false when saveToFirestore returns false', async () => {
-    (WritingDraftService.saveToFirestore as any).mockResolvedValueOnce(false);
+  it('remoteOk=false when saveDraftToCloud returns false', async () => {
+    (WritingDraftService.saveDraftToCloud as any).mockResolvedValueOnce(false);
     const result = await persistDraft({ userId: 'u1' } as any);
     expect(result.localOk).toBe(true);
     expect(result.remoteOk).toBe(false);

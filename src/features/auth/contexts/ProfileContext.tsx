@@ -3,6 +3,8 @@ import { DataProvider } from '../../../core/data';
 import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/data/schemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
+import { setAiConsent } from '../../../core/ai/aiConsent';
+import { PRIVACY_VERSION } from '../components/PrivacyModal';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuth } from './AuthContext';
 
@@ -23,6 +25,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting profile when user signs out
       setProfile(null);
       setProfileLoaded('guest', true);
+      setAiConsent('guest', false);
       creationAttemptedRef.current = false;
       return;
     }
@@ -61,6 +64,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 if (!!(parsed.data.encryptionSalt && parsed.data.encryptedDataKey) || !!parsed.data.encryptionMeta) {
                   setEncryptionEnabled(user.uid, true);
                 }
+
+                // Согласие на спецкатегории (ст. 10 152-ФЗ):
+                // Снапшот приходит из postgres_changes, а логическая репликация не присылает
+                // неизменённые TOAST-значения, и fromDb выбрасывает null'ы для отсутствующих полей.
+                // Отсутствие ai_consent_at в снапшоте не означает отзыва согласия.
+                // Обновляем флаг согласия по снапшоту ТОЛЬКО если поле aiConsentAt явно в нём присутствует.
+                // Снимать согласие допустимо при явном aiConsentAt === null в payload либо по authoritative getProfile.
+                if (parsed.data.aiConsentAt !== undefined) {
+                  const hasConsent = parsed.data.aiConsentAt !== null &&
+                    typeof parsed.data.aiConsentVersion === 'number' &&
+                    parsed.data.aiConsentVersion >= PRIVACY_VERSION;
+                  setAiConsent(user.uid, hasConsent);
+                }
+
                 setProfileLoaded(user.uid, true);
               } else {
                 if (import.meta.env.DEV) console.warn('Invalid profile data for uid:', user.uid, parsed.error.flatten());
@@ -86,6 +103,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             const existingProfile = await DataProvider.getProfile(user.uid);
             if (existingProfile) {
               creationAttemptedRef.current = false;
+              const hasConsent = existingProfile.aiConsentAt !== null &&
+                existingProfile.aiConsentAt !== undefined &&
+                typeof existingProfile.aiConsentVersion === 'number' &&
+                existingProfile.aiConsentVersion >= PRIVACY_VERSION;
+              setAiConsent(user.uid, hasConsent);
               return;
             }
 

@@ -21,7 +21,7 @@ export type AnalyzeResult =
   | { ok: true }
   | { ok: false; error: 'NO_CONTENT' | 'TOO_SHORT' | 'EXCLUDED' | AIErrorCode };
 
-type AIErrorCode = 'AUTH_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' | 'NETWORK' | 'MISCONFIGURED';
+type AIErrorCode = 'AUTH_REQUIRED' | 'AI_CONSENT_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' | 'NETWORK' | 'MISCONFIGURED' | 'UPSTREAM';
 
 /** Ниже этого заметка слишком коротка, чтобы из неё вышло что-то осмысленное. */
 const MIN_CONTENT_CHARS = 50;

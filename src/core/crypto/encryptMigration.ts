@@ -54,7 +54,7 @@ function clearCheckpoint(userId: string) {
 }
 
 interface PendingOp {
-  type: 'version' | 'draft';
+  type: 'version' | 'draft' | 'document';
   userId: string;
   documentId?: string;
   versionId?: string;
@@ -112,27 +112,66 @@ async function _encryptAllExistingNotesInner(
 
   let hadErrors = false;
 
-
-  // Document versions
+  // Documents & Versions
   try {
     const docs = await DataProvider.getUserDocuments(userId);
-    for (const documentDoc of docs) {
+    progress.total += docs.length;
+    report();
 
-      const documentId = documentDoc.id as string;
+    for (const documentDoc of docs) {
+      const documentId = (documentDoc.uuid || documentDoc.id) as string;
+      const pending: PendingOp[] = [];
+      const flush = makeFlush(pending, (keys) => {
+        for (const k of keys) checkpoint.add(k);
+        saveCheckpoint(userId, checkpoint);
+      });
+
+      // 1. Re-encrypt document metadata (title, tags, mood)
+      const docCk = `doc_${documentId}`;
+      if (checkpoint.has(docCk) || documentDoc._encrypted) {
+        checkpoint.add(docCk);
+        progress.processed++;
+        report();
+      } else {
+        if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+        if (!getSessionKey()) throw new VaultLockedError();
+
+        try {
+          const encryptedDoc = await maybeEncrypt(
+            documentDoc as Record<string, unknown>,
+            ['title', 'mood'],
+            ['tags'],
+            true
+          );
+          const cleanDoc = Object.fromEntries(
+            Object.entries(encryptedDoc).filter(([, v]) => v !== undefined)
+          ) as Record<string, unknown>;
+          pending.push({
+            type: 'document',
+            userId,
+            documentId,
+            data: cleanDoc,
+            checkKey: docCk,
+          });
+          progress.encrypted++;
+        } catch (e) {
+          if (e instanceof DOMException && e.name === 'AbortError') throw e;
+          progress.errors++;
+          hadErrors = true;
+          reportError(e, { action: 'encryptAllExistingNotes_document', documentId });
+        }
+        progress.processed++;
+        report();
+      }
+
+      // 2. Re-encrypt versions
       try {
         const versions = await DataProvider.getVersions(userId, documentId);
         progress.total += versions.length;
         report();
 
-        const pending: PendingOp[] = [];
-        const flush = makeFlush(pending, (keys) => {
-          for (const k of keys) checkpoint.add(k);
-          saveCheckpoint(userId, checkpoint);
-        });
-
         for (const v of versions) {
           if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
-          // V-2: abort early if vault locked mid-run instead of erroring on every doc.
           if (!getSessionKey()) throw new VaultLockedError();
 
           try {
@@ -145,26 +184,26 @@ async function _encryptAllExistingNotesInner(
               continue;
             }
             const encrypted = await maybeEncrypt(v as Record<string, unknown>, ['content'], [], true);
-            const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+            const clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined)) as Record<string, unknown>;
             pending.push({ type: 'version', userId, documentId, versionId, data: clean, checkKey: ck });
             if (pending.length >= BATCH_SIZE) await flush();
-             progress.encrypted++;
-           } catch (e) {
-             if (e instanceof DOMException && e.name === 'AbortError') throw e;
-             progress.errors++;
-             hadErrors = true;
-             reportError(e, { action: 'encryptAllExistingNotes_version', versionId: String(v.id), documentId });
-           }
+            progress.encrypted++;
+          } catch (e) {
+            if (e instanceof DOMException && e.name === 'AbortError') throw e;
+            progress.errors++;
+            hadErrors = true;
+            reportError(e, { action: 'encryptAllExistingNotes_version', versionId: String(v.id), documentId });
+          }
           progress.processed++;
           report();
         }
-         await flush();
-       } catch (e) {
-          if (e instanceof DOMException && e.name === 'AbortError') throw e;
-          if (e instanceof VaultLockedError) throw e;
-          hadErrors = true;
-          reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
-        }
+        await flush();
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') throw e;
+        if (e instanceof VaultLockedError) throw e;
+        hadErrors = true;
+        reportError(e, { action: 'encryptAllExistingNotes_documentVersions', documentId });
+      }
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
@@ -187,7 +226,6 @@ async function _encryptAllExistingNotesInner(
 
     for (const d of drafts) {
       if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
-      // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
 
       try {
@@ -203,14 +241,14 @@ async function _encryptAllExistingNotesInner(
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
         pending.push({ type: 'draft', userId, draftId, data: clean, checkKey: ck });
         if (pending.length >= BATCH_SIZE) await flush();
-         progress.encrypted++;
-       } catch (e) {
-          if (e instanceof DOMException && e.name === 'AbortError') throw e;
-          if (e instanceof VaultLockedError) throw e;
-          progress.errors++;
-          hadErrors = true;
-          reportError(e, { action: 'encryptAllExistingNotes_draft', draftId: d.id });
-        }
+        progress.encrypted++;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') throw e;
+        if (e instanceof VaultLockedError) throw e;
+        progress.errors++;
+        hadErrors = true;
+        reportError(e, { action: 'encryptAllExistingNotes_draft', draftId: d.id });
+      }
       progress.processed++;
       report();
     }
@@ -222,11 +260,7 @@ async function _encryptAllExistingNotesInner(
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
   }
 
-
-
-  // Чекпойнт — единственная память о проделанной работе. Снести его после
-  // обрыва по бюджету значит на следующем запуске перечитать весь архив
-  // заново: повторные заметки отсеются по _encrypted, но чтения уже потрачены.
+  // Чекпойнт — память о проделанной работе. Снести его после завершения без ошибок.
   if (!hadErrors) clearCheckpoint(userId);
   return progress;
 }
@@ -241,12 +275,40 @@ export async function encryptSingleDocument(
   const result = { processed: 0, encrypted: 0, errors: 0 };
 
   try {
-    const versions = await DataProvider.getVersions(userId, documentId);
     const pending: PendingOp[] = [];
     const flush = makeFlush(pending);
 
+    // 1. Encrypt document row if needed
+    const doc = await DataProvider.getDocument(userId, documentId);
+    if (doc && !doc._encrypted) {
+      try {
+        const encryptedDoc = await maybeEncrypt(
+          doc as Record<string, unknown>,
+          ['title', 'mood'],
+          ['tags'],
+          true
+        );
+        const cleanDoc = Object.fromEntries(
+          Object.entries(encryptedDoc).filter(([, val]) => val !== undefined)
+        ) as Record<string, unknown>;
+        pending.push({
+          type: 'document',
+          userId,
+          documentId,
+          data: cleanDoc,
+          checkKey: `doc_${documentId}`,
+        });
+        result.encrypted++;
+      } catch (e) {
+        result.errors++;
+        reportError(e, { action: 'encryptSingleDocument_doc', documentId });
+      }
+      result.processed++;
+    }
+
+    // 2. Encrypt versions
+    const versions = await DataProvider.getVersions(userId, documentId);
     for (const v of versions) {
-      // V-2: abort early if vault locked mid-run instead of erroring on every doc.
       if (!getSessionKey()) throw new VaultLockedError();
       try {
         const versionId = v.id as string;
@@ -270,10 +332,9 @@ export async function encryptSingleDocument(
     }
     await flush();
   } catch (e) {
-    reportError(e, { action: 'encryptSingleDocument_versionsQuery', documentId });
+    reportError(e, { action: 'encryptSingleDocument_query', documentId });
     throw e;
   }
 
   return result;
 }
-

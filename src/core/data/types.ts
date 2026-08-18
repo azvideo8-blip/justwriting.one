@@ -75,7 +75,7 @@ export interface IDataProvider {
   // --- Migration ---
   getMigrationDrafts(userId: string): Promise<{ id: string; data: ProviderRecord }[]>;
   executeMigrationBatch(ops: {
-    type: 'version' | 'draft';
+    type: 'version' | 'draft' | 'document';
     userId: string;
     documentId?: string;
     versionId?: string;

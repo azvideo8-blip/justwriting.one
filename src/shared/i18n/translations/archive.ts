@@ -122,4 +122,13 @@ export const archiveTranslations: Translations = {
   archive_untitled: { ru: 'Без названия', en: 'Untitled' },
   archive_cloud_sync_failed: { ru: 'Облачная копия не синхронизирована', en: 'Cloud copy did not sync' },
   reading_time: { ru: '~{n} мин чтения', en: '~{n} min read' },
+  archive_preview_analyze_btn: { ru: 'Проанализировать', en: 'Analyze' },
+  archive_preview_analyzing: { ru: 'анализируется…', en: 'analysing…' },
+  archive_preview_refresh_hint: { ru: 'Обновите страницу, чтобы увидеть разбор', en: 'Refresh the page to see the analysis' },
+  archive_preview_ai_excluded: { ru: 'Заметка скрыта от ИИ. Разбор недоступен', en: 'Note is hidden from AI. Analysis unavailable' },
+  archive_preview_ai_title: { ru: 'Что заметил ИИ', en: 'AI Observation' },
+  archive_preview_tone: { ru: 'Тональность:', en: 'Tone:' },
+  archive_preview_insights: { ru: 'Инсайты:', en: 'Insights:' },
+  archive_preview_facts: { ru: 'Факты:', en: 'Facts:' },
+  archive_preview_ai_consent_required: { ru: 'Для разбора требуется согласие на использование ИИ', en: 'AI consent is required for analysis' },
 };

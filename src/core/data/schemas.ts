@@ -49,6 +49,12 @@ export const userProfileDbSchema = z.object({
   encryptedDataKey: z.string().optional(),
   encryptionMeta: encryptionMetaSchema.optional(),
   earnedAchievements: z.array(z.string()).default([]),
+  privacyAcceptedAt: firestoreTimestampSchema.optional(),
+  privacyVersion: z.number().optional(),
+  aiConsentAt: firestoreTimestampSchema.optional(),
+  aiConsentVersion: z.number().nullable().optional(),
+  aiPortrait: z.string().optional(),
+  _encrypted: z.boolean().optional(),
 });
 
 export const documentDbSchema = z.object({
@@ -67,6 +73,7 @@ export const documentDbSchema = z.object({
   lastSessionAt: firestoreTimestampSchema,
   mood: z.string().optional(),
   excludedFromAI: z.boolean().optional().default(false),
+  _encrypted: z.boolean().optional(),
 });
 
 export const versionDbSchema = z.object({

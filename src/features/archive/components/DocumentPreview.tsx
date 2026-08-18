@@ -21,6 +21,9 @@ import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import { findRelatedNotes, RelatedNote } from '../../ai/utils/relatedNotes';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
+import { getCurrentUser } from '../../../core/auth';
+import { reportError } from '../../../shared/errors/reportError';
 
 const relatedNotesCache = new Map<string, RelatedNote[]>();
 
@@ -61,12 +64,18 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
 
   const [summary, setSummary] = useState<AIDocumentSummary | null>(null);
   const [summaryExpanded, setSummaryExpanded] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [justFinished, setJustFinished] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
 
   useEffect(() => {
     let active = true;
+    setAnalyzing(false);
+    setJustFinished(false);
+    setAnalyzeError(null);
     if (!session?.id) {
       void Promise.resolve().then(() => {
         if (active) setSummary(null);
@@ -80,6 +89,43 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
       active = false;
     };
   }, [session?.id]);
+
+  const handleAnalyzeNote = useCallback(async () => {
+    if (!session?.id || analyzing || session.excludedFromAI) return;
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await NoteAnalysisService.analyze(session.id);
+      if (res.ok) {
+        setJustFinished(true);
+        showToast(t('ai_note_analyzed'), 'success');
+        const updated = await AISummaryService.get(session.id);
+        if (updated) setSummary(updated);
+      } else {
+        const errMap: Record<string, string> = {
+          NO_CONTENT: t('ai_note_too_short'),
+          TOO_SHORT: t('ai_note_too_short'),
+          EXCLUDED: t('ai_note_excluded'),
+          AI_CONSENT_REQUIRED: t('archive_preview_ai_consent_required'),
+          AUTH_REQUIRED: getCurrentUser() ? t('ai_error_session') : t('ai_error_auth'),
+          DAILY_LIMIT: t('ai_error_rate_limit'),
+          RATE_LIMIT: t('ai_error_rate_limit'),
+          TOO_LONG: t('ai_error_too_long'),
+          SERVER_ERROR: t('ai_error_server'),
+          NETWORK: t('ai_error_offline'),
+        };
+        const errMsg = errMap[res.error] ?? t('ai_error_server');
+        setAnalyzeError(errMsg);
+        showToast(errMsg, 'error');
+      }
+    } catch (e) {
+      reportError(e, { action: 'documentPreview_analyze', documentId: session.id });
+      setAnalyzeError(t('ai_error_server'));
+      showToast(t('ai_error_server'), 'error');
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [session?.id, session?.excludedFromAI, analyzing, showToast, t]);
 
   const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
 
@@ -460,16 +506,16 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
       <div className="px-6 py-3 border-b border-border-subtle">
         {summary ? (
           <div className="rounded-xl bg-brand-soft/5 border border-brand-soft/15 p-3">
-        <Button
-          onClick={() => setSummaryExpanded(v => !v)}
-          className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
-        >
-          <span className="flex items-center gap-1.5 font-sans text-xs tracking-wide text-brand-soft/80 font-semibold uppercase">
-            <Sparkles size={12} className="text-brand-soft" />
-            Что заметил ИИ • Наблюдение ИИ
-          </span>
-          {summaryExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-        </Button>
+            <Button
+              onClick={() => setSummaryExpanded(v => !v)}
+              className="w-full flex items-center justify-between text-xs font-medium text-brand-soft"
+            >
+              <span className="flex items-center gap-1.5 font-sans text-xs tracking-wide text-brand-soft/80 font-semibold uppercase">
+                <Sparkles size={12} className="text-brand-soft" />
+                {t('archive_preview_ai_title')}
+              </span>
+              {summaryExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </Button>
             {summaryExpanded && (
               <div className="mt-2 space-y-1.5 text-xs text-text-main/70">
                 {summary.summary && (
@@ -486,10 +532,10 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
                   </div>
                 )}
 
-                <div><span className="text-text-main/60">Тональность:</span> {summary.tone}</div>
+                <div><span className="text-text-main/60">{t('archive_preview_tone')}</span> {summary.tone}</div>
                 {summary.insights.length > 0 && (
                   <div>
-                    <span className="text-text-main/60">Инсайты:</span>
+                    <span className="text-text-main/60">{t('archive_preview_insights')}</span>
                     <ul className="mt-0.5 ml-3 list-disc space-y-0.5">
                       {summary.insights.map((ins, i) => <li key={i}>{ins}</li>)}
                     </ul>
@@ -497,7 +543,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
                 )}
                 {summary.extractedFacts.length > 0 && (
                   <div>
-                    <span className="text-text-main/60">Факты:</span>
+                    <span className="text-text-main/60">{t('archive_preview_facts')}</span>
                     <ul className="mt-0.5 ml-3 list-disc space-y-0.5">
                       {summary.extractedFacts.map((f, i) => <li key={i}>{f}</li>)}
                     </ul>
@@ -506,10 +552,31 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
               </div>
             )}
           </div>
-        ) : (
+        ) : session?.excludedFromAI ? (
+          <div className="flex items-center gap-2 text-xs text-text-main/50 italic px-3 py-2 bg-surface-base/5 border border-border-subtle/10 rounded-xl">
+            <span>{t('archive_preview_ai_excluded')}</span>
+          </div>
+        ) : analyzing ? (
           <div className="flex items-center gap-2 text-xs text-text-main/50 italic px-3 py-2 bg-surface-base/5 border border-border-subtle/10 rounded-xl">
             <Loader2 size={12} className="animate-spin text-brand-soft" />
-            <span>анализируется…</span>
+            <span>{t('archive_preview_analyzing')}</span>
+          </div>
+        ) : justFinished ? (
+          <div className="flex items-center gap-2 text-xs text-brand-soft px-3 py-2 bg-brand-soft/5 border border-brand-soft/20 rounded-xl">
+            <span>{t('archive_preview_refresh_hint')}</span>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Button
+              onClick={() => void handleAnalyzeNote()}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 transition-colors"
+            >
+              <Sparkles size={12} className="text-brand-soft" />
+              <span>{t('archive_preview_analyze_btn')}</span>
+            </Button>
+            {analyzeError && (
+              <p className="text-xs text-accent-danger px-1">{analyzeError}</p>
+            )}
           </div>
         )}
       </div>

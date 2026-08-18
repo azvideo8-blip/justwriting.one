@@ -152,7 +152,12 @@ export const WritingDraftService = {
     }
   },
 
-  saveToFirestore: async (draft: LocalDraft): Promise<boolean> => {
+  // Раньше называлось saveToFirestore, и это же имя уходило в журнал ошибок.
+  // Firestore здесь нет с момента переезда — внутри DataProvider.saveDraft, то
+  // есть Supabase, — но сообщение «Firestore save failed» отправляло искать
+  // причину в мёртвом слое. Имя в журнале должно называть то место, где отказ
+  // случился на самом деле.
+  saveDraftToCloud: async (draft: LocalDraft): Promise<boolean> => {
     if (!draft.userId) return false;
     if (!isProfileLoaded(draft.userId)) {
       return false;
@@ -180,7 +185,7 @@ export const WritingDraftService = {
       return true;
     } catch (e) {
       if (ac.signal.aborted) return true;
-      reportError(e, { action: 'saveToFirestore', userId: draft.userId });
+      reportError(e, { action: 'saveDraftToCloud', userId: draft.userId });
       throw e;
     } finally {
       if (_abortControllers.get(draft.userId) === ac) {

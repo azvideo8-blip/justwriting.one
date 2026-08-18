@@ -4,6 +4,7 @@ import { toTimestampMs } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { documentDbSchema } from '../data/schemas';
 import { documentFromDb } from './mappers';
+import { maybeEncrypt, maybeDecrypt } from '../crypto/cryptoHelpers';
 
 export const DocumentService = {
   async createDocument(
@@ -12,9 +13,11 @@ export const DocumentService = {
       uuid?: string | undefined;
       firstSessionAt?: Date | undefined;
       lastSessionAt?: Date | undefined;
+      mood?: string | undefined;
+      excludedFromAI?: boolean | undefined;
     }
   ): Promise<string> {
-    const payload: Record<string, unknown> = {
+    const rawPayload: Record<string, unknown> = {
       title: data.title,
       currentVersion: 0,
       totalWords: 0,
@@ -24,15 +27,20 @@ export const DocumentService = {
       lastSessionAt: data.lastSessionAt ? data.lastSessionAt.getTime() : Date.now(),
       tags: data.tags ?? [],
       labelId: data.labelId ?? null,
+      mood: data.mood ?? null,
+      excludedFromAI: data.excludedFromAI ?? false,
     };
-    if (data.uuid) payload.uuid = data.uuid;
+    if (data.uuid) rawPayload.uuid = data.uuid;
+
+    const payload = await maybeEncrypt(rawPayload, ['title', 'mood'], ['tags'], userId);
     return DataProvider.createDocument(userId, payload);
   },
 
   async getDocument(userId: string, documentId: string): Promise<Document | null> {
     const data = await DataProvider.getDocument(userId, documentId);
     if (!data) return null;
-    const parsed = documentDbSchema.safeParse({ id: documentId, ...data });
+    const decrypted = await maybeDecrypt(data, ['title', 'mood'], ['tags']);
+    const parsed = documentDbSchema.safeParse({ id: documentId, ...decrypted });
     if (!parsed.success) {
       reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
       return null;
@@ -42,16 +50,23 @@ export const DocumentService = {
 
   async getUserDocuments(userId: string): Promise<Document[]> {
     const records = await DataProvider.getUserDocuments(userId);
-    const docs = records
-      .map(d => {
-        const parsed = documentDbSchema.safeParse({ id: d.id, ...d });
-        if (!parsed.success) {
-          reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id as string });
+    const decryptedDocs = await Promise.all(
+      records.map(async d => {
+        try {
+          const decrypted = await maybeDecrypt(d, ['title', 'mood'], ['tags']);
+          const parsed = documentDbSchema.safeParse({ id: d.id, ...decrypted });
+          if (!parsed.success) {
+            reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id as string });
+            return null;
+          }
+          return documentFromDb(parsed.data);
+        } catch (e) {
+          reportError(e, { action: 'getUserDocuments_decrypt', docId: d.id as string });
           return null;
         }
-        return documentFromDb(parsed.data);
       })
-      .filter((d): d is Document => d !== null);
+    );
+    const docs = decryptedDocs.filter((d): d is Document => d !== null);
     docs.sort((a, b) => (toTimestampMs(b.lastSessionAt) ?? 0) - (toTimestampMs(a.lastSessionAt) ?? 0));
     return docs;
   },
@@ -76,16 +91,23 @@ export const DocumentService = {
     };
     if (data.sessionsCount !== undefined) payload.sessionsCount = data.sessionsCount;
     if (data.lastSessionAt !== undefined) payload.lastSessionAt = data.lastSessionAt;
-    
+
+    if (data.mood) {
+      const encrypted = await maybeEncrypt({ mood: data.mood }, ['mood'], [], userId);
+      payload.mood = (encrypted.mood as string) ?? null;
+    }
+
     await DataProvider.updateDocumentSessionStats(userId, documentId, payload);
   },
 
   async updateTags(userId: string, documentId: string, tags: string[]): Promise<void> {
-    await DataProvider.updateDocument(userId, documentId, { tags });
+    const encrypted = await maybeEncrypt({ tags }, [], ['tags'], userId);
+    await DataProvider.updateDocument(userId, documentId, encrypted);
   },
 
   async updateTitle(userId: string, documentId: string, title: string): Promise<void> {
-    await DataProvider.updateDocument(userId, documentId, { title });
+    const encrypted = await maybeEncrypt({ title }, ['title'], [], userId);
+    await DataProvider.updateDocument(userId, documentId, encrypted);
   },
 
   async updateDate(userId: string, documentId: string, firstSessionAt: Date, lastSessionAt: Date): Promise<void> {
