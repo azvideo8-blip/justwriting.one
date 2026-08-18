@@ -136,6 +136,32 @@ export const settingsTranslations: Translations = {
     ru: 'Пропущено записей: {count}',
     en: 'Skipped records: {count}',
   },
+  settings_migration_import_button: { ru: 'Импортировать архив данных', en: 'Import data archive' },
+  settings_migration_import_progress: { ru: 'Проверяю и импортирую данные...', en: 'Verifying and importing data...' },
+  settings_migration_import_order_hint: {
+    ru: 'Порядок действий: создайте сейф → импортируйте архив → включите синхронизацию.',
+    en: 'Order of operations: create vault → import archive → turn sync on.',
+  },
+  settings_migration_import_no_vault: {
+    ru: 'Сейф ещё не создан. Создайте сейф в секции выше перед импортом архива, чтобы заметки не попали в облако без шифрования.',
+    en: 'No vault exists yet. Create a vault in the section above before importing your archive so notes are not sent to the cloud unencrypted.',
+  },
+  settings_migration_import_done: {
+    ru: 'Импортировано: {documents} заметок, {versions} версий, {verbatim} записей',
+    en: 'Imported: {documents} documents, {versions} versions, {verbatim} records',
+  },
+  settings_migration_import_skipped: {
+    ru: 'Пропущено: {count} записей (уже существуют или повреждены)',
+    en: 'Skipped: {count} records (already exist or corrupted)',
+  },
+  settings_migration_import_dropped: {
+    ru: 'Исключено по соображениям приватности: {count} записей',
+    en: 'Dropped for privacy: {count} records',
+  },
+  settings_migration_import_error: {
+    ru: 'Ошибка импорта: {error}',
+    en: 'Import error: {error}',
+  },
   settings_all_editor_settings: { ru: 'Все настройки редактора →', en: 'All editor settings →' },
   settings_encryption_management: { ru: 'Настройки шифрования и аккаунта →', en: 'Encryption & Account settings →' },
   settings_typewriter: { ru: 'Пишущая машинка', en: 'Typewriter scrolling' },

@@ -12,6 +12,10 @@ export function hasLegacyEncryption(profile: { encryptionSalt?: string | undefin
   return !!(profile?.encryptionSalt && profile?.encryptedDataKey);
 }
 
+export function hasVault(profile?: { encryptionMeta?: unknown; encryptionSalt?: string | undefined; encryptedDataKey?: string | undefined } | null): boolean {
+  return !!profile?.encryptionMeta || hasLegacyEncryption(profile ?? null);
+}
+
 export async function hasNewEncryption(uid: string): Promise<boolean> {
   const meta = await getEncryptionMeta(uid);
   return meta !== null;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Shield } from 'lucide-react';
-import { EncryptionService, WrongPasswordError } from '../../../core/services/EncryptionService';
+import { EncryptionService, WrongPasswordError, hasVault } from '../../../core/services/EncryptionService';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
@@ -36,7 +36,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const hasNewMeta = !!profile?.encryptionMeta;
   const isLegacyOnly = !hasNewMeta && !!(profile?.encryptionSalt && profile?.encryptedDataKey);
-  const hasEncryption = hasNewMeta || isLegacyOnly;
+  const hasEncryption = hasVault(profile);
 
   const handleUnlockVault = async (e: React.FormEvent) => {
     e.preventDefault();

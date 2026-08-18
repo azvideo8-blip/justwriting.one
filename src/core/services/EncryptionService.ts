@@ -10,8 +10,10 @@ import {
   VERIFICATION_PLAINTEXT,
 } from './EncryptionMetaService';
 import { encryptAllExistingNotes, type MigrationProgress } from '../crypto/encryptMigration';
-import { hasLegacyEncryption } from './LegacyKeyMigration';
+import { hasLegacyEncryption, hasVault } from './LegacyKeyMigration';
 import { DataProvider } from '../data';
+
+export { hasVault, hasLegacyEncryption };
 
 export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   return deriveMasterKey(password, salt);

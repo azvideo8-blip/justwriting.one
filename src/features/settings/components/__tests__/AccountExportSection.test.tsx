@@ -7,12 +7,17 @@ vi.mock('../../services/migrationExport', () => ({
   exportMigrationManifest: vi.fn(),
 }));
 
+vi.mock('../../services/migrationImport', () => ({
+  importMigrationManifest: vi.fn(),
+}));
+
 vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
 
+let mockProfile: { encryptionMeta?: unknown; encryptionSalt?: string; encryptedDataKey?: string } | null = null;
 vi.mock('../../../../app/useAuthStatus', () => ({
-  useAuthStatus: () => ({ user: null }),
+  useAuthStatus: () => ({ user: { uid: 'u1' }, profile: mockProfile }),
 }));
 
 vi.mock('../../../../core/services/UnifiedSessionLoader', () => ({
@@ -25,7 +30,9 @@ vi.mock('file-saver', () => ({
 }));
 
 const { exportMigrationManifest } = await import('../../services/migrationExport');
+const { importMigrationManifest } = await import('../../services/migrationImport');
 const mockedExport = vi.mocked(exportMigrationManifest);
+const mockedImport = vi.mocked(importMigrationManifest);
 
 function makeManifest(skipped: { store: string; id: string; reason: string }[]) {
   return {
@@ -49,9 +56,10 @@ function makeManifest(skipped: { store: string; id: string; reason: string }[]) 
   };
 }
 
-describe('AccountExportSection — migration export', () => {
+describe('AccountExportSection — migration export & import', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockProfile = null;
   });
 
   it('clicking migration export button calls exportMigrationManifest', async () => {
@@ -92,4 +100,47 @@ describe('AccountExportSection — migration export', () => {
     });
     expect(screen.queryByText(/Пропущено записей|Skipped records/)).not.toBeInTheDocument();
   });
+
+  it('disables import button and displays warning when no vault exists', () => {
+    mockProfile = null;
+    renderWithProviders(<AccountExportSection userId="u1" />);
+
+    const importBtn = screen.getByTestId('migration-import-btn');
+    expect(importBtn).toBeDisabled();
+    expect(screen.getByText(/Сейф ещё не создан|No vault exists yet/)).toBeInTheDocument();
+  });
+
+  it('enables import button when vault exists', () => {
+    mockProfile = { encryptionMeta: { version: 1 } };
+    renderWithProviders(<AccountExportSection userId="u1" />);
+
+    const importBtn = screen.getByTestId('migration-import-btn');
+    expect(importBtn).not.toBeDisabled();
+    expect(screen.queryByText(/Сейф ещё не создан|No vault exists yet/)).not.toBeInTheDocument();
+  });
+
+  it('calls importMigrationManifest when file is selected', async () => {
+    mockProfile = { encryptionMeta: { version: 1 } };
+    mockedImport.mockResolvedValue({
+      success: true,
+      imported: { documents: 3, versions: 5, drafts: 1, aiSummaries: 2, aiEmbeddings: 2, verbatim: { aiDialogues: 1 } },
+      skipped: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {}, details: [] },
+      droppedOnPurpose: { peopleIndexRecords: 0, summariesWithMentionedPeople: 0, unknownStores: {} },
+    });
+
+    renderWithProviders(<AccountExportSection userId="u1" />);
+
+    const fileInput = screen.getByTestId('migration-import-file-input');
+    const fakeFile = new File(['{"version": 1}'], 'export.json', { type: 'application/json' });
+    fireEvent.change(fileInput, { target: { files: [fakeFile] } });
+
+    await waitFor(() => {
+      expect(mockedImport).toHaveBeenCalledWith({ version: 1 }, 'u1');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Импортировано: 3 заметок|Imported: 3 documents/)).toBeInTheDocument();
+    });
+  });
 });
+

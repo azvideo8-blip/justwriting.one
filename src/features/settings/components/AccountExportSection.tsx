@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Download, Loader2, FileJson, Database } from 'lucide-react';
+import { useState, useRef, type ChangeEvent } from 'react';
+import { Download, Loader2, FileJson, Database, Upload } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
@@ -12,6 +12,8 @@ import { Button } from '../../../shared/components/Button';
 import { saveAs } from 'file-saver';
 import { APP_VERSION } from '../../../version';
 import { exportMigrationManifest } from '../services/migrationExport';
+import { importMigrationManifest, type MigrationImportResult } from '../services/migrationImport';
+import { hasVault } from '../../../core/services/EncryptionService';
 
 interface AccountExportSectionProps {
   userId: string;
@@ -20,13 +22,18 @@ interface AccountExportSectionProps {
 export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { user } = useAuthStatus();
+  const { user, profile } = useAuthStatus();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [jsonLoading, setJsonLoading] = useState(false);
   const [migrationLoading, setMigrationLoading] = useState(false);
   const [migrationResult, setMigrationResult] = useState<{
     documents: number; versions: number; verbatim: number; skipped: number;
   } | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<MigrationImportResult | null>(null);
+
+  const vaultConfigured = hasVault(profile);
 
   const handleExportAll = async () => {
     setLoading(true);
@@ -128,6 +135,54 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
     }
   };
 
+  const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImportLoading(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch (jsonErr) {
+        setImportResult({
+          success: false,
+          imported: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+          skipped: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {}, details: [] },
+          droppedOnPurpose: { peopleIndexRecords: 0, summariesWithMentionedPeople: 0, unknownStores: {} },
+          error: String(jsonErr),
+        });
+        showToast(t('error_generic_action'), 'error');
+        return;
+      }
+
+      const res = await importMigrationManifest(parsed, user?.uid ?? userId);
+      setImportResult(res);
+      if (res.success) {
+        showToast(
+          t('settings_migration_import_done', {
+            documents: String(res.imported.documents),
+            versions: String(res.imported.versions),
+            verbatim: String(Object.values(res.imported.verbatim).reduce((a, b) => a + b, 0)),
+          }),
+          'success'
+        );
+      } else {
+        showToast(
+          t('settings_migration_import_error', { error: res.error ?? 'Unknown error' }),
+          'error'
+        );
+      }
+    } catch (err) {
+      reportError(err, { action: 'migrationImport' });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   return (
     <Section title={t('settings_export_all_title')}>
       <div className="p-4 rounded-xl border border-border-subtle space-y-3">
@@ -200,6 +255,97 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
             )}
           </div>
         )}
+
+        {/* ── Migration Import ────────────────────────────────────────────── */}
+        <div className="pt-3 border-t border-border-subtle space-y-2.5">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json,application/json"
+            onChange={e => void handleFileSelect(e)}
+            className="hidden"
+            data-testid="migration-import-file-input"
+          />
+          <div className="text-xs text-text-main/70 leading-relaxed">
+            {t('settings_migration_import_order_hint')}
+          </div>
+          {!vaultConfigured && (
+            <div className="p-3 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-text-main/80 leading-relaxed">
+              {t('settings_migration_import_no_vault')}
+            </div>
+          )}
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importLoading || !vaultConfigured}
+            data-testid="migration-import-btn"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {importLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                {t('settings_migration_import_progress')}
+              </>
+            ) : (
+              <>
+                <Upload size={16} className="text-text-main/60" />
+                {t('settings_migration_import_button')}
+              </>
+            )}
+          </Button>
+          {importResult && (
+            <div className="text-xs text-text-main/60 leading-relaxed space-y-1 mt-2">
+              {importResult.success ? (
+                <>
+                  <div className="text-green-500 font-medium">
+                    {t('settings_migration_import_done', {
+                      documents: String(importResult.imported.documents),
+                      versions: String(importResult.imported.versions),
+                      verbatim: String(
+                        Object.values(importResult.imported.verbatim).reduce((a, b) => a + b, 0)
+                      ),
+                    })}
+                  </div>
+                  {importResult.skipped.documents +
+                    importResult.skipped.versions +
+                    importResult.skipped.drafts +
+                    importResult.skipped.aiSummaries +
+                    importResult.skipped.aiEmbeddings +
+                    Object.values(importResult.skipped.verbatim).reduce((a, b) => a + b, 0) > 0 && (
+                    <div className="text-text-main/50">
+                      {t('settings_migration_import_skipped', {
+                        count: String(
+                          importResult.skipped.documents +
+                            importResult.skipped.versions +
+                            importResult.skipped.drafts +
+                            importResult.skipped.aiSummaries +
+                            importResult.skipped.aiEmbeddings +
+                            Object.values(importResult.skipped.verbatim).reduce((a, b) => a + b, 0)
+                        ),
+                      })}
+                    </div>
+                  )}
+                  {importResult.droppedOnPurpose.peopleIndexRecords +
+                    importResult.droppedOnPurpose.summariesWithMentionedPeople > 0 && (
+                    <div className="text-text-main/50">
+                      {t('settings_migration_import_dropped', {
+                        count: String(
+                          importResult.droppedOnPurpose.peopleIndexRecords +
+                            importResult.droppedOnPurpose.summariesWithMentionedPeople
+                        ),
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-red-500 font-medium">
+                  {t('settings_migration_import_error', {
+                    error: importResult.error ?? 'Unknown error',
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </Section>
   );
