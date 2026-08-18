@@ -1,0 +1,9 @@
+[Unit]
+Description=Проверка состояния сервера justwriting
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/justwriting/monitor/healthcheck.py
+StandardOutput=journal
+StandardError=journal
