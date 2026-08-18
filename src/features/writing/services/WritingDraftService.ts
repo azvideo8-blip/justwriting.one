@@ -6,6 +6,11 @@ import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 const DRAFT_CLOUD_FIELDS: Record<string, boolean> = {
+  // Признак шифрования обязан уезжать вместе с данными. Без него колонка в
+  // облаке хранит шифротекст, а читающая сторона считает его открытым текстом:
+  // maybeDecrypt пытается разобрать pinnedThoughts как JSON, разбор падает — и
+  // поле заменяется пустым массивом. Закреплённые мысли исчезали молча.
+  _encrypted: true,
   content: true,
   title: true,
   pinnedThoughts: true,

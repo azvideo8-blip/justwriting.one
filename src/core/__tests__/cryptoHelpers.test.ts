@@ -111,10 +111,15 @@ describe('cryptoHelpers', () => {
     await expect(maybeDecrypt(doc, ['content'], [])).rejects.toThrow('LOCKED');
   });
 
-  it('maybeDecrypt defaults array field to empty array on JSON parse error', async () => {
+  // Строка, не разбирающаяся как JSON, при непомеченной записи почти наверняка
+  // шифротекст с потерянным признаком — ровно это случилось с pinnedThoughts,
+  // когда _encrypted не попадал в список полей для записи в облако. Пустой
+  // массив здесь означал бы, что облако молча затирает закреплённые мысли на
+  // устройстве. Поле убирается, и наверху побеждает локальная копия.
+  it('maybeDecrypt drops an unparseable array field instead of emptying it', async () => {
     const doc = { pinnedThoughts: 'not-json', _encrypted: false };
     const res = await maybeDecrypt(doc, [], ['pinnedThoughts']);
-    expect(res.pinnedThoughts).toEqual([]);
+    expect('pinnedThoughts' in res).toBe(false);
   });
 
   it('maybeDecrypt defaults array field to empty array when value is not string or array', async () => {

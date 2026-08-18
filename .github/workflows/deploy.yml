@@ -56,10 +56,15 @@ jobs:
         run: |
           rsync -az --delete -e "ssh -i ~/.ssh/id_ed25519" dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/dist-new/
+          # Без --delete: страница, открытая до выкатки, продолжает подгружать
+          # куски своего бандла. Удаление ломает приложение у того, кто в этот
+          # момент пишет. Имена кусков содержат хэш, поэтому старые и новые не
+          # мешают друг другу; лишнее подчищается по возрасту.
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
-            sudo rsync -a --delete /tmp/dist-new/ /var/www/justwriting/ &&
+            sudo rsync -a /tmp/dist-new/ /var/www/justwriting/ &&
             sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || true;
-            sudo chown -R www-data:www-data /var/www/justwriting'
+            sudo chown -R www-data:www-data /var/www/justwriting;
+            sudo find /var/www/justwriting/assets -type f -mtime +14 -delete'
 
       - name: Сборка и выкатка службы
         if: inputs.what != 'client'

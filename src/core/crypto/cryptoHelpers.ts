@@ -121,8 +121,12 @@ export async function maybeDecrypt(
       try {
         result[field] = JSON.parse(val);
       } catch (e) {
+        // Строка, которая не разбирается как JSON, при непомеченной записи почти
+        // наверняка шифротекст с потерянным признаком. Пустой массив здесь —
+        // тихая потеря: локальная копия перезаписывалась бы пустотой. Поле
+        // убирается, и наверху побеждает то, что есть на устройстве.
         reportError(e, { action: 'maybeDecrypt_jsonParse', field });
-        result[field] = [];
+        delete result[field];
       }
     } else if (!Array.isArray(val)) {
       result[field] = [];
