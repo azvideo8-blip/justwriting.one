@@ -86,6 +86,11 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     model: activeModel,
     messages: oaMessages,
     max_tokens: maxTokens ?? 4096,
+    // Без этого параметра запрос может уйти к зарубежному провайдеру модели —
+    // подтверждено поддержкой RouterAI 2026-08-12. Здесь через тело проходит
+    // текст заметок, поэтому параметр обязателен. См. RU_ONLY_ROUTING в
+    // api/chat.ts.
+    provider: { country: 'ru' },
   };
 
   // Every caller of generate() wants an answer, not a chain of thought: these are
@@ -256,6 +261,9 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
         body: JSON.stringify({
           model: OPENROUTER_EMBED_MODEL,
           input: texts,
+          // Векторы считаются по тексту заметки — тот же контур, что и всё
+          // остальное.
+          provider: { country: 'ru' },
         }),
         signal: controller.signal,
       });

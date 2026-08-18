@@ -146,8 +146,33 @@ if (getApps().length === 0) {
 // for why the env names still say OPENROUTER.
 const AI_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
-const openrouterOptions: { baseURL: string; apiKey?: string } = {
+// Обработка только в российском контуре. Подтверждено поддержкой RouterAI
+// 2026-08-12: серверы авторизации и биллинга стоят в РФ, содержимое запросов не
+// сохраняется (Zero Data Retention), НО без этого параметра запрос может уйти к
+// зарубежному провайдеру модели. То есть по умолчанию текст заметок пересекает
+// границу — а это трансграничная передача, для которой нужно отдельное
+// уведомление до начала потока (ст. 12 152-ФЗ). Параметр обязателен на каждом
+// запросе, который несёт пользовательский текст.
+export const RU_ONLY_ROUTING = { country: 'ru' } as const;
+
+// Клиент SDK строит тело сам, поэтому параметр дописывается в перехватчике —
+// иначе его пришлось бы протаскивать через маппинг опций провайдера и он молча
+// потерялся бы при первом обновлении библиотеки.
+const ruOnlyFetch: typeof fetch = async (input, init) => {
+  if (typeof init?.body === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(init.body);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        init = { ...init, body: JSON.stringify({ ...parsed, provider: RU_ONLY_ROUTING }) };
+      }
+    } catch { /* не JSON — отдаём как есть */ }
+  }
+  return fetch(input, init);
+};
+
+const openrouterOptions: { baseURL: string; apiKey?: string; fetch?: typeof fetch } = {
   baseURL: AI_BASE_URL,
+  fetch: ruOnlyFetch,
 };
 if (process.env.OPENROUTER_API_KEY) {
   openrouterOptions.apiKey = process.env.OPENROUTER_API_KEY;
@@ -428,6 +453,7 @@ async function streamOpenRouterReasoning(
         messages: [{ role: 'system', content: system }, ...messages],
         stream: true,
         max_tokens: 16384,
+        provider: RU_ONLY_ROUTING,
         reasoning: { effort: 'high' },
         stream_options: { include_usage: true },
       }),
