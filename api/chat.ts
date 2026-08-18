@@ -263,14 +263,14 @@ async function refundInternalDailyLimit(uid: string): Promise<void> {
 
 // ── Daily limit ───────────────────────────────────────────────────────────────
 const DAILY_LIMIT = (() => {
-  const n = parseInt(process.env.AI_DAILY_LIMIT ?? '10', 10);
+  const n = parseInt(process.env.AI_DAILY_LIMIT ?? '30', 10);
   return Number.isNaN(n) ? 10 : n;
 })();
 
 // Admins (role 'admin') get a higher personal cap. Mirror of
 // functions/src/shared/aiUtils.ts getUserDailyLimit. Default 20 (experiment).
 const ADMIN_DAILY_LIMIT = (() => {
-  const n = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '20', 10);
+  const n = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '60', 10);
   return Number.isNaN(n) ? 20 : n;
 })();
 

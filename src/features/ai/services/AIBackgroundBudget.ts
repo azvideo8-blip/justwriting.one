@@ -15,8 +15,26 @@ export function getBudgetUsage(): { date: string; spent: number } {
   }
 }
 
+// Обновление профиля запускает человек, и платит он за него из своего дневного
+// лимита на сервере. Фоновый губернатор здесь не при делах: он сдерживал проход,
+// который шёл сам по себе, а такого прохода больше нет. Без этой поблажки
+// обновление молча не делало бы ничего при исчерпанном фоновом бюджете.
+let userRun = false;
+
+/** Внутри — работа, заказанная человеком: фоновый бюджет не ограничивает. */
+export async function withUserRun<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = userRun;
+  userRun = true;
+  try {
+    return await fn();
+  } finally {
+    userRun = previous;
+  }
+}
+
 export const AIBackgroundBudget = {
   canSpend(weight: number): boolean {
+    if (userRun) return true;
     const usage = getBudgetUsage();
     return usage.spent + weight <= DAILY_BUDGET;
   },

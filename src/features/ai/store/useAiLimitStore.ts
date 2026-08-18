@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { getCurrentUser } from '../../../core/auth';
 
 const STORAGE_KEY = 'ai_daily_usage';
-const DEFAULT_LIMIT = 10;
+// Должно совпадать с DAILY_LIMIT в api/ai/pure.ts: это лишь заглушка до ответа
+// сервера, но расхождение показывало бы человеку неверную цену обновления.
+const DEFAULT_LIMIT = 30;
 // Admin daily cap for the experiment. Must match the server env
 // AI_ADMIN_DAILY_LIMIT (chat + editWithAI) — this constant only drives the
 // client-side countdown; the server is authoritative.
