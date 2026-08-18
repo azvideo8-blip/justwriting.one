@@ -326,7 +326,25 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                         )}
                         {other.length > 0 && (
                           <div className="text-text-main/50">
-                            {t('settings_migration_import_skipped_other', { count: String(other.length) })}
+                            <div>
+                              {t('settings_migration_import_skipped_other', { count: String(other.length) })}
+                            </div>
+                            {/* С причинами, а не одним числом: «пропущено по другим
+                                причинам» — это ровно та строка, за которой в прошлый
+                                раз пряталось непонятное. */}
+                            <ul className="mt-1 space-y-0.5">
+                              {Object.entries(
+                                other.reduce<Record<string, number>>((acc, d) => {
+                                  const key = `${d.store}: ${d.reason}`;
+                                  acc[key] = (acc[key] ?? 0) + 1;
+                                  return acc;
+                                }, {}),
+                              )
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([reason, count]) => (
+                                  <li key={reason}>{reason} — {count}</li>
+                                ))}
+                            </ul>
                           </div>
                         )}
                         {damaged.length > 0 && (

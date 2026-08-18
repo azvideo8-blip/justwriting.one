@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.5',
+    date: '2026-08-18',
+    items: [
+      { category: 'improvement', ru: 'В отчёте о загрузке архива видно, почему именно запись пропущена, а не только сколько таких: причины перечислены с числами', en: 'The archive import report shows why a record was skipped, not just how many: the reasons are listed with counts' },
+    ],
+  },
+  {
     version: '0.8.4',
     date: '2026-08-18',
     items: [
