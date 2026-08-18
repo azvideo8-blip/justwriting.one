@@ -31,7 +31,7 @@ interface EncryptionPasswordModalProps {
   onClose?: () => void;
 }
 
-const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 12;
 
 export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose }: EncryptionPasswordModalProps) {
   const { t } = useLanguage();
@@ -117,8 +117,8 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentPassword.length < MIN_PASSWORD_LENGTH) {
-      setError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
+    if (!currentPassword) {
+      setError(t('auth_error_fields_required'));
       return;
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -152,6 +152,10 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
 
   const handleMigrate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentPassword) {
+      setError(t('auth_error_fields_required'));
+      return;
+    }
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
       return;

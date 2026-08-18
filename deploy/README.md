@@ -92,6 +92,13 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
    - `GOTRUE_RATE_LIMIT_HEADER=X-Forwarded-For`
    - *Note*: GoTrue rate limits protect email sending and token endpoint abuse, but do NOT protect against password brute-forcing; password brute-force protection is enforced by Nginx `limit_req` on `/auth/`.
 
+3. **MFA (TOTP) for Admin**:
+   - Supabase Auth natively supports TOTP MFA via `supabase.auth.mfa.enroll({ factorType: 'totp' })`. For admin accounts on single-user instances, MFA should be enrolled to protect elevated permissions.
+
+4. **Registration Email Enumeration**:
+   - Silent suppression of `email-already-in-use` requires an active transactional email delivery pipeline ("confirmation email sent" + notifying existing accounts out-of-band). This item is tracked and deferred until transactional email service (SMTP) is integrated.
+
+
 ## Environment variables
 
 | Name | Required | Description |

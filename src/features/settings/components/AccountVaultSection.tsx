@@ -62,8 +62,8 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const handleInitializeEncryption = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vaultPassword || vaultPassword.length < 8) {
-      setVaultError(t('enc_password_min_length', { min: 8 }));
+    if (!vaultPassword || vaultPassword.length < 12) {
+      setVaultError(t('enc_password_min_length', { min: 12 }));
       return;
     }
     if (vaultPassword !== confirmVaultPassword) {
