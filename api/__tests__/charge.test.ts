@@ -51,10 +51,42 @@ describe('chargeCall', () => {
     await expect(chargeCall(ctx, 'uid_1', 'user')).rejects.toThrow('Daily limit reached.');
   });
 
-  it('refunds to the same counter it charged', async () => {
+  it('returns CallReservation object', async () => {
     const ctx = ctxSpy();
-    await refundCall(ctx, 'uid_1', 'user');
-    expect(ctx.refundDailyLimit).toHaveBeenCalledWith('uid_1');
+    const res = await chargeCall(ctx, 'uid_1', 'user');
+    expect(res).toEqual({ uid: 'uid_1', charge: 'user', refunded: false });
+  });
+
+  it('refunds to the same counter it charged with CallReservation', async () => {
+    const ctx = ctxSpy();
+    const res = await chargeCall(ctx, 'uid_1', 'user');
+    await refundCall(ctx, res);
+    expect(ctx.refundDailyLimit).toHaveBeenCalledTimes(1);
+    expect(res.refunded).toBe(true);
+
+    // Second call is idempotent — does not refund again
+    await refundCall(ctx, res);
+    expect(ctx.refundDailyLimit).toHaveBeenCalledTimes(1);
+  });
+
+  it('refunds bulk counter with CallReservation idempotently', async () => {
+    const ctx = ctxSpy();
+    const res = await chargeCall(ctx, 'uid_1', 'bulk');
+    await refundCall(ctx, res);
+    expect(ctx.refundBulkLimit).toHaveBeenCalledTimes(1);
+    expect(res.refunded).toBe(true);
+
+    // Second call is idempotent — does not refund again
+    await refundCall(ctx, res);
+    expect(ctx.refundBulkLimit).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles null and undefined gracefully', async () => {
+    const ctx = ctxSpy();
+    await refundCall(ctx, null);
+    await refundCall(ctx, undefined);
+    expect(ctx.refundDailyLimit).not.toHaveBeenCalled();
     expect(ctx.refundBulkLimit).not.toHaveBeenCalled();
   });
 });
+

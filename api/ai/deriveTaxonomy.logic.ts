@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
+import { chargeCall, refundCall, parseCharge } from './policy';
 
 const inputSchema = z.object({ digest: z.string().min(20).max(60_000) });
 
@@ -35,17 +36,17 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
   const parsed = inputSchema.safeParse(data);
   if (!parsed.success) throw new AiError('invalid-argument', 'Invalid payload.');
 
-  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
-    throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
+  // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
+  // дневного лимита человека; всё остальное — из фонового, как раньше.
+  const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
+  const callRes = await chargeCall(ctx, uid, charge);
 
   const digest = sanitizeAiInput(parsed.data.digest);
   console.warn(`[AI taxonomy] start: digest ${digest.length} chars`);
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
   if (!reservation) {
-    await ctx.refundBulkLimit(uid);
+    await refundCall(ctx, callRes);
     console.error('[AI taxonomy] global daily cap reached');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
@@ -86,7 +87,6 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
         } else if (attempt === 1) {
           console.warn('[AI taxonomy] English labels detected on attempt 1, re-requesting...');
           extraUserInstruction = '\n\nВАЖНО: Пожалуйста, переведи ВСЕ названия сфер (label) на русский язык. Названия сфер должны состоять только из русских слов.';
-          settled = false;
           continue;
         } else {
           const russianOnly = candidateDomains.filter(d => /[а-яё]/i.test(d.label));
@@ -102,8 +102,10 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
 
     return { domains };
   } catch (e) {
-    await ctx.refundBulkLimit(uid);
-    if (!settled) await ctx.refundGlobalRequest(reservation);
+    if (!settled) {
+      await refundCall(ctx, callRes);
+      await ctx.refundGlobalRequest(reservation);
+    }
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof AiError)) console.error('[AI taxonomy] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

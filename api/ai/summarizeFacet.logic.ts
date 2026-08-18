@@ -44,7 +44,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
   // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
   // дневного лимита человека; всё остальное — из фонового, как раньше.
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
-  await chargeCall(ctx, uid, charge);
+  const callRes = await chargeCall(ctx, uid, charge);
 
   const focus = parsed.data.focus ? sanitizeAiInput(parsed.data.focus) : '';
   const system = focus
@@ -58,10 +58,11 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
 
   const reservation = await ctx.tryReserveGlobalRequest(2048);
   if (!reservation) {
-    await refundCall(ctx, uid, charge);
+    await refundCall(ctx, callRes);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
+  let settled = false;
   try {
     const result = await generate({
       system: systemWithCorrection,
@@ -75,6 +76,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }, reservation).catch(e =>
       console.error('[AI facet] usage record failed:', e),
     );
+    settled = true;
 
     const text = result.text.trim();
     const META = /мы (имеем|должны)|нужно (определить|проанализ)|проанализир|(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])we need(?=$|[^а-яёА-ЯЁa-zA-Z0-9])|the (user|notes|theme)|given notes|<think>|похоже,?\s*что|возможно,?\s*(это|жен)|в заметке\s*\d|из заметок|предложени[яй] от третьего/i;
@@ -95,7 +97,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     let finalLabel = label;
     const truncated = summary.length > 0 && !/[.!?]$/.test(summary);
     if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 200)) {
-      await refundCall(ctx, uid, charge);
+      await refundCall(ctx, callRes);
       finalLabel = '';
       summary = '';
     }
@@ -108,8 +110,10 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     const cleanSummary = sanitizeAiResponse(summary);
     return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
-    await refundCall(ctx, uid, charge);
-    await ctx.refundGlobalRequest(reservation);
+    if (!settled) {
+      await refundCall(ctx, callRes);
+      await ctx.refundGlobalRequest(reservation);
+    }
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

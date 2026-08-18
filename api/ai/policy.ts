@@ -97,22 +97,47 @@ export function parseCharge(value: unknown): ChargeTarget {
   return value === 'user' ? 'user' : 'bulk';
 }
 
-/** Списывает вызов с нужного счётчика. Бросает AiError, если лимит исчерпан. */
-export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarget): Promise<void> {
+export interface CallReservation {
+  uid: string;
+  charge: ChargeTarget;
+  refunded?: boolean;
+}
+
+/** Списывает вызов с нужного счётчика. Возвращает объект резервации для идемпотентного возврата. Бросает AiError, если лимит исчерпан. */
+export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarget): Promise<CallReservation> {
   if (charge === 'user') {
     const allowed = await ctx.checkDailyLimit(uid);
     if (!allowed) throw new AiError('resource-exhausted', 'Daily limit reached.');
-    return;
+    return { uid, charge, refunded: false };
   }
   const allowed = await ctx.checkAndIncrementBulkLimit(uid);
   if (!allowed) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
+  return { uid, charge, refunded: false };
 }
 
-/** Возврат списанного, когда вызов не состоялся (нет глобальной квоты и т. п.). */
-export async function refundCall(ctx: AiContext, uid: string, charge: ChargeTarget): Promise<void> {
+/** Возврат списанного с гарантией идемпотентности: повторный вызов с той же резервацией ничего не делает. */
+export async function refundCall(
+  ctx: AiContext,
+  resOrUid: CallReservation | string | null | undefined,
+  maybeCharge?: ChargeTarget,
+): Promise<void> {
+  if (resOrUid == null) return;
+  if (typeof resOrUid === 'object') {
+    if (resOrUid.refunded === true) return;
+    resOrUid.refunded = true;
+    if (resOrUid.charge === 'user') {
+      await ctx.refundDailyLimit(resOrUid.uid);
+      return;
+    }
+    await ctx.refundBulkLimit(resOrUid.uid);
+    return;
+  }
+  const uid = resOrUid;
+  const charge = maybeCharge ?? 'bulk';
   if (charge === 'user') {
     await ctx.refundDailyLimit(uid);
     return;
   }
   await ctx.refundBulkLimit(uid);
 }
+

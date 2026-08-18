@@ -4,6 +4,8 @@ import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis } 
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
 
+import { chargeCall, refundCall } from './policy';
+
 const inputSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
@@ -45,10 +47,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     throw new AiError('invalid-argument', 'Disallowed patterns in messages.');
   }
 
-  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
-    throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
+  const callRes = await chargeCall(ctx, uid, 'bulk');
 
   const conversationText = parsed.data.messages
     .map(m => `${m.role}: ${sanitizeAiInput(m.content)}`)
@@ -56,10 +55,11 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
 
   const reservation = await ctx.tryReserveGlobalRequest(1000);
   if (!reservation) {
-    await ctx.refundBulkLimit(uid);
+    await refundCall(ctx, callRes);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
+  let settled = false;
   try {
     const result = await generate({
       system: SYSTEM_PROMPT,
@@ -73,6 +73,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'extractMemory' }, reservation).catch(e =>
       console.error('[AI memory] usage record failed:', e),
     );
+    settled = true;
 
     const cleaned = sanitizeAiResponse(result.text).trim();
 
@@ -89,7 +90,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     }
 
     if (!Array.isArray(memories) || memories.length === 0) {
-      await ctx.refundBulkLimit(uid);
+      await refundCall(ctx, callRes);
     }
 
     // Тот же случай, что и в summarizeDocument: намерение, записанное моделью
@@ -103,8 +104,10 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
 
     return { memories };
   } catch (e) {
-    await ctx.refundBulkLimit(uid);
-    await ctx.refundGlobalRequest(reservation);
+    if (!settled) {
+      await refundCall(ctx, callRes);
+      await ctx.refundGlobalRequest(reservation);
+    }
     console.error('[AI memory] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

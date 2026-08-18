@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
+import { chargeCall, refundCall, parseCharge } from './policy';
 
 const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -78,14 +79,14 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
     }
   }
 
-  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
-    throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
+  // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
+  // дневного лимита человека; всё остальное — из фонового, как раньше.
+  const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
+  const callRes = await chargeCall(ctx, uid, charge);
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
   if (!reservation) {
-    await ctx.refundBulkLimit(uid);
+    await refundCall(ctx, callRes);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -141,8 +142,10 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
       ...(cleanHint ? { correctiveHint: cleanHint } : {}),
     };
   } catch (e) {
-    await ctx.refundBulkLimit(uid);
-    if (!settled) await ctx.refundGlobalRequest(reservation);
+    if (!settled) {
+      await refundCall(ctx, callRes);
+      await ctx.refundGlobalRequest(reservation);
+    }
     const msg = String((e as { message?: string })?.message ?? e);
     if (e instanceof AiError) throw e;
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

@@ -53,11 +53,11 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
   // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
   // дневного лимита человека; всё остальное — из фонового, как раньше.
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
-  await chargeCall(ctx, uid, charge);
+  const callRes = await chargeCall(ctx, uid, charge);
 
   const reservation = await ctx.tryReserveGlobalRequest(2048);
   if (!reservation) {
-    await refundCall(ctx, uid, charge);
+    await refundCall(ctx, callRes);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -93,8 +93,10 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
     const cleanBelief = sanitizeAiResponse(result.text.trim());
     return { belief: cleanBelief };
   } catch (e) {
-    await refundCall(ctx, uid, charge);
-    if (!settled) await ctx.refundGlobalRequest(reservation);
+    if (!settled) {
+      await refundCall(ctx, callRes);
+      await ctx.refundGlobalRequest(reservation);
+    }
     console.error('[summarizeBeliefCluster] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
