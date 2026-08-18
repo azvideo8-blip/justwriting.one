@@ -16,6 +16,12 @@ const ALLOW = {
   // downgrades to 7.11.0, reintroducing the open-redirect + DoS advisories that
   // 7.18.1 fixes. Re-check on the next react-router bump.
   'GHSA-qwww-vcr4-c8h2': 'react-router RSC-mode CSRF — N/A to a client-only BrowserRouter SPA',
+
+  // nanoid "non-secure generators can loop indefinitely with negative size".
+  // Pulled transitively by docx@9.6.1 for internal XML element ID generation.
+  // docx only calls nanoid() with default positive size, never passing negative size
+  // to custom non-secure generators.
+  'GHSA-28wg-ghj8-5hjv': 'nanoid negative size loop via docx — N/A (docx only uses standard positive-size ID generation)',
 };
 
 let raw;
