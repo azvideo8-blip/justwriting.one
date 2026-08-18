@@ -1,0 +1,103 @@
+name: Выкатка на сервер
+
+# Только по нажатию. Выкатка на каждый пуш означает, что незаконченная мысль,
+# отправленная на сохранение, немедленно оказывается у людей — а веток здесь
+# одна и push в неё делается по десять раз в день.
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: Что выкатывать
+        required: true
+        default: both
+        type: choice
+        options: [both, client, api]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Проверки до выкатки, а не после. Красный тест не должен доезжать до
+      # сервера — это единственное, ради чего вообще стоит городить автоматику
+      # вместо двух команд руками.
+      - name: Типы
+        run: npx tsc --noEmit
+      - name: Тесты
+        run: npx vitest run
+
+      - name: Ключ доступа
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Отпечаток хоста заранее, а не TOFU: иначе первый же перехват
+          # соединения останется незамеченным.
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Сборка клиента
+        if: inputs.what != 'api'
+        run: npm run build
+
+      - name: Выкатка клиента
+        if: inputs.what != 'api'
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/id_ed25519" dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/dist-new/
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            sudo rsync -a --delete /tmp/dist-new/ /var/www/justwriting/ &&
+            sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || true;
+            sudo chown -R www-data:www-data /var/www/justwriting'
+
+      - name: Сборка и выкатка службы
+        if: inputs.what != 'client'
+        run: |
+          npx esbuild api/server.ts --bundle --platform=node --format=esm \
+            --target=node20 --packages=external --outfile=/tmp/server.mjs
+          # Firebase в бандле означает, что служба не поднимется: на сервере
+          # этого пакета нет и быть не должно. Дешевле поймать здесь.
+          if grep -q firebase /tmp/server.mjs; then
+            echo "в бандле есть firebase — выкатка остановлена" >&2
+            exit 1
+          fi
+          scp -i ~/.ssh/id_ed25519 /tmp/server.mjs \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/server.mjs
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev &&
+            sudo cp /tmp/server.mjs /opt/justwriting/api/server.mjs &&
+            sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
+            sudo systemctl restart justwriting && sleep 5 &&
+            systemctl is-active --quiet justwriting'
+
+      # Служба может не подняться из-за отсутствующей зависимости — это уже
+      # случалось. Тогда возвращаем предыдущий бандл сами, а не оставляем
+      # сервис лежать до утра.
+      - name: Откат службы, если не поднялась
+        if: failure() && inputs.what != 'client'
+        run: |
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            if [ -f /opt/justwriting/api/server.mjs.prev ]; then
+              sudo cp /opt/justwriting/api/server.mjs.prev /opt/justwriting/api/server.mjs &&
+              sudo systemctl restart justwriting && echo "откат выполнен"
+            fi'
+
+      - name: Проверка после выкатки
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://justwriting.ru/)
+          [ "$code" = "200" ] || { echo "сайт отвечает $code"; exit 1; }
+          auth=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+            https://justwriting.ru/api/chatWithAI -H 'Content-Type: application/json' -d '{"data":{}}')
+          [ "$auth" = "401" ] || { echo "ИИ без токена отвечает $auth вместо 401"; exit 1; }
+          echo "сайт 200, ИИ без токена 401 — выкатка принята"

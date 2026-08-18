@@ -90,10 +90,6 @@ export default defineConfig(() => {
         '**/functions/lib/**',
         '**/functions/src/**',
         'e2e/**',
-        // Свалка со старыми копиями тестов: не часть приложения, импорты в них
-        // не резолвятся. Держим вне прогона, чтобы не красить сборку.
-        'old_tests/**',
-        'scratch/**',
       ],
       coverage: {
         provider: 'istanbul',

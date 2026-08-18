@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { reportError } from '../../../shared/errors/reportError';
 import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
 import { getCurrentUser } from '../../../core/auth';
@@ -12,18 +13,32 @@ interface PrivacyModalProps {
 
 export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
   const [checked, setChecked] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleAccept = async () => {
     if (!checked) return;
     const user = getCurrentUser();
     if (!user) return;
 
-    await DataProvider.updateProfile(user.uid, {
-      privacyAcceptedAt: new Date(),
-      privacyVersion: 1,
-    } as Record<string, unknown>);
+    // Без try/catch любая неудача записи выглядела как «кнопка не нажимается»:
+    // окно оставалось на месте и молчало. На это ушло полдня 2026-08-18.
+    setSaveError(null);
+    setSaving(true);
+    try {
+      await DataProvider.updateProfile(user.uid, {
+        privacyAcceptedAt: new Date(),
+        privacyVersion: PRIVACY_VERSION,
+      } as Record<string, unknown>);
+    } catch (e) {
+      reportError(e, { action: 'privacyAccept', userId: user.uid });
+      setSaveError('Не удалось сохранить согласие. Проверьте связь и попробуйте ещё раз.');
+      return;
+    } finally {
+      setSaving(false);
+    }
 
-    localStorage.setItem(`privacy_accepted_${user.uid}`, 'true');
+    localStorage.setItem(`privacy_accepted_${user.uid}`, String(PRIVACY_VERSION));
     onAccepted();
   };
 
@@ -40,12 +55,18 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
             <h2 className="text-base font-bold text-text-main">Политика конфиденциальности</h2>
           </div>
 
+          {/* Текст обязан совпадать с тем, что приложение делает на самом деле:
+              это не пояснение, а согласие, которое человек даёт. Прежняя версия
+              обещала Langfuse, PostHog и Sentry — ни одного из них нет, зато
+              умалчивала о том, что запрос к модели может уйти за границу.
+              Меняется поведение — правится и этот текст, в том же коммите. */}
           <div className="space-y-3 text-sm text-text-main/70 leading-relaxed">
-            <p>Ваши тексты хранятся локально и в зашифрованном виде в облаке.</p>
-            <p>При использовании ИИ-функций текст документа передаётся в RouterAI — нигде не сохраняется на наших серверах после обработки.</p>
-            <p>Метаданные ИИ-запросов (персона, токены, модель) записываются через Langfuse для отладки и мониторинга.</p>
-            <p>Мы собираем анонимную статистику использования (кол-во запросов, токены) через PostHog — только с вашего согласия.</p>
-            <p>Ошибки автоматически отправляются в Sentry (личные данные маскируются).</p>
+            <p>Заметки хранятся на вашем устройстве. Если включена синхронизация, копия уезжает на наш сервер в России — <strong>содержимое зашифровано</strong> ключом, который выводится из вашего пароля и на сервер не попадает. Заголовки и теги пока хранятся открыто.</p>
+            <p>Текст заметки уходит поставщику ИИ <strong>только по вашему действию</strong>: когда вы нажимаете разбор у заметки или задаёте вопрос в чате. Сам по себе, в фоне, он не отправляется никогда.</p>
+            <p>Поставщик — RouterAI (Россия). Он не хранит содержимое запросов, но по умолчанию может передать запрос зарубежному сервису, который вычисляет ответ и таких гарантий не даёт. Мы ищем решение; пока честнее сказать прямо.</p>
+            <p>Если в заметке упомянуты другие люди, их слова и обстоятельства уходят вместе с текстом. Отдельной картотеки упомянутых людей приложение не ведёт.</p>
+            <p>Аналитики, счётчиков и отправки ошибок посторонним сервисам нет.</p>
+            <p>Удаление аккаунта удаляет заметки, историю и всё, что было по ним посчитано.</p>
             <p>Подробнее: <a href="/privacy" className="text-brand-soft underline">Политика конфиденциальности</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>.</p>
           </div>
 
@@ -59,9 +80,13 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
             <span className="text-xs text-text-main/60">Я прочитал и согласен с политикой конфиденциальности</span>
           </label>
 
+          {saveError !== null && (
+            <p className="mt-3 text-xs text-accent-danger">{saveError}</p>
+          )}
+
           <Button
             onClick={() => void handleAccept()}
-            disabled={!checked}
+            disabled={!checked || saving}
             className="w-full mt-4 py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
           >
             Продолжить
@@ -71,6 +96,11 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
     </div>
   );
 }
+
+// Версия текста согласия. Поднимается вместе с любым содержательным изменением
+// формулировок: согласие, данное на прежний текст, нового не покрывает. Версия 2
+// (2026-08-18) — первая, где сказано, что запрос к модели может уйти за границу.
+export const PRIVACY_VERSION = 2;
 
 export function usePrivacyCheck() {
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -89,8 +119,10 @@ export function usePrivacyCheck() {
         return;
       }
 
+      // В кэше держим принятую версию, а не «true»: иначе человек, согласившийся
+      // со старым текстом, никогда не увидит новый.
       const cached = localStorage.getItem(`privacy_accepted_${user.uid}`);
-      if (cached === 'true') {
+      if (cached === String(PRIVACY_VERSION)) {
         setShowPrivacy(false);
         return;
       }
@@ -98,8 +130,10 @@ export function usePrivacyCheck() {
       try {
         const profile = await DataProvider.getProfile(user.uid);
         if (cancelled) return;
-        if (profile?.privacyAcceptedAt) {
-          localStorage.setItem(`privacy_accepted_${user.uid}`, 'true');
+        const accepted = profile?.privacyAcceptedAt !== undefined && profile.privacyAcceptedAt !== null;
+        const version = typeof profile?.privacyVersion === 'number' ? profile.privacyVersion : 0;
+        if (accepted && version >= PRIVACY_VERSION) {
+          localStorage.setItem(`privacy_accepted_${user.uid}`, String(PRIVACY_VERSION));
           setShowPrivacy(false);
           return;
         }

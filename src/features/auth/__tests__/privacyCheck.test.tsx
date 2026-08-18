@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { usePrivacyCheck } from '../components/PrivacyModal';
+import { usePrivacyCheck, PRIVACY_VERSION } from '../components/PrivacyModal';
 
 // Mock the data facade, not a provider. The hook reads
 // DataProvider.getProfile(); mocking the old firestoreClient left the real
@@ -40,14 +40,36 @@ describe('usePrivacyCheck waits for the restored session', () => {
     await waitFor(() => expect(result.current.showPrivacy).toBe(true));
   });
 
-  it('does not ask again when consent is already cached locally', async () => {
-    localStorage.setItem('privacy_accepted_u1', 'true');
+  it('does not ask again when consent for the current version is cached locally', async () => {
+    localStorage.setItem('privacy_accepted_u1', String(PRIVACY_VERSION));
     authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
 
     const { result } = renderHook(() => usePrivacyCheck());
 
     await waitFor(() => expect(mockGetProfile).not.toHaveBeenCalled());
     expect(result.current.showPrivacy).toBe(false);
+  });
+
+  // Согласие, данное на прежний текст, нового не покрывает: формулировки
+  // изменились содержательно (в версии 2 сказано, что запрос к модели может уйти
+  // за границу), и человек должен увидеть это, а не унаследовать старое «да».
+  it('asks again when the accepted consent is older than the current text', async () => {
+    localStorage.setItem('privacy_accepted_u1', '1');
+    mockGetProfile.mockResolvedValueOnce({ privacyAcceptedAt: new Date(), privacyVersion: 1 });
+    authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
+
+    const { result } = renderHook(() => usePrivacyCheck());
+
+    await waitFor(() => expect(result.current.showPrivacy).toBe(true));
+  });
+
+  it('does not ask when the profile already carries the current version', async () => {
+    mockGetProfile.mockResolvedValueOnce({ privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION });
+    authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
+
+    const { result } = renderHook(() => usePrivacyCheck());
+
+    await waitFor(() => expect(result.current.showPrivacy).toBe(false));
   });
 
   it('ignores a late answer about the account that just got switched away', async () => {
