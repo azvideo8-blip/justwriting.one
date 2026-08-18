@@ -92,7 +92,7 @@
       "ajv": "^8.18.0",
       "smol-toml": "^1.6.1"
     },
-    "dompurify": "^3.2.4",
+    "dompurify": "^3.4.13",
     "path-to-regexp": "^6.3.0",
     "minimatch": "^10.2.3",
     "uuid": "^11.1.1",

@@ -1,8 +1,8 @@
 // Prod-dependency security gate for CI.
 //
-// Wraps `npm audit --omit=dev --audit-level=high` but allows a SHORT, documented
+// Wraps `npm audit --omit=dev --audit-level=moderate` but allows a SHORT, documented
 // list of advisories that do not apply to this app and have no forward fix. Any
-// high/critical advisory NOT on the allowlist fails the build, so the gate still
+// moderate-or-worse advisory NOT on the allowlist fails the build, so the gate still
 // protects against every future advisory — only the named exceptions pass.
 //
 // Review every entry whenever its package is upgraded.
@@ -26,7 +26,7 @@ const ALLOW = {
 
 let raw;
 try {
-  raw = execFileSync('npm', ['audit', '--omit=dev', '--audit-level=high', '--json'], { encoding: 'utf8' });
+  raw = execFileSync('npm', ['audit', '--omit=dev', '--audit-level=moderate', '--json'], { encoding: 'utf8' });
 } catch (e) {
   // npm audit exits non-zero when advisories exist; the JSON report is still on stdout.
   raw = e.stdout?.toString() ?? '';
@@ -52,7 +52,10 @@ const blocking = new Set();
 const allowed = new Set();
 
 for (const pkg of Object.values(report.vulnerabilities ?? {})) {
-  if (pkg.severity !== 'high' && pkg.severity !== 'critical') continue;
+  // Порог был 'high', и уязвимость DOMPurify (moderate) до гейта не доходила
+  // вовсе — при том что DOMPurify чистит весь вывод модели. Для несущей
+  // защиты 'moderate' — не тот уровень, который можно не заметить.
+  if (pkg.severity === 'low' || pkg.severity === 'info') continue;
   for (const via of pkg.via ?? []) {
     if (typeof via !== 'object' || !via.url) continue; // string vias are transitive edges
     const ghsa = via.url.split('/advisories/')[1] ?? via.url;
@@ -64,7 +67,7 @@ for (const pkg of Object.values(report.vulnerabilities ?? {})) {
 for (const a of allowed) console.log(`ALLOWED  ${a}`);
 
 if (blocking.size > 0) {
-  console.error(`\n✖ ${blocking.size} blocking high/critical advisory(ies):`);
+  console.error(`\n✖ ${blocking.size} blocking advisory(ies) (moderate and above):`);
   for (const b of blocking) console.error(`  ${b}`);
   console.error('\nFix them, or — only if genuinely N/A with no forward fix — add a documented entry to scripts/prod-audit.mjs.');
   process.exit(1);
