@@ -10,9 +10,17 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// ── Global daily cap ─────────────────────────────────────────────────────────
+// ── Global daily cap & Spend ceiling in Rubles ───────────────────────────────
 const GLOBAL_DAILY_LIMIT = parseInt(process.env.AI_TIER_RPD ?? '10000', 10);
 const GLOBAL_TOKEN_LIMIT = parseInt(process.env.AI_TIER_TPD ?? '25000000', 10);
+
+// Hard spend ceiling in Rubles per day (e.g. AI_DAILY_SPEND_LIMIT_RUB=100)
+// Defaults to unlimited/token-capped if not set.
+const RUB_PER_1M_TOKENS = parseFloat(process.env.AI_RUB_PER_1M_TOKENS ?? '30');
+const DAILY_SPEND_LIMIT_RUB = process.env.AI_DAILY_SPEND_LIMIT_RUB ? parseFloat(process.env.AI_DAILY_SPEND_LIMIT_RUB) : null;
+const EFFECTIVE_TOKEN_LIMIT = DAILY_SPEND_LIMIT_RUB != null && DAILY_SPEND_LIMIT_RUB > 0
+  ? Math.min(GLOBAL_TOKEN_LIMIT, Math.floor((DAILY_SPEND_LIMIT_RUB / RUB_PER_1M_TOKENS) * 1_000_000))
+  : GLOBAL_TOKEN_LIMIT;
 
 async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
   const date = today();
@@ -29,7 +37,7 @@ async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservat
       return null;
     }
     const tokens = Number(res.rows[0]?.tokens ?? 0);
-    if (tokens + allowance > GLOBAL_TOKEN_LIMIT) {
+    if (tokens + allowance > EFFECTIVE_TOKEN_LIMIT) {
       await pool.query(
         `UPDATE ai_global_daily SET call_count = GREATEST(0, call_count - 1) WHERE date = $1`,
         [date],

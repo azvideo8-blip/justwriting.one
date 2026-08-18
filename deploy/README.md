@@ -99,16 +99,25 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
    - Silent suppression of `email-already-in-use` requires an active transactional email delivery pipeline ("confirmation email sent" + notifying existing accounts out-of-band). This item is tracked and deferred until transactional email service (SMTP) is integrated.
 
 
+## Registration & Signup Control
+
+- **Single-User / Private Instance**: Once the primary admin account is registered, public signups can be disabled to prevent unauthorized account creation. In `/opt/justwriting/supabase/.env`, set `DISABLE_SIGNUP=true` (or `GOTRUE_DISABLE_SIGNUP=true` in `docker-compose.yml`), then reload Supabase containers (`docker compose up -d auth`).
+- **Open / Multi-User Instance**: Keep signups enabled (`DISABLE_SIGNUP=false`). Protection against credential stuffing and brute-force registration is enforced by the Nginx `/auth/` rate limit (5 req/min per IP).
+
 ## Environment variables
 
 | Name | Required | Description |
 |------|----------|-------------|
-| `FIREBASE_PROJECT_ID` | yes | GCP project id |
-| `FIREBASE_SERVICE_ACCOUNT` | yes | JSON service account key (one line) |
-| `FIRESTORE_DATABASE_ID` | yes | Firestore database id (not "(default)") |
 | `PORT` | no | API listen port, default 3000 |
-| `OPENROUTER_API_KEY` | yes | AI provider key (a RouterAI key — the name is legacy) |
+| `SUPABASE_JWT_SECRET` | yes | JWT secret for verifying auth tokens |
+| `DATABASE_URL` | yes | Postgres connection string |
+| `OPENROUTER_API_KEY` | yes | AI provider key (RouterAI) |
 | `AI_BASE_URL` | no | Provider base URL, default `https://routerai.ru/api/v1` |
+| `AI_TIER_RPD` | no | Global daily request cap (default 10,000) |
+| `AI_TIER_TPD` | no | Global daily token cap (default 25,000,000) |
+| `AI_DAILY_SPEND_LIMIT_RUB` | no | Daily spend ceiling in Rubles (e.g. 100) |
+| `AI_RUB_PER_1M_TOKENS` | no | Estimated price per 1M tokens in RUB (default 30) |
 | `SENTRY_DSN` | no | Error tracking |
 | `POSTHOG_API_KEY` | no | Analytics |
+
 
