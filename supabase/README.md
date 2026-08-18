@@ -43,15 +43,19 @@ change to Kong, PostgREST or the JWT settings.
 
 ## Migrations
 
-- `0001_schema.sql` — tables ported from Firestore rules + localDb.ts
-- `0002_rls.sql` — Row-Level Security policies
-- `0003_local_store_records.sql` — verbatim browser-only store dump table
+All migrations live in `supabase/migrations/` and are tracked in the database via table `public.applied_migrations (filename, applied_at)`.
 
-Applied to the self-hosted instance with, from `/opt/justwriting/supabase`:
+### Running migrations
+
+Use the migration runner script:
 
 ```sh
-docker compose exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q < 0001_schema.sql
+# On the VPS (or locally with DATABASE_URL set)
+bash supabase/scripts/migrate.sh                # Apply pending migrations
+bash supabase/scripts/migrate.sh --status       # View applied vs pending migrations
+bash supabase/scripts/migrate.sh --baseline <f> # Mark migrations up to <f> as applied
 ```
 
 `_auth_setup.sql` is for the throwaway container only — real Supabase brings its
 own `auth` schema, and applying the stand-in over it would be wrong.
+
