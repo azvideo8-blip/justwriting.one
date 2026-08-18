@@ -20,7 +20,11 @@ export const authTranslations: Translations = {
   auth_sign_up: { ru: 'Создать аккаунт', en: 'Create Account' },
   auth_or: { ru: 'Или', en: 'Or' },
   auth_no_account: { ru: 'Нет аккаунта? Зарегистрироваться', en: "Don't have an account? Sign Up" },
-  auth_age_confirm: { ru: 'Мне исполнилось 16 лет. Я согласен с условиями использования.', en: 'I am at least 16 years old. I agree to the Terms of Service.' },
+  auth_age_confirm: { ru: 'Мне исполнилось 16 лет, я принимаю условия использования и политику обработки персональных данных', en: 'I am at least 16 years old and accept the terms of use and the personal data processing policy' },
+  // Отдельно от предыдущей и НЕ обязательна для регистрации: согласие на
+  // специальные категории, спрятанное в общую галочку, юридически не считается
+  // данным, а обусловливать им доступ к сервису нельзя.
+  auth_special_consent: { ru: 'Я даю согласие на обработку специальных категорий персональных данных для работы функций ИИ. Без него письмо и хранение записей остаются доступными', en: 'I consent to the processing of special categories of personal data for the AI features. Without it, writing and storing notes remain available' },
   auth_age_required: { ru: 'Необходимо подтвердить возраст (16+) для регистрации.', en: 'You must confirm you are at least 16 years old to register.' },
   auth_has_account: { ru: 'Уже есть аккаунт? Войти', en: 'Already have an account? Sign In' },
   auth_tagline: { ru: 'Никаких отвлекающих факторов. Только ты и твои слова.', en: 'No distractions. Just you and your words.' },

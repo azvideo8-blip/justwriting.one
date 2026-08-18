@@ -30,6 +30,10 @@ export interface UserProfile {
   encryptedDataKey?: string | undefined;
   encryptionMeta?: EncryptionMeta | undefined;
   privacyAcceptedAt?: Timestamp | Date | number | undefined;
+  /** Согласие на обработку специальных категорий (ст. 10 152-ФЗ). Даётся и
+   *  отзывается отдельно от согласия с политикой. */
+  aiConsentAt?: Timestamp | Date | number | null | undefined;
+  aiConsentVersion?: number | null | undefined;
   privacyVersion?: number | undefined;
   aiPortrait?: string | undefined;
   _encrypted?: boolean | undefined;

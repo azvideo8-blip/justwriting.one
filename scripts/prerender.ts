@@ -51,10 +51,17 @@ const pages: PageMeta[] = [
   },
   {
     path: '/privacy',
-    titleRu: 'Политика конфиденциальности — justwriting',
-    titleEn: 'Privacy Policy — justwriting',
-    descriptionRu: 'Как justwriting собирает, хранит и обрабатывает ваши данные. Шифрование, ИИ-функции, аналитика, права пользователя.',
-    descriptionEn: 'How justwriting collects, stores, and processes your data. Encryption, AI features, analytics, user rights.',
+    titleRu: 'Политика обработки персональных данных — justwriting',
+    titleEn: 'Personal Data Processing Policy — justwriting',
+    descriptionRu: 'Какие данные обрабатывает justwriting, с какой целью, на каком основании, где они хранятся и как их удалить.',
+    descriptionEn: 'What data justwriting processes, for what purpose, on what grounds, where it is stored and how to delete it.',
+  },
+  {
+    path: '/consent',
+    titleRu: 'Согласие на обработку персональных данных — justwriting',
+    titleEn: 'Consent to Personal Data Processing — justwriting',
+    descriptionRu: 'Текст согласия, включая отдельное согласие на обработку специальных категорий персональных данных.',
+    descriptionEn: 'The consent text, including separate consent to the processing of special categories of personal data.',
   },
   {
     path: '/terms',

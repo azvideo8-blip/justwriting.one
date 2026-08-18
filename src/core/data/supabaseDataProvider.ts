@@ -32,6 +32,8 @@ const USER_FIELDS: Record<string, string> = {
   avgSessionWords: 'avg_session_words',
   privacyAcceptedAt: 'privacy_accepted_at',
   privacyVersion: 'privacy_version',
+  aiConsentAt: 'ai_consent_at',
+  aiConsentVersion: 'ai_consent_version',
   aiPortrait: 'ai_portrait',
   _encrypted: '_encrypted',
   role: 'role',

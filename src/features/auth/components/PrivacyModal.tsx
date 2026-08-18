@@ -15,6 +15,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [aiConsent, setAiConsent] = useState(false);
 
   const handleAccept = async () => {
     if (!checked) return;
@@ -29,6 +30,11 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
       await DataProvider.updateProfile(user.uid, {
         privacyAcceptedAt: new Date(),
         privacyVersion: PRIVACY_VERSION,
+        // Согласие на спецкатегории пишется отдельным полем и отдельной
+        // отметкой времени: оно даётся и отзывается независимо от согласия с
+        // политикой, и доказывать их придётся по отдельности.
+        aiConsentAt: aiConsent ? new Date() : null,
+        aiConsentVersion: aiConsent ? PRIVACY_VERSION : null,
       } as Record<string, unknown>);
     } catch (e) {
       reportError(e, { action: 'privacyAccept', userId: user.uid });
@@ -77,7 +83,26 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
               onChange={e => setChecked(e.target.checked)}
               className="mt-0.5 accent-brand-soft"
             />
-            <span className="text-xs text-text-main/60">Я прочитал и согласен с политикой конфиденциальности</span>
+            <span className="text-xs text-text-main/60">
+              Я прочитал и принимаю <a href="/privacy" className="text-brand-soft underline">Политику обработки персональных данных</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>
+            </span>
+          </label>
+
+          {/* Отдельная галочка, и это принципиально. Тексты дневника по своей
+              природе относятся к специальным категориям (ст. 10 152-ФЗ), а
+              согласие на них, спрятанное в общее «согласен с политикой», не
+              считается данным. Галочка не обязательна: отказ оставляет письмо и
+              хранение записей, забирая только функции ИИ. */}
+          <label className="flex items-start gap-3 mt-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={aiConsent}
+              onChange={e => setAiConsent(e.target.checked)}
+              className="mt-0.5 accent-brand-soft"
+            />
+            <span className="text-xs text-text-main/60">
+              Я даю <a href="/consent" className="text-brand-soft underline">согласие на обработку специальных категорий персональных данных</a> — сведений о состоянии здоровья, психоэмоциональном состоянии и личной жизни, которые могут содержаться в моих записях, — для работы функций ИИ. Без этого согласия письмо и хранение записей остаются доступными, функции ИИ — нет
+            </span>
           </label>
 
           {saveError !== null && (
