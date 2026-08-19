@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { DataProvider } from '../../../core/data';
 import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/data/schemas';
@@ -10,9 +10,21 @@ import { useAuth } from './AuthContext';
 
 interface ProfileContextValue {
   profile: UserProfile | null;
+  /** Перечитать профиль из базы напрямую.
+   *
+   *  Нужен после записи, результат которой сразу показывается в интерфейсе.
+   *  Подписка на изменения для этого не годится: логическая репликация не
+   *  присылает неизменённые TOAST-значения, а мы намеренно сливаем снапшот с
+   *  прежним профилем, чтобы не терять поля. Значит новое значение
+   *  encryption_meta может не приехать вовсе — и плашка «код восстановления не
+   *  создан» продолжает висеть над только что созданным кодом. */
+  refreshProfile: () => Promise<void>;
 }
 
-const ProfileContext = createContext<ProfileContextValue>({ profile: null });
+const ProfileContext = createContext<ProfileContextValue>({
+  profile: null,
+  refreshProfile: async () => {},
+});
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -149,7 +161,22 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  const value = useMemo(() => ({ profile }), [profile]);
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    try {
+      const fresh = await DataProvider.getProfile(user.uid);
+      if (!fresh) return;
+      const parsed = userProfileDbSchema.safeParse(fresh);
+      if (!parsed.success) return;
+      // Здесь замена, а не слияние: это авторитетное чтение целиком, а не
+      // снапшот с пропущенными полями.
+      setProfile(parsed.data as UserProfile);
+    } catch (e) {
+      reportError(e, { action: 'refreshProfile', userId: user.uid });
+    }
+  }, [user]);
+
+  const value = useMemo(() => ({ profile, refreshProfile }), [profile, refreshProfile]);
 
   return (
     <ProfileContext.Provider value={value}>

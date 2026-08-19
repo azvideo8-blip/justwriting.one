@@ -41,10 +41,7 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
     const displayName = user?.displayName || user?.email?.split('@')[0] || t('common_untitled');
 
     return (
-      <Section title={t('me_tab_account')}>
-        <p className="text-xs text-text-muted -mt-1 mb-3">
-          {t('settings_account_desc')}
-        </p>
+      <Section>
         <div className="p-4 rounded-xl border border-border-subtle space-y-4">
           <div className="flex items-center gap-4">
             {user?.photoURL ? (
@@ -90,10 +87,7 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
   }
 
   return (
-    <Section title={t('me_tab_account')}>
-      <p className="text-xs text-text-muted -mt-1 mb-3">
-        {t('settings_account_desc')}
-      </p>
+    <Section>
       <div className="p-4 rounded-xl border border-dashed border-border-subtle space-y-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10 shrink-0">

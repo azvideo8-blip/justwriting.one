@@ -74,20 +74,15 @@ describe('SettingsPage', () => {
     // Section 1: Account
     expect(screen.getAllByText('test@example.com').length).toBeGreaterThanOrEqual(1);
 
-    // Section 2: Sync
-    expect(screen.getByText(/Синхронизация с облаком|Cloud sync/)).toBeInTheDocument();
+    // Section 2: Sync — заголовок раздела рисует страница, внутри карточки его
+    // больше нет, поэтому проверяем по заголовку раздела, а не по подписи блока.
 
-    // Section 3: Security
-    expect(screen.getByText(/Безопасность|Security/)).toBeInTheDocument();
-
-    // Section 4: Backup / Export
-    expect(screen.getByText(/Резервная копия|Export all notes/)).toBeInTheDocument();
-
-    // Section 5: About
-    expect(screen.getByText(/О приложении|About/)).toBeInTheDocument();
-
-    // Section 6: Delete Account
-    expect(screen.getByText(/Удаление аккаунта|Delete account/)).toBeInTheDocument();
+    // Заголовки разделов проверяем по роли: те же слова теперь есть и в
+    // оглавлении слева, и обычный поиск по тексту находит их дважды.
+    const headings = screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent ?? '');
+    for (const expected of [/Синхронизация|Sync/, /Безопасность|Security/, /Резервная копия|Backup/, /О приложении|About/, /Удаление аккаунта|Delete account/]) {
+      expect(headings.some(h => expected.test(h))).toBe(true);
+    }
   });
 
   it('triggers diagnostics easter egg after 5 taps on version', async () => {

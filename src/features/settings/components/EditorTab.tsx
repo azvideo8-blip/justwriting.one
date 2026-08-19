@@ -35,70 +35,14 @@ export function EditorTab() {
     autoHideCursor, setAutoHideCursor,
   } = useWritingSettings();
 
-  const fonts = ['Inter', 'Lora', 'Playfair Display', 'EB Garamond', 'JetBrains Mono'];
+  const fonts = ['Inter', 'Lora', 'Playfair Display', 'EB Garamond'];
+  // У выбравших моноширинный он остаётся рабочим (fontStack его понимает), но в
+  // списке больше не предлагается. Показываем таким людям выбранным Inter,
+  // чтобы в списке не было пустоты вместо отмеченного пункта.
 
   return (
     <div className="space-y-5 mt-2">
-      <Section title={t('profile_theme_title')}>
-        <p className="text-xs text-text-muted -mt-1 mb-2">
-          {t('profile_theme_hint')}
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.values(themes).map(theme => (
-            <Button
-              key={theme.id}
-              onClick={() => setThemeId(theme.id)}
-              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
-                themeId === theme.id
-                  ? "border-text-main bg-text-main text-surface-base"
-                  : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full shrink-0 border border-black/10"
-                  style={THEME_ACCENT[theme.id] ? { backgroundColor: THEME_ACCENT[theme.id] } : undefined}
-                />
-                <span>{language === 'ru' ? theme.nameRu : theme.nameEn}</span>
-              </div>
-            </Button>
-          ))}
-          <Button
-            onClick={() => setThemeId('system')}
-            className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
-              themeId === 'system'
-                ? "border-text-main bg-text-main text-surface-base"
-                : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full shrink-0 border border-black/10"
-                style={{ background: THEME_ACCENT.system }}
-              />
-              <span>{t('settings_theme_system')}</span>
-            </div>
-          </Button>
-        </div>
-      </Section>
 
-      <Section title={t('settings_language')}>
-        <div className="grid grid-cols-2 gap-2">
-          {(['ru', 'en'] as const).map(lang => (
-            <Button
-              key={lang}
-              onClick={() => setLanguage(lang)}
-              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                language === lang
-                  ? "border-text-main bg-text-main text-surface-base"
-                  : "border-border-subtle text-text-main/60 hover:text-text-main"
-              }`}
-            >
-              {lang === 'ru' ? '🇷🇺 Русский' : '🇺🇸 English'}
-            </Button>
-          ))}
-        </div>
-      </Section>
       <Section title={t('settings_font')}>
         <div className="grid grid-cols-2 gap-2">
           {fonts.map(font => (
@@ -210,6 +154,65 @@ export function EditorTab() {
               )}>
                 {headerVisibility[item.key] ? '✓' : '○'}
               </span>
+            </Button>
+          ))}
+        </div>
+      </Section>
+      <Section title={t('profile_theme_title')}>
+        <p className="text-xs text-text-muted -mt-1 mb-2">
+          {t('profile_theme_hint')}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.values(themes).map(theme => (
+            <Button
+              key={theme.id}
+              onClick={() => setThemeId(theme.id)}
+              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
+                themeId === theme.id
+                  ? "border-text-main bg-text-main text-surface-base"
+                  : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                  style={THEME_ACCENT[theme.id] ? { backgroundColor: THEME_ACCENT[theme.id] } : undefined}
+                />
+                <span>{language === 'ru' ? theme.nameRu : theme.nameEn}</span>
+              </div>
+            </Button>
+          ))}
+          <Button
+            onClick={() => setThemeId('system')}
+            className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
+              themeId === 'system'
+                ? "border-text-main bg-text-main text-surface-base"
+                : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                style={{ background: THEME_ACCENT.system }}
+              />
+              <span>{t('settings_theme_system')}</span>
+            </div>
+          </Button>
+        </div>
+      </Section>
+      <Section title={t('settings_language')}>
+        <div className="grid grid-cols-2 gap-2">
+          {(['ru', 'en'] as const).map(lang => (
+            <Button
+              key={lang}
+              onClick={() => setLanguage(lang)}
+              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                language === lang
+                  ? "border-text-main bg-text-main text-surface-base"
+                  : "border-border-subtle text-text-main/60 hover:text-text-main"
+              }`}
+            >
+              {lang === 'ru' ? '🇷🇺 Русский' : '🇺🇸 English'}
             </Button>
           ))}
         </div>

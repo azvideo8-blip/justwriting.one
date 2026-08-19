@@ -41,10 +41,7 @@ export function AboutSettingsSection() {
   const showDiagnostics = isAdmin || diagnosticsUnlocked;
 
   return (
-    <Section title={t('nav_about')}>
-      <p className="text-xs text-text-muted -mt-1 mb-3">
-        {t('settings_about_desc')}
-      </p>
+    <Section>
 
       <div className="p-4 rounded-xl border border-border-subtle space-y-4">
         {/* Version & Easter Egg */}

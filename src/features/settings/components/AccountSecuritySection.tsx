@@ -63,10 +63,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
   };
 
   return (
-    <Section title={t('settings_security')}>
-      <p className="text-xs text-text-muted -mt-1 mb-3">
-        {t('settings_security_desc')}
-      </p>
+    <Section>
 
       {isAuthenticated ? (
         <div className="space-y-4">

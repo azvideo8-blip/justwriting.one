@@ -2,10 +2,15 @@ import React from 'react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <p className="text-label-sm font-bold uppercase tracking-widest text-text-main/60 px-1">{title}</p>
+      {/* Заголовок необязателен: на странице настроек его теперь рисует сама
+          страница — с номером и пояснением. Раздел, рисующий свой заголовок
+          внутри чужого, давал две одинаковые строки подряд. */}
+      {title !== undefined && title !== '' && (
+        <p className="text-label-sm font-bold uppercase tracking-widest text-text-main/60 px-1">{title}</p>
+      )}
       <div className="space-y-1">{children}</div>
     </div>
   );

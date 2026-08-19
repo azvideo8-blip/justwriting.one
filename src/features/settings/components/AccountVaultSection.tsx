@@ -22,7 +22,7 @@ interface AccountVaultSectionProps {
 export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { profile } = useAuthStatus();
+  const { profile, refreshProfile } = useAuthStatus();
   const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
 
   const [vaultPassword, setVaultPassword] = useState('');
@@ -108,6 +108,10 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     setGeneratingRecoveryCode(true);
     try {
       const code = await EncryptionService.generateRecoveryCodeForExistingVault(userId);
+      // Без этого плашка «код восстановления не создан» продолжает висеть над
+      // только что созданным кодом: подписка на изменения новое значение
+      // encryption_meta может не прислать.
+      await refreshProfile();
       setNewGeneratedRecoveryCode(code);
     } catch (err) {
       if (err instanceof EncryptionService.KeyNotExtractableError) {
@@ -130,6 +134,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     setRecoveryPromptError(null);
     try {
       const code = await EncryptionService.generateRecoveryCodeForExistingVault(userId, recoveryPromptPassword);
+      await refreshProfile();
       setRecoveryPromptOpen(false);
       setRecoveryPromptPassword('');
       setNewGeneratedRecoveryCode(code);

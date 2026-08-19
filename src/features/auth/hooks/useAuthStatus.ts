@@ -4,12 +4,13 @@ import { useAnalytics } from '../contexts/AnalyticsContext';
 
 export function useAuthStatus() {
   const { user, authState, isAuthenticated, isGuest, loading } = useAuth();
-  const { profile } = useProfile();
+  const { profile, refreshProfile } = useProfile();
   const { isConnected } = useAnalytics();
 
   return {
     user,
     profile,
+    refreshProfile,
     authState,
     isAuthenticated,
     isGuest,

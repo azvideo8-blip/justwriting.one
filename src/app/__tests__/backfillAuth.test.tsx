@@ -42,7 +42,7 @@ const mockBackfill = vi.mocked(LocalDocumentService.backfillDocumentUuids);
 function baseAuth() {
   return {
     user: null,
-    profile: null,
+    profile: null, refreshProfile: async () => {},
     authState: 'loading' as const,
     isAuthenticated: false,
     isGuest: true,

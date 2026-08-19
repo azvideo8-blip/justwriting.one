@@ -61,7 +61,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
   it("useSyncConsentCheck: shows consent modal for signed-in user with local notes and no prior keys", async () => {
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "user_456" } as never,
-      profile: null,
+      profile: null, refreshProfile: async () => {},
       authState: "authenticated" as never,
       isAuthenticated: true,
       isGuest: false,
@@ -82,7 +82,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
   it("useSyncConsentCheck: does NOT show consent modal for guests", async () => {
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "guest_789" } as never,
-      profile: null,
+      profile: null, refreshProfile: async () => {},
       authState: "authenticated" as never,
       isAuthenticated: true,
       isGuest: true,
@@ -105,7 +105,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
 
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "user_456" } as never,
-      profile: null,
+      profile: null, refreshProfile: async () => {},
       authState: "authenticated" as never,
       isAuthenticated: true,
       isGuest: false,
@@ -128,7 +128,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
 
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "user_456" } as never,
-      profile: null,
+      profile: null, refreshProfile: async () => {},
       authState: "authenticated" as never,
       isAuthenticated: true,
       isGuest: false,
@@ -149,7 +149,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
   it("useSyncConsentCheck: does NOT show consent modal if local docs count is 0", async () => {
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "user_456" } as never,
-      profile: null,
+      profile: null, refreshProfile: async () => {},
       authState: "authenticated" as never,
       isAuthenticated: true,
       isGuest: false,

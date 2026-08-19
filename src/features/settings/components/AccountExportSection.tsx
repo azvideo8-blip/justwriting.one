@@ -184,7 +184,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   };
 
   return (
-    <Section title={t('settings_export_all_title')}>
+    <Section>
       <div className="p-4 rounded-xl border border-border-subtle space-y-3">
         <div className="text-xs text-text-main/60 leading-relaxed">{t('settings_export_all_desc')}</div>
         <Button

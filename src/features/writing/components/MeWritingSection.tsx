@@ -36,7 +36,6 @@ export function MeWritingSection() {
         {[
           { id: 'Inter',  label: 'Inter',         sample: 'Aa 123' },
           { id: 'Lora',   label: 'Lora',          sample: 'Aa 123' },
-          { id: 'JetBrains Mono', label: 'JetBrains Mono', sample: 'Aa 123' },
         ].map(f => (
           <Button
             type="button"
