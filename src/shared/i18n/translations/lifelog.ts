@@ -1,8 +1,9 @@
 import { Translations } from '../types';
 
 export const lifelogTranslations: Translations = {
-  lifelog_tab_log:       { ru: 'Life Log',     en: 'Life Log' },
-  lifelog_tab_settings:  { ru: 'Настройки',    en: 'Settings' },
+  lifelog_tab_log:       { ru: 'Журнал',       en: 'Life Log' },
+  lifelog_tab_ai:        { ru: 'ИИ-помощник',  en: 'AI' },
+  lifelog_tab_settings:  { ru: 'Редактор',     en: 'Editor' },
   lifelog_pin:           { ru: 'Закрепить',     en: 'Pin' },
   lifelog_unpin:         { ru: 'Открепить',     en: 'Unpin' },
   lifelog_today:         { ru: 'Сегодня',       en: 'Today' },

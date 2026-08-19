@@ -86,7 +86,36 @@ describe('signOut', () => {
     vi.resetModules();
   });
 
-  it('refuses to wipe the device while unsynced data exists', async () => {
+  it('keeps local data by default without calling clearAllLocalStores', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', note('local_default') as never);
+
+    const cleared = vi.fn();
+    const signOutFn = vi.fn();
+    vi.doMock('../../../core/storage/localDb', async () => ({
+      ...(await vi.importActual<typeof import('../../../core/storage/localDb')>('../../../core/storage/localDb')),
+      clearAllLocalStores: cleared,
+    }));
+    vi.doMock('../../../core/auth', () => ({
+      getCurrentUserId: () => USER,
+      getCurrentUser: () => ({ uid: USER }),
+      signOutUser: signOutFn,
+    }));
+    vi.doMock('../../../core/crypto/keyVaultCache', () => ({
+      clearDeviceKey: vi.fn(),
+    }));
+    vi.doMock('../../../core/crypto/useEncryptionStore', () => ({
+      useEncryptionStore: { getState: () => ({ setKey: vi.fn() }) },
+    }));
+
+    const { AuthService } = await import('../services/AuthService');
+    await AuthService.signOut();
+
+    expect(cleared).not.toHaveBeenCalled();
+    expect(signOutFn).toHaveBeenCalled();
+  });
+
+  it('refuses to wipe the device when clearLocalData is true and unsynced data exists', async () => {
     const db = await getLocalDb();
     await db.put('documents', note('local_e') as never);
 
@@ -102,9 +131,7 @@ describe('signOut', () => {
     }));
 
     const { AuthService } = await import('../services/AuthService');
-    // Checked by name, not by identity: resetModules gives the dynamic import
-    // its own copy of the class.
-    await expect(AuthService.signOut()).rejects.toMatchObject({
+    await expect(AuthService.signOut({ clearLocalData: true })).rejects.toMatchObject({
       name: 'UnsyncedLocalDataError',
       data: { localOnly: 1, total: 1 },
     });
@@ -135,9 +162,10 @@ describe('signOut', () => {
     }));
 
     const { AuthService } = await import('../services/AuthService');
-    await AuthService.signOut({ force: true });
+    await AuthService.signOut({ clearLocalData: true, force: true });
 
     expect(cleared).toHaveBeenCalled();
     expect(firebaseSignOutFn).toHaveBeenCalled();
   });
 });
+

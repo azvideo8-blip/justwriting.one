@@ -3,7 +3,8 @@ import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry } from '..
 import { DataProvider } from '../../../core/data';
 import { sha256Hex, getLatestContent } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
-import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
+import { getEncryptionEnabled, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
+import { extractRecordTimestamp, SUPPORTED_LOCAL_STORES, SupportedLocalStoreName } from '../../../core/services/LocalStoreSyncService';
 
 import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
@@ -44,11 +45,13 @@ function setEmbeddingRestoreCursor(id: string): void {
 export interface AIRestoreResult {
   summaries: number;
   embeddings: number;
+  localStoreRecords: number;
   /** Local records the cloud already holds, marked so they are not re-uploaded. */
   markedSynced: number;
   failed: number;
   skippedLocked: boolean;
 }
+
 
 /**
  * Pulls AI analysis back from the cloud into local storage.
@@ -64,7 +67,7 @@ export interface AIRestoreResult {
  * already there: a restore must not clobber work newer than the cloud copy.
  */
 export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreResult> {
-  const result: AIRestoreResult = { summaries: 0, embeddings: 0, markedSynced: 0, failed: 0, skippedLocked: false };
+  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, skippedLocked: false };
   if (!userId) return result;
 
   // With E2E on but the vault locked, every decrypt throws. Restoring now would
@@ -92,6 +95,47 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     }
   } catch (e) {
     reportError(e, { action: 'restoreAIData_summaries', userId });
+  }
+
+  // --- Restore local_store_records (13 AI stores) ---
+  try {
+    const cloudRecords = await DataProvider.getLocalStoreRecords(userId);
+    for (const rec of cloudRecords) {
+      if (!SUPPORTED_LOCAL_STORES.includes(rec.store as SupportedLocalStoreName)) continue;
+      if (!(db.objectStoreNames as unknown as { contains(s: string): boolean }).contains(rec.store)) continue;
+
+      try {
+        // Decrypt payload
+        const decryptedPayload = await maybeDecrypt(rec.payload as Record<string, unknown>, ['data'], []);
+        if (typeof decryptedPayload.data !== 'string') continue;
+
+        const parsedData = JSON.parse(decryptedPayload.data);
+        const cloudTs = extractRecordTimestamp(parsedData) ?? (typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null);
+
+        // Get local record if exists
+        const localRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(rec.store, rec.key);
+
+        if (localRecord !== undefined) {
+          const localTs = extractRecordTimestamp(localRecord);
+          // Conflict rule:
+          // If both timestamps exist and cloudTs > localTs: cloud wins.
+          // Otherwise (localTs >= cloudTs OR either timestamp is missing/null): LOCAL WINS, never overwrite!
+          if (localTs !== null && cloudTs !== null && cloudTs > localTs) {
+            await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(rec.store, parsedData);
+            result.localStoreRecords++;
+          }
+        } else {
+          // No local record -> put cloud record
+          await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(rec.store, parsedData);
+          result.localStoreRecords++;
+        }
+      } catch (err) {
+        result.failed++;
+        reportError(err, { action: 'restoreAIData_local_store_record', store: rec.store, key: rec.key });
+      }
+    }
+  } catch (e) {
+    reportError(e, { action: 'restoreAIData_local_store_records', userId });
   }
 
   try {
@@ -162,10 +206,10 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     reportError(e, { action: 'restoreAIData_embeddings', userId });
   }
 
-  if (result.summaries || result.embeddings || result.failed) {
+  if (result.summaries || result.embeddings || result.localStoreRecords || result.failed) {
     logger.info('AIRestoreService', 'Restored AI data from cloud', { ...result });
     useActivityLogStore.getState().addActivity(
-      `Анализ восстановлен из облака (сводок: ${result.summaries}, эмбеддингов: ${result.embeddings})`,
+      `Анализ восстановлен из облака (сводок: ${result.summaries}, записей ИИ: ${result.localStoreRecords}, эмбеддингов: ${result.embeddings})`,
       { action: 'restoreAIDataFromCloud', ...result },
       'info',
       'ai'

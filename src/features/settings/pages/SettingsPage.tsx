@@ -47,7 +47,7 @@ export function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-surface-base text-text-main pb-24 md:pb-16">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-10">
+      <div className="max-w-2xl px-4 sm:px-6 py-6 md:py-10 space-y-10">
         {/* Page Header */}
         <div className="border-b border-border-subtle pb-4">
           <h1 className="text-2xl font-bold tracking-tight text-text-main">

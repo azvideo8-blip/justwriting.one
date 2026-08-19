@@ -2,6 +2,7 @@ import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { AIChatMemoryService } from './AIChatMemoryService';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 function formatDateYYYYMMDD(timestamp: number): string {
   const date = new Date(timestamp);
@@ -45,6 +46,7 @@ export const AIDialogueService = {
       updatedAt: now,
     };
     await db.put('aiDialogues', dialogue);
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', dialogue.id);
     return dialogue;
   },
 
@@ -83,6 +85,7 @@ export const AIDialogueService = {
     existing.updatedAt = now;
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
   async deleteMessage(id: string, index: number): Promise<void> {
@@ -95,6 +98,7 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
@@ -107,6 +111,7 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
   async truncateFrom(id: string, fromIndex: number): Promise<void> {
@@ -119,6 +124,7 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
@@ -138,6 +144,7 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
@@ -158,6 +165,7 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
@@ -170,6 +178,7 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
@@ -182,6 +191,7 @@ export const AIDialogueService = {
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
 
     void this.generateClosingSummary(id);
   },
@@ -243,6 +253,8 @@ export const AIDialogueService = {
         });
 
         await tx.done;
+        LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
+        LocalStoreSyncService.scheduleStoreSync('aiDialogueEvents', id);
       }
     } catch (e) {
       console.warn('[AIDialogueService] generateClosingSummary failed:', e);
@@ -259,6 +271,8 @@ export const AIDialogueService = {
     await tx.objectStore('aiDialogues').put(existing);
     await tx.objectStore('aiDialogueEvents').delete(id);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
+    LocalStoreSyncService.scheduleStoreDelete('aiDialogueEvents', id);
   },
 
   async delete(id: string): Promise<void> {
@@ -281,6 +295,8 @@ export const AIDialogueService = {
     await removeDialogueFromFacets(id);
 
     await db.delete('aiDialogues', id);
+    LocalStoreSyncService.scheduleStoreDelete('aiDialogues', id);
+    LocalStoreSyncService.scheduleStoreDelete('aiDialogueEvents', id);
   },
 
   async cleanupEmpty(excludeId?: string): Promise<number> {
@@ -319,6 +335,7 @@ export const AIDialogueService = {
     dialogue.updatedAt = Date.now();
     await tx.store.put(dialogue);
     await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 

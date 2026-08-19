@@ -80,6 +80,10 @@ export function useBackgroundSync(): void {
       // Дописать в облако векторы, посчитанные при запертом хранилище.
       // Обращений к ИИ здесь нет — только выгрузка уже посчитанного.
       await AIEmbeddingService.syncPendingToCloud();
+
+      // Выгрузить накопившиеся в очереди записи 13 хранилищ ИИ (если сейф был заперт)
+      const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
+      await LocalStoreSyncService.flushPending();
     } catch (e) {
       reportError(e, { action: 'backgroundSync_pass' });
     } finally {

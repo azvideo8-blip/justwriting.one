@@ -2,6 +2,8 @@ import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 export const AICommitmentService = {
   async upsertCommitments(documentId: string, commitments: string[], dateStr: string): Promise<void> {
@@ -49,6 +51,7 @@ export const AICommitmentService = {
           };
           if (vector !== undefined) item.vector = vector;
           await db.put('aiCommitments', item);
+          LocalStoreSyncService.scheduleStoreSync('aiCommitments', item.id);
         }
       }
     } catch (e) {
@@ -93,9 +96,11 @@ export const AICommitmentService = {
         if (matched) {
           c.status = 'done';
           await db.put('aiCommitments', c);
+          LocalStoreSyncService.scheduleStoreSync('aiCommitments', c.id);
         } else if (now - c.createdAt > ageLimitMs) {
           c.status = 'stale';
           await db.put('aiCommitments', c);
+          LocalStoreSyncService.scheduleStoreSync('aiCommitments', c.id);
         } else {
           result.push({
             id: c.id,
@@ -117,10 +122,15 @@ export const AICommitmentService = {
   async delete(id: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('aiCommitments', id);
+    LocalStoreSyncService.scheduleStoreDelete('aiCommitments', id);
   },
 
   async deleteAll(): Promise<void> {
     const db = await getLocalDb();
+    const all = await db.getAll('aiCommitments');
     await db.clear('aiCommitments');
+    for (const c of all) {
+      LocalStoreSyncService.scheduleStoreDelete('aiCommitments', c.id);
+    }
   }
 };

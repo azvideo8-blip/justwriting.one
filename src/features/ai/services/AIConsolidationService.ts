@@ -5,6 +5,8 @@ import { textJaccardSimilarity } from '../utils/mmr';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIService } from './AIService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 /**
  * Cosine similarity threshold for vector-based belief clustering.
@@ -101,6 +103,7 @@ export const AIConsolidationService = {
     try {
       const db = await getLocalDb();
       await db.put('aiBeliefs', belief as unknown as Record<string, unknown>);
+      LocalStoreSyncService.scheduleStoreSync('aiBeliefs', belief.id);
     } catch {
       /* ignore storage failure */
     }

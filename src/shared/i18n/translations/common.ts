@@ -178,4 +178,7 @@ export const commonTranslations: Translations = {
   enc_generate_recovery_code_desc: { ru: 'Для твоего сейфа ещё не создан код восстановления. Создай его, чтобы не потерять доступ к дневнику при утере пароля.', en: 'No recovery code exists for your vault yet. Generate one so you never lose access to your diary if you forget your password.' },
   enc_recovery_code_missing_title: { ru: 'Код восстановления не создан', en: 'No recovery code generated' },
   enc_recovery_code_exists_badge: { ru: 'Код восстановления активен', en: 'Recovery code active' },
+  enc_recovery_password_prompt_title: { ru: 'Подтвердите пароль', en: 'Confirm Password' },
+  enc_recovery_password_prompt_desc: { ru: 'Для создания кода восстановления введите пароль шифрования.', en: 'Enter your encryption password to generate a recovery code.' },
+  enc_recovery_password_submit: { ru: 'Подтвердить и создать', en: 'Confirm and generate' },
 };

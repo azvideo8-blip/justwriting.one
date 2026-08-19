@@ -2,6 +2,8 @@ import { getLocalDb, type AIMonthlyDigest } from '../../../core/storage/localDb'
 import { AITimelineService } from './AITimelineService';
 import { AIService } from './AIService';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 // ponytail: dedupe concurrent generation for the same month. save() fires this
 // fire-and-forget on every summary; a bulk re-summarize (DiagnosticsPage) saves
@@ -106,4 +108,5 @@ async function generateForMonthInner(month: string): Promise<void> {
 
     const db = await getLocalDb();
     await db.put('aiMonthlyDigest', digest);
+    LocalStoreSyncService.scheduleStoreSync('aiMonthlyDigest', digest.month);
 }

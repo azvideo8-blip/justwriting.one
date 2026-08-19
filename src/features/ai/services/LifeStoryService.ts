@@ -1,4 +1,5 @@
 import { getLocalDb, type LifeStoryEntry, type AITimelineEntry } from '../../../core/storage/localDb';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 export const LifeStoryService = {
   async getAll(): Promise<LifeStoryEntry[]> {
@@ -15,11 +16,13 @@ export const LifeStoryService = {
   async save(entry: LifeStoryEntry): Promise<void> {
     const db = await getLocalDb();
     await db.put('lifeStory', entry);
+    LocalStoreSyncService.scheduleStoreSync('lifeStory', entry.eventDate);
   },
 
   async delete(eventDate: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('lifeStory', eventDate);
+    LocalStoreSyncService.scheduleStoreDelete('lifeStory', eventDate);
   },
 
   // Calculate default eventDate (writingDate as-is, fallback = current date)

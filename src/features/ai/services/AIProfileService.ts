@@ -58,6 +58,8 @@ export const AIProfileService = {
         updatedAt: Date.now(),
         generatedAtDelta
       });
+      const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
+      LocalStoreSyncService.scheduleStoreSync('aiPortrait', 'singleton');
     } catch (e) {
       console.error('[AIProfileService] Failed to save portrait to IDB:', e);
     }

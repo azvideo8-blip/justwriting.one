@@ -199,16 +199,44 @@ export async function recoverVaultWithCode(
   }
 }
 
-export async function generateRecoveryCodeForExistingVault(userId: string): Promise<string> {
-  const dataKey = getSessionKey();
-  if (!dataKey) throw new Error('Vault is locked');
+export class KeyNotExtractableError extends Error {
+  constructor(message = 'KEY_NOT_EXTRACTABLE: encryption password required to re-wrap data key') {
+    super(message);
+    this.name = 'KeyNotExtractableError';
+  }
+}
+
+export async function generateRecoveryCodeForExistingVault(userId: string, password?: string): Promise<string> {
+  const currentKey = getSessionKey();
+  if (!currentKey) throw new Error('Vault is locked');
 
   const meta = await getEncryptionMeta(userId);
   if (!meta) throw new Error('Encryption not configured');
 
+  let keyToWrap: CryptoKey;
+  if (!currentKey.extractable) {
+    if (!password) {
+      throw new KeyNotExtractableError();
+    }
+    const oldSalt = saltFromBase64(meta.salt);
+    try {
+      ({ dataKey: keyToWrap } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, oldSalt));
+    } catch {
+      throw new WrongPasswordError();
+    }
+    if (meta.verification) {
+      const valid = await verifyKey(keyToWrap, meta.verification);
+      if (!valid) throw new WrongPasswordError();
+    }
+    // CRITICAL: Do NOT call setSessionKey(keyToWrap) here.
+    // The session key remains the non-extractable device key.
+  } else {
+    keyToWrap = currentKey;
+  }
+
   const recoveryCode = generateRecoveryCode();
   const recoverySalt = generateSalt();
-  const recoveryWrappedDataKey = await wrapDataKeyWithRecoveryCode(dataKey, recoveryCode, recoverySalt);
+  const recoveryWrappedDataKey = await wrapDataKeyWithRecoveryCode(keyToWrap, recoveryCode, recoverySalt);
 
   await saveEncryptionMeta(userId, {
     ...meta,
@@ -313,4 +341,5 @@ export const EncryptionService = {
   WrongPasswordError,
   WrongRecoveryCodeError,
   VaultAlreadyExistsError,
+  KeyNotExtractableError,
 };

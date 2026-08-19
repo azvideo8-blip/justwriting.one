@@ -5,23 +5,37 @@ const localStore: {
   aiEmbeddings: Map<string, unknown>;
   aiTimeline: Map<string, unknown>;
   documents: Map<string, unknown>;
+  aiPortrait: Map<string, unknown>;
+  aiDialogues: Map<string, unknown>;
+  aiProfileFacets: Map<string, unknown>;
+  lifeStory: Map<string, unknown>;
 } = {
   aiSummaries: new Map(),
   aiEmbeddings: new Map(),
   aiTimeline: new Map(),
   documents: new Map(),
+  aiPortrait: new Map(),
+  aiDialogues: new Map(),
+  aiProfileFacets: new Map(),
+  lifeStory: new Map(),
 };
 type StoreName = keyof typeof localStore;
 
 vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: vi.fn(async () => ({
-    getAllKeys: async (store: StoreName) => [...localStore[store].keys()],
-    getAll: async (store: StoreName) => [...localStore[store].values()],
-    put: async (store: StoreName, value: { documentId?: string; id?: string }) => {
-      localStore[store].set((value.documentId ?? value.id)!, value);
+    objectStoreNames: {
+      contains: (s: string) => s in localStore,
+    },
+    getAllKeys: async (store: StoreName) => [...(localStore[store]?.keys() ?? [])],
+    getAll: async (store: StoreName) => [...(localStore[store]?.values() ?? [])],
+    get: async (store: StoreName, key: string) => localStore[store]?.get(key),
+    put: async (store: StoreName, value: { documentId?: string; id?: string; eventDate?: string }) => {
+      const key = (value.documentId ?? value.id ?? value.eventDate)!;
+      if (localStore[store] === undefined) localStore[store] = new Map();
+      localStore[store].set(key, value);
     },
     delete: async (store: StoreName, key: string) => {
-      localStore[store].delete(key);
+      localStore[store]?.delete(key);
     },
   })),
 }));
@@ -36,6 +50,7 @@ vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() })
 
 const summaryDocs: Array<{ id: string; data: () => unknown }> = [];
 const embeddingDocs: Array<{ id: string; data: () => unknown }> = [];
+const localStoreRecordsDocs: Array<{ store: string; key: string; payload: Record<string, unknown> }> = [];
 
 vi.mock('../../../../core/data', () => ({
   DataProvider: {
@@ -49,6 +64,7 @@ vi.mock('../../../../core/data', () => ({
         nextCursorId: slice.length === limit ? slice[slice.length - 1]?.id ?? null : null,
       };
     },
+    getLocalStoreRecords: async () => localStoreRecordsDocs,
   },
 }));
 
@@ -56,8 +72,10 @@ const getSessionKey = vi.fn(() => ({} as CryptoKey));
 vi.mock('../../../../core/crypto/encrypt', () => ({ getSessionKey: () => getSessionKey() }));
 
 const getEncryptionEnabled = vi.fn((_uid: string) => true);
+const maybeDecrypt = vi.fn(async (doc: Record<string, unknown>, _strFields?: string[], _arrFields?: string[]) => doc);
 vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
   getEncryptionEnabled: (uid: string) => getEncryptionEnabled(uid),
+  maybeDecrypt: (doc: Record<string, unknown>, strFields?: string[], arrFields?: string[]) => maybeDecrypt(doc, strFields, arrFields),
 }));
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
@@ -82,9 +100,14 @@ describe('restoreAIDataFromCloud', () => {
     localStore.aiEmbeddings = new Map();
     localStore.aiTimeline = new Map();
     localStore.documents = new Map();
+    localStore.aiPortrait = new Map();
+    localStore.aiDialogues = new Map();
+    localStore.aiProfileFacets = new Map();
+    localStore.lifeStory = new Map();
     latestContent.clear();
     summaryDocs.length = 0;
     embeddingDocs.length = 0;
+    localStoreRecordsDocs.length = 0;
     getSessionKey.mockReturnValue({} as CryptoKey);
     getEncryptionEnabled.mockReturnValue(true);
     localStorage.clear();
@@ -92,6 +115,70 @@ describe('restoreAIDataFromCloud', () => {
     // whole free day. These cases exercise the restore itself, so they opt in.
     requestEmbeddingRestore();
   });
+
+  it('restores local_store_records (aiPortrait, aiDialogues, lifeStory) when missing locally', async () => {
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait',
+      key: 'singleton',
+      payload: { data: JSON.stringify({ id: 'singleton', portrait: 'Cloud Portrait', updatedAt: 2000 }) },
+    });
+    localStoreRecordsDocs.push({
+      store: 'lifeStory',
+      key: '2026-08-19',
+      payload: { data: JSON.stringify({ eventDate: '2026-08-19', text: 'Story entry', generatedAt: 2000 }) },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(2);
+    expect(localStore.aiPortrait.get('singleton')).toMatchObject({ portrait: 'Cloud Portrait' });
+    expect(localStore.lifeStory.get('2026-08-19')).toMatchObject({ text: 'Story entry' });
+  });
+
+  it('preserves local record when local timestamp is newer or equal to cloud', async () => {
+    localStore.aiPortrait.set('singleton', { id: 'singleton', portrait: 'Local Newer', updatedAt: 5000 });
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait',
+      key: 'singleton',
+      payload: { data: JSON.stringify({ id: 'singleton', portrait: 'Cloud Older', updatedAt: 3000 }) },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(0);
+    expect(localStore.aiPortrait.get('singleton')).toMatchObject({ portrait: 'Local Newer' });
+  });
+
+  it('strictly preserves local record when either local or cloud lacks a timestamp', async () => {
+    // Local has no timestamp field!
+    localStore.aiPortrait.set('singleton', { id: 'singleton', portrait: 'Local Untimestamped' });
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait',
+      key: 'singleton',
+      payload: { data: JSON.stringify({ id: 'singleton', portrait: 'Cloud Timestamped', updatedAt: 5000 }) },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(0);
+    // Local wins unconditionally!
+    expect(localStore.aiPortrait.get('singleton')).toMatchObject({ portrait: 'Local Untimestamped' });
+  });
+
+  it('overwrites local record only when both timestamps exist and cloud is newer', async () => {
+    localStore.aiPortrait.set('singleton', { id: 'singleton', portrait: 'Local Older', updatedAt: 1000 });
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait',
+      key: 'singleton',
+      payload: { data: JSON.stringify({ id: 'singleton', portrait: 'Cloud Newer', updatedAt: 6000 }) },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(1);
+    expect(localStore.aiPortrait.get('singleton')).toMatchObject({ portrait: 'Cloud Newer' });
+  });
+
 
   it('does not touch the embeddings collection unless it was asked to', async () => {
     localStorage.clear();

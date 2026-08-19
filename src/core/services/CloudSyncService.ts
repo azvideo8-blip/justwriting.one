@@ -31,21 +31,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): P
 
 
 export const CloudSyncService = {
-  async restoreMissingDocuments(userId: string): Promise<{ restored: number; hasMore: boolean }> {
-
-
+  async restoreMissingDocuments(
+    userId: string,
+    opts?: { force?: boolean; onProgress?: (current: number, total: number) => void },
+  ): Promise<{ restored: number; hasMore: boolean }> {
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
       return { restored: 0, hasMore: false };
     }
 
-    const lastListingTs = parseInt(localStorage.getItem('last_restore_listing_ts') || '0', 10);
-    if (Date.now() - lastListingTs < 30 * 60 * 1000) {
-      return { restored: 0, hasMore: false };
+    if (!opts?.force) {
+      const lastListingTs = parseInt(localStorage.getItem('last_restore_listing_ts') || '0', 10);
+      if (Date.now() - lastListingTs < 30 * 60 * 1000) {
+        return { restored: 0, hasMore: false };
+      }
     }
     
     // We update the timestamp only if we are actually going to list.
-    // However, if write budget blocks us after, we might want to try again sooner?
-    // The requirement says "refuse to re-list more often than every 30 minutes".
     localStorage.setItem('last_restore_listing_ts', Date.now().toString());
 
     const cloudDocs = await DocumentService.getUserDocuments(userId);
@@ -61,14 +62,13 @@ export const CloudSyncService = {
     await relinkOrphaned(localDocs, cloudDocs);
     const localCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
 
+    const missingDocs = cloudDocs.filter(doc => !localCloudIds.has(doc.id));
     let restored = 0;
-    let hasMore = false;
+    const hasMore = false;
 
-    for (const doc of cloudDocs) {
-      if (localCloudIds.has(doc.id)) continue;
-      
-
-
+    for (let i = 0; i < missingDocs.length; i++) {
+      const doc = missingDocs[i]!;
+      opts?.onProgress?.(i + 1, missingDocs.length);
       try {
         await CloudSyncService.addLocalCopy(userId, doc.id);
         restored++;

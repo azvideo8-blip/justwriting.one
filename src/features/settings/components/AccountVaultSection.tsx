@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Lock, Shield, KeyRound } from 'lucide-react';
+import { Lock, Shield, KeyRound, AlertCircle, Loader2 } from 'lucide-react';
 import { EncryptionService, WrongPasswordError, hasVault } from '../../../core/services/EncryptionService';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore, setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
+import { getSessionKey } from '../../../core/crypto/encrypt';
 import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -32,6 +33,10 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const [generatingRecoveryCode, setGeneratingRecoveryCode] = useState(false);
   const [newGeneratedRecoveryCode, setNewGeneratedRecoveryCode] = useState<string | null>(null);
+  const [recoveryPromptOpen, setRecoveryPromptOpen] = useState(false);
+  const [recoveryPromptPassword, setRecoveryPromptPassword] = useState('');
+  const [recoveryPromptError, setRecoveryPromptError] = useState<string | null>(null);
+  const [recoveryPromptLoading, setRecoveryPromptLoading] = useState(false);
 
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
@@ -93,15 +98,50 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   };
 
   const handleGenerateRecoveryCode = async () => {
+    const key = getSessionKey();
+    if (key && !key.extractable) {
+      setRecoveryPromptPassword('');
+      setRecoveryPromptError(null);
+      setRecoveryPromptOpen(true);
+      return;
+    }
     setGeneratingRecoveryCode(true);
     try {
       const code = await EncryptionService.generateRecoveryCodeForExistingVault(userId);
       setNewGeneratedRecoveryCode(code);
     } catch (err) {
-      reportError(err, { action: 'generateRecoveryCodeInSettings', userId });
-      showToast(t('error_generic_action'), 'error');
+      if (err instanceof EncryptionService.KeyNotExtractableError) {
+        setRecoveryPromptPassword('');
+        setRecoveryPromptError(null);
+        setRecoveryPromptOpen(true);
+      } else {
+        reportError(err, { action: 'generateRecoveryCodeInSettings', userId });
+        showToast(t('error_generic_action'), 'error');
+      }
     } finally {
       setGeneratingRecoveryCode(false);
+    }
+  };
+
+  const handleConfirmRecoveryPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryPromptPassword) return;
+    setRecoveryPromptLoading(true);
+    setRecoveryPromptError(null);
+    try {
+      const code = await EncryptionService.generateRecoveryCodeForExistingVault(userId, recoveryPromptPassword);
+      setRecoveryPromptOpen(false);
+      setRecoveryPromptPassword('');
+      setNewGeneratedRecoveryCode(code);
+    } catch (err) {
+      if (err instanceof WrongPasswordError) {
+        setRecoveryPromptError(t('unlock_wrong_password'));
+      } else {
+        reportError(err, { action: 'generateRecoveryCodeWithPassword', userId });
+        setRecoveryPromptError(t('error_generic_action'));
+      }
+    } finally {
+      setRecoveryPromptLoading(false);
     }
   };
 
@@ -342,6 +382,60 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {recoveryPromptOpen && (
+        <div className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-surface-base/90 backdrop-blur-md" onClick={() => setRecoveryPromptOpen(false)}>
+          <div className="w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">
+              <KeyRound size={18} className="text-brand-soft" />
+            </div>
+            <h2 className="text-base font-medium text-text-main mb-1">
+              {t('enc_recovery_password_prompt_title')}
+            </h2>
+            <p className="text-sm text-text-main/60 mb-4">
+              {t('enc_recovery_password_prompt_desc')}
+            </p>
+            {recoveryPromptError && (
+              <div role="alert" className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3 flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                {recoveryPromptError}
+              </div>
+            )}
+            <form onSubmit={(e) => void handleConfirmRecoveryPassword(e)} className="space-y-3">
+              <Input
+                type="password"
+                autoFocus
+                value={recoveryPromptPassword}
+                onChange={e => setRecoveryPromptPassword(e.target.value)}
+                placeholder={t('auth_password') || 'Password'}
+                className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
+                required
+              />
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setRecoveryPromptOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm"
+                >
+                  {t('common_cancel')}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={recoveryPromptLoading || !recoveryPromptPassword}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-[var(--brand-primary)]"
+                >
+                  {recoveryPromptLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    t('enc_recovery_password_submit')
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

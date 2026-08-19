@@ -25,8 +25,11 @@ interface WritingSettingsContextType {
   setLifeLogEnabled: (enabled: boolean) => void;
   lifeLogVisible: boolean;
   setLifeLogVisible: (v: boolean) => void;
-  lifeLogTab: 'log' | 'settings';
-  setLifeLogTab: (tab: 'log' | 'settings') => void;
+  lifeLogTab: 'log' | 'ai' | 'settings';
+  setLifeLogTab: (tab: 'log' | 'ai' | 'settings') => void;
+  isAttachmentActive: boolean;
+  setIsAttachmentActive: (active: boolean) => void;
+  dismissRightPanel: (options?: { ignoreIfAttaching?: boolean }) => void;
   isZenActive: boolean;
   zenSeenOnce: boolean;
   status: TimerStatus;
@@ -62,7 +65,13 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
   const [lifeLogEnabled, setLifeLogEnabled] = useLocalStorage<boolean>('lifeLogEnabled', true, z.boolean());
   const [lifeLogVisible, _setLifeLogVisible] = useState(false);
   const [aiPanelOpen, _setAiPanelOpen] = useState(false);
-  const [lifeLogTab, setLifeLogTab] = useState<'log' | 'settings'>('log');
+  const [lifeLogTab, setLifeLogTab] = useState<'log' | 'ai' | 'settings'>('log');
+  const [isAttachmentActive, setIsAttachmentActive] = useState<boolean>(false);
+  const isAttachmentActiveRef = useRef(isAttachmentActive);
+  useEffect(() => {
+    isAttachmentActiveRef.current = isAttachmentActive;
+  }, [isAttachmentActive]);
+
   const [fontFamily, setFontFamily] = useLocalStorage<string>('v2_fontFamily', 'Inter', z.string());
   const [fontSize, setFontSize] = useLocalStorage<number>('v2_fontSize', 18, z.number());
   const [lineHeight, setLineHeight] = useLocalStorage<number>('v2_lineHeight', 1.6, z.number());
@@ -86,12 +95,29 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
 
   const setLifeLogVisible = useCallback((v: boolean) => {
     _setLifeLogVisible(v);
-    if (v) _setAiPanelOpen(false);
-  }, []);
+    if (v && lifeLogTab === 'ai') {
+      _setAiPanelOpen(true);
+    } else if (!v) {
+      _setAiPanelOpen(false);
+    }
+  }, [lifeLogTab]);
 
   const setAiPanelOpen = useCallback((v: boolean) => {
     _setAiPanelOpen(v);
-    if (v) _setLifeLogVisible(false);
+    if (v) {
+      setLifeLogTab('ai');
+      _setLifeLogVisible(true);
+    } else if (lifeLogTab === 'ai') {
+      _setLifeLogVisible(false);
+    }
+  }, [lifeLogTab]);
+
+  const dismissRightPanel = useCallback((options?: { ignoreIfAttaching?: boolean }) => {
+    if (options?.ignoreIfAttaching && isAttachmentActiveRef.current) {
+      return;
+    }
+    _setLifeLogVisible(false);
+    _setAiPanelOpen(false);
   }, []);
 
   useEffect(() => {
@@ -178,7 +204,9 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     autoHideCursor, setAutoHideCursor,
     lineHeight, setLineHeight,
     aiPanelOpen, setAiPanelOpen,
-  }), [silenceMode, setSilenceMode, typographyEnabled, setTypographyEnabled, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
+    isAttachmentActive, setIsAttachmentActive,
+    dismissRightPanel,
+  }), [silenceMode, setSilenceMode, typographyEnabled, setTypographyEnabled, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isAttachmentActive, setIsAttachmentActive, dismissRightPanel, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen
+  Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen, Sparkles, SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
@@ -12,7 +12,6 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { Toolbar } from './Toolbar';
 import { HeaderStats } from './HeaderStats';
-import { AIToggleButton } from './AIPanel';
 
 interface WritingHeaderProps {
   totalDurationForDeadline?: number | null;
@@ -40,7 +39,7 @@ export const WritingHeader = React.memo(function WritingHeader({
     isZenActive, zenModeEnabled, 
     headerVisibility,
     lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab,
-    aiPanelOpen, setAiPanelOpen
+    dismissRightPanel,
   } = useWritingSettings();
 
   const status = useTimerStore(s => s.status);
@@ -76,6 +75,15 @@ export const WritingHeader = React.memo(function WritingHeader({
     }
   };
 
+  const handleToggleTab = (tab: 'log' | 'ai' | 'settings') => {
+    if (lifeLogVisible && lifeLogTab === tab) {
+      dismissRightPanel();
+    } else {
+      setLifeLogTab(tab);
+      setLifeLogVisible(true);
+    }
+  };
+
   return (
     <AnimatePresence>
       {!showZen && (
@@ -108,20 +116,21 @@ export const WritingHeader = React.memo(function WritingHeader({
                      icon={<BookOpen size={16} aria-hidden="true" />}
                      label={t('lifelog_tab_log')}
                      active={lifeLogVisible && lifeLogTab === 'log'}
-                     onClick={() => {
-                       if (!lifeLogVisible || lifeLogTab !== 'log') {
-                         setLifeLogTab('log');
-                         setLifeLogVisible(true);
-                       } else {
-                         setLifeLogVisible(false);
-                       }
-                     }}
+                     onClick={() => handleToggleTab('log')}
                    />
-                   <AIToggleButton
-                     active={aiPanelOpen}
-                     onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                   <IconButton
+                     icon={<Sparkles size={16} aria-hidden="true" />}
+                     label={t('lifelog_tab_ai')}
+                     active={lifeLogVisible && lifeLogTab === 'ai'}
+                     onClick={() => handleToggleTab('ai')}
                    />
-                    <IconButton
+                   <IconButton
+                     icon={<SlidersHorizontal size={16} aria-hidden="true" />}
+                     label={t('lifelog_tab_settings')}
+                     active={lifeLogVisible && lifeLogTab === 'settings'}
+                     onClick={() => handleToggleTab('settings')}
+                   />
+                   <IconButton
                      icon={isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                      label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
                      onClick={toggleFullscreen}
@@ -148,16 +157,21 @@ export const WritingHeader = React.memo(function WritingHeader({
                       icon={<BookOpen size={16} aria-hidden="true" />}
                       label={t('lifelog_tab_log')}
                       active={lifeLogVisible && lifeLogTab === 'log'}
-                      onClick={() => {
-                        if (!lifeLogVisible || lifeLogTab !== 'log') {
-                          setLifeLogTab('log');
-                          setLifeLogVisible(true);
-                        } else {
-                          setLifeLogVisible(false);
-                        }
-                      }}
+                      onClick={() => handleToggleTab('log')}
                     />
-                     <IconButton
+                    <IconButton
+                      icon={<Sparkles size={16} aria-hidden="true" />}
+                      label={t('lifelog_tab_ai')}
+                      active={lifeLogVisible && lifeLogTab === 'ai'}
+                      onClick={() => handleToggleTab('ai')}
+                    />
+                    <IconButton
+                      icon={<SlidersHorizontal size={16} aria-hidden="true" />}
+                      label={t('lifelog_tab_settings')}
+                      active={lifeLogVisible && lifeLogTab === 'settings'}
+                      onClick={() => handleToggleTab('settings')}
+                    />
+                    <IconButton
                       icon={isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                       label={isFullscreen ? t('header_exit_fullscreen') : t('header_fullscreen')}
                       onClick={toggleFullscreen}

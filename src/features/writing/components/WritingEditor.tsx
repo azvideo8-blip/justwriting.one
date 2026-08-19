@@ -32,10 +32,14 @@ export const WritingEditor = React.memo(function WritingEditor({
     autoHideCursor,
     silenceMode,
     typographyEnabled,
+    lifeLogVisible,
+    lifeLogPinned,
+    dismissRightPanel,
   } = useWritingSettings();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const streamStatusRef = React.useRef<HTMLSpanElement>(null);
+  const pointerStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const { showToast } = useToast();
   const blockToastShownRef = React.useRef(false);
   const editorStyle = {
@@ -46,6 +50,25 @@ export const WritingEditor = React.memo(function WritingEditor({
     // Typewriter mode: extra bottom room so the last lines can scroll up to
     // the vertical center instead of sticking to the bottom edge.
     ...(typewriterScrolling ? { paddingBottom: '45vh' } : {}),
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!pointerStartRef.current) return;
+    const dx = e.clientX - pointerStartRef.current.x;
+    const dy = e.clientY - pointerStartRef.current.y;
+    pointerStartRef.current = null;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance < 6) {
+      const selection = typeof window !== 'undefined' ? (window.getSelection()?.toString() || '') : '';
+      if (selection.length === 0 && lifeLogVisible && !lifeLogPinned) {
+        dismissRightPanel({ ignoreIfAttaching: true });
+      }
+    }
   };
 
   useCaretEffects(textareaRef, { typewriter: typewriterScrolling, focusBand: focusModeEnabled });
@@ -149,6 +172,8 @@ export const WritingEditor = React.memo(function WritingEditor({
   return (
     <div
       ref={containerRef}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
       className={cn(
         "transition-all duration-1000 flex flex-col",
         lifeLogEnabled ? "h-full overflow-hidden" : "space-y-4 py-4 font-serif",

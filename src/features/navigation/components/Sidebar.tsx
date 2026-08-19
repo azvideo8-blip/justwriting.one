@@ -135,7 +135,7 @@ interface SidebarProps {
 export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarProps) {
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
-  const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
+  const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled, dismissRightPanel } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const location = useLocation();
   const navigate = useNavigate();
@@ -295,7 +295,10 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
 
           return (
             <button
-              onClick={() => openActivityPanel(true)}
+              onClick={() => {
+                dismissRightPanel();
+                openActivityPanel(true);
+              }}
               className={cn(
                 "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
                 badgeColor, badgeBg
@@ -331,12 +334,12 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
         />
         )}
 
-        <SidebarActionItem
+        <SidebarNavItem
           icon={<Settings size={20} />}
           label={t('nav_settings')}
+          isActive={location.pathname === '/settings'}
           expanded={expanded}
           onClick={() => void navigate('/settings')}
-          accent={location.pathname === '/settings'}
         />
 
         <div className={cn(

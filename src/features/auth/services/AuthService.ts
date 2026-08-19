@@ -54,29 +54,44 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
 }
 
 /**
- * Signing out clears every local store — correct on a shared machine, and safe
- * only while the cloud holds a copy of everything. It used to do that
- * unconditionally, so a local-only note, a queued edit or an unfinished draft
- * was destroyed by an ordinary "Выйти", under a UI promising the opposite.
+ * Signing out clears session credentials and keys in memory/cache.
  *
- * The refusal lives here rather than in the two call sites: an invariant that
- * depends on every caller remembering is not an invariant. `force` is the
- * user's explicit "выйти и удалить локальные данные".
+ * By default (`clearLocalData` is false), local data in IndexedDB is PRESERVED.
+ * When `clearLocalData` is true (e.g. user selected "shared computer"), all local stores
+ * are cleared, guarded by unsynced data protection unless `force` is true.
  */
-async function signOut(opts?: { force?: boolean }) {
+async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
   const currentUid = getCurrentUser()?.uid;
 
-  if (!opts?.force) {
-    const { countUnsyncedLocalData, UnsyncedLocalDataError } = await import('./unsyncedLocalData');
-    const unsynced = await countUnsyncedLocalData(currentUid);
-    if (unsynced.total > 0) throw new UnsyncedLocalDataError(unsynced);
-  }
+  if (opts?.clearLocalData === true) {
+    if (!opts?.force) {
+      const { countUnsyncedLocalData, UnsyncedLocalDataError } = await import('./unsyncedLocalData');
+      const unsynced = await countUnsyncedLocalData(currentUid);
+      if (unsynced.total > 0) throw new UnsyncedLocalDataError(unsynced);
+    }
 
-  try {
-    const { clearAllLocalStores } = await import('../../../core/storage/localDb');
-    await clearAllLocalStores();
-  } catch (e) {
-    reportError(e, { action: 'signOut_clearLocalDb' });
+    try {
+      const { clearAllLocalStores } = await import('../../../core/storage/localDb');
+      await clearAllLocalStores();
+    } catch (e) {
+      reportError(e, { action: 'signOut_clearLocalDb' });
+    }
+
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
+  } else {
+    try {
+      sessionStorage.clear();
+      if (currentUid) {
+        localStorage.removeItem(`pending_keys_${currentUid}`);
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   try {
@@ -91,13 +106,6 @@ async function signOut(opts?: { force?: boolean }) {
     useEncryptionStore.getState().setKey(null);
   } catch (e) {
     reportError(e, { action: 'signOut_clearSessionKey' });
-  }
-
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch {
-    /* ignore */
   }
 
   return signOutUser();

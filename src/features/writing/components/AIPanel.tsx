@@ -25,16 +25,12 @@ interface AIPanelProps {
   onClose: () => void;
 }
 
-export function AIPanel({ open, onClose }: AIPanelProps) {
+export function AIPanelContent() {
   const { t } = useLanguage();
-  const { layoutMode } = useLayoutMode();
-  const isMobile = layoutMode === 'mobile';
   const content = useContentStore(s => s.content);
   const setContent = useContentStore(s => s.setContent);
 
   const [loading, setLoading] = useState(false);
-  // Persist a result per action so switching between e.g. "Ideas" and "Summary"
-  // keeps both — revisiting a cached action never re-spends a token.
   const [results, setResults] = useState<Partial<Record<AIAction, string>>>({});
   const [activeAction, setActiveAction] = useState<AIAction | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +38,6 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
   const [appliedActions, setAppliedActions] = useState<Set<AIAction>>(new Set());
 
   const runAction = useCallback(async (action: AIAction, force: boolean) => {
-    // Cache hit: show the stored result without calling the model again.
     if (!force && results[action] !== undefined) {
       setActiveAction(action);
       setError(null);
@@ -69,7 +64,7 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
     if (res.ok) {
       setResults(prev => ({ ...prev, [action]: res.text }));
       setAppliedActions(prev => { const n = new Set(prev); n.delete(action); return n; });
-      consumeRequest(); // count editor AI edits against the same daily limit as chat
+      consumeRequest();
     } else {
       const errorMap: Record<string, string> = {
         AUTH_REQUIRED: getCurrentUser() ? t('ai_error_session') : t('ai_error_auth'),
@@ -89,11 +84,8 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
     const text = results[activeAction];
     if (!text) return;
     if (activeAction === 'continue') {
-      // A continuation flows into the note directly.
       setContent(content.trimEnd() + '\n\n' + text);
     } else {
-      // Everything else is appended below the existing text with a label —
-      // never overwrites what the user wrote.
       const meta = AI_ACTIONS.find(a => a.action === activeAction);
       const label = `${meta ? t(meta.labelKey) : ''} ${t('ai_from_ai')}:`.trim();
       const base = content.trimEnd();
@@ -134,6 +126,122 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
   const hasContent = Boolean(content.trim());
 
   return (
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
+      {!hasContent && (
+        <div className="text-xs text-text-main/60 text-center rounded-xl bg-text-main/[0.03] px-3 py-2.5 border border-border-subtle/30">
+          {t('ai_no_content')}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        {AI_ACTIONS.map(({ action, icon, labelKey }) => {
+          const hasResult = results[action] !== undefined;
+          const isActive = activeAction === action;
+          const isBusy = loading && activeAction === action;
+          return (
+            <Button
+              key={action}
+              variant="ghost"
+              size="sm"
+              onClick={() => void runAction(action, false)}
+              disabled={loading || !hasContent}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
+                isActive
+                  ? "bg-brand-soft/15 text-brand-soft"
+                  : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
+                (loading || !hasContent) && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {isBusy ? <Loader2 size={14} className="animate-spin" /> : icon}
+              <span className="flex-1 text-left truncate">{t(labelKey)}</span>
+              {hasResult && !isBusy && (
+                <Check size={11} className={cn("shrink-0", isActive ? "text-brand-soft" : "text-accent-success/70")} />
+              )}
+            </Button>
+          );
+        })}
+      </div>
+
+      <AnimatePresence mode="wait">
+        <div aria-live="polite">
+          {error && (
+            <motion.div
+              role="alert"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-xs text-accent-danger/80 bg-accent-danger/10 rounded-xl px-3 py-2"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          {activeResult && !loading && (
+            <motion.div
+              key={activeAction}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col gap-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-text-main/60 font-medium uppercase tracking-wider">
+                  {activeMeta ? t(activeMeta.labelKey) : t('ai_result_label')}
+                </div>
+                <IconButton
+                  icon={<RotateCcw size={12} />}
+                  label={t('ai_result_label')}
+                  size="sm"
+                  onClick={() => { if (activeAction) void runAction(activeAction, true); }}
+                  className="rounded-lg text-text-main/40 hover:text-text-main/70 hover:bg-text-main/5"
+                />
+              </div>
+              <div className="text-sm text-text-main/80 whitespace-pre-wrap leading-relaxed rounded-xl bg-text-main/[0.03] p-3 border border-border-subtle/30">
+                {activeResult}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleCopy()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80"
+                >
+                  {copied ? <Check size={12} /> : <Copy size={12} />}
+                  {copied ? t('ai_copied') : t('ai_copy')}
+                </Button>
+                {canApply && (
+                  <Button
+                    variant="brand"
+                    size="sm"
+                    onClick={handleApply}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30"
+                  >
+                    <Check size={12} />
+                    {t('ai_apply')}
+                  </Button>
+                )}
+                {isApplied && (
+                  <span className="flex items-center gap-1 text-xs text-accent-success">
+                    <Check size={12} />
+                    {t('ai_applied')}
+                  </span>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export function AIPanel({ open, onClose }: AIPanelProps) {
+  const { t } = useLanguage();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
+
+  return (
     <AnimatePresence>
       {open && (
         <>
@@ -161,127 +269,21 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
                 <div className="w-12 h-1.5 rounded-full bg-text-main/10" />
               </div>
             )}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle/40">
-            <div className="flex items-center gap-2 text-text-main/70">
-              <Sparkles size={16} className="text-brand-soft" />
-              <span className="text-sm font-medium">{t('ai_panel_title')}</span>
-            </div>
-            <IconButton
-              icon={<X size={14} />}
-              label={t('ai_close')}
-              size="sm"
-              onClick={onClose}
-              className="rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5"
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
-            {!hasContent && (
-              <div className="text-xs text-text-main/60 text-center rounded-xl bg-text-main/[0.03] px-3 py-2.5 border border-border-subtle/30">
-                {t('ai_no_content')}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle/40">
+              <div className="flex items-center gap-2 text-text-main/70">
+                <Sparkles size={16} className="text-brand-soft" />
+                <span className="text-sm font-medium">{t('ai_panel_title')}</span>
               </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              {AI_ACTIONS.map(({ action, icon, labelKey }) => {
-                const hasResult = results[action] !== undefined;
-                const isActive = activeAction === action;
-                const isBusy = loading && activeAction === action;
-                return (
-                  <Button
-                    key={action}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void runAction(action, false)}
-                    disabled={loading || !hasContent}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors",
-                      isActive
-                        ? "bg-brand-soft/15 text-brand-soft"
-                        : "bg-text-main/[0.04] text-text-main/60 hover:bg-text-main/[0.08] hover:text-text-main/80",
-                      (loading || !hasContent) && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {isBusy ? <Loader2 size={14} className="animate-spin" /> : icon}
-                    <span className="flex-1 text-left truncate">{t(labelKey)}</span>
-                    {hasResult && !isBusy && (
-                      <Check size={11} className={cn("shrink-0", isActive ? "text-brand-soft" : "text-accent-success/70")} />
-                    )}
-                  </Button>
-                );
-              })}
+              <IconButton
+                icon={<X size={14} />}
+                label={t('ai_close')}
+                size="sm"
+                onClick={onClose}
+                className="rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5"
+              />
             </div>
 
-            <AnimatePresence mode="wait">
-              <div aria-live="polite">
-              {error && (
-                <motion.div
-                  role="alert"
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="text-xs text-accent-danger/80 bg-accent-danger/10 rounded-xl px-3 py-2"
-                >
-                  {error}
-                </motion.div>
-              )}
-
-              {activeResult && !loading && (
-                <motion.div
-                  key={activeAction}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="flex flex-col gap-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-text-main/60 font-medium uppercase tracking-wider">
-                      {activeMeta ? t(activeMeta.labelKey) : t('ai_result_label')}
-                    </div>
-                    <IconButton
-                      icon={<RotateCcw size={12} />}
-                      label={t('ai_result_label')}
-                      size="sm"
-                      onClick={() => { if (activeAction) void runAction(activeAction, true); }}
-                      className="rounded-lg text-text-main/40 hover:text-text-main/70 hover:bg-text-main/5"
-                    />
-                  </div>
-                  <div className="text-sm text-text-main/80 whitespace-pre-wrap leading-relaxed rounded-xl bg-text-main/[0.03] p-3 border border-border-subtle/30">
-                    {activeResult}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleCopy()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-text-main/[0.05] text-text-main/60 hover:bg-text-main/[0.1] hover:text-text-main/80"
-                    >
-                      {copied ? <Check size={12} /> : <Copy size={12} />}
-                      {copied ? t('ai_copied') : t('ai_copy')}
-                    </Button>
-                    {canApply && (
-                      <Button
-                        variant="brand"
-                        size="sm"
-                        onClick={handleApply}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30"
-                      >
-                        <Check size={12} />
-                        {t('ai_apply')}
-                      </Button>
-                    )}
-                    {isApplied && (
-                      <span className="flex items-center gap-1 text-xs text-accent-success">
-                        <Check size={12} />
-                        {t('ai_applied')}
-                      </span>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-              </div>
-            </AnimatePresence>
-          </div>
+            <AIPanelContent />
           </motion.div>
         </>
       )}

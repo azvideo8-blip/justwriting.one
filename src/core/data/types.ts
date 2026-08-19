@@ -72,6 +72,13 @@ export interface IDataProvider {
     versionsToUpdate: Array<{ documentId: string; versionId: string; data: ProviderRecord }>;
   }): Promise<void>;
 
+  // --- Local Store Records Operations ---
+  saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void>;
+  getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
+  getLocalStoreRecords(userId: string, store?: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
+  deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
+  deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
+
   // --- Migration ---
   getMigrationDrafts(userId: string): Promise<{ id: string; data: ProviderRecord }[]>;
   executeMigrationBatch(ops: {
@@ -83,3 +90,4 @@ export interface IDataProvider {
     data: ProviderRecord;
   }[]): Promise<void>;
 }
+

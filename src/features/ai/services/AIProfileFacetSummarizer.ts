@@ -4,6 +4,8 @@ import { AIService } from './AIService';
 import { withFacetLock } from './AIProfileFacetService';
 import type { FacetBuildProgress } from './AIProfileFacetBuilder';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 const MAX_EXCERPTS = 14;
 const EXCERPT_CHARS = 2_000;
@@ -57,6 +59,7 @@ export const AIProfileFacetSummarizer = {
         f.dirty = !resummarized;
         f.updatedAt = Date.now();
         await db.put('aiProfileFacets', f);
+        LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }
 
@@ -116,6 +119,7 @@ export const AIProfileFacetSummarizer = {
         delete f._excerptSeed;
         f.updatedAt = Date.now();
         await db.put('aiProfileFacets', f);
+        LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }
 

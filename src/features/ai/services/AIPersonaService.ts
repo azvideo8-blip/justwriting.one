@@ -1,6 +1,8 @@
 import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import type { AIPersona } from '../../../core/storage/localDb';
 import { callAi } from '../../../core/ai/callAi';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 export const PRESET_PERSONAS = [
   { id: 'group_psychology', name: 'Группа психологов', emoji: '\u{1FAC2}', isPreset: true },
   { id: 'cbt', name: 'КПТ-психолог', emoji: '\u{1F9E0}', isPreset: true },
@@ -33,6 +35,7 @@ export const AIPersonaService = {
       createdAt: Date.now(),
     };
     await db.put('aiPersonas', persona);
+    LocalStoreSyncService.scheduleStoreSync('aiPersonas', persona.id);
     return persona;
   },
 
@@ -41,11 +44,13 @@ export const AIPersonaService = {
     const existing = await db.get('aiPersonas', id);
     if (!existing) return;
     await db.put('aiPersonas', { ...existing, ...data });
+    LocalStoreSyncService.scheduleStoreSync('aiPersonas', id);
   },
 
   async delete(id: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('aiPersonas', id);
+    LocalStoreSyncService.scheduleStoreDelete('aiPersonas', id);
   },
 
   async validate(systemPrompt: string): Promise<{ valid: boolean; reason?: string }> {

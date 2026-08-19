@@ -12,13 +12,11 @@ import { WritingSetup } from '../components/WritingSetup';
 import { LifeLogPanel } from '../components/LifeLogPanel';
 import { BottomStats } from '../components/BottomStats';
 import { ConnectionStatusBanner } from '../components/ConnectionStatusBanner';
-import { AIPanel } from '../components/AIPanel';
-
 export function DesktopWritingLayout() {
   const { t } = useLanguage();
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = React.useState(false);
-  const { editorWidth, zenSeenOnce, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
+  const { editorWidth, zenSeenOnce } = useWritingSettings();
   const reducedMotion = useReducedMotion();
 
   const {
@@ -229,8 +227,6 @@ export function DesktopWritingLayout() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <AIPanel open={aiPanelOpen} onClose={() => setAiPanelOpen(false)} />
     </motion.div>
   );
 }

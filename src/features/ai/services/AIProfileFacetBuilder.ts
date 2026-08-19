@@ -1,5 +1,4 @@
-import { getLocalDb } from '../../../core/storage/localDb';
-import type { AIProfileFacet } from '../../../core/storage/localDb';
+import { getLocalDb, type AIProfileFacet } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
 import { clusterChunks, mergeSimilarClusters, suggestK, normalize, type ChunkItem } from '../utils/facetClustering';
@@ -8,6 +7,7 @@ import { AITaxonomyService } from './AITaxonomyService';
 import { tuneThresholds } from '../utils/thresholdTuner';
 import { reportError } from '../../../shared/errors/reportError';
 import { withFacetLock } from './AIProfileFacetService';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 const MIN_FACET_NOTES = 2;
 const MAX_EXCERPTS = 14;
@@ -302,10 +302,16 @@ export const AIProfileFacetBuilder = {
       const newFacets = facets;
       const newIds = new Set(newFacets.map(f => f.id));
       const tx = db.transaction('aiProfileFacets', 'readwrite');
-      for (const f of newFacets) await tx.store.put(f);
+      for (const f of newFacets) {
+        await tx.store.put(f);
+        LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
+      }
       const oldFacets = await tx.store.getAll();
       for (const f of oldFacets) {
-        if (!newIds.has(f.id)) await tx.store.delete(f.id);
+        if (!newIds.has(f.id)) {
+          await tx.store.delete(f.id);
+          LocalStoreSyncService.scheduleStoreDelete('aiProfileFacets', f.id);
+        }
       }
       await tx.done;
       return { ok: true, count: newFacets.length };
@@ -370,6 +376,7 @@ export const AIProfileFacetBuilder = {
           if (ts < f.firstAt || !f.firstAt) f.firstAt = ts;
           if (ts > f.lastAt) f.lastAt = ts;
           await db.put('aiProfileFacets', f);
+          LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
         }
       }
 

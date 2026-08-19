@@ -4,6 +4,8 @@ import { AIService } from './AIService';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 interface Thread {
   id: string;
@@ -131,6 +133,7 @@ export const AIThreadService = {
         }
 
         await db.put('aiThreads', c);
+        LocalStoreSyncService.scheduleStoreSync('aiThreads', c.id);
       }
 
       // Clean up deleted/pruned threads
@@ -138,6 +141,7 @@ export const AIThreadService = {
       for (const t of existingThreads) {
         if (!newIds.includes(t.id)) {
           await db.delete('aiThreads', t.id);
+          LocalStoreSyncService.scheduleStoreDelete('aiThreads', t.id);
         }
       }
     } catch (e) {

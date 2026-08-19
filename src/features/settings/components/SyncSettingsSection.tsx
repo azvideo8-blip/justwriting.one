@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle } from 'lucide-react';
+import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle, CloudDownload, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
@@ -11,6 +11,8 @@ import { useSyncStatus } from '../hooks/useSyncStatus';
 import { SyncService } from '../../../core/services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
+import { RestoreFromCloudModal } from '../../sync/components/RestoreFromCloudModal';
+import { getOversizedRecordCount } from '../../../core/services/LocalStoreSyncService';
 
 interface SyncSettingsSectionProps {
   userId: string;
@@ -23,9 +25,12 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(userId);
   const [syncingAll, setSyncingAll] = useState(false);
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [autoSync, setAutoSync] = useState(
     () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
   );
+
+  const oversizedCount = getOversizedRecordCount();
 
   const handleSyncAll = async () => {
     setSyncingAll(true);
@@ -118,27 +123,49 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
                   Не отправлено в облако: {syncStatus.unsyncedCount}
                 </p>
               )}
+              {oversizedCount > 0 && (
+                <div className="text-[11px] text-amber-400 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={12} />
+                  <span>{oversizedCount} {oversizedCount === 1 ? 'запись превышает' : 'записей превышают'} лимит размера 500 КБ и сохранены только на устройстве</span>
+                </div>
+              )}
             </div>
 
-            <Button
-              onClick={() => void handleSyncAll()}
-              disabled={syncingAll}
-              data-testid="sync-all-unlinked-btn"
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/70 hover:text-text-main transition-colors disabled:opacity-50"
-            >
-              {syncingAll ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  {t('settings_sync_all_unlinked_progress')}
-                </>
-              ) : (
-                <>
-                  <Upload size={16} />
-                  {t('settings_sync_all_unlinked_button')}
-                  {syncStatus.unsyncedCount > 0 && ` (${syncStatus.unsyncedCount})`}
-                </>
-              )}
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button
+                onClick={() => void handleSyncAll()}
+                disabled={syncingAll}
+                data-testid="sync-all-unlinked-btn"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors disabled:opacity-50"
+              >
+                {syncingAll ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    {t('settings_sync_all_unlinked_progress')}
+                  </>
+                ) : (
+                  <>
+                    <Upload size={15} />
+                    {t('settings_sync_all_unlinked_button')}
+                    {syncStatus.unsyncedCount > 0 && ` (${syncStatus.unsyncedCount})`}
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={() => setRestoreModalOpen(true)}
+                data-testid="restore-from-cloud-btn"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors"
+              >
+                <CloudDownload size={15} />
+                Загрузить из облака
+              </Button>
+            </div>
+
+            <RestoreFromCloudModal
+              open={restoreModalOpen}
+              onClose={() => setRestoreModalOpen(false)}
+            />
           </>
         ) : (
           <div className="space-y-3">
@@ -160,3 +187,4 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
     </Section>
   );
 }
+

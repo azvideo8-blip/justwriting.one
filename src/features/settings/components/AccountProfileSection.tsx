@@ -8,6 +8,7 @@ import { resetAndClear } from '../../writing/store/storeActions';
 import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
+import { SignOutConfirmModal } from '../../auth/components/SignOutConfirmModal';
 
 interface AccountProfileSectionProps {
   userId: string;
@@ -20,7 +21,20 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
   const { showToast } = useToast();
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [unsynced, setUnsynced] = useState<{ localOnly: number; pending: number; drafts: number; total: number } | null>(null);
+
+  const handleConfirmSignOut = async (opts: { clearLocalData: boolean; force?: boolean }) => {
+    try {
+      await AuthService.signOut(opts);
+      resetAndClear();
+      showToast(opts.clearLocalData ? 'Вы вышли, локальные данные удалены' : 'Вы вышли из аккаунта', 'success');
+    } catch (e) {
+      const isUnsynced = (e as { name?: string }).name === 'UnsyncedLocalDataError';
+      if (!isUnsynced) {
+        showToast(t('error_signout_failed'), 'error');
+      }
+      throw e;
+    }
+  };
 
   if (isAuthenticated) {
     const user = AuthService.getCurrentUser();
@@ -56,59 +70,20 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
           </div>
 
           <div className="pt-2 border-t border-border-subtle">
-            {showSignOutConfirm ? (
-              <div className="space-y-3">
-                <p className="text-xs text-text-main/70 leading-relaxed">
-                  {t('signout_wipes_local')}
-                </p>
-                {unsynced && (
-                  <p className="text-xs text-accent-danger leading-relaxed">
-                    Не всё в облаке. На устройстве останется без копии: заметок — {unsynced.localOnly},
-                    несохранённых правок — {unsynced.pending}, черновиков — {unsynced.drafts}.
-                    Их восстановить будет неоткуда. Сначала выгрузите или экспортируйте их в секции «Резервная копия».
-                    Если всё равно выходить, нажмите «Да, выйти» ещё раз: локальные данные будут удалены.
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => {
-                      void (async () => {
-                        try {
-                          await AuthService.signOut({ force: unsynced !== null });
-                          setShowSignOutConfirm(false);
-                          resetAndClear();
-                        } catch (e) {
-                          const data = (e as { name?: string; data?: typeof unsynced }).data;
-                          if ((e as { name?: string }).name === 'UnsyncedLocalDataError' && data) {
-                            setUnsynced(data);
-                            return;
-                          }
-                          showToast(t('error_signout_failed'), 'error');
-                        }
-                      })();
-                    }}
-                    className="flex-1 px-4 py-2 rounded-xl border border-accent-danger/40 text-xs font-bold text-accent-danger hover:bg-accent-danger/10 transition-colors"
-                  >
-                    {t('writing_cancel_confirm') || 'Да, выйти'}
-                  </Button>
-                  <Button
-                    onClick={() => { setShowSignOutConfirm(false); setUnsynced(null); }}
-                    className="px-4 py-2 rounded-xl border border-border-subtle text-xs text-text-main/60 hover:text-text-main transition-colors"
-                  >
-                    {t('common_cancel')}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                onClick={() => setShowSignOutConfirm(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-accent-danger hover:border-accent-danger/30 transition-colors"
-              >
-                <LogOut size={14} />
-                {t('me_sign_out')}
-              </Button>
-            )}
+            <Button
+              onClick={() => setShowSignOutConfirm(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-accent-danger hover:border-accent-danger/30 transition-colors"
+            >
+              <LogOut size={14} />
+              {t('me_sign_out')}
+            </Button>
           </div>
+
+          <SignOutConfirmModal
+            open={showSignOutConfirm}
+            onClose={() => setShowSignOutConfirm(false)}
+            onConfirm={handleConfirmSignOut}
+          />
         </div>
       </Section>
     );

@@ -98,12 +98,14 @@ const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActi
   );
 });
 
+import { AIPanelContent } from './AIPanel';
+
 interface LifeLogPanelProps {
   userId: string;
   onContinueSession: (session: Session | LifeLogDocument) => void;
   onClose: () => void;
-  activeTab: 'log' | 'settings';
-  onTabChange: (tab: 'log' | 'settings') => void;
+  activeTab: 'log' | 'ai' | 'settings';
+  onTabChange: (tab: 'log' | 'ai' | 'settings') => void;
   pinned?: boolean | undefined;
   onTogglePin?: (() => void) | undefined;
   inGrid?: boolean | undefined;
@@ -198,12 +200,20 @@ export function LifeLogPanel({
             {t('lifelog_tab_log')}
           </Button>
           <Button
+            variant={activeTab === 'ai' ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => onTabChange('ai')}
+            className="px-3 py-1.5 rounded-xl text-sm"
+          >
+            {t('lifelog_tab_ai')}
+          </Button>
+          <Button
             variant={activeTab === 'settings' ? 'primary' : 'ghost'}
             size="sm"
             onClick={() => onTabChange('settings')}
             className="px-3 py-1.5 rounded-xl text-sm"
           >
-            {t('settings_tab_editor')}
+            {t('lifelog_tab_settings')}
           </Button>
         </div>
 
@@ -349,8 +359,14 @@ export function LifeLogPanel({
         </div>
       )}
 
+      {activeTab === 'ai' && (
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <AIPanelContent />
+        </div>
+      )}
+
       {activeTab === 'settings' && (
-        <div className="flex-1 overflow-hidden w-[380px]">
+        <div className="flex-1 overflow-hidden w-full md:w-[380px]">
           <SettingsPanelContent userId={userId} onRefreshLifeLog={() => void refresh()} />
         </div>
       )}

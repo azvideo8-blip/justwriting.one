@@ -3,6 +3,8 @@ import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 export const THEME_MATCH_THRESHOLD = 0.82;
 export const MAX_EVIDENCE_COUNT = 3;
@@ -239,6 +241,7 @@ export const AIThemeLedgerService = {
           }
 
           await store.put(bestMatch);
+          LocalStoreSyncService.scheduleStoreSync('aiThemeLedger', bestMatch.id);
         } else {
           // --- CREATE BRANCH ---
           const newRecord: ThemeRecord = {
@@ -256,6 +259,7 @@ export const AIThemeLedgerService = {
 
           await store.put(newRecord);
           activeRecords.push(newRecord);
+          LocalStoreSyncService.scheduleStoreSync('aiThemeLedger', newRecord.id);
         }
 
         // Reconcile branch stub (TODO Stage 3): cosine match != agreement; branch inactive in Stage 1.

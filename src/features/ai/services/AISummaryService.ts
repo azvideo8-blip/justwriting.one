@@ -4,6 +4,8 @@ import { getCurrentUser } from '../../../core/auth';
 import { DataProvider } from '../../../core/data';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 
 const STRING_FIELDS = ['tone', 'echo', 'eventDate', 'quotableSentence'] as const;
@@ -128,6 +130,7 @@ export const AISummaryService = {
           timelineEntry.arousal = summary.arousal;
         }
         await db.put('aiTimeline', timelineEntry);
+        LocalStoreSyncService.scheduleStoreSync('aiTimeline', timelineEntry.documentId);
 
         // Очередь тем больше не наполняется: разбирал её фоновый проход, а он
         // убран — заметки обрабатываются только по нажатию. Реестр тем,
@@ -160,6 +163,7 @@ export const AISummaryService = {
     const db = await getLocalDb();
     await db.delete('aiSummaries', documentId);
     await db.delete('aiTimeline', documentId);
+    LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);
   },
 
   async exportAsMarkdown(documentId: string, docTitle: string): Promise<string> {

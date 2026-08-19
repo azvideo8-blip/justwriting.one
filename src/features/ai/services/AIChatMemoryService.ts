@@ -2,6 +2,8 @@ import { getLocalDb, type AIChatMemory, randomUUID } from '../../../core/storage
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+
 
 type MemoryKind = 'fact' | 'insight' | 'commitment' | 'preference';
 
@@ -46,6 +48,7 @@ export const AIChatMemoryService = {
                 existingMem.updatedAt = now;
                 existingMem.vector = vector;
                 await db.put('aiChatMemory', existingMem);
+                LocalStoreSyncService.scheduleStoreSync('aiChatMemory', existingMem.id);
               }
               break;
             }
@@ -63,6 +66,7 @@ export const AIChatMemoryService = {
           };
           if (vector) entry.vector = vector;
           await db.put('aiChatMemory', entry);
+          LocalStoreSyncService.scheduleStoreSync('aiChatMemory', entry.id);
           existing.push(entry);
         }
       }
@@ -97,6 +101,7 @@ export const AIChatMemoryService = {
           }
           existingMem.updatedAt = now;
           await db.put('aiChatMemory', existingMem);
+          LocalStoreSyncService.scheduleStoreSync('aiChatMemory', existingMem.id);
           return;
         }
       }
@@ -111,6 +116,7 @@ export const AIChatMemoryService = {
       };
       if (vector) entry.vector = vector;
       await db.put('aiChatMemory', entry);
+      LocalStoreSyncService.scheduleStoreSync('aiChatMemory', entry.id);
     } catch (e) {
       reportError(e, { action: 'ai_chat_memory_add_manual' });
     }
@@ -148,11 +154,16 @@ export const AIChatMemoryService = {
   async delete(id: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('aiChatMemory', id);
+    LocalStoreSyncService.scheduleStoreDelete('aiChatMemory', id);
   },
 
   async deleteAll(): Promise<void> {
     const db = await getLocalDb();
+    const all = await db.getAll('aiChatMemory');
     await db.clear('aiChatMemory');
+    for (const m of all) {
+      LocalStoreSyncService.scheduleStoreDelete('aiChatMemory', m.id);
+    }
   },
 
   async deleteByDialogue(dialogueId: string): Promise<void> {
@@ -163,6 +174,7 @@ export const AIChatMemoryService = {
     const keys = await index.getAllKeys(IDBKeyRange.only(dialogueId));
     for (const key of keys) {
       await tx.store.delete(key);
+      LocalStoreSyncService.scheduleStoreDelete('aiChatMemory', String(key));
     }
     await tx.done;
   },

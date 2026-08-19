@@ -23,6 +23,10 @@ import { ActivityLogBadge } from './ActivityLogBadge';
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
 import { useAdminStatus } from '../features/auth/hooks/useAdminStatus';
+import { useEmptyDeviceDetection } from '../features/sync/hooks/useEmptyDeviceDetection';
+import { RestoreFromCloudModal } from '../features/sync/components/RestoreFromCloudModal';
+import { useOtherUserDetection } from '../features/auth/hooks/useOtherUserDetection';
+import { OtherUserDataModal } from '../features/auth/components/OtherUserDataModal';
 
 export function AppShell() {
   const location = useLocation();
@@ -34,6 +38,9 @@ export function AppShell() {
   const { loginModalOpen } = useLoginModal();
   const { openSettings } = useSettings();
   const { mode: encryptionMode, check: recheckEncryption, dismiss: dismissEncryption } = useEncryptionSetup();
+  const { shouldPrompt: shouldPromptEmptyDevice, localCount, cloudCount, dismiss: dismissEmptyDevice } = useEmptyDeviceDetection();
+  const { hasOtherData, dismiss: dismissOtherData, clear: clearOtherData } = useOtherUserDetection();
+
 
   useSyncStatus(isGuest ? null : (user?.uid ?? null));
 
@@ -95,6 +102,21 @@ export function AppShell() {
           userId={user.uid}
           onDone={() => void recheckEncryption()}
           onClose={dismissEncryption}
+        />
+      )}
+      {shouldPromptEmptyDevice && user && (
+        <RestoreFromCloudModal
+          open={shouldPromptEmptyDevice}
+          onClose={dismissEmptyDevice}
+          initialLocalCount={localCount}
+          initialCloudCount={cloudCount}
+        />
+      )}
+      {hasOtherData && user && !shouldPromptEmptyDevice && (
+        <OtherUserDataModal
+          open={hasOtherData}
+          onClose={dismissOtherData}
+          onClear={clearOtherData}
         />
       )}
     </AppLayout>
