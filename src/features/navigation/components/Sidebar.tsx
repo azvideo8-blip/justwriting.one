@@ -129,10 +129,10 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
 
 interface SidebarProps {
   isAdmin: boolean;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
+export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarProps) {
   const [hovered, setHovered] = useState(false);
   const { t } = useLanguage();
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled } = useWritingSettings();
@@ -335,7 +335,8 @@ export function Sidebar({ isAdmin, onOpenSettings }: SidebarProps) {
           icon={<Settings size={20} />}
           label={t('nav_settings')}
           expanded={expanded}
-          onClick={() => void onOpenSettings()}
+          onClick={() => void navigate('/settings')}
+          accent={location.pathname === '/settings'}
         />
 
         <div className={cn(

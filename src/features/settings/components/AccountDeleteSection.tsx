@@ -1,0 +1,125 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Trash2 } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n';
+import { useAuthStatus } from '../../../app/useAuthStatus';
+import { AuthService } from '../../../app/AuthService';
+import { ProfileService } from '../../../core/services/ProfileServiceRef';
+import { resetAndClear } from '../../writing/store/storeActions';
+import { useToast } from '../../../shared/components/Toast';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { reportError } from '../../../shared/errors/reportError';
+import { Button } from '../../../shared/components/Button';
+
+interface AccountDeleteSectionProps {
+  userId: string;
+}
+
+export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
+  const { t } = useLanguage();
+  const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirmDialog();
+  const { isAuthenticated } = useAuthStatus();
+  const navigate = useNavigate();
+
+  const [deleting, setDeleting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resettingAchievements, setResettingAchievements] = useState(false);
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const handleDeleteAccount = async () => {
+    const ok = await confirmDialog({
+      title: t('settings_delete_account_confirm_title'),
+      message: t('settings_delete_account_confirm_message'),
+    });
+    if (!ok) return;
+
+    setDeleting(true);
+    try {
+      await AuthService.deleteAccount();
+      resetAndClear();
+      showToast(t('settings_delete_account_success'), 'success');
+      void navigate('/login');
+    } catch (err) {
+      reportError(err, { action: 'deleteAccount', userId });
+      showToast(t('settings_delete_account_error'), 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleResetAchievements = async () => {
+    setResettingAchievements(true);
+    try {
+      await ProfileService.resetAchievements(userId);
+      localStorage.removeItem(`unlocked_achievements_${userId}`);
+      window.dispatchEvent(new Event('achievements-reset'));
+      showToast(t('save_success'), 'success');
+      setConfirmReset(false);
+    } catch (err) {
+      reportError(err, { action: 'resetAchievements', userId });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setResettingAchievements(false);
+    }
+  };
+
+  return (
+    <div className="pt-4 border-t-2 border-accent-danger/20">
+      <div className="p-5 rounded-2xl border border-accent-danger/30 bg-accent-danger/[0.03] space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-xl bg-accent-danger/10 border border-accent-danger/20 flex items-center justify-center text-accent-danger shrink-0 mt-0.5">
+            <AlertTriangle size={18} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-accent-danger uppercase tracking-wider">
+              {t('settings_delete_account_title')}
+            </h3>
+            <p className="text-xs text-text-main/70 leading-relaxed">
+              {t('settings_delete_account_desc')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <Button
+            onClick={() => void handleDeleteAccount()}
+            disabled={deleting}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-accent-danger/40 bg-accent-danger/10 text-accent-danger hover:bg-accent-danger/20 text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+            {deleting ? 'Удаление аккаунта...' : t('settings_delete_account_button')}
+          </Button>
+
+          {!confirmReset ? (
+            <Button
+              onClick={() => setConfirmReset(true)}
+              className="px-4 py-3 rounded-xl border border-border-subtle text-xs text-text-main/60 hover:text-accent-danger hover:border-accent-danger/30 transition-colors text-center"
+            >
+              {t('profile_reset_achievements')}
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => void handleResetAchievements()}
+                disabled={resettingAchievements}
+                className="px-3 py-2 rounded-xl text-xs font-bold text-accent-danger border border-accent-danger/40 bg-accent-danger/10 hover:bg-accent-danger/20 transition-colors"
+              >
+                {t('finish_discard')}
+              </Button>
+              <Button
+                onClick={() => setConfirmReset(false)}
+                className="px-3 py-2 rounded-xl text-xs text-text-main/60 hover:text-text-main transition-colors"
+              >
+                {t('writing_cancel')}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

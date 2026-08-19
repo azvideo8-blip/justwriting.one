@@ -17,6 +17,7 @@ const LandingPage = React.lazy(() => import('../features/navigation/pages/Landin
 const PrivacyPolicyPage = React.lazy(() => import('../features/navigation/pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 const TermsOfServicePage = React.lazy(() => import('../features/navigation/pages/TermsOfServicePage').then(m => ({ default: m.TermsOfServicePage })));
 const ConsentPage = React.lazy(() => import('../features/navigation/pages/ConsentPage').then(m => ({ default: m.ConsentPage })));
+const SettingsPage = React.lazy(() => import('../features/settings/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const NotFoundPage = React.lazy(() => import('../features/navigation/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 import { Loader2 } from 'lucide-react';
@@ -46,6 +47,7 @@ export function AppRoutes() {
         <Route path="/diagnostics" element={<ProtectedRoute requireAdmin><ErrorBoundary><DiagnosticsPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/admin" element={<Navigate to="/diagnostics" replace />} />
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+        <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/changelog" element={<ChangelogPage />} />
         <Route path="/features" element={<LandingPage />} />

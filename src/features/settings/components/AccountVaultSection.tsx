@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Shield } from 'lucide-react';
+import { Lock, Shield, KeyRound } from 'lucide-react';
 import { EncryptionService, WrongPasswordError, hasVault } from '../../../core/services/EncryptionService';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -10,6 +10,7 @@ import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
+import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 
@@ -29,6 +30,9 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const [vaultError, setVaultError] = useState<string | null>(null);
   const [showMigrate, setShowMigrate] = useState(false);
 
+  const [generatingRecoveryCode, setGeneratingRecoveryCode] = useState(false);
+  const [newGeneratedRecoveryCode, setNewGeneratedRecoveryCode] = useState<string | null>(null);
+
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
   const [migrationDone, setMigrationDone] = useState(false);
@@ -37,6 +41,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const hasNewMeta = !!profile?.encryptionMeta;
   const isLegacyOnly = !hasNewMeta && !!(profile?.encryptionSalt && profile?.encryptedDataKey);
   const hasEncryption = hasVault(profile);
+  const hasRecoveryCode = !!profile?.encryptionMeta?.recoveryWrappedDataKey;
 
   const handleUnlockVault = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,8 +67,8 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const handleInitializeEncryption = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vaultPassword || vaultPassword.length < 12) {
-      setVaultError(t('enc_password_min_length', { min: 12 }));
+    if (!vaultPassword || vaultPassword.length < 8) {
+      setVaultError(t('enc_password_min_length', { min: 8 }));
       return;
     }
     if (vaultPassword !== confirmVaultPassword) {
@@ -74,15 +79,29 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     setVaultError(null);
 
     try {
-      await EncryptionService.initializeEncryption(userId, vaultPassword);
+      const { recoveryCode } = await EncryptionService.initializeEncryption(userId, vaultPassword);
       showToast(t('unlock_success') || 'Encryption set up successfully', 'success');
       setVaultPassword('');
       setConfirmVaultPassword('');
+      setNewGeneratedRecoveryCode(recoveryCode);
     } catch (err) {
       reportError(err, { action: 'initializeEncryptionInSettings', userId });
       setVaultError(err instanceof EncryptionService.VaultAlreadyExistsError ? t('enc_setup_vault_exists') : t('error_generic_action'));
     } finally {
       setVaultLoading(false);
+    }
+  };
+
+  const handleGenerateRecoveryCode = async () => {
+    setGeneratingRecoveryCode(true);
+    try {
+      const code = await EncryptionService.generateRecoveryCodeForExistingVault(userId);
+      setNewGeneratedRecoveryCode(code);
+    } catch (err) {
+      reportError(err, { action: 'generateRecoveryCodeInSettings', userId });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setGeneratingRecoveryCode(false);
     }
   };
 
@@ -249,6 +268,32 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </Button>
           </div>
 
+          {!hasRecoveryCode && (
+            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+              <div className="flex items-start gap-3">
+                <KeyRound size={18} className="text-amber-400 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <div className="text-sm font-medium text-text-main">{t('enc_recovery_code_missing_title')}</div>
+                  <div className="text-xs text-text-main/60 leading-relaxed">{t('enc_generate_recovery_code_desc')}</div>
+                </div>
+              </div>
+              <Button
+                onClick={() => void handleGenerateRecoveryCode()}
+                disabled={generatingRecoveryCode}
+                className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
+              >
+                {generatingRecoveryCode ? (
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white" />
+                ) : (
+                  <>
+                    <KeyRound size={14} />
+                    {t('enc_generate_recovery_code_btn')}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
           <ChangeEncryptionPasswordButton userId={userId} />
 
           {!migrationRunning && !migrationDone ? (
@@ -298,6 +343,13 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </div>
           )}
         </div>
+      )}
+
+      {newGeneratedRecoveryCode && (
+        <RecoveryCodeDisplayModal
+          recoveryCode={newGeneratedRecoveryCode}
+          onConfirm={() => setNewGeneratedRecoveryCode(null)}
+        />
       )}
     </Section>
   );

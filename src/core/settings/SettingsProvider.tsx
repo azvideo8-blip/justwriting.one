@@ -4,27 +4,57 @@ import { SettingsContext } from './SettingsContext';
 interface SettingsProviderProps {
   children: React.ReactNode;
   userId: string;
-  renderSettingsPanel: (props: { isOpen: boolean; onClose: () => void; userId: string; defaultTab: 'editor' | 'app' | 'account' | undefined }) => React.ReactNode;
+  renderSettingsPanel: (props: { isOpen: boolean; onClose: () => void; userId: string; defaultTab?: string | undefined }) => React.ReactNode;
 }
 
 export function SettingsProvider({ children, userId, renderSettingsPanel }: SettingsProviderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [defaultTab, setDefaultTab] = useState<'editor' | 'app' | 'account' | undefined>(undefined);
+  const [defaultTab, setDefaultTab] = useState<string | undefined>(undefined);
   const triggerRef = useRef<Element | null>(null);
-  const openOverrideRef = useRef<((tab?: 'editor' | 'app' | 'account') => void) | null>(null);
+  const openOverrideRef = useRef<((target?: string) => void) | null>(null);
 
-  const registerOpenOverride = useCallback((fn: ((tab?: 'editor' | 'app' | 'account') => void) | null) => {
+  const registerOpenOverride = useCallback((fn: ((target?: string) => void) | null) => {
     openOverrideRef.current = fn;
   }, []);
 
-  const openSettings = (tab?: 'editor' | 'app' | 'account' | unknown) => {
-    const validTab = (tab === 'editor' || tab === 'app' || tab === 'account') ? tab : undefined;
+  const openSettings = (target?: string | unknown) => {
+    const targetStr = typeof target === 'string' ? target : undefined;
+
+    // If a specific section on the settings page is requested, navigate there:
+    if (targetStr && targetStr !== 'editor') {
+      const sectionMap: Record<string, string> = {
+        app: 'sync',
+        storage: 'sync',
+        sync: 'sync',
+        account: 'account',
+        security: 'security',
+        vault: 'security',
+        encryption: 'security',
+        ai: 'security',
+        backup: 'backup',
+        export: 'backup',
+        about: 'about',
+        danger: 'danger',
+      };
+      const sectionId = sectionMap[targetStr] || targetStr;
+      if (typeof window !== 'undefined') {
+        if (window.location.pathname === '/settings') {
+          window.location.hash = sectionId;
+          const el = document.getElementById(sectionId);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.location.href = `/settings#${sectionId}`;
+        }
+      }
+      return;
+    }
+
     if (openOverrideRef.current) {
-      openOverrideRef.current(validTab);
+      openOverrideRef.current(targetStr);
       return;
     }
     triggerRef.current = document.activeElement;
-    setDefaultTab(validTab);
+    setDefaultTab(targetStr);
     setSettingsOpen(true);
   };
 

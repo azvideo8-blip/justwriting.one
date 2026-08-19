@@ -1,140 +1,28 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
-import { cn } from '../../../core/utils/utils';
 import { EditorTab } from './EditorTab';
-import { AppTab } from './AppTab';
-import { AccountTab } from './AccountTab';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useToast } from '../../../shared/components/Toast';
 import { APP_VERSION } from '../../../version';
-import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-
-type Tab = 'editor' | 'app' | 'account';
-
-const TAB_IDS: Tab[] = ['editor', 'app', 'account'];
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  userId: string;
+  userId?: string | undefined;
   onRefreshLifeLog?: (() => void) | undefined;
-  defaultTab?: Tab | undefined;
+  defaultTab?: string | undefined;
 }
 
-export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setActiveTab }: { userId: string; onRefreshLifeLog?: (() => void) | undefined; activeTab: Tab; setActiveTab: (tab: Tab) => void }) {
-  const { t } = useLanguage();
-  const { showToast } = useToast();
-  const tapCountRef = useRef(0);
-  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleVersionTap = () => {
-    tapCountRef.current += 1;
-    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
-    tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 3000);
-    if (tapCountRef.current >= 5) {
-      tapCountRef.current = 0;
-      sessionStorage.setItem('diagnostics_unlocked', 'true');
-      showToast('Режим диагностики активирован', 'success');
-    }
-  };
-
-  useEffect(() => {
-    const el = document.getElementById(`settings-tab-${activeTab}`);
-    if (el) el.focus();
-  }, [activeTab]);
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'editor',  label: t('settings_tab_editor') },
-    { id: 'app',     label: t('settings_tab_app') },
-    { id: 'account', label: t('settings_tab_account') },
-  ];
-
-  const handleTabKeyDown = (e: React.KeyboardEvent) => {
-    const idx = TAB_IDS.indexOf(activeTab);
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      setActiveTab(TAB_IDS[(idx + 1) % TAB_IDS.length]!);
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      setActiveTab(TAB_IDS[(idx - 1 + TAB_IDS.length) % TAB_IDS.length]!);
-    } else if (e.key === 'Home') {
-      e.preventDefault();
-      setActiveTab(TAB_IDS[0]!);
-    } else if (e.key === 'End') {
-      e.preventDefault();
-      setActiveTab(TAB_IDS[TAB_IDS.length - 1]!);
-    }
-  };
-
+export function SettingsPanelContent({ userId: _userId, onRefreshLifeLog: _onRefreshLifeLog }: { userId?: string | undefined; onRefreshLifeLog?: (() => void) | undefined; activeTab?: string | undefined; setActiveTab?: (tab: string) => void }) {
   return (
     <div className="flex flex-col h-full w-full">
-      <div
-        role="tablist"
-        aria-label={t('settings_tabs_label')}
-        className="flex items-center gap-1 px-4 pt-3 pb-2 shrink-0"
-        onKeyDown={handleTabKeyDown}
-      >
-        {tabs.map(tab => (
-          <Button
-            key={tab.id}
-            role="tab"
-            id={`settings-tab-${tab.id}`}
-            aria-selected={activeTab === tab.id}
-            aria-controls={`settings-panel-${tab.id}`}
-            tabIndex={activeTab === tab.id ? 0 : -1}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-colors",
-              activeTab === tab.id
-                ? "bg-text-main text-surface-base"
-                : "text-text-main/60 hover:text-text-main hover:bg-text-main/8"
-            )}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </div>
-
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-28 space-y-4">
-        {activeTab === 'editor' && (
-          <div
-            id="settings-panel-editor"
-            role="tabpanel"
-            aria-labelledby="settings-tab-editor"
-          >
-            <EditorTab />
-          </div>
-        )}
-        {activeTab === 'app' && (
-          <div
-            id="settings-panel-app"
-            role="tabpanel"
-            aria-labelledby="settings-tab-app"
-          >
-            <AppTab userId={userId} onRefreshLifeLog={onRefreshLifeLog} />
-          </div>
-        )}
-        {activeTab === 'account' && (
-          <div
-            id="settings-panel-account"
-            role="tabpanel"
-            aria-labelledby="settings-tab-account"
-          >
-            <AccountTab userId={userId} />
-          </div>
-        )}
+        <EditorTab />
 
         <div className="pt-6 text-center">
-          <span
-            onClick={handleVersionTap}
-            tabIndex={0}
-            role="button"
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVersionTap(); } }}
-            className="text-xs text-text-main/60 select-none cursor-default"
-          >
+          <span className="text-xs text-text-main/40 select-none">
             v{APP_VERSION}
           </span>
         </div>
@@ -143,16 +31,10 @@ export function SettingsPanelContent({ userId, onRefreshLifeLog, activeTab, setA
   );
 }
 
-export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defaultTab }: SettingsPanelProps) {
+export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog }: SettingsPanelProps) {
   const { t } = useLanguage();
   const panelRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
-  const validTab = (defaultTab === 'editor' || defaultTab === 'app' || defaultTab === 'account') ? defaultTab : 'editor';
-  const [activeTab, setActiveTab] = useState<Tab>(validTab);
-
-  useEffect(() => {
-    setActiveTab(validTab);
-  }, [validTab]);
 
   useFocusTrap(panelRef, isOpen);
 
@@ -190,7 +72,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
             className="fixed top-0 right-0 bottom-0 w-full max-w-[420px] z-[var(--z-panel)] bg-surface-card border-l border-border-subtle flex flex-col shadow-2xl"
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
-              <h2 id="settings-title" className="text-lg font-bold text-text-main">{t('nav_settings')}</h2>
+              <h2 id="settings-title" className="text-lg font-bold text-text-main">{t('settings_tab_editor')}</h2>
               <IconButton
                 onClick={onClose}
                 label={t('common_close')}
@@ -199,7 +81,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog, defau
               />
             </div>
 
-            <SettingsPanelContent userId={userId} onRefreshLifeLog={onRefreshLifeLog} activeTab={activeTab} setActiveTab={setActiveTab} />
+            <SettingsPanelContent userId={userId} onRefreshLifeLog={onRefreshLifeLog} />
           </motion.div>
         </>
       )}

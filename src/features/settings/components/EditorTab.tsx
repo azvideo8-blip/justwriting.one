@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../shared/i18n';
+import { useTheme } from '../../../core/theme/ThemeProvider';
 import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
 import { cn } from '../../../core/utils/utils';
 import { Section, ToggleRow } from './SettingsHelpers';
@@ -7,8 +8,17 @@ import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Button } from '../../../shared/components/Button';
 import { Wind, Waves, Keyboard, Focus, MousePointer2, Timer, FileText, BarChart2, Gauge, VolumeX, Quote } from 'lucide-react';
 
+const THEME_ACCENT: Record<string, string> = {
+  modern:    '#1e1e22',
+  notion:    '#e8dfc0',
+  spotify:   '#1ed760',
+  amethyst:  '#7c3aed',
+  system:    'linear-gradient(135deg, #0E0A18 50%, #FAF8F5 50%)',
+};
+
 export function EditorTab() {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+  const { themeId, setThemeId, themes } = useTheme();
   const { layoutMode } = useLayoutMode();
   const {
     fontFamily, setFontFamily,
@@ -29,6 +39,66 @@ export function EditorTab() {
 
   return (
     <div className="space-y-5 mt-2">
+      <Section title={t('profile_theme_title')}>
+        <p className="text-xs text-text-muted -mt-1 mb-2">
+          {t('profile_theme_hint')}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.values(themes).map(theme => (
+            <Button
+              key={theme.id}
+              onClick={() => setThemeId(theme.id)}
+              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
+                themeId === theme.id
+                  ? "border-text-main bg-text-main text-surface-base"
+                  : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                  style={THEME_ACCENT[theme.id] ? { backgroundColor: THEME_ACCENT[theme.id] } : undefined}
+                />
+                <span>{language === 'ru' ? theme.nameRu : theme.nameEn}</span>
+              </div>
+            </Button>
+          ))}
+          <Button
+            onClick={() => setThemeId('system')}
+            className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
+              themeId === 'system'
+                ? "border-text-main bg-text-main text-surface-base"
+                : "border-border-subtle text-text-main/60 hover:text-text-main hover:border-text-main/40"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full shrink-0 border border-black/10"
+                style={{ background: THEME_ACCENT.system }}
+              />
+              <span>{t('settings_theme_system')}</span>
+            </div>
+          </Button>
+        </div>
+      </Section>
+
+      <Section title={t('settings_language')}>
+        <div className="grid grid-cols-2 gap-2">
+          {(['ru', 'en'] as const).map(lang => (
+            <Button
+              key={lang}
+              onClick={() => setLanguage(lang)}
+              className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                language === lang
+                  ? "border-text-main bg-text-main text-surface-base"
+                  : "border-border-subtle text-text-main/60 hover:text-text-main"
+              }`}
+            >
+              {lang === 'ru' ? '🇷🇺 Русский' : '🇺🇸 English'}
+            </Button>
+          ))}
+        </div>
+      </Section>
       <Section title={t('settings_font')}>
         <div className="grid grid-cols-2 gap-2">
           {fonts.map(font => (
