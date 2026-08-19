@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.7 — 2026-08-19
+
+- **[RU]** Шифрование включается само при первом входе, а не ждёт, пока до него доберутся в настройках. Вместе с ним выдаётся код восстановления — 24 символа, показываются ровно один раз, с копированием и сохранением в файл. Это единственный способ вернуть доступ к записям, если пароль забыт: без него забытый пароль означал безвозвратную потерю всего написанного, и молчать об этом было нечестно.
+- **[EN]** Encryption now switches itself on at first sign-in instead of waiting to be found in settings. It comes with a recovery code — 24 characters, shown exactly once, with copy and save-to-file. It is the only way back to your writing if the password is forgotten: without it, a forgotten password meant losing everything written, and staying quiet about that was not honest.
+- **[RU]** Восстановление по коду меняет и пароль входа, и пароль шифрования одной операцией — чтобы не оказалось двух разных паролей и вопроса, какой из них открывает дневник.
+- **[EN]** Recovery by code changes both the sign-in password and the encryption password in one go — so you never end up with two different passwords and a question about which one opens the diary.
+- **[RU]** Настройки расчищены. В боковой панели остались только те, что крутят во время письма: шрифт, ширина, тема, язык, режимы. Всё, что касается сервиса — синхронизация, безопасность, резервные копии, документы, удаление аккаунта, — переехало на отдельную страницу с разделами и объяснениями. Раньше настройка межстрочного интервала стояла в двух прокрутках от кнопки удаления аккаунта.
+- **[EN]** Settings are cleared up. The side panel keeps only what is adjusted while writing: font, width, theme, language, modes. Everything about the service — sync, security, backups, documents, account deletion — moved to its own page with sections and explanations. Line height used to sit two scrolls above the button that deletes the account.
+- **[RU]** Заметки больше не исчезают из архива при запертом сейфе. Раньше заголовок нельзя было расшифровать — и заметка просто не показывалась; после того как заголовки стали шифроваться, так пропадал бы весь архив. Теперь она на месте, с датой и пометкой «заперта», и её нельзя случайно перезаписать пустотой.
+- **[EN]** Notes no longer vanish from the archive when the vault is locked. A title that could not be decrypted used to make the note disappear; once titles became encrypted, that would have hidden the whole archive. Now the note stays, with its date and a "locked" mark, and cannot be accidentally overwritten with emptiness.
+- **[RU]** Размышления модели больше не попадают в ответ. Иногда вместо ответа приходил внутренний монолог — «надо ответить глубже», «посчитаю цитаты», — и только потом сам ответ. Читать, как машина обсуждает тебя, — последнее, чего ждёшь от такого разговора.
+- **[EN]** The model's deliberation no longer reaches the answer. Sometimes what arrived was its inner monologue — "should answer more deeply", "let me count the quotes" — and only then the reply. Reading a machine deliberating about you is the last thing you want from this kind of conversation.
+
 ## 0.8.6 — 2026-08-18
 
 - **[RU]** Опубликованы три документа: политика обработки персональных данных, отдельное согласие и условия использования. Прежние тексты описывали сервис приблизительно; новые написаны по тому, что приложение делает на самом деле, включая неудобное — что запрос к модели по умолчанию может уйти зарубежному сервису. Это предварительные редакции: они ещё пойдут к юристу.

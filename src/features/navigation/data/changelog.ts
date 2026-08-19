@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.7',
+    date: '2026-08-19',
+    items: [
+      { category: 'new', ru: 'Шифрование включается само при первом входе, а не ждёт, пока до него доберутся в настройках. Вместе с ним выдаётся код восстановления — 24 символа, показываются один раз, с копированием и сохранением в файл. Это единственный способ вернуть доступ к записям, если пароль забыт', en: 'Encryption switches itself on at first sign-in instead of waiting to be found in settings. It comes with a recovery code — 24 characters, shown once, with copy and save-to-file. It is the only way back to your writing if the password is forgotten' },
+      { category: 'new', ru: 'Настройки расчищены: в боковой панели остались только те, что крутят во время письма — шрифт, ширина, тема, язык, режимы. Всё про сервис — синхронизация, безопасность, резервные копии, документы, удаление аккаунта — переехало на отдельную страницу с разделами и объяснениями', en: 'Settings are cleared up: the side panel keeps only what is adjusted while writing — font, width, theme, language, modes. Everything about the service — sync, security, backups, documents, account deletion — moved to its own page with sections and explanations' },
+      { category: 'fix', ru: 'Заметки больше не исчезают из архива при запертом сейфе. Заголовок нельзя расшифровать — и заметка просто не показывалась; после того как заголовки стали шифроваться, так пропадал бы весь архив. Теперь она на месте, с датой и пометкой «заперта»', en: 'Notes no longer vanish from the archive when the vault is locked. A title that could not be decrypted used to make the note disappear; once titles became encrypted, that would have hidden the whole archive. Now it stays, with its date and a "locked" mark' },
+      { category: 'fix', ru: 'Размышления модели больше не попадают в ответ: иногда вместо ответа приходил её внутренний монолог, и только потом сам ответ', en: 'The model\'s deliberation no longer reaches the answer: sometimes what arrived was its inner monologue, and only then the reply' },
+    ],
+  },
+  {
     version: '0.8.6',
     date: '2026-08-18',
     items: [
