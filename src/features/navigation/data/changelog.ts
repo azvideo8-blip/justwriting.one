@@ -14,12 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: '0.8.7',
+    version: '0.8.8',
     date: '2026-08-19',
     items: [
       { category: 'new', ru: 'Портрет, грани профиля, разговоры с ИИ и история жизни теперь тоже уезжают в облако — зашифрованными тем же ключом, что и заметки. Раньше они жили в одном браузере, и очистка данных или выход из аккаунта уносили их безвозвратно', en: 'The portrait, profile facets, AI conversations and life story now travel to the cloud as well — encrypted with the same key as the notes. They used to live in a single browser, and clearing its data or signing out took them for good' },
       { category: 'fix', ru: 'Выход из аккаунта больше ничего не удаляет. Удаление предлагается галочкой «это чужой компьютер», снятой по умолчанию, и рядом сказано, что именно останется в браузере и что исчезнет', en: 'Signing out no longer deletes anything. Deletion is offered by a "this is someone else\'s computer" checkbox, unchecked by default, with a plain list of what stays in the browser and what goes' },
       { category: 'new', ru: 'Если на устройстве пусто, а в облаке есть записи, приложение предлагает их загрузить — с выбором, что именно, и с числами вместо крутящегося кружка. Раньше в такой ситуации показывался пустой архив', en: 'If the device is empty while the cloud is not, the app offers to download — with a choice of what exactly, and with numbers instead of a spinner. It used to show an empty archive' },
+    ],
+  },
+  {
+    version: '0.8.7',
+    date: '2026-08-19',
+    items: [
       { category: 'new', ru: 'Шифрование включается само при первом входе, а не ждёт, пока до него доберутся в настройках. Вместе с ним выдаётся код восстановления — 24 символа, показываются один раз, с копированием и сохранением в файл. Это единственный способ вернуть доступ к записям, если пароль забыт', en: 'Encryption switches itself on at first sign-in instead of waiting to be found in settings. It comes with a recovery code — 24 characters, shown once, with copy and save-to-file. It is the only way back to your writing if the password is forgotten' },
       { category: 'new', ru: 'Настройки расчищены: в боковой панели остались только те, что крутят во время письма — шрифт, ширина, тема, язык, режимы. Всё про сервис — синхронизация, безопасность, резервные копии, документы, удаление аккаунта — переехало на отдельную страницу с разделами и объяснениями', en: 'Settings are cleared up: the side panel keeps only what is adjusted while writing — font, width, theme, language, modes. Everything about the service — sync, security, backups, documents, account deletion — moved to its own page with sections and explanations' },
       { category: 'fix', ru: 'Заметки больше не исчезают из архива при запертом сейфе. Заголовок нельзя расшифровать — и заметка просто не показывалась; после того как заголовки стали шифроваться, так пропадал бы весь архив. Теперь она на месте, с датой и пометкой «заперта»', en: 'Notes no longer vanish from the archive when the vault is locked. A title that could not be decrypted used to make the note disappear; once titles became encrypted, that would have hidden the whole archive. Now it stays, with its date and a "locked" mark' },

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.7 — 2026-08-19
+## 0.8.8 — 2026-08-19
 
 - **[RU]** Портрет, грани профиля, разговоры с ИИ, память чата и история жизни теперь тоже уезжают в облако — зашифрованными тем же ключом, что и заметки. Раньше они жили в одном браузере: очистка данных, новый компьютер или выход из аккаунта уносили их безвозвратно, и в отличие от сводок разговоры пересчитать нельзя.
 - **[EN]** The portrait, profile facets, AI conversations, chat memory and life story now travel to the cloud as well — encrypted with the same key as the notes. They used to live in a single browser: clearing its data, a new computer or signing out took them for good, and unlike summaries, conversations cannot be recomputed.
@@ -10,6 +10,8 @@
 - **[EN]** If the device is empty while the cloud is not, the app offers to download — with a choice of what exactly, and with numbers instead of a spinner. It used to show an empty archive while everything sat on the server: that is what signing in on a new computer, or after clearing the browser, looked like.
 - **[RU]** На общем компьютере данные разных людей больше не перемешиваются: войдя, человек видит только своё, и ему предлагают убрать оставшееся от предыдущего.
 - **[EN]** On a shared computer, different people's data no longer mixes: after signing in you see only your own, and are offered to clear what the previous person left.
+
+## 0.8.7 — 2026-08-19
 
 - **[RU]** Шифрование включается само при первом входе, а не ждёт, пока до него доберутся в настройках. Вместе с ним выдаётся код восстановления — 24 символа, показываются ровно один раз, с копированием и сохранением в файл. Это единственный способ вернуть доступ к записям, если пароль забыт: без него забытый пароль означал безвозвратную потерю всего написанного, и молчать об этом было нечестно.
 - **[EN]** Encryption now switches itself on at first sign-in instead of waiting to be found in settings. It comes with a recovery code — 24 characters, shown exactly once, with copy and save-to-file. It is the only way back to your writing if the password is forgotten: without it, a forgotten password meant losing everything written, and staying quiet about that was not honest.
