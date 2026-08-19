@@ -43,6 +43,13 @@ export function buildChatSystemPrompt(params: {
       .replace(/<\/reasoning>/g, '[/ВНУТРЕННИЙ АНАЛИЗ]')
       .replace(/<answer>/g, '[ОТВЕТ ПОЛЬЗОВАТЕЛЮ]')
       .replace(/<\/answer>/g, '[/ОТВЕТ ПОЛЬЗОВАТЕЛЮ]');
+  } else {
+    base = base
+      .replace(/\/\/<reasoning>[\s\S]*?<\/reasoning>/g, '')
+      .replace(/<reasoning>[\s\S]*?<\/reasoning>/g, '')
+      .replace(/<answer>/g, '')
+      .replace(/<\/answer>/g, '');
+    base += '\n\nФОРМАТ ОТВЕТА: Отвечай сразу и напрямую пользователю. Не выводи ход мысли, рассуждения, теги <think>, <reasoning>, <answer> или заголовок «ХОД МЫСЛИ:».';
   }
 
   // AX-11: Strengthen length differences so the user feels them.

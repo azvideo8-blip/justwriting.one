@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { Lock, AlertCircle } from 'lucide-react';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
@@ -99,11 +100,21 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         <span className="text-text-main/60 ml-1.5">{relativeDate}</span>
       </div>
 
-      {session.title && (
+      {session._locked ? (
+        <h4 className="text-[17px] font-semibold text-text-main/70 italic flex items-center gap-1.5 leading-snug">
+          <Lock size={15} className="shrink-0 text-amber-500/80" aria-label={t('archive_note_locked')} />
+          <span className="truncate">{t('archive_note_locked')}</span>
+        </h4>
+      ) : session._decryptionError ? (
+        <h4 className="text-[17px] font-semibold text-accent-danger/80 italic flex items-center gap-1.5 leading-snug">
+          <AlertCircle size={15} className="shrink-0" aria-label={t('archive_decryption_error')} />
+          <span className="truncate">{t('archive_decryption_error')}</span>
+        </h4>
+      ) : session.title ? (
         <h4 className="text-[17px] font-semibold text-text-main leading-snug">
           {highlightText(session.title, searchQuery)}
         </h4>
-      )}
+      ) : null}
 
       <div className="relative">
         <p className="text-[14px] leading-relaxed text-text-main/60 line-clamp-4 whitespace-pre-wrap">

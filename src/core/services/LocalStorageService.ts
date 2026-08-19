@@ -6,7 +6,10 @@ import { reportError } from '../../shared/errors/reportError';
 import { SaveDocumentData } from './storageTypes';
 
 export const LocalStorageService = {
-  async saveNew(userId: string, data: SaveDocumentData): Promise<{ localId: string }> {
+  async saveNew(userId: string, data: SaveDocumentData & { _locked?: boolean | undefined; _decryptionError?: boolean | undefined }): Promise<{ localId: string }> {
+    if (data._locked || data._decryptionError) {
+      throw new Error('LOCKED: cannot save locked document to local storage');
+    }
     const db = await getLocalDb();
     const localId = `local_${randomUUID()}`;
     const versionId = `ver_${randomUUID()}`;
@@ -71,9 +74,12 @@ export const LocalStorageService = {
   async saveVersionToLocal(
     db: Awaited<ReturnType<typeof getLocalDb>>,
     documentId: string,
-    data: SaveDocumentData,
+    data: SaveDocumentData & { _locked?: boolean | undefined; _decryptionError?: boolean | undefined },
     now: number
   ): Promise<{ ok: true; newVersion: number; prevContent: string; existing: LocalDocument } | { ok: false }> {
+    if (data._locked || data._decryptionError) {
+      throw new Error('LOCKED: cannot save locked version to local storage');
+    }
     const tx = db.transaction(['documents', 'versions'], 'readwrite');
     const docStore = tx.objectStore('documents');
     const verStore = tx.objectStore('versions');

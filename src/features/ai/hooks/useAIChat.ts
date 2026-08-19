@@ -97,6 +97,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // so two calls in the same tick both bypass it. sendingRef is checked/set
   // synchronously, preventing concurrent streams and orphaned AbortControllers.
   const sendingRef = useRef(false);
+  // Log unexpected reasoning once per session
+  const reasoningMismatchReportedRef = useRef(false);
 
   useEffect(() => {
     context.resetSession();
@@ -412,38 +414,25 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             // The callable fallback will consume another slot. We accept the double-count
             // to avoid losing the user's message, but this means fallback costs 2 quota.
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
-            // RSN-4: Parse reasoning from callable fallback
-            if (effectiveReasoning) {
-              // Try XML tags
-              const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)<\/reasoning>/i);
-              const answerMatch = fullText.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-              // Try markdown headers
-              const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
-              const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
-              
-              const cleanReasoning = reasoningMatch
-                ? reasoningMatch[1]!.trim()
-                : (mdReasoningMatch ? mdReasoningMatch[1]!.trim() : undefined);
-              const cleanAnswer = answerMatch
-                ? answerMatch[1]!.trim()
-                : (mdAnswerMatch ? mdAnswerMatch[1]!.trim() : fullText);
+            // RSN-4: Parse reasoning and answer unconditionally from callable fallback
+            const cleanReasoning = extractReasoning(fullText);
+            const cleanAnswer = extractAnswer(fullText);
 
-              if (cleanReasoning) {
-                setStreamingReasoning(
-                  sanitizeFirstSeenDates(
-                    sanitizeCitations(cleanReasoning, injectedDocumentIds || []),
-                    allowedFirstSeenDates || []
-                  )
-                );
-              }
-              if (cleanAnswer) {
-                setStreamingMessage(
-                  sanitizeFirstSeenDates(
-                    sanitizeCitations(cleanAnswer, injectedDocumentIds || []),
-                    allowedFirstSeenDates || []
-                  )
-                );
-              }
+            if (cleanReasoning) {
+              setStreamingReasoning(
+                sanitizeFirstSeenDates(
+                  sanitizeCitations(cleanReasoning, injectedDocumentIds || []),
+                  allowedFirstSeenDates || []
+                )
+              );
+            }
+            if (cleanAnswer) {
+              setStreamingMessage(
+                sanitizeFirstSeenDates(
+                  sanitizeCitations(cleanAnswer, injectedDocumentIds || []),
+                  allowedFirstSeenDates || []
+                )
+              );
             }
           } else {
             throw e;
@@ -475,15 +464,27 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         sanitizeCitations(fullText, injectedDocumentIds || []),
         allowedFirstSeenDates || []
       );
-      let savedText = effectiveReasoning ? extractAnswer(sanitizedFullText) : sanitizedFullText;
-      let savedReasoning = effectiveReasoning ? extractReasoning(sanitizedFullText) : undefined;
+      let savedText = extractAnswer(sanitizedFullText);
+      let savedReasoning = extractReasoning(sanitizedFullText);
+
+      // Log the mismatch if reasoning markers arrived when reasoning mode was off (once per session)
+      if (!effectiveReasoning && savedReasoning) {
+        if (!reasoningMismatchReportedRef.current) {
+          reasoningMismatchReportedRef.current = true;
+          reportError(
+            new Error('REASONING_LEAK: unexpected reasoning markers in response when reasoning=false'),
+            { action: 'useAIChat_reasoning_mismatch', personaId: effectivePersonaId },
+            'warning'
+          );
+        }
+      }
 
       // In reasoning mode the answer arrives after a marker. When none of them
       // ever appears, the model spent its whole output budget deliberating and
       // was cut off — publishing that as the reply showed the user a page of
       // "Мы получили два запроса… Я должен…" ending mid-word. Keep the
       // deliberation where it belongs and say plainly that no answer came.
-      const hasAnswerSection = /<answer>|<\/think>|<\/reasoning>|^ОТВЕТ:\s*$/im.test(sanitizedFullText);
+      const hasAnswerSection = /<answer>|<\/think>|<\/reasoning>|(?:^|\n)ОТВЕТ:\s*/im.test(sanitizedFullText);
       if (effectiveReasoning && !hasAnswerSection && sanitizedFullText.trim()) {
         savedReasoning = sanitizedFullText.trim();
         savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';

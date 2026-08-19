@@ -192,8 +192,15 @@ export async function streamChat(params: {
       const thinkMatch = fullText.match(/<think>([\s\S]*?)(<\/think>|$)/i);
       const reasoningMatch = fullText.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
       const answerMatch = fullText.match(/<\/reasoning>\s*(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-      const mdReasoningMatch = fullText.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
-      const mdAnswerMatch = fullText.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
+      // Маркеры ищутся только как отдельные строки. Сервер пишет их именно так
+      // ('ХОД МЫСЛИ:\n' и '\n\nОТВЕТ:\n'), а поиск по вхождению обрезал бы
+      // обычную реплику: «интересный ход мысли… ответ: попробуй» — фраза, для
+      // разговора с психологом совершенно рядовая, — превратилась бы в
+      // скрытые размышления плюс огрызок ответа.
+      const MD_REASONING_LINE = /^ХОД МЫСЛИ:\s*$/im;
+      const MD_ANSWER_LINE = /^ОТВЕТ:\s*$/im;
+      const mdReasoningIdx = fullText.search(MD_REASONING_LINE);
+      const mdAnswerIdx = fullText.search(MD_ANSWER_LINE);
 
       let reasoningText: string | null = null;
       let answerText: string;
@@ -206,19 +213,22 @@ export async function streamChat(params: {
       } else if (reasoningMatch) {
         reasoningText = reasoningMatch[1]!.trim();
         answerText = answerMatch ? answerMatch[1]!.trim() : '';
-      } else if (mdReasoningMatch) {
-        reasoningText = mdReasoningMatch[1]!.trim();
-        answerText = mdAnswerMatch ? mdAnswerMatch[1]!.trim() : '';
+      } else if (mdReasoningIdx >= 0) {
+        const reasoningStart = mdReasoningIdx + fullText.slice(mdReasoningIdx).match(MD_REASONING_LINE)![0].length;
+        const reasoningEnd = mdAnswerIdx > mdReasoningIdx ? mdAnswerIdx : fullText.length;
+        reasoningText = fullText.slice(reasoningStart, reasoningEnd).trim();
+        answerText = mdAnswerIdx > mdReasoningIdx
+          ? fullText.slice(mdAnswerIdx).replace(MD_ANSWER_LINE, '').trim()
+          : '';
       } else {
         // LX-1: Inline leak — "ОТВЕТ:" present without "ХОД МЫСЛИ:" prefix.
         // The model dumped CoT into content; split at "ОТВЕТ:" line.
-        const hasAnswerMarker = /^ОТВЕТ:\s*$/im.test(fullText);
-        const hasReasoningHeader = /ХОД МЫСЛИ:/i.test(fullText);
-        if (hasAnswerMarker && !hasReasoningHeader) {
-          const answerIdx = fullText.search(/^ОТВЕТ:\s*$/im);
+        const hasAnswerMarker = mdAnswerIdx >= 0;
+        if (hasAnswerMarker) {
+          const answerIdx = mdAnswerIdx;
           if (answerIdx > 0) {
             reasoningText = fullText.slice(0, answerIdx).trim();
-            answerText = fullText.slice(answerIdx).replace(/^ОТВЕТ:\s*/im, '').trim();
+            answerText = fullText.slice(answerIdx).replace(MD_ANSWER_LINE, '').trim();
           } else {
             reasoningText = null;
             answerText = fullText;
@@ -279,70 +289,71 @@ export async function callableChat(params: {
 }
 
 export function extractReasoning(text: string): string | undefined {
-  // <think> tags
-  const think = text.match(/<think>([\s\S]*?)(<\/think>|$)/i);
-  if (think) { const r = think[1]!.trim(); return r || undefined; }
-  // XML tags
-  const xml = text.match(/(?:\/\/)?<reasoning>([\s\S]*?)(<\/reasoning>|$)/i);
-  if (xml) { const r = xml[1]!.trim(); return r || undefined; }
-  // Markdown header: ХОД МЫСЛИ: ... (until ОТВЕТ: or end)
-  const md = text.match(/ХОД МЫСЛИ:\s*([\s\S]*?)(?=ОТВЕТ:|$)/i);
-  if (md) { const r = md[1]!.trim(); return r || undefined; }
-  // LX-1: Inline leak — "ОТВЕТ:" present WITHOUT "ХОД МЫСЛИ:" prefix.
-  // The model dumped its CoT into content; everything before "ОТВЕТ:" is reasoning.
-  if (!/ХОД МЫСЛИ:/i.test(text)) {
-    const answerIdx = text.search(/^ОТВЕТ:\s*$/im);
-    if (answerIdx > 0) {
-      const r = text.slice(0, answerIdx).trim();
-      return r || undefined;
-    }
+  // 1. <think> tags
+  const think = text.match(/<think>([\s\S]*?)(?:<\/think>|$)/i);
+  if (think) {
+    const r = think[1]!.trim();
+    return r || undefined;
+  }
+  // 2. XML tags: <reasoning>...</reasoning>
+  const xml = text.match(/(?:\/\/)?<reasoning>([\s\S]*?)(?:<\/reasoning>|$)/i);
+  if (xml) {
+    const r = xml[1]!.trim();
+    return r || undefined;
+  }
+  // 3. Markdown header: ХОД МЫСЛИ: ... (until ОТВЕТ: or end)
+  const md = text.match(/(?:^|\n)ХОД МЫСЛИ:\s*([\s\S]*?)(?=(?:^|\n)ОТВЕТ:|$)/i);
+  if (md) {
+    const r = md[1]!.trim();
+    return r || undefined;
+  }
+  // 4. Standalone "ОТВЕТ:" line without "ХОД МЫСЛИ:" prefix: everything before is reasoning
+  const answerLineMatch = text.match(/(?:^|\n)ОТВЕТ:\s*/);
+  if (answerLineMatch && answerLineMatch.index !== undefined && answerLineMatch.index > 0) {
+    const r = text.slice(0, answerLineMatch.index).trim();
+    return r || undefined;
   }
   return undefined;
 }
 
 export function extractAnswer(text: string): string {
-  // <think>...</think> — answer is what follows the closing tag
+  // 1. <think>...</think> — answer is what follows the closing tag
   if (/<\/think>/i.test(text)) {
     const after = text.split(/<\/think>/i)[1];
     if (after !== undefined) return after.trim();
   }
-  // Try XML tags
-  const answerMatch = text.match(/(?:\/\/)?<answer>([\s\S]*?)(<\/answer>|$)/i);
-  if (answerMatch) return answerMatch[1]!.trim();
-  // Try markdown: ОТВЕТ: ...
-  const mdAnswerMatch = text.match(/ОТВЕТ:\s*([\s\S]*?)$/i);
-  if (mdAnswerMatch) return mdAnswerMatch[1]!.trim();
-  // LX-1: Inline leak — "ОТВЕТ:" present WITHOUT "ХОД МЫСЛИ:" prefix.
-  // If there's an "ОТВЕТ:" line anywhere, the answer is what follows it.
-  if (!/ХОД МЫСЛИ:/i.test(text)) {
-    const answerIdx = text.search(/^ОТВЕТ:\s*$/im);
-    if (answerIdx >= 0) {
-      const after = text.slice(answerIdx).replace(/^ОТВЕТ:\s*/im, '').trim();
-      return after || text;
+  if (/<think>/i.test(text)) {
+    // Only opened <think>, no closing tag — stream aborted during reasoning
+    return '';
+  }
+
+  // 2. XML tags: <answer>...</answer>
+  const answerMatch = text.match(/(?:\/\/)?<answer>([\s\S]*?)(?:<\/answer>|$)/i);
+  if (answerMatch) {
+    return answerMatch[1]!.trim();
+  }
+  if (/(?:\/\/)?<reasoning>/i.test(text) && !/(?:\/\/)?<answer>/i.test(text)) {
+    // Only reasoning XML tags present, no answer
+    const stripped = text.replace(/(?:\/\/)?<\/?reasoning>[\s\S]*?(?:<\/reasoning>|$)/gi, '').trim();
+    return stripped;
+  }
+
+  // 3. Markdown: ХОД МЫСЛИ: ... ОТВЕТ: ...
+  if (/(?:^|\n)ХОД МЫСЛИ:/i.test(text)) {
+    const mdAnswerMatch = text.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/i);
+    if (mdAnswerMatch) {
+      return mdAnswerMatch[1]!.trim();
     }
+    // "ХОД МЫСЛИ:" with no "ОТВЕТ:" means the model produced only reasoning
+    return '';
   }
-  // Strip reasoning blocks and return the rest
-  const stripped = text
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/(?:\/\/)?<\/?reasoning>/gi, '')
-    .replace(/ХОД МЫСЛИ:[\s\S]*?(?=ОТВЕТ:|$)/gi, '')
-    .replace(/ОТВЕТ:/gi, '')
-    .replace(/(?:\/\/)?<answer>/gi, '')
-    .replace(/<\/answer>/gi, '')
-    .trim();
-  if (!stripped && text.trim()) {
-    // Nothing survived the strip, so the model produced reasoning and no answer
-    // — usually a stream that died before the answer began. Returning the raw
-    // text here published the chain of thought AS the answer, and since
-    // extractReasoning reads the same text, the user saw the same half-finished
-    // deliberation twice. An empty answer is honest; the caller shows the
-    // reasoning block and the fact that the reply did not arrive.
-    const onlyReasoning = /<reasoning>|<think>|ХОД МЫСЛИ:/i.test(text);
-    if (onlyReasoning) return '';
-    return text
-      .replace(/^ХОД МЫСЛИ:\s*$/gim, '')
-      .replace(/^ОТВЕТ:\s*$/gim, '')
-      .trim();
+
+  // 4. Standalone "ОТВЕТ:" line at line start
+  const standaloneAnswerMatch = text.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/);
+  if (standaloneAnswerMatch && standaloneAnswerMatch.index !== undefined && standaloneAnswerMatch.index > 0) {
+    return standaloneAnswerMatch[1]!.trim();
   }
-  return stripped;
+
+  // 5. Normal text with no markers
+  return text.trim();
 }

@@ -108,6 +108,47 @@ describe('DocumentService', () => {
       expect(docs).toHaveLength(1);
       expect(docs[0]?.id).toBe('doc_valid');
     });
+
+    it('retains locked encrypted documents without dropping them and marks _locked: true', async () => {
+      vi.mocked(DataProvider.getUserDocuments).mockResolvedValue([
+        { id: 'doc_locked_1', title: 'cipher_1', _encrypted: true, currentVersion: 1, totalWords: 100, totalDuration: 60, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: 'cipher_tags_1', labelId: null },
+        { id: 'doc_locked_2', title: 'cipher_2', _encrypted: true, currentVersion: 1, totalWords: 200, totalDuration: 120, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 2000, tags: 'cipher_tags_2', labelId: null }
+      ]);
+      const docs = await DocumentService.getUserDocuments('u1');
+      expect(docs).toHaveLength(2);
+      expect(docs[0]?.id).toBe('doc_locked_2');
+      expect(docs[0]?._locked).toBe(true);
+      expect(docs[0]?.title).toBeUndefined();
+      expect(docs[0]?.totalWords).toBe(200);
+
+      expect(docs[1]?.id).toBe('doc_locked_1');
+      expect(docs[1]?._locked).toBe(true);
+      expect(docs[1]?.title).toBeUndefined();
+      expect(docs[1]?.totalWords).toBe(100);
+    });
+  });
+
+  describe('locked and decryption error guards', () => {
+    it('getDocument returns document with _locked: true when vault is locked', async () => {
+      vi.mocked(DataProvider.getDocument).mockResolvedValue({
+        id: 'doc_locked', title: 'ciphertext', _encrypted: true, currentVersion: 1, totalWords: 50, totalDuration: 30, sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: 'cipher_tags', labelId: null
+      });
+      const doc = await DocumentService.getDocument('u1', 'doc_locked');
+      expect(doc).not.toBeNull();
+      expect(doc?._locked).toBe(true);
+      expect(doc?.title).toBeUndefined();
+      expect(doc?.totalWords).toBe(50);
+    });
+
+    it('createDocument refuses to save a document marked _locked or _decryptionError', async () => {
+      await expect(
+        DocumentService.createDocument('u1', { title: 'Test', tags: [], labelId: undefined, _locked: true } as any)
+      ).rejects.toThrow('LOCKED: cannot create locked document in cloud');
+
+      await expect(
+        DocumentService.createDocument('u1', { title: 'Test', tags: [], labelId: undefined, _decryptionError: true } as any)
+      ).rejects.toThrow('LOCKED: cannot create locked document in cloud');
+    });
   });
 
   describe('update functions', () => {

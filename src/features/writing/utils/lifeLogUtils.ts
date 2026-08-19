@@ -66,14 +66,14 @@ export function mergeUnifiedDocuments(
     if (matchedCloudIds.has(cloud.id)) continue;
     unified.push({
       cloudId: cloud.id,
-      title: cloud.title,
+      title: cloud.title ?? '',
       totalWords: cloud.totalWords,
       totalDuration: cloud.totalDuration,
       currentVersion: cloud.currentVersion,
       sessionsCount: cloud.sessionsCount,
       firstSessionAt: toDate(cloud.firstSessionAt)?.getTime() ?? 0,
       lastSessionAt: toDate(cloud.lastSessionAt)?.getTime() ?? 0,
-      tags: cloud.tags,
+      tags: cloud.tags ?? [],
       labelId: cloud.labelId ?? undefined,
       storage: { local: false, cloud: true },
       mood: cloud.mood,

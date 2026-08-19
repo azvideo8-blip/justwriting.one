@@ -5,8 +5,11 @@ import { reportError } from '../../shared/errors/reportError';
 export const LocalDocumentService = {
   async createDocument(
     guestId: string,
-    data: { title: string; tags?: string[] | undefined; labelId?: string | undefined; uuid?: string | undefined; firstSessionAt?: number | undefined; lastSessionAt?: number | undefined }
+    data: { title: string; tags?: string[] | undefined; labelId?: string | undefined; uuid?: string | undefined; firstSessionAt?: number | undefined; lastSessionAt?: number | undefined; _locked?: boolean | undefined; _decryptionError?: boolean | undefined }
   ): Promise<string> {
+    if (data._locked || data._decryptionError) {
+      throw new Error('LOCKED: cannot save locked document to local storage');
+    }
     const db = await getLocalDb();
     const id = `local_${randomUUID()}`;
     const now = Date.now();

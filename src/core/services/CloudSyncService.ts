@@ -105,13 +105,15 @@ export const CloudSyncService = {
 
     const cloudDoc = await DocumentService.getDocument(userId, cloudDocumentId);
     if (!cloudDoc) throw new Error('Cloud document not found');
+    if (cloudDoc._locked) throw new Error('LOCKED: cannot add local copy of locked document');
+    if (cloudDoc._decryptionError) throw new Error('DECRYPTION_ERROR: cannot add local copy of unreadable document');
 
     const versions = await VersionService.getVersions(userId, cloudDocumentId);
     const firstSessionMs = toDate(cloudDoc.firstSessionAt)?.getTime() ?? undefined;
     const lastSessionMs = toDate(cloudDoc.lastSessionAt)?.getTime() ?? undefined;
     const localId = await LocalStorageService.createDocument(userId, {
-      title: cloudDoc.title,
-      tags: cloudDoc.tags,
+      title: cloudDoc.title ?? '',
+      tags: cloudDoc.tags ?? [],
       labelId: cloudDoc.labelId ?? undefined,
       firstSessionAt: firstSessionMs ?? undefined,
       lastSessionAt: lastSessionMs ?? undefined,
@@ -248,10 +250,15 @@ export const CloudSyncService = {
     try {
       const localDoc = await LocalStorageService.getDocument(localDocumentId);
       if (!localDoc) throw new Error('Local document not found');
+      if (localDoc._locked || localDoc._decryptionError) {
+        throw new Error('LOCKED: cannot add cloud copy of locked document');
+      }
 
       if (localDoc.linkedCloudId) {
         const existingDoc = await withTimeout(DocumentService.getDocument(userId, localDoc.linkedCloudId));
         if (existingDoc) {
+          if (existingDoc._locked) throw new Error('LOCKED: cannot sync to locked cloud document');
+          if (existingDoc._decryptionError) throw new Error('DECRYPTION_ERROR: cannot sync to unreadable cloud document');
           // Already linked: push any LOCAL versions missing from the cloud and
           // refresh metadata. Previously this early-returned, so edits made after
           // the first sync never reached the cloud (doc stayed "Unsynced Edits").
@@ -261,7 +268,6 @@ export const CloudSyncService = {
             withTimeout(VersionService.getVersions(userId, cloudId)),
           ]);
           const cloudNums = new Set(cloudVersions.map(v => v.version));
-          let budgetExhausted = false;
           // Only versions NEWER than the newest the cloud holds. The cloud trims
           // old snapshots (pruneOldVersions), so an older version being absent
           // there is housekeeping, not a gap: re-uploading it would undo the
@@ -473,6 +479,12 @@ export const CloudSyncService = {
     }
     try {
       const cloudDoc = await DocumentService.getDocument(userId, linkedCloudId);
+      if (cloudDoc?._locked) {
+        throw new Error('LOCKED: cannot sync version to locked cloud document');
+      }
+      if (cloudDoc?._decryptionError) {
+        throw new Error('DECRYPTION_ERROR: cannot sync version to unreadable cloud document');
+      }
       if (!cloudDoc) {
         const syncDb = await getLocalDb();
         await syncDb.put('syncQueue', {

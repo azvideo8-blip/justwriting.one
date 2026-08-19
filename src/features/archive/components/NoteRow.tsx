@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { ExternalLink, EyeOff, Trash2, Pencil, MoreVertical } from 'lucide-react';
+import { ExternalLink, EyeOff, Trash2, Pencil, MoreVertical, Lock, AlertCircle } from 'lucide-react';
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
@@ -239,22 +239,45 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
            />
         ) : (
           <div
-            className="text-[15px] font-medium text-text-main leading-snug truncate hover:text-brand-soft transition-colors flex items-center gap-1.5"
-            onClick={e => e.stopPropagation()}
-            onDoubleClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
-            onTouchStart={handleTouchStart}
+            className={cn(
+              "text-[15px] font-medium text-text-main leading-snug truncate transition-colors flex items-center gap-1.5",
+              session._locked || session._decryptionError ? "cursor-pointer" : "hover:text-brand-soft"
+            )}
+            onClick={session._locked || session._decryptionError ? onOpen : (e => e.stopPropagation())}
+            onDoubleClick={e => {
+              if (session._locked || session._decryptionError) {
+                onOpen();
+                return;
+              }
+              e.stopPropagation();
+              setTitleDraft(session.title || '');
+              setEditingTitle(true);
+            }}
+            onTouchStart={session._locked || session._decryptionError ? undefined : handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            title={t('archive_edit_title_hint')}
+            title={session._locked || session._decryptionError ? undefined : t('archive_edit_title_hint')}
           >
             {session.excludedFromAI && (
               <span title={t('ai_note_excluded')} className="inline-flex shrink-0 text-accent-danger/80">
                 <EyeOff size={13} aria-label={t('ai_note_excluded')} />
               </span>
             )}
-            <span className="truncate">
-              {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
-            </span>
+            {session._locked ? (
+              <span className="inline-flex items-center gap-1.5 text-text-main/70 italic">
+                <Lock size={13} className="shrink-0 text-amber-500/80" aria-label={t('archive_note_locked')} />
+                <span className="truncate">{t('archive_note_locked')}</span>
+              </span>
+            ) : session._decryptionError ? (
+              <span className="inline-flex items-center gap-1.5 text-accent-danger/80 italic">
+                <AlertCircle size={13} className="shrink-0" aria-label={t('archive_decryption_error')} />
+                <span className="truncate">{t('archive_decryption_error')}</span>
+              </span>
+            ) : (
+              <span className="truncate">
+                {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
+              </span>
+            )}
           </div>
         )}
         {session.content && (

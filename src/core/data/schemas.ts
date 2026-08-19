@@ -61,12 +61,12 @@ export const documentDbSchema = z.object({
   id: z.string(),
   uuid: z.string().optional(),
   userId: z.string().default(''),
-  title: z.string().default(''),
+  title: z.string().optional(),
   currentVersion: z.number().nonnegative().default(0),
   totalWords: z.number().nonnegative().default(0),
   totalDuration: z.number().nonnegative().default(0),
   sessionsCount: z.number().nonnegative().default(0),
-  tags: z.array(z.string()).default([]),
+  tags: z.array(z.string()).optional(),
   labelId: z.string().nullable().optional(),
   isPublic: z.boolean().optional(),
   firstSessionAt: firestoreTimestampSchema,
@@ -74,6 +74,8 @@ export const documentDbSchema = z.object({
   mood: z.string().optional(),
   excludedFromAI: z.boolean().optional().default(false),
   _encrypted: z.boolean().optional(),
+  _locked: z.boolean().optional(),
+  _decryptionError: z.boolean().optional(),
 });
 
 export const versionDbSchema = z.object({

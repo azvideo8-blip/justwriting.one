@@ -20,6 +20,8 @@ export async function toggleAIExclusion(
   user: AppUser | null,
   _userId: string
 ): Promise<{ success: boolean; cloudSyncFailed?: boolean }> {
+  if (session._locked) throw new Error('LOCKED: cannot modify locked session');
+  if (session._decryptionError) throw new Error('DECRYPTION_ERROR: cannot modify unreadable session');
   let cloudSyncFailed = false;
 
   if (session._isLocal) {
@@ -72,6 +74,8 @@ export async function updateArchiveField(
   user: AppUser | null,
   _userId: string
 ): Promise<{ success: boolean; cloudSyncFailed?: boolean }> {
+  if (session._locked) throw new Error('LOCKED: cannot modify locked session');
+  if (session._decryptionError) throw new Error('DECRYPTION_ERROR: cannot modify unreadable session');
   let cloudSyncFailed = false;
 
   if (session._isLocal) {

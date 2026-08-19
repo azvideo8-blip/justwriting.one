@@ -30,6 +30,8 @@ export interface LocalDocument {
   /** «Не показывать ИИ»: заметка исключена из разбора и из любого поиска,
    *  результат которого уходит поставщику. */
   excludedFromAI?: boolean | undefined;
+  _locked?: boolean | undefined;
+  _decryptionError?: boolean | undefined;
 }
 
 export interface LocalVersion {

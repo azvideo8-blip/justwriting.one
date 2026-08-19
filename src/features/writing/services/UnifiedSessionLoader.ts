@@ -127,6 +127,8 @@ export async function loadAllSessions(userId: string, user: AppUser | null): Pro
             _firstSessionAt: toDate(cloudDoc.firstSessionAt)?.getTime(),
             _contentNotLoaded: true,
             excludedFromAI: cloudDoc.excludedFromAI ?? false,
+            ...(cloudDoc._locked ? { _locked: true } : {}),
+            ...(cloudDoc._decryptionError ? { _decryptionError: true } : {}),
           };
         });
 

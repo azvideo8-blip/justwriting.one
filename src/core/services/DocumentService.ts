@@ -4,7 +4,7 @@ import { toTimestampMs } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { documentDbSchema } from '../data/schemas';
 import { documentFromDb } from './mappers';
-import { maybeEncrypt, maybeDecrypt } from '../crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt, DecryptionError } from '../crypto/cryptoHelpers';
 
 export const DocumentService = {
   async createDocument(
@@ -15,10 +15,15 @@ export const DocumentService = {
       lastSessionAt?: Date | undefined;
       mood?: string | undefined;
       excludedFromAI?: boolean | undefined;
+      _locked?: boolean | undefined;
+      _decryptionError?: boolean | undefined;
     }
   ): Promise<string> {
+    if (data._locked || data._decryptionError) {
+      throw new Error('LOCKED: cannot create locked document in cloud');
+    }
     const rawPayload: Record<string, unknown> = {
-      title: data.title,
+      title: data.title ?? '',
       currentVersion: 0,
       totalWords: 0,
       totalDuration: 0,
@@ -39,8 +44,30 @@ export const DocumentService = {
   async getDocument(userId: string, documentId: string): Promise<Document | null> {
     const data = await DataProvider.getDocument(userId, documentId);
     if (!data) return null;
-    const decrypted = await maybeDecrypt(data, ['title', 'mood'], ['tags']);
-    const parsed = documentDbSchema.safeParse({ id: documentId, ...decrypted });
+    let decrypted: Record<string, unknown> = data;
+    let _locked = false;
+    let _decryptionError = false;
+    try {
+      decrypted = await maybeDecrypt(data, ['title', 'mood'], ['tags']);
+    } catch (decErr) {
+      if (decErr instanceof DecryptionError) {
+        _decryptionError = true;
+      } else if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
+        _locked = true;
+      } else {
+        reportError(decErr, { action: 'getDocument_decrypt', docId: documentId });
+        return null;
+      }
+    }
+    const docData: Record<string, unknown> = { ...decrypted };
+    if (_locked || _decryptionError) {
+      delete docData.title;
+      delete docData.tags;
+      delete docData.mood;
+      if (_locked) docData._locked = true;
+      if (_decryptionError) docData._decryptionError = true;
+    }
+    const parsed = documentDbSchema.safeParse({ id: documentId, ...docData });
     if (!parsed.success) {
       reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
       return null;
@@ -52,18 +79,35 @@ export const DocumentService = {
     const records = await DataProvider.getUserDocuments(userId);
     const decryptedDocs = await Promise.all(
       records.map(async d => {
+        let _locked = false;
+        let _decryptionError = false;
+        let decrypted: Record<string, unknown> = d;
         try {
-          const decrypted = await maybeDecrypt(d, ['title', 'mood'], ['tags']);
-          const parsed = documentDbSchema.safeParse({ id: d.id, ...decrypted });
-          if (!parsed.success) {
-            reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id as string });
+          decrypted = await maybeDecrypt(d, ['title', 'mood'], ['tags']);
+        } catch (decErr) {
+          if (decErr instanceof DecryptionError) {
+            _decryptionError = true;
+          } else if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
+            _locked = true;
+          } else {
+            reportError(decErr, { action: 'getUserDocuments_decrypt', docId: d.id as string });
             return null;
           }
-          return documentFromDb(parsed.data);
-        } catch (e) {
-          reportError(e, { action: 'getUserDocuments_decrypt', docId: d.id as string });
+        }
+        const docData: Record<string, unknown> = { ...decrypted };
+        if (_locked || _decryptionError) {
+          delete docData.title;
+          delete docData.tags;
+          delete docData.mood;
+          if (_locked) docData._locked = true;
+          if (_decryptionError) docData._decryptionError = true;
+        }
+        const parsed = documentDbSchema.safeParse({ id: d.id, ...docData });
+        if (!parsed.success) {
+          reportError(parsed.error, { action: 'getUserDocuments_parse', docId: d.id as string });
           return null;
         }
+        return documentFromDb(parsed.data);
       })
     );
     const docs = decryptedDocs.filter((d): d is Document => d !== null);

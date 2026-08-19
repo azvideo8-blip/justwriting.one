@@ -96,7 +96,7 @@ export interface Document {
   id: string;
   uuid?: string | undefined;
   userId: string;
-  title: string;
+  title?: string | undefined;
   currentVersion: number;
   totalWords: number;
   totalDuration: number;
@@ -104,10 +104,12 @@ export interface Document {
   firstSessionAt: Date | null;
   lastSessionAt: Date | null;
   isPublic?: boolean | undefined;
-  tags: string[];
+  tags?: string[] | undefined;
   labelId?: string | undefined;
   mood?: string | undefined;
   excludedFromAI?: boolean | undefined;
+  _locked?: boolean | undefined;
+  _decryptionError?: boolean | undefined;
 }
 
 export interface Version {

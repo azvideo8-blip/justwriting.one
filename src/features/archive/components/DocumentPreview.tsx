@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2, Paperclip, Copy } from 'lucide-react';
+import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2, Paperclip, Copy, Lock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Label } from '../../../types';
 import { ArchiveSession } from '../types';
@@ -371,8 +371,20 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
       {/* Header */}
       <div className="flex items-start justify-between p-6 pb-4 border-b border-border-subtle pt-8 md:pt-6">
         <div className="flex-1 min-w-0 pr-4">
-          <h2 className="text-xl font-medium text-text-main leading-snug mb-1">
-            {session.title || t('session_untitled')}
+          <h2 className="text-xl font-medium text-text-main leading-snug mb-1 flex items-center gap-2">
+            {session._locked ? (
+              <>
+                <Lock size={18} className="shrink-0 text-amber-500/80" aria-label={t('archive_note_locked')} />
+                <span className="italic text-text-main/70">{t('archive_note_locked')}</span>
+              </>
+            ) : session._decryptionError ? (
+              <>
+                <AlertCircle size={18} className="shrink-0 text-accent-danger/80" aria-label={t('archive_decryption_error')} />
+                <span className="italic text-accent-danger/80">{t('archive_decryption_error')}</span>
+              </>
+            ) : (
+              session.title || t('session_untitled')
+            )}
           </h2>
           <div className="font-mono text-label-sm text-text-main/60 uppercase tracking-wider">
             {format(date, 'd MMMM yyyy', { locale: dateLocale })}
@@ -583,11 +595,33 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col justify-between">
-        <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty" >
-          {session.content || (
-            <span className="text-text-main/60 italic">{t('archive_no_content')}</span>
-          )}
-        </p>
+        {session._locked ? (
+          <div className="flex flex-col items-center justify-center text-center p-8 border border-amber-500/20 bg-amber-500/5 rounded-2xl my-auto">
+            <Lock size={32} className="text-amber-500/80 mb-3" />
+            <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_note_locked')}</p>
+            <p className="text-xs text-text-main/60 max-w-xs mb-4">{t('archive_locked_preview_desc')}</p>
+            <Button
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent('open-vault-unlock'));
+              }}
+              className="px-4 py-2 bg-brand-soft/20 text-brand-soft hover:bg-brand-soft/30 rounded-xl text-xs font-medium transition-colors"
+            >
+              {t('archive_unlock')}
+            </Button>
+          </div>
+        ) : session._decryptionError ? (
+          <div className="flex flex-col items-center justify-center text-center p-8 border border-accent-danger/20 bg-accent-danger/5 rounded-2xl my-auto">
+            <AlertCircle size={32} className="text-accent-danger/80 mb-3" />
+            <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_decryption_error')}</p>
+          </div>
+        ) : (
+          <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty">
+            {session.content || (
+              <span className="text-text-main/60 italic">{t('archive_no_content')}</span>
+            )}
+          </p>
+        )}
 
         {relatedNotes.length > 0 && (
           <div className="mt-8 pt-5 border-t border-border-subtle/40">

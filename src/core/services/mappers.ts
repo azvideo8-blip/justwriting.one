@@ -19,6 +19,8 @@ export function documentFromDb(dbDoc: DocumentDb): Document {
     labelId: dbDoc.labelId ?? undefined,
     mood: dbDoc.mood,
     excludedFromAI: dbDoc.excludedFromAI ?? false,
+    _locked: dbDoc._locked,
+    _decryptionError: dbDoc._decryptionError,
   } as Document;
 }
 

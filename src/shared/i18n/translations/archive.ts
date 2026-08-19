@@ -131,4 +131,8 @@ export const archiveTranslations: Translations = {
   archive_preview_insights: { ru: 'Инсайты:', en: 'Insights:' },
   archive_preview_facts: { ru: 'Факты:', en: 'Facts:' },
   archive_preview_ai_consent_required: { ru: 'Для разбора требуется согласие на использование ИИ', en: 'AI consent is required for analysis' },
+  archive_note_locked: { ru: 'Заметка заперта', en: 'Note is locked' },
+  archive_decryption_error: { ru: 'Не удалось прочитать', en: 'Failed to read' },
+  archive_locked_preview_desc: { ru: 'Сейф заперт. Введите пароль, чтобы открыть заметку.', en: 'Vault is locked. Enter password to open note.' },
+  archive_unlock: { ru: 'Разблокировать', en: 'Unlock' },
 };

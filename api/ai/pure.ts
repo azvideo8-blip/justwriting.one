@@ -144,6 +144,30 @@ export function sanitizeAiInput(content: string): string {
 export function sanitizeAiResponse(response: string, keepReasoning = false): string {
   let cleaned = response;
   if (!keepReasoning) {
+    // 1. <think>...</think> tags and closing </think>
+    if (/<\/think>/i.test(cleaned)) {
+      const after = cleaned.split(/<\/think>/i)[1];
+      if (after !== undefined) cleaned = after;
+    } else {
+      cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+      cleaned = cleaned.replace(/<think>[\s\S]*$/gi, '');
+    }
+    // 2. <answer> tags
+    const answerMatch = cleaned.match(/(?:\/\/)?<answer>([\s\S]*?)(?:<\/answer>|$)/i);
+    if (answerMatch) {
+      cleaned = answerMatch[1]!;
+    }
+    // 3. Markdown: ХОД МЫСЛИ: ... ОТВЕТ: ...
+    if (/(?:^|\n)ХОД МЫСЛИ:/i.test(cleaned)) {
+      const mdAnswerMatch = cleaned.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/i);
+      cleaned = mdAnswerMatch ? mdAnswerMatch[1]! : '';
+    } else {
+      // 4. Standalone ОТВЕТ: line
+      const standaloneAnswerMatch = cleaned.match(/(?:^|\n)ОТВЕТ:\s*([\s\S]*?)$/);
+      if (standaloneAnswerMatch && standaloneAnswerMatch.index !== undefined && standaloneAnswerMatch.index > 0) {
+        cleaned = standaloneAnswerMatch[1]!;
+      }
+    }
     // OPT-8: Strip reasoning blocks that reasoning models leak into output
     cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
     cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
