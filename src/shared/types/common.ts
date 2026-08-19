@@ -11,6 +11,10 @@ export interface EncryptionMeta {
   version: number;
   wrappedDataKey: string;
   verification: string;
+  /** Тот же ключ данных, завёрнутый в код восстановления. Пусто у сейфов,
+   *  заведённых до появления кода. */
+  recoveryWrappedDataKey?: string | undefined;
+  recoverySalt?: string | undefined;
 }
 
 export interface UserProfile {

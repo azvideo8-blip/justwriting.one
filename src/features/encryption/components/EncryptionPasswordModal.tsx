@@ -13,8 +13,10 @@ import {
   initializeEncryption,
   VaultAlreadyExistsError,
   unlockVault,
+  recoverVaultWithCode,
   changePassword,
   WrongPasswordError,
+  WrongRecoveryCodeError,
 } from '../../../core/services/EncryptionService';
 import { migrateFromLegacy } from '../../../core/services/LegacyKeyMigration';
 import { getSessionKey } from '../../../core/crypto/encrypt';
@@ -31,7 +33,7 @@ interface EncryptionPasswordModalProps {
   onClose?: () => void;
 }
 
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 8;
 
 export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose }: EncryptionPasswordModalProps) {
   const { t } = useLanguage();
@@ -39,6 +41,8 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const reducedMotion = useReducedMotion();
   const modalRef = useRef<HTMLDivElement>(null);
 
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -103,12 +107,43 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       if (err instanceof WrongPasswordError) {
         setError(t('unlock_wrong_password'));
       } else {
-        // Unlock needs the salt and wrapped key from the cloud profile. When
-        // that read fails the password is fine — saying "something went wrong"
-        // reads as "your password stopped working", which is the exact panic
-        // the PBKDF2 lockout caused. Name the real cause instead.
         reportError(err, { action: 'unlockVault', userId });
         setError(t('unlock_cloud_unreachable'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRecover = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryCode) {
+      setError(t('auth_error_fields_required'));
+      return;
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError(t('enc_passwords_dont_match'));
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await recoverVaultWithCode(userId, recoveryCode, password);
+      showToast(t('enc_recovery_success'), 'success');
+      setPassword('');
+      setConfirmPassword('');
+      setRecoveryCode('');
+      onDone();
+    } catch (err) {
+      if (err instanceof WrongRecoveryCodeError) {
+        setError(t('enc_recovery_code_wrong'));
+      } else {
+        reportError(err, { action: 'recoverVaultWithCode', userId });
+        setError(t('error_generic_action'));
       }
     } finally {
       setLoading(false);
@@ -213,7 +248,9 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           onClick={(e) => e.stopPropagation()}
         >
           <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">
-            {isUnlock ? (
+            {isRecovering ? (
+              <KeyRound size={18} className="text-brand-soft" />
+            ) : isUnlock ? (
               <Lock size={18} className="text-brand-soft" />
             ) : isMigrate ? (
               <KeyRound size={18} className="text-brand-soft" />
@@ -223,13 +260,15 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           </div>
 
           <h2 id="enc-modal-title" className="text-base font-medium text-text-main mb-1">
-            {isUnlock && t('enc_unlock_title')}
+            {isRecovering && t('enc_recovery_title')}
+            {!isRecovering && isUnlock && t('enc_unlock_title')}
             {isSetup && t('enc_setup_title')}
             {isChange && t('enc_change_title')}
             {isMigrate && t('enc_migrate_title')}
           </h2>
           <p className="text-sm text-text-main/60 mb-4">
-            {isUnlock && t('enc_unlock_subtitle')}
+            {isRecovering && t('enc_recovery_subtitle')}
+            {!isRecovering && isUnlock && t('enc_unlock_subtitle')}
             {isSetup && t('enc_setup_subtitle')}
             {isChange && t('enc_change_subtitle')}
             {isMigrate && t('enc_migrate_subtitle')}
@@ -259,14 +298,31 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (isUnlock) void handleUnlock(e);
+              if (isRecovering) void handleRecover(e);
+              else if (isUnlock) void handleUnlock(e);
               else if (isSetup) void handleSetup(e);
               else if (isChange) void handleChangePassword(e);
               else void handleMigrate(e);
             }}
             className="space-y-3"
           >
-            {(isChange || isMigrate) && (
+            {isRecovering && (
+              <Input
+                type="text"
+                autoFocus
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                value={recoveryCode}
+                onChange={(e) => setRecoveryCode(e.target.value)}
+                placeholder={t('enc_recovery_code_placeholder')}
+                aria-label={t('enc_recovery_code_label')}
+                className="font-mono px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40 uppercase"
+                required
+              />
+            )}
+
+            {!isRecovering && (isChange || isMigrate) && (
               <Input
                 type="password"
                 value={currentPassword}
@@ -284,20 +340,26 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={isUnlock ? '••••••••' : t('enc_new_password_placeholder')}
-              aria-label={isUnlock ? t('unlock_title') : t('enc_new_password_placeholder')}
+              placeholder={
+                isRecovering
+                  ? t('enc_recovery_new_password')
+                  : isUnlock
+                  ? '••••••••'
+                  : t('enc_new_password_placeholder')
+              }
+              aria-label={isUnlock && !isRecovering ? t('unlock_title') : t('enc_new_password_placeholder')}
               className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
               required
-              autoFocus={isUnlock || isSetup}
-              minLength={isUnlock ? undefined : MIN_PASSWORD_LENGTH}
+              autoFocus={(!isRecovering && isUnlock) || isSetup}
+              minLength={isUnlock && !isRecovering ? undefined : MIN_PASSWORD_LENGTH}
             />
 
-            {!isUnlock && (
+            {(isRecovering || !isUnlock) && (
               <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder={t('enc_confirm_password')}
+                placeholder={isRecovering ? t('enc_recovery_confirm_password') : t('enc_confirm_password')}
                 aria-label={t('enc_confirm_password')}
                 className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
                 required
@@ -305,7 +367,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               />
             )}
 
-            {isUnlock && (
+            {!isRecovering && isUnlock && (
               <label className="flex items-center gap-2.5 px-1 cursor-pointer select-none text-sm text-text-main/70">
                 <input
                   type="checkbox"
@@ -319,21 +381,59 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
 
             <Button
               type="submit"
-              disabled={loading || !password || (!isUnlock && !confirmPassword)}
+              disabled={
+                loading ||
+                !password ||
+                (isRecovering && (!recoveryCode || !confirmPassword)) ||
+                (!isUnlock && !confirmPassword)
+              }
               className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors flex items-center justify-center gap-2 bg-[var(--brand-primary)]"
             >
               {loading ? (
                 <Loader2 size={16} className="animate-spin" />
+              ) : isRecovering ? (
+                <KeyRound size={14} />
               ) : isUnlock ? (
                 <Lock size={14} />
               ) : (
                 <Shield size={14} />
               )}
-              {isUnlock && t('enc_unlock_submit')}
+              {isRecovering && t('enc_recovery_submit')}
+              {!isRecovering && isUnlock && t('enc_unlock_submit')}
               {isSetup && t('enc_setup_submit')}
               {isChange && t('enc_change_submit')}
               {isMigrate && t('enc_migrate_submit')}
             </Button>
+
+            {isUnlock && !isRecovering && (
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRecovering(true);
+                    setError(null);
+                  }}
+                  className="text-xs text-text-main/60 hover:text-text-main underline transition-colors"
+                >
+                  {t('enc_recovery_link')}
+                </button>
+              </div>
+            )}
+
+            {isUnlock && isRecovering && (
+              <div className="pt-1 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRecovering(false);
+                    setError(null);
+                  }}
+                  className="text-xs text-text-main/60 hover:text-text-main transition-colors"
+                >
+                  {t('enc_recovery_back_to_password')}
+                </button>
+              </div>
+            )}
           </form>
 
           {isMigrate && (
@@ -373,4 +473,3 @@ export function ChangeEncryptionPasswordButton({ userId }: { userId: string }) {
     </>
   );
 }
-

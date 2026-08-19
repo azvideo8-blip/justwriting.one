@@ -6,21 +6,30 @@ export interface EncryptionMeta {
   version: number;
   wrappedDataKey: string;
   verification: string;
+  recoveryWrappedDataKey?: string | undefined;
+  recoverySalt?: string | undefined;
 }
 
-const ENCRYPTION_META_VERSION = 1;
+const ENCRYPTION_META_VERSION = 2;
 const VERIFICATION_PLAINTEXT = 'justwriting-verify-v1';
 
 export { VERIFICATION_PLAINTEXT };
 
 export async function saveEncryptionMeta(uid: string, meta: EncryptionMeta): Promise<void> {
+  const encryptionMeta: Record<string, unknown> = {
+    salt: meta.salt,
+    version: meta.version,
+    wrappedDataKey: meta.wrappedDataKey,
+    verification: meta.verification,
+  };
+  if (meta.recoveryWrappedDataKey) {
+    encryptionMeta.recoveryWrappedDataKey = meta.recoveryWrappedDataKey;
+  }
+  if (meta.recoverySalt) {
+    encryptionMeta.recoverySalt = meta.recoverySalt;
+  }
   await DataProvider.saveEncryptionMeta(uid, {
-    encryptionMeta: {
-      salt: meta.salt,
-      version: meta.version,
-      wrappedDataKey: meta.wrappedDataKey,
-      verification: meta.verification,
-    }
+    encryptionMeta: encryptionMeta as unknown as EncryptionMeta,
   });
 }
 
@@ -34,12 +43,16 @@ export async function getEncryptionMeta(uid: string): Promise<EncryptionMeta | n
   const salt = String(meta.salt);
   const wrappedDataKey = String(meta.wrappedDataKey);
   const verification = typeof meta.verification === 'string' ? meta.verification : '';
-  const version = typeof meta.version === 'number' ? meta.version : ENCRYPTION_META_VERSION;
+  const version = typeof meta.version === 'number' ? meta.version : 1;
+  const recoveryWrappedDataKey = typeof meta.recoveryWrappedDataKey === 'string' ? meta.recoveryWrappedDataKey : undefined;
+  const recoverySalt = typeof meta.recoverySalt === 'string' ? meta.recoverySalt : undefined;
   return {
     salt,
     version,
     wrappedDataKey,
     verification,
+    recoveryWrappedDataKey,
+    recoverySalt,
   };
 }
 

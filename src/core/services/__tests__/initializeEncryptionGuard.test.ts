@@ -37,6 +37,7 @@ vi.mock('../../crypto/encrypt', () => ({
   getSessionKey: vi.fn(),
   clearSessionKey: vi.fn(),
   isVaultUnlocked: vi.fn(),
+  PBKDF2_ITERATIONS: 600_000,
 }));
 
 const setEncryptionEnabled = vi.fn();

@@ -10,12 +10,12 @@ import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { useToast } from '../../../shared/components/Toast';
 import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
-import { DataProvider } from '../../../core/data';
 import { reportError } from '../../../shared/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
+import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -41,6 +41,9 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [migrationUserId, setMigrationUserId] = useState<string | null>(null);
   const [migrationDocCount, setMigrationDocCount] = useState(0);
 
+  const [generatedRecoveryCode, setGeneratedRecoveryCode] = useState<string | null>(null);
+  const pendingRecoveryRef = React.useRef(false);
+
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
@@ -55,7 +58,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         return;
       }
 
-      if (onSuccess) {
+      if (onSuccess && !pendingRecoveryRef.current) {
         onSuccess();
         return;
       }
@@ -92,26 +95,11 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         // V-1: brand-new registration — confirmed no encryption exists yet.
         setEncryptionEnabled(user.uid, false);
       } else {
-        await AuthService.signInWithEmail(email, password);
-
-        const currentUid = AuthService.getCurrentUserId();
-        if (!currentUid) throw new Error('Not authenticated after sign-in');
-        const profileData = await DataProvider.getProfile(currentUid);
-        if (profileData) {
-          const unlocked = await AuthService.unlockVaultFromProfile(profileData, password, currentUid);
-          if (!unlocked) {
-            const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
-            if (pendingRaw) {
-              try {
-                const keys = JSON.parse(pendingRaw);
-                await DataProvider.updateProfile(currentUid, keys);
-                sessionStorage.removeItem(`pending_keys_${currentUid}`);
-                await AuthService.unlockVaultFromPendingKeys(keys, password, currentUid);
-              } catch (repairErr) {
-                reportError(repairErr, { action: 'repairEncryptionKeys' });
-              }
-            }
-          }
+        const result = await AuthService.signInWithEmail(email, password);
+        if (result?.recoveryCode) {
+          pendingRecoveryRef.current = true;
+          setGeneratedRecoveryCode(result.recoveryCode);
+          return;
         }
       }
     } catch (err: unknown) {
@@ -381,6 +369,17 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           docCount={migrationDocCount}
           onDone={() => { setMigrationUserId(null); setMigrationDocCount(0); }}
           onCloudSynced={(synced) => showToast(t('migration_synced_cloud', { count: synced }), 'success')}
+        />
+      )}
+
+      {generatedRecoveryCode && (
+        <RecoveryCodeDisplayModal
+          recoveryCode={generatedRecoveryCode}
+          onConfirm={() => {
+            pendingRecoveryRef.current = false;
+            setGeneratedRecoveryCode(null);
+            if (onSuccess) onSuccess();
+          }}
         />
       )}
     </div>

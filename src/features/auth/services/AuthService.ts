@@ -1,4 +1,4 @@
-import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser } from '../../../core/auth';
+import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser, type AppUser } from '../../../core/auth';
 import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
@@ -7,8 +7,50 @@ async function signUpWithEmail(email: string, password: string) {
   return signUp(email, password);
 }
 
-async function signInWithEmail(email: string, password: string) {
-  return signIn(email, password);
+async function signInWithEmail(email: string, password: string): Promise<{ user: AppUser; recoveryCode?: string }> {
+  const user = await signIn(email, password);
+  const currentUid = user.uid;
+  const { DataProvider } = await import('../../../core/data');
+  const profileData = await DataProvider.getProfile(currentUid);
+
+  const hasExistingVault = !!(profileData?.encryptionMeta || (profileData?.encryptionSalt && profileData?.encryptedDataKey));
+
+  if (hasExistingVault) {
+    const unlocked = await unlockVaultFromProfile(profileData!, password, currentUid);
+    if (!unlocked) {
+      const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
+      if (pendingRaw) {
+        try {
+          const keys = JSON.parse(pendingRaw);
+          await DataProvider.updateProfile(currentUid, keys);
+          sessionStorage.removeItem(`pending_keys_${currentUid}`);
+          await unlockVaultFromPendingKeys(keys, password, currentUid);
+        } catch (repairErr) {
+          reportError(repairErr, { action: 'repairEncryptionKeys' });
+        }
+      }
+    }
+    return { user };
+  } else {
+    // Brand new user or user without a vault logging in with an active session:
+    // Create vault automatically from the sign-in password and issue recovery code!
+    try {
+      const { initializeEncryption } = await import('../../../core/services/EncryptionService');
+      const { recoveryCode } = await initializeEncryption(currentUid, password);
+      return { user, recoveryCode };
+    } catch (e) {
+      // Вход не роняем. Неудача здесь — это чаще всего сеть, а запертая дверь
+      // в собственный дневник хуже, чем сессия без шифрования: второе
+      // исправимо, первое человек воспринимает как потерю всего.
+      //
+      // Попытка повторится сама при следующем входе: сейф так и не создан,
+      // значит эта ветка выполнится снова. Порядок внутри initializeEncryption
+      // делает повтор безопасным — метаданные пишутся последними, так что
+      // прерванная попытка не оставляет сейфа, который нечем открыть.
+      reportError(e, { action: 'signInWithEmail_autoInitializeVault', userId: currentUid });
+      return { user };
+    }
+  }
 }
 
 /**
@@ -61,17 +103,18 @@ async function signOut(opts?: { force?: boolean }) {
   return signOutUser();
 }
 
-
 async function sendPasswordReset(email: string) {
   return sendPasswordResetEmail(email);
 }
 
-
+async function recoverVault(userId: string, recoveryCode: string, newPassword: string): Promise<void> {
+  const { recoverVaultWithCode } = await import('../../../core/services/EncryptionService');
+  return recoverVaultWithCode(userId, recoveryCode, newPassword);
+}
 
 function getCurrentUserId(): string | null {
   return getCurrentUser()?.uid ?? null;
 }
-
 
 interface VaultProfileData {
   encryptionMeta?: unknown;
@@ -165,6 +208,7 @@ export const AuthService = {
   getCurrentUser,
   unlockVaultFromProfile,
   unlockVaultFromPendingKeys,
+  recoverVault,
   deleteAccount,
 };
 

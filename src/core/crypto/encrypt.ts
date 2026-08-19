@@ -101,7 +101,11 @@ export async function unwrapDataKeyWithPassword(
   }
 }
 
-export async function unwrapDataKey(wrappedKey: string, masterKey: CryptoKey): Promise<CryptoKey> {
+export async function unwrapDataKey(
+  wrappedKey: string,
+  masterKey: CryptoKey,
+  extractable: boolean = true,
+): Promise<CryptoKey> {
   const raw = fromBase64(wrappedKey);
   try {
     return await crypto.subtle.unwrapKey(
@@ -110,12 +114,9 @@ export async function unwrapDataKey(wrappedKey: string, masterKey: CryptoKey): P
       masterKey,
       'AES-KW',
       { name: 'AES-GCM', length: 256 },
-      // Non-extractable: nothing needs the raw bytes. keyVaultCache only called
-      // exportKey to re-import a downgraded copy for storage, and it skips that
-      // branch when the key already cannot be exported. Defence in depth — an
-      // XSS that reached this key could otherwise export it and decrypt the
-      // whole vault offline.
-      false,
+      // Extractable is required to allow re-wrapping the data key on password change,
+      // account recovery, and generating recovery codes for existing vaults.
+      extractable,
       ['encrypt', 'decrypt'],
     );
   } finally {

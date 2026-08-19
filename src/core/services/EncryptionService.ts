@@ -1,4 +1,20 @@
-import { deriveMasterKey, generateDataKey, wrapDataKey, unwrapDataKeyWithPassword, encryptContent, decryptContent, setSessionKey, getSessionKey, clearSessionKey, isVaultUnlocked } from '../crypto/encrypt';
+import {
+  deriveMasterKey,
+  generateDataKey,
+  wrapDataKey,
+  unwrapDataKeyWithPassword,
+  encryptContent,
+  decryptContent,
+  setSessionKey,
+  getSessionKey,
+  clearSessionKey,
+  isVaultUnlocked,
+} from '../crypto/encrypt';
+import {
+  generateRecoveryCode,
+  wrapDataKeyWithRecoveryCode,
+  unwrapDataKeyWithRecoveryCode,
+} from '../crypto/recoveryCode';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
 import {
   saveEncryptionMeta,
@@ -12,6 +28,8 @@ import {
 import { encryptAllExistingNotes, type MigrationProgress } from '../crypto/encryptMigration';
 import { hasLegacyEncryption, hasVault } from './LegacyKeyMigration';
 import { DataProvider } from '../data';
+import { updateUserPassword, getCurrentUser } from '../auth';
+import { reportError } from '../../shared/errors/reportError';
 
 export { hasVault, hasLegacyEncryption };
 
@@ -47,7 +65,25 @@ export class VaultAlreadyExistsError extends Error {
   }
 }
 
-export async function initializeEncryption(userId: string, password: string): Promise<void> {
+export class WrongPasswordError extends Error {
+  constructor() {
+    super('WRONG_PASSWORD');
+    this.name = 'WrongPasswordError';
+  }
+}
+
+export class WrongRecoveryCodeError extends Error {
+  constructor() {
+    super('WRONG_RECOVERY_CODE');
+    this.name = 'WrongRecoveryCodeError';
+  }
+}
+
+export async function initializeEncryption(
+  userId: string,
+  password: string,
+  customRecoveryCode?: string,
+): Promise<{ recoveryCode: string }> {
   // Здесь генерируется НОВЫЙ data key, поэтому запись меты поверх существующей
   // навсегда отвязывает уже зашифрованные заметки: старый ключ после этого
   // взять негде. Создаём сейф только при положительном ответе «в профиле
@@ -70,22 +106,23 @@ export async function initializeEncryption(userId: string, password: string): Pr
   const wrappedDataKey = await wrapDataKey(dataKey, masterKey);
   const verification = await createVerification(dataKey);
 
+  const recoveryCode = customRecoveryCode ?? generateRecoveryCode();
+  const recoverySalt = generateSalt();
+  const recoveryWrappedDataKey = await wrapDataKeyWithRecoveryCode(dataKey, recoveryCode, recoverySalt);
+
   await saveEncryptionMeta(userId, {
     salt: saltToBase64(salt),
     version: ENCRYPTION_META_VERSION,
     wrappedDataKey,
     verification,
+    recoveryWrappedDataKey,
+    recoverySalt: saltToBase64(recoverySalt),
   });
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
-}
 
-export class WrongPasswordError extends Error {
-  constructor() {
-    super('WRONG_PASSWORD');
-    this.name = 'WrongPasswordError';
-  }
+  return { recoveryCode };
 }
 
 export async function unlockVault(userId: string, password: string): Promise<void> {
@@ -111,6 +148,76 @@ export async function unlockVault(userId: string, password: string): Promise<voi
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
+}
+
+export async function recoverVaultWithCode(
+  userId: string,
+  recoveryCode: string,
+  newPassword: string,
+): Promise<void> {
+  const meta = await getEncryptionMeta(userId);
+  if (!meta) throw new Error('Encryption not configured');
+  if (!meta.recoveryWrappedDataKey || !meta.recoverySalt) {
+    throw new Error('NO_RECOVERY_CODE');
+  }
+
+  const recoverySalt = saltFromBase64(meta.recoverySalt);
+  let dataKey: CryptoKey;
+  try {
+    dataKey = await unwrapDataKeyWithRecoveryCode(meta.recoveryWrappedDataKey, recoveryCode, recoverySalt);
+  } catch {
+    throw new WrongRecoveryCodeError();
+  }
+
+  if (meta.verification) {
+    const valid = await verifyKey(dataKey, meta.verification);
+    if (!valid) throw new WrongRecoveryCodeError();
+  }
+
+  const newSalt = generateSalt();
+  const newMasterKey = await deriveMasterKey(newPassword, newSalt);
+  const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
+
+  await saveEncryptionMeta(userId, {
+    salt: saltToBase64(newSalt),
+    version: ENCRYPTION_META_VERSION,
+    wrappedDataKey: newWrappedDataKey,
+    verification: meta.verification || (await createVerification(dataKey)),
+    recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
+    recoverySalt: meta.recoverySalt,
+  });
+
+  setSessionKey(dataKey);
+  setEncryptionEnabled(userId, true);
+
+  if (getCurrentUser()) {
+    try {
+      await updateUserPassword(newPassword);
+    } catch (e) {
+      reportError(e, { action: 'recoverVault_updateUserPassword', userId });
+    }
+  }
+}
+
+export async function generateRecoveryCodeForExistingVault(userId: string): Promise<string> {
+  const dataKey = getSessionKey();
+  if (!dataKey) throw new Error('Vault is locked');
+
+  const meta = await getEncryptionMeta(userId);
+  if (!meta) throw new Error('Encryption not configured');
+
+  const recoveryCode = generateRecoveryCode();
+  const recoverySalt = generateSalt();
+  const recoveryWrappedDataKey = await wrapDataKeyWithRecoveryCode(dataKey, recoveryCode, recoverySalt);
+
+  await saveEncryptionMeta(userId, {
+    ...meta,
+    version: ENCRYPTION_META_VERSION,
+    recoveryWrappedDataKey,
+    recoverySalt: saltToBase64(recoverySalt),
+  });
+
+  return recoveryCode;
 }
 
 export function lockVault(_userId: string): void {
@@ -140,16 +247,25 @@ export async function changePassword(userId: string, currentPassword: string, ne
   const newSalt = generateSalt();
   const newMasterKey = await deriveMasterKey(newPassword, newSalt);
   const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
-  const newVerification = await createVerification(dataKey);
 
   await saveEncryptionMeta(userId, {
     salt: saltToBase64(newSalt),
     version: ENCRYPTION_META_VERSION,
     wrappedDataKey: newWrappedDataKey,
-    verification: newVerification,
+    verification: meta.verification || (await createVerification(dataKey)),
+    recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
+    recoverySalt: meta.recoverySalt,
   });
 
   setSessionKey(dataKey);
+
+  if (getCurrentUser()) {
+    try {
+      await updateUserPassword(newPassword);
+    } catch (e) {
+      reportError(e, { action: 'changePassword_updateUserPassword', userId });
+    }
+  }
 }
 
 /**
@@ -187,11 +303,14 @@ export const EncryptionService = {
   decrypt,
   initializeEncryption,
   unlockVault,
+  recoverVaultWithCode,
+  generateRecoveryCodeForExistingVault,
   lockVault,
   changePassword,
   changePasswordWithReEncrypt,
   encryptAll,
   isVaultUnlocked,
   WrongPasswordError,
+  WrongRecoveryCodeError,
   VaultAlreadyExistsError,
 };
