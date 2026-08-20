@@ -37,6 +37,24 @@ const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-
 export const AI_PROVIDER_COUNTRY = process.env.AI_PROVIDER_COUNTRY ?? '';
 const providerRouting = AI_PROVIDER_COUNTRY ? { country: AI_PROVIDER_COUNTRY } : undefined;
 
+/**
+ * AI-1: Reasoning effort for chat mode.
+ * Measured on deepseek/deepseek-v4-flash via RouterAI (scripts/ai-bench/reasoning-bench.mjs, 2026-08-20):
+ * - effort: 'high'   -> 16342 chars deliberation, 5695 chars answer, 7252 tokens, 69.7 s
+ * - effort: 'medium' ->  8617 chars deliberation, 6019 chars answer, 4547 tokens, 44.0 s
+ * - effort: 'low'    ->  1737 chars deliberation, 4523 chars answer, 2017 tokens, 21.0 s (3.6x cheaper, 3.3x faster)
+ * - effort: 'none'   ->     0 chars deliberation, 4651 chars answer, 1591 tokens, 17.0 s
+ *
+ * `low` provides a concise visible chain of thought while avoiding the massive token and latency inflation of `high`.
+ *
+ * IMPORTANT: Do NOT confuse this with the generate() path in api/ai/provider.ts!
+ * In generate(), the baseline request had no reasoning parameter (~61 tokens), where reasoning_effort: 'none' is correct.
+ * Here in chat, the mode is explicitly enabled by the user and the baseline was 'high'. Setting effort: 'low' cuts
+ * deliberation tokens by ~90% while still streaming a chain of thought to the user.
+ * Re-measure if changing models.
+ */
+export const CHAT_REASONING_EFFORT = 'low';
+
 const ruOnlyFetch: typeof fetch = async (input, init) => {
   if (typeof init?.body === 'string') {
     try {
@@ -114,7 +132,7 @@ async function streamOpenRouterReasoning(
         stream: true,
         max_tokens: 16384,
         ...(providerRouting ? { provider: providerRouting } : {}),
-        reasoning: { effort: 'high' },
+        reasoning: { effort: CHAT_REASONING_EFFORT },
         stream_options: { include_usage: true },
       }),
     });

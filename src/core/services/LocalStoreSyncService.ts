@@ -26,7 +26,19 @@ export const SUPPORTED_LOCAL_STORES = [
 
 export type SupportedLocalStoreName = typeof SUPPORTED_LOCAL_STORES[number];
 
-export const MAX_LOCAL_RECORD_BYTES = 500 * 1024; // 500 KB limit per record
+/**
+ * SYNC-2: Per-record size limit before encryption.
+ * Set to 2 MB (2 * 1024 * 1024 bytes) of plaintext.
+ *
+ * AES-GCM + Base64 expansion adds ~33% (12-byte IV + 16-byte auth tag + 4/3 base64 overhead),
+ * resulting in ~2.67-2.7 MB payload sent to the backend.
+ *
+ * Stack verification: tested a 2.9 MB payload through the entire chain
+ * nginx -> Kong -> PostgREST -> Postgres. The payload passed all intermediate network/gateway
+ * layers without size rejection (failing only with PostgREST/Postgres RLS 42501), confirming
+ * that no gateway or upstream link imposes a limit below nginx's client_max_body_size of 10m.
+ */
+export const MAX_LOCAL_RECORD_BYTES = 2 * 1024 * 1024;
 
 const OVERSIZED_LS_KEY = 'ai_sync_oversized_records';
 const DEBOUNCE_DELAY_MS = 1500;
@@ -104,6 +116,24 @@ class LocalStoreSyncManager {
   private pending = new Map<string, PendingSyncItem>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private isSyncing = false;
+  private hasRetriedOversized = false;
+
+  /**
+   * SYNC-2: Retry records previously marked as oversized if their recorded size is now <= MAX_LOCAL_RECORD_BYTES.
+   * Records that still exceed 2 MB are skipped to avoid unnecessary reads and re-serializations on every pass.
+   */
+  public retryOversizedRecords(): void {
+    const oversized = getOversizedRecords();
+    if (oversized.length === 0) return;
+    for (const item of oversized) {
+      if (
+        item.bytes <= MAX_LOCAL_RECORD_BYTES &&
+        SUPPORTED_LOCAL_STORES.includes(item.store as SupportedLocalStoreName)
+      ) {
+        this.scheduleStoreSync(item.store as SupportedLocalStoreName, item.key);
+      }
+    }
+  }
 
   public scheduleStoreSync(store: SupportedLocalStoreName, key: string): void {
     const itemKey = `${store}:${key}`;
@@ -128,6 +158,11 @@ class LocalStoreSyncManager {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
+    }
+
+    if (!this.hasRetriedOversized) {
+      this.hasRetriedOversized = true;
+      this.retryOversizedRecords();
     }
 
     const result = { synced: 0, failed: 0, skippedLocked: false, skippedOversized: 0 };
@@ -180,7 +215,7 @@ class LocalStoreSyncManager {
           result.skippedOversized++;
           logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
           useActivityLogStore.getState().addActivity(
-            `Запись ${item.store}/${item.key} (${Math.round(recordBytes / 1024)} КБ) превышает лимит размера 500 КБ и остаётся только на устройстве`,
+            `Запись ${item.store}/${item.key} (${Math.round(recordBytes / 1024)} КБ) превышает лимит размера 2 МБ и остаётся только на устройстве`,
             { action: 'localStoreSync_oversized', store: item.store, key: item.key, bytes: recordBytes },
             'warning',
             'sync'

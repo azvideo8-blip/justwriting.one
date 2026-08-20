@@ -86,7 +86,6 @@ export function EmbeddingDiagnostics() {
     try {
       const r = await AIEmbeddingService.syncPendingToCloud();
       if (r.locked) showToast(`Синхронизировано ${r.synced}; остальное ждёт — разблокируй E2E-шифрование`, 'error');
-      else if (r.budgetExhausted) showToast(`Синхронизировано ${r.synced}; дневной бюджет записи в Firestore исчерпан — остальное продолжится завтра`, 'error');
       else if (r.synced > 0) showToast(`В облако выгружено эмбеддингов: ${r.synced}`, 'success');
       else showToast('Всё уже синхронизировано', 'success');
     } catch (e) {

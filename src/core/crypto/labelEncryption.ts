@@ -1,7 +1,6 @@
-// src/core/crypto/labelEncryption.ts
 import { Label } from '../../types';
 import { maybeEncrypt, maybeDecrypt, getEncryptionEnabled } from './cryptoHelpers';
-import { getSessionKey } from './encrypt';
+import { getSessionKey, decryptContent } from './encrypt';
 import { DataProvider } from '../data';
 import { reportError } from '../../shared/errors/reportError';
 
@@ -35,7 +34,7 @@ export async function encryptLabels(labels: Label[], userId: string): Promise<Ar
  * Метка, имя которой сейчас не прочитать. Показывается «…», а исходный
  * шифротекст едет вместе с ней, чтобы обратная запись вернула его как есть.
  */
-function undecryptedPlaceholder(label: Record<string, unknown>): Label {
+export function undecryptedPlaceholder(label: Record<string, unknown>): Label {
   const placeholder: Label = {
     id: String(label.id || ''),
     name: '…',
@@ -110,3 +109,70 @@ export async function migrateUnencryptedLabels(
     return false;
   }
 }
+
+/**
+ * SEC-7b: Идемпотентный ремонт меток с двойным шифрованием.
+ *
+ * Если имя метки после расшифровки само по себе оказывается валидным
+ * шифротекстом, значит список был зашифрован повторно (например, при чтении
+ * через useProfileLabels до того, как ProfileService.getProfile научился расшифровке).
+ *
+ * Функция расшифровывает второй слой и сохраняет в облако правильно зашифрованный список.
+ * При отсутствии двойного шифрования ничего в базу не пишет и возвращает false.
+ */
+export async function repairDoubleEncryptedLabels(
+  userId: string,
+  rawLabels: Array<Record<string, unknown>>
+): Promise<boolean> {
+  if (!userId || userId.startsWith('guest') || !Array.isArray(rawLabels) || rawLabels.length === 0) {
+    return false;
+  }
+
+  if (!getEncryptionEnabled(userId)) {
+    return false;
+  }
+  const key = getSessionKey();
+  if (!key) {
+    return false;
+  }
+
+  try {
+    const decrypted = await decryptLabels(rawLabels);
+    let hasDoubleEncrypted = false;
+    const repairedLabels: Label[] = [];
+
+    for (const label of decrypted) {
+      if (label._undecrypted) {
+        repairedLabels.push(label);
+        continue;
+      }
+
+      let name = label.name;
+      try {
+        const secondDecrypted = await decryptContent(name, key);
+        name = secondDecrypted;
+        hasDoubleEncrypted = true;
+      } catch {
+        // Обычное одиночно зашифрованное имя: расшифровка не-шифротекста завершается с ошибкой
+      }
+
+      repairedLabels.push({
+        id: label.id,
+        name,
+        color: label.color,
+      });
+    }
+
+    if (!hasDoubleEncrypted) {
+      return false;
+    }
+
+    const encrypted = await encryptLabels(repairedLabels, userId);
+    await DataProvider.updateProfile(userId, { labels: encrypted });
+    return true;
+  } catch (err) {
+    reportError(err, { action: 'repairDoubleEncryptedLabels', userId });
+    return false;
+  }
+}
+

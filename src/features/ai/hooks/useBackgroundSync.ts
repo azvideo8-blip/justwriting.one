@@ -79,6 +79,7 @@ export function useBackgroundSync(): void {
 
       // Выгрузить накопившиеся в очереди записи 13 хранилищ ИИ (если сейф был заперт)
       const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
+      LocalStoreSyncService.retryOversizedRecords();
       await LocalStoreSyncService.flushPending();
     } catch (e) {
       reportError(e, { action: 'backgroundSync_pass' });

@@ -182,16 +182,14 @@ export const AIEmbeddingService = {
 
   /** Uploads local embeddings not yet in the cloud (e.g. saved while E2E was
    *  locked, or left behind after an embedding-model change marked everything
-   *  stale). Makes NO AI calls, but each upload IS a Firestore write and this
-   *  project's free-tier database has a hard DAILY write quota shared by the
-   *  whole app — see tryReserveWriteBudget. Stops early if E2E is locked or
-   *  the daily write budget is spent; the rest retry on a later pass/day. */
-  async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean; budgetExhausted: boolean }> {
+   *  stale). Makes NO AI calls; uploads are paced sequentially with SYNC_PACE_MS.
+   *  Stops early if E2E is locked; the rest retry on a later pass. */
+  async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean }> {
     const uid = getCurrentUser()?.uid;
     const db = await getLocalDb();
     const all = await db.getAll('aiEmbeddings');
     const pending = all.filter(e => !e.cloudSyncedAt && !e.cloudSkipped);
-    if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false, budgetExhausted: false };
+    if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false };
 
 
     let synced = 0;
@@ -211,14 +209,14 @@ export const AIEmbeddingService = {
         if (isOversizedError(msg)) {
           await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
         } else if (msg.includes('ENCRYPT_REQUIRED')) {
-          return { synced, pending: pending.length, locked: true, budgetExhausted: false };
+          return { synced, pending: pending.length, locked: true };
         } else {
           reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
         }
       }
       if (i < pending.length - 1) await sleep(SYNC_PACE_MS);
     }
-    return { synced, pending: pending.length, locked: false, budgetExhausted: false };
+    return { synced, pending: pending.length, locked: false };
   },
 
   async getAll(): Promise<AIDocumentEmbedding[]> {

@@ -26,7 +26,7 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
     ProfileService.getProfile(userId).then(result => {
       fetchedSet.add(userId);
       if (!result.error && result.data?.labels) {
-        const labels = result.data.labels as Label[];
+        const labels = result.data.labels;
         labelCache.set(userId, labels);
         setLabels(labels);
       }

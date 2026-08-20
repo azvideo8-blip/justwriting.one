@@ -162,7 +162,36 @@ describe('LocalStoreSyncService', () => {
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
   });
 
-  it('skips oversized records (>500KB) and tracks them in sync status', async () => {
+  it('syncs record between 500KB and 2MB successfully (SYNC-2)', async () => {
+    const db = await getLocalDb();
+    // 800 KB payload — would have failed on previous 500 KB cap
+    const largeText = 'x'.repeat(800 * 1024);
+    await db.put('aiDialogues', {
+      id: 'dialogue_800kb',
+      title: 'Large Dialogue',
+      messages: [{ role: 'user', content: largeText }],
+      createdAt: 1,
+      updatedAt: 1,
+      personaId: 'default',
+      personaName: 'Assistant',
+      personaEmoji: '🤖',
+    });
+
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_800kb');
+    const res = await LocalStoreSyncService.flushPending();
+
+    expect(res.synced).toBe(1);
+    expect(res.skippedOversized).toBe(0);
+    expect(mockSaveRecord).toHaveBeenCalledWith(
+      'test_user_123',
+      'aiDialogues',
+      'dialogue_800kb',
+      expect.anything(),
+    );
+    expect(getOversizedRecordCount()).toBe(0);
+  });
+
+  it('skips oversized records (>2MB) and tracks them in sync status', async () => {
     const db = await getLocalDb();
     const hugeText = 'x'.repeat(MAX_LOCAL_RECORD_BYTES + 1024);
     await db.put('aiDialogues', {
@@ -182,6 +211,44 @@ describe('LocalStoreSyncService', () => {
     expect(res.skippedOversized).toBe(1);
     expect(res.synced).toBe(0);
     expect(mockSaveRecord).not.toHaveBeenCalled();
+    expect(getOversizedRecordCount()).toBe(1);
+  });
+
+  it('conditionally retries records <= 2MB previously marked oversized and cleans up localStorage on success, while ignoring records > 2MB', async () => {
+    const db = await getLocalDb();
+    // Seed record that was 600 KB (oversized under old 500KB cap, fits in new 2MB cap)
+    await db.put('aiDialogues', {
+      id: 'old_oversized_dialogue',
+      title: 'Old Oversized',
+      messages: [{ role: 'user', content: 'x'.repeat(600 * 1024) }],
+      createdAt: 1,
+      updatedAt: 1,
+      personaId: 'default',
+      personaName: 'Assistant',
+      personaEmoji: '🤖',
+    });
+
+    // Seed localStorage with one record that now fits (600 KB) and one that is still huge (3 MB)
+    localStorage.setItem(
+      'ai_sync_oversized_records',
+      JSON.stringify([
+        { store: 'aiDialogues', key: 'old_oversized_dialogue', bytes: 600 * 1024, timestamp: Date.now() - 1000 },
+        { store: 'aiDialogues', key: 'still_too_huge_dialogue', bytes: 3 * 1024 * 1024, timestamp: Date.now() - 1000 },
+      ])
+    );
+
+    LocalStoreSyncService.retryOversizedRecords();
+    const res = await LocalStoreSyncService.flushPending();
+
+    expect(res.synced).toBe(1);
+    expect(mockSaveRecord).toHaveBeenCalledWith(
+      'test_user_123',
+      'aiDialogues',
+      'old_oversized_dialogue',
+      expect.anything(),
+    );
+
+    // The 600 KB record should be removed from oversized list, but the 3 MB record remains
     expect(getOversizedRecordCount()).toBe(1);
   });
 

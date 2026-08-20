@@ -167,7 +167,7 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
               {oversizedCount > 0 && (
                 <div className="text-[11px] text-amber-400 flex items-center gap-1 mt-1">
                   <AlertTriangle size={12} />
-                  <span>{oversizedCount} {oversizedCount === 1 ? 'запись превышает' : 'записей превышают'} лимит размера 500 КБ и сохранены только на устройстве</span>
+                  <span>{oversizedCount} {oversizedCount === 1 ? 'диалог / запись превышает' : 'диалогов / записей превышают'} лимит размера 2 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)</span>
                 </div>
               )}
             </div>

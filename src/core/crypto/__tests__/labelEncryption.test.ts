@@ -5,6 +5,7 @@ import {
   decryptLabel,
   decryptLabels,
   migrateUnencryptedLabels,
+  repairDoubleEncryptedLabels,
 } from '../labelEncryption';
 import { setEncryptionEnabled, setProfileLoaded } from '../cryptoHelpers';
 import { useEncryptionStore } from '../useEncryptionStore';
@@ -151,6 +152,56 @@ describe('SEC-7: Label names end-to-end encryption', () => {
       const saved = await encryptLabels([...shown, { id: 'l3', name: 'Новая', color: '#333' }], 'user_1');
       const restored = await decryptLabels(saved as unknown as Record<string, unknown>[]);
       expect(restored.map(l => l.name)).toEqual(['Терапия', 'Практика6', 'Новая']);
+    });
+  });
+
+  describe('SEC-7b: repairDoubleEncryptedLabels', () => {
+    it('repairs double-encrypted label names and writes back single-encrypted records', async () => {
+      const original = { id: 'l1', name: 'Личное', color: '#FF5500' };
+      // Single encryption (normal)
+      const singleEnc = await encryptLabel(original, 'user_1');
+      // Double encryption (as occurred when useProfileLabels saved ciphertext without decrypting)
+      const doubleEnc = await encryptLabel(
+        { id: singleEnc.id, name: singleEnc.name, color: singleEnc.color },
+        'user_1',
+      );
+
+      const repaired = await repairDoubleEncryptedLabels('user_1', [doubleEnc as unknown as Record<string, unknown>]);
+      expect(repaired).toBe(true);
+      expect(DataProvider.updateProfile).toHaveBeenCalledWith('user_1', {
+        labels: [
+          expect.objectContaining({
+            id: 'l1',
+            color: '#FF5500',
+            _encrypted: true,
+          }),
+        ],
+      });
+
+      // Verify the updated label payload in DataProvider decrypts cleanly in one pass to "Личное"
+      const updateCall = vi.mocked(DataProvider.updateProfile).mock.calls[0];
+      expect(updateCall).toBeDefined();
+      const savedPayload = (updateCall![1] as { labels: Record<string, unknown>[] }).labels;
+      expect(savedPayload?.[0]).toBeDefined();
+      const decrypted = await decryptLabel(savedPayload[0]!);
+      expect(decrypted.name).toBe('Личное');
+    });
+
+    it('is a no-op (idempotent) on healthy single-encrypted labels', async () => {
+      const singleEnc = await encryptLabel({ id: 'l1', name: 'Здоровье', color: '#00AA00' }, 'user_1');
+      const repaired = await repairDoubleEncryptedLabels('user_1', [singleEnc as unknown as Record<string, unknown>]);
+
+      expect(repaired).toBe(false);
+      expect(DataProvider.updateProfile).not.toHaveBeenCalled();
+    });
+
+    it('returns false and does not write when vault is locked', async () => {
+      const singleEnc = await encryptLabel({ id: 'l1', name: 'Работа', color: '#0000FF' }, 'user_1');
+      useEncryptionStore.getState().lockVault();
+
+      const repaired = await repairDoubleEncryptedLabels('user_1', [singleEnc as unknown as Record<string, unknown>]);
+      expect(repaired).toBe(false);
+      expect(DataProvider.updateProfile).not.toHaveBeenCalled();
     });
   });
 });

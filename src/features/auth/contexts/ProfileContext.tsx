@@ -3,7 +3,8 @@ import { DataProvider } from '../../../core/data';
 import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/data/schemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
-import { decryptLabels, migrateUnencryptedLabels } from '../../../core/crypto/labelEncryption';
+import { decryptLabels, migrateUnencryptedLabels, repairDoubleEncryptedLabels } from '../../../core/crypto/labelEncryption';
+import { ProfileService } from '../../../core/services/ProfileServiceRef';
 import { setAiConsent } from '../../../core/ai/aiConsent';
 import { PRIVACY_VERSION } from '../components/PrivacyModal';
 import { reportError } from '../../../shared/errors/reportError';
@@ -63,6 +64,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 if (parsed.data.labels && Array.isArray(parsed.data.labels)) {
                   const decryptedLabels = await decryptLabels(parsed.data.labels as unknown as Record<string, unknown>[]);
                   void migrateUnencryptedLabels(user.uid, parsed.data.labels as unknown as Record<string, unknown>[]);
+                  void repairDoubleEncryptedLabels(user.uid, parsed.data.labels as unknown as Record<string, unknown>[]);
                   profileData = { ...parsed.data, labels: decryptedLabels };
                 }
                 // Слияние, а не замена. Логическая репликация не присылает
@@ -120,9 +122,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             if (creationAttemptedRef.current) return;
             creationAttemptedRef.current = true;
 
-            const existingProfile = await DataProvider.getProfile(user.uid);
-            if (existingProfile) {
+            const existingProfileRes = await ProfileService.getProfile(user.uid);
+            if (!existingProfileRes.error && existingProfileRes.data) {
               creationAttemptedRef.current = false;
+              const existingProfile = existingProfileRes.data;
               const hasConsent = existingProfile.aiConsentAt !== null &&
                 existingProfile.aiConsentAt !== undefined &&
                 typeof existingProfile.aiConsentVersion === 'number' &&
@@ -172,16 +175,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {
     if (!user) return;
     try {
-      const fresh = await DataProvider.getProfile(user.uid);
-      if (!fresh) return;
-      const parsed = userProfileDbSchema.safeParse(fresh);
-      if (!parsed.success) return;
-      let profileData = parsed.data;
-      if (parsed.data.labels && Array.isArray(parsed.data.labels)) {
-        const decryptedLabels = await decryptLabels(parsed.data.labels as unknown as Record<string, unknown>[]);
-        void migrateUnencryptedLabels(user.uid, parsed.data.labels as unknown as Record<string, unknown>[]);
-        profileData = { ...parsed.data, labels: decryptedLabels };
-      }
+      const res = await ProfileService.getProfile(user.uid);
+      if (res.error || !res.data) return;
+      // Миграцию и починку меток запускает сам ProfileService.getProfile: там
+      // ещё есть сырые записи с признаком `_encrypted`, а здесь уже нет.
+      const profileData = res.data;
       // Здесь замена, а не слияние: это авторитетное чтение целиком, а не
       // снапшот с пропущенными полями.
       setProfile(profileData);

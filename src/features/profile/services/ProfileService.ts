@@ -1,9 +1,16 @@
 import { DataProvider } from '../../../core/data';
 import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
-import { Label } from '../../../types';
+import { Label, UserProfile } from '../../../types';
 import { reportError } from '../../../shared/errors/reportError';
 import { userProfileDbSchema } from '../../../core/data/schemas';
-import { encryptLabels } from '../../../core/crypto/labelEncryption';
+import {
+  encryptLabels,
+  decryptLabels,
+  undecryptedPlaceholder,
+  migrateUnencryptedLabels,
+  repairDoubleEncryptedLabels,
+} from '../../../core/crypto/labelEncryption';
+import { getCurrentUser } from '../../../core/auth';
 
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {
@@ -75,13 +82,48 @@ export const ProfileService = {
     }
   },
 
-  async getProfile(userId: string): Promise<{ data: Record<string, unknown> | null; error: boolean }> {
+  async getProfile(userId: string): Promise<{ data: UserProfile | null; error: boolean }> {
     try {
       const snapData = await DataProvider.getProfile(userId);
-      if (snapData) {
-        return { data: snapData, error: false };
+      if (!snapData) return { data: null, error: false };
+
+      const parsed = userProfileDbSchema.safeParse({ uid: userId, ...snapData });
+      if (!parsed.success) {
+        reportError(parsed.error, { action: 'getProfile_parse', docId: userId });
+        return { data: null, error: false };
       }
-      return { data: null, error: false };
+
+      let profileData: UserProfile = parsed.data;
+      if (profileData.labels && Array.isArray(profileData.labels)) {
+        // SEC-7b: Метки приходят из базы зашифрованными. Расшифровка стоит здесь,
+        // в точке входа данных, чтобы все текущие и будущие вызывающие получали
+        // расшифрованные имена.
+        const currentUid = getCurrentUser()?.uid;
+        if (currentUid && currentUid === userId) {
+          const rawLabels = profileData.labels as unknown as Record<string, unknown>[];
+          // Разовые проходы получают именно сырые метки и живут здесь, а не у
+          // вызывающих: признак `_encrypted` есть только до расшифровки, и
+          // миграция, накормленная расшифрованным списком, считает его
+          // незашифрованным — то есть переписывает профиль при каждом чтении.
+          void migrateUnencryptedLabels(userId, rawLabels);
+          void repairDoubleEncryptedLabels(userId, rawLabels);
+          const decrypted = await decryptLabels(rawLabels);
+          profileData = { ...profileData, labels: decrypted };
+        } else {
+          // При чтении чужого профиля (AdminUserService) ключ сессии администратора
+          // не может расшифровать метки пользователя. Возвращаем безопасную заглушку,
+          // не вызывая decryptLabel и не засоряя журнал ошибками расшифровки.
+          profileData = {
+            ...profileData,
+            labels: profileData.labels.map(l => {
+              const raw = l as unknown as Record<string, unknown>;
+              return raw._encrypted === true ? undecryptedPlaceholder(raw) : l;
+            }),
+          };
+        }
+      }
+
+      return { data: profileData, error: false };
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
       return { data: null, error: true };

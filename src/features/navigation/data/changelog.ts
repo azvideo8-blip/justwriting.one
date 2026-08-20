@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.11',
+    date: '2026-08-20',
+    items: [
+      { category: 'fix', ru: 'Метки снова читаются. После того как их имена стали шифроваться, один из трёх путей чтения профиля отдавал их как есть — и вместо «Практика6» в списке стояла строка шифротекста. Хуже: правка списка в таком виде шифровала эти строки повторно', en: 'Labels are readable again. After their names became encrypted, one of the three profile read paths returned them as-is — so instead of a name the list showed a line of ciphertext. Worse, editing the list in that state encrypted those lines a second time' },
+      { category: 'fix', ru: 'Метки, зашифрованные дважды, чинятся сами при первом же чтении профиля. Имена восстанавливаются полностью — второй слой снимается, список перезаписывается правильно', en: 'Labels that were encrypted twice repair themselves on the next profile read. The names come back in full: the second layer is removed and the list is rewritten correctly' },
+      { category: 'improvement', ru: 'Ответы ИИ в режиме рассуждений приходят втрое быстрее и стоят втрое дешевле. Модель размышляла с максимальным усилием — 16 тысяч знаков внутреннего монолога ради ответа, который при умеренном усилии выходит такой же длины. Замер показал: меняется объём размышлений, а не ответа', en: 'Answers in reasoning mode arrive three times faster and cost three times less. The model was deliberating at maximum effort — sixteen thousand characters of inner monologue for an answer that comes out the same length at a moderate setting. Measured: what scales is the deliberation, not the answer' },
+      { category: 'fix', ru: 'Длинные разговоры с ИИ снова уезжают в облако. Предел на размер записи был 500 КБ, и диалог, переваливший за него, оставался только в этом браузере — то есть самые долгие разговоры и были теми, которых нет в резервной копии. Предел поднят до 2 МБ, а записи, отвергнутые раньше, отправляются повторно', en: 'Long AI conversations reach the cloud again. The per-record size limit was 500 KB, and a dialogue past it stayed in this browser only — so the longest conversations were exactly the ones with no backup. The limit is now 2 MB, and records refused earlier are retried' },
+    ],
+  },
+  {
     version: '0.8.10',
     date: '2026-08-20',
     items: [
