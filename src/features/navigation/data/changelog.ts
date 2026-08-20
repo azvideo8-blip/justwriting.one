@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.9',
+    date: '2026-08-20',
+    items: [
+      { category: 'fix', ru: 'Плашка «код восстановления не создан» больше не висит над уже созданным кодом. Признак терялся при разборе профиля, и код всё это время создавался и записывался — не работал показ. Если код создавался несколько раз, действует только последний', en: 'The "no recovery code" notice no longer hangs above a code that exists. The flag was lost while parsing the profile: the code was being created and stored all along, only the display was broken. If a code was created several times, only the last one works' },
+      { category: 'fix', ru: 'Сейф, заведённый из окна у иконок хранилища или на телефоне, теперь показывает код восстановления. Раньше код при этом создавался и молча пропадал: доступ к дневнику зависел от бумажки, которой никто не видел', en: 'A vault created from the storage-icon window or on the phone now shows its recovery code. The code used to be created and quietly discarded: access to the diary depended on a slip of paper nobody ever saw' },
+      { category: 'improvement', ru: 'Перед созданием нового кода восстановления приложение предупреждает, что прежний перестанет работать, и спрашивает подтверждение. Действует всегда только один код', en: 'Before creating a new recovery code the app warns that the previous one stops working, and asks for confirmation. Only one code is ever active' },
+      { category: 'fix', ru: 'Метки снова видны в списке при завершении записи и в мобильном журнале. Они терялись там же, где и признак кода восстановления: описание полей профиля не знало ни про метки, ни про статистику', en: 'Labels are visible again in the list when finishing an entry and in the mobile log. They were lost in the same place as the recovery-code flag: the profile field description knew about neither labels nor stats' },
+    ],
+  },
+  {
     version: '0.8.8',
     date: '2026-08-19',
     items: [

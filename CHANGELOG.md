@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.9 — 2026-08-20
+
+- **[RU]** Плашка «код восстановления не создан» больше не висит над уже созданным кодом. Признак терялся при разборе профиля: описание полей не знало про код восстановления, а лишние поля при разборе просто выбрасываются. Код всё это время создавался и в базу записывался — не работал показ. Если код создавался несколько раз, действует только последний: каждый новый заменяет прежний.
+- **[EN]** The "no recovery code" notice no longer hangs above a code that exists. The flag was lost while parsing the profile: the field description did not know about the recovery code, and unknown fields are dropped on parse. The code was being created and stored all along — only the display was broken. If a code was created several times, only the last one works: each new one replaces the previous.
+- **[RU]** Сейф, заведённый из окна у иконок хранилища или на телефоне, теперь показывает код восстановления. Раньше код при этом создавался и молча пропадал: доступ к дневнику зависел от бумажки, которой никто не видел.
+- **[EN]** A vault created from the storage-icon window or on the phone now shows its recovery code. The code used to be created and quietly discarded: access to the diary depended on a slip of paper nobody ever saw.
+- **[RU]** Перед созданием нового кода восстановления приложение предупреждает, что прежний перестанет работать, и спрашивает подтверждение. Действует всегда только один код, и об этом теперь сказано в самом окне с кодом.
+- **[EN]** Before creating a new recovery code the app warns that the previous one stops working, and asks for confirmation. Only one code is ever active, and the code window now says so.
+- **[RU]** Метки снова видны в списке при завершении записи и в мобильном журнале. Они терялись там же, где и признак кода восстановления: описание полей профиля не знало ни про метки, ни про статистику, а при разборе всё неописанное выбрасывается.
+- **[EN]** Labels are visible again in the list when finishing an entry and in the mobile log. They were lost in the same place as the recovery-code flag: the profile field description knew about neither labels nor stats, and anything undescribed is dropped on parse.
+
 ## 0.8.8 — 2026-08-19
 
 - **[RU]** Портрет, грани профиля, разговоры с ИИ, память чата и история жизни теперь тоже уезжают в облако — зашифрованными тем же ключом, что и заметки. Раньше они жили в одном браузере: очистка данных, новый компьютер или выход из аккаунта уносили их безвозвратно, и в отличие от сводок разговоры пересчитать нельзя.
