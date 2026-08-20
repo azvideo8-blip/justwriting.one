@@ -64,7 +64,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 // любой чужой записи в строку интерфейс решает «шифрование не
                 // настроено»: раздел настроек предлагает завести сейф поверх
                 // существующего, а импорт архива блокируется.
-                setProfile(prev => (prev ? { ...prev, ...parsed.data } as UserProfile : parsed.data as UserProfile));
+                setProfile(prev => (prev ? { ...prev, ...parsed.data } : parsed.data));
                 // Флаг только включаем и никогда не снимаем по снапшоту.
                 // Снапшот приходит из postgres_changes, а логическая репликация
                 // не присылает неизменённые TOAST-значения: у аккаунта с сейфом
@@ -170,7 +170,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (!parsed.success) return;
       // Здесь замена, а не слияние: это авторитетное чтение целиком, а не
       // снапшот с пропущенными полями.
-      setProfile(parsed.data as UserProfile);
+      setProfile(parsed.data);
     } catch (e) {
       reportError(e, { action: 'refreshProfile', userId: user.uid });
     }

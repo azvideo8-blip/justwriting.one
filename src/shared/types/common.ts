@@ -1,5 +1,12 @@
 import type { Timestamp } from 'firebase/firestore';
 
+/** Время, как оно приходит из разбора профиля: Postgres отдаёт строку или
+ *  число, а `firestoreTimestampSchema` допускает ещё и пару seconds/nanoseconds
+ *  без методов firebase'ного `Timestamp`. Тип нужен, чтобы разобранный профиль
+ *  ложился в `UserProfile` без приведения — приведение и скрывало полгода то,
+ *  что схема теряет поля. */
+export interface TimestampLike { seconds: number; nanoseconds: number }
+
 export interface Label {
   id: string;
   name: string;
@@ -33,10 +40,12 @@ export interface UserProfile {
   encryptionSalt?: string | undefined;
   encryptedDataKey?: string | undefined;
   encryptionMeta?: EncryptionMeta | undefined;
-  privacyAcceptedAt?: Timestamp | Date | number | undefined;
+  /** null — колонка в базе пуста: политика не принята. Разбор профиля отдаёт
+   *  именно null, а не отсутствие поля, и потребители это уже проверяют. */
+  privacyAcceptedAt?: Timestamp | TimestampLike | Date | number | null | undefined;
   /** Согласие на обработку специальных категорий (ст. 10 152-ФЗ). Даётся и
    *  отзывается отдельно от согласия с политикой. */
-  aiConsentAt?: Timestamp | Date | number | null | undefined;
+  aiConsentAt?: Timestamp | TimestampLike | Date | number | null | undefined;
   aiConsentVersion?: number | null | undefined;
   privacyVersion?: number | undefined;
   aiPortrait?: string | undefined;

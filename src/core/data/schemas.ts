@@ -7,6 +7,12 @@ export const firestoreTimestampSchema = z.union([
   z.null(),
 ]).transform(v => v ?? null);
 
+export const labelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string(),
+});
+
 export const sessionDbSchema = z.object({
   id: z.string(),
   userId: z.string().default(''),
@@ -31,6 +37,7 @@ export const sessionDbSchema = z.object({
   _aiProcessedAt: firestoreTimestampSchema.optional(),
   _aiResultText: z.string().optional(),
   mood: z.string().optional(),
+  excludedFromAI: z.boolean().optional(),
 });
 
 export const encryptionMetaSchema = z.object({
@@ -38,6 +45,11 @@ export const encryptionMetaSchema = z.object({
   version: z.number().default(1),
   wrappedDataKey: z.string(),
   verification: z.string().default(''),
+  // Zod по умолчанию выбрасывает поля, которых нет в схеме. Без этих двух
+  // строк профиль в интерфейсе теряет признак кода восстановления, и плашка
+  // «код восстановления не создан» висит над только что созданным кодом.
+  recoveryWrappedDataKey: z.string().optional(),
+  recoverySalt: z.string().optional(),
 });
 
 export const userProfileDbSchema = z.object({
@@ -55,6 +67,18 @@ export const userProfileDbSchema = z.object({
   aiConsentVersion: z.number().nullable().optional(),
   aiPortrait: z.string().optional(),
   _encrypted: z.boolean().optional(),
+  // Всё, что ниже, схема раньше не описывала — и разбор выбрасывал это из
+  // профиля. Метки так исчезали из выбора при завершении письма.
+  // `.catch` — не украшение: разбор профиля идёт целиком, и одна кривая метка
+  // в jsonb уронила бы весь профиль в `null`, то есть «шифрование не
+  // настроено» и заблокированный импорт. Пусть лучше пропадёт список меток.
+  labels: z.array(labelSchema).optional().catch(undefined),
+  totalWordCount: z.number().optional(),
+  sessionsCount: z.number().optional(),
+  streakDays: z.number().optional(),
+  totalDuration: z.number().optional(),
+  avgWpm: z.number().optional(),
+  avgSessionWords: z.number().optional(),
 });
 
 export const documentDbSchema = z.object({
