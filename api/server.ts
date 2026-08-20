@@ -43,13 +43,18 @@ const server = http.createServer((req, res) => {
     return json(res, 200, { status: 'ready', checks: [] });
   }
 
-  // POST /api/csp-report — приёмник нарушений политики безопасности.
+  // POST /api/csp-report — приёмник нарушений политики безопасности (32 KB limit, bounded logging).
   if (method === 'POST' && url === '/api/csp-report') {
     try {
-      const raw = await readBody(req);
+      const raw = await readBody(req, 32 * 1024);
       const body = JSON.parse(raw);
       const report = body?.['csp-report'] ?? body;
-      console.warn('[csp-report]', JSON.stringify(report));
+      const summary = {
+        'document-uri': report?.['document-uri'],
+        'violated-directive': report?.['violated-directive'],
+        'blocked-uri': report?.['blocked-uri'],
+      };
+      console.warn('[csp-report]', JSON.stringify(summary));
     } catch { /* ignore malformed or payload too large */ }
     res.writeHead(204);
     return res.end();

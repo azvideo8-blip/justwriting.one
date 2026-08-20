@@ -3,6 +3,10 @@ import { reportError } from '../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
 const AUTO_LOCK_MS = 15 * 60 * 1000;
+// SEC-5: "Remember on this device" maintains convenience (no password on reload)
+// but enforces a 1-hour inactivity ceiling so an idle tab does not leave the in-memory
+// CryptoKey active forever.
+const REMEMBERED_AUTO_LOCK_MS = 60 * 60 * 1000;
 
 interface EncryptionState {
   dataKey: CryptoKey | null;
@@ -19,13 +23,17 @@ interface EncryptionState {
 
 let autoLockTimer: ReturnType<typeof setTimeout> | null = null;
 let lastActivity = Date.now();
-// When the user opted into "remember on this device", auto-lock is disabled —
-// they've explicitly chosen convenience over the inactivity lock.
 let rememberDevice = false;
 
 export function setRememberDevice(on: boolean): void {
   rememberDevice = on;
-  if (on) clearAutoLockTimer();
+  if (useEncryptionStore.getState().isVaultUnlocked) {
+    startAutoLockTimer();
+  }
+}
+
+export function isRememberDevice(): boolean {
+  return rememberDevice;
 }
 
 function clearAutoLockTimer() {
@@ -36,11 +44,11 @@ function clearAutoLockTimer() {
 }
 
 function startAutoLockTimer() {
-  if (rememberDevice) return;
   clearAutoLockTimer();
+  const timeoutMs = rememberDevice ? REMEMBERED_AUTO_LOCK_MS : AUTO_LOCK_MS;
   autoLockTimer = setTimeout(() => {
     useEncryptionStore.getState().lockVault();
-  }, AUTO_LOCK_MS);
+  }, timeoutMs);
 }
 
 function resetAutoLockTimer() {
@@ -76,7 +84,8 @@ export function setupEncryptionStoreListeners() {
   const visibilityListener = () => {
     if (document.hidden && useEncryptionStore.getState().isVaultUnlocked) {
       const idleMs = Date.now() - lastActivity;
-      if (idleMs >= AUTO_LOCK_MS) {
+      const timeoutMs = rememberDevice ? REMEMBERED_AUTO_LOCK_MS : AUTO_LOCK_MS;
+      if (idleMs >= timeoutMs) {
         useEncryptionStore.getState().lockVault();
       }
     }

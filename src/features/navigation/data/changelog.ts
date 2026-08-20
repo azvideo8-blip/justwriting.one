@@ -14,6 +14,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.10',
+    date: '2026-08-20',
+    items: [
+      { category: 'fix', ru: 'Метки, разборы и заголовки черновиков теперь уезжают в облако зашифрованными. Пересказ записи своими словами — «автор размышляет о разводе и долгах» — до этого хранился на сервере открытым текстом, один среди зашифрованных соседей', en: 'Labels, analyses and draft titles now travel to the cloud encrypted. The retelling of a note in its own words — "the author reflects on divorce and debts" — used to sit on the server in the clear, the one readable field among encrypted neighbours' },
+      { category: 'fix', ru: 'Имя метки, которое не удалось прочитать, больше не затирается заглушкой. Список меток переписывается целиком при любой правке, поэтому одно добавление метки при запертом сейфе стирало настоящие имена всех остальных — навсегда', en: 'A label name that could not be read is no longer overwritten by its placeholder. The label list is rewritten whole on any edit, so adding one label while the vault was locked erased the real names of all the others — permanently' },
+      { category: 'new', ru: 'В настройках появилась кнопка «Отправить разбор и диалоги в облако». Раньше разборы, векторы поиска, портрет и разговоры оставались в одном браузере: очистка данных или новый компьютер уносили их', en: 'Settings now has an "Upload analysis and dialogues to cloud" button. Analyses, search vectors, the portrait and conversations used to live in a single browser: clearing its data or moving to a new computer took them away' },
+      { category: 'fix', ru: 'Один тумблер синхронизации теперь управляет всем, что уезжает в облако. Он спрашивал только про заметки, а разбор, портрет и разговоры уезжали всегда — то есть выключивший синхронизацию оставлял на устройстве заметки и продолжал отправлять самое личное', en: 'A single sync switch now governs everything that leaves for the cloud. It used to cover notes only, while analyses, the portrait and conversations went up regardless — so turning sync off kept the notes on the device and kept sending the most personal part' },
+      { category: 'fix', ru: 'Прерванная отправка отчитывается о том, что успело уехать. Проход, остановленный закрывшимся сейфом, сообщал «отправлено 0» при сорока уехавших разборах — и работа делалась заново', en: 'An interrupted upload now reports what did go up. A pass stopped by a vault locking mid-way used to report "0 uploaded" with forty analyses already sent — and the work was done over again' },
+      { category: 'fix', ru: 'Разбор больше не отказывает на собственных словах человека. Записи со словами «забудь всё» отклонялись как попытка обмануть модель: правило против чужих команд ловило дневник', en: 'Analysis no longer refuses a person\'s own words. Entries containing "forget everything" were rejected as an attempt to trick the model: a rule meant for outsiders\' commands was catching the diary' },
+      { category: 'fix', ru: 'Журнал ошибок в браузере больше не хранит заголовки, тексты, метки и темы записей. Он лежит в самом браузере и копируется в буфер по кнопке «скопировать журнал»', en: 'The in-browser error log no longer keeps note titles, texts, labels or themes. It lives in the browser itself and is copied to the clipboard by the "copy log" button' },
+      { category: 'improvement', ru: 'Сейф запирается сам после бездействия, а проверка входа на сервере стала строже: срок жизни пропуска теперь обязателен, а не по желанию', en: 'The vault locks itself after inactivity, and the server\'s sign-in check got stricter: a pass must now carry an expiry instead of optionally having one' },
+    ],
+  },
+  {
     version: '0.8.9',
     date: '2026-08-20',
     items: [

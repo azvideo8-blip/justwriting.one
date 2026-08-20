@@ -74,7 +74,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         paragraphs: [
           'Обработка ведётся смешанным способом: с использованием средств автоматизации и без них.',
           'Записи и учётные данные хранятся в базе данных на сервере на территории Российской Федерации (Москва). Сбор персональных данных граждан Российской Федерации осуществляется с использованием баз данных, находящихся на территории Российской Федерации.',
-          'Содержимое записей, их заголовки, теги и отметка настроения передаются и хранятся в облачной копии в зашифрованном виде. Ключ шифрования вычисляется из пароля пользователя на его устройстве и Оператору не передаётся; технической возможности прочитать эти сведения у Оператора нет. В открытом виде хранятся только даты и продолжительность сессий письма, счётчики слов и служебные идентификаторы — они необходимы для упорядочивания записей и подсчёта статистики на стороне сервера.',
+          'Содержимое записей, их заголовки, теги, метки, отметка настроения, а также производные данные — разборы записей, поисковые векторы, история диалогов и психологический портрет — передаются и хранятся в облачной копии в зашифрованном виде. Ключ шифрования вычисляется из пароля пользователя на его устройстве и Оператору не передаётся; технической возможности прочитать эти сведения у Оператора нет. В открытом виде хранятся только даты и продолжительность сессий письма, счётчики слов и служебные идентификаторы — они необходимы для упорядочивания записей и подсчёта статистики на стороне сервера.',
           'Автоматической обработки содержимого не производится. Текст записи передаётся поставщику услуг искусственного интеллекта только по явному действию пользователя: при нажатии кнопки разбора у конкретной записи либо при отправке вопроса в диалоге.',
           'Поставщик услуг искусственного интеллекта — RouterAI. По сведениям поставщика, содержимое запросов и ответов им не сохраняется и не используется для обучения моделей; сохраняются сведения, необходимые для расчёта стоимости. Вычисление ответа выполняет провайдер нейросетевой модели, который по умолчанию может находиться за пределами Российской Федерации, в том числе в государствах, не обеспечивающих адекватной защиты прав субъектов персональных данных. Такая передача является трансграничной. Оператор раскрывает это обстоятельство прямо и работает над его устранением.',
           'Отправка служебных писем выполняется через почтового провайдера, серверы которого расположены на территории Российской Федерации.',
@@ -158,7 +158,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         paragraphs: [
           'Processing is carried out both with and without automation.',
           'Notes and account data are stored in a database on a server located in the Russian Federation (Moscow). Personal data of citizens of the Russian Federation is collected using databases located in the Russian Federation.',
-          'Note contents, their titles, tags and the mood marker are transmitted and stored in the cloud copy in encrypted form. The encryption key is derived from the user’s password on their own device and is never sent to the Operator; the Operator has no technical means to read any of it. Stored in the clear are only the dates and durations of writing sessions, word counts and service identifiers — these are needed to order notes and compute statistics on the server side.',
+          'Note contents, their titles, tags, labels, the mood marker, and derived data — note analyses, search vectors, dialogue history and the psychological portrait — are transmitted and stored in the cloud copy in encrypted form. The encryption key is derived from the user’s password on their own device and is never sent to the Operator; the Operator has no technical means to read any of it. Stored in the clear are only the dates and durations of writing sessions, word counts and service identifiers — these are needed to order notes and compute statistics on the server side.',
           'No automatic processing of content takes place. A note’s text is sent to the AI provider only on an explicit action by the user: pressing the analyse button on a particular note, or sending a question in dialogue.',
           'The AI provider is RouterAI. According to the provider, request and response contents are not stored and are not used to train models; what is kept is the information needed for billing. The answer itself is computed by the model provider, which by default may be located outside the Russian Federation, including in states that do not provide adequate protection of data subjects’ rights. Such transfer is cross-border. The Operator discloses this plainly and is working to remove it.',
           'Service emails are sent through a mail provider whose servers are located in the Russian Federation.',
@@ -313,6 +313,15 @@ export const TERMS: LegalDocument = {
     updated: UPDATED_RU,
     sections: [
       {
+        title: 'Четыре обещания',
+        paragraphs: [
+          'Написанное не пропадает. Всё, что вы написали на устройстве, остаётся вашим и сохраняется — кроме случая, когда вы сами решаете это удалить. Есть две границы, о которых честнее сказать сразу: если вы потеряли пароль шифрования вместе с кодом восстановления, содержимое не откроет никто, включая Оператора; и если облачная копия выключена вами, то утрата устройства означает утрату записей — восстанавливать будет неоткуда.',
+          'В облако уходит только зашифрованное. Записи, заголовки, теги, метки, разборы, диалоги, портрет — всё, что вы написали или что написано о вас, покидает устройство только в зашифрованном виде. Ключ вычисляется на вашем устройстве и Оператору не передаётся.',
+          'Искусственный интеллект — исключение, и вы решаете сами. Чтобы разобрать запись или ответить на вопрос, её текст приходится передать поставщику услуг искусственного интеллекта в открытом виде: иначе разбор невозможен. Это единственный случай, когда написанное вами покидает зашифрованный контур. Пользоваться этими функциями или нет — ваш выбор, и отказ от них не ограничивает работу с записями.',
+          'Всё сохранено, зашифровано, синхронизировано, и наружу не ушло ничего, кроме отправленного вами в разбор. Это и есть задача, которую Оператор перед собой ставит и по которой просит себя судить.',
+        ],
+      },
+      {
         title: '1. О чём договор',
         paragraphs: [
           'Настоящие Условия регулируют использование сервиса justwriting (justwriting.ru) — приложения для свободного письма и ведения личных записей.',
@@ -381,6 +390,15 @@ export const TERMS: LegalDocument = {
   en: {
     updated: UPDATED_EN,
     sections: [
+      {
+        title: 'Four promises',
+        paragraphs: [
+          'What you write does not disappear. Everything you have written on your device stays yours and is kept — except when you yourself decide to delete it. Two boundaries are worth stating plainly: if you lose your encryption password together with your recovery code, no one can open the contents, the Operator included; and if you have turned the cloud copy off, losing the device means losing the notes, because there is nowhere to restore them from.',
+          'Only encrypted data goes to the cloud. Notes, titles, tags, labels, analyses, dialogues, the portrait — everything you wrote or that was written about you leaves the device in encrypted form only. The key is derived on your device and is never sent to the Operator.',
+          'Artificial intelligence is the exception, and the choice is yours. To analyse a note or answer a question, its text must be sent to the AI provider in the clear: there is no other way to do it. This is the only case where what you wrote leaves the encrypted perimeter. Whether to use these features is your decision, and declining them does not limit your work with notes.',
+          'Everything saved, encrypted, synchronised, and nothing leaked except what you sent for analysis. That is the task the Operator sets itself and asks to be judged by.',
+        ],
+      },
       {
         title: '1. What this covers',
         paragraphs: [

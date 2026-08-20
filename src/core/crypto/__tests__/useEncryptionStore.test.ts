@@ -93,6 +93,45 @@ describe('useEncryptionStore', () => {
     expect(useEncryptionStore.getState().isProfileLoaded('user1')).toBe(true);
   });
 
+  it('auto-locks after 15 minutes by default when vault is unlocked', () => {
+    vi.useFakeTimers();
+    const dummyKey = {} as CryptoKey;
+    useEncryptionStore.getState().setKey(dummyKey);
+    expect(useEncryptionStore.getState().isVaultUnlocked).toBe(true);
+
+    // Fast-forward 14 minutes: still unlocked
+    vi.advanceTimersByTime(14 * 60 * 1000);
+    expect(useEncryptionStore.getState().isVaultUnlocked).toBe(true);
+
+    // Fast-forward another 1 minute (total 15m): vault locks
+    vi.advanceTimersByTime(1 * 60 * 1000);
+    expect(useEncryptionStore.getState().isVaultUnlocked).toBe(false);
+    expect(useEncryptionStore.getState().dataKey).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('SEC-5: enforces 60-minute inactivity ceiling when rememberDevice is true', () => {
+    vi.useFakeTimers();
+    const dummyKey = {} as CryptoKey;
+    useEncryptionStore.getState().setKey(dummyKey);
+    setRememberDevice(true);
+    expect(useEncryptionStore.getState().isVaultUnlocked).toBe(true);
+
+    // Fast-forward 15 minutes: still unlocked (rememberDevice extends ceiling)
+    vi.advanceTimersByTime(15 * 60 * 1000);
+    expect(useEncryptionStore.getState().isVaultUnlocked).toBe(true);
+
+    // Fast-forward to 59 minutes: still unlocked
+    vi.advanceTimersByTime(44 * 60 * 1000);
+    expect(useEncryptionStore.getState().isVaultUnlocked).toBe(true);
+
+    // Fast-forward to 60 minutes: auto-locks in-memory CryptoKey
+    vi.advanceTimersByTime(1 * 60 * 1000);
+    expect(useEncryptionStore.getState().isVaultUnlocked).toBe(false);
+    expect(useEncryptionStore.getState().dataKey).toBeNull();
+    vi.useRealTimers();
+  });
+
   it('handles localStorage read exception by falling back to false (conservative)', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('access denied');

@@ -65,6 +65,8 @@ describe('AISummaryService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    localStorage.setItem('auto_sync_enabled', 'true');
     // Real IDB getAll() always returns an array (empty if no records), never undefined.
     mockGetAll.mockResolvedValue([]);
   });
@@ -110,7 +112,7 @@ describe('AISummaryService', () => {
       expect(mockPut).toHaveBeenCalledWith('aiSummaries', dummySummary);
       expect(mockMaybeEncrypt).toHaveBeenCalledWith(
         expect.objectContaining({ documentId: 'doc-123' }),
-        ['tone', 'echo', 'eventDate', 'quotableSentence'],
+        ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'],
         ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'],
         'test-user-123',
       );

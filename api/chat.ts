@@ -274,7 +274,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
 
-  const session = requireSession(req);
+  const session = await requireSession(req);
   if (!session || !session.uid) {
     return json(res, 401, { error: 'Unauthorized' });
   }

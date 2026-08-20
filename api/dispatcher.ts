@@ -41,7 +41,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse) {
     }
 
     // Authenticate via Supabase JWT
-    const session = requireSession(req);
+    const session = await requireSession(req);
     if (!session || !session.uid) {
       return json(res, 401, { error: 'Unauthenticated' });
     }

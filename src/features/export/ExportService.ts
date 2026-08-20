@@ -29,7 +29,7 @@ export class ExportService {
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (error) {
-      reportError(error, { method: 'toTxt', title, contentLength: content.length });
+      reportError(error, { method: 'toTxt', titleLength: title?.length ?? 0, contentLength: content.length });
       throw error;
     }
   }
@@ -110,7 +110,7 @@ export class ExportService {
         } catch { /* cross-origin */ }
       });
     } catch (error) {
-      reportError(error, { method: 'toPDF', title, contentLength: content.length });
+      reportError(error, { method: 'toPDF', titleLength: title?.length ?? 0, contentLength: content.length });
       throw error;
     }
   }
@@ -121,7 +121,7 @@ export class ExportService {
       const blob = new Blob([md], { type: 'text/markdown' });
       saveAs(blob, `${title || 'session'}.md`);
     } catch (error) {
-      reportError(error, { method: 'toMarkdown', title, contentLength: content.length });
+      reportError(error, { method: 'toMarkdown', titleLength: title?.length ?? 0, contentLength: content.length });
       throw error;
     }
   }
@@ -157,7 +157,7 @@ export class ExportService {
       const blob = await Packer.toBlob(doc);
       saveAs(blob, `${title || 'session'}.docx`);
     } catch (error) {
-      reportError(error, { method: 'toDocx', title, contentLength: content.length });
+      reportError(error, { method: 'toDocx', titleLength: title?.length ?? 0, contentLength: content.length });
       throw error;
     }
   }

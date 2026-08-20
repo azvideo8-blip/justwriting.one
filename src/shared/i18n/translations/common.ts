@@ -124,7 +124,7 @@ export const commonTranslations: Translations = {
   enc_unlock_title: { ru: 'Разблокировать шифрование', en: 'Unlock Encryption' },
   enc_unlock_subtitle: { ru: 'Введи пароль шифрования для доступа к заметкам.', en: 'Enter your encryption password to access your notes.' },
   enc_unlock_submit: { ru: 'Разблокировать', en: 'Unlock' },
-  enc_remember_device: { ru: 'Запомнить на этом устройстве (не спрашивать при перезагрузке)', en: "Remember on this device (don't ask on reload)" },
+  enc_remember_device: { ru: 'Запомнить на этом устройстве (не спрашивать при перезагрузке; автоблокировка через 1 час бездействия)', en: "Remember on this device (don't ask on reload; auto-locks after 1h inactivity)" },
   enc_setup_title: { ru: 'Настрой шифрование', en: 'Set Up Encryption' },
   enc_setup_subtitle: { ru: 'Придумай пароль шифрования. Он защитит твои заметки сквозным шифрованием.', en: 'Create an encryption password. It will protect your notes with end-to-end encryption.' },
   enc_setup_submit: { ru: 'Включить шифрование', en: 'Enable Encryption' },

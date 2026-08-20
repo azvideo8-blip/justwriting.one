@@ -5,6 +5,7 @@ import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
+import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
@@ -44,8 +45,8 @@ export const SyncService = {
   },
 
   async syncPending(userId: string): Promise<void> {
-    // Автосинк выключен по умолчанию: молчание = согласия нет.
-    if (localStorage.getItem('auto_sync_enabled') !== 'true') return;
+    // SEC-8: Автосинк выключен по умолчанию: молчание = согласия нет.
+    if (!cloudSyncEnabled()) return;
     if (_syncInProgress.get(userId)) return;
     _syncInProgress.set(userId, true);
 
@@ -57,6 +58,8 @@ export const SyncService = {
   },
 
   async syncAllUnlinked(userId: string): Promise<{ synced: number; failed: number }> {
+    // SEC-8: Ручное действие пользователя («Отправить все заметки в облако»)
+    // намеренно выполняется независимо от switch-настройки автосинка.
     if (_syncInProgress.get(userId)) return { synced: 0, failed: 0 };
     _syncInProgress.set(userId, true);
 

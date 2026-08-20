@@ -4,6 +4,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { DataProvider } from '../../../core/data';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
 
 // Gentle pacing between consecutive Firestore writes in a bulk sync loop —
@@ -156,7 +157,8 @@ export const AIEmbeddingService = {
     await db.put('aiEmbeddings', withUuid);
 
     const uid = getCurrentUser()?.uid;
-    if (uid) {
+    // SEC-8: Background write-time upload respects cloudSyncEnabled switch
+    if (uid && cloudSyncEnabled()) {
       try {
         // withUuid везде, а не emb: иначе запись обратно затирает documentUuid,
         // проставленный строкой выше, и привязка по каноничному id теряется

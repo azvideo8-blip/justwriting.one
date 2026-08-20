@@ -24,43 +24,49 @@ function makeToken(header: object, payload: object, secret: string): string {
   return `${head}.${body}.${sig}`;
 }
 
-describe('JW-SEC-02: auth SUPABASE_JWT_SECRET handling', () => {
-  const originalEnv = process.env.SUPABASE_JWT_SECRET;
+describe('JW-SEC-02 / SEC-3: auth SUPABASE_JWT_SECRET & claim validation', () => {
+  const originalEnvSecret = process.env.SUPABASE_JWT_SECRET;
+  const originalEnvIss = process.env.SUPABASE_JWT_ISS;
 
   afterEach(() => {
-    if (originalEnv !== undefined) {
-      process.env.SUPABASE_JWT_SECRET = originalEnv;
+    if (originalEnvSecret !== undefined) {
+      process.env.SUPABASE_JWT_SECRET = originalEnvSecret;
     } else {
       delete process.env.SUPABASE_JWT_SECRET;
     }
+    if (originalEnvIss !== undefined) {
+      process.env.SUPABASE_JWT_ISS = originalEnvIss;
+    } else {
+      delete process.env.SUPABASE_JWT_ISS;
+    }
   });
 
-  it('requireSession throws Error if SUPABASE_JWT_SECRET is unset or empty', () => {
+  it('requireSession throws Error if SUPABASE_JWT_SECRET is unset or empty', async () => {
     delete process.env.SUPABASE_JWT_SECRET;
     const req = {
       headers: { authorization: 'Bearer some.jwt.token' },
     } as unknown as IncomingMessage;
 
-    expect(() => requireSession(req)).toThrowError('SUPABASE_JWT_SECRET not configured');
+    await expect(requireSession(req)).rejects.toThrowError('SUPABASE_JWT_SECRET not configured');
 
     process.env.SUPABASE_JWT_SECRET = '';
-    expect(() => requireSession(req)).toThrowError('SUPABASE_JWT_SECRET not configured');
+    await expect(requireSession(req)).rejects.toThrowError('SUPABASE_JWT_SECRET not configured');
   });
 
-  it('requireSession returns null if authorization header is missing or not Bearer', () => {
+  it('requireSession returns null if authorization header is missing or not Bearer', async () => {
     delete process.env.SUPABASE_JWT_SECRET;
     const reqNoAuth = { headers: {} } as unknown as IncomingMessage;
-    expect(requireSession(reqNoAuth)).toBeNull();
+    expect(await requireSession(reqNoAuth)).toBeNull();
 
     const reqBasic = { headers: { authorization: 'Basic 123' } } as unknown as IncomingMessage;
-    expect(requireSession(reqBasic)).toBeNull();
+    expect(await requireSession(reqBasic)).toBeNull();
   });
 
-  it('requireSession validates token successfully when secret is configured', () => {
+  it('requireSession validates token successfully when secret is configured', async () => {
     process.env.SUPABASE_JWT_SECRET = 'super-secret-key';
     const token = makeToken(
       { alg: 'HS256', typ: 'JWT' },
-      { sub: 'user-123', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      { sub: 'user-123', role: 'authenticated', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
       'super-secret-key'
     );
 
@@ -68,7 +74,7 @@ describe('JW-SEC-02: auth SUPABASE_JWT_SECRET handling', () => {
       headers: { authorization: `Bearer ${token}` },
     } as unknown as IncomingMessage;
 
-    const session = requireSession(req);
+    const session = await requireSession(req);
     expect(session).not.toBeNull();
     expect(session?.uid).toBe('user-123');
     expect(session?.role).toBe('authenticated');
@@ -131,50 +137,107 @@ describe('JW-SEC-02: auth SUPABASE_JWT_SECRET handling', () => {
   });
 });
 
-describe('JW-SEC-05: JWT algorithm validation (HS256 strictly, typ softly)', () => {
-  const secret = 'test-secret';
+describe('SEC-3: JWT claims and algorithm verification via jose', () => {
+  const secret = 'test-secret-at-least-32-chars-long-security';
 
-  it('rejects token with alg: none', () => {
+  it('rejects token with valid signature and NO exp claim', async () => {
     const token = makeToken(
-      { alg: 'none', typ: 'JWT' },
-      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', role: 'authenticated' },
       secret
     );
-    expect(verifyJwt(token, secret)).toBeNull();
+    expect(await verifyJwt(token, secret)).toBeNull();
   });
 
-  it('rejects token with alg: RS256', () => {
-    const token = makeToken(
-      { alg: 'RS256', typ: 'JWT' },
-      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+  it('rejects token with aud: "other" and accepts with aud: "authenticated"', async () => {
+    const tokenOther = makeToken(
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'other', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
       secret
     );
-    expect(verifyJwt(token, secret)).toBeNull();
-  });
+    expect(await verifyJwt(tokenOther, secret)).toBeNull();
 
-  it('rejects token with invalid typ', () => {
-    const token = makeToken(
-      { alg: 'HS256', typ: 'INVALID_TYPE' },
-      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+    const tokenAuth = makeToken(
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
       secret
     );
-    expect(verifyJwt(token, secret)).toBeNull();
-  });
-
-  it('accepts token without typ field (soft typ check)', () => {
-    const token = makeToken(
-      { alg: 'HS256' }, // no typ field
-      { sub: 'user-1', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
-      secret
-    );
-    const session = verifyJwt(token, secret);
+    const session = await verifyJwt(tokenAuth, secret);
     expect(session).not.toBeNull();
     expect(session?.uid).toBe('user-1');
   });
 
-  it('safely returns null on malformed or garbage header without throwing', () => {
-    expect(verifyJwt('garbage.body.sig', secret)).toBeNull();
-    expect(verifyJwt('not-a-jwt', secret)).toBeNull();
-    expect(verifyJwt('', secret)).toBeNull();
+  it('rejects the Supabase anon key (signed with secret, role: anon, but NO sub)', async () => {
+    const anonToken = makeToken(
+      { alg: 'HS256', typ: 'JWT' },
+      { role: 'anon', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 * 24 * 365 },
+      secret
+    );
+    expect(await verifyJwt(anonToken, secret)).toBeNull();
+  });
+
+  it('rejects token expired in the past beyond clock tolerance', async () => {
+    const expiredToken = makeToken(
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) - 60 },
+      secret
+    );
+    expect(await verifyJwt(expiredToken, secret)).toBeNull();
+  });
+
+  it('accepts token 5 seconds past expiry due to clock tolerance 10s', async () => {
+    const nearExpiredToken = makeToken(
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) - 5 },
+      secret
+    );
+    const session = await verifyJwt(nearExpiredToken, secret);
+    expect(session).not.toBeNull();
+    expect(session?.uid).toBe('user-1');
+  });
+
+  it('validates issuer when SUPABASE_JWT_ISS is configured', async () => {
+    process.env.SUPABASE_JWT_ISS = 'https://justwriting.ru/auth/v1';
+
+    const tokenWrongIss = makeToken(
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', iss: 'https://evil.com/auth/v1', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    expect(await verifyJwt(tokenWrongIss, secret)).toBeNull();
+
+    const tokenCorrectIss = makeToken(
+      { alg: 'HS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', iss: 'https://justwriting.ru/auth/v1', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    const session = await verifyJwt(tokenCorrectIss, secret);
+    expect(session).not.toBeNull();
+    expect(session?.uid).toBe('user-1');
+  });
+
+  it('rejects token with alg: none', async () => {
+    const token = makeToken(
+      { alg: 'none', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    expect(await verifyJwt(token, secret)).toBeNull();
+  });
+
+  it('rejects token with alg: RS256', async () => {
+    const token = makeToken(
+      { alg: 'RS256', typ: 'JWT' },
+      { sub: 'user-1', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    expect(await verifyJwt(token, secret)).toBeNull();
+  });
+
+  it('safely returns null on malformed or garbage header without throwing', async () => {
+    expect(await verifyJwt('garbage.body.sig', secret)).toBeNull();
+    expect(await verifyJwt('not-a-jwt', secret)).toBeNull();
+    expect(await verifyJwt('', secret)).toBeNull();
   });
 });
+

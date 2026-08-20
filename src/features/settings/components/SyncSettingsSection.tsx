@@ -13,6 +13,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { RestoreFromCloudModal } from '../../sync/components/RestoreFromCloudModal';
 import { getOversizedRecordCount } from '../../../core/services/LocalStoreSyncService';
+import { AIDerivedDataSyncService } from '../../ai/services/AIDerivedDataSyncService';
 
 interface SyncSettingsSectionProps {
   userId: string;
@@ -25,6 +26,7 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(userId);
   const [syncingAll, setSyncingAll] = useState(false);
+  const [syncingDerived, setSyncingDerived] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [autoSync, setAutoSync] = useState(
     () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
@@ -51,6 +53,48 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
       showToast(t('error_generic_action'), 'error');
     } finally {
       setSyncingAll(false);
+    }
+  };
+
+  const handleSyncDerived = async () => {
+    setSyncingDerived(true);
+    try {
+      const res = await AIDerivedDataSyncService.syncAllDerivedData(userId);
+      if (res.skippedLocked) {
+        // Сначала о том, что успело уехать: проход прерывается на середине, и
+        // молчание о сделанном читается как «ничего не вышло».
+        if (res.totalSynced > 0) {
+          showToast(
+            t('settings_sync_derived_done', {
+              summaries: String(res.summaries.synced),
+              embeddings: String(res.embeddings.synced),
+              stores: String(res.stores.synced),
+            }),
+            'success'
+          );
+        }
+        showToast(t('settings_sync_derived_locked'), 'error');
+        return;
+      }
+      showToast(
+        t('settings_sync_derived_done', {
+          summaries: String(res.summaries.synced),
+          embeddings: String(res.embeddings.synced),
+          stores: String(res.stores.synced),
+        }),
+        'success'
+      );
+      if (res.totalFailed > 0) {
+        showToast(
+          t('settings_sync_derived_failed', { failed: String(res.totalFailed) }),
+          'error'
+        );
+      }
+    } catch (err) {
+      reportError(err, { action: 'syncDerivedData' });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setSyncingDerived(false);
     }
   };
 
@@ -158,6 +202,25 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
                 Загрузить из облака
               </Button>
             </div>
+
+            <Button
+              onClick={() => void handleSyncDerived()}
+              disabled={syncingDerived}
+              data-testid="sync-derived-data-btn"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors disabled:opacity-50"
+            >
+              {syncingDerived ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  {t('settings_sync_derived_progress')}
+                </>
+              ) : (
+                <>
+                  <Upload size={15} />
+                  {t('settings_sync_derived_button')}
+                </>
+              )}
+            </Button>
 
             <RestoreFromCloudModal
               open={restoreModalOpen}

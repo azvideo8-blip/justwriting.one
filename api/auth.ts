@@ -1,5 +1,5 @@
 // api/auth.ts
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { jwtVerify } from 'jose';
 
 export interface Session {
   uid: string;
@@ -7,34 +7,51 @@ export interface Session {
   claims: Record<string, unknown>;
 }
 
-const b64urlToBuf = (s: string) =>
-  Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-
-/** Returns the session, or null. Never throws on malformed input. */
-export function verifyJwt(token: string, secret: string): Session | null {
+/**
+ * Returns the session, or null. Never throws on malformed input.
+ *
+ * Checks enforced via jose.jwtVerify:
+ * 1. Algorithm: HS256 strictly.
+ * 2. Audience: "authenticated" (Supabase user session tokens).
+ * 3. Required claims: "exp" (expiry is mandatory) and "sub" (user id).
+ * 4. Issuer: process.env.SUPABASE_JWT_ISS (if configured).
+ * 5. Clock tolerance: 10 seconds.
+ *
+ * Crucially, rejecting tokens without a valid user `sub` prevents the public Supabase
+ * `anon` key or `service_role` key (which share the same signing secret but lack a user `sub`)
+ * from authenticating as a user session.
+ */
+export async function verifyJwt(token: string, secret: string): Promise<Session | null> {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const [head, body, sig] = parts as [string, string, string];
-
-    const header = JSON.parse(b64urlToBuf(head).toString()) as Record<string, unknown>;
-    if (header.alg !== 'HS256') return null;
-    if (header.typ !== undefined && header.typ !== 'JWT') return null;
-
-    const expected = createHmac('sha256', secret).update(`${head}.${body}`).digest();
-    const actual = b64urlToBuf(sig);
-    if (actual.length !== expected.length) return null;
-    if (!timingSafeEqual(actual, expected)) return null;
-    const claims = JSON.parse(b64urlToBuf(body).toString()) as Record<string, unknown>;
-    if (typeof claims.exp === 'number' && claims.exp * 1000 < Date.now()) return null;
-    if (typeof claims.sub !== 'string' || !claims.sub) return null;
-    return { uid: claims.sub, role: String(claims.role ?? 'authenticated'), claims };
+    const secretKey = await crypto.subtle.importKey(
+      'raw',
+      Buffer.from(secret, 'utf-8'),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    const options: Parameters<typeof jwtVerify>[2] = {
+      algorithms: ['HS256'],
+      audience: 'authenticated',
+      clockTolerance: 10,
+      requiredClaims: ['exp', 'sub'],
+    };
+    if (process.env.SUPABASE_JWT_ISS) {
+      options.issuer = process.env.SUPABASE_JWT_ISS;
+    }
+    const { payload } = await jwtVerify(token, secretKey, options);
+    if (typeof payload.sub !== 'string' || !payload.sub) return null;
+    return {
+      uid: payload.sub,
+      role: String(payload.role ?? 'authenticated'),
+      claims: payload as Record<string, unknown>,
+    };
   } catch {
     return null;
   }
 }
 
-export function requireSession(req: import('node:http').IncomingMessage): Session | null {
+export async function requireSession(req: import('node:http').IncomingMessage): Promise<Session | null> {
   const header = req.headers.authorization ?? '';
   if (!header.startsWith('Bearer ')) return null;
   const secret = process.env.SUPABASE_JWT_SECRET;

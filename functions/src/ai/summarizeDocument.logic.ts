@@ -1,6 +1,6 @@
 // functions/src/ai/summarizeDocument.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, getLangfuse, hashUid } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 import { AiError, type AiContext } from '../shared/aiContext';
 
@@ -77,9 +77,8 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
 
   const { content, mood, recentContext, noteDate } = parsed.data;
 
-  if (hasInjectionAttempt(content)) throw new AiError('invalid-argument', 'Disallowed patterns in content.');
-  if (recentContext && hasInjectionAttempt(recentContext)) throw new AiError('invalid-argument', 'Disallowed patterns in recentContext.');
-  if (mood && hasInjectionAttempt(mood)) throw new AiError('invalid-argument', 'Disallowed patterns in mood.');
+  // SEC-4: User prose in personal diary entries (and mood/recentContext) must NOT
+  // be filtered with injection regexes. Defense is achieved via prompt isolation markers.
 
   const allowed = await ctx.checkAndIncrementBulkLimit(uid);
   if (!allowed) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
@@ -101,7 +100,10 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     .replace('{noteDate}', effectiveNoteDate);
 
   const safeMood = mood ? sanitizeAiInput(mood) : null;
-  let prompt = safeMood ? `[Настроение документа: ${safeMood}]\n\n${sanitizedContent}` : sanitizedContent;
+  let prompt = `[USER_NOTE_START]\n${sanitizedContent}\n[USER_NOTE_END]`;
+  if (safeMood) {
+    prompt = `[Настроение документа: ${safeMood}]\n\n${prompt}`;
+  }
   if (sanitizedRecentContext) {
     prompt = `[recentContext (недавние темы):\n${sanitizedRecentContext}]\n\n${prompt}`;
   }
@@ -135,7 +137,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     console.error('[AI summarize] generation failed:', e);
     await ctx.refundBulkLimit(uid);
     await ctx.refundGlobalRequest(reservation);
-    generation?.end({ output: String(e), level: 'ERROR' });
+    generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
@@ -165,12 +167,12 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     await ctx.refundBulkLimit(uid);
     await ctx.refundGlobalRequest(reservation);
     console.error('[AI summarize] failed to parse model output:', text.slice(0, 500));
-    generation?.end({ output: text, level: 'ERROR' });
+    generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
     throw new AiError('internal', 'Failed to parse summary.');
   }
 
-  generation?.end({ output: text, usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
+  generation?.end({ usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }, reservation)
     .catch(e => console.error('[AI summarize] usage record failed:', e));
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));

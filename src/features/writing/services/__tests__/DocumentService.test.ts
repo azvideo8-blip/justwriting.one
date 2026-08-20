@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DocumentService } from '../../../../core/services/DocumentService';
 import { DataProvider } from '../../../../core/data';
+import { setProfileLoaded } from '../../../../core/crypto/cryptoHelpers';
 
 vi.mock('../../../../core/data', () => ({
   DataProvider: {
@@ -19,6 +20,7 @@ vi.mock('../../../../core/data', () => ({
 describe('DocumentService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setProfileLoaded('u1', true);
   });
 
   describe('createDocument', () => {

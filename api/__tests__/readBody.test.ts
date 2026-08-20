@@ -14,7 +14,7 @@ function makeToken(secret: string): string {
       .replace(/\//g, '_');
 
   const head = b64url({ alg: 'HS256', typ: 'JWT' });
-  const body = b64url({ sub: 'user-123', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 });
+  const body = b64url({ sub: 'user-123', role: 'authenticated', aud: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 });
   const sig = createHmac('sha256', secret)
     .update(`${head}.${body}`)
     .digest('base64')
@@ -138,5 +138,69 @@ describe('JW-SEC-03: readBody payload size limits', () => {
     expect(responseStatus).toBe(200);
     expect(JSON.parse(responseBody)).toEqual({ result: 'ok' });
     expect(handlersModule.handleAiEndpoint).toHaveBeenCalledWith('chatWithAI', 'user-123', { message: 'hello world' });
+  });
+
+  describe('SEC-5: /api/csp-report 32KB cap', () => {
+    it('accepts csp-report under 32KB and returns 204 with concise summary', async () => {
+      const serverModule = await import('../server');
+      const server = serverModule.default;
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const validReport = JSON.stringify({
+        'csp-report': {
+          'document-uri': 'https://justwriting.ru/write',
+          'violated-directive': 'script-src',
+          'blocked-uri': 'https://evil.com/xss.js',
+          'extra-large-garbage': 'a'.repeat(1000),
+        },
+      });
+
+      const req = createMockRequest('/api/csp-report', {}, [validReport]);
+      let responseStatus = 0;
+      const res = {
+        writeHead: vi.fn((status: number) => {
+          responseStatus = status;
+        }),
+        end: vi.fn(),
+      } as unknown as ServerResponse;
+
+      server.emit('request', req, res);
+      await new Promise(r => setTimeout(r, 50));
+
+      expect(responseStatus).toBe(204);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[csp-report]',
+        JSON.stringify({
+          'document-uri': 'https://justwriting.ru/write',
+          'violated-directive': 'script-src',
+          'blocked-uri': 'https://evil.com/xss.js',
+        })
+      );
+    });
+
+    it('rejects csp-report larger than 32KB and safely ignores oversized payload', async () => {
+      const serverModule = await import('../server');
+      const server = serverModule.default;
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const largeChunk = 'x'.repeat(35 * 1024); // 35 KB > 32 KB limit
+      const req = createMockRequest('/api/csp-report', {}, [largeChunk]);
+      const destroySpy = vi.spyOn(req, 'destroy');
+
+      let responseStatus = 0;
+      const res = {
+        writeHead: vi.fn((status: number) => {
+          responseStatus = status;
+        }),
+        end: vi.fn(),
+      } as unknown as ServerResponse;
+
+      server.emit('request', req, res);
+      await new Promise(r => setTimeout(r, 50));
+
+      expect(responseStatus).toBe(204);
+      expect(destroySpy).toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining(largeChunk));
+    });
   });
 });

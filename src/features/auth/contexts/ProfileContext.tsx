@@ -3,6 +3,7 @@ import { DataProvider } from '../../../core/data';
 import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/data/schemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
+import { decryptLabels, migrateUnencryptedLabels } from '../../../core/crypto/labelEncryption';
 import { setAiConsent } from '../../../core/ai/aiConsent';
 import { PRIVACY_VERSION } from '../components/PrivacyModal';
 import { reportError } from '../../../shared/errors/reportError';
@@ -57,6 +58,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               const parsed = userProfileDbSchema.safeParse(data);
               if (parsed.success) {
                 profileSetBySnapshotRef.current = true;
+                // SEC-7: Расшифровываем метки при получении снапшота профиля
+                let profileData = parsed.data;
+                if (parsed.data.labels && Array.isArray(parsed.data.labels)) {
+                  const decryptedLabels = await decryptLabels(parsed.data.labels as unknown as Record<string, unknown>[]);
+                  void migrateUnencryptedLabels(user.uid, parsed.data.labels as unknown as Record<string, unknown>[]);
+                  profileData = { ...parsed.data, labels: decryptedLabels };
+                }
                 // Слияние, а не замена. Логическая репликация не присылает
                 // неизменённые TOAST-значения, и fromDb выбрасывает null'ы —
                 // поэтому в снапшоте может просто не быть encryption_meta у
@@ -64,7 +72,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 // любой чужой записи в строку интерфейс решает «шифрование не
                 // настроено»: раздел настроек предлагает завести сейф поверх
                 // существующего, а импорт архива блокируется.
-                setProfile(prev => (prev ? { ...prev, ...parsed.data } : parsed.data));
+                setProfile(prev => (prev ? { ...prev, ...profileData } : profileData));
                 // Флаг только включаем и никогда не снимаем по снапшоту.
                 // Снапшот приходит из postgres_changes, а логическая репликация
                 // не присылает неизменённые TOAST-значения: у аккаунта с сейфом
@@ -168,9 +176,15 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       if (!fresh) return;
       const parsed = userProfileDbSchema.safeParse(fresh);
       if (!parsed.success) return;
+      let profileData = parsed.data;
+      if (parsed.data.labels && Array.isArray(parsed.data.labels)) {
+        const decryptedLabels = await decryptLabels(parsed.data.labels as unknown as Record<string, unknown>[]);
+        void migrateUnencryptedLabels(user.uid, parsed.data.labels as unknown as Record<string, unknown>[]);
+        profileData = { ...parsed.data, labels: decryptedLabels };
+      }
       // Здесь замена, а не слияние: это авторитетное чтение целиком, а не
       // снапшот с пропущенными полями.
-      setProfile(parsed.data);
+      setProfile(profileData);
     } catch (e) {
       reportError(e, { action: 'refreshProfile', userId: user.uid });
     }

@@ -77,10 +77,38 @@ jobs:
             echo "в бандле есть firebase — выкатка остановлена" >&2
             exit 1
           fi
+          # Сборка с --packages=external оставляет импорты как есть, поэтому
+          # пакет, добавленный в коде, но не вписанный в зависимости службы,
+          # роняет её при старте. Так уже было: jose приехала в api/auth.ts,
+          # а в package.json службы её не было. Сверяем до выкатки.
+          node -e '
+            const fs = require("fs");
+            const bundle = fs.readFileSync("/tmp/server.mjs", "utf8");
+            const declared = new Set(Object.keys(
+              JSON.parse(fs.readFileSync("deploy/api-package.json", "utf8")).dependencies
+            ));
+            const missing = [...bundle.matchAll(/^import[^;]*?from\s*"([^"]+)"/gm)]
+              .map(m => m[1])
+              .filter(s => !s.startsWith(".") && !s.startsWith("node:"))
+              .map(s => s.startsWith("@") ? s.split("/").slice(0, 2).join("/") : s.split("/")[0])
+              .filter(s => !require("module").builtinModules.includes(s))
+              .filter(s => !declared.has(s));
+            if (missing.length) {
+              console.error("нет в deploy/api-package.json: " + [...new Set(missing)].join(", "));
+              process.exit(1);
+            }
+            console.log("все внешние импорты бандла объявлены");
+          '
           scp -i ~/.ssh/id_ed25519 /tmp/server.mjs \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/server.mjs
+          scp -i ~/.ssh/id_ed25519 deploy/api-package.json \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/api-package.json
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev &&
+            sudo cp /tmp/api-package.json /opt/justwriting/api/package.json &&
+            sudo chown justwriting:justwriting /opt/justwriting/api/package.json &&
+            sudo -u justwriting env npm_config_cache=/opt/justwriting/api/.npm-cache \
+              npm install --prefix /opt/justwriting/api --omit=dev --no-audit --no-fund &&
             sudo cp /tmp/server.mjs /opt/justwriting/api/server.mjs &&
             sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
             sudo systemctl restart justwriting && sleep 5 &&

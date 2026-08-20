@@ -3,6 +3,7 @@ import { handleFirestoreError, OperationType } from '../../../core/errors/firest
 import { Label } from '../../../types';
 import { reportError } from '../../../shared/errors/reportError';
 import { userProfileDbSchema } from '../../../core/data/schemas';
+import { encryptLabels } from '../../../core/crypto/labelEncryption';
 
 export const ProfileService = {
   async updateNickname(userId: string, nickname: string) {
@@ -28,7 +29,10 @@ export const ProfileService = {
 
   async updateLabels(userId: string, labels: Label[]) {
     try {
-      await DataProvider.updateProfile(userId, { labels });
+      // SEC-7: Encrypt label names before persisting to profile in cloud.
+      // Refuses write (throws ENCRYPT_REQUIRED) if vault is locked and encryption enabled.
+      const encryptedLabels = await encryptLabels(labels, userId);
+      await DataProvider.updateProfile(userId, { labels: encryptedLabels });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;

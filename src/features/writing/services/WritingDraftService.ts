@@ -87,7 +87,7 @@ export const WritingDraftService = {
       withTimeout((async () => {
         const draftData = await DataProvider.getDraft(userId);
         if (draftData) {
-          const decrypted: unknown = await maybeDecrypt(draftData, ['content'], ['pinnedThoughts']);
+          const decrypted: unknown = await maybeDecrypt(draftData, ['content', 'title'], ['pinnedThoughts']);
           return decrypted as LocalDraft;
         }
         return null;
@@ -180,7 +180,7 @@ export const WritingDraftService = {
     const ac = new AbortController();
     _abortControllers.set(draft.userId, ac);
     const draftRecord = draft as unknown as Record<string, unknown>;
-    const encrypted = await maybeEncrypt(draftRecord, ['content'], ['pinnedThoughts'], draft.userId);
+    const encrypted = await maybeEncrypt(draftRecord, ['content', 'title'], ['pinnedThoughts'], draft.userId);
     const clean = Object.fromEntries(
       Object.entries(encrypted).filter(([k, v]) => v !== undefined && (k in DRAFT_CLOUD_FIELDS))
     );

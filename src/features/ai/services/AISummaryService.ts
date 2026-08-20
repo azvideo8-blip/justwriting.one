@@ -5,15 +5,19 @@ import { DataProvider } from '../../../core/data';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
-
-
-const STRING_FIELDS = ['tone', 'echo', 'eventDate', 'quotableSentence'] as const;
+// summary стоит первым не случайно: это пересказ заметки своими словами —
+// «автор размышляет о разводе и долгах» — то есть её суть в сжатом виде. Он не
+// входил в список и уезжал в облако открытым текстом, пока всё остальное
+// шифровалось. Добавляя сюда поле, проверь, что оно не окажется единственным
+// читаемым среди зашифрованных соседей.
+const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
 const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
 const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
 
-async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): Promise<void> {
+export async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): Promise<void> {
   const encrypted = await maybeEncrypt(
     { ...summary },
     STRING_FIELDS_LIST,
@@ -54,6 +58,7 @@ export async function decodeCloudSummary(
     extractedFacts,
     processedAt,
   };
+  if (typeof decrypted.summary === 'string') result.summary = decrypted.summary;
   if (authorPhrases) result.authorPhrases = authorPhrases;
   if (typeof decrypted.quotableSentence === 'string') result.quotableSentence = decrypted.quotableSentence;
   if (typeof decrypted.promptVersion === 'number') result.promptVersion = decrypted.promptVersion;
@@ -152,7 +157,8 @@ export const AISummaryService = {
     }
 
     const uid = getCurrentUser()?.uid;
-    if (uid) {
+    // SEC-8: Background write-time upload respects cloudSyncEnabled switch
+    if (uid && cloudSyncEnabled()) {
       await saveSummaryToCloud(uid, withUuid).catch(e => {
         reportError(e, { action: 'ai_summary_cloud_save' });
       });

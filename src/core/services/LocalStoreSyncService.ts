@@ -3,6 +3,7 @@ import { DataProvider } from '../data';
 import { getCurrentUser } from '../auth';
 import { maybeEncrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
+import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
@@ -123,7 +124,7 @@ class LocalStoreSyncManager {
     }, DEBOUNCE_DELAY_MS);
   }
 
-  public async flushPending(): Promise<{ synced: number; failed: number; skippedLocked: boolean; skippedOversized: number }> {
+  public async flushPending(forceManual = false): Promise<{ synced: number; failed: number; skippedLocked: boolean; skippedOversized: number }> {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -132,6 +133,12 @@ class LocalStoreSyncManager {
     const result = { synced: 0, failed: 0, skippedLocked: false, skippedOversized: 0 };
     const uid = getCurrentUser()?.uid;
     if (!uid) return result;
+
+    // SEC-8: Background upload respects cloudSyncEnabled switch.
+    // Manual / backfill actions (forceManual = true) are explicitly exempt.
+    if (!forceManual && !cloudSyncEnabled()) {
+      return result;
+    }
 
     // Check encryption status: if encryption enabled but session key locked, postpone!
     if (getEncryptionEnabled(uid) && !getSessionKey()) {
@@ -243,7 +250,23 @@ class LocalStoreSyncManager {
       }
     }
 
-    return this.flushPending();
+    // SEC-8 / SEC-6: syncAllLocalStores is a manual/backfill pass, so it runs
+    // regardless of the background auto-sync toggle.
+    return this.flushPending(true);
+  }
+}
+
+export async function getLocalStoreRecordCounts(): Promise<number> {
+  try {
+    const db = await getLocalDb();
+    let count = 0;
+    for (const store of SUPPORTED_LOCAL_STORES) {
+      if (!db.objectStoreNames.contains(store)) continue;
+      count += await (db as unknown as { count(s: string): Promise<number> }).count(store);
+    }
+    return count;
+  } catch {
+    return 0;
   }
 }
 

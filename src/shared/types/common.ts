@@ -11,6 +11,11 @@ export interface Label {
   id: string;
   name: string;
   color: string;
+  // Имя не удалось расшифровать: показывается «…», а исходный шифротекст лежит
+  // в _cipherName, чтобы обратная запись вернула его нетронутым. Без этого
+  // любая правка списка меток затирала настоящие имена заглушками.
+  _undecrypted?: boolean;
+  _cipherName?: string;
 }
 
 export interface EncryptionMeta {

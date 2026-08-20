@@ -60,6 +60,7 @@ describe('LocalStoreSyncService', () => {
     mockSessionKey = {} as CryptoKey;
     mockEncryptionEnabled = true;
     localStorage.clear();
+    localStorage.setItem('auto_sync_enabled', 'true');
     const db = await getLocalDb();
     for (const store of SUPPORTED_LOCAL_STORES) {
       if (db.objectStoreNames.contains(store)) {

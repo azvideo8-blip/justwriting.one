@@ -1,5 +1,28 @@
 # Security Documentation
 
+## Postulates
+
+Four statements the whole design answers to. When a change conflicts with one of
+them, the change is wrong — not the postulate.
+
+1. **What a person writes locally is never lost** — except when they themselves
+   choose to delete it. A failed read, a half-finished write, a locked vault or a
+   parse error must never be rendered as absence of data, and must never be
+   written back as truth. This is the recurring bug class in this codebase; every
+   fix for it carries a regression test.
+2. **Nothing leaves for the cloud unencrypted.** Notes, titles, tags, labels,
+   analyses, embeddings, dialogues, the portrait — everything the person wrote,
+   or that was concluded about them, is encrypted with a key derived on their
+   device. A new field that syncs is encrypted before it syncs, not after someone
+   notices.
+3. **AI is the one disclosed exception.** Analysis requires sending the text to
+   the provider in the clear; there is no way around it today. The person is told
+   so plainly, decides for themselves, and loses no other functionality by
+   declining.
+4. **Saved, encrypted, synchronised, nothing leaked** — apart from what the
+   person deliberately sent for analysis.
+
+
 ## Role Model
 The application uses a role-based access control (RBAC) system defined in Firestore:
 - `user`: Standard user, can manage their own sessions and profile.
@@ -77,8 +100,8 @@ Comprehensive CSP headers configured in `vercel.json`:
 ## Analytics & Error Reporting
 
 - **PostHog:** Opt-in only (`hasConsent()` check). `analytics.track()`, `trackEvent()`, and `webVitals` all verify consent before sending data. `person_profiles: 'identified_only'`.
-- **Sentry:** `maskAllText: true`, `blockAllMedia: true`. Request data deleted in `beforeSend`. User identified by UID only (not email). Session replays at 10% sample rate (100% for errors).
-- **Langfuse:** AI request observability (persona, action, tokens, model). No user content stored — only metadata.
+- **Sentry & Activity Log:** `maskAllText: true`, `blockAllMedia: true`. User identified by UID only. PII keys are stripped by `reportError` before anything is stored: identifiers (`userId`, `uid`, `email`, `linkedCloudId`, `documentId`, `docId`, `docUuid`, `localId`, `versionId`, `sessionId`, `personaId`, `domainId`, `labelId`, `noteId`, `threadId`) and anything the person wrote (`title`, `docTitle`, `content`, `text`, `rawContent`, `summary`, `tag`, `theme`, `label`, `name`, `query`, `snippet`, `prompt`, `answer`, `message`). Redaction matches the exact key name, so the list covers whole families: `docId` next to `documentId` is the same identifier under another name. These are stripped before entering `activity_log_v1` in `localStorage` or Sentry.
+- **Langfuse:** AI request observability (tokens, model, usage). No user note content or model generation text stored — only metadata and token metrics.
 
 ## Shared Injection Patterns
 

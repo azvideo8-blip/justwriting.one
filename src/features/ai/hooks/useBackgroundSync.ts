@@ -5,7 +5,7 @@ import { restoreAIDataFromCloud, reattachOrphanedAnalysis } from '../services/AI
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
-import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
 /**
  * Фоновый проход, который **не обращается к ИИ**.
@@ -27,10 +27,6 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 const IDLE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 120_000;
 
-function autoSyncEnabled(): boolean {
-  return localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true';
-}
-
 export function useBackgroundSync(): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -38,7 +34,7 @@ export function useBackgroundSync(): void {
 
   const runPass = useCallback(async () => {
     if (runningRef.current) return;
-    if (!autoSyncEnabled()) return;
+    if (!cloudSyncEnabled()) return;
 
     const uid = getCurrentUser()?.uid;
     if (!uid) return;

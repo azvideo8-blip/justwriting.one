@@ -31,7 +31,14 @@ describe('cryptoHelpers', () => {
     expect(getEncryptionEnabled('user1')).toBe(false);
   });
 
-  it('maybeEncrypt bypasses encryption when disabled for user', async () => {
+  it('maybeEncrypt refuses write when profile has not loaded yet', async () => {
+    setProfileLoaded('user-unloaded', false);
+    const doc = { content: 'hello' };
+    await expect(maybeEncrypt(doc, ['content'], [], 'user-unloaded')).rejects.toThrow('ENCRYPT_REQUIRED: profile not loaded');
+  });
+
+  it('maybeEncrypt bypasses encryption when disabled for user after profile loaded', async () => {
+    setProfileLoaded('user-no-enc', true);
     setEncryptionEnabled('user-no-enc', false);
     const doc = { content: 'hello' };
     const res = await maybeEncrypt(doc, ['content'], [], 'user-no-enc');
@@ -40,6 +47,7 @@ describe('cryptoHelpers', () => {
   });
 
   it('maybeEncrypt requires encryption when enabled for user and session key missing', async () => {
+    setProfileLoaded('user-enc', true);
     setEncryptionEnabled('user-enc', true);
     vi.mocked(getSessionKey).mockReturnValue(null);
     const doc = { content: 'hello' };
@@ -47,6 +55,7 @@ describe('cryptoHelpers', () => {
   });
 
   it('maybeEncrypt encrypts when enabled for user and session key exists', async () => {
+    setProfileLoaded('user-enc', true);
     setEncryptionEnabled('user-enc', true);
     const dummyKey = {} as CryptoKey;
     vi.mocked(getSessionKey).mockReturnValue(dummyKey);
@@ -58,6 +67,7 @@ describe('cryptoHelpers', () => {
   });
 
   it('maybeEncrypt encrypts array fields as JSON strings', async () => {
+    setProfileLoaded('user-enc', true);
     setEncryptionEnabled('user-enc', true);
     const dummyKey = {} as CryptoKey;
     vi.mocked(getSessionKey).mockReturnValue(dummyKey);

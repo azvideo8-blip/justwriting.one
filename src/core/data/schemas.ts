@@ -11,6 +11,7 @@ export const labelSchema = z.object({
   id: z.string(),
   name: z.string(),
   color: z.string(),
+  _encrypted: z.boolean().optional(),
 });
 
 export const sessionDbSchema = z.object({

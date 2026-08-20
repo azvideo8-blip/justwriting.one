@@ -37,6 +37,11 @@ export async function maybeEncrypt(
   if (typeof userIdOrRequired === 'boolean') {
     required = userIdOrRequired;
   } else if (typeof userIdOrRequired === 'string') {
+    if (userIdOrRequired && !userIdOrRequired.startsWith('guest_') && userIdOrRequired !== 'guest') {
+      if (!isProfileLoaded(userIdOrRequired)) {
+        throw new Error('ENCRYPT_REQUIRED: profile not loaded');
+      }
+    }
     const enabled = getEncryptionEnabled(userIdOrRequired);
     required = enabled;
     shouldEncrypt = enabled;
