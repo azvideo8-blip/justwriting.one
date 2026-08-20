@@ -9,6 +9,7 @@ import { Input } from '../../../shared/components/Input';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import {
   initializeEncryption,
   VaultAlreadyExistsError,
@@ -49,6 +50,10 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberDevice, setRememberDeviceChecked] = useState(false);
+  // Код восстановления, который сейф отдал при создании. Пока он здесь, окно
+  // с кодом стоит поверх всего, а `onDone` не зовётся: иначе код исчезает
+  // молча, и человек остаётся с сейфом, ключ от которого не видел никто.
+  const [createdRecoveryCode, setCreatedRecoveryCode] = useState<string | null>(null);
 
   const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -74,11 +79,15 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setLoading(true);
     setError(null);
     try {
-      await initializeEncryption(userId, password);
+      const { recoveryCode: created } = await initializeEncryption(userId, password);
       showToast(t('enc_setup_success'), 'success');
       setPassword('');
       setConfirmPassword('');
-      onDone();
+      if (created) {
+        setCreatedRecoveryCode(created);
+      } else {
+        onDone();
+      }
     } catch (err) {
       reportError(err, { action: 'initializeEncryption', userId });
       setError(err instanceof VaultAlreadyExistsError ? t('enc_setup_vault_exists') : t('error_generic_action'));
@@ -219,6 +228,18 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       setLoading(false);
     }
   };
+
+  if (createdRecoveryCode) {
+    return (
+      <RecoveryCodeDisplayModal
+        recoveryCode={createdRecoveryCode}
+        onConfirm={() => {
+          setCreatedRecoveryCode(null);
+          onDone();
+        }}
+      />
+    );
+  }
 
   if (mode === 'none') return null;
 

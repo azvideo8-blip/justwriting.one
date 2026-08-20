@@ -12,6 +12,7 @@ import { Section } from './SettingsHelpers';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
+import { ConfirmModal } from '../../../shared/components/ConfirmModal';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 
@@ -37,6 +38,8 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
   const [recoveryPromptPassword, setRecoveryPromptPassword] = useState('');
   const [recoveryPromptError, setRecoveryPromptError] = useState<string | null>(null);
   const [recoveryPromptLoading, setRecoveryPromptLoading] = useState(false);
+  // Новый код отменяет прежний. Спрашиваем до, а не сообщаем после.
+  const [regenerateConfirmOpen, setRegenerateConfirmOpen] = useState(false);
 
   const [migrationRunning, setMigrationRunning] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
@@ -88,6 +91,9 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
       showToast(t('unlock_success') || 'Encryption set up successfully', 'success');
       setVaultPassword('');
       setConfirmVaultPassword('');
+      // Как и после создания кода восстановления: снапшот новое значение
+      // encryption_meta может не прислать, и раздел останется в прежнем виде.
+      await refreshProfile();
       setNewGeneratedRecoveryCode(recoveryCode);
     } catch (err) {
       reportError(err, { action: 'initializeEncryptionInSettings', userId });
@@ -339,6 +345,32 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </div>
           )}
 
+          {hasRecoveryCode && (
+            <div className="p-4 rounded-xl border border-border-subtle space-y-3">
+              <div className="flex items-start gap-3">
+                <KeyRound size={18} className="text-text-main/60 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <div className="text-sm font-medium text-text-main">{t('enc_recovery_code_present_title')}</div>
+                  <div className="text-xs text-text-main/60 leading-relaxed">{t('enc_recovery_code_present_desc')}</div>
+                </div>
+              </div>
+              <Button
+                onClick={() => setRegenerateConfirmOpen(true)}
+                disabled={generatingRecoveryCode}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-text-main/70 hover:text-text-main disabled:opacity-50 transition-colors flex items-center justify-center gap-2 border border-border-subtle"
+              >
+                {generatingRecoveryCode ? (
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin border-text-main/20 border-t-text-main/60" />
+                ) : (
+                  <>
+                    <KeyRound size={14} />
+                    {t('enc_regenerate_recovery_code_btn')}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
           <ChangeEncryptionPasswordButton userId={userId} />
 
           {!migrationRunning && !migrationDone ? (
@@ -450,6 +482,18 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
           onConfirm={() => setNewGeneratedRecoveryCode(null)}
         />
       )}
+
+      <ConfirmModal
+        isOpen={regenerateConfirmOpen}
+        title={t('enc_regenerate_recovery_confirm_title')}
+        message={t('enc_regenerate_recovery_confirm_desc')}
+        confirmLabel={t('enc_regenerate_recovery_confirm_btn')}
+        onConfirm={() => {
+          setRegenerateConfirmOpen(false);
+          void handleGenerateRecoveryCode();
+        }}
+        onCancel={() => setRegenerateConfirmOpen(false)}
+      />
     </Section>
   );
 }
