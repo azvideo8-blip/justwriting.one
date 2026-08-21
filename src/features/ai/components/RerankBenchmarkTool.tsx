@@ -38,7 +38,33 @@ interface QueryBenchResult {
   option1IsRerank: boolean;
   option1Notes: RetrievedNote[];
   option2Notes: RetrievedNote[];
-  userChoice?: 'opt1' | 'opt2' | 'same' | undefined;
+  // Оценка по существу: объединение обоих списков в перемешанном порядке.
+  // Сравнивать два порядка одних и тех же пяти заметок человек не может —
+  // особенно по строке в сто знаков. Отметить «по теме / не по теме» он может
+  // всегда, а какой порядок поднял нужное выше, посчитает машина.
+  judged: RetrievedNote[];
+  relevant: Record<string, boolean>;
+}
+
+/** Перемешивание, чтобы порядок в списке для оценки ничего не подсказывал. */
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
+/** Доля нужных заметок в выдаче и позиция первой нужной. */
+function scoreOrdering(notes: RetrievedNote[], relevant: Record<string, boolean>) {
+  const hits = notes.filter(n => relevant[n.documentId]).length;
+  const firstHit = notes.findIndex(n => relevant[n.documentId]);
+  return {
+    precision: notes.length > 0 ? hits / notes.length : 0,
+    mrr: firstHit === -1 ? 0 : 1 / (firstHit + 1),
+    hits,
+  };
 }
 
 export function RerankBenchmarkTool() {
@@ -105,11 +131,16 @@ export function RerankBenchmarkTool() {
           bypassed: rerankMeta.bypassed,
           bypassReason: rerankMeta.bypassReason,
           rerankFailed: rerankMeta.rerankFailed,
+          judged: shuffle(
+            [...rrfNotes, ...rerankNotes].filter(
+              (n, i, arr) => arr.findIndex(x => x.documentId === n.documentId) === i,
+            ),
+          ),
+          relevant: {},
           rerankLatencyMs: rerankMeta.rerankLatencyMs,
           option1IsRerank,
           option1Notes: option1IsRerank ? rerankNotes : rrfNotes,
           option2Notes: option1IsRerank ? rrfNotes : rerankNotes,
-          userChoice: isIdentical ? 'same' : undefined,
         });
 
         // Small pause to yield UI
@@ -126,37 +157,59 @@ export function RerankBenchmarkTool() {
     }
   };
 
-  const handleChoice = (index: number, choice: 'opt1' | 'opt2' | 'same') => {
+  const handleRelevance = (index: number, documentId: string, value: boolean) => {
     if (!benchResults) return;
     const updated = [...benchResults];
-    updated[index] = { ...updated[index]!, userChoice: choice };
+    const row = updated[index]!;
+    updated[index] = { ...row, relevant: { ...row.relevant, [documentId]: value } };
     setBenchResults(updated);
   };
 
   // Compute stats
   const total = benchResults?.length ?? 0;
-  const reviewed = benchResults?.filter(r => r.userChoice !== undefined).length ?? 0;
+  const reviewed = benchResults?.filter(r => Object.keys(r.relevant).length > 0).length ?? 0;
   const bypassedCount = benchResults?.filter(r => r.bypassed).length ?? 0;
   const bypassPct = total > 0 ? Math.round((bypassedCount / total) * 100) : 0;
 
   const latencies = benchResults?.filter(r => !r.bypassed && r.rerankLatencyMs !== undefined).map(r => r.rerankLatencyMs!) ?? [];
   const avgLatency = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
 
+  // Считаем не голоса, а качество порядка: доля нужных заметок в пятёрке и
+  // позиция первой нужной. Человек отмечает «по теме», арифметику делает машина —
+  // сравнивать на глаз два порядка одних и тех же пяти заметок он не может.
   let rerankWins = 0;
   let rrfWins = 0;
   let sames = 0;
+  let rrfPrecisionSum = 0;
+  let rerankPrecisionSum = 0;
+  let rrfMrrSum = 0;
+  let rerankMrrSum = 0;
+  let scoredQueries = 0;
 
   benchResults?.forEach(r => {
-    if (r.userChoice === 'same') {
-      sames++;
-    } else if (r.userChoice === 'opt1') {
-      if (r.option1IsRerank) rerankWins++;
-      else rrfWins++;
-    } else if (r.userChoice === 'opt2') {
-      if (!r.option1IsRerank) rerankWins++;
-      else rrfWins++;
-    }
+    // Считаются только запросы, где человек что-то отметил и где реранк
+    // действительно вызывался: на совпавших выдачах и на неудачных вызовах
+    // сравнивать нечего.
+    if (Object.keys(r.relevant).length === 0 || r.isIdentical || r.rerankFailed) return;
+    const a = scoreOrdering(r.rrfNotes, r.relevant);
+    const b = scoreOrdering(r.rerankNotes, r.relevant);
+    scoredQueries++;
+    rrfPrecisionSum += a.precision;
+    rerankPrecisionSum += b.precision;
+    rrfMrrSum += a.mrr;
+    rerankMrrSum += b.mrr;
+    const aScore = a.precision + a.mrr;
+    const bScore = b.precision + b.mrr;
+    if (bScore > aScore) rerankWins++;
+    else if (aScore > bScore) rrfWins++;
+    else sames++;
   });
+
+  const pct = (v: number) => (scoredQueries > 0 ? Math.round((v / scoredQueries) * 100) : 0);
+  const rrfPrecision = pct(rrfPrecisionSum);
+  const rerankPrecision = pct(rerankPrecisionSum);
+  const rrfMrr = scoredQueries > 0 ? (rrfMrrSum / scoredQueries).toFixed(2) : '—';
+  const rerankMrr = scoredQueries > 0 ? (rerankMrrSum / scoredQueries).toFixed(2) : '—';
 
   // Причины разбиваются поимённо не для полноты: «сработал обход» без причины
   // одинаково выглядит и когда локального сигнала хватило, и когда поиск по
@@ -188,9 +241,10 @@ export function RerankBenchmarkTool() {
       `| Срабатывание байпаса (без вызова облака) | ${bypassedCount} из ${total} (${bypassPct}%) |`,
       `| Причины байпаса | ${bypassReasonSummary} |`,
       `| Вызов реранка не удался (сравнивать было нечего) | ${failedRerankCount} |`,
-      `| Выигрыш облачного реранкера (Rerank > RRF) | ${rerankWins} |`,
-      `| Выигрыш локального RRF (RRF > Rerank) | ${rrfWins} |`,
-      `| Одинаковое качество / совпадение списков | ${sames} |`,
+      `| Запросов с оценкой (списки разошлись, реранк отработал) | ${scoredQueries} |`,
+      `| Доля нужных в пятёрке: RRF / реранк | ${rrfPrecision}% / ${rerankPrecision}% |`,
+      `| Позиция первой нужной (MRR): RRF / реранк | ${rrfMrr} / ${rerankMrr} |`,
+      `| Реранк поставил лучше / хуже / так же | ${rerankWins} / ${rrfWins} / ${sames} |`,
       `| Средняя задержка реранка (когда вызывался) | ${avgLatency} мс |`,
       ``,
       `*Примечание: приватные тексты заметок и формулировки запросов исключены из публичного отчёта.*`,
@@ -269,12 +323,12 @@ export function RerankBenchmarkTool() {
                 <div className="font-semibold text-text-main mt-0.5">{avgLatency} мс</div>
               </div>
               <div className="p-2 rounded-lg bg-surface-base/10 border border-border-subtle/50">
-                <div className="text-text-main/50 text-[10px]">Реранк лучше / RRF лучше</div>
-                <div className="font-semibold text-text-main mt-0.5">{rerankWins} / {rrfWins}</div>
+                <div className="text-text-main/50 text-[10px]">Реранк лучше / хуже / так же</div>
+                <div className="font-semibold text-text-main mt-0.5">{rerankWins} / {rrfWins} / {sames}</div>
               </div>
               <div className="p-2 rounded-lg bg-surface-base/10 border border-border-subtle/50">
-                <div className="text-text-main/50 text-[10px]">Одинаково / совпали</div>
-                <div className="font-semibold text-text-main mt-0.5">{sames}</div>
+                <div className="text-text-main/50 text-[10px]">Доля нужных: RRF / реранк</div>
+                <div className="font-semibold text-text-main mt-0.5">{rrfPrecision}% / {rerankPrecision}%</div>
               </div>
             </div>
           </div>
@@ -285,7 +339,7 @@ export function RerankBenchmarkTool() {
               <div
                 key={i}
                 className={`p-4 rounded-xl border transition-colors ${
-                  res.userChoice !== undefined
+                  Object.keys(res.relevant).length > 0
                     ? 'border-border-subtle bg-surface-base/5'
                     : 'border-brand-soft/40 bg-brand-soft/5 shadow-sm'
                 }`}
@@ -308,67 +362,66 @@ export function RerankBenchmarkTool() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Option 1 */}
-                      <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
-                        res.userChoice === 'opt1' ? 'border-brand-soft bg-brand-soft/10' : 'border-border-subtle bg-surface-card'
-                      }`}>
-                        <div className="font-bold text-text-main text-[11px] mb-1">Вариант 1</div>
-                        {res.option1Notes.map((n, idx) => (
-                          <div key={idx} className="border-b border-border-subtle/50 pb-1 last:border-0 last:pb-0">
-                            <div className="font-medium text-text-main/90">{idx + 1}. {n.title || 'Без названия'}</div>
-                            <div className="text-[10px] text-text-main/60 line-clamp-1">{n.content.slice(0, 100)}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Option 2 */}
-                      <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
-                        res.userChoice === 'opt2' ? 'border-brand-soft bg-brand-soft/10' : 'border-border-subtle bg-surface-card'
-                      }`}>
-                        <div className="font-bold text-text-main text-[11px] mb-1">Вариант 2</div>
-                        {res.option2Notes.map((n, idx) => (
-                          <div key={idx} className="border-b border-border-subtle/50 pb-1 last:border-0 last:pb-0">
-                            <div className="font-medium text-text-main/90">{idx + 1}. {n.title || 'Без названия'}</div>
-                            <div className="text-[10px] text-text-main/60 line-clamp-1">{n.content.slice(0, 100)}</div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="text-[11px] text-text-main/60">
+                      Отметьте, какие заметки действительно относятся к запросу. Порядок здесь
+                      случайный и ничего не подсказывает — какой из двух способов поставил нужные
+                      выше, посчитается само.
                     </div>
 
-                    {/* Choice Buttons */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        onClick={() => handleChoice(i, 'opt1')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                          res.userChoice === 'opt1'
-                            ? 'bg-brand-soft text-white border-brand-soft'
-                            : 'border-border-subtle text-text-main hover:bg-surface-base/10'
-                        }`}
-                      >
-                        Вариант 1 лучше
-                      </Button>
-                      <Button
-                        onClick={() => handleChoice(i, 'opt2')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                          res.userChoice === 'opt2'
-                            ? 'bg-brand-soft text-white border-brand-soft'
-                            : 'border-border-subtle text-text-main hover:bg-surface-base/10'
-                        }`}
-                      >
-                        Вариант 2 лучше
-                      </Button>
-                      <Button
-                        onClick={() => handleChoice(i, 'same')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                          res.userChoice === 'same'
-                            ? 'bg-text-main text-surface-base border-text-main'
-                            : 'border-border-subtle text-text-main/70 hover:bg-surface-base/10'
-                        }`}
-                      >
-                        Одинаково
-                      </Button>
-                    </div>
+                    {res.judged.map(n => {
+                      const mark = res.relevant[n.documentId];
+                      return (
+                        <div
+                          key={n.documentId}
+                          className={`p-3 rounded-xl border text-xs space-y-2 ${
+                            mark === true
+                              ? 'border-green-500/40 bg-green-500/5'
+                              : mark === false
+                                ? 'border-border-subtle bg-surface-base/5 opacity-60'
+                                : 'border-border-subtle bg-surface-card'
+                          }`}
+                        >
+                          <div className="flex items-baseline justify-between gap-3">
+                            <span className="font-medium text-text-main/90">
+                              {n.title || 'Без названия'}
+                            </span>
+                            {n.lastSessionAt && (
+                              <span className="text-[10px] text-text-main/40 shrink-0 font-mono">
+                                {new Date(n.lastSessionAt).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-text-main/70 leading-relaxed whitespace-pre-wrap">
+                            {n.content.slice(0, 600)}
+                            {n.content.length > 600 ? '…' : ''}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={() => handleRelevance(i, n.documentId, true)}
+                              className={`px-3 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                mark === true
+                                  ? 'bg-green-600 text-white border-green-600'
+                                  : 'border-border-subtle text-text-main hover:bg-surface-base/10'
+                              }`}
+                            >
+                              По теме
+                            </Button>
+                            <Button
+                              onClick={() => handleRelevance(i, n.documentId, false)}
+                              className={`px-3 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                mark === false
+                                  ? 'bg-text-main text-surface-base border-text-main'
+                                  : 'border-border-subtle text-text-main/70 hover:bg-surface-base/10'
+                              }`}
+                            >
+                              Не по теме
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
