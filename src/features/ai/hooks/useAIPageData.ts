@@ -19,6 +19,11 @@ import { usePersonaManager } from './usePersonaManager';
 import { useAttachmentManager } from './useAttachmentManager';
 import { NOTE_REF_RE, NOTE_VERB_RE } from '../utils/noteAutoAttacher';
 import { searchNotes } from '../utils/noteRetriever';
+import { getCurrentUser } from '../../../core/auth';
+import { DataProvider } from '../../../core/data';
+import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
+import { indexPending } from '../utils/embeddingIndexer';
+import { looksLikeNoteSearch } from '../utils/aiChatTransport';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -327,12 +332,66 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     }
   }, [pendingAttachments, prepareAttachment, sendMessage, activeDialogueId, setActiveDialogueId, loadDialogues, setInputText, setPendingAttachments]);
 
+  const [indexingModalOpen, setIndexingModalOpen] = useState(false);
+  const pendingSearchActionRef = useRef<(() => Promise<void>) | null>(null);
+
+  const checkIndexingConsentOrProceed = useCallback(async (action: () => Promise<void>, text?: string) => {
+    const uid = getCurrentUser()?.uid;
+    const consentState = getIndexingConsent(uid);
+    const isSearch = text ? looksLikeNoteSearch(text) : true;
+    if (consentState === 'unanswered' && isSearch) {
+      pendingSearchActionRef.current = action;
+      setIndexingModalOpen(true);
+      return;
+    }
+    await action();
+  }, []);
+
+  const handleGrantIndexingConsent = useCallback(async () => {
+    setIndexingModalOpen(false);
+    const uid = getCurrentUser()?.uid;
+    setIndexingConsent(uid, 'granted');
+    if (uid) {
+      try {
+        await DataProvider.updateProfile(uid, {
+          indexingConsentAt: new Date(),
+          indexingConsentVersion: INDEXING_CONSENT_VERSION,
+        });
+      } catch { /* ignore */ }
+    }
+    void indexPending();
+    const action = pendingSearchActionRef.current;
+    pendingSearchActionRef.current = null;
+    if (action) await action();
+  }, []);
+
+  const handleRefuseIndexingConsent = useCallback(async () => {
+    setIndexingModalOpen(false);
+    const uid = getCurrentUser()?.uid;
+    setIndexingConsent(uid, 'refused');
+    const action = pendingSearchActionRef.current;
+    pendingSearchActionRef.current = null;
+    if (action) await action();
+  }, []);
+
   const handleSendMessage = useCallback(async (overrideText?: string) => {
     const text = (overrideText ?? inputText).trim();
     if ((!text && pendingAttachments.length === 0) || isLoading) return;
 
-    await executeSendMessage(text, overrideText);
-  }, [inputText, pendingAttachments, isLoading, executeSendMessage]);
+    if (looksLikeNoteSearch(text)) {
+      await checkIndexingConsentOrProceed(async () => {
+        await executeSendMessage(text, overrideText);
+      }, text);
+    } else {
+      await executeSendMessage(text, overrideText);
+    }
+  }, [inputText, pendingAttachments, isLoading, executeSendMessage, checkIndexingConsentOrProceed]);
+
+  const handleTriggerForcedSearch = useCallback(async (query: string) => {
+    await checkIndexingConsentOrProceed(async () => {
+      await triggerForcedSearch(query);
+    }, query);
+  }, [checkIndexingConsentOrProceed, triggerForcedSearch]);
 
   const handleSuggestion = (text: string) => { void handleSendMessage(text); };
 
@@ -495,7 +554,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     dailyLimit,
     loadDialogues, loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
-    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
+    handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload,
+    triggerForcedSearch: handleTriggerForcedSearch,
+    indexingModalOpen,
+    handleGrantIndexingConsent,
+    handleRefuseIndexingConsent,
     allPersonas, openPersonaDetail,
     activeDialogue, displayMessages,
     activePersona, activeRole, headerVisual,

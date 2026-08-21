@@ -70,7 +70,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockImplementation(async (_u, _s, key, payload) => {
         savedRecords.push({ key, payload: payload as Record<string, unknown> });
       });
-      const deletePagedSpy = vi.spyOn(DataProvider, 'deleteLocalStorePagedRecords' as never).mockResolvedValue(undefined as never);
+      const deletePagedSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
 
       LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_small');
       const { synced, failed } = await LocalStoreSyncService.flushPending(true);
@@ -104,7 +104,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockImplementation(async (_u, _s, key, payload) => {
         savedRecords.push({ key, payload: payload as Record<string, unknown> });
       });
-      const deleteExactSpy = vi.spyOn(DataProvider, 'deleteLocalStoreExactRecord' as never).mockResolvedValue(undefined as never);
+      const deleteExactSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreExactRecord').mockResolvedValue(undefined as never);
 
       LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_large');
       const { synced, failed } = await LocalStoreSyncService.flushPending(true);

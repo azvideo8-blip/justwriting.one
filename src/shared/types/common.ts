@@ -52,6 +52,10 @@ export interface UserProfile {
    *  отзывается отдельно от согласия с политикой. */
   aiConsentAt?: Timestamp | TimestampLike | Date | number | null | undefined;
   aiConsentVersion?: number | null | undefined;
+  /** D4.27: Согласие на векторную индексацию (поиск по смыслу).
+   *  Отправка фрагментов заметок в модель эмбеддингов. */
+  indexingConsentAt?: Timestamp | TimestampLike | Date | number | null | undefined;
+  indexingConsentVersion?: number | null | undefined;
   privacyVersion?: number | undefined;
   aiPortrait?: string | undefined;
   _encrypted?: boolean | undefined;

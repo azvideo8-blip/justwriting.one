@@ -66,6 +66,8 @@ export const userProfileDbSchema = z.object({
   privacyVersion: z.number().optional(),
   aiConsentAt: firestoreTimestampSchema.optional(),
   aiConsentVersion: z.number().nullable().optional(),
+  indexingConsentAt: firestoreTimestampSchema.optional(),
+  indexingConsentVersion: z.number().nullable().optional(),
   aiPortrait: z.string().optional(),
   _encrypted: z.boolean().optional(),
   // Всё, что ниже, схема раньше не описывала — и разбор выбрасывал это из

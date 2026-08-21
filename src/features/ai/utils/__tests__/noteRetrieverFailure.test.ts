@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto';
 import { searchNotesMulti } from '../noteRetriever';
 import { AIService } from '../../services/AIService';
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
+import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -11,6 +12,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 describe('searchNotesMulti — a failed search is not an empty archive', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    setIndexingConsent('guest', 'granted');
   });
 
   it('reports failed when the query could not be embedded', async () => {

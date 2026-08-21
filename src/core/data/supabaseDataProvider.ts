@@ -8,12 +8,12 @@ const toIso = (v: unknown) => (typeof v === 'number' ? new Date(v).toISOString()
 
 const DATE_COLUMNS = new Set([
   'saved_at', 'session_started_at', 'updated_at', 'first_session_at', 'last_session_at',
-  'created_at', 'privacy_accepted_at', 'ai_consent_at',
+  'created_at', 'privacy_accepted_at', 'ai_consent_at', 'indexing_consent_at',
 ]);
 
 const DATE_FIELDS_CLIENT = new Set([
   'savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt',
-  'createdAt', 'privacyAcceptedAt', 'aiConsentAt',
+  'createdAt', 'privacyAcceptedAt', 'aiConsentAt', 'indexingConsentAt',
 ]);
 
 const USER_FIELDS: Record<string, string> = {
@@ -36,6 +36,8 @@ const USER_FIELDS: Record<string, string> = {
   privacyVersion: 'privacy_version',
   aiConsentAt: 'ai_consent_at',
   aiConsentVersion: 'ai_consent_version',
+  indexingConsentAt: 'indexing_consent_at',
+  indexingConsentVersion: 'indexing_consent_version',
   aiPortrait: 'ai_portrait',
   _encrypted: '_encrypted',
   role: 'role',

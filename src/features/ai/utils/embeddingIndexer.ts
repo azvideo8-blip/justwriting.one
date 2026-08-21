@@ -1,6 +1,8 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIService } from '../services/AIService';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 // OpenRouter's native output for this model is 4096-dim (no truncation param
 // confirmed available) — different from the old Fireworks-hosted 1024-dim
@@ -51,6 +53,11 @@ export async function findStaleDocuments(): Promise<string[]> {
 }
 
 export async function indexDocument(documentId: string, force = false): Promise<IndexResult> {
+  const uid = getCurrentUser()?.uid;
+  if (!hasIndexingConsent(uid)) {
+    return 'skip';
+  }
+
   const content = await getLatestContent(documentId);
   if (!content || content.trim().length === 0) return 'skip';
 
@@ -207,6 +214,11 @@ export async function indexPending(opts?: {
   limit?: number;
   onProgress?: ProgressFn;
 }): Promise<IndexRunSummary> {
+  const uid = getCurrentUser()?.uid;
+  if (!hasIndexingConsent(uid)) {
+    const stale = await findStaleDocuments();
+    return { ok: 0, skipped: stale.length, failed: 0, stopped: null };
+  }
   const stale = await findStaleDocuments();
   const targets = opts?.limit ? stale.slice(0, opts.limit) : stale;
   return runIndex(targets, false, opts?.onProgress);
@@ -214,6 +226,12 @@ export async function indexPending(opts?: {
 
 /** Force re-embed of EVERY document (ignores freshness) — full rebuild. */
 export async function reindexAll(opts?: { onProgress?: ProgressFn }): Promise<IndexRunSummary> {
+  const uid = getCurrentUser()?.uid;
+  if (!hasIndexingConsent(uid)) {
+    const db = await getLocalDb();
+    const count = await db.count('documents');
+    return { ok: 0, skipped: count, failed: 0, stopped: null };
+  }
   const db = await getLocalDb();
   const ids = (await db.getAll('documents')).map(d => d.id);
   return runIndex(ids, true, opts?.onProgress);

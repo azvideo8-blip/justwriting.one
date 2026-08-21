@@ -23,6 +23,8 @@ import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { AIMemoryAssembler, extractDocumentIdsFromText } from '../services/AIMemoryAssembler';
 import { MemoryFlagsService } from '../services/memoryFlags';
 import { setAIStage } from '../store/useAIStageStore';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 // How much the search actually covered. Without it the model has no idea
 // whether the notes in front of it are the whole archive or a handful, and it
@@ -149,7 +151,8 @@ export function useAIChatContext(personaId: string): {
     const db = await getLocalDb();
 
     let turnEmb: number[] | undefined;
-    if (text.trim().length > 0) {
+    const uid = getCurrentUser()?.uid;
+    if (text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
@@ -249,7 +252,7 @@ export function useAIChatContext(personaId: string): {
           }
           const facets = facetsCacheRef.current.facets;
 
-          if (facets.length > 0) {
+          if (facets.length > 0 && hasIndexingConsent(uid)) {
             const searchQuery = explicitSearch ? effectiveQuery : lastSearchQueryRef.current;
             const queryEmbResult = await AIService.embed({ content: searchQuery });
             queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
@@ -492,7 +495,7 @@ export function useAIChatContext(personaId: string): {
           const queryLower = effectiveQuery.toLowerCase();
           
           let localQueryEmb = queryEmb;
-          if (!localQueryEmb) {
+          if (!localQueryEmb && hasIndexingConsent(uid)) {
             const embResult = await AIService.embed({ content: effectiveQuery });
             localQueryEmb = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
           }
@@ -560,7 +563,7 @@ export function useAIChatContext(personaId: string): {
               } catch { /* fallback */ }
             }
 
-            if (queryEmb === undefined) {
+            if (queryEmb === undefined && hasIndexingConsent(uid)) {
               const queryEmbResult = await AIService.embed({ content: searchQuery });
               queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
             }

@@ -6,6 +6,7 @@ import { AIService } from "../../services/AIService";
 import { AIEmbeddingService } from "../../services/AIEmbeddingService";
 import { getLocalDb } from "../../../../core/storage/localDb";
 import { LocalVersionService } from "../../../../core/services/LocalVersionService";
+import { setIndexingConsent } from "../../../../core/ai/indexingConsent";
 
 vi.mock("../../../../shared/errors/reportError", () => ({ reportError: vi.fn() }));
 
@@ -15,6 +16,8 @@ describe("D4.18 Note Retriever Exclusion", () => {
 
   beforeEach(async () => {
     vi.restoreAllMocks();
+    setIndexingConsent("guest", "granted");
+    setIndexingConsent("u1", "granted");
     invalidateMiniSearchCache();
     const db = await getLocalDb();
     for (const store of ["documents", "versions", "aiSummaries", "aiEmbeddings"] as const) {

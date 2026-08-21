@@ -5,6 +5,7 @@ import { AIService } from '../../services/AIService';
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
+import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -14,6 +15,7 @@ describe('searchNotes — rerank benchmark support', () => {
 
   beforeEach(async () => {
     vi.restoreAllMocks();
+    setIndexingConsent('guest', 'granted');
     const db = await getLocalDb();
     await db.clear('documents');
     await db.clear('versions');

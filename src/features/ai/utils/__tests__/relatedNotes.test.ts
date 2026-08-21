@@ -3,6 +3,7 @@ import { findRelatedNotes } from '../relatedNotes';
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 
 vi.mock('../../services/AIEmbeddingService', () => ({
   AIEmbeddingService: {
@@ -50,6 +51,7 @@ describe('findRelatedNotes', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    setIndexingConsent('guest', 'granted');
 
     vi.mocked(getLocalDb).mockResolvedValue({
       getAll: vi.fn().mockImplementation(async (store: string) => {

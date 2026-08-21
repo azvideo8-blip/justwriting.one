@@ -6,6 +6,7 @@ import { DocumentPickerModal } from '../components/DocumentPickerModal';
 import { CreatePersonaModal } from '../components/CreatePersonaModal';
 import { PersonaDetailModal } from '../components/PersonaDetailModal';
 import { MemoryManagerModal } from '../components/MemoryManagerModal';
+import { IndexingConsentModal } from '../components/IndexingConsentModal';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { DocumentPreview } from '../../archive/components/DocumentPreview';
 import type { ArchiveSession } from '../../archive/types';
@@ -65,6 +66,7 @@ export function AIPage() {
     loadCustomPersonas,
     handleSendMessage, handleNewDialogue, handleArchive, handleUnarchive, handleDelete, handleExport,
     handleDocSelect, handleCopyMessage, handleDeleteMessage, handleFileUpload, triggerForcedSearch,
+    indexingModalOpen, handleGrantIndexingConsent, handleRefuseIndexingConsent,
     handleSetResponseLength, handleSetReasoning, handleRenameDialogue,
     responseLength,
     reasoning,
@@ -1042,6 +1044,11 @@ export function AIPage() {
       <CreatePersonaModal isOpen={createPersonaOpen} onClose={() => setCreatePersonaOpen(false)} onCreated={() => void loadCustomPersonas()} />
       <PersonaDetailModal persona={detailPersona} onClose={() => setDetailPersona(null)} onChanged={() => void loadCustomPersonas()} />
       {memoryOpen && <MemoryManagerModal onClose={() => setMemoryOpen(false)} />}
+      <IndexingConsentModal
+        isOpen={indexingModalOpen}
+        onConsent={() => void handleGrantIndexingConsent()}
+        onRefuse={() => void handleRefuseIndexingConsent()}
+      />
 
       {previewSession && <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPreviewSession(null)} />}
       <AnimatePresence>

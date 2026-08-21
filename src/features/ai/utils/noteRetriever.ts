@@ -6,6 +6,8 @@ import { topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import MiniSearch from 'minisearch';
 import { reportError } from '../../../shared/errors/reportError';
 import { setAIStage } from '../store/useAIStageStore';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 export interface RetrievedNote {
   documentId: string;
@@ -160,6 +162,27 @@ export async function searchNotes(
   maxResults = 5,
   opts?: SearchNotesOptions,
 ): Promise<RetrievedNote[]> {
+  const uid = getCurrentUser()?.uid;
+  if (!opts?.queryVector && !hasIndexingConsent(uid)) {
+    let keywordMatches = await keywordSearch(query, maxResults);
+    const db = await getLocalDb();
+    if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {
+      const allowed = new Set<string>();
+      const docs = await db.getAll('documents');
+      for (const doc of docs) {
+        if (doc.excludedFromAI) continue;
+        const ts = doc.lastSessionAt;
+        if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
+          allowed.add(doc.id);
+        }
+      }
+      keywordMatches = keywordMatches.filter(m => allowed.has(m.id));
+    }
+    const scoreMap = new Map(keywordMatches.map((m, i) => [m.id, 1 - (i / (keywordMatches.length || 1))]));
+    opts?.onRerankMeta?.({ bypassed: true, bypassReason: 'indexing_consent_refused' });
+    return loadNotes(keywordMatches.map(m => m.id), scoreMap);
+  }
+
   let queryVec = opts?.queryVector;
   if (!queryVec) {
     const embedResult = await AIService.embed({ content: query });
@@ -436,6 +459,14 @@ export async function searchNotesMulti(
 
     if (queries.length === 1) {
       const results = await searchNotes(queries[0]!, maxResults, opts);
+      putCache(cacheKey, results);
+      return { notes: results, failed: false };
+    }
+
+    const uid = getCurrentUser()?.uid;
+    if (!opts?.queryVector && !hasIndexingConsent(uid)) {
+      const combinedQuery = queries.join(' ');
+      const results = await searchNotes(combinedQuery, maxResults, opts);
       putCache(cacheKey, results);
       return { notes: results, failed: false };
     }

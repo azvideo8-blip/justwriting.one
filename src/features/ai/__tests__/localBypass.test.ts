@@ -2,6 +2,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { searchNotesMulti } from '../utils/noteRetriever';
+import { setIndexingConsent } from '../../../core/ai/indexingConsent';
 
 vi.mock('../services/AIService', () => ({
   AIService: {
@@ -17,6 +18,7 @@ vi.mock('../services/AIService', () => ({
 
 describe('local bypass pre-pass (T-3)', () => {
   beforeEach(async () => {
+    setIndexingConsent('guest', 'granted');
     const db = await getLocalDb();
     await db.clear('documents');
     await db.clear('aiEmbeddings');

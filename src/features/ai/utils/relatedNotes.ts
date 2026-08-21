@@ -4,6 +4,8 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { cosineSimilarity } from './vectorSearch';
 import { RESURFACE_FLOOR } from './noteRetriever';
 import { reportError } from '../../../shared/errors/reportError';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 export interface RelatedNote {
   documentId: string;
@@ -45,6 +47,10 @@ export async function findRelatedNotes(
       queryVec = acc;
     }
   } else if (seed.text) {
+    const uid = getCurrentUser()?.uid;
+    if (!hasIndexingConsent(uid)) {
+      return [];
+    }
     const embedResult = await AIService.embed({ content: seed.text });
     if (!embedResult.ok || !embedResult.vectors?.length) {
       if (!embedResult.ok) {
