@@ -2,6 +2,19 @@ import 'fake-indexeddb/auto';
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+if (!process.env.VITE_SUPABASE_URL) {
+  process.env.VITE_SUPABASE_URL = 'https://mock.supabase.co';
+}
+if (!process.env.VITE_SUPABASE_ANON_KEY) {
+  process.env.VITE_SUPABASE_ANON_KEY = 'mock-anon-key';
+}
+if (!import.meta.env.VITE_SUPABASE_URL) {
+  import.meta.env.VITE_SUPABASE_URL = 'https://mock.supabase.co';
+}
+if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  import.meta.env.VITE_SUPABASE_ANON_KEY = 'mock-anon-key';
+}
+
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
