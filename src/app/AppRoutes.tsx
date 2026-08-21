@@ -11,6 +11,7 @@ const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePa
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const AIPage = React.lazy(() => import('../features/ai/pages/AIPage').then(m => ({ default: m.AIPage })));
 const DiagnosticsPage = React.lazy(() => import('../features/ai/pages/DiagnosticsPage').then(m => ({ default: m.DiagnosticsPage })));
+const RerankBenchPage = React.lazy(() => import('../features/ai/pages/RerankBenchPage').then(m => ({ default: m.RerankBenchPage })));
 const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const ChangelogPage = React.lazy(() => import('../features/navigation/pages/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 const LandingPage = React.lazy(() => import('../features/navigation/pages/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -44,6 +45,7 @@ export function AppRoutes() {
         <Route path="/archive" element={<ErrorBoundary><ArchivePage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/profile" element={<ErrorBoundary><ProfilePage user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/ai" element={<ProtectedRoute><ErrorBoundary><AIPage /></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/rerank-bench" element={<ProtectedRoute requireAdmin><ErrorBoundary><RerankBenchPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/diagnostics" element={<ProtectedRoute requireAdmin><ErrorBoundary><DiagnosticsPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/admin" element={<Navigate to="/diagnostics" replace />} />
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
