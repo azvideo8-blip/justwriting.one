@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.12 — 2026-08-21
+
+- **[RU]** Приложение снова открывается. Сборка, выложенная автоматикой, не получила настроек подключения к базе — они вшиваются в момент сборки, а на сервере сборки их не было. Сайт при этом отвечал исправно, и снаружи всё выглядело рабочим.
+- **[EN]** The app opens again. The build produced by the deployment automation had no database connection settings — they are baked in at build time, and the build machine did not have them. The site itself answered normally, so from the outside everything looked fine.
+
 ## 0.8.11 — 2026-08-20
 
 - **[RU]** Метки снова читаются. После того как их имена стали шифроваться, один из трёх путей чтения профиля отдавал их как есть — и вместо «Практика6» в списке стояла строка шифротекста. Хуже: правка списка в таком виде шифровала эти строки повторно.

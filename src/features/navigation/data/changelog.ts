@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.12',
+    date: '2026-08-21',
+    items: [
+      { category: 'fix', ru: 'Приложение снова открывается. Сборка, выложенная автоматикой, не получила настроек подключения к базе — они вшиваются в момент сборки, а на сервере сборки их не было. Сайт при этом отвечал исправно, и снаружи всё выглядело рабочим', en: 'The app opens again. The build produced by the deployment automation had no database connection settings — they are baked in at build time, and the build machine did not have them. The site itself answered normally, so from the outside everything looked fine' },
+    ],
+  },
+  {
     version: '0.8.11',
     date: '2026-08-20',
     items: [
