@@ -74,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
       const _mailtoLink = this.state.error ? buildMailto(this.state.error, code) : '#';
       const t = (key: string) => translations[key as keyof typeof translations]?.[lang] ?? key;
       return (
-        <div key={this.state.errorKey} className="min-h-screen flex items-center justify-center bg-surface-base p-6">
+        <div key={this.state.errorKey} data-testid="error-boundary" className="min-h-screen flex items-center justify-center bg-surface-base p-6">
           <div className="max-w-md w-full bg-surface-card p-8 rounded-3xl border border-border-subtle shadow-xl text-center space-y-6">
             <div className="w-16 h-16 bg-accent-danger/10 text-accent-danger rounded-full flex items-center justify-center mx-auto">
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>

@@ -4,6 +4,7 @@ import {BrowserRouter} from 'react-router-dom';
 import * as Sentry from "@sentry/react";
 import { z } from 'zod';
 import { reportError } from './shared/errors/reportError';
+import { APP_VERSION } from './version';
 import App from './App.tsx';
 import './core/analytics/analytics';
 import { initWebVitals } from './core/analytics/webVitals';
@@ -13,6 +14,9 @@ import './index.css';
 // (script-src without unsafe-eval) blocks and reports as a violation.
 // jitless keeps the interpreted parser and avoids the eval entirely.
 z.config({ jitless: true });
+
+document.documentElement.dataset.appVersion = APP_VERSION;
+(window as unknown as { __APP_VERSION__: string }).__APP_VERSION__ = APP_VERSION;
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 if (sentryDsn && sentryDsn.startsWith('https://')) {

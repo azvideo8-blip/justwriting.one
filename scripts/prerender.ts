@@ -145,27 +145,6 @@ function createStaticServer(rootDir: string, spaHtml: string) {
   });
 }
 
-function buildPage(meta: PageMeta, indexHtml: string): string {
-  const title = meta.titleRu;
-  const description = meta.descriptionRu;
-  const url = `https://justwriting.one${meta.path}`;
-  const ogImage = 'https://justwriting.one/og-image.svg';
-
-  let html = indexHtml;
-
-  html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
-  html = html.replace(/<meta name="description" content="[^"]*"/, `<meta name="description" content="${description}"`);
-  html = html.replace(/<link rel="canonical" href="[^"]*"/, `<link rel="canonical" href="${url}"`);
-  html = html.replace(/<meta property="og:title" content="[^"]*"/, `<meta property="og:title" content="${title}"`);
-  html = html.replace(/<meta property="og:description" content="[^"]*"/, `<meta property="og:description" content="${description}"`);
-  html = html.replace(/<meta property="og:url" content="[^"]*"/, `<meta property="og:url" content="${url}"`);
-  html = html.replace(/<meta property="og:image" content="[^"]*"/, `<meta property="og:image" content="${ogImage}"`);
-  html = html.replace(/<meta name="twitter:title" content="[^"]*"/, `<meta name="twitter:title" content="${title}"`);
-  html = html.replace(/<meta name="twitter:description" content="[^"]*"/, `<meta name="twitter:description" content="${description}"`);
-  html = html.replace(/<meta name="twitter:image" content="[^"]*"/, `<meta name="twitter:image" content="${ogImage}"`);
-
-  return html;
-}
 
 function writePage(page: PageMeta, html: string): void {
   if (page.path === '/') {
@@ -229,10 +208,6 @@ async function prerenderWithPlaywright(originalHtml: string, spaHtml: string): P
         const html = await p.content();
         writePage(page, html);
         console.log(`  prerender: ${page.path} (Playwright)`);
-      } catch (err) {
-        const html = buildPage(page, originalHtml);
-        writePage(page, html);
-        console.log(`  prerender: ${page.path} (fallback: ${String(err)})`);
       } finally {
         if (p) await p.close().catch(() => {});
       }
@@ -247,18 +222,11 @@ async function main(): Promise<void> {
   const originalHtml = readFileSync(resolve(DIST, 'index.html'), 'utf-8');
   const spaHtml = stripStaticSeoTags(originalHtml);
 
-  try {
-    await prerenderWithPlaywright(originalHtml, spaHtml);
-  } catch (err) {
-    console.error(`Playwright prerender failed, falling back to meta-only: ${String(err)}`);
-    for (const page of pages) {
-      const html = buildPage(page, originalHtml);
-      writePage(page, html);
-      console.log(`  prerender: ${page.path} (meta-only)`);
-    }
-  }
-
+  await prerenderWithPlaywright(originalHtml, spaHtml);
   console.log('Prerender done.');
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error('Prerender failed:', err);
+  process.exit(1);
+});

@@ -30,6 +30,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Браузер для предрендера и проверки
+        run: npx playwright install --with-deps chromium
+
       # Проверки до выкатки, а не после. Красный тест не должен доезжать до
       # сервера — это единственное, ради чего вообще стоит городить автоматику
       # вместо двух команд руками.
@@ -86,7 +89,14 @@ jobs:
           # куски своего бандла. Удаление ломает приложение у того, кто в этот
           # момент пишет. Имена кусков содержат хэш, поэтому старые и новые не
           # мешают друг другу; лишнее подчищается по возрасту.
+          # Перед копированием сохраняем index.html и sw.js для полного отката.
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            if [ -f /var/www/justwriting/index.html ]; then
+              sudo cp /var/www/justwriting/index.html /var/www/justwriting/index.html.prev;
+            fi &&
+            if [ -f /var/www/justwriting/sw.js ]; then
+              sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev;
+            fi &&
             sudo rsync -a /tmp/dist-new/ /var/www/justwriting/ &&
             sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || true;
             sudo chown -R www-data:www-data /var/www/justwriting;
@@ -140,23 +150,32 @@ jobs:
             sudo systemctl restart justwriting && sleep 5 &&
             systemctl is-active --quiet justwriting'
 
-      # Служба может не подняться из-за отсутствующей зависимости — это уже
-      # случалось. Тогда возвращаем предыдущий бандл сами, а не оставляем
-      # сервис лежать до утра.
-      - name: Откат службы, если не поднялась
+      - name: Проверка после выкатки
+        run: npx tsx scripts/post-deploy-smoke.ts https://justwriting.ru/
+
+      # Если служба не поднялась или проверка после выкатки упала — возвращаем
+      # предыдущий бандл службы, а не оставляем сервис лежать.
+      - name: Откат службы при сбое
         if: failure() && inputs.what != 'client'
         run: |
           ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             if [ -f /opt/justwriting/api/server.mjs.prev ]; then
               sudo cp /opt/justwriting/api/server.mjs.prev /opt/justwriting/api/server.mjs &&
-              sudo systemctl restart justwriting && echo "откат выполнен"
+              sudo systemctl restart justwriting && echo "откат службы выполнен"
             fi'
 
-      - name: Проверка после выкатки
+      # Если проверка после выкатки клиента упала — возвращаем index.html и sw.js.
+      # Старые бандлы в assets сохранены благодаря ротации по возрасту, поэтому
+      # откат index.html и sw.js мгновенно возвращает работоспособную версию для людей.
+      - name: Откат клиента при сбое
+        if: failure() && inputs.what != 'api'
         run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://justwriting.ru/)
-          [ "$code" = "200" ] || { echo "сайт отвечает $code"; exit 1; }
-          auth=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
-            https://justwriting.ru/api/chatWithAI -H 'Content-Type: application/json' -d '{"data":{}}')
-          [ "$auth" = "401" ] || { echo "ИИ без токена отвечает $auth вместо 401"; exit 1; }
-          echo "сайт 200, ИИ без токена 401 — выкатка принята"
+          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            if [ -f /var/www/justwriting/index.html.prev ]; then
+              sudo cp /var/www/justwriting/index.html.prev /var/www/justwriting/index.html;
+            fi &&
+            if [ -f /var/www/justwriting/sw.js.prev ]; then
+              sudo cp /var/www/justwriting/sw.js.prev /var/www/justwriting/sw.js;
+            fi &&
+            sudo chown www-data:www-data /var/www/justwriting/index.html /var/www/justwriting/sw.js 2>/dev/null || true;
+            echo "откат клиента выполнен: восстановлены index.html.prev и sw.js.prev"'
