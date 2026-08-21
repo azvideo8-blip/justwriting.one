@@ -154,7 +154,7 @@ export interface SearchNotesOptions {
   minTime?: number | undefined;
   maxTime?: number | undefined;
   skipRerank?: boolean | undefined;
-  onRerankMeta?: ((meta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number; cardCount?: number }) => void) | undefined;
+  onRerankMeta?: ((meta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number; cardCount?: number; rerankFailed?: boolean }) => void) | undefined;
 }
 
 export async function searchNotes(
@@ -345,9 +345,19 @@ export async function searchNotes(
     maxResults,
   });
   const rerankLatencyMs = Math.round(performance.now() - rerankStart);
-  opts?.onRerankMeta?.({ bypassed: false, rerankLatencyMs, cardCount: cards.length });
+  // Неудачный реранк подменяется порядком RRF — и это правильно для человека,
+  // ищущего заметку, но снаружи неотличимо от удачного. При исчерпанной дневной
+  // квоте поиск молча перестаёт переупорядочивать, а замер 21 августа записал
+  // такие запросы как «реранк отработал, разницы нет».
+  const rerankOk = rr.ok && rr.documentIds.length > 0;
+  opts?.onRerankMeta?.({
+    bypassed: false,
+    rerankLatencyMs,
+    cardCount: cards.length,
+    rerankFailed: !rerankOk,
+  });
 
-  const ids = rr.ok && rr.documentIds.length > 0 ? rr.documentIds.slice(0, maxResults) : fallbackIds;
+  const ids = rerankOk ? rr.documentIds.slice(0, maxResults) : fallbackIds;
   const finalIds = ids.filter(id => filteredTopIds.includes(id));
 
   return loadNotes(finalIds, scoreMap, chunkIndexMap);

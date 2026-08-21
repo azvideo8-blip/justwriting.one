@@ -32,6 +32,7 @@ interface QueryBenchResult {
   isIdentical: boolean;
   bypassed: boolean;
   bypassReason?: string | undefined;
+  rerankFailed?: boolean | undefined;
   rerankLatencyMs?: number | undefined;
   // Blind presentation
   option1IsRerank: boolean;
@@ -83,7 +84,7 @@ export function RerankBenchmarkTool() {
 
         const rrfNotes = await searchNotes(query, 5, { skipRerank: true });
 
-        let rerankMeta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number } = { bypassed: false };
+        let rerankMeta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number; rerankFailed?: boolean } = { bypassed: false };
         const rerankNotes = await searchNotes(query, 5, {
           skipRerank: false,
           onRerankMeta: m => { rerankMeta = m; },
@@ -103,6 +104,7 @@ export function RerankBenchmarkTool() {
           isIdentical,
           bypassed: rerankMeta.bypassed,
           bypassReason: rerankMeta.bypassReason,
+          rerankFailed: rerankMeta.rerankFailed,
           rerankLatencyMs: rerankMeta.rerankLatencyMs,
           option1IsRerank,
           option1Notes: option1IsRerank ? rerankNotes : rrfNotes,
@@ -166,6 +168,11 @@ export function RerankBenchmarkTool() {
     const reason = r.bypassReason ?? 'без причины';
     bypassReasonCounts.set(reason, (bypassReasonCounts.get(reason) ?? 0) + 1);
   });
+  // Неудачный вызов реранка возвращает тот же порядок RRF, что и путь А.
+  // Такие запросы нельзя считать «совпало»: сравнивать было нечего. Чаще всего
+  // причина — исчерпанная дневная квота (bulk, 50 вызовов), и без этой строки
+  // замер выглядит доказательством того, что реранк ничего не меняет.
+  const failedRerankCount = (benchResults ?? []).filter(r => r.rerankFailed).length;
   const bypassReasonSummary = bypassReasonCounts.size === 0
     ? '—'
     : [...bypassReasonCounts.entries()].map(([k, v]) => `${k}: ${v}`).join(', ');
@@ -180,6 +187,7 @@ export function RerankBenchmarkTool() {
       `| Оценено владельцем | ${reviewed} из ${total} |`,
       `| Срабатывание байпаса (без вызова облака) | ${bypassedCount} из ${total} (${bypassPct}%) |`,
       `| Причины байпаса | ${bypassReasonSummary} |`,
+      `| Вызов реранка не удался (сравнивать было нечего) | ${failedRerankCount} |`,
       `| Выигрыш облачного реранкера (Rerank > RRF) | ${rerankWins} |`,
       `| Выигрыш локального RRF (RRF > Rerank) | ${rrfWins} |`,
       `| Одинаковое качество / совпадение списков | ${sames} |`,
