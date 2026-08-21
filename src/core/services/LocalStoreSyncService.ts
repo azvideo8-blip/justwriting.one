@@ -27,18 +27,60 @@ export const SUPPORTED_LOCAL_STORES = [
 export type SupportedLocalStoreName = typeof SUPPORTED_LOCAL_STORES[number];
 
 /**
- * SYNC-2: Per-record size limit before encryption.
- * Set to 2 MB (2 * 1024 * 1024 bytes) of plaintext.
- *
- * AES-GCM + Base64 expansion adds ~33% (12-byte IV + 16-byte auth tag + 4/3 base64 overhead),
- * resulting in ~2.67-2.7 MB payload sent to the backend.
- *
- * Stack verification: tested a 2.9 MB payload through the entire chain
- * nginx -> Kong -> PostgREST -> Postgres. The payload passed all intermediate network/gateway
- * layers without size rejection (failing only with PostgREST/Postgres RLS 42501), confirming
- * that no gateway or upstream link imposes a limit below nginx's client_max_body_size of 10m.
+ * SYNC-4: Size threshold for single-row vs paged sync.
+ * Records <= 500 KB plaintext travel as a single row.
+ * Records > 500 KB plaintext are split into pages of <= 500 KB each.
  */
-export const MAX_LOCAL_RECORD_BYTES = 2 * 1024 * 1024;
+export const PAGE_SPLIT_THRESHOLD_BYTES = 500 * 1024; // 500 KB
+
+/**
+ * SYNC-4: Maximum total size across all pages for a single local store record.
+ * Set to 10 MB (10 * 1024 * 1024 bytes) of plaintext.
+ */
+export const MAX_LOCAL_RECORD_BYTES = 10 * 1024 * 1024;
+
+export function splitStringIntoChunks(str: string, maxBytesPerChunk = PAGE_SPLIT_THRESHOLD_BYTES): string[] {
+  const encoder = new TextEncoder();
+  const totalBytes = encoder.encode(str).length;
+  if (totalBytes <= maxBytesPerChunk) {
+    return [str];
+  }
+
+  const chunks: string[] = [];
+  const ratio = str.length / totalBytes;
+  let startChar = 0;
+
+  while (startChar < str.length) {
+    let endChar = Math.min(str.length, startChar + Math.floor(maxBytesPerChunk * ratio));
+    if (endChar <= startChar) endChar = startChar + 1;
+
+    let chunk = str.slice(startChar, endChar);
+    let chunkBytes = encoder.encode(chunk).length;
+
+    if (chunkBytes > maxBytesPerChunk) {
+      while (chunkBytes > maxBytesPerChunk && endChar > startChar + 1) {
+        endChar--;
+        chunk = str.slice(startChar, endChar);
+        chunkBytes = encoder.encode(chunk).length;
+      }
+    } else {
+      while (endChar < str.length) {
+        const nextChar = endChar + 1;
+        const testChunk = str.slice(startChar, nextChar);
+        if (encoder.encode(testChunk).length > maxBytesPerChunk) {
+          break;
+        }
+        endChar = nextChar;
+        chunk = testChunk;
+      }
+    }
+
+    chunks.push(chunk);
+    startChar = endChar;
+  }
+
+  return chunks;
+}
 
 const OVERSIZED_LS_KEY = 'ai_sync_oversized_records';
 const DEBOUNCE_DELAY_MS = 1500;
@@ -215,7 +257,7 @@ class LocalStoreSyncManager {
           result.skippedOversized++;
           logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
           useActivityLogStore.getState().addActivity(
-            `Запись ${item.store}/${item.key} (${Math.round(recordBytes / 1024)} КБ) превышает лимит размера 2 МБ и остаётся только на устройстве`,
+            `Запись ${item.store}/${item.key} (${Math.round(recordBytes / 1024)} КБ) превышает лимит размера 10 МБ и остаётся только на устройстве`,
             { action: 'localStoreSync_oversized', store: item.store, key: item.key, bytes: recordBytes },
             'warning',
             'sync'
@@ -227,23 +269,57 @@ class LocalStoreSyncManager {
 
         const recordTs = extractRecordTimestamp(rawRecord) ?? Date.now();
 
-        // Encrypt record data with vault key
-        const encrypted = await maybeEncrypt(
-          {
-            data: jsonString,
-            updatedAt: recordTs,
-          },
-          ['data'],
-          [],
-          uid,
-        );
+        if (recordBytes <= PAGE_SPLIT_THRESHOLD_BYTES) {
+          // Single-row record upload
+          const encrypted = await maybeEncrypt(
+            {
+              data: jsonString,
+              updatedAt: recordTs,
+            },
+            ['data'],
+            [],
+            uid,
+          );
 
-        await DataProvider.saveLocalStoreRecord(
-          uid,
-          item.store,
-          item.key,
-          encrypted,
-        );
+          await DataProvider.saveLocalStoreRecord(
+            uid,
+            item.store,
+            item.key,
+            encrypted,
+          );
+          if (DataProvider.deleteLocalStorePagedRecords) {
+            await DataProvider.deleteLocalStorePagedRecords(uid, item.store, item.key);
+          }
+        } else {
+          // SYNC-4: Multi-page split upload
+          const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
+          const totalPages = chunks.length;
+
+          for (let i = 0; i < totalPages; i++) {
+            const pageKey = `${item.key}#${i}`;
+            const encrypted = await maybeEncrypt(
+              {
+                data: chunks[i],
+                updatedAt: recordTs,
+                page: i,
+                totalPages,
+              },
+              ['data'],
+              [],
+              uid,
+            );
+            await DataProvider.saveLocalStoreRecord(
+              uid,
+              item.store,
+              pageKey,
+              encrypted,
+            );
+          }
+          // Clean up stale unpaged record row if previously stored unpaged
+          if (DataProvider.deleteLocalStoreExactRecord) {
+            await DataProvider.deleteLocalStoreExactRecord(uid, item.store, item.key);
+          }
+        }
         result.synced++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

@@ -100,38 +100,164 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
   // --- Restore local_store_records (13 AI stores) ---
   try {
     const cloudRecords = await DataProvider.getLocalStoreRecords(userId);
+
+    // Group cloud records by (store, baseKey)
+    interface CloudGroupItem {
+      fullKey: string;
+      pageIndex: number | null; // null if not paged
+      payload: Record<string, unknown>;
+    }
+    const grouped = new Map<string, { store: string; baseKey: string; items: CloudGroupItem[] }>();
+
     for (const rec of cloudRecords) {
       if (!SUPPORTED_LOCAL_STORES.includes(rec.store as SupportedLocalStoreName)) continue;
       if (!(db.objectStoreNames as unknown as { contains(s: string): boolean }).contains(rec.store)) continue;
 
-      try {
-        // Decrypt payload
-        const decryptedPayload = await maybeDecrypt(rec.payload as Record<string, unknown>, ['data'], []);
-        if (typeof decryptedPayload.data !== 'string') continue;
+      const hashIdx = rec.key.lastIndexOf('#');
+      let baseKey = rec.key;
+      let pageIndex: number | null = null;
+      if (hashIdx !== -1) {
+        const suffix = rec.key.slice(hashIdx + 1);
+        if (/^\d+$/.test(suffix)) {
+          baseKey = rec.key.slice(0, hashIdx);
+          pageIndex = parseInt(suffix, 10);
+        }
+      }
 
-        const parsedData = JSON.parse(decryptedPayload.data);
-        const cloudTs = extractRecordTimestamp(parsedData) ?? (typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null);
+      const groupKey = `${rec.store}:${baseKey}`;
+      let grp = grouped.get(groupKey);
+      if (!grp) {
+        grp = { store: rec.store, baseKey, items: [] };
+        grouped.set(groupKey, grp);
+      }
+      grp.items.push({
+        fullKey: rec.key,
+        pageIndex,
+        payload: rec.payload as Record<string, unknown>,
+      });
+    }
+
+    for (const { store, baseKey, items } of grouped.values()) {
+      try {
+        let fullJson: string;
+        let cloudTs: number | null = null;
+
+        const isPaged = items.some(it => it.pageIndex !== null);
+
+        if (!isPaged) {
+          // Single unpaged record
+          const item = items[0];
+          if (!item) continue;
+          const decryptedPayload = await maybeDecrypt(item.payload, ['data'], []);
+          if (typeof decryptedPayload.data !== 'string') continue;
+          fullJson = decryptedPayload.data;
+          cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
+        } else {
+          // SYNC-4: Multi-page reassembly
+          // Filter to only paged items
+          const pagedItems = items.filter(it => it.pageIndex !== null);
+          const firstPayload = pagedItems[0]?.payload;
+          if (!firstPayload) continue;
+          const expectedTotalPages = typeof firstPayload.totalPages === 'number' ? firstPayload.totalPages : null;
+          const expectedUpdatedAt = typeof firstPayload.updatedAt === 'number' ? firstPayload.updatedAt : null;
+
+          if (expectedTotalPages === null || expectedTotalPages <= 0 || pagedItems.length !== expectedTotalPages) {
+            logger.warn('AIRestoreService', `Incomplete page count for ${store}/${baseKey}: found ${pagedItems.length}, expected ${expectedTotalPages}. Refusing incomplete set.`);
+            result.failed++;
+            continue; // Keep local copy intact!
+          }
+
+          // Check that all pages 0..totalPages-1 are present with matching updatedAt and totalPages
+          const pagesByIndex = new Map<number, CloudGroupItem>();
+          let hasIntegrityError = false;
+
+          for (const it of pagedItems) {
+            const pIndex = it.pageIndex!;
+            const pTotal = it.payload.totalPages;
+            const pTs = it.payload.updatedAt;
+
+            if (pTotal !== expectedTotalPages || pTs !== expectedUpdatedAt) {
+              logger.warn('AIRestoreService', `Mixed version stamps in pages for ${store}/${baseKey}. Refusing.`);
+              hasIntegrityError = true;
+              break;
+            }
+            if (pagesByIndex.has(pIndex)) {
+              logger.warn('AIRestoreService', `Duplicate page index ${pIndex} for ${store}/${baseKey}. Refusing.`);
+              hasIntegrityError = true;
+              break;
+            }
+            pagesByIndex.set(pIndex, it);
+          }
+
+          if (hasIntegrityError) {
+            result.failed++;
+            continue;
+          }
+
+          const sortedPages: CloudGroupItem[] = [];
+          for (let i = 0; i < expectedTotalPages; i++) {
+            const pageItem = pagesByIndex.get(i);
+            if (!pageItem) {
+              logger.warn('AIRestoreService', `Missing page ${i} for ${store}/${baseKey}. Refusing.`);
+              hasIntegrityError = true;
+              break;
+            }
+            sortedPages.push(pageItem);
+          }
+
+          if (hasIntegrityError) {
+            result.failed++;
+            continue;
+          }
+
+          // Decrypt and join chunks
+          const decryptedChunks: string[] = [];
+          let decryptFailed = false;
+
+          for (const pageItem of sortedPages) {
+            const dec = await maybeDecrypt(pageItem.payload, ['data'], []);
+            if (typeof dec.data !== 'string') {
+              decryptFailed = true;
+              break;
+            }
+            decryptedChunks.push(dec.data);
+          }
+
+          if (decryptFailed) {
+            result.failed++;
+            continue;
+          }
+
+          fullJson = decryptedChunks.join('');
+          cloudTs = expectedUpdatedAt;
+        }
+
+        const parsedData = JSON.parse(fullJson);
+        const dataTs = extractRecordTimestamp(parsedData);
+        if (dataTs !== null) {
+          cloudTs = dataTs;
+        }
 
         // Get local record if exists
-        const localRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(rec.store, rec.key);
+        const localRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, baseKey);
 
         if (localRecord !== undefined) {
           const localTs = extractRecordTimestamp(localRecord);
           // Conflict rule:
           // If both timestamps exist and cloudTs > localTs: cloud wins.
-          // Otherwise (localTs >= cloudTs OR either timestamp is missing/null): LOCAL WINS, never overwrite!
+          // Otherwise: LOCAL WINS, never overwrite!
           if (localTs !== null && cloudTs !== null && cloudTs > localTs) {
-            await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(rec.store, parsedData);
+            await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
             result.localStoreRecords++;
           }
         } else {
           // No local record -> put cloud record
-          await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(rec.store, parsedData);
+          await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
           result.localStoreRecords++;
         }
       } catch (err) {
         result.failed++;
-        reportError(err, { action: 'restoreAIData_local_store_record', store: rec.store, key: rec.key });
+        reportError(err, { action: 'restoreAIData_local_store_record', store, key: baseKey });
       }
     }
   } catch (e) {

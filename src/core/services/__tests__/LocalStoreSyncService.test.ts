@@ -162,9 +162,9 @@ describe('LocalStoreSyncService', () => {
     expect(mockSaveRecord).toHaveBeenCalledTimes(1);
   });
 
-  it('syncs record between 500KB and 2MB successfully (SYNC-2)', async () => {
+  it('syncs record between 500KB and 2MB successfully as paged rows (SYNC-4)', async () => {
     const db = await getLocalDb();
-    // 800 KB payload — would have failed on previous 500 KB cap
+    // 800 KB payload — splits into 2 pages under 500 KB cap
     const largeText = 'x'.repeat(800 * 1024);
     await db.put('aiDialogues', {
       id: 'dialogue_800kb',
@@ -185,13 +185,13 @@ describe('LocalStoreSyncService', () => {
     expect(mockSaveRecord).toHaveBeenCalledWith(
       'test_user_123',
       'aiDialogues',
-      'dialogue_800kb',
+      expect.stringMatching(/^dialogue_800kb(#\d+)?$/),
       expect.anything(),
     );
     expect(getOversizedRecordCount()).toBe(0);
   });
 
-  it('skips oversized records (>2MB) and tracks them in sync status', async () => {
+  it('skips oversized records (>10MB) and tracks them in sync status', async () => {
     const db = await getLocalDb();
     const hugeText = 'x'.repeat(MAX_LOCAL_RECORD_BYTES + 1024);
     await db.put('aiDialogues', {
@@ -214,9 +214,9 @@ describe('LocalStoreSyncService', () => {
     expect(getOversizedRecordCount()).toBe(1);
   });
 
-  it('conditionally retries records <= 2MB previously marked oversized and cleans up localStorage on success, while ignoring records > 2MB', async () => {
+  it('conditionally retries records <= 10MB previously marked oversized and cleans up localStorage on success, while ignoring records > 10MB', async () => {
     const db = await getLocalDb();
-    // Seed record that was 600 KB (oversized under old 500KB cap, fits in new 2MB cap)
+    // Seed record that was 600 KB (oversized under old 500KB cap, now supported via paging)
     await db.put('aiDialogues', {
       id: 'old_oversized_dialogue',
       title: 'Old Oversized',
@@ -228,12 +228,12 @@ describe('LocalStoreSyncService', () => {
       personaEmoji: '🤖',
     });
 
-    // Seed localStorage with one record that now fits (600 KB) and one that is still huge (3 MB)
+    // Seed localStorage with one record that now fits (600 KB) and one that is still huge (12 MB)
     localStorage.setItem(
       'ai_sync_oversized_records',
       JSON.stringify([
         { store: 'aiDialogues', key: 'old_oversized_dialogue', bytes: 600 * 1024, timestamp: Date.now() - 1000 },
-        { store: 'aiDialogues', key: 'still_too_huge_dialogue', bytes: 3 * 1024 * 1024, timestamp: Date.now() - 1000 },
+        { store: 'aiDialogues', key: 'still_too_huge_dialogue', bytes: 12 * 1024 * 1024, timestamp: Date.now() - 1000 },
       ])
     );
 
@@ -244,11 +244,11 @@ describe('LocalStoreSyncService', () => {
     expect(mockSaveRecord).toHaveBeenCalledWith(
       'test_user_123',
       'aiDialogues',
-      'old_oversized_dialogue',
+      expect.stringMatching(/^old_oversized_dialogue(#\d+)?$/),
       expect.anything(),
     );
 
-    // The 600 KB record should be removed from oversized list, but the 3 MB record remains
+    // The 600 KB record should be removed from oversized list, but the 12 MB record remains
     expect(getOversizedRecordCount()).toBe(1);
   });
 

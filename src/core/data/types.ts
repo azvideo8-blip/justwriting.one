@@ -77,6 +77,8 @@ export interface IDataProvider {
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
   getLocalStoreRecords(userId: string, store?: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
+  deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
+  deleteLocalStorePagedRecords?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
 
   // --- Migration ---

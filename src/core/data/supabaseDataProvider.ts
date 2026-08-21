@@ -778,12 +778,40 @@ export const SupabaseDataProvider: IDataProvider = {
   },
 
   async deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void> {
+    const { error: err1 } = await getSupabase()
+      .from('local_store_records')
+      .delete()
+      .eq('user_id', userId)
+      .eq('store', store)
+      .eq('key', key);
+    if (err1 != null) throw err1;
+
+    const { error: err2 } = await getSupabase()
+      .from('local_store_records')
+      .delete()
+      .eq('user_id', userId)
+      .eq('store', store)
+      .like('key', `${key}#%`);
+    if (err2 != null) throw err2;
+  },
+
+  async deleteLocalStoreExactRecord(userId: string, store: string, key: string): Promise<void> {
     const { error } = await getSupabase()
       .from('local_store_records')
       .delete()
       .eq('user_id', userId)
       .eq('store', store)
       .eq('key', key);
+    if (error != null) throw error;
+  },
+
+  async deleteLocalStorePagedRecords(userId: string, store: string, key: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('local_store_records')
+      .delete()
+      .eq('user_id', userId)
+      .eq('store', store)
+      .like('key', `${key}#%`);
     if (error != null) throw error;
   },
 
