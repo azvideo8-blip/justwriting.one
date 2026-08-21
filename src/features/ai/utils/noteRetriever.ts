@@ -146,7 +146,20 @@ async function getExactTitleMatchIds(query: string, ids: string[]): Promise<Set<
 
 type EmbeddingEntry = Awaited<ReturnType<typeof AIEmbeddingService.getAll>>[number];
 
-export async function searchNotes(query: string, maxResults = 5, opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined }): Promise<RetrievedNote[]> {
+export interface SearchNotesOptions {
+  queryVector?: number[] | undefined;
+  allEmbeddings?: EmbeddingEntry[] | undefined;
+  minTime?: number | undefined;
+  maxTime?: number | undefined;
+  skipRerank?: boolean | undefined;
+  onRerankMeta?: ((meta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number; cardCount?: number }) => void) | undefined;
+}
+
+export async function searchNotes(
+  query: string,
+  maxResults = 5,
+  opts?: SearchNotesOptions,
+): Promise<RetrievedNote[]> {
   let queryVec = opts?.queryVector;
   if (!queryVec) {
     const embedResult = await AIService.embed({ content: query });
@@ -251,8 +264,11 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   // better ordered — this is what made a search for a person take seconds.
   const literalIds = await findLiteralMatches(query, filteredTopIds);
 
+  const scoreMap = new Map(fused.map(f => [f.id, f.score]));
+
   if (topScore >= RERANK_THRESHOLD || hasExactTitle || literalIds.size > 0) {
-    const scoreMap = new Map(fused.map(f => [f.id, f.score]));
+    const reason = topScore >= RERANK_THRESHOLD ? 'score_threshold' : (hasExactTitle ? 'exact_title' : 'literal_match');
+    opts?.onRerankMeta?.({ bypassed: true, bypassReason: reason });
     // Once some candidates contain the term verbatim, a candidate that does not
     // and has no real semantic score is noise: it reached the list on a weak
     // fusion rank. Handing it over anyway made the assistant list notes and then
@@ -267,7 +283,13 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   }
 
   if (filteredTopIds.length === 0) {
+    opts?.onRerankMeta?.({ bypassed: true, bypassReason: 'empty_candidates' });
     return [];
+  }
+
+  if (opts?.skipRerank) {
+    opts?.onRerankMeta?.({ bypassed: true, bypassReason: 'skip_option' });
+    return loadNotes(filteredTopIds.slice(0, maxResults), scoreMap, chunkIndexMap);
   }
 
   // Build rerank cards from LOCAL summaries
@@ -293,16 +315,18 @@ export async function searchNotes(query: string, maxResults = 5, opts?: { queryV
   // Rerank via the dedicated rerankNotes endpoint
   const fallbackIds = filteredTopIds.slice(0, maxResults);
   setAIStage('rank');
+  const rerankStart = performance.now();
   const rr = await AIService.rerank({
     query,
     candidates: cards,
     maxResults,
   });
+  const rerankLatencyMs = Math.round(performance.now() - rerankStart);
+  opts?.onRerankMeta?.({ bypassed: false, rerankLatencyMs, cardCount: cards.length });
 
   const ids = rr.ok && rr.documentIds.length > 0 ? rr.documentIds.slice(0, maxResults) : fallbackIds;
   const finalIds = ids.filter(id => filteredTopIds.includes(id));
 
-  const scoreMap = new Map(fused.map(f => [f.id, f.score]));
   return loadNotes(finalIds, scoreMap, chunkIndexMap);
 }
 

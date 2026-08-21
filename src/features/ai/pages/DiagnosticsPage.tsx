@@ -14,6 +14,7 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useDiagnosticsData, type Tab } from '../hooks/useDiagnosticsData';
 import { DatabaseExplorer } from '../components/DatabaseExplorer';
 import { EmbeddingDiagnostics } from '../components/EmbeddingDiagnostics';
+import { RerankBenchmarkTool } from '../components/RerankBenchmarkTool';
 import { ProfileFacets } from '../components/ProfileFacets';
 import { QueueExplorer } from '../components/QueueExplorer';
 import { FacetDiagnostics } from '../components/FacetDiagnostics';
@@ -351,6 +352,7 @@ function RebuildTimelineButton() {
         {/* Tab 2: Database Explorer */}
         {activeTab === 'db' && (
           <div>
+            <RerankBenchmarkTool />
             <EmbeddingDiagnostics />
             <DatabaseExplorer userId={profile.uid} />
           </div>
