@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Loader2, Play, CheckCircle, Scale, Copy, Check } from 'lucide-react';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
+import { getIndexingConsent } from '../../../core/ai/indexingConsent';
+import { getCurrentUser } from '../../../core/auth';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 
@@ -57,6 +59,19 @@ export function RerankBenchmarkTool() {
       return;
     }
 
+    // Без согласия на индексацию searchNotes выходит до векторного поиска и
+    // отдаёт выдачу по словам. Оба пути тогда возвращают одно и то же, обход
+    // считается на всех запросах, задержка выходит нулевой — и сводка выглядит
+    // убедительным доказательством того, что реранк не нужен. На самом деле
+    // сравнивался поиск по словам сам с собой. Так и произошло 21 августа.
+    if (getIndexingConsent(getCurrentUser()?.uid) !== 'granted') {
+      showToast(
+        'Поиск по смыслу выключен: без него сравнивать нечего — оба пути вернут одно и то же. Включите его в настройках и повторите',
+        'error',
+      );
+      return;
+    }
+
     setRunning(true);
     setCurrentIndex(0);
     const results: QueryBenchResult[] = [];
@@ -66,11 +81,7 @@ export function RerankBenchmarkTool() {
         setCurrentIndex(i + 1);
         const query = list[i]!;
 
-        let rrfMeta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number } = { bypassed: true };
-        const rrfNotes = await searchNotes(query, 5, {
-          skipRerank: true,
-          onRerankMeta: m => { rrfMeta = m; },
-        });
+        const rrfNotes = await searchNotes(query, 5, { skipRerank: true });
 
         let rerankMeta: { bypassed: boolean; bypassReason?: string; rerankLatencyMs?: number } = { bypassed: false };
         const rerankNotes = await searchNotes(query, 5, {
@@ -145,6 +156,20 @@ export function RerankBenchmarkTool() {
     }
   });
 
+  // Причины разбиваются поимённо не для полноты: «сработал обход» без причины
+  // одинаково выглядит и когда локального сигнала хватило, и когда поиск по
+  // смыслу был просто выключен. Это разные выводы с противоположными
+  // последствиями.
+  const bypassReasonCounts = new Map<string, number>();
+  (benchResults ?? []).forEach(r => {
+    if (!r.bypassed) return;
+    const reason = r.bypassReason ?? 'без причины';
+    bypassReasonCounts.set(reason, (bypassReasonCounts.get(reason) ?? 0) + 1);
+  });
+  const bypassReasonSummary = bypassReasonCounts.size === 0
+    ? '—'
+    : [...bypassReasonCounts.entries()].map(([k, v]) => `${k}: ${v}`).join(', ');
+
   const generateReportMarkdown = () => {
     return [
       `### Сводные числа замера реранкера (AI-2)`,
@@ -154,6 +179,7 @@ export function RerankBenchmarkTool() {
       `| Всего запросов | ${total} |`,
       `| Оценено владельцем | ${reviewed} из ${total} |`,
       `| Срабатывание байпаса (без вызова облака) | ${bypassedCount} из ${total} (${bypassPct}%) |`,
+      `| Причины байпаса | ${bypassReasonSummary} |`,
       `| Выигрыш облачного реранкера (Rerank > RRF) | ${rerankWins} |`,
       `| Выигрыш локального RRF (RRF > Rerank) | ${rrfWins} |`,
       `| Одинаковое качество / совпадение списков | ${sames} |`,
