@@ -21,7 +21,8 @@ interface ActivityLogState {
     context?: Record<string, unknown>,
     level?: ActivityLevel,
     source?: string
-  ) => void;
+  ) => string;
+  updateEntry: (id: string, patch: Partial<ActivityLogItem>) => void;
   // Legacy alias for compatibility, eventually remove
   addError: (
     error: unknown,
@@ -129,7 +130,7 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
       const nextEntries = [updated, ...current.slice(1)];
       set({ entries: nextEntries });
       saveEntries(nextEntries);
-      return;
+      return first.id;
     }
 
     const newItem: ActivityLogItem = {
@@ -143,6 +144,23 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
     };
 
     const nextEntries = [newItem, ...current].slice(0, MAX_MEMORY_ENTRIES);
+    set({ entries: nextEntries });
+    saveEntries(nextEntries);
+    return newItem.id;
+  },
+
+  updateEntry: (id, patch) => {
+    const current = get().entries;
+    const index = current.findIndex(e => e.id === id);
+    if (index === -1) return;
+    const existing = current[index]!;
+    const updated: ActivityLogItem = {
+      ...existing,
+      ...patch,
+      id: existing.id,
+    };
+    const nextEntries = [...current];
+    nextEntries[index] = updated;
     set({ entries: nextEntries });
     saveEntries(nextEntries);
   },

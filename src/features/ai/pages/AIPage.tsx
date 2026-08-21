@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, PanelLeftClose, PanelLeftOpen, Settings, ChevronDown } from 'lucide-react';
+import { Plus, Archive, Download, Trash2, FileText, Paperclip, File, ArrowRight, Info, Pencil, Sparkles, Square, X, RotateCcw, Brain, PanelLeftClose, PanelLeftOpen, Settings, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DocumentPickerModal } from '../components/DocumentPickerModal';
@@ -751,6 +751,12 @@ export function AIPage() {
                           {msg.reasoning}
                         </div>
                       </details>
+                    )}
+                    {msg.degradedReason === 'daily_limit' && (
+                      <div className="mb-3 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400/90 font-medium flex items-center gap-2 w-fit">
+                        <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                        <span>{t('ai_degraded_daily_limit_chat')}</span>
+                      </div>
                     )}
                     <MarkdownRenderer content={processCitations(msg.content)} onCitationClick={handleCitationClick} />
                   </AssistantTurn>

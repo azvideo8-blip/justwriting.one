@@ -12,6 +12,7 @@ import { AIService } from '../services/AIService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { reportError } from '../../../shared/errors/reportError';
+import { reportAIDegradation } from '../utils/aiDegradationReporter';
 
 import { useAIChatContext } from './useAIChatContext';
 import {
@@ -335,7 +336,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         searchContext: rawSearchContext,
         memoryContext,
         injectedDocumentIds,
-        allowedFirstSeenDates
+        allowedFirstSeenDates,
+        degradedReason,
       } = await context.buildContext({
         text,
         attached: effectiveAttached ? (
@@ -489,7 +491,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         savedReasoning = sanitizedFullText.trim();
         savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';
       }
-      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq);
+      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
         await AIDialogueService.setDocumentId(currentDialogue.id, attached.documentId);
@@ -521,8 +523,22 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanTitle.length > 0) {
               void AIDialogueService.updateTitle(currentDialogue!.id, cleanTitle);
             }
+          } else if (!res.ok) {
+            reportAIDegradation({
+              feature: 'chat_auto_name',
+              cause: res.error,
+              action: 'Автоматическое именование диалога',
+              impact: 'Диалог сохранён со стандартным названием',
+            });
           }
-        }).catch(() => { /* non-critical */ });
+        }).catch(err => {
+          reportAIDegradation({
+            feature: 'chat_auto_name',
+            cause: err,
+            action: 'Автоматическое именование диалога',
+            impact: 'Диалог сохранён со стандартным названием',
+          });
+        });
       }
       // Return the persisted dialogue id so the caller can select it (a new
       // dialogue must become active or it looks "lost" after navigation).

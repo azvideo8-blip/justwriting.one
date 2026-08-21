@@ -37,4 +37,5 @@ export const aiTranslations: Translations = {
   ai_memory_forget_all: { ru: 'Забыть всё', en: 'Forget all' },
   ai_memory_forget_all_confirm: { ru: 'Удалить все воспоминания безвозвратно?', en: 'Delete all memories permanently?' },
   ai_memory_delete: { ru: 'Удалить воспоминание', en: 'Delete memory' },
+  ai_degraded_daily_limit_chat: { ru: 'Дневной лимит исчерпан: ответ сформирован без поиска по заметкам (восстановится завтра)', en: 'Daily limit reached: answer generated without note search (resets tomorrow)' },
 };

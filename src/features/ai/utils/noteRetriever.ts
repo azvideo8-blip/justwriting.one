@@ -5,6 +5,7 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { topKMultiWithChunkIndex } from '../utils/vectorSearch';
 import MiniSearch from 'minisearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { reportAIDegradation } from './aiDegradationReporter';
 import { setAIStage } from '../store/useAIStageStore';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
@@ -188,6 +189,12 @@ export async function searchNotes(
     const embedResult = await AIService.embed({ content: query });
     if (!embedResult.ok) {
       reportError(embedResult.error, { action: 'search_notes_embed' });
+      reportAIDegradation({
+        feature: 'search_notes_embed',
+        cause: embedResult.error,
+        action: 'Построение вектора для поиска заметок',
+        impact: 'Семантический поиск пропущен',
+      });
       return [];
     }
     queryVec = embedResult.vectors[0];
@@ -350,6 +357,14 @@ export async function searchNotes(
   // квоте поиск молча перестаёт переупорядочивать, а замер 21 августа записал
   // такие запросы как «реранк отработал, разницы нет».
   const rerankOk = rr.ok && rr.documentIds.length > 0;
+  if (!rerankOk) {
+    reportAIDegradation({
+      feature: 'search_rerank',
+      cause: rr.ok ? 'RERANK_EMPTY' : rr.error,
+      action: 'Реранжирование результатов поиска',
+      impact: 'Использован базовый порядок RRF',
+    });
+  }
   opts?.onRerankMeta?.({
     bypassed: false,
     rerankLatencyMs,
@@ -496,6 +511,12 @@ export async function searchNotesMulti(
     const embedResult = await AIService.embed({ content: combinedQuery });
     if (!embedResult.ok) {
       reportError(embedResult.error, { action: 'search_notes_multi_embed' });
+      reportAIDegradation({
+        feature: 'search_notes_multi_embed',
+        cause: embedResult.error,
+        action: 'Построение вектора для мульти-поиска заметок',
+        impact: 'Поиск по нескольким запросам не смог построить вектор',
+      });
       return { notes: [], failed: true };
     }
     queryVec = embedResult.vectors[0];
@@ -689,7 +710,17 @@ export async function searchNotesMulti(
     maxResults,
   });
 
-  const ids = rr.ok && rr.documentIds.length > 0 ? rr.documentIds.slice(0, maxResults) : fallbackIds;
+  const rerankOk = rr.ok && rr.documentIds.length > 0;
+  if (!rerankOk) {
+    reportAIDegradation({
+      feature: 'search_rerank',
+      cause: rr.ok ? 'RERANK_EMPTY' : rr.error,
+      action: 'Реранжирование результатов поиска',
+      impact: 'Использован базовый порядок RRF',
+    });
+  }
+
+  const ids = rerankOk ? rr.documentIds.slice(0, maxResults) : fallbackIds;
   const finalIds = ids.filter(id => filteredTopIds.includes(id));
 
   const scoreMap = new Map(fused.map(f => [f.id, f.score]));

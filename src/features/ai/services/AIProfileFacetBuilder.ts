@@ -6,6 +6,7 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { AITaxonomyService } from './AITaxonomyService';
 import { tuneThresholds } from '../utils/thresholdTuner';
 import { reportError } from '../../../shared/errors/reportError';
+import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { withFacetLock } from './AIProfileFacetService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
@@ -121,6 +122,13 @@ export const AIProfileFacetBuilder = {
           } catch (err) {
             reportError(err, { action: 'ai_profile_facet_cache_write', domainId: d.id });
           }
+        } else if (!res.ok) {
+          reportAIDegradation({
+            feature: 'facet_seed_embed',
+            cause: res.error,
+            action: `Построение вектора для домена ${d.label}`,
+            impact: `Вектор для домена ${d.label} не построен`,
+          });
         }
       }
 

@@ -4,6 +4,7 @@ import { AIService } from './AIService';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 
@@ -128,6 +129,13 @@ export const AIThreadService = {
               c.summary = res.summary;
               c.updatedAt = Date.now();
               AIBackgroundBudget.spend(1);
+            } else if (!res.ok) {
+              reportAIDegradation({
+                feature: 'thread_summarize',
+                cause: res.error,
+                action: 'Суммаризация сюжетной линии',
+                impact: 'Сюжетная линия осталась без описания',
+              });
             }
           }
         }

@@ -77,4 +77,18 @@ describe('useActivityLogStore (AG-BG-1)', () => {
 
     expect(useActivityLogStore.getState().entries).toHaveLength(200);
   });
+
+  it('updates an existing entry via updateEntry', () => {
+    const store = useActivityLogStore.getState();
+    const id = store.addActivity('Initial event', { foo: 'bar' });
+
+    store.updateEntry(id, { count: 5, message: 'Updated event' });
+
+    const entries = useActivityLogStore.getState().entries;
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.id).toBe(id);
+    expect(entries[0]?.count).toBe(5);
+    expect(entries[0]?.message).toBe('Updated event');
+    expect(entries[0]?.context).toEqual({ foo: 'bar' });
+  });
 });

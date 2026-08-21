@@ -2,6 +2,7 @@ import { getLocalDb, type AIChatMemory, randomUUID } from '../../../core/storage
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 
@@ -23,7 +24,16 @@ export const AIChatMemoryService = {
       // turns (a long dialogue would otherwise 400). Recent context is enough.
       const recent = messages.filter(m => m.type !== 'system').slice(-40);
       const result = await AIService.extractChatMemory({ messages: recent as { role: string; content: string }[] });
-      if (!result.ok || result.memories.length === 0) return;
+      if (!result.ok) {
+        reportAIDegradation({
+          feature: 'chat_memory_extract',
+          cause: result.error,
+          action: 'Извлечение долговременных воспоминаний из диалога',
+          impact: 'Новые воспоминания не извлечены',
+        });
+        return;
+      }
+      if (result.memories.length === 0) return;
 
       const db = await getLocalDb();
       const now = Date.now();
@@ -36,6 +46,14 @@ export const AIChatMemoryService = {
         // retrieval and dedup. Extraction is throttled to every 3rd turn, so
         // these few small embeds are cheap (and limit-exempt).
         const embResult = await AIService.embed({ content: mem.text });
+        if (!embResult.ok) {
+          reportAIDegradation({
+            feature: 'chat_memory_embed',
+            cause: embResult.error,
+            action: 'Построение вектора для воспоминания',
+            impact: 'Воспоминание сохранено без вектора',
+          });
+        }
         const vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
 
         let isDuplicate = false;

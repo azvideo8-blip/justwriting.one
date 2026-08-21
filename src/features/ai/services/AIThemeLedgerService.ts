@@ -2,6 +2,7 @@ import { getLocalDb, randomUUID, ThemeRecord, ThemeEvidence } from '../../../cor
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
+import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
@@ -174,9 +175,22 @@ export const AIThemeLedgerService = {
               const embRes = await AIService.embed({ content: cleanedTheme });
               if (embRes.ok && Array.isArray(embRes.vectors) && embRes.vectors.length > 0 && Array.isArray(embRes.vectors[0])) {
                 vec = embRes.vectors[0];
+              } else if (!embRes.ok) {
+                reportAIDegradation({
+                  feature: 'theme_ledger_embed',
+                  cause: embRes.error,
+                  action: `Векторизация темы "${cleanedTheme}"`,
+                  impact: `Тема "${cleanedTheme}" не векторизована`,
+                });
               }
             } catch (e) {
               reportError(e, { action: 'theme_ledger_embed_theme', theme: cleanedTheme }, 'warning');
+              reportAIDegradation({
+                feature: 'theme_ledger_embed',
+                cause: e,
+                action: `Векторизация темы "${cleanedTheme}"`,
+                impact: `Тема "${cleanedTheme}" не векторизована`,
+              });
             }
           }
           vectorByNorm.set(normalizedTheme, vec);

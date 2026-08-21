@@ -69,6 +69,7 @@ async function getDocDate(docId: string): Promise<string> {
 }
 
 import { extractFirstSeenDates } from '../utils/dateGuard';
+import { reportAIDegradation, isDailyLimitError } from '../utils/aiDegradationReporter';
 
 export interface ChatContextResult {
   userPortrait: string | null;
@@ -78,6 +79,7 @@ export interface ChatContextResult {
   memoryContext?: string | null;
   injectedDocumentIds?: string[];
   allowedFirstSeenDates?: string[];
+  degradedReason?: 'daily_limit' | undefined;
 }
 
 
@@ -149,6 +151,7 @@ export function useAIChatContext(personaId: string): {
     const { text, attached, mood, isFirstTurn, forcedSearchQuery, attachedIsSticky } = params;
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
+    let degradedDueToDailyLimit = false;
 
     let turnEmb: number[] | undefined;
     const uid = getCurrentUser()?.uid;
@@ -156,8 +159,29 @@ export function useAIChatContext(personaId: string): {
       try {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
+        if (!res.ok) {
+          if (isDailyLimitError(res.error)) {
+            degradedDueToDailyLimit = true;
+          }
+          reportAIDegradation({
+            feature: 'chat_turn_embed',
+            cause: res.error,
+            action: 'Векторизация реплики чата',
+            impact: 'Поворот диалога не сохранён в векторной памяти',
+          });
+        }
         turnEmb = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
-      } catch { /* ignore */ }
+      } catch (e) {
+        if (isDailyLimitError(e)) {
+          degradedDueToDailyLimit = true;
+        }
+        reportAIDegradation({
+          feature: 'chat_turn_embed',
+          cause: e,
+          action: 'Векторизация реплики чата',
+          impact: 'Поворот диалога не сохранён в векторной памяти',
+        });
+      }
     }
 
     // 1. Fetch portrait and custom persona concurrently
@@ -255,6 +279,17 @@ export function useAIChatContext(personaId: string): {
           if (facets.length > 0 && hasIndexingConsent(uid)) {
             const searchQuery = explicitSearch ? effectiveQuery : lastSearchQueryRef.current;
             const queryEmbResult = await AIService.embed({ content: searchQuery });
+            if (!queryEmbResult.ok) {
+              if (isDailyLimitError(queryEmbResult.error)) {
+                degradedDueToDailyLimit = true;
+              }
+              reportAIDegradation({
+                feature: 'chat_facet_embed',
+                cause: queryEmbResult.error,
+                action: 'Сопоставление тем профиля с запросом',
+                impact: 'Темы профиля не были сопоставлены с запросом',
+              });
+            }
             queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
 
             if (queryEmb) {
@@ -497,6 +532,17 @@ export function useAIChatContext(personaId: string): {
           let localQueryEmb = queryEmb;
           if (!localQueryEmb && hasIndexingConsent(uid)) {
             const embResult = await AIService.embed({ content: effectiveQuery });
+            if (!embResult.ok) {
+              if (isDailyLimitError(embResult.error)) {
+                degradedDueToDailyLimit = true;
+              }
+              reportAIDegradation({
+                feature: 'chat_aggregate_embed',
+                cause: embResult.error,
+                action: 'Поиск по реестру тем',
+                impact: 'Статистика по темам недоступна',
+              });
+            }
             localQueryEmb = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
           }
 
@@ -559,12 +605,37 @@ export function useAIChatContext(personaId: string): {
                 if (expandRes.ok && expandRes.text) {
                   const expanded = expandRes.text.split(',').map(s => s.trim()).filter(s => s.length > 2);
                   if (expanded.length > 0) searchQueries = [searchQuery, ...expanded.slice(0, 3)];
+                } else if (!expandRes.ok) {
+                  reportAIDegradation({
+                    feature: 'chat_query_expand',
+                    cause: expandRes.error,
+                    action: 'Расширение поискового запроса в чате',
+                    impact: 'Использован исходный поисковый запрос без расширения',
+                  });
                 }
-              } catch { /* fallback */ }
+              } catch (e) {
+                reportAIDegradation({
+                  feature: 'chat_query_expand',
+                  cause: e,
+                  action: 'Расширение поискового запроса в чате',
+                  impact: 'Использован исходный поисковый запрос без расширения',
+                });
+              }
             }
 
             if (queryEmb === undefined && hasIndexingConsent(uid)) {
               const queryEmbResult = await AIService.embed({ content: searchQuery });
+              if (!queryEmbResult.ok) {
+                if (isDailyLimitError(queryEmbResult.error)) {
+                  degradedDueToDailyLimit = true;
+                }
+                reportAIDegradation({
+                  feature: 'chat_search_embed',
+                  cause: queryEmbResult.error,
+                  action: 'Построение вектора для поиска заметок в чате',
+                  impact: 'Поиск по заметкам пропущен',
+                });
+              }
               queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
             }
 
@@ -630,6 +701,14 @@ export function useAIChatContext(personaId: string): {
                 }));
                 setAIStage('rank');
                 const rr = await AIService.rerank({ query: effectiveQuery, candidates, maxResults: 8 });
+                if (!rr.ok) {
+                  reportAIDegradation({
+                    feature: 'chat_rerank',
+                    cause: rr.error,
+                    action: 'Реранжирование заметок в чате',
+                    impact: 'Использован исходный порядок заметок',
+                  });
+                }
                 if (rr.ok && rr.documentIds.length > 0) {
                   const rerankOrder = new Map(rr.documentIds.map((id, i) => [id, i]));
                   allNotes.sort((a, b) => {
@@ -1070,6 +1149,7 @@ export function useAIChatContext(personaId: string): {
       memoryContext,
       injectedDocumentIds: [...new Set(allInjectedDocIds)],
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
+      degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
     };
 
   };
