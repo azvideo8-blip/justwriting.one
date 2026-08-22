@@ -115,8 +115,8 @@ export function useSessionFlow(
         const parts = targetTime.split(':').map(Number);
         const hours = parts[0] ?? 0;
         const minutes = parts[1] ?? 0;
-        const startWall = useTimerStore.getState().sessionStartWallMs;
-        const start = startWall ? new Date(startWall) : new Date();
+        const startEpoch = useTimerStore.getState().sessionStartEpochMs;
+        const start = startEpoch ? new Date(startEpoch) : new Date();
         const target = new Date(start);
         target.setHours(hours, minutes, 0, 0);
         if (target <= start) {

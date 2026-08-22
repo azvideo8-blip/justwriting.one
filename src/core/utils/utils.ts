@@ -33,7 +33,7 @@ export function getSessionDate(session: Session): Date | null {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-export function calculateStreak(sessions: Session[]) {
+export function calculateStreak(sessions: Session[], frozen?: Set<string>): number {
   if (sessions.length === 0) return 0;
   
   const dates = sessions
@@ -52,10 +52,9 @@ export function calculateStreak(sessions: Session[]) {
     return 0;
   }
   
-  const frozenDates = getFrozenDates();
+  const frozenDates = frozen ? new Set(frozen) : getFrozenDates();
   const frozenMonths = new Set<string>();
   for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
-  let freezesChanged = false;
   
   let streak = 0;
   let checkDate = uniqueDates[0] === today ? new Date() : subDays(new Date(), 1);
@@ -76,7 +75,6 @@ export function calculateStreak(sessions: Session[]) {
           if (!alreadyFrozen) {
             frozenDates.add(missedDay);
             frozenMonths.add(missedMonth);
-            freezesChanged = true;
           }
           streak++;
           checkDate = subDays(checkDate, 1);
@@ -87,12 +85,73 @@ export function calculateStreak(sessions: Session[]) {
     }
   }
   
-  if (freezesChanged) saveFrozenDates(frozenDates);
-  
   return streak;
 }
 
-export function calculateBestStreak(sessions: Session[]): number {
+export function consumeStreakFreezes(sessions: Session[]): Set<string> {
+  if (sessions.length === 0) return getFrozenDates();
+  
+  const dates = sessions
+    .map(s => getSessionDate(s))
+    .filter((d): d is Date => d !== null)
+    .map(d => format(d, 'yyyy-MM-dd'));
+  if (dates.length === 0) return getFrozenDates();
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const uniqueDates = Array.from(new Set(dates))
+    .filter(d => d <= today)
+    .sort((a, b) => b.localeCompare(a));
+  
+  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  
+  if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
+    return getFrozenDates();
+  }
+  
+  const frozenDates = getFrozenDates();
+  const frozenMonths = new Set<string>();
+  for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
+  let freezesChanged = false;
+  
+  let checkDate = uniqueDates[0] === today ? new Date() : subDays(new Date(), 1);
+  
+  let i = 0;
+  while (i < uniqueDates.length) {
+    if (uniqueDates[i] === format(checkDate, 'yyyy-MM-dd')) {
+      checkDate = subDays(checkDate, 1);
+      i++;
+    } else {
+      const nextExpected = format(subDays(checkDate, 1), 'yyyy-MM-dd');
+      if (uniqueDates[i] === nextExpected) {
+        const missedDay = format(checkDate, 'yyyy-MM-dd');
+        const missedMonth = missedDay.substring(0, 7);
+        const alreadyFrozen = frozenDates.has(missedDay);
+        if (alreadyFrozen || !frozenMonths.has(missedMonth)) {
+          if (!alreadyFrozen) {
+            frozenDates.add(missedDay);
+            frozenMonths.add(missedMonth);
+            freezesChanged = true;
+          }
+          checkDate = subDays(checkDate, 1);
+          continue;
+        }
+      }
+      break;
+    }
+  }
+  
+  if (freezesChanged) {
+    saveFrozenDates(frozenDates);
+  }
+  return frozenDates;
+}
+
+// Как и calculateStreak — чистая: заморозки читаются, но не записываются.
+// Обе вызываются из рендера (StreakRibbon, Achievements), а запись заморозок
+// делает только consumeStreakFreezes на полном наборе сессий. Раньше эта
+// функция писала свой Set поверх чужого: два вычислителя строили Set из
+// getFrozenDates() в разное время, и тот, кто сохранял последним, откатывал
+// добавленное первым.
+export function calculateBestStreak(sessions: Session[], frozen?: Set<string>): number {
   if (sessions.length === 0) return 0;
   const today = format(new Date(), 'yyyy-MM-dd');
   const dates = new Set(
@@ -109,11 +168,10 @@ export function calculateBestStreak(sessions: Session[]): number {
     .sort((a, b) => a - b);
   if (sorted.length === 0) return 0;
   
-  const frozenDates = getFrozenDates();
+  const frozenDates = new Set(frozen ?? getFrozenDates());
   const frozenMonths = new Set<string>();
   for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
-  let freezesChanged = false;
-  
+
   let max = 1, cur = 1;
   for (let i = 1; i < sorted.length; i++) {
     const diffDays = Math.round((sorted[i]! - sorted[i - 1]!) / 86400000);
@@ -125,10 +183,11 @@ export function calculateBestStreak(sessions: Session[]): number {
       const missedMonth = missedDay.substring(0, 7);
       const alreadyFrozen = frozenDates.has(missedDay);
       if (alreadyFrozen || !frozenMonths.has(missedMonth)) {
+        // Локально считаем месяц израсходованным, чтобы вторая дырка в том же
+        // месяце уже не прощалась. Наружу это не сохраняется.
         if (!alreadyFrozen) {
           frozenDates.add(missedDay);
           frozenMonths.add(missedMonth);
-          freezesChanged = true;
         }
         cur += 2;
         max = Math.max(max, cur);
@@ -138,6 +197,5 @@ export function calculateBestStreak(sessions: Session[]): number {
     }
     else if (diffDays > 2) { cur = 1; }
   }
-  if (freezesChanged) saveFrozenDates(frozenDates);
   return max;
 }

@@ -7,7 +7,7 @@ export interface TimerStateData {
   sessionStartSeconds: number;
   _startWallMs: number | null;
   _accumulatedMs: number;
-  sessionStartWallMs: number | null;
+  sessionStartEpochMs: number | null;
   sessionStartAccMs: number;
   timerDuration: number;
   wordGoal: number;
@@ -46,7 +46,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   status: 'idle', sessionType: 'free',
   seconds: 0, sessionStartSeconds: 0,
   _startWallMs: null, _accumulatedMs: 0,
-  sessionStartWallMs: null, sessionStartAccMs: 0,
+  sessionStartEpochMs: null, sessionStartAccMs: 0,
   timerDuration: 30 * 60, targetTime: null, wordGoal: 1000,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
   accumulatedDuration: 0,
@@ -71,7 +71,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     sessionStartWords: wordCount,
     sessionStartSeconds: state.getElapsedSeconds(),
     sessionStartAccMs: state._accumulatedMs,
-    sessionStartWallMs: state._startWallMs,
+    sessionStartEpochMs: Date.now(),
   })),
 
   pauseSession: () => set((state) => {
@@ -121,7 +121,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         const hours = parts[0] ?? 0;
         const minutes = parts[1] ?? 0;
         const now = new Date();
-        const start = s.sessionStartWallMs ? new Date(s.sessionStartWallMs) : now;
+        const start = s.sessionStartEpochMs ? new Date(s.sessionStartEpochMs) : now;
         const target = new Date(start);
         target.setHours(hours, minutes, 0, 0);
         if (target <= start) {
@@ -154,7 +154,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         accumulatedDuration: state.accumulatedDuration + sessionSec,
         sessionStartSeconds: state.getElapsedSeconds(),
         sessionStartAccMs: state._accumulatedMs,
-        sessionStartWallMs: state._startWallMs,
+        sessionStartEpochMs: Date.now(),
       };
     }
     return { timerDuration };
@@ -183,6 +183,6 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     sessionStartWords: wordCount,
     sessionStartSeconds: state.getElapsedSeconds(),
     sessionStartAccMs: state._accumulatedMs,
-    sessionStartWallMs: state._startWallMs,
+    sessionStartEpochMs: Date.now(),
   })),
 }));

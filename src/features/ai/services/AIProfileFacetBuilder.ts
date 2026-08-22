@@ -7,7 +7,7 @@ import { AITaxonomyService } from './AITaxonomyService';
 import { tuneThresholds } from '../utils/thresholdTuner';
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
-import { withFacetLock } from './AIProfileFacetService';
+import { withFacetLock } from '../../../core/services/facetLock';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 const MIN_FACET_NOTES = 2;

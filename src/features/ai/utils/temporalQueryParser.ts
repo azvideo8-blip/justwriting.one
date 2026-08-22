@@ -159,7 +159,7 @@ export function parseTemporalQuery(text: string): TemporalQuery {
     };
   }
 
-  // 3. Match person mention: "про Наташу", "о Диме", "с Сашей"
+  // 3. Match person mention: "про Ольгу", "о Диме", "с Сашей"
   const personRegex = /(?:^|[^а-яёА-ЯЁa-zA-Z0-9])(?:про|о|обо|с|со|у)\s+([а-яёА-ЯЁa-zA-Z]+)(?![а-яёА-ЯЁa-zA-Z0-9])/i;
   const personMatch = rawText.match(personRegex);
   if (personMatch) {

@@ -6,7 +6,7 @@ import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cry
 import { decryptLabels, migrateUnencryptedLabels, repairDoubleEncryptedLabels } from '../../../core/crypto/labelEncryption';
 import { ProfileService } from '../../../core/services/ProfileServiceRef';
 import { setAiConsent } from '../../../core/ai/aiConsent';
-import { PRIVACY_VERSION } from '../components/PrivacyModal';
+import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuth } from './AuthContext';
 

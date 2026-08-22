@@ -15,6 +15,13 @@ vi.mock('../LocalStorageService', () => ({
 vi.mock('../LocalVersionService', () => ({
   LocalVersionService: {
     addVersion: vi.fn().mockResolvedValue(undefined),
+    getVersions: vi.fn().mockResolvedValue([]),
+  },
+}));
+
+vi.mock('../VersionService', () => ({
+  VersionService: {
+    getVersions: vi.fn().mockResolvedValue([]),
   },
 }));
 

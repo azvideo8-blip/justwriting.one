@@ -26,6 +26,7 @@ StandardError=journal
 
 # Edit /opt/justwriting/api/.env, not this file.
 EnvironmentFile=/opt/justwriting/api/.env
+Environment=NODE_ENV=production
 
 # Hardening. The service needs no write access anywhere: state lives in Postgres.
 NoNewPrivileges=true

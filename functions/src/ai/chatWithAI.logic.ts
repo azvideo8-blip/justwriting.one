@@ -1,6 +1,6 @@
 // functions/src/ai/chatWithAI.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../shared/aiPolicy';
 import { generate, getActiveModel } from '../shared/aiProvider';
 import { buildChatSystemPrompt } from '../shared/buildChatPrompt';
@@ -11,12 +11,12 @@ const inputSchema = z.object({
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
-    content: z.string().max(50_000),
+    content: z.string().max(MAX_AI_CONTENT_LENGTH),
   })).max(100).refine(msgs => {
     const totalChars = msgs.reduce((sum, m) => sum + m.content.length, 0);
     return totalChars <= 200_000;
   }, 'Total messages content exceeds 200K characters'),
-  documentContent: z.string().max(50_000).nullish(),
+  documentContent: z.string().max(MAX_AI_CONTENT_LENGTH).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(10_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
@@ -73,7 +73,15 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     throw new AiError('invalid-argument', 'Disallowed patterns detected in document mood.');
   }
 
-  if (!isInternalCall) {
+  // Внутренний вызов не бесплатный: у него свой счётчик. Раньше `callType`
+  // с клиента снимал и дневной лимит, и задержку между запросами — один
+  // пользователь мог в цикле выжечь общий суточный лимит приложения.
+  if (isInternalCall) {
+    const allowed = await ctx.checkAndIncrementBulkLimit(uid);
+    if (!allowed) {
+      throw new AiError('resource-exhausted', 'Daily limit reached.');
+    }
+  } else {
     const limitResult = await ctx.checkAndIncrementLimit(uid, reasoning === true);
     if (limitResult === 'DAILY_LIMIT') {
       throw new AiError('resource-exhausted', 'Daily limit reached.');
@@ -86,7 +94,8 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   const maxTokens = getMaxTokens(isInternalCall, reasoning);
   const reservation = await ctx.tryReserveGlobalRequest(maxTokens);
   if (!reservation) {
-    if (!isInternalCall) await ctx.refundDailyLimit(uid);
+    if (isInternalCall) await ctx.refundBulkLimit(uid);
+    else await ctx.refundDailyLimit(uid);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -117,7 +126,8 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     const { classifyProviderFailure } = await import('../shared/aiUtils');
     const failure = classifyProviderFailure(e);
     console.error(`[chatWithAI] AI request failed (${failure.reason}):`, e);
-    if (!isInternalCall) await ctx.refundDailyLimit(uid);
+    if (isInternalCall) await ctx.refundBulkLimit(uid);
+    else await ctx.refundDailyLimit(uid);
     await ctx.refundGlobalRequest(reservation);
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});

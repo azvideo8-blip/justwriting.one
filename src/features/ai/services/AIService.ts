@@ -2,7 +2,10 @@ import { getCurrentUser, getIdToken } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { analytics } from '../../../core/analytics/analytics';
-import { callAi } from '../../../core/ai/callAi';
+import { callAi, type CallAiOptions } from '../../../core/ai/callAi';
+import type { AIErrorCode } from '../types/aiErrors';
+
+export type { AIErrorCode };
 
 // Generation calls (chat/edit/summarize) let the model run up to abortMs=110s
 // server-side, inside a 120s function timeout. A 60s client timeout used to
@@ -11,9 +14,6 @@ const GEN_TIMEOUT_MS = 115_000;
 
 export type AIAction = 'accents' | 'ideas' | 'summarize' | 'continue' | 'gratitude' | 'achievements';
 export type AIMessage = { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined };
-export type AIErrorCode =
-  | 'AUTH_REQUIRED' | 'AI_CONSENT_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG'
-  | 'UPSTREAM' | 'SERVER_ERROR' | 'NETWORK';
 
 export type AIResult =
   | { ok: true; text: string }
@@ -116,17 +116,17 @@ export const AIService = {
     responseLength?: 'short' | 'standard' | 'detailed' | undefined;
     reasoning?: boolean | undefined;
     callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
-  }): Promise<AIResult> {
+  }, opts?: CallAiOptions): Promise<AIResult> {
 
     try {
-      const data = await withTimeout(callAi<{ result: string }>('chatWithAI', params), GEN_TIMEOUT_MS);
+      const data = await withTimeout(callAi<{ result: string }>('chatWithAI', params, opts), GEN_TIMEOUT_MS);
       try { analytics.track('ai_chat', { personaId: params.personaId }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       const code = mapAIError(e);
       if (code === 'AUTH_REQUIRED' && getCurrentUser()) {
         try {
-          const data = await retryAfterTokenRefresh(() => withTimeout(callAi<{ result: string }>('chatWithAI', params), GEN_TIMEOUT_MS));
+          const data = await retryAfterTokenRefresh(() => withTimeout(callAi<{ result: string }>('chatWithAI', params, opts), GEN_TIMEOUT_MS));
           return { ok: true, text: data.result };
         } catch { /* второй отказ — сообщаем честно ниже */ }
       }
@@ -210,11 +210,11 @@ export const AIService = {
     notes: { title: string; excerpt: string }[];
     focus?: string | null | undefined;
     correction?: string | undefined;
-  }): Promise<{ ok: true; label: string; summary: string } | { ok: false; error: string }> {
+  }, opts?: CallAiOptions): Promise<{ ok: true; label: string; summary: string } | { ok: false; error: string }> {
     try {
       const { focus, ...rest } = params;
       const payload = { ...rest, ...(focus ? { focus } : {}) };
-      const data = await withTimeout(callAi<{ label: string; summary: string }>('summarizeFacet', payload), 60_000);
+      const data = await withTimeout(callAi<{ label: string; summary: string }>('summarizeFacet', payload, opts), 60_000);
       return { ok: true, label: data.label, summary: data.summary };
     } catch (e: unknown) {
       reportError(e, { action: 'summarizeFacet' }, 'warning');
@@ -222,11 +222,11 @@ export const AIService = {
     }
   },
 
-  async deriveTaxonomy(params: { digest: string }): Promise<
+  async deriveTaxonomy(params: { digest: string }, opts?: CallAiOptions): Promise<
     { ok: true; domains: { label: string; seed: string }[] } | { ok: false; error: AIErrorCode }
   > {
     try {
-      const res = await withTimeout(callAi<{ domains: { label: string; seed: string }[] }>('deriveTaxonomy', params), 60_000);
+      const res = await withTimeout(callAi<{ domains: { label: string; seed: string }[] }>('deriveTaxonomy', params, opts), 60_000);
       return { ok: true, domains: res.domains ?? [] };
     } catch (e) {
       reportError(e, { action: 'deriveTaxonomy' }, 'warning');
@@ -236,11 +236,11 @@ export const AIService = {
     }
   },
 
-  async judgeFacets(params: { facets: { facetId: string; label: string; summary: string; evidence: string }[] }): Promise<
+  async judgeFacets(params: { facets: { facetId: string; label: string; summary: string; evidence: string }[] }, opts?: CallAiOptions): Promise<
     { ok: true; verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] } | { ok: false; error: AIErrorCode }
   > {
     try {
-      const res = await withTimeout(callAi<{ verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] }>('judgeFacets', params), 60_000);
+      const res = await withTimeout(callAi<{ verdicts: { facetId: string; ok: boolean; issues: string[]; hint: string }[] }>('judgeFacets', params, opts), 60_000);
       return { ok: true, verdicts: res.verdicts ?? [] };
     } catch (e) {
       reportError(e, { action: 'judgeFacets' }, 'warning');
@@ -266,9 +266,9 @@ export const AIService = {
     evidence: { id: string; date: string; snippet?: string }[];
     firstSeenAt: string;
     correctionHint?: string;
-  }): Promise<{ ok: true; belief: string } | { ok: false; error: string }> {
+  }, opts?: CallAiOptions): Promise<{ ok: true; belief: string } | { ok: false; error: string }> {
     try {
-      const data = await withTimeout(callAi<{ belief: string }>('summarizeBeliefCluster', params), 60_000);
+      const data = await withTimeout(callAi<{ belief: string }>('summarizeBeliefCluster', params, opts), 60_000);
       return { ok: true, belief: data.belief };
     } catch (e: unknown) {
       // No chat() fallback here on purpose: this is background consolidation, and
@@ -284,9 +284,9 @@ export const AIService = {
   async judgeBeliefCandidate(params: {
     belief: string;
     evidence: { id: string; date: string; snippet?: string }[];
-  }): Promise<{ ok: true; passed: boolean; reason: string; correctiveHint?: string } | { ok: false; error: string }> {
+  }, opts?: CallAiOptions): Promise<{ ok: true; passed: boolean; reason: string; correctiveHint?: string } | { ok: false; error: string }> {
     try {
-      const data = await withTimeout(callAi<{ passed: boolean; reason: string; correctiveHint?: string }>('judgeBeliefCandidate', params), 60_000);
+      const data = await withTimeout(callAi<{ passed: boolean; reason: string; correctiveHint?: string }>('judgeBeliefCandidate', params, opts), 60_000);
       const hint = data.correctiveHint ?? undefined;
       return {
         ok: true,

@@ -1,6 +1,6 @@
 // functions/src/ai/extractChatMemory.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from '../shared/aiUtils';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, MAX_AI_CONTENT_LENGTH } from '../shared/aiUtils';
 import { generate } from '../shared/aiProvider';
 import { AiError, type AiContext } from '../shared/aiContext';
 
@@ -9,7 +9,7 @@ const inputSchema = z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string().max(5_000),
   })).min(1).max(30).refine(
-    msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= 50_000,
+    msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= MAX_AI_CONTENT_LENGTH,
     'Total messages content exceeds 50K characters',
   ),
 });

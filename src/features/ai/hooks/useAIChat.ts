@@ -28,6 +28,7 @@ import {
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
+import { assertNever, type AIErrorCode } from '../types/aiErrors';
 export { API_MSG_CAP };
 
 interface UseAIChatReturn {
@@ -120,7 +121,22 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     if (!dialogueId) { setDialogue(null); return; }
     const refresh = () => {
       void AIDialogueService.get(dialogueId).then(async d => {
-        setDialogue(d ?? null);
+        setDialogue(prev => {
+          if (!d) return null;
+          if (!prev || prev.id !== d.id) return d;
+          // Merge: if prev has unsaved local/optimistic messages (e.g. sending or streaming),
+          // preserve messages from prev that aren't yet in d
+          if (prev.messages.length > d.messages.length) {
+            const isPrefix = d.messages.every((m, idx) => m.content === prev.messages[idx]?.content && m.role === prev.messages[idx]?.role);
+            if (isPrefix) {
+              return {
+                ...d,
+                messages: prev.messages,
+              };
+            }
+          }
+          return d;
+        });
         // Hydrate the sticky note from the dialogue's linked document so a
         // reloaded note-dialogue stays grounded (note re-injected, facets/memory
         // suppressed) without the user re-attaching.
@@ -163,22 +179,24 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         newPersonaEmoji = preset?.emoji ?? '\u{1F916}';
       }
 
+      if (!active) return;
       const db = await getLocalDb();
       if (!active) return;
-      const existing = await db.get('aiDialogues', dialogueId);
-      if (!active || !existing) return;
+      const fresh = await db.get('aiDialogues', dialogueId);
+      if (!active || !fresh) return;
 
-      existing.personaId = personaId;
-      existing.personaName = newPersonaName;
-      existing.personaEmoji = newPersonaEmoji;
-      existing.messages.push({
+      fresh.personaId = personaId;
+      fresh.personaName = newPersonaName;
+      fresh.personaEmoji = newPersonaEmoji;
+      fresh.messages.push({
         role: 'assistant',
         content: `⚙️ [Смена персоны]: Теперь с вами общается ${newPersonaName}`,
         type: 'system',
       });
-      existing.updatedAt = Date.now();
-      await db.put('aiDialogues', existing);
-      if (active) setDialogue({ ...existing });
+      fresh.updatedAt = Date.now();
+      if (!active) return;
+      await db.put('aiDialogues', fresh);
+      if (active) setDialogue({ ...fresh });
     })();
 
     return () => { active = false; };
@@ -411,7 +429,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           // sit in the log looking like something broke.
           reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           const errMsg = e instanceof Error ? e.message : '';
-          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT') {
+          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT') {
             // Note: streaming already consumed a daily limit slot via checkAndIncrementLimit.
             // The callable fallback will consume another slot. We accept the double-count
             // to avoid losing the user's message, but this means fallback costs 2 quota.
@@ -546,17 +564,56 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     } catch (e: unknown) {
       setStreamingMessage(null); setStreamingReasoning(null);
       const db = await getLocalDb();
-      const fresh = dialogueId ? await db.get('aiDialogues', dialogueId) : null;
+      const fresh = (dialogueId && typeof dialogueId === 'string') ? await db.get('aiDialogues', dialogueId) : null;
       setDialogue(fresh ?? dialogue);
-      const msg = e instanceof Error ? e.message : 'SERVER_ERROR';
-      if (msg === 'ABORTED') { /* user stopped — no error */ }
-      else if (msg === 'AI_CONSENT_REQUIRED') setError('Для общения с ИИ требуется согласие на обработку данных');
-      else if (msg === 'DAILY_LIMIT') { setDailyLimitExhausted(); setError('Дневной лимит достигнут'); }
-      else if (msg === 'GLOBAL_LIMIT') { setError('Лимит приложения исчерпан — попробуйте позже'); }
-      else if (msg === 'AUTH_REQUIRED') setError('Требуется регистрация');
-      else if (msg === 'EMPTY_RESPONSE') setError('ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.');
-      else if (msg === 'UPSTREAM') setError('Модель сейчас не отвечает — это сбой на стороне сервиса ИИ, а не в ваших заметках. Мы уже повторили запрос несколько раз. Попробуйте ещё раз через минуту.');
-      else setError('Произошла ошибка при отправке сообщения');
+      const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
+
+      const isKnownCode = (m: string): m is AIErrorCode =>
+        ['ABORTED', 'RATE_LIMIT', 'DAILY_LIMIT', 'GLOBAL_LIMIT', 'AUTH_REQUIRED', 'AI_CONSENT_REQUIRED', 'EMPTY_RESPONSE', 'UPSTREAM', 'TOO_LONG', 'NETWORK', 'MISCONFIGURED', 'SERVER_ERROR'].includes(m);
+
+      if (isKnownCode(rawMsg)) {
+        switch (rawMsg) {
+          case 'ABORTED':
+            // user stopped — no error
+            break;
+          case 'RATE_LIMIT':
+            setError('Слишком частые запросы. Подождите немного перед следующей отправкой.');
+            break;
+          case 'DAILY_LIMIT':
+            setDailyLimitExhausted();
+            setError('Дневной лимит достигнут');
+            break;
+          case 'GLOBAL_LIMIT':
+            setError('Лимит приложения исчерпан — попробуйте позже');
+            break;
+          case 'AUTH_REQUIRED':
+            setError('Требуется регистрация');
+            break;
+          case 'AI_CONSENT_REQUIRED':
+            setError('Для общения с ИИ требуется согласие на обработку данных');
+            break;
+          case 'EMPTY_RESPONSE':
+            setError('ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.');
+            break;
+          case 'UPSTREAM':
+            setError('Модель сейчас не отвечает — это сбой на стороне сервиса ИИ, а не в ваших заметках. Мы уже повторили запрос несколько раз. Попробуйте ещё раз через минуту.');
+            break;
+          case 'TOO_LONG':
+            setError('Запрос слишком длинный');
+            break;
+          case 'NETWORK':
+            setError('Проблема с подключением к сети. Проверьте соединение.');
+            break;
+          case 'MISCONFIGURED':
+          case 'SERVER_ERROR':
+            setError('Произошла ошибка при отправке сообщения');
+            break;
+          default:
+            assertNever(rawMsg);
+        }
+      } else {
+        setError('Произошла ошибка при отправке сообщения');
+      }
       return null;
     } finally {
       sendingRef.current = false;
@@ -633,7 +690,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     const oldContent = oldAssistant?.content ?? '';
     const savedVariants = [...oldVariants, oldContent];
 
-    await AIDialogueService.truncateFrom(id, userIdx);
+    // Truncate dialogue in memory (React state) so sendMessage appends userText as a replacement turn,
+    // but DO NOT truncate in IndexedDB yet so failures leave the stored dialogue intact.
+    setDialogue({ ...d, messages: d.messages.slice(0, userIdx) });
     const newId = await sendMessage(userText);
     // After the new response is saved, merge variants including the new response
     if (newId) {

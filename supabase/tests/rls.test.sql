@@ -543,10 +543,21 @@ END $$;
 -- ============================================================
 -- users: Cannot insert a user row with role='admin' (JW-SEC-04)
 -- ============================================================
--- Seed Charlie in auth.users only
+-- Seed Charlie in auth.users only.
+-- С 57-й строки мы сидим под ролью authenticated, а у неё нет прав на схему
+-- auth — засев обязан идти от владельца, иначе весь файл падает здесь на
+-- permission denied.
+RESET ROLE;
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-0000-0000-000000000003', 'charlie@test.com')
 ON CONFLICT DO NOTHING;
+
+-- Триггер из 0006 заводит профиль сам при появлении строки в auth.users.
+-- Обе проверки ниже вставляют профиль Чарли руками, поэтому созданную
+-- триггером строку убираем — иначе положительная проверка падает на
+-- дублирующемся ключе, а отрицательная проходит по неверной причине: её
+-- обработчик ловит `WHEN others`, и duplicate key он засчитал бы как успех.
+DELETE FROM public.users WHERE uid = '00000000-0000-0000-0000-000000000003';
 
 -- Impersonate Charlie
 SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000003"}';
@@ -576,6 +587,119 @@ BEGIN
   INSERT INTO public.users (uid, email, nickname, role)
   VALUES ('00000000-0000-0000-0000-000000000003', 'charlie@test.com', 'Charlie', 'user');
 END $$;
+
+-- ============================================================
+-- users: Alice cannot change email (server-controlled, AG-SEC-B)
+-- ============================================================
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+SET role = 'authenticated';
+
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    UPDATE public.users SET email = 'evil@test.com'
+     WHERE uid = '00000000-0000-0000-0000-000000000001';
+    ok := false;
+  EXCEPTION
+    WHEN others THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice changed her email from client';
+  END IF;
+END $$;
+
+-- ============================================================
+-- users: Email syncs from auth.users via trigger (AG-SEC-B)
+-- ============================================================
+RESET request.jwt.claims;
+RESET role;
+
+UPDATE auth.users SET email = 'alice-new@test.com'
+ WHERE id = '00000000-0000-0000-0000-000000000001';
+
+DO $$
+DECLARE cur_email text;
+BEGIN
+  SELECT email INTO cur_email
+    FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  IF cur_email <> 'alice-new@test.com' THEN
+    RAISE EXCEPTION 'FAIL: email was not synced to public.users (got %)', cur_email;
+  END IF;
+END $$;
+
+-- ============================================================
+-- applied_migrations: Deny all for clients (AG-SEC-B)
+-- ============================================================
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+SET role = 'authenticated';
+
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.applied_migrations;
+  IF cnt > 0 THEN
+    RAISE EXCEPTION 'FAIL: Alice read applied_migrations (% rows)', cnt;
+  END IF;
+END $$;
+
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.applied_migrations (filename) VALUES ('0999_evil.sql');
+    ok := false;
+  EXCEPTION
+    WHEN others THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Alice inserted into applied_migrations';
+  END IF;
+END $$;
+
+-- ============================================================
+-- documents: Tombstones immutability (AG-SYNC-5 / 0016_document_tombstones)
+-- ============================================================
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+SET role = 'authenticated';
+
+-- Alice creates a document
+INSERT INTO public.documents (uuid, user_id, title)
+VALUES ('alice-tombstone-doc', '00000000-0000-0000-0000-000000000001', 'Alice active note')
+ON CONFLICT (uuid) DO NOTHING;
+
+-- Alice soft-deletes her document
+UPDATE public.documents
+   SET deleted_at = now(), title = ''
+ WHERE uuid = 'alice-tombstone-doc';
+
+-- Alice tries to update the tombstoned document (should affect 0 rows)
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.documents SET title = 'Resurrected note'
+   WHERE uuid = 'alice-tombstone-doc';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: Alice updated tombstoned document (% rows)', affected;
+  END IF;
+END $$;
+
+-- Alice tries to unset deleted_at (should affect 0 rows)
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.documents SET deleted_at = null
+   WHERE uuid = 'alice-tombstone-doc';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: Alice un-deleted tombstoned document (% rows)', affected;
+  END IF;
+END $$;
+
+RESET request.jwt.claims;
+RESET role;
 
 -- ============================================================
 -- Summary: count passed checks

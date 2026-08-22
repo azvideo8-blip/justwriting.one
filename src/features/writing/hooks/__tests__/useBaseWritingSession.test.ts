@@ -17,7 +17,7 @@ describe('useBaseWritingSession', () => {
       sessionStartSeconds: 0,
       _startWallMs: null,
       _accumulatedMs: 0,
-      sessionStartWallMs: null,
+      sessionStartEpochMs: null,
       sessionStartAccMs: 0,
       timeGoalReached: false,
       wordGoalReached: false,

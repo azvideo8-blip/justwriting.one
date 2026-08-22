@@ -5,6 +5,8 @@ import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 
+import type { CallAiOptions } from '../../../core/ai/callAi';
+
 // ponytail: dedupe concurrent generation for the same month. save() fires this
 // fire-and-forget on every summary; a bulk re-summarize (DiagnosticsPage) saves
 // N notes before the first slow AI call writes the digest, so without this guard
@@ -12,11 +14,11 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 const inFlightMonths = new Set<string>();
 
 export const AIMonthlyDigestService = {
-  async generateForMonth(month: string): Promise<void> {
+  async generateForMonth(month: string, opts?: CallAiOptions): Promise<void> {
     if (inFlightMonths.has(month)) return;
     inFlightMonths.add(month);
     try {
-      await generateForMonthInner(month);
+      await generateForMonthInner(month, opts);
     } finally {
       inFlightMonths.delete(month);
     }
@@ -37,7 +39,13 @@ export const AIMonthlyDigestService = {
   },
 };
 
-async function generateForMonthInner(month: string): Promise<void> {
+async function generateForMonthInner(month: string, opts?: CallAiOptions): Promise<void> {
+    const db = await getLocalDb();
+    const existing = await db.get('aiMonthlyDigest', month);
+    if (existing && Date.now() - existing.generatedAt < 24 * 60 * 60 * 1000) {
+      return;
+    }
+
     const entries = await AITimelineService.getByMonth(month);
     if (entries.length < 2) return; // not enough data
 
@@ -55,7 +63,7 @@ async function generateForMonthInner(month: string): Promise<void> {
     const result = await AIService.summarizeFacet({
       notes: notesInput,
       focus: `${month} дневник`,
-    });
+    }, ...(opts ? [opts] : []));
 
     if (!result.ok) {
       console.warn(`[AIMonthlyDigestService] Failed to summarize facet for month ${month}:`, result.error);
@@ -106,7 +114,6 @@ async function generateForMonthInner(month: string): Promise<void> {
       generatedAt: Date.now(),
     };
 
-    const db = await getLocalDb();
     await db.put('aiMonthlyDigest', digest);
     LocalStoreSyncService.scheduleStoreSync('aiMonthlyDigest', digest.month);
 }

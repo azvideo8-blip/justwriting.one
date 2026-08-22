@@ -54,4 +54,3 @@ export function useAuth(): AuthContextValue {
 }
 
 export { AuthContext };
-export { useAuthStatus } from '../hooks/useAuthStatus';

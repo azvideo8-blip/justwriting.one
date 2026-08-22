@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { Session } from '../../../types';
 import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
-import { calculateStreak } from '../../../core/utils/utils';
+import { calculateStreak, consumeStreakFreezes } from '../../../core/utils/utils';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -136,7 +136,8 @@ export function useProfileStats(userId: string, user: AppUser | null) {
         if (cancelled) return;
         const loaded = result.sessions as StatsSession[];
         const docStats = computeDocStats(loaded);
-        const streakVal = calculateStreak(result.sessions);
+        const frozen = consumeStreakFreezes(result.sessions);
+        const streakVal = calculateStreak(result.sessions, frozen);
         const kpi = computeKPIStats(result.sessions, docStats);
         const data: ProfileStatsData = {
           sessions: result.sessions,

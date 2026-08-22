@@ -3,6 +3,9 @@ import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 
 export let _streamUnavailableUntil = 0;
+export function _resetStreamUnavailable(): void {
+  _streamUnavailableUntil = 0;
+}
 export const CONTEXT_WINDOW = 14;
 
 // Detect "search my notes" intent. Regex-based (not a fixed phrase list) so

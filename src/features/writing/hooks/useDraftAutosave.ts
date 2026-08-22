@@ -4,6 +4,7 @@ import { useTimerStore } from '../store/useTimerStore';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { WritingDraftService } from '../services/WritingDraftService';
 
 export function useDraftAutosave(
   user: AppUser | null,
@@ -88,6 +89,21 @@ export function useDraftAutosave(
 
   useSyncUnloadSave(user, draftDataRef);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);
+
+  // Invalidate in-flight autosaves on unmount or when transitioning to idle
+  useEffect(() => {
+    return () => {
+      if (userId) {
+        WritingDraftService.bumpDraftGeneration(userId);
+      }
+    };
+  }, [userId]);
+
+  useEffect(() => {
+    if (draftData.status === 'idle' && userId) {
+      WritingDraftService.bumpDraftGeneration(userId);
+    }
+  }, [draftData.status, userId]);
 
   // Debounce: save LOCALLY shortly after the user stops typing to avoid Firestore quota exhaustion.
   useEffect(() => {

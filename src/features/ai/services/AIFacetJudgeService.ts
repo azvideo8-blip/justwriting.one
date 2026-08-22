@@ -1,7 +1,9 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
-import { AIProfileFacetService, withFacetLock } from './AIProfileFacetService';
+import { AIProfileFacetService } from './AIProfileFacetService';
+import { withFacetLock } from '../../../core/services/facetLock';
 import { AIEmbeddingService } from './AIEmbeddingService';
+import type { CallAiOptions } from '../../../core/ai/callAi';
 
 export interface SummaryRow {
   documentId: string;
@@ -66,7 +68,7 @@ export const AIFacetJudgeService = {
     }
   },
 
-  async review(): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {
+  async review(opts?: CallAiOptions): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {
     return withFacetLock(async () => {
     const facets = await AIProfileFacetService.getAll();
     if (facets.length === 0) return { judged: 0, corrected: 0, log: [] };
@@ -111,7 +113,7 @@ export const AIFacetJudgeService = {
     // service is up is a property of the service, not of the chunk.
     const results: Awaited<ReturnType<typeof AIService.judgeFacets>>[] = [];
     for (const c of chunks) {
-      const r = await AIService.judgeFacets({ facets: c });
+      const r = await AIService.judgeFacets({ facets: c }, ...(opts ? [opts] : []));
       results.push(r);
       if (!r.ok && (r.error === 'SERVER_ERROR' || r.error === 'RATE_LIMIT' || r.error === 'DAILY_LIMIT' || r.error === 'NETWORK' || r.error === 'UPSTREAM')) break;
     }
@@ -136,13 +138,13 @@ export const AIFacetJudgeService = {
       const excerpts = texts.slice(0, MAX_EXCERPTS).map(t => ({ title: '(фрагмент)', excerpt: t.slice(0, EXCERPT_CHARS) }));
       if (excerpts.length === 0) { log.push({ label, status: 'flagged', issues: v.issues }); continue; }
 
-      const re = await AIService.summarizeFacet({ notes: excerpts, focus: facet.label, correction: v.hint });
+      const re = await AIService.summarizeFacet({ notes: excerpts, focus: facet.label, correction: v.hint }, ...(opts ? [opts] : []));
       if (!re.ok || !re.summary) { log.push({ label, status: 'flagged', issues: v.issues }); continue; }
 
       // Re-judge the single corrected facet once.
       const recheck = await AIService.judgeFacets({
         facets: [{ facetId: facet.id, label: facet.label, summary: re.summary, evidence: buildEvidence(facet.noteIds, summaries, { dialogueIds: facet.dialogueIds ?? [], dialogueEventMap }) }],
-      });
+      }, ...(opts ? [opts] : []));
       const passed = recheck.ok && recheck.verdicts[0]?.ok;
       if (passed) {
         facet.summary = re.summary;

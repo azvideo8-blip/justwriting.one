@@ -24,7 +24,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
   const items = [
     { countUp: stats.totalWords, label: t('archive_stat_words'), icon: <Type size={13} /> },
     { countUp: stats.streakDays, label: t('archive_stat_streak'), icon: <Flame size={13} />, accent: true },
-    { countUp: stats.sessionsCount, label: t('archive_stat_docs'), icon: <BookOpen size={13} /> },
+    { countUp: stats.sessionsCount, label: t('profile_stat_sessions'), icon: <BookOpen size={13} /> },
     { countUp: stats.avgSessionMins, suffix: ` ${t('goal_time_short')}`, label: t('profile_avg_session'), icon: <Clock size={13} /> },
     { value: stats.typicalHour, label: t('profile_typical_hour'), icon: <Clock size={13} />, dim: true },
     { countUp: stats.wordsPerDay, label: t('profile_words_per_day'), icon: <Type size={13} /> },

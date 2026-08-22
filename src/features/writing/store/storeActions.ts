@@ -23,7 +23,7 @@ const TIMER_DEFAULTS: {
   seconds: number; sessionStartSeconds: number;
   status: TimerStatus;
   _startWallMs: number | null; _accumulatedMs: number;
-  sessionStartWallMs: number | null; sessionStartAccMs: number;
+  sessionStartEpochMs: number | null; sessionStartAccMs: number;
   timeGoalReached: boolean; wordGoalReached: boolean;
   overtimeSeconds: number; sessionStartWords: number;
   accumulatedDuration: number; totalPauseSeconds: number; _pauseWallStart: number | null;
@@ -32,7 +32,7 @@ const TIMER_DEFAULTS: {
   seconds: 0, sessionStartSeconds: 0,
   status: 'idle',
   _startWallMs: null, _accumulatedMs: 0,
-  sessionStartWallMs: null, sessionStartAccMs: 0,
+  sessionStartEpochMs: null, sessionStartAccMs: 0,
   timeGoalReached: false, wordGoalReached: false,
   overtimeSeconds: 0, sessionStartWords: 0,
   accumulatedDuration: 0, totalPauseSeconds: 0, _pauseWallStart: null,
@@ -105,7 +105,7 @@ export function resetAllSessionMetadata() {
 export function setSessionConfig(config: Record<string, unknown>) {
   const contentKeys = new Set<keyof ContentStateData>(['content', 'title', 'pinnedThoughts', 'wordCount',
     'initialWordCount', 'wpm', 'wordSnapshots', 'lastWordCount', 'wpmHistory', 'tags', 'labelId']);
-  const timerKeys = new Set<keyof TimerStateData>(['status', 'seconds', 'sessionStartSeconds', '_startWallMs', '_accumulatedMs', 'sessionStartWallMs', 'sessionStartAccMs', 'sessionStartWords',
+  const timerKeys = new Set<keyof TimerStateData>(['status', 'seconds', 'sessionStartSeconds', '_startWallMs', '_accumulatedMs', 'sessionStartEpochMs', 'sessionStartAccMs', 'sessionStartWords',
     'timerDuration', 'wordGoal', 'targetTime', 'timeGoalReached', 'wordGoalReached',
     'overtimeSeconds', 'accumulatedDuration', 'totalPauseSeconds', '_pauseWallStart',
     'sessionType', 'initialDuration']);

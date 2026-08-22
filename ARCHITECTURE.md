@@ -1,114 +1,199 @@
-# Architecture Documentation
+# Architecture
 
-## Target Architecture: Feature-First
+Two things live in this file: what the code is, and where it is going. They are
+kept apart on purpose. An earlier version of this document wrote the destination
+in the present tense, and readers reasonably took it for a description.
 
-Domain-driven grouping (features/) ensures each domain is self-contained and testable.
+**Where the boundaries are concerned, `eslint.config.js` is the source of truth,
+not this file.** Prose cannot be enforced; the lint zones can, and are. What
+follows explains them.
 
-### Directory Structure
+---
 
-- `src/app/`: Application-level setup, routing, and global providers.
-- `src/core/`: Singleton infrastructure (Firebase, i18n, shared utils, shared services).
-  - `src/core/services/`: Cross-cutting services used by multiple features (DocumentService, SessionService, StorageService, SyncService, LocalDocumentService, VersionService, DiffService, EncryptionService).
-  - `src/core/crypto/`: Encryption primitives (AES-GCM, PBKDF2, key wrapping).
-  - `src/core/firebase/`: Firebase client initialization, Firestore lazy-loader, auth.
-  - `src/core/errors/`: Error handling, reporting, and logging.
-  - `src/core/storage/`: IndexedDB (localDb) setup and schema.
-- `src/features/`: Domain modules.
-  - `src/features/admin/`: Admin dashboard and user management.
-  - `src/features/ai/`: AI-related services and components (chat, edit, summarize, personas).
-  - `src/features/archive/`: Archive and history management.
-  - `src/features/auth/`: Authentication, login, and privacy modal.
-  - `src/features/encryption/`: Encryption UI (password modal, setup hook).
-  - `src/features/export/`: Export utilities (PDF, DOCX, MD, ZIP).
-  - `src/features/navigation/`: App navigation (sidebar, bottom nav).
-  - `src/features/profile/`: User profile, stats, and achievements.
-  - `src/features/settings/`: User settings and preferences.
-  - `src/features/writing/`: Writing session logic, editor, and UI.
-    - `store/`: Zustand stores (useContentStore, useTimerStore, useSessionMetaStore).
-    - `hooks/`: Session hooks (useBaseWritingSession, useCloudWritingSession, useGuestWritingSession).
-    - `services/`: Feature-specific services (WritingDraftService, GuestDraftService, WritingSessionService).
-    - `components/`: UI components (MobileWriteScreen, SessionEditor, AIPanel).
-- `src/shared/`: Reusable, stateless UI components (Design System) and shared utilities.
+## Stack
 
-### Responsibility Boundaries
+The app is a local-first PWA. Everything is written to IndexedDB first and
+synchronised to Postgres afterwards.
 
-- **Shared**: Stateless UI components, design system elements, pure utility functions. No business logic. No Firebase imports.
-- **Features**: Domain-specific logic, state management, and UI. Features should NOT import from other features directly — use `core/services/` for shared service access.
-- **Core**: Global infrastructure, configuration, shared services, and utilities. Core must NOT import from `features/`.
-- **App**: Bootstrapping and global routing.
+| Layer | What runs it |
+|---|---|
+| Client | React + Vite, served from the VPS behind nginx |
+| Data | Supabase (Postgres + RLS + Auth), self-hosted |
+| API | A small Node service (`api/`) on the same VPS, systemd unit, loopback only |
+| AI provider | RouterAI, called server-side only |
 
-### Data Model
+> **`functions/` is dead code.** The Firebase Cloud Functions tree still exists
+> in the repository, but no client code calls it — there is not one
+> `httpsCallable` left in `src/`. It is deleted by step **C4** of
+> `docs/migration-plan.md`, together with two CI steps that currently fail. Do
+> not add to it, and do not "fix" its tests; see `CI-1` in `TASKS.md`.
 
-#### Local-First Architecture (IndexedDB)
-All data is stored locally first in IndexedDB via the `idb` library:
-- `documents` store: Local document metadata
-- `versions` store: Document version content
-- `profile` store: Aggregated user stats
-- `syncQueue` store: Pending sync operations
-- `drafts` store: Active writing drafts
+---
 
-#### Cloud (Firestore)
-- `users/{userId}`: User profiles with encryption metadata
-- `users/{userId}/documents/{documentId}`: Cloud document metadata
-- `users/{userId}/documents/{documentId}/versions/{versionId}`: Document versions
-- `sessions/{sessionId}`: Legacy sessions (being migrated)
-- `drafts/{userId}`: Cloud drafts
-- `aiDailyLimit/{uid}`: AI daily usage counters (admin SDK only)
-- `aiCooldown/{uid}`: AI rate limiting (admin SDK only)
-- `aiUsage/{uid}/daily/{date}`: AI usage statistics
+## Directory structure
 
-#### Sync Flow
-1. Data writes go to IndexedDB first (local-first)
-2. If Firestore is connected, `syncVersionToCloud` pushes versions to cloud
-3. If offline, writes go to `syncQueue` and are drained on reconnection
-4. Conflict resolution: if cloud version >= local version, a forked document is created
+- `src/app/` — bootstrapping, routing, global providers.
+- `src/core/` — infrastructure shared across features: Supabase client, crypto,
+  IndexedDB schema, data provider, errors, sync, theme.
+- `src/features/` — domain modules: `admin`, `ai`, `archive`, `auth`,
+  `calendar`, `encryption`, `export`, `navigation`, `profile`, `settings`,
+  `sync`, `writing`.
+- `src/shared/` — stateless UI, design system, pure utilities, prompt sources.
+- `api/` — the server: `server.ts` (routing), `dispatcher.ts` + `handlers.ts`
+  (the non-streaming AI endpoints), `chat.ts` (streaming chat), `auth.ts` (JWT
+  verification), `account.ts` (deletion and telemetry), `ai/` (the AI logic).
+- `supabase/` — migrations, RLS policies, and the SQL test suite.
 
-### Encryption
+The contents of `src/core/services/` are deliberately not listed here. A
+hand-maintained inventory drifts within a month; the previous one claimed eight
+services when there were twenty-three.
 
-AES-256-GCM encryption with PBKDF2 key derivation:
-1. User password → PBKDF2 (300K iterations) → Master Key (AES-KW)
-2. Random Data Key (AES-256-GCM) generated
-3. Data Key wrapped with Master Key → stored in Firestore
-4. Content encrypted with Data Key
-5. Verification plaintext encrypted for key validation
-6. Session key held in memory (useEncryptionStore) while vault is unlocked
+---
 
-### Service Layer Pattern
+## Layer boundaries
 
-- **UI Components / Pages**: Rendering and user input only. No direct database access.
-- **Services**: Encapsulate domain logic, data fetching, and mutations. Makes business logic testable without React.
-- **StorageService**: Orchestrates local ↔ cloud sync, encryption, and version management.
+Four rules, enforced by `import/no-restricted-paths` in `eslint.config.js`:
 
-### State Management
+| Rule | Enforced | Violations |
+|---|---|---|
+| `shared` must not import `core` or `features` | yes | 2, each an explicit opt-out |
+| `core` must not import `features` | yes | 5, each an explicit opt-out |
+| `features/auth` must not import other features | yes | 0 |
+| `features/calendar` must not import other features | yes | 0 |
 
-- **Zustand** for high-frequency, cross-component state (timers, content, encryption keys).
-- **React Context** for provider-scoped, low-frequency state (auth, settings, login modal).
-- Features should NOT access other features' stores directly.
+The rule is switched off for test files, so a test reaching across a boundary is
+not a violation and will not show up in these counts.
 
-### Cloud Functions
+### Cross-feature imports are grandfathered, not forbidden
 
-| Function | Trigger | Auth | Purpose |
-|----------|---------|------|---------|
-| `chatWithAI` | HTTPS Call | Firebase Auth | AI chat with persona system |
-| `editWithAI` | HTTPS Call | Firebase Auth | AI text editing actions |
-| `summarizeDocument` | HTTPS Call | Firebase Auth | AI document summarization |
-| `validateCustomPrompt` | HTTPS Call | Firebase Auth | Validate custom AI persona prompt |
-| `getAILimit` | HTTPS Call | Firebase Auth | Get user's AI usage limit |
-| `getAIUsageStats` | HTTPS Call | Firebase Auth (Admin) | Admin AI usage statistics |
-| `setUserRole` | HTTPS Call | Firebase Auth (Admin) | Set user role |
+Features importing from other features is **not** currently blocked, and there
+are about sixty such imports across thirty-four files — `ai`, `auth`, `archive`
+and `profile` are the most-reached-into. The lint config says so in a comment
+and treats it as a ratchet: a feature gets locked with its own zone once it has
+been untangled, which is what already happened to `auth` and `calendar`.
 
-> **App Check status:** Client-side App Check is wired up, but all callable functions
-> and the Vercel `/api/chat` endpoint currently run with enforcement **off**
-> (`enforceAppCheck: false`). Endpoints are protected by Firebase Auth (verified ID
-> token) + per-user/global rate limits only. Enabling enforcement is tracked separately
-> (see hardening sub-task below).
+The intended direction is fewer of them, one feature at a time, when someone is
+already working in that feature. It is not a scheduled refactor. Sixty import
+rewrites with no bug attached is not work worth doing on its own.
 
-All AI functions enforce: daily limit (5-50 requests/day), cooldown (10s between calls), prompt injection guard.
+### The seven bridges
 
-### Vercel API
+`src/core/services/` holds five one-line re-export shims pointing back into
+`features/` — `AIService`, `AISummaryService`, `AIEmbeddingService`,
+`ProfileServiceRef`, `UnifiedSessionLoader` — and `src/shared/components/` holds
+two more, `Calendar` and `StorageIcons`. Each carries an explicit
 
-| Endpoint | Method | Auth | Purpose |
-|----------|--------|------|---------|
-| `/api/chat` | POST | Bearer token (Firebase ID) | Streaming AI chat (Vercel Edge) |
+```ts
+// eslint-disable-next-line import/no-restricted-paths -- re-export bridge for cross-feature access
+```
 
-See [AI Endpoints API Reference](api/ai-endpoints.md) for full request/response schemas and error codes.
+They are the mechanism by which one feature reaches another's service without
+importing it directly, so they implement the rule rather than break it. The
+dependency direction is inverted all the same: `core` re-exports code it does
+not own. If one of these grows past a re-export, that is the signal to move the
+implementation down into `core` instead.
+
+### Known gap
+
+`import/no-cycle` is configured as an error and **does not fire** — the
+`eslint-import-resolver-typescript` package is absent, so every rule that needs
+module resolution is inert while the path-string rules above keep working.
+There are five real cycles today, all inside a single feature. Tracked as
+`LINT-1` in `TASKS.md`. Do not read a green lint run as "no cycles".
+
+---
+
+## Data
+
+### Local (IndexedDB, via `idb`)
+
+`documents`, `versions`, `drafts`, `profile`, `syncQueue`, `pending_sessions`,
+plus the AI stores (`aiSummaries`, `aiEmbeddings`, `aiDialogues`, `aiThreads`,
+`aiPortrait`, `aiProfileFacets`, `aiBeliefs`, `aiChatMemory`, and others). The
+schema and its upgrade path live in `src/core/storage/localDb.ts`; the version
+number there is the one that matters, and raising it invalidates stale service
+worker bundles.
+
+### Cloud (Supabase Postgres)
+
+`users`, `documents`, `versions`, `drafts`, `ai_summaries`, `ai_embeddings`,
+`ai_daily_limit`, `ai_cooldown`, `ai_usage`, `ai_global_daily`,
+`telemetry_cooldown`, `anonymized_telemetry`, `local_store_records`,
+`applied_migrations`, `connection_test`.
+
+Every table has row-level security enabled, and every policy is scoped by
+`auth.uid()`. Server-only tables are deny-all. `supabase/tests/rls.test.sql`
+checks this against a real Postgres; it is the only test the vitest suite cannot
+run, and CI runs it in its own job.
+
+### Sync
+
+1. Writes land in IndexedDB first.
+2. `syncVersionToCloud` pushes versions up.
+3. Offline writes go to `syncQueue` and drain on reconnect.
+4. If the cloud version is at or ahead of the local one, the local document is
+   forked into a copy titled `… (Conflict <date>)`.
+
+> **This flow only goes up.** A document already linked to a cloud copy is never
+> read back down — `downloadAllFromCloud` skips linked documents and no other
+> path refreshes them. Four data-loss symptoms follow from that single fact, and
+> they are one bug, not four: see `docs/ag-sync5-upload-only-sync-ticket.md`.
+> Treat the description above as the current behaviour, not as the design.
+
+---
+
+## Encryption
+
+AES-256-GCM with an envelope scheme:
+
+1. Password → PBKDF2, **600 000 iterations** → master key (AES-KW).
+   Vaults created before the raise carry 300 000 and are migrated on unlock.
+2. A random AES-256-GCM data key is generated per vault.
+3. The data key is wrapped with the master key and stored on the profile row.
+4. Content is encrypted with the data key; every record gets a fresh IV.
+5. A verification plaintext proves the password without revealing the key.
+6. The session key lives in memory (`useEncryptionStore`) while the vault is
+   unlocked, auto-locks after inactivity, and is non-extractable.
+
+Note bodies, titles, tags, mood and label names are encrypted in the cloud.
+Dates, word counts and structural metadata are not, by design.
+
+---
+
+## Server
+
+`api/server.ts` binds to `127.0.0.1` only; nginx is the sole way in. Every
+request is authenticated by verifying a Supabase JWT (`api/auth.ts`, HS256
+pinned, audience and issuer checked).
+
+- `POST /api/chat` — streaming chat.
+- `POST /api/<name>` — the dispatcher, covering `chatWithAI`, `editWithAI`,
+  `summarizeDocument`, `summarizeFacet`, `judgeFacets`, `judgeBeliefCandidate`,
+  `summarizeBeliefCluster`, `rerankNotes`, `embedDocument`, `extractChatMemory`,
+  `deriveTaxonomy`, `validateCustomPrompt`, `getAIUsageStats`, `deleteAccount`,
+  `sendTelemetry`.
+- `POST /api/csp-report`, `GET /health`.
+
+Every AI call passes three gates: a per-user daily limit, a cooldown between
+calls, and a global daily cap on requests and tokens. Internal calls (`callType`)
+are charged to a separate bulk counter — they are cheaper, not free. Input is
+checked for prompt injection and sanitised before it reaches the provider.
+
+There is no App Check and no bot protection: it left with Firebase and has no
+replacement yet (`D2` in `docs/migration-plan.md`).
+
+---
+
+## Patterns
+
+- **Services hold the logic.** Components render and collect input; they do not
+  touch the database. Logic in services stays testable without React.
+- **Zustand** for high-frequency cross-component state (timer, content,
+  encryption keys); **React Context** for provider-scoped, low-frequency state
+  (auth, settings, modals).
+- **Three copies of the AI logic exist**: `src/shared/ai/` (client and streaming
+  chat), `api/ai/` (dispatcher endpoints), `functions/src/shared/` (dead). The
+  root package is ESM and `functions/` is CommonJS, so imports cannot cross that
+  boundary — hence the copies. `promptsParity` and `injectionParity` tests keep
+  the prompt sources and injection patterns aligned. The third copy disappears
+  with C4.

@@ -51,6 +51,12 @@ export function invalidateMiniSearchCache(): void {
   searchCache.length = 0;
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:signed-out', () => {
+    invalidateMiniSearchCache();
+  });
+}
+
 async function getMiniSearch(): Promise<MiniSearch> {
   if (miniSearchInstance && Date.now() - miniSearchBuiltAt < CACHE_TTL_MS) return miniSearchInstance;
   const db = await getLocalDb();
@@ -469,7 +475,11 @@ export async function searchNotesMulti(
   try {
     // TICKET-047: Check cache before any network calls
     cleanCache();
-    const cacheKey = [...queries].sort().join('\x00');
+    // Окно времени — часть запроса, а не его оформление. Без него «сравни весну и
+    // осень» получает одни и те же заметки дважды, причём под разными заголовками.
+    // 5 первых чисел вектора служат компактным различителем в случае разных векторов с одинаковым текстом.
+    const vecTag = opts?.queryVector ? `\x01vec:${opts.queryVector.slice(0, 5).join(',')}` : '';
+    const cacheKey = [...queries].sort().join('\x00') + `\x01${opts?.minTime ?? ''}\x01${opts?.maxTime ?? ''}` + vecTag;
     const cached = getCached(cacheKey);
     if (cached) {
       const ids = cached.map(c => c.documentId);

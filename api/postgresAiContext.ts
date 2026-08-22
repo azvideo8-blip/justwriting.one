@@ -204,12 +204,17 @@ async function recordUsage(
   _opts?: { model?: string; fn?: string },
   _res?: GlobalReservation | null,
 ): Promise<void> {
+  // Дата берётся из того же today(), что и резервирование в
+  // tryReserveGlobalRequest. Раньше здесь стоял current_date — это дата по
+  // часовому поясу базы, и при поясе не-UTC расход писался в строку другого
+  // дня, чем та, по которой проверяется потолок. Потолок при этом молчал.
+  const date = today();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO ai_usage (uid, date, data)
-         VALUES ($1, current_date::text,
+         VALUES ($1, $4,
                  jsonb_build_object('promptTokens', $2::int,
                                     'completionTokens', $3::int,
                                     'requests', 1))
@@ -218,11 +223,11 @@ async function recordUsage(
            '{promptTokens}',     to_jsonb(coalesce((ai_usage.data->>'promptTokens')::int, 0)     + $2::int)),
            '{completionTokens}', to_jsonb(coalesce((ai_usage.data->>'completionTokens')::int, 0) + $3::int)),
            '{requests}',         to_jsonb(coalesce((ai_usage.data->>'requests')::int, 0)         + 1))`,
-      [uid, tokensIn, tokensOut],
+      [uid, tokensIn, tokensOut, date],
     );
     await client.query(
-      `UPDATE ai_global_daily SET tokens = coalesce(tokens, 0) + $1 WHERE date = current_date::text`,
-      [tokensIn + tokensOut],
+      `UPDATE ai_global_daily SET tokens = coalesce(tokens, 0) + $1 WHERE date = $2`,
+      [tokensIn + tokensOut, date],
     );
     await client.query('COMMIT');
   } catch (e) {

@@ -8,13 +8,14 @@ import { hasInjectionAttempt } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
 import { validateInternalCallRestrictions, getMaxTokens } from '../src/shared/ai/aiPolicy.js';
 import type { GlobalReservation } from './ai/context';
+import { MAX_REQUEST_BODY_BYTES, MAX_AI_CONTENT_LENGTH } from './ai/pure';
 
 function json(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
 }
 
-function readBody(req: IncomingMessage, maxBytes = 4 * 1024 * 1024): Promise<string> {
+function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks: Buffer[] = [];
@@ -271,12 +272,12 @@ const inputSchema = z.object({
   customSystemPrompt: z.string().max(500).nullish(),
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
-    content: z.string().max(50_000),
+    content: z.string().max(MAX_AI_CONTENT_LENGTH),
   })).max(100).refine(
     msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= 200_000,
     'Total messages content exceeds 200K characters',
   ),
-  documentContent: z.string().max(50_000).nullish(),
+  documentContent: z.string().max(MAX_AI_CONTENT_LENGTH).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(10_000).nullish(),
   memoryContext: z.string().max(20_000).nullish(),

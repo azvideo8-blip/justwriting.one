@@ -6,6 +6,8 @@ import { AIService } from './AIService';
 import { AISummaryService } from './AISummaryService';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { indexDocument, sha256Hex } from '../utils/embeddingIndexer';
+import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
+import type { AIErrorCode } from '../types/aiErrors';
 
 /**
  * Разбор одной заметки — по явному нажатию, и только по нему.
@@ -21,11 +23,9 @@ export type AnalyzeResult =
   | { ok: true }
   | { ok: false; error: 'NO_CONTENT' | 'TOO_SHORT' | 'EXCLUDED' | AIErrorCode };
 
-type AIErrorCode = 'AUTH_REQUIRED' | 'AI_CONSENT_REQUIRED' | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'TOO_LONG' | 'SERVER_ERROR' | 'NETWORK' | 'MISCONFIGURED' | 'UPSTREAM';
-
 /** Ниже этого заметка слишком коротка, чтобы из неё вышло что-то осмысленное. */
 const MIN_CONTENT_CHARS = 50;
-const MAX_CONTENT_CHARS = 50_000;
+const MAX_CONTENT_CHARS = MAX_AI_CONTENT_LENGTH;
 
 async function latestContent(documentId: string): Promise<string | null> {
   const db = await getLocalDb();

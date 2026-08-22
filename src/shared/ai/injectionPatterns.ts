@@ -22,7 +22,9 @@ const LATIN_PATTERNS = [
   /\[INST\]/i,
   /<developer>/i,
   /<end_of_turn>/i,
-  /repeat\s+.*(system|initial)\s+prompt/i,
+  // Промежуток ограничен длиной: с открытым `.*` движок перебирает позиции
+  // квадратично, и 50 000 пробелов после «repeat» занимают процесс на секунду.
+  /repeat\s+.{0,200}(system|initial)\s+prompt/i,
   /output\s+your\s+instructions/i,
   /reveal\s+your\s+system\s+prompt/i,
 ];
@@ -33,31 +35,31 @@ const LATIN_PATTERNS = [
 const CYRILLIC_PATTERNS = [
   /новые\s+инструкции/i,
   /забудь\s+(вс[её]|свои|преды|инструк)/i,
-  /выведи\s+.*(системный|свой)\s+промпт/i,
-  /покажи\s+.*(системный\s+промпт|свои\s+инструкции)/i,
+  /выведи\s+.{0,200}(системный|свой)\s+промпт/i,
+  /покажи\s+.{0,200}(системный\s+промпт|свои\s+инструкции)/i,
   /напиши\s+свои\s+системные\s+инструкции/i,
 ];
 
 
+import { classifyInvisibleCodePoint } from './buildChatPrompt.js';
+
 // Flat list kept for compatibility with any lingering direct reference.
 export const INJECTION_PATTERNS = [...LATIN_PATTERNS, ...CYRILLIC_PATTERNS];
 
-// Zero-width/invisible Unicode code points an attacker can splice into a
-// phrase to dodge a regex without changing how the text visibly renders.
-// Expressed as numeric code points on purpose (not a regex literal, not a
-// \u-escape string) — see the unicode note at the top of this prompt.
-const ZERO_WIDTH_CODE_POINTS = new Set<number>([
-  0x200B, 0x200C, 0x200D, 0xFEFF, 0x00AD, // zero-width space/joiners, BOM, soft hyphen
-  0x2028, 0x2029, 0x202F, 0x205F,          // line/paragraph separators, narrow/medium math space
-]);
-function isInvisibleCodePoint(code: number): boolean {
-  return ZERO_WIDTH_CODE_POINTS.has(code) || (code >= 0x2000 && code <= 0x200A); // general punctuation space block
-}
+// Нормализуем невидимые символы перед проверкой инъекций.
+// Символы категории 'space' (U+2000..U+200A, U+2028, U+2029 и т.д.) заменяются на U+0020,
+// чтобы сохранить границу слова для паттернов с \s+.
+// Символы категории 'drop' (нулевая ширина, U+2060, U+FE0F, теги U+E0000..E007F) удаляются.
 function stripInvisible(text: string): string {
   let out = '';
   for (const ch of text) {
     const code = ch.codePointAt(0) ?? 0;
-    if (!isInvisibleCodePoint(code)) out += ch;
+    const action = classifyInvisibleCodePoint(code);
+    if (action === 'space') {
+      out += ' ';
+    } else if (action === 'keep') {
+      out += ch;
+    }
   }
   return out;
 }

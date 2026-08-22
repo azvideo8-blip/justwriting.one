@@ -1,6 +1,6 @@
 // functions/src/ai/summarizeDocument.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, getLangfuse, hashUid, splitFactsByModality } from './pure';
+import { sanitizeAiInput, sanitizeAiResponse, getLangfuse, hashUid, splitFactsByModality, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from './context';
 import { chargeCall, refundCall } from './policy';
@@ -78,7 +78,7 @@ function repairTruncatedJson(raw: string): string {
 }
 
 const inputSchema = z.object({
-  content: z.string().min(50).max(50_000),
+  content: z.string().min(50).max(MAX_AI_CONTENT_LENGTH),
   mood: z.string().max(50).nullish(),
   recentContext: z.string().max(5000).optional(),
   noteDate: z.string().max(50).optional(),

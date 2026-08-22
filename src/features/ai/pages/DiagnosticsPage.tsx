@@ -28,6 +28,7 @@ import { AIService } from '../services/AIService';
 import { AISummaryService } from '../services/AISummaryService';
 import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
+import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import { SyncService } from '../../../core/services/SyncService';
 
 
@@ -836,7 +837,7 @@ function MassAnalyzeNotes() {
           const noteDate = doc.lastSessionAt ? new Date(doc.lastSessionAt).toISOString().slice(0, 10) : undefined;
 
           const result = await AIService.summarize({
-            content: content.slice(0, 50_000),
+            content: content.slice(0, MAX_AI_CONTENT_LENGTH),
             mood: doc.mood,
             recentContext,
             noteDate,

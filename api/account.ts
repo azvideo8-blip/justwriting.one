@@ -4,6 +4,7 @@
 // functions/src/telemetry/sendTelemetry.ts. Same behaviour, same limits; only
 // the storage changes.
 
+import { createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import { AiError } from './ai/context';
@@ -12,8 +13,18 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // ── sendTelemetry ───────────────────────────────────────────────────────────
 
+// Ключ строки выводится из uid, а не приходит от клиента. Раньше клиент задавал
+// его сам, а ветка conflict сливала payload в существующую строку — то есть
+// любой аккаунт мог перезаписать чужую статистику. Соль обязательна: без неё
+// ключ — это просто хеш uid, и совпадение с чужой строкой подбирается перебором
+// по списку uid.
+export function telemetryRowId(uid: string): string {
+  const pepper = process.env.TELEMETRY_ID_PEPPER;
+  if (!pepper) throw new AiError('internal', 'Telemetry is not configured.');
+  return createHash('sha256').update(`${uid}:${pepper}`).digest('hex');
+}
+
 const telemetrySchema = z.object({
-  telemetryId: z.string().min(1).max(100),
   activeTheme: z.string().max(100).optional(),
   notesCountBucket: z.string().max(20).optional(),
   averageWordCount: z.number().min(0).optional(),
@@ -47,10 +58,11 @@ export async function sendTelemetryLogic(_ctx: unknown, uid: string, data: unkno
   // The row carries no uid on purpose: the cooldown above is the only place the
   // two are associated, and it keeps no payload.
   const payload = parsed.data;
+  const rowId = telemetryRowId(uid);
   await pool.query(
     `insert into anonymized_telemetry (id, data) values ($1, $2)
      on conflict (id) do update set data = anonymized_telemetry.data || excluded.data`,
-    [payload.telemetryId, JSON.stringify(payload)],
+    [rowId, JSON.stringify(payload)],
   );
 
   return { success: true };

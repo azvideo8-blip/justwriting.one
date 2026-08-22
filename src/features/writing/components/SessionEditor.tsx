@@ -31,19 +31,21 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
       async () => {
         const docId = session.id;
         if (session._isLocal) {
+          const currentVer = (await LocalDocumentService.getDocument(docId))?.currentVersion ?? 0;
+          const nextVersion = currentVer + 1;
           await LocalVersionService.addVersion(session.userId, docId, {
             content: editContent,
             previousContent: session.content,
             wordCount,
             duration: session.duration,
             wpm: session.wpm,
-            versionNumber: (await LocalDocumentService.getDocument(docId))?.currentVersion ?? 1,
+            versionNumber: nextVersion,
             sessionStartedAt: new Date(),
           });
           await LocalDocumentService.updateAfterSession(docId, {
             totalWords: wordCount,
             totalDuration: session.duration,
-            currentVersion: (await LocalDocumentService.getDocument(docId))?.currentVersion ?? 1,
+            currentVersion: nextVersion,
           });
           if (editTitle !== (session.title || '')) {
             await LocalDocumentService.updateTitle(docId, editTitle);

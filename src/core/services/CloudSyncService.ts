@@ -255,25 +255,75 @@ export const CloudSyncService = {
       }
 
       if (localDoc.linkedCloudId) {
-        const existingDoc = await withTimeout(DocumentService.getDocument(userId, localDoc.linkedCloudId));
+        const getDoc = DocumentService.getDocumentWithDeleted?.bind(DocumentService) ?? DocumentService.getDocument.bind(DocumentService);
+        const existingDoc = await withTimeout(getDoc(userId, localDoc.linkedCloudId));
         if (existingDoc) {
+          if (existingDoc.deletedAt) {
+            await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
+            const syncDb = await getLocalDb();
+            await syncDb.delete('syncQueue', `sync_${localDocumentId}`);
+            return '';
+          }
           if (existingDoc._locked) throw new Error('LOCKED: cannot sync to locked cloud document');
           if (existingDoc._decryptionError) throw new Error('DECRYPTION_ERROR: cannot sync to unreadable cloud document');
-          // Already linked: push any LOCAL versions missing from the cloud and
-          // refresh metadata. Previously this early-returned, so edits made after
-          // the first sync never reached the cloud (doc stayed "Unsynced Edits").
+          // Already linked: pull missing cloud versions down, push any LOCAL versions missing from the cloud
           const cloudId = localDoc.linkedCloudId;
           const [localVersions, cloudVersions] = await Promise.all([
             LocalVersionService.getVersions(localDocumentId),
             withTimeout(VersionService.getVersions(userId, cloudId)),
           ]);
-          const cloudNums = new Set(cloudVersions.map(v => v.version));
-          // Only versions NEWER than the newest the cloud holds. The cloud trims
-          // old snapshots (pruneOldVersions), so an older version being absent
-          // there is housekeeping, not a gap: re-uploading it would undo the
-          // trim and pay the write quota to do it, every sync, forever.
+          const cloudVerMap = new Map(cloudVersions.map(v => [v.version, v]));
+          const localVerMap = new Map(localVersions.map(v => [v.version, v]));
           const newestCloud = cloudVersions.reduce((max, v) => Math.max(max, v.version ?? 0), 0);
-          const missing = localVersions.filter(v => !cloudNums.has(v.version) && v.version > newestCloud);
+
+          // 1. Pull missing cloud versions down to local
+          for (const cv of cloudVersions) {
+            if (!localVerMap.has(cv.version)) {
+              await LocalVersionService.addVersion(userId, localDocumentId, {
+                content: cv.content,
+                previousContent: '',
+                wordCount: cv.wordCount,
+                duration: cv.duration,
+                wpm: cv.wpm,
+                versionNumber: cv.version,
+                sessionStartedAt: cv.sessionStartedAt ?? new Date(),
+                savedAt: cv.savedAt ?? undefined,
+                mood: cv.mood,
+              });
+            }
+          }
+
+          // 2. Identify local versions missing from cloud, or colliding with different content
+          const missing: typeof localVersions = [];
+          for (const ver of localVersions) {
+            const cloudVer = cloudVerMap.get(ver.version);
+            if (!cloudVer) {
+              if (ver.version > newestCloud) {
+                missing.push(ver);
+              }
+            } else if (cloudVer.content !== ver.content) {
+              // Same version number, but DIFFERENT content! Fork to preserve local edits
+              await ConflictResolver.resolveConflict(
+                userId,
+                localDocumentId,
+                cloudId,
+                {
+                  title: localDoc.title,
+                  content: ver.content,
+                  tags: localDoc.tags,
+                  wordCount: ver.wordCount,
+                  duration: ver.duration,
+                  wpm: ver.wpm,
+                  sessionStartedAt: ver.sessionStartedAt ? new Date(ver.sessionStartedAt) : new Date(),
+                  labelId: localDoc.labelId,
+                  mood: ver.mood,
+                },
+                ver.version,
+                existingDoc,
+                localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt).getTime() : undefined
+              );
+            }
+          }
           const limiter = pLimit(3);
           await Promise.all(missing.map((ver) => limiter(async () => {
 
@@ -478,12 +528,20 @@ export const CloudSyncService = {
       return { forked: false };
     }
     try {
-      const cloudDoc = await DocumentService.getDocument(userId, linkedCloudId);
+      const getDoc = DocumentService.getDocumentWithDeleted?.bind(DocumentService) ?? DocumentService.getDocument.bind(DocumentService);
+      const cloudDoc = await getDoc(userId, linkedCloudId);
       if (cloudDoc?._locked) {
         throw new Error('LOCKED: cannot sync version to locked cloud document');
       }
       if (cloudDoc?._decryptionError) {
         throw new Error('DECRYPTION_ERROR: cannot sync version to unreadable cloud document');
+      }
+      if (cloudDoc?.deletedAt) {
+        // Document was soft-deleted in the cloud (tombstone). Clean up local link and syncQueue.
+        await LocalStorageService.updateLinkedCloudId(documentId, '');
+        const syncDb = await getLocalDb();
+        await syncDb.delete('syncQueue', `sync_${documentId}`);
+        return { forked: false };
       }
       if (!cloudDoc) {
         const syncDb = await getLocalDb();
@@ -494,39 +552,80 @@ export const CloudSyncService = {
           createdAt: Date.now(),
           ownerId: userId,
         });
-      } else if (cloudDoc.currentVersion >= newVersion) {
-        const localDoc = await LocalStorageService.getDocument(documentId);
-        const result = await ConflictResolver.resolveConflict(
-          userId,
-          documentId,
-          linkedCloudId,
-          data,
-          newVersion,
-          cloudDoc,
-          localDoc?.firstSessionAt
-        );
-        return result;
-      } else {
-        const startedAt = data.sessionStartedAt;
-        if (isNaN(startedAt.getTime())) {
-          throw new Error('Invalid sessionStartedAt');
+        return { forked: false };
+      }
+
+      // Reconcile cloud versions before pushing (pull-before-push)
+      const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
+      const localVersions = await LocalVersionService.getVersions(documentId);
+      const cloudVerMap = new Map(cloudVersions.map(v => [v.version, v]));
+      const localVerNums = new Set(localVersions.map(v => v.version));
+
+      // Pull missing cloud versions down to local
+      for (const cv of cloudVersions) {
+        if (!localVerNums.has(cv.version)) {
+          await LocalVersionService.addVersion(userId, documentId, {
+            content: cv.content,
+            previousContent: '',
+            wordCount: cv.wordCount,
+            duration: cv.duration,
+            wpm: cv.wpm,
+            versionNumber: cv.version,
+            sessionStartedAt: cv.sessionStartedAt ?? new Date(),
+            savedAt: cv.savedAt ?? undefined,
+            mood: cv.mood,
+          });
         }
-        const versionPayload = await maybeEncrypt({
-          content: data.content,
-          previousContent: prevContent,
-          wordCount: data.wordCount,
-          duration: data.duration,
-          wpm: data.wpm,
-          versionNumber: newVersion,
-          goalWords: data.goalWords,
-          goalTime: data.goalTime,
-          goalReached: data.goalReached,
-          sessionStartedAt: startedAt,
-          mood: data.mood,
-        } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
-        const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
-        const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
-        const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
+      }
+
+      const newestCloudVersion = cloudVersions.reduce((max, v) => Math.max(max, v.version ?? 0), 0);
+      const maxCloudVersion = Math.max(cloudDoc.currentVersion, newestCloudVersion);
+
+      if (maxCloudVersion >= newVersion) {
+        const localDoc = await LocalStorageService.getDocument(documentId);
+        const cloudBaseVer = cloudVerMap.get(newVersion - 1);
+        const hasMatchingBase = cloudBaseVer !== undefined && cloudBaseVer.content === prevContent;
+        const hasContentDivergence = !hasMatchingBase;
+
+        if (hasContentDivergence) {
+          const result = await ConflictResolver.resolveConflict(
+            userId,
+            documentId,
+            linkedCloudId,
+            data,
+            newVersion,
+            cloudDoc,
+            localDoc?.firstSessionAt
+          );
+          return result;
+        } else {
+          // Local was just lagging behind cloud without divergence: advance version to maxCloudVersion + 1
+          newVersion = maxCloudVersion + 1;
+        }
+      }
+
+      const startedAt = data.sessionStartedAt;
+      if (isNaN(startedAt.getTime())) {
+        throw new Error('Invalid sessionStartedAt');
+      }
+      const versionPayload = await maybeEncrypt({
+        content: data.content,
+        previousContent: prevContent,
+        wordCount: data.wordCount,
+        duration: data.duration,
+        wpm: data.wpm,
+        versionNumber: newVersion,
+        goalWords: data.goalWords,
+        goalTime: data.goalTime,
+        goalReached: data.goalReached,
+        sessionStartedAt: startedAt,
+        mood: data.mood,
+      } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
+      const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
+      const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
+      const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
+
+      try {
         await VersionService.addVersion(userId, linkedCloudId, {
           content,
           previousContent,
@@ -541,20 +640,44 @@ export const CloudSyncService = {
           mood: data.mood,
           _encrypted,
         });
-        await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
-          totalWords: data.documentWordCount ?? data.wordCount,
-          totalDuration: data.duration,
-          currentVersion: newVersion,
-          mood: data.mood,
-        });
-        
-        useActivityLogStore.getState().addActivity(
-          'Изменения сохранены в облако',
-          { action: 'syncVersionToCloud', documentId, newVersion },
-          'success',
-          'sync'
-        );
+      } catch (addVerErr) {
+        // Repair path for split metadata: recompute from max(version) and retry
+        const freshVersions = await VersionService.getVersions(userId, linkedCloudId);
+        const actualMax = freshVersions.reduce((max, v) => Math.max(max, v.version ?? 0), 0);
+        if (actualMax >= newVersion) {
+          newVersion = actualMax + 1;
+          await VersionService.addVersion(userId, linkedCloudId, {
+            content,
+            previousContent,
+            wordCount: data.wordCount,
+            duration: data.duration,
+            wpm: data.wpm,
+            versionNumber: newVersion,
+            goalWords: data.goalWords,
+            goalTime: data.goalTime,
+            goalReached: data.goalReached,
+            sessionStartedAt: startedAt,
+            mood: data.mood,
+            _encrypted,
+          });
+        } else {
+          throw addVerErr;
+        }
       }
+
+      await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
+        totalWords: data.documentWordCount ?? data.wordCount,
+        totalDuration: data.duration,
+        currentVersion: newVersion,
+        mood: data.mood,
+      });
+      
+      useActivityLogStore.getState().addActivity(
+        'Изменения сохранены в облако',
+        { action: 'syncVersionToCloud', documentId, newVersion },
+        'success',
+        'sync'
+      );
     } catch (e) {
       reportError(e, { action: 'syncVersionToCloud', documentId, linkedCloudId });
       try {

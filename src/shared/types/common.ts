@@ -128,6 +128,7 @@ export interface Document {
   excludedFromAI?: boolean | undefined;
   _locked?: boolean | undefined;
   _decryptionError?: boolean | undefined;
+  deletedAt?: Date | null | undefined;
 }
 
 export interface Version {
@@ -146,4 +147,5 @@ export interface Version {
   goalReached?: boolean | undefined;
   savedAt: Date | null;
   sessionStartedAt: Date | null;
+  mood?: string | undefined;
 }

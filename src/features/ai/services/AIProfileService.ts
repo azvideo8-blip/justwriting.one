@@ -10,6 +10,8 @@ import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 
+import type { CallAiOptions } from '../../../core/ai/callAi';
+
 const PORTRAIT_LS_KEY = 'ai_user_portrait';
 const SECTIONS_CACHE_KEY = 'ai_portrait_sections';
 let _autoGenInProgress = false;
@@ -142,7 +144,7 @@ export const AIProfileService = {
     return null;
   },
 
-  async generate(): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+  async generate(opts?: CallAiOptions): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
     try {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
@@ -226,6 +228,7 @@ export const AIProfileService = {
       ];
 
       const activeSections: Record<string, string> = {};
+      const generated = new Set<string>();
 
       for (const sec of sections) {
         const hash = await sha256Hex(sec.input);
@@ -233,6 +236,7 @@ export const AIProfileService = {
 
         if (cached && cached.hash === hash && cached.content) {
           activeSections[sec.key] = cached.content;
+          generated.add(sec.key);
         } else {
           // Regenerate section if budget allows
           if (AIBackgroundBudget.canSpend(1)) {
@@ -243,27 +247,43 @@ export const AIProfileService = {
                 role: 'user',
                 content: `${sec.title} на основе данных:\n\n${sec.input}\n\nНапиши подробный подраздел.`,
               }],
-            });
+            }, ...(opts ? [opts] : []));
 
             if (result.ok && result.text) {
               activeSections[sec.key] = result.text;
               cache[sec.key] = { content: result.text, hash };
+              generated.add(sec.key);
               AIBackgroundBudget.spend(1);
             } else {
               // Fallback to cache if request fails
-              activeSections[sec.key] = cached?.content || 'Раздел находится в процессе анализа…';
+              if (cached?.content) {
+                activeSections[sec.key] = cached.content;
+                generated.add(sec.key);
+              } else {
+                activeSections[sec.key] = 'Раздел находится в процессе анализа…';
+              }
             }
           } else {
             // Re-use cache if out of budget
-            activeSections[sec.key] = cached?.content || 'Раздел находится в процессе анализа…';
+            if (cached?.content) {
+              activeSections[sec.key] = cached.content;
+              generated.add(sec.key);
+            } else {
+              activeSections[sec.key] = 'Раздел находится в процессе анализа…';
+            }
           }
         }
       }
 
-      // Save sections cache
+      // Save sections cache (so successfully generated sections are preserved for cheap retry)
       try {
         localStorage.setItem(SECTIONS_CACHE_KEY, JSON.stringify(cache));
       } catch { /* ignore */ }
+
+      // If any section failed generation and had no cached content, do NOT save a degraded portrait
+      if (generated.size < sections.length) {
+        return { ok: false, error: 'partial_generation_failed' };
+      }
 
       // Reassemble final markdown
       const finalMarkdown = `# Психологический портрет пользователя

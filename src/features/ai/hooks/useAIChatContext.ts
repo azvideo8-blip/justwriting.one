@@ -829,18 +829,15 @@ export function useAIChatContext(personaId: string): {
         if (turnEmb) {
           try {
             const allEmb = await AIEmbeddingService.getAll();
-            let filteredEmb = allEmb;
-            if (minTime !== undefined || maxTime !== undefined) {
-              const allowed = new Set<string>();
-              const docs = await db.getAll('documents');
-              for (const doc of docs) {
-                const ts = doc.lastSessionAt;
-                if (ts && (minTime === undefined || ts >= minTime) && (maxTime === undefined || ts <= maxTime)) {
-                  allowed.add(doc.id);
-                }
-              }
-              filteredEmb = allEmb.filter(e => allowed.has(e.documentId));
-            }
+            const docs = await db.getAll('documents');
+            const usable = new Set(docs.filter(d => {
+              if (d.excludedFromAI) return false;
+              const ts = d.lastSessionAt || d.firstSessionAt;
+              if (minTime !== undefined && (!ts || ts < minTime)) return false;
+              if (maxTime !== undefined && (!ts || ts > maxTime)) return false;
+              return true;
+            }).map(d => d.id));
+            const filteredEmb = allEmb.filter(e => usable.has(e.documentId));
             const results = topKMultiWithChunkIndex(turnEmb, filteredEmb.map(e => ({ id: e.documentId, vectors: e.vectors })), 3);
             if (results.length > 0) {
               const parts = [];

@@ -18,5 +18,3 @@ export function useAuthStatus() {
     isConnected,
   };
 }
-
-export { AuthProvider } from '../contexts/AuthContext';

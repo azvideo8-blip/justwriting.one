@@ -1,18 +1,20 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
-import { withFacetLock } from './AIProfileFacetService';
+import { withFacetLock } from '../../../core/services/facetLock';
 import type { FacetBuildProgress } from './AIProfileFacetBuilder';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
+
+import type { CallAiOptions } from '../../../core/ai/callAi';
 
 const MAX_EXCERPTS = 14;
 const EXCERPT_CHARS = 2_000;
 const LLM_DELAY_MS = 200;
 
 export const AIProfileFacetSummarizer = {
-  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void): Promise<{ count: number }> {
+  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number }> {
     return withFacetLock(async () => {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
@@ -42,10 +44,10 @@ export const AIProfileFacetSummarizer = {
         let resummarized = excerpts.length === 0;
         if (excerpts.length > 0) {
           const focus = f.label;
-          let res = await AIService.summarizeFacet({ notes: excerpts, focus });
+          let res = await AIService.summarizeFacet({ notes: excerpts, focus }, ...(opts ? [opts] : []));
           if (!res.ok || (!res.label && !res.summary)) {
             await new Promise(r => setTimeout(r, 300));
-            res = await AIService.summarizeFacet({ notes: excerpts, focus });
+            res = await AIService.summarizeFacet({ notes: excerpts, focus }, ...(opts ? [opts] : []));
           }
           if (res.ok && res.summary) {
             f.summary = res.summary;
@@ -67,7 +69,7 @@ export const AIProfileFacetSummarizer = {
     });
   },
 
-  async summarizePending(onProgress?: (p: FacetBuildProgress) => void): Promise<{ done: number }> {
+  async summarizePending(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ done: number }> {
     return withFacetLock(async () => {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
@@ -99,10 +101,10 @@ export const AIProfileFacetSummarizer = {
         let summarized = false;
         if (excerpts.length > 0) {
           const focus = f.fixedLabel ? f.label : undefined;
-          let res = await AIService.summarizeFacet({ notes: excerpts, focus });
+          let res = await AIService.summarizeFacet({ notes: excerpts, focus }, ...(opts ? [opts] : []));
           if (!res.ok || (!res.label && !res.summary)) {
             await new Promise(r => setTimeout(r, 300));
-            res = await AIService.summarizeFacet({ notes: excerpts, focus });
+            res = await AIService.summarizeFacet({ notes: excerpts, focus }, ...(opts ? [opts] : []));
           }
           if (res.ok && res.summary) {
             f.summary = res.summary;

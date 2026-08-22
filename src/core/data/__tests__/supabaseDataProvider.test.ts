@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SupabaseDataProvider } from '../supabaseDataProvider';
+import { SupabaseDataProvider, likePrefix } from '../supabaseDataProvider';
 import * as supabaseClientModule from '../../supabase/client';
 
 interface MockQueryBuilder {
@@ -9,11 +9,13 @@ interface MockQueryBuilder {
   upsert: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
+  like: ReturnType<typeof vi.fn>;
   in: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   gt: ReturnType<typeof vi.fn>;
   contains: ReturnType<typeof vi.fn>;
+  is: ReturnType<typeof vi.fn>;
   maybeSingle: ReturnType<typeof vi.fn>;
   then: ReturnType<typeof vi.fn>;
 }
@@ -31,13 +33,15 @@ describe('SupabaseDataProvider', () => {
       upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
       delete: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      like: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
       in: vi.fn().mockResolvedValue({ data: null, error: null }),
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       gt: vi.fn().mockReturnThis(),
       contains: vi.fn().mockResolvedValue({ data: [], error: null }),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-      then: vi.fn().mockImplementation((resolve) => Promise.resolve({ data: null, error: null }).then(resolve)),
+      then: vi.fn().mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null })),
     };
 
     mockFrom = vi.fn().mockReturnValue(mockQueryBuilder);
@@ -452,6 +456,77 @@ describe('SupabaseDataProvider', () => {
         encryptionMeta: { salt: 's', version: 1, wrappedDataKey: 'w', verification: 'v' },
         totalWordCount: 100,
       });
+    });
+  });
+
+  describe('executeMigrationBatch', () => {
+    // Вызывающий (encryptMigration) после возврата помечает батч мигрированным
+    // и стирает чекпоинт. Молчаливый отказ записи = незашифрованная заметка
+    // остаётся в облаке, а миграция отчитывается «готово».
+    it.each([
+      ['version', { type: 'version' as const, userId: 'u1', documentId: 'd1', versionId: 'v1', data: {} }],
+      ['draft', { type: 'draft' as const, userId: 'u1', draftId: 'dr1', data: {} }],
+    ])('пробрасывает ошибку upsert для %s', async (_name, op) => {
+      mockQueryBuilder.upsert.mockResolvedValue({ data: null, error: { message: 'RLS denied' } });
+      await expect(SupabaseDataProvider.executeMigrationBatch([op])).rejects.toMatchObject({ message: 'RLS denied' });
+    });
+
+    it('пробрасывает ошибку update для document', async () => {
+      mockQueryBuilder.eq.mockReturnValueOnce(mockQueryBuilder);
+      mockQueryBuilder.eq.mockResolvedValueOnce({ data: null, error: { message: 'RLS denied' } });
+      await expect(SupabaseDataProvider.executeMigrationBatch([
+        { type: 'document', userId: 'u1', documentId: 'd1', data: {} },
+      ])).rejects.toMatchObject({ message: 'RLS denied' });
+    });
+
+    it('успешный батч не бросает', async () => {
+      await expect(SupabaseDataProvider.executeMigrationBatch([
+        { type: 'draft', userId: 'u1', draftId: 'dr1', data: {} },
+      ])).resolves.toBeUndefined();
+    });
+  });
+
+  describe('AG-DX-A: LIKE escaping in local_store_records deletion', () => {
+    it('escapes backslash, percent and underscore in likePrefix', () => {
+      expect(likePrefix('simple')).toBe('simple#%');
+      expect(likePrefix('a%b')).toBe('a\\%b#%');
+      expect(likePrefix('a_b')).toBe('a\\_b#%');
+      expect(likePrefix('a\\b')).toBe('a\\\\b#%');
+      expect(likePrefix('a%b_c\\d')).toBe('a\\%b\\_c\\\\d#%');
+    });
+
+    it('deleteLocalStoreRecord uses likePrefix for paged cleanup', async () => {
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.like.mockReturnValue(mockQueryBuilder);
+
+      await SupabaseDataProvider.deleteLocalStoreRecord('user-1', 'testStore', 'a%b');
+
+      expect(mockQueryBuilder.like).toHaveBeenCalledWith('key', 'a\\%b#%');
+    });
+
+    it('deleteLocalStorePagedRecords uses likePrefix for paged cleanup', async () => {
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.like.mockReturnValue(mockQueryBuilder);
+
+      await SupabaseDataProvider.deleteLocalStorePagedRecords?.('user-1', 'testStore', 'a_b');
+
+      expect(mockQueryBuilder.like).toHaveBeenCalledWith('key', 'a\\_b#%');
+    });
+  });
+
+  describe('deleteDocument — надгробие', () => {
+    // Смысл надгробия в том, что содержимое стёрто, а не спрятано. Если
+    // удаление версий провалилось молча, текст заметки остаётся в облаке при
+    // документе, помеченном удалённым, — а RLS запрещает менять надгробие,
+    // то есть починить это потом уже нельзя.
+    it('пробрасывает ошибку удаления версий и не ставит надгробие', async () => {
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.then.mockImplementationOnce((resolve: (v: unknown) => unknown) => {
+        void Promise.resolve({ data: null, error: { message: 'versions delete failed' } }).then(resolve);
+      });
+      await expect(SupabaseDataProvider.deleteDocument('u1', 'doc-1'))
+        .rejects.toMatchObject({ message: 'versions delete failed' });
+      expect(mockQueryBuilder.update).not.toHaveBeenCalled();
     });
   });
 });

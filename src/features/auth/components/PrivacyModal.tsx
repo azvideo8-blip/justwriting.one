@@ -6,6 +6,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { DataProvider } from '../../../core/data';
 import { Button } from '../../../shared/components/Button';
 import { useAuthStatus } from '../../../app/useAuthStatus';
+import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 
 interface PrivacyModalProps {
   onAccepted: () => void;
@@ -125,7 +126,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
 // Версия текста согласия. Поднимается вместе с любым содержательным изменением
 // формулировок: согласие, данное на прежний текст, нового не покрывает. Версия 2
 // (2026-08-18) — первая, где сказано, что запрос к модели может уйти за границу.
-export const PRIVACY_VERSION = 2;
+
 
 export function usePrivacyCheck() {
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -173,3 +174,6 @@ export function usePrivacyCheck() {
 
   return { showPrivacy, setShowPrivacy };
 }
+
+// Ре-экспорт для обратной совместимости: часть кода импортирует константу отсюда.
+export { PRIVACY_VERSION };

@@ -143,9 +143,9 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
     vi.mocked(DataProvider.updateProfile).mockClear();
 
     await ProfileService.getProfile('user_test');
-    await new Promise(r => setTimeout(r, 0));
-
-    expect(DataProvider.updateProfile).toHaveBeenCalledTimes(1);
+    // Ждём условие, а не фиксированный тик: шифрование метки — цепочка
+    // WebCrypto, и под нагрузкой она в один setTimeout(0) не укладывается.
+    await vi.waitFor(() => expect(DataProvider.updateProfile).toHaveBeenCalledTimes(1));
     const written = vi.mocked(DataProvider.updateProfile).mock.calls[0]![1] as { labels: Array<Record<string, unknown>> };
     expect(written.labels[0]!._encrypted).toBe(true);
     expect(written.labels[0]!.name).not.toBe('Практика6');

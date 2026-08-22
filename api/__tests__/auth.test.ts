@@ -241,3 +241,43 @@ describe('SEC-3: JWT claims and algorithm verification via jose', () => {
   });
 });
 
+describe('AG-SEC-D: SUPABASE_JWT_ISS production requirement', () => {
+  const origNodeEnv = process.env.NODE_ENV;
+  const origIss = process.env.SUPABASE_JWT_ISS;
+  const origDbUrl = process.env.DATABASE_URL;
+
+  afterEach(() => {
+    process.env.NODE_ENV = origNodeEnv;
+    if (origIss !== undefined) process.env.SUPABASE_JWT_ISS = origIss;
+    else delete process.env.SUPABASE_JWT_ISS;
+    if (origDbUrl !== undefined) process.env.DATABASE_URL = origDbUrl;
+    else delete process.env.DATABASE_URL;
+    vi.resetModules();
+  });
+
+  it('throws on module load in production when SUPABASE_JWT_ISS is absent', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.SUPABASE_JWT_ISS;
+    vi.resetModules();
+
+    await expect(import('../auth')).rejects.toThrow('SUPABASE_JWT_ISS is required in production');
+  });
+
+  it('throws when NODE_ENV is unset/empty but DATABASE_URL is set and SUPABASE_JWT_ISS is absent', async () => {
+    process.env.NODE_ENV = '';
+    process.env.DATABASE_URL = 'postgresql://localhost:5432/justwriting';
+    delete process.env.SUPABASE_JWT_ISS;
+    vi.resetModules();
+
+    await expect(import('../auth')).rejects.toThrow('SUPABASE_JWT_ISS is required in production');
+  });
+
+  it('does not throw under test environment without SUPABASE_JWT_ISS', async () => {
+    process.env.NODE_ENV = 'test';
+    delete process.env.SUPABASE_JWT_ISS;
+    vi.resetModules();
+
+    await expect(import('../auth')).resolves.toBeDefined();
+  });
+});
+

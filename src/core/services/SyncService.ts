@@ -136,21 +136,35 @@ export const SyncService = {
       LocalDocumentService.getGuestDocuments(userId),
     ]);
 
-    const linkedCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
-    const toDownload = cloudDocs.filter(d => !linkedCloudIds.has(d.id));
+    const linkedCloudMap = new Map(localDocs.filter(d => d.linkedCloudId).map(d => [d.linkedCloudId!, d]));
+    const toDownload = cloudDocs.filter(d => !linkedCloudMap.has(d.id));
+    const toReconcile = cloudDocs.filter(d => linkedCloudMap.has(d.id));
 
-    const results = await Promise.allSettled(
+    const downloadResults = await Promise.allSettled(
       toDownload.map(cloudDoc => limit(() => StorageService.addLocalCopy(userId, cloudDoc.id)))
+    );
+
+    const reconcileResults = await Promise.allSettled(
+      toReconcile.map(cloudDoc => {
+        const localDoc = linkedCloudMap.get(cloudDoc.id)!;
+        return limit(() => StorageService.addCloudCopy(userId, localDoc.id));
+      })
     );
 
     let downloaded = 0;
     let failed = 0;
-    for (const r of results) {
+    for (const r of downloadResults) {
       if (r.status === 'fulfilled') downloaded++;
       else { failed++; logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) }); }
     }
+    for (const r of reconcileResults) {
+      if (r.status === 'rejected') {
+        failed++;
+        logger.error('downloadAllFromCloud', 'Reconcile failed', { reason: String(r.reason) });
+      }
+    }
 
-    return { downloaded, skipped: linkedCloudIds.size, failed };
+    return { downloaded, skipped: toReconcile.length, failed };
   },
 
 };

@@ -7,6 +7,18 @@ export interface Session {
   claims: Record<string, unknown>;
 }
 
+// Проверка издателя обязательна в продакшене. Раньше отсутствие переменной
+// просто отключало её — деплой без строки в .env выглядел бы полностью
+// исправным, принимая любой токен, подписанный общим секретом.
+const JWT_ISSUER = process.env.SUPABASE_JWT_ISS;
+const isProd = process.env.NODE_ENV === 'production' || (process.env.NODE_ENV !== 'test' && Boolean(process.env.DATABASE_URL));
+if (isProd && !JWT_ISSUER) {
+  throw new Error(
+    'SUPABASE_JWT_ISS is required in production: without it any token signed ' +
+    'with the shared secret is accepted regardless of who issued it.',
+  );
+}
+
 /**
  * Returns the session, or null. Never throws on malformed input.
  *
@@ -14,7 +26,7 @@ export interface Session {
  * 1. Algorithm: HS256 strictly.
  * 2. Audience: "authenticated" (Supabase user session tokens).
  * 3. Required claims: "exp" (expiry is mandatory) and "sub" (user id).
- * 4. Issuer: process.env.SUPABASE_JWT_ISS (if configured).
+ * 4. Issuer: process.env.SUPABASE_JWT_ISS (mandatory in production).
  * 5. Clock tolerance: 10 seconds.
  *
  * Crucially, rejecting tokens without a valid user `sub` prevents the public Supabase
@@ -36,8 +48,9 @@ export async function verifyJwt(token: string, secret: string): Promise<Session 
       clockTolerance: 10,
       requiredClaims: ['exp', 'sub'],
     };
-    if (process.env.SUPABASE_JWT_ISS) {
-      options.issuer = process.env.SUPABASE_JWT_ISS;
+    const issuer = process.env.SUPABASE_JWT_ISS;
+    if (issuer) {
+      options.issuer = issuer;
     }
     const { payload } = await jwtVerify(token, secretKey, options);
     if (typeof payload.sub !== 'string' || !payload.sub) return null;

@@ -25,9 +25,19 @@ const DRAFT_CLOUD_FIELDS: Record<string, boolean> = {
 };
 
 const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const _abortControllers = new Map<string, AbortController>();
+const _draftGenerations = new Map<string, number>();
 // Signature of what was last actually written to the cloud, per user.
 const _lastCloudSignature = new Map<string, string>();
+
+export function getDraftGeneration(userId: string): number {
+  return _draftGenerations.get(userId) ?? 0;
+}
+
+export function bumpDraftGeneration(userId: string): number {
+  const next = (_draftGenerations.get(userId) ?? 0) + 1;
+  _draftGenerations.set(userId, next);
+  return next;
+}
 
 // Fields worth a Firestore write. The elapsed-time counters (seconds, wpm,
 // accumulatedDuration, totalPauseSeconds, updatedAt) are deliberately absent:
@@ -61,6 +71,9 @@ function hasDraftsStore(localDb: { objectStoreNames: DOMStringList }): boolean {
 }
 
 export const WritingDraftService = {
+  getDraftGeneration,
+  bumpDraftGeneration,
+
   loadDraft: async (userId: string): Promise<LocalDraft | null> => {
     let deletedAt = 0;
     try {
@@ -145,11 +158,20 @@ export const WritingDraftService = {
     } catch (e) { reportError(e, { action: 'clearLegacyDraft', userId }); }
   },
 
-  saveToLocal: async (draft: LocalDraft) => {
+  saveToLocal: async (draft: LocalDraft, generation?: number): Promise<void> => {
+    if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+      return;
+    }
     try {
       const localDb = await getLocalDb();
+      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+        return;
+      }
       await localDb.put('drafts', draft);
     } catch (err) {
+      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+        return;
+      }
       reportError(err, { action: 'saveToLocal', userId: draft.userId });
       // D-1: re-throw so Promise.allSettled sees 'rejected' and localOk is
       // false — prevents the UI from showing "Saved" when the draft is lost.
@@ -162,9 +184,12 @@ export const WritingDraftService = {
   // есть Supabase, — но сообщение «Firestore save failed» отправляло искать
   // причину в мёртвом слое. Имя в журнале должно называть то место, где отказ
   // случился на самом деле.
-  saveDraftToCloud: async (draft: LocalDraft): Promise<boolean> => {
+  saveDraftToCloud: async (draft: LocalDraft, generation?: number): Promise<boolean> => {
     if (!draft.userId) return false;
     if (!isProfileLoaded(draft.userId)) {
+      return false;
+    }
+    if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
       return false;
     }
     // Nothing worth writing changed since the last successful write. Reported as
@@ -173,36 +198,33 @@ export const WritingDraftService = {
     const signature = draftSignature(draft);
     if (_lastCloudSignature.get(draft.userId) === signature) return true;
 
-    const oldAc = _abortControllers.get(draft.userId);
-    if (oldAc) {
-      oldAc.abort();
-    }
-    const ac = new AbortController();
-    _abortControllers.set(draft.userId, ac);
     const draftRecord = draft as unknown as Record<string, unknown>;
     const encrypted = await maybeEncrypt(draftRecord, ['content', 'title'], ['pinnedThoughts'], draft.userId);
+    if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+      return false;
+    }
     const clean = Object.fromEntries(
       Object.entries(encrypted).filter(([k, v]) => v !== undefined && (k in DRAFT_CLOUD_FIELDS))
     );
     try {
+      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+        return false;
+      }
       await DataProvider.saveDraft(draft.userId, clean);
       _lastCloudSignature.set(draft.userId, signature);
       return true;
     } catch (e) {
-      if (ac.signal.aborted) return true;
+      if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
+        return false;
+      }
       reportError(e, { action: 'saveDraftToCloud', userId: draft.userId });
       throw e;
-    } finally {
-      if (_abortControllers.get(draft.userId) === ac) {
-        _abortControllers.delete(draft.userId);
-      }
     }
   },
 
   deleteDraft: async (userId: string) => {
     if (!userId) return;
-    _abortControllers.get(userId)?.abort();
-    _abortControllers.delete(userId);
+    bumpDraftGeneration(userId);
     // The next draft must be written even if it opens with identical text.
     _lastCloudSignature.delete(userId);
     try { sessionStorage.setItem(STORAGE_KEYS.DRAFT_DELETED(userId), Date.now().toString()); } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }

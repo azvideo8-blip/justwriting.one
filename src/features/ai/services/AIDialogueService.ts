@@ -4,6 +4,8 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
+import { withFacetLock } from '../../../core/services/facetLock';
+
 function formatDateYYYYMMDD(timestamp: number): string {
   const date = new Date(timestamp);
   const yyyy = date.getFullYear();
@@ -13,21 +15,24 @@ function formatDateYYYYMMDD(timestamp: number): string {
 }
 
 async function removeDialogueFromFacets(dialogueId: string): Promise<void> {
-  try {
-    const db = await getLocalDb();
-    const facets = await db.getAll('aiProfileFacets');
-    const tx = db.transaction('aiProfileFacets', 'readwrite');
-    for (const f of facets) {
-      if (f.dialogueIds && f.dialogueIds.includes(dialogueId)) {
-        f.dialogueIds = f.dialogueIds.filter(id => id !== dialogueId);
-        f.dirty = true;
-        await tx.store.put(f);
+  await withFacetLock(async () => {
+    try {
+      const db = await getLocalDb();
+      const facets = await db.getAll('aiProfileFacets');
+      const tx = db.transaction('aiProfileFacets', 'readwrite');
+      for (const f of facets) {
+        if (f.dialogueIds && f.dialogueIds.includes(dialogueId)) {
+          f.dialogueIds = f.dialogueIds.filter(id => id !== dialogueId);
+          f.dirty = true;
+          await tx.store.put(f);
+          LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
+        }
       }
+      await tx.done;
+    } catch (e) {
+      console.warn('[AIDialogueService] removeDialogueFromFacets failed:', e);
     }
-    await tx.done;
-  } catch (e) {
-    console.warn('[AIDialogueService] removeDialogueFromFacets failed:', e);
-  }
+  });
 }
 
 
@@ -51,8 +56,9 @@ export const AIDialogueService = {
   },
 
   async get(id: string): Promise<AIDialogue | undefined> {
+    if (!id || typeof id !== 'string') return undefined;
     const db = await getLocalDb();
-    return db.get('aiDialogues', id) ?? undefined;
+    return (await db.get('aiDialogues', id)) ?? undefined;
   },
 
   async list(options?: { includeArchived?: boolean }): Promise<AIDialogue[]> {

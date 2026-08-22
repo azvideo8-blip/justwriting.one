@@ -27,6 +27,7 @@ export async function cleanupDraftsAfterSave(
   } else {
     try {
       const { WritingDraftService } = await import('../services/WritingDraftService');
+      WritingDraftService.bumpDraftGeneration(userId);
       await WritingDraftService.deleteDraft(userId);
     } catch (delErr) {
       logger.warn('sessionActions', 'Failed to delete draft', { error: String(delErr) });

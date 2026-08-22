@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { handle as dispatch } from './dispatcher';
 import { handleChat } from './chat';
+import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function json(res: http.ServerResponse, status: number, body: unknown) {
@@ -9,7 +10,7 @@ function json(res: http.ServerResponse, status: number, body: unknown) {
 }
 
 // Max payload size: 4MB (note version content schema allows up to 700k chars ~2MB in UTF-8, 4MB provides safety margin)
-function readBody(req: http.IncomingMessage, maxBytes = 4 * 1024 * 1024): Promise<string> {
+function readBody(req: http.IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks: Buffer[] = [];
@@ -74,14 +75,26 @@ const server = http.createServer((req, res) => {
   }
 
   json(res, 404, { error: 'Not found' });
-  })();
+  })().catch((e: unknown) => {
+    // Без этого любой отказ, не пойманный внутри обработчика, становится
+    // unhandled rejection, а Node на нём завершает процесс — один кривой
+    // запрос ронял бы сервис целиком. Наружу отдаём общий текст: причина
+    // уходит в журнал, клиенту причины не сообщаем.
+    console.error('[server] unhandled request error', e);
+    if (!res.headersSent) json(res, 500, { error: 'Internal error' });
+    else res.end();
+  });
 });
 
 // ── Start ──────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
+// Только петля. deploy/nginx.conf держит инвариант «внутрь пускает только
+// nginx» и прямо на него ссылается; без адреса Node слушает все интерфейсы, и
+// инвариант держался на одном ufw. Апстрим nginx — 127.0.0.1:3000.
+const HOST = '127.0.0.1';
 if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, () => {
-    console.warn(`[justwriting] API listening on :${PORT}`);
+  server.listen(PORT, HOST, () => {
+    console.warn(`[justwriting] API listening on ${HOST}:${PORT}`);
   });
 }
 

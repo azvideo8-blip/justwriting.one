@@ -229,7 +229,7 @@ export function RerankBenchPage() {
           onChange={e => setQueriesText(e.target.value)}
           rows={10}
           disabled={running}
-          placeholder={'[запрос удалён]\n[запрос удалён]\n…'}
+          placeholder={'по одному запросу в строке\nнапример: разговор о работе\n…'}
           className="w-full p-3 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/40 font-mono leading-relaxed"
         />
         <div className="flex items-center gap-2">

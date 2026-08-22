@@ -4,6 +4,7 @@ export interface IDataProvider {
   // --- Document Operations ---
   createDocument(userId: string, data: ProviderRecord): Promise<string>;
   getDocument(userId: string, documentId: string): Promise<ProviderRecord | null>;
+  getDocumentWithDeleted(userId: string, documentId: string): Promise<ProviderRecord | null>;
   getUserDocuments(userId: string): Promise<ProviderRecord[]>;
   updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
   updateDocumentSessionStats(

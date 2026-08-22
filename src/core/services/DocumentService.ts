@@ -75,6 +75,40 @@ export const DocumentService = {
     return documentFromDb(parsed.data);
   },
 
+  async getDocumentWithDeleted(userId: string, documentId: string): Promise<Document | null> {
+    const data = await DataProvider.getDocumentWithDeleted(userId, documentId);
+    if (!data) return null;
+    let decrypted: Record<string, unknown> = data;
+    let _locked = false;
+    let _decryptionError = false;
+    try {
+      decrypted = await maybeDecrypt(data, ['title', 'mood'], ['tags']);
+    } catch (decErr) {
+      if (decErr instanceof DecryptionError) {
+        _decryptionError = true;
+      } else if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) {
+        _locked = true;
+      } else {
+        reportError(decErr, { action: 'getDocument_decrypt', docId: documentId });
+        return null;
+      }
+    }
+    const docData: Record<string, unknown> = { ...decrypted };
+    if (_locked || _decryptionError) {
+      delete docData.title;
+      delete docData.tags;
+      delete docData.mood;
+      if (_locked) docData._locked = true;
+      if (_decryptionError) docData._decryptionError = true;
+    }
+    const parsed = documentDbSchema.safeParse({ id: documentId, ...docData });
+    if (!parsed.success) {
+      reportError(parsed.error, { action: 'getDocument_parse', docId: documentId });
+      return null;
+    }
+    return documentFromDb(parsed.data);
+  },
+
   async getUserDocuments(userId: string): Promise<Document[]> {
     const records = await DataProvider.getUserDocuments(userId);
     const decryptedDocs = await Promise.all(

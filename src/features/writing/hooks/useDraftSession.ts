@@ -25,6 +25,7 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
     if (isGuest) {
       await deleteGuestDraftFromStorage();
     } else {
+      WritingDraftService.bumpDraftGeneration(userId);
       await WritingDraftService.deleteDraft(userId);
     }
     setHasDraft(false);

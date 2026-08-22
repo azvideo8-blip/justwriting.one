@@ -91,4 +91,50 @@ describe('useActivityLogStore (AG-BG-1)', () => {
     expect(entries[0]?.message).toBe('Updated event');
     expect(entries[0]?.context).toEqual({ foo: 'bar' });
   });
+
+  describe('AG-PRIV-A: activity log scrubbing', () => {
+    it('scrubs long quoted strings and base64 payloads from error messages', () => {
+      const store = useActivityLogStore.getState();
+      const longNote = 'Сессия психотерапии от 15 августа: сильная тревога по поводу работы и отношений с родителями';
+      const base64Data = 'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkwQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo=';
+      const rawError = new Error(`Validation failed for "${longNote}" with cipher: ${base64Data}`);
+
+      store.addActivity(rawError);
+
+      const entries = useActivityLogStore.getState().entries;
+      expect(entries).toHaveLength(1);
+      const msg = entries[0]!.message;
+      expect(msg).not.toContain(longNote);
+      expect(msg).toContain('…');
+      expect(msg).not.toContain(base64Data);
+      expect(msg).toContain('[data]');
+      expect(msg.length).toBeLessThanOrEqual(200);
+    });
+
+    it('does not stringify arbitrary objects with JSON.stringify', () => {
+      const store = useActivityLogStore.getState();
+      const rawObject = {
+        secretNote: 'Мой секретный дневник, который не должен попасть в localStorage',
+        code: 'ERR_SYNC_FAIL',
+      };
+
+      store.addActivity(rawObject);
+
+      const entries = useActivityLogStore.getState().entries;
+      expect(entries).toHaveLength(1);
+      const msg = entries[0]!.message;
+      expect(msg).not.toContain('Мой секретный дневник');
+      expect(msg).toContain('Object (ERR_SYNC_FAIL)');
+      expect(msg.length).toBeLessThanOrEqual(200);
+    });
+
+    it('leaves standard short error messages intact without over-scrubbing', () => {
+      const store = useActivityLogStore.getState();
+      store.addActivity(new Error('Cloud unavailable'));
+
+      const entries = useActivityLogStore.getState().entries;
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.message).toBe('Cloud unavailable');
+    });
+  });
 });

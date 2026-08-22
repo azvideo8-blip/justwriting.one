@@ -125,24 +125,36 @@ describe('performance.now-based timer', () => {
 
     vi.setSystemTime(new Date(startIso));
 
+    // performance.now() is milliseconds since page load (e.g. 5000), not epoch.
+    // sessionStartEpochMs is the true epoch timestamp (Date.now()).
+    vi.spyOn(performance, 'now').mockReturnValue(5000);
+
     useTimerStore.setState({
       status: 'writing',
       sessionType: 'finish-by',
       targetTime: '10:05',
-      sessionStartWallMs: new Date(startIso).getTime(),
+      sessionStartEpochMs: new Date(startIso).getTime(),
       timeGoalReached: false,
-      _startWallMs: 0,
+      _startWallMs: 5000,
       _accumulatedMs: 0,
     });
 
+    // 0. Immediately after start, timeGoalReached is false even though _startWallMs is ~5000
+    useTimerStore.getState().checkGoals();
+    expect(useTimerStore.getState().timeGoalReached).toBe(false);
+
     // 1. Move time to 10:04:59 (before targetTime 10:05)
-    vi.spyOn(performance, 'now').mockReturnValue(299000);
+    vi.spyOn(performance, 'now').mockReturnValue(5000 + 299000);
     vi.setSystemTime(new Date(beforeIso));
     useTimerStore.getState().checkGoals();
     expect(useTimerStore.getState().timeGoalReached).toBe(false);
 
-    // 2. Move time to 10:05:01 (after targetTime 10:05)
-    vi.spyOn(performance, 'now').mockReturnValue(301000);
+    // 2. Monotonic clock advance check: advance performance.now() by 10s without moving Date.now()
+    vi.spyOn(performance, 'now').mockReturnValue(5000 + 309000);
+    expect(useTimerStore.getState().getElapsedSeconds()).toBe(309);
+
+    // 3. Move time to 10:05:01 (after targetTime 10:05)
+    vi.spyOn(performance, 'now').mockReturnValue(5000 + 301000);
     vi.setSystemTime(new Date(afterIso));
     useTimerStore.getState().checkGoals();
     expect(useTimerStore.getState().timeGoalReached).toBe(true);

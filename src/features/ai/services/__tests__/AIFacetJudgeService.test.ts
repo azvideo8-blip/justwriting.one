@@ -15,7 +15,7 @@ const putMock = vi.fn();
 vi.mock('../AIProfileFacetService', () => ({
   AIProfileFacetService: {
     getAll: vi.fn(async () => [
-      { id: 'f1', label: 'Доверие', summary: 'коллега Имя1', noteIds: ['n1'] },
+      { id: 'f1', label: 'Доверие', summary: 'коллега Анна', noteIds: ['n1'] },
     ]),
   },
   withFacetLock: vi.fn(<T,>(fn: () => Promise<T>) => fn()),
@@ -50,9 +50,9 @@ describe('buildEvidence', () => {
   // D4.17: судья читает доказательства вслух модели — имён среди них быть не
   // должно ни при каких входных данных, включая старые записи с полем.
   it('never puts names into the evidence sent to the provider', () => {
-    const legacy = [{ documentId: 'n9', themes: ['семья'], insights: [], mentionedPeople: [{ name: 'Имя1', role: 'терапевт' }] }];
+    const legacy = [{ documentId: 'n9', themes: ['семья'], insights: [], mentionedPeople: [{ name: 'Анна', role: 'терапевт' }] }];
     const ev = buildEvidence(['n9'], legacy as never);
-    expect(ev).not.toContain('Имя1');
+    expect(ev).not.toContain('Анна');
     expect(ev).not.toContain('терапевт');
   });
 
@@ -77,13 +77,13 @@ describe('AIFacetJudgeService.review', () => {
 
   it('re-summarizes a flagged facet with the hint and stores the corrected summary', async () => {
     judgeMock
-      .mockResolvedValueOnce({ ok: true, verdicts: [{ facetId: 'f1', ok: false, issues: ['роль'], hint: 'Имя1 — терапевт' }] })
+      .mockResolvedValueOnce({ ok: true, verdicts: [{ facetId: 'f1', ok: false, issues: ['роль'], hint: 'Анна — терапевт' }] })
       .mockResolvedValueOnce({ ok: true, verdicts: [{ facetId: 'f1', ok: true, issues: [], hint: '' }] });
-    summarizeMock.mockResolvedValue({ ok: true, label: 'Доверие', summary: 'терапевт Имя1' });
+    summarizeMock.mockResolvedValue({ ok: true, label: 'Доверие', summary: 'терапевт Анна' });
 
     const res = await AIFacetJudgeService.review();
-    expect(summarizeMock).toHaveBeenCalledWith(expect.objectContaining({ correction: 'Имя1 — терапевт' }));
-    expect(putMock).toHaveBeenCalledWith('aiProfileFacets', expect.objectContaining({ summary: 'терапевт Имя1' }));
+    expect(summarizeMock).toHaveBeenCalledWith(expect.objectContaining({ correction: 'Анна — терапевт' }));
+    expect(putMock).toHaveBeenCalledWith('aiProfileFacets', expect.objectContaining({ summary: 'терапевт Анна' }));
     expect(res.corrected).toBe(1);
   });
 

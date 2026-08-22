@@ -21,6 +21,7 @@ export function documentFromDb(dbDoc: DocumentDb): Document {
     excludedFromAI: dbDoc.excludedFromAI ?? false,
     _locked: dbDoc._locked,
     _decryptionError: dbDoc._decryptionError,
+    deletedAt: toDate(dbDoc.deletedAt) ?? null,
   } as Document;
 }
 

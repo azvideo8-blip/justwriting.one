@@ -6,6 +6,7 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIService } from './AIService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import type { CallAiOptions } from '../../../core/ai/callAi';
 
 
 /**
@@ -173,9 +174,11 @@ export const AIConsolidationService = {
     // that would make every unit look unconsolidated and republish duplicate
     // beliefs. On a read failure, yield no candidates and retry next pass.
     let publishedBeliefs: AIBelief[];
+    let rejectedBeliefs: RejectedBeliefRecord[] = [];
     try {
       const beliefsDb = await getLocalDb();
       publishedBeliefs = (await beliefsDb.getAll('aiBeliefs')) as unknown as AIBelief[];
+      rejectedBeliefs = (await beliefsDb.getAll('aiBeliefRejections')) as unknown as RejectedBeliefRecord[];
     } catch {
       return [];
     }
@@ -183,6 +186,11 @@ export const AIConsolidationService = {
 
     for (const b of publishedBeliefs) {
       for (const uId of b.unitIds) consolidatedUnitIds.add(uId);
+    }
+    for (const r of rejectedBeliefs) {
+      if (Array.isArray(r.unitIds)) {
+        for (const uId of r.unitIds) consolidatedUnitIds.add(uId);
+      }
     }
 
     const now = Date.now();
@@ -363,6 +371,7 @@ export const AIConsolidationService = {
    */
   async consolidateAndJudgeCluster(
     cluster: MemoryClusterCandidate,
+    opts?: CallAiOptions,
   ): Promise<{ belief: AIBelief | null; llmCalls: number; serviceFailed?: boolean }> {
     const evidenceList: AIBeliefEvidence[] = cluster.units.map(u => ({
       id: u.id,
@@ -377,7 +386,7 @@ export const AIConsolidationService = {
     const initialRes = await AIService.summarizeBeliefCluster({
       evidence: evidenceList,
       firstSeenAt: cluster.earliestDate,
-    });
+    }, opts);
 
     if (!initialRes.ok || !initialRes.belief) {
       // A service failure is a property of the provider, not of this cluster:
@@ -394,7 +403,7 @@ export const AIConsolidationService = {
     const initialJudgeRes = await AIService.judgeBeliefCandidate({
       belief: candidateBeliefText,
       evidence: evidenceList,
-    });
+    }, opts);
     if (initialJudgeRes.ok) llmCalls++;
 
     let verdict: 'PASSED' | 'REWRITTEN_PASSED' | 'REJECTED' = 'REJECTED';
@@ -411,7 +420,7 @@ export const AIConsolidationService = {
         evidence: evidenceList,
         firstSeenAt: cluster.earliestDate,
         correctionHint: correctiveHint,
-      });
+      }, opts);
 
       if (rewriteRes.ok && rewriteRes.belief) {
         llmCalls++;
@@ -419,7 +428,7 @@ export const AIConsolidationService = {
         const recheckRes = await AIService.judgeBeliefCandidate({
           belief: candidateBeliefText,
           evidence: evidenceList,
-        });
+        }, opts);
         if (recheckRes.ok) llmCalls++;
 
         if (recheckRes.ok && recheckRes.passed) {
@@ -492,7 +501,7 @@ export const AIConsolidationService = {
    * Process background consolidation pass under governor budget (`AIBackgroundBudget`).
    * Never runs on the chat hot path!
    */
-  async processConsolidationPass(): Promise<{ processedClusters: number; publishedBeliefs: number; totalLlmCalls: number; serviceFailed: boolean }> {
+  async processConsolidationPass(opts?: CallAiOptions): Promise<{ processedClusters: number; publishedBeliefs: number; totalLlmCalls: number; serviceFailed: boolean }> {
     let processedClusters = 0;
     let publishedBeliefs = 0;
     let totalLlmCalls = 0;
@@ -512,7 +521,7 @@ export const AIConsolidationService = {
           break;
         }
 
-        const res = await this.consolidateAndJudgeCluster(cluster);
+        const res = await this.consolidateAndJudgeCluster(cluster, opts);
         if (res.serviceFailed === true) {
           serviceFailed = true;
           break;

@@ -1,8 +1,7 @@
-// dispatcher.ts – HTTP router for AI endpoints on the VPS
-
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { requireSession } from './auth';
 import { handleAiEndpoint } from './handlers';
+import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 
 /** Simple JSON responder utility */
 function json(res: ServerResponse, status: number, body: unknown) {
@@ -11,7 +10,7 @@ function json(res: ServerResponse, status: number, body: unknown) {
 }
 
 // Max payload size: 4MB (note version content schema allows up to 700k chars ~2MB in UTF-8, 4MB provides safety margin)
-function readBody(req: IncomingMessage, maxBytes = 4 * 1024 * 1024): Promise<string> {
+function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks: Buffer[] = [];

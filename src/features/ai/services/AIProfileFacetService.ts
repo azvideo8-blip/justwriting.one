@@ -3,13 +3,12 @@ import type { AIProfileFacet } from '../../../core/storage/localDb';
 import { AIProfileFacetBuilder, type FacetBuildProgress, type FacetBuildResult } from './AIProfileFacetBuilder';
 import { AIProfileFacetSummarizer } from './AIProfileFacetSummarizer';
 
-let facetWriteLock: Promise<unknown> = Promise.resolve();
+import type { CallAiOptions } from '../../../core/ai/callAi';
+import { withFacetLock } from '../../../core/services/facetLock';
 
-export function withFacetLock<T>(fn: () => Promise<T>): Promise<T> {
-  const result = facetWriteLock.then(fn);
-  facetWriteLock = result.then(() => undefined, () => undefined);
-  return result;
-}
+// Ре-экспорт: часть кода импортирует лок отсюда исторически.
+export { withFacetLock };
+
 
 export const AIProfileFacetService = {
   async getAll(): Promise<AIProfileFacet[]> {
@@ -32,11 +31,11 @@ export const AIProfileFacetService = {
     return AIProfileFacetBuilder.incrementalUpdate(noteId);
   },
 
-  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void): Promise<{ count: number }> {
-    return AIProfileFacetSummarizer.resummarizeDirty(onProgress);
+  async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number }> {
+    return AIProfileFacetSummarizer.resummarizeDirty(onProgress, opts);
   },
 
-  async summarizePending(onProgress?: (p: FacetBuildProgress) => void): Promise<{ done: number }> {
-    return AIProfileFacetSummarizer.summarizePending(onProgress);
+  async summarizePending(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ done: number }> {
+    return AIProfileFacetSummarizer.summarizePending(onProgress, opts);
   },
 };

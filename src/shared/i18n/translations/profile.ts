@@ -21,6 +21,7 @@ export const profileTranslations: Translations = {
   profile_no_words: { ru: 'Слов пока нет', en: 'No words yet' },
   profile_streak: { ru: 'дн. стрик', en: 'day streak' },
   profile_words: { ru: 'слов', en: 'words' },
+  profile_stat_sessions: { ru: 'сессий', en: 'sessions' },
   profile_activity: { ru: 'Активность', en: 'Activity' },
   profile_labels: { ru: 'Метки', en: 'Labels' },
   profile_label_name: { ru: 'Название метки', en: 'Label Name' },

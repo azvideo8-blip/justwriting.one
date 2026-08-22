@@ -4,6 +4,8 @@ import { WritingDraftService } from '../../services/WritingDraftService';
 
 vi.mock('../../services/WritingDraftService', () => ({
   WritingDraftService: {
+    getDraftGeneration: vi.fn().mockReturnValue(0),
+    bumpDraftGeneration: vi.fn().mockReturnValue(1),
     saveToLocal: vi.fn().mockResolvedValue(undefined),
     saveDraftToCloud: vi.fn().mockResolvedValue(true),
     clearLegacyDraft: vi.fn().mockResolvedValue(undefined),
@@ -69,11 +71,11 @@ describe('persistDraft', () => {
     vi.clearAllMocks();
   });
 
-  it('calls saveToLocal and saveDraftToCloud in parallel', async () => {
+  it('calls saveToLocal and saveDraftToCloud in parallel with generation', async () => {
     const draft = { userId: 'u1', content: 'test' } as any;
     await persistDraft(draft);
-    expect(WritingDraftService.saveToLocal).toHaveBeenCalledWith(draft);
-    expect(WritingDraftService.saveDraftToCloud).toHaveBeenCalledWith(draft);
+    expect(WritingDraftService.saveToLocal).toHaveBeenCalledWith(draft, 0);
+    expect(WritingDraftService.saveDraftToCloud).toHaveBeenCalledWith(draft, 0);
   });
 
   it('localOk=true when saveToLocal resolves', async () => {

@@ -88,19 +88,40 @@ function saveEntries(entries: ActivityLogItem[]): void {
   }
 }
 
+// Сообщение уходит в localStorage и в кнопку «скопировать журнал», поэтому
+// содержимое заметок в нём быть не может. Режем по длине и вычищаем то, что
+// заведомо является данными, а не описанием ошибки.
+const MAX_MESSAGE_LENGTH = 200;
+
+export function scrubMessage(raw: string): string {
+  return raw
+    // строки в кавычках — почти всегда прилетевшее значение, а не текст ошибки
+    .replace(/(["'«])(?:(?!\1).){20,}\1/g, '$1…$1')
+    // base64-подобные простыни: шифротекст, ключи, вложения
+    .replace(/[A-Za-z0-9+/=]{40,}/g, '[data]')
+    .slice(0, MAX_MESSAGE_LENGTH);
+}
+
 function extractMessage(errorOrMessage: unknown): string {
-  if (errorOrMessage instanceof Error) return errorOrMessage.message || errorOrMessage.name || 'Error';
-  if (typeof errorOrMessage === 'string') return errorOrMessage;
-  if (errorOrMessage && typeof errorOrMessage === 'object') {
-    const msg = (errorOrMessage as { message?: unknown; reason?: unknown }).message ?? (errorOrMessage as { reason?: unknown }).reason;
-    if (typeof msg === 'string') return msg;
-    try {
-      return JSON.stringify(errorOrMessage);
-    } catch {
-      return String(errorOrMessage);
+  let raw = '';
+  if (errorOrMessage instanceof Error) {
+    raw = errorOrMessage.message || errorOrMessage.name || 'Error';
+  } else if (typeof errorOrMessage === 'string') {
+    raw = errorOrMessage;
+  } else if (errorOrMessage && typeof errorOrMessage === 'object') {
+    const obj = errorOrMessage as { message?: unknown; reason?: unknown; code?: unknown; name?: unknown };
+    const msg = obj.message ?? obj.reason;
+    if (typeof msg === 'string') {
+      raw = msg;
+    } else {
+      const ctor = errorOrMessage.constructor?.name || 'Object';
+      const detail = [obj.name, obj.code].filter(v => typeof v === 'string' || typeof v === 'number').join(': ');
+      raw = detail ? `${ctor} (${detail})` : ctor;
     }
+  } else {
+    raw = String(errorOrMessage ?? 'Unknown event');
   }
-  return String(errorOrMessage ?? 'Unknown event');
+  return scrubMessage(raw);
 }
 
 export const useActivityLogStore = create<ActivityLogState>((set, get) => ({

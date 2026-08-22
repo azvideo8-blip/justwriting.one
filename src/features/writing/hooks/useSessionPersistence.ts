@@ -117,6 +117,7 @@ export function useSessionPersistence(
   }, [autoLoadDraftIfEmpty]);
 
   const handleCancel = useCallback(async () => {
+    WritingDraftService.bumpDraftGeneration(userId);
     await WritingDraftService.deleteDraft(userId);
     actions.setHasDraft(false);
     actions.resetAndClear();

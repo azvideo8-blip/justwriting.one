@@ -26,3 +26,10 @@ test-results/
 
 # Python bytecode (scripts/fetch-fonts.py)
 __pycache__/
+
+# Живые замеры: входы и выходы прогонов на личном архиве.
+# Запросы и разметка — такие же личные данные, как тексты заметок.
+# Скрипты стенда версионируются, их данные — никогда.
+scripts/rerank-bench/*.json
+scripts/ai-bench/*-real.*
+corpus-real.json

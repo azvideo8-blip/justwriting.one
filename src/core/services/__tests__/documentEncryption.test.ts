@@ -14,21 +14,19 @@ vi.mock('../../supabase/client', () => ({
       return {
         select: (_cols: string) => {
           let filtered = [...mockDocumentsTable];
-          return {
+          const createFilterObj = () => ({
             eq: (col: string, val: any) => {
               filtered = filtered.filter(row => row[col] === val);
-              return {
-                maybeSingle: async () => ({ data: filtered[0] ?? null, error: null }),
-                eq: (col2: string, val2: any) => {
-                  filtered = filtered.filter(row => row[col2] === val2);
-                  return {
-                    maybeSingle: async () => ({ data: filtered[0] ?? null, error: null }),
-                  };
-                },
-                then: (resolve: any) => resolve({ data: filtered, error: null }),
-              };
+              return createFilterObj();
             },
-          };
+            is: (col: string, val: any) => {
+              filtered = filtered.filter(row => (val === null ? row[col] == null : row[col] === val));
+              return createFilterObj();
+            },
+            maybeSingle: async () => ({ data: filtered[0] ?? null, error: null }),
+            then: (resolve: any) => resolve({ data: filtered, error: null }),
+          });
+          return createFilterObj();
         },
         insert: async (payload: any) => {
           mockDocumentsTable.push({ ...payload });

@@ -7,11 +7,6 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { logger } from '../../../shared/errors/logger';
 
-export interface DraftPersistResult {
-  localOk: boolean;
-  remoteOk: boolean;
-  remoteError?: unknown;
-}
 
 export function buildLocalDraft(
   user: AppUser,
@@ -44,20 +39,30 @@ export function buildLocalDraft(
   } as LocalDraft;
 }
 
+export interface DraftPersistResult {
+  localOk: boolean;
+  remoteOk: boolean;
+  localSkipped?: boolean;
+  remoteSkipped?: boolean;
+  remoteError?: unknown;
+}
+
 export async function persistDraft(
   draft: LocalDraft,
-  options: { remote?: boolean } = { remote: true }
+  options: { remote?: boolean; generation?: number } = { remote: true }
 ): Promise<DraftPersistResult> {
   const usageKB = getLocalStorageUsageKB();
   if (usageKB > 4500) {
     logger.warn('draftPersistence', `localStorage usage: ${usageKB.toFixed(0)}KB — approaching limit`);
   }
 
+  const generation = options.generation ?? WritingDraftService.getDraftGeneration(draft.userId);
+
   const shouldRemoteSave = options.remote ?? true;
   const promises: [Promise<unknown>, Promise<unknown>] = [
-    WritingDraftService.saveToLocal(draft),
+    WritingDraftService.saveToLocal(draft, generation),
     shouldRemoteSave
-      ? WritingDraftService.saveDraftToCloud(draft)
+      ? WritingDraftService.saveDraftToCloud(draft, generation)
       : Promise.resolve(true),
   ];
 

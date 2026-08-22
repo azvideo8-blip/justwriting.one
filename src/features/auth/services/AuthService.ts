@@ -103,9 +103,17 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
 
   try {
     const { useEncryptionStore } = await import('../../../core/crypto/useEncryptionStore');
-    useEncryptionStore.getState().setKey(null);
+    useEncryptionStore.getState().lockVault();
   } catch (e) {
-    reportError(e, { action: 'signOut_clearSessionKey' });
+    reportError(e, { action: 'signOut_lockVault' });
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('auth:signed-out'));
+    } catch {
+      /* ignore */
+    }
   }
 
   return signOutUser();

@@ -1,5 +1,4 @@
 import { getLocalDb } from '../../../core/storage/localDb';
-import { withUserCharge } from '../../../core/ai/callAi';
 import { reportError } from '../../../shared/errors/reportError';
 import { withUserRun } from './AIBackgroundBudget';
 import { AIProfileFacetService } from './AIProfileFacetService';
@@ -59,7 +58,30 @@ async function countDigestMonths(): Promise<number> {
   return [...months].filter(m => !fresh.has(m)).length;
 }
 
+let _runningStep: RefreshStepKey | null = null;
+const _subscribers = new Set<(step: RefreshStepKey | null) => void>();
+
+function setRunningStep(step: RefreshStepKey | null) {
+  _runningStep = step;
+  _subscribers.forEach(cb => cb(step));
+}
+
 export const AIProfileRefreshService = {
+  isRunning(): boolean {
+    return _runningStep !== null;
+  },
+
+  getCurrentStep(): RefreshStepKey | null {
+    return _runningStep;
+  },
+
+  subscribe(callback: (step: RefreshStepKey | null) => void): () => void {
+    _subscribers.add(callback);
+    return () => {
+      _subscribers.delete(callback);
+    };
+  },
+
   /**
    * Считает стоимость, ничего не выполняя и никуда не обращаясь. Числа
    * приблизительные: судья пакует грани по объёму, а консолидация может
@@ -117,9 +139,15 @@ export const AIProfileRefreshService = {
    * и терять уже оплаченную работу из-за отказа на четвёртом шаге незачем.
    */
   async run(onProgress?: (p: RefreshProgress) => void): Promise<{ failed: RefreshStepKey[] }> {
+    if (_runningStep !== null) {
+      throw new Error('AI profile refresh is already in progress');
+    }
+
+    setRunningStep('facets');
     const failed: RefreshStepKey[] = [];
 
     const step = async (key: RefreshStepKey, fn: () => Promise<unknown>) => {
+      setRunningStep(key);
       onProgress?.({ step: key, done: 0, total: 1 });
       try {
         await fn();
@@ -130,25 +158,30 @@ export const AIProfileRefreshService = {
       onProgress?.({ step: key, done: 1, total: 1 });
     };
 
-    await withUserRun(() => withUserCharge(async () => {
-      await step('facets', async () => {
-        await AIProfileFacetService.resummarizeDirty();
-        await AIProfileFacetService.summarizePending();
+    try {
+      await withUserRun(async () => {
+        const chargeOpt = { charge: 'user' as const };
+        await step('facets', async () => {
+          await AIProfileFacetService.resummarizeDirty(undefined, chargeOpt);
+          await AIProfileFacetService.summarizePending(undefined, chargeOpt);
+        });
+        await step('judge', () => AIFacetJudgeService.review(chargeOpt));
+        await step('themes', () => AIThemeLedgerService.processPendingThemeTouches());
+        await step('digests', async () => {
+          const db = await getLocalDb();
+          const timeline = await db.getAll('aiTimeline');
+          const months = [...new Set(timeline.map(e => e.month).filter(Boolean))].sort();
+          for (const month of months) {
+            await AIMonthlyDigestService.generateForMonth(month, chargeOpt);
+          }
+        });
+        await step('consolidation', () => AIConsolidationService.processConsolidationPass(chargeOpt));
+        // Портрет последним: он читает уже пересчитанные и проверенные грани.
+        await step('portrait', () => AIProfileService.generate(chargeOpt));
       });
-      await step('judge', () => AIFacetJudgeService.review());
-      await step('themes', () => AIThemeLedgerService.processPendingThemeTouches());
-      await step('digests', async () => {
-        const db = await getLocalDb();
-        const timeline = await db.getAll('aiTimeline');
-        const months = [...new Set(timeline.map(e => e.month).filter(Boolean))].sort();
-        for (const month of months) {
-          await AIMonthlyDigestService.generateForMonth(month);
-        }
-      });
-      await step('consolidation', () => AIConsolidationService.processConsolidationPass());
-      // Портрет последним: он читает уже пересчитанные и проверенные грани.
-      await step('portrait', () => AIProfileService.generate());
-    }));
+    } finally {
+      setRunningStep(null);
+    }
 
     return { failed };
   },

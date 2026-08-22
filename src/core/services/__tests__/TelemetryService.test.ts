@@ -34,11 +34,12 @@ describe('TelemetryService', () => {
     await TelemetryService.maybeSendTelemetry();
 
     expect(mockCallAi).toHaveBeenCalledWith('sendTelemetry', expect.objectContaining({
-      telemetryId: expect.any(String),
       notesCountBucket: '0-10',
       averageWordCount: 150,
       reasoningRatio: 0.5,
     }));
+    const payload = mockCallAi.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('telemetryId');
   });
 
   it('skips sending telemetry if send interval (14 days) has not passed', async () => {

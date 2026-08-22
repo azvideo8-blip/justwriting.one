@@ -48,10 +48,10 @@ describe('temporalQueryParser', () => {
   });
 
   it('should parse and lemmatize Russian names', () => {
-    expect(parseTemporalQuery('расскажи про Наташу')).toEqual({
+    expect(parseTemporalQuery('расскажи про Ольгу')).toEqual({
       type: 'person',
-      personName: 'Наташа',
-      rawText: 'расскажи про Наташу',
+      personName: 'Ольга',
+      rawText: 'расскажи про Ольгу',
     });
     expect(parseTemporalQuery('что о Диме я писал')).toEqual({
       type: 'person',

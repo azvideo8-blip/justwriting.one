@@ -1,5 +1,7 @@
 import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
+import { withFacetLock } from './facetLock';
+import { LocalStoreSyncService } from './LocalStoreSyncService';
 
 
 export const LocalDocumentService = {
@@ -69,7 +71,7 @@ export const LocalDocumentService = {
         ...profile,
         totalWords: profile.totalWords - existing.totalWords + data.totalWords,
         totalDuration: profile.totalDuration - existing.totalDuration + data.totalDuration,
-        sessionsCount: profile.sessionsCount - (existing.sessionsCount || 0) + 1,
+        sessionsCount: profile.sessionsCount + 1,
         lastSessionAt: now,
       });
       await tx.done;
@@ -191,6 +193,69 @@ export const LocalDocumentService = {
             }
           }
         }
+      } catch { /* ignore */ }
+
+      // 7. Clean aiProfileFacets and invalidate portrait if modified
+      let facetsChanged = false;
+      await withFacetLock(async () => {
+        try {
+          const facets = await db.getAll('aiProfileFacets');
+          const tx = db.transaction('aiProfileFacets', 'readwrite');
+          for (const f of facets) {
+            if (f.noteIds.includes(documentId)) {
+              facetsChanged = true;
+              f.noteIds = f.noteIds.filter(nid => nid !== documentId);
+              f.noteCount = Math.max(0, (f.noteCount ?? 1) - 1);
+              f.dirty = true;
+              f.updatedAt = Date.now();
+              if (f.noteIds.length === 0 && (!f.dialogueIds || f.dialogueIds.length === 0)) {
+                await tx.store.delete(f.id);
+                LocalStoreSyncService.scheduleStoreDelete('aiProfileFacets', f.id);
+              } else {
+                await tx.store.put(f);
+                LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
+              }
+            }
+          }
+          await tx.done;
+        } catch { /* ignore */ }
+      });
+
+      if (facetsChanged) {
+        try {
+          await db.delete('aiPortrait', 'singleton');
+          LocalStoreSyncService.scheduleStoreDelete('aiPortrait', 'singleton');
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('ai_user_portrait');
+            localStorage.removeItem('ai_portrait_sections');
+          }
+        } catch { /* ignore */ }
+      }
+
+      // 8. Clean aiBeliefs evidence
+      try {
+        const beliefs = await db.getAll('aiBeliefs');
+        const tx = db.transaction('aiBeliefs', 'readwrite');
+        for (const raw of beliefs) {
+          const b = raw as { id?: string; evidence?: Array<{ id?: string; noteId?: string }>; clusterSize?: number; updatedAt?: number };
+          if (!b.id) continue;
+          const evidence = Array.isArray(b.evidence) ? b.evidence : [];
+          const hasEvidence = evidence.some(e => e.noteId === documentId || e.id === documentId);
+          if (hasEvidence) {
+            const filteredEv = evidence.filter(e => e.noteId !== documentId && e.id !== documentId);
+            if (filteredEv.length === 0) {
+              await tx.store.delete(b.id);
+              LocalStoreSyncService.scheduleStoreDelete('aiBeliefs', b.id);
+            } else {
+              b.evidence = filteredEv;
+              b.clusterSize = filteredEv.length;
+              b.updatedAt = Date.now();
+              await tx.store.put(b);
+              LocalStoreSyncService.scheduleStoreSync('aiBeliefs', b.id);
+            }
+          }
+        }
+        await tx.done;
       } catch { /* ignore */ }
     } catch (e) {
       reportError(e, { action: 'cascadeDeleteAIDerivatives', documentId });

@@ -68,4 +68,70 @@ describe('callAi consent gating (Ticket 2 / 152-ФЗ)', () => {
 
     await expect(callAi('summarize', {})).rejects.toThrow('AUTH_REQUIRED');
   });
+
+  describe('AG-BILL-1 per-call charge flag', () => {
+    it('defaults to bulk charge when opts are omitted', async () => {
+      setProfileLoaded('user-123', true);
+      setAiConsent('user-123', true);
+
+      await callAi('summarizeDocument', { content: 'test note' });
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/summarizeDocument', expect.objectContaining({
+        body: JSON.stringify({ data: { content: 'test note' } }),
+      }));
+    });
+
+    it('sets charge: user when opts.charge is user', async () => {
+      setProfileLoaded('user-123', true);
+      setAiConsent('user-123', true);
+
+      await callAi('chatWithAI', { messages: [] }, { charge: 'user' });
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/chatWithAI', expect.objectContaining({
+        body: JSON.stringify({ data: { messages: [], charge: 'user' } }),
+      }));
+    });
+
+    it('does not bleed charge: user to concurrent calls', async () => {
+      setProfileLoaded('user-123', true);
+      setAiConsent('user-123', true);
+
+      let resolveUserCall!: (value: any) => void;
+      const userCallPromise = new Promise((resolve) => { resolveUserCall = resolve; });
+
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/userTurn') {
+          return userCallPromise.then(() => ({
+            ok: true,
+            json: () => Promise.resolve({ result: { success: true } }),
+          }));
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ result: { success: true } }),
+        });
+      });
+      global.fetch = fetchMock;
+
+      // Start user turn with charge: 'user'
+      const userTurn = callAi('userTurn', { prompt: 'user text' }, { charge: 'user' });
+
+      // Start concurrent background call with default/no charge
+      const bgTurn = callAi('embedDocument', { content: 'bg text' });
+
+      await bgTurn;
+      resolveUserCall(true);
+      await userTurn;
+
+      // Assert bgTurn payload did NOT get charge: 'user'
+      expect(fetchMock).toHaveBeenCalledWith('/api/embedDocument', expect.objectContaining({
+        body: JSON.stringify({ data: { content: 'bg text' } }),
+      }));
+
+      // Assert userTurn payload did get charge: 'user'
+      expect(fetchMock).toHaveBeenCalledWith('/api/userTurn', expect.objectContaining({
+        body: JSON.stringify({ data: { prompt: 'user text', charge: 'user' } }),
+      }));
+    });
+  });
 });

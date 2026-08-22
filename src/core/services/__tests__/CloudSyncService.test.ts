@@ -131,9 +131,10 @@ describe('addCloudCopy — pruned history is not re-uploaded', () => {
       totalWords: 10, totalDuration: 0, sessionsCount: 1,
     } as never);
     vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({ id: 'cloud_1', currentVersion: 12 } as never);
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({ id: 'cloud_1', currentVersion: 12 } as never);
     // The cloud kept 11 and 12; 1..10 were trimmed. The local copy still has all.
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue(
-      [11, 12].map(v => ({ id: `v${v}`, version: v })) as never,
+      [11, 12].map(v => ({ id: `v${v}`, version: v, content: 'x' })) as never,
     );
     vi.spyOn(LocalVersionService, 'getVersions').mockResolvedValue(
       Array.from({ length: 12 }, (_, i) => ({

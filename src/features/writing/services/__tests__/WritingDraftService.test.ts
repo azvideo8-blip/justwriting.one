@@ -229,17 +229,37 @@ describe('WritingDraftService', () => {
       expect(DataProvider.saveDraft).toHaveBeenCalledTimes(2);
     });
 
-    it('does not throw if signal was aborted', async () => {
+    it('skips write and returns false if generation changed before cloud save completes', async () => {
       vi.mocked(isProfileLoaded).mockReturnValue(true);
-            // We can simulate abort by calling save twice quickly
-      const draft = { userId: mockUserId, content: 'hello', updatedAt: 1000 };
-      const p1 = WritingDraftService.saveDraftToCloud(draft as unknown as LocalDraft);
-      const p2 = WritingDraftService.saveDraftToCloud(draft as unknown as LocalDraft);
-      await expect(p2).resolves.toBe(true);
-      // p1 either resolves early because of abort check, or completes before abort
-      // either way it should not throw. An aborted save counts as success: a
-      // newer save superseded it, so the cloud copy is not stale.
-      await expect(p1).resolves.toBe(true);
+      const uid = 'user_gen_test';
+      const draft = { userId: uid, content: 'in flight text', updatedAt: 1000 } as unknown as LocalDraft;
+
+      let resolveSave!: () => void;
+      const savePromise = new Promise<void>(r => { resolveSave = r; });
+      vi.mocked(DataProvider.saveDraft).mockImplementation(() => savePromise);
+
+      const genAtStart = WritingDraftService.getDraftGeneration(uid);
+      const saveOp = WritingDraftService.saveDraftToCloud(draft, genAtStart);
+
+      // Session ends while save is in flight
+      WritingDraftService.bumpDraftGeneration(uid);
+
+      resolveSave();
+      const result = await saveOp;
+      expect(result).toBe(false);
+    });
+
+    it('saveToLocal drops write if generation changed', async () => {
+      const db = makeLocalDb();
+      const uid = 'user_local_gen';
+      const draft = { userId: uid, content: 'local text', updatedAt: 1000 } as unknown as LocalDraft;
+
+      const genAtStart = WritingDraftService.getDraftGeneration(uid);
+      // Bump generation before saveToLocal runs or completes
+      WritingDraftService.bumpDraftGeneration(uid);
+
+      await WritingDraftService.saveToLocal(draft, genAtStart);
+      expect(db.put).not.toHaveBeenCalled();
     });
   });
 

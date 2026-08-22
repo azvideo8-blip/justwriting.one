@@ -9,11 +9,13 @@ const toIso = (v: unknown) => (typeof v === 'number' ? new Date(v).toISOString()
 const DATE_COLUMNS = new Set([
   'saved_at', 'session_started_at', 'updated_at', 'first_session_at', 'last_session_at',
   'created_at', 'privacy_accepted_at', 'ai_consent_at', 'indexing_consent_at',
+  'deleted_at',
 ]);
 
 const DATE_FIELDS_CLIENT = new Set([
   'savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt',
   'createdAt', 'privacyAcceptedAt', 'aiConsentAt', 'indexingConsentAt',
+  'deletedAt',
 ]);
 
 const USER_FIELDS: Record<string, string> = {
@@ -61,6 +63,7 @@ const DOCUMENT_FIELDS: Record<string, string> = {
   mood: 'mood',
   excludedFromAI: 'excluded_from_ai',
   _encrypted: '_encrypted',
+  deletedAt: 'deleted_at',
   createdAt: 'created_at',
 };
 
@@ -155,6 +158,22 @@ function createReverseMap(fields: Record<string, string>): Record<string, string
   return rev;
 }
 
+// Колонки для списка пользователей в админке. Перечислены поимённо, а не `*`:
+// со звёздочкой в браузер админа уезжали encrypted_data_key, encryption_salt и
+// encryption_meta всех пользователей — ключевой материал, которому в списке
+// делать нечего. ai_portrait исключён по той же причине: это описание личности,
+// а не строка статистики. Своя запись читается через getUserProfile — там поля
+// на месте.
+const ADMIN_USER_COLUMNS = [
+  'uid', 'email', 'nickname', 'role', 'created_at', '_encrypted',
+  'labels', 'earned_achievements',
+  'total_word_count', 'sessions_count', 'streak_days', 'total_duration',
+  'avg_wpm', 'avg_session_words',
+  'privacy_accepted_at', 'privacy_version',
+  'ai_consent_at', 'ai_consent_version',
+  'indexing_consent_at', 'indexing_consent_version',
+].join(',');
+
 const USER_REV = createReverseMap(USER_FIELDS);
 const DOCUMENT_REV = createReverseMap(DOCUMENT_FIELDS);
 const VERSION_REV = createReverseMap(VERSION_FIELDS);
@@ -201,6 +220,14 @@ function fromDb(rev: Record<string, string>, row: Record<string, unknown>): Prov
   return result;
 }
 
+// В LIKE `%` и `_` — джокеры. Ключи сейчас машинные и их не содержат, но ключ
+// когда-нибудь соберут из пользовательской строки, и `%` в нём снесёт все
+// страничные записи стора разом. Экранируем на входе в шаблон, а не надеемся
+// на форму ключа.
+export function likePrefix(key: string): string {
+  return `${key.replace(/[\\%_]/g, '\\$&')}#%`;
+}
+
 export const SupabaseDataProvider: IDataProvider = {
   async createDocument(userId: string, data: ProviderRecord): Promise<string> {
     const docId = (data.uuid || data.id || crypto.randomUUID()) as string;
@@ -219,6 +246,19 @@ export const SupabaseDataProvider: IDataProvider = {
       .select('*')
       .eq('user_id', userId)
       .eq('uuid', documentId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (error != null) throw error;
+    if (!data) return null;
+    return fromDb(DOCUMENT_REV, data);
+  },
+
+  async getDocumentWithDeleted(userId: string, documentId: string): Promise<ProviderRecord | null> {
+    const { data, error } = await getSupabase()
+      .from('documents')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('uuid', documentId)
       .maybeSingle();
     if (error != null) throw error;
     if (!data) return null;
@@ -229,7 +269,8 @@ export const SupabaseDataProvider: IDataProvider = {
     const { data, error } = await getSupabase()
       .from('documents')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .is('deleted_at', null);
     if (error != null) throw error;
     return (data ?? []).map(row => fromDb(DOCUMENT_REV, row));
   },
@@ -243,7 +284,8 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('documents')
       .update(payload)
       .eq('user_id', userId)
-      .eq('uuid', documentId);
+      .eq('uuid', documentId)
+      .is('deleted_at', null);
     if (error != null) throw error;
   },
 
@@ -266,6 +308,7 @@ export const SupabaseDataProvider: IDataProvider = {
         .select('sessions_count')
         .eq('user_id', userId)
         .eq('uuid', documentId)
+        .is('deleted_at', null)
         .maybeSingle();
       sessionsCount = ((data?.sessions_count as number) || 0) + 1;
     }
@@ -288,14 +331,54 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('documents')
       .update(payload)
       .eq('user_id', userId)
-      .eq('uuid', documentId);
+      .eq('uuid', documentId)
+      .is('deleted_at', null);
     if (error != null) throw error;
   },
 
   async deleteDocument(userId: string, documentId: string): Promise<void> {
-    const { error } = await getSupabase()
-      .from('documents')
+    const supabase = getSupabase();
+    // 1. Delete associated child records (versions, AI summaries, AI embeddings).
+    // Ошибку проверяем на каждом: смысл надгробия в том, что содержимое стёрто,
+    // а не спрятано. Молча провалившееся удаление версий оставило бы текст
+    // заметки в облаке при документе, помеченном удалённым, — и следующий шаг
+    // (RLS запрещает менять надгробие) сделал бы это необратимым.
+    const versionsDel = await supabase
+      .from('versions')
       .delete()
+      .eq('user_id', userId)
+      .eq('document_uuid', documentId);
+    if (versionsDel.error != null) throw versionsDel.error;
+
+    const summariesDel = await supabase
+      .from('ai_summaries')
+      .delete()
+      .eq('user_id', userId)
+      .eq('document_id', documentId);
+    if (summariesDel.error != null) throw summariesDel.error;
+
+    const embeddingsDel = await supabase
+      .from('ai_embeddings')
+      .delete()
+      .eq('user_id', userId)
+      .eq('document_id', documentId);
+    if (embeddingsDel.error != null) throw embeddingsDel.error;
+
+    // 2. Set tombstone on document row (zeroing metadata columns and setting deleted_at)
+    const { error } = await supabase
+      .from('documents')
+      .update({
+        deleted_at: new Date().toISOString(),
+        title: '',
+        tags: [],
+        mood: null,
+        label_id: null,
+        is_public: false,
+        _encrypted: false,
+        total_words: 0,
+        total_duration: 0,
+        sessions_count: 0,
+      })
       .eq('user_id', userId)
       .eq('uuid', documentId);
     if (error != null) throw error;
@@ -306,7 +389,8 @@ export const SupabaseDataProvider: IDataProvider = {
       .from('documents')
       .update({ label_id: null })
       .eq('user_id', userId)
-      .eq('label_id', labelId);
+      .eq('label_id', labelId)
+      .is('deleted_at', null);
     if (error != null) throw error;
   },
 
@@ -314,7 +398,8 @@ export const SupabaseDataProvider: IDataProvider = {
     const { data, error } = await getSupabase()
       .from('documents')
       .select('uuid, tags, _encrypted')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .is('deleted_at', null);
     if (error != null || data == null || data.length === 0) return;
 
     for (const doc of data) {
@@ -350,7 +435,8 @@ export const SupabaseDataProvider: IDataProvider = {
     const { data, error } = await getSupabase()
       .from('documents')
       .select('uuid, tags, _encrypted')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .is('deleted_at', null);
     if (error != null || data == null || data.length === 0) return;
 
     for (const doc of data) {
@@ -492,10 +578,11 @@ export const SupabaseDataProvider: IDataProvider = {
   async getUsers(limitCount: number): Promise<ProviderRecord[]> {
     const { data, error } = await getSupabase()
       .from('users')
-      .select('*')
+      .select(ADMIN_USER_COLUMNS)
       .limit(limitCount);
     if (error != null) throw error;
-    return (data ?? []).map(row => fromDb(USER_REV, row));
+    // Список колонок собран строкой, поэтому supabase-js не выводит тип строки.
+    return ((data ?? []) as unknown as Record<string, unknown>[]).map(row => fromDb(USER_REV, row));
   },
 
   async getDraft(userId: string): Promise<ProviderRecord | null> {
@@ -709,18 +796,25 @@ export const SupabaseDataProvider: IDataProvider = {
     draftId?: string;
     data: ProviderRecord;
   }[]): Promise<void> {
+    // Ошибку здесь глотать нельзя: вызывающий (encryptMigration) после
+    // возврата помечает батч мигрированным и стирает чекпоинт. Отказ RLS или
+    // конфликт ключа прошли бы как успех, и незашифрованная заметка осталась бы
+    // в облаке навсегда — при том, что миграция отчиталась «готово».
     for (const op of ops) {
       if (op.type === 'version' && op.documentId && op.versionId) {
         const payload = toDb(VERSION_FIELDS, { ...op.data, documentId: op.documentId, userId: op.userId });
         delete payload.id;
-        await getSupabase().from('versions').upsert(payload);
+        const { error } = await getSupabase().from('versions').upsert(payload);
+        if (error != null) throw error;
       } else if (op.type === 'draft' && op.draftId) {
         const payload = toDb(DRAFT_FIELDS, { ...op.data, userId: op.userId });
-        await getSupabase().from('drafts').upsert(payload);
+        const { error } = await getSupabase().from('drafts').upsert(payload);
+        if (error != null) throw error;
       } else if (op.type === 'document' && op.documentId) {
         const payload = toDb(DOCUMENT_FIELDS, { ...op.data, uuid: op.documentId, userId: op.userId });
         delete payload.id;
-        await getSupabase().from('documents').update(payload).eq('user_id', op.userId).eq('uuid', op.documentId);
+        const { error } = await getSupabase().from('documents').update(payload).eq('user_id', op.userId).eq('uuid', op.documentId);
+        if (error != null) throw error;
       }
     }
   },
@@ -793,7 +887,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .delete()
       .eq('user_id', userId)
       .eq('store', store)
-      .like('key', `${key}#%`);
+      .like('key', likePrefix(key));
     if (err2 != null) throw err2;
   },
 
@@ -813,7 +907,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .delete()
       .eq('user_id', userId)
       .eq('store', store)
-      .like('key', `${key}#%`);
+      .like('key', likePrefix(key));
     if (error != null) throw error;
   },
 

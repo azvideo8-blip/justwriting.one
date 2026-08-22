@@ -11,7 +11,7 @@ export const ConflictResolver = {
     linkedCloudId: string,
     data: SaveDocumentData,
     newVersion: number,
-    cloudDoc: { currentVersion: number },
+    cloudDoc: { currentVersion: number; totalWords?: number; totalDuration?: number },
     originalFirstSessionAt?: number
   ): Promise<{ forked: boolean }> {
     const conflictTitle = `${data.title || 'Untitled'} (Conflict ${new Date().toLocaleDateString()})`;
@@ -38,6 +38,39 @@ export const ConflictResolver = {
       currentVersion: 1,
       mood: data.mood,
     });
+
+    // Bring the ORIGINAL local document in line with the cloud so it doesn't stay stuck in conflict
+    try {
+      const { VersionService } = await import('./VersionService');
+      const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
+      const localVersions = await LocalVersionService.getVersions(documentId);
+      const localVerNums = new Set(localVersions.map(v => v.version));
+
+      for (const cv of cloudVersions) {
+        if (!localVerNums.has(cv.version)) {
+          await LocalVersionService.addVersion(userId, documentId, {
+            content: cv.content,
+            previousContent: '',
+            wordCount: cv.wordCount,
+            duration: cv.duration,
+            wpm: cv.wpm,
+            versionNumber: cv.version,
+            sessionStartedAt: cv.sessionStartedAt ?? new Date(),
+            savedAt: cv.savedAt ?? undefined,
+            mood: cv.mood,
+          });
+        }
+      }
+      const maxCloudVersion = Math.max(cloudDoc.currentVersion, ...cloudVersions.map(v => v.version), 0);
+      await LocalStorageService.updateAfterSession(documentId, {
+        totalWords: cloudDoc.totalWords ?? data.wordCount,
+        totalDuration: cloudDoc.totalDuration ?? data.duration,
+        currentVersion: maxCloudVersion,
+      });
+    } catch (reconcileErr) {
+      reportError(reconcileErr, { action: 'resolveConflict_reconcileOriginal', documentId, linkedCloudId });
+    }
+
     reportError(new Error('Sync conflict: document forked'), { action: 'syncVersionToCloud_conflict', documentId, linkedCloudId, cloudVersion: cloudDoc.currentVersion, localVersion: newVersion }, 'warning');
     const syncDb = await getLocalDb();
     await syncDb.put('syncQueue', {

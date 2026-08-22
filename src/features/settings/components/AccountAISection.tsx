@@ -5,7 +5,7 @@ import { DataProvider } from '../../../core/data';
 import { setAiConsent } from '../../../core/ai/aiConsent';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../../ai/utils/embeddingIndexer';
-import { PRIVACY_VERSION } from '../../auth/components/PrivacyModal';
+import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getLocalDb } from '../../../core/storage/localDb';

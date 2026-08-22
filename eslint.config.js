@@ -66,7 +66,19 @@ export default [
     },
     settings: {
       react: { version: 'detect' },
-      'import/resolver': { node: { extensions: ['.js', '.jsx', '.ts', '.tsx'] } },
+      // Без этого eslint-plugin-import не умеет разбирать .ts при построении
+      // карты экспортов, и правила, которым нужен обход графа (import/no-cycle),
+      // молча не находят ничего. Резолвер сам по себе не помогает: он отвечает
+      // на вопрос «где файл», а не «что он экспортирует».
+      'import/parsers': {
+        '@typescript-eslint/parser': ['.ts', '.tsx'],
+      },
+      'import/resolver': {
+        typescript: {
+          alwaysTryTypes: true,
+        },
+        node: { extensions: ['.js', '.jsx', '.ts', '.tsx'] },
+      },
     },
   },
   {

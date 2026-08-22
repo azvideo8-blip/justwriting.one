@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
@@ -39,7 +39,11 @@ export function ProfileRefreshButton() {
   const { remaining, limit } = useDailyLimit();
   const [estimate, setEstimate] = useState<RefreshEstimate | null>(null);
   const [estimating, setEstimating] = useState(false);
-  const [running, setRunning] = useState<RefreshStepKey | null>(null);
+  const [running, setRunning] = useState<RefreshStepKey | null>(() => AIProfileRefreshService.getCurrentStep());
+
+  useEffect(() => {
+    return AIProfileRefreshService.subscribe(setRunning);
+  }, []);
 
   const openDialog = async () => {
     setEstimating(true);

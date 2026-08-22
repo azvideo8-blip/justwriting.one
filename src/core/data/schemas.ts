@@ -103,6 +103,7 @@ export const documentDbSchema = z.object({
   _encrypted: z.boolean().optional(),
   _locked: z.boolean().optional(),
   _decryptionError: z.boolean().optional(),
+  deletedAt: firestoreTimestampSchema.optional(),
 });
 
 export const versionDbSchema = z.object({
