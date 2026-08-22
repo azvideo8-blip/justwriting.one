@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       setAuthState(u ? 'authenticated' : 'guest');
     });
-    // Fallback: if Firebase Auth never calls back (network/init failure),
+    // Fallback: if Supabase Auth never calls back (network/init failure),
     // transition from loading to guest after 10s so the app isn't stuck.
     const timeout = setTimeout(() => {
       setAuthState(prev => prev === 'loading' ? 'guest' : prev);

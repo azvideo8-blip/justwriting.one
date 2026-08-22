@@ -102,8 +102,8 @@ function createMockRes(): {
 describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(postgresAiContext.checkAndIncrementLimit).mockResolvedValue(true);
-    vi.mocked(postgresAiContext.checkAndIncrementBulkLimit).mockResolvedValue(true);
+    vi.mocked(postgresAiContext.checkAndIncrementLimit).mockResolvedValue({ ok: true, day: '2026-08-22' });
+    vi.mocked(postgresAiContext.checkAndIncrementBulkLimit).mockResolvedValue({ ok: true, day: '2026-08-22' });
     vi.mocked(postgresAiContext.tryReserveGlobalRequest).mockResolvedValue({
       date: "2026-08-18",
       shardId: "0",
@@ -149,7 +149,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(400);
     expect(resState.getJson()).toEqual({ error: "Bad Request" });
-    expect(postgresAiContext.refundDailyLimit).toHaveBeenCalledWith("test-user-uid");
+    expect(postgresAiContext.refundDailyLimit).toHaveBeenCalledWith("test-user-uid", expect.any(String));
   });
 
   it("returns 429 when daily limit is exceeded", async () => {
@@ -192,7 +192,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(429);
     expect(resState.getJson()).toEqual({ error: "GLOBAL_LIMIT" });
-    expect(postgresAiContext.refundDailyLimit).toHaveBeenCalledWith("test-user-uid");
+    expect(postgresAiContext.refundDailyLimit).toHaveBeenCalledWith("test-user-uid", expect.any(String));
   });
 
   it("streams standard chat successfully when valid", async () => {

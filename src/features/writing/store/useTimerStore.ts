@@ -165,7 +165,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       return {
         wordGoal,
         wordGoalReached: false,
-        sessionStartWords: wordCount ?? 0,
+        // Пропущенный аргумент значит «сохранить базлайн», а не «обнулить»:
+        // прежний дефолт делал каждую забывчивую цель мгновенно достигнутой.
+        sessionStartWords: wordCount ?? state.sessionStartWords,
       };
     }
     return { wordGoal };

@@ -7,6 +7,27 @@ import { chargeCall, refundCall } from './policy';
 
 // ── Helpers (kept in sync with summarizeDocument.ts) ─────────────────────────
 
+// Модельный JSON проверяется схемой, а не верой в TS-тип: frequentWords:42
+// ронял запрос TypeError'ом ПОСЛЕ recordUsage (человек платил за мусор),
+// valence:1e999 ломал запись саммари. Фейл схемы идёт через тот же
+// settled/refund-регион, что и фейл JSON.parse.
+const summarySchema = z.object({
+  tone: z.string().max(200),
+  frequentWords: z.array(z.string().max(64)).max(10),
+  insights: z.array(z.string().max(2_000)).max(12),
+  themes: z.array(z.string().max(200)).max(5),
+  extractedFacts: z.array(z.string().max(2_000)).max(30),
+  summary: z.string().max(20_000).optional(),
+  authorPhrases: z.array(z.string().max(200)).max(8).optional(),
+  quotableSentence: z.string().max(2_000).optional(),
+  commitments: z.array(z.string().max(2_000)).max(30).optional(),
+  valence: z.number().finite().min(-1).max(1).optional(),
+  arousal: z.number().finite().min(0).max(1).optional(),
+  echo: z.string().max(2_000).optional(),
+  eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+type ParsedJson = z.infer<typeof summarySchema>;
+
 export function validateVerbatimQuote(sanitizedContent: string, candidateQuote?: string): string | undefined {
   if (!candidateQuote || typeof candidateQuote !== 'string') return undefined;
   const quote = candidateQuote.trim();
@@ -163,22 +184,14 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     throw new AiError('internal', 'AI summarization failed.');
   }
 
-  type ParsedJson = {
-    summary?: string; tone: string; frequentWords: string[];
-    authorPhrases?: string[]; insights: string[];
-    quotableSentence?: string; themes: string[]; extractedFacts: string[];
-    commitments?: string[]; valence?: number; arousal?: number;
-    echo?: string; eventDate?: string;
-  };
-
-  let parsed_json: ParsedJson;
+  let rawParsed: unknown;
   try {
     let textToParse = text.trim();
     if (textToParse.startsWith('```')) {
       textToParse = textToParse.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
     }
-    try { parsed_json = JSON.parse(textToParse); }
-    catch { parsed_json = JSON.parse(repairTruncatedJson(textToParse)); console.warn('[AI summarize] recovered truncated JSON'); }
+    try { rawParsed = JSON.parse(textToParse); }
+    catch { rawParsed = JSON.parse(repairTruncatedJson(textToParse)); console.warn('[AI summarize] recovered truncated JSON'); }
   } catch {
     if (!settled) {
       await refundCall(ctx, callRes);
@@ -189,6 +202,21 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
     throw new AiError('internal', 'Failed to parse summary.');
   }
+
+  const validated = summarySchema.safeParse(rawParsed);
+  if (!validated.success) {
+    // Тот же refund-регион, что у фейла парса: за мусор от модели платит
+    // провайдер, а не человек.
+    if (!settled) {
+      await refundCall(ctx, callRes);
+      await ctx.refundGlobalRequest(reservation);
+    }
+    console.error('[AI summarize] model output failed schema:', validated.error.issues.length, 'issues');
+    generation?.end({ level: 'ERROR' });
+    if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
+    throw new AiError('invalid-argument', 'Model returned malformed summary.');
+  }
+  const parsed_json: ParsedJson = validated.data;
 
   generation?.end({ usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }, reservation)

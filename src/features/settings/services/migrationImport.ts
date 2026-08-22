@@ -34,6 +34,7 @@ export interface MigrationImportResult {
     peopleIndexRecords: number;
     summariesWithMentionedPeople: number;
     unknownStores: Record<string, number>;
+    verbatimDenied: Record<string, number>;
   };
   upload?: {
     status: "completed" | "vault_locked" | "skipped_no_notes" | "failed";
@@ -78,6 +79,7 @@ export async function importMigrationManifest(
     peopleIndexRecords: 0,
     summariesWithMentionedPeople: 0,
     unknownStores: {},
+    verbatimDenied: {},
   };
 
   if (!rawManifest || typeof rawManifest !== "object") {
@@ -197,7 +199,18 @@ export async function importMigrationManifest(
     for (const ver of versions) {
       const computedChecksum = await sha256Hex(ver.content ?? "");
       const expectedChecksum = checksums[ver.id];
-      if (expectedChecksum && computedChecksum !== expectedChecksum) {
+      if (!expectedChecksum) {
+        // Чексумма обязательна: версия без неё непроверяема, а попадая в
+        // облако, она становится «истиной» для синка.
+        skipped.versions++;
+        skipped.details.push({
+          store: "versions",
+          id: ver.id,
+          reason: "checksum missing — refusing unverified version",
+        });
+        continue;
+      }
+      if (computedChecksum !== expectedChecksum) {
         skipped.versions++;
         skipped.details.push({
           store: "versions",
@@ -337,10 +350,22 @@ export async function importMigrationManifest(
   }
 
   // ── 6. Verbatim stores ────────────────────────────────────────────────
+  // Структообразующие сторы никогда не импортируются вслепую: подделанный
+  // currentVersion выигрывает синк, подделанный profile включает шифрование
+  // чужим флагом. Эти сторы заполняются только секциями 1–5 с чексуммами.
+  const VERBATIM_DENYLIST = new Set([
+    "documents", "versions", "drafts", "profile", "syncQueue", "pending_sessions",
+  ]);
   const incomingVerbatim = Array.isArray(manifest.verbatim) ? manifest.verbatim : [];
   for (const rec of incomingVerbatim) {
     if (rec.store === "aiPeopleIndex") {
       droppedOnPurpose.peopleIndexRecords++;
+      continue;
+    }
+
+    if (VERBATIM_DENYLIST.has(rec.store)) {
+      droppedOnPurpose.verbatimDenied[rec.store] =
+        (droppedOnPurpose.verbatimDenied[rec.store] || 0) + 1;
       continue;
     }
 

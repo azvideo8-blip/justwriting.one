@@ -76,7 +76,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
       await deleteArchiveSession(s, userId);
       setSessions(prev => prev.filter(x => x.id !== s.id));
       if (previewSession?.id === s.id) setPreviewSession(null);
-      void rebuildWordCloud().catch(() => { /* non-critical */ });
+      void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {
       logger.error('archive', 'Failed to delete session', { error: String(e) });
       showToast(t('error_delete_failed'), 'error');

@@ -1,4 +1,5 @@
 import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 /**
  * Re-keys this device's guest notes, versions and draft onto a signed-in
@@ -32,6 +33,11 @@ export async function migrateDocuments(userId: string): Promise<number> {
       if (!existingUserDraft) {
         draftPuts.push(draftStore.put({ ...guestDraft, userId }));
       }
+      // Источник съедается в любом случае: содержимое либо переехало, либо
+      // отклонено явно. Оставленный гостевой черновик означал вечный промпт
+      // миграции и фантомное восстановление при следующем гостевом входе.
+      draftPuts.push(draftStore.delete('guest_draft'));
+      try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
     }
   }
 

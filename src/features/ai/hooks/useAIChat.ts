@@ -430,8 +430,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           const errMsg = e instanceof Error ? e.message : '';
           if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT') {
-            // Note: streaming already consumed a daily limit slot via checkAndIncrementLimit.
-            // The callable fallback will consume another slot. We accept the double-count
+            // #77: streaming already consumed a daily limit slot. The callable
+            // fallback consumes another. Accepted by design: the residual case
+            // after server-side refund-on-disconnect is a mid-stream network
+            // drop, where generation work genuinely happened on both attempts.
+            // Option A (charge-after-first-upstream-byte) would move billing
+            // into the middle of the request and split the cooldown claim —
+            // rejected for now; revisit if quota complaints appear.
             // to avoid losing the user's message, but this means fallback costs 2 quota.
             fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
             // RSN-4: Parse reasoning and answer unconditionally from callable fallback

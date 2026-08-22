@@ -4,6 +4,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 
 export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
@@ -161,11 +162,16 @@ export function useSyncUnloadSave(
       const timerState_ = useTimerStore.getState();
       if (user && contentState.content.trim() && (timerState_.status === 'writing' || timerState_.status === 'paused')) {
         try {
-          const key = `draft-${user.uid}`;
+          // Гостевой фолбэк обязан попадать в ключ, который реально читается
+          // при возврате (GuestDraftService → STORAGE_KEYS.GUEST_DRAFT).
+          // Прежний `draft-guest_<uuid>` никто не читал — «защита» была
+          // декоративной.
+          const isGuest = user.uid.startsWith('guest');
+          const key = isGuest ? STORAGE_KEYS.GUEST_DRAFT : `draft-${user.uid}`;
           const { getEncryptionEnabled } = useEncryptionStore.getState();
-          if (getEncryptionEnabled(user.uid)) {
+          if (!isGuest && getEncryptionEnabled(user.uid)) {
             // SEC-56: E2E is enabled — skip writing unencrypted draft to localStorage and clean legacy key
-            localStorage.removeItem(key);
+            localStorage.removeItem(`draft-${user.uid}`);
             return;
           }
           localStorage.setItem(key, JSON.stringify({

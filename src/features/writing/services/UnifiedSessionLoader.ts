@@ -63,7 +63,14 @@ export async function loadAllSessions(userId: string, user: AppUser | null): Pro
       seenIds.add(doc.id);
       let content = '';
       let _contentError = false;
-      try { content = await LocalVersionService.getLatestContent(doc.id); } catch (contentErr) { reportError(contentErr, { action: 'loadAllSessions_localContent', documentId: doc.id }); _contentError = true; }
+      let sessionWordsAdded: number | undefined;
+      try {
+        const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id);
+        // Дневная дельта для heatmap/стрика; для документов без версий
+        // остаётся undefined — компоненты падают на старое поведение.
+        sessionWordsAdded = latestMeta?.wordsAdded;
+        content = await LocalVersionService.getLatestContent(doc.id);
+      } catch (contentErr) { reportError(contentErr, { action: 'loadAllSessions_localContent', documentId: doc.id }); _contentError = true; }
       const createdAt = toDate(doc.lastSessionAt) ?? new Date();
       allSessions.push({
         id: doc.id,
@@ -71,6 +78,7 @@ export async function loadAllSessions(userId: string, user: AppUser | null): Pro
         content,
         duration: doc.totalDuration,
         wordCount: doc.totalWords,
+        sessionWordsAdded,
         charCount: 0,
         wpm: 0,
         title: doc.title,

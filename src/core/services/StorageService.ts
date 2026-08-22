@@ -97,6 +97,13 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
   }
   const { newVersion, prevContent, existing } = res;
 
+  // Сигнал AI-домену (#105): правки должны догонять индекс эмбеддингов,
+  // а не только при открытии страницы ИИ. Слушатель в features/ai вызывает
+  // indexDocument — тот сам гейтируется согласием и хешем контента.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('doc-version-saved', { detail: { documentId } }));
+  }
+
   await ProfileUpdater.updateLocalProfile(
     existing.guestId,
     existing.totalWords,

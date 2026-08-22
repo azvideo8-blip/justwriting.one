@@ -1,0 +1,114 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { updateUserPassword, onPasswordRecovery } from '../../../core/auth/supabaseAuthProvider';
+import { reportError } from '../../../shared/errors/reportError';
+
+const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * /reset-password — цель ссылки из письма о восстановлении.
+ *
+ * Сессия восстановления активируется клиентом Supabase автоматически
+ * (PKCE-обмен по ?code= или событие PASSWORD_RECOVERY у implicit-ссылок),
+ * здесь только форма смены пароля. Сейф шифрования к аккаунтному паролю
+ * отношения не имеет — трогать useEncryptionStore здесь запрещено.
+ */
+export function ResetPasswordPage() {
+  const navigate = useNavigate();
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => onPasswordRecovery(() => setRecoveryMode(true)), []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Минимум ${MIN_PASSWORD_LENGTH} символов`);
+      return;
+    }
+    if (password !== confirm) {
+      setError('Пароли не совпадают');
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateUserPassword(password);
+      // Полусессия от ссылки восстановления затирается: она ограничена сменой
+      // пароля, и оставлять человека залогиненным, не вводившим новый пароль,
+      // нельзя.
+      const { signOutUser } = await import('../../../core/auth/supabaseAuthProvider');
+      await signOutUser().catch(() => {});
+      setDone(true);
+    } catch (err) {
+      reportError(err, { action: 'resetPassword' });
+      setError('Не удалось изменить пароль. Ссылка могла устареть — запросите новую.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-4">
+        <h1 className="text-xl font-semibold">Восстановление пароля</h1>
+
+        {!recoveryMode && !done && (
+          <p className="text-sm opacity-70">
+            Откройте эту страницу по ссылке из письма. Если вы перешли напрямую —
+            запросите восстановление пароля на странице входа.
+          </p>
+        )}
+
+        {recoveryMode && !done && (
+          <form onSubmit={submit} className="space-y-3">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Новый пароль"
+              autoComplete="new-password"
+              minLength={MIN_PASSWORD_LENGTH}
+              required
+              className="w-full rounded-lg border px-3 py-2 bg-transparent"
+            />
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Повторите пароль"
+              autoComplete="new-password"
+              required
+              className="w-full rounded-lg border px-3 py-2 bg-transparent"
+            />
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy || password.length < MIN_PASSWORD_LENGTH}
+              className="w-full rounded-lg px-3 py-2 bg-accent text-white disabled:opacity-50"
+            >
+              {busy ? 'Сохраняю…' : 'Сменить пароль'}
+            </button>
+          </form>
+        )}
+
+        {done && (
+          <div className="space-y-3">
+            <p className="text-sm">Пароль изменён. Войдите с новым паролем.</p>
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="rounded-lg px-3 py-2 bg-accent text-white"
+            >
+              Перейти ко входу
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

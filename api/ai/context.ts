@@ -20,17 +20,33 @@ export interface AiContext {
   ): Promise<void>;
   tryReserveGlobalRequest(allowance?: number): Promise<GlobalReservation | null>;
   refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void>;
-  /** Returns true if the call is allowed (limit NOT exceeded); false to reject. */
-  checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolean>;
-  refundDailyLimit(uid: string): Promise<void>;
+  /** Returns true if the call is allowed (limit NOT exceeded); false to reject.
+   *  `day` is the day the charge landed on — a refund must target it, not the
+   *  day the failure happens to fall on (cross-midnight requests). */
+  checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitVerdict>;
+  /** chargedDay: the day the charge landed on. Omitting it falls back to
+   *  today() — legacy shape kept for the string-form refundCall path only;
+   *  new code must always thread the day through. */
+  refundDailyLimit(uid: string, chargedDay?: string): Promise<void>;
   getDailyLimitCount(uid: string): Promise<{ used: number; date: string }>;
   getUserDailyLimit(uid: string): Promise<number>;
   isAdmin(uid: string): Promise<boolean>;
   /** Bulk (background) limit — separate from the chat daily limit. */
-  checkAndIncrementBulkLimit(uid: string): Promise<boolean>;
-  refundBulkLimit(uid: string): Promise<void>;
+  checkAndIncrementBulkLimit(uid: string): Promise<LimitVerdict>;
+  refundBulkLimit(uid: string, chargedDay?: string): Promise<void>;
   /** Combined chat limit + cooldown check; increments on success. */
-  checkAndIncrementLimit(uid: string, reasoning?: boolean): Promise<true | 'DAILY_LIMIT' | 'RATE_LIMIT'>;
+  checkAndIncrementLimit(
+    uid: string,
+    reasoning?: boolean,
+  ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT'>;
+}
+
+/** Result of a successful charge: the caller keeps `day` and passes it to the
+ *  matching refund, so a request charged at 23:58 refunds the right row even
+ *  if it fails after midnight. */
+export interface LimitVerdict {
+  ok: boolean;
+  day: string;
 }
 
 /** Error thrown by .logic.ts files in place of HttpsError. */

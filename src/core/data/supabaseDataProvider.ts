@@ -39,6 +39,7 @@ const USER_FIELDS: Record<string, string> = {
   aiConsentAt: 'ai_consent_at',
   aiConsentVersion: 'ai_consent_version',
   indexingConsentAt: 'indexing_consent_at',
+  achievementsResetAt: 'achievements_reset_at',
   indexingConsentVersion: 'indexing_consent_version',
   aiPortrait: 'ai_portrait',
   _encrypted: '_encrypted',
@@ -181,6 +182,15 @@ const DRAFT_REV = createReverseMap(DRAFT_FIELDS);
 const AI_SUMMARY_REV = createReverseMap(AI_SUMMARY_FIELDS);
 const AI_EMBEDDING_REV = createReverseMap(AI_EMBEDDING_FIELDS);
 
+/** Локальные версии приходят как 'v12' (VersionService), облачные — как '12'.
+ *  Приводим оба вида к числу. Бросок намеренно громкий: тихий NaN уже прятал
+ *  здесь один баг. */
+function parseVersionNumber(raw: string): number {
+  const n = parseInt(raw.replace(/^v/i, ''), 10);
+  if (!Number.isFinite(n)) throw new Error(`Unparseable version id: ${raw}`);
+  return n;
+}
+
 function toDb(fields: Record<string, string>, data: ProviderRecord): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const validCols = new Set(Object.values(fields));
@@ -301,23 +311,19 @@ export const SupabaseDataProvider: IDataProvider = {
       lastSessionAt?: Date;
     }
   ): Promise<void> {
-    let sessionsCount = stats.sessionsCount;
-    if (sessionsCount === undefined) {
-      const { data } = await getSupabase()
-        .from('documents')
-        .select('sessions_count')
-        .eq('user_id', userId)
-        .eq('uuid', documentId)
-        .is('deleted_at', null)
-        .maybeSingle();
-      sessionsCount = ((data?.sessions_count as number) || 0) + 1;
+    if (stats.sessionsCount === undefined) {
+      // Атомарно в БД (0020): две вкладки или два устройства больше не
+      // теряют инкременты из-за read-modify-write гонки.
+      const { error: rpcError } = await getSupabase()
+        .rpc('increment_document_sessions', { p_uuid: documentId, p_delta: 1 });
+      if (rpcError != null) throw rpcError;
     }
 
     const updateData: Record<string, unknown> = {
       totalWords: stats.totalWords,
       totalDuration: stats.totalDuration,
       currentVersion: stats.currentVersion,
-      sessionsCount,
+      ...(stats.sessionsCount !== undefined ? { sessionsCount: stats.sessionsCount } : {}),
       lastSessionAt: stats.lastSessionAt !== undefined ? stats.lastSessionAt : new Date(),
     };
     if (stats.mood !== undefined) updateData.mood = stats.mood;
@@ -401,6 +407,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .is('deleted_at', null);
     if (error != null || data == null || data.length === 0) return;
+    const failedUuids: string[] = [];
 
     for (const doc of data) {
       let tags: string[] = [];
@@ -419,7 +426,7 @@ export const SupabaseDataProvider: IDataProvider = {
       if (tags.includes(oldTag)) {
         const newTags = Array.from(new Set(tags.map(t => (t === oldTag ? newTag : t))));
         const encrypted = await maybeEncrypt({ tags: newTags }, [], ['tags'], userId);
-        await getSupabase()
+        const { error: updateError } = await getSupabase()
           .from('documents')
           .update({
             tags: encrypted.tags,
@@ -427,7 +434,14 @@ export const SupabaseDataProvider: IDataProvider = {
           })
           .eq('user_id', userId)
           .eq('uuid', doc.uuid);
+        if (updateError != null) {
+          failedUuids.push(doc.uuid ?? '');
+          reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
+        }
       }
+    }
+    if (failedUuids.length > 0) {
+      throw new Error(`TAG_OP_PARTIAL:${failedUuids.length}`);
     }
   },
 
@@ -438,6 +452,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .eq('user_id', userId)
       .is('deleted_at', null);
     if (error != null || data == null || data.length === 0) return;
+    const failedUuids: string[] = [];
 
     for (const doc of data) {
       let tags: string[] = [];
@@ -456,7 +471,9 @@ export const SupabaseDataProvider: IDataProvider = {
       if (tags.includes(tag)) {
         const newTags = tags.filter(t => t !== tag);
         const encrypted = await maybeEncrypt({ tags: newTags }, [], ['tags'], userId);
-        await getSupabase()
+        // Ошибка per-doc апдейта — это не «успех»: проглоченный отказ RLS или
+        // сети оставлял тег в облаке, и следующий синк воскрешал его в UI.
+        const { error: updateError } = await getSupabase()
           .from('documents')
           .update({
             tags: encrypted.tags,
@@ -464,7 +481,14 @@ export const SupabaseDataProvider: IDataProvider = {
           })
           .eq('user_id', userId)
           .eq('uuid', doc.uuid);
+        if (updateError != null) {
+          failedUuids.push(doc.uuid ?? '');
+          reportError(updateError, { action: 'removeTagFromAllDocs_update', docUuid: doc.uuid });
+        }
       }
+    }
+    if (failedUuids.length > 0) {
+      throw new Error(`TAG_OP_PARTIAL:${failedUuids.length}`);
     }
   },
 
@@ -511,7 +535,7 @@ export const SupabaseDataProvider: IDataProvider = {
       .update(payload)
       .eq('user_id', userId)
       .eq('document_uuid', documentId)
-      .eq('version', parseInt(versionId, 10));
+      .eq('version', parseVersionNumber(versionId));
     if (error != null) throw error;
   },
 
@@ -522,7 +546,7 @@ export const SupabaseDataProvider: IDataProvider = {
   },
 
   async deleteVersionsBatch(userId: string, documentId: string, versionIds: string[]): Promise<void> {
-    const vIds = versionIds.map(v => parseInt(v, 10));
+    const vIds = versionIds.map(v => parseVersionNumber(v));
     const { error } = await getSupabase()
       .from('versions')
       .delete()
@@ -759,25 +783,11 @@ export const SupabaseDataProvider: IDataProvider = {
     return !!profile.encryptedDataKey && !profile.encryptionMeta;
   },
 
-  async applySyncChanges(userId: string, changes: {
-    docsToUpdate: Array<{ id: string; data: ProviderRecord }>;
-    docsToDelete: string[];
-    versionsToUpdate: Array<{ documentId: string; versionId: string; data: ProviderRecord }>;
-  }): Promise<void> {
-    for (const update of changes.docsToUpdate) {
-      const payload = toDb(DOCUMENT_FIELDS, { ...update.data, uuid: update.id, userId });
-      delete payload.id;
-      await getSupabase().from('documents').upsert(payload);
-    }
-    for (const delId of changes.docsToDelete) {
-      await getSupabase().from('documents').delete().eq('user_id', userId).eq('uuid', delId);
-    }
-    for (const update of changes.versionsToUpdate) {
-      const payload = toDb(VERSION_FIELDS, { ...update.data, documentId: update.documentId, userId });
-      delete payload.id;
-      await getSupabase().from('versions').upsert(payload);
-    }
-  },
+  // applySyncChanges удалён (#50): upsert'ы целились в суррогатный PK с
+  // вырезанным id, конфликта по uuid не происходило, ошибки глотались —
+  // «синк», который молча ничего не обновлял. Вызовов не было. Если
+  // live-sync-апдейтер понадобится — писать с onConflict: 'uuid' (documents) /
+  // 'document_uuid,version' (versions) и проверенными ошибками.
 
   async getMigrationDrafts(userId: string): Promise<{ id: string; data: ProviderRecord }[]> {
     const { data, error } = await getSupabase()

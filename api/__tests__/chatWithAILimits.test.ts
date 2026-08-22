@@ -15,9 +15,9 @@ vi.mock('../ai/provider', () => ({
  */
 function ctxSpy() {
   return {
-    checkAndIncrementLimit: vi.fn().mockResolvedValue('OK'),
+    checkAndIncrementLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
-    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue(true),
+    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
     refundBulkLimit: vi.fn().mockResolvedValue(undefined),
     tryReserveGlobalRequest: vi.fn().mockResolvedValue({ id: 'res_1' }),
     refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
@@ -54,7 +54,7 @@ describe('chatWithAI: callType не обходит лимиты', () => {
 
   it('внутренний вызов отклоняется, когда bulk-счётчик исчерпан', async () => {
     const ctx = ctxSpy();
-    ctx.checkAndIncrementBulkLimit.mockResolvedValue(false);
+    ctx.checkAndIncrementBulkLimit.mockResolvedValue({ ok: false, day: '2026-08-22' });
     await expect(chatWithAILogic(ctx, 'user_1', payload({ callType: 'auto_name' })))
       .rejects.toMatchObject({ message: 'Daily limit reached.' });
     expect(generate).not.toHaveBeenCalled();
@@ -71,7 +71,7 @@ describe('chatWithAI: callType не обходит лимиты', () => {
     const ctx = ctxSpy();
     ctx.tryReserveGlobalRequest.mockResolvedValue(null);
     await expect(chatWithAILogic(ctx, 'user_1', payload({ callType: 'auto_name' }))).rejects.toThrow();
-    expect(ctx.refundBulkLimit).toHaveBeenCalledWith('user_1');
+    expect(ctx.refundBulkLimit).toHaveBeenCalledWith('user_1', expect.any(String));
     expect(ctx.refundDailyLimit).not.toHaveBeenCalled();
   });
 });

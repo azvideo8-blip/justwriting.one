@@ -80,8 +80,13 @@ describe('VersionService', () => {
       const versions = await VersionService.getVersions('u1', 'doc1');
       expect(versions).toHaveLength(2);
       const corrupted = versions.find(v => v.id === 'ver_corrupted');
+      // #45: деградированная запись типобезопасна — мусорная версия заменяется
+      // дефолтом, а флаг _degraded честно помечает её в UI.
       expect(corrupted).toBeDefined();
-      expect(corrupted?.version).toBe('not-a-number' as unknown as number);
+      expect(corrupted?.version).toBe(0);
+      expect(corrupted?._degraded).toBe(true);
+      const healthy = versions.find(v => v.id === 'ver_1');
+      expect(healthy?._degraded).toBeUndefined();
     });
   });
 

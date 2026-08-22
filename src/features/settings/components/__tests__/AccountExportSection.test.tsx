@@ -125,7 +125,7 @@ describe('AccountExportSection — migration export & import', () => {
       success: true,
       imported: { documents: 3, versions: 5, drafts: 1, aiSummaries: 2, aiEmbeddings: 2, verbatim: { aiDialogues: 1 } },
       skipped: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {}, details: [] },
-      droppedOnPurpose: { peopleIndexRecords: 0, summariesWithMentionedPeople: 0, unknownStores: {} },
+      droppedOnPurpose: { peopleIndexRecords: 0, summariesWithMentionedPeople: 0, unknownStores: {}, verbatimDenied: {} },
     });
 
     renderWithProviders(<AccountExportSection userId="u1" />);

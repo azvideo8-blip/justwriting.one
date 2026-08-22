@@ -78,4 +78,16 @@ export const LocalVersionService = {
     const cursor = await index.openCursor(range, 'prev');
     return cursor?.value.content ?? '';
   },
+
+  /** Последняя версия целиком — для дневной дельты слов (#101): heatmap и
+   *  стрик красят день словами сессии, а не объёмом всей заметки. */
+  async getLatestVersionMeta(documentId: string): Promise<{ wordsAdded: number } | null> {
+    const db = await getLocalDb();
+    const tx = db.transaction('versions', 'readonly');
+    const index = tx.store.index('by-doc-version');
+    const range = IDBKeyRange.bound([documentId, 0], [documentId, Number.MAX_SAFE_INTEGER]);
+    const cursor = await index.openCursor(range, 'prev');
+    if (!cursor?.value) return null;
+    return { wordsAdded: typeof cursor.value.wordsAdded === 'number' ? cursor.value.wordsAdded : 0 };
+  },
 };

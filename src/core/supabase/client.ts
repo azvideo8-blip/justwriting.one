@@ -23,7 +23,14 @@ export function getSupabase(): SupabaseClient {
     );
   }
   client = createClient(url, key, {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      // PKCE вместо implicit: токены обмена по ссылкам не попадают во
+      // фрагмент URL и дальше в Referer/историю. Парольный вход не затронут.
+      flowType: 'pkce',
+      detectSessionInUrl: true,
+    },
   });
   return client;
 }

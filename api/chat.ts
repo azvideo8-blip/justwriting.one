@@ -103,14 +103,15 @@ async function streamOpenRouterReasoning(
   messages: Array<{ role: string; content: string }>,
   isInternalCall: boolean,
   reservation: GlobalReservation | null,
+  chargedDay: string | undefined,
 ): Promise<void> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid, chargedDay);
     } else {
-      await postgresAiContext.refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
     console.error('OPENROUTER_API_KEY not set');
     json(res, 500, { error: 'Internal server error' });
@@ -142,9 +143,9 @@ async function streamOpenRouterReasoning(
     console.error('[api/chat] upstream request failed:', err);
     await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid, chargedDay);
     } else {
-      await postgresAiContext.refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
     res.writeHead(504, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('UPSTREAM_TIMEOUT');
@@ -152,11 +153,12 @@ async function streamOpenRouterReasoning(
   }
 
   if (!upstream.ok || !upstream.body) {
+    clearTimeout(timeoutId);
     await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid, chargedDay);
     } else {
-      await postgresAiContext.refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
     res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('UPSTREAM_ERROR');
@@ -178,10 +180,22 @@ async function streamOpenRouterReasoning(
   let contentAccum = '';
   let sawNativeReasoning = false;
 
+  // Клиент ушёл до первого байта — слот не использован, возвращаем его.
+  // После первого байта работа сделана и остаётся списанной. Гарантия
+  // действует на VPS: res.on('close') ненадёжен на serverless-edge.
+  let clientGone = false;
+  let firstByteSent = false;
+  res.on('close', () => {
+    clientGone = true;
+    controller.abort();
+  });
+
+  let streamFailed = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      firstByteSent = true;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
@@ -246,11 +260,18 @@ async function streamOpenRouterReasoning(
     }
   } catch (streamErr) {
     console.error('[api/chat] stream read failed:', streamErr);
+    streamFailed = true;
+  }
+
+  // Единственная точка возврата слота: стрим упал, либо клиент ушёл до
+  // первого байта. Идемпотентность на стороне per-user refund'а здесь наша
+  // забота — флаг гарантирует один проход.
+  if (streamFailed || (clientGone && !firstByteSent)) {
     await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid, chargedDay);
     } else {
-      await postgresAiContext.refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
   }
 
@@ -330,9 +351,14 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return json(res, 400, { error: 'Bad Request' });
   }
 
+  // День списания. Все refund'ы ниже целятся в него: запрос, начатый в
+  // 23:58 и упавший после полуночи, возвращает единицу в правильную строку.
+  let chargedDay: string | undefined;
+
   if (isInternalCall) {
-    const allowed = await postgresAiContext.checkAndIncrementBulkLimit(uid);
-    if (!allowed) { return json(res, 429, { error: 'DAILY_LIMIT' }); }
+    const verdict = await postgresAiContext.checkAndIncrementBulkLimit(uid);
+    if (!verdict.ok) { return json(res, 429, { error: 'DAILY_LIMIT' }); }
+    chargedDay = verdict.day;
   } else {
     const limitResult = await postgresAiContext.checkAndIncrementLimit(uid, parsed.data.reasoning === true);
     if (limitResult === 'DAILY_LIMIT') {
@@ -341,15 +367,16 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     if (limitResult === 'RATE_LIMIT') {
       return json(res, 429, { error: 'RATE_LIMIT' });
     }
+    chargedDay = limitResult.day;
   }
 
   const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning);
   const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens);
   if (!reservation) {
     if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid, chargedDay);
     } else {
-      await postgresAiContext.refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
     return json(res, 429, { error: 'GLOBAL_LIMIT' });
   }
@@ -358,7 +385,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
   // Injection guards
   if (personaId === 'custom' && customSystemPrompt && hasInjectionAttempt(customSystemPrompt)) {
-    await postgresAiContext.refundDailyLimit(uid);
+    await postgresAiContext.refundDailyLimit(uid, chargedDay);
     await postgresAiContext.refundGlobalRequest(reservation);
     return json(res, 400, { error: 'Bad Request' });
   }
@@ -370,8 +397,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     (userPortrait && hasInjectionAttempt(userPortrait)) ||
     (documentMood && hasInjectionAttempt(documentMood))
   ) {
-    if (isInternalCall) await postgresAiContext.refundBulkLimit(uid);
-    else await postgresAiContext.refundDailyLimit(uid);
+    if (isInternalCall) await postgresAiContext.refundBulkLimit(uid, chargedDay);
+    else await postgresAiContext.refundDailyLimit(uid, chargedDay);
     await postgresAiContext.refundGlobalRequest(reservation);
     return json(res, 400, { error: 'Bad Request' });
   }
@@ -398,7 +425,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
         ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
         : m,
     );
-    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation);
+    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation, chargedDay);
     return;
   }
 
@@ -449,9 +476,9 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     console.error('[api/chat] pipe failed:', streamErr);
     await postgresAiContext.refundGlobalRequest(reservation);
     if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid);
+      await postgresAiContext.refundBulkLimit(uid, chargedDay);
     } else {
-      await postgresAiContext.refundDailyLimit(uid);
+      await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
     if (!res.headersSent) json(res, 500, { error: 'Stream failed' });
   }

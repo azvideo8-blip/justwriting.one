@@ -45,6 +45,10 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
   const handleResetAchievements = useCallback(() => {
     localStorage.removeItem(`unlocked_achievements_${user?.uid ?? 'guest'}`);
+    // Tombstone-момент (#100): без него union-merge мгновенно переигрывает
+    // весь набор — сброс получался косметическим.
+    localStorage.setItem(`achievements_reset_at_${user?.uid ?? 'guest'}`, String(Date.now()));
+    try { localStorage.removeItem(`achievement_earned_at_${user?.uid ?? 'guest'}`); } catch { /* ignore */ }
     setAchResetKey(k => k + 1);
     setShowResetConfirm(false);
     if (user) {

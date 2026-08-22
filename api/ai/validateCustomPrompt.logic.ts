@@ -1,6 +1,6 @@
 // functions/src/ai/validateCustomPrompt.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse } from './pure';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid } from './pure';
 import { generate, getActiveModel } from './provider';
 import { AiError, type AiContext } from './context';
 
@@ -40,7 +40,7 @@ export async function validateCustomPromptLogic(ctx: AiContext, uid: string, dat
 
   const lf = getLangfuse();
   const activeModel = await getActiveModel();
-  const trace = lf?.trace({ name: 'validateCustomPrompt', userId: uid });
+  const trace = lf?.trace({ name: 'validateCustomPrompt', userId: hashUid(uid) });
   const generation = trace?.generation({ name: activeModel, model: activeModel });
 
   let text: string;

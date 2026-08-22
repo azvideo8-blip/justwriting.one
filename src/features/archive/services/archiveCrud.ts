@@ -106,9 +106,9 @@ export async function updateArchiveField(
     } else if (field === 'date') {
       if (!(value instanceof Date)) throw new Error('Expected Date for date field');
       const ts = value.getTime();
-      await LocalDocumentService.updateDate(session.id, ts, ts);
+      await LocalDocumentService.updateDate(session.id, { lastSessionAt: ts });
       if (session._linkedCloudId && user) {
-        await DocumentService.updateDate(user.uid, session._linkedCloudId, value, value).catch(e => {
+        await DocumentService.updateDate(user.uid, session._linkedCloudId, { lastSessionAt: value }).catch(e => {
           cloudSyncFailed = true;
           reportError(e, { action: 'updateArchiveField_date', documentId: session._linkedCloudId });
           // Queue the LOCAL id — the drain (_drainPendingQueue -> addCloudCopy)
@@ -145,7 +145,7 @@ export async function updateArchiveField(
         const title = typeof value === 'string' ? value : '';
         await DocumentService.updateTitle(user.uid, session.id, title);
       } else if (field === 'date') {
-        if (value instanceof Date) await DocumentService.updateDate(user.uid, session.id, value, value);
+        if (value instanceof Date) await DocumentService.updateDate(user.uid, session.id, { lastSessionAt: value });
       } else if (field === 'labelId') {
         const labelId = typeof value === 'string' || value === undefined ? value : undefined;
         await DocumentService.updateLabelId(user.uid, session.id, labelId);
@@ -188,7 +188,7 @@ async function _applyLocalFieldEdit(
     await LocalDocumentService.updateTitle(localId, typeof value === 'string' ? value : '');
   } else if (field === 'date') {
     if (value instanceof Date) {
-      await LocalDocumentService.updateDate(localId, value.getTime(), value.getTime());
+      await LocalDocumentService.updateDate(localId, { lastSessionAt: value.getTime() });
     }
   } else if (field === 'labelId') {
     await LocalDocumentService.updateLabelId(localId, typeof value === 'string' || value === undefined ? value : undefined);

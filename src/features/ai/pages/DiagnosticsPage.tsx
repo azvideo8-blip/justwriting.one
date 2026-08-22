@@ -300,7 +300,7 @@ function RebuildTimelineButton() {
               <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                 <div>
                   <h3 className="text-sm font-semibold text-text-main">Выгрузка всех данных</h3>
-                  <p className="text-xs text-text-main/60 mt-1">Отправляет все локальные несинхронизированные заметки в Cloud Firestore.</p>
+                  <p className="text-xs text-text-main/60 mt-1">Отправляет все локальные несинхронизированные заметки в облако.</p>
                 </div>
                 <Button
                   onClick={() => void handleSyncAllToCloud()}

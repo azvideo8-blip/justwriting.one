@@ -9,9 +9,9 @@ import type { AiContext } from '../ai/context';
  */
 function ctxSpy() {
   return {
-    checkDailyLimit: vi.fn().mockResolvedValue(true),
+    checkDailyLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
-    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue(true),
+    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
     refundBulkLimit: vi.fn().mockResolvedValue(undefined),
   } as unknown as AiContext & {
     checkDailyLimit: ReturnType<typeof vi.fn>;
@@ -47,14 +47,14 @@ describe('chargeCall', () => {
 
   it('refuses the call once the daily limit is spent', async () => {
     const ctx = ctxSpy();
-    ctx.checkDailyLimit.mockResolvedValue(false);
+    ctx.checkDailyLimit.mockResolvedValue({ ok: false, day: '2026-08-22' });
     await expect(chargeCall(ctx, 'uid_1', 'user')).rejects.toThrow('Daily limit reached.');
   });
 
   it('returns CallReservation object', async () => {
     const ctx = ctxSpy();
     const res = await chargeCall(ctx, 'uid_1', 'user');
-    expect(res).toEqual({ uid: 'uid_1', charge: 'user', refunded: false });
+    expect(res).toEqual({ uid: 'uid_1', charge: 'user', day: '2026-08-22', refunded: false });
   });
 
   it('refunds to the same counter it charged with CallReservation', async () => {

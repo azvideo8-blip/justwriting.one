@@ -281,18 +281,27 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async updateDate(id: string, firstSessionAt: number, lastSessionAt: number): Promise<void> {
+  /** Сдвигает день заметки. Начало истории меняется только когда попросят:
+   *  firstSessionAt заякоривает стрики и «давность», и молча переписывать его
+   *  — значит переписывать прошлое. */
+  async updateDate(
+    id: string,
+    dates: { lastSessionAt: number; firstSessionAt?: number },
+  ): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'versions'], 'readwrite');
     const existing = await tx.objectStore('documents').get(id);
     if (!existing) { await tx.done; return; }
-    await tx.objectStore('documents').put({ ...existing, firstSessionAt, lastSessionAt });
-    const versions = await tx.objectStore('versions').index('by-document').getAll(id);
-    if (versions.length > 0) {
+    const nextFirst = dates.firstSessionAt ?? existing.firstSessionAt;
+    await tx.objectStore('documents').put({ ...existing, firstSessionAt: nextFirst, lastSessionAt: dates.lastSessionAt });
+    if (dates.firstSessionAt !== undefined && dates.firstSessionAt !== existing.firstSessionAt) {
+      const versions = await tx.objectStore('versions').index('by-document').getAll(id);
       versions.sort((a, b) => a.version - b.version);
       const first = versions[0];
-      if (first) {
-        first.sessionStartedAt = firstSessionAt;
+      // Версию #1 двигаем только если она всё ещё привязана к прежнему началу:
+      // иначе затираем честную временную метку более поздней правки.
+      if (first && first.sessionStartedAt === existing.firstSessionAt) {
+        first.sessionStartedAt = dates.firstSessionAt;
         await tx.objectStore('versions').put(first);
       }
     }

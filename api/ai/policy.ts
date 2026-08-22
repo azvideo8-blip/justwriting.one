@@ -100,19 +100,23 @@ export function parseCharge(value: unknown): ChargeTarget {
 export interface CallReservation {
   uid: string;
   charge: ChargeTarget;
+  /** День списания из verdict'а. Refund целится в него, а не в today() на
+   *  момент неудачи — иначе запрос, списавший квоту в 23:58 и упавший после
+   *  полуночи, возвращает единицу в пустую строку. */
+  day?: string;
   refunded?: boolean;
 }
 
 /** Списывает вызов с нужного счётчика. Возвращает объект резервации для идемпотентного возврата. Бросает AiError, если лимит исчерпан. */
 export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarget): Promise<CallReservation> {
   if (charge === 'user') {
-    const allowed = await ctx.checkDailyLimit(uid);
-    if (!allowed) throw new AiError('resource-exhausted', 'Daily limit reached.');
-    return { uid, charge, refunded: false };
+    const verdict = await ctx.checkDailyLimit(uid);
+    if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily limit reached.');
+    return { uid, charge, day: verdict.day, refunded: false };
   }
-  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-  if (!allowed) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  return { uid, charge, refunded: false };
+  const verdict = await ctx.checkAndIncrementBulkLimit(uid);
+  if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
+  return { uid, charge, day: verdict.day, refunded: false };
 }
 
 /** Возврат списанного с гарантией идемпотентности: повторный вызов с той же резервацией ничего не делает. */
@@ -126,10 +130,10 @@ export async function refundCall(
     if (resOrUid.refunded === true) return;
     resOrUid.refunded = true;
     if (resOrUid.charge === 'user') {
-      await ctx.refundDailyLimit(resOrUid.uid);
+      await ctx.refundDailyLimit(resOrUid.uid, resOrUid.day);
       return;
     }
-    await ctx.refundBulkLimit(resOrUid.uid);
+    await ctx.refundBulkLimit(resOrUid.uid, resOrUid.day);
     return;
   }
   const uid = resOrUid;

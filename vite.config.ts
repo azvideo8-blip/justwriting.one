@@ -79,7 +79,9 @@ export default defineConfig(() => {
     test: {
       globals: true,
       environment: 'jsdom',
-      setupFiles: './src/test/setup.ts',
+      // Абсолютный путь: относительный резолвился от CWD, и `npx vitest` из
+      // api/ искал setup в несуществующем api/src/test/.
+      setupFiles: [fileURLToPath(new URL('./src/test/setup.ts', import.meta.url))],
       exclude: [
         '**/node_modules/**',
         '**/dist/**',

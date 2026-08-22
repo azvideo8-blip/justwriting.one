@@ -3,7 +3,7 @@
 // Uses the tables created in supabase/migrations/0004_ai_counters.sql and 0005_ai_global_daily_tokens.sql.
 
 import { Pool } from 'pg';
-import type { AiContext, GlobalReservation } from './ai/context';
+import type { AiContext, GlobalReservation, LimitVerdict } from './ai/context';
 import { DAILY_LIMIT } from './ai/pure';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -25,23 +25,21 @@ const EFFECTIVE_TOKEN_LIMIT = DAILY_SPEND_LIMIT_RUB != null && DAILY_SPEND_LIMIT
 async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
   const date = today();
   try {
+    // Резервация токенов атомарна вместе с вызовом: раньше tokens читались
+    // после инкремента call_count, и N конкурентных запросов видели один и тот
+    // же устаревший остаток — потолок был мягким под нагрузкой.
     const res = await pool.query(
-      `INSERT INTO ai_global_daily (date, call_count)
-       VALUES ($1, 1)
-       ON CONFLICT (date) DO UPDATE SET call_count = ai_global_daily.call_count + 1
-         WHERE ai_global_daily.call_count < $2
-       RETURNING call_count, coalesce(tokens, 0) AS tokens`,
-      [date, GLOBAL_DAILY_LIMIT],
+      `INSERT INTO ai_global_daily (date, call_count, tokens)
+       VALUES ($1, 1, $3::int)
+       ON CONFLICT (date) DO UPDATE SET
+         call_count = ai_global_daily.call_count + 1,
+         tokens     = coalesce(ai_global_daily.tokens, 0) + $3::int
+       WHERE ai_global_daily.call_count < $2::int
+         AND coalesce(ai_global_daily.tokens, 0) + $3::int <= $4::bigint
+       RETURNING coalesce(tokens, 0) AS tokens_reserved`,
+      [date, GLOBAL_DAILY_LIMIT, allowance, EFFECTIVE_TOKEN_LIMIT],
     );
     if (res.rows.length === 0) {
-      return null;
-    }
-    const tokens = Number(res.rows[0]?.tokens ?? 0);
-    if (tokens + allowance > EFFECTIVE_TOKEN_LIMIT) {
-      await pool.query(
-        `UPDATE ai_global_daily SET call_count = GREATEST(0, call_count - 1) WHERE date = $1`,
-        [date],
-      );
       return null;
     }
     return { date, shardId: '0', allowance };
@@ -55,9 +53,15 @@ async function refundGlobalRequest(res: GlobalReservation | null | undefined): P
   if (!res || res.refunded) return;
   res.refunded = true;
   try {
+    // Резерв снимается вместе с вызовом: иначе каждая неудача навсегда съедает
+    // свой allowance из суточного потолка — час лежащего провайдера выбрал бы
+    // потолок, не потратив ни одного токена.
     await pool.query(
-      `UPDATE ai_global_daily SET call_count = GREATEST(0, call_count - 1) WHERE date = $1`,
-      [res.date],
+      `UPDATE ai_global_daily
+          SET call_count = GREATEST(0, call_count - 1),
+              tokens     = GREATEST(0, coalesce(tokens, 0) - $2::int)
+        WHERE date = $1`,
+      [res.date, res.allowance],
     );
   } catch (e) {
     console.error('[postgresAiContext] refundGlobalRequest error', e);
@@ -83,7 +87,7 @@ async function getUserDailyLimit(uid: string): Promise<number> {
   return PER_USER_LIMIT;
 }
 
-async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolean> {
+async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitVerdict> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -101,22 +105,25 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<boolea
     const count = Number(res.rows[0]?.call_count ?? 1);
     if (count > limit) {
       await client.query('ROLLBACK');
-      return false;
+      return { ok: false, day: date };
     }
     await client.query('COMMIT');
-    return true;
+    return { ok: true, day: date };
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('[postgresAiContext] checkDailyLimit error', e);
-    return false;
+    return { ok: false, day: today() };
   } finally {
     client.release();
   }
 }
 
-async function refundDailyLimit(uid: string): Promise<void> {
+async function refundDailyLimit(uid: string, chargedDay?: string): Promise<void> {
   try {
-    const date = today();
+    // Refund целится в день СПИСАНИЯ. Раньше здесь был today() на момент
+    // неудачи: запрос, списавший квоту в 23:58 и упавший после полуночи,
+    // возвращал единицу в пустую строку — юзер терял её навсегда.
+    const date = chargedDay ?? today();
     await pool.query(
       `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'chat'`,
       [uid, date],
@@ -138,7 +145,7 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; date: st
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
 const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
 
-async function checkAndIncrementBulkLimit(uid: string): Promise<boolean> {
+async function checkAndIncrementBulkLimit(uid: string): Promise<LimitVerdict> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -153,22 +160,22 @@ async function checkAndIncrementBulkLimit(uid: string): Promise<boolean> {
     const count = Number(res.rows[0]?.call_count ?? 1);
     if (count > BULK_LIMIT) {
       await client.query('ROLLBACK');
-      return false;
+      return { ok: false, day: date };
     }
     await client.query('COMMIT');
-    return true;
+    return { ok: true, day: date };
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('[postgresAiContext] checkAndIncrementBulkLimit error', e);
-    return false;
+    return { ok: false, day: today() };
   } finally {
     client.release();
   }
 }
 
-async function refundBulkLimit(uid: string): Promise<void> {
+async function refundBulkLimit(uid: string, chargedDay?: string): Promise<void> {
   try {
-    const date = today();
+    const date = chargedDay ?? today();
     await pool.query(
       `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'bulk'`,
       [uid, date],
@@ -183,7 +190,7 @@ const COOLDOWN_MS = 10000;
 async function checkAndIncrementLimit(
   uid: string,
   reasoning?: boolean,
-): Promise<true | 'DAILY_LIMIT' | 'RATE_LIMIT'> {
+): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT'> {
   const { rows } = await pool.query(
     `INSERT INTO ai_cooldown (uid, updated_at) VALUES ($1, now())
      ON CONFLICT (uid) DO UPDATE SET updated_at = now()
@@ -193,8 +200,8 @@ async function checkAndIncrementLimit(
   );
   if (rows.length === 0) return 'RATE_LIMIT';
 
-  const ok = await checkDailyLimit(uid, reasoning);
-  return ok ? true : 'DAILY_LIMIT';
+  const verdict = await checkDailyLimit(uid, reasoning);
+  return verdict.ok ? { ok: true, day: verdict.day } : 'DAILY_LIMIT';
 }
 
 async function recordUsage(
@@ -202,7 +209,7 @@ async function recordUsage(
   tokensIn: number,
   tokensOut: number,
   _opts?: { model?: string; fn?: string },
-  _res?: GlobalReservation | null,
+  reservation?: GlobalReservation | null,
 ): Promise<void> {
   // Дата берётся из того же today(), что и резервирование в
   // tryReserveGlobalRequest. Раньше здесь стоял current_date — это дата по
@@ -225,10 +232,17 @@ async function recordUsage(
            '{requests}',         to_jsonb(coalesce((ai_usage.data->>'requests')::int, 0)         + 1))`,
       [uid, tokensIn, tokensOut, date],
     );
-    await client.query(
-      `UPDATE ai_global_daily SET tokens = coalesce(tokens, 0) + $1 WHERE date = $2`,
-      [tokensIn + tokensOut, date],
-    );
+    // Сверка резерва с фактом: allowance уже лежит в tokens (зарезервирован
+    // атомарно), добавляем только дельту. GREATEST защищает от гонки с refund.
+    if (reservation && !reservation.refunded) {
+      await client.query(
+        `UPDATE ai_global_daily
+            SET tokens = GREATEST(0, coalesce(tokens, 0) - $3::int + $1::int)
+          WHERE date = $2::text`,
+        [tokensIn + tokensOut, reservation.date, reservation.allowance],
+      );
+      reservation.refunded = true; // резерв погашен этим вызовом
+    }
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');

@@ -18,6 +18,8 @@ interface MockQueryBuilder {
   is: ReturnType<typeof vi.fn>;
   maybeSingle: ReturnType<typeof vi.fn>;
   then: ReturnType<typeof vi.fn>;
+  // 2.17: счётчик сессий переехал на RPC вместо чтения-изменения-записи.
+  rpc: ReturnType<typeof vi.fn>;
 }
 
 describe('SupabaseDataProvider', () => {
@@ -28,6 +30,7 @@ describe('SupabaseDataProvider', () => {
   beforeEach(() => {
     mockQueryBuilder = {
       select: vi.fn().mockReturnThis(),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
       insert: vi.fn().mockResolvedValue({ data: null, error: null }),
       update: vi.fn().mockReturnThis(),
       upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -54,6 +57,7 @@ describe('SupabaseDataProvider', () => {
       from: mockFrom,
       channel: mockChannel,
       removeChannel: vi.fn().mockResolvedValue('ok'),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
     } as unknown as ReturnType<typeof supabaseClientModule.getSupabase>);
   });
 
@@ -142,25 +146,27 @@ describe('SupabaseDataProvider', () => {
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('uuid', 'doc-1');
     });
 
-    it('updateDocumentSessionStats increments sessionsCount when not provided', async () => {
-      mockQueryBuilder.maybeSingle.mockResolvedValueOnce({
-        data: { sessions_count: 7 },
-        error: null,
-      });
-
+    it('updateDocumentSessionStats increments sessionsCount atomically via rpc when not provided', async () => {
       await SupabaseDataProvider.updateDocumentSessionStats('user-1', 'doc-1', {
         totalWords: 400,
         totalDuration: 800,
         currentVersion: 4,
       });
 
-      expect(mockQueryBuilder.select).toHaveBeenCalledWith('sessions_count');
+      // #48: инкремент атомарен в БД (rpc), read-modify-write больше нет.
+      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('increment_document_sessions', {
+        p_uuid: 'doc-1',
+        p_delta: 1,
+      });
+      // Метаданные пишутся без sessions_count — его только что посчитал rpc.
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(
+        expect.not.objectContaining({ sessions_count: expect.anything() })
+      );
       expect(mockQueryBuilder.update).toHaveBeenCalledWith(
         expect.objectContaining({
           total_words: 400,
           total_duration: 800,
           current_version: 4,
-          sessions_count: 8,
         })
       );
     });

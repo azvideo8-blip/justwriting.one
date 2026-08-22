@@ -66,8 +66,13 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     }
   }, [mode]);
 
+  const setupInFlightRef = useRef(false);
+
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Ref, не state: два клика в одном кадре видят одно и то же устаревшее
+    // значение state, а loading ещё не перерисовался ко второму клику.
+    if (setupInFlightRef.current || loading) return;
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
       return;
@@ -76,8 +81,8 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       setError(t('enc_passwords_dont_match'));
       return;
     }
+    setupInFlightRef.current = true;
     setLoading(true);
-    setError(null);
     try {
       const { recoveryCode: created } = await initializeEncryption(userId, password);
       showToast(t('enc_setup_success'), 'success');
@@ -92,6 +97,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       reportError(err, { action: 'initializeEncryption', userId });
       setError(err instanceof VaultAlreadyExistsError ? t('enc_setup_vault_exists') : t('error_generic_action'));
     } finally {
+      setupInFlightRef.current = false;
       setLoading(false);
     }
   };

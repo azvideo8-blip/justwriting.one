@@ -108,3 +108,17 @@ Comprehensive CSP headers configured in `vercel.json`:
 Injection patterns are maintained in a single source: `src/shared/ai/injectionPatterns.ts`. Both `api/chat.ts` (Vercel Edge) and `functions/src/shared/aiUtils.ts` (Cloud Functions) import from this file. A parity test exists at `src/features/ai/shared/__tests__/injectionPatterns.test.ts`.
 
 > **Note:** Cloud Functions maintain a mirror copy with a "keep in sync" comment due to separate `rootDir`/`tsconfig.json`. After Supabase migration, both sides will import from a single shared package.
+
+## Известные компромиссы (документированные)
+
+- **Черновик сессии в IndexedDB лежит plaintext у E2E-юзеров** (#84, вариант B).
+  Черновик — автосейв рабочего состояния, а не хранимая заметка: он затирается
+  при завершении сессии и чистится при выходе с очисткой данных. localStorage-
+  копия при включённом шифровании по-прежнему подавлена (SEC-56). Если
+  threat-model ужесточается — вариант A (шифровать content/title тем же
+  maybeEncrypt) описан в `docs/audit-cleanup-plan.md` §3.10.
+- **Стрим + fallback списывают два слота** (#77). Остаточный случай после
+  refund-on-disconnect — обрыв соединения посреди стрима: генерация на обеих
+  попытках реально произошла. Вариант A (списывать после первого байта
+  апстрима) отклонён — переносит биллинг в середину запроса и дробит атомарный
+  claim cooldown+лимит; решение задокументировано в `useAIChat.ts`.

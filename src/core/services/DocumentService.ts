@@ -188,10 +188,16 @@ export const DocumentService = {
     await DataProvider.updateDocument(userId, documentId, encrypted);
   },
 
-  async updateDate(userId: string, documentId: string, firstSessionAt: Date, lastSessionAt: Date): Promise<void> {
+  /** Облачный двойник LocalDocumentService.updateDate: начало истории меняется
+   *  только явно, иначе следующий синк принёс бы затёртое значение обратно. */
+  async updateDate(
+    userId: string,
+    documentId: string,
+    dates: { lastSessionAt: Date; firstSessionAt?: Date },
+  ): Promise<void> {
     await DataProvider.updateDocument(userId, documentId, {
-      firstSessionAt: firstSessionAt.getTime(),
-      lastSessionAt: lastSessionAt.getTime(),
+      lastSessionAt: dates.lastSessionAt.getTime(),
+      ...(dates.firstSessionAt !== undefined ? { firstSessionAt: dates.firstSessionAt.getTime() } : {}),
     });
   },
 

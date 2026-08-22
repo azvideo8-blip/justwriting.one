@@ -174,8 +174,10 @@ describe('DocumentService', () => {
 
     it('updateDate calls updateDocument', async () => {
       vi.mocked(DataProvider.updateDocument).mockResolvedValue();
-      await DocumentService.updateDate('u1', 'doc1', new Date(1000), new Date(2000));
-      expect(DataProvider.updateDocument).toHaveBeenCalledWith('u1', 'doc1', { firstSessionAt: 1000, lastSessionAt: 2000 });
+      await DocumentService.updateDate('u1', 'doc1', { lastSessionAt: new Date(2000) });
+      // firstSessionAt по умолчанию не отправляется: правка дня не переписывает
+      // начало истории заметки (#102).
+      expect(DataProvider.updateDocument).toHaveBeenCalledWith('u1', 'doc1', { lastSessionAt: 2000 });
     });
 
     it('updateLabelId calls updateDocument', async () => {

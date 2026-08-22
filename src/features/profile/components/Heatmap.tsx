@@ -60,7 +60,9 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
       const d = getSessionDate(s);
       if (!d) return;
       const key = d.toDateString();
-      wordsByDate[key] = (wordsByDate[key] || 0) + (s.wordCount || 0);
+      // Дневная дельта, а не объём заметки: правка 10k-заметки на слово
+      // не должна красить день десятью тысячами (#101).
+      wordsByDate[key] = (wordsByDate[key] || 0) + (s.sessionWordsAdded || s.wordCount || 0);
     });
 
     const endDate = new Date();

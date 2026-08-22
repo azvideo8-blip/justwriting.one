@@ -12,9 +12,9 @@ vi.mock('../ai/provider', () => ({
 
 function mockAiContext(): AiContext {
   return {
-    checkDailyLimit: vi.fn().mockResolvedValue(true),
+    checkDailyLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
-    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue(true),
+    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
     refundBulkLimit: vi.fn().mockResolvedValue(undefined),
     tryReserveGlobalRequest: vi.fn().mockResolvedValue({ id: 'res_123' }),
     refundGlobalRequest: vi.fn().mockResolvedValue(undefined),

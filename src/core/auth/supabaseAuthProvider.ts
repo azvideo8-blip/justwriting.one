@@ -78,8 +78,25 @@ export async function signOutUser(): Promise<void> {
 }
 
 export async function sendPasswordResetEmail(email: string): Promise<void> {
-  const { error } = await getSupabase().auth.resetPasswordForEmail(email);
+  // redirectTo обязан быть в списке Supabase → Auth → URL Configuration,
+  // иначе ссылка молча ведёт на корень сайта.
+  const redirectTo = `${window.location.origin}/reset-password`;
+  const { error } = await getSupabase().auth.resetPasswordForEmail(email, { redirectTo });
   if (error) throw error;
+}
+
+/**
+ * True when the current session came from a password-recovery link. The event
+ * (`PASSWORD_RECOVERY`) is the reliable signal — it fires after the client has
+ * exchanged the link for a session and does not depend on where the parameters
+ * live in the URL (implicit flow puts `type=recovery` in the fragment, PKCE
+ * returns `?code=` in the query).
+ */
+export function onPasswordRecovery(cb: () => void): () => void {
+  const { data } = getSupabase().auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') cb();
+  });
+  return () => data.subscription.unsubscribe();
 }
 
 export async function updateUserPassword(password: string): Promise<void> {

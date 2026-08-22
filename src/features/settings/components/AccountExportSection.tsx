@@ -142,6 +142,12 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
     setImportLoading(true);
     setImportResult(null);
     try {
+      // Cap до чтения файла: multi-гигабайтный манифест убивает вкладку на
+      // file.text() + JSON.parse ещё до всякой валидации.
+      const MAX_MANIFEST_BYTES = 64 * 1024 * 1024;
+      if (file.size > MAX_MANIFEST_BYTES) {
+        throw new Error(`Манифест слишком большой: ${Math.round(file.size / 1048576)} МБ (лимит 64 МБ)`);
+      }
       const text = await file.text();
       let parsed: unknown;
       try {
@@ -151,7 +157,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
           success: false,
           imported: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
           skipped: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {}, details: [] },
-          droppedOnPurpose: { peopleIndexRecords: 0, summariesWithMentionedPeople: 0, unknownStores: {} },
+          droppedOnPurpose: { peopleIndexRecords: 0, summariesWithMentionedPeople: 0, unknownStores: {}, verbatimDenied: {} },
           error: String(jsonErr),
         });
         showToast(t('error_generic_action'), 'error');

@@ -4,6 +4,7 @@ import { Target, Timer, X, Check } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
+import { useContentStore } from '../store/useContentStore';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 
@@ -35,7 +36,8 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
   };
 
   const handleSelectWords = (words: number) => {
-    setWordGoal(words);
+    // Базлайн слов обязателен: без него цель «достигнута» мгновенно (#81).
+    setWordGoal(words, useContentStore.getState().wordCount);
     setCustomWords(words > 0 ? String(words) : '');
     triggerVibration();
   };
@@ -49,7 +51,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
   const handleApplyCustomWords = () => {
     const val = parseInt(customWords);
     if (!isNaN(val) && val >= 0) {
-      setWordGoal(val);
+      setWordGoal(val, useContentStore.getState().wordCount);
       triggerVibration();
     }
   };

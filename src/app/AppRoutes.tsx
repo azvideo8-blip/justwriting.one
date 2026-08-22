@@ -9,6 +9,7 @@ const MobileMePage = React.lazy(() => import('../features/writing/pages/MobileMe
 const ArchivePage = React.lazy(() => import('../features/archive/pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const ResetPasswordPage = React.lazy(() => import('../features/auth/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const AIPage = React.lazy(() => import('../features/ai/pages/AIPage').then(m => ({ default: m.AIPage })));
 const DiagnosticsPage = React.lazy(() => import('../features/ai/pages/DiagnosticsPage').then(m => ({ default: m.DiagnosticsPage })));
 const RerankBenchPage = React.lazy(() => import('../features/ai/pages/RerankBenchPage').then(m => ({ default: m.RerankBenchPage })));
@@ -49,6 +50,8 @@ export function AppRoutes() {
         <Route path="/diagnostics" element={<ProtectedRoute requireAdmin><ErrorBoundary><DiagnosticsPage /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/admin" element={<Navigate to="/diagnostics" replace />} />
         <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+        {/* Вне guarded-зон: сессия восстановления ещё не «настоящий» вход. */}
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/changelog" element={<ChangelogPage />} />

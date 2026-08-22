@@ -115,6 +115,22 @@ interface AchievementsProps {
   sessions: Session[];
 }
 
+// earnedAt-карта (#100): без неё union-merge с другого устройства бесконечно
+// воскрешал «сброшенный» набор. Легаси-записи без earnedAt считаются
+// заработанными до любого reset — компромисс задокументирован в плане.
+function readEarnedAtMap(userId: string): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(`achievement_earned_at_${userId}`) ?? '{}') as Record<string, number>;
+  } catch { return {}; }
+}
+function writeEarnedAtMap(userId: string, map: Record<string, number>): void {
+  try { localStorage.setItem(`achievement_earned_at_${userId}`, JSON.stringify(map)); } catch { /* quota */ }
+}
+function readResetAt(userId: string): number {
+  try { return Number(localStorage.getItem(`achievements_reset_at_${userId}`) ?? 0); }
+  catch { return 0; }
+}
+
 export function Achievements({ stats, sessions }: AchievementsProps) {
   const { t } = useLanguage();
   const { user } = useAuthStatus();
@@ -151,7 +167,14 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
       if (ac.signal.aborted) return;
       if (result.ids.length > 0 && !result.error) {
         setUnlockedIds(prev => {
-          const merged = new Set([...prev, ...result.ids]);
+          const resetAt = result.resetAt?.getTime() ?? readResetAt(userId);
+          const earnedMap = readEarnedAtMap(userId);
+          // Ачивки без даты заработка, у которых reset уже был, не воскресаем:
+          // иначе сброс на устройстве A отыгрывается merge'ом с устройства B.
+          const resurrectable = resetAt > 0
+            ? result.ids.filter(id => (earnedMap[id] ?? 0) > resetAt)
+            : result.ids;
+          const merged = new Set([...prev, ...resurrectable]);
           try { localStorage.setItem(storageKey, JSON.stringify([...merged])); } catch (e) { reportError(e, { action: 'saveAchievementsLocal' }); }
           return merged;
         });
@@ -159,7 +182,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
     }).catch(e => { reportError(e, { action: 'loadCloudAchievements', userId: user.uid }); });
 
     return () => ac.abort();
-  }, [user, storageKey]);
+  }, [user, userId, storageKey]);
 
   const statsKeyRef = useRef('');
   useEffect(() => {
@@ -181,9 +204,12 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
           });
         });
         if (!changed) return prev;
-        if (import.meta.env.DEV) {
-          console.warn('[Achievements] newly unlocked:', [...updated].filter(id => !prev.has(id)));
-        }
+        // Фиксируем момент заработка для новых ачивок — это то, что отличает
+        // «перезаработанное после сброса» от «воскрешённого merge'ом».
+        const earnedMap = readEarnedAtMap(userId);
+        const nowMs = Date.now();
+        [...updated].filter(id => !prev.has(id)).forEach(id => { earnedMap[id] = nowMs; });
+        writeEarnedAtMap(userId, earnedMap);
         try { localStorage.setItem(storageKey, JSON.stringify([...updated])); } catch (e) { reportError(e, { action: 'updateAchievementsLocal' }); }
         return updated;
       });
@@ -210,7 +236,7 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
         syncTimerRef.current = null;
       }
     };
-  }, [stats, sessions, user, storageKey]);
+  }, [stats, sessions, user, userId, storageKey]);
 
   const totalAchievements = GROUPS.reduce((s, g) => s + g.achievements.length, 0);
   const unlockedCount = GROUPS.reduce((s, g) =>

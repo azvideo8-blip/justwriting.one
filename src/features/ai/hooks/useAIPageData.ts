@@ -22,7 +22,7 @@ import { searchNotes } from '../utils/noteRetriever';
 import { getCurrentUser } from '../../../core/auth';
 import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
-import { indexPending } from '../utils/embeddingIndexer';
+import { indexPending, indexDocument } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch } from '../utils/aiChatTransport';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
@@ -186,6 +186,14 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
+    // #105: правка заметки догоняет индекс сразу, а не при следующем заходе
+    // на страницу ИИ. indexDocument сам гейтируется согласием и хешем.
+    const onDocSaved = (e: Event) => {
+      const id = (e as CustomEvent<{ documentId?: string }>).detail?.documentId;
+      if (!id) return;
+      void indexDocument(id).catch(() => { /* non-critical */ });
+    };
+    window.addEventListener('doc-version-saved', onDocSaved);
     setTimeout(() => {
       void loadDialogues();
       void AIDialogueService.cleanupEmpty().then(n => { if (n > 0) void loadDialogues(); });
@@ -218,6 +226,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (linkedDocId) void prepareAttachment(linkedDocId).then(p => {
       if (p) setPendingAttachments([{ documentId: linkedDocId, title: p.title, content: p.content }]);
     }).catch(e => reportError(e, { action: 'useAIPageData/prepareAttachment', documentId: linkedDocId }));
+    return () => window.removeEventListener('doc-version-saved', onDocSaved);
   }, [loadDialogues, loadCustomPersonas, linkedDocId, prepareAttachment, setPendingAttachments]);
 
   const draftFacetHandledRef = useRef(false);

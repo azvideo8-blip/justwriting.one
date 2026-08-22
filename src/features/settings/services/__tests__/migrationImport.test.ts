@@ -712,4 +712,75 @@ describe("C1 migrationImport", () => {
     const queue = await db.getAll("syncQueue");
     expect(queue.some(item => item.documentId === "doc_locked_1")).toBe(true);
   });
+
+  // 1.4: дословный раздел выгрузки писал любое хранилище, какое найдётся в базе.
+  // Подделанный currentVersion в documents выигрывает всякую последующую
+  // синхронизацию, а подделанный profile переключает признак шифрования.
+  // Структурные хранилища заполняются только разделами 1–5, у которых есть
+  // контрольные суммы.
+  it("1.4: дословный раздел не пишет в структурные хранилища", async () => {
+    const manifest: MigrationManifest = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      documents: [],
+      drafts: [],
+      aiSummaries: [],
+      aiEmbeddings: [],
+      verbatim: [
+        {
+          store: "documents",
+          key: "doc_forged",
+          payload: { id: "doc_forged", title: "Подделка", currentVersion: 999999 },
+        },
+        {
+          store: "aiPeopleIndex",
+          key: "person_ok",
+          payload: { id: "person_ok", name: "Иван" },
+        },
+      ],
+      counters: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: { documents: 1, aiPeopleIndex: 1 } },
+      checksums: {},
+      skipped: [],
+    } as unknown as MigrationManifest;
+
+    const res = await importMigrationManifest(manifest, "u_bench");
+    expect(res.droppedOnPurpose.verbatimDenied.documents).toBe(1);
+
+    const db = await getLocalDb();
+    expect(await db.get("documents", "doc_forged")).toBeUndefined();
+  });
+
+  // 1.4: контрольная сумма версии была необязательной — достаточно было её не
+  // прислать, и содержимое принималось без проверки.
+  //
+  // Проверяются обе стороны в одном тесте, и это не для полноты: версия без
+  // суммы отсекается и веткой «сумма отсутствует», и веткой «сумма не совпала»,
+  // поэтому отрицательная половина сама по себе прошла бы и на коде, где защиту
+  // сняли. Различает только пара — принимаем проверяемое, отвергаем непроверяемое.
+  it("1.4: версия без контрольной суммы не импортируется, а с верной — импортируется", async () => {
+    const manifest: MigrationManifest = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      documents: [
+        {
+          localId: "doc_2", uuid: "uuid-doc-2", title: "Без суммы", currentVersion: 1,
+          totalWords: 2, totalDuration: 10, sessionsCount: 1,
+          firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
+          versions: [
+            { id: "ver_nochecksum", version: 1, content: "Текст без суммы", wordCount: 2, duration: 10, wpm: 12, createdAt: 1000 },
+            { id: "ver_ok", version: 2, content: "Текст с суммой", wordCount: 2, duration: 10, wpm: 12, createdAt: 2000 },
+          ],
+        },
+      ],
+      drafts: [], aiSummaries: [], aiEmbeddings: [], verbatim: [],
+      counters: { documents: 1, versions: 2, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+      checksums: { ver_ok: await sha256Hex("Текст с суммой") },
+      skipped: [],
+    } as unknown as MigrationManifest;
+
+    await importMigrationManifest(manifest, "u_bench");
+    const db = await getLocalDb();
+    expect(await db.get("versions", "ver_nochecksum")).toBeUndefined();
+    expect(await db.get("versions", "ver_ok")).toBeDefined();
+  });
 });

@@ -63,6 +63,11 @@ export const CloudSyncService = {
     const localCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
 
     const missingDocs = cloudDocs.filter(doc => !localCloudIds.has(doc.id));
+    // Полный проход: восстанавливаем все недостающие документы за этот вызов.
+    // Флаг оставлен, потому что оба вызывающих его деструктурируют
+    // (useBackgroundSync, RestoreFromCloudModal); по построению он всегда
+    // false. Если когда-нибудь понадобится пагинация — сначала добавить цикл
+    // повторного вызова в ОБОИХ вызывающих: сейчас ни один не циклит.
     let restored = 0;
     const hasMore = false;
 
@@ -696,7 +701,7 @@ export const CloudSyncService = {
     return { forked: false };
   },
 
-  /** Pushes the locally-cached AI profile portrait to Firestore. Lives here
+  /** Pushes the locally-cached AI profile portrait to Supabase. Lives here
    *  (not in features/ai) so the sync-queue drain (core/services/SyncService,
    *  which must not import from features/) can call it directly for queued
    *  'portrait' tasks. AIProfileService.syncPortraitToCloud delegates here. */

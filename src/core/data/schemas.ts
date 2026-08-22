@@ -68,6 +68,7 @@ export const userProfileDbSchema = z.object({
   aiConsentVersion: z.number().nullable().optional(),
   indexingConsentAt: firestoreTimestampSchema.optional(),
   indexingConsentVersion: z.number().nullable().optional(),
+  achievementsResetAt: firestoreTimestampSchema.optional(),
   aiPortrait: z.string().optional(),
   _encrypted: z.boolean().optional(),
   // Всё, что ниже, схема раньше не описывала — и разбор выбрасывал это из
@@ -131,3 +132,19 @@ export type DocumentDb = z.infer<typeof documentDbSchema>;
 export type VersionDb = z.infer<typeof versionDbSchema>;
 export type EncryptionMetaDb = z.infer<typeof encryptionMetaSchema>;
 export type UserProfileDb = z.infer<typeof userProfileDbSchema>;
+
+// Облачный черновик проходит через эту схему до входа в таймеры/арифметику:
+// слепой каст `as LocalDraft` пропускал битые типы (content: 42, updatedAt:
+// строка) прямо в расчёт WPM и сравнения дат.
+export const draftDbSchema = z.object({
+  userId: z.string(),
+  content: z.string(),
+  title: z.string().nullish(),
+  savedDocumentId: z.string().nullish(),
+  pinnedThoughts: z.union([z.string(), z.array(z.string())]).nullish(),
+  updatedAt: z.union([z.number(), z.string(), z.date()])
+    .transform(v => (typeof v === 'number' ? v : new Date(v as string | Date).getTime()))
+    .nullish(),
+}).passthrough();
+
+export type DraftDb = z.infer<typeof draftDbSchema>;

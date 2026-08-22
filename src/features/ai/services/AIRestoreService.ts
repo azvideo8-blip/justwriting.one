@@ -106,6 +106,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
       fullKey: string;
       pageIndex: number | null; // null if not paged
       payload: Record<string, unknown>;
+      checksum?: string | undefined;
     }
     const grouped = new Map<string, { store: string; baseKey: string; items: CloudGroupItem[] }>();
 
@@ -134,6 +135,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
         fullKey: rec.key,
         pageIndex,
         payload: rec.payload as Record<string, unknown>,
+        checksum: (rec as { checksum?: string }).checksum,
       });
     }
 
@@ -232,7 +234,27 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
           cloudTs = expectedUpdatedAt;
         }
 
-        const parsedData = JSON.parse(fullJson);
+        // Единственный read-путь без структурной валидации. Минимальный
+        // гейт: плоский JSON-объект разумного размера. Чексумка, если запись
+        // её несёт, обязательна к совпадению.
+        const parsedData: unknown = JSON.parse(fullJson);
+        if (
+          parsedData === null || typeof parsedData !== 'object' || Array.isArray(parsedData)
+          || fullJson.length > 512 * 1024
+        ) {
+          result.failed++;
+          reportError(new Error('restoreAIData: malformed local_store_record'), { store, key: baseKey });
+          continue;
+        }
+        const expectedChecksum = items[0]?.checksum;
+        if (expectedChecksum) {
+          const computed = await sha256Hex(fullJson);
+          if (computed !== expectedChecksum) {
+            result.failed++;
+            reportError(new Error('restoreAIData: checksum mismatch'), { store, key: baseKey });
+            continue;
+          }
+        }
         const dataTs = extractRecordTimestamp(parsedData);
         if (dataTs !== null) {
           cloudTs = dataTs;

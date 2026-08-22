@@ -66,12 +66,9 @@ export interface IDataProvider {
   saveEncryptionMeta(userId: string, data: ProviderRecord): Promise<void>;
   hasLegacyKey(userId: string): Promise<boolean>;
 
-  // --- Sync ---
-  applySyncChanges(userId: string, changes: {
-    docsToUpdate: Array<{ id: string; data: ProviderRecord }>;
-    docsToDelete: string[];
-    versionsToUpdate: Array<{ documentId: string; versionId: string; data: ProviderRecord }>;
-  }): Promise<void>;
+  // applySyncChanges удалён (#50): мёртвый метод, сломанный by design
+  // (upsert без onConflict по PK + проглоченные ошибки). См. комментарий
+  // в supabaseDataProvider.
 
   // --- Local Store Records Operations ---
   saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void>;

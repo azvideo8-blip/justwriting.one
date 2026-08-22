@@ -1,4 +1,5 @@
 import { DataProvider } from '../../../core/data';
+import { draftDbSchema } from '../../../core/data/schemas';
 import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypto/cryptoHelpers';
@@ -39,7 +40,7 @@ export function bumpDraftGeneration(userId: string): number {
   return next;
 }
 
-// Fields worth a Firestore write. The elapsed-time counters (seconds, wpm,
+// Fields worth a cloud draft write. The elapsed-time counters (seconds, wpm,
 // accumulatedDuration, totalPauseSeconds, updatedAt) are deliberately absent:
 // they change on their own while the writer sits still, so including them made
 // the 30s cloud autosave rewrite the entire draft — full note content — every
@@ -56,7 +57,7 @@ function draftSignature(draft: LocalDraft): string {
   return JSON.stringify(DRAFT_SIGNIFICANT_FIELDS.map(k => record[k] ?? null));
 }
 
-// Fields allowed by the `drafts/{uid}` Firestore rule (isValidDraft). The local
+// Fields accepted by the cloud drafts table (DRAFT_FIELDS). The local
 // draft carries extra transient state (e.g. `status`) that the rule rejects via
 // hasOnly(), so only schema fields are sent to the cloud. `updatedAt` is set
 // separately with a server timestamp.
@@ -101,7 +102,14 @@ export const WritingDraftService = {
         const draftData = await DataProvider.getDraft(userId);
         if (draftData) {
           const decrypted: unknown = await maybeDecrypt(draftData, ['content', 'title'], ['pinnedThoughts']);
-          return decrypted as LocalDraft;
+          // Битый облачный черновик не доходит до таймеров и сравнений дат:
+          // локальная копия побеждает, мусор в состояние приложения не входит.
+          const parsed = draftDbSchema.safeParse(decrypted);
+          if (!parsed.success) {
+            reportError(parsed.error, { action: 'loadDraft_cloud_invalid', userId });
+            return null;
+          }
+          return parsed.data as unknown as LocalDraft;
         }
         return null;
       })(), 10000),

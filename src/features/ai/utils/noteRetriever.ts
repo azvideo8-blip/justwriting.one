@@ -300,9 +300,14 @@ export async function searchNotes(
   // better ordered — this is what made a search for a person take seconds.
   const literalIds = await findLiteralMatches(query, filteredTopIds);
 
+  // Bypass-гейт: одно «литеральное попадание» — слишком дёшево, чтобы платить
+  // за него пропуском реранка (стеммер до фикса делал hits непустым почти на
+  // любом запросе). Достаточно двух попаданий ИЛИ одной дословной цитаты.
+  const literalBypass = literalIds.size >= 2 || (literalIds.size >= 1 && extractQuotes(query).length > 0);
+
   const scoreMap = new Map(fused.map(f => [f.id, f.score]));
 
-  if (topScore >= RERANK_THRESHOLD || hasExactTitle || literalIds.size > 0) {
+  if (topScore >= RERANK_THRESHOLD || hasExactTitle || literalBypass) {
     const reason = topScore >= RERANK_THRESHOLD ? 'score_threshold' : (hasExactTitle ? 'exact_title' : 'literal_match');
     opts?.onRerankMeta?.({ bypassed: true, bypassReason: reason });
     // Once some candidates contain the term verbatim, a candidate that does not
@@ -750,24 +755,32 @@ export async function searchNotesMulti(
  * query. Local, so it costs nothing next to the cloud rerank it lets us skip.
  *
  * Names are matched by stem: the query says «про Сашу» while the note says
- * «Саша» or «Сашей», so a plain includes() of the query word finds nothing.
- * Dropping the final letter covers Russian case endings without dragging in a
- * morphology library.
+ * «Саша» or «Сашей». Стем обрезает ДВА окончания и матчится по границе слова —
+ * раньше «Она»→«он» через голый includes() матчила «конь» и «поклон», шум
+ * почти всегда делал hits непустым и глушал облачный реранкер.
  */
 async function findLiteralMatches(query: string, ids: string[]): Promise<Set<string>> {
   const hits = new Set<string>();
   const quotes = extractQuotes(query);
+  // Именованная сущность = слово с заглавной ≥5 букв («Она» в начале
+  // предложения не считается). После фильтра в стеме только кириллица,
+  // так что RegExp из него безопасен без экранирования.
+  const CYR_NAME_RE = /^[А-ЯЁ][а-яё]{4,}$/;
   const needles = extractNamedEntities(query)
-    .map(e => (e.length >= 4 ? e.slice(0, -1) : e))
-    .filter(stem => stem.length >= 3);
+    .filter(e => CYR_NAME_RE.test(e))
+    .map(e => e.slice(0, -2))
+    .filter(stem => stem.length >= 4);
   if (quotes.length === 0 && needles.length === 0) return hits;
+
+  const stemHit = (haystackLower: string, stem: string): boolean =>
+    new RegExp(`(?:^|[^а-яё])${stem}[а-яё]{0,3}(?:[^а-яё]|$)`, 'i').test(haystackLower);
 
   for (const id of ids.slice(0, 10)) {
     let content = '';
     try { content = await LocalVersionService.getLatestContent(id); } catch { /* ignore */ }
     if (!content) continue;
     const lc = content.toLowerCase();
-    if (quotes.some(q => lc.includes(q)) || needles.some(n => lc.includes(n))) {
+    if (quotes.some(q => lc.includes(q)) || needles.some(n => stemHit(lc, n))) {
       hits.add(id);
     }
   }

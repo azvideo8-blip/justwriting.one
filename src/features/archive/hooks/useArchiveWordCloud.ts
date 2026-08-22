@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react';
 import { RU_STOPWORDS as STOP_WORDS } from '../../../core/utils/russianStopwords';
+import { getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 
 // v2: expanded stopword filtering — bump so stale caches (full of function
-// words) are dropped and rebuilt fresh.
-const CACHE_KEY = 'cached_word_cloud_v2';
+// words) are dropped and rebuilt fresh. The key is per-owner: a shared cache
+// leaks the previous account's words even when the query itself is scoped.
+const CACHE_KEY_BASE = 'cached_word_cloud_v2';
 
 export interface WordCloudEntry {
   word: string;
   count: number;
 }
 
-export async function rebuildWordCloud(guestId?: string): Promise<void> {
+// Без скоупа облако не строится: getAll тянул заметки предыдущего аккаунта на
+// общем браузере, потому что IndexedDB переживает выход. Миграция штампует
+// guestId: userId на документах владельца (migrateDocuments), так что
+// by-guest-индекс — единый ключ скоупа для гостя и юзера.
+export async function rebuildWordCloud(ownerId: string): Promise<void> {
   const { getLocalDb } = await import('../../../core/storage/localDb');
   const db = await getLocalDb();
 
-  const docs = guestId
-    ? await db.getAllFromIndex('documents', 'by-guest', guestId)
-    : await db.getAll('documents');
+  const docs = await db.getAllFromIndex('documents', 'by-guest', ownerId);
   const docIds = new Set(docs.map(d => d.id));
   const allSummaries = await db.getAll('aiSummaries');
   const summaries = allSummaries.filter(s => docIds.has(s.documentId));
@@ -50,35 +54,47 @@ export async function rebuildWordCloud(guestId?: string): Promise<void> {
     .map(([word, count]) => ({ word, count }));
 
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cloud));
+    localStorage.setItem(`${CACHE_KEY_BASE}:${ownerId}`, JSON.stringify(cloud));
   } catch { /* quota — non-critical */ }
 
   window.dispatchEvent(new Event('word-cloud-updated'));
 }
 
+function readCachedCloud(ownerId: string): WordCloudEntry[] {
+  try {
+    const cached = localStorage.getItem(`${CACHE_KEY_BASE}:${ownerId}`);
+    if (cached) return JSON.parse(cached) as WordCloudEntry[];
+  } catch { /* non-critical */ }
+  return [];
+}
+
 export function useArchiveWordCloud(): { wordCloud: WordCloudEntry[]; maxCount: number } {
-  const [wordCloud, setWordCloud] = useState<WordCloudEntry[]>(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) return JSON.parse(cached) as WordCloudEntry[];
-    } catch { /* non-critical */ }
-    return [];
-  });
+  const [ownerId, setOwnerId] = useState<string>(() => getCurrentUser()?.uid ?? 'guest');
+  const [wordCloud, setWordCloud] = useState<WordCloudEntry[]>(() => readCachedCloud(getCurrentUser()?.uid ?? 'guest'));
+
+  useEffect(() => {
+    // Смена аккаунта в той же вкладке: перечитываем кэш нового владельца.
+    const syncOwner = () => {
+      const id = getCurrentUser()?.uid ?? 'guest';
+      setOwnerId(prev => (prev === id ? prev : id));
+      setWordCloud(readCachedCloud(id));
+    };
+    syncOwner();
+    window.addEventListener('auth:signed-out', syncOwner);
+    return () => window.removeEventListener('auth:signed-out', syncOwner);
+  }, []);
 
   useEffect(() => {
     if (wordCloud.length === 0) {
-      void rebuildWordCloud().catch(() => { /* non-critical */ });
+      void rebuildWordCloud(ownerId).catch(() => { /* non-critical */ });
     }
 
     const onUpdate = () => {
-      try {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (cached) setWordCloud(JSON.parse(cached) as WordCloudEntry[]);
-      } catch { /* non-critical */ }
+      setWordCloud(readCachedCloud(ownerId));
     };
     window.addEventListener('word-cloud-updated', onUpdate);
     return () => window.removeEventListener('word-cloud-updated', onUpdate);
-  }, [wordCloud.length]);
+  }, [wordCloud.length, ownerId]);
 
   const maxCount = Math.max(...wordCloud.map(w => w.count), 1);
 

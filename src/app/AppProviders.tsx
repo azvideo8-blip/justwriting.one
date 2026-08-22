@@ -44,7 +44,7 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
 
   // One-time backfill: give canonical uuids to notes created before C1.1.
   // Uses useAuthStatus() so the effect fires once auth resolves —
-  // getAuth().currentUser is null on mount (Firebase restores session async),
+  // supabase.auth.getSession() is async too — the session is not yet known
   // which caused backfill to run with a guest id, missing the auth user's docs.
   const backfillRanForRef = useRef<string | null>(null);
   useEffect(() => {

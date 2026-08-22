@@ -77,12 +77,14 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // с клиента снимал и дневной лимит, и задержку между запросами — один
   // пользователь мог в цикле выжечь общий суточный лимит приложения. Тот же
   // порядок, что в api/chat.ts: внутренние идут в bulk-счётчик, обычные — в
-  // обычный.
+  // обычный. День списания едет в refund'ы ниже.
+  let chargedDay: string | undefined;
   if (isInternalCall) {
-    const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-    if (!allowed) {
+    const verdict = await ctx.checkAndIncrementBulkLimit(uid);
+    if (!verdict.ok) {
       throw new AiError('resource-exhausted', 'Daily limit reached.');
     }
+    chargedDay = verdict.day;
   } else {
     const limitResult = await ctx.checkAndIncrementLimit(uid, reasoning === true);
     if (limitResult === 'DAILY_LIMIT') {
@@ -91,13 +93,14 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     if (limitResult === 'RATE_LIMIT') {
       throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
     }
+    chargedDay = limitResult.day;
   }
 
   const maxTokens = getMaxTokens(isInternalCall, reasoning);
   const reservation = await ctx.tryReserveGlobalRequest(maxTokens);
   if (!reservation) {
-    if (isInternalCall) await ctx.refundBulkLimit(uid);
-    else await ctx.refundDailyLimit(uid);
+    if (isInternalCall) await ctx.refundBulkLimit(uid, chargedDay);
+    else await ctx.refundDailyLimit(uid, chargedDay);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -128,8 +131,8 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     const { classifyProviderFailure } = await import('./pure');
     const failure = classifyProviderFailure(e);
     console.error(`[chatWithAI] AI request failed (${failure.reason}):`, e);
-    if (isInternalCall) await ctx.refundBulkLimit(uid);
-    else await ctx.refundDailyLimit(uid);
+    if (isInternalCall) await ctx.refundBulkLimit(uid, chargedDay);
+    else await ctx.refundDailyLimit(uid, chargedDay);
     await ctx.refundGlobalRequest(reservation);
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});

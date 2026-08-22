@@ -2,7 +2,7 @@ import type { Timestamp } from 'firebase/firestore';
 
 /** Время, как оно приходит из разбора профиля: Postgres отдаёт строку или
  *  число, а `firestoreTimestampSchema` допускает ещё и пару seconds/nanoseconds
- *  без методов firebase'ного `Timestamp`. Тип нужен, чтобы разобранный профиль
+ *  (легаси-форма из времён Firebase). Тип нужен, чтобы разобранный профиль
  *  ложился в `UserProfile` без приведения — приведение и скрывало полгода то,
  *  что схема теряет поля. */
 export interface TimestampLike { seconds: number; nanoseconds: number }
@@ -56,6 +56,9 @@ export interface UserProfile {
    *  Отправка фрагментов заметок в модель эмбеддингов. */
   indexingConsentAt?: Timestamp | TimestampLike | Date | number | null | undefined;
   indexingConsentVersion?: number | null | undefined;
+  /** Tombstone-момент сброса достижений (#100): merge с другого устройства
+   *  не воскрешает ачивки, заработанные раньше этой метки. */
+  achievementsResetAt?: Timestamp | TimestampLike | Date | number | null | undefined;
   privacyVersion?: number | undefined;
   aiPortrait?: string | undefined;
   _encrypted?: boolean | undefined;
@@ -92,6 +95,9 @@ export interface Session extends SessionCore {
   labelId?: string | undefined;
   sessionStartTime?: number | null | undefined;
   createdAt: Timestamp | Date | number;
+  /** Слова именно этой сессии (дельта последней версии), а не объём всей
+   *  заметки: heatmap и стрик красят день работой этого дня (#101). */
+  sessionWordsAdded?: number | undefined;
   _isLocal?: boolean | undefined;
   _isLegacy?: boolean | undefined;
   _hasCloudCopy?: boolean | undefined;
@@ -148,4 +154,7 @@ export interface Version {
   savedAt: Date | null;
   sessionStartedAt: Date | null;
   mood?: string | undefined;
+  /** Запись не прошла zod-валидацию и собрана из проверенных полей вручную.
+   *  Версию видно и она восстановима, но доверять метрикам в ней нельзя. */
+  _degraded?: boolean | undefined;
 }

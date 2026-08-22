@@ -80,7 +80,7 @@ describe('updateArchiveField — local session', () => {
   it('date → LocalDocumentService.updateDate with timestamp', async () => {
     const d = new Date(2024, 0, 1);
     await updateArchiveField(makeSession({ _isLocal: true }), 'date', d, mockUser, 'user1');
-    expect(LocalDocumentService.updateDate).toHaveBeenCalledWith('s1', d.getTime(), d.getTime());
+    expect(LocalDocumentService.updateDate).toHaveBeenCalledWith('s1', { lastSessionAt: d.getTime() });
   });
 
   it('labelId → LocalDocumentService.updateLabelId', async () => {
@@ -146,7 +146,7 @@ describe('updateArchiveField — cloud-only session', () => {
   it('date → DocumentService.updateDate', async () => {
     const d = new Date(2024, 0, 1);
     await updateArchiveField(makeSession(), 'date', d, mockUser, 'user1');
-    expect(DocumentService.updateDate).toHaveBeenCalledWith('user1', 's1', d, d);
+    expect(DocumentService.updateDate).toHaveBeenCalledWith('user1', 's1', { lastSessionAt: d });
   });
 
   it('labelId → DocumentService.updateLabelId', async () => {

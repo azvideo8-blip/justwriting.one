@@ -2,18 +2,15 @@ import { Translations } from '../types';
 
 export const commonTranslations: Translations = {
   app_name: { ru: 'justwriting', en: 'justwriting' },
+  common_done: { ru: 'Готово', en: 'Done' },
   close: { ru: 'Закрыть', en: 'Close' },
   nav_write: { ru: 'Писать', en: 'Write' },
   nav_notes: { ru: 'Заметки', en: 'Notes' },
   nav_profile: { ru: 'Профиль', en: 'Profile' },
-  nav_stream_mode: { ru: 'Режим потока сознания', en: 'Stream Mode' },
-  nav_admin: { ru: 'Админ', en: 'Admin' },
   nav_about: { ru: 'О приложении', en: 'About' },
-  nav_logout: { ru: 'Выйти', en: 'Logout' },
   nav_settings: { ru: 'Настройки', en: 'Settings' },
   nav_main: { ru: 'Основная навигация', en: 'Main navigation' },
   skip_to_content: { ru: 'Перейти к содержимому', en: 'Skip to content' },
-  nav_write_short: { ru: 'Писать', en: 'Write' },
   nav_notes_short: { ru: 'Заметки', en: 'Notes' },
   nav_profile_short: { ru: 'Профиль', en: 'Profile' },
   nav_me: { ru: 'Профиль', en: 'Profile' },
@@ -27,13 +24,10 @@ export const commonTranslations: Translations = {
   unit_words: { ru: 'сл', en: 'w' },
 
   common_loading: { ru: 'Загрузка...', en: 'Loading...' },
-  common_error: { ru: 'Ошибка', en: 'Error' },
-  common_offline: { ru: 'Нет подключения. Проверь интернет.', en: 'No connection. Check your internet.' },
   common_untitled: { ru: 'Без названия', en: 'Untitled' },
   common_cancel: { ru: 'Отмена', en: 'Cancel' },
   common_save: { ru: 'Сохранить', en: 'Save' },
   common_close: { ru: 'Закрыть', en: 'Close' },
-  common_ok: { ru: 'Ок', en: 'OK' },
   common_anonymous: { ru: 'Аноним', en: 'Anonymous' },
 
   retry: { ru: 'Повторить', en: 'Retry' },
@@ -53,18 +47,9 @@ export const commonTranslations: Translations = {
   error_nickname_failed:{ ru: 'Не удалось обновить никнейм.', en: 'Failed to update nickname.' },
   error_export_failed:  { ru: 'Не удалось экспортировать.', en: 'Failed to export.' },
   error_signout_failed: { ru: 'Не удалось выйти из аккаунта.', en: 'Failed to sign out.' },
-  signout_wipes_local: {
-    ru: 'При выходе с устройства удаляются все локальные копии — заметки и анализ ИИ. Ничего не теряется: всё восстановится из облака при следующем входе, но это займёт время.',
-    en: 'Signing out deletes every local copy from this device — notes and AI analysis. Nothing is lost: it is restored from the cloud on your next sign-in, but that takes a while.',
-  },
-  error_labels_failed:  { ru: 'Не удалось обновить ярлыки.', en: 'Failed to update labels.' },
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
   error_retry: { ru: 'Повторить', en: 'Retry' },
-  error_session_key_missing: {
-    ru: 'Сессия устарела. Введи пароль для разблокировки шифрования.',
-    en: 'Session expired. Enter your password to unlock encryption.',
-  },
 
   unlock_title: { ru: 'Разблокировать шифрование', en: 'Unlock Encryption' },
   unlock_subtitle: {
@@ -74,51 +59,25 @@ export const commonTranslations: Translations = {
   unlock_submit: { ru: 'Разблокировать', en: 'Unlock' },
   unlock_wrong_password: { ru: 'Неверный пароль', en: 'Wrong password' },
   unlock_success: { ru: 'Шифрование разблокировано', en: 'Encryption unlocked' },
-  unlock_no_keys_error: {
-    ru: 'Ключи шифрования не найдены. Выйди из аккаунта и войди снова.',
-    en: 'Encryption keys not found. Please sign out and sign in again.',
-  },
 
   save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
   session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },
-  save_error:   { ru: 'Ошибка при сохранении', en: 'Save failed' },
   save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
   save_status_saved:  { ru: 'сохранено', en: 'saved' },
 
-  words_count_one:  { ru: '{count} слово',  en: '{count} word' },
-  words_count_few:  { ru: '{count} слова',  en: '{count} words' },
-  words_count_many: { ru: '{count} слов',   en: '{count} words' },
-  minutes_one:  { ru: '{count} минута',  en: '{count} minute' },
-  minutes_few:  { ru: '{count} минуты',  en: '{count} minutes' },
-  minutes_many: { ru: '{count} минут',   en: '{count} minutes' },
-  sessions_one:  { ru: '{count} сессия',  en: '{count} session' },
-  sessions_few:  { ru: '{count} сессии',  en: '{count} sessions' },
-  sessions_many: { ru: '{count} сессий',   en: '{count} sessions' },
 
-  data_export_success:  { ru: 'Все сессии экспортированы',  en: 'All sessions exported' },
-  data_export_error:    { ru: 'Ошибка при экспорте',         en: 'Export failed' },
-  data_import_success:  { ru: 'Сессии импортированы',        en: 'Sessions imported' },
-  data_import_error:    { ru: 'Ошибка при импорте',          en: 'Import failed' },
-  data_import_invalid:  { ru: 'Неверный формат данных',      en: 'Invalid data format' },
-  data_export_all:      { ru: 'Экспортировать всё',          en: 'Export All Sessions' },
 
   play:            { ru: 'Начать',      en: 'Play' },
   pause:           { ru: 'Пауза',       en: 'Pause' },
   stop:            { ru: 'Стоп',        en: 'Stop' },
 
-  guest_storage_full: { ru: 'Хранилище заполнено. Экспортируй данные.', en: 'Storage full. Export your data.' },
 
   topbar_new:  { ru: 'Новая заметка', en: 'New note' },
   topbar_open: { ru: 'Открыть',       en: 'Open' },
   topbar_save: { ru: 'Сохранить',     en: 'Save' },
   topbar_title_placeholder: { ru: 'Название сессии', en: 'Session title' },
 
-  settings_data_section: { ru: 'Данные', en: 'Data' },
-  common_version: { ru: 'Версия', en: 'Version' },
   changelog_title: { ru: 'История обновлений', en: 'Release notes' },
-  sidebar_pin:   { ru: 'Закрепить', en: 'Pin sidebar' },
-  sidebar_unpin: { ru: 'Открепить', en: 'Unpin sidebar' },
-  settings_tabs_label: { ru: 'Разделы настроек', en: 'Settings sections' },
   header_exit_fullscreen: { ru: 'Выйти из полноэкранного режима', en: 'Exit fullscreen' },
 
   enc_unlock_title: { ru: 'Разблокировать шифрование', en: 'Unlock Encryption' },
@@ -149,7 +108,6 @@ export const commonTranslations: Translations = {
   enc_migrate_current_password: { ru: 'Пароль от аккаунта', en: 'Account password' },
   enc_migrate_success: { ru: 'Миграция завершена. Шифрование теперь использует отдельный пароль.', en: 'Migration complete. Encryption now uses a separate password.' },
   enc_migrate_wrong_password: { ru: 'Неверный пароль аккаунта', en: 'Wrong account password' },
-  enc_data_locked_tooltip: { ru: 'Зашифровано в другом браузере. Открой там и мигрируй данные.', en: 'Encrypted in another browser. Open there and migrate the data.' },
 
   enc_recovery_code_title: { ru: 'Код восстановления', en: 'Recovery Code' },
   enc_recovery_code_subtitle: { ru: 'Ваш единственный способ вернуть доступ к заметкам при утере пароля.', en: 'Your only way to regain access to your notes if you forget your password.' },
@@ -183,7 +141,6 @@ export const commonTranslations: Translations = {
   enc_generate_recovery_code_btn: { ru: 'Создать код восстановления', en: 'Generate recovery code' },
   enc_generate_recovery_code_desc: { ru: 'Для твоего сейфа ещё не создан код восстановления. Создай его, чтобы не потерять доступ к дневнику при утере пароля.', en: 'No recovery code exists for your vault yet. Generate one so you never lose access to your diary if you forget your password.' },
   enc_recovery_code_missing_title: { ru: 'Код восстановления не создан', en: 'No recovery code generated' },
-  enc_recovery_code_exists_badge: { ru: 'Код восстановления активен', en: 'Recovery code active' },
   enc_recovery_password_prompt_title: { ru: 'Подтвердите пароль', en: 'Confirm Password' },
   enc_recovery_password_prompt_desc: { ru: 'Для создания кода восстановления введите пароль шифрования.', en: 'Enter your encryption password to generate a recovery code.' },
   enc_recovery_password_submit: { ru: 'Подтвердить и создать', en: 'Confirm and generate' },

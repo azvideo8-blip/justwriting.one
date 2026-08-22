@@ -57,28 +57,41 @@ export const ProfileService = {
 
   async resetAchievements(userId: string): Promise<void> {
     try {
-      await DataProvider.updateProfile(userId, { earnedAchievements: [] });
+      // Tombstone-момент сброса (#100): union-merge с другого устройства не
+      // должен переигрывать набор, заработанный до reset. Клиент сравнивает
+      // earnedAt ачивок с этой меткой.
+      await DataProvider.updateProfile(userId, {
+        earnedAchievements: [],
+        achievementsResetAt: new Date(),
+      });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
   },
 
-  async loadEarnedAchievements(userId: string): Promise<{ ids: string[]; error: boolean }> {
+  async loadEarnedAchievements(userId: string): Promise<{ ids: string[]; error: boolean; resetAt: Date | null }> {
     try {
       const snapData = await DataProvider.getProfile(userId);
       if (snapData) {
         const parsed = userProfileDbSchema.safeParse({ uid: userId, ...snapData });
         if (!parsed.success) {
           reportError(parsed.error, { action: 'loadEarnedAchievements_parse', docId: userId });
-          return { ids: [], error: false };
+          return { ids: [], error: false, resetAt: null };
         }
-        return { ids: parsed.data.earnedAchievements, error: false };
+        const resetRaw: unknown = parsed.data.achievementsResetAt;
+        const resetMs = resetRaw == null ? NaN : new Date(resetRaw as string | number).getTime();
+        const resetAt = Number.isNaN(resetMs) ? null : new Date(resetMs);
+        return {
+          ids: parsed.data.earnedAchievements,
+          error: false,
+          resetAt,
+        };
       }
-      return { ids: [], error: false };
+      return { ids: [], error: false, resetAt: null };
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, `users/${userId}`);
-      return { ids: [], error: true };
+      return { ids: [], error: true, resetAt: null };
     }
   },
 

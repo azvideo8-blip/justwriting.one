@@ -7,7 +7,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
 
-// Gentle pacing between consecutive Firestore writes in a bulk sync loop —
+// Gentle pacing between consecutive cloud writes in a bulk sync loop —
 // this is a DAILY total quota, so pacing alone can't prevent exhausting it,
 // but it avoids an instant burst of hundreds of writes in the same tick.
 const SYNC_PACE_MS = 200;
@@ -28,7 +28,7 @@ export function isOversizedError(msg: string): boolean {
 }
 
 /**
- * Firestore's free-tier quota is measured in write UNITS, which scale with
+ * The storage quota is measured in write UNITS, which scale with
  * document size — not in documents. At 4096 dimensions a full-precision float
  * serialises as ~20 characters ("-0.019052172876211"), so a multi-chunk note
  * produces a 400-900 KB document and roughly fifty of them exhaust the whole
