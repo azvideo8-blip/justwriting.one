@@ -5,7 +5,7 @@ import { AIProfileService } from '../services/AIProfileService';
 import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
 import { AIProfileFacetService } from '../services/AIProfileFacetService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
-import { searchNotesMulti, type RetrievedNote } from '../utils/noteRetriever';
+import { searchNotesMulti, vectorScore01, type RetrievedNote } from '../utils/noteRetriever';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { AIService } from '../services/AIService';
 import { reportError } from '../../../shared/errors/reportError';
@@ -741,15 +741,14 @@ export function useAIChatContext(personaId: string): {
             const BUDGET_CHARS = 25_000;
             const now = Date.now();
             const scored = allNotes.map(n => {
-              // RRF живёт в шкале ≤~0.05; нормализуем к [0..1], чтобы вес 0.5
-              // означал то, что заявлен, а не прятался под recency.
-              const vectorScore01 = Math.min(1, Math.max(0, n.score) * 20);
+              // RRF живёт в шкале ≤~0.05; нормализация — см. vectorScore01 (#104).
+              const vs01 = vectorScore01(n.score);
               const keywordScore = Math.min(1, (n.content.match(new RegExp(text.split(/\s+/).filter(w => w.length > 2).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'))?.length ?? 0) / 10);
               const ageDays = (now - (n.lastSessionAt ?? now)) / 86_400_000;
               const recencyFactor = Math.exp(-ageDays / 365);
               return {
                 note: n,
-                compositeScore: 0.5 * vectorScore01 + 0.3 * keywordScore + 0.2 * recencyFactor,
+                compositeScore: 0.5 * vs01 + 0.3 * keywordScore + 0.2 * recencyFactor,
               };
             }).sort((a, b) => b.compositeScore - a.compositeScore);
 

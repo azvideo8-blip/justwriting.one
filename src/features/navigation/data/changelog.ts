@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.14',
+    date: '2026-08-22',
+    items: [
+      { category: 'fix', ru: 'Поиск по имени снова работает. «Про Сашу» не находил записи, где написано «Сашей»: короткие имена отсекались по длине, а проверка заглавной буквы не срабатывала никогда — текст приводился к нижнему регистру раньше неё', en: 'Searching by name works again. «Про Сашу» did not find entries that say «Сашей»: short names were cut off by length, and the capital-letter check never fired because the text was lowercased before it' },
+      { category: 'improvement', ru: 'Под тридцать две правки прошлого выпуска подведена страховка: сорок шесть новых проверок, и каждая испытана снятием защиты — сначала убедились, что она краснеет на неисправленном коде, и только потом что зеленеет на исправленном', en: 'The thirty-two fixes of the previous release now have a safety net: forty-six new checks, each of them proven by disabling the fix — first confirming it goes red on the unfixed code, and only then that it goes green on the fixed one' },
+      { category: 'improvement', ru: 'Проверки прав доступа к базе перестали рапортовать об успехе раньше времени: итоговое сообщение печаталось до того, как отрабатывала треть проверок', en: 'Database access checks no longer report success early: the final message was printed before a third of the checks had run' },
+    ],
+  },
+  {
     version: '0.8.13',
     date: '2026-08-22',
     items: [

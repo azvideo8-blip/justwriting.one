@@ -1,0 +1,115 @@
+// TEST-1 §2.18: Langfuse trace carries the hashed uid, never the raw one.
+// TEST-1 §2.20: model JSON failing the zod schema is rejected AND refunded
+// through the same settled/refund region as a parse failure.
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { traceSpy, generateMock } = vi.hoisted(() => ({
+  traceSpy: vi.fn(() => ({ generation: vi.fn() })),
+  generateMock: vi.fn(),
+}));
+
+vi.mock('../ai/pure', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../ai/pure')>();
+  return {
+    ...orig,
+    getLangfuse: vi.fn(() => ({ trace: traceSpy, flushAsync: vi.fn().mockResolvedValue(undefined) })),
+    getActiveModel: vi.fn().mockResolvedValue('test-model'),
+  };
+});
+
+vi.mock('../ai/provider', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../ai/provider')>();
+  return { ...orig, generate: (...a: unknown[]) => generateMock(...(a as [])) };
+});
+
+import { validateCustomPromptLogic } from '../ai/validateCustomPrompt.logic';
+import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
+import { hashUid } from '../ai/pure';
+import type { AiContext } from '../ai/context';
+
+function makeCtx(): AiContext {
+  return {
+    checkAndIncrementLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
+    checkDailyLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
+    checkAndIncrementBulkLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-08-22' }),
+    refundDailyLimit: vi.fn().mockResolvedValue(undefined),
+    refundBulkLimit: vi.fn().mockResolvedValue(undefined),
+    refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
+    tryReserveGlobalRequest: vi.fn().mockResolvedValue({ date: '2026-08-22', shardId: '0', allowance: 8192 }),
+    recordUsage: vi.fn().mockResolvedValue(undefined),
+    getDailyLimitCount: vi.fn(),
+    getUserDailyLimit: vi.fn().mockResolvedValue(20),
+    isAdmin: vi.fn().mockResolvedValue(false),
+  } as unknown as AiContext;
+}
+
+beforeEach(() => {
+  traceSpy.mockClear();
+  generateMock.mockReset();
+});
+
+describe('2.18 raw uid never reaches Langfuse', () => {
+  it('trace userId is the hash, not the uid', async () => {
+    generateMock.mockResolvedValue({ text: JSON.stringify({ verdict: 'ok', reason: 'нормальный промпт без инструкций' }), usage: { promptTokens: 5, completionTokens: 5 } });
+    const uid = 'raw-firebase-uid-abc123';
+    await validateCustomPromptLogic(makeCtx(), uid, { prompt: 'Ты — тёплый редактор дневника, помогай мягко.' });
+    expect(traceSpy).toHaveBeenCalledTimes(1);
+    const firstCall = (traceSpy.mock.calls as unknown as Array<[{ userId: string }]>)[0]!;
+    const arg = firstCall[0];
+    expect(arg.userId).toBe(hashUid(uid));
+    expect(arg.userId).not.toBe(uid);
+    expect(arg.userId).toMatch(/^[0-9a-f]{16}$/);
+  });
+});
+
+describe('2.20 model JSON validated by zod, refund on schema failure', () => {
+  const content = 'Запись о дне: '.padEnd(60, 'х') + ' было тихо, гулял у реки и думал о работе.';
+
+  it('schema-valid output passes through', async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        tone: 'спокойный',
+        frequentWords: ['река', 'работа'],
+        insights: ['устал от дедлайна'],
+        themes: ['отдых'],
+        extractedFacts: ['гулял у реки'],
+        summary: 'Тихий день у реки.',
+      }),
+      usage: { promptTokens: 10, completionTokens: 10 },
+    });
+    const out = await summarizeDocumentLogic(makeCtx(), 'u1', { content });
+    expect(out).toBeDefined();
+  });
+
+  it('frequentWords as a number is rejected and refunded, not a TypeError after charging', async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        tone: 'спокойный',
+        frequentWords: 42,               // ← the poison
+        insights: ['x'],
+        themes: ['t'],
+        extractedFacts: ['f'],
+      }),
+      usage: { promptTokens: 10, completionTokens: 10 },
+    });
+    const ctx = makeCtx();
+    await expect(summarizeDocumentLogic(ctx, 'u1', { content }))
+      .rejects.toMatchObject({ code: 'invalid-argument' });
+    // Same refund region as the JSON.parse failure — the person does not pay.
+    expect(ctx.refundBulkLimit).toHaveBeenCalledWith('u1', '2026-08-22');
+    expect(ctx.refundGlobalRequest).toHaveBeenCalled();
+    expect(ctx.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it('out-of-range valence (1e999 → Infinity) is rejected', async () => {
+    generateMock.mockResolvedValue({
+      text: JSON.stringify({
+        tone: 'x', frequentWords: [], insights: [], themes: [], extractedFacts: [],
+        valence: Infinity,
+      }),
+      usage: { promptTokens: 1, completionTokens: 1 },
+    });
+    await expect(summarizeDocumentLogic(makeCtx(), 'u1', { content }))
+      .rejects.toMatchObject({ code: 'invalid-argument' });
+  });
+});

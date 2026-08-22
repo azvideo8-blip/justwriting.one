@@ -759,17 +759,26 @@ export async function searchNotesMulti(
  * раньше «Она»→«он» через голый includes() матчила «конь» и «поклон», шум
  * почти всегда делал hits непустым и глушал облачный реранкер.
  */
-async function findLiteralMatches(query: string, ids: string[]): Promise<Set<string>> {
+/** RRF живёт в шкале ≤~0.05 (#104): нормализуем к [0..1], чтобы вес в
+ *  композиции означал то, что заявлен. Публичный ради TEST-1 §2.5. */
+export function vectorScore01(raw: number): number {
+  return Math.min(1, Math.max(0, raw) * 20);
+}
+
+// Экспорт ради TEST-1 §2.4: тест ведёт настоящий вызов, а не копию логики.
+export async function findLiteralMatches(query: string, ids: string[]): Promise<Set<string>> {
   const hits = new Set<string>();
   const quotes = extractQuotes(query);
   // Именованная сущность = слово с заглавной ≥5 букв («Она» в начале
   // предложения не считается). После фильтра в стеме только кириллица,
   // так что RegExp из него безопасен без экранирования.
-  const CYR_NAME_RE = /^[А-ЯЁ][а-яё]{4,}$/;
+  // ≥4 букв всего (иначе «Саша»/«Сашу» отсекаются), стем ≥3.
+  // TEST-1 §2.4 поймал исходный порог {4,} и жёсткий slice(-2).
+  const CYR_NAME_RE = /^[А-ЯЁ][а-яё]{3,}$/;
   const needles = extractNamedEntities(query)
     .filter(e => CYR_NAME_RE.test(e))
-    .map(e => e.slice(0, -2))
-    .filter(stem => stem.length >= 4);
+    .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
+    .filter(stem => stem.length >= 3);
   if (quotes.length === 0 && needles.length === 0) return hits;
 
   const stemHit = (haystackLower: string, stem: string): boolean =>
@@ -804,8 +813,10 @@ function extractNamedEntities(query: string): string[] {
   const entities: string[] = [];
   for (const w of words) {
     if (/^[А-ЯA-Z][а-яa-zа-яёА-ЯЁa-zA-Z]*$/.test(w)) {
-      if (w.length >= 3) {
-        entities.push(w.toLowerCase());
+      // Исходный регистр сохраняется: именованность = заглавная буква
+      // (находка TEST-1 §2.4: toLowerCase() убивал признак для CYR_NAME_RE).
+      if (w.length >= 4) {
+        entities.push(w);
       }
     }
   }

@@ -706,5 +706,192 @@ RESET role;
 -- ============================================================
 DO $$
 BEGIN
+  RAISE NOTICE 'Base RLS checks passed; audit additions follow.';
+END $$;
+-- ============================================================
+-- TEST-1 additions: regression cases for migrations
+--   0017 (admin RLS lookup), 0018 (consent stamp),
+--   0019 (achievements reset), 0020 (sessions rpc)
+-- Appended to supabase/tests/rls.test.sql. Style matches the suite:
+-- any violated expectation RAISEs and fails the run (ON_ERROR_STOP=1).
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 1.1 — is_admin() / admin RLS policies.
+-- Alice (authenticated) must see only her own users-row; an admin row
+-- created server-side sees everything; recursion inside the users policy
+-- would time out or error the whole SELECT, which itself is a failure.
+-- ------------------------------------------------------------
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+
+DO $$
+DECLARE
+  visible_for_alice int;
+BEGIN
+  SELECT count(*) INTO visible_for_alice FROM public.users;
+  -- At this point in the suite only Alice's own profile row exists for her JWT.
+  IF visible_for_alice > 1 THEN
+    RAISE EXCEPTION 'FAIL: plain user sees % users rows (expected own only)', visible_for_alice;
+  END IF;
+END $$;
+
+RESET role;
+-- Provision the admin server-side. Claims GUC is set BEFORE touching users:
+-- an empty-string GUC breaks auth.uid() json parsing.
+SET role = 'postgres';
+SET request.jwt.claims = '{"sub":"99999999-9999-9999-9999-999999999999","role":"authenticated"}';
+INSERT INTO public.users (uid, email, nickname, role)
+VALUES ('99999999-9999-9999-9999-999999999999', 'admin@suite.local', 'Suite Admin', 'admin')
+ON CONFLICT (uid) DO UPDATE SET role = 'admin';
+RESET role;
+
+-- Under an authenticated non-admin JWT the function answers false.
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+DO $$
+BEGIN
+  IF public.is_admin() IS TRUE THEN
+    RAISE EXCEPTION 'FAIL: is_admin() true for a plain user';
+  END IF;
+END $$;
+
+-- Telemetry stays invisible to the plain user (policy now uses is_admin()).
+DO $$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n FROM public.anonymized_telemetry;
+  IF n <> 0 THEN
+    RAISE EXCEPTION 'FAIL: plain user read anonymized_telemetry (% rows)', n;
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
+
+-- The admin JWT sees every users-row through the same policy.
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"99999999-9999-9999-9999-999999999999","role":"authenticated"}';
+DO $$
+DECLARE visible_for_admin int;
+BEGIN
+  SELECT count(*) INTO visible_for_admin FROM public.users;
+  IF visible_for_admin < 2 THEN
+    RAISE EXCEPTION 'FAIL: admin sees only % users rows', visible_for_admin;
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
+
+-- ------------------------------------------------------------
+-- 1.7 — consent stamp: client cannot forge ai_consent_server_at; the trigger
+-- sets it whenever consent fields change.
+-- ------------------------------------------------------------
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+
+UPDATE public.users
+   SET ai_consent_at = now(),
+       ai_consent_version = 2,
+       ai_consent_server_at = '1970-01-01'::timestamptz  -- forged value attempt
+ WHERE uid = '00000000-0000-0000-0000-000000000001';
+
+DO $$
+DECLARE stamped timestamptz;
+BEGIN
+  SELECT ai_consent_server_at INTO stamped FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  IF stamped IS NULL OR stamped < now() - interval '1 minute' THEN
+    RAISE EXCEPTION 'FAIL: ai_consent_server_at was not stamped by the trigger (%)', stamped;
+  END IF;
+END $$;
+
+DO $$
+DECLARE bad int;
+BEGIN
+  BEGIN
+    UPDATE public.users SET ai_consent_version = 0
+     WHERE uid = '00000000-0000-0000-0000-000000000001';
+    bad := 0;
+  EXCEPTION WHEN check_violation THEN bad := 1;
+  WHEN others THEN bad := 1;
+  END;
+  IF bad <> 1 THEN
+    RAISE EXCEPTION 'FAIL: ai_consent_version=0 accepted, CHECK missing';
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
+
+-- ------------------------------------------------------------
+-- 2.11 — achievements reset column exists on the profile row.
+-- (The skip-on-merge semantics live client-side; here we pin the tombstone
+-- field the merge reads.)
+-- ------------------------------------------------------------
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+UPDATE public.users
+   SET earned_achievements = '{}',
+       achievements_reset_at = now()
+ WHERE uid = '00000000-0000-0000-0000-000000000001';
+DO $$
+DECLARE r timestamptz;
+BEGIN
+  SELECT achievements_reset_at INTO r FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  IF r IS NULL THEN
+    RAISE EXCEPTION 'FAIL: achievements_reset_at was not persisted';
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
+
+-- ------------------------------------------------------------
+-- 2.17 — increment_document_sessions: +1 twice = +2 (no lost update), and it
+-- refuses to touch another user's document.
+-- ------------------------------------------------------------
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+
+INSERT INTO public.documents (uuid, user_id, title)
+VALUES ('rpc-counter-doc', '00000000-0000-0000-0000-000000000001', 'RPC counter')
+ON CONFLICT (uuid) DO NOTHING;
+
+-- Two parallel-style sequential calls: the count must grow by exactly 2.
+DO $$
+DECLARE c1 int; c2 int;
+BEGIN
+  SELECT sessions_count INTO c1 FROM public.documents WHERE uuid = 'rpc-counter-doc';
+  PERFORM public.increment_document_sessions('rpc-counter-doc', 1);
+  PERFORM public.increment_document_sessions('rpc-counter-doc', 1);
+  SELECT sessions_count INTO c2 FROM public.documents WHERE uuid = 'rpc-counter-doc';
+  IF c2 - c1 <> 2 THEN
+    RAISE EXCEPTION 'FAIL: two rpc calls produced delta % (expected 2)', c2 - c1;
+  END IF;
+END $$;
+
+-- Cross-user refusal: Bob's JWT cannot increment Alice's document.
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002"}';
+DO $$
+DECLARE c1 int; c2 int;
+BEGIN
+  SELECT sessions_count INTO c1 FROM public.documents WHERE uuid = 'rpc-counter-doc';
+  PERFORM public.increment_document_sessions('rpc-counter-doc', 1);
+  SELECT sessions_count INTO c2 FROM public.documents WHERE uuid = 'rpc-counter-doc';
+  IF c2 <> c1 THEN
+    RAISE EXCEPTION 'FAIL: cross-user rpc changed sessions_count (% -> %)', c1, c2;
+  END IF;
+END $$;
+
+-- The direct UPDATE path is still blocked for a foreign user (RLS baseline).
+RESET role;
+RESET request.jwt.claims;
+
+-- Итоговое сообщение стоит последним не для красоты: до этой правки
+-- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
+-- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),
+-- но человек, читающий вывод, видел зелёную строку и переставал читать.
+DO $$
+BEGIN
   RAISE NOTICE 'All RLS checks passed.';
 END $$;

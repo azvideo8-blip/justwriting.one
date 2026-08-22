@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { EncryptionPasswordModal } from '../EncryptionPasswordModal';
 
 vi.mock('../../../../shared/i18n', () => ({
@@ -72,5 +72,33 @@ describe('EncryptionPasswordModal, режим создания сейфа', () =
     fireEvent.click(screen.getByText('enc_recovery_code_continue_btn'));
 
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  // TEST-1 §1.6: два клика в одном кадре — initializeEncryption ровно один
+  // раз. Второй проход в противном случае перезаписал бы мету сейфа и
+  // осиротил показанный код восстановления.
+  it('двойной сабмит создания вызывает initializeEncryption один раз', async () => {
+    let resolveInit: (v: { recoveryCode: string }) => void = () => {};
+    initializeEncryption.mockImplementation(() => new Promise<{ recoveryCode: string }>(res => { resolveInit = res; }));
+
+    const onDone = vi.fn();
+    render(<EncryptionPasswordModal mode="setup" userId="u1" onDone={onDone} />);
+
+    const fields = screen.getAllByPlaceholderText(/enc_new_password_placeholder|enc_confirm_password/);
+    for (const field of fields) fireEvent.change(field, { target: { value: 'password123' } });
+
+    const btn = screen.getByText('enc_setup_submit').closest('button')!;
+    // Оба клика внутри ОДНОГО act: иначе React успевает применить
+    // loading=true между ними, и тест проверяет disabled-кнопку, а не гвард
+    // (ловушка «пустого теста» из тикета).
+    await act(async () => {
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    resolveInit({ recoveryCode: 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX' });
+    await waitFor(() => expect(screen.getByText('ABCD-EFGH-IJKL-MNOP-QRST-UVWX')).toBeTruthy());
+
+    expect(initializeEncryption).toHaveBeenCalledTimes(1);
   });
 });
