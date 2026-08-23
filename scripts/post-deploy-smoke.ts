@@ -191,12 +191,24 @@ export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCh
 // Гарантия refund'а действует только на VPS — res.on('close') ненадёжен на
 // serverless-edge, поэтому результат не обобщается на другие площадки.
 
-function mintSmokeJwt(secret: string, uid: string): string {
+// Токен должен пройти ту же проверку, что и настоящий: с 0.8.13 служба требует
+// аудиторию `authenticated` и издателя, совпадающего с GOTRUE_JWT_ISSUER. Без
+// них проверка молча получала 401 и никогда не могла пройти — а выглядела как
+// пропущенная по отсутствию секрета.
+function mintSmokeJwt(secret: string, uid: string, issuer: string): string {
   const b64u = (buf: Buffer | string) =>
     Buffer.from(buf).toString('base64url');
   const header = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const now = Math.floor(Date.now() / 1000);
   const payload = b64u(
-    JSON.stringify({ sub: uid, exp: Math.floor(Date.now() / 1000) + 300 }),
+    JSON.stringify({
+      sub: uid,
+      aud: 'authenticated',
+      role: 'authenticated',
+      iss: issuer,
+      iat: now,
+      exp: now + 300,
+    }),
   );
   const sig = createHmac('sha256', secret)
     .update(`${header}.${payload}`)
@@ -312,7 +324,10 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
   }
 
   const origin = new URL(baseUrl).origin;
-  const token = mintSmokeJwt(secret, uid);
+  // Издатель по умолчанию выводится из адреса, а не зашивается: у GoTrue он
+  // равен `${origin}/auth/v1`. Переопределяется, если развёрнуто иначе.
+  const issuer = process.env.SMOKE_JWT_ISS ?? `${origin}/auth/v1`;
+  const token = mintSmokeJwt(secret, uid, issuer);
 
   try {
     const before = await fetchDailyUsed(origin, token, uid);
