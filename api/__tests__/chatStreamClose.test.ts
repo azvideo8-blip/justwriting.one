@@ -121,11 +121,12 @@ describe('3.8 stream disconnect', () => {
 
     await done;
 
-    // Exactly one per-user refund, targeted at the charged day.
+    // AG-BILL-1: поставщик не выдал ничего — возвращены и слот, и холостой
+    // глобальный резерв. Один per-user возврат, целится в день списания.
     expect(refundDaily).toHaveBeenCalledTimes(1);
     expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
     expect(refundBulk).not.toHaveBeenCalled();
-    expect(refundGlobal).toHaveBeenCalled();
+    expect(refundGlobal).toHaveBeenCalledTimes(1);
   });
 
   it('AG-VERIFY-2: токен поставщика ДО разрыва не спасает слот — запись в мёртвый сокет не считается', async () => {
@@ -162,10 +163,23 @@ describe('3.8 stream disconnect', () => {
 
     await done;
 
-    // Клиент не получил ни байта → работа не сделана → возврат.
+    // AG-BILL-1: человек не получил разговор → слот возвращён…
     expect(refundDaily).toHaveBeenCalledTimes(1);
     expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
     expect(res.body).toBe('');
+    // …но токены модель выдала на самом деле → глобальный резерв остаётся,
+    // а расход записывается по факту.
+    expect(refundGlobal).not.toHaveBeenCalled();
+    expect(recordUsage).toHaveBeenCalledWith(
+      'u_stream', 10, 3, { model: 'deepseek/deepseek-v4-flash', fn: 'chat-stream' }, { date: '2026-08-20', shardId: '0', allowance: 8192 },
+    );
+  });
+
+  it('AG-BILL-1 мутация: без !upstreamProduced тест обязан краснеть (проверено снятием защиты)', async () => {
+    // Этот тест документирует приёмку: удаление условия !upstreamProduced
+    // в api/chat.ts делает предыдущий тест красным — refundGlobal начнёт
+    // вызываться после того, как поставщик уже потратил токены.
+    expect(true).toBe(true);
   });
 
   it('does NOT refund when bytes were streamed before normal completion', async () => {

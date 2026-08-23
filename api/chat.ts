@@ -189,22 +189,26 @@ async function streamOpenRouterReasoning(
   // спасает. Гарантия действует на VPS: res.on('close') ненадёжен на
   // serverless-edge.
   let clientGone = false;
-  let firstByteSent = false;
+  // Запись в мёртвый сокет бессмысленна — не делаем её вовсе (AG-VERIFY-2).
+  // Гарантия действует на VPS: res.on('close') ненадёжен на serverless-edge.
   const write = (s: string) => {
-    if (res.destroyed) return;
-    firstByteSent = true;
-    res.write(s);
+    if (!res.destroyed) res.write(s);
   };
   res.on('close', () => {
     clientGone = true;
     controller.abort();
   });
+  // AG-BILL-1: отдельный признак — выдал ли что-нибудь поставщик. Это не то
+  // же событие, что «байт ушёл клиенту»: токены, выданные модели, потрачены
+  // на самом деле, и глобальный резерв за них не возвращается.
+  let upstreamProduced = false;
 
   let streamFailed = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      upstreamProduced = true;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
@@ -272,15 +276,21 @@ async function streamOpenRouterReasoning(
     streamFailed = true;
   }
 
-  // Единственная точка возврата слота: стрим упал, либо клиент ушёл до
-  // первого байта. Идемпотентность на стороне per-user refund'а здесь наша
-  // забота — флаг гарантирует один проход.
-  if (streamFailed || (clientGone && !firstByteSent)) {
-    await postgresAiContext.refundGlobalRequest(reservation);
+  // AG-BILL-1, правило владельца: слот и деньги охраняют разные инструменты.
+  // Слот возвращается всегда, когда ответ не доехал целиком: человек не
+  // получил разговор, а дневной счёт — про разговоры, не про деньги. Частоту
+  // держит кулдаун (COOLDOWN_MS), так что «обрывать специально» невыгодно.
+  // Глобальный резерв возвращается только вхолостую: выданные токены оплачены
+  // на самом деле, и занижать расход здесь значит ослабить защиту кошелька
+  // ровно там, где она нужна. Учёт расхода пишется ниже всегда.
+  if (streamFailed || clientGone) {
     if (isInternalCall) {
       await postgresAiContext.refundBulkLimit(uid, chargedDay);
     } else {
       await postgresAiContext.refundDailyLimit(uid, chargedDay);
+    }
+    if (!upstreamProduced) {
+      await postgresAiContext.refundGlobalRequest(reservation);
     }
   }
 
