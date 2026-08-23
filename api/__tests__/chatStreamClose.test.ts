@@ -66,6 +66,7 @@ class FakeRes extends EventEmitter {
   headersSent = false;
   statusCode = 0;
   body = '';
+  destroyed = false;
   writeHead(code: number) { this.statusCode = code; this.headersSent = true; return this; }
   write(chunk: string | Uint8Array) { this.body += String(chunk); firstByteAt ??= Date.now(); return true; }
   end(chunk?: string) { if (chunk) this.body += chunk; this.ended = true; }
@@ -125,6 +126,46 @@ describe('3.8 stream disconnect', () => {
     expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
     expect(refundBulk).not.toHaveBeenCalled();
     expect(refundGlobal).toHaveBeenCalled();
+  });
+
+  it('AG-VERIFY-2: токен поставщика ДО разрыва не спасает слот — запись в мёртвый сокет не считается', async () => {
+    // Находка с живого замера 2026-08-23: флаг поднимался на первом куске ОТ
+    // ПОСТАВЩИКА. Клиент ушёл сразу после заголовков, но поставщик успел
+    // выдать токен прежде, чем обработался разрыв, — и слот списывался,
+    // хотя клиент не получил ни байта содержимого.
+    // Стрим, который переживает abort (гонка: токены уже в полёте), — иначе
+    // сработал бы путь streamFailed и флаг был бы не при чём.
+    const enc = new TextEncoder();
+    const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
+    fetchMock.mockImplementationOnce(() => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) { streamController = controller; },
+      }),
+      { status: 200 },
+    )));
+
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    // Клиент рвёт соединение до любого байта содержимого.
+    res.destroyed = true;
+    res.emit('close');
+
+    // Поставщик всё же выдал токен (гонка) и поток завершился штатно.
+    streamController?.enqueue(enc.encode('data: {"choices":[{"delta":{"content":"Привет"}}]}\n\n'));
+    streamController?.enqueue(enc.encode('data: {"usage":{"prompt_tokens":10,"completion_tokens":3}}\n\n'));
+    streamController?.enqueue(enc.encode('data: [DONE]\n\n'));
+    streamController?.close();
+
+    await done;
+
+    // Клиент не получил ни байта → работа не сделана → возврат.
+    expect(refundDaily).toHaveBeenCalledTimes(1);
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(res.body).toBe('');
   });
 
   it('does NOT refund when bytes were streamed before normal completion', async () => {

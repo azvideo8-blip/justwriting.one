@@ -185,7 +185,11 @@ export async function searchNotes(
       }
       keywordMatches = keywordMatches.filter(m => allowed.has(m.id));
     }
-    const scoreMap = new Map(keywordMatches.map((m, i) => [m.id, 1 - (i / (keywordMatches.length || 1))]));
+    // AG-VERIFY-2 (находка 2): обе ветки кладут в scoreMap одну шкалу — RRF
+    // (~0.02–0.05), иначе vectorScore01(raw)=min(1,raw*20) насыщается на
+    // уже-нормализованных 0..1 и композит для отказавшихся от индексации
+    // вырождается: все заметки получают одинаковый семантический член.
+    const scoreMap = new Map(keywordMatches.map((m, i) => [m.id, 1 / (RRF_K + i)]));
     opts?.onRerankMeta?.({ bypassed: true, bypassReason: 'indexing_consent_refused' });
     return loadNotes(keywordMatches.map(m => m.id), scoreMap);
   }

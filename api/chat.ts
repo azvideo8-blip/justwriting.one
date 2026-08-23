@@ -180,11 +180,21 @@ async function streamOpenRouterReasoning(
   let contentAccum = '';
   let sawNativeReasoning = false;
 
-  // Клиент ушёл до первого байта — слот не использован, возвращаем его.
-  // После первого байта работа сделана и остаётся списанной. Гарантия
-  // действует на VPS: res.on('close') ненадёжен на serverless-edge.
+  // Клиент ушёл до первого байта содержимого — слот не использован, возвращаем
+  // его. AG-VERIFY-2 (находка 1, замер на проде 2026-08-23): флаг раньше
+  // поднимался при первом куске ОТ ПОСТАВЩИКА — гонка между RST клиента и
+  // первым токеном модели решалась в пользу списания, хотя комментарий
+  // обещал гарантию. Теперь флаг означает ровно то, что написано: байт
+  // реально поставлен в сокет ДО разрыва; запись в мёртвый сокет слот не
+  // спасает. Гарантия действует на VPS: res.on('close') ненадёжен на
+  // serverless-edge.
   let clientGone = false;
   let firstByteSent = false;
+  const write = (s: string) => {
+    if (res.destroyed) return;
+    firstByteSent = true;
+    res.write(s);
+  };
   res.on('close', () => {
     clientGone = true;
     controller.abort();
@@ -195,7 +205,6 @@ async function streamOpenRouterReasoning(
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      firstByteSent = true;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
@@ -216,16 +225,16 @@ async function streamOpenRouterReasoning(
         const content = delta.content;
         if (reasoning) {
           sawNativeReasoning = true;
-          if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
-          res.write(reasoning);
+          if (!wroteReasoningHeader) { write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+          write(reasoning);
         }
         if (content) {
           if (sawNativeReasoning) {
             if (!wroteAnswerHeader) {
-              if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
+              if (wroteReasoningHeader) write('\n\nОТВЕТ:\n');
               wroteAnswerHeader = true;
             }
-            res.write(content);
+            write(content);
           } else {
             contentAccum += content;
             const answerMarkerRe = /^ОТВЕТ:\s*$/im;
@@ -235,24 +244,24 @@ async function streamOpenRouterReasoning(
               const beforeMarker = contentAccum.slice(0, markerIdx).trim();
               const afterMarker = contentAccum.slice(markerIdx).replace(answerMarkerRe, '').trim();
               if (beforeMarker) {
-                if (!wroteReasoningHeader) { res.write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
-                res.write(beforeMarker);
+                if (!wroteReasoningHeader) { write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
+                write(beforeMarker);
               }
               if (!wroteAnswerHeader) {
-                if (wroteReasoningHeader) res.write('\n\nОТВЕТ:\n');
+                if (wroteReasoningHeader) write('\n\nОТВЕТ:\n');
                 wroteAnswerHeader = true;
               }
-              res.write(afterMarker);
+              write(afterMarker);
             } else if (!wroteAnswerHeader) {
               if (contentAccum.length > 2000 && !wroteReasoningHeader) {
                 if (!wroteAnswerHeader) {
                   wroteAnswerHeader = true;
                 }
-                res.write(contentAccum);
+                write(contentAccum);
                 contentAccum = '';
               }
             } else {
-              res.write(content);
+              write(content);
             }
           }
         }
@@ -276,9 +285,9 @@ async function streamOpenRouterReasoning(
   }
 
   if (contentAccum && !wroteAnswerHeader) {
-    if (wroteReasoningHeader) { res.write('\n\nОТВЕТ:\n'); }
+    if (wroteReasoningHeader) { write('\n\nОТВЕТ:\n'); }
     wroteAnswerHeader = true;
-    res.write(contentAccum);
+    write(contentAccum);
   }
   try {
     await postgresAiContext.recordUsage(uid, tokensIn, tokensOut, { model, fn: 'chat-stream' }, reservation);
