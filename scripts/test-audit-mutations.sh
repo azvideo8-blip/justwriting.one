@@ -12,15 +12,33 @@ log() { echo "$*" | tee -a "$OUT"; }
 run_vitest() { npx vitest run "$1" ${2:+-t "$2"} 2>&1 | grep -E "Tests " | tail -1; }
 
 expect_fail() { # file test-name-filter mutation-label
+  # Проверяем НАЛИЧИЕ падения, а не отсутствие строки " 0 failed". Прежний
+  # вариант печатал «RED as required» и на зелёном прогоне: vitest в этом случае
+  # выводит «Tests 5 passed (5)», подстроки " 0 failed" там нет, и условие
+  # уходило в else. То есть проверка, написанная чтобы ловить тесты, которые
+  # проходят при снятой защите, сама проходила при любом исходе.
   local res; res=$(run_vitest "$1" "$2")
-  if echo "$res" | grep -q " 0 failed"; then log "❌ $3 — test did NOT fail (empty test?)";
-  else log "✅ $3 — RED as required ($res)"; fi
+  if [ -z "$res" ]; then log "❌ $3 — фильтр не выбрал ни одного теста"; return; fi
+  if echo "$res" | grep -qE "[1-9][0-9]* failed"; then log "✅ $3 — RED as required ($res)";
+  else log "❌ $3 — тест НЕ упал: он не покрывает эту правку ($res)"; fi
 }
 
 expect_pass() { # file test-name-filter mutation-label
   local res; res=$(run_vitest "$1" "$2")
   if echo "$res" | grep -qE "[1-9][0-9]* failed"; then log "❌ $3 — still failing after restore ($res)";
   else log "✅ $3 — GREEN after restore ($res)"; fi
+}
+
+# Мутация обязана изменить файл. Скрипты мутаций — это str.replace по точной
+# строке: стоит исходнику сдвинуться на пробел, замена молча ничего не делает,
+# защита остаётся на месте, тест закономерно зелёный, и протокол записывает
+# «RED as required». Ровно так пункт 2.4 полгода выглядел проверенным.
+assert_mutated() { # file label
+  if git diff --quiet -- "$1"; then
+    log "❌ $2 — МУТАЦИЯ ПУСТАЯ: файл не изменился, проверка ничего не значит"
+    return 1
+  fi
+  return 0
 }
 
 mutate() { # file python-replace-file
@@ -42,6 +60,7 @@ log ""
 apply_mutation() { # label file patchfile testfile testfilter
   local label="$1" file="$2" patch="$3" tf="$4" filt="$5"
   mutate "$file" "$patch"
+  if ! assert_mutated "$file" "$label"; then restore "$file"; return; fi
   expect_fail "$tf" "$filt" "$label (guard removed)"
   restore "$file"
   expect_pass "$tf" "$filt" "$label (restored)"
@@ -140,17 +159,17 @@ apply_mutation "2.13 draft schema strictness" src/core/data/schemas.ts m213.py \
 cat > scripts/mutations/m24.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""      .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
-      .filter(stem => stem.length >= 3);""","""      .map(e => e.toLowerCase().slice(0, -1))
-      .filter(stem => stem.length >= 3);""")
+s=s.replace("""    .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
+    .filter(stem => stem.length >= 3);""","""    .map(e => e.slice(0, -1))
+    .filter(stem => stem.length >= 3);""")
 open(p,'w').write(s)
 EOF
 cat > scripts/mutations/m24.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""      .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
-      .filter(stem => stem.length >= 3);""","""      .map(e => e.toLowerCase().slice(0, -1))
-      .filter(stem => stem.length >= 3);""")
+s=s.replace("""    .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
+    .filter(stem => stem.length >= 3);""","""    .map(e => e.slice(0, -1))
+    .filter(stem => stem.length >= 3);""")
 open(p,'w').write(s)
 EOF
 # restore via targeted reverse patch: git checkout would wipe unrelated
@@ -158,15 +177,16 @@ EOF
 cat > scripts/mutations/r24.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""      .map(e => e.toLowerCase().slice(0, -1))
-      .filter(stem => stem.length >= 3);""","""      .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
-      .filter(stem => stem.length >= 3);""")
+s=s.replace("""    .map(e => e.slice(0, -1))
+    .filter(stem => stem.length >= 3);""","""    .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
+    .filter(stem => stem.length >= 3);""")
 open(p,'w').write(s)
 EOF
 mutate src/features/ai/utils/noteRetriever.ts m24.py
-expect_fail "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'matches «Сашей»' "2.4 stemmer adaptive stems (guard removed)"
+assert_mutated src/features/ai/utils/noteRetriever.ts "2.4 stemmer adaptive stems" || true
+expect_fail "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'two-letter stem' "2.4 stemmer adaptive stems (guard removed)"
 python3 scripts/mutations/r24.py src/features/ai/utils/noteRetriever.ts
-expect_pass "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'matches «Сашей»' "2.4 stemmer adaptive stems (restored)"
+expect_pass "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'two-letter stem' "2.4 stemmer adaptive stems (restored)"
 
 cat > scripts/mutations/m25.py <<'EOF'
 import sys
@@ -199,6 +219,7 @@ s=s.replace("""export function vectorScore01(raw: number): number {
 open(p,'w').write(s)
 EOF
 mutate src/features/ai/utils/noteRetriever.ts m25.py
+assert_mutated src/features/ai/utils/noteRetriever.ts "2.5 RRF normalisation" || true
 expect_fail "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'typical RRF ceiling' "2.5 RRF normalisation (guard removed)"
 python3 scripts/mutations/r25.py src/features/ai/utils/noteRetriever.ts
 expect_pass "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'typical RRF ceiling' "2.5 RRF normalisation (restored)"

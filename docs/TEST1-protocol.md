@@ -1,41 +1,41 @@
-# TEST-1 mutation protocol — 2026-08-22 17:15
+# TEST-1 mutation protocol — 2026-08-22 20:35
 
-✅ 1.5 reserve tokens in-statement (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (8)[39m)
-✅ 1.5 reserve tokens in-statement (restored) — GREEN after restore ([2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m)
-✅ 2.19 refund charged day (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (8)[39m)
-✅ 2.19 refund charged day (restored) — GREEN after restore ([2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m)
-✅ 3.8 close-handler refund (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 3.8 close-handler refund (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 2.18 langfuse hashUid (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m3 skipped[39m[90m (4)[39m)
-✅ 2.18 langfuse hashUid (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m3 skipped[39m[90m (4)[39m)
-✅ 2.20 summary zod gate (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m3 skipped[39m[90m (4)[39m)
-✅ 2.20 summary zod gate (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m3 skipped[39m[90m (4)[39m)
-✅ 2.9 parseVersionNumber (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m8 skipped[39m[90m (9)[39m)
-✅ 2.9 parseVersionNumber (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m8 skipped[39m[90m (9)[39m)
-✅ 2.15 tag partial throw (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m8 skipped[39m[90m (9)[39m)
-✅ 2.15 tag partial throw (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m8 skipped[39m[90m (9)[39m)
-✅ 2.13 draft schema strictness (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m8 skipped[39m[90m (9)[39m)
-✅ 2.13 draft schema strictness (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m8 skipped[39m[90m (9)[39m)
-✅ 2.4 stemmer adaptive stems (guard removed) — RED as required ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m)
-❌ 2.4 stemmer adaptive stems (restored) — still failing after restore ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m)
-✅ 2.5 RRF normalisation (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m)
-❌ 2.5 RRF normalisation (restored) — still failing after restore ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m4 skipped[39m[90m (5)[39m)
-✅ 1.2 PKCE flowType (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 1.2 PKCE flowType (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 1.3 recovery detection (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 1.3 recovery detection (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 1.6 vault setup ref-guard (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m2 skipped[39m[90m (3)[39m)
-✅ 1.6 vault setup ref-guard (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m2 skipped[39m[90m (3)[39m)
-✅ 2.2 store baseline fallback (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 2.2 store baseline fallback (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 2.6 doc-version-saved dispatch (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m)
-✅ 2.6 doc-version-saved dispatch (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m)
-✅ 2.7 guest unload key (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m)
-✅ 2.7 guest unload key (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[90m (1)[39m)
-✅ 2.8 guest draft consumed (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 2.8 guest draft consumed (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 2.12 heatmap delta (guard removed) — RED as required ([2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
-✅ 2.12 heatmap delta (restored) — GREEN after restore ([2m      Tests [22m [1m[32m1 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (2)[39m)
+✅ 1.5 reserve tokens in-statement (guard removed) — RED as required (      Tests  1 failed | 7 passed (8))
+✅ 1.5 reserve tokens in-statement (restored) — GREEN after restore (      Tests  8 passed (8))
+✅ 2.19 refund charged day (guard removed) — RED as required (      Tests  1 failed | 7 passed (8))
+✅ 2.19 refund charged day (restored) — GREEN after restore (      Tests  8 passed (8))
+✅ 3.8 close-handler refund (guard removed) — RED as required (      Tests  1 failed | 1 skipped (2))
+✅ 3.8 close-handler refund (restored) — GREEN after restore (      Tests  1 passed | 1 skipped (2))
+✅ 2.18 langfuse hashUid (guard removed) — RED as required (      Tests  1 failed | 3 skipped (4))
+✅ 2.18 langfuse hashUid (restored) — GREEN after restore (      Tests  1 passed | 3 skipped (4))
+✅ 2.20 summary zod gate (guard removed) — RED as required (      Tests  1 failed | 3 skipped (4))
+✅ 2.20 summary zod gate (restored) — GREEN after restore (      Tests  1 passed | 3 skipped (4))
+✅ 2.9 parseVersionNumber (guard removed) — RED as required (      Tests  1 failed | 8 skipped (9))
+✅ 2.9 parseVersionNumber (restored) — GREEN after restore (      Tests  1 passed | 8 skipped (9))
+✅ 2.15 tag partial throw (guard removed) — RED as required (      Tests  1 failed | 8 skipped (9))
+✅ 2.15 tag partial throw (restored) — GREEN after restore (      Tests  1 passed | 8 skipped (9))
+✅ 2.13 draft schema strictness (guard removed) — RED as required (      Tests  1 failed | 8 skipped (9))
+✅ 2.13 draft schema strictness (restored) — GREEN after restore (      Tests  1 passed | 8 skipped (9))
+✅ 2.4 stemmer adaptive stems (guard removed) — RED as required (      Tests  1 failed | 5 skipped (6))
+✅ 2.4 stemmer adaptive stems (restored) — GREEN after restore (      Tests  1 passed | 5 skipped (6))
+✅ 2.5 RRF normalisation (guard removed) — RED as required (      Tests  1 failed | 5 skipped (6))
+✅ 2.5 RRF normalisation (restored) — GREEN after restore (      Tests  1 passed | 5 skipped (6))
+✅ 1.2 PKCE flowType (guard removed) — RED as required (      Tests  1 failed | 1 skipped (2))
+✅ 1.2 PKCE flowType (restored) — GREEN after restore (      Tests  1 passed | 1 skipped (2))
+✅ 1.3 recovery detection (guard removed) — RED as required (      Tests  1 failed | 1 skipped (2))
+✅ 1.3 recovery detection (restored) — GREEN after restore (      Tests  1 passed | 1 skipped (2))
+✅ 1.6 vault setup ref-guard (guard removed) — RED as required (      Tests  1 failed | 2 skipped (3))
+✅ 1.6 vault setup ref-guard (restored) — GREEN after restore (      Tests  1 passed | 2 skipped (3))
+✅ 2.2 store baseline fallback (guard removed) — RED as required (      Tests  1 failed | 1 skipped (2))
+✅ 2.2 store baseline fallback (restored) — GREEN after restore (      Tests  1 passed | 1 skipped (2))
+✅ 2.6 doc-version-saved dispatch (guard removed) — RED as required (      Tests  1 failed (1))
+✅ 2.6 doc-version-saved dispatch (restored) — GREEN after restore (      Tests  1 passed (1))
+✅ 2.7 guest unload key (guard removed) — RED as required (      Tests  1 failed (1))
+✅ 2.7 guest unload key (restored) — GREEN after restore (      Tests  1 passed (1))
+✅ 2.8 guest draft consumed (guard removed) — RED as required (      Tests  1 failed | 1 skipped (2))
+✅ 2.8 guest draft consumed (restored) — GREEN after restore (      Tests  1 passed | 1 skipped (2))
+✅ 2.12 heatmap delta (guard removed) — RED as required (      Tests  1 failed | 1 skipped (2))
+✅ 2.12 heatmap delta (restored) — GREEN after restore (      Tests  1 passed | 1 skipped (2))
 
 ## Non-vitest proofs
 ### 3.1 Actions pinned by SHA (no mutable tags)
@@ -77,14 +77,14 @@
   OK /og-image.svg (index.html)
 
 ### 3.11 api tests run from the api/ directory
-  api-dir: [2m      Tests [22m [1m[32m75 passed[39m[22m[90m (75)[39m
-  root:    [2m      Tests [22m [1m[32m75 passed[39m[22m[90m (75)[39m
+  api-dir:       Tests  75 passed (75)
+  root:          Tests  75 passed (75)
 
 ### 0.1 bench JSONs untracked
   OK: no tracked json in rerank-bench
 See audit-proofs output above.
 
 ## Final gates
-- typecheck: FAIL
-- lint:changed: OK
+- typecheck: OK
+- lint:changed: FAIL
 - RLS suite: see docker command in docs/audit-cleanup-plan.md (requires Docker)

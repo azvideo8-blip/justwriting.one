@@ -1,7 +1,7 @@
 // TEST-1 §2.4: a word with a cut-off ending is NOT a literal match by itself;
 // «про Сашу» still finds «Сашей» via the two-letter stem on a word boundary.
 // TEST-1 §2.5: RRF scores are normalised to [0..1] before weights apply.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { findLiteralMatches, vectorScore01 } from '../noteRetriever';
 
 // LocalVersionService reads IndexedDB — stub the module to feed contents.
@@ -11,13 +11,15 @@ vi.mock('../../../../core/services/LocalVersionService', () => ({
     getLatestVersionMeta: vi.fn(async () => null),
   },
 }));
-import { vi } from 'vitest';
 
 const CONTENTS: Record<string, string> = {
   // «конь» и «поклон» содержат подстроку «он», но не словоформы имени «Она».
   horse: 'Белый конь стоял у поклона.',
   // «Сашей» — падежная форма; стем «Саш» матчится на границе слова.
   sasha: 'Мы гуляли с Сашей по набережной.',
+  // «Ольгой» → однобуквенный стем «Ольго» не совпадает ни с чем в этом тексте,
+  // двухбуквенный «Ольг» находит «Ольге». Единственный различающий случай.
+  olga: 'Вчера позвонил Ольге насчёт работы.',
   empty: '',
 };
 
@@ -30,6 +32,17 @@ describe('2.4 findLiteralMatches', () => {
   it('«про Сашу» matches «Сашей» via the stem on a word boundary', async () => {
     const hits = await findLiteralMatches('Разговор про Сашу', ['sasha']);
     expect(hits.has('sasha')).toBe(true);
+  });
+
+  // Проверка именно на второй, короткий стем: сущность ≥6 букв, где обрезка
+  // одной буквы промахивается. Без неё тест проходил и на прежнем стеммере —
+  // «Сашу» короткая, и ветка slice(0,-2) в ней не участвует вовсе.
+  it('«Ольгой» matches «Ольге» via the two-letter stem', async () => {
+    // В запросе ровно одна именованная сущность. С «Разговор с Ольгой» тест
+    // проходил и на прежнем стеммере: «Разговор» — тоже сущность, и совпадение
+    // приходило от неё, а не от имени.
+    const hits = await findLiteralMatches('встреча с Ольгой', ['olga']);
+    expect(hits.has('olga')).toBe(true);
   });
 
   it('a short capitalised word («Он») is not treated as a named entity', async () => {
