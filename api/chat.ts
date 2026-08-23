@@ -209,6 +209,7 @@ async function streamOpenRouterReasoning(
   let settled = false;
   const settle = async (reason: 'closed' | 'failed' | 'done'): Promise<void> => {
     if (settled) return;
+    console.error('[BILL2-DIAG] settle', reason, { upstreamProduced });   // ВРЕМЕННО
     settled = true;
     if (reason === 'done') return;
 
@@ -224,6 +225,7 @@ async function streamOpenRouterReasoning(
     }
   };
   res.on('close', () => {
+    console.error('[BILL2-DIAG] close fired', { upstreamProduced, settled });   // ВРЕМЕННО
     controller.abort();
     void settle('closed');
   });
@@ -301,6 +303,7 @@ async function streamOpenRouterReasoning(
     streamFailed = true;
   }
 
+  console.error('[BILL2-DIAG] handler end', { streamFailed, upstreamProduced, settled });   // ВРЕМЕННО
   await settle(streamFailed ? 'failed' : 'done');
 
   if (contentAccum && !wroteAnswerHeader) {
