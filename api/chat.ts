@@ -188,20 +188,45 @@ async function streamOpenRouterReasoning(
   // реально поставлен в сокет ДО разрыва; запись в мёртвый сокет слот не
   // спасает. Гарантия действует на VPS: res.on('close') ненадёжен на
   // serverless-edge.
-  let clientGone = false;
   // Запись в мёртвый сокет бессмысленна — не делаем её вовсе (AG-VERIFY-2).
   // Гарантия действует на VPS: res.on('close') ненадёжен на serverless-edge.
   const write = (s: string) => {
     if (!res.destroyed) res.write(s);
   };
-  res.on('close', () => {
-    clientGone = true;
-    controller.abort();
-  });
   // AG-BILL-1: отдельный признак — выдал ли что-нибудь поставщик. Это не то
   // же событие, что «байт ушёл клиенту»: токены, выданные модели, потрачены
   // на самом деле, и глобальный резерв за них не возвращается.
   let upstreamProduced = false;
+
+  // AG-BILL-2: возврат выполняется там, где сигнал уже есть. Раньше он
+  // решался в конце обработчика, а событие close приходило после — и шесть
+  // живых прогонов подряд слот списывался при обрыве до первого байта.
+  // Флаг выставляется ДО первого await: close и нормальный конец потока могут
+  // прийти почти одновременно, иначе возврат выполнится дважды.
+  // Ловушка: close наступает и после успешного res.end() — поэтому
+  // settle('done') обязан вызваться раньше res.end(), иначе все разговоры
+  // станут бесплатными.
+  let settled = false;
+  const settle = async (reason: 'closed' | 'failed' | 'done'): Promise<void> => {
+    if (settled) return;
+    settled = true;
+    if (reason === 'done') return;
+
+    if (isInternalCall) {
+      await postgresAiContext.refundBulkLimit(uid, chargedDay);
+    } else {
+      await postgresAiContext.refundDailyLimit(uid, chargedDay);
+    }
+    // Выданные токены оплачены на самом деле — глобальный резерв за них не
+    // возвращается. Правило AG-BILL-1, не менять.
+    if (!upstreamProduced) {
+      await postgresAiContext.refundGlobalRequest(reservation);
+    }
+  };
+  res.on('close', () => {
+    controller.abort();
+    void settle('closed');
+  });
 
   let streamFailed = false;
   try {
@@ -276,23 +301,7 @@ async function streamOpenRouterReasoning(
     streamFailed = true;
   }
 
-  // AG-BILL-1, правило владельца: слот и деньги охраняют разные инструменты.
-  // Слот возвращается всегда, когда ответ не доехал целиком: человек не
-  // получил разговор, а дневной счёт — про разговоры, не про деньги. Частоту
-  // держит кулдаун (COOLDOWN_MS), так что «обрывать специально» невыгодно.
-  // Глобальный резерв возвращается только вхолостую: выданные токены оплачены
-  // на самом деле, и занижать расход здесь значит ослабить защиту кошелька
-  // ровно там, где она нужна. Учёт расхода пишется ниже всегда.
-  if (streamFailed || clientGone) {
-    if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    } else {
-      await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    }
-    if (!upstreamProduced) {
-      await postgresAiContext.refundGlobalRequest(reservation);
-    }
-  }
+  await settle(streamFailed ? 'failed' : 'done');
 
   if (contentAccum && !wroteAnswerHeader) {
     if (wroteReasoningHeader) { write('\n\nОТВЕТ:\n'); }

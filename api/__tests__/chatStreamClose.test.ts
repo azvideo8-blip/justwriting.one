@@ -69,7 +69,12 @@ class FakeRes extends EventEmitter {
   destroyed = false;
   writeHead(code: number) { this.statusCode = code; this.headersSent = true; return this; }
   write(chunk: string | Uint8Array) { this.body += String(chunk); firstByteAt ??= Date.now(); return true; }
-  end(chunk?: string) { if (chunk) this.body += chunk; this.ended = true; }
+  // Настоящий ServerResponse после end() всегда эмитит 'close'. Без этого
+  // заглушка не воспроизводит самую опасную ловушку AG-BILL-2: если ранний
+  // settle('done') убрать, close после успешного ответа вернёт слот, и все
+  // разговоры станут бесплатными. Проверено — без этой строки мутация
+  // «убрать ранний settle('done')» не ловится ни одним тестом.
+  end(chunk?: string) { if (chunk) this.body += chunk; this.ended = true; this.emit('close'); }
   ended = false;
 }
 
@@ -163,16 +168,55 @@ describe('3.8 stream disconnect', () => {
 
     await done;
 
-    // AG-BILL-1: человек не получил разговор → слот возвращён…
+    // AG-BILL-1: человек не получил разговор → слот возвращён.
     expect(refundDaily).toHaveBeenCalledTimes(1);
     expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
     expect(res.body).toBe('');
-    // …но токены модель выдала на самом деле → глобальный резерв остаётся,
-    // а расход записывается по факту.
-    expect(refundGlobal).not.toHaveBeenCalled();
+    // AG-BILL-2: сигнал close пришёл ДО первого куска поставщика — в этот
+    // момент upstreamProduced ещё ложь, и резерв возвращается как холостой.
+    // Токены, приехавшие позже в никуда, видны только в recordUsage.
+    expect(refundGlobal).toHaveBeenCalledTimes(1);
     expect(recordUsage).toHaveBeenCalledWith(
       'u_stream', 10, 3, { model: 'deepseek/deepseek-v4-flash', fn: 'chat-stream' }, { date: '2026-08-20', shardId: '0', allowance: 8192 },
     );
+  });
+
+  it('AG-BILL-2: токен обработан ДО обрыва → слот возвращён, глобальный резерв нет', async () => {
+    // Поставщик успел выдать и обработать кусок до разрыва — токены потрачены
+    // по-настоящему, холостого возврата резерва быть не должно.
+    const enc = new TextEncoder();
+    const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
+    fetchMock.mockImplementationOnce(() => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) { streamController = controller; },
+      }),
+      { status: 200 },
+    )));
+
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    // Сначала токен обработан (reasoning-ветка копит в contentAccum, в сокет
+    // не пишет)...
+    streamController?.enqueue(enc.encode('data: {"choices":[{"delta":{"content":"Привет"}}]}\n\n'));
+    streamController?.enqueue(enc.encode('data: {"usage":{"prompt_tokens":7,"completion_tokens":2}}\n\n'));
+    await vi.waitFor(() => expect(res.body).toBeDefined(), { timeout: 2000 });
+    await new Promise((r) => setTimeout(r, 50));
+    // ...потом клиент уходит посреди разговора.
+    res.destroyed = true;
+    res.emit('close');
+    streamController?.close();
+
+    await done;
+
+    // Разговор не доехал целиком → слот возвращается (правило BILL-1)...
+    expect(refundDaily).toHaveBeenCalledTimes(1);
+    // ...но поставщик поработал → глобальный резерв не трогаем.
+    expect(refundGlobal).not.toHaveBeenCalled();
+    expect(recordUsage).toHaveBeenCalled();
   });
 
   it('AG-BILL-1 мутация: без !upstreamProduced тест обязан краснеть (проверено снятием защиты)', async () => {
