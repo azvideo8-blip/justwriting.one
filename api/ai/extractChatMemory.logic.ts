@@ -2,9 +2,9 @@
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate } from './provider';
-import { AiError, type AiContext } from './context';
+import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
-import { chargeCall, refundCall } from './policy';
+import { chargeCall, refundCall } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   messages: z.array(z.object({

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseCharge, chargeCall, refundCall } from '../ai/policy';
-import type { AiContext } from '../ai/context';
+import { parseCharge, chargeCall, refundCall } from '../../src/shared/ai/aiPolicy.js';
+import type { AiContext } from '../../src/shared/ai/context.js';
 
 /**
  * Пометка `charge` приходит от клиента, поэтому важно ровно одно: подделать ею

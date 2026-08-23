@@ -1,7 +1,6 @@
-// functions/src/shared/aiContext.ts
-// Shared context interface for AI handlers — one implementation per runtime.
-// firestoreAiContext (functions/): Firestore-backed, used by production Cloud Functions.
-// postgresAiContext  (api/):        Postgres-backed, used by the VPS service.
+// AG-AIONE-1: единая копия контракта ИИ-контекста (была в api/ai/context.ts
+// и functions/src/shared/aiContext.ts; обе ушли — осталась эта).
+// Реализация — postgresAiContext в api/postgresAiContext.ts.
 
 export interface GlobalReservation {
   date: string;

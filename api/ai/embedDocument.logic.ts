@@ -2,8 +2,8 @@
 import { z } from 'zod';
 import { sanitizeAiInput } from './pure';
 import { embed } from './provider';
-import { AiError, type AiContext } from './context';
-import { chargeCall, refundCall, parseCharge } from './policy';
+import { AiError, type AiContext } from '../../src/shared/ai/context.js';
+import { chargeCall, refundCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   content: z.string().min(1).max(200_000),

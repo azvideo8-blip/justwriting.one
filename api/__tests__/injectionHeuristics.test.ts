@@ -4,7 +4,7 @@ import { sanitizeAiInput } from '../ai/pure';
 import { rerankNotesLogic } from '../ai/rerankNotes.logic';
 import { judgeBeliefCandidateLogic } from '../ai/judgeBeliefCandidate.logic';
 import { generate } from '../ai/provider';
-import type { AiContext } from '../ai/context';
+import type { AiContext } from '../../src/shared/ai/context.js';
 
 vi.mock('../ai/provider', () => ({
   generate: vi.fn(),

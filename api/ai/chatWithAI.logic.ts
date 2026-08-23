@@ -1,10 +1,10 @@
 // functions/src/ai/chatWithAI.logic.ts
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from './pure';
-import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from './policy';
+import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../../src/shared/ai/aiPolicy.js';
 import { generate, getActiveModel } from './provider';
-import { buildChatSystemPrompt } from './buildChatPrompt';
-import { AiError, type AiContext } from './context';
+import { buildChatSystemPrompt } from '../../src/shared/ai/buildChatPrompt.js';
+import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = z.object({
   personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom']),

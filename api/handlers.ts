@@ -1,6 +1,6 @@
 // api/handlers.ts
 import { postgresAiContext } from './postgresAiContext';
-import { AiError } from './ai/context';
+import { AiError } from '../src/shared/ai/context.js';
 
 import { chatWithAILogic } from './ai/chatWithAI.logic';
 import { editWithAILogic } from './ai/editWithAI.logic';

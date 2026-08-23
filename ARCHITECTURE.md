@@ -22,12 +22,6 @@ synchronised to Postgres afterwards.
 | API | A small Node service (`api/`) on the same VPS, systemd unit, loopback only |
 | AI provider | RouterAI, called server-side only |
 
-> **`functions/` is dead code.** The Firebase Cloud Functions tree still exists
-> in the repository, but no client code calls it — there is not one
-> `httpsCallable` left in `src/`. It is deleted by step **C4** of
-> `docs/migration-plan.md`, together with two CI steps that currently fail. Do
-> not add to it, and do not "fix" its tests; see `CI-1` in `TASKS.md`.
-
 ---
 
 ## Directory structure
@@ -191,9 +185,10 @@ replacement yet (`D2` in `docs/migration-plan.md`).
 - **Zustand** for high-frequency cross-component state (timer, content,
   encryption keys); **React Context** for provider-scoped, low-frequency state
   (auth, settings, modals).
-- **Three copies of the AI logic exist**: `src/shared/ai/` (client and streaming
-  chat), `api/ai/` (dispatcher endpoints), `functions/src/shared/` (dead). The
-  root package is ESM and `functions/` is CommonJS, so imports cannot cross that
-  boundary — hence the copies. `promptsParity` and `injectionParity` tests keep
-  the prompt sources and injection patterns aligned. The third copy disappears
-  with C4.
+- **One copy of the AI prompt/sanitization logic** lives in `src/shared/ai/`
+  (`prompts`, `buildChatPrompt`, `injectionPatterns`, `aiPolicy`, `context`);
+  both the client and the VPS service import it. The former duplicates in
+  `api/ai/` and `functions/src/shared/` are gone (C4 + AG-AIONE-1).
+  `api/ai/pure.ts` keeps only the genuinely server-only wrappers
+  (Langfuse, isomorphic-dompurify, node-crypto hashUid) on top of the shared
+  core.

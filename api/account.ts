@@ -7,7 +7,7 @@
 import { createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import { z } from 'zod';
-import { AiError } from './ai/context';
+import { AiError } from '../src/shared/ai/context.js';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 

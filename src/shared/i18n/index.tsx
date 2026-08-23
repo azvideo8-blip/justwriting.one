@@ -12,16 +12,43 @@ import { STORAGE_KEYS } from '../constants/storageKeys';
 
 export type { Language, Translations };
 
+// DEBT-1 (#55): index-чанк не влезал в бюджет (806 933 при пороге 810 000).
+// Переводы второстепенных пространств имён (~35 КБ минифицированного кода)
+// вынесены в отдельные чанки: они догружаются параллельно при старте и
+// доливаются в тот же объект до первого рендера детей провайдера. Ядро
+// (common/writing/auth) остаётся eager — оно нужно первому экрану.
 export const translations: Translations = {
   ...commonTranslations,
   ...writingTranslations,
-  ...archiveTranslations,
-  ...profileTranslations,
-  ...settingsTranslations,
   ...authTranslations,
-  ...lifelogTranslations,
   ...aiTranslations,
 };
+
+const lazyNamespaces: Promise<void> = Promise.all([
+  import('./translations/settings').then(m => { Object.assign(translations, m.settingsTranslations); }),
+  import('./translations/archive').then(m => { Object.assign(translations, m.archiveTranslations); }),
+  import('./translations/profile').then(m => { Object.assign(translations, m.profileTranslations); }),
+  import('./translations/lifelog').then(m => { Object.assign(translations, m.lifelogTranslations); }),
+]).then(() => undefined);
+
+/** Резолвится, когда все переводы на месте. Провайдер ждёт его до рендера,
+ * чтобы t() никогда не вернул ключ вместо строки из-за гонки с чанками. */
+export function whenTranslationsReady(): Promise<void> {
+  return lazyNamespaces;
+}
+
+// В тестах переводы нужны синхронно: компонентные тесты рендерят провайдер
+// без ожидания чанков. Ветка мертва в прод-сборке (VITEST не определён,
+// импорты выпадают вместе с блоком при tree-shake).
+if (import.meta.env.VITEST) {
+  Object.assign(
+    translations,
+    settingsTranslations,
+    archiveTranslations,
+    profileTranslations,
+    lifelogTranslations,
+  );
+}
 
 interface LanguageContextType {
   language: Language;
@@ -87,6 +114,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   const tpFn = useCallback((key: string, count: number) => tp(key, count), [tp]);
 
+  const [ready, setReady] = useState(import.meta.env.VITEST);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    whenTranslationsReady().then(() => { if (!cancelled) setReady(true); }).catch(() => { /* чанк не догрузился — останемся на ядре переводов */ });
+    return () => { cancelled = true; };
+  }, []);
+
   React.useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
@@ -97,6 +132,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     t,
     tp: tpFn
   }), [language, setLanguage, t, tpFn]);
+
+  if (!ready) return null;
 
   return (
     <LanguageContext.Provider value={contextValue}>

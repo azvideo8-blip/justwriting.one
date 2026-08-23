@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate, getActiveModel } from './provider';
-import { AiError, type AiContext } from './context';
+import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const actionSchema = z.enum(['accents', 'ideas', 'summarize', 'continue', 'gratitude', 'achievements']);
 

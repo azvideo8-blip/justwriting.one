@@ -26,5 +26,5 @@
     "types": ["vitest/globals"],
     "noUncheckedIndexedAccess": true
   },
-  "exclude": ["functions", "_archive", "old_tests", "scratch"]
+  "exclude": ["_archive", "old_tests", "scratch"]
 }

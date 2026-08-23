@@ -275,6 +275,11 @@ export interface ThemeRecord {
   evidence: ThemeEvidence[];           // first+last+top-N(~3), with cap
   count: number;
   lastReinforcedAt: string;            // eventDate of most recent note
+  /** Момент последнего подкрепления по часам устройства (AG-MERGE-1).
+   *  Строка выше — день для показа; LWW-синхронизация сверяется по этой,
+   *  иначе два подкрепления одной темы в один день парсятся в одну полночь
+   *  и второе устройство теряется. */
+  lastReinforcedAtMs?: number;
   emotionalWeight: number;             // clamp01(max(|valence|, arousal))
   pinned?: boolean;
   sensitivity?: 'normal' | 'sensitive';

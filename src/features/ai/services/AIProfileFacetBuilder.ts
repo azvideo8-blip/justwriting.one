@@ -26,6 +26,39 @@ export type FacetBuildResult =
 interface Chunk { noteId: string; vector: number[]; text: string }
 interface FacetSpec { label: string; fixedLabel: boolean; noteIds: string[]; dialogueIds?: string[]; texts: string[]; centroid: number[]; chunkCount: number; primaryNoteIds?: string[]; secondaryNoteIds?: string[] }
 
+// AG-MERGE-1: детерминированный ключ грани. Раньше id был `${Date.now()}_${i}` —
+// «когда собрали», а не «что это», и два устройства клали одну грань дважды.
+//
+// Ярлыка в ключе нет намеренно: суммаризатор его переформулирует, и грань
+// форкнулась бы заново. Ядро — первые N заметок по дате (самые старые): состав
+// кластера между устройствами одинаков, а добавление новой заметки ядро
+// не меняет, поэтому растущая грань сохраняет id.
+export const FACET_CORE_SIZE = 10;
+
+function fnv1a32(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+export function stableFacetId(
+  noteIds: string[],
+  docMap: Map<string, { lastSessionAt?: number } | undefined>,
+): string {
+  const core = [...noteIds]
+    .sort((a, b) =>
+      ((docMap.get(a)?.lastSessionAt ?? 0) - (docMap.get(b)?.lastSessionAt ?? 0)) ||
+      a.localeCompare(b),
+    )
+    .slice(0, FACET_CORE_SIZE);
+  const h1 = fnv1a32(core.join('|')).toString(16).padStart(8, '0');
+  const h2 = fnv1a32([...core].reverse().join('~')).toString(16).padStart(8, '0');
+  return `facet_${h1}${h2}`;
+}
+
 const STOPWORDS = new Set([
   'это','эта','этот','что','чтобы','когда','если','или','как','так','тоже','также','уже','ещё','еще','очень','только','просто',
   'меня','мной','мне','мой','моя','моё','мои','тебя','тебе','него','неё','них','свой','своя','свои','себя','себе',
@@ -283,7 +316,7 @@ export const AIProfileFacetBuilder = {
         }
 
         facets.push({
-          id: `${buildId}_${facets.length}`,
+          id: stableFacetId(spec.noteIds, docMap),
           label,
           summary,
           centroid: spec.centroid,

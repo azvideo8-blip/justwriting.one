@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { chatWithAILogic } from '../ai/chatWithAI.logic';
 import { generate } from '../ai/provider';
-import type { AiContext } from '../ai/context';
+import type { AiContext } from '../../src/shared/ai/context.js';
 
 vi.mock('../ai/provider', () => ({
   generate: vi.fn(),

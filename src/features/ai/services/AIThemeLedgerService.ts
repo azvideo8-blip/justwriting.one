@@ -227,6 +227,9 @@ export const AIThemeLedgerService = {
           if (eventDate > bestMatch.lastReinforcedAt) {
             bestMatch.lastReinforcedAt = eventDate;
           }
+          // AG-MERGE-1: часы, а не день — иначе два устройства, подкрепившие
+          // тему в один день, неразличимы для LWW-синхронизации.
+          bestMatch.lastReinforcedAtMs = Date.now();
           if (eventDate < bestMatch.firstSeenAt) {
             bestMatch.firstSeenAt = eventDate;
           }
@@ -264,6 +267,7 @@ export const AIThemeLedgerService = {
             themeVector: themeVector ?? [],
             firstSeenAt: eventDate,
             lastReinforcedAt: eventDate,
+            lastReinforcedAtMs: Date.now(),
             count: 1,
             emotionalWeight,
             sensitivity: 'normal',

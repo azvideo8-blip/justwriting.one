@@ -6,13 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
-functions/lib/
-firebase-applet-config.json
 _archive/
 .mcp.json
 .codex/
 .vercel
-functions/*.js
 .agents/skills/
 .mimocode/
 bundle-stats.html

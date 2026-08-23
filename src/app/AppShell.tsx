@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
@@ -15,7 +15,10 @@ import { ConnectionStatusBanner } from '../features/writing/components/Connectio
 import { ThemeBackground } from '../core/theme/ThemeBackground';
 import { LoginModalOverlay } from '../features/auth/components/LoginModalOverlay';
 import { useSettings } from '../core/settings/SettingsContext';
-import { EncryptionPasswordModal } from '../features/encryption/components/EncryptionPasswordModal';
+// DEBT-1 (#55): модальные окна не нужны первому экрану — в отдельные чанки.
+const EncryptionPasswordModal = React.lazy(() =>
+  import('../features/encryption/components/EncryptionPasswordModal').then(m => ({ default: m.EncryptionPasswordModal })),
+);
 import { useEncryptionSetup } from '../features/encryption/hooks/useEncryptionSetup';
 import { setupGlobalErrorListeners } from '../shared/errors/reportError';
 import { ActivityLogBadge } from './ActivityLogBadge';
@@ -24,7 +27,9 @@ import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
 import { useAdminStatus } from '../features/auth/hooks/useAdminStatus';
 import { useEmptyDeviceDetection } from '../features/sync/hooks/useEmptyDeviceDetection';
-import { RestoreFromCloudModal } from '../features/sync/components/RestoreFromCloudModal';
+const RestoreFromCloudModal = React.lazy(() =>
+  import('../features/sync/components/RestoreFromCloudModal').then(m => ({ default: m.RestoreFromCloudModal })),
+);
 import { useOtherUserDetection } from '../features/auth/hooks/useOtherUserDetection';
 import { OtherUserDataModal } from '../features/auth/components/OtherUserDataModal';
 
@@ -97,20 +102,24 @@ export function AppShell() {
       <ConfirmDialogRenderer />
       <ActivityLogBadge />
       {encryptionMode !== 'none' && user && (
-        <EncryptionPasswordModal
-          mode={encryptionMode}
-          userId={user.uid}
-          onDone={() => void recheckEncryption()}
-          onClose={dismissEncryption}
-        />
+        <Suspense fallback={null}>
+          <EncryptionPasswordModal
+            mode={encryptionMode}
+            userId={user.uid}
+            onDone={() => void recheckEncryption()}
+            onClose={dismissEncryption}
+          />
+        </Suspense>
       )}
       {shouldPromptEmptyDevice && user && (
-        <RestoreFromCloudModal
-          open={shouldPromptEmptyDevice}
-          onClose={dismissEmptyDevice}
-          initialLocalCount={localCount}
-          initialCloudCount={cloudCount}
-        />
+        <Suspense fallback={null}>
+          <RestoreFromCloudModal
+            open={shouldPromptEmptyDevice}
+            onClose={dismissEmptyDevice}
+            initialLocalCount={localCount}
+            initialCloudCount={cloudCount}
+          />
+        </Suspense>
       )}
       {hasOtherData && user && !shouldPromptEmptyDevice && (
         <OtherUserDataModal

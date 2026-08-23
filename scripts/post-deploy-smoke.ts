@@ -1,4 +1,7 @@
 import { chromium, type Browser, type Page } from '@playwright/test';
+import { createHmac } from 'node:crypto';
+import { request as httpRequest } from 'node:http';
+import type { IncomingMessage, ClientRequest } from 'node:http';
 import { APP_VERSION } from '../src/version';
 
 interface SmokeCheckOptions {
@@ -176,6 +179,164 @@ export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCh
   };
 }
 
+// ── §3.8: возврат слота при обрыве стрима ─────────────────────────────────────
+//
+// Юнит-тест (api/__tests__/chatStreamClose.test.ts) доказывает логику, но не
+// живой сокет. Этот кейс открывает настоящий /api/chat, рвёт соединение после
+// заголовков, но до первого байта контента, и проверяет по счётчику
+// ai_daily_limit (через admin-эндпойнт getAIUsageStats), что слот вернулся.
+//
+// Требует SMOKE_JWT_SECRET (= SUPABASE_JWT_SECRET сервера) и SMOKE_UID
+// (uid админа). Без них кейс пропускается: без секрета токен не отчеканить.
+// Гарантия refund'а действует только на VPS — res.on('close') ненадёжен на
+// serverless-edge, поэтому результат не обобщается на другие площадки.
+
+function mintSmokeJwt(secret: string, uid: string): string {
+  const b64u = (buf: Buffer | string) =>
+    Buffer.from(buf).toString('base64url');
+  const header = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = b64u(
+    JSON.stringify({ sub: uid, exp: Math.floor(Date.now() / 1000) + 300 }),
+  );
+  const sig = createHmac('sha256', secret)
+    .update(`${header}.${payload}`)
+    .digest('base64url');
+  return `${header}.${payload}.${sig}`;
+}
+
+function apiPost(
+  origin: string,
+  path: string,
+  token: string,
+  body: unknown,
+  timeoutMs = 15_000,
+): Promise<{ status: number; json: unknown }> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = httpRequest(
+      `${origin}${path}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'Content-Length': Buffer.byteLength(data),
+        },
+        timeout: timeoutMs,
+      },
+      (res: IncomingMessage) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => {
+          const raw = Buffer.concat(chunks).toString();
+          let parsed: unknown = null;
+          try { parsed = raw ? JSON.parse(raw) : null; } catch { parsed = raw; }
+          resolve({ status: res.statusCode ?? 0, json: parsed });
+        });
+      },
+    );
+    req.on('timeout', () => { req.destroy(new Error('timeout')); });
+    req.on('error', reject);
+    req.end(data);
+  });
+}
+
+async function fetchDailyUsed(
+  origin: string,
+  token: string,
+  uid: string,
+): Promise<number> {
+  const date = new Date().toISOString().slice(0, 10);
+  const res = await apiPost(origin, '/api/getAIUsageStats', token, {
+    date,
+    targetUid: uid,
+  });
+  if (res.status !== 200) {
+    throw new Error(`getAIUsageStats вернул HTTP ${res.status}`);
+  }
+  const events = (res.json as { events?: Array<{ used?: number }> }).events;
+  const used = events?.[0]?.used;
+  if (typeof used !== 'number') {
+    throw new Error(`getAIUsageStats ответил без used: ${JSON.stringify(res.json).slice(0, 200)}`);
+  }
+  return used;
+}
+
+function openChatStreamThenDestroy(
+  origin: string,
+  token: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      personaId: 'coach',
+      messages: [
+        { role: 'user', content: 'smoke: ответь одним коротким предложением про тишину.' },
+      ],
+    });
+    const req: ClientRequest = httpRequest(
+      `${origin}/api/chat`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 60_000,
+      },
+      (res: IncomingMessage) => {
+        // Заголовки пришли. Уничтожаем сокет до первого байта контента —
+        // ровно тот случай, на который рассчитан res.on('close') в api/chat.ts.
+        res.destroy();
+        resolve();
+      },
+    );
+    req.on('timeout', () => { req.destroy(new Error('chat stream timeout')); });
+    req.on('error', (e) => {
+      // destroy() выше вызывает ECONNRESET / socket hang up на клиенте — норма.
+      const msg = String((e as NodeJS.ErrnoException).code ?? e);
+      if (/ECONNRESET|ERR_STREAM_PREMATURE_CLOSE|socket hang up/.test(msg)) resolve();
+      else reject(e);
+    });
+    req.end(body);
+  });
+}
+
+export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> {
+  const errors: string[] = [];
+  const secret = process.env.SMOKE_JWT_SECRET;
+  const uid = process.env.SMOKE_UID;
+  if (!secret || !uid) {
+    console.log('ℹ️  SMOKE_JWT_SECRET/SMOKE_UID не заданы — кейс обрыва стрима пропущен.');
+    return errors;
+  }
+
+  const origin = new URL(baseUrl).origin;
+  const token = mintSmokeJwt(secret, uid);
+
+  try {
+    const before = await fetchDailyUsed(origin, token, uid);
+
+    await openChatStreamThenDestroy(origin, token);
+
+    // Даём серверу время получить RST и исполнить res.on('close') с refund'ом.
+    await new Promise((r) => setTimeout(r, 3_000));
+
+    const after = await fetchDailyUsed(origin, token, uid);
+    if (after !== before) {
+      errors.push(
+        `Обрыв стрима списал слот: счётчик ai_daily_limit ${before} → ${after} ` +
+        '(refund при обрыве до первого байта не сработал).',
+      );
+    } else {
+      console.log(`✅ Обрыв стрима: счётчик не изменился (${before}).`);
+    }
+  } catch (err) {
+    errors.push(`Кейс обрыва стрима не выполнился: ${String(err)}`);
+  }
+  return errors;
+}
+
 async function main() {
   const targetUrl = process.argv[2] || process.env.SMOKE_URL || 'https://justwriting.ru/';
   const expectedVersion = process.env.EXPECTED_VERSION || APP_VERSION;
@@ -187,6 +348,9 @@ async function main() {
     baseUrl: targetUrl,
     expectedVersion,
   });
+
+  const refundErrors = await checkChatStreamRefund(targetUrl);
+  result.errors.push(...refundErrors);
 
   if (!result.success) {
     console.error('❌ [SMOKE CHECK FAILED] Проверка после выкатки не прошла:');

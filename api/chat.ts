@@ -7,7 +7,7 @@ import { postgresAiContext } from './postgresAiContext';
 import { hasInjectionAttempt } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
 import { validateInternalCallRestrictions, getMaxTokens } from '../src/shared/ai/aiPolicy.js';
-import type { GlobalReservation } from './ai/context';
+import type { GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, MAX_AI_CONTENT_LENGTH } from './ai/pure';
 
 function json(res: ServerResponse, status: number, body: unknown) {

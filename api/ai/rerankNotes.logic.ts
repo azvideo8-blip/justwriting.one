@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { sanitizeAiInput, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
-import { AiError, type AiContext } from './context';
+import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = z.object({
   query: z.string().min(1).max(2_000),
@@ -31,8 +31,11 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
     throw new AiError('invalid-argument', 'Invalid documentId in candidates.');
   }
 
-  const allowed = await ctx.checkAndIncrementBulkLimit(uid);
-  if (!allowed) {
+  // Возвращается объект `{ ok, day }`, а не булево: `!verdict` было всегда false,
+  // то есть исчерпанный дневной лимит здесь не срабатывал вовсе и реранк
+  // продолжал ходить к поставщику поверх квоты.
+  const verdict = await ctx.checkAndIncrementBulkLimit(uid);
+  if (!verdict.ok) {
     throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
   }
 

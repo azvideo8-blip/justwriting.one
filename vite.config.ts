@@ -54,14 +54,12 @@ export default defineConfig(() => {
         output: {
           // ВНИМАНИЕ: не переводить обратно на разбиение по путям node_modules.
           // Так делал H1 (0.7.70): vendor-react наполнялся, index худел до
-          // 487 кБ — и прод падал с "Cannot access 'vp' before initialization"
-          // внутри vendor-firebase-firestore. Разрезание по каталогам развело
-          // по разным чанкам модули firebase, которые ссылаются друг на друга,
-          // и получился цикл: чанк исполняется раньше того, от чего зависит.
-          // Форма со списком режет по точкам входа, и такого цикла не даёт.
+          // 487 кБ — и прод падал с "Cannot access 'vp' before initialization".
+          // Разрезание по каталогам разводило по разным чанкам модули, которые
+          // ссылаются друг на друга, и получался цикл: чанк исполняется раньше
+          // того, от чего зависит. Форма со списком режет по точкам входа,
+          // и такого цикла не даёт.
           manualChunks: {
-            'vendor-firebase-core': ['firebase/app', 'firebase/auth'],
-            'vendor-firebase-firestore': ['firebase/firestore'],
             'vendor-motion': ['motion/react'],
             'vendor-charts': ['recharts'],
             'vendor-docx': ['docx'],
@@ -88,9 +86,6 @@ export default defineConfig(() => {
         '**/.claude/**',
         '**/coverage/**',
         '**/.git/**',
-        '**/.firebase/**',
-        '**/functions/lib/**',
-        '**/functions/src/**',
         'e2e/**',
       ],
       coverage: {

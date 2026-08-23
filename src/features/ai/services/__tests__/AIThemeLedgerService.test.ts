@@ -201,6 +201,29 @@ describe('AIThemeLedgerService (C2-scaffold / Theme Ledger)', () => {
       expect(workTheme?.count).toBe(4);
       expect(workTheme?.evidence[0]?.sentence).toBe('Поиски работы требуют много сил.');
     });
+
+    it('AG-MERGE-1: два подкрепления в один день дают различимые lastReinforcedAtMs (LWW)', async () => {
+      const sameDay = {
+        documentId: 'merge-1',
+        themes: ['тревога за будущее'],
+        eventDate: '2026-07-20',
+        valence: -0.5,
+        arousal: 0.4,
+        noteContent: 'Снова тревога за будущее, но слабее.',
+      };
+      vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 7, 20, 8, 0, 0));
+      await AIThemeLedgerService.touchThemes(sameDay);
+      vi.mocked(Date.now).mockReturnValue(Date.UTC(2026, 7, 20, 21, 30, 0));
+      await AIThemeLedgerService.touchThemes({ ...sameDay, documentId: 'merge-2' });
+      vi.restoreAllMocks();
+
+      const all = await AIThemeLedgerService.getAll();
+      const theme = all.find(r => r.theme.includes('тревога'));
+      expect(theme?.lastReinforcedAtMs).toBe(Date.UTC(2026, 7, 20, 21, 30, 0));
+      expect(theme?.count).toBe(2);
+      // Дневная строка — по eventDate, не по часам.
+      expect(theme?.lastReinforcedAt).toBe('2026-07-20');
+    });
   });
 
   describe('AG-MIND-W1a-fix: Embed Caching & Dedup', () => {

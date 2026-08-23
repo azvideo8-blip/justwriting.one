@@ -102,9 +102,17 @@ export function extractRecordTimestamp(val: unknown): number | null {
   if (!val || typeof val !== 'object') return null;
   const obj = val as Record<string, unknown>;
   if (typeof obj.updatedAt === 'number' && !isNaN(obj.updatedAt)) return obj.updatedAt;
+  // AG-MERGE-1: числовой момент подкрепления точнее дневной строки. Без него
+  // все подкрепления одной темы за день парсятся в одну полночь, и LWW
+  // теряет подкрепление второго устройства — ровно тот случай, когда тема
+  // реально активна.
+  if (typeof obj.lastReinforcedAtMs === 'number' && !isNaN(obj.lastReinforcedAtMs)) {
+    return obj.lastReinforcedAtMs;
+  }
   if (typeof obj.lastReinforcedAt === 'string') {
     const ms = Date.parse(obj.lastReinforcedAt);
     if (!isNaN(ms)) return ms;
+    // Бэкфилл ниже не нужен для сравнения, но строка могла быть невалидной.
   }
   if (typeof obj.generatedAt === 'number' && !isNaN(obj.generatedAt)) return obj.generatedAt;
   if (typeof obj.createdAt === 'number' && !isNaN(obj.createdAt)) return obj.createdAt;

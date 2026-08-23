@@ -1,122 +1,28 @@
 // api/ai/pure.ts
 //
-// The AI helpers that touch no Firestore, copied out of
-// functions/src/shared/aiUtils.ts for the VPS service.
-//
-// Why a copy rather than an import: the root package is "type": "module" and
-// functions/ is CommonJS, so importing across that boundary fails at load time —
-// Node cannot detect named exports of a transpiled-TS CJS module, and the whole
-// service exits on boot with "does not provide an export named …" while tsc is
-// perfectly happy. Verified by experiment: the same file under functions/ fails,
-// the same file inside the root package loads.
-//
-// The duplication is deliberate and short-lived. functions/ is deleted once the
-// client moves to this service, and it takes its copy with it.
+// The AI helpers that touch no database. Historically copied out of
+// functions/src/shared/aiUtils.ts; that tree was deleted with Firebase
+// (step C4 of docs/migration-plan.md). The remaining duplication with
+// src/shared/ai/ is tracked as AG-AIONE-1.
 
 import { createHash } from 'crypto';
 import DOMPurify from 'isomorphic-dompurify';
 import { Langfuse } from 'langfuse';
-import { sanitizeAiInputShared, classifyInvisibleCodePoint, MAX_AI_CONTENT_LENGTH } from './buildChatPrompt';
+import { sanitizeAiInputShared, MAX_AI_CONTENT_LENGTH } from '../../src/shared/ai/buildChatPrompt.js';
 
 export { MAX_AI_CONTENT_LENGTH };
 /** Потолок тела запроса. Скопирован раньше в три файла — при расхождении один
  *  эндпоинт молча принимает то, что другой отвергает. */
 export const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 
-// Mirror of src/shared/ai/injectionPatterns.ts — keep in sync.
-// After migration to Supabase, both sides will import from a single shared package.
-
-// Patterns written for Latin-script phrases. Checked against a homoglyph-
-// folded copy of the input (see foldLatinHomoglyphs below) so that visually
-// identical Cyrillic/Greek lookalikes (e.g. Cyrillic "i" in "ignore previous")
-// don't bypass them.
-const LATIN_PATTERNS = [
-  /ignore\s+previous/i,
-  /ignore\s+instructions/i,
-  /jailbreak/i,
-  /(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])DAN(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
-  /you\s+are\s+now/i,
-  /forget\s+your/i,
-  /(^|\n)\s*system\s*:/i,
-  /as\s+an\s+AI(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
-  /(^|\n)\s*developer\s*:/i,
-  /<\|im_start\|>/i,
-  /\[INST\]/i,
-  /<developer>/i,
-  /<end_of_turn>/i,
-  // Промежуток ограничен длиной: с открытым `.*` движок перебирает позиции
-  // квадратично, и 50 000 пробелов после «repeat» занимают процесс на секунду.
-  /repeat\s+.{0,200}(system|initial)\s+prompt/i,
-  /output\s+your\s+instructions/i,
-  /reveal\s+your\s+system\s+prompt/i,
-];
-
-// Patterns written for Cyrillic/Russian phrases. Checked against the
-// ORIGINAL (non-folded) text — folding to Latin would break these, since
-// they need to match real Cyrillic letters.
-const CYRILLIC_PATTERNS = [
-  /новые\s+инструкции/i,
-  /забудь\s+(вс[её]|свои|преды|инструк)/i,
-  /выведи\s+.{0,200}(системный|свой)\s+промпт/i,
-  /покажи\s+.{0,200}(системный\s+промпт|свои\s+инструкции)/i,
-  /напиши\s+свои\s+системные\s+инструкции/i,
-];
+// AG-AIONE-1: вся логика инъекций (паттерны, невидимые символы, гомоглифы)
+// живёт в src/shared/ai/injectionPatterns.ts — здесь только ре-экспорт.
+export {
+  INJECTION_PATTERNS,
+  hasInjectionAttempt,
+} from '../../src/shared/ai/injectionPatterns.js';
 
 
-// Flat list kept for compatibility with any lingering direct reference.
-export const INJECTION_PATTERNS = [...LATIN_PATTERNS, ...CYRILLIC_PATTERNS];
-
-// Нормализуем невидимые символы перед проверкой инъекций.
-// Символы категории 'space' (U+2000..U+200A, U+2028, U+2029 и т.д.) заменяются на U+0020,
-// чтобы сохранить границу слова для паттернов с \s+.
-// Символы категории 'drop' (нулевая ширина, U+2060, U+FE0F, теги U+E0000..E007F) удаляются.
-function stripInvisible(text: string): string {
-  let out = '';
-  for (const ch of text) {
-    const code = ch.codePointAt(0) ?? 0;
-    const action = classifyInvisibleCodePoint(code);
-    if (action === 'space') {
-      out += ' ';
-    } else if (action === 'keep') {
-      out += ch;
-    }
-  }
-  return out;
-}
-
-// Cyrillic/Greek letters visually identical to a Latin letter in most fonts —
-// used to spoof a Latin-script phrase (jailbreak, ignore previous, etc.) past
-// a regex expecting real Latin letters. Deliberately a small, explicit map
-// (not a general Unicode confusables table) — covers only letters that could
-// plausibly stand in for a letter appearing in LATIN_PATTERNS above. These are
-// ordinary printable Cyrillic letters (not invisible characters) — fine to
-// type as normal literal characters, unlike ZERO_WIDTH_CODE_POINTS above.
-const HOMOGLYPH_MAP: Record<string, string> = {
-  'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c',
-  'х': 'x', 'у': 'y', 'і': 'i', 'ѕ': 's', 'һ': 'h',
-  'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M',
-  'Н': 'H', 'О': 'O', 'Р': 'P', 'С': 'C', 'Т': 'T',
-  'Х': 'X', 'У': 'Y',
-  // Greek lookalikes (the comment above always claimed Greek coverage; these were
-  // missing, so a Greek-omicron "ignore previous" bypassed every LATIN_PATTERN).
-  'ο': 'o', 'α': 'a', 'ι': 'i', 'ν': 'v', 'ρ': 'p', 'υ': 'u', 'κ': 'k', 'τ': 't',
-  'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Η': 'H', 'Ι': 'I', 'Κ': 'K', 'Μ': 'M',
-  'Ν': 'N', 'Ο': 'O', 'Ρ': 'P', 'Τ': 'T', 'Υ': 'Y', 'Χ': 'X',
-};
-
-function foldLatinHomoglyphs(text: string): string {
-  let out = '';
-  for (const ch of text) {
-    out += HOMOGLYPH_MAP[ch] ?? ch;
-  }
-  return out;
-}
-
-export function hasInjectionAttempt(text: string): boolean {
-  const stripped = stripInvisible(text);
-  const latinFolded = foldLatinHomoglyphs(stripped);
-  return LATIN_PATTERNS.some(p => p.test(latinFolded)) || CYRILLIC_PATTERNS.some(p => p.test(stripped));
-}
 
 let _langfuse: Langfuse | null = null;
 
@@ -177,12 +83,12 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
     cleaned = cleaned.replace(/\/\/<reasoning>[\s\S]*$/gi, '');
     cleaned = cleaned.replace(/<reasoning>[\s\S]*$/gi, '');
     cleaned = cleaned.replace(/^\/\/<reasoning>/gim, '');
-    // Strip CJK characters leaked from model reasoning chains (gpt-oss/DeepSeek
-    // internal thinking sometimes bleeds into content field).
-    // Ranges: CJK Unified (4E00-9FFF), Extension A (3400-4DBF), Compat (F900-FAFF),
-    // Radicals (2E80-2EFF), Symbols (3000-303F), Kana (3040-30FF).
-    // eslint-disable-next-line no-irregular-whitespace
-    cleaned = cleaned.replace(/[⺀-⻿　-ヿ㐀-䶿一-鿿豈-﫿]/g, '');
+    // Вырезание CJK убрано (#35). Оно стояло здесь ради иероглифов,
+    // просочившихся из рассуждений, — но к этой строке рассуждения уже вырезаны
+    // выше (блоки <think>, «ХОД МЫСЛИ:», <reasoning>), и под нож попадали только
+    // цитаты самого человека: authorPhrases, quotableSentence, редактура его
+    // текста. Залётный знак в ответе видно и можно игнорировать; пропавшую
+    // цитату из собственной заметки человек не видит никогда.
     // Strip citation artifacts that gpt-oss appends to factual sentences
     // (e.g. "30 000 рублейreferences" or "степень awarded").
     cleaned = cleaned.replace(/([а-яёА-ЯЁ\d])(references?|sources?|citations?|awarded)(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/gi, '$1');

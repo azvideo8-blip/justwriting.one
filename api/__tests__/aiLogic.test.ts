@@ -25,7 +25,7 @@ vi.mock('../ai/provider', async (importOriginal) => {
 import { validateCustomPromptLogic } from '../ai/validateCustomPrompt.logic';
 import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
 import { hashUid } from '../ai/pure';
-import type { AiContext } from '../ai/context';
+import type { AiContext } from '../../src/shared/ai/context.js';
 
 function makeCtx(): AiContext {
   return {

@@ -10,9 +10,8 @@ Group=justwriting
 WorkingDirectory=/opt/justwriting/api
 
 # A single esbuild bundle, not the TypeScript tree. Bundling sidesteps module
-# resolution entirely, which is what cost this migration several rounds: the repo
-# root is "type": "module" while functions/ is CommonJS, and importing across
-# that boundary fails at load time with a clean tsc.
+# resolution entirely — importing across package boundaries fails at load time
+# with a clean tsc.
 #
 # Dependencies stay external (pg, zod, langfuse, isomorphic-dompurify) — jsdom,
 # which isomorphic-dompurify pulls in, reads files from its own package at

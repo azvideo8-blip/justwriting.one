@@ -1,21 +1,5 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
-
-// Mock firebase-admin before importing server
-const mockListCollections = vi.fn().mockResolvedValue([]);
-
-vi.mock('firebase-admin/app', () => ({
-  initializeApp: vi.fn(),
-  getApps: vi.fn(() => [{}]),
-  cert: vi.fn(),
-  applicationDefault: vi.fn(),
-}));
-
-vi.mock('firebase-admin/firestore', () => ({
-  getFirestore: vi.fn(() => ({
-    listCollections: mockListCollections,
-  })),
-}));
 
 let server: http.Server;
 let baseUrl: string;
@@ -63,16 +47,5 @@ describe('API health endpoints', () => {
     // Supabase не подключён. Когда он появится, список перестанет быть пустым
     // и этот тест придётся переписать — так и задумано.
     expect(res.body.checks).toEqual([]);
-  });
-
-  it('/ready no longer depends on Firestore', async () => {
-    // K1 убрал эту зависимость: рантайм ставится ради ухода с Firebase, и
-    // готовность к трафику не может определяться доступностью того, от чего
-    // уходим. Тест остался бы зелёным сам по себе, поэтому проверяем факт —
-    // недоступный Firestore не влияет на ответ.
-    mockListCollections.mockRejectedValue(new Error('Firestore unavailable'));
-    const res = await get('/ready');
-    expect(res.status).toBe(200);
-    expect(mockListCollections).not.toHaveBeenCalled();
   });
 });

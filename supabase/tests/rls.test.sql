@@ -887,6 +887,42 @@ END $$;
 RESET role;
 RESET request.jwt.claims;
 
+-- ------------------------------------------------------------
+-- AG-QUOTA-1 (#25): размерные лимиты enforced. Оба плеча: отказ И приёмка.
+-- Проверка «только rejection» проходила бы и на таблице, отказывающей всему.
+-- ------------------------------------------------------------
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+
+DO $$
+BEGIN
+  -- Oversized tags (> 8192 bytes) are rejected by documents_tags_size.
+  BEGIN
+    INSERT INTO public.documents (uuid, user_id, title, tags)
+    VALUES ('quota-oversize', '00000000-0000-0000-0000-000000000001',
+            'Quota oversize', array_to_json(array_fill('тэг'::text, ARRAY[2000]))::jsonb);
+    RAISE EXCEPTION 'FAIL: oversized tags were accepted';
+  EXCEPTION WHEN check_violation THEN NULL;  -- expected
+  END;
+
+  -- A normal-sized tag list passes the same constraint.
+  INSERT INTO public.documents (uuid, user_id, title, tags)
+  VALUES ('quota-normal', '00000000-0000-0000-0000-000000000001',
+          'Quota normal', '["дневник","утро"]');
+
+  -- Oversized pinned_thoughts (> 60000 bytes) rejected by drafts constraint.
+  BEGIN
+    INSERT INTO public.drafts (user_id, content, pinned_thoughts)
+    VALUES ('00000000-0000-0000-0000-000000000001', 'короткий черновик',
+            to_jsonb(repeat('мысль ', 12000)));
+    RAISE EXCEPTION 'FAIL: oversized pinned_thoughts were accepted';
+  EXCEPTION WHEN check_violation THEN NULL;  -- expected
+  END;
+END $$;
+
+RESET role;
+RESET request.jwt.claims;
+
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
 -- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),

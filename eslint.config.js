@@ -9,7 +9,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', '.claude/**', '.vercel/**', 'functions/**', 'scripts/**'],
+    ignores: ['dist/**', 'node_modules/**', '.claude/**', '.vercel/**', 'scripts/**'],
   },
   js.configs.recommended,
   {

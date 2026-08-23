@@ -3,7 +3,7 @@
 // On VPS it returns a stub response; the production Cloud Function is the real impl.
 import { z } from 'zod';
 import { TIER_LIMITS, DAILY_LIMIT } from './pure';
-import { AiError, type AiContext } from './context';
+import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(val => {
