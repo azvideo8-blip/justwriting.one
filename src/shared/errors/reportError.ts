@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { useActivityLogStore } from '../activity/useActivityLogStore';
-import { scrubPii } from './piiScrub';
+import { scrubPii, redactMessage } from './piiScrub';
 
 type ErrorContext = Record<string, string | number | boolean | null | undefined>;
 
@@ -13,6 +13,23 @@ export function reportError(
   // стоящий здесь, не должен обходиться прямыми вызовами addActivity.
   const safeContext: ErrorContext = scrubPii(context);
 
+  // AUD-17: сам текст сообщения тоже проходит фильтр — по форме (uuid, email,
+  // длинный base64), раз по имени ключа строку не поймать.
+  let safeMessage: unknown = error;
+  if (typeof error === 'string') {
+    safeMessage = redactMessage(error);
+  } else if (error instanceof Error) {
+    try {
+      // Копия с очищенным message: исходную ошибку не мутируем.
+      const copy = new Error(redactMessage(error.message));
+      copy.name = error.name;
+      if (error.stack) copy.stack = error.stack;
+      safeMessage = copy;
+    } catch {
+      safeMessage = error;
+    }
+  }
+
   try {
     const source =
       typeof safeContext.source === 'string'
@@ -20,13 +37,13 @@ export function reportError(
         : typeof safeContext.action === 'string'
           ? safeContext.action
           : undefined;
-    useActivityLogStore.getState().addError(error, safeContext, level, source);
+    useActivityLogStore.getState().addError(safeMessage, safeContext, level, source);
   } catch {
     // Avoid error log store failure interrupting reportError
   }
 
   if (import.meta.env.DEV) {
-    console.error('[reportError]', error, safeContext);
+    console.error('[reportError]', safeMessage, safeContext);
   }
 
   const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
@@ -37,7 +54,7 @@ export function reportError(
     Object.entries(safeContext).forEach(([key, value]) => {
       scope.setExtra(key, value);
     });
-    Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+    Sentry.captureException(safeMessage instanceof Error ? safeMessage : new Error(String(safeMessage)));
   });
 }
 

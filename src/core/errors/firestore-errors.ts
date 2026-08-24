@@ -15,10 +15,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   
-  reportError(errInfo.error, { 
-    operationType, 
-    path: path || 'unknown',
-    uid: getCurrentUser()?.uid
+  // AUD-16: путь вида users/<uid>-… несёт uid внутри себя — вычёркивание
+  // ключа `uid` не спасало, тот же идентификатор приходил вторым входом.
+  // Отладке нужна форма (коллекция), а не значение.
+  reportError(errInfo.error, {
+    operationType,
+    collection: path?.split('/')[0] ?? 'unknown',
   });
 
   const errorCode = error instanceof Error && 'code' in error ? (error as { code: string }).code : 'unknown';
