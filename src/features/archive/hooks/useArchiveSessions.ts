@@ -25,7 +25,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     setError(null);
 
     try {
-      const result = await loadAllSessions(userId, user);
+      const result = await loadAllSessions(userId, user, { withContent: true });
       if (!mountedRef.current) return;
       setSessions(result.sessions as ArchiveSession[]);
       setCloudLoadFailed(result.cloudLoadFailed);

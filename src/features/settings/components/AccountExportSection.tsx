@@ -38,7 +38,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const handleExportAll = async () => {
     setLoading(true);
     try {
-      const { sessions: listed } = await loadAllSessions(userId, user);
+      const { sessions: listed } = await loadAllSessions(userId, user, { withContent: true });
       if (listed.length === 0) {
         showToast(t('settings_export_all_empty'), 'error');
         return;
@@ -72,7 +72,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
   const handleExportJson = async () => {
     setJsonLoading(true);
     try {
-      const { sessions: listed } = await loadAllSessions(userId, user);
+      const { sessions: listed } = await loadAllSessions(userId, user, { withContent: true });
       const sessions = await hydrateSessionContent(listed, user?.uid ?? userId);
       const profileData: Record<string, unknown> = {
         nickname: user?.displayName ?? null,

@@ -34,7 +34,15 @@ interface LoadResult {
   cloudLoadFailed: boolean;
 }
 
-export async function loadAllSessions(userId: string, user: AppUser | null): Promise<LoadResult> {
+export async function loadAllSessions(
+  userId: string,
+  user: AppUser | null,
+  opts?: { withContent?: boolean },
+): Promise<LoadResult> {
+  // AUD-24: тексты нужны архиву и экспорту, а статистике — счётчики, которые
+  // и так лежат в записи документа. Раньше открытие профиля расшифровывало
+  // весь архив, чтобы нарисовать число слов, уже посчитанное при сохранении.
+  const withContent = opts?.withContent ?? false;
   const allSessions: LoadedSession[] = [];
   const seenIds = new Set<string>();
   let cloudLoadFailed = false;
@@ -63,13 +71,21 @@ export async function loadAllSessions(userId: string, user: AppUser | null): Pro
       seenIds.add(doc.id);
       let content = '';
       let _contentError = false;
+      let _contentNotLoaded = false;
       let sessionWordsAdded: number | undefined;
       try {
         const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id);
         // Дневная дельта для heatmap/стрика; для документов без версий
         // остаётся undefined — компоненты падают на старое поведение.
         sessionWordsAdded = latestMeta?.wordsAdded;
-        content = await LocalVersionService.getLatestContent(doc.id);
+        if (withContent) {
+          content = await LocalVersionService.getLatestContent(doc.id);
+        } else {
+          // «Не читали» — не «не смогли прочитать»: _contentError означает
+          // потерю (AUD-5), поэтому при пропуске ставим только флаг
+          // незагруженности, а потребители текста догружают его сами.
+          _contentNotLoaded = true;
+        }
       } catch (contentErr) { reportError(contentErr, { action: 'loadAllSessions_localContent', documentId: doc.id }); _contentError = true; }
       const createdAt = toDate(doc.lastSessionAt) ?? new Date();
       allSessions.push({
@@ -96,6 +112,7 @@ export async function loadAllSessions(userId: string, user: AppUser | null): Pro
         _firstSessionAt: doc.firstSessionAt,
         excludedFromAI: doc.excludedFromAI ?? false,
         ...( _contentError ? { _contentError: true } : {}),
+        ...(_contentNotLoaded ? { _contentNotLoaded: true } : {}),
       });
     }
 
