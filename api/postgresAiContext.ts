@@ -2,11 +2,10 @@
 // Postgres-backed implementation of AiContext for the VPS service.
 // Uses the tables created in supabase/migrations/0004_ai_counters.sql and 0005_ai_global_daily_tokens.sql.
 
-import { Pool } from 'pg';
 import type { AiContext, GlobalReservation, LimitVerdict } from '../src/shared/ai/context.js';
 import { DAILY_LIMIT } from './ai/pure';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+import { pool } from './db';
 
 const today = () => new Date().toISOString().slice(0, 10);
 

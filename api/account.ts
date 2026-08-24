@@ -5,11 +5,10 @@
 // the storage changes.
 
 import { createHash } from 'node:crypto';
-import { Pool } from 'pg';
 import { z } from 'zod';
 import { AiError } from '../src/shared/ai/context.js';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+import { pool } from './db';
 
 // ── sendTelemetry ───────────────────────────────────────────────────────────
 
