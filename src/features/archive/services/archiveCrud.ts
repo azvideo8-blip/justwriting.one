@@ -9,7 +9,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { AISummaryService } from '../../../core/services/AISummaryService';
 import { AIEmbeddingService } from '../../../core/services/AIEmbeddingService';
 import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
-import { invalidateMiniSearchCache } from '../../ai/utils/noteRetriever';
+import { refreshMiniSearchDoc } from '../../ai/utils/noteRetriever';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
 type ArchiveFieldValue = string[] | string | Date | undefined;
@@ -36,7 +36,7 @@ export async function toggleAIExclusion(
         void SyncService.addToQueue(session.id);
       });
     }
-    invalidateMiniSearchCache();
+    void refreshMiniSearchDoc(session.id);
     return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
   }
 
@@ -62,7 +62,7 @@ export async function toggleAIExclusion(
         throw localErr;
       }
     }
-    invalidateMiniSearchCache();
+    void refreshMiniSearchDoc(session.id);
   }
   return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
 }

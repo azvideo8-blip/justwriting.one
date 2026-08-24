@@ -51,9 +51,39 @@ export function invalidateMiniSearchCache(): void {
   searchCache.length = 0;
 }
 
+// AUD-23: правка заметки не должна ронять весь индекс и пересобирать его по
+// всему архиву. MiniSearch умеет discard/add — обновляем одну запись; полный
+// rebuild остаётся для импорта, восстановления и выхода (invalidate выше).
+export async function refreshMiniSearchDoc(documentId: string): Promise<void> {
+  const ms = miniSearchInstance;
+  if (!ms) return; // Индекс ещё не построен — полная сборка возьмёт свежие данные.
+  try {
+    if (ms.has(documentId)) ms.discard(documentId);
+    const db = await getLocalDb();
+    const doc = await db.get('documents', documentId);
+    if (!doc || doc.excludedFromAI) return;
+    const content = await LocalVersionService.getLatestContent(documentId);
+    if (!content) return;
+    await ms.addAsync({
+      id: documentId,
+      title: doc.title ?? '',
+      content: content.slice(0, 10_000),
+    });
+  } catch {
+    // Не смогли обновить точечно — безопасный путь: пересобрать целиком.
+    invalidateMiniSearchCache();
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('auth:signed-out', () => {
     invalidateMiniSearchCache();
+  });
+  // AUD-23: сохранение версии обновляет одну запись индекса вместо полного
+  // пересбора. Если индекс не построен, refresh — no-op.
+  window.addEventListener('doc-version-saved', (e) => {
+    const detail = (e as CustomEvent<{ documentId?: string }>).detail;
+    if (detail?.documentId) void refreshMiniSearchDoc(detail.documentId);
   });
 }
 
