@@ -18,7 +18,7 @@ export interface RestoreFromCloudModalProps {
   initialCloudCount?: number;
 }
 
-type RestoreStep = 'idle' | 'restoring' | 'completed';
+type RestoreStep = 'idle' | 'restoring' | 'completed' | 'failed';
 
 interface RestoreProgressState {
   currentStage: string;
@@ -158,11 +158,20 @@ export function RestoreFromCloudModal({
       }));
 
       setReport(resultSummary);
-      setRestoreDismissed(user.uid, true);
-      setStep('completed');
+      // AUD-12: восстановившее ноль заметок — не «завершённое» восстановление.
+      if (resultSummary.restoredNotes === 0
+        && resultSummary.restoredSummaries === 0
+        && resultSummary.restoredAIStoreRecords === 0) {
+        setStep('failed');
+      } else {
+        setRestoreDismissed(user.uid, true);
+        setStep('completed');
+      }
     } catch {
+      // AUD-12: исключение больше не рисует «завершено». Говорим, что не вышло,
+      // и сколько успело вернуться до падения.
       setReport(resultSummary);
-      setStep('completed');
+      setStep('failed');
     }
   };
 
@@ -198,7 +207,11 @@ export function RestoreFromCloudModal({
           </div>
           <div>
             <h2 id="restore-cloud-title" className="text-base font-semibold text-text-main">
-              {step === 'completed' ? 'Восстановление завершено' : 'Загрузка данных из облака'}
+              {step === 'completed'
+                ? 'Восстановление завершено'
+                : step === 'failed'
+                  ? 'Восстановление не удалось'
+                  : 'Загрузка данных из облака'}
             </h2>
           </div>
         </div>
@@ -319,6 +332,37 @@ export function RestoreFromCloudModal({
             <p className="text-[11px] text-text-main/50 text-center italic">
               Пожалуйста, не закрывайте вкладку до завершения загрузки.
             </p>
+          </div>
+        )}
+
+        {step === 'failed' && (
+          <div className="space-y-4">
+            <div className="p-3.5 bg-accent-danger/10 border border-accent-danger/20 rounded-xl space-y-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-accent-danger">
+                <AlertTriangle className="w-4 h-4 text-accent-danger" />
+                Восстановление прервано ошибкой. Попробуйте ещё раз позже.
+              </div>
+              {/* Частичный успех — числами: что успело вернуться до падения. */}
+              {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredAIStoreRecords)) && (
+                <div className="text-[11px] text-text-main/70 space-y-1 pl-6">
+                  {Boolean(report?.restoredNotes) && <div>Заметок восстановлено: <strong className="text-text-main">{report?.restoredNotes}</strong></div>}
+                  {Boolean(report?.restoredSummaries) && <div>Сводок ИИ: <strong className="text-text-main">{report?.restoredSummaries}</strong></div>}
+                  {Boolean(report?.restoredAIStoreRecords) && <div>Записей ИИ: <strong className="text-text-main">{report?.restoredAIStoreRecords}</strong></div>}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <Button onClick={handleDismiss} className="px-3 py-1.5 text-xs text-text-main/60 hover:text-text-main">
+                Не сейчас
+              </Button>
+              <Button
+                onClick={() => void handleStartRestore()}
+                className="px-4 py-2 text-xs font-semibold bg-brand-soft text-surface-base hover:opacity-90"
+              >
+                Повторить
+              </Button>
+            </div>
           </div>
         )}
 
