@@ -15,13 +15,17 @@ export interface SyncStatusState {
 }
 
 const PENDING_GRACE_MS = 30_000;
-const POLL_INTERVAL_MS = 10_000;
+
+// AUD-25: индикатор задавал вопрос, который никто не ждал, — опрос IndexedDB
+// каждые 10 секунд. Теперь слой синка объявляет об изменениях очереди
+// (sync-queue-changed) и о сохранении версии (doc-version-saved), а хук
+// перечитывает счётчики только на эти события плюс один раз при подписке.
+const QUEUE_EVENTS = ['sync-queue-changed', 'doc-version-saved'] as const;
 
 // Shared across all useSyncStatus() instances (Sidebar, BottomNav, AppShell, AppTab
-// can all be mounted at once) so they don't each run their own IndexedDB poll.
+// can all be mounted at once) so they don't each run their own IndexedDB read.
 let sharedPendingCount = 0;
 let sharedUnsyncedCount = 0;
-let pollTimer: ReturnType<typeof setInterval> | null = null;
 let activeSubscribers = 0;
 let currentSubscribedUserId: string | null = null;
 const statusListeners = new Set<(counts: { pending: number; unsynced: number }) => void>();
@@ -42,20 +46,32 @@ function subscribeSyncStatus(userId: string | null, listener: (counts: { pending
   statusListeners.add(listener);
   activeSubscribers++;
   currentSubscribedUserId = userId;
-  if (!pollTimer) {
+  let pollTimer: ReturnType<typeof setTimeout> | null = null;
+  if (activeSubscribers === 1) {
     void pollSyncStatus(userId);
-    pollTimer = setInterval(() => void pollSyncStatus(currentSubscribedUserId), POLL_INTERVAL_MS);
+    const onQueueEvent = () => {
+      // Дебаунс: пачка событий (документ + версии) — один перечёт.
+      if (pollTimer) clearTimeout(pollTimer);
+      pollTimer = setTimeout(() => void pollSyncStatus(currentSubscribedUserId), 500);
+    };
+    QUEUE_EVENTS.forEach(evt => window.addEventListener(evt, onQueueEvent));
+    subscribeSyncStatusCleanup = () => {
+      QUEUE_EVENTS.forEach(evt => window.removeEventListener(evt, onQueueEvent));
+      if (pollTimer) clearTimeout(pollTimer);
+    };
   }
   return () => {
     statusListeners.delete(listener);
     activeSubscribers--;
-    if (activeSubscribers === 0 && pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
+    if (activeSubscribers === 0) {
+      subscribeSyncStatusCleanup?.();
+      subscribeSyncStatusCleanup = null;
       currentSubscribedUserId = null;
     }
   };
 }
+
+let subscribeSyncStatusCleanup: (() => void) | null = null;
 
 /**
  * Global sync health. Show indicator only when autoSyncEnabled && status !== 'synced'.

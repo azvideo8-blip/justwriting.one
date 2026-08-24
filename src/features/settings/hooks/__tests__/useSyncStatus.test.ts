@@ -49,3 +49,43 @@ describe("useSyncStatus — C7 sync status comparison", () => {
     });
   });
 });
+
+// AUD-25: вместо опроса IndexedDB каждые 10 секунд — подписка на события слоя
+// синка. Фальсификация: вернуть setInterval — тест на отсутствие таймера и
+// тест на событие краснеют.
+describe("useSyncStatus — AUD-25 event-driven", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, "true");
+  });
+
+  it("does not install a polling interval", async () => {
+    const intervalSpy = vi.spyOn(globalThis, "setInterval");
+    mockedPending.mockResolvedValue(0);
+    mockedUnsynced.mockResolvedValue(0);
+
+    renderHook(() => useSyncStatus("u1"));
+    await waitFor(() => expect(mockedPending).toHaveBeenCalled());
+
+    // Ни одного периодического таймера от хука (grace-таймеры — setTimeout).
+    const intervals = intervalSpy.mock.calls.filter(([, ms]) => typeof ms === "number" && ms >= 1000);
+    expect(intervals).toHaveLength(0);
+    intervalSpy.mockRestore();
+  });
+
+  it("re-reads counts when the sync layer announces a queue change", async () => {
+    mockedPending.mockResolvedValue(0);
+    mockedUnsynced.mockResolvedValue(0);
+
+    const { result } = renderHook(() => useSyncStatus("u1"));
+    await waitFor(() => expect(mockedPending).toHaveBeenCalledTimes(1));
+
+    mockedPending.mockResolvedValue(2);
+    window.dispatchEvent(new CustomEvent("sync-queue-changed"));
+    // Дебаунс перечёта 500 мс.
+    await new Promise((r) => setTimeout(r, 700));
+    await waitFor(() => {
+      expect(result.current.pendingCount).toBe(2);
+    });
+  });
+});

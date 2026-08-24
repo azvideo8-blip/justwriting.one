@@ -11,6 +11,16 @@ import pLimit from 'p-limit';
 const _syncInProgress = new Map<string, boolean>();
 const limit = pLimit(5);
 
+// AUD-25: индикатор синка больше не опрашивает IndexedDB каждые 10 секунд —
+// слой синка сам объявляет об изменениях очереди, и подписчики перечитывают
+// счётчики только тогда, когда что-то действительно изменилось.
+function announceQueueChange(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent('sync-queue-changed'));
+  } catch { /* non-critical */ }
+}
+
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
     const db = await getLocalDb();
@@ -31,6 +41,7 @@ export const SyncService = {
       });
     }
     await tx.done;
+    announceQueueChange();
   },
 
   async getPendingCount(): Promise<number> {
@@ -275,7 +286,10 @@ async function _drainPendingQueue(userId: string): Promise<void> {
     }
   }
 
-  if (syncedIds.length > 0) await _clearQueueItems(syncedIds);
+  if (syncedIds.length > 0) {
+    await _clearQueueItems(syncedIds);
+    announceQueueChange();
+  }
 }
 
 async function _clearQueueItems(ids: string[]): Promise<void> {
