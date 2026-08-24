@@ -46,7 +46,6 @@ vi.mock('../../crypto/recoveryCode', () => ({
 }));
 
 import { migrateFromLegacy } from '../LegacyKeyMigration';
-import { saveEncryptionMeta } from '../EncryptionMetaService';
 
 describe('AUD-14 migration issues a recovery code', () => {
   beforeEach(() => {
@@ -72,9 +71,9 @@ describe('AUD-14 migration issues a recovery code', () => {
 
   it('does not write vault metadata at all when recovery wrapping fails', async () => {
     const rc = await import('../../crypto/recoveryCode');
-    (rc.wrapDataKeyWithRecoveryCode as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('crypto down'));
+    vi.mocked(rc.wrapDataKeyWithRecoveryCode).mockRejectedValueOnce(new Error('crypto down'));
     await expect(migrateFromLegacy('u_mig_3', 'old', 'new')).rejects.toThrow('crypto down');
     // Мета без recovery-полей не должна попасть в хранилище.
-    expect(saveEncryptionMeta).not.toHaveBeenCalled();
+    expect(mockSaveMeta).not.toHaveBeenCalled();
   });
 });
