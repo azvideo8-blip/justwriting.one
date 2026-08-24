@@ -213,6 +213,18 @@ export async function hydrateSessionContent<T extends LoadedSession>(sessions: T
   const limiter = pLimit(5);
   return Promise.all(sessions.map(session => limiter(async () => {
     if (!session._contentNotLoaded) return session;
+    // Локальная заметка гидратируется из локальных версий: раньше список всегда
+    // нёс её текст, но с AUD-24 (withContent по запросу) текст может быть
+    // пропущен — а облачный путь ниже искал бы по локальному id.
+    if (session._isLocal) {
+      try {
+        const content = await LocalVersionService.getLatestContent(session.id);
+        return { ...session, content, _contentNotLoaded: false };
+      } catch (e) {
+        reportError(e, { action: 'hydrateSessionContent_local', documentId: session.id });
+        return { ...session, content: '', _contentError: true as const, _contentNotLoaded: false as const };
+      }
+    }
     const flags = await loadSessionContent(userId, session.id);
     return { ...session, ...flags };
   })));
