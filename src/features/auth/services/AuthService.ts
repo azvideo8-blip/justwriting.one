@@ -1,4 +1,4 @@
-import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser, type AppUser } from '../../../core/auth';
+import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser, reauthenticate, type AppUser } from '../../../core/auth';
 import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
@@ -211,9 +211,14 @@ async function unlockVaultFromPendingKeys(keys: { encryptionSalt: string; encryp
   return true;
 }
 
-async function deleteAccount(): Promise<void> {
+// AUD-20: удаление необратимо — живой сессии недостаточно, нужен пароль снова.
+async function deleteAccount(password: string): Promise<void> {
   const user = getCurrentUser();
   if (!user) throw new Error('No authenticated user');
+  if (!password) throw new Error('Password required to delete the account');
+  if (!user.email) throw new Error('Account has no email to re-authenticate');
+
+  await reauthenticate(user.email, password);
 
   const { callAi } = await import('../../../core/ai/callAi');
   await callAi('deleteAccount', {});

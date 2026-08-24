@@ -2,14 +2,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockSignIn = vi.fn();
 const mockSignUp = vi.fn();
+const mockReauthenticate = vi.fn();
+const mockGetCurrentUser = vi.fn();
 
 vi.mock('../../../core/auth', () => ({
-  getCurrentUser: vi.fn(() => null),
+  getCurrentUser: (...args: unknown[]) => mockGetCurrentUser(...args),
   signIn: (...args: unknown[]) => mockSignIn(...args),
   signUp: (...args: unknown[]) => mockSignUp(...args),
+  reauthenticate: (...args: unknown[]) => mockReauthenticate(...args),
   signOutUser: vi.fn(),
   sendPasswordResetEmail: vi.fn(),
   updateUserPassword: vi.fn(),
+}));
+
+const mockCallAi = vi.fn();
+vi.mock('../../../core/ai/callAi', () => ({
+  callAi: (...args: unknown[]) => mockCallAi(...args),
 }));
 
 const mockGetProfile = vi.fn();
@@ -48,6 +56,7 @@ import { AuthService } from '../services/AuthService';
 describe('AuthService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetCurrentUser.mockReturnValue(null);
   });
 
   it('getCurrentUserId returns null when no user', () => {
@@ -111,5 +120,33 @@ describe('AuthService', () => {
     mockRecoverVaultWithCode.mockResolvedValue(undefined);
     await AuthService.recoverVault('user_123', 'K7M4-9XPT-2WQN-BH5R-3JVD-6YFA', 'newPass123');
     expect(mockRecoverVaultWithCode).toHaveBeenCalledWith('user_123', 'K7M4-9XPT-2WQN-BH5R-3JVD-6YFA', 'newPass123');
+  });
+
+  // AUD-20: живая сессия не должна уметь стирать архив — нужен пароль снова.
+  describe('deleteAccount re-authentication (AUD-20)', () => {
+    const user = { uid: 'u1', email: 'u1@example.com' };
+
+    it('refuses to delete with an empty password', async () => {
+      mockGetCurrentUser.mockReturnValue(user);
+      await expect(AuthService.deleteAccount('')).rejects.toThrow('Password required');
+      expect(mockCallAi).not.toHaveBeenCalled();
+    });
+
+    it('deletes nothing when the password is wrong', async () => {
+      mockGetCurrentUser.mockReturnValue(user);
+      mockReauthenticate.mockRejectedValue(new Error('REAUTH_FAILED'));
+      await expect(AuthService.deleteAccount('wrong')).rejects.toThrow('REAUTH_FAILED');
+      expect(mockReauthenticate).toHaveBeenCalledWith('u1@example.com', 'wrong');
+      expect(mockCallAi).not.toHaveBeenCalled();
+    });
+
+    it('calls the endpoint only after successful re-authentication', async () => {
+      mockGetCurrentUser.mockReturnValue(user);
+      mockReauthenticate.mockResolvedValue(undefined);
+      mockCallAi.mockResolvedValue({ success: true });
+      await AuthService.deleteAccount('correct');
+      expect(mockReauthenticate).toHaveBeenCalledWith('u1@example.com', 'correct');
+      expect(mockCallAi).toHaveBeenCalledWith('deleteAccount', {});
+    });
   });
 });

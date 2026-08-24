@@ -66,6 +66,16 @@ export async function signIn(email: string, password: string): Promise<AppUser> 
   return mapUser(data.user)!;
 }
 
+// AUD-20: удаление аккаунта необратимо и требует пароль снова. Живая сессии
+// недостаточно — одолженный разблокированный ноутбук не должен уметь стирать
+// архив. Проверка идёт на сервер аутентификации, не в локальное состояние.
+export async function reauthenticate(email: string, password: string): Promise<void> {
+  const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+  if (error) {
+    throw new Error('REAUTH_FAILED');
+  }
+}
+
 export async function signUp(email: string, password: string): Promise<AppUser> {
   const { data, error } = await getSupabase().auth.signUp({ email, password });
   if (error) throw error;

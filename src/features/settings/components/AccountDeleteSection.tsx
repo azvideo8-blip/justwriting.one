@@ -25,6 +25,10 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
   const [deleting, setDeleting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resettingAchievements, setResettingAchievements] = useState(false);
+  // AUD-20: удаление требует пароль снова — подтверждения кликом мало.
+  const [askingPassword, setAskingPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState(false);
 
   if (!isAuthenticated) {
     return null;
@@ -36,16 +40,28 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
       message: t('settings_delete_account_confirm_message'),
     });
     if (!ok) return;
+    setAuthError(false);
+    setPassword('');
+    setAskingPassword(true);
+  };
 
+  const handleConfirmPassword = async () => {
     setDeleting(true);
+    setAuthError(false);
     try {
-      await AuthService.deleteAccount();
+      await AuthService.deleteAccount(password);
       resetAndClear();
       showToast(t('settings_delete_account_success'), 'success');
       void navigate('/login');
     } catch (err) {
       reportError(err, { action: 'deleteAccount', userId });
+      if (err instanceof Error && err.message === 'REAUTH_FAILED') {
+        setAuthError(true);
+        setDeleting(false);
+        return;
+      }
       showToast(t('settings_delete_account_error'), 'error');
+      setAskingPassword(false);
     } finally {
       setDeleting(false);
     }
@@ -84,6 +100,28 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
           </div>
         </div>
 
+        {askingPassword ? (
+          <form
+            className="space-y-2 pt-2"
+            onSubmit={(e) => { e.preventDefault(); if (password && !deleting) void handleConfirmPassword(); }}
+          >
+            <p className="text-xs text-text-main/70">
+              Введите пароль, чтобы подтвердить удаление аккаунта. Это необратимо.
+            </p>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={deleting}
+              autoFocus
+              className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-transparent text-sm text-text-main focus:border-accent-danger/50 outline-none"
+              placeholder="Пароль"
+            />
+            {authError && (
+              <p className="text-xs text-accent-danger">Неверный пароль.</p>
+            )}
+          </form>
+        ) : (
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
             onClick={() => void handleDeleteAccount()}
@@ -119,6 +157,24 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
             </div>
           )}
         </div>
+        )}
+        {askingPassword && (
+          <div className="flex gap-2">
+            <Button
+              onClick={() => void handleConfirmPassword()}
+              disabled={deleting || !password}
+              className="px-4 py-3 rounded-xl border border-accent-danger/40 bg-accent-danger/10 text-accent-danger hover:bg-accent-danger/20 text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              {deleting ? 'Удаление аккаунта...' : 'Удалить безвозвратно'}
+            </Button>
+            <Button
+              onClick={() => { setAskingPassword(false); setPassword(''); }}
+              className="px-4 py-3 rounded-xl border border-border-subtle text-xs text-text-main/60 hover:text-text-main transition-colors"
+            >
+              {t('writing_cancel')}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
