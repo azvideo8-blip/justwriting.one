@@ -1,36 +1,17 @@
 import * as Sentry from '@sentry/react';
 import { useActivityLogStore } from '../activity/useActivityLogStore';
+import { scrubPii } from './piiScrub';
 
 type ErrorContext = Record<string, string | number | boolean | null | undefined>;
-
-// Ключи, значения которых не попадают ни в журнал, ни в отчёт об ошибке.
-// Заголовок заметки — такие же личные данные, как её текст: «Развод, день 4»
-// говорит достаточно. Он попадал в журнал активности в localStorage, а оттуда в
-// буфер обмена по кнопке «скопировать журнал».
-// Вычёркивание идёт по точному имени ключа, поэтому список должен покрывать
-// семью, а не отдельных её представителей: `docId` рядом с `documentId` — это
-// тот же идентификатор под другим именем, и одного его хватало, чтобы обойти
-// защиту. `tag`, `theme` и `label` — придуманные человеком слова, то самое,
-// что шифруется в облаке и не должно лежать открытым в журнале на устройстве.
-const PII_KEYS = new Set([
-  'userId', 'uid', 'email', 'linkedCloudId',
-  'documentId', 'docId', 'docUuid', 'localId', 'versionId', 'sessionId',
-  'personaId', 'domainId', 'labelId', 'noteId', 'threadId',
-  'title', 'docTitle', 'content', 'text', 'rawContent', 'summary',
-  'tag', 'theme', 'label', 'name', 'query', 'snippet', 'prompt', 'answer', 'message',
-]);
 
 export function reportError(
   error: unknown,
   context: ErrorContext = {},
   level: 'error' | 'warning' = 'error'
 ): void {
-  const safeContext: ErrorContext = {};
-  for (const [key, value] of Object.entries(context)) {
-    if (!PII_KEYS.has(key)) {
-      safeContext[key] = value;
-    }
-  }
+  // Список PII-ключей общий с журналом активности (piiScrub.ts): фильтр,
+  // стоящий здесь, не должен обходиться прямыми вызовами addActivity.
+  const safeContext: ErrorContext = scrubPii(context);
 
   try {
     const source =

@@ -163,6 +163,11 @@ type ContentFlags = Pick<LoadedSession, 'content' | '_locked' | '_decryptionErro
 export async function loadSessionContent(userId: string, cloudDocumentId: string): Promise<ContentFlags> {
   try {
     const latest = await VersionService.getLatestVersion(userId, cloudDocumentId);
+    if (latest === 'PARSE_FAILED') {
+      // Версия есть, но запись не прошла валидацию. Это не «заметка пуста»:
+      // пустой текст без флага уходил бы в экспорт как успешный файл.
+      return { content: '', _contentError: true, _contentNotLoaded: false };
+    }
     if (!latest) return { content: '', _contentNotLoaded: false };
     try {
       const decrypted = await maybeDecrypt({ ...latest } as Record<string, unknown>, ['content'], []);

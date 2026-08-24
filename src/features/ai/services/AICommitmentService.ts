@@ -1,4 +1,4 @@
-import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
+import { getLocalDb, randomUUID, type AIDocumentEmbedding } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
@@ -66,9 +66,22 @@ export const AICommitmentService = {
       const openCommitments = allCommitments.filter(c => c.status === 'open');
       if (openCommitments.length === 0) return [];
 
-      const embeddings = await db.getAll('aiEmbeddings');
+      // Векторы всех заметок здесь не нужны целиком: совпадение ищется только
+      // по документам, созданным ПОСЛЕ обязательства. Собираем нужные id и
+      // читаем их эмбеддинги поштучно (AUD-8: полный getAll десериализовал
+      // весь стор векторов на каждый ход чата).
       const documents = await db.getAll('documents');
-      const embMap = new Map(embeddings.map(e => [e.documentId, e]));
+      const earliestNeeded = Math.min(
+        ...openCommitments.filter(c => c.vector).map(c => c.createdAt),
+      );
+      const embMap = new Map<string, AIDocumentEmbedding>();
+      if (Number.isFinite(earliestNeeded)) {
+        for (const d of documents) {
+          if ((d.lastSessionAt ?? 0) <= earliestNeeded) continue;
+          const emb = await db.get('aiEmbeddings', d.id);
+          if (emb) embMap.set(d.id, emb);
+        }
+      }
 
       const now = Date.now();
       const ageLimitMs = 21 * 24 * 60 * 60 * 1000;

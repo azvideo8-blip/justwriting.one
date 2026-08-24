@@ -1,11 +1,15 @@
-import type { Timestamp } from 'firebase/firestore';
-
-/** Время, как оно приходит из разбора профиля: Postgres отдаёт строку или
- *  число, а `firestoreTimestampSchema` допускает ещё и пару seconds/nanoseconds
- *  (легаси-форма из времён Firebase). Тип нужен, чтобы разобранный профиль
- *  ложился в `UserProfile` без приведения — приведение и скрывало полгода то,
- *  что схема теряет поля. */
-export interface TimestampLike { seconds: number; nanoseconds: number }
+/** Форма, а не зависимость: Firestore здесь больше нет, а пакет тянулся ради
+ *  одного типа. Легаси-объект с seconds/nanoseconds приходит из старых
+ *  экспортов; toDate опционален и вызывается утиной проверкой в dateUtils,
+ *  поэтому пары seconds/nanoseconds из zod-схемы тип тоже покрывает. */
+export interface TimestampLike {
+  seconds: number;
+  nanoseconds: number;
+  toDate?(): Date;
+}
+/** Локальный дубль удалённого `firebase/firestore.Timestamp`: только та часть
+ *  формы, которую реально используют типы ниже. */
+type Timestamp = TimestampLike;
 
 export interface Label {
   id: string;

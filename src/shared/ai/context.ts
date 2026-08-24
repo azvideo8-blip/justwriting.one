@@ -38,6 +38,11 @@ export interface AiContext {
     uid: string,
     reasoning?: boolean,
   ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT'>;
+  /** Согласие на обработку специальных категорий (AUD-2). Серверный гейт:
+   *  клиентский обходится прямым POST /api/chat. */
+  getAiConsent(uid: string): Promise<{ granted: boolean }>;
+  /** Согласие на векторную индексацию — для embedDocument. */
+  getIndexingConsent(uid: string): Promise<{ granted: boolean }>;
 }
 
 /** Result of a successful charge: the caller keeps `day` and passes it to the

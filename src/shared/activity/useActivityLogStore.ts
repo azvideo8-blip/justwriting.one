@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { scrubPii } from '../errors/piiScrub';
 
 export type ActivityLevel = 'error' | 'warning' | 'info' | 'success';
 
@@ -129,14 +130,20 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
   panelOpen: false,
   setPanelOpen: (open) => set({ panelOpen: open }),
 
-  addActivity: (messageOrError, context, level = 'info', source) => {
+  addActivity: (messageOrError, rawContext, level = 'info', source) => {
     const message = extractMessage(messageOrError);
+    // Контекст проходит тот же PII-фильтр, что и reportError: прямые вызовы
+    // addActivity раньше писали контекст дословно, и следующий вызывающий мог
+    // положить в него заголовок или фрагмент заметки.
+    const context = scrubPii(rawContext);
     const now = Date.now();
     const current = get().entries;
     const first = current[0];
 
     const isActionMatch =
-      first?.context && context && first.context.action && context.action && first.context.action === context.action;
+      first?.context !== undefined && context !== undefined
+      && first.context.action !== undefined && context.action !== undefined
+      && first.context.action === context.action;
     const isSameSource = first?.source === source || isActionMatch;
     const isSameMessage = first?.message === message;
     const isRecent = first && now - first.time <= DEDUPE_WINDOW_MS;
@@ -146,7 +153,7 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
         ...first,
         time: now,
         count: first.count + 1,
-        context: context ?? first.context,
+        context: Object.keys(context).length > 0 ? { ...(first.context ?? {}), ...context } : first.context,
       };
       const nextEntries = [updated, ...current.slice(1)];
       set({ entries: nextEntries });
@@ -158,7 +165,7 @@ export const useActivityLogStore = create<ActivityLogState>((set, get) => ({
       id: `act_${now}_${Math.random().toString(36).slice(2, 7)}`,
       time: now,
       message,
-      context,
+      context: Object.keys(context).length > 0 ? context : undefined,
       level,
       source,
       count: 1,

@@ -47,19 +47,31 @@ export const ConflictResolver = {
       const localVerNums = new Set(localVersions.map(v => v.version));
 
       for (const cv of cloudVersions) {
-        if (!localVerNums.has(cv.version)) {
-          await LocalVersionService.addVersion(userId, documentId, {
-            content: cv.content,
-            previousContent: '',
-            wordCount: cv.wordCount,
-            duration: cv.duration,
-            wpm: cv.wpm,
-            versionNumber: cv.version,
-            sessionStartedAt: cv.sessionStartedAt ?? new Date(),
-            savedAt: cv.savedAt ?? undefined,
-            mood: cv.mood,
-          });
+        if (localVerNums.has(cv.version)) continue;
+
+        // Тот же инвариант, что в addCloudCopy: локальный стор хранит
+        // открытый текст, шифротекст в него не пишется.
+        const { maybeDecrypt, DecryptionError } = await import('../crypto/cryptoHelpers');
+        let plain: Record<string, unknown>;
+        try {
+          plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+        } catch (decErr) {
+          if (!(decErr instanceof DecryptionError)) throw decErr;
+          reportError(decErr, { action: 'resolveConflict_decrypt', linkedCloudId, version: cv.version });
+          continue;
         }
+
+        await LocalVersionService.addVersion(userId, documentId, {
+          content: typeof plain.content === 'string' ? plain.content : '',
+          previousContent: '',
+          wordCount: cv.wordCount,
+          duration: cv.duration,
+          wpm: cv.wpm,
+          versionNumber: cv.version,
+          sessionStartedAt: cv.sessionStartedAt ?? new Date(),
+          savedAt: cv.savedAt ?? undefined,
+          mood: cv.mood,
+        });
       }
       const maxCloudVersion = Math.max(cloudDoc.currentVersion, ...cloudVersions.map(v => v.version), 0);
       await LocalStorageService.updateAfterSession(documentId, {

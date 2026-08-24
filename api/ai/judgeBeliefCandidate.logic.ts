@@ -129,7 +129,9 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
 
     const valResult = verdictSchema.safeParse(obj);
     if (!valResult.success) {
-      console.warn('[judgeBeliefCandidate] unparseable verdict (fail-open passed=false):', result.text.slice(0, 300));
+      // В журнал сервера — форма ответа, а не его содержимое: текст выведен из
+      // заметок человека, а журнал не шифруется и не проходит через PII-фильтр.
+      console.warn('[judgeBeliefCandidate] unparseable verdict (fail-open passed=false):', { length: result.text.length });
       return { passed: false, reason: 'Unparseable judge verdict.', correctiveHint: '' };
     }
 

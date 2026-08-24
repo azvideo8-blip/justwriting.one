@@ -90,7 +90,9 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
 
     const arr = z.object({ verdicts: z.array(verdictSchema) }).safeParse(obj);
     if (!arr.success) {
-      console.warn('[AI judge] no valid verdicts (soft failure, empty):', result.text.slice(0, 400));
+      // В журнал сервера — форма ответа, а не его содержимое: текст выведен из
+      // заметок человека, а журнал не шифруется и не проходит через PII-фильтр.
+      console.warn('[AI judge] no valid verdicts (soft failure, empty):', { length: result.text.length });
       return { verdicts: [] };
     }
     const verdicts = arr.data.verdicts.map(v => ({

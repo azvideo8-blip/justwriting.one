@@ -174,7 +174,17 @@ export async function streamChat(params: {
     throw new Error(errorKind);
   }
   if (response.status === 502 || response.status === 503 || response.status === 504) throw new Error('UPSTREAM');
-  if (!response.ok) throw new Error('SERVER_ERROR');
+  if (!response.ok) {
+    // Сервер отвечает кодом в теле; без разбора человек видит «произошла
+    // ошибка» на несколько разных случаев, из которых часть он может исправить
+    // сам: согласие не дано, лимит, неверный размер запроса.
+    let code = 'SERVER_ERROR';
+    try {
+      const body = await response.clone().json() as { error?: unknown };
+      if (typeof body.error === 'string') code = body.error;
+    } catch { /* тело не JSON или стрим уже начат — остаётся SERVER_ERROR */ }
+    throw new Error(code);
+  }
 
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();

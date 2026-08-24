@@ -254,7 +254,8 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       // Doing it before the write also stops a needless re-encrypt of a document
       // that is already encrypted, which is what the missing badge invited.
       const latest = await VersionService.getLatestVersion(userId, item.cloudId);
-      if ((latest as unknown as { _encrypted?: boolean } | null)?._encrypted) {
+      // 'PARSE_FAILED' — строка не читается целиком; _encrypted у неё не спросить.
+      if (latest !== 'PARSE_FAILED' && (latest as unknown as { _encrypted?: boolean } | null)?._encrypted) {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, cloudEncrypted: true } : i));
         showToast('Уже зашифровано в облаке', 'success');
         return;

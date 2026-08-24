@@ -283,19 +283,33 @@ export const CloudSyncService = {
 
           // 1. Pull missing cloud versions down to local
           for (const cv of cloudVersions) {
-            if (!localVerMap.has(cv.version)) {
-              await LocalVersionService.addVersion(userId, localDocumentId, {
-                content: cv.content,
-                previousContent: '',
-                wordCount: cv.wordCount,
-                duration: cv.duration,
-                wpm: cv.wpm,
-                versionNumber: cv.version,
-                sessionStartedAt: cv.sessionStartedAt ?? new Date(),
-                savedAt: cv.savedAt ?? undefined,
-                mood: cv.mood,
-              });
+            if (localVerMap.has(cv.version)) continue;
+
+            // Локальный стор хранит открытый текст — инвариант объявлен в
+            // addLocalCopy. Нерасшифрованную версию писать в него нельзя:
+            // редактор покажет Base64, а первое же сохранение сделает мусор
+            // текущей версией и увезёт его в облако.
+            let plain: Record<string, unknown>;
+            try {
+              plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+            } catch (decErr) {
+              if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+              if (!(decErr instanceof DecryptionError)) throw decErr;
+              reportError(decErr, { action: 'addCloudCopy_decrypt', cloudId, version: cv.version });
+              continue;
             }
+
+            await LocalVersionService.addVersion(userId, localDocumentId, {
+              content: typeof plain.content === 'string' ? plain.content : '',
+              previousContent: '',
+              wordCount: cv.wordCount,
+              duration: cv.duration,
+              wpm: cv.wpm,
+              versionNumber: cv.version,
+              sessionStartedAt: cv.sessionStartedAt ?? new Date(),
+              savedAt: cv.savedAt ?? undefined,
+              mood: cv.mood,
+            });
           }
 
           // 2. Identify local versions missing from cloud, or colliding with different content
@@ -568,19 +582,31 @@ export const CloudSyncService = {
 
       // Pull missing cloud versions down to local
       for (const cv of cloudVersions) {
-        if (!localVerNums.has(cv.version)) {
-          await LocalVersionService.addVersion(userId, documentId, {
-            content: cv.content,
-            previousContent: '',
-            wordCount: cv.wordCount,
-            duration: cv.duration,
-            wpm: cv.wpm,
-            versionNumber: cv.version,
-            sessionStartedAt: cv.sessionStartedAt ?? new Date(),
-            savedAt: cv.savedAt ?? undefined,
-            mood: cv.mood,
-          });
+        if (localVerNums.has(cv.version)) continue;
+
+        // Тот же инвариант, что в addCloudCopy: локальный стор хранит
+        // открытый текст, шифротекст в него не пишется.
+        let plain: Record<string, unknown>;
+        try {
+          plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+        } catch (decErr) {
+          if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+          if (!(decErr instanceof DecryptionError)) throw decErr;
+          reportError(decErr, { action: 'syncVersionToCloud_decrypt', cloudId: linkedCloudId, version: cv.version });
+          continue;
         }
+
+        await LocalVersionService.addVersion(userId, documentId, {
+          content: typeof plain.content === 'string' ? plain.content : '',
+          previousContent: '',
+          wordCount: cv.wordCount,
+          duration: cv.duration,
+          wpm: cv.wpm,
+          versionNumber: cv.version,
+          sessionStartedAt: cv.sessionStartedAt ?? new Date(),
+          savedAt: cv.savedAt ?? undefined,
+          mood: cv.mood,
+        });
       }
 
       const newestCloudVersion = cloudVersions.reduce((max, v) => Math.max(max, v.version ?? 0), 0);

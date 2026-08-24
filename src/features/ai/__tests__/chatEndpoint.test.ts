@@ -14,6 +14,8 @@ vi.mock("../../../../api/postgresAiContext", () => ({
     refundDailyLimit: vi.fn(),
     refundBulkLimit: vi.fn(),
     refundGlobalRequest: vi.fn(),
+    getAiConsent: vi.fn(),
+    getIndexingConsent: vi.fn(),
   },
 }));
 
@@ -102,6 +104,8 @@ function createMockRes(): {
 describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(postgresAiContext.getAiConsent).mockResolvedValue({ granted: true });
+    vi.mocked(postgresAiContext.getIndexingConsent).mockResolvedValue({ granted: true });
     vi.mocked(postgresAiContext.checkAndIncrementLimit).mockResolvedValue({ ok: true, day: '2026-08-22' });
     vi.mocked(postgresAiContext.checkAndIncrementBulkLimit).mockResolvedValue({ ok: true, day: '2026-08-22' });
     vi.mocked(postgresAiContext.tryReserveGlobalRequest).mockResolvedValue({

@@ -25,6 +25,8 @@ vi.mock('../postgresAiContext', () => ({
     getUserDailyLimit: vi.fn(),
     isAdmin: vi.fn(),
     checkDailyLimit: vi.fn(),
+    getAiConsent: vi.fn().mockResolvedValue({ granted: true }),
+    getIndexingConsent: vi.fn().mockResolvedValue({ granted: true }),
   },
 }));
 

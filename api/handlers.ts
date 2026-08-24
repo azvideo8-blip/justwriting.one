@@ -48,6 +48,8 @@ const CODE_TO_HTTP: Record<string, number> = {
   'permission-denied': 403,
   'invalid-argument': 400,
   'resource-exhausted': 429,
+  // Согласие не дано — отказ по праву субъекта, а не сбой сервиса.
+  'AI_CONSENT_REQUIRED': 403,
   'internal': 500,
 };
 
@@ -70,6 +72,25 @@ export async function handleAiEndpoint(
   const logicFn = LOGIC_MAP[endpoint];
   if (!logicFn) {
     return { status: 404, body: { error: `AI endpoint '${endpoint}' not found.` } };
+  }
+
+  // AUD-2: серверный гейт согласия. Клиентский (callAi) остаётся как
+  // вежливость, но гарантией быть не может. Исключения — те же, что и там:
+  // удаление аккаунта и телеметрия не про обработку записей.
+  if (endpoint !== 'deleteAccount' && endpoint !== 'sendTelemetry') {
+    if (endpoint === 'embedDocument') {
+      // Индексация гоняет фрагменты заметок через модель эмбеддингов —
+      // отдельное согласие, отдельная колонка.
+      const indexing = await postgresAiContext.getIndexingConsent(uid);
+      if (!indexing.granted) {
+        return { status: 403, body: { error: { code: 'INDEXING_CONSENT_REQUIRED', message: 'Indexing consent required.' } } };
+      }
+    } else {
+      const consent = await postgresAiContext.getAiConsent(uid);
+      if (!consent.granted) {
+        return { status: 403, body: { error: { code: 'AI_CONSENT_REQUIRED', message: 'AI processing consent required.' } } };
+      }
+    }
   }
 
   try {

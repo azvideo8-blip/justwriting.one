@@ -5,6 +5,7 @@ import { reportError } from '../../shared/errors/reportError';
 import { versionDbSchema } from '../data/schemas';
 
 export const VersionService = {
+
   async addVersion(
     userId: string,
     documentId: string,
@@ -103,13 +104,16 @@ export const VersionService = {
     return parsed.data.content || '';
   },
 
-  async getLatestVersion(userId: string, documentId: string): Promise<Version | null> {
+  /** null = версии нет; PARSE_FAILED = версия есть, но не читается. Слитно эти
+   *  два случая путал «заметка пуста» с «заметка нечитаема»: экспорт писал
+   *  пустой файл и рапортовал об успехе (AUD-5). */
+  async getLatestVersion(userId: string, documentId: string): Promise<Version | 'PARSE_FAILED' | null> {
     const raw = await DataProvider.getLatestVersion(userId, documentId);
     if (!raw) return null;
     const parsed = versionDbSchema.safeParse({ id: raw.id, ...raw });
     if (!parsed.success) {
       reportError(parsed.error, { action: 'getLatestVersion_parse', docId: documentId });
-      return null;
+      return 'PARSE_FAILED';
     }
     return parsed.data as Version;
   },

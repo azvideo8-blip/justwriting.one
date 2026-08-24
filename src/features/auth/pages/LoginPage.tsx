@@ -29,6 +29,42 @@ interface LoginPageProps {
 // регистрации на сервере, не раньше.
 const SIGNUP_ENABLED = false;
 
+type SupabaseAuthError = { code?: string; message?: string; status?: number };
+
+/** Коды Supabase Auth (invalid_credentials и т.п.) в текст для человека.
+ *  До переезда здесь стояли коды Firebase (`auth/wrong-password`), которые
+ *  Supabase не присылает никогда — любая ошибка показывалась как общая. */
+export function mapSupabaseAuthError(
+  err: unknown,
+  t: (key: string) => string,
+): string {
+  const e = (err ?? {}) as SupabaseAuthError;
+  let msg = t('auth_error_generic');
+  // SEC-35: Generic unified error for credential failures to prevent user enumeration
+  if (e.code === 'invalid_credentials') {
+    // Сюда же попадают несуществующий аккаунт и неверный пароль — намеренно.
+    msg = t('auth_error_invalid_credential');
+  } else if (e.code === 'user_already_exists' || e.code === 'email_exists') {
+    msg = t('auth_error_email_in_use');
+  } else if (e.code === 'weak_password') {
+    msg = t('auth_error_weak_password');
+  } else if (e.code === 'email_not_confirmed') {
+    msg = t('auth_error_email_not_confirmed');
+  }
+
+  if (
+    e.status === 429 ||
+    e.code === 'over_request_rate_limit' ||
+    e.code === 'over_email_send_rate_limit' ||
+    e.code === 'too_many_requests'
+  ) {
+    msg = t('auth_error_rate_limited');
+  } else if (e.code === 'request_timeout' || e.code === 'network_error') {
+    msg = t('auth_error_network');
+  }
+  return msg;
+}
+
 export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -104,37 +140,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       }
     } catch (err: unknown) {
       reportError(err, { action: 'emailAuth', mode });
-      const firebaseError = err as { code?: string; message?: string; status?: number };
-      let msg = t('auth_error_generic');
-      // SEC-35: Generic unified error for credential failures to prevent user enumeration
-      if (
-        firebaseError.code === 'auth/user-not-found' ||
-        firebaseError.code === 'auth/wrong-password' ||
-        firebaseError.code === 'auth/invalid-credential'
-      ) {
-        msg = t('auth_error_invalid_credential');
-      } else if (firebaseError.code === 'auth/email-already-in-use') {
-        msg = t('auth_error_email_in_use');
-      } else if (firebaseError.code === 'auth/weak-password') {
-        msg = t('auth_error_weak_password');
-      }
-
-      if (
-        firebaseError.status === 429 ||
-        firebaseError.code === 'auth/too-many-requests' ||
-        firebaseError.code === 'over_request_rate_limit' ||
-        firebaseError.code === 'over_email_send_rate_limit' ||
-        firebaseError.code === 'too_many_requests'
-      ) {
-        msg = t('auth_error_rate_limited');
-      } else if (firebaseError.code === 'auth/operation-not-allowed') {
-        msg = t('auth_error_operation_not_allowed');
-      } else if (firebaseError.code === 'auth/network-request-failed') {
-        msg = t('auth_error_network');
-      } else if (firebaseError.code === 'auth/internal-error') {
-        msg = t('auth_error_internal');
-      }
-      setError(msg);
+      setError(mapSupabaseAuthError(err, t));
     } finally {
       setLoading(false);
     }

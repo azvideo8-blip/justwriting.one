@@ -72,6 +72,53 @@ async function refundGlobalRequest(res: GlobalReservation | null | undefined): P
 const PER_USER_LIMIT = parseInt(process.env.AI_DAILY_LIMIT ?? String(DAILY_LIMIT), 10);
 const ADMIN_DAILY_LIMIT = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '20', 10);
 
+// Версии согласий. Должны совпадать с PRIVACY_VERSION (src/core/constants)
+// и INDEXING_CONSENT_VERSION (src/core/ai/indexingConsent): сервер сверяет
+// колонку версии, чтобы устаревшее согласие не считалось данным.
+const AI_CONSENT_VERSION_REQUIRED = 2;
+const INDEXING_CONSENT_VERSION_REQUIRED = 1;
+
+// ── Согласие на обработку (AUD-2) ────────────────────────────────────────────
+// Клиентский гейт в callAi обходится прямым запросом к /api/chat — именно этим
+// путём идёт основной чат. Гарантия «без согласия текст не обрабатывается»
+// может стоять только здесь, где ей не нужны честность браузера.
+async function getAiConsent(uid: string): Promise<{ granted: boolean }> {
+  try {
+    const { rows } = await pool.query(
+      'SELECT ai_consent_at, ai_consent_version FROM public.users WHERE uid = $1',
+      [uid],
+    );
+    const row = rows[0];
+    return {
+      granted: !!row?.ai_consent_at
+        && (row.ai_consent_version ?? 0) >= AI_CONSENT_VERSION_REQUIRED,
+    };
+  } catch (e) {
+    // Ошибка чтения — не «согласия нет»: отказ обработки по сбою БД запер бы
+    // весь чат. Но и пропустить нельзя, поэтому наружу отдаём отказ,
+    // а причина уходит в журнал.
+    console.error('[postgresAiContext] getAiConsent error', e);
+    return { granted: false };
+  }
+}
+
+async function getIndexingConsent(uid: string): Promise<{ granted: boolean }> {
+  try {
+    const { rows } = await pool.query(
+      'SELECT indexing_consent_at, indexing_consent_version FROM public.users WHERE uid = $1',
+      [uid],
+    );
+    const row = rows[0];
+    return {
+      granted: !!row?.indexing_consent_at
+        && (row.indexing_consent_version ?? 0) >= INDEXING_CONSENT_VERSION_REQUIRED,
+    };
+  } catch (e) {
+    console.error('[postgresAiContext] getIndexingConsent error', e);
+    return { granted: false };
+  }
+}
+
 async function isAdmin(uid: string): Promise<boolean> {
   try {
     const { rows } = await pool.query('SELECT role FROM users WHERE uid = $1', [uid]);
@@ -256,6 +303,8 @@ export const postgresAiContext: AiContext = {
   recordUsage,
   tryReserveGlobalRequest,
   refundGlobalRequest,
+  getAiConsent,
+  getIndexingConsent,
   checkDailyLimit,
   refundDailyLimit,
   getDailyLimitCount,

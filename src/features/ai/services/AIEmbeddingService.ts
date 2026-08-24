@@ -23,6 +23,45 @@ const ARRAY_FIELDS: string[] = [];
 
 const MAX_CLOUD_EMBEDDING_BYTES = 1_000_000;
 
+// Реестр свежести выгрузки (AUD-8). Запись эмбеддинга тянет сотни КБ векторов,
+// поэтому «есть ли отстающие» нельзя выяснять полным чтением стора на каждый
+// фоновый проход. Здесь держится только признак: documentId → 1, если запись
+// уже синхронизирована или помечена как превышающая лимит. Обновляется во всех
+// местах, где пишутся cloudSyncedAt/cloudSkipped; при отсутствии записи в
+// реестре считается, что она не синхронизирована (безопасно: лишняя выгрузка
+// вместо потери).
+const CLOUD_FRESH_LS_KEY = 'ai_embedding_cloud_fresh_v1';
+
+function loadFreshLedger(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(CLOUD_FRESH_LS_KEY);
+    if (raw) return JSON.parse(raw) as Record<string, number>;
+  } catch { /* ignore */ }
+  return {};
+}
+
+function saveFreshLedger(ledger: Record<string, number>): void {
+  try { localStorage.setItem(CLOUD_FRESH_LS_KEY, JSON.stringify(ledger)); } catch { /* ignore */ }
+}
+
+/** Помечает запись выгруженной (или пропущенной по размеру) в реестре. */
+export function markCloudFresh(documentId: string): void {
+  const ledger = loadFreshLedger();
+  if (!ledger[documentId]) {
+    ledger[documentId] = Date.now();
+    saveFreshLedger(ledger);
+  }
+}
+
+/** Снимает пометку: запись изменилась и снова подлежит выгрузке. */
+export function markCloudStale(documentId: string): void {
+  const ledger = loadFreshLedger();
+  if (ledger[documentId] !== undefined) {
+    delete ledger[documentId];
+    saveFreshLedger(ledger);
+  }
+}
+
 export function isOversizedError(msg: string): boolean {
   return /exceeds the maximum allowed size|exceeds.*1,?048,?576|invalid-argument.*size|document.*too large/i.test(msg);
 }
@@ -155,6 +194,8 @@ export const AIEmbeddingService = {
     const doc = await db.get('documents', emb.documentId);
     const withUuid = doc?.uuid ? { ...emb, documentUuid: doc.uuid } : emb;
     await db.put('aiEmbeddings', withUuid);
+    // Запись обновилась — старая пометка выгрузки больше не действует.
+    markCloudStale(emb.documentId);
 
     const uid = getCurrentUser()?.uid;
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
@@ -166,13 +207,16 @@ export const AIEmbeddingService = {
         const { skipped } = await saveEmbeddingToCloud(uid, withUuid);
         if (skipped) {
           await db.put('aiEmbeddings', { ...withUuid, cloudSkipped: true });
+          markCloudFresh(withUuid.documentId);
         } else {
           await db.put('aiEmbeddings', { ...withUuid, cloudSyncedAt: Date.now() });
+          markCloudFresh(withUuid.documentId);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (isOversizedError(msg)) {
           await db.put('aiEmbeddings', { ...withUuid, cloudSkipped: true });
+          markCloudFresh(withUuid.documentId);
         } else if (!msg.includes('ENCRYPT_REQUIRED')) {
           reportError(e, { action: 'ai_embedding_cloud_save' });
         }
@@ -187,8 +231,19 @@ export const AIEmbeddingService = {
   async syncPendingToCloud(): Promise<{ synced: number; pending: number; locked: boolean }> {
     const uid = getCurrentUser()?.uid;
     const db = await getLocalDb();
-    const all = await db.getAll('aiEmbeddings');
-    const pending = all.filter(e => !e.cloudSyncedAt && !e.cloudSkipped);
+    // Полный getAll здесь десериализовал векторы и чанк-тексты ВСЕХ заметок
+    // на каждый фоновый проход ради пары отставших. Свежесть берём из
+    // реестра (AUD-8), целиком читаем только отстающие записи.
+    const ledger = loadFreshLedger();
+    const keys = await db.getAllKeys('aiEmbeddings');
+    const pending: AIDocumentEmbedding[] = [];
+    for (const key of keys) {
+      if (ledger[String(key)]) continue;
+      const meta = await db.get('aiEmbeddings', key);
+      if (meta && !meta.cloudSyncedAt && !meta.cloudSkipped) {
+        pending.push(meta);
+      }
+    }
     if (!uid || pending.length === 0) return { synced: 0, pending: pending.length, locked: false };
 
 
@@ -200,14 +255,17 @@ export const AIEmbeddingService = {
         const { skipped } = await saveEmbeddingToCloud(uid, emb);
         if (skipped) {
           await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+          markCloudFresh(emb.documentId);
         } else {
           await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
+          markCloudFresh(emb.documentId);
           synced++;
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         if (isOversizedError(msg)) {
           await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
+          markCloudFresh(emb.documentId);
         } else if (msg.includes('ENCRYPT_REQUIRED')) {
           return { synced, pending: pending.length, locked: true };
         } else {
@@ -237,5 +295,6 @@ export const AIEmbeddingService = {
   async delete(documentId: string): Promise<void> {
     const db = await getLocalDb();
     await db.delete('aiEmbeddings', documentId);
+    markCloudStale(documentId);
   },
 };

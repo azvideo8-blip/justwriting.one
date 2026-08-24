@@ -348,6 +348,13 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   }
   const uid = session.uid;
 
+  // AUD-2: согласие проверяется здесь, а не в браузере — клиентский гейт
+  // обходится прямым запросом, а именно этим путём и идёт основной чат.
+  const consent = await postgresAiContext.getAiConsent(uid);
+  if (!consent.granted) {
+    return json(res, 403, { error: 'AI_CONSENT_REQUIRED' });
+  }
+
   let body: unknown;
   try {
     const raw = await readBody(req);

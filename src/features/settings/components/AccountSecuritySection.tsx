@@ -50,12 +50,17 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
       setNewPassword('');
     } catch (err: unknown) {
       reportError(err, { action: 'changePassword', userId });
-      const firebaseError = err as { code?: string; message?: string };
+      // Коды Supabase: до переезда здесь ждали auth/* от Firebase — любая
+      // ошибка обновления пароля показывалась как общая.
+      const e = (err ?? {}) as { code?: string; status?: number };
       let msg = t('auth_error_generic');
-      if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
+      if (e.code === 'invalid_credentials') {
         msg = t('auth_error_wrong_password');
+      } else if (e.code === 'weak_password') {
+        msg = t('auth_error_weak_password');
+      } else if (e.status === 429 || e.code === 'over_request_rate_limit' || e.code === 'too_many_requests') {
+        msg = t('auth_error_rate_limited');
       }
-      if (firebaseError.code === 'auth/weak-password') msg = t('auth_error_weak_password');
       setPasswordError(msg);
     } finally {
       setPasswordLoading(false);

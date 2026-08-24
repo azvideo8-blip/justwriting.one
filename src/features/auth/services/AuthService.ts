@@ -77,8 +77,13 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
       reportError(e, { action: 'signOut_clearLocalDb' });
     }
 
+    // Стирается только то, что принадлежит этому аккаунту: в диалоге выхода
+    // человеку показали число ЕГО записей, а localStorage.clear() заодно
+    // выносил сейф, согласия и черновики другого аккаунта этого браузера.
+    // Общие настройки (тема, язык) — не данные человека, они остаются.
     try {
-      localStorage.clear();
+      const { clearAccountScopedStorage } = await import('./accountScopedKeys');
+      clearAccountScopedStorage(currentUid);
       sessionStorage.clear();
     } catch {
       /* ignore */
