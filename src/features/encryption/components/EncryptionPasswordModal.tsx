@@ -217,12 +217,13 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setLoading(true);
     setError(null);
     try {
-      await migrateFromLegacy(userId, currentPassword, password);
-      showToast(t('enc_migrate_success'), 'success');
+      // AUD-14: миграция выдаёт код восстановления — показываем его один раз,
+      // как при создании сейфа.
+      const { recoveryCode } = await migrateFromLegacy(userId, currentPassword, password);
+      setCreatedRecoveryCode(recoveryCode);
       setPassword('');
       setConfirmPassword('');
       setCurrentPassword('');
-      onDone();
     } catch (err) {
       if (err instanceof Error && err.message === 'LEGACY_MIGRATION_WRONG_PASSWORD') {
         setError(t('enc_migrate_wrong_password'));

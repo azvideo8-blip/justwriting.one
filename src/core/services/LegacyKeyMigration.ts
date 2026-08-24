@@ -1,8 +1,11 @@
 import { deriveMasterKey, unwrapDataKeyWithPassword, wrapDataKey, encryptContent, toBase64, fromBase64, SALT_LENGTH, setSessionKey } from '../crypto/encrypt';
+import { generateRecoveryCode, wrapDataKeyWithRecoveryCode } from '../crypto/recoveryCode';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
 import {
   saveEncryptionMeta,
   getEncryptionMeta,
+  generateSalt,
+  saltToBase64,
   ENCRYPTION_META_VERSION,
   VERIFICATION_PLAINTEXT,
 } from './EncryptionMetaService';
@@ -25,7 +28,7 @@ export async function migrateFromLegacy(
   userId: string,
   firebasePassword: string,
   newEncryptionPassword: string,
-): Promise<void> {
+): Promise<{ recoveryCode: string }> {
   const profileData = await DataProvider.getProfile(userId);
   if (!profileData) throw new Error('User profile not found');
   if (!profileData.encryptionSalt || !profileData.encryptedDataKey) {
@@ -50,15 +53,27 @@ export async function migrateFromLegacy(
   const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
   const verification = await encryptContent(VERIFICATION_PLAINTEXT, dataKey);
 
+  // AUD-14: сейф без recovery code — это забытый пароль навсегда. Миграция
+  // обязана выдать код восстановления, как это делает initializeEncryption,
+  // либо не писать мету вовсе. Молча создать сейф, который некому восстановить,
+  // — единственный исход, которого здесь быть не должно.
+  const recoveryCode = generateRecoveryCode();
+  const recoverySalt = generateSalt();
+  const recoveryWrappedDataKey = await wrapDataKeyWithRecoveryCode(dataKey, recoveryCode, recoverySalt);
+
   await saveEncryptionMeta(userId, {
     salt: toBase64(newSalt),
     version: ENCRYPTION_META_VERSION,
     wrappedDataKey: newWrappedDataKey,
     verification,
+    recoveryWrappedDataKey,
+    recoverySalt: saltToBase64(recoverySalt),
   });
 
   // Clean up legacy encryption fields is already handled inside saveEncryptionMeta
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
+
+  return { recoveryCode };
 }
