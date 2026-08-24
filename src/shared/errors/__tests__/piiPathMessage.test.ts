@@ -28,7 +28,7 @@ describe('AUD-16 path does not reach the log', () => {
   });
 
   it('stores the collection shape, not the full document path', () => {
-    handleFirestoreError(new Error('boom'), 'GET', `users/${UUID}`);
+    handleFirestoreError(new Error('boom'), 'get', `users/${UUID}`);
     const ctx = addError.mock.calls[0]![1] as Record<string, unknown>;
     expect(ctx.collection).toBe('users');
     expect(JSON.stringify(ctx)).not.toContain(UUID);
@@ -36,7 +36,7 @@ describe('AUD-16 path does not reach the log', () => {
   });
 
   it("scrubs 'path' and 'docPath' keys by name", () => {
-    const out = scrubPii({ path: `users/${UUID}`, docPath: 'documents/x', operationType: 'GET' });
+    const out = scrubPii({ path: `users/${UUID}`, docPath: 'documents/x', operationType: 'get' });
     expect(out.path).toBeUndefined();
     expect(out.docPath).toBeUndefined();
     expect(out.operationType).toBe('GET');
