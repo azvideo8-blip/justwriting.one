@@ -191,22 +191,38 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; date: st
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
 const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
 // AUD-18: суточный потолок без лимита во времени позволяет вычерпать весь
-// день за минуту. Тот же приём, что ai_cooldown у чата, но интервал длиннее
-// и ключ — (uid, endpoint): rerank и chat троттлятся независимо.
-const BULK_COOLDOWN_MS = parseInt(process.env.AI_BULK_COOLDOWN_MS ?? '60000', 10);
+// день за минуту. Ключ — (uid, endpoint): rerank, embed и chat троттлятся
+// независимо.
+//
+// Это скользящее окно с бюджетом вызовов, а НЕ «один вызов в интервал».
+// Фоновые эндпоинты бурстят по своей природе: `embed` зовётся раз на каждый
+// поиск в чате и раз на заметку при индексации архива (шаг 150 мс). Жёсткие
+// 1/мин остановили бы индексацию на одной заметке в минуту, а второй поиск за
+// ту же минуту откатился бы на keyword-only. Ровно это уже случалось
+// 2026-06-16 с 10-секундным кулдауном на embedDocument.
+const BULK_WINDOW_MS = parseInt(process.env.AI_BULK_WINDOW_MS ?? '60000', 10);
+const BULK_MAX_PER_WINDOW = parseInt(process.env.AI_BULK_MAX_PER_WINDOW ?? '20', 10);
 
 async function checkAndIncrementBulkLimit(
   uid: string,
   endpoint: string = 'bulk',
 ): Promise<LimitVerdict | 'RATE_LIMIT'> {
+  // Окно и счётчик двигаются одним стейтментом: если окно истекло — оно
+  // начинается заново со счётчиком 1, иначе счётчик растёт внутри текущего.
   const { rows } = await pool.query(
-    `INSERT INTO ai_bulk_cooldown (uid, endpoint, updated_at) VALUES ($1, $3, now())
-     ON CONFLICT (uid, endpoint) DO UPDATE SET updated_at = now()
-       WHERE ai_bulk_cooldown.updated_at < now() - ($2 || ' milliseconds')::interval
-     RETURNING uid`,
-    [uid, String(BULK_COOLDOWN_MS), endpoint],
+    `INSERT INTO ai_bulk_cooldown (uid, endpoint, window_start, calls)
+     VALUES ($1, $3, now(), 1)
+     ON CONFLICT (uid, endpoint) DO UPDATE SET
+       window_start = CASE
+         WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+         THEN now() ELSE ai_bulk_cooldown.window_start END,
+       calls = CASE
+         WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+         THEN 1 ELSE ai_bulk_cooldown.calls + 1 END
+     RETURNING calls`,
+    [uid, String(BULK_WINDOW_MS), endpoint],
   );
-  if (rows.length === 0) return 'RATE_LIMIT';
+  if (Number(rows[0]?.calls ?? 1) > BULK_MAX_PER_WINDOW) return 'RATE_LIMIT';
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

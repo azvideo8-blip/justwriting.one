@@ -75,6 +75,10 @@ export function invalidateMiniSearchCache(): void {
 export async function refreshMiniSearchDoc(documentId: string): Promise<void> {
   const ms = miniSearchInstance;
   if (!ms) return; // Индекс ещё не построен — полная сборка возьмёт свежие данные.
+  // Кэш ответов на запросы жил пять минут и раньше сбрасывался вместе с
+  // индексом. Точечное обновление без этого оставляло правку невидимой для
+  // повторного запроса: индекс свежий, а отдаётся старый ответ.
+  searchCache.length = 0;
   try {
     if (ms.has(documentId)) ms.discard(documentId);
     const db = await getLocalDb();

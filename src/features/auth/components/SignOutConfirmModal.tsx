@@ -43,6 +43,13 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
       await onConfirm({ clearLocalData, force: forceWipe });
       onClose();
     } catch (err) {
+      // AUD-11: очистка не удалась, но сам выход состоялся. Держать окно
+      // открытым с кодом `LOCAL_WIPE_FAILED` в поле ошибки — сказать человеку
+      // «выход не прошёл», хотя он прошёл. Объяснение уже ушло тостом.
+      if ((err as { name?: string }).name === 'LocalWipeFailedError') {
+        onClose();
+        return;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('Unsynced') || msg.includes('несинхронизирован')) {
         setErrorMsg('Есть несинхронизированные данные. Подтвердите принудительное удаление или отмените выход.');

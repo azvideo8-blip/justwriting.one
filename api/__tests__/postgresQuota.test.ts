@@ -126,20 +126,35 @@ describe('2.19 refunds target the charged day', () => {
 });
 
 // AUD-18: у bulk-эндпоинтов есть суточный потолок, но нет лимита во времени —
-// весь день можно вычерпать за минуту. Кулдаун ключуется (uid, endpoint).
+// весь день можно вычерпать за минуту. Окно скользящее и ключуется
+// (uid, endpoint), с бюджетом вызовов внутри окна: жёсткие «один вызов в
+// интервал» ломают индексацию и второй поиск за минуту (см. комментарий в
+// postgresAiContext). Фальсификация: снять проверку счётчика — второй тест
+// перестаёт получать RATE_LIMIT.
 describe('AUD-18 bulk interval limit', () => {
-  it('claims a per-(uid, endpoint) cooldown before charging the daily limit', async () => {
+  it('moves a per-(uid, endpoint) sliding window before charging the daily limit', async () => {
+    poolResult = { rows: [{ calls: 1 }] };
     clientResults = [{ rows: [{ call_count: 1 }] }];
     await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
 
-    expect(poolQueries[0]!.text).toMatch(/INSERT INTO ai_bulk_cooldown \(uid, endpoint, updated_at\)/);
+    expect(poolQueries[0]!.text).toMatch(/INSERT INTO ai_bulk_cooldown \(uid, endpoint, window_start, calls\)/);
     expect(poolQueries[0]!.text).toMatch(/ON CONFLICT \(uid, endpoint\)/);
-    expect(poolQueries[0]!.text).toMatch(/updated_at < now\(\) - \(\$2 \|\| ' milliseconds'\)::interval/);
+    expect(poolQueries[0]!.text).toMatch(/window_start < now\(\) - \(\$2 \|\| ' milliseconds'\)::interval/);
+    expect(poolQueries[0]!.text).toMatch(/THEN 1 ELSE ai_bulk_cooldown\.calls \+ 1 END/);
     expect(poolQueries[0]!.params).toEqual(['u1', expect.any(String), 'rerank']);
   });
 
-  it("returns 'RATE_LIMIT' and never touches the daily counter inside the interval", async () => {
-    poolResult = { rows: [] }; // cooldown claim rejected
+  it('lets a burst through inside the window budget', async () => {
+    // Двадцатый вызов в окне ещё проходит: индексация и поиск бурстят.
+    poolResult = { rows: [{ calls: 20 }] };
+    clientResults = [{ rows: [{ call_count: 3 }] }];
+    const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'embed');
+    expect(verdict).not.toBe('RATE_LIMIT');
+    expect(clientQueries.length).toBeGreaterThan(0);
+  });
+
+  it("returns 'RATE_LIMIT' and never touches the daily counter past the budget", async () => {
+    poolResult = { rows: [{ calls: 21 }] };
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
     expect(verdict).toBe('RATE_LIMIT');
     expect(clientQueries).toHaveLength(0);

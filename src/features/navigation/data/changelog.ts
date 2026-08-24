@@ -14,6 +14,26 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.15',
+    date: '2026-08-24',
+    items: [
+      { category: 'fix', ru: 'Выход с очисткой больше не обещает лишнего: если стереть данные на этом компьютере не удалось, выход состоится, но прямо скажет, что осталось и как это убрать', en: 'Signing out with a wipe no longer promises more than it did: if erasing the data on this computer failed, sign-out still completes but says plainly what stayed and how to remove it' },
+      { category: 'fix', ru: 'Загрузка данных из облака перестала рапортовать об успехе после провала: «нечего восстанавливать» отличается от «прервано ошибкой», а частичный успех сообщается числами', en: 'Restoring from the cloud no longer reports success after a failure: «nothing to restore» is told apart from «interrupted by an error», and partial success is reported in numbers' },
+      { category: 'fix', ru: 'Неудачная попытка фонового восстановления больше не откладывает следующую на сутки, а отсчёт ведётся по аккаунту, а не на весь браузер', en: 'A failed background restore no longer postpones the next attempt by a day, and the countdown is kept per account instead of per browser' },
+      { category: 'fix', ru: 'Перевод старого шифрования на новое теперь выдаёт код восстановления — раньше сейф создавался без него, и забытый пароль означал навсегда нечитаемый архив', en: 'Migrating the old encryption to the new one now issues a recovery code — the vault used to be created without one, and a forgotten password meant a permanently unreadable archive' },
+      { category: 'fix', ru: 'Журнал ошибок перестал уносить опознавательные данные: путь записи содержал внутри себя идентификатор аккаунта, а текст сообщения не фильтровался вовсе', en: 'The error log no longer carries identifying data: a record\'s path held the account id inside itself, and the message text was not filtered at all' },
+      { category: 'improvement', ru: 'Удаление аккаунта требует ввести пароль заново — и это проверяется не только на экране, но и на сервере', en: 'Deleting an account now requires the password again — and it is checked on the server, not only on screen' },
+      { category: 'improvement', ru: 'У фоновых обращений к ИИ появился предел частоты, а не только суточный потолок: раньше весь дневной запас можно было израсходовать за минуту', en: 'Background AI calls now have a rate limit, not just a daily ceiling: the whole day\'s allowance could previously be spent in a minute' },
+      { category: 'improvement', ru: 'Общий потолок расхода учитывает и отправленный текст, а не только ответ', en: 'The shared spending ceiling now counts the text sent, not only the answer' },
+      { category: 'improvement', ru: 'Приёмник отчётов о нарушениях политики безопасности перестал принимать неограниченный поток с одного адреса', en: 'The security-policy report sink no longer accepts an unlimited stream from a single address' },
+      { category: 'improvement', ru: 'Профиль открывается быстрее: раньше ради счётчиков слов расшифровывался весь архив, хотя те же числа уже лежат в записи каждой заметки', en: 'The profile opens faster: the whole archive used to be decrypted for word counters, though the same numbers already sit in each note\'s record' },
+      { category: 'improvement', ru: 'Правка заметки обновляет поисковый указатель точечно, а не пересобирает его по всему архиву', en: 'Editing a note updates the search index in place instead of rebuilding it across the whole archive' },
+      { category: 'improvement', ru: 'Значок синхронизации перестал опрашивать хранилище каждые десять секунд и узнаёт об изменениях от самого механизма синхронизации', en: 'The sync indicator no longer polls storage every ten seconds and learns about changes from the sync layer itself' },
+      { category: 'improvement', ru: 'Служебные части приложения перестали держать два независимых набора подключений к базе там, где нужен один', en: 'The service side of the app no longer keeps two independent sets of database connections where one is needed' },
+      { category: 'improvement', ru: 'Из настроек, диагностики и текстов убраны последние следы прежнего облачного хранилища', en: 'The last traces of the previous cloud storage are gone from settings, diagnostics and texts' },
+    ],
+  },
+  {
     version: '0.8.14',
     date: '2026-08-22',
     items: [

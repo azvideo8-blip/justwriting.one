@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.8.15 — 2026-08-24
+
+- **[RU]** Выход с очисткой больше не обещает лишнего. Если стереть данные на этом компьютере не удалось — залоченная база, отказ браузера, — раньше об этом узнавал только журнал, а человек уходил от чужой машины с сообщением «локальные данные удалены». Теперь выход состоится, но прямо скажет, что осталось и как это убрать.
+- **[EN]** Signing out with a wipe no longer promises more than it did. If erasing the data on this computer failed — a locked database, a browser refusing — only the log used to know, while the person walked away from a shared machine having read «local data deleted». Sign-out still completes, but now says plainly what stayed and how to remove it.
+- **[RU]** Загрузка данных из облака перестала рапортовать об успехе после провала. Падение теперь так и называется, «нечего восстанавливать» отличается от «прервано ошибкой», а частичный успех сообщается числами: сколько вернулось до того, как всё встало.
+- **[EN]** Restoring from the cloud no longer reports success after a failure. A crash is now called a crash, «nothing to restore» is told apart from «interrupted by an error», and partial success is reported in numbers: how much came back before things stopped.
+- **[RU]** Неудачная попытка фонового восстановления больше не откладывает следующую на сутки, а отсчёт ведётся по аккаунту, а не на весь браузер.
+- **[EN]** A failed background restore no longer postpones the next attempt by a day, and the countdown is kept per account instead of per browser.
+- **[RU]** Перевод старого шифрования на новое теперь выдаёт код восстановления. Раньше сейф создавался без него — и забытый пароль означал навсегда нечитаемый архив.
+- **[EN]** Migrating the old encryption to the new one now issues a recovery code. The vault used to be created without one — and a forgotten password meant a permanently unreadable archive.
+- **[RU]** Журнал ошибок перестал уносить с собой опознавательные данные: путь записи содержал внутри себя идентификатор аккаунта, а текст самого сообщения не фильтровался вовсе. Теперь в журнал уходит форма, а не значение.
+- **[EN]** The error log no longer carries identifying data along with it: a record's path held the account id inside itself, and the message text was not filtered at all. The log now receives the shape, not the value.
+- **[RU]** Удаление аккаунта требует ввести пароль заново — и это проверяется не только на экране, но и на сервере. Одолженного разблокированного ноутбука больше недостаточно, чтобы стереть архив.
+- **[EN]** Deleting an account now requires the password again — and it is checked on the server, not only on screen. A borrowed unlocked laptop is no longer enough to erase the archive.
+- **[RU]** У фоновых обращений к ИИ появился предел частоты, а не только суточный потолок: раньше весь дневной запас можно было израсходовать за минуту.
+- **[EN]** Background AI calls now have a rate limit, not just a daily ceiling: the whole day's allowance could previously be spent in a minute.
+- **[RU]** Общий потолок расхода учитывает и отправленный текст, а не только ответ. Длинная заметка, ушедшая на разбор, стоила токенов, которых потолок не видел.
+- **[EN]** The shared spending ceiling now counts the text sent, not only the answer. A long note sent for analysis cost tokens the ceiling never saw.
+- **[RU]** Приёмник отчётов о нарушениях политики безопасности перестал принимать неограниченный поток с одного адреса.
+- **[EN]** The security-policy report sink no longer accepts an unlimited stream from a single address.
+- **[RU]** Профиль открывается быстрее и тише: раньше ради счётчиков слов расшифровывался весь архив, хотя те же числа уже лежат в записи каждой заметки.
+- **[EN]** The profile opens faster and quieter: the whole archive used to be decrypted for word counters, though the same numbers already sit in each note's record.
+- **[RU]** Правка заметки обновляет поисковый указатель точечно, а не пересобирает его по всему архиву.
+- **[EN]** Editing a note updates the search index in place instead of rebuilding it across the whole archive.
+- **[RU]** Значок синхронизации перестал опрашивать хранилище каждые десять секунд и теперь узнаёт об изменениях от самого механизма синхронизации.
+- **[EN]** The sync indicator no longer polls storage every ten seconds and now learns about changes from the sync layer itself.
+- **[RU]** Служебные части приложения перестали держать два независимых набора подключений к базе там, где нужен один.
+- **[EN]** The service side of the app no longer keeps two independent sets of database connections where one is needed.
+- **[RU]** Из настроек, диагностики и текстов убраны последние следы прежнего облачного хранилища — переменные, названия и подсказки, которые вели не туда.
+- **[EN]** The last traces of the previous cloud storage are gone from settings, diagnostics and texts — variables, names and hints that pointed nowhere.
+
 ## 0.8.14 — 2026-08-22
 
 - **[RU]** Поиск по имени снова работает. «Про Сашу» не находил записи, где написано «Сашей»: короткие имена отсекались по длине, а проверка заглавной буквы не срабатывала никогда — текст приводился к нижнему регистру раньше неё.

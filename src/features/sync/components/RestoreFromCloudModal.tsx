@@ -64,6 +64,8 @@ export function RestoreFromCloudModal({
   });
 
   const [report, setReport] = useState<RestoreSummaryReport | null>(null);
+  // Упало ли восстановление, или дошло до конца и не нашло, что вернуть.
+  const [threw, setThrew] = useState(false);
   const [autoSyncPromptAnswered, setAutoSyncPromptAnswered] = useState(false);
 
   useEffect(() => {
@@ -162,6 +164,10 @@ export function RestoreFromCloudModal({
       if (resultSummary.restoredNotes === 0
         && resultSummary.restoredSummaries === 0
         && resultSummary.restoredAIStoreRecords === 0) {
+        // Проход дошёл до конца и не вернул ничего — это не то же самое, что
+        // падение. Сказать «прервано ошибкой» там, где ошибки не было, —
+        // такая же ложь наоборот, как и «завершено» после падения.
+        setThrew(false);
         setStep('failed');
       } else {
         setRestoreDismissed(user.uid, true);
@@ -171,6 +177,7 @@ export function RestoreFromCloudModal({
       // AUD-12: исключение больше не рисует «завершено». Говорим, что не вышло,
       // и сколько успело вернуться до падения.
       setReport(resultSummary);
+      setThrew(true);
       setStep('failed');
     }
   };
@@ -210,7 +217,7 @@ export function RestoreFromCloudModal({
               {step === 'completed'
                 ? 'Восстановление завершено'
                 : step === 'failed'
-                  ? 'Восстановление не удалось'
+                  ? (threw ? 'Восстановление не удалось' : 'Нечего восстанавливать')
                   : 'Загрузка данных из облака'}
             </h2>
           </div>
@@ -340,7 +347,9 @@ export function RestoreFromCloudModal({
             <div className="p-3.5 bg-accent-danger/10 border border-accent-danger/20 rounded-xl space-y-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-accent-danger">
                 <AlertTriangle className="w-4 h-4 text-accent-danger" />
-                Восстановление прервано ошибкой. Попробуйте ещё раз позже.
+                {threw
+                  ? 'Восстановление прервано ошибкой. Попробуйте ещё раз позже.'
+                  : 'Проход завершился, но из облака ничего не вернулось.'}
               </div>
               {/* Частичный успех — числами: что успело вернуться до падения. */}
               {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredAIStoreRecords)) && (

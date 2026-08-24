@@ -63,8 +63,10 @@ describe('AUD-12 restore modal reports failure', () => {
 
     fireEvent.click(screen.getByText('Начать загрузку'));
 
-    expect(await screen.findByText('Восстановление не удалось')).toBeDefined();
+    // …и не выдумывает ошибку там, где проход просто ничего не нашёл.
+    expect(await screen.findByText('Нечего восстанавливать')).toBeDefined();
     expect(screen.queryByText('Восстановление завершено')).toBeNull();
+    expect(screen.queryByText(/прервано ошибкой/)).toBeNull();
   });
 
   it('reports numbers on a real success', async () => {

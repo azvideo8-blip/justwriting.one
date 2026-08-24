@@ -23,7 +23,10 @@ export function reportError(
       // Копия с очищенным message: исходную ошибку не мутируем.
       const copy = new Error(redactMessage(error.message));
       copy.name = error.name;
-      if (error.stack) copy.stack = error.stack;
+      // Стек несёт первую строку вида «Error: <сообщение>» — если перенести
+      // его как есть, вычеркнутый uuid или адрес почты уезжает в Sentry внутри
+      // стека. Прогоняем те же три формы и по стеку.
+      if (error.stack) copy.stack = redactMessage(error.stack);
       safeMessage = copy;
     } catch {
       safeMessage = error;

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { requireSession } from './auth';
+import { requireSession, passwordRecentlyVerified } from './auth';
 import { handleAiEndpoint } from './handlers';
 import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 
@@ -58,6 +58,13 @@ export async function handle(req: IncomingMessage, res: ServerResponse) {
         return json(res, 413, { error: 'Payload too large' });
       }
       return json(res, 400, { error: 'Invalid JSON body' });
+    }
+
+    // AUD-20: необратимое удаление требует свежего ввода пароля. Клиент делает
+    // reauthenticate перед вызовом; здесь это подтверждается по подписанному
+    // токену, чтобы прямой вызов с живым токеном не стирал архив в обход экрана.
+    if (endpoint === 'deleteAccount' && !passwordRecentlyVerified(session)) {
+      return json(res, 403, { error: { code: 'REAUTH_REQUIRED', message: 'Re-enter your password to delete the account.' } });
     }
 
     const { status, body } = await handleAiEndpoint(endpoint, session.uid, payload);

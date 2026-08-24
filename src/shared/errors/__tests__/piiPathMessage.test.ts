@@ -63,6 +63,15 @@ describe('AUD-17 message-shape redaction', () => {
     expect(redactMessage(`payload ${blob} end`)).toContain('<blob>');
   });
 
+  it('redacts the stack too, not just the message', () => {
+    const err = new Error(`user ${UUID} not found`);
+    err.stack = `Error: user ${UUID} not found\n    at load (app.js:1:1)`;
+    reportError(err, {});
+    const stored = addError.mock.calls[0]![0] as Error;
+    expect(stored.stack).not.toContain(UUID);
+    expect(stored.stack).toContain('at load (app.js:1:1)');
+  });
+
   it('keeps ordinary error text intact', () => {
     expect(redactMessage('Network request failed with status 500')).toBe(
       'Network request failed with status 500',

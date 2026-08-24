@@ -64,6 +64,32 @@ export async function verifyJwt(token: string, secret: string): Promise<Session 
   }
 }
 
+/**
+ * AUD-20: удаление аккаунта необратимо, поэтому клиент требует пароль заново
+ * (`reauthenticate` перед вызовом). Клиентская проверка закрывает одолженный
+ * разблокированный ноутбук, но не украденный токен — тот ходит в API напрямую,
+ * мимо любого экрана. Сервер судит по claim'у `amr`, который GoTrue кладёт в
+ * токен: там записано, каким методом и КОГДА человек аутентифицировался,
+ * и обновление токена по refresh-токену эту отметку не двигает.
+ *
+ * Если `amr` в токене нет (старая или иначе собранная сборка GoTrue), гейт
+ * пропускает: сломать удаление аккаунта всем ради проверки, которой может не
+ * быть данных, хуже, чем оставить здесь клиентскую защиту. Отсутствие claim'а
+ * подделать нельзя — токен подписан.
+ */
+export function passwordRecentlyVerified(session: Session, maxAgeSec = 300): boolean {
+  const amr = session.claims.amr;
+  if (!Array.isArray(amr) || amr.length === 0) return true; // claim не выдаётся — судить нечем
+  const now = Math.floor(Date.now() / 1000);
+  return amr.some((entry) => {
+    if (!entry || typeof entry !== 'object') return false;
+    const { method, timestamp } = entry as { method?: unknown; timestamp?: unknown };
+    if (method !== 'password') return false;
+    if (typeof timestamp !== 'number') return false;
+    return now - timestamp <= maxAgeSec;
+  });
+}
+
 export async function requireSession(req: import('node:http').IncomingMessage): Promise<Session | null> {
   const header = req.headers.authorization ?? '';
   if (!header.startsWith('Bearer ')) return null;
