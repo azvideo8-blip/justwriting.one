@@ -116,7 +116,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   // SEC-4: User prose in personal diary entries (and mood/recentContext) must NOT
   // be filtered with injection regexes. Defense is achieved via prompt isolation markers.
 
-  const callRes = await chargeCall(ctx, uid, 'bulk');
+  const callRes = await chargeCall(ctx, uid, 'bulk', 'summarizeDocument');
 
   const sanitizedContent = sanitizeAiInput(content);
   const sanitizedRecentContext = recentContext ? sanitizeAiInput(recentContext) : null;

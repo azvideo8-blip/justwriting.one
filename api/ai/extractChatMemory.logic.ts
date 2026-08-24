@@ -47,7 +47,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     throw new AiError('invalid-argument', 'Disallowed patterns in messages.');
   }
 
-  const callRes = await chargeCall(ctx, uid, 'bulk');
+  const callRes = await chargeCall(ctx, uid, 'bulk', 'memory');
 
   const conversationText = parsed.data.messages
     .map(m => `${m.role}: ${sanitizeAiInput(m.content)}`)

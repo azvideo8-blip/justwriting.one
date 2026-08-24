@@ -391,7 +391,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   let chargedDay: string | undefined;
 
   if (isInternalCall) {
-    const verdict = await postgresAiContext.checkAndIncrementBulkLimit(uid);
+    const verdict = await postgresAiContext.checkAndIncrementBulkLimit(uid, 'chat');
+    if (verdict === 'RATE_LIMIT') { return json(res, 429, { error: 'RATE_LIMIT' }); }
     if (!verdict.ok) { return json(res, 429, { error: 'DAILY_LIMIT' }); }
     chargedDay = verdict.day;
   } else {

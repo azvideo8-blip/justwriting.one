@@ -119,7 +119,29 @@ describe('2.19 refunds target the charged day', () => {
   it('checkAndIncrementBulkLimit returns a verdict object with day', async () => {
     clientResults = [{ rows: [{ call_count: 1 }] }];
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1');
+    if (verdict === 'RATE_LIMIT') throw new Error('expected success');
     expect(verdict.ok).toBe(true);
     expect(verdict.day).toBe(TODAY);
+  });
+});
+
+// AUD-18: у bulk-эндпоинтов есть суточный потолок, но нет лимита во времени —
+// весь день можно вычерпать за минуту. Кулдаун ключуется (uid, endpoint).
+describe('AUD-18 bulk interval limit', () => {
+  it('claims a per-(uid, endpoint) cooldown before charging the daily limit', async () => {
+    clientResults = [{ rows: [{ call_count: 1 }] }];
+    await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
+
+    expect(poolQueries[0]!.text).toMatch(/INSERT INTO ai_bulk_cooldown \(uid, endpoint, updated_at\)/);
+    expect(poolQueries[0]!.text).toMatch(/ON CONFLICT \(uid, endpoint\)/);
+    expect(poolQueries[0]!.text).toMatch(/updated_at < now\(\) - \(\$2 \|\| ' milliseconds'\)::interval/);
+    expect(poolQueries[0]!.params).toEqual(['u1', expect.any(String), 'rerank']);
+  });
+
+  it("returns 'RATE_LIMIT' and never touches the daily counter inside the interval", async () => {
+    poolResult = { rows: [] }; // cooldown claim rejected
+    const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
+    expect(verdict).toBe('RATE_LIMIT');
+    expect(clientQueries).toHaveLength(0);
   });
 });

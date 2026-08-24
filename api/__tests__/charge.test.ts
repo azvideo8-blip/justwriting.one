@@ -40,8 +40,15 @@ describe('chargeCall', () => {
 
   it('charges the background limit by default', async () => {
     const ctx = ctxSpy();
-    await chargeCall(ctx, 'uid_1', 'bulk');
-    expect(ctx.checkAndIncrementBulkLimit).toHaveBeenCalledWith('uid_1');
+    await chargeCall(ctx, 'uid_1', 'bulk', 'chat');
+    expect(ctx.checkAndIncrementBulkLimit).toHaveBeenCalledWith('uid_1', 'chat');
+    expect(ctx.checkDailyLimit).not.toHaveBeenCalled();
+  });
+
+  it('refuses a bulk call inside the interval window (AUD-18)', async () => {
+    const ctx = ctxSpy();
+    ctx.checkAndIncrementBulkLimit.mockResolvedValue('RATE_LIMIT');
+    await expect(chargeCall(ctx, 'uid_1', 'bulk', 'chat')).rejects.toThrow('Too many requests.');
     expect(ctx.checkDailyLimit).not.toHaveBeenCalled();
   });
 

@@ -48,7 +48,7 @@ describe('chatWithAI: callType не обходит лимиты', () => {
   it('внутренний вызов списывает bulk-счётчик, а не проходит мимо', async () => {
     const ctx = ctxSpy();
     await chatWithAILogic(ctx, 'user_1', payload({ callType: 'auto_name' }));
-    expect(ctx.checkAndIncrementBulkLimit).toHaveBeenCalledWith('user_1');
+    expect(ctx.checkAndIncrementBulkLimit).toHaveBeenCalledWith('user_1', 'chat');
     expect(ctx.checkAndIncrementLimit).not.toHaveBeenCalled();
   });
 

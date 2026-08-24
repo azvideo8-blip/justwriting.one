@@ -191,8 +191,23 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; date: st
 
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
 const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
+// AUD-18: суточный потолок без лимита во времени позволяет вычерпать весь
+// день за минуту. Тот же приём, что ai_cooldown у чата, но интервал длиннее
+// и ключ — (uid, endpoint): rerank и chat троттлятся независимо.
+const BULK_COOLDOWN_MS = parseInt(process.env.AI_BULK_COOLDOWN_MS ?? '60000', 10);
 
-async function checkAndIncrementBulkLimit(uid: string): Promise<LimitVerdict> {
+async function checkAndIncrementBulkLimit(
+  uid: string,
+  endpoint: string = 'bulk',
+): Promise<LimitVerdict | 'RATE_LIMIT'> {
+  const { rows } = await pool.query(
+    `INSERT INTO ai_bulk_cooldown (uid, endpoint, updated_at) VALUES ($1, $3, now())
+     ON CONFLICT (uid, endpoint) DO UPDATE SET updated_at = now()
+       WHERE ai_bulk_cooldown.updated_at < now() - ($2 || ' milliseconds')::interval
+     RETURNING uid`,
+    [uid, String(BULK_COOLDOWN_MS), endpoint],
+  );
+  if (rows.length === 0) return 'RATE_LIMIT';
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

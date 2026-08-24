@@ -39,7 +39,7 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
   // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
   // дневного лимита человека; всё остальное — из фонового, как раньше.
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
-  const callRes = await chargeCall(ctx, uid, charge);
+  const callRes = await chargeCall(ctx, uid, charge, 'taxonomy');
 
   const digest = sanitizeAiInput(parsed.data.digest);
   console.warn(`[AI taxonomy] start: digest ${digest.length} chars`);

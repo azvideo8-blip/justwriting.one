@@ -30,8 +30,10 @@ export interface AiContext {
   getDailyLimitCount(uid: string): Promise<{ used: number; date: string }>;
   getUserDailyLimit(uid: string): Promise<number>;
   isAdmin(uid: string): Promise<boolean>;
-  /** Bulk (background) limit — separate from the chat daily limit. */
-  checkAndIncrementBulkLimit(uid: string): Promise<LimitVerdict>;
+  /** Bulk (background) limit — separate from the chat daily limit.
+   *  AUD-18: also enforces a per-interval cooldown keyed (uid, endpoint);
+   *  returns 'RATE_LIMIT' when the interval has not elapsed. */
+  checkAndIncrementBulkLimit(uid: string, endpoint?: string): Promise<LimitVerdict | 'RATE_LIMIT'>;
   refundBulkLimit(uid: string, chargedDay?: string): Promise<void>;
   /** Combined chat limit + cooldown check; increments on success. */
   checkAndIncrementLimit(

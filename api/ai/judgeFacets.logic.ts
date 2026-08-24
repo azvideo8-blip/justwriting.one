@@ -58,7 +58,7 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
   // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
   // дневного лимита человека; всё остальное — из фонового, как раньше.
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
-  const callRes = await chargeCall(ctx, uid, charge);
+  const callRes = await chargeCall(ctx, uid, charge, 'judgeFacets');
 
   const facetsText = parsed.data.facets.map((f, i) =>
     `ФАСЕТ ${i + 1} [id=${sanitizeAiInput(f.facetId)}] «${sanitizeAiInput(f.label)}»\nОПИСАНИЕ: ${sanitizeAiInput(f.summary)}\nФАКТЫ: ${sanitizeAiInput(f.evidence)}`,

@@ -53,7 +53,7 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
   // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
   // дневного лимита человека; всё остальное — из фонового, как раньше.
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
-  const callRes = await chargeCall(ctx, uid, charge);
+  const callRes = await chargeCall(ctx, uid, charge, 'summarizeBeliefCluster');
 
   const reservation = await ctx.tryReserveGlobalRequest(2048);
   if (!reservation) {

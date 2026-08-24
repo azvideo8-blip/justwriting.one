@@ -41,7 +41,7 @@ export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unkn
   // Обновление профиля помечает свои вызовы `charge: 'user'` и платит из
   // дневного лимита человека; всё остальное — из фонового, как раньше.
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
-  const callRes = await chargeCall(ctx, uid, charge);
+  const callRes = await chargeCall(ctx, uid, charge, 'embed');
 
   const sanitized = sanitizeAiInput(content);
 

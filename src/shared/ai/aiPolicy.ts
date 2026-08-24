@@ -107,14 +107,19 @@ export interface CallReservation {
   refunded?: boolean;
 }
 
-/** Списывает вызов с нужного счётчика. Возвращает объект резервации для идемпотентного возврата. Бросает AiError, если лимит исчерпан. */
-export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarget): Promise<CallReservation> {
+/** Списывает вызов с нужного счётчика. Возвращает объект резервации для идемпотентного возврата. Бросает AiError, если лимит исчерпан.
+ *  AUD-18: `endpoint` ключует интервальный кулдаун (uid, endpoint); без него
+ *  кулдаун общий на все фоновые вызовы. */
+export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarget, endpoint?: string): Promise<CallReservation> {
   if (charge === 'user') {
     const verdict = await ctx.checkDailyLimit(uid);
     if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily limit reached.');
     return { uid, charge, day: verdict.day, refunded: false };
   }
-  const verdict = await ctx.checkAndIncrementBulkLimit(uid);
+  const verdict = await ctx.checkAndIncrementBulkLimit(uid, endpoint);
+  if (verdict === 'RATE_LIMIT') {
+    throw new AiError('resource-exhausted', 'Too many requests. Please wait a minute.');
+  }
   if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
   return { uid, charge, day: verdict.day, refunded: false };
 }

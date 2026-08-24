@@ -80,7 +80,10 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // обычный. День списания едет в refund'ы ниже.
   let chargedDay: string | undefined;
   if (isInternalCall) {
-    const verdict = await ctx.checkAndIncrementBulkLimit(uid);
+    const verdict = await ctx.checkAndIncrementBulkLimit(uid, 'chat');
+    if (verdict === 'RATE_LIMIT') {
+      throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+    }
     if (!verdict.ok) {
       throw new AiError('resource-exhausted', 'Daily limit reached.');
     }

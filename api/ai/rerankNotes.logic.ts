@@ -34,7 +34,11 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
   // Возвращается объект `{ ok, day }`, а не булево: `!verdict` было всегда false,
   // то есть исчерпанный дневной лимит здесь не срабатывал вовсе и реранк
   // продолжал ходить к поставщику поверх квоты.
-  const verdict = await ctx.checkAndIncrementBulkLimit(uid);
+  // AUD-18: cooldown ключится по эндпоинту, а не только по uid.
+  const verdict = await ctx.checkAndIncrementBulkLimit(uid, 'rerank');
+  if (verdict === 'RATE_LIMIT') {
+    throw new AiError('resource-exhausted', 'Too many requests. Please wait a minute.');
+  }
   if (!verdict.ok) {
     throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
   }
