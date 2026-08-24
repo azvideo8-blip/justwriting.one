@@ -26,6 +26,24 @@ const RRF_FINAL = 15;
 const RERANK_THRESHOLD = 0.88;
 export const RESURFACE_FLOOR = 0.35;
 
+// AUD-22: самый частый ход в приложении несёт самый тяжёлый постоянный расход
+// (embedding-вызов + сканы IndexedDB). Измерять — прежде чем проектировать:
+// в DEV каждый этап поиска оборачивается в performance.measure
+// «searchNotes:<этап>», числа видны в Performance-панели или через
+// performance.getEntriesByType('measure'). В проде — ноль вызовов.
+async function timed<T>(stage: string, fn: () => Promise<T>): Promise<T> {
+  if (!import.meta.env.DEV || typeof performance === 'undefined') return fn();
+  const t0 = performance.now();
+  try {
+    return await fn();
+  } finally {
+    try {
+      const t1 = performance.now();
+      performance.measure(`searchNotes:${stage}`, { start: t0, duration: t1 - t0 });
+    } catch { /* измерение не должно ронять поиск */ }
+  }
+}
+
 interface CacheResultEntry {
   documentId: string;
   score: number;
@@ -116,9 +134,10 @@ async function getMiniSearch(): Promise<MiniSearch> {
   return miniSearchInstance;
 }
 
-/** BM25 keyword search via MiniSearch with prefix + fuzzy support. */
+/** BM25 keyword search via MiniSearch with prefix + fuzzy support.
+ *  AUD-22: этап размечен — сюда попадает и первая сборка индекса. */
 async function keywordSearch(query: string, topN: number): Promise<{ id: string; score: number }[]> {
-  const ms = await getMiniSearch();
+  const ms = await timed('index_build_or_get', getMiniSearch);
   const results = ms.search(query);
   return results.slice(0, topN).map(r => ({ id: r.id as string, score: r.score }));
 }
@@ -226,7 +245,8 @@ export async function searchNotes(
 
   let queryVec = opts?.queryVector;
   if (!queryVec) {
-    const embedResult = await AIService.embed({ content: query });
+    // AUD-22: embedding-вызов — самая дорогая часть хода, размечен отдельно.
+    const embedResult = await timed('query_embed', () => AIService.embed({ content: query }));
     if (!embedResult.ok) {
       reportError(embedResult.error, { action: 'search_notes_embed' });
       reportAIDegradation({
@@ -266,14 +286,14 @@ export async function searchNotes(
   // the notes' own text and needs no vectors at all — bailing here made the
   // entire archive invisible to search whenever the embeddings were missing,
   // and reported it as "nothing matched" rather than "the index is not built".
-  const vectorMatches = topKMultiWithChunkIndex(
+  const vectorMatches = await timed('vector_scan', async () => topKMultiWithChunkIndex(
     queryVec,
     filteredEmbeddings.map(e => ({
       id: e.documentId,
       vectors: e.vectors?.length ? e.vectors : (e.vector ? [e.vector] : []),
     })),
     VECTOR_TOP,
-  );
+  ));
 
   let keywordMatches = await keywordSearch(query, KEYWORD_TOP);
   if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {
