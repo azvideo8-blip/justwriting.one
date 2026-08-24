@@ -29,7 +29,11 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
       showToast(opts.clearLocalData ? 'Вы вышли, локальные данные удалены' : 'Вы вышли из аккаунта', 'success');
     } catch (e) {
       const isUnsynced = (e as { name?: string }).name === 'UnsyncedLocalDataError';
-      if (!isUnsynced) {
+      // AUD-11: очистка локальных данных не удалась — данные остались на машине.
+      const isWipeFailed = (e as { name?: string }).name === 'LocalWipeFailedError';
+      if (isWipeFailed) {
+        showToast('Вы вышли, но очистить локальные данные не удалось. Очистите данные сайта в браузере вручную.', 'error');
+      } else if (!isUnsynced) {
         showToast(t('error_signout_failed'), 'error');
       }
       throw e;

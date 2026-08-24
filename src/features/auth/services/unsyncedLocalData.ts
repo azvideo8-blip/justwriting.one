@@ -28,6 +28,18 @@ export class UnsyncedLocalDataError extends Error {
   }
 }
 
+// AUD-11: очистка локальных хранилищ не удалась (залоченная база, отказ
+// транзакции, квота). Выход при этом продолжается — но человек должен узнать,
+// что данные на этой машине остались. Диалог выхода ловит эту ошибку вместо
+// тоста об успехе.
+export class LocalWipeFailedError extends Error {
+  constructor(cause: unknown) {
+    super('LOCAL_WIPE_FAILED');
+    this.name = 'LocalWipeFailedError';
+    this.cause = cause;
+  }
+}
+
 /**
  * What a wipe would destroy for good. Counts what CANNOT be brought back, not
  * everything stored: a note with a cloud copy is restored on the next sign-in.

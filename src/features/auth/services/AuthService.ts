@@ -62,6 +62,7 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
  */
 async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
   const currentUid = getCurrentUser()?.uid;
+  let wipeFailed: unknown = null;
 
   if (opts?.clearLocalData === true) {
     if (!opts?.force) {
@@ -74,6 +75,7 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
       const { clearAllLocalStores } = await import('../../../core/storage/localDb');
       await clearAllLocalStores();
     } catch (e) {
+      wipeFailed = e;
       reportError(e, { action: 'signOut_clearLocalDb' });
     }
 
@@ -88,6 +90,10 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
     } catch {
       /* ignore */
     }
+
+    // AUD-11: обещание «на этом компьютере ничего не останется» не выполнено.
+    // Молчать нельзя — но и запирать выход ради этого тоже: сам выход ниже
+    // всё равно состоится, а ошибка уйдёт в диалог после него.
   } else {
     try {
       sessionStorage.clear();
@@ -121,7 +127,13 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
     }
   }
 
-  return signOutUser();
+  await signOutUser();
+
+  // AUD-11: выход состоялся; теперь сообщаем, что локальная очистка не прошла.
+  if (wipeFailed) {
+    const { LocalWipeFailedError } = await import('./unsyncedLocalData');
+    throw new LocalWipeFailedError(wipeFailed);
+  }
 }
 
 async function sendPasswordReset(email: string) {

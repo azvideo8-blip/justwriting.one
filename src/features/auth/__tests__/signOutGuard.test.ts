@@ -167,5 +167,35 @@ describe('signOut', () => {
     expect(cleared).toHaveBeenCalled();
     expect(firebaseSignOutFn).toHaveBeenCalled();
   });
+
+  // AUD-11: провал очистки не должен выглядеть успехом. Выход состоялся
+  // (signOutUser вызван), но наружу уходит LocalWipeFailedError, чтобы диалог
+  // показал ошибку вместо «локальные данные удалены».
+  it('reports a failed wipe after completing sign-out (AUD-11)', async () => {
+    const cleared = vi.fn().mockRejectedValue(new Error('db locked'));
+    const signOutFn = vi.fn();
+    vi.doMock('../../../core/storage/localDb', async () => ({
+      ...(await vi.importActual<typeof import('../../../core/storage/localDb')>('../../../core/storage/localDb')),
+      clearAllLocalStores: cleared,
+    }));
+    vi.doMock('../../../core/auth', () => ({
+      getCurrentUserId: () => USER,
+      getCurrentUser: () => ({ uid: USER }),
+      signOutUser: signOutFn,
+    }));
+    vi.doMock('../../../core/crypto/keyVaultCache', () => ({
+      clearDeviceKey: vi.fn(),
+    }));
+    vi.doMock('../../../core/crypto/useEncryptionStore', () => ({
+      useEncryptionStore: { getState: () => ({ lockVault: vi.fn() }) },
+    }));
+    vi.doMock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+
+    const { AuthService } = await import('../services/AuthService');
+    await expect(AuthService.signOut({ clearLocalData: true, force: true })).rejects.toMatchObject({
+      name: 'LocalWipeFailedError',
+    });
+    expect(signOutFn).toHaveBeenCalled();
+  });
 });
 

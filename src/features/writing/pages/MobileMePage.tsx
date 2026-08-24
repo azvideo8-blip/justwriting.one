@@ -21,6 +21,13 @@ export function MobileMePage() {
       void navigate('/login');
     } catch (e) {
       const isUnsynced = (e as { name?: string }).name === 'UnsyncedLocalDataError';
+      // AUD-11: очистка локальных данных не удалась — данные остались на машине.
+      const isWipeFailed = (e as { name?: string }).name === 'LocalWipeFailedError';
+      if (isWipeFailed) {
+        showToast('Вы вышли, но очистить локальные данные не удалось. Очистите данные сайта в браузере вручную.', 'error');
+        void navigate('/login');
+        return;
+      }
       if (!isUnsynced) {
         showToast('Не удалось выйти из аккаунта', 'error');
       }
