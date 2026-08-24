@@ -122,3 +122,27 @@ Injection patterns are maintained in a single source: `src/shared/ai/injectionPa
   попытках реально произошла. Вариант A (списывать после первого байта
   апстрима) отклонён — переносит биллинг в середину запроса и дробит атомарный
   claim cooldown+лимит; решение задокументировано в `useAIChat.ts`.
+
+## Metadata Exposure (AUDIT-M17, осознанный компромисс)
+
+Шифрование покрывает содержимое; часть метаданных остаётся в открытом виде
+в базе. Принято сознательно — без этого ломаются синхронизация, лимиты и
+дедупликация. Поле за полем:
+
+| Поле | Где | Почему видно |
+| --- | --- | --- |
+| `documentId` / `uuid`, `firstSessionAt`, `lastSessionAt`, `sessionsCount` | documents, versions | Ключи строк и сортировка лент; реляционные связи |
+| `wordCount`, `duration`, `wpm` | documents, versions | Статистика прогресса; шифрование сделало бы невозможным server-side aggregate |
+| `dim`, `processedAt` | ai_embeddings | Проверка совместимости модели и freshness-фильтр выгрузки (AUD-8) |
+| `schemaV`, `_encrypted`, `version` | все таблицы | Миграции и ветвление чтения |
+| `currentVersion`, `totalWords` | documents | Conflict detection (MH1) и reconcile |
+| Размеры строк (vectorsJson, content) | физический уровень | Postgres не шифрует длины |
+
+Чего это не раскрывает: тексты, заголовки, теги, содержимое эмбеддингов
+(vectorsJson/chunkTexts/model/contentHash шифруются, `ENCRYPT_FIELDS`).
+Что раскрывает косвенно: активность по дням (timestamps) и объём архива
+(word counts) — статистический профиль поверх шифротекста.
+
+Граница, которую шифрование не закрывает в принципе: при включённых AI-функциях
+plaintext заметок уходит на сервер для обработки моделью (embed/chat/summary).
+Это consent-gated; формулировка согласия обязана это называть прямо (AUDIT-MH7).

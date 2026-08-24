@@ -155,6 +155,17 @@ export function useAIChatContext(personaId: string): {
 
     let turnEmb: number[] | undefined;
     const uid = getCurrentUser()?.uid;
+    // AUDIT-M5: один текст за ход векторизуется ОДИН раз — повторные вызовы
+    // (поисковый запрос === текст реплики) переиспользуют результат.
+    let turnEmbPromise: Promise<number[] | undefined> | null = null;
+    const embedOnce = (content: string): Promise<number[] | undefined> => {
+      if (content !== text) return AIService.embed({ content }).then(r => (r.ok ? r.vectors[0] : undefined));
+      turnEmbPromise ??= AIService.embed({ content }).then(r => {
+        if (!r.ok && isDailyLimitError(r.error)) degradedDueToDailyLimit = true;
+        return r.ok ? r.vectors[0] : undefined;
+      });
+      return turnEmbPromise;
+    };
     if (text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
@@ -238,9 +249,16 @@ export function useAIChatContext(personaId: string): {
         if (attached.documentId) {
           injectedDocumentIds.push(attached.documentId);
         }
+        // AUDIT-M3: `[#id]` в тексте заметки не должен открывать цитирование
+        // исключённых из AI или несуществующих документов — валидируем по корпусу.
         const matches = attached.content.matchAll(/\[#([a-zA-Z0-9_-]+)\]/g);
         for (const m of matches) {
-          if (m[1]) injectedDocumentIds.push(m[1]);
+          if (!m[1]) continue;
+          try {
+            const db = await getLocalDb();
+            const cited = await db.get('documents', m[1]);
+            if (cited && !cited.excludedFromAI) injectedDocumentIds.push(m[1]);
+          } catch { /* ignore */ }
         }
       }
     }
@@ -624,19 +642,20 @@ export function useAIChatContext(personaId: string): {
             }
 
             if (queryEmb === undefined && hasIndexingConsent(uid)) {
-              const queryEmbResult = await AIService.embed({ content: searchQuery });
-              if (!queryEmbResult.ok) {
-                if (isDailyLimitError(queryEmbResult.error)) {
-                  degradedDueToDailyLimit = true;
+              // AUDIT-M5: при searchQuery === text переиспользуем turnEmb —
+              // один текст за ход векторизуется один раз.
+              if (searchQuery === text && turnEmb !== undefined) {
+                queryEmb = turnEmb;
+              } else {
+                const queryEmbResult = await embedOnce(searchQuery);
+                queryEmb = queryEmbResult;
+                if (queryEmb === undefined && searchQuery === text) {
+                  // turnEmb не считался: реплика пустая или консента не было.
+                  const retry = await AIService.embed({ content: searchQuery });
+                  if (retry.ok) queryEmb = retry.vectors[0];
+                  else if (isDailyLimitError(retry.error)) degradedDueToDailyLimit = true;
                 }
-                reportAIDegradation({
-                  feature: 'chat_search_embed',
-                  cause: queryEmbResult.error,
-                  action: 'Построение вектора для поиска заметок в чате',
-                  impact: 'Поиск по заметкам пропущен',
-                });
               }
-              queryEmb = queryEmbResult.ok && queryEmbResult.vectors[0] ? queryEmbResult.vectors[0] : undefined;
             }
 
             if (allEmbeddings === undefined) {
@@ -1133,10 +1152,20 @@ export function useAIChatContext(personaId: string): {
 
     const memoryDocIds = extractDocumentIdsFromText(memoryContext);
     const searchDocIds = extractDocumentIdsFromText(searchContext);
+    // AUDIT-M3: id'шники, вытащенные из ТЕКСТА (заметка может содержать
+    // произвольные [#...] маркеры), валидируются по корпусу — исключённые из AI
+    // и несуществующие документы не попадают в allowlist цитат.
+    const rawDocIds = [...memoryDocIds, ...searchDocIds];
+    const validatedDocIds: string[] = [];
+    for (const id of rawDocIds) {
+      try {
+        const cited = await db.get('documents', id);
+        if (cited && !cited.excludedFromAI) validatedDocIds.push(id);
+      } catch { /* ignore */ }
+    }
     const allInjectedDocIds = [
       ...injectedDocumentIds,
-      ...memoryDocIds,
-      ...searchDocIds,
+      ...validatedDocIds,
     ];
 
     return {

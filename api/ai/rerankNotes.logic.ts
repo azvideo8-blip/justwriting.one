@@ -43,6 +43,9 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
   if (!verdict.ok) {
     throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
   }
+  // День списания фиксируем сразу: refund после полуночи должен вернуть слот
+  // в тот день, когда он был взят (AUD-BILL: refund без chargedDay чинит чужой день).
+  const chargedDay: string | undefined = verdict.ok ? verdict.day : undefined;
 
   const safeQuery = sanitizeAiInput(query);
   const cardsText = candidates
@@ -53,7 +56,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
   const inputEstimate = estimateInputTokens([query, cardsText]);
   const reservation = await ctx.tryReserveGlobalRequest(512 + inputEstimate);
   if (!reservation) {
-    await ctx.refundBulkLimit(uid);
+    await ctx.refundBulkLimit(uid, chargedDay);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -82,7 +85,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
       const obj = JSON.parse(txt) as { ids?: unknown };
       if (Array.isArray(obj.ids)) ids = obj.ids.filter((x): x is string => typeof x === 'string');
     } catch {
-      await ctx.refundBulkLimit(uid);
+      await ctx.refundBulkLimit(uid, chargedDay);
       ids = [];
     }
 
@@ -91,7 +94,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
 
     return { documentIds: ids.slice(0, maxResults) };
   } catch (e) {
-    await ctx.refundBulkLimit(uid);
+    await ctx.refundBulkLimit(uid, chargedDay);
     await ctx.refundGlobalRequest(reservation);
     console.error('[AI rerank] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);

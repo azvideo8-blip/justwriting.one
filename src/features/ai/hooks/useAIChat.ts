@@ -14,7 +14,7 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
 
-import { useAIChatContext } from './useAIChatContext';
+import { useAIChatContext } from '../services/aiChatContext';
 import {
   streamChat,
   callableChat,
@@ -438,7 +438,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             // into the middle of the request and split the cooldown claim —
             // rejected for now; revisit if quota complaints appear.
             // to avoid losing the user's message, but this means fallback costs 2 quota.
-            fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
+            // AUDIT-M2: если стрим успел отдать существенный partial — не
+            // перегенерируем (двойная оплата + потеря уже показанного текста).
+            const lastPartial = streamingMessage ?? '';
+            if (lastPartial.trim().length > 200) {
+              fullText = lastPartial;
+            } else {
+              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
+            }
             // RSN-4: Parse reasoning and answer unconditionally from callable fallback
             const cleanReasoning = extractReasoning(fullText);
             const cleanAnswer = extractAnswer(fullText);

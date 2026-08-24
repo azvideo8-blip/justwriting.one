@@ -65,7 +65,9 @@ export function setupEncryptionStoreListeners() {
 
   cleanupEncryptionStoreListeners();
 
-  const activityEvents: (keyof WindowEventMap)[] = ['keydown', 'mousedown', 'touchstart', 'mousemove'];
+  // AUDIT-M16: mousemove убран — любое движение мыши держало таймер вечным.
+  // Активность = реальные действия (клавиши, клики, тапы).
+  const activityEvents: (keyof WindowEventMap)[] = ['keydown', 'mousedown', 'touchstart'];
   let throttleId: ReturnType<typeof setTimeout> | null = null;
 
   const activityListener = () => {
@@ -92,6 +94,15 @@ export function setupEncryptionStoreListeners() {
   };
   document.addEventListener('visibilitychange', visibilityListener);
   registeredListeners.push({ target: document, type: 'visibilitychange', listener: visibilityListener });
+
+  // AUDIT-M16: ключ не должен жить в памяти после закрытия/падения таба.
+  const unloadListener = () => {
+    if (useEncryptionStore.getState().isVaultUnlocked) {
+      useEncryptionStore.getState().lockVault();
+    }
+  };
+  window.addEventListener('pagehide', unloadListener);
+  registeredListeners.push({ target: window, type: 'pagehide', listener: unloadListener });
 }
 
 export function cleanupEncryptionStoreListeners() {

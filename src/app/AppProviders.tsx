@@ -10,7 +10,7 @@ import { AuthProvider } from '../features/auth/contexts/AuthContext';
 import { ProfileProvider } from '../features/auth/contexts/ProfileContext';
 import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
 import { SyncConsentModal, useSyncConsentCheck } from '../features/settings/components/SyncConsentModal';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
@@ -28,7 +28,10 @@ import { reportError } from '../shared/errors/reportError';
 // feature imports (core must not import from features/).
 function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuthStatus();
-  const userId = user?.uid ?? getOrCreateGuestId();
+  // AUDIT-L18: getOrCreateGuestId пишет в localStorage — side effect не место
+  // в render path; вычисляем один раз за монтирование провайдера.
+  const guestId = useMemo(() => getOrCreateGuestId(), []);
+  const userId = user?.uid ?? guestId;
   return (
     <SettingsProvider userId={userId} renderSettingsPanel={(props) => <SettingsPanel {...props} />}>
       {children}

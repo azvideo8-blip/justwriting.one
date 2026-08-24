@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { resolve, join, extname } from 'path';
+import { resolve, join, extname, normalize } from 'path';
 import { createServer } from 'http';
 import { chromium, type Browser, type Page } from '@playwright/test';
 
@@ -131,7 +131,14 @@ function createStaticServer(rootDir: string, spaHtml: string) {
       return;
     }
 
-    const filePath = join(rootDir, urlPath);
+    // AUDIT-M20: normalize + проверка корня — иначе ../ в urlPath выходит
+    // за пределы DIST (loopback-only, но защита бесплатная).
+    const filePath = normalize(join(rootDir, urlPath));
+    if (!filePath.startsWith(normalize(rootDir))) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return;
+    }
     try {
       const data = readFileSync(filePath);
       const ext = extname(filePath);
@@ -170,7 +177,15 @@ async function prerenderWithPlaywright(originalHtml: string, spaHtml: string): P
 
   let browser: Browser | null = null;
   try {
-    browser = await chromium.launch({ headless: true });
+    try {
+      browser = await chromium.launch({ headless: true });
+    } catch (launchErr) {
+      // AUDIT-M20: отсутствие браузера не должно валить весь build —
+      // prerender это SEO-усиление, а не корректность.
+      console.warn('[prerender] chromium unavailable, skipping prerender:', launchErr);
+      process.exitCode = 0;
+      return;
+    }
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });

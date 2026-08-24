@@ -30,14 +30,21 @@ export function rateLimited(ip: string): boolean {
   return recent.length > MAX_PER_WINDOW;
 }
 
-/** Оставляет от URI только origin + path: query несёт данные страницы. */
+/**
+ * Оставляет от URI только origin + path: query несёт данные страницы.
+ *
+ * `blocked-uri` часто вовсе не URL, а ключевое слово CSP — `inline`, `eval`,
+ * `data`, `blob`. Возвращать для них undefined значит выбрасывать ровно то
+ * поле, ради которого отчёт и читают: остаётся «что-то нарушено где-то».
+ * Поэтому неразобранное значение отдаётся как есть, обрезанным по длине.
+ */
 export function originOnly(u: unknown): string | undefined {
-  if (typeof u !== 'string') return undefined;
+  if (typeof u !== 'string' || u.length === 0) return undefined;
   try {
     const parsed = new URL(u);
     return parsed.origin + parsed.pathname;
   } catch {
-    return undefined;
+    return u.slice(0, 100);
   }
 }
 

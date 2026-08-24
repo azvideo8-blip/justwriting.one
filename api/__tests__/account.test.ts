@@ -48,7 +48,9 @@ describe('deleteAccountLogic', () => {
         : Promise.resolve({ rows: [] }),
     );
 
-    await expect(deleteAccountLogic(null, 'uid_1')).rejects.toThrow('Account deletion failed.');
+    // Другой uid: cooldown удаления (AUDIT-H6) одноразовый на аккаунт,
+    // первый тест уже израсходовал слот uid_1.
+    await expect(deleteAccountLogic(null, 'uid_rollback')).rejects.toThrow('Account deletion failed.');
     expect(query.mock.calls.map(c => String(c[0]))).toContain('rollback');
   });
 });

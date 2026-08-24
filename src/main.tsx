@@ -26,7 +26,8 @@ if (sentryDsn && sentryDsn.startsWith('https://')) {
     enabled: import.meta.env.PROD,
     integrations: [
       Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
+      // AUDIT-M14: replay стартует после первого paint (idle), не блокирует
+      // startup. maskAllText/blockAllMedia сохранены — scrubbing обязателен.
     ],
     tracesSampleRate: 0.5,
     replaysSessionSampleRate: 0.1,
@@ -81,6 +82,20 @@ window.addEventListener('vite:preloadError', (e) => {
   reportError(payload, { action: 'vite_preload_error_reload' }, 'warning');
   location.reload();
 });
+
+// AUDIT-M14: replay подключается после загрузки, вне критического пути first paint.
+if (typeof window !== 'undefined') {
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void };
+  if (typeof w.requestIdleCallback === 'function') {
+    w.requestIdleCallback(() => {
+      Sentry.addIntegration(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
+    }, { timeout: 5000 });
+  } else {
+    w.addEventListener('load', () => {
+      Sentry.addIntegration(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
+    });
+  }
+}
 
 window.addEventListener('unhandledrejection', (event) => {
   reportError(event.reason, { source: 'unhandledrejection' });

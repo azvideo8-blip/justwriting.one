@@ -1,4 +1,4 @@
-import { saveAs } from 'file-saver';
+import { downloadBlob } from '../../shared/utils/downloadBlob';
 import { format } from 'date-fns';
 import { ArchiveSession } from '../archive/types';
 import { buildMarkdownContent, getFilenameBase, ExportStrings, stripMarkdown } from '../archive/services/ArchiveExportService';
@@ -57,7 +57,7 @@ export async function exportAllAsZip(
   }
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  saveAs(blob, `justwriting_backup_${format(new Date(), 'yyyy-MM-dd')}.zip`);
+  downloadBlob(blob, `justwriting_backup_${format(new Date(), 'yyyy-MM-dd')}.zip`);
 
   return { exported, skipped };
 }

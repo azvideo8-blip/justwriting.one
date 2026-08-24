@@ -180,6 +180,14 @@ replacement yet (`D2` in `docs/migration-plan.md`).
 
 ## Patterns
 
+- **`/archive` and `/writing` are intentionally public routes.** The app works
+  without an account: guest notes live locally under `guest_*` ids
+  (`getOrCreateGuestId`, `LocalStorageService.getGuestDocuments`), and
+  `/archive` is the only place a guest can see what they wrote. Do not wrap
+  them in `ProtectedRoute` — that would lock guests out of their own notes.
+  `/ai` is protected because it requires server calls, not because the other
+  pages were forgotten. (Decision recorded after the 2026-08-24 audit, item M8.)
+
 - **Services hold the logic.** Components render and collect input; they do not
   touch the database. Logic in services stays testable without React.
 - **Zustand** for high-frequency cross-component state (timer, content,

@@ -183,6 +183,30 @@ describe('3.8 stream disconnect', () => {
     );
   });
 
+  it('AUD-BILL-H2: полный провал апстрима не пишет строку usage', async () => {
+    // Стрим падает до первого байта: слот возвращён settle('failed'), глобальный
+    // резерв — тоже (upstreamProduced === false). recordUsage с нулевыми токенами
+    // и requests+1 в такой ситуации только надувает статистику запросов.
+    sseBody = holdOpen();
+
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    // Апстрим умирает сам, клиент никуда не уходит.
+    streamController?.error(new Error('upstream died'));
+    // Держим соединение живым, чтобы close-ветка не вмешалась.
+    res.destroyed = false;
+
+    await done;
+
+    expect(refundDaily).toHaveBeenCalledTimes(1);
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundGlobal).toHaveBeenCalledTimes(1);
+    expect(recordUsage).not.toHaveBeenCalled();
+  });
+
   it('AG-BILL-2: токен обработан ДО обрыва → слот возвращён, глобальный резерв нет', async () => {
     // Поставщик успел выдать и обработать кусок до разрыва — токены потрачены
     // по-настоящему, холостого возврата резерва быть не должно.

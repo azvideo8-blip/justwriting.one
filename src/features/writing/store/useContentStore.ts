@@ -45,7 +45,22 @@ let _wordCalcIsScheduled = false; // [P-01] флаг для предотвращ
 let _isApplyingHistory = false;
 let _burstDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _burstBaseline: HistoryEntry | null = null;
+// AUDIT-M11: последний известный caret (обновляется setContent/recordSnapshot).
+let _lastCaret = 0;
 const MAX_HISTORY = 100;
+
+// AUDIT-M13: сброс модульных синглтонов между тестами и при HMR — иначе
+// грязное состояние переживает пересоздание store.
+export function __resetContentStoreInternalsForTests() {
+  _burstBaseline = null;
+  _isApplyingHistory = false;
+  _lastCaret = 0;
+  clearWordCalcTimer();
+  if (_burstDebounceTimer != null) {
+    clearTimeout(_burstDebounceTimer);
+    _burstDebounceTimer = null;
+  }
+}
 
 export function clearWordCalcTimer() {
   if (_wordCalcRaf != null) cancelAnimationFrame(_wordCalcRaf);
@@ -128,6 +143,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
     flushBurst(get);
     const content = get().content;
     const caret = caretPos ?? content.length;
+    _lastCaret = caret;
     const past = [...get().past, { content, caret }].slice(-MAX_HISTORY);
     set({ past, future: [] });
   },
@@ -139,7 +155,9 @@ export const useContentStore = create<ContentState>((set, get) => ({
 
     const newPast = [...past];
     const previousEntry = newPast.pop()!;
-    const currentEntry: HistoryEntry = { content, caret: content.length };
+    // AUDIT-M11: в future уходит РЕАЛЬНЫЙ caret (не content.length), иначе
+    // последующий redo вернул бы курсор в конец текста.
+    const currentEntry: HistoryEntry = { content, caret: _lastCaret };
 
     _isApplyingHistory = true;
     set({
@@ -161,7 +179,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
 
     const newFuture = [...future];
     const nextEntry = newFuture.shift()!;
-    const currentEntry: HistoryEntry = { content, caret: content.length };
+    const currentEntry: HistoryEntry = { content, caret: _lastCaret };
 
     _isApplyingHistory = true;
     set({

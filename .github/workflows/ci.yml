@@ -60,6 +60,17 @@ jobs:
           echo "css: $f = $sz"
           [ "$sz" -gt "$MAX_CSS" ] && { echo "::error::$f > $MAX_CSS"; fail=1; }
         done
+        # AUDIT-H7: gzip-гейт на САМЫЙ БОЛЬШОЙ index-чанк. Порог от факта
+        # 2026-08-24: entry 209.63 KB gzip, запас ~5%. dist/assets/index-*.js
+        # матчит два файла — берём max, иначе gzip -c склеит их и посчитает не то.
+        MAX_INDEX_GZ=225000
+        biggest_gz=0
+        for f in dist/assets/index-*.js; do
+          gz=$(gzip -c "$f" | wc -c)
+          [ "$gz" -gt "$biggest_gz" ] && biggest_gz=$gz
+        done
+        echo "index gzip (largest chunk): $biggest_gz"
+        [ "$biggest_gz" -gt "$MAX_INDEX_GZ" ] && { echo "::error::largest index chunk gzip $biggest_gz > $MAX_INDEX_GZ"; fail=1; }
         exit $fail
     - name: Install Playwright
       run: npx playwright install chromium

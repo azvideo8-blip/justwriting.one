@@ -25,8 +25,8 @@ vi.mock('../../../../core/services/UnifiedSessionLoader', () => ({
   hydrateSessionContent: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('file-saver', () => ({
-  saveAs: vi.fn(),
+vi.mock('../../../../shared/utils/downloadBlob', () => ({
+  downloadBlob: vi.fn(),
 }));
 
 const { exportMigrationManifest } = await import('../../services/migrationExport');

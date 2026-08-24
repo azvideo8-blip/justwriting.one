@@ -8,7 +8,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // AUD-21: лимитер вынесен в ./cspLimiter и разделён с боевым маршрутом в
 // api/server.ts — своя копия здесь означала защиту в файле, которого прод не
 // исполняет.
-import { rateLimited, clientIp } from './cspLimiter';
+import { rateLimited, clientIp, originOnly } from './cspLimiter';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -25,7 +25,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   }
   // Body shape is `{ "csp-report": {...} }`; Vercel parses JSON bodies.
 
-  const report = (req.body as { 'csp-report'?: unknown })?.['csp-report'] ?? req.body;
-  console.warn('[csp-report]', JSON.stringify(report));
+  const report = (req.body as { 'csp-report'?: unknown })?.['csp-report'] ?? (req.body as Record<string, unknown>) ?? {};
+  // AUDIT-L2: только origin+path — query params могут нести PII.
+  const summary = {
+    'document-uri': originOnly(report['document-uri'] as string | undefined),
+    'violated-directive': report['violated-directive'],
+    'blocked-uri': originOnly(report['blocked-uri'] as string | undefined),
+  };
+  console.warn('[csp-report]', JSON.stringify(summary));
   res.status(204).end();
 }

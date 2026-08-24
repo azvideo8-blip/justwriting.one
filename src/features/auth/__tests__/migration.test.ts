@@ -548,10 +548,14 @@ describe('GROUP D — Idempotency', () => {
     const statuses = results.map(r => r.status);
     expect(statuses).toEqual(['rejected', 'fulfilled']);
 
-    // Bad doc: createDocument called then rolled back via deleteDocument.
+    // Bad doc: createDocument called, upload rejected — но deleteDocument
+    // больше НЕ зовётся: AUDIT-MH4 заменил rollback на resume. Облачный документ
+    // остаётся, ссылка ставится, retry докачивает недостающие версии. Удаление
+    // стирало бы уже залитые версии и при неудачном cleanup оставляло orphan,
+    // который restoreMissingDocuments потом скачивал как дубль-заметку.
     // Good doc: createDocument called and succeeds.
     expect(MockDocumentService.createDocument).toHaveBeenCalledTimes(2);
-    expect(MockDocumentService.deleteDocument).toHaveBeenCalledTimes(1);
+    expect(MockDocumentService.deleteDocument).not.toHaveBeenCalled();
   });
 });
 

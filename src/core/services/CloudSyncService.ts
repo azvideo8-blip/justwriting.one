@@ -1,6 +1,7 @@
 import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
+import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, type LocalDocument } from '../storage/localDb';
 import { Document } from '../../types';
@@ -252,6 +253,21 @@ export const CloudSyncService = {
     await lockTx.store.put({ id: lockKey, documentId: localDocumentId, type: 'document' as const, createdAt: Date.now() });
     await lockTx.done;
 
+    // AUDIT-MH2: upload routinely живёт дольше LOCK_TTL_MS (pLimit(3) + таймауты
+    // 30s) — вторая вкладка проходила «протухший» lock одновременно с первой.
+    // Heartbeat продлевает createdAt, пока держатель жив.
+    const lockHeartbeat = setInterval(() => {
+      void (async () => {
+        try {
+          const hdb = await getLocalDb();
+          const htx = hdb.transaction('syncQueue', 'readwrite');
+          const cur = await htx.store.get(lockKey);
+          if (cur) await htx.store.put({ ...cur, createdAt: Date.now() });
+          await htx.done;
+        } catch { /* некритично: протухший lock лучше дубля */ }
+      })();
+    }, LOCK_TTL_MS / 3);
+
     try {
       const localDoc = await LocalStorageService.getDocument(localDocumentId);
       if (!localDoc) throw new Error('Local document not found');
@@ -264,7 +280,10 @@ export const CloudSyncService = {
         const existingDoc = await withTimeout(getDoc(userId, localDoc.linkedCloudId));
         if (existingDoc) {
           if (existingDoc.deletedAt) {
-            await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
+            // AUDIT-H3: заметка удалена в облаке. Unlink с флагом localOnly:
+            // иначе следующий syncAllUnlinked зальёт её как НОВЫЙ облачный
+            // документ и удаление «воскреснет» под другим id.
+            await LocalDocumentService.unlinkFromCloud(localDocumentId);
             const syncDb = await getLocalDb();
             await syncDb.delete('syncQueue', `sync_${localDocumentId}`);
             return '';
@@ -314,6 +333,8 @@ export const CloudSyncService = {
 
           // 2. Identify local versions missing from cloud, or colliding with different content
           const missing: typeof localVersions = [];
+          // AUDIT-MH5: коллизии собираем все, форк — ОДИН на документ.
+          const collisions: typeof localVersions = [];
           for (const ver of localVersions) {
             const cloudVer = cloudVerMap.get(ver.version);
             if (!cloudVer) {
@@ -322,26 +343,30 @@ export const CloudSyncService = {
               }
             } else if (cloudVer.content !== ver.content) {
               // Same version number, but DIFFERENT content! Fork to preserve local edits
-              await ConflictResolver.resolveConflict(
-                userId,
-                localDocumentId,
-                cloudId,
-                {
-                  title: localDoc.title,
-                  content: ver.content,
-                  tags: localDoc.tags,
-                  wordCount: ver.wordCount,
-                  duration: ver.duration,
-                  wpm: ver.wpm,
-                  sessionStartedAt: ver.sessionStartedAt ? new Date(ver.sessionStartedAt) : new Date(),
-                  labelId: localDoc.labelId,
-                  mood: ver.mood,
-                },
-                ver.version,
-                existingDoc,
-                localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt).getTime() : undefined
-              );
+              collisions.push(ver);
             }
+          }
+          if (collisions.length > 0) {
+            const last = collisions[collisions.length - 1]!;
+            await ConflictResolver.resolveConflict(
+              userId,
+              localDocumentId,
+              cloudId,
+              {
+                title: localDoc.title,
+                content: last.content,
+                tags: localDoc.tags,
+                wordCount: last.wordCount,
+                duration: last.duration,
+                wpm: last.wpm,
+                sessionStartedAt: last.sessionStartedAt ? new Date(last.sessionStartedAt) : new Date(),
+                labelId: localDoc.labelId,
+                mood: last.mood,
+              },
+              last.version,
+              existingDoc,
+              localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt).getTime() : undefined
+            );
           }
           const limiter = pLimit(3);
           await Promise.all(missing.map((ver) => limiter(async () => {
@@ -476,9 +501,15 @@ export const CloudSyncService = {
           mood: localDoc.mood,
         }));
       } catch (e) {
-
+        // AUDIT-MH4: не откатываем частичную выгрузку. Облачный документ уже
+        // создан, часть версий залита — удаление стирало бы успешную работу и,
+        // если cleanup сам падал, оставляло orphan, который потом скачивался
+        // как дубль-заметка. Ставим ссылку и бросаем дальше: retry по linked-
+        // ветке докачает недостающие версии (pull/push missing там уже есть).
         if (cloudId) {
-          try { await DocumentService.deleteDocument(userId, cloudId); } catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_cleanup', cloudId }); }
+          reportError(e, { action: 'addCloudCopy_partial', cloudId }, 'warning');
+          try { await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId); }
+          catch { /* существующий post-hoc dedup ниже разберётся */ }
         }
         throw e;
       }
@@ -509,6 +540,7 @@ export const CloudSyncService = {
       
       return cloudId;
     } finally {
+      clearInterval(lockHeartbeat);
       try {
         const cleanupDb = await getLocalDb();
         await cleanupDb.delete('syncQueue', lockKey);
@@ -614,8 +646,15 @@ export const CloudSyncService = {
 
       if (maxCloudVersion >= newVersion) {
         const localDoc = await LocalStorageService.getDocument(documentId);
-        const cloudBaseVer = cloudVerMap.get(newVersion - 1);
-        const hasMatchingBase = cloudBaseVer !== undefined && cloudBaseVer.content === prevContent;
+        // AUDIT-MH1: конфликт — расхождение с базовой версией, а не строк.
+        // Если известен lastSyncedCloudVersion (версия облака, от которой
+        // строилась локальная правка), divergence = base не совпал с ней.
+        // Иначе — legacy-сравнение контента (старые записи без поля).
+        const baseVersion = newVersion - 1;
+        const hasKnownBase = localDoc?.lastSyncedCloudVersion !== undefined;
+        const hasMatchingBase = hasKnownBase
+          ? localDoc?.lastSyncedCloudVersion === baseVersion
+          : (cloudVerMap.get(baseVersion)?.content === prevContent);
         const hasContentDivergence = !hasMatchingBase;
 
         if (hasContentDivergence) {
@@ -702,7 +741,16 @@ export const CloudSyncService = {
         currentVersion: newVersion,
         mood: data.mood,
       });
-      
+
+      // AUDIT-MH1: успешный push фиксирует base для следующего конфликта-чекa.
+      try {
+        const localDoc = await LocalStorageService.getDocument(documentId);
+        if (localDoc) {
+          const db = await getLocalDb();
+          await db.put('documents', { ...localDoc, lastSyncedCloudVersion: newVersion });
+        }
+      } catch { /* некритично: без поля сработает legacy-сравнение контента */ }
+
       useActivityLogStore.getState().addActivity(
         'Изменения сохранены в облако',
         { action: 'syncVersionToCloud', documentId, newVersion },

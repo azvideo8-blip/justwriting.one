@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const savedAs: { blob: unknown; name: string }[] = [];
-vi.mock('file-saver', () => ({
-  saveAs: (blob: unknown, name: string) => { savedAs.push({ blob, name }); },
+vi.mock('../../../shared/utils/downloadBlob', () => ({
+  downloadBlob: (blob: unknown, name: string) => { savedAs.push({ blob, name }); },
 }));
 
 import { exportAllAsZip } from '../ExportAllService';

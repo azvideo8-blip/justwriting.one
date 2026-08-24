@@ -74,5 +74,16 @@ describe('AUD-21 the VPS route shares the limiter', () => {
     expect(originOnly('https://justwriting.one/archive?note=secret-title'))
       .toBe('https://justwriting.one/archive');
     expect(originOnly(undefined)).toBeUndefined();
+    expect(originOnly('')).toBeUndefined();
+  });
+
+  it('keeps CSP keywords, which are the point of the report', async () => {
+    // blocked-uri чаще всего не URL, а слово: выбросив его, отчёт перестаёт
+    // говорить, ЧТО заблокировано. Фальсификация: вернуть undefined в catch.
+    const { originOnly } = await import('../cspLimiter');
+    for (const kw of ['inline', 'eval', 'data', 'blob']) {
+      expect(originOnly(kw)).toBe(kw);
+    }
+    expect(originOnly('x'.repeat(500))).toHaveLength(100);
   });
 });

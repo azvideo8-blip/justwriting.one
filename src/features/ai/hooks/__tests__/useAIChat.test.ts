@@ -13,7 +13,7 @@ vi.mock('../../../../shared/i18n', () => ({
     t: (k: string) => k,
   }),
 }));
-vi.mock('../useAIChatContext', () => ({
+vi.mock('../../services/aiChatContext', () => ({
   useAIChatContext: () => ({
     buildContext: vi.fn().mockResolvedValue({
       userPortrait: null,

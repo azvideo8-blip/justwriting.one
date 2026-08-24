@@ -69,7 +69,31 @@ export async function sendTelemetryLogic(_ctx: unknown, uid: string, data: unkno
 
 // ── deleteAccount ───────────────────────────────────────────────────────────
 
+// Cooldown на попытки удаления (аудит H6-остаток): re-auth по amr уже стоит,
+// это второй барьер против перебора/залипания кнопки. In-memory достаточно:
+// сервис живёт одним процессом на VPS, а после рестарта окно просто начнётся
+// заново — гейт здесь не криптографический.
+const DELETE_COOLDOWN_MS = 60 * 60 * 1000;
+const lastDeleteAttempt = new Map<string, number>();
+
+export function acquireDeleteSlot(uid: string, now: number = Date.now()): boolean {
+  const prev = lastDeleteAttempt.get(uid);
+  if (prev !== undefined && now - prev < DELETE_COOLDOWN_MS) return false;
+  lastDeleteAttempt.set(uid, now);
+  // Карта ограничена числом аккаунтов за час — чистим протухшие записи,
+  // чтобы она не росла бесконечно.
+  if (lastDeleteAttempt.size > 10_000) {
+    for (const [k, t] of lastDeleteAttempt) {
+      if (now - t >= DELETE_COOLDOWN_MS) lastDeleteAttempt.delete(k);
+    }
+  }
+  return true;
+}
+
 export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<unknown> {
+  if (!acquireDeleteSlot(uid)) {
+    throw new AiError('resource-exhausted', 'Too many deletion attempts. Try again later.');
+  }
   const client = await pool.connect();
   try {
     await client.query('begin');

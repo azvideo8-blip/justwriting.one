@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ExportService } from '../ExportService';
-import { saveAs } from 'file-saver';
+import { downloadBlob } from '../../../shared/utils/downloadBlob';
 
-vi.mock('file-saver', () => ({
-  saveAs: vi.fn(),
-}));
+vi.mock('../../../shared/utils/downloadBlob', () => ({ downloadBlob: vi.fn() }));
+const saveAs = vi.mocked(downloadBlob);
 
 vi.mock('docx', () => ({
   Document: vi.fn(),

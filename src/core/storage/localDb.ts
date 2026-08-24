@@ -25,6 +25,11 @@ export interface LocalDocument {
   // stay on the device" from "the link was lost", which the re-link pass would
   // otherwise restore right back.
   localOnly?: boolean | undefined;
+  // AUDIT-MH1: номер облачной версии, от которой локально строилась последняя
+  // правка. Конфликт — это расхождение с base, а не совпадение строк: две
+  // устройства, пишущие одну версию от одного base, но с разными правками,
+  // строками не ловятся. undefined = старое поведение (сравнение контента).
+  lastSyncedCloudVersion?: number | undefined;
   mood?: string | undefined;
   aiProcessed?: boolean | undefined;
   /** «Не показывать ИИ»: заметка исключена из разбора и из любого поиска,
@@ -302,7 +307,7 @@ interface JustWritingDB extends DBSchema {
   profile: { key: string; value: LocalProfile; };
   syncQueue: {
     key: string;
-    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; ownerId?: string | undefined; };
+    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; ownerId?: string | undefined; attempts?: number | undefined; dead?: boolean | undefined; };
   };
   drafts: { key: string; value: LocalDraft; };
   pending_sessions: { key: number; value: PendingSession; autoIncrement: true; };

@@ -11,6 +11,36 @@ import pLimit from 'p-limit';
 const _syncInProgress = new Map<string, boolean>();
 const limit = pLimit(5);
 
+// AUDIT-H4: детерминированные ошибки (LOCKED, DECRYPTION_ERROR,
+// Invalid sessionStartedAt) не исправятся ретраями — задача уходит в карантин
+// сразу; остальным даём MAX_ATTEMPTS проходов, потом тоже карантин.
+const MAX_ATTEMPTS = 10;
+const DETERMINISTIC_ERROR = /LOCKED|DECRYPTION_ERROR|Invalid sessionStartedAt/;
+
+async function bumpAttempts(
+  taskId: string,
+  reason: unknown,
+  mutate: (id: string, patch: { attempts: number; dead: boolean }) => Promise<void>,
+): Promise<void> {
+  const db = await getLocalDb();
+  const item = await db.get('syncQueue', taskId);
+  if (!item || item.dead) return;
+  const attempts = (item.attempts ?? 0) + 1;
+  const dead = DETERMINISTIC_ERROR.test(String(reason)) || attempts >= MAX_ATTEMPTS;
+  await mutate(taskId, { attempts, dead });
+  if (dead) {
+    reportError(new Error('Sync task quarantined'), { taskId, attempts, reason: String(reason) }, 'warning');
+    announceQueueChange();
+  }
+}
+
+async function markAttempt(taskId: string, patch: { attempts: number; dead: boolean }): Promise<void> {
+  const db = await getLocalDb();
+  const item = await db.get('syncQueue', taskId);
+  if (!item) return;
+  await db.put('syncQueue', { ...item, attempts: patch.attempts, dead: patch.dead });
+}
+
 // AUD-25: индикатор синка больше не опрашивает IndexedDB каждые 10 секунд —
 // слой синка сам объявляет об изменениях очереди, и подписчики перечитывают
 // счётчики только тогда, когда что-то действительно изменилось.
@@ -84,7 +114,9 @@ export const SyncService = {
       await CloudSyncService.relinkOrphanedDocuments(userId);
 
       const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-      const unlinked = localDocs.filter(d => !d.linkedCloudId);
+      // AUDIT-H3: localOnly-заметки осознанно отвязаны (например, удалены в
+      // облаке) — автозаливка создала бы дубль и воскресила удалённое.
+      const unlinked = localDocs.filter(d => !d.linkedCloudId && !d.localOnly);
 
       const results = await Promise.allSettled(unlinked.map(doc =>
         limit(() => StorageService.addCloudCopy(userId, doc.id).then(cloudId => {
@@ -200,6 +232,7 @@ async function _drainPendingQueue(userId: string): Promise<void> {
 
   const pending = queue.filter(item => {
     if (item.id.startsWith('lock_cloud_')) return false;
+    if (item.dead) return false; // AUDIT-H4: карантинные задачи не дренируются
     if (item.ownerId !== undefined && item.ownerId !== userId) return false;
     return true;
   });
@@ -209,6 +242,10 @@ async function _drainPendingQueue(userId: string): Promise<void> {
   const deleteTasks = pending.filter(p => p.type === 'delete');
   const portraitTasks = pending.filter(p => p.type === 'portrait');
   const docTasks = pending.filter(p => p.type === 'document' || p.type === 'version');
+  const pendingBumps: Promise<void>[] = [];
+  const bump = (taskId: string, reason: unknown) => {
+    pendingBumps.push(bumpAttempts(taskId, reason, markAttempt));
+  };
 
   const syncedIds: string[] = [];
 
@@ -225,6 +262,8 @@ async function _drainPendingQueue(userId: string): Promise<void> {
         syncedIds.push(r.value);
       } else {
         logger.error('drainPendingQueue_delete', 'Delete sync failed', { reason: String(r.reason) });
+        const idx = deleteResults.indexOf(r);
+        if (idx >= 0) bump(deleteTasks[idx]!.id, r.reason);
       }
     }
   }
@@ -248,6 +287,8 @@ async function _drainPendingQueue(userId: string): Promise<void> {
         syncedIds.push(r.value);
       } else {
         logger.error('drainPendingQueue_portrait', 'Portrait sync failed', { reason: String(r.reason) });
+        const idx = portraitResults.indexOf(r);
+        if (idx >= 0) bump(portraitTasks[idx]!.id, r.reason);
       }
     }
   }
@@ -280,11 +321,19 @@ async function _drainPendingQueue(userId: string): Promise<void> {
       }))
     ));
 
-    for (const r of results) {
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i]!;
       if (r.status === 'fulfilled') syncedIds.push(...r.value);
-      else logger.error('drainPendingQueue', 'Sync failed', { reason: String(r.reason) });
+      else {
+        logger.error('drainPendingQueue', 'Sync failed', { reason: String(r.reason) });
+        // У документа может быть несколько задач — карантиним все его задачи.
+        const localId = documentIds[i]!;
+        for (const t of (pendingByDoc.get(localId) ?? [])) bump(t.id, r.reason);
+      }
     }
   }
+
+  if (pendingBumps.length > 0) await Promise.all(pendingBumps);
 
   if (syncedIds.length > 0) {
     await _clearQueueItems(syncedIds);

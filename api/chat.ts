@@ -308,10 +308,14 @@ async function streamOpenRouterReasoning(
     wroteAnswerHeader = true;
     write(contentAccum);
   }
-  try {
-    await postgresAiContext.recordUsage(uid, tokensIn, tokensOut, { model, fn: 'chat-stream' }, reservation);
-  } catch (e) {
-    console.error('[api/chat] usage record failed:', e);
+  // При полном провале (upstreamProduced === false) не пишем строку usage:
+  // токены нулевые, а requests+1 надувает счётчик запросов в статистике.
+  if (!streamFailed || upstreamProduced) {
+    try {
+      await postgresAiContext.recordUsage(uid, tokensIn, tokensOut, { model, fn: 'chat-stream' }, reservation);
+    } catch (e) {
+      console.error('[api/chat] usage record failed:', e);
+    }
   }
   res.end();
 }
@@ -433,13 +437,13 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return json(res, 400, { error: 'Bad Request' });
   }
 
-  if (
-    messages.some(m => hasInjectionAttempt(m.content)) ||
-    (documentContent && hasInjectionAttempt(documentContent)) ||
-    (memoryContext && hasInjectionAttempt(memoryContext)) ||
-    (userPortrait && hasInjectionAttempt(userPortrait)) ||
-    (documentMood && hasInjectionAttempt(documentMood))
-  ) {
+  // AUDIT-MH8: hard-reject только для system-prompt-подобных полей (messages,
+  // customSystemPrompt выше). Note-derived контент (documentContent,
+  // memoryContext, userPortrait, documentMood) — это ТЕКСТЫ ЗАМЕТОК юзера:
+  // совпадение с паттерном в его же архиве не должно ломать чат (self-DoS).
+  // Такой контент нейтрализуется data-fence в buildChatPrompt (AUDIT-MH9)
+  // поверх санитайзера ниже.
+  if (messages.some(m => hasInjectionAttempt(m.content))) {
     if (isInternalCall) await postgresAiContext.refundBulkLimit(uid, chargedDay);
     else await postgresAiContext.refundDailyLimit(uid, chargedDay);
     await postgresAiContext.refundGlobalRequest(reservation);
@@ -505,10 +509,11 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     onError: async (e) => {
       console.error('[api/chat] streamText failed:', e);
       await postgresAiContext.refundGlobalRequest(reservation);
+      // chargedDay обязателен: refund после полуночи без него чинит чужой день.
       if (isInternalCall) {
-        await postgresAiContext.refundBulkLimit(uid);
+        await postgresAiContext.refundBulkLimit(uid, chargedDay);
       } else {
-        await postgresAiContext.refundDailyLimit(uid);
+        await postgresAiContext.refundDailyLimit(uid, chargedDay);
       }
     },
   });

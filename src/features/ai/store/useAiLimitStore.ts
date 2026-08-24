@@ -18,13 +18,26 @@ function getMidnightUtc(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
 }
 
+// AUDIT-M12: форма localStorage валидируется — повреждённая запись
+// ({count: "999999"} и т.п.) не должна сбивать локальную квоту.
+function isValidUsage(v: unknown): v is { count: number; date: string } {
+  return (
+    typeof v === 'object' && v !== null &&
+    typeof (v as { count?: unknown }).count === 'number' &&
+    Number.isInteger((v as { count: number }).count) &&
+    (v as { count: number }).count >= 0 &&
+    typeof (v as { date?: unknown }).date === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test((v as { date: string }).date)
+  );
+}
+
 function readLocalUsage(): { count: number; date: string } {
   const today = getUtcDateStr();
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
-      const parsed = JSON.parse(raw) as { count: number; date: string };
-      if (parsed.date === today) return parsed;
+      const parsed: unknown = JSON.parse(raw);
+      if (isValidUsage(parsed) && parsed.date === today) return parsed;
     } catch { /* ignore */ }
   }
   return { count: 0, date: today };
@@ -45,6 +58,20 @@ interface AiLimitState {
   setAdmin: (admin: boolean) => void;
 }
 
+// AUDIT-M12/L14: таймер живёт вне store (не сериализуемый side effect в state),
+// перевзводится рекурсивно и пересчитывается при возврате видимости вкладки —
+// иначе после сна таба квота висит устаревшая до следующего запроса.
+let midnightTimer: ReturnType<typeof setTimeout> | null = null;
+
+function armMidnightReset(get: () => AiLimitState): void {
+  if (midnightTimer) clearTimeout(midnightTimer);
+  const ms = Math.max(1000, getMidnightUtc().getTime() - Date.now());
+  midnightTimer = setTimeout(() => {
+    get().loadLimit();
+    armMidnightReset(get);
+  }, ms);
+}
+
 export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   remaining: DEFAULT_LIMIT,
   limit: DEFAULT_LIMIT,
@@ -53,14 +80,6 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   resetsAt: getMidnightUtc(),
   loaded: false,
   isAdmin: false,
-
-  // Schedule a reset at midnight UTC so an open tab doesn't carry stale quota
-  _midnightTimer: typeof window !== 'undefined'
-    ? setTimeout(() => { get().loadLimit(); }, (() => {
-        const ms = getMidnightUtc().getTime() - Date.now();
-        return ms > 0 ? ms : 86_400_000;
-      })()) as ReturnType<typeof setTimeout> | null
-    : null,
 
   loadLimit() {
     const { count } = readLocalUsage();
@@ -98,3 +117,10 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
     });
   },
 }));
+
+if (typeof window !== 'undefined') {
+  armMidnightReset(() => useAiLimitStore.getState());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) useAiLimitStore.getState().loadLimit();
+  });
+}

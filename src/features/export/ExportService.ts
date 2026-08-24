@@ -1,7 +1,10 @@
-import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { reportError } from '../../shared/errors/reportError';
 import { escapeHtml } from '../../shared/utils/exportUtils';
+
+
+
+import { downloadBlob as saveAs } from '../../shared/utils/downloadBlob';
 
 export class ExportService {
   static toJson(data: unknown) {

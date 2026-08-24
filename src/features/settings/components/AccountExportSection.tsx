@@ -9,7 +9,7 @@ import { exportAllAsZip } from '../../export/ExportAllService';
 import { ExportStrings } from '../../archive/services/ArchiveExportService';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
-import { saveAs } from 'file-saver';
+import { downloadBlob } from '../../../shared/utils/downloadBlob';
 import { APP_VERSION } from '../../../version';
 import { exportMigrationManifest } from '../services/migrationExport';
 import { importMigrationManifest, type MigrationImportResult } from '../services/migrationImport';
@@ -100,7 +100,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
           })),
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      saveAs(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
+      downloadBlob(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
       showToast(t('settings_export_all_done', { count: exportableSessions.length }), 'success');
       if (skippedCount > 0) {
         showToast(t('settings_export_all_skipped', { count: skippedCount }), 'error');
@@ -120,7 +120,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       const manifest = await exportMigrationManifest();
       const verbatimTotal = Object.values(manifest.counters.verbatim).reduce((a, b) => a + b, 0);
       const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-      saveAs(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
+      downloadBlob(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
       setMigrationResult({
         documents: manifest.counters.documents,
         versions: manifest.counters.versions,

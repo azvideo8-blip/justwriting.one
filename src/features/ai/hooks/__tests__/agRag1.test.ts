@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import 'fake-indexeddb/auto';
-import { useAIChatContext } from '../useAIChatContext';
+import { useAIChatContext } from '../../services/aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIService } from '../../services/AIService';
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';

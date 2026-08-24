@@ -14,7 +14,11 @@ export const ConflictResolver = {
     cloudDoc: { currentVersion: number; totalWords?: number; totalDuration?: number },
     originalFirstSessionAt?: number
   ): Promise<{ forked: boolean }> {
-    const conflictTitle = `${data.title || 'Untitled'} (Conflict ${new Date().toLocaleDateString()})`;
+    // AUDIT-MH3: дата без времени делала одноимённые форки одного дня
+    // неразличимыми; превью контента помогает узнать свою заметку.
+    const hhmm = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const preview = (data.content || '').slice(0, 30).replace(/\s+/g, ' ').trim();
+    const conflictTitle = `${data.title || 'Untitled'} (Conflict ${new Date().toLocaleDateString()} ${hhmm}: ${preview}…)`;
     const forkedDocId = await LocalStorageService.createDocument(userId, {
       title: conflictTitle,
       tags: data.tags,
@@ -32,6 +36,37 @@ export const ConflictResolver = {
       sessionStartedAt: data.sessionStartedAt,
       mood: data.mood,
     });
+
+    // AUDIT-MH3: в форк должны попасть ВСЕ несинхронизированные локальные
+    // версии (те, которых нет в облаке), а не только последняя правка.
+    try {
+      const localVersions = await LocalVersionService.getVersions(documentId);
+      let cloudVerNums = new Set<number>();
+      try {
+        const { VersionService } = await import('./VersionService');
+        cloudVerNums = new Set((await VersionService.getVersions(userId, linkedCloudId)).map(v => v.version));
+      } catch { /* нет связи с облаком — копируем всё, что выше currentVersion */ }
+      for (const v of localVersions) {
+        if (cloudVerNums.has(v.version)) continue;          // уже есть в облаке — не терялась
+        if (v.content === data.content) continue;           // уже положена как versionNumber: 1
+        await LocalVersionService.addVersion(userId, forkedDocId, {
+          content: v.content,
+          previousContent: '',
+          wordCount: v.wordCount,
+          duration: v.duration,
+          wpm: v.wpm,
+          versionNumber: v.version,
+          goalWords: v.goalWords,
+          goalTime: v.goalTime,
+          goalReached: v.goalReached,
+          sessionStartedAt: new Date(v.sessionStartedAt),
+          savedAt: v.savedAt ? new Date(v.savedAt) : undefined,
+          mood: v.mood,
+        });
+      }
+    } catch (copyErr) {
+      reportError(copyErr, { action: 'resolveConflict_copyUnsynced', documentId });
+    }
     await LocalStorageService.updateAfterSession(forkedDocId, {
       totalWords: data.wordCount,
       totalDuration: data.duration,

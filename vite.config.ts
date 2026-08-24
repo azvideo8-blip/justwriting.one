@@ -61,7 +61,6 @@ export default defineConfig(() => {
           // и такого цикла не даёт.
           manualChunks: {
             'vendor-motion': ['motion/react'],
-            'vendor-charts': ['recharts'],
             'vendor-docx': ['docx'],
             'vendor-router': ['react-router-dom'],
             'vendor-markdown': ['react-markdown', 'rehype-sanitize'],

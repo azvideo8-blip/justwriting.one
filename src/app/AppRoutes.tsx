@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -33,11 +34,20 @@ function PageLoader() {
   );
 }
 
+// AUDIT-M22: без scroll restoration навигация /archive → /changelog сохраняла
+// позицию прокрутки предыдущей страницы.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
 export function AppRoutes() {
   const { user, profile } = useAuthStatus();
 
   return (
     <ErrorBoundary>
+    <ScrollToTop />
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<ErrorBoundary><WritingPage user={user} profile={profile} /></ErrorBoundary>} />
