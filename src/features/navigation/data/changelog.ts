@@ -14,6 +14,26 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.16',
+    date: '2026-08-24',
+    items: [
+      { category: 'fix', ru: 'Заметка больше не расходится в двух копиях при работе в двух вкладках: загрузка в облако длится дольше, чем держалась блокировка, и вторая вкладка проходила её как просроченную', en: 'A note no longer splits into two copies when two tabs work at once: an upload outlives the lock that guarded it, and the second tab walked past it as expired' },
+      { category: 'fix', ru: 'Расхождение версий определяется по базовой версии, а не по совпадению текста — две правки от одной основы больше не теряют первую из них молча', en: 'Version divergence is decided by the base version, not by matching text — two edits from the same base no longer lose the first one silently' },
+      { category: 'fix', ru: 'При расхождении в копию попадают все несохранённые версии, а не только последняя, и одна синхронизация делает одну копию вместо цепочки; в названии копии время и начало текста', en: 'On divergence the copy carries every unsynced version, not just the latest, and one sync makes one copy instead of a chain; the name carries the time and opening words' },
+      { category: 'fix', ru: 'Неудачная загрузка больше не стирает уже отправленные версии — следующая попытка продолжает с места обрыва', en: 'A failed upload no longer erases the versions already sent — the next attempt resumes where it stopped' },
+      { category: 'fix', ru: 'Задача синхронизации, которая не может завершиться никогда, уходит в карантин вместо вечного повтора, а упавшая выгрузка возвращается в очередь', en: 'A sync task that can never succeed is quarantined instead of retrying forever, and a failed upload returns to the queue' },
+      { category: 'fix', ru: 'Заметка, случайно совпавшая с подозрительным образцом текста, больше не роняет весь разговор с ИИ: собственные записи ограждаются как данные, а не отклоняются', en: 'A note that happens to match a suspicious text pattern no longer breaks the whole AI conversation: your own entries are fenced as data rather than rejected' },
+      { category: 'fix', ru: 'Отмена и повтор возвращают курсор туда, где он был, а не в конец текста', en: 'Undo and redo put the cursor back where it was instead of at the end of the text' },
+      { category: 'fix', ru: 'Возврат средств за прерванный разговор списывается с того дня, за который заплатили — запрос около полуночи больше не чинит счётчик соседних суток', en: 'A refund for an interrupted conversation lands on the day that was charged — a request near midnight no longer credits the neighbouring day' },
+      { category: 'improvement', ru: 'Приложение стало легче: удалена библиотека графиков, которой никто не пользовался, и выгрузка в Word подгружается только по требованию', en: 'The app got lighter: an unused charting library is gone, and Word export loads only on demand' },
+      { category: 'improvement', ru: 'Ошибка при вводе пароля от сейфа перестала занимать вдвое больше времени: число проходов записано в самом сейфе, а не подбирается', en: 'A typo in the vault password no longer takes twice as long: the number of passes is recorded in the vault itself instead of being guessed' },
+      { category: 'improvement', ru: 'Если обновление локальной базы заблокировано другой вкладкой, приложение так и говорит, а не оставляет гадать', en: 'When a local database upgrade is blocked by another tab, the app says so instead of leaving you to guess' },
+      { category: 'accessibility', ru: 'Мобильные шторки удерживают фокус клавиатуры и закрываются по Escape, как остальные окна', en: 'Mobile sheets trap keyboard focus and close on Escape, like every other dialog' },
+      { category: 'improvement', ru: 'Большой архив в режиме группировки по датам переключается на постраничный показ вместо полной отрисовки', en: 'A large archive grouped by date switches to a windowed view instead of rendering in full' },
+      { category: 'improvement', ru: 'Размер приложения проверяется на сборке жёстким порогом, а не только сравнением с предыдущей версией', en: 'App size is checked at build time against a hard ceiling, not only compared with the previous version' },
+    ],
+  },
+  {
     version: '0.8.15',
     date: '2026-08-24',
     items: [

@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.8.16 — 2026-08-24
+
+- **[RU]** Заметка больше не расходится в двух копиях при одновременной работе в двух вкладках. Загрузка в облако обычно длится дольше, чем держалась блокировка, и вторая вкладка проходила её как «просроченную» — теперь блокировка продлевается, пока работа идёт.
+- **[EN]** A note no longer splits into two copies when two tabs work at once. An upload usually outlives the lock that guarded it, and the second tab walked past it as "expired" — the lock is now extended for as long as the work runs.
+- **[RU]** Расхождение версий определяется по базовой версии, а не по совпадению текста. Две правки от одной основы больше не заканчиваются молчаливой потерей первой из них.
+- **[EN]** Version divergence is decided by the base version, not by matching text. Two edits from the same base no longer end with the first one silently overwritten.
+- **[RU]** При расхождении в копию попадают все несохранённые версии, а не только последняя, и одна синхронизация делает одну копию вместо цепочки. У копии в названии время и начало текста — их стало можно различить.
+- **[EN]** On divergence the copy now carries every unsynced version, not just the latest, and one sync makes one copy instead of a chain. The copy's name carries the time and the opening words, so they can be told apart.
+- **[RU]** Неудачная загрузка больше не стирает уже отправленные версии: следующая попытка продолжает с места обрыва, а не начинает с нуля.
+- **[EN]** A failed upload no longer erases the versions already sent: the next attempt resumes where it stopped instead of starting over.
+- **[RU]** Задача синхронизации, которая не может завершиться никогда, уходит в карантин после нескольких попыток вместо вечного повтора, а упавшая выгрузка возвращается в очередь. Молча потерянных заметок нет.
+- **[EN]** A sync task that can never succeed is quarantined after a few attempts instead of retrying forever, and a failed upload returns to the queue. No note is silently lost.
+- **[RU]** Заметка, случайно совпавшая с подозрительным образцом текста, больше не роняет весь разговор с ИИ. Собственные записи теперь ограждаются как данные, а не отклоняются; отклоняются по-прежнему только сами сообщения в чате.
+- **[EN]** A note that happens to match a suspicious text pattern no longer breaks the whole AI conversation. Your own entries are now fenced as data rather than rejected; only chat messages themselves are still refused.
+- **[RU]** Приложение стало легче: удалена библиотека графиков, которой никто не пользовался, и выгрузка в Word подгружается только когда её просят.
+- **[EN]** The app got lighter: an unused charting library is gone, and Word export loads only when asked for.
+- **[RU]** Отмена и повтор возвращают курсор туда, где он был, а не в конец текста.
+- **[EN]** Undo and redo put the cursor back where it was instead of at the end of the text.
+- **[RU]** Ошибка при вводе пароля от сейфа перестала занимать вдвое больше времени: число проходов теперь записано в самом сейфе, а не подбирается.
+- **[EN]** A typo in the vault password no longer takes twice as long: the number of passes is recorded in the vault itself instead of being guessed.
+- **[RU]** Если обновление локальной базы заблокировано другой вкладкой, приложение теперь так и говорит, а не оставляет гадать.
+- **[EN]** When a local database upgrade is blocked by another tab, the app now says so instead of leaving you to guess.
+- **[RU]** Мобильные шторки удерживают фокус клавиатуры и закрываются по Escape, как остальные окна.
+- **[EN]** Mobile sheets now trap keyboard focus and close on Escape, like every other dialog.
+- **[RU]** Возврат средств за прерванный разговор списывается с того дня, за который заплатили: запрос около полуночи больше не чинит счётчик соседних суток.
+- **[EN]** A refund for an interrupted conversation now lands on the day that was charged: a request near midnight no longer credits the neighbouring day.
+- **[RU]** Большой архив в режиме группировки по датам перестал отрисовываться целиком и переключается на постраничный показ.
+- **[EN]** A large archive grouped by date no longer renders in full and switches to a windowed view.
+- **[RU]** Размер приложения теперь проверяется на сборке жёстким порогом, а не только сравнением с предыдущей версией.
+- **[EN]** App size is now checked at build time against a hard ceiling, not only compared with the previous version.
+
 ## 0.8.15 — 2026-08-24
 
 - **[RU]** Выход с очисткой больше не обещает лишнего. Если стереть данные на этом компьютере не удалось — залоченная база, отказ браузера, — раньше об этом узнавал только журнал, а человек уходил от чужой машины с сообщением «локальные данные удалены». Теперь выход состоится, но прямо скажет, что осталось и как это убрать.
