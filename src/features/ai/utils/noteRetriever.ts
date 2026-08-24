@@ -60,13 +60,34 @@ const searchCache: SearchCacheEntry[] = [];
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 50;
 
+// AUDIT-L8: дешёвый отпечаток корпуса для ключа кэша. Меняется при любом
+// изменении набора заметок/эмбеддингов — устаревший кэш перестаёт совпадать.
+let _corpusFp = { value: '', computedAt: 0 };
+function corpusFingerprint(): string {
+  if (Date.now() - _corpusFp.computedAt < 30_000 && _corpusFp.value) return _corpusFp.value;
+  try {
+    // Синхронного доступа к idb нет — используем счётчик версий индекса,
+    // который refreshMiniSearchDoc/invalidate уже поддерживают неявно.
+    // Компромисс: fingerprint = builtAt MiniSearch + длина кэша; точность
+    // достаточна, т.к. invalidateMiniSearchCache сбрасывает и кэш поиска.
+    const fp = `ms:${corpusVersion}`;
+    _corpusFp = { value: fp, computedAt: Date.now() };
+    return fp;
+  } catch {
+    return 'unknown';
+  }
+}
+
 let miniSearchInstance: MiniSearch | null = null;
 let miniSearchBuiltAt = 0;
+// AUDIT-L8: версия корпуса — растёт при любом изменении индекса/заметок.
+let corpusVersion = 0;
 
 export function invalidateMiniSearchCache(): void {
   miniSearchInstance = null;
   miniSearchBuiltAt = 0;
   searchCache.length = 0;
+  corpusVersion++;
 }
 
 // AUD-23: правка заметки не должна ронять весь индекс и пересобирать его по
@@ -81,6 +102,7 @@ export async function refreshMiniSearchDoc(documentId: string): Promise<void> {
   searchCache.length = 0;
   try {
     if (ms.has(documentId)) ms.discard(documentId);
+    corpusVersion++;
     const db = await getLocalDb();
     const doc = await db.get('documents', documentId);
     if (!doc || doc.excludedFromAI) return;
@@ -541,8 +563,17 @@ export async function searchNotesMulti(
     // Окно времени — часть запроса, а не его оформление. Без него «сравни весну и
     // осень» получает одни и те же заметки дважды, причём под разными заголовками.
     // 5 первых чисел вектора служат компактным различителем в случае разных векторов с одинаковым текстом.
+    // AUDIT-L8: к ключу добавлен fingerprint КОРПУСА — устаревший кэш
+    // перестаёт совпадать при изменении набора заметок.
+    //
+    // Вектор из ключа при этом не убираем. Он различает не корпус, а запрос:
+    // один и тот же текст может прийти с разным queryVector (например,
+    // объединённый запрос против обычного), и без этого различителя второй
+    // получил бы чужой ответ из кэша. Два тега отвечают на разные вопросы —
+    // «изменились ли заметки» и «тот ли это запрос», — и нужны оба.
     const vecTag = opts?.queryVector ? `\x01vec:${opts.queryVector.slice(0, 5).join(',')}` : '';
-    const cacheKey = [...queries].sort().join('\x00') + `\x01${opts?.minTime ?? ''}\x01${opts?.maxTime ?? ''}` + vecTag;
+    const corpusTag = `\x01corpus:${corpusFingerprint()}`;
+    const cacheKey = [...queries].sort().join('\x00') + `\x01${opts?.minTime ?? ''}\x01${opts?.maxTime ?? ''}` + vecTag + corpusTag;
     const cached = getCached(cacheKey);
     if (cached) {
       const ids = cached.map(c => c.documentId);

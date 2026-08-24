@@ -3,6 +3,7 @@ import {
   generateDataKey,
   wrapDataKey,
   unwrapDataKeyWithPassword,
+  PBKDF2_ITERATIONS,
   encryptContent,
   decryptContent,
   setSessionKey,
@@ -117,6 +118,7 @@ export async function initializeEncryption(
     verification,
     recoveryWrappedDataKey,
     recoverySalt: saltToBase64(recoverySalt),
+    iterations: PBKDF2_ITERATIONS, // AUDIT-L7: фиксируем, чтобы unwrap не перебирал
   });
 
   setSessionKey(dataKey);
@@ -136,7 +138,8 @@ export async function unlockVault(userId: string, password: string): Promise<voi
     // Tries the current PBKDF2 count, then the pre-SEC-36 one. Without the
     // fallback a vault wrapped at 300k reports WrongPasswordError for the
     // correct password — the user is locked out of their own notes.
-    ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt));
+    // AUDIT-L7: известные итерации — одна попытка вместо перебора 600k/300k.
+    ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt, undefined, undefined, meta.iterations));
   } catch {
     throw new WrongPasswordError();
   }
@@ -185,6 +188,11 @@ export async function recoverVaultWithCode(
     verification: meta.verification || (await createVerification(dataKey)),
     recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
     recoverySalt: meta.recoverySalt,
+    // AUDIT-L7: ключ только что перевёрнут на PBKDF2_ITERATIONS — запись
+    // обязана сказать об этом. Унаследовать прежнее значение и промолчать
+    // значит однажды, при подъёме константы, развести число в мете с числом
+    // в ключе: unwrap с `knownIterations` фолбэка не имеет, и сейф не откроется.
+    iterations: PBKDF2_ITERATIONS,
   });
 
   setSessionKey(dataKey);
@@ -220,7 +228,7 @@ export async function generateRecoveryCodeForExistingVault(userId: string, passw
     }
     const oldSalt = saltFromBase64(meta.salt);
     try {
-      ({ dataKey: keyToWrap } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, oldSalt));
+      ({ dataKey: keyToWrap } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, oldSalt, undefined, undefined, meta.iterations));
     } catch {
       throw new WrongPasswordError();
     }
@@ -262,7 +270,7 @@ export async function changePassword(userId: string, currentPassword: string, ne
   try {
     // Same fallback as unlockVault: changing the password on a legacy vault
     // must not be blocked by the iteration raise either.
-    ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, currentPassword, oldSalt));
+    ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, currentPassword, oldSalt, undefined, undefined, meta.iterations));
   } catch {
     throw new WrongPasswordError();
   }

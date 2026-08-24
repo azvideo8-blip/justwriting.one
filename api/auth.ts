@@ -11,7 +11,20 @@ export interface Session {
 // просто отключало её — деплой без строки в .env выглядел бы полностью
 // исправным, принимая любой токен, подписанный общим секретом.
 const JWT_ISSUER = process.env.SUPABASE_JWT_ISS;
-const isProd = process.env.NODE_ENV === 'production' || (process.env.NODE_ENV !== 'test' && Boolean(process.env.DATABASE_URL));
+// AUDIT-L4: явный флаг вместо эвристики по NODE_ENV/DATABASE_URL. Но флаг
+// РЕШАЕТ, а не ВКЛЮЧАЕТ: если его нет, остаётся прежняя эвристика.
+//
+// Чистое `REQUIRE_JWT_ISSUER === 'true'` сняло бы проверку на боевом сервере
+// прямо сейчас — там в окружении службы нет ни этой переменной, ни
+// NODE_ENV=production, и стартовый предохранитель просто перестал бы срабатывать.
+// Правка, задуманная против дрейфа конфига, сама стала бы этим дрейфом.
+// Явное 'false' по-прежнему позволяет отключить проверку сознательно.
+const REQUIRE_ISSUER_FLAG = process.env.REQUIRE_JWT_ISSUER;
+const looksLikeDeployment = process.env.NODE_ENV === 'production'
+  || (process.env.NODE_ENV !== 'test' && Boolean(process.env.DATABASE_URL));
+const isProd = REQUIRE_ISSUER_FLAG === 'true' ? true
+  : REQUIRE_ISSUER_FLAG === 'false' ? false
+  : looksLikeDeployment;
 if (isProd && !JWT_ISSUER) {
   throw new Error(
     'SUPABASE_JWT_ISS is required in production: without it any token signed ' +

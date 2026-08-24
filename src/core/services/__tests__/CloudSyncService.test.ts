@@ -75,6 +75,50 @@ describe('CloudSyncService', () => {
       expect(cloudRead).not.toHaveBeenCalled();
     });
 
+    // AUDIT-L11 (доводка): заголовок — совещательный сигнал, а не обязательный.
+    // Обязательным он создаёт вторую копию в облаке там, где раньше была
+    // перелинковка: при закрытом сейфе заголовок облачной заметки не
+    // расшифрован, при переименовании на одном устройстве — расходится.
+    // Фальсификация: вернуть безусловное сравнение — три теста ниже краснеют.
+    it('re-links when the cloud title is unreadable (locked vault)', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000, title: 'Про осень' } as never,
+      ]);
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
+        { ...cloudDoc('cloud_1', 1000), title: 'U2FsdGVkX1+abc', _locked: true } as never,
+      ]);
+      const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
+
+      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(1);
+      expect(updateLink).toHaveBeenCalledWith('local_1', 'cloud_1');
+    });
+
+    it('re-links when one side has no title at all', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000, title: '' } as never,
+      ]);
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
+        { ...cloudDoc('cloud_1', 1000), title: 'Про осень' } as never,
+      ]);
+      const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
+
+      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(1);
+      expect(updateLink).toHaveBeenCalledWith('local_1', 'cloud_1');
+    });
+
+    it('refuses when two readable titles genuinely disagree', async () => {
+      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+        { id: 'local_1', firstSessionAt: 1000, title: 'Про осень' } as never,
+      ]);
+      vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
+        { ...cloudDoc('cloud_1', 1000), title: 'Совсем другая заметка' } as never,
+      ]);
+      const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
+
+      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect(updateLink).not.toHaveBeenCalled();
+    });
+
     it('skips ambiguous matches rather than guessing', async () => {
       vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000 } as any,

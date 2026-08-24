@@ -827,12 +827,32 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
     if (group) group.push(cloudDoc); else cloudByStart.set(start, [cloudDoc]);
   }
 
+  // AUDIT-L11: firstSessionAt (мс-таймстемп) — хрупкий единственный сигнал
+  // идентичности. Второй сигнал — нормализованный заголовок.
+  //
+  // Сигнал СОВЕЩАТЕЛЬНЫЙ, а не обязательный. Заголовки облачных заметок
+  // расшифровываются при чтении: при закрытом сейфе (фоновый синк ходит и
+  // так) сравнивать нечего, а отказ от перелинковки означает не «оставим на
+  // ручной разбор», а вторую копию в облаке — ровно тот баг, ради которого
+  // перелинковка и появилась. Переименование на одном устройстве даёт то же
+  // самое. Поэтому расходящимися считаем только два читаемых непустых
+  // заголовка; во всех прочих случаях решает совпадение времени, как раньше.
+  const norm = (t: string | undefined): string => (t ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const titlesContradict = (local: LocalDocument, cloud: Document): boolean => {
+    if (cloud._locked || cloud._decryptionError) return false;
+    const a = norm(local.title);
+    const b = norm(cloud.title);
+    if (a.length === 0 || b.length === 0) return false;
+    return a.slice(0, 32) !== b.slice(0, 32);
+  };
+
   let relinked = 0;
   for (const [start, locals] of localsByStart) {
     const cloudMatches = cloudByStart.get(start);
     const local = locals[0];
     const cloudDoc = cloudMatches?.[0];
     if (locals.length !== 1 || cloudMatches?.length !== 1 || !local || !cloudDoc) continue;
+    if (titlesContradict(local, cloudDoc)) continue;
     await LocalStorageService.updateLinkedCloudId(local.id, cloudDoc.id);
     local.linkedCloudId = cloudDoc.id;
     relinked++;

@@ -263,13 +263,36 @@ describe('AG-SEC-D: SUPABASE_JWT_ISS production requirement', () => {
     await expect(import('../auth')).rejects.toThrow('SUPABASE_JWT_ISS is required in production');
   });
 
-  it('throws when NODE_ENV is unset/empty but DATABASE_URL is set and SUPABASE_JWT_ISS is absent', async () => {
+  it('AUDIT-L4: throws when REQUIRE_JWT_ISSUER=true and SUPABASE_JWT_ISS absent (no DATABASE_URL heuristic)', async () => {
     process.env.NODE_ENV = '';
-    process.env.DATABASE_URL = 'postgresql://localhost:5432/justwriting';
+    process.env.REQUIRE_JWT_ISSUER = 'true';
     delete process.env.SUPABASE_JWT_ISS;
     vi.resetModules();
 
     await expect(import('../auth')).rejects.toThrow('SUPABASE_JWT_ISS is required in production');
+  });
+
+  // Флаг РЕШАЕТ, а не ВКЛЮЧАЕТ: без него остаётся прежняя эвристика. Иначе
+  // выкатка на сервер, где переменной нет (а её там нет), сняла бы стартовый
+  // предохранитель — правка против дрейфа конфига стала бы этим дрейфом.
+  it('AUDIT-L4: without the flag, DATABASE_URL still implies production', async () => {
+    process.env.NODE_ENV = '';
+    process.env.DATABASE_URL = 'postgresql://localhost:5432/justwriting';
+    delete process.env.REQUIRE_JWT_ISSUER;
+    delete process.env.SUPABASE_JWT_ISS;
+    vi.resetModules();
+
+    await expect(import('../auth')).rejects.toThrow('SUPABASE_JWT_ISS is required in production');
+  });
+
+  it('AUDIT-L4: REQUIRE_JWT_ISSUER=false opts out deliberately', async () => {
+    process.env.NODE_ENV = '';
+    process.env.DATABASE_URL = 'postgresql://localhost:5432/justwriting';
+    process.env.REQUIRE_JWT_ISSUER = 'false';
+    delete process.env.SUPABASE_JWT_ISS;
+    vi.resetModules();
+
+    await expect(import('../auth')).resolves.toBeDefined();
   });
 
   it('does not throw under test environment without SUPABASE_JWT_ISS', async () => {

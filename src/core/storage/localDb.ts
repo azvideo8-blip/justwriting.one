@@ -457,7 +457,8 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
 
   const currentGeneration = dbGeneration;
   dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 21, {
-    upgrade(db, oldVersion, _newVersion, transaction) {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- idb поддерживает async upgrade: await внутри транзакции удерживает её открытой
+    async upgrade(db, oldVersion, _newVersion, transaction) {
       if (oldVersion < 1) {
         const docStore = db.createObjectStore('documents', { keyPath: 'id' });
         docStore.createIndex('by-guest', 'guestId');
@@ -592,7 +593,9 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
         // сводках останется до следующего пересчёта сводки — не блокер.
         if (db.objectStoreNames.contains('aiSummaries')) {
           const req = transaction.objectStore('aiSummaries').openCursor();
-          void req.then(function strip(cursor): unknown {
+          // AUDIT-L10: await внутри upgrade-транзакции (idb умеет ждать промисы
+          // в upgrade) — раньше fire-and-forget мог оборвать обход молча.
+          await req.then(function strip(cursor): unknown {
             if (!cursor) return undefined;
             const value = { ...cursor.value } as AIDocumentSummary & { mentionedPeople?: unknown };
             if ('mentionedPeople' in value) {
@@ -608,7 +611,20 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
       }
     },
 
-    blocked() { console.warn('[localDb] Database upgrade blocked — close other tabs and reload.'); },
+    blocked() {
+      console.warn('[localDb] Database upgrade blocked — close other tabs and reload.');
+      // AUDIT-L10: без видимого сообщения пользователь застревает на старой
+      // схеме непонятно почему. Показываем постоянный overlay.
+      // document.body ещё может не существовать: обработчик зовётся из открытия
+      // базы, а оно может стартовать раньше разбора разметки.
+      if (typeof document !== 'undefined' && document.body !== null && !document.getElementById('db-upgrade-blocked-overlay')) {
+        const el = document.createElement('div');
+        el.id = 'db-upgrade-blocked-overlay';
+        el.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);color:#fff;font:16px system-ui;text-align:center;padding:24px;';
+        el.textContent = 'Закройте другие вкладки justwriting и обновите страницу — база данных ожидает обновления.';
+        document.body.appendChild(el);
+      }
+    },
     blocking() {
       console.warn('[localDb] Another tab is trying to upgrade — closing this connection.');
       if (dbInstance) { dbInstance.close(); dbInstance = null; dbOpenPromise = null; }
