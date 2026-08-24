@@ -64,11 +64,11 @@ export async function refreshMiniSearchDoc(documentId: string): Promise<void> {
     if (!doc || doc.excludedFromAI) return;
     const content = await LocalVersionService.getLatestContent(documentId);
     if (!content) return;
-    await ms.addAsync({
+    await ms.addAllAsync([{
       id: documentId,
       title: doc.title ?? '',
       content: content.slice(0, 10_000),
-    });
+    }]);
   } catch {
     // Не смогли обновить точечно — безопасный путь: пересобрать целиком.
     invalidateMiniSearchCache();
