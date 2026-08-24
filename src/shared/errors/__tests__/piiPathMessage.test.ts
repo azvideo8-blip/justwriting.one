@@ -40,7 +40,7 @@ describe('AUD-16 path does not reach the log', () => {
     const out = scrubPii({ path: `users/${UUID}`, docPath: 'documents/x', operationType: 'get' as const });
     expect(out.path).toBeUndefined();
     expect(out.docPath).toBeUndefined();
-    expect(out.operationType).toBe('GET');
+    expect(out.operationType).toBe('get');
   });
 });
 
