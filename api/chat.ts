@@ -69,21 +69,16 @@ const ruOnlyFetch: typeof fetch = async (input, init) => {
   return fetch(input, init);
 };
 
-const openrouterOptions: { baseURL: string; apiKey?: string; fetch?: typeof fetch } = {
-  baseURL: AI_BASE_URL,
-  fetch: ruOnlyFetch,
-};
-if (process.env.OPENROUTER_API_KEY) {
-  openrouterOptions.apiKey = process.env.OPENROUTER_API_KEY;
-}
-const openrouter = createOpenAI(openrouterOptions);
-
 async function getActiveModel(): Promise<string> {
   return ACTIVE_CHAT_MODEL;
 }
 
 async function getChatModel() {
-  return openrouter.chat(ACTIVE_CHAT_MODEL);
+  return createOpenAI({
+    baseURL: AI_BASE_URL,
+    ...(process.env.OPENROUTER_API_KEY ? { apiKey: process.env.OPENROUTER_API_KEY } : {}),
+    fetch: ruOnlyFetch,
+  }).chat(ACTIVE_CHAT_MODEL);
 }
 
 function sanitizeAiInput(content: string): string {
@@ -96,6 +91,45 @@ type OrChunk = {
   choices?: Array<{ delta?: OrDelta }>;
 };
 
+interface Settlement {
+  markUpstreamProduced: () => void;
+  settle: (reason: 'closed' | 'failed' | 'done') => Promise<void>;
+}
+
+// Одно правило — одна реализация. Две ветки стрима уже разошлись однажды:
+// AG-BILL-2 починил ветку рассуждений, а обычный чат остался без возврата на
+// девять релизов, потому что чинить пришли в тот файл, где искали.
+function createSettlement(
+  uid: string,
+  isInternalCall: boolean,
+  reservation: GlobalReservation | null,
+  chargedDay: string | undefined,
+): Settlement {
+  let upstreamProduced = false;
+  let settled = false;
+  return {
+    markUpstreamProduced: () => {
+      upstreamProduced = true;
+    },
+    settle: async (reason: 'closed' | 'failed' | 'done') => {
+      if (settled) return;
+      settled = true;
+      if (reason === 'done') return;
+
+      if (isInternalCall) {
+        await postgresAiContext.refundBulkLimit(uid, chargedDay);
+      } else {
+        await postgresAiContext.refundDailyLimit(uid, chargedDay);
+      }
+      // Выданные токены оплачены на самом деле — глобальный резерв за них
+      // не возвращается. Правило AG-BILL-1, не менять.
+      if (!upstreamProduced) {
+        await postgresAiContext.refundGlobalRequest(reservation);
+      }
+    },
+  };
+}
+
 async function streamOpenRouterReasoning(
   res: ServerResponse,
   uid: string,
@@ -106,14 +140,11 @@ async function streamOpenRouterReasoning(
   reservation: GlobalReservation | null,
   chargedDay: string | undefined,
 ): Promise<void> {
+  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay);
+
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    await postgresAiContext.refundGlobalRequest(reservation);
-    if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    } else {
-      await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    }
+    await settlement.settle('failed');
     console.error('OPENROUTER_API_KEY not set');
     json(res, 500, { error: 'Internal server error' });
     return;
@@ -142,24 +173,14 @@ async function streamOpenRouterReasoning(
   } catch (err) {
     clearTimeout(timeoutId);
     console.error('[api/chat] upstream request failed:', err);
-    await postgresAiContext.refundGlobalRequest(reservation);
-    if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    } else {
-      await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    }
+    await settlement.settle('failed');
     sendError(res, 504, 'UPSTREAM_TIMEOUT', 'AI provider did not respond in time.');
     return;
   }
 
   if (!upstream.ok || !upstream.body) {
     clearTimeout(timeoutId);
-    await postgresAiContext.refundGlobalRequest(reservation);
-    if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    } else {
-      await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    }
+    await settlement.settle('failed');
     sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider returned an error.');
     return;
   }
@@ -192,39 +213,11 @@ async function streamOpenRouterReasoning(
   const write = (s: string) => {
     if (!res.destroyed) res.write(s);
   };
-  // AG-BILL-1: отдельный признак — выдал ли что-нибудь поставщик. Это не то
-  // же событие, что «байт ушёл клиенту»: токены, выданные модели, потрачены
-  // на самом деле, и глобальный резерв за них не возвращается.
-  let upstreamProduced = false;
+  let sawUpstreamChunk = false;
 
-  // AG-BILL-2: возврат выполняется там, где сигнал уже есть. Раньше он
-  // решался в конце обработчика, а событие close приходило после — и шесть
-  // живых прогонов подряд слот списывался при обрыве до первого байта.
-  // Флаг выставляется ДО первого await: close и нормальный конец потока могут
-  // прийти почти одновременно, иначе возврат выполнится дважды.
-  // Ловушка: close наступает и после успешного res.end() — поэтому
-  // settle('done') обязан вызваться раньше res.end(), иначе все разговоры
-  // станут бесплатными.
-  let settled = false;
-  const settle = async (reason: 'closed' | 'failed' | 'done'): Promise<void> => {
-    if (settled) return;
-    settled = true;
-    if (reason === 'done') return;
-
-    if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    } else {
-      await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    }
-    // Выданные токены оплачены на самом деле — глобальный резерв за них не
-    // возвращается. Правило AG-BILL-1, не менять.
-    if (!upstreamProduced) {
-      await postgresAiContext.refundGlobalRequest(reservation);
-    }
-  };
   res.on('close', () => {
     controller.abort();
-    void settle('closed');
+    void settlement.settle('closed');
   });
 
   let streamFailed = false;
@@ -232,7 +225,8 @@ async function streamOpenRouterReasoning(
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      upstreamProduced = true;
+      settlement.markUpstreamProduced();
+      sawUpstreamChunk = true;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
@@ -300,16 +294,16 @@ async function streamOpenRouterReasoning(
     streamFailed = true;
   }
 
-  await settle(streamFailed ? 'failed' : 'done');
+  await settlement.settle(streamFailed ? 'failed' : 'done');
 
   if (contentAccum && !wroteAnswerHeader) {
     if (wroteReasoningHeader) { write('\n\nОТВЕТ:\n'); }
     wroteAnswerHeader = true;
     write(contentAccum);
   }
-  // При полном провале (upstreamProduced === false) не пишем строку usage:
+  // При полном провале (sawUpstreamChunk === false) не пишем строку usage:
   // токены нулевые, а requests+1 надувает счётчик запросов в статистике.
-  if (!streamFailed || upstreamProduced) {
+  if (!streamFailed || sawUpstreamChunk) {
     try {
       await postgresAiContext.recordUsage(uid, tokensIn, tokensOut, { model, fn: 'chat-stream' }, reservation);
     } catch (e) {
@@ -486,13 +480,28 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
   });
 
+  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay);
+  const controller = new AbortController();
+
+  // Уход клиента: обрываем запрос к поставщику (иначе он досчитывает ответ,
+  // который никто не прочитает) и возвращаем слот.
+  res.on('close', () => {
+    controller.abort();
+    void settlement.settle('closed');
+  });
+
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
     messages: providerMessages,
     maxOutputTokens,
+    abortSignal: controller.signal,
     providerOptions: { openai: { reasoningEffort: 'none' } },
+    // Поставщик что-то выдал — это НЕ то же, что «байт дошёл до клиента».
+    // Выданные токены потрачены и из глобального резерва не возвращаются.
+    onChunk: () => { settlement.markUpstreamProduced(); },
     onFinish: async ({ totalUsage }) => {
+      await settlement.settle('done'); // до записи расхода и до конца ответа
       try {
         await postgresAiContext.recordUsage(
           uid,
@@ -507,13 +516,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     },
     onError: async (e) => {
       console.error('[api/chat] streamText failed:', e);
-      await postgresAiContext.refundGlobalRequest(reservation);
-      // chargedDay обязателен: refund после полуночи без него чинит чужой день.
-      if (isInternalCall) {
-        await postgresAiContext.refundBulkLimit(uid, chargedDay);
-      } else {
-        await postgresAiContext.refundDailyLimit(uid, chargedDay);
-      }
+      await settlement.settle('failed');
     },
   });
 
@@ -521,12 +524,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     result.pipeTextStreamToResponse(res);
   } catch (streamErr) {
     console.error('[api/chat] pipe failed:', streamErr);
-    await postgresAiContext.refundGlobalRequest(reservation);
-    if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    } else {
-      await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    }
+    await settlement.settle('failed');
     if (!res.headersSent) json(res, 500, { error: 'Stream failed' });
   }
 }

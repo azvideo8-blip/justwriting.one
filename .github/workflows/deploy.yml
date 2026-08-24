@@ -40,6 +40,33 @@ jobs:
       - name: Тесты
         run: npx vitest run
 
+      # Проверка после выкатки требует двух секретов. Раньше их отсутствие она
+      # печатала как «пропущено» и выкатка была зелёной — проверка, которая не
+      # исполняется, ничем не отличается от отсутствующей (AG-BILL-3). Теперь
+      # она падает, а падение после выкатки поднимает откат: конфигурационная
+      # ошибка откатывала бы исправную выкатку и оставляла прод на предыдущем
+      # бандле. Поэтому спрашиваем ЗДЕСЬ — до того, как что-либо уехало на
+      # сервер: нечего выкатывать, нечего и откатывать.
+      - name: Секреты проверки после выкатки
+        env:
+          SMOKE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          SMOKE_UID: ${{ secrets.SMOKE_UID }}
+        run: |
+          # Шаг исполняется под `bash -e`: конструкция `[ ... ] && x=y` вернула
+          # бы 1, когда условие ложно, и уронила бы шаг ровно тогда, когда
+          # секреты НА МЕСТЕ. Поэтому только if-блоки.
+          missing=""
+          if [ -z "$SMOKE_JWT_SECRET" ]; then missing="$missing SUPABASE_JWT_SECRET"; fi
+          if [ -z "$SMOKE_UID" ]; then missing="$missing SMOKE_UID"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::Не заданы секреты репозитория:$missing"
+            echo "Проверка обрыва стрима после выкатки без них не выполняется," >&2
+            echo "а невыполненная проверка не должна выглядеть пройденной." >&2
+            echo "Заведите их в Settings → Secrets and variables → Actions." >&2
+            exit 1
+          fi
+          echo "секреты проверки на месте"
+
       - name: Ключ доступа
         run: |
           mkdir -p ~/.ssh
@@ -150,6 +177,9 @@ jobs:
             systemctl is-active --quiet justwriting'
 
       - name: Проверка после выкатки
+        env:
+          SMOKE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          SMOKE_UID: ${{ secrets.SMOKE_UID }}
         run: npx tsx scripts/post-deploy-smoke.ts https://justwriting.ru/
 
       # Если служба не поднялась или проверка после выкатки упала — возвращаем

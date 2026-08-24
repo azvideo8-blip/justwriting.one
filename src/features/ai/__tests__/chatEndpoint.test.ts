@@ -87,6 +87,11 @@ function createMockRes(): {
         chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       }
     }),
+    // api/chat.ts подписывается на 'close' для refund'а при уходе клиента
+    // (AUDIT-H1); в этих тестах клиент не уходит — подписка должна просто
+    // существовать.
+    on: vi.fn(),
+    removeListener: vi.fn(),
   } as unknown as ServerResponse;
 
   return {

@@ -43,7 +43,12 @@ let sseBody: ReadableStream<Uint8Array>;
 let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
 vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: { signal?: AbortSignal }) => {
   init?.signal?.addEventListener('abort', () => {
-    streamController?.error(new Error('This operation was aborted'));
+    try {
+      if (streamController && streamController.desiredSize !== null) {
+        streamController.close();
+        streamController = null;
+      }
+    } catch { /* поток уже закрыт — это нормальный исход отмены */ }
   });
   return new Response(sseBody, { status: 200 });
 }));
@@ -70,7 +75,11 @@ class FakeRes extends EventEmitter {
   body = '';
   destroyed = false;
   writeHead(code: number) { this.statusCode = code; this.headersSent = true; return this; }
-  write(chunk: string | Uint8Array) { this.body += String(chunk); firstByteAt ??= Date.now(); return true; }
+  write(chunk: string | Uint8Array) {
+    this.body += typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf-8');
+    firstByteAt ??= Date.now();
+    return true;
+  }
   // Настоящий ServerResponse после end() всегда эмитит 'close'. Без этого
   // заглушка не воспроизводит самую опасную ловушку AG-BILL-2: если ранний
   // settle('done') убрать, close после успешного ответа вернёт слот, и все
@@ -97,7 +106,9 @@ function holdOpen(): ReadableStream<Uint8Array> {
     start(controller) {
       streamController = controller;   // никогда не закрывается сам
     },
-    cancel() { /* abort path */ },
+    cancel() {
+      streamController = null;
+    },
   });
 }
 
@@ -111,6 +122,7 @@ const validBody = {
 beforeEach(() => {
   refundDaily.mockClear(); refundBulk.mockClear(); refundGlobal.mockClear(); recordUsage.mockClear();
   firstByteAt = null;
+  streamController = null;
 });
 
 describe('3.8 stream disconnect', () => {
@@ -268,5 +280,100 @@ describe('3.8 stream disconnect', () => {
     expect(refundBulk).not.toHaveBeenCalled();
     // Usage recorded against the reservation (reconcile path).
     expect(recordUsage).toHaveBeenCalled();
+  });
+
+  const plainChatBody = {
+    personaId: 'cbt',
+    messages: [{ role: 'user' as const, content: 'Немного текста про день, достаточно длинного для валидации.' }],
+  };
+
+  it('AG-BILL-3: ordinary chat refunds slot and global reservation when client leaves before first chunk', async () => {
+    sseBody = holdOpen();
+
+    const req = new FakeReq(plainChatBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    res.emit('close');
+
+    await done;
+
+    expect(refundDaily).toHaveBeenCalledTimes(1);
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundBulk).not.toHaveBeenCalled();
+    expect(refundGlobal).toHaveBeenCalledTimes(1);
+  });
+
+  it('AG-BILL-3: ordinary chat refunds slot but NOT global reservation when client leaves after chunks arrived', async () => {
+    const enc = new TextEncoder();
+    const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
+    fetchMock.mockImplementationOnce(() => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) { streamController = controller; },
+        cancel() { streamController = null; },
+      }),
+      { status: 200 },
+    )));
+
+    const req = new FakeReq(plainChatBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    const chunk = JSON.stringify({ choices: [{ index: 0, delta: { content: 'Привет' } }] });
+    streamController?.enqueue(enc.encode(`data: ${chunk}\n\n`));
+    await vi.waitFor(() => expect(res.body.length).toBeGreaterThan(0), { timeout: 2000 });
+    res.destroyed = true;
+    res.emit('close');
+
+    await done;
+
+    expect(refundDaily).toHaveBeenCalledTimes(1);
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundGlobal).not.toHaveBeenCalled();
+  });
+
+  it('AG-BILL-3: ordinary chat normal finish does NOT refund', async () => {
+    const chunk = JSON.stringify({ choices: [{ index: 0, delta: { content: 'Привет' } }] });
+    const usageChunk = JSON.stringify({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 3 } });
+    sseBody = sse([
+      `data: ${chunk}\n\n`,
+      `data: ${usageChunk}\n\n`,
+      'data: [DONE]\n\n',
+    ]);
+
+    const req = new FakeReq(plainChatBody);
+    const res = new FakeRes();
+    await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+    await vi.waitFor(() => expect(res.ended).toBe(true), { timeout: 2000 });
+
+    expect(res.body).toContain('Привет');
+    expect(refundDaily).not.toHaveBeenCalled();
+    expect(refundBulk).not.toHaveBeenCalled();
+    expect(refundGlobal).not.toHaveBeenCalled();
+    expect(recordUsage).toHaveBeenCalled();
+  });
+
+  it('AG-BILL-3: grep proof - both branches share createSettlement and exactly one refundDailyLimit site in settlement', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const chatSrc = fs.readFileSync(path.resolve(__dirname, '../chat.ts'), 'utf-8');
+
+    // Exactly one refundDailyLimit call inside createSettlement
+    const createSettlementBlock = chatSrc.match(/function createSettlement[\s\S]*?^}/m)?.[0] ?? '';
+    expect(createSettlementBlock).toContain('postgresAiContext.refundDailyLimit(');
+    const settlementRefundDailyMatches = (createSettlementBlock.match(/refundDailyLimit\(/g) || []).length;
+    expect(settlementRefundDailyMatches).toBe(1);
+
+    // No refundDailyLimit or refundBulkLimit inside streamOpenRouterReasoning
+    const reasoningBlock = chatSrc.match(/async function streamOpenRouterReasoning[\s\S]*?^}/m)?.[0] ?? '';
+    expect(reasoningBlock).not.toContain('postgresAiContext.refundDailyLimit');
+    expect(reasoningBlock).not.toContain('postgresAiContext.refundBulkLimit');
+
+    // res.on('close') present in both streaming paths
+    const closeListenerCount = (chatSrc.match(/res\.on\('close',\s*\(\)/g) || []).length;
+    expect(closeListenerCount).toBe(2);
   });
 });

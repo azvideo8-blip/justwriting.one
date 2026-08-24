@@ -277,10 +277,12 @@ async function fetchDailyUsed(
 function openChatStreamThenDestroy(
   origin: string,
   token: string,
+  reasoning = false,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       personaId: 'coach',
+      ...(reasoning ? { reasoning: true } : {}),
       messages: [
         { role: 'user', content: 'smoke: ответь одним коротким предложением про тишину.' },
       ],
@@ -319,7 +321,7 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
   const secret = process.env.SMOKE_JWT_SECRET;
   const uid = process.env.SMOKE_UID;
   if (!secret || !uid) {
-    console.log('ℹ️  SMOKE_JWT_SECRET/SMOKE_UID не заданы — кейс обрыва стрима пропущен.');
+    errors.push('SMOKE_JWT_SECRET или SMOKE_UID не заданы — проверка обрыва стрима не может быть выполнена.');
     return errors;
   }
 
@@ -329,26 +331,34 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
   const issuer = process.env.SMOKE_JWT_ISS ?? `${origin}/auth/v1`;
   const token = mintSmokeJwt(secret, uid, issuer);
 
-  try {
-    const before = await fetchDailyUsed(origin, token, uid);
+  const cases = [
+    { reasoning: false, name: 'обычный чат' },
+    { reasoning: true, name: 'чат с рассуждениями' },
+  ];
 
-    await openChatStreamThenDestroy(origin, token);
+  for (const c of cases) {
+    try {
+      const before = await fetchDailyUsed(origin, token, uid);
 
-    // Даём серверу время получить RST и исполнить res.on('close') с refund'ом.
-    await new Promise((r) => setTimeout(r, 3_000));
+      await openChatStreamThenDestroy(origin, token, c.reasoning);
 
-    const after = await fetchDailyUsed(origin, token, uid);
-    if (after !== before) {
-      errors.push(
-        `Обрыв стрима списал слот: счётчик ai_daily_limit ${before} → ${after} ` +
-        '(refund при обрыве до первого байта не сработал).',
-      );
-    } else {
-      console.log(`✅ Обрыв стрима: счётчик не изменился (${before}).`);
+      // Даём серверу время получить RST и исполнить res.on('close') с refund'ом.
+      await new Promise((r) => setTimeout(r, 3_000));
+
+      const after = await fetchDailyUsed(origin, token, uid);
+      if (after !== before) {
+        errors.push(
+          `Обрыв стрима (${c.name}) списал слот: счётчик ai_daily_limit ${before} → ${after} ` +
+          '(refund при обрыве до первого байта не сработал).',
+        );
+      } else {
+        console.log(`✅ Обрыв стрима (${c.name}): счётчик не изменился (${before}).`);
+      }
+    } catch (err) {
+      errors.push(`Кейс обрыва стрима (${c.name}) не выполнился: ${String(err)}`);
     }
-  } catch (err) {
-    errors.push(`Кейс обрыва стрима не выполнился: ${String(err)}`);
   }
+
   return errors;
 }
 
