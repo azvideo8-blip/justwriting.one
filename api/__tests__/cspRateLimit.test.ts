@@ -45,3 +45,34 @@ describe('AUD-21 csp-report per-IP limit', () => {
     expect(otherIp.statusCode).toBe(204);
   });
 });
+
+// AUD-21 (доводка): лимит должен стоять на маршруте, которым ходит прод.
+// На VPS `/api/csp-report` обслуживает инлайновый блок в api/server.ts, а не
+// этот вершеловский обработчик — фикс, положенный только сюда, приёмник не
+// защищал. Фальсификация: убрать вызов rateLimited из api/server.ts — тест
+// краснеет.
+describe('AUD-21 the VPS route shares the limiter', () => {
+  it('rate-limits the route api/server.ts actually serves', async () => {
+    vi.resetModules();
+    const { rateLimited, __resetCspLimiterForTests } = await import('../cspLimiter');
+    __resetCspLimiterForTests();
+
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const serverSource = readFileSync(resolve(process.cwd(), 'api/server.ts'), 'utf-8');
+    // Боевой маршрут обязан звать общий лимитер, а не иметь свою копию.
+    expect(serverSource).toContain("from './cspLimiter'");
+    expect(serverSource).toMatch(/csp-report[\s\S]{0,400}rateLimited\(clientIp/);
+
+    for (let i = 0; i < 10; i += 1) expect(rateLimited('7.7.7.7')).toBe(false);
+    expect(rateLimited('7.7.7.7')).toBe(true);
+    expect(rateLimited('8.8.8.8')).toBe(false);
+  });
+
+  it('logs the URI shape, not the query string', async () => {
+    const { originOnly } = await import('../cspLimiter');
+    expect(originOnly('https://justwriting.one/archive?note=secret-title'))
+      .toBe('https://justwriting.one/archive');
+    expect(originOnly(undefined)).toBeUndefined();
+  });
+});

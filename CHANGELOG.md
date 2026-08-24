@@ -18,8 +18,8 @@
 - **[EN]** Background AI calls now have a rate limit, not just a daily ceiling: the whole day's allowance could previously be spent in a minute.
 - **[RU]** Общий потолок расхода учитывает и отправленный текст, а не только ответ. Длинная заметка, ушедшая на разбор, стоила токенов, которых потолок не видел.
 - **[EN]** The shared spending ceiling now counts the text sent, not only the answer. A long note sent for analysis cost tokens the ceiling never saw.
-- **[RU]** Приёмник отчётов о нарушениях политики безопасности перестал принимать неограниченный поток с одного адреса.
-- **[EN]** The security-policy report sink no longer accepts an unlimited stream from a single address.
+- **[RU]** Приёмник отчётов о нарушениях политики безопасности перестал принимать неограниченный поток с одного адреса — и защита поставлена на тот вход, которым приложение действительно пользуется, а не только на запасной. В журнал вместо полного адреса страницы теперь идёт только его начало.
+- **[EN]** The security-policy report sink no longer accepts an unlimited stream from a single address — and the protection sits on the entrance the app actually uses, not only on the spare one. The log now keeps the beginning of a page address instead of the whole thing.
 - **[RU]** Профиль открывается быстрее и тише: раньше ради счётчиков слов расшифровывался весь архив, хотя те же числа уже лежат в записи каждой заметки.
 - **[EN]** The profile opens faster and quieter: the whole archive used to be decrypted for word counters, though the same numbers already sit in each note's record.
 - **[RU]** Правка заметки обновляет поисковый указатель точечно, а не пересобирает его по всему архиву.

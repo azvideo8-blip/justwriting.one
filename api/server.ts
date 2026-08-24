@@ -2,6 +2,7 @@ import http from 'node:http';
 import { handle as dispatch } from './dispatcher';
 import { handleChat } from './chat';
 import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
+import { rateLimited, clientIp, originOnly } from './cspLimiter';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function json(res: http.ServerResponse, status: number, body: unknown) {
@@ -45,15 +46,23 @@ const server = http.createServer((req, res) => {
   }
 
   // POST /api/csp-report — приёмник нарушений политики безопасности (32 KB limit, bounded logging).
+  // AUD-21: лимит стоит здесь, а не только в `api/csp-report.ts`. Прод ходит
+  // этим маршрутом; фикс, положенный в вершеловский обработчик, приёмник на
+  // VPS не защищал вовсе.
   if (method === 'POST' && url === '/api/csp-report') {
+    if (rateLimited(clientIp(req as unknown as { headers: Record<string, unknown> }))) {
+      res.writeHead(429);
+      return res.end();
+    }
     try {
       const raw = await readBody(req, 32 * 1024);
       const body = JSON.parse(raw);
       const report = body?.['csp-report'] ?? body;
       const summary = {
-        'document-uri': report?.['document-uri'],
+        // Полный URI несёт query-параметры страницы — в журнал уходит форма.
+        'document-uri': originOnly(report?.['document-uri']),
         'violated-directive': report?.['violated-directive'],
-        'blocked-uri': report?.['blocked-uri'],
+        'blocked-uri': originOnly(report?.['blocked-uri']),
       };
       console.warn('[csp-report]', JSON.stringify(summary));
     } catch { /* ignore malformed or payload too large */ }

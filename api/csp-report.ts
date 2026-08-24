@@ -5,34 +5,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // visibility into XSS attempts / misconfigured directives and return 204.
 // ponytail: log-only, no storage. Ship a store/alerting layer if volume warrants.
 
-// AUD-21: приёмник открыт всем и без лимита — 32 KB cap ограничивал только
-// разовый размер, но не частоту. Простой скользящий окно на IP закрывает
-// заливку журнала. In-memory в serverless — на инстанс; этого достаточно,
-// чтобы сделать заливку дороже смысла.
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 10;
-
-const hits = new Map<string, number[]>();
-
-function clientIp(req: VercelRequest): string {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0]!.trim();
-  return req.socket?.remoteAddress ?? 'unknown';
-}
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter(t => now - t < WINDOW_MS);
-  recent.push(now);
-  hits.set(ip, recent);
-  // Периодическая уборка: карта не должна расти вместе с числом адресов.
-  if (hits.size > 10_000) {
-    for (const [k, v] of hits) {
-      if (v.every(t => now - t >= WINDOW_MS)) hits.delete(k);
-    }
-  }
-  return recent.length > MAX_PER_WINDOW;
-}
+// AUD-21: лимитер вынесен в ./cspLimiter и разделён с боевым маршрутом в
+// api/server.ts — своя копия здесь означала защиту в файле, которого прод не
+// исполняет.
+import { rateLimited, clientIp } from './cspLimiter';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
