@@ -11,12 +11,14 @@ const poolQueries: CapturedQuery[] = [];
 const clientQueries: CapturedQuery[] = [];
 
 let poolResult: { rows: unknown[] } = { rows: [{ tokens_reserved: 8192 }] };
+let poolShouldThrow: Error | null = null;
 let clientResults: Array<{ rows: unknown[] }> = [];
 
 vi.mock('pg', () => {
   class FakePool {
     query = vi.fn(async (text: string, params?: unknown[]) => {
       poolQueries.push({ text, params: params ?? [] });
+      if (poolShouldThrow) throw poolShouldThrow;
       return poolResult;
     });
     connect = vi.fn(async () => ({
@@ -39,6 +41,7 @@ beforeEach(() => {
   poolQueries.length = 0;
   clientQueries.length = 0;
   poolResult = { rows: [{ tokens_reserved: 8192 }] };
+  poolShouldThrow = null;
   clientResults = [];
 });
 
@@ -151,6 +154,16 @@ describe('AUD-18 bulk interval limit', () => {
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'embed');
     expect(verdict).not.toBe('RATE_LIMIT');
     expect(clientQueries.length).toBeGreaterThan(0);
+  });
+
+  it('falls through to the daily cap when the window table is missing', async () => {
+    // Миграция накатывается отдельно от выкатки службы: пока таблицы нет,
+    // ограничитель частоты выключен, но суточный потолок обязан работать.
+    poolShouldThrow = new Error('relation "ai_bulk_cooldown" does not exist');
+    clientResults = [{ rows: [{ call_count: 7 }] }];
+    const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1', 'embed');
+    expect(verdict).toEqual({ ok: true, day: TODAY });
+    expect(clientQueries.some(q => /ai_daily_limit/.test(q.text))).toBe(true);
   });
 
   it("returns 'RATE_LIMIT' and never touches the daily counter past the budget", async () => {

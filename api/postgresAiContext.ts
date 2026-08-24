@@ -209,20 +209,34 @@ async function checkAndIncrementBulkLimit(
 ): Promise<LimitVerdict | 'RATE_LIMIT'> {
   // Окно и счётчик двигаются одним стейтментом: если окно истекло — оно
   // начинается заново со счётчиком 1, иначе счётчик растёт внутри текущего.
-  const { rows } = await pool.query(
-    `INSERT INTO ai_bulk_cooldown (uid, endpoint, window_start, calls)
-     VALUES ($1, $3, now(), 1)
-     ON CONFLICT (uid, endpoint) DO UPDATE SET
-       window_start = CASE
-         WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
-         THEN now() ELSE ai_bulk_cooldown.window_start END,
-       calls = CASE
-         WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
-         THEN 1 ELSE ai_bulk_cooldown.calls + 1 END
-     RETURNING calls`,
-    [uid, String(BULK_WINDOW_MS), endpoint],
-  );
-  if (Number(rows[0]?.calls ?? 1) > BULK_MAX_PER_WINDOW) return 'RATE_LIMIT';
+  //
+  // Если запрос упал (таблицы ещё нет — миграция накатывается отдельно от
+  // выкатки службы, — или база моргнула), окно пропускается, а суточный
+  // потолок ниже остаётся в силе. Уронить весь фоновый ИИ из-за недоступного
+  // ограничителя частоты хуже, чем на время не ограничивать частоту; но молча
+  // это происходить не должно, поэтому в журнал уходит громкая строка.
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ai_bulk_cooldown (uid, endpoint, window_start, calls)
+       VALUES ($1, $3, now(), 1)
+       ON CONFLICT (uid, endpoint) DO UPDATE SET
+         window_start = CASE
+           WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+           THEN now() ELSE ai_bulk_cooldown.window_start END,
+         calls = CASE
+           WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+           THEN 1 ELSE ai_bulk_cooldown.calls + 1 END
+       RETURNING calls`,
+      [uid, String(BULK_WINDOW_MS), endpoint],
+    );
+    if (Number(rows[0]?.calls ?? 1) > BULK_MAX_PER_WINDOW) return 'RATE_LIMIT';
+  } catch (e) {
+    console.error(
+      '[postgresAiContext] AUD-18 bulk window unavailable — rate limiting is OFF, ' +
+      'daily cap still applies. Apply supabase/migrations/0022_ai_bulk_cooldown.sql.',
+      e,
+    );
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
