@@ -73,6 +73,17 @@ export function getMaxTokens(isInternal: boolean, reasoning: boolean | null | un
   return reasoning ? 16384 : 8192;
 }
 
+// AUD-19: EFFECTIVE_TOKEN_LIMIT резервируется против ответа. Длинная заметка,
+// ушедшая на анализ, тратит входные токены, которых никакой резерв не покрывает.
+// Оценка входа считается на запросе и складывается с бюджетом ответа в
+// tryReserveGlobalRequest; recordUsage сводит дельту как раньше.
+export function estimateInputTokens(parts: Array<string | null | undefined>): number {
+  const totalChars = parts.reduce((n, s) => n + (s?.length ?? 0), 0);
+  // ~3 символа на токен для смешанного русско-английского текста; оценка
+  // сознательно грубая — резерв всё равно сверяется с фактом в recordUsage.
+  return Math.ceil(totalChars / 3);
+}
+
 // ── Кто платит за вызов ──────────────────────────────────────────────────────
 //
 // Фоновые эндпоинты по умолчанию списываются с отдельного фонового лимита

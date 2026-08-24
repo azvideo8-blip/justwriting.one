@@ -1,7 +1,7 @@
 // functions/src/ai/chatWithAI.logic.ts
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from './pure';
-import { validateInternalCallRestrictions, getMaxTokens, type InternalCallType } from '../../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, type InternalCallType } from '../../src/shared/ai/aiPolicy.js';
 import { generate, getActiveModel } from './provider';
 import { buildChatSystemPrompt } from '../../src/shared/ai/buildChatPrompt.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
@@ -100,7 +100,12 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   }
 
   const maxTokens = getMaxTokens(isInternalCall, reasoning);
-  const reservation = await ctx.tryReserveGlobalRequest(maxTokens);
+  // AUD-19: вход тоже резервируется — см. api/chat.ts.
+  const inputEstimate = estimateInputTokens([
+    ...messages.map(m => m.content),
+    documentContent, userPortrait, customSystemPrompt,
+  ]);
+  const reservation = await ctx.tryReserveGlobalRequest(maxTokens + inputEstimate);
   if (!reservation) {
     if (isInternalCall) await ctx.refundBulkLimit(uid, chargedDay);
     else await ctx.refundDailyLimit(uid, chargedDay);

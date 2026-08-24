@@ -6,7 +6,7 @@ import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
 import { hasInjectionAttempt } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
-import { validateInternalCallRestrictions, getMaxTokens } from '../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens } from '../src/shared/ai/aiPolicy.js';
 import type { GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, MAX_AI_CONTENT_LENGTH } from './ai/pure';
 
@@ -407,7 +407,14 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   }
 
   const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning);
-  const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens);
+  // AUD-19: в резерв закладываем и вход — длинная заметка стоит токенов так же,
+  // как ответ; иначе потолок защищал меньше, чем обещал.
+  const inputEstimate = estimateInputTokens([
+    ...parsed.data.messages.map(m => m.content),
+    parsed.data.documentContent, parsed.data.memoryContext,
+    parsed.data.userPortrait, parsed.data.customSystemPrompt,
+  ]);
+  const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens + inputEstimate);
   if (!reservation) {
     if (isInternalCall) {
       await postgresAiContext.refundBulkLimit(uid, chargedDay);

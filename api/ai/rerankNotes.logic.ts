@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
+import { estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   query: z.string().min(1).max(2_000),
@@ -48,7 +49,9 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
     .map((c, i) => `[${i + 1}] docId=${c.documentId}\n${sanitizeAiInput(c.card)}`)
     .join('\n\n');
 
-  const reservation = await ctx.tryReserveGlobalRequest(512);
+  // AUD-19: вход (запрос + карточки) тоже уходит в резерв.
+  const inputEstimate = estimateInputTokens([query, cardsText]);
+  const reservation = await ctx.tryReserveGlobalRequest(512 + inputEstimate);
   if (!reservation) {
     await ctx.refundBulkLimit(uid);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
