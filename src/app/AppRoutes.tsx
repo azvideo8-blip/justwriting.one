@@ -1,6 +1,5 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';

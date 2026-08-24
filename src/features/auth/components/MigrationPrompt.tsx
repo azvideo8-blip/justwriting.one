@@ -1,3 +1,6 @@
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HardDrive } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
@@ -17,6 +20,9 @@ interface MigrationPromptProps {
 }
 
 export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: MigrationPromptProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(true, onDone);
+  useFocusTrap(modalRef, true);
   const { t } = useLanguage();
   const { showToast } = useToast();
 
@@ -49,6 +55,9 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
   return (
     <AnimatePresence>
       <motion.div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

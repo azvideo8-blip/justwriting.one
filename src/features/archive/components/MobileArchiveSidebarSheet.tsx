@@ -1,3 +1,6 @@
+import { useRef } from 'react';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import React from 'react';
 import { motion } from 'motion/react';
 import { format, isSameDay } from 'date-fns';
@@ -42,6 +45,9 @@ export function MobileArchiveSidebarSheet({
   maxCount,
   onWordClick,
 }: MobileArchiveSidebarSheetProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(isOpen, onClose);
+  useFocusTrap(modalRef, isOpen);
   const { t } = useLanguage();
 
   if (!isOpen) return null;
@@ -53,6 +59,9 @@ export function MobileArchiveSidebarSheet({
 
   return (
     <div 
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
       onTouchMove={e => e.preventDefault()}
     >

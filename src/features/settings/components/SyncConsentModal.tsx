@@ -1,3 +1,6 @@
+import { useRef } from 'react';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Cloud } from "lucide-react";
@@ -14,6 +17,9 @@ interface SyncConsentModalProps {
 }
 
 export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(true, onClose);
+  useFocusTrap(modalRef, true);
   const { t } = useLanguage();
 
   const handleEnable = () => {
@@ -32,7 +38,12 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    >
       <div className="absolute inset-0" onClick={handleKeepOff} />
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}

@@ -8,6 +8,8 @@ export interface EncryptionMeta {
   verification: string;
   recoveryWrappedDataKey?: string | undefined;
   recoverySalt?: string | undefined;
+  /** AUDIT-L7: PBKDF2-итерации при wrap; отсутствует у старых сейфов. */
+  iterations?: number | undefined;
 }
 
 const ENCRYPTION_META_VERSION = 2;
@@ -27,6 +29,9 @@ export async function saveEncryptionMeta(uid: string, meta: EncryptionMeta): Pro
   }
   if (meta.recoverySalt) {
     encryptionMeta.recoverySalt = meta.recoverySalt;
+  }
+  if (meta.iterations !== undefined) {
+    encryptionMeta.iterations = meta.iterations;
   }
   await DataProvider.saveEncryptionMeta(uid, {
     encryptionMeta: encryptionMeta as unknown as EncryptionMeta,

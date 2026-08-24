@@ -102,7 +102,28 @@ export default [
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
       'import/no-restricted-paths': 'off',
+      // AUDIT-L13: новые хардкоды русской строки в JSX — предупреждение.
+      // Существующий долг (163 литерала, в основном админ-страницы) выключен
+      // точечными override ниже; миграция в i18n — по мере касания.
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: "JSXText[value=/[\\u0410-\\u044F\\u0401\\u0451]/]",
+          message: 'Hardcoded Russian text in JSX — use i18n keys instead',
+        },
+      ],
     },
+  },
+  {
+    // AUDIT-L13: известный долг — админ/диагностические страницы целиком
+    // русскоязычные. Отключаем правило здесь, пока не переведены в ключи.
+    files: [
+      'src/features/ai/pages/DiagnosticsPage.tsx',
+      'src/features/ai/pages/RerankBenchPage.tsx',
+      'src/features/ai/components/DatabaseExplorer.tsx',
+      'src/features/ai/components/ProfileFacets.tsx',
+    ],
+    rules: { 'no-restricted-syntax': 'off' },
   },
   prettier,
 ];

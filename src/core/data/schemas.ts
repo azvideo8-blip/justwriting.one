@@ -51,6 +51,9 @@ export const encryptionMetaSchema = z.object({
   // «код восстановления не создан» висит над только что созданным кодом.
   recoveryWrappedDataKey: z.string().optional(),
   recoverySalt: z.string().optional(),
+  // AUDIT-L7: число итераций PBKDF2 при wrap. У старых сейфов поля нет —
+  // тогда работает legacy-перебор 600k/300k.
+  iterations: z.number().optional(),
 });
 
 export const userProfileDbSchema = z.object({

@@ -25,7 +25,9 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   }
   // Body shape is `{ "csp-report": {...} }`; Vercel parses JSON bodies.
 
-  const report = (req.body as { 'csp-report'?: unknown })?.['csp-report'] ?? (req.body as Record<string, unknown>) ?? {};
+  const report = ((req.body as { 'csp-report'?: unknown })?.['csp-report']
+    ?? req.body
+    ?? {}) as Record<string, unknown>;
   // AUDIT-L2: только origin+path — query params могут нести PII.
   const summary = {
     'document-uri': originOnly(report['document-uri'] as string | undefined),

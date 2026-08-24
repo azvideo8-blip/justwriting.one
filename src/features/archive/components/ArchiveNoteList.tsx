@@ -58,6 +58,9 @@ const gridListClassName = 'grid gap-4 mt-3 archive-grid-list';
 const gridItemClassName = '';
 const gridComponents = { Item: GridItem };
 
+// AUDIT-L9: предел для негруппированного полного рендера.
+const GROUPED_VIEW_LIMIT = 1000;
+
 export function ArchiveNoteList({
   viewMode, loading, error, filteredSessions,
   groupedSessions, sortedDates, dateLocale,
@@ -212,7 +215,13 @@ export function ArchiveNoteList({
     );
   }
 
-  if (!isGroupedByDate) {
+  // AUDIT-L9: группированные виды рендерятся целиком (документированный
+  // компромисс «robust at ~tens–hundreds»). При росте архива сверх лимита
+  // автоматически откатываемся на плоский виртуализированный вид — данные
+  // те же, группировка просто отключается, ничего не теряется.
+  const totalSessions = filteredSessions.length;
+  const groupedOverLimit = isGroupedByDate && totalSessions > GROUPED_VIEW_LIMIT;
+  if (!isGroupedByDate || groupedOverLimit) {
     if (viewMode === 'grid') {
       return (
         <VirtuosoGrid

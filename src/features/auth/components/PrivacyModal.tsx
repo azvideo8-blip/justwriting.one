@@ -1,5 +1,8 @@
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { useState, useEffect } from 'react';
 import { reportError } from '../../../shared/errors/reportError';
+import { useRef } from 'react';
 import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
 import { getCurrentUser } from '../../../core/auth';
@@ -13,6 +16,9 @@ interface PrivacyModalProps {
 }
 
 export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(true, () => { /* обязательное согласие: Escape не закрывает */ });
+  useFocusTrap(modalRef, true);
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -50,7 +56,12 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}

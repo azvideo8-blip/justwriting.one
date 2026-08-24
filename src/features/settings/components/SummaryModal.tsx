@@ -1,3 +1,6 @@
+import { useRef } from 'react';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { Sparkles, X } from 'lucide-react';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
@@ -9,10 +12,19 @@ interface SummaryModalProps {
 }
 
 export function SummaryModal({ summary, onClose }: SummaryModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(summary !== null, onClose);
+  useFocusTrap(modalRef, summary !== null);
   if (summary === null) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center" onClick={onClose}>
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center"
+      onClick={onClose}
+    >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative z-10 w-full max-w-lg mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">

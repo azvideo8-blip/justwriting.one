@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cloud, HardDrive, Loader2, Trash2, X, Upload, RefreshCw } from 'lucide-react';
 
 import { useLanguage } from '../../../shared/i18n';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -44,6 +46,9 @@ export function MobileStorageActionsSheet({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useModalEscape(isOpen, onClose);
+  useFocusTrap(sheetRef, isOpen);
 
   if (!isOpen) return null;
 
@@ -175,6 +180,9 @@ export function MobileStorageActionsSheet({
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
         className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Grab Handle */}
         <div className="flex justify-center py-3">

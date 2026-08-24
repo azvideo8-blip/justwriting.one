@@ -21,14 +21,25 @@ export function rateLimited(ip: string): boolean {
   const recent = (hits.get(ip) ?? []).filter(t => now - t < WINDOW_MS);
   recent.push(now);
   hits.set(ip, recent);
-  // Периодическая уборка: карта не должна расти вместе с числом адресов.
-  if (hits.size > 10_000) {
+  return recent.length > MAX_PER_WINDOW;
+}
+
+// AUDIT-L3: уборка по таймеру, а не полным сканом при >10k — иначе
+// spoofed-XFF flood раздувает карту между редкими чистками.
+let sweepStarted = false;
+export function startHitsSweep(): void {
+  if (sweepStarted || typeof setInterval === 'undefined') return;
+  sweepStarted = true;
+  const timer = setInterval(() => {
+    const now = Date.now();
     for (const [k, v] of hits) {
       if (v.every(t => now - t >= WINDOW_MS)) hits.delete(k);
     }
-  }
-  return recent.length > MAX_PER_WINDOW;
+  }, 60_000);
+  // Не держать процесс Node живым только ради таймера (VPS-вариант).
+  (timer as unknown as { unref?: () => void }).unref?.();
 }
+startHitsSweep();
 
 /**
  * Оставляет от URI только origin + path: query несёт данные страницы.

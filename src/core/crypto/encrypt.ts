@@ -91,7 +91,17 @@ export async function unwrapDataKeyWithPassword(
   // CPU and makes unrelated tests time out.
   currentIterations: number = PBKDF2_ITERATIONS,
   legacyIterations: number = LEGACY_PBKDF2_ITERATIONS,
+  // AUDIT-L7: известное число итераций из vault meta. Убирает двойную работу
+  // на опечатке пароля (600k + 300k trial-decrypt) для новых сейфов.
+  knownIterations?: number,
 ): Promise<{ dataKey: CryptoKey; usedLegacyIterations: boolean }> {
+  if (knownIterations !== undefined) {
+    const masterKey = await deriveMasterKey(password, salt, knownIterations);
+    return {
+      dataKey: await unwrapDataKey(wrappedKey, masterKey),
+      usedLegacyIterations: knownIterations < PBKDF2_ITERATIONS,
+    };
+  }
   try {
     const masterKey = await deriveMasterKey(password, salt, currentIterations);
     return { dataKey: await unwrapDataKey(wrappedKey, masterKey), usedLegacyIterations: false };

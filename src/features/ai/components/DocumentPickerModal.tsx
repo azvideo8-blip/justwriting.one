@@ -1,3 +1,5 @@
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { X, Search } from 'lucide-react';
@@ -24,6 +26,9 @@ interface DocEntry {
 }
 
 export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPickerModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(isOpen, onClose);
+  useFocusTrap(modalRef, isOpen);
   const { t } = useLanguage();
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [search, setSearch] = useState('');
@@ -69,7 +74,12 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
   ).slice(0, 100);
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    >
       <div className="absolute inset-0" onClick={onClose} />
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}

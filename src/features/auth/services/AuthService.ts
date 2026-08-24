@@ -170,6 +170,7 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
       salt: string;
       wrappedDataKey: string;
       verification?: string;
+      iterations?: number;
     };
     if (!meta.salt || !meta.wrappedDataKey) {
       return false;
@@ -179,7 +180,7 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
       // Falls back to the pre-SEC-36 iteration count: vaults wrapped at 300k
       // cannot be opened with a key derived at 600k, and the user just sees
       // "wrong password" for a password that is correct.
-      const { dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt);
+      const { dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt, undefined, undefined, meta.iterations);
       if (meta.verification) {
         const isValid = await verifyKey(dataKey, meta.verification);
         if (!isValid) return false;

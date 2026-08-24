@@ -31,6 +31,8 @@ export interface EncryptionMeta {
    *  заведённых до появления кода. */
   recoveryWrappedDataKey?: string | undefined;
   recoverySalt?: string | undefined;
+  /** AUDIT-L7: PBKDF2-итерации при wrap; отсутствует у старых сейфов. */
+  iterations?: number | undefined;
 }
 
 export interface UserProfile {

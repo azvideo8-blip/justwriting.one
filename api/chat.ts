@@ -1,3 +1,4 @@
+import { sendError } from './sendError';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -147,8 +148,7 @@ async function streamOpenRouterReasoning(
     } else {
       await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
-    res.writeHead(504, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('UPSTREAM_TIMEOUT');
+    sendError(res, 504, 'UPSTREAM_TIMEOUT', 'AI provider did not respond in time.');
     return;
   }
 
@@ -160,8 +160,7 @@ async function streamOpenRouterReasoning(
     } else {
       await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
-    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('UPSTREAM_ERROR');
+    sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider returned an error.');
     return;
   }
 

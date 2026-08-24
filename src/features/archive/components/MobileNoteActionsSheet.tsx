@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ExternalLink, EyeOff, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
@@ -62,6 +64,9 @@ export function MobileNoteActionsSheet({
   aiExclusionLoading,
   onAIExclusionClick,
 }: MobileNoteActionsSheetProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(isOpen, onClose);
+  useFocusTrap(modalRef, isOpen);
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { profile } = useAuthStatus();
@@ -161,6 +166,9 @@ export function MobileNoteActionsSheet({
 
   return (
     <div 
+      ref={modalRef}
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
       onTouchMove={e => e.preventDefault()}
     >

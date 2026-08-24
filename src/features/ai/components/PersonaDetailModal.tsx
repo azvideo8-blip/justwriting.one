@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { useRef, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, Trash2 } from 'lucide-react';
 import { AIPersonaService } from '../services/AIPersonaService';
@@ -43,6 +45,9 @@ function Mono({ color, mono }: { color: string; mono: string }) {
 }
 
 export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetailModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useModalEscape(true, onClose);
+  useFocusTrap(modalRef, !!persona);
   const { t } = useLanguage();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [name, setName] = useState('');
@@ -101,6 +106,9 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
     <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="absolute inset-0" onClick={onClose} />
       <motion.div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="relative z-10 w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden"
