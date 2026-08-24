@@ -57,7 +57,7 @@ describe('AUD-12 restore modal reports failure', () => {
   });
 
   it('never shows completion for a pass that restored nothing', async () => {
-    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0 });
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, hasMore: false });
 
     render(<RestoreFromCloudModal open onClose={() => {}} />);
 
