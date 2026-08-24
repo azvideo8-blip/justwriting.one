@@ -18,6 +18,7 @@ vi.mock('@sentry/react', () => ({
 
 import { reportError } from '../reportError';
 import { redactMessage, scrubPii } from '../piiScrub';
+import { OperationType } from '../errorTypes';
 import { handleFirestoreError } from '../../../core/errors/firestore-errors';
 
 const UUID = '00000000-0000-4000-8000-0000000000ff';
