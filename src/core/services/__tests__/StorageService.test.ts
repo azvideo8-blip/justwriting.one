@@ -85,11 +85,11 @@ beforeEach(async () => {
 });
 
 describe('StorageService.saveVersion — cloud resilience', () => {
-  it('saves locally and does not throw when cloud is unavailable (isFirestoreConnected=false)', async () => {
+  it('saves locally and does not throw when cloud is unavailable (isCloudConnected=false)', async () => {
     const docId = 'doc_cloud_down';
     await seedDocument(docId, 'cloud_1');
 
-    // syncVersionToCloud queues to syncQueue when isFirestoreConnected is false.
+    // syncVersionToCloud queues to syncQueue when isCloudConnected is false.
     // The local save should succeed regardless.
     const result = await StorageService.saveVersion(userId, docId, makeSaveData());
 

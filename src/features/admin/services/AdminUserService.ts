@@ -1,5 +1,5 @@
 import { DataProvider } from '../../../core/data';
-import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
+import { handleDbError, OperationType } from '../../../core/errors/db-errors';
 import { ProfileService } from '../../../core/services/ProfileServiceRef';
 import { UserProfile } from '../../../types';
 import { reportError } from '../../../shared/errors/reportError';
@@ -11,7 +11,7 @@ export const AdminUserService = {
       return docs.map(d => ({ uid: d.id, ...d })) as UserProfile[];
     } catch (err) {
       reportError(err, { action: 'getUsers' });
-      handleFirestoreError(err, OperationType.LIST, 'users');
+      handleDbError(err, OperationType.LIST, 'users');
       return [];
     }
   },

@@ -25,8 +25,8 @@ const LOCAL_TABLES = [
   { name: 'profile', label: 'profile (Локальный профиль)' },
 ];
 
-const FIRESTORE_TABLES = [
-  { name: 'users', label: 'users (Профили Firestore)' },
+const CLOUD_TABLES = [
+  { name: 'users', label: 'users (Профили облака)' },
   { name: 'user_documents', label: 'documents (Мои доки Cloud)' },
   { name: 'user_versions', label: 'versions (Мои версии Cloud)' },
 ];
@@ -35,7 +35,7 @@ interface DatabaseExplorerProps {
   userId: string;
 }
 
-type DBSource = 'local' | 'firestore';
+type DBSource = 'local' | 'cloud';
 type RecordType = Record<string, unknown>;
 
 export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
@@ -48,7 +48,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
 
-  const tables = source === 'local' ? LOCAL_TABLES : FIRESTORE_TABLES;
+  const tables = source === 'local' ? LOCAL_TABLES : CLOUD_TABLES;
 
   useEffect(() => {
     if (source === 'local') {
@@ -56,7 +56,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         setSelectedTable('documents');
       }
     } else {
-      if (!FIRESTORE_TABLES.some(t => t.name === selectedTable)) {
+      if (!CLOUD_TABLES.some(t => t.name === selectedTable)) {
         setSelectedTable('users');
       }
     }
@@ -119,7 +119,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
       } else {
         if (selectedTable === 'user_documents') {
           await DocumentService.deleteDocument(userId, record.id as string);
-          showToast('Документ удален из Firestore', 'success');
+          showToast('Документ удален из облака', 'success');
         } else {
           showToast('Удаление для этой коллекции не поддерживается клиентом', 'error');
           return;
@@ -224,13 +224,13 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             Локальная БД (IndexedDB)
           </Button>
           <Button
-            onClick={() => setSource('firestore')}
+            onClick={() => setSource('cloud')}
             className={cn(
               "flex-1 py-1.5 rounded-lg transition-[color,background-color,box-shadow] duration-200",
-              source === 'firestore' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
+              source === 'cloud' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
             )}
           >
-            Firestore
+            Облако
           </Button>
         </div>
 

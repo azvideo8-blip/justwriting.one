@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const firestoreTimestampSchema = z.union([
+export const cloudTimestampSchema = z.union([
   z.object({ seconds: z.number(), nanoseconds: z.number() }),
   z.date(),
   z.number(),
@@ -30,12 +30,12 @@ export const sessionDbSchema = z.object({
   authorPhoto: z.string().optional(),
   nickname: z.string().optional(),
   labelId: z.string().nullable().optional(),
-  createdAt: firestoreTimestampSchema,
+  createdAt: cloudTimestampSchema,
   sessionStartTime: z.number().nullable().optional(),
   _encrypted: z.boolean().optional(),
   _aiProcessed: z.boolean().optional(),
   _aiAction: z.string().optional(),
-  _aiProcessedAt: firestoreTimestampSchema.optional(),
+  _aiProcessedAt: cloudTimestampSchema.optional(),
   _aiResultText: z.string().optional(),
   mood: z.string().optional(),
   excludedFromAI: z.boolean().optional(),
@@ -62,13 +62,13 @@ export const userProfileDbSchema = z.object({
   encryptedDataKey: z.string().optional(),
   encryptionMeta: encryptionMetaSchema.optional(),
   earnedAchievements: z.array(z.string()).default([]),
-  privacyAcceptedAt: firestoreTimestampSchema.optional(),
+  privacyAcceptedAt: cloudTimestampSchema.optional(),
   privacyVersion: z.number().optional(),
-  aiConsentAt: firestoreTimestampSchema.optional(),
+  aiConsentAt: cloudTimestampSchema.optional(),
   aiConsentVersion: z.number().nullable().optional(),
-  indexingConsentAt: firestoreTimestampSchema.optional(),
+  indexingConsentAt: cloudTimestampSchema.optional(),
   indexingConsentVersion: z.number().nullable().optional(),
-  achievementsResetAt: firestoreTimestampSchema.optional(),
+  achievementsResetAt: cloudTimestampSchema.optional(),
   aiPortrait: z.string().optional(),
   _encrypted: z.boolean().optional(),
   // Всё, что ниже, схема раньше не описывала — и разбор выбрасывал это из
@@ -97,14 +97,14 @@ export const documentDbSchema = z.object({
   tags: z.array(z.string()).optional(),
   labelId: z.string().nullable().optional(),
   isPublic: z.boolean().optional(),
-  firstSessionAt: firestoreTimestampSchema,
-  lastSessionAt: firestoreTimestampSchema,
+  firstSessionAt: cloudTimestampSchema,
+  lastSessionAt: cloudTimestampSchema,
   mood: z.string().optional(),
   excludedFromAI: z.boolean().optional().default(false),
   _encrypted: z.boolean().optional(),
   _locked: z.boolean().optional(),
   _decryptionError: z.boolean().optional(),
-  deletedAt: firestoreTimestampSchema.optional(),
+  deletedAt: cloudTimestampSchema.optional(),
 });
 
 export const versionDbSchema = z.object({
@@ -121,8 +121,8 @@ export const versionDbSchema = z.object({
   goalWords: z.number().nullable().optional(),
   goalTime: z.number().nullable().optional(),
   goalReached: z.boolean().default(false),
-  savedAt: firestoreTimestampSchema,
-  sessionStartedAt: firestoreTimestampSchema,
+  savedAt: cloudTimestampSchema,
+  sessionStartedAt: cloudTimestampSchema,
   _encrypted: z.boolean().optional(),
   mood: z.string().optional(),
 });

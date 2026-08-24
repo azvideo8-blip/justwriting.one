@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { Trash2, Check, Eye, Loader2, Sparkles } from 'lucide-react';
-import { parseFirestoreDate } from '../../../core/utils/utils';
+import { parseCloudDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
 
@@ -44,7 +44,7 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
             <td className="px-6 py-4 text-sm font-medium text-text-main">{s.title || t('common_untitled')}</td>
              <td className="px-6 py-4 text-sm text-text-main/70">{s.userId?.slice(0, 8) || t('common_anonymous')}</td>
             <td className="px-6 py-4 text-sm text-text-main/60">
-              {s.createdAt != null ? format(parseFirestoreDate(s.createdAt)!, 'dd.MM.yyyy HH:mm') : '-'}
+              {s.createdAt != null ? format(parseCloudDate(s.createdAt)!, 'dd.MM.yyyy HH:mm') : '-'}
             </td>
             <td className="px-6 py-4">
               {s._aiProcessed ? (

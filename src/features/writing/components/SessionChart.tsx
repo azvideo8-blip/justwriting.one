@@ -10,7 +10,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { Session } from '../../../types';
-import { parseFirestoreDate } from '../../../core/utils/utils';
+import { parseCloudDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 
 interface SessionChartProps {
@@ -29,7 +29,7 @@ export function SessionChart({ sessions, startDate, endDate }: SessionChartProps
   const data = days.map(day => {
     const dateStr = format(day, 'yyyy-MM-dd');
     const daySessions = sessions.filter(s => {
-      const sDate = parseFirestoreDate(s.createdAt);
+      const sDate = parseCloudDate(s.createdAt);
       return sDate ? format(sDate, 'yyyy-MM-dd') === dateStr : false;
     });
     return {

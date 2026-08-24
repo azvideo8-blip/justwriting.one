@@ -80,7 +80,7 @@ export async function persistDraft(
     logger.error('draftPersistence', 'Local save failed', { reason: String(localResult.reason) });
   }
   if (shouldRemoteSave && !remoteOk) {
-    logger.warn('draftPersistence', 'Firestore save failed (will retry on next change)', { reason: String(remoteError || 'Did not write') });
+    logger.warn('draftPersistence', 'Cloud save failed (will retry on next change)', { reason: String(remoteError || 'Did not write') });
   }
 
   return { localOk, remoteOk, remoteError };

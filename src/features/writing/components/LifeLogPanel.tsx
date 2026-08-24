@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { cn, parseFirestoreDate } from '../../../core/utils/utils';
+import { cn, parseCloudDate } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { LifeLogDocument } from '../types/lifeLog';
@@ -30,7 +30,7 @@ interface SessionItemProps {
 }
 
 const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, searchQuery }: SessionItemProps) {
-  const date = parseFirestoreDate(session.createdAt);
+  const date = parseCloudDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
     : '';

@@ -1,5 +1,5 @@
 import { DataProvider } from '../../../core/data';
-import { handleFirestoreError, OperationType } from '../../../core/errors/firestore-errors';
+import { handleDbError, OperationType } from '../../../core/errors/db-errors';
 import { Label, UserProfile } from '../../../types';
 import { reportError } from '../../../shared/errors/reportError';
 import { userProfileDbSchema } from '../../../core/data/schemas';
@@ -17,7 +17,7 @@ export const ProfileService = {
     try {
       await DataProvider.updateProfile(userId, { nickname });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      handleDbError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
   },
@@ -29,7 +29,7 @@ export const ProfileService = {
         privacyVersion: 1,
       });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      handleDbError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
   },
@@ -41,7 +41,7 @@ export const ProfileService = {
       const encryptedLabels = await encryptLabels(labels, userId);
       await DataProvider.updateProfile(userId, { labels: encryptedLabels });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      handleDbError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
   },
@@ -50,7 +50,7 @@ export const ProfileService = {
     try {
       await DataProvider.updateProfile(userId, { earnedAchievements: ids });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      handleDbError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
   },
@@ -65,7 +65,7 @@ export const ProfileService = {
         achievementsResetAt: new Date(),
       });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      handleDbError(err, OperationType.UPDATE, `users/${userId}`);
       throw err;
     }
   },
@@ -90,7 +90,7 @@ export const ProfileService = {
       }
       return { ids: [], error: false, resetAt: null };
     } catch (err) {
-      handleFirestoreError(err, OperationType.GET, `users/${userId}`);
+      handleDbError(err, OperationType.GET, `users/${userId}`);
       return { ids: [], error: true, resetAt: null };
     }
   },
@@ -138,7 +138,7 @@ export const ProfileService = {
 
       return { data: profileData, error: false };
     } catch (err) {
-      handleFirestoreError(err, OperationType.GET, `users/${userId}`);
+      handleDbError(err, OperationType.GET, `users/${userId}`);
       return { data: null, error: true };
     }
   },

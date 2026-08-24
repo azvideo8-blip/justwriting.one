@@ -71,7 +71,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs text-text-main/60">
-            Compare local IndexedDB cache with Cloud Firestore collections.
+            Compare local IndexedDB cache with cloud collections.
           </div>
           {hasEncryption && !getSessionKey() && (
             <div className="text-label-sm text-amber-500/80 mt-1 font-medium flex items-center gap-1">

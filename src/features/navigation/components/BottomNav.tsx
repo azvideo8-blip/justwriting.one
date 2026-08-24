@@ -43,7 +43,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   const { isGuest, user } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(user?.uid ?? null);
-  // Guests have no cloud sync relationship at all, so isFirestoreConnected
+  // Guests have no cloud sync relationship at all, so isCloudConnected
   // staying false for them isn't a "cloud unavailable" problem — gate on
   // being an actual authenticated user, same as AppTab's settings row.
   const showSyncIndicator = !isGuest && syncStatus.autoSyncEnabled && syncStatus.status !== 'synced';

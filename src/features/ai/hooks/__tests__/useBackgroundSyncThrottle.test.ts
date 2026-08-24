@@ -3,7 +3,7 @@
 // был общим для всех аккаунтов браузера. Теперь ключ по uid и ставится только
 // после полного прохода. Фальсификация: вернуть старый ключ/раннюю установку.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useBackgroundSync } from '../useBackgroundSync';
 
 const mockRestore = vi.fn();

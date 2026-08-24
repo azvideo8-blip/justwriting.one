@@ -6,7 +6,7 @@ function tr(key: string, language: 'ru' | 'en'): string {
   return translations['error_generic']?.[language] ?? 'Error';
 }
 
-export const mapFirebaseError = (error: unknown, language: 'ru' | 'en' = 'ru'): string => {
+export const mapAuthError = (error: unknown, language: 'ru' | 'en' = 'ru'): string => {
   const code =
     (error !== null && typeof error === 'object' && 'code' in (error as object))
       ? (error as { code: string }).code

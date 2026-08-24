@@ -291,7 +291,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
             const p = await prepareAttachment(docId);
             if (p) attaches = [{ documentId: docId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt }];
           } catch (e) {
-            console.error(e, { action: 'useAIPageData/prepareAttachment', documentId: docId });
+            console.error('useAIPageData/prepareAttachment failed for', docId, e);
           }
         }
       } catch { /* ignore fallback */ }

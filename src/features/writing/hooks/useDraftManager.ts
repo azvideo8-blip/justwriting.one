@@ -65,7 +65,7 @@ export function useDraftManager(
   // only saved by the 30s interval above, so a crash mid-sentence can cost half a
   // minute of writing. A flat delay is enough here because this path writes to
   // IndexedDB only — the authenticated path uses 5s on mobile to protect the
-  // Firestore quota, which does not apply to guests.
+  // Cloud write quotas, which do not apply to guests.
   const content = useContentStore(s => s.content);
   const title = useContentStore(s => s.title);
   useEffect(() => {

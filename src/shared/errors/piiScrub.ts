@@ -51,7 +51,6 @@ function redactValue(value: unknown): unknown {
   return value;
 }
 
-type Context = Record<string, string | number | boolean | null | undefined>;
 
 export function scrubPii<T extends Record<string, unknown>>(context: T | undefined | null): Partial<T> {
   const safe: Partial<T> = {};

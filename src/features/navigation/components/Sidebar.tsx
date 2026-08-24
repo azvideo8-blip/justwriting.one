@@ -166,7 +166,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
     return () => { clearTimeout(on); clearTimeout(off); };
   }, [mostRecentTime]);
 
-  // Guests have no cloud sync relationship at all, so isFirestoreConnected
+  // Guests have no cloud sync relationship at all, so isCloudConnected
   // staying false for them isn't a "cloud unavailable" problem — gate on
   // being an actual authenticated user, same as AppTab's settings row.
   const showSyncIndicator = !isGuest && syncStatus.autoSyncEnabled && syncStatus.status !== 'synced';

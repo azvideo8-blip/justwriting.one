@@ -105,7 +105,7 @@ export function useDraftAutosave(
     }
   }, [draftData.status, userId]);
 
-  // Debounce: save LOCALLY shortly after the user stops typing to avoid Firestore quota exhaustion.
+  // Debounce: save LOCALLY shortly after the user stops typing to avoid cloud write-quota exhaustion.
   useEffect(() => {
     const currentStatus = useTimerStore.getState().status;
     if ((currentStatus === 'writing' || currentStatus === 'paused') && user) {

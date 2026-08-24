@@ -7,7 +7,7 @@ export enum OperationType {
   WRITE = 'write',
 }
 
-export interface FirestoreErrorInfo {
+export interface DbErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;

@@ -5,7 +5,7 @@ import { Clock, Type, PenLine, ChevronDown, ChevronUp, Trash2, Share2, HardDrive
 import { getCurrentUser } from '../../../core/auth';
 import { deleteSession } from '../services/SessionDeleteService';
 import { Session, Label } from '../../../types';
-import { parseFirestoreDate, cn } from '../../../core/utils/utils';
+import { parseCloudDate, cn } from '../../../core/utils/utils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
@@ -145,7 +145,7 @@ export const SessionCard = React.memo(function SessionCard({
     );
   };
 
-  const sessionDate = parseFirestoreDate(session.createdAt);
+  const sessionDate = parseCloudDate(session.createdAt);
 
   const sessionTime = React.useMemo(() => {
     if (session.sessionStartTime) {

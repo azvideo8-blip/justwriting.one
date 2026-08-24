@@ -19,7 +19,7 @@ vi.mock('@sentry/react', () => ({
 import { reportError } from '../reportError';
 import { redactMessage, scrubPii } from '../piiScrub';
 import { OperationType } from '../errorTypes';
-import { handleFirestoreError } from '../../../core/errors/firestore-errors';
+import { handleDbError } from '../../../core/errors/db-errors';
 
 const UUID = '00000000-0000-4000-8000-0000000000ff';
 
@@ -29,7 +29,7 @@ describe('AUD-16 path does not reach the log', () => {
   });
 
   it('stores the collection shape, not the full document path', () => {
-    handleFirestoreError(new Error('boom'), OperationType.GET, `users/${UUID}`);
+    handleDbError(new Error('boom'), OperationType.GET, `users/${UUID}`);
     const ctx = addError.mock.calls[0]![1] as Record<string, unknown>;
     expect(ctx.collection).toBe('users');
     expect(JSON.stringify(ctx)).not.toContain(UUID);

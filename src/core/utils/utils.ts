@@ -5,7 +5,7 @@ import { Session } from '../../types';
 import { toDate } from './dateUtils';
 import { getFrozenDates, saveFrozenDates } from './streakFreeze';
 
-export const parseFirestoreDate = toDate;
+export const parseCloudDate = toDate;
 
 // Register the design-system's custom font-size utilities (defined in index.css)
 // so tailwind-merge treats them as font sizes (e.g. a bespoke `text-label` must
@@ -27,7 +27,7 @@ export function getSessionDate(session: Session): Date | null {
   if (session.sessionStartTime) {
     date = new Date(session.sessionStartTime);
   } else {
-    date = parseFirestoreDate(session.createdAt);
+    date = parseCloudDate(session.createdAt);
   }
   if (!date || isNaN(date.getTime())) return null;
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());

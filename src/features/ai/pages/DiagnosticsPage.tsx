@@ -76,14 +76,14 @@ export function DiagnosticsPage() {
   const handleDownloadDiagnostics = async () => {
     try {
       const pendingCount = await SyncService.getPendingCount();
-      const firestoreConnected = navigator.onLine;
+      const cloudConnected = navigator.onLine;
       
       const report = {
         userAgent: navigator.userAgent,
         locale: navigator.language || 'unknown',
         appVersion: APP_VERSION,
         syncQueueLength: pendingCount,
-        isFirestoreConnected: firestoreConnected,
+        isCloudConnected: cloudConnected,
         localStats: stats,
         timestamp: Date.now()
       };
@@ -690,7 +690,7 @@ function RebuildTimelineButton() {
                   { label: 'Версия приложения', value: APP_VERSION },
                   { label: 'Локальная база (IndexedDB) версия', value: '8' },
                   { label: 'Локальных документов на устройстве', value: stats.localDocs },
-                  { label: 'Документов в облаке (Firestore)', value: stats.cloudDocs },
+                  { label: 'Документов в облаке (облако)', value: stats.cloudDocs },
                   { label: 'Только на этом устройстве (local only)', value: stats.localDocs - stats.cloudDocs },
                   { label: 'Саммари ИИ сохранено', value: stats.summaries },
                   { label: 'Эмбеддингов сохранено', value: stats.embeddings },

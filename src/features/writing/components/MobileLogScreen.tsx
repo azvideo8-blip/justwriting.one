@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { useLanguage } from '../../../shared/i18n';
 import { Session, Label } from '../../../types';
-import { parseFirestoreDate as _parseFirestoreDate } from '../../../core/utils/utils';
+import { parseCloudDate as _parseCloudDate } from '../../../core/utils/utils';
 import { StreakDots } from '../../../shared/components/StreakDots';
 import { SessionCard } from './SessionCard';
 import { DocumentPreview } from '../../archive/components/DocumentPreview';

@@ -58,7 +58,7 @@ export interface AIRestoreResult {
  *
  * Signing out wipes every local store (SEC-29), which is correct on a shared
  * device but also deletes summaries and embeddings that cost real LLM calls to
- * produce. Both live in Firestore, so they never have to be recomputed — but
+ * produce. Both live in the cloud, so they never have to be recomputed — but
  * nothing walked those collections to bring them home, and the embedding
  * indexer deliberately never reads the cloud in its loop, so it would have
  * re-embedded every note from scratch instead.
@@ -304,7 +304,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     // collection costs more than the entire free daily read quota and locks the
     // user out of their own notes for the rest of the day. Embeddings are a
     // cache of a deterministic computation: the indexer rebuilds a missing one
-    // locally, at its own daily pace, for zero Firestore reads. Restoring them
+    // locally, at its own daily pace, for zero cloud reads. Restoring them
     // is a deliberate, user-initiated action (requestEmbeddingRestore) and
     // resumes across days from a stored cursor.
     if (isEmbeddingRestoreRequested()) {
