@@ -41,10 +41,15 @@ export function useBackgroundSync(): void {
 
     runningRef.current = true;
     try {
-      // Раз в сутки: вернуть заметки и разбор, которых на устройстве нет.
-      // Оба сканирования ниже читают только локальные хранилища, поэтому после
-      // очистки они бы сочли, что ничего никогда не было.
-      if (localStorage.getItem('ai_restore_done_date') !== new Date().toISOString().slice(0, 10)) {
+      // Раз в сутки на аккаунт: вернуть заметки и разбор, которых на
+      // устройстве нет. Оба сканирования ниже читают только локальные
+      // хранилища, поэтому после очистки они бы сочли, что ничего никогда
+      // не было.
+      // AUD-13: ключ по аккаунту, а не глобальный — иначе выход и вход другим
+      // человеком снимал (или навязывал) чужой троттлинг. Ставится только после
+      // полного успеха: упавший проход не должен откладывать повтор на сутки.
+      const restoreDoneKey = `ai_restore_done_date_${uid}`;
+      if (localStorage.getItem(restoreDoneKey) !== new Date().toISOString().slice(0, 10)) {
         try {
           const { restored, hasMore } = await CloudSyncService.restoreMissingDocuments(uid);
           if (restored > 0) {
@@ -56,8 +61,9 @@ export function useBackgroundSync(): void {
             );
           }
           const aiRestored = await restoreAIDataFromCloud(uid);
-          if (!aiRestored.skippedLocked && !hasMore) {
-            localStorage.setItem('ai_restore_done_date', new Date().toISOString().slice(0, 10));
+          const notesFullyRestored = !hasMore;
+          if (!aiRestored.skippedLocked && notesFullyRestored) {
+            localStorage.setItem(restoreDoneKey, new Date().toISOString().slice(0, 10));
           }
         } catch (e) {
           reportError(e, { action: 'backgroundSync_restoreFromCloud' });
