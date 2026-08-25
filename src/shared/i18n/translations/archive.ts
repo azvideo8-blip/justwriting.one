@@ -10,6 +10,14 @@ export const archiveTranslations: Translations = {
   archive_empty_subtitle: { ru: 'Заверши первую сессию — она появится здесь', en: 'Finish your first session and it will appear here' },
   archive_subtitle: { ru: 'Архив свободного письма. Каждая запись — слепок одного дня.', en: 'Archive of free writing. Each entry is a snapshot of one day.' },
   archive_count: { ru: 'записей', en: 'entries' },
+  // Счётчик заметок в заголовке группы по дате. Ключ появился в v0.6.9 взамен
+  // римской цифры, а переводы к нему не добавили — и tp(), не найдя ключа,
+  // возвращает сам ключ: в интерфейсе стояло «archive_note_count».
+  // Английскому хватает _one и _many: tp() для en просит _other и падает на
+  // _many, если его нет.
+  archive_note_count_one: { ru: '{count} заметка', en: '{count} note' },
+  archive_note_count_few: { ru: '{count} заметки', en: '{count} notes' },
+  archive_note_count_many: { ru: '{count} заметок', en: '{count} notes' },
   archive_tags_label: { ru: 'Теги/Метки', en: 'Tags/Labels' },
   archive_tags_hide: { ru: 'скрыть', en: 'hide' },
   archive_tags_reset: { ru: 'сбросить', en: 'reset' },

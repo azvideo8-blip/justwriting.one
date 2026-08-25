@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportAsMd, ExportStrings } from '../services/ArchiveExportService';
+import { exportAsMd, isExpectedShareRefusal, ExportStrings } from '../services/ArchiveExportService';
 import type { ArchiveSession } from '../types';
 import type { Session } from '../../../types/index';
 
@@ -136,5 +136,35 @@ describe('exportAsMd', () => {
     exportAsMd(makeSession({ createdAt: new Date('2024-01-15') }), STRINGS);
     // Date should contain year 2024
     expect(capturedContent).toContain('2024');
+  });
+});
+
+// Баг из журнала: сохранение заметки в .txt срабатывало, файл появлялся, но в
+// журнале каждый раз писалось «ERROR archive_export_share: Permission denied».
+// navigator.canShare({files}) на десктопе отвечает «да», а navigator.share()
+// потом отказывает — дальше отрабатывает обычная загрузка, то есть экспорт
+// УДАЛСЯ. Ложная ошибка в журнале хуже отсутствия записи: рядом с привычной
+// неправдой перестают читать настоящие.
+// Фальсификация: убрать любое имя из isExpectedShareRefusal — тест краснеет.
+describe('отказ Web Share — ожидаемый исход, а не ошибка', () => {
+  const named = (name: string) => Object.assign(new Error('Permission denied'), { name });
+
+  it.each([
+    ['NotAllowedError', 'браузер отказал: нет жеста или десктоп'],
+    ['AbortError', 'человек закрыл системную шторку'],
+    ['NotSupportedError', 'тип файла не шарится'],
+    ['SecurityError', 'небезопасный контекст'],
+  ])('%s не считается ошибкой (%s)', (name) => {
+    expect(isExpectedShareRefusal(named(name))).toBe(true);
+  });
+
+  it.each(['TypeError', 'RangeError', 'Error'])('%s остаётся настоящей ошибкой', (name) => {
+    expect(isExpectedShareRefusal(named(name))).toBe(false);
+  });
+
+  it('не падает на мусоре вместо ошибки', () => {
+    expect(isExpectedShareRefusal(null)).toBe(false);
+    expect(isExpectedShareRefusal(undefined)).toBe(false);
+    expect(isExpectedShareRefusal('Permission denied')).toBe(false);
   });
 });
