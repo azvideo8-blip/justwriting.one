@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.19 — 2026-08-25
+
+- **[RU]** Импортированная заметка больше не появляется в архиве дважды. Рядом с настоящей возникала пустая копия с тем же названием, и её приходилось удалять руками: импорт отправляет заметку в облако не дожидаясь ответа, а список в этот момент ещё не знал, что облачная строка и локальная заметка — одно и то же.
+- **[EN]** An imported note no longer appears twice in the archive. An empty copy with the same title showed up next to the real one and had to be deleted by hand: import sends the note to the cloud without waiting, and at that moment the list did not yet know the cloud row and the local note were the same thing.
+- **[RU]** В заголовке группы по дате снова стоит число заметок. Вместо него показывалась служебная строка — перевод для этого счётчика забыли добавить, когда его вводили.
+- **[EN]** The date-group header shows the note count again. A technical string was displayed instead: the translation for that counter was never added when it was introduced.
+- **[RU]** Сохранение заметки в файл больше не пишет в журнал ошибку. Файл сохранялся как надо, но браузер отказывал в системном окне «Поделиться», и этот отказ записывался как сбой — хотя экспорт удавался.
+- **[EN]** Saving a note to a file no longer writes an error to the journal. The file saved fine, but the browser refused the system share sheet and that refusal was recorded as a failure — while the export had actually succeeded.
+
 ## 0.8.18 — 2026-08-25
 
 - **[RU]** Дневной остаток запросов к ИИ теперь приходит с сервера, а не считается в браузере. Раньше число жило только на этом устройстве: после восстановления архива или во второй вкладке оно расходилось с настоящим, а у администратора показывалось втрое меньше, чем разрешено на самом деле.
