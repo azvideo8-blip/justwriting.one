@@ -253,6 +253,25 @@ function apiPost(
   });
 }
 
+/**
+ * Достаёт `used` из ответа /api/getAIUsageStats.
+ *
+ * Диспетчер заворачивает ответ обработчика в конверт `{ result: … }`
+ * (api/handlers.ts). Чтение `json.events` напрямую давало undefined ВСЕГДА, и
+ * проверка возврата падала на каждом запуске — молча, потому что её ошибки не
+ * влияли на итог (см. main). Поддерживаем обе формы: с конвертом и без.
+ */
+export function usedFromStatsBody(json: unknown): number {
+  const body = json as { result?: unknown } | null;
+  const inner = (body && typeof body === 'object' && 'result' in body ? body.result : body) as
+    { events?: Array<{ used?: number }> } | null;
+  const used = inner?.events?.[0]?.used;
+  if (typeof used !== 'number') {
+    throw new Error(`getAIUsageStats ответил без used: ${JSON.stringify(json).slice(0, 200)}`);
+  }
+  return used;
+}
+
 async function fetchDailyUsed(
   origin: string,
   token: string,
@@ -264,14 +283,9 @@ async function fetchDailyUsed(
     targetUid: uid,
   });
   if (res.status !== 200) {
-    throw new Error(`getAIUsageStats вернул HTTP ${res.status}`);
+    throw new Error(`getAIUsageStats вернул HTTP ${res.status}: ${JSON.stringify(res.json).slice(0, 200)}`);
   }
-  const events = (res.json as { events?: Array<{ used?: number }> }).events;
-  const used = events?.[0]?.used;
-  if (typeof used !== 'number') {
-    throw new Error(`getAIUsageStats ответил без used: ${JSON.stringify(res.json).slice(0, 200)}`);
-  }
-  return used;
+  return usedFromStatsBody(res.json);
 }
 
 function openChatStreamThenDestroy(
@@ -377,7 +391,12 @@ async function main() {
   const refundErrors = await checkChatStreamRefund(targetUrl);
   result.errors.push(...refundErrors);
 
-  if (!result.success) {
+  // Итог считается по ВСЕМ ошибкам. Раньше `result.success` вычислялся до
+  // проверки возврата, и её ошибки, уже лежащие в списке, не влияли ни на код
+  // выхода, ни на вывод: проверка падала на каждой выкатке и печатала «принято».
+  const success = result.success && refundErrors.length === 0;
+
+  if (!success) {
     console.error('❌ [SMOKE CHECK FAILED] Проверка после выкатки не прошла:');
     for (const err of result.errors) {
       console.error(`  • ${err}`);
