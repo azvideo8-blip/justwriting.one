@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.18 — 2026-08-25
+
+- **[RU]** Дневной остаток запросов к ИИ теперь приходит с сервера, а не считается в браузере. Раньше число жило только на этом устройстве: после восстановления архива или во второй вкладке оно расходилось с настоящим, а у администратора показывалось втрое меньше, чем разрешено на самом деле.
+- **[EN]** The daily AI request allowance now comes from the server instead of being counted in the browser. The number used to live on this device only: after restoring the archive or in a second tab it drifted from the real one, and an administrator saw a third of what is actually allowed.
+- **[RU]** Все диалоги и мобильные шторки переведены на общий каркас: фокус клавиатуры удерживается внутри окна, Escape закрывает, экранный диктор объявляет их одинаково. Пятнадцать окон повторяли это вручную — часть с ошибками, часть не повторяла вовсе.
+- **[EN]** Every dialog and mobile sheet now uses one shell: keyboard focus stays inside, Escape closes, and a screen reader announces them consistently. Fifteen dialogs repeated this by hand — some incorrectly, some not at all.
+- **[RU]** Сообщения об ошибках приведены к одной форме. Приложение продолжает понимать и прежнюю, поэтому вкладка, открытая до обновления, не перестанет отличать «дневной лимит исчерпан» от «сервер недоступен».
+- **[EN]** Error responses now share one shape. The app still understands the previous one, so a tab opened before the update keeps telling "daily limit reached" apart from "server unavailable".
+
 ## 0.8.17 — 2026-08-25
 
 - **[RU]** Уход из разговора посреди ответа больше не стоит запроса. Если закрыть вкладку, уйти на другую страницу или нажать «назад», пока ассистент печатает, запрос возвращается в дневной остаток, а модель перестаёт досчитывать ответ, который никто не прочитает. Раньше это работало только в режиме с рассуждениями, а в обычном разговоре — самом частом — не работало вовсе.

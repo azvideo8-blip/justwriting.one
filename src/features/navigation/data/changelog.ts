@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.18',
+    date: '2026-08-25',
+    items: [
+      { category: 'fix', ru: 'Дневной остаток запросов к ИИ приходит с сервера, а не считается в браузере: раньше число расходилось после восстановления архива или во второй вкладке, а администратору показывалось втрое меньше разрешённого', en: 'The daily AI allowance comes from the server instead of being counted in the browser: the number used to drift after restoring the archive or in a second tab, and an administrator saw a third of what is allowed' },
+      { category: 'accessibility', ru: 'Все диалоги и мобильные шторки переведены на общий каркас: фокус клавиатуры удерживается внутри, Escape закрывает, экранный диктор объявляет их одинаково', en: 'Every dialog and mobile sheet uses one shell: keyboard focus stays inside, Escape closes, and a screen reader announces them consistently' },
+      { category: 'improvement', ru: 'Сообщения об ошибках приведены к одной форме; прежняя тоже понимается, поэтому вкладка, открытая до обновления, продолжает различать виды ошибок', en: 'Error responses share one shape; the previous one is still understood, so a tab opened before the update keeps telling error kinds apart' },
+    ],
+  },
+  {
     version: '0.8.17',
     date: '2026-08-25',
     items: [
