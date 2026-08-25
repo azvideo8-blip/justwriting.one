@@ -1,7 +1,5 @@
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import { useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { X, ExternalLink, EyeOff, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -17,6 +15,7 @@ import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 interface MobileNoteActionsSheetProps {
   isOpen: boolean;
@@ -64,9 +63,6 @@ export function MobileNoteActionsSheet({
   aiExclusionLoading,
   onAIExclusionClick,
 }: MobileNoteActionsSheetProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(isOpen, onClose);
-  useFocusTrap(modalRef, isOpen);
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { profile } = useAuthStatus();
@@ -75,8 +71,6 @@ export function MobileNoteActionsSheet({
   const [showLabelsSelector, setShowLabelsSelector] = useState(false);
   const [showUnlock, setShowUnlock] = useState(false);
   const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
-
-  if (!isOpen) return null;
 
   const doc = {
     localId: session._isLocal ? session.id : undefined,
@@ -165,23 +159,7 @@ export function MobileNoteActionsSheet({
   const selectedLabel = labels?.find(l => l.id === session.labelId);
 
   return (
-    <div 
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
-      onTouchMove={e => e.preventDefault()}
-    >
-      <div className="absolute inset-0" onClick={onClose} />
-
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe"
-        
-      >
+    <ModalShell open={isOpen} onClose={onClose} labelId="note-actions-sheet-title" variant="sheet">
         {/* Grab Handle */}
         <div className="flex justify-center py-3">
           <div className="w-12 h-1.5 rounded-full bg-white/10" />
@@ -189,6 +167,7 @@ export function MobileNoteActionsSheet({
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
+          <h3 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions') || 'Действия с заметкой'}</h3>
           <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
             {t('archive_note_actions') || 'Действия с заметкой'}
           </span>
@@ -391,7 +370,6 @@ export function MobileNoteActionsSheet({
             </div>
           )}
         </div>
-      </motion.div>
 
       <AnimatePresence>
         {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
@@ -412,6 +390,6 @@ export function MobileNoteActionsSheet({
           onClose={() => setShowEncryptionSetup(false)}
         />
       )}
-    </div>
+    </ModalShell>
   );
 }

@@ -1,7 +1,4 @@
-import { useRef, useState } from 'react';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import { motion } from 'motion/react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { AIPersonaService } from '../services/AIPersonaService';
 import { hasInjectionAttempt } from '../shared/injectionPatterns';
@@ -9,6 +6,7 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
 import { Textarea } from '../../../shared/components/Textarea';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 const SUGGESTED_EMOJIS = [
   '\u{1F9D1}', '\u{1F468}\u200D\u{1F4BC}', '\u{1F469}\u200D\u{1F4BC}',
@@ -26,9 +24,6 @@ interface CreatePersonaModalProps {
 }
 
 export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersonaModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(isOpen, onClose);
-  useFocusTrap(modalRef, isOpen);
   const [emoji, setEmoji] = useState('\u{1F9D1}');
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -65,18 +60,8 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
   };
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose} />
-      <motion.div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-persona-title"
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="relative z-10 w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden"
-      >
+    <ModalShell open={isOpen} onClose={onClose} labelId="create-persona-title"
+      className="w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
           <h3 id="create-persona-title" className="text-sm font-bold text-text-main">Создать персону</h3>
           <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label="Close" icon={<X size={18} />} />
@@ -146,7 +131,6 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
             {validating ? 'Валидация...' : 'Создать'}
           </Button>
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

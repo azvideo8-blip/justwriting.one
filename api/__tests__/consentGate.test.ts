@@ -85,7 +85,8 @@ describe('AUD-2: /api/chat без согласия не доходит до пр
     await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
 
     expect(res.statusCode).toBe(403);
-    expect(JSON.parse(res.body).error).toBe('AI_CONSENT_REQUIRED');
+    // AUDIT-part3 2: единая форма {error:{code,message}}
+    expect(JSON.parse(res.body).error).toEqual({ code: 'AI_CONSENT_REQUIRED', message: 'AI_CONSENT_REQUIRED' });
     expect(providerFetch).not.toHaveBeenCalled();
   });
 

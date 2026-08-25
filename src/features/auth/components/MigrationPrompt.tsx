@@ -1,10 +1,7 @@
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import { useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { HardDrive } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { reportError } from '../../../shared/errors/reportError';
 import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -20,9 +17,6 @@ interface MigrationPromptProps {
 }
 
 export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: MigrationPromptProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(true, onDone);
-  useFocusTrap(modalRef, true);
   const { t } = useLanguage();
   const { showToast } = useToast();
 
@@ -53,28 +47,17 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[var(--z-auth)] bg-surface-base/80 backdrop-blur-sm flex items-center justify-center p-4"
-      >
-        <motion.div
-          data-modal
-          initial={{ opacity: 0, transform: "translateY(8px) scale(0.95)" }}
-          animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
-          exit={{ opacity: 0, transform: "translateY(8px) scale(0.95)" }}
-          className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
-        >
+    <ModalShell
+      open
+      onClose={onDone}
+      labelId="migration-prompt-title"
+      className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+    >
           <div className="w-10 h-10 rounded-2xl bg-text-main/5 border border-border-subtle flex items-center justify-center mb-4">
             <HardDrive size={18} className="text-text-main/60" />
           </div>
 
-          <h2 className="text-base font-medium text-text-main mb-2">
+          <h2 id="migration-prompt-title" className="text-base font-medium text-text-main mb-2">
             {t('migration_found_title')}
           </h2>
           <p className="text-sm text-text-main/60 mb-6">
@@ -98,9 +81,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
               {t('migration_keep_local')}
             </Button>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </ModalShell>
   );
 }
 

@@ -1,23 +1,16 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import React, { useState, useCallback } from 'react';
 const LoginPage = React.lazy(() => import('../pages/LoginPage').then(m => ({ default: m.LoginPage })));
 import { useLoginModal } from '../contexts/LoginModalContext';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { getCurrentUser } from '../../../core/auth';
 import { MigrationPrompt, checkGuestDocuments } from './MigrationPrompt';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 export function LoginModalOverlay({ open }: { open: boolean }) {
   const { closeLoginModal } = useLoginModal();
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const reducedMotion = useReducedMotion();
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useFocusTrap(modalRef, open);
-  useModalEscape(open, closeLoginModal);
 
   const [showMigrationPrompt, setShowMigrationPrompt] = useState(false);
   const [localDocCount, setLocalDocCount] = useState(0);
@@ -43,34 +36,19 @@ export function LoginModalOverlay({ open }: { open: boolean }) {
 
   return (
     <>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[var(--z-sheet)] bg-surface-base/80 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={closeLoginModal}
-          >
-            <motion.div
-              data-modal
-              ref={modalRef}
-              role="dialog"
-              aria-modal="true"
-              aria-label={t('auth_sign_in')}
-              initial={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
-              className="w-full max-w-sm"
-              onClick={e => e.stopPropagation()}
-            >
-              <React.Suspense fallback={<div className="h-48" />}>
-                <LoginPage isModal onSuccess={onSuccessWrapped} onClose={closeLoginModal} />
-              </React.Suspense>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {open && (
+        <ModalShell
+          open={open}
+          onClose={closeLoginModal}
+          labelId="login-modal-title"
+          className="w-full max-w-sm"
+        >
+          <h3 id="login-modal-title" className="sr-only">{t('auth_sign_in')}</h3>
+          <React.Suspense fallback={<div className="h-48" />}>
+            <LoginPage isModal onSuccess={onSuccessWrapped} onClose={closeLoginModal} />
+          </React.Suspense>
+        </ModalShell>
+      )}
 
       {showMigrationPrompt && loggedInUserId && (
         <MigrationPrompt

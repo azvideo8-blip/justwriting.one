@@ -34,8 +34,15 @@ export async function callAi<T>(
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw Object.assign(new Error(body?.error?.message ?? 'AI request failed'),
-                        { code: body?.error?.code ?? 'internal' });
+    // AUDIT-part3 2: переходная dual-form. Новая форма {error:{code,message}};
+    // legacy {error:'CODE'} уважается, пока живы старые клиенты PWA.
+    const legacyCode = typeof (body as { error?: unknown })?.error === 'string'
+      ? (body as { error: string }).error
+      : undefined;
+    throw Object.assign(
+      new Error(body?.error?.message ?? legacyCode ?? 'AI request failed'),
+      { code: body?.error?.code ?? legacyCode ?? 'internal' },
+    );
   }
   return body.result as T;
 }

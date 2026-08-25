@@ -8,10 +8,18 @@ import { useModalEscape } from '../hooks/useModalEscape';
 // stopPropagation живут здесь, поэтому новая модалка физически не может
 // повторить ситуацию M21 («10 модалок без трапа»).
 
-const MODAL_BACKDROP =
-  'fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl';
+const BACKDROP_Z: Record<'modal' | 'critical' | 'sheet', string> = {
+  modal: 'z-[var(--z-modal)]',
+  critical: 'z-[var(--z-critical)]',
+  sheet: 'z-[var(--z-sheet)]',
+};
+
+// AUDIT-part3 1: критичные модалки (поверх всего — unlock, consent) задают
+// слой пропом, а не копией классов бэкдропа.
+const MODAL_BACKDROP = (z: keyof typeof BACKDROP_Z) =>
+  `fixed inset-0 ${BACKDROP_Z[z]} flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl`;
 const SHEET_BACKDROP =
-  'fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none';
+  `fixed inset-0 ${BACKDROP_Z.sheet} flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none`;
 
 const ANIMATION = {
   modal: {
@@ -34,6 +42,8 @@ export interface ModalShellProps {
   children: ReactNode;
   /** sheet = мобильный bottom-sheet (выезд снизу). */
   variant?: 'modal' | 'sheet';
+  /** Слой бэкдропа: critical — поверх всего (unlock, consent). */
+  z?: 'modal' | 'critical' | 'sheet';
   className?: string;
 }
 
@@ -43,6 +53,7 @@ export function ModalShell({
   labelId,
   children,
   variant = 'modal',
+  z = variant === 'sheet' ? 'sheet' : 'modal',
   className,
 }: ModalShellProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -63,7 +74,7 @@ export function ModalShell({
 
   return (
     <div
-      className={variant === 'sheet' ? SHEET_BACKDROP : MODAL_BACKDROP}
+      className={variant === 'sheet' ? SHEET_BACKDROP : MODAL_BACKDROP(z)}
       onClick={onClose}
       onTouchMove={variant === 'sheet' ? e => e.preventDefault() : undefined}
     >

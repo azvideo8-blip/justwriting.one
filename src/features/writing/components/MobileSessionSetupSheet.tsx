@@ -71,6 +71,7 @@ export function MobileSessionSetupSheet({
   return (
     <>
       {/* 3-2-1 Countdown Overlay */}
+      {/* not-a-modal: fullscreen takeover */}
       <AnimatePresence>
         {setupMode === 'countdown' && (
           <motion.div

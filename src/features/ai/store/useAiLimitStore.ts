@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { callAi } from '../../../core/ai/callAi';
 
 const STORAGE_KEY = 'ai_daily_usage';
 // Должно совпадать с DAILY_LIMIT в api/ai/pure.ts: это лишь заглушка до ответа
@@ -50,6 +51,9 @@ interface AiLimitState {
   used: number;
   resetsAt: Date;
   loaded: boolean;
+  /** AUDIT-part3 3: false = число из локального счётчика, сервером не
+   *  подтверждено. true только после ответа /api/getAiQuota. */
+  reconciled: boolean;
   isAdmin: boolean;
   loadLimit: () => void;
   loadLimitFromServer: () => Promise<void>;
@@ -79,16 +83,44 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   used: 0,
   resetsAt: getMidnightUtc(),
   loaded: false,
+  reconciled: false,
   isAdmin: false,
 
   loadLimit() {
     const { count } = readLocalUsage();
     const limit = get().isAdmin ? ADMIN_LIMIT : get().limit;
-    set({ used: count, remaining: Math.max(0, limit - count), resetsAt: getMidnightUtc(), loaded: true });
+    // Локальное число показывается сразу, но помечено несверенным:
+    // источник истины — /api/getAiQuota (см. loadLimitFromServer).
+    set({ used: count, remaining: Math.max(0, limit - count), resetsAt: getMidnightUtc(), loaded: true, reconciled: false });
   },
 
   async loadLimitFromServer() {
-    get().loadLimit();
+    try {
+      const quota = await callAi<{ used: number; limit: number; date: string }>('getAiQuota', {});
+      // Сервер — источник истины, в том числе для админа. Клампить ответ
+      // клиентской константой значит вернуть тот самый дрейф, ради которого
+      // эндпоинт и заводился: ADMIN_LIMIT здесь равен 20, а сервер отдаёт 60,
+      // и Math.min() молча показывал бы админу втрое меньший остаток.
+      // ADMIN_LIMIT остаётся только заглушкой до ответа (см. loadLimit).
+      const serverLimit = quota.limit;
+      const limit = Number.isFinite(serverLimit) && serverLimit > 0
+        ? serverLimit
+        : (get().isAdmin ? ADMIN_LIMIT : DEFAULT_LIMIT);
+      const used = quota.date === getUtcDateStr() ? quota.used : 0;
+      set({
+        used,
+        limit,
+        baseLimit: limit,
+        remaining: Math.max(0, limit - used),
+        resetsAt: getMidnightUtc(),
+        loaded: true,
+        reconciled: true,
+      });
+    } catch {
+      // Сеть недоступна / эндпоинт не отвечает — остаёмся на локальном
+      // счётчике сознательно (reconciled остаётся false).
+      get().loadLimit();
+    }
   },
 
   useRequest() {

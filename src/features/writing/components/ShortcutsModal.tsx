@@ -1,13 +1,15 @@
 import { Keyboard, X } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { useLanguage } from '../../../shared/i18n';
 
 interface ShortcutsModalProps {
+  open?: boolean;
   onClose: () => void;
 }
 
-export function ShortcutsModal({ onClose }: ShortcutsModalProps) {
+export function ShortcutsModal({ open = true, onClose }: ShortcutsModalProps) {
   const { t } = useLanguage();
 
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -21,11 +23,15 @@ export function ShortcutsModal({ onClose }: ShortcutsModalProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative z-10 w-full max-w-md mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      labelId="shortcuts-modal-title"
+      variant="modal"
+      className="max-w-md mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl max-h-[85vh] flex flex-col"
+    >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-          <h3 className="text-base font-bold text-text-main flex items-center gap-2">
+          <h3 id="shortcuts-modal-title" className="text-base font-bold text-text-main flex items-center gap-2">
             <Keyboard size={16} className="text-brand-soft" />
             {t('shortcuts_title')}
           </h3>
@@ -50,7 +56,6 @@ export function ShortcutsModal({ onClose }: ShortcutsModalProps) {
             {t('common_close')}
           </Button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

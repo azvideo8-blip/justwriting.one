@@ -1,10 +1,8 @@
-import { useRef } from 'react';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { Sparkles, X } from 'lucide-react';
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 interface SummaryModalProps {
   summary: AIDocumentSummary | null;
@@ -12,23 +10,17 @@ interface SummaryModalProps {
 }
 
 export function SummaryModal({ summary, onClose }: SummaryModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(summary !== null, onClose);
-  useFocusTrap(modalRef, summary !== null);
   if (summary === null) return null;
 
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center"
-      onClick={onClose}
+    <ModalShell
+      open
+      onClose={onClose}
+      labelId="summary-modal-title"
+      className="w-full max-w-lg mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden"
     >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative z-10 w-full max-w-lg mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-          <h3 className="text-base font-bold text-text-main flex items-center gap-2">
+          <h3 id="summary-modal-title" className="text-base font-bold text-text-main flex items-center gap-2">
             <Sparkles size={16} className="text-brand-soft" />
             ИИ Анализ Документа
           </h3>
@@ -80,7 +72,6 @@ export function SummaryModal({ summary, onClose }: SummaryModalProps) {
             Закрыть
           </Button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

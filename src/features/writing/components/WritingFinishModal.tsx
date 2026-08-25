@@ -9,8 +9,6 @@ import { useLanguage } from '../../../shared/i18n';
 import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +16,7 @@ import { FinishModalStats } from './FinishModalStats';
 import { FinishModalTags } from './FinishModalTags';
 import { FinishModalExport } from './FinishModalExport';
 import { Button } from '../../../shared/components/Button';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
@@ -219,10 +218,6 @@ export function WritingFinishModal({
   const animSeconds = useCountUp(totalPauseSeconds > 0 ? totalElapsedSeconds : sessionSeconds);
   const animWpm = useCountUp(avgWpm);
 
-  useModalEscape(isOpen, onCancel);
-  const modalRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(modalRef, isOpen);
-
   const tagInputRef = React.useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<'form' | 'mood'>('form');
   const [saveDataState, setSaveDataState] = useState<SaveData | null>(null);
@@ -384,26 +379,18 @@ export function WritingFinishModal({
   };
 
   return (
-    <div className={cn(
-      "fixed inset-0 z-[var(--z-modal)] flex bg-surface-base text-text-main",
-      isMobile ? "flex-col w-full h-full" : "items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl"
-    )}>
-      <motion.div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="finish-modal-title"
-        initial={isMobile ? { y: '100%' } : { scale: 0.9, opacity: 0 }}
-        animate={isMobile ? { y: 0 } : { scale: 1, opacity: 1 }}
-        exit={isMobile ? { y: '100%' } : { scale: 0.95, opacity: 0 }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
-        className={cn(
-          "bg-surface-card text-text-main shadow-[0_0_60px_rgba(0,0,0,0.8)]",
-          isMobile
-            ? "w-full h-full flex flex-col overflow-hidden"
-            : "w-full max-w-lg rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar border border-border-subtle"
-        )}
-      >
+    <ModalShell
+      open={isOpen}
+      onClose={onCancel}
+      labelId="finish-modal-title"
+      variant="modal"
+      className={cn(
+        "bg-surface-card text-text-main shadow-[0_0_60px_rgba(0,0,0,0.8)]",
+        isMobile
+          ? "h-full flex flex-col overflow-hidden"
+          : "rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar border border-border-subtle"
+      )}
+    >
         <AnimatePresence mode="wait" initial={false}>
         {step === 'mood' ? (
           <motion.div
@@ -582,7 +569,7 @@ export function WritingFinishModal({
           >
           <div className="text-center">
             {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
-            <h3 className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
+            <h3 id="finish-modal-title" className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
           </div>
 
           <FinishModalStats
@@ -660,7 +647,6 @@ export function WritingFinishModal({
         </motion.div>
         )}
         </AnimatePresence>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

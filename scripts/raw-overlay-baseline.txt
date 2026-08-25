@@ -1,17 +1,12 @@
-src/features/ai/components/CreatePersonaModal.tsx
-src/features/ai/components/DocumentPickerModal.tsx
-src/features/ai/components/IndexingConsentModal.tsx
-src/features/ai/components/MemoryManagerModal.tsx
-src/features/ai/components/PersonaDetailModal.tsx
-src/features/archive/components/MobileArchiveSidebarSheet.tsx
-src/features/archive/components/MobileNoteActionsSheet.tsx
-src/features/auth/components/LoginModalOverlay.tsx
-src/features/auth/components/MigrationPrompt.tsx
-src/features/auth/components/PrivacyModal.tsx
-src/features/auth/components/UnlockPrompt.tsx
-src/features/encryption/components/EncryptionPasswordModal.tsx
-src/features/settings/components/SummaryModal.tsx
-src/features/settings/components/SyncConsentModal.tsx
+# Храповик гейта сырых оверлеев (.github/workflows/ci.yml, AUDIT-part3 п.1).
+# Строки-пути ТОЛЬКО убирать (мигрируя файл на ModalShell), добавлять нельзя.
+#
+# Ограничение гейта (зафиксировано в [ПРОВЕРКА] part3): фильтр отбирает файлы
+# ПО ИМЕНИ (modal|sheet|prompt|overlay) — сырые оверлеи в файлах с другими
+# именами (AIPage.tsx, ArchivePage.tsx и т.п.) он не видит. Пустой базлайн
+# означает чистоту только среди модалко-подобных имён.
+#
+# Единственный легитимный остаток — полноэкранная заставка 3-2-1 countdown:
+# это не диалог (не ловит фокус, не закрывается Escape), помечен в коде
+# маркером {/* not-a-modal: fullscreen takeover */}.
 src/features/writing/components/MobileSessionSetupSheet.tsx
-src/features/writing/components/ShortcutsModal.tsx
-src/features/writing/components/WritingFinishModal.tsx

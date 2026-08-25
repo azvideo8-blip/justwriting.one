@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Lock, AlertCircle, Loader2, KeyRound } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -12,8 +11,7 @@ import {
 import { reportError } from '../../../shared/errors/reportError';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 interface UnlockPromptProps {
   uid: string;
@@ -24,8 +22,6 @@ interface UnlockPromptProps {
 export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const reducedMotion = useReducedMotion();
-  const modalRef = useRef<HTMLDivElement>(null);
 
   const [isRecovering, setIsRecovering] = useState(false);
   const [password, setPassword] = useState('');
@@ -35,9 +31,6 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useFocusTrap(modalRef, true);
-  useModalEscape(true, onClose);
 
   const attemptCountRef = useRef(0);
   const [backoffSeconds, setBackoffSeconds] = useState(0);
@@ -114,25 +107,13 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-surface-base/80 backdrop-blur-sm"
-        onClick={onClose}
-      >
-        <motion.div
-          ref={modalRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="unlock-modal-title"
-          initial={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
-          className="w-full max-w-[380px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
-          onClick={e => e.stopPropagation()}
-        >
+    <ModalShell
+      open
+      onClose={onClose}
+      labelId="unlock-modal-title"
+      z="critical"
+      className="w-full max-w-[380px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+    >
           <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">
             {isRecovering ? (
               <KeyRound size={18} className="text-brand-soft" />
@@ -258,8 +239,6 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
               </div>
             </form>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </ModalShell>
   );
 }

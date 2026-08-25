@@ -3,6 +3,7 @@ import { handle as dispatch } from './dispatcher';
 import { handleChat } from './chat';
 import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 import { rateLimited, clientIp, originOnly } from './cspLimiter';
+import { sendError } from './sendError';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function json(res: http.ServerResponse, status: number, body: unknown) {
@@ -83,14 +84,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  json(res, 404, { error: 'Not found' });
+  sendError(res, 404, 'NOT_FOUND');
   })().catch((e: unknown) => {
     // Без этого любой отказ, не пойманный внутри обработчика, становится
     // unhandled rejection, а Node на нём завершает процесс — один кривой
     // запрос ронял бы сервис целиком. Наружу отдаём общий текст: причина
     // уходит в журнал, клиенту причины не сообщаем.
     console.error('[server] unhandled request error', e);
-    if (!res.headersSent) json(res, 500, { error: 'Internal error' });
+    if (!res.headersSent) sendError(res, 500, 'INTERNAL');
     else res.end();
   });
 });

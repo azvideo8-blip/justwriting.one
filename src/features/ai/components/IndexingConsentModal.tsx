@@ -1,7 +1,7 @@
-import { motion } from 'motion/react';
 import { Sparkles, Shield, X, Check, Search } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 interface IndexingConsentModalProps {
   isOpen: boolean;
@@ -13,19 +13,17 @@ export function IndexingConsentModal({ isOpen, onConsent, onRefuse }: IndexingCo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="absolute inset-0" onClick={onRefuse} />
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="relative z-10 w-full max-w-lg bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
-          <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-brand-soft" />
-            <h3 className="text-sm font-bold text-text-main">Поиск по смыслу (индексация)</h3>
-          </div>
+    <ModalShell
+      open={isOpen}
+      onClose={onRefuse}
+      labelId="indexing-consent-title"
+      className="bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+    >
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+        <div className="flex items-center gap-2">
+          <Sparkles size={18} className="text-brand-soft" />
+          <h3 id="indexing-consent-title" className="text-sm font-bold text-text-main">Поиск по смыслу (индексация)</h3>
+        </div>
           <IconButton
             onClick={onRefuse}
             className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors"
@@ -103,7 +101,6 @@ export function IndexingConsentModal({ isOpen, onConsent, onRefuse }: IndexingCo
             Включить поиск по смыслу
           </Button>
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

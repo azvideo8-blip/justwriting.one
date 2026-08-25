@@ -1,7 +1,4 @@
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import { useRef, useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useState, useEffect } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import { AIPersonaService } from '../services/AIPersonaService';
 import { hasInjectionAttempt } from '../shared/injectionPatterns';
@@ -10,6 +7,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { Textarea } from '../../../shared/components/Textarea';
 
@@ -45,9 +43,6 @@ function Mono({ color, mono }: { color: string; mono: string }) {
 }
 
 export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetailModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(true, onClose);
-  useFocusTrap(modalRef, !!persona);
   const { t } = useLanguage();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [name, setName] = useState('');
@@ -103,20 +98,16 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
   };
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose} />
-      <motion.div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative z-10 w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden"
-      >
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-border-subtle">
-          <Mono color={persona.color} mono={persona.mono} />
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold text-text-main truncate">{persona.name}</h3>
+    <ModalShell
+      open={persona !== null}
+      onClose={onClose}
+      labelId="persona-detail-title"
+      className="bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden"
+    >
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-border-subtle">
+        <Mono color={persona.color} mono={persona.mono} />
+        <div className="min-w-0 flex-1">
+          <h3 id="persona-detail-title" className="text-sm font-bold text-text-main truncate">{persona.name}</h3>
             <span className="text-[11px] text-text-main/60">
               {persona.isPreset ? 'Встроенная персона' : 'Ваша персона'}
             </span>
@@ -186,7 +177,6 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
             </>
           )}
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

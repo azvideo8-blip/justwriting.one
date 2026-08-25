@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Lock, Shield, AlertTriangle, AlertCircle, Loader2, KeyRound, Cloud } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
@@ -7,8 +6,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import {
   initializeEncryption,
@@ -39,8 +37,6 @@ const MIN_PASSWORD_LENGTH = 8;
 export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose }: EncryptionPasswordModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const reducedMotion = useReducedMotion();
-  const modalRef = useRef<HTMLDivElement>(null);
 
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState('');
@@ -56,9 +52,6 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const [createdRecoveryCode, setCreatedRecoveryCode] = useState<string | null>(null);
 
   const passwordRef = useRef<HTMLInputElement>(null);
-
-  useFocusTrap(modalRef, mode !== 'none');
-  useModalEscape(mode !== 'none', () => onClose?.());
 
   React.useEffect(() => {
     if (mode !== 'none') {
@@ -248,33 +241,19 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     );
   }
 
-  if (mode === 'none') return null;
-
   const isSetup = mode === 'setup';
   const isUnlock = mode === 'unlock';
   const isChange = mode === 'change';
   const isMigrate = mode === 'migrate';
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-surface-base/90 backdrop-blur-md"
-        onClick={onClose ? () => onClose() : undefined}
-      >
-        <motion.div
-          ref={modalRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="enc-modal-title"
-          initial={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={reducedMotion ? {} : { scale: 0.95, opacity: 0 }}
-          className="w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
-          onClick={(e) => e.stopPropagation()}
-        >
+    <ModalShell
+      open={mode !== 'none'}
+      onClose={() => onClose?.()}
+      labelId="enc-modal-title"
+      z="critical"
+      className="w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+    >
           <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">
             {isRecovering ? (
               <KeyRound size={18} className="text-brand-soft" />
@@ -469,9 +448,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               {t('enc_migrate_hint')}
             </p>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+        </ModalShell>
   );
 }
 

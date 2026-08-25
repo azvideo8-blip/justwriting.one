@@ -6,6 +6,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 const KIND_ORDER: AIChatMemory['kind'][] = ['preference', 'fact', 'insight', 'commitment'];
 
@@ -65,11 +66,14 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
   })).filter(g => g.items.length > 0);
 
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative z-10 w-full max-w-md mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-          <h3 className="text-base font-bold text-text-main flex items-center gap-2">
+    <ModalShell
+      open
+      onClose={onClose}
+      labelId="memory-manager-title"
+      className="mx-4 bg-surface-card border border-border-subtle rounded-2xl shadow-2xl max-h-[85vh] flex flex-col"
+    >
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+        <h3 id="memory-manager-title" className="text-base font-bold text-text-main flex items-center gap-2">
             <Brain size={16} className="text-brand-soft" />
             {t('ai_memory_title')}
           </h3>
@@ -130,7 +134,6 @@ export function MemoryManagerModal({ onClose }: MemoryManagerModalProps) {
             </Button>
           </div>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }

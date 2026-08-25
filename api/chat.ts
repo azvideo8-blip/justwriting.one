@@ -11,10 +11,8 @@ import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens } f
 import type { GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, MAX_AI_CONTENT_LENGTH } from './ai/pure';
 
-function json(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(body));
-}
+// AUDIT-part3 2: все ответы ошибок ушли через sendError (единая форма
+// {error:{code,message}}); локальный json-хелпер удалён как неиспользуемый.
 
 function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -146,7 +144,7 @@ async function streamOpenRouterReasoning(
   if (!apiKey) {
     await settlement.settle('failed');
     console.error('OPENROUTER_API_KEY not set');
-    json(res, 500, { error: 'Internal server error' });
+    sendError(res, 500, 'INTERNAL');
     return;
   }
   const controller = new AbortController();
@@ -334,14 +332,14 @@ const inputSchema = z.object({
 
 export async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'POST') {
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    sendError(res, 405, 'METHOD_NOT_ALLOWED');
     return;
   }
 
   const session = await requireSession(req);
   if (!session || !session.uid) {
-    return json(res, 401, { error: 'Unauthorized' });
+    sendError(res, 401, 'AUTH_REQUIRED');
+    return;
   }
   const uid = session.uid;
 
@@ -349,7 +347,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // обходится прямым запросом, а именно этим путём и идёт основной чат.
   const consent = await postgresAiContext.getAiConsent(uid);
   if (!consent.granted) {
-    return json(res, 403, { error: 'AI_CONSENT_REQUIRED' });
+    sendError(res, 403, 'AI_CONSENT_REQUIRED');
+    return;
   }
 
   let body: unknown;
@@ -358,14 +357,17 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     body = raw ? JSON.parse(raw) : {};
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
-      return json(res, 413, { error: 'Payload too large' });
+      sendError(res, 413, 'PAYLOAD_TOO_LARGE');
+    return;
     }
-    return json(res, 400, { error: 'Bad Request' });
+    sendError(res, 400, 'BAD_REQUEST');
+    return;
   }
 
   const parsed = inputSchema.safeParse(body);
   if (!parsed.success) {
-    return json(res, 400, { error: 'Bad Request' });
+    sendError(res, 400, 'BAD_REQUEST');
+    return;
   }
 
   let isInternalCall = false;
@@ -380,7 +382,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     });
     isInternalCall = policyResult.isInternal;
   } catch {
-    return json(res, 400, { error: 'Bad Request' });
+    sendError(res, 400, 'BAD_REQUEST');
+    return;
   }
 
   // День списания. Все refund'ы ниже целятся в него: запрос, начатый в
@@ -389,16 +392,20 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
   if (isInternalCall) {
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit(uid, 'chat');
-    if (verdict === 'RATE_LIMIT') { return json(res, 429, { error: 'RATE_LIMIT' }); }
-    if (!verdict.ok) { return json(res, 429, { error: 'DAILY_LIMIT' }); }
+    if (verdict === 'RATE_LIMIT') { sendError(res, 429, 'RATE_LIMIT');
+    return; }
+    if (!verdict.ok) { sendError(res, 429, 'DAILY_LIMIT');
+    return; }
     chargedDay = verdict.day;
   } else {
     const limitResult = await postgresAiContext.checkAndIncrementLimit(uid, parsed.data.reasoning === true);
     if (limitResult === 'DAILY_LIMIT') {
-      return json(res, 429, { error: 'DAILY_LIMIT' });
+      sendError(res, 429, 'DAILY_LIMIT');
+    return;
     }
     if (limitResult === 'RATE_LIMIT') {
-      return json(res, 429, { error: 'RATE_LIMIT' });
+      sendError(res, 429, 'RATE_LIMIT');
+    return;
     }
     chargedDay = limitResult.day;
   }
@@ -418,7 +425,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     } else {
       await postgresAiContext.refundDailyLimit(uid, chargedDay);
     }
-    return json(res, 429, { error: 'GLOBAL_LIMIT' });
+    sendError(res, 429, 'GLOBAL_LIMIT');
+    return;
   }
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, memoryContext, responseLength, reasoning } = parsed.data;
@@ -427,7 +435,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   if (personaId === 'custom' && customSystemPrompt && hasInjectionAttempt(customSystemPrompt)) {
     await postgresAiContext.refundDailyLimit(uid, chargedDay);
     await postgresAiContext.refundGlobalRequest(reservation);
-    return json(res, 400, { error: 'Bad Request' });
+    sendError(res, 400, 'BAD_REQUEST');
+    return;
   }
 
   // AUDIT-MH8: hard-reject только для system-prompt-подобных полей (messages,
@@ -440,7 +449,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     if (isInternalCall) await postgresAiContext.refundBulkLimit(uid, chargedDay);
     else await postgresAiContext.refundDailyLimit(uid, chargedDay);
     await postgresAiContext.refundGlobalRequest(reservation);
-    return json(res, 400, { error: 'Bad Request' });
+    sendError(res, 400, 'BAD_REQUEST');
+    return;
   }
 
   const sanitizedCustomPrompt = customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined;
@@ -525,7 +535,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   } catch (streamErr) {
     console.error('[api/chat] pipe failed:', streamErr);
     await settlement.settle('failed');
-    if (!res.headersSent) json(res, 500, { error: 'Stream failed' });
+    if (!res.headersSent) sendError(res, 500, 'STREAM_FAILED');
   }
 }
 

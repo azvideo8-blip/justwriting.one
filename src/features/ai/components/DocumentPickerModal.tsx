@@ -1,7 +1,4 @@
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
 import { useState, useRef } from 'react';
-import { motion } from 'motion/react';
 import { X, Search } from 'lucide-react';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { getLocalDb, getOrCreateGuestId } from '../../../core/storage/localDb';
@@ -9,6 +6,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { getCurrentUser } from '../../../core/auth';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { Input } from '../../../shared/components/Input';
 
 interface DocumentPickerModalProps {
@@ -26,9 +24,6 @@ interface DocEntry {
 }
 
 export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPickerModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(isOpen, onClose);
-  useFocusTrap(modalRef, isOpen);
   const { t } = useLanguage();
   const [docs, setDocs] = useState<DocEntry[]>([]);
   const [search, setSearch] = useState('');
@@ -74,21 +69,14 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
   ).slice(0, 100);
 
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[var(--z-overlay)] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    <ModalShell
+      open={isOpen}
+      onClose={onClose}
+      labelId="doc-picker-title"
+      className="bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
     >
-      <div className="absolute inset-0" onClick={onClose} />
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="relative z-10 w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
-          <h3 className="text-sm font-bold text-text-main">Какую заметку разберём?</h3>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+        <h3 id="doc-picker-title" className="text-sm font-bold text-text-main">Какую заметку разберём?</h3>
           <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
         </div>
 
@@ -123,7 +111,6 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
             <div className="py-8 text-center text-sm text-text-main/60">Ничего не найдено</div>
           )}
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

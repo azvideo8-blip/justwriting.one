@@ -113,6 +113,20 @@ export function pruneMessages(messages: AIMessage[]): AIMessage[] {
   return [first, ...rest];
 }
 
+// AUDIT-part3 2: единая точка разбора кода ошибки из тела ответа. Сервер в
+// переходный период шлёт обе формы ({error:'CODE'} и {error:{code,message}}) —
+// PWA держит старый бандл у части клиентов, поэтому сервер не может выбрать
+// одну форму сразу, а клиент обязан понимать обе.
+export function extractErrorCode(body: unknown): string | undefined {
+  const e = (body as { error?: unknown } | null | undefined)?.error;
+  if (typeof e === 'string') return e;
+  if (e && typeof e === 'object' && 'code' in e) {
+    const c = (e as { code?: unknown }).code;
+    if (typeof c === 'string') return c;
+  }
+  return undefined;
+}
+
 export async function streamChat(params: {
   personaId: string;
   customSystemPrompt?: string | undefined;
@@ -169,7 +183,8 @@ export async function streamChat(params: {
     let errorKind = 'DAILY_LIMIT';
     try {
       const body = await response.json();
-      if (body?.error === 'GLOBAL_LIMIT') errorKind = 'GLOBAL_LIMIT';
+      const code = extractErrorCode(body);
+      if (code === 'GLOBAL_LIMIT') errorKind = 'GLOBAL_LIMIT';
     } catch { /* default to DAILY_LIMIT */ }
     throw new Error(errorKind);
   }
@@ -180,8 +195,8 @@ export async function streamChat(params: {
     // сам: согласие не дано, лимит, неверный размер запроса.
     let code = 'SERVER_ERROR';
     try {
-      const body = await response.clone().json() as { error?: unknown };
-      if (typeof body.error === 'string') code = body.error;
+      const body = await response.clone().json();
+      code = extractErrorCode(body) ?? 'SERVER_ERROR';
     } catch { /* тело не JSON или стрим уже начат — остаётся SERVER_ERROR */ }
     throw new Error(code);
   }

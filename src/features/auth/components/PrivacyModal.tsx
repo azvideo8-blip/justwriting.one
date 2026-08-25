@@ -1,12 +1,10 @@
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { reportError } from '../../../shared/errors/reportError';
-import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
 import { getCurrentUser } from '../../../core/auth';
 import { DataProvider } from '../../../core/data';
 import { Button } from '../../../shared/components/Button';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 
@@ -15,9 +13,6 @@ interface PrivacyModalProps {
 }
 
 export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(true, () => { /* обязательное согласие: Escape не закрывает */ });
-  useFocusTrap(modalRef, true);
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -55,21 +50,16 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
   };
 
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    <ModalShell
+      open
+      labelId="privacy-modal-title"
+      onClose={() => { /* обязательное согласие: Escape и клик по фону не закрывают */ }}
+      className="w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden m-4"
     >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden m-4"
-      >
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <Shield size={20} className="text-brand-soft" />
-            <h2 className="text-base font-bold text-text-main">Политика конфиденциальности</h2>
+            <h2 id="privacy-modal-title" className="text-base font-bold text-text-main">Политика конфиденциальности</h2>
           </div>
 
           {/* Текст обязан совпадать с тем, что приложение делает на самом деле:
@@ -128,8 +118,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
             Продолжить
           </Button>
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }
 

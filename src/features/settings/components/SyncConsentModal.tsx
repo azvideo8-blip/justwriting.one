@@ -1,9 +1,7 @@
-import React, { useRef, useState, useEffect } from "react";
-import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
-import { useModalEscape } from "../../../shared/hooks/useModalEscape";
-import { motion } from "motion/react";
+import React, { useState, useEffect } from "react";
 import { Cloud } from "lucide-react";
 import { Button } from "../../../shared/components/Button";
+import { ModalShell } from "../../../shared/components/ModalShell";
 import { useLanguage } from "../../../shared/i18n";
 import { useAuthStatus } from "../../../features/auth/hooks/useAuthStatus";
 import { STORAGE_KEYS } from "../../../shared/constants/storageKeys";
@@ -16,9 +14,6 @@ interface SyncConsentModalProps {
 }
 
 export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
-  useModalEscape(true, onClose);
-  useFocusTrap(modalRef, true);
   const { t } = useLanguage();
 
   const handleEnable = () => {
@@ -37,25 +32,18 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
   };
 
   return (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    <ModalShell
+      open
+      onClose={handleKeepOff}
+      labelId="sync-consent-title"
+      z="critical"
+      className="w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden p-6"
     >
-      <div className="absolute inset-0" onClick={handleKeepOff} />
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="relative z-10 w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden p-6"
-        onClick={e => e.stopPropagation()}
-      >
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 rounded-xl bg-brand-soft/10 flex items-center justify-center text-brand-soft">
             <Cloud size={20} />
           </div>
-          <h2 className="text-base font-bold text-text-main">
+          <h2 id="sync-consent-title" className="text-base font-bold text-text-main">
             {t("sync_consent_title")}
           </h2>
         </div>
@@ -84,8 +72,7 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
             {t("sync_consent_enable")}
           </Button>
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }
 

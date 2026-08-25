@@ -126,7 +126,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(405);
-    expect(resState.getJson()).toEqual({ error: "Method Not Allowed" });
+    expect(resState.getJson()).toEqual({ error: { code: "METHOD_NOT_ALLOWED", message: "METHOD_NOT_ALLOWED" } }); // AUDIT-part3 2
   });
 
   it("rejects unauthenticated requests with 401", async () => {
@@ -135,7 +135,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(401);
-    expect(resState.getJson()).toEqual({ error: "Unauthorized" });
+    expect(resState.getJson()).toEqual({ error: { code: "AUTH_REQUIRED", message: "AUTH_REQUIRED" } }) // AUDIT-part3 2;
   });
 
   it("rejects invalid body schema with 400", async () => {
@@ -144,7 +144,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(400);
-    expect(resState.getJson()).toEqual({ error: "Bad Request" });
+    expect(resState.getJson()).toEqual({ error: { code: "BAD_REQUEST", message: "BAD_REQUEST" } }) // AUDIT-part3 2;
   });
 
   it("AUDIT-MH8: injection pattern in documentMood no longer rejects — note-derived content is fenced, not blocked", async () => {
@@ -171,7 +171,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(400);
-    expect(resState.getJson()).toEqual({ error: "Bad Request" });
+    expect(resState.getJson()).toEqual({ error: { code: "BAD_REQUEST", message: "BAD_REQUEST" } }) // AUDIT-part3 2;
     expect(postgresAiContext.refundDailyLimit).toHaveBeenCalledWith("test-user-uid", expect.any(String));
   });
 
@@ -186,7 +186,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(429);
-    expect(resState.getJson()).toEqual({ error: "DAILY_LIMIT" });
+    expect(resState.getJson()).toEqual({ error: { code: "DAILY_LIMIT", message: "DAILY_LIMIT" } }) // AUDIT-part3 2;
   });
 
   it("returns 429 when rate limit is exceeded", async () => {
@@ -200,7 +200,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(429);
-    expect(resState.getJson()).toEqual({ error: "RATE_LIMIT" });
+    expect(resState.getJson()).toEqual({ error: { code: "RATE_LIMIT", message: "RATE_LIMIT" } }) // AUDIT-part3 2;
   });
 
   it("returns 429 when global limit reservation fails and refunds daily limit", async () => {
@@ -214,7 +214,7 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(429);
-    expect(resState.getJson()).toEqual({ error: "GLOBAL_LIMIT" });
+    expect(resState.getJson()).toEqual({ error: { code: "GLOBAL_LIMIT", message: "GLOBAL_LIMIT" } }) // AUDIT-part3 2;
     expect(postgresAiContext.refundDailyLimit).toHaveBeenCalledWith("test-user-uid", expect.any(String));
   });
 
