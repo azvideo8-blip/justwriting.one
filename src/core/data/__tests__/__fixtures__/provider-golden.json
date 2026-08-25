@@ -1,0 +1,1220 @@
+{
+  "createDocument": {
+    "result": "3157b56c-052e-46a5-9ea7-f113b6c4c67c",
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "insert([{\"title\":\"T\",\"current_version\":3,\"tags\":[\"a\"],\"first_session_at\":\"2025-08-24T01:46:40.000Z\",\"uuid\":\"3157b56c-052e-46a5-9ea7-f113b6c4c67c\",\"user_id\":\"u1\"}])"
+        ],
+        "payload": {
+          "title": "T",
+          "current_version": 3,
+          "tags": [
+            "a"
+          ],
+          "first_session_at": "2025-08-24T01:46:40.000Z",
+          "uuid": "3157b56c-052e-46a5-9ea7-f113b6c4c67c",
+          "user_id": "u1"
+        }
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "insert([{\"title\":\"T\",\"current_version\":3,\"tags\":[\"a\"],\"first_session_at\":\"2025-08-24T01:46:40.000Z\",\"uuid\":\"3157b56c-052e-46a5-9ea7-f113b6c4c67c\",\"user_id\":\"u1\"}])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getDocument": {
+    "result": {
+      "uuid": "doc_1",
+      "userId": "u1",
+      "title": "T",
+      "currentVersion": 3,
+      "totalWords": 10,
+      "firstSessionAt": 1787652000000,
+      "deletedAt": null,
+      "tags": [
+        "a"
+      ],
+      "labelId": "l1",
+      "id": "doc_1"
+    },
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "is([\"deleted_at\",null])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "getDocumentWithDeleted": {
+    "result": {
+      "uuid": "doc_1",
+      "userId": "u1",
+      "title": "T",
+      "currentVersion": 3,
+      "totalWords": 10,
+      "firstSessionAt": 1787652000000,
+      "deletedAt": null,
+      "tags": [
+        "a"
+      ],
+      "labelId": "l1",
+      "id": "doc_1"
+    },
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "getUserDocuments": {
+    "result": [
+      {
+        "uuid": "doc_1",
+        "userId": "u1",
+        "title": "T",
+        "currentVersion": 3,
+        "totalWords": 10,
+        "firstSessionAt": 1787652000000,
+        "deletedAt": null,
+        "tags": [
+          "a"
+        ],
+        "labelId": "l1",
+        "id": "doc_1"
+      }
+    ],
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "is([\"deleted_at\",null])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "updateDocument": {
+    "result": null,
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"title\":\"T2\",\"mood\":null}])"
+        ],
+        "payload": {
+          "title": "T2",
+          "mood": null
+        }
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"title\":\"T2\",\"mood\":null}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "is([\"deleted_at\",null])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "stats-no-count": {
+    "result": {
+      "threw": "(0 , __vite_ssr_import_0__.getSupabase)(...).rpc is not a function"
+    },
+    "calls": []
+  },
+  "stats-with-count": {
+    "result": null,
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"total_words\":5,\"total_duration\":60,\"current_version\":4,\"sessions_count\":9,\"last_session_at\":\"2025-08-24T01:46:40.000Z\"}])"
+        ],
+        "payload": {
+          "total_words": 5,
+          "total_duration": 60,
+          "current_version": 4,
+          "sessions_count": 9,
+          "last_session_at": "2025-08-24T01:46:40.000Z"
+        }
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"total_words\":5,\"total_duration\":60,\"current_version\":4,\"sessions_count\":9,\"last_session_at\":\"2025-08-24T01:46:40.000Z\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "is([\"deleted_at\",null])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteDocument": {
+    "result": null,
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_uuid\",\"doc_1\"])",
+          "<await>"
+        ]
+      },
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_id\",\"doc_1\"])",
+          "<await>"
+        ]
+      },
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_id\",\"doc_1\"])",
+          "<await>"
+        ]
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"deleted_at\":\"2026-08-25T06:23:16.895Z\",\"title\":\"\",\"tags\":[],\"mood\":null,\"label_id\":null,\"is_public\":false,\"_encrypted\":false,\"total_words\":0,\"total_duration\":0,\"sessions_count\":0}])"
+        ],
+        "payload": {
+          "deleted_at": "2026-08-25T06:23:16.895Z",
+          "title": "",
+          "tags": [],
+          "mood": null,
+          "label_id": null,
+          "is_public": false,
+          "_encrypted": false,
+          "total_words": 0,
+          "total_duration": 0,
+          "sessions_count": 0
+        }
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"deleted_at\":\"2026-08-25T06:23:16.895Z\",\"title\":\"\",\"tags\":[],\"mood\":null,\"label_id\":null,\"is_public\":false,\"_encrypted\":false,\"total_words\":0,\"total_duration\":0,\"sessions_count\":0}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "clearLabelFromAllDocs": {
+    "result": null,
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"label_id\":null}])"
+        ],
+        "payload": {
+          "label_id": null
+        }
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"label_id\":null}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"label_id\",\"l1\"])",
+          "is([\"deleted_at\",null])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "renameTagInAllDocs": {
+    "result": {
+      "threw": "ENCRYPT_REQUIRED: profile not loaded"
+    },
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"uuid, tags, _encrypted\"])"
+        ],
+        "payload": "uuid, tags, _encrypted"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"uuid, tags, _encrypted\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "is([\"deleted_at\",null])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "removeTagFromAllDocs": {
+    "result": {
+      "threw": "ENCRYPT_REQUIRED: profile not loaded"
+    },
+    "calls": [
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"uuid, tags, _encrypted\"])"
+        ],
+        "payload": "uuid, tags, _encrypted"
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "select([\"uuid, tags, _encrypted\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "is([\"deleted_at\",null])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "addVersion": {
+    "result": null,
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "upsert([{\"version\":3,\"content\":\"cc\",\"saved_at\":\"2025-08-24T01:46:40.000Z\",\"user_id\":\"u1\",\"document_uuid\":\"doc_1\"}])"
+        ],
+        "payload": {
+          "version": 3,
+          "content": "cc",
+          "saved_at": "2025-08-24T01:46:40.000Z",
+          "user_id": "u1",
+          "document_uuid": "doc_1"
+        }
+      },
+      {
+        "table": "versions",
+        "chain": [
+          "upsert([{\"version\":3,\"content\":\"cc\",\"saved_at\":\"2025-08-24T01:46:40.000Z\",\"user_id\":\"u1\",\"document_uuid\":\"doc_1\"}])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getVersions": {
+    "result": [
+      {
+        "documentId": "doc_1",
+        "userId": "u1",
+        "version": 2,
+        "content": "c",
+        "savedAt": 1787655600000,
+        "sessionStartedAt": null,
+        "id": "u1"
+      }
+    ],
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "versions",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_uuid\",\"doc_1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getLatestVersion": {
+    "result": {
+      "documentId": "doc_1",
+      "userId": "u1",
+      "version": 2,
+      "content": "c",
+      "savedAt": 1787655600000,
+      "sessionStartedAt": null,
+      "id": "u1"
+    },
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "versions",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_uuid\",\"doc_1\"])",
+          "order([\"version\",{\"ascending\":false}])",
+          "limit([1])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "updateVersion": {
+    "result": null,
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "update([{\"content\":\"n\"}])"
+        ],
+        "payload": {
+          "content": "n"
+        }
+      },
+      {
+        "table": "versions",
+        "chain": [
+          "update([{\"content\":\"n\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_uuid\",\"doc_1\"])",
+          "eq([\"version\",3])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "updateVersionsBatch": {
+    "result": null,
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "update([{\"content\":\"n\"}])"
+        ],
+        "payload": {
+          "content": "n"
+        }
+      },
+      {
+        "table": "versions",
+        "chain": [
+          "update([{\"content\":\"n\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_uuid\",\"doc_1\"])",
+          "eq([\"version\",3])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteVersionsBatch": {
+    "result": null,
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_uuid\",\"doc_1\"])",
+          "in([\"version\",[3,4]])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getProfile": {
+    "result": {
+      "uid": "u1",
+      "email": "e@x",
+      "createdAt": 1767225600000,
+      "id": "u1"
+    },
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"uid\",\"u1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "updateProfile": {
+    "result": null,
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"nickname\":\"n\",\"privacy_accepted_at\":\"2025-08-24T01:46:40.000Z\"}])"
+        ],
+        "payload": {
+          "nickname": "n",
+          "privacy_accepted_at": "2025-08-24T01:46:40.000Z"
+        }
+      },
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"nickname\":\"n\",\"privacy_accepted_at\":\"2025-08-24T01:46:40.000Z\"}])",
+          "eq([\"uid\",\"u1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getUsers": {
+    "result": [
+      {
+        "uid": "u1",
+        "email": "e@x",
+        "role": "user",
+        "id": "u1"
+      }
+    ],
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "select([\"uid,email,nickname,role,created_at,_encrypted,labels,earned_achievements,total_word_count,sessions_count,streak_days,total_duration,avg_wpm,avg_session_words,privacy_accepted_at,privacy_version,ai_consent_at,ai_consent_version,indexing_consent_at,indexing_consent_version\"])"
+        ],
+        "payload": "uid,email,nickname,role,created_at,_encrypted,labels,earned_achievements,total_word_count,sessions_count,streak_days,total_duration,avg_wpm,avg_session_words,privacy_accepted_at,privacy_version,ai_consent_at,ai_consent_version,indexing_consent_at,indexing_consent_version"
+      },
+      {
+        "table": "users",
+        "chain": [
+          "select([\"uid,email,nickname,role,created_at,_encrypted,labels,earned_achievements,total_word_count,sessions_count,streak_days,total_duration,avg_wpm,avg_session_words,privacy_accepted_at,privacy_version,ai_consent_at,ai_consent_version,indexing_consent_at,indexing_consent_version\"])",
+          "limit([50])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getDraft": {
+    "result": {
+      "userId": "u1",
+      "title": "d",
+      "content": "cd",
+      "updatedAt": 1787648400000,
+      "id": "u1"
+    },
+    "calls": [
+      {
+        "table": "drafts",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "drafts",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "saveDraft": {
+    "result": null,
+    "calls": [
+      {
+        "table": "drafts",
+        "chain": [
+          "upsert([{\"title\":\"d\",\"content\":\"cd\",\"updated_at\":\"2026-08-25T06:23:16.896Z\",\"user_id\":\"u1\"}])"
+        ],
+        "payload": {
+          "title": "d",
+          "content": "cd",
+          "updated_at": "2026-08-25T06:23:16.896Z",
+          "user_id": "u1"
+        }
+      },
+      {
+        "table": "drafts",
+        "chain": [
+          "upsert([{\"title\":\"d\",\"content\":\"cd\",\"updated_at\":\"2026-08-25T06:23:16.896Z\",\"user_id\":\"u1\"}])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "updateDraft": {
+    "result": null,
+    "calls": [
+      {
+        "table": "drafts",
+        "chain": [
+          "update([{\"title\":\"d2\",\"updated_at\":\"2026-08-25T06:23:16.896Z\"}])"
+        ],
+        "payload": {
+          "title": "d2",
+          "updated_at": "2026-08-25T06:23:16.896Z"
+        }
+      },
+      {
+        "table": "drafts",
+        "chain": [
+          "update([{\"title\":\"d2\",\"updated_at\":\"2026-08-25T06:23:16.896Z\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteDraft": {
+    "result": null,
+    "calls": [
+      {
+        "table": "drafts",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getSummary": {
+    "result": {
+      "documentId": "doc_1",
+      "userId": "u1",
+      "summary": "s",
+      "id": "doc_1"
+    },
+    "calls": [
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_id\",\"doc_1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "saveSummary": {
+    "result": null,
+    "calls": [
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "upsert([{\"summary\":\"s\",\"user_id\":\"u1\",\"document_id\":\"doc_1\"}])"
+        ],
+        "payload": {
+          "summary": "s",
+          "user_id": "u1",
+          "document_id": "doc_1"
+        }
+      },
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "upsert([{\"summary\":\"s\",\"user_id\":\"u1\",\"document_id\":\"doc_1\"}])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteSummary": {
+    "result": null,
+    "calls": [
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_id\",\"doc_1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getUserSummaries": {
+    "result": [
+      {
+        "documentId": "doc_1",
+        "userId": "u1",
+        "summary": "s",
+        "id": "doc_1"
+      }
+    ],
+    "calls": [
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "ai_summaries",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getEmbedding": {
+    "result": {
+      "0": {
+        "document_id": "doc_1",
+        "user_id": "u1",
+        "vectors_json": "[1]",
+        "dim": 2
+      }
+    },
+    "calls": [
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_id\",\"doc_1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "saveEmbedding": {
+    "result": null,
+    "calls": [
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "upsert([{\"vectors_json\":\"[1]\",\"dim\":2,\"user_id\":\"u1\",\"document_id\":\"doc_1\"}])"
+        ],
+        "payload": {
+          "vectors_json": "[1]",
+          "dim": 2,
+          "user_id": "u1",
+          "document_id": "doc_1"
+        }
+      },
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "upsert([{\"vectors_json\":\"[1]\",\"dim\":2,\"user_id\":\"u1\",\"document_id\":\"doc_1\"}])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteEmbedding": {
+    "result": null,
+    "calls": [
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"document_id\",\"doc_1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getUserEmbeddingsPaginated": {
+    "result": {
+      "items": [
+        {
+          "documentId": "doc_1",
+          "userId": "u1",
+          "vectorsJson": "[1]",
+          "dim": 2,
+          "id": "doc_1"
+        }
+      ],
+      "nextCursorId": "doc_1",
+      "readCount": 1
+    },
+    "calls": [
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "order([\"document_id\",{\"ascending\":true}])",
+          "limit([10])",
+          "gt([\"document_id\",\"doc_0\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getEmbeddingsPage": {
+    "result": [
+      {
+        "documentId": "doc_1",
+        "userId": "u1",
+        "vectorsJson": "[1]",
+        "dim": 2,
+        "id": "doc_1"
+      }
+    ],
+    "calls": [
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "ai_embeddings",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "order([\"document_id\",{\"ascending\":true}])",
+          "limit([10])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getAIProfile": {
+    "result": {
+      "uid": "u1",
+      "email": "e@x",
+      "createdAt": 1767225600000,
+      "id": "u1"
+    },
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"uid\",\"u1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "saveAIProfile": {
+    "result": null,
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"nickname\":\"n\"}])"
+        ],
+        "payload": {
+          "nickname": "n"
+        }
+      },
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"nickname\":\"n\"}])",
+          "eq([\"uid\",\"u1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getEncryptionMeta": {
+    "result": {
+      "uid": "u1",
+      "email": "e@x",
+      "createdAt": 1767225600000,
+      "id": "u1"
+    },
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"uid\",\"u1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "saveEncryptionMeta": {
+    "result": null,
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"encryption_meta\":{\"a\":1},\"encryption_salt\":null,\"encrypted_data_key\":null}])"
+        ],
+        "payload": {
+          "encryption_meta": {
+            "a": 1
+          },
+          "encryption_salt": null,
+          "encrypted_data_key": null
+        }
+      },
+      {
+        "table": "users",
+        "chain": [
+          "update([{\"encryption_meta\":{\"a\":1},\"encryption_salt\":null,\"encrypted_data_key\":null}])",
+          "eq([\"uid\",\"u1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "hasLegacyKey": {
+    "result": false,
+    "calls": [
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "users",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"uid\",\"u1\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "getMigrationDrafts": {
+    "result": [
+      {
+        "id": "u1",
+        "data": {
+          "userId": "u1",
+          "title": "d",
+          "content": "cd",
+          "updatedAt": 1787648400000,
+          "id": "u1"
+        }
+      }
+    ],
+    "calls": [
+      {
+        "table": "drafts",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "drafts",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "executeMigrationBatch": {
+    "result": null,
+    "calls": [
+      {
+        "table": "versions",
+        "chain": [
+          "upsert([{\"version\":3,\"content\":\"x\",\"document_uuid\":\"doc_1\",\"user_id\":\"u1\"}])"
+        ],
+        "payload": {
+          "version": 3,
+          "content": "x",
+          "document_uuid": "doc_1",
+          "user_id": "u1"
+        }
+      },
+      {
+        "table": "versions",
+        "chain": [
+          "upsert([{\"version\":3,\"content\":\"x\",\"document_uuid\":\"doc_1\",\"user_id\":\"u1\"}])",
+          "<await>"
+        ]
+      },
+      {
+        "table": "drafts",
+        "chain": [
+          "upsert([{\"title\":\"d\",\"user_id\":\"u1\"}])"
+        ],
+        "payload": {
+          "title": "d",
+          "user_id": "u1"
+        }
+      },
+      {
+        "table": "drafts",
+        "chain": [
+          "upsert([{\"title\":\"d\",\"user_id\":\"u1\"}])",
+          "<await>"
+        ]
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"title\":\"T9\",\"uuid\":\"doc_1\",\"user_id\":\"u1\"}])"
+        ],
+        "payload": {
+          "title": "T9",
+          "uuid": "doc_1",
+          "user_id": "u1"
+        }
+      },
+      {
+        "table": "documents",
+        "chain": [
+          "update([{\"title\":\"T9\",\"uuid\":\"doc_1\",\"user_id\":\"u1\"}])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"uuid\",\"doc_1\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "saveLocalStoreRecord": {
+    "result": null,
+    "calls": [
+      {
+        "table": "local_store_records",
+        "chain": [
+          "upsert([{\"user_id\":\"u1\",\"store\":\"aiDialogues\",\"key\":\"k\",\"payload\":{\"a\":1},\"checksum\":\"cs\"}])"
+        ],
+        "payload": {
+          "user_id": "u1",
+          "store": "aiDialogues",
+          "key": "k",
+          "payload": {
+            "a": 1
+          },
+          "checksum": "cs"
+        }
+      },
+      {
+        "table": "local_store_records",
+        "chain": [
+          "upsert([{\"user_id\":\"u1\",\"store\":\"aiDialogues\",\"key\":\"k\",\"payload\":{\"a\":1},\"checksum\":\"cs\"}])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "getLocalStoreRecord": {
+    "result": {
+      "store": "aiDialogues",
+      "key": "k#p1",
+      "payload": {
+        "a": 1
+      },
+      "checksum": "cs"
+    },
+    "calls": [
+      {
+        "table": "local_store_records",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "local_store_records",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "eq([\"key\",\"k\"])",
+          "maybeSingle([])"
+        ]
+      }
+    ]
+  },
+  "getLocalStoreRecords": {
+    "result": [
+      {
+        "store": "aiDialogues",
+        "key": "k#p1",
+        "payload": {
+          "a": 1
+        },
+        "checksum": "cs"
+      }
+    ],
+    "calls": [
+      {
+        "table": "local_store_records",
+        "chain": [
+          "select([\"*\"])"
+        ],
+        "payload": "*"
+      },
+      {
+        "table": "local_store_records",
+        "chain": [
+          "select([\"*\"])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteLocalStoreRecord": {
+    "result": null,
+    "calls": [
+      {
+        "table": "local_store_records",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "eq([\"key\",\"k\"])",
+          "<await>"
+        ]
+      },
+      {
+        "table": "local_store_records",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "like([\"key\",\"k#%\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteLocalStoreExactRecord": {
+    "result": null,
+    "calls": [
+      {
+        "table": "local_store_records",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "eq([\"key\",\"k\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteLocalStorePagedRecords": {
+    "result": null,
+    "calls": [
+      {
+        "table": "local_store_records",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "like([\"key\",\"k#%\"])",
+          "<await>"
+        ]
+      }
+    ]
+  },
+  "deleteLocalStoreRecordsByStore": {
+    "result": null,
+    "calls": [
+      {
+        "table": "local_store_records",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "<await>"
+        ]
+      }
+    ]
+  }
+}
