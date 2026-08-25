@@ -29,6 +29,7 @@ import { parseComparisonScopes } from './chatContext/comparisonScopes';
 import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
+import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 
 export function useAIChatContext(personaId: string): {
   buildContext(params: BuildContextParams): Promise<ChatContextResult>;
