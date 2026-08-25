@@ -4,7 +4,9 @@
 // не влияла на итог, потому что success считался до неё.
 // Фальсификация: вернуть чтение `json.events` напрямую — первый тест краснеет.
 import { describe, it, expect } from 'vitest';
-import { usedFromStatsBody } from '../post-deploy-smoke';
+import { usedFromStatsBody, requestFor } from '../post-deploy-smoke';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 
 describe('post-deploy smoke: чтение счётчика из ответа', () => {
   it('читает used через конверт result — форма, которую реально отдаёт API', () => {
@@ -19,5 +21,18 @@ describe('post-deploy smoke: чтение счётчика из ответа', (
     expect(() => usedFromStatsBody({ result: { events: [] } })).toThrow(/без used/);
     expect(() => usedFromStatsBody(null)).toThrow(/без used/);
     expect(() => usedFromStatsBody({ error: { code: 'permission-denied' } })).toThrow(/без used/);
+  });
+});
+
+// Проверка ходит на боевой https-домен, а скрипт звал node:http.request —
+// ERR_INVALID_PROTOCOL на первом же запросе, на каждой выкатке.
+// Фальсификация: вернуть httpRequest безусловно — первый тест краснеет.
+describe('post-deploy smoke: выбор транспорта по протоколу', () => {
+  it('для https берёт https.request', () => {
+    expect(requestFor('https://justwriting.ru')).toBe(httpsRequest);
+  });
+
+  it('для http остаётся http.request', () => {
+    expect(requestFor('http://127.0.0.1:3000')).toBe(httpRequest);
   });
 });

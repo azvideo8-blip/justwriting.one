@@ -1,8 +1,19 @@
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { createHmac } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage, ClientRequest } from 'node:http';
 import { APP_VERSION } from '../src/version';
+
+/**
+ * node:http.request отказывается от адреса на https с
+ * `ERR_INVALID_PROTOCOL`. Проверка ходит на боевой https-домен, поэтому обе
+ * её функции падали на первом же запросе — и падали молча, пока итог не
+ * учитывал их ошибки. Выбираем реализацию по протоколу адреса.
+ */
+export function requestFor(url: string): typeof httpRequest {
+  return url.startsWith('https:') ? (httpsRequest as typeof httpRequest) : httpRequest;
+}
 
 interface SmokeCheckOptions {
   baseUrl: string;
@@ -225,7 +236,7 @@ function apiPost(
 ): Promise<{ status: number; json: unknown }> {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
-    const req = httpRequest(
+    const req = requestFor(origin)(
       `${origin}${path}`,
       {
         method: 'POST',
@@ -301,7 +312,7 @@ function openChatStreamThenDestroy(
         { role: 'user', content: 'smoke: ответь одним коротким предложением про тишину.' },
       ],
     });
-    const req: ClientRequest = httpRequest(
+    const req: ClientRequest = requestFor(origin)(
       `${origin}/api/chat`,
       {
         method: 'POST',
