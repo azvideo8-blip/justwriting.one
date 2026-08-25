@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.17 — 2026-08-25
+
+- **[RU]** Уход из разговора посреди ответа больше не стоит запроса. Если закрыть вкладку, уйти на другую страницу или нажать «назад», пока ассистент печатает, запрос возвращается в дневной остаток, а модель перестаёт досчитывать ответ, который никто не прочитает. Раньше это работало только в режиме с рассуждениями, а в обычном разговоре — самом частом — не работало вовсе.
+- **[EN]** Leaving a conversation mid-answer no longer costs a request. Closing the tab, navigating away or going back while the assistant is typing returns the request to the daily allowance and stops the model from finishing an answer nobody will read. This used to work only in reasoning mode and not at all in ordinary conversation — the most common one.
+- **[RU]** Заметка больше не может управлять ассистентом. Если в вашем тексте случайно встречалось служебное слово, которым помечена граница данных, всё написанное после него читалось как указание ассистенту. Теперь текст заметки остаётся текстом заметки при любом содержимом — включая варианты с невидимыми символами внутри слова.
+- **[EN]** A note can no longer steer the assistant. If your text happened to contain the internal word that marks the data boundary, everything after it was read as an instruction. A note's text now stays a note's text whatever it contains — including variants with invisible characters inside the word.
+- **[RU]** Модальные окна и мобильные шторки переведены на общий каркас: фокус клавиатуры удерживается внутри окна, Escape закрывает, экранный диктор объявляет их одинаково. Раньше каждое окно повторяло это вручную, и часть окон обходилась без.
+- **[EN]** Dialogs and mobile sheets now share one shell: keyboard focus stays inside, Escape closes, and a screen reader announces them consistently. Each dialog used to repeat this by hand, and some skipped it entirely.
+- **[RU]** Перевод старого шифрования на новое записывает число проходов защиты в сам сейф — как это уже делают создание сейфа и смена пароля. Ошибка в пароле перестала обходиться вдвое дольше на таких сейфах.
+- **[EN]** Migrating the old encryption to the new one now records the number of protection passes in the vault itself, as vault creation and password change already do. A wrong password no longer takes twice as long on those vaults.
+- **[RU]** Проверка после выкатки снова выполняется. Она молча пропускалась при каждой выкатке из-за незаданных настроек и рапортовала об успехе; теперь без них выкатка останавливается прежде, чем что-либо уедет на сервер, а сама проверка испытывает оба режима разговора.
+- **[EN]** The post-deploy check runs again. It had been silently skipping on every deploy because of unset settings and reporting success; now a deploy stops before anything reaches the server, and the check exercises both conversation modes.
+
 ## 0.8.16 — 2026-08-24
 
 - **[RU]** Заметка больше не расходится в двух копиях при одновременной работе в двух вкладках. Загрузка в облако обычно длится дольше, чем держалась блокировка, и вторая вкладка проходила её как «просроченную» — теперь блокировка продлевается, пока работа идёт.

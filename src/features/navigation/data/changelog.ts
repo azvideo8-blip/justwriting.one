@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.17',
+    date: '2026-08-25',
+    items: [
+      { category: 'fix', ru: 'Уход из разговора посреди ответа больше не стоит запроса: закрытая вкладка или кнопка «назад» возвращают запрос в дневной остаток, а модель перестаёт досчитывать ответ, который никто не прочитает. Раньше это работало только в режиме с рассуждениями', en: 'Leaving a conversation mid-answer no longer costs a request: a closed tab or the back button returns it to the daily allowance and stops the model finishing an answer nobody will read. This used to work only in reasoning mode' },
+      { category: 'fix', ru: 'Заметка больше не может управлять ассистентом. Если в тексте случайно встречалось служебное слово границы данных, написанное после него читалось как указание; теперь текст заметки остаётся текстом при любом содержимом', en: 'A note can no longer steer the assistant. If the text happened to contain the internal data-boundary word, everything after it was read as an instruction; a note now stays text whatever it contains' },
+      { category: 'accessibility', ru: 'Модальные окна и мобильные шторки переведены на общий каркас: фокус клавиатуры удерживается внутри, Escape закрывает, экранный диктор объявляет их одинаково', en: 'Dialogs and mobile sheets share one shell: keyboard focus stays inside, Escape closes, and a screen reader announces them consistently' },
+      { category: 'improvement', ru: 'Перевод старого шифрования записывает число проходов защиты в сам сейф — ошибка в пароле перестала обходиться вдвое дольше на таких сейфах', en: 'Migrating the old encryption records the number of protection passes in the vault itself — a wrong password no longer takes twice as long there' },
+      { category: 'improvement', ru: 'Проверка после выкатки снова выполняется: раньше она молча пропускалась и рапортовала об успехе, теперь без настроек выкатка останавливается до сервера, а проверка испытывает оба режима разговора', en: 'The post-deploy check runs again: it used to skip silently and report success, now a deploy stops before reaching the server and the check exercises both conversation modes' },
+    ],
+  },
+  {
     version: '0.8.16',
     date: '2026-08-24',
     items: [
