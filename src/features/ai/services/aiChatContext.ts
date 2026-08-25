@@ -25,7 +25,6 @@ import type { ChatContextResult, BuildContextParams } from './chatContext/types'
 import { getCorpusStats, formatDateYYYYMMDD, getDocDate } from './chatContext/corpusStats';
 import { extractCitationIds, validateCitationIds } from './chatContext/citations';
 import { createEmbedOnce } from './chatContext/embeddings';
-import { parseComparisonScopes } from './chatContext/comparisonScopes';
 import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
