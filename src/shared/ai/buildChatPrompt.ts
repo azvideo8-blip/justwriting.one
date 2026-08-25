@@ -163,5 +163,10 @@ export function sanitizeAiInputShared(content: string): string {
       out += ch;
     }
   }
-  return out;
+  // AUDIT-part2 6.2: маркер DATA_CONTEXT_END внутри заметки закрывал data-fence
+  // досрочно, и хвост заметки читался как инструкции. Замена ПОСЛЕ нормализации
+  // невидимых символов: иначе омоглиф-склейка («DATA_CONTEXT_EN\u200bD»)
+  // восстанавливала маркер уже после фильтра. Текст замены не содержит маркер
+  // даже в другом регистре.
+  return out.replace(/DATA_CONTEXT_(BEGIN|END)/gi, '[fence_marker]');
 }

@@ -1,9 +1,7 @@
-import { useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { useState } from 'react';
 import { Target, Timer, X, Check } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
@@ -21,9 +19,6 @@ const TIME_PRESETS = [0, 5, 10, 15, 25, 45, 60];
 export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
   const { t } = useLanguage();
   const { wordGoal, setWordGoal, timerDuration, setTimerDuration } = useTimerStore();
-  const sheetRef = useRef<HTMLDivElement>(null);
-  useModalEscape(isOpen, onClose);
-  useFocusTrap(sheetRef, isOpen);
 
   const [customWords, setCustomWords] = useState(wordGoal > 0 ? String(wordGoal) : '');
   const [customMins, setCustomMins] = useState(timerDuration > 0 ? String(Math.round(timerDuration / 60)) : '');
@@ -70,23 +65,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
-      onTouchMove={e => e.preventDefault()}
-    >
-      {/* Dismiss Tap Area */}
-      <div className="absolute inset-0" onClick={onClose} />
-
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe"
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-      >
+    <ModalShell open={isOpen} onClose={onClose} labelId="goal-sheet-title" variant="sheet">
         {/* Grab Handle */}
         <div className="flex justify-center py-3">
           <div className="w-12 h-1.5 rounded-full bg-white/10" />
@@ -94,7 +73,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
-          <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
+          <span id="goal-sheet-title" className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
             {t('settings_goals') || 'Цели'}
           </span>
           <IconButton
@@ -214,7 +193,6 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
             </Button>
           </div>
         </div>
-      </motion.div>
-    </div>
+    </ModalShell>
   );
 }

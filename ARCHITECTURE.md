@@ -44,6 +44,33 @@ services when there were twenty-three.
 
 ---
 
+### Sync decision map (AUDIT-part2 5.3)
+
+`CloudSyncService.addCloudCopy` / `syncVersionToCloud` — ~12 ветвлений вида
+«если X, вернуть '' / unlink / форкнуть». Интерпретация флагов документа —
+только через `syncStatusOf()` (`src/core/sync/syncStatus.ts`); читать флаги
+напрямую (`linkedCloudId`, `localOnly`, `_locked`) в новых ветках нельзя.
+
+```mermaid
+flowchart TD
+    A[addCloudCopy] --> B{status?}
+    B -- locked/unreadable --> E[throw: sync task quarantined]
+    B -- local-only --> E
+    B -- linked --> C{cloud doc exists?}
+    C -- no --> U[unlink, fall through to create]
+    C -- deleted/tombstone --> T[unlink + localOnly, drop from queue]
+    C -- yes --> D[pull missing cloud versions; push missing local]
+    D --> F{collisions?}
+    F -- yes --> G[ONE fork per document via resolveConflict]
+    F -- no --> H[update cloud metadata, keep link]
+    B -- unlinked-new --> I[create cloud doc + push all versions]
+    I --> J[partial failure? keep link, rethrow - retry resumes]
+    I --> K[set linkedCloudId, migrate owner]
+```
+
+Инвариант движка («один локальный документ = один облачный, ноль форков в
+мирном пути») фиксирует `syncCycleInvariant.test.ts`.
+
 ## Layer boundaries
 
 Four rules, enforced by `import/no-restricted-paths` in `eslint.config.js`:
@@ -69,6 +96,15 @@ been untangled, which is what already happened to `auth` and `calendar`.
 The intended direction is fewer of them, one feature at a time, when someone is
 already working in that feature. It is not a scheduled refactor. Sixty import
 rewrites with no bug attached is not work worth doing on its own.
+
+**Ratchet (AUDIT-part2 1.4):** since 2026-08-24 the count cannot grow —
+`scripts/cross-feature-check.sh` in CI fails if the number of cross-feature
+imports (excluding the sanctioned `auth` and `calendar` targets) exceeds
+`scripts/cross-feature-baseline.txt`. The hard lint zone is written and
+commented out in `eslint.config.js`; switch it on when the baseline reaches
+zero. When that happens, two exceptions stay sanctioned: `features/auth`
+(the session domain provider: contexts + `useAuthStatus`) and
+`features/calendar` (pure presentational UI).
 
 ### The seven bridges
 

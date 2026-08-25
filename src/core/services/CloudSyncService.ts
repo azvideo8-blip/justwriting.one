@@ -1,6 +1,7 @@
 import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
+import { syncStatusOf } from '../sync/syncStatus';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, type LocalDocument } from '../storage/localDb';
@@ -793,8 +794,9 @@ export const CloudSyncService = {
   },
 };
 
+// AUDIT-part2 5.1: интерпретация флагов через единый syncStatusOf.
 function isRelinkCandidate(doc: LocalDocument): boolean {
-  return !doc.linkedCloudId && !doc.localOnly && !!doc.firstSessionAt;
+  return syncStatusOf(doc) === 'unlinked-new' && !!doc.firstSessionAt;
 }
 
 /**

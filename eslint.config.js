@@ -58,8 +58,15 @@ export default [
           { target: './src/core', from: './src/features', message: 'core must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/features', message: 'shared must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/core', message: 'shared must stay dependency-free of core (ARCHITECTURE.md)' },
+          // AUDIT-part2 1.4: жёсткая зона features->features подготовлена, но
+          // не включена: грандфатеренный долг ~570 импортов (не ~80, см.
+          // scripts/cross-feature-check.sh). Пока долг гасится храповиком в
+          // CI; включить зону, когда счётчик дойдёт до нуля. Санкционированное
+          // исключение на тот момент: './auth' (провайдер сессии).
+          // Зона на './src/features/calendar' убрана: фича расформирована,
+          // Calendar переехал в features/archive. Правило на несуществующий
+          // каталог ничего не сторожит, но читается как защита.
           { target: './src/features/auth', from: './src/features', except: ['./auth'], message: 'auth is feature-import-free — keep it that way (ARCHITECTURE.md)' },
-          { target: './src/features/calendar', from: './src/features', except: ['./calendar'], message: 'calendar is feature-import-free — keep it that way (ARCHITECTURE.md)' },
         ],
       }],
       'no-console': ['error', { allow: ['error', 'warn'] }],

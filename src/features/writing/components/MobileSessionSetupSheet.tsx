@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Zap, Timer, Target, Clock, ChevronLeft, X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { cn } from '../../../core/utils/utils';
 import { useTimerStore } from '../store/useTimerStore';
 import { SetupMode } from './WritingSetup';
@@ -32,9 +31,6 @@ export function MobileSessionSetupSheet({
   const targetTime = useTimerStore(s => s.targetTime);
   const setTargetTime = useTimerStore(s => s.setTargetTime);
   const [finishByError, setFinishByError] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  useModalEscape(setupMode !== null && setupMode !== 'countdown', () => setSetupMode(null));
-  useFocusTrap(sheetRef, setupMode !== null && setupMode !== 'countdown');
 
   // Vibration on countdown ticks
   useEffect(() => {
@@ -99,27 +95,11 @@ export function MobileSessionSetupSheet({
 
       {/* Slide-up Bottom Sheet Panel */}
       {setupMode !== 'countdown' && (
-        <div 
-          className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
-          onTouchMove={e => e.preventDefault()}
-        >
-          {/* Dismiss Back-tap Zone */}
-          <div className="absolute inset-0" onClick={() => setSetupMode(null)} />
-
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[90vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe"
-            ref={sheetRef}
-            role="dialog"
-            aria-modal="true"
-          >
-            {/* Grab Handle */}
-            <div className="flex justify-center py-3">
-              <div className="w-12 h-1.5 rounded-full bg-white/10" />
-            </div>
+        <ModalShell open onClose={() => setSetupMode(null)} labelId="setup-sheet-title" variant="sheet" className="max-h-[90vh]">
+          {/* Grab Handle */}
+          <div className="flex justify-center py-3">
+            <div className="w-12 h-1.5 rounded-full bg-white/10" />
+          </div>
 
             {/* Back / Close Actions */}
             <div className="flex justify-between items-center px-6 pb-2">
@@ -315,8 +295,7 @@ export function MobileSessionSetupSheet({
 
 
             </div>{/* end overflow-y-auto */}
-          </motion.div>
-        </div>
+        </ModalShell>
       )}
     </>
   );

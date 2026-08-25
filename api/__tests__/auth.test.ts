@@ -105,7 +105,7 @@ describe('JW-SEC-02 / SEC-3: auth SUPABASE_JWT_SECRET & claim validation', () =>
     await handle(req, res);
 
     expect(responseStatus).toBe(500);
-    expect(JSON.parse(responseBody)).toEqual({ error: 'Internal server error' });
+    expect(JSON.parse(responseBody)).toEqual({ error: { code: 'INTERNAL', message: 'INTERNAL' } }); // AUDIT-7.1: единая форма
   });
 
   it('dispatcher returns 401 when token is invalid or unsigned', async () => {
@@ -133,7 +133,7 @@ describe('JW-SEC-02 / SEC-3: auth SUPABASE_JWT_SECRET & claim validation', () =>
     await handle(req, res);
 
     expect(responseStatus).toBe(401);
-    expect(JSON.parse(responseBody)).toEqual({ error: 'Unauthenticated' });
+    expect(JSON.parse(responseBody)).toEqual({ error: { code: 'UNAUTHENTICATED', message: 'UNAUTHENTICATED' } }); // AUDIT-7.1
   });
 });
 

@@ -22,6 +22,10 @@ export interface ContentStateData {
   labelId?: string | undefined;
   past: HistoryEntry[];
   future: HistoryEntry[];
+  // AUDIT-part2 2.1: часть логики undo, а не инфраструктура — поэтому в state
+  // (видны devtools, сбрасываются тестами/HMR), в отличие от таймеров ниже.
+  burstBaseline: HistoryEntry | null;
+  isApplyingHistory: boolean;
 }
 
 interface ContentState extends ContentStateData {
@@ -42,24 +46,25 @@ interface ContentState extends ContentStateData {
 let _wordCalcRaf: number | null = null;
 let _wordCalcIsScheduled = false; // [P-01] флаг для предотвращения нескольких setContent в очереди
 
-let _isApplyingHistory = false;
+// Таймеры — инфраструктура планирования, в состоянии им делать нечего
+// (см. AUDIT-part2 2.1): переносили бы только лишние перерендеры.
 let _burstDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let _burstBaseline: HistoryEntry | null = null;
 // AUDIT-M11: последний известный caret (обновляется setContent/recordSnapshot).
+// Внутритиковая координата курсора — наблюдать её из devtools бессмысленно,
+// поэтому тоже module scope.
 let _lastCaret = 0;
 const MAX_HISTORY = 100;
 
 // AUDIT-M13: сброс модульных синглтонов между тестами и при HMR — иначе
 // грязное состояние переживает пересоздание store.
 export function __resetContentStoreInternalsForTests() {
-  _burstBaseline = null;
-  _isApplyingHistory = false;
   _lastCaret = 0;
   clearWordCalcTimer();
   if (_burstDebounceTimer != null) {
     clearTimeout(_burstDebounceTimer);
     _burstDebounceTimer = null;
   }
+  useContentStore.setState({ burstBaseline: null, isApplyingHistory: false });
 }
 
 export function clearWordCalcTimer() {
@@ -73,13 +78,14 @@ function flushBurst(get: () => ContentStateData) {
     clearTimeout(_burstDebounceTimer);
     _burstDebounceTimer = null;
   }
-  if (_burstBaseline != null) {
+  const baseline = get().burstBaseline;
+  if (baseline != null) {
     const currentContent = get().content;
-    if (_burstBaseline.content !== currentContent) {
-      const past = [...get().past, _burstBaseline].slice(-MAX_HISTORY);
+    if (baseline.content !== currentContent) {
+      const past = [...get().past, baseline].slice(-MAX_HISTORY);
       useContentStore.setState({ past });
     }
-    _burstBaseline = null;
+    useContentStore.setState({ burstBaseline: null });
   }
 }
 
@@ -93,6 +99,8 @@ export const useContentStore = create<ContentState>((set, get) => ({
   lastWordCount: 0, wpmHistory: [],
   tags: [], labelId: undefined,
   past: [], future: [],
+  burstBaseline: null,
+  isApplyingHistory: false,
 
   setContent: (newContent, caretPos, isBoundary) => {
     const prevContent = get().content;
@@ -109,10 +117,11 @@ export const useContentStore = create<ContentState>((set, get) => ({
       });
     }
 
-    if (_isApplyingHistory) return;
+    if (get().isApplyingHistory) return;
 
-    if (_burstBaseline == null) {
-      _burstBaseline = { content: prevContent, caret: Math.min(caret, prevContent.length) };
+    let baseline = get().burstBaseline;
+    if (baseline == null) {
+      baseline = { content: prevContent, caret: Math.min(caret, prevContent.length) };
     }
 
     const isNewlineBoundary = isBoundary || (newContent.length > prevContent.length && newContent.endsWith('\n'));
@@ -122,16 +131,16 @@ export const useContentStore = create<ContentState>((set, get) => ({
         clearTimeout(_burstDebounceTimer);
         _burstDebounceTimer = null;
       }
-      if (_burstBaseline !== null && _burstBaseline.content !== newContent) {
-        const past = [...get().past, _burstBaseline].slice(-MAX_HISTORY);
+      if (baseline.content !== newContent) {
+        const past = [...get().past, baseline].slice(-MAX_HISTORY);
         set({ past, future: [] });
       }
-      _burstBaseline = { content: newContent, caret };
+      set({ burstBaseline: { content: newContent, caret } });
     } else {
       if (_burstDebounceTimer != null) {
         clearTimeout(_burstDebounceTimer);
       }
-      set({ future: [] });
+      set({ future: [], burstBaseline: baseline });
       _burstDebounceTimer = setTimeout(() => {
         flushBurst(get);
       }, 500);
@@ -139,7 +148,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
   },
 
   recordSnapshot: (caretPos) => {
-    if (_isApplyingHistory) return;
+    if (get().isApplyingHistory) return;
     flushBurst(get);
     const content = get().content;
     const caret = caretPos ?? content.length;
@@ -159,15 +168,15 @@ export const useContentStore = create<ContentState>((set, get) => ({
     // последующий redo вернул бы курсор в конец текста.
     const currentEntry: HistoryEntry = { content, caret: _lastCaret };
 
-    _isApplyingHistory = true;
     set({
       content: previousEntry.content,
+      isApplyingHistory: true,
       past: newPast,
       future: [currentEntry, ...future].slice(0, MAX_HISTORY),
     });
 
     get().recalcStats();
-    _isApplyingHistory = false;
+    set({ isApplyingHistory: false });
 
     return previousEntry;
   },
@@ -181,15 +190,15 @@ export const useContentStore = create<ContentState>((set, get) => ({
     const nextEntry = newFuture.shift()!;
     const currentEntry: HistoryEntry = { content, caret: _lastCaret };
 
-    _isApplyingHistory = true;
     set({
       content: nextEntry.content,
+      isApplyingHistory: true,
       past: [...past, currentEntry].slice(-MAX_HISTORY),
       future: newFuture,
     });
 
     get().recalcStats();
-    _isApplyingHistory = false;
+    set({ isApplyingHistory: false });
 
     return nextEntry;
   },
@@ -199,8 +208,7 @@ export const useContentStore = create<ContentState>((set, get) => ({
       clearTimeout(_burstDebounceTimer);
       _burstDebounceTimer = null;
     }
-    _burstBaseline = null;
-    set({ past: [], future: [] });
+    set({ past: [], future: [], burstBaseline: null });
   },
 
   recalcStats: () => {

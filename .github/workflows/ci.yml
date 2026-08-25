@@ -30,6 +30,25 @@ jobs:
     - run: node scripts/prod-audit.mjs  # gate on shipped (prod) deps; fails on any high/critical advisory except the documented N/A exceptions in the script
     - run: npm run typecheck
     - run: npm run lint
+    - name: Cross-feature ratchet (AUDIT-part2 1.4)
+      run: bash scripts/cross-feature-check.sh
+    - name: Raw overlay gate (AUDIT-part2 3.1)
+      run: |
+        # Модалки/sheets обязаны использовать shared/components/ModalShell, а не
+        # сырые fixed-inset оверлеи. Селектор esquery такое не выражает — гейт
+        # grep'ом, только по файлам-модалкам (полноэкранные layout'ы не считаем).
+        # scripts/raw-overlay-baseline.txt — храповик известного долга:
+        # строки ТОЛЬКО убирать (миграция на ModalShell), добавлять нельзя.
+        offenders=$(
+          grep -rl "fixed inset-0" src/features src/app --include='*.tsx' \
+          | grep -iE "(modal|sheet|prompt|overlay)" \
+          | grep -vxFf scripts/raw-overlay-baseline.txt || true
+        )
+        if [ -n "$offenders" ]; then
+          echo "::error::Raw overlay divs outside ModalShell found:"
+          echo "$offenders"
+          exit 1
+        fi
     - run: npm run test:ci
     - run: npm run build
     - name: Bundle size report

@@ -1,13 +1,12 @@
-import { useRef } from 'react';
+import React, { useRef } from 'react';
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import React from 'react';
 import { motion } from 'motion/react';
 import { format, isSameDay } from 'date-fns';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
-import { Calendar } from '../../../shared/components/Calendar';
+import { Calendar } from './Calendar';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';

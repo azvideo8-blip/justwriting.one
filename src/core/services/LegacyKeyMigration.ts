@@ -1,4 +1,4 @@
-import { deriveMasterKey, unwrapDataKeyWithPassword, wrapDataKey, encryptContent, toBase64, fromBase64, SALT_LENGTH, setSessionKey } from '../crypto/encrypt';
+import { deriveMasterKey, unwrapDataKeyWithPassword, wrapDataKey, encryptContent, toBase64, fromBase64, SALT_LENGTH, setSessionKey, PBKDF2_ITERATIONS } from '../crypto/encrypt';
 import { generateRecoveryCode, wrapDataKeyWithRecoveryCode } from '../crypto/recoveryCode';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
 import {
@@ -64,6 +64,11 @@ export async function migrateFromLegacy(
   await saveEncryptionMeta(userId, {
     salt: toBase64(newSalt),
     version: ENCRYPTION_META_VERSION,
+    // AUDIT-part2 слой 8: миграция создаёт НОВЫЙ сейф — обязан фиксировать
+    // iterations, как initializeEncryption и смена пароля. Иначе «все новые
+    // сейфы пишут iterations» неправда: поднятая константа дала бы
+    // мигрированным сейфам другое поведение, чем созданным заново.
+    iterations: PBKDF2_ITERATIONS,
     wrappedDataKey: newWrappedDataKey,
     verification,
     recoveryWrappedDataKey,

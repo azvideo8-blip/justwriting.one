@@ -2,7 +2,6 @@
 // read on return (STORAGE_KEYS.GUEST_DRAFT), not to a dead draft-guest_<uuid>.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { RefObject } from 'react';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 

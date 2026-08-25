@@ -2,7 +2,7 @@
 // gone and the localStorage copy is cleared, so the migration prompt cannot
 // reappear and the draft cannot resurface as a ghost on the next guest session.
 import 'fake-indexeddb/auto';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';

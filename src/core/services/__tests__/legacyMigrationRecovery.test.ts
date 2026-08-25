@@ -25,7 +25,7 @@ vi.mock('../../crypto/encrypt', () => ({
   wrapDataKey: vi.fn().mockResolvedValue('wrapped'),
   encryptContent: vi.fn().mockResolvedValue('verif'),
   toBase64: vi.fn((s: unknown) => String(s)),
-  fromBase64: vi.fn((s: string) => new Uint8Array(16)),
+  fromBase64: vi.fn((_s: string) => new Uint8Array(16)),
   SALT_LENGTH: 16,
   setSessionKey: vi.fn(),
   getSessionKey: vi.fn(),

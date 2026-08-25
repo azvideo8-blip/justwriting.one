@@ -1,7 +1,10 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { reportError } from '../../shared/errors/reportError';
+import type { DocumentFields } from '../../shared/types/common';
 
-export interface LocalDocument {
+// AUDIT-part2 4.2: скалярные поля наследуются от канонического DocumentFields
+// (shared/types) — расхождение локальной и облачной форм ловит компилятор.
+export interface LocalDocument extends DocumentFields<number> {
   id: string;
   /** Канонический идентификатор заметки: генерируется клиентом один раз и не
    *  меняется никогда. Локальный id и linkedCloudId — адреса в двух разных

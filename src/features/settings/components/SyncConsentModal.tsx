@@ -1,7 +1,6 @@
-import { useRef } from 'react';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { useFocusTrap } from "../../../shared/hooks/useFocusTrap";
+import { useModalEscape } from "../../../shared/hooks/useModalEscape";
 import { motion } from "motion/react";
 import { Cloud } from "lucide-react";
 import { Button } from "../../../shared/components/Button";

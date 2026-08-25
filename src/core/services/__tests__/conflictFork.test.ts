@@ -12,7 +12,6 @@ vi.mock('../VersionService', () => ({
 }));
 
 import { ConflictResolver } from '../ConflictResolver';
-import { LocalStorageService } from '../LocalStorageService';
 import { LocalVersionService } from '../LocalVersionService';
 import { getLocalDb } from '../../storage/localDb';
 

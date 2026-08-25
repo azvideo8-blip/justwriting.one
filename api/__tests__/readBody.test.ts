@@ -85,7 +85,8 @@ describe('JW-SEC-03: readBody payload size limits', () => {
     await handle(req, res);
 
     expect(responseStatus).toBe(413);
-    expect(JSON.parse(responseBody)).toEqual({ error: 'Payload too large' });
+    // AUDIT-7.1: единая форма ошибок через sendError
+    expect(JSON.parse(responseBody)).toEqual({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'PAYLOAD_TOO_LARGE' } });
     expect(destroySpy).toHaveBeenCalled();
   });
 
@@ -108,7 +109,7 @@ describe('JW-SEC-03: readBody payload size limits', () => {
     await handle(req, res);
 
     expect(responseStatus).toBe(400);
-    expect(JSON.parse(responseBody)).toEqual({ error: 'Invalid JSON body' });
+    expect(JSON.parse(responseBody)).toEqual({ error: { code: 'INVALID_JSON', message: 'INVALID_JSON' } }); // AUDIT-7.1
   });
 
   it('accepts valid payload under 4MB and forwards to handleAiEndpoint', async () => {

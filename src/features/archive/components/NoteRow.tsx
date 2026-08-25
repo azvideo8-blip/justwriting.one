@@ -5,7 +5,7 @@ import { ExternalLink, EyeOff, Trash2, Pencil, MoreVertical, Lock, AlertCircle }
 import { getSessionDate, cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
-import { StorageIcons } from '../../../shared/components/StorageIcons';
+import { StorageIcons } from './StorageIcons';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { highlightText, getSearchContext } from '../../../shared/utils/highlightText';

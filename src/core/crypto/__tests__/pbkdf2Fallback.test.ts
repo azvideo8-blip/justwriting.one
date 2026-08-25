@@ -70,4 +70,22 @@ describe('PBKDF2 iteration fallback (SEC-36 lockout)', () => {
     expect(PBKDF2_ITERATIONS).toBe(600_000);
     expect(LEGACY_PBKDF2_ITERATIONS).toBe(300_000);
   });
+
+  // AUDIT-part2 слой 8: мета сейфа без iterations (все сейфы до AUDIT-L7 и —
+  // до сегодняшней правки — migrateFromLegacy) идёт по фолбэку: попытка ровно
+  // одна на счёт, не перебор в цикле.
+  it('vault meta without iterations falls back exactly once per count (AUDIT-L7 hygiene)', async () => {
+    const password = 'correct horse battery staple';
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const dataKey = await generateDataKey();
+
+    // meta.iterations === undefined: как пишет saveEncryptionMeta без поля.
+    const legacyMaster = await deriveMasterKey(password, salt, LEGACY);
+    const wrapped = await wrapDataKey(dataKey, legacyMaster);
+
+    const { usedLegacyIterations } = await unwrapDataKeyWithPassword(
+      wrapped, password, salt, CURRENT, LEGACY,
+    );
+    expect(usedLegacyIterations).toBe(true);
+  });
 });

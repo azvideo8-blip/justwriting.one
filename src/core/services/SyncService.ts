@@ -6,6 +6,7 @@ import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
+import { syncStatusOf } from '../sync/syncStatus';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
@@ -116,7 +117,8 @@ export const SyncService = {
       const localDocs = await LocalDocumentService.getGuestDocuments(userId);
       // AUDIT-H3: localOnly-заметки осознанно отвязаны (например, удалены в
       // облаке) — автозаливка создала бы дубль и воскресила удалённое.
-      const unlinked = localDocs.filter(d => !d.linkedCloudId && !d.localOnly);
+      // AUDIT-part2 5.1: чтение флагов через единый syncStatusOf.
+      const unlinked = localDocs.filter(d => syncStatusOf(d) === 'unlinked-new');
 
       const results = await Promise.allSettled(unlinked.map(doc =>
         limit(() => StorageService.addCloudCopy(userId, doc.id).then(cloudId => {

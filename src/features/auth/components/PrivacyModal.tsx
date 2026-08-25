@@ -1,8 +1,7 @@
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { useModalEscape } from '../../../shared/hooks/useModalEscape';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { reportError } from '../../../shared/errors/reportError';
-import { useRef } from 'react';
 import { motion } from 'motion/react';
 import { Shield } from 'lucide-react';
 import { getCurrentUser } from '../../../core/auth';

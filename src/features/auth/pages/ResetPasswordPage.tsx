@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { updateUserPassword, onPasswordRecovery } from '../../../core/auth/supabaseAuthProvider';
 import { reportError } from '../../../shared/errors/reportError';
@@ -24,7 +24,7 @@ export function ResetPasswordPage() {
 
   useEffect(() => onPasswordRecovery(() => setRecoveryMode(true)), []);
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -65,7 +65,7 @@ export function ResetPasswordPage() {
         )}
 
         {recoveryMode && !done && (
-          <form onSubmit={submit} className="space-y-3">
+          <form onSubmit={e => { void submit(e); }} className="space-y-3">
             <input
               type="password"
               value={password}
@@ -101,7 +101,7 @@ export function ResetPasswordPage() {
             <p className="text-sm">Пароль изменён. Войдите с новым паролем.</p>
             <button
               type="button"
-              onClick={() => navigate('/login')}
+              onClick={() => { void navigate('/login'); }}
               className="rounded-lg px-3 py-2 bg-accent text-white"
             >
               Перейти ко входу

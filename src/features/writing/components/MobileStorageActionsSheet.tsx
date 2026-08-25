@@ -1,10 +1,9 @@
-import { useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { Cloud, HardDrive, Loader2, Trash2, X, Upload, RefreshCw } from 'lucide-react';
 
 import { useLanguage } from '../../../shared/i18n';
-import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
-import { useModalEscape } from '../../../shared/hooks/useModalEscape';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -46,9 +45,6 @@ export function MobileStorageActionsSheet({
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  useModalEscape(isOpen, onClose);
-  useFocusTrap(sheetRef, isOpen);
 
   if (!isOpen) return null;
 
@@ -167,23 +163,8 @@ export function MobileStorageActionsSheet({
   const canUpload = !doc.hasCloud && !!doc.localId && !!userId && !userId.startsWith('guest_');
 
   return (
-    <div 
-      className="fixed inset-0 z-[var(--z-sheet)] flex items-end justify-center bg-black/60 backdrop-blur-sm touch-none"
-      onTouchMove={e => e.preventDefault()}
-    >
-      {/* Dismiss Tap Area */}
-      <div className="absolute inset-0" onClick={onClose} />
-
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-        className="relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)]"
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-      >
+    <>
+    <ModalShell open={isOpen} onClose={onClose} labelId="storage-sheet-title" variant="sheet">
         {/* Grab Handle */}
         <div className="flex justify-center py-3">
           <div className="w-12 h-1.5 rounded-full bg-white/10" />
@@ -324,28 +305,28 @@ export function MobileStorageActionsSheet({
             </Button>
           </div>
         </div>
-      </motion.div>
+    </ModalShell>
 
-      {/* Unlock encryption prompt */}
-      <AnimatePresence>
-        {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
-          <UnlockPrompt
-            uid={userId}
-            onUnlocked={() => { setShowUnlock(false); void handleUploadOrSync(); }}
-            onClose={() => setShowUnlock(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {showEncryptionSetup && userId && !userId.startsWith('guest_') && (
-        <EncryptionPasswordModal
-          mode="setup"
-          userId={userId}
-          context="cloud-sync"
-          onDone={() => { setShowEncryptionSetup(false); void handleUploadOrSync(); }}
-          onClose={() => setShowEncryptionSetup(false)}
+    {/* Unlock encryption prompt */}
+    <AnimatePresence>
+      {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
+        <UnlockPrompt
+          uid={userId}
+          onUnlocked={() => { setShowUnlock(false); void handleUploadOrSync(); }}
+          onClose={() => setShowUnlock(false)}
         />
       )}
-    </div>
+    </AnimatePresence>
+
+    {showEncryptionSetup && userId && !userId.startsWith('guest_') && (
+      <EncryptionPasswordModal
+        mode="setup"
+        userId={userId}
+        context="cloud-sync"
+        onDone={() => { setShowEncryptionSetup(false); void handleUploadOrSync(); }}
+        onClose={() => setShowEncryptionSetup(false)}
+      />
+    )}
+    </>
   );
 }

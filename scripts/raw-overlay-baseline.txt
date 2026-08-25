@@ -1,0 +1,17 @@
+src/features/ai/components/CreatePersonaModal.tsx
+src/features/ai/components/DocumentPickerModal.tsx
+src/features/ai/components/IndexingConsentModal.tsx
+src/features/ai/components/MemoryManagerModal.tsx
+src/features/ai/components/PersonaDetailModal.tsx
+src/features/archive/components/MobileArchiveSidebarSheet.tsx
+src/features/archive/components/MobileNoteActionsSheet.tsx
+src/features/auth/components/LoginModalOverlay.tsx
+src/features/auth/components/MigrationPrompt.tsx
+src/features/auth/components/PrivacyModal.tsx
+src/features/auth/components/UnlockPrompt.tsx
+src/features/encryption/components/EncryptionPasswordModal.tsx
+src/features/settings/components/SummaryModal.tsx
+src/features/settings/components/SyncConsentModal.tsx
+src/features/writing/components/MobileSessionSetupSheet.tsx
+src/features/writing/components/ShortcutsModal.tsx
+src/features/writing/components/WritingFinishModal.tsx

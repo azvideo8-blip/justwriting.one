@@ -29,7 +29,6 @@ describe('1.2 PKCE flow', () => {
     mod.getSupabase();
 
     expect(createClientMock).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const opts = (createClientMock.mock.calls[0] as any[])[2] as { auth: Record<string, unknown> };
     expect(opts.auth.flowType).toBe('pkce');
     expect(opts.auth.detectSessionInUrl).toBe(true);

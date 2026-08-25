@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { requireSession, passwordRecentlyVerified } from './auth';
 import { handleAiEndpoint } from './handlers';
+import { sendError } from './sendError';
 import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 
 /** Simple JSON responder utility */
@@ -29,20 +30,26 @@ function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Prom
 }
 
 /** Main dispatcher entry point */
-export async function handle(req: IncomingMessage, res: ServerResponse) {
+export async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const method = req.method ?? 'GET';
     const url = req.url ?? '/';
 
     // Only POST under /api/* is supported for AI calls
     if (method !== 'POST' || !url.startsWith('/api/')) {
-      return json(res, 404, { error: 'Not found' });
+      // AUDIT-part2 7.1: единая форма ошибок. Информационные ответы (не
+      // контрактные коды вроде RATE_LIMIT — клиент матчит их строкой в
+      // useAIChat) переведены на sendError; контрактные остаются legacy до
+      // двоичной совместимости парсера на клиенте.
+      sendError(res, 404, 'NOT_FOUND');
+      return;
     }
 
     // Authenticate via Supabase JWT
     const session = await requireSession(req);
     if (!session || !session.uid) {
-      return json(res, 401, { error: 'Unauthenticated' });
+      sendError(res, 401, 'UNAUTHENTICATED');
+      return;
     }
 
     // Resolve handler name (e.g., /api/chatWithAI -> "chatWithAI")
@@ -55,22 +62,25 @@ export async function handle(req: IncomingMessage, res: ServerResponse) {
       payload = raw ? JSON.parse(raw) : {};
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
-        return json(res, 413, { error: 'Payload too large' });
+        sendError(res, 413, 'PAYLOAD_TOO_LARGE');
+        return;
       }
-      return json(res, 400, { error: 'Invalid JSON body' });
+      sendError(res, 400, 'INVALID_JSON');
+      return;
     }
 
     // AUD-20: необратимое удаление требует свежего ввода пароля. Клиент делает
     // reauthenticate перед вызовом; здесь это подтверждается по подписанному
     // токену, чтобы прямой вызов с живым токеном не стирал архив в обход экрана.
     if (endpoint === 'deleteAccount' && !passwordRecentlyVerified(session)) {
-      return json(res, 403, { error: { code: 'REAUTH_REQUIRED', message: 'Re-enter your password to delete the account.' } });
+      json(res, 403, { error: { code: 'REAUTH_REQUIRED', message: 'Re-enter your password to delete the account.' } });
+      return;
     }
 
     const { status, body } = await handleAiEndpoint(endpoint, session.uid, payload);
-    return json(res, status, body);
+    json(res, status, body);
   } catch (err: unknown) {
     console.error('[dispatcher error]', err);
-    return json(res, 500, { error: 'Internal server error' });
+    sendError(res, 500, 'INTERNAL');
   }
 }

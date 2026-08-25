@@ -122,22 +122,31 @@ export interface SessionPayload extends SessionCore {
   updatedAt?: Timestamp | Date | number | undefined;
 }
 
-export interface Document {
-  id: string;
-  uuid?: string | undefined;
-  userId: string;
+// AUDIT-part2 4.2: канонические поля документа — единый источник истины для
+// LocalDocument (core/storage/localDb) и Document (облачная форма). Время
+// параметризовано сознательно: локальный стор хранит ms-числа, облако —
+// Date|null; унифицировать рантайм нельзя, но дрейф скалярных полей теперь
+// ловит компилятор: новое общее поле добавляется СЮДА и обязано появиться
+// в обеих сторонах (и в маппере core/services/mappers.ts) сразу.
+export interface DocumentFields<TTime> {
   title?: string | undefined;
   currentVersion: number;
   totalWords: number;
   totalDuration: number;
   sessionsCount: number;
-  firstSessionAt: Date | null;
-  lastSessionAt: Date | null;
+  firstSessionAt: TTime;
+  lastSessionAt: TTime;
   isPublic?: boolean | undefined;
   tags?: string[] | undefined;
   labelId?: string | undefined;
   mood?: string | undefined;
   excludedFromAI?: boolean | undefined;
+}
+
+export interface Document extends DocumentFields<Date | null> {
+  id: string;
+  uuid?: string | undefined;
+  userId: string;
   _locked?: boolean | undefined;
   _decryptionError?: boolean | undefined;
   deletedAt?: Date | null | undefined;
