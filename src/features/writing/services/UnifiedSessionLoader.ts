@@ -65,6 +65,16 @@ export async function loadAllSessions(
   for (const uid of idsToQuery) {
     const localDocs = await LocalDocumentService.getGuestDocuments(uid);
     const localByCloudId = new Set(localDocs.filter(d => d.linkedCloudId).map(d => d.linkedCloudId!));
+    // Второй ключ дедупликации — канонический uuid. В облаке id документа И
+    // ЕСТЬ этот uuid (см. карту полей: id ↔ uuid), а linkedCloudId проставляется
+    // только после того, как выгрузка дойдёт до конца.
+    //
+    // Импорт заметки запускает выгрузку не дожидаясь её (иначе импорт вис бы на
+    // сети) и тут же обновляет список. В этот момент облачная строка уже есть, а
+    // ссылки на неё локально ещё нет — и заметка показывалась ДВАЖДЫ: один раз
+    // локальная с текстом, второй раз облачная с пустым content, потому что
+    // версии ещё не доехали. Человеку приходилось удалять пустую копию руками.
+    const localUuids = new Set(localDocs.map(d => d.uuid).filter(Boolean));
 
     for (const doc of localDocs) {
       if (seenIds.has(doc.id)) continue;
@@ -126,7 +136,9 @@ export async function loadAllSessions(
       }
 
       const cloudSessions = cloudDocs
-        .filter(cloudDoc => !localByCloudId.has(cloudDoc.id) && !seenIds.has(cloudDoc.id))
+        .filter(cloudDoc => !localByCloudId.has(cloudDoc.id)
+          && !localUuids.has(cloudDoc.id)
+          && !seenIds.has(cloudDoc.id))
         .map(cloudDoc => {
           seenIds.add(cloudDoc.id);
           const created = toDate(cloudDoc.lastSessionAt) ?? new Date();
