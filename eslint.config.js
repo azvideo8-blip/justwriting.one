@@ -121,16 +121,5 @@ export default [
       ],
     },
   },
-  {
-    // AUDIT-L13: известный долг — админ/диагностические страницы целиком
-    // русскоязычные. Отключаем правило здесь, пока не переведены в ключи.
-    files: [
-      'src/features/ai/pages/DiagnosticsPage.tsx',
-      'src/features/ai/pages/RerankBenchPage.tsx',
-      'src/features/ai/components/DatabaseExplorer.tsx',
-      'src/features/ai/components/ProfileFacets.tsx',
-    ],
-    rules: { 'no-restricted-syntax': 'off' },
-  },
   prettier,
 ];

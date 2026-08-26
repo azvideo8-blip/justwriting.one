@@ -11,24 +11,25 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
 import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 const LOCAL_TABLES = [
-  { name: 'documents', label: 'documents (Заметки)' },
-  { name: 'versions', label: 'versions (Версии)' },
-  { name: 'aiSummaries', label: 'aiSummaries (AI Саммари)' },
-  { name: 'aiEmbeddings', label: 'aiEmbeddings (AI Эмбеддинги)' },
-  { name: 'aiDialogues', label: 'aiDialogues (AI Диалоги)' },
-  { name: 'aiPersonas', label: 'aiPersonas (AI Персоны)' },
-  { name: 'syncQueue', label: 'syncQueue (Очередь выгрузки)' },
-  { name: 'drafts', label: 'drafts (Черновики)' },
-  { name: 'pending_sessions', label: 'pending_sessions (Неотправленные)' },
-  { name: 'profile', label: 'profile (Локальный профиль)' },
+  { name: 'documents', labelKey: 'admin_db_tbl_documents' },
+  { name: 'versions', labelKey: 'admin_db_tbl_versions' },
+  { name: 'aiSummaries', labelKey: 'admin_db_tbl_aiSummaries' },
+  { name: 'aiEmbeddings', labelKey: 'admin_db_tbl_aiEmbeddings' },
+  { name: 'aiDialogues', labelKey: 'admin_db_tbl_aiDialogues' },
+  { name: 'aiPersonas', labelKey: 'admin_db_tbl_aiPersonas' },
+  { name: 'syncQueue', labelKey: 'admin_db_tbl_syncQueue' },
+  { name: 'drafts', labelKey: 'admin_db_tbl_drafts' },
+  { name: 'pending_sessions', labelKey: 'admin_db_tbl_pending_sessions' },
+  { name: 'profile', labelKey: 'admin_db_tbl_profile' },
 ];
 
 const CLOUD_TABLES = [
-  { name: 'users', label: 'users (Профили облака)' },
-  { name: 'user_documents', label: 'documents (Мои доки Cloud)' },
-  { name: 'user_versions', label: 'versions (Мои версии Cloud)' },
+  { name: 'users', labelKey: 'admin_db_tbl_users' },
+  { name: 'user_documents', labelKey: 'admin_db_tbl_user_documents' },
+  { name: 'user_versions', labelKey: 'admin_db_tbl_user_versions' },
 ];
 
 interface DatabaseExplorerProps {
@@ -46,6 +47,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   const [selectedRecord, setSelectedRecord] = useState<RecordType | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const { confirm: confirmDialog } = useConfirmDialog();
 
   const tables = source === 'local' ? LOCAL_TABLES : CLOUD_TABLES;
@@ -221,7 +223,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
               source === 'local' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
             )}
           >
-            Локальная БД (IndexedDB)
+            {t('admin_db_local')}
           </Button>
           <Button
             onClick={() => setSource('cloud')}
@@ -230,21 +232,21 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
               source === 'cloud' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
             )}
           >
-            Облако
+            {t('admin_db_cloud')}
           </Button>
         </div>
 
         {/* Dropdown */}
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">Таблица / Коллекция</label>
+          <label className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">{t('admin_db_table_label')}</label>
           <select
             value={selectedTable}
             onChange={(e) => setSelectedTable(e.target.value)}
             className="w-full px-3 py-2 rounded-xl bg-surface-base/5 border border-border-subtle text-xs text-text-main outline-none focus:ring-1 focus:ring-brand-soft/30"
           >
-            {tables.map(t => (
-              <option key={t.name} value={t.name} className="bg-surface-card text-text-main text-xs">
-                {t.label}
+            {tables.map(tb => (
+              <option key={tb.name} value={tb.name} className="bg-surface-card text-text-main text-xs">
+                {t(tb.labelKey)}
               </option>
             ))}
           </select>
@@ -252,12 +254,12 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
 
         {/* Search */}
         <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">Поиск по тексту</label>
+          <label className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">{t('admin_db_search_label')}</label>
           <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Фильтр по содержимому..."
+            placeholder={t('admin_db_search_placeholder')}
             className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/40"
           />
         </div>
@@ -267,10 +269,10 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
           {loading ? (
             <div className="p-8 text-center text-xs text-text-main/60">
               <Loader2 size={16} className="animate-spin mx-auto mb-2 text-brand-soft" />
-              Загрузка данных...
+              {t('admin_db_loading')}
             </div>
           ) : filteredRecords.length === 0 ? (
-            <div className="p-8 text-center text-xs text-text-main/60">Записи отсутствуют</div>
+            <div className="p-8 text-center text-xs text-text-main/60">{t('admin_db_empty')}</div>
           ) : (
             filteredRecords.map((r, idx) => {
               const id = getRecordId(r);
@@ -301,21 +303,21 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             {/* Header info */}
             <div className="flex items-start justify-between gap-4 border-b border-border-subtle/50 pb-4">
               <div className="min-w-0">
-                <span className="text-[9px] uppercase font-bold text-text-main/60 tracking-wider">Детали записи ({selectedTable})</span>
+                <span className="text-[9px] uppercase font-bold text-text-main/60 tracking-wider">{t('admin_db_details', { table: selectedTable })}</span>
                 <h4 className="text-sm font-bold text-text-main truncate mt-1">{getRecordTitle(selectedRecord)}</h4>
                 <p className="text-[10px] font-mono text-text-main/60 mt-0.5 break-all">ID: {getRecordId(selectedRecord)}</p>
               </div>
               <IconButton
                 onClick={() => void handleDeleteRecord(selectedRecord)}
                 className="p-2 rounded-lg border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/10 transition-colors shrink-0"
-                label="Удалить документ"
+                label={t('admin_db_delete_doc')}
                 icon={<Trash2 size={14} />}
               />
             </div>
 
             {/* Preformatted JSON block */}
             <div className="space-y-1.5">
-              <span className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">Значения всех полей (Raw JSON)</span>
+              <span className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">{t('admin_db_raw_json')}</span>
               <pre className="p-4 rounded-xl bg-surface-base/80 border border-border-subtle overflow-auto max-h-[450px] text-[10px] font-mono text-text-main/80 select-all leading-normal whitespace-pre-wrap break-all">
                 {JSON.stringify(selectedRecord, null, 2)}
               </pre>
@@ -325,7 +327,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         ) : (
           <div className="h-full flex flex-col items-center justify-center border border-dashed border-border-subtle/50 rounded-2xl p-12 text-center text-xs text-text-main/60">
             <Database size={24} className="text-text-main/15 mb-2" />
-            Выберите запись в левой панели для просмотра всех полей документа (как в консоли управления)
+            {t('admin_db_pick_hint')}
           </div>
         )}
       </div>

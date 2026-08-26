@@ -30,9 +30,11 @@ import { getLocalDb, type AIDocumentSummary } from '../../../core/storage/localD
 import { reportError } from '../../../shared/errors/reportError';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import { SyncService } from '../../../core/services/SyncService';
+import { useLanguage } from '../../../shared/i18n';
 
 
 export function DiagnosticsPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { profile, loading: authLoading } = useAuthStatus();
   const dailyLimit = useDailyLimit();
@@ -112,6 +114,7 @@ function ReconcileSessionsButton() {
   const { showToast } = useToast();
   const [running, setRunning] = useState(false);
   const { user } = useAuthStatus();
+  const { t } = useLanguage();
   const guestId = user?.uid ?? 'guest';
 
   const handleReconcile = async () => {
@@ -136,15 +139,16 @@ function ReconcileSessionsButton() {
         className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
       >
         <RotateCcw size={13} />
-        {running ? 'Реконсиляция…' : 'Реконсиляция счётчика сессий'}
+        {running ? t('admin_reconcile_running') : t('admin_reconcile_btn')}
       </Button>
-      <p className="mt-1.5 text-[11px] text-text-main/50">Пересчитывает sessionsCount у всех заметок по фактическим версиям. Исправляет расхождения.</p>
+      <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_reconcile_desc')}</p>
     </>
   );
 }
 
 function RebuildTimelineButton() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [running, setRunning] = useState(false);
 
   const handleRebuild = async () => {
@@ -168,9 +172,9 @@ function RebuildTimelineButton() {
         className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
       >
         <RotateCcw size={13} />
-        {running ? 'Пересбор…' : 'Пересобрать хронологию ИИ'}
+        {running ? t('admin_rebuild_running') : t('admin_rebuild_btn')}
       </Button>
-      <p className="mt-1.5 text-[11px] text-text-main/50">Пересобирает локальную хронологию из всех существующих анализов заметок с привязкой по датам.</p>
+      <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_rebuild_desc')}</p>
     </>
   );
 }
@@ -185,7 +189,7 @@ function RebuildTimelineButton() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold flex items-center gap-3 text-text-main">
           <Bug className="text-accent-danger" />
-          Диагностика и администрирование
+          {t('admin_diag_title')}
         </h2>
         <div className="flex items-center gap-2">
           <Button
@@ -193,7 +197,7 @@ function RebuildTimelineButton() {
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/10 border border-brand-soft/25 text-brand-soft text-xs font-semibold hover:bg-brand-soft/20 transition-[color,background-color] duration-200"
           >
             <Download size={13} />
-            Скачать диагностику
+            {t('admin_diag_download')}
           </Button>
           <IconButton 
             onClick={() => void navigate('/')} 
@@ -213,7 +217,7 @@ function RebuildTimelineButton() {
             activeTab === 'sync' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Синхронизация
+          {t('admin_tab_sync')}
         </Button>
         <Button
           onClick={() => setActiveTab('db')}
@@ -222,7 +226,7 @@ function RebuildTimelineButton() {
             activeTab === 'db' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          База данных
+          {t('admin_tab_db')}
         </Button>
         <Button
           onClick={() => setActiveTab('users')}
@@ -231,7 +235,7 @@ function RebuildTimelineButton() {
             activeTab === 'users' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Пользователи
+          {t('admin_tab_users')}
         </Button>
         <Button
           onClick={() => setActiveTab('ai_usage')}
@@ -240,7 +244,7 @@ function RebuildTimelineButton() {
             activeTab === 'ai_usage' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Статистика AI
+          {t('admin_tab_ai_stats')}
         </Button>
         <Button
           onClick={() => setActiveTab('ai_profile')}
@@ -249,7 +253,7 @@ function RebuildTimelineButton() {
             activeTab === 'ai_profile' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Профиль AI
+          {t('admin_tab_ai_profile')}
         </Button>
         <Button
           onClick={() => setActiveTab('memory_assembler')}
@@ -258,7 +262,7 @@ function RebuildTimelineButton() {
             activeTab === 'memory_assembler' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Сборщик памяти
+          {t('admin_tab_memory')}
         </Button>
         <Button
           onClick={() => setActiveTab('beliefs')}
@@ -267,7 +271,7 @@ function RebuildTimelineButton() {
             activeTab === 'beliefs' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Убеждения (W3)
+          {t('admin_tab_beliefs')}
         </Button>
         <Button
           onClick={() => setActiveTab('stats')}
@@ -276,7 +280,7 @@ function RebuildTimelineButton() {
             activeTab === 'stats' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Система
+          {t('admin_tab_system')}
         </Button>
         <Button
           onClick={() => setActiveTab('queue')}
@@ -285,7 +289,7 @@ function RebuildTimelineButton() {
             activeTab === 'queue' ? "bg-surface-base/40 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
           )}
         >
-          Очередь
+          {t('admin_tab_queue')}
         </Button>
       </div>
 
@@ -299,8 +303,8 @@ function RebuildTimelineButton() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-main">Выгрузка всех данных</h3>
-                  <p className="text-xs text-text-main/60 mt-1">Отправляет все локальные несинхронизированные заметки в облако.</p>
+                  <h3 className="text-sm font-semibold text-text-main">{t('admin_sync_export_title')}</h3>
+                  <p className="text-xs text-text-main/60 mt-1">{t('admin_sync_export_desc')}</p>
                 </div>
                 <Button
                   onClick={() => void handleSyncAllToCloud()}
@@ -308,28 +312,28 @@ function RebuildTimelineButton() {
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-colors min-h-[38px]"
                 >
                   {bulkSyncing ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-                  Загрузить всё в облако
+                  {t('admin_sync_export_btn')}
                 </Button>
               </div>
 
               <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-main">Смысловой индекс из облака</h3>
-                  <p className="text-xs text-text-main/60 mt-1">Скачивает готовые эмбеддинги вместо пересчёта. Дорого по квоте чтений: записи весят сотни килобайт, поэтому загрузка идёт частями и может занять несколько дней. Обычно не нужна — индекс всё равно достраивается сам.</p>
+                  <h3 className="text-sm font-semibold text-text-main">{t('admin_embed_restore_title')}</h3>
+                  <p className="text-xs text-text-main/60 mt-1">{t('admin_embed_restore_desc')}</p>
                 </div>
                 <Button
                   onClick={() => handleRequestEmbeddingRestore()}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border-subtle text-text-main text-xs font-semibold hover:bg-surface-base/10 transition-colors min-h-[38px]"
                 >
                   <Download size={13} />
-                  Восстановить индекс из облака
+                  {t('admin_embed_restore_btn')}
                 </Button>
               </div>
 
               <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-main">Импорт из облака</h3>
-                  <p className="text-xs text-text-main/60 mt-1">Скачивает все резервные копии заметок из облака в локальный кэш IndexedDB.</p>
+                  <h3 className="text-sm font-semibold text-text-main">{t('admin_import_title')}</h3>
+                  <p className="text-xs text-text-main/60 mt-1">{t('admin_import_desc')}</p>
                 </div>
                 <Button
                   onClick={() => void handleImportAllFromCloud()}
@@ -337,13 +341,13 @@ function RebuildTimelineButton() {
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-colors min-h-[38px]"
                 >
                   {bulkImporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                  Скачать всё из облака
+                  {t('admin_import_btn')}
                 </Button>
               </div>
             </div>
 
             <div className="border-t border-border-subtle pt-6">
-              <h3 className="text-sm font-semibold text-text-main mb-3">Детальное сопоставление (Диагностика синхронизации)</h3>
+              <h3 className="text-sm font-semibold text-text-main mb-3">{t('admin_detail_match')}</h3>
               <SyncDiagnostics key={diagnosticsKey} userId={profile.uid} />
             </div>
           </div>
@@ -360,7 +364,7 @@ function RebuildTimelineButton() {
         {/* Tab 3: Users */}
         {activeTab === 'users' && (
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-text-main mb-3">Зарегистрированные пользователи</h3>
+            <h3 className="text-sm font-semibold text-text-main mb-3">{t('admin_users_registered')}</h3>
             {loadingData ? (
               <div className="flex justify-center py-10"><LoadingSpinner size={8} /></div>
             ) : (
@@ -389,8 +393,8 @@ function RebuildTimelineButton() {
             return model.split('/').pop()?.slice(0, 20) ?? model.slice(0, 20);
           }
           function fnLabel(fn: string) {
-            const map: Record<string, string> = { chat: 'Чат', 'chat-stream': 'Чат', summarize: 'Саммари', edit: 'Редактура', validate: 'Валидация' };
-            return map[fn] ?? fn;
+            const map: Record<string, string> = { chat: 'admin_fn_chat', 'chat-stream': 'admin_fn_chat', summarize: 'admin_fn_summarize', edit: 'admin_fn_edit', validate: 'admin_fn_validate' };
+            return map[fn] ? t(map[fn]!) : fn;
           }
 
           const q = aiSearchQuery.toLowerCase();
@@ -409,8 +413,8 @@ function RebuildTimelineButton() {
               {/* Header: date + refresh */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-main">Статистика AI</h3>
-                  <p className="text-[11px] text-text-main/50">Активная модель: DeepSeek v4 Flash (RouterAI) · 10₽ / 20₽ за 1M токенов</p>
+                  <h3 className="text-sm font-semibold text-text-main">{t('admin_ai_stats_title')}</h3>
+                  <p className="text-[11px] text-text-main/50">{t('admin_ai_active_model')}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <input
@@ -425,7 +429,7 @@ function RebuildTimelineButton() {
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-text-main text-surface-base text-xs font-semibold disabled:opacity-50 transition-colors"
                   >
                     {aiUsageLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    Обновить
+                    {t('admin_refresh')}
                   </Button>
                 </div>
               </div>
@@ -440,14 +444,14 @@ function RebuildTimelineButton() {
                 const totalTokens = totals.promptTokens + totals.completionTokens;
                 const isToday = aiUsageDate === new Date().toISOString().slice(0, 10);
                 const metrics = [
-                  { label: 'Запросов за день (суточный лимит)', used: totals.requests, cap: aiLimits.requestsPerDay },
-                  { label: 'Токенов за день (бюджет затрат)', used: totalTokens, cap: aiLimits.tokensPerDay },
+                  { label: t('admin_metric_requests'), used: totals.requests, cap: aiLimits.requestsPerDay },
+                  { label: t('admin_metric_tokens'), used: totalTokens, cap: aiLimits.tokensPerDay },
                 ];
                 return (
                   <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider">Лимиты {isToday ? '— сегодня' : `— ${aiUsageDate}`}</h4>
-                      <span className="text-[10px] text-text-main/60">лимит на пользователя: {aiLimits.perUserDaily}/день</span>
+                      <h4 className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider">{isToday ? t('admin_limits_today') : t('admin_limits_date', { date: aiUsageDate })}</h4>
+                      <span className="text-[10px] text-text-main/60">{t('admin_per_user_limit', { limit: aiLimits.perUserDaily })}</span>
                     </div>
                     {metrics.map(m => {
                       const pct = m.cap > 0 ? Math.min(100, (m.used / m.cap) * 100) : 0;
@@ -481,7 +485,7 @@ function RebuildTimelineButton() {
                   type="text"
                   value={aiSearchQuery}
                   onChange={e => setAiSearchQuery(e.target.value)}
-                  placeholder="Поиск по email / никнейму / uid..."
+                  placeholder={t('admin_search_placeholder')}
                   className="flex-1 min-w-[200px] px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/40 outline-none"
                 />
                 <div className="flex items-center gap-2">
@@ -489,7 +493,7 @@ function RebuildTimelineButton() {
                     type="text"
                     value={manualResetUid}
                     onChange={e => setManualResetUid(e.target.value)}
-                    placeholder="UID для сброса лимита..."
+                    placeholder={t('admin_reset_uid_placeholder')}
                     className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/40 outline-none w-52"
                   />
                   <Button
@@ -501,7 +505,7 @@ function RebuildTimelineButton() {
                     disabled={resettingUid !== null || !manualResetUid.trim()}
                     className="px-3 py-2 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-xs font-bold whitespace-nowrap"
                   >
-                    {resettingUid === manualResetUid.trim() ? 'Сброс...' : 'Сбросить'}
+                    {resettingUid === manualResetUid.trim() ? t('admin_resetting') : t('admin_reset')}
                   </Button>
                 </div>
               </div>
@@ -512,12 +516,12 @@ function RebuildTimelineButton() {
                   <thead>
                     <tr className="border-b bg-surface-base/5 border-border-subtle text-text-main/60 font-bold uppercase tracking-wider text-[10px]">
                       <th className="py-3 px-4 w-6"></th>
-                      <th className="py-3 px-4">Пользователь</th>
-                      <th className="py-3 px-4 text-right">Запросы</th>
-                      <th className="py-3 px-4 text-right">Токены ↓</th>
-                      <th className="py-3 px-4 text-right">Токены ↑</th>
-                      <th className="py-3 px-4 text-right">Стоимость</th>
-                      <th className="py-3 px-4 text-center">Действие</th>
+                      <th className="py-3 px-4">{t('admin_th_user')}</th>
+                      <th className="py-3 px-4 text-right">{t('admin_th_requests')}</th>
+                      <th className="py-3 px-4 text-right">{t('admin_th_tokens_in')}</th>
+                      <th className="py-3 px-4 text-right">{t('admin_th_tokens_out')}</th>
+                      <th className="py-3 px-4 text-right">{t('admin_th_cost')}</th>
+                      <th className="py-3 px-4 text-center">{t('admin_th_action')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -549,7 +553,7 @@ function RebuildTimelineButton() {
                                 disabled={resettingUid !== null}
                                 className="px-2 py-1 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20 disabled:opacity-50 transition-colors text-[10px] font-bold"
                               >
-                                {resettingUid === row.uid ? '…' : 'Сброс'}
+                                {resettingUid === row.uid ? '…' : t('admin_row_reset')}
                               </Button>
                             </td>
                           </tr>
@@ -559,20 +563,20 @@ function RebuildTimelineButton() {
                               <td colSpan={7} className="px-4 py-3">
                                 {userEventsLoading ? (
                                   <div className="flex items-center gap-2 text-text-main/60 text-xs py-1">
-                                    <Loader2 size={12} className="animate-spin" /> Загрузка событий…
+                                    <Loader2 size={12} className="animate-spin" /> {t('admin_loading_events')}
                                   </div>
                                 ) : userEvents.length === 0 ? (
-                                  <p className="text-text-main/60 text-xs py-1 italic">Нет событий за выбранную дату (данные записываются с текущей версии)</p>
+                                  <p className="text-text-main/60 text-xs py-1 italic">{t('admin_no_events')}</p>
                                 ) : (
                                   <table className="w-full text-[11px] border-collapse">
                                     <thead>
                                       <tr className="text-text-main/60 text-[10px] uppercase tracking-wider">
-                                        <th className="text-left pb-1.5 pr-4 font-bold">Время</th>
-                                        <th className="text-left pb-1.5 pr-4 font-bold">Функция</th>
-                                        <th className="text-left pb-1.5 pr-4 font-bold">Модель</th>
-                                        <th className="text-right pb-1.5 pr-4 font-bold">Токены ↓</th>
-                                        <th className="text-right pb-1.5 pr-4 font-bold">Токены ↑</th>
-                                        <th className="text-right pb-1.5 font-bold">Стоимость</th>
+                                        <th className="text-left pb-1.5 pr-4 font-bold">{t('admin_th_time')}</th>
+                                        <th className="text-left pb-1.5 pr-4 font-bold">{t('admin_th_fn')}</th>
+                                        <th className="text-left pb-1.5 pr-4 font-bold">{t('admin_th_model')}</th>
+                                        <th className="text-right pb-1.5 pr-4 font-bold">{t('admin_th_tokens_in')}</th>
+                                        <th className="text-right pb-1.5 pr-4 font-bold">{t('admin_th_tokens_out')}</th>
+                                        <th className="text-right pb-1.5 font-bold">{t('admin_th_cost')}</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -605,7 +609,7 @@ function RebuildTimelineButton() {
                     <tfoot>
                       <tr className="border-t bg-surface-base/5 border-border-subtle font-bold text-text-main text-xs">
                         <td className="py-3 px-4"></td>
-                        <td className="py-3 px-4">Итого</td>
+                        <td className="py-3 px-4">{t('admin_th_total')}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.requests, 0)}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.promptTokens, 0).toLocaleString()}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.completionTokens, 0).toLocaleString()}</td>
@@ -618,7 +622,7 @@ function RebuildTimelineButton() {
               </div>
 
               {aiUsage.length === 0 && !aiUsageLoading && (
-                <div className="py-12 text-center text-xs text-text-main/60">Нет данных об AI-активности за выбранную дату</div>
+                <div className="py-12 text-center text-xs text-text-main/60">{t('admin_no_data')}</div>
               )}
             </div>
           );
@@ -627,7 +631,7 @@ function RebuildTimelineButton() {
         {/* Tab 6: AI Profile */}
         {activeTab === 'ai_profile' && (
           <div className="space-y-6">
-            <h3 className="text-sm font-semibold text-text-main mb-3">Профиль автора & AI логи</h3>
+            <h3 className="text-sm font-semibold text-text-main mb-3">{t('admin_profile_title')}</h3>
 
             <ProfileFacets />
             {import.meta.env.DEV && <FacetDiagnostics />}
@@ -642,7 +646,7 @@ function RebuildTimelineButton() {
             {summaryLogs.length > 0 && (
               <div className="rounded-2xl border border-border-subtle overflow-hidden">
                 <div className="px-5 py-3 border-b border-border-subtle bg-surface-base/5">
-                  <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">История обработки заметок ИИ</span>
+                  <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">{t('admin_summary_log_title')}</span>
                 </div>
                 <div className="divide-y divide-border-subtle/50 text-xs">
                   {summaryLogs.map(log => (
@@ -662,7 +666,7 @@ function RebuildTimelineButton() {
                 className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs font-semibold hover:bg-accent-danger/20 transition-colors"
               >
                 <RotateCcw size={13} />
-                Сбросить суточный счетчик ИИ
+                {t('admin_reset_counter')}
               </Button>
             </div>
           </div>
@@ -681,23 +685,23 @@ function RebuildTimelineButton() {
         {/* Tab 7: Stats */}
         {activeTab === 'stats' && (
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-text-main mb-3">Системные метрики</h3>
+            <h3 className="text-sm font-semibold text-text-main mb-3">{t('admin_system_metrics')}</h3>
             {!statsLoaded ? (
               <div className="flex justify-center py-10"><LoadingSpinner size={8} /></div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: 'Версия приложения', value: APP_VERSION },
-                  { label: 'Локальная база (IndexedDB) версия', value: '8' },
-                  { label: 'Локальных документов на устройстве', value: stats.localDocs },
-                  { label: 'Документов в облаке (облако)', value: stats.cloudDocs },
-                  { label: 'Только на этом устройстве (local only)', value: stats.localDocs - stats.cloudDocs },
-                  { label: 'Саммари ИИ сохранено', value: stats.summaries },
-                  { label: 'Эмбеддингов сохранено', value: stats.embeddings },
-                  { label: 'Диалогов ИИ записано', value: stats.dialogues },
-                  { label: 'Кастомных персон создано', value: stats.customPersonas },
-                  { label: 'Памяти диалогов (DLG-1)', value: stats.memories },
-                  { label: 'Лимит ИИ за сутки', value: `${dailyLimit.used} / ${dailyLimit.limit} запросов` },
+                  { label: t('admin_stat_app_version'), value: APP_VERSION },
+                  { label: t('admin_stat_db_version'), value: '8' },
+                  { label: t('admin_stat_local_docs'), value: stats.localDocs },
+                  { label: t('admin_stat_cloud_docs'), value: stats.cloudDocs },
+                  { label: t('admin_stat_local_only'), value: stats.localDocs - stats.cloudDocs },
+                  { label: t('admin_stat_summaries'), value: stats.summaries },
+                  { label: t('admin_stat_embeddings'), value: stats.embeddings },
+                  { label: t('admin_stat_dialogues'), value: stats.dialogues },
+                  { label: t('admin_stat_personas'), value: stats.customPersonas },
+                  { label: t('admin_stat_memories'), value: stats.memories },
+                  { label: t('admin_stat_daily_limit'), value: t('admin_stat_daily_limit_value', { used: dailyLimit.used, limit: dailyLimit.limit }) },
                 ].map((r, i) => (
                   <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border-subtle bg-surface-base/5">
                     <span className="text-xs text-text-main/60 font-medium">{r.label}</span>
@@ -714,18 +718,18 @@ function RebuildTimelineButton() {
                   className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs font-semibold hover:bg-accent-danger/20 transition-colors disabled:opacity-40"
                 >
                   <RotateCcw size={13} />
-                  Очистить память ИИ ({stats.memories})
+                  {t('admin_clear_memory', { count: stats.memories })}
                 </Button>
-                <p className="mt-1.5 text-[11px] text-text-main/50">Удаляет накопленные факты/инсайты из прошлых бесед. Диалоги и заметки не затрагиваются.</p>
+                <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_clear_memory_desc')}</p>
                 <div className="mt-3">
                   <Button
                     onClick={() => void handleCollapseVersions()}
                     className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
                   >
                     <RotateCcw size={13} />
-                    Схлопнуть версии заметок
+                    {t('admin_collapse_versions')}
                   </Button>
-                  <p className="mt-1.5 text-[11px] text-text-main/50">Оставляет у каждой заметки только последнюю версию (убирает «2 / N»). Текст не меняется.</p>
+                  <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_collapse_versions_desc')}</p>
                 </div>
                 <div className="mt-3">
                   <ReconcileSessionsButton />
@@ -752,6 +756,7 @@ import { AIBackgroundBudget } from '../services/AIBackgroundBudget';
 // UXFIX-3: Mass AI analysis of all unanalyzed notes
 function MassAnalyzeNotes() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
   const [stats, setStats] = useState({
@@ -894,8 +899,8 @@ function MassAnalyzeNotes() {
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden space-y-4 p-5">
       <div className="flex items-center justify-between gap-2 border-b border-border-subtle/50 pb-3">
         <div>
-          <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider block">Фоновый анализ ИИ заметок</span>
-          <span className="text-[10px] text-text-main/40 block mt-1">Ограничение бюджета ИИ предупреждает резкий расход токенов.</span>
+          <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider block">{t('admin_mass_title')}</span>
+          <span className="text-[10px] text-text-main/40 block mt-1">{t('admin_mass_budget_note')}</span>
         </div>
         <Button
           onClick={() => void handleMassAnalyze()}
@@ -903,27 +908,27 @@ function MassAnalyzeNotes() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
         >
           {running ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-          {running ? `Анализ… ${progress.done}/${progress.total}` : 'Проанализировать 10 сейчас'}
+          {running ? t('admin_mass_running', { done: progress.done, total: progress.total }) : t('admin_mass_analyze_now')}
         </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-xs">
         <div className="space-y-1">
-          <div className="text-text-main/40 text-[10px] uppercase">Покрытие саммари</div>
+          <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_coverage_label')}</div>
           <div className="font-semibold text-text-main">
-            {stats.summarized} / {stats.total} заметок ({stats.total > 0 ? Math.round((stats.summarized / stats.total) * 100) : 0}%)
+            {t('admin_mass_coverage', { summarized: stats.summarized, total: stats.total, pct: stats.total > 0 ? Math.round((stats.summarized / stats.total) * 100) : 0 })}
           </div>
         </div>
         <div className="space-y-1">
-          <div className="text-text-main/40 text-[10px] uppercase">Оценка завершения фоном</div>
+          <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_eta_label')}</div>
           <div className="font-semibold text-text-main">
-            {stats.remaining > 0 ? `~${stats.daysToComplete} дн. (при бюджете ${stats.budgetLimit}/день)` : 'Завершено 🎉'}
+            {stats.remaining > 0 ? t('admin_mass_eta', { days: stats.daysToComplete, budget: stats.budgetLimit }) : t('admin_mass_done')}
           </div>
         </div>
         <div className="space-y-1 col-span-2 border-t border-border-subtle/30 pt-3">
-          <div className="text-text-main/40 text-[10px] uppercase">Использованный дневной бюджет ИИ (SEAM-0)</div>
+          <div className="text-text-main/40 text-[10px] uppercase">{t('admin_mass_budget_label')}</div>
           <div className="font-semibold text-text-main">
-            {stats.budgetSpent} / {stats.budgetLimit} вызовов
+            {t('admin_mass_budget_used', { spent: stats.budgetSpent, limit: stats.budgetLimit })}
           </div>
           <div className="h-1.5 rounded-full bg-surface-base/30 overflow-hidden mt-1">
             <div
@@ -943,7 +948,7 @@ function MassAnalyzeNotes() {
             />
           </div>
           {progress.failed > 0 && (
-            <div className="text-[10px] text-accent-danger/60 mt-1">Ошибок: {progress.failed}</div>
+            <div className="text-[10px] text-accent-danger/60 mt-1">{t('admin_mass_errors', { count: progress.failed })}</div>
           )}
         </div>
       )}

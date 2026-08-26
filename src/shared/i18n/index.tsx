@@ -7,6 +7,7 @@ import { settingsTranslations } from './translations/settings';
 import { authTranslations } from './translations/auth';
 import { lifelogTranslations } from './translations/lifelog';
 import { aiTranslations } from './translations/ai';
+import { adminTranslations } from './translations/admin';
 import { Language, Translations } from './types';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 
@@ -29,6 +30,7 @@ const lazyNamespaces: Promise<void> = Promise.all([
   import('./translations/archive').then(m => { Object.assign(translations, m.archiveTranslations); }),
   import('./translations/profile').then(m => { Object.assign(translations, m.profileTranslations); }),
   import('./translations/lifelog').then(m => { Object.assign(translations, m.lifelogTranslations); }),
+  import('./translations/admin').then(m => { Object.assign(translations, m.adminTranslations); }),
 ]).then(() => undefined);
 
 /** Резолвится, когда все переводы на месте. Провайдер ждёт его до рендера,
@@ -47,6 +49,7 @@ if (import.meta.env.VITEST) {
     archiveTranslations,
     profileTranslations,
     lifelogTranslations,
+    adminTranslations,
   );
 }
 
