@@ -85,26 +85,21 @@ Four rules, enforced by `import/no-restricted-paths` in `eslint.config.js`:
 The rule is switched off for test files, so a test reaching across a boundary is
 not a violation and will not show up in these counts.
 
-### Cross-feature imports are grandfathered, not forbidden
+### Cross-feature imports are held by a ratchet
 
-Features importing from other features is **not** currently blocked, and there
-are about sixty such imports across thirty-four files — `ai`, `auth`, `archive`
-and `profile` are the most-reached-into. The lint config says so in a comment
-and treats it as a ratchet: a feature gets locked with its own zone once it has
-been untangled, which is what already happened to `auth` and `calendar`.
+Cross-feature imports inside `src/features/` (~48 across ~35 files as of
+2026-08-26) cannot grow: `scripts/cross-feature-check.sh` fails CI above the
+count in `scripts/cross-feature-baseline.txt`. The per-feature
+`import/no-restricted-paths` zones are written in `eslint.config.js` but stay
+disabled until the count reaches zero; the sanctioned exception will be
+`features/auth` — the session domain provider every feature legitimately
+consumes. Imports from the composition layer (`src/app/*`) into features are
+not violations: wiring the app together is that layer's job.
 
-The intended direction is fewer of them, one feature at a time, when someone is
-already working in that feature. It is not a scheduled refactor. Sixty import
-rewrites with no bug attached is not work worth doing on its own.
-
-**Ratchet (AUDIT-part2 1.4):** since 2026-08-24 the count cannot grow —
-`scripts/cross-feature-check.sh` in CI fails if the number of cross-feature
-imports (excluding the sanctioned `auth` and `calendar` targets) exceeds
-`scripts/cross-feature-baseline.txt`. The hard lint zone is written and
-commented out in `eslint.config.js`; switch it on when the baseline reaches
-zero. When that happens, two exceptions stay sanctioned: `features/auth`
-(the session domain provider: contexts + `useAuthStatus`) and
-`features/calendar` (pure presentational UI).
+Detection note (AUDIT-part3 9): the first ratchet version counted only
+`../features/x`-shaped imports and missed the dominant class — sibling
+features reached via `../../<feature>/`. v2 enumerates feature directories and
+matches any sibling import; the baseline was re-measured with it.
 
 ### The seven bridges
 

@@ -58,14 +58,11 @@ export default [
           { target: './src/core', from: './src/features', message: 'core must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/features', message: 'shared must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/core', message: 'shared must stay dependency-free of core (ARCHITECTURE.md)' },
-          // AUDIT-part2 1.4: жёсткая зона features->features подготовлена, но
-          // не включена: грандфатеренный долг ~570 импортов (не ~80, см.
-          // scripts/cross-feature-check.sh). Пока долг гасится храповиком в
-          // CI; включить зону, когда счётчик дойдёт до нуля. Санкционированное
-          // исключение на тот момент: './auth' (провайдер сессии).
-          // Зона на './src/features/calendar' убрана: фича расформирована,
-          // Calendar переехал в features/archive. Правило на несуществующий
-          // каталог ничего не сторожит, но читается как защита.
+          // AUDIT-part3 9 (2026-08-26): зона подготовлена, но НЕ включена:
+          // реальный долг 48 импортов в ~35 файлах. v1-детектор храповика мерял
+          // неверный класс ('../features/x'), v2 (scripts/cross-feature-check.sh)
+          // считает соседние фичи по относительному пути — см. базлайн 48.
+          // Включить зону, когда счётчик дойдёт до нуля. Исключение: './auth'.
           { target: './src/features/auth', from: './src/features', except: ['./auth'], message: 'auth is feature-import-free — keep it that way (ARCHITECTURE.md)' },
         ],
       }],
