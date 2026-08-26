@@ -71,15 +71,17 @@ function compareChunks(base: ChunkReport[], current: ChunkReport[]) {
     }
     const n = Math.min(curSizes.length, baseSizes.length);
     for (let i = 0; i < n; i++) {
-      const diff = curSizes[i] - baseSizes[i];
-      const percent = baseSizes[i] === 0 ? '0.0' : ((diff / baseSizes[i]) * 100).toFixed(1);
+      const curSize = curSizes[i]!;
+      const baseSize = baseSizes[i]!;
+      const diff = curSize - baseSize;
+      const percent = baseSize === 0 ? '0.0' : ((diff / baseSize) * 100).toFixed(1);
       if (Math.abs(diff) > 512) {
         changes.push({
           name: key,
           diff,
           percent: `${diff > 0 ? '+' : ''}${percent}%`,
-          baseSize: baseSizes[i],
-          currentSize: curSizes[i],
+          baseSize,
+          currentSize: curSize,
         });
       }
     }
