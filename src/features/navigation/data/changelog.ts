@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.20',
+    date: '2026-08-28',
+    items: [
+      { category: 'improvement', ru: 'Диагностика, обозреватель базы, грани профиля и стенд ранжирования переведены на английский наравне с русским — около ста двадцати надписей', en: 'Diagnostics, the database explorer, profile facets and the ranking bench are available in English as well as Russian — about a hundred and twenty labels' },
+      { category: 'improvement', ru: 'Внутренняя перестройка: страница чата и сборка контекста разложены по частям вместо двух файлов на тысячу строк. Для человека ничего не меняется — это цена будущих правок', en: 'Internal rework: the chat page and the context builder are split into parts instead of two thousand-line files. Nothing changes for the reader — this pays for future edits' },
+      { category: 'fix', ru: 'Сравнение размера сборки в проверках снова говорит правду: из-за ошибки в разборе имён служебные части приложения считались одной и той же, и отчёт показывал несуществующий рост', en: 'The build-size comparison tells the truth again: a name-parsing bug made vendor chunks look like the same one, so the report showed non-existent growth' },
+    ],
+  },
+  {
     version: '0.8.19',
     date: '2026-08-25',
     items: [
