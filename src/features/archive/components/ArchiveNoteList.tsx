@@ -10,8 +10,6 @@ import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
-import { AISummaryService } from '../../../core/services/AISummaryService';
-import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
 import { toggleAIExclusion } from '../services/archiveCrud';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useToast } from '../../../shared/components/Toast';
@@ -40,18 +38,21 @@ interface ArchiveNoteListProps {
   userId: string;
   searchQuery: string;
   isGroupedByDate: boolean;
-  onOpen: (s: ArchiveSession) => void;
-  onDelete: (s: ArchiveSession) => void;
-  onTagsChange: (s: ArchiveSession, tags: string[]) => void;
-  onTitleChange: (s: ArchiveSession, title: string) => void;
-  onDateChange: (s: ArchiveSession, date: Date) => void;
-  onLabelChange: (s: ArchiveSession, labelId: string | undefined) => void;
+  onOpen: (session: ArchiveSession) => void;
+  onDelete: (session: ArchiveSession) => void;
+  onTagsChange: (session: ArchiveSession, tags: string[]) => void;
+  onTitleChange: (session: ArchiveSession, title: string) => void;
+  onDateChange: (session: ArchiveSession, date: Date) => void;
+  onLabelChange: (session: ArchiveSession, labelId: string | undefined) => void;
   onStorageChange: () => void;
   t: (key: string, args?: Record<string, string | number>) => string;
   language: string;
   entriesLabel: (n: number) => string;
   allTags?: string[];
   onClearSearch?: () => void;
+  onAnalyzeNote?: (sessionId: string) => Promise<{ ok: boolean; error?: string }>;
+  onClearAnalysis?: (sessionId: string) => Promise<void>;
+  loadAiProcessedMap?: () => Promise<Record<string, boolean>>;
 }
 
 const gridListClassName = 'grid gap-4 mt-3 archive-grid-list';
@@ -68,6 +69,7 @@ export function ArchiveNoteList({
   onOpen, onDelete, onTagsChange, onTitleChange,
   onDateChange, onLabelChange, onStorageChange,
   t, language, entriesLabel: _entriesLabel, allTags, onClearSearch,
+  onAnalyzeNote, onClearAnalysis, loadAiProcessedMap,
 }: ArchiveNoteListProps) {
   const reducedMotion = useReducedMotion();
   const { tp } = useLanguage();
@@ -78,8 +80,10 @@ export function ArchiveNoteList({
   const [aiExclusionLoadingMap, setAiExclusionLoadingMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    void AISummaryService.hasAll().then(setAiProcessedMap);
-  }, []);
+    if (loadAiProcessedMap) {
+      void loadAiProcessedMap().then(setAiProcessedMap);
+    }
+  }, [loadAiProcessedMap]);
 
   const handleAIExclusionClick = async (session: ArchiveSession) => {
     if (!session.id || aiExclusionLoadingMap[session.id]) return;
@@ -116,7 +120,9 @@ export function ArchiveNoteList({
       if (!ok) return;
       setAiLoadingMap(m => ({ ...m, [session.id]: true }));
       try {
-        await NoteAnalysisService.clear(session.id);
+        if (onClearAnalysis) {
+          await onClearAnalysis(session.id);
+        }
         setAiProcessedMap(m => ({ ...m, [session.id]: false }));
         showToast(t('ai_note_cleared'), 'success');
       } catch (e) {
@@ -128,9 +134,11 @@ export function ArchiveNoteList({
       return;
     }
 
+    if (!onAnalyzeNote) return;
+
     setAiLoadingMap(m => ({ ...m, [session.id]: true }));
     try {
-      const res = await NoteAnalysisService.analyze(session.id);
+      const res = await onAnalyzeNote(session.id);
       if (res.ok) {
         setAiProcessedMap(m => ({ ...m, [session.id]: true }));
         showToast(t('ai_note_analyzed'), 'success');
@@ -146,7 +154,7 @@ export function ArchiveNoteList({
           SERVER_ERROR: t('ai_error_server'),
           NETWORK: t('ai_error_offline'),
         };
-        showToast(errMap[res.error] ?? t('ai_error_server'), 'error');
+        showToast(errMap[res.error || ''] ?? t('ai_error_server'), 'error');
       }
     } catch (e) {
       reportError(e, { action: 'archive_analyze_note', documentId: session.id });

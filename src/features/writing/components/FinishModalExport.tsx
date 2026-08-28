@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download, FileText, ChevronDown, ChevronUp } from 'lucide-react';
-import { ExportService } from '../../export/ExportService';
+import { ExportService } from '../../../core/services/ExportService';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { Button } from '../../../shared/components/Button';
 

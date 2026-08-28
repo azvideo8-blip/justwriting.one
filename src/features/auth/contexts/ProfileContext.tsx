@@ -4,7 +4,7 @@ import { UserProfile } from '../../../types';
 import { userProfileDbSchema } from '../../../core/data/schemas';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cryptoHelpers';
 import { decryptLabels, migrateUnencryptedLabels, repairDoubleEncryptedLabels } from '../../../core/crypto/labelEncryption';
-import { ProfileService } from '../../../core/services/ProfileServiceRef';
+import { ProfileService } from '../../../core/services/ProfileService';
 import { setAiConsent } from '../../../core/ai/aiConsent';
 import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 import { reportError } from '../../../shared/errors/reportError';

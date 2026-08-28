@@ -124,7 +124,7 @@ async function computeLocalEcho(content: string, docId: string): Promise<string>
       return '';
     }
 
-    const { cosineSimilarity } = await import('../../ai/utils/vectorSearch');
+    const { cosineSimilarity } = await import('../../../shared/utils/vectorMath');
     let bestEntry = null;
     let bestScore = -1;
     for (const entry of historical) {

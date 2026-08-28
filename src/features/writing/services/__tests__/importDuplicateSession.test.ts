@@ -30,7 +30,7 @@ vi.mock('../../../../core/services/LocalVersionService', () => ({
   },
 }));
 
-import { loadAllSessions } from '../UnifiedSessionLoader';
+import { loadAllSessions } from '../../../../core/services/UnifiedSessionLoader';
 import { getLocalDb } from '../../../../core/storage/localDb';
 
 describe('импорт не должен показывать заметку дважды', () => {

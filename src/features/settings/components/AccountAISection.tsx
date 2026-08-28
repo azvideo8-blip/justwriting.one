@@ -4,7 +4,7 @@ import { useProfile } from '../../auth/contexts/ProfileContext';
 import { DataProvider } from '../../../core/data';
 import { setAiConsent } from '../../../core/ai/aiConsent';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
-import { indexPending } from '../../ai/utils/embeddingIndexer';
+import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -15,9 +15,10 @@ import { Button } from '../../../shared/components/Button';
 
 interface AccountAISectionProps {
   userId: string;
+  onIndexPending?: (userId: string) => Promise<number>;
 }
 
-export function AccountAISection({ userId }: AccountAISectionProps) {
+export function AccountAISection({ userId, onIndexPending }: AccountAISectionProps) {
   const { profile } = useProfile();
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
@@ -84,7 +85,11 @@ export function AccountAISection({ userId }: AccountAISectionProps) {
       });
       setIndexingConsent(userId, 'granted');
       showToast('Поиск по смыслу (индексация) включён', 'success');
-      void indexPending();
+      if (onIndexPending) {
+        void onIndexPending(userId);
+      } else {
+        emitDomainEvent({ type: 'ai.indexPending', userId });
+      }
     } catch (e) {
       reportError(e, { action: 'grantIndexingConsent', userId });
       showToast('Не удалось включить поиск по смыслу', 'error');

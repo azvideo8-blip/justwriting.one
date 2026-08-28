@@ -5,7 +5,6 @@ import { useLanguage } from '../../../shared/i18n';
 import { useLifeLog } from '../hooks/useLifeLog';
 import { LifeLogDocument } from '../types/lifeLog';
 import { Session } from '../../../types';
-import { SettingsPanelContent } from '../../settings/components/SettingsPanel';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { deleteSession } from '../services/SessionDeleteService';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
@@ -98,8 +97,6 @@ const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActi
   );
 });
 
-import { AIPanelContent } from './AIPanel';
-
 interface LifeLogPanelProps {
   userId: string;
   onContinueSession: (session: Session | LifeLogDocument) => void;
@@ -111,6 +108,8 @@ interface LifeLogPanelProps {
   inGrid?: boolean | undefined;
   onRefreshDocuments?: (() => void) | undefined;
   streakDays?: number | undefined;
+  renderAiContent?: () => React.ReactNode;
+  renderSettingsContent?: () => React.ReactNode;
 }
 
 export function LifeLogPanel({
@@ -124,6 +123,8 @@ export function LifeLogPanel({
   inGrid,
   onRefreshDocuments,
   streakDays,
+  renderAiContent,
+  renderSettingsContent,
 }: LifeLogPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -361,13 +362,13 @@ export function LifeLogPanel({
 
       {activeTab === 'ai' && (
         <div className="flex-1 overflow-hidden flex flex-col">
-          <AIPanelContent />
+          {renderAiContent ? renderAiContent() : null}
         </div>
       )}
 
       {activeTab === 'settings' && (
         <div className="flex-1 overflow-hidden w-full md:w-[380px]">
-          <SettingsPanelContent userId={userId} onRefreshLifeLog={() => void refresh()} />
+          {renderSettingsContent ? renderSettingsContent() : null}
         </div>
       )}
 

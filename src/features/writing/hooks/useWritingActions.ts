@@ -3,7 +3,7 @@ import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { resetAndClear, resetSession, loadDraftIntoStore } from '../store/storeActions';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { LifeLogDocument } from '../types/lifeLog';
 import { useLifeLog } from './useLifeLog';
 import { useDocuments } from './useDocuments';

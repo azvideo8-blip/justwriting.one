@@ -10,7 +10,7 @@ import { getDateLocale } from '../../../core/utils/dateUtils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
 import { useLanguage } from '../../../shared/i18n';
-import { useSessionTags } from '../../writing/hooks/useSessionTags';
+import { useSessionTags } from '../../../shared/hooks/useSessionTags';
 
 import { Button } from '../../../shared/components/Button';
 

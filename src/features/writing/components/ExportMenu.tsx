@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { FileText, Download, FileJson } from 'lucide-react';
 import { Session } from '../../../types';
-import { ExportService } from '../../export/ExportService';
+import { ExportService } from '../../../core/services/ExportService';
 import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { Button } from '../../../shared/components/Button';

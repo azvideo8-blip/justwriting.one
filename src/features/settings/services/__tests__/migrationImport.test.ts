@@ -637,7 +637,7 @@ describe("C1 migrationImport", () => {
 
     // 5. Verify restored state via UnifiedSessionLoader
     const { loadAllSessions, hydrateSessionContent } = await import(
-      "../../../writing/services/UnifiedSessionLoader"
+      "../../../../core/services/UnifiedSessionLoader"
     );
     const { sessions: listed } = await loadAllSessions("u_arch", null);
     expect(listed).toHaveLength(1);

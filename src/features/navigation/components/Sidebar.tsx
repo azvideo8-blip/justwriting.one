@@ -4,12 +4,12 @@ import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
-import { useSyncStatus } from '../../settings/hooks/useSyncStatus';
+import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
 /** How long after the newest entry the badge stays green. */

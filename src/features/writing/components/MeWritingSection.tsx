@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../shared/i18n';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { Toggle } from '../../../shared/components/Toggle';
 import { getFontStack } from '../utils/fontStack';
 import { SettingRow } from './MeScreenHelpers';

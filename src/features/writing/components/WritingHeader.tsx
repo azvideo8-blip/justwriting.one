@@ -5,7 +5,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { IconButton } from '../../../shared/components/IconButton';
 
 import { useContentStore } from '../store/useContentStore';

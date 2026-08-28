@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { getFontStack } from '../utils/fontStack';

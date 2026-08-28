@@ -6,7 +6,7 @@ import {
   type AIDocumentSummary,
   type AIDocumentEmbedding,
 } from "../../../core/storage/localDb";
-import { invalidateMiniSearchCache } from "../../ai/utils/noteRetriever";
+import { emitDomainEvent } from "../../../core/events/domainEvents";
 import { type MigrationManifest } from "./migrationExport";
 import { SyncService } from "../../../core/services/SyncService";
 import { getSessionKey } from "../../../core/crypto/encrypt";
@@ -458,7 +458,7 @@ export async function importMigrationManifest(
   }
 
   // ── 7. Cache Invalidation ─────────────────────────────────────────────
-  invalidateMiniSearchCache();
+  emitDomainEvent({ type: 'sync.restoredFromCloud', userId: targetUserId });
 
   // ── 8. Cloud Queue / Upload ────────────────────────────────────────────
   // Ticket C7: Imported notes must reach the cloud or be queued for upload.

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import type { AppUser } from '../../../core/auth/types';
 import { Pencil, PenLine } from 'lucide-react';
 import { UserProfile } from '../../../types';
-import { ProfileService } from '../services/ProfileService';
+import { ProfileService } from '../../../core/services/ProfileService';
 import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { IconButton } from '../../../shared/components/IconButton';

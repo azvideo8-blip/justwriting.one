@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, type RefObject, type ChangeEvent } from 'react';
 import { useContentStore } from '../store/useContentStore';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 
 interface EditorPanelProps {

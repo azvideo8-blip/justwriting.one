@@ -4,8 +4,8 @@ import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
-import { AIToggleButton } from './AIPanel';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
+import { AIToggleButton } from './AIToggleButton';
 import { useSpeechInput } from '../../../shared/hooks/useSpeechInput';
 import { useContentStore } from '../store/useContentStore';
 

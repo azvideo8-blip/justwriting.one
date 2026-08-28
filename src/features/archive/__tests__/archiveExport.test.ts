@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportAsMd, isExpectedShareRefusal, ExportStrings } from '../services/ArchiveExportService';
+import { exportAsMd, isExpectedShareRefusal, ExportStrings } from '../../../core/services/ArchiveExportService';
 import type { ArchiveSession } from '../types';
 import type { Session } from '../../../types/index';
 

@@ -8,37 +8,40 @@ import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
-import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings, isExportable } from '../services/ArchiveExportService';
+import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
-import { AISummaryService } from '../../../core/services/AISummaryService';
 
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
-import { findRelatedNotes } from '../../ai/utils/relatedNotes';
 import type { RelatedNote } from '../../../shared/types/common';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
-import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
 import { getCurrentUser } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 
 const relatedNotesCache = new Map<string, RelatedNote[]>();
 
-export function DocumentPreview({ session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach, onCopyText }: {
+export function DocumentPreview({
+  session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach, onCopyText,
+  onAnalyzeNote, fetchSummary, fetchRelatedNotes,
+}: {
   session: ArchiveSession | null;
   onClose: () => void;
   onContinue: (session: ArchiveSession) => void;
   onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
   onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
-  onAddLabel?: ((label: { name: string; color: string }) => void) | undefined;
+  onAddLabel?: ((label: { name: string; color: string; id?: string }) => void) | undefined;
   labels?: Label[] | undefined;
   allTags?: string[] | undefined;
   onAttach?: ((documentId: string) => void) | undefined;
   onCopyText?: ((text: string) => void) | undefined;
+  onAnalyzeNote?: ((sessionId: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
+  fetchSummary?: ((sessionId: string) => Promise<AIDocumentSummary | null>) | undefined;
+  fetchRelatedNotes?: ((sessionId: string) => Promise<RelatedNote[]>) | undefined;
 }) {
   const [session, setSession] = useState<ArchiveSession | null>(propSession);
 
@@ -79,31 +82,33 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
     setAnalyzing(false);
     setJustFinished(false);
     setAnalyzeError(null);
-    if (!session?.id) {
+    if (!session?.id || !fetchSummary) {
       void Promise.resolve().then(() => {
         if (active) setSummary(null);
       });
       return;
     }
-    void AISummaryService.get(session.id).then(s => {
+    void fetchSummary(session.id).then(s => {
       if (active) setSummary(s ?? null);
     });
     return () => {
       active = false;
     };
-  }, [session?.id]);
+  }, [session?.id, fetchSummary]);
 
   const handleAnalyzeNote = async () => {
-    if (!session?.id || analyzing || session.excludedFromAI) return;
+    if (!session?.id || analyzing || session.excludedFromAI || !onAnalyzeNote) return;
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
-      const res = await NoteAnalysisService.analyze(session.id);
+      const res = await onAnalyzeNote(session.id);
       if (res.ok) {
         setJustFinished(true);
         showToast(t('ai_note_analyzed'), 'success');
-        const updated = await AISummaryService.get(session.id);
-        if (updated) setSummary(updated);
+        if (fetchSummary) {
+          const updated = await fetchSummary(session.id);
+          if (updated) setSummary(updated);
+        }
       } else {
         const errMap: Record<string, string> = {
           NO_CONTENT: t('ai_note_too_short'),
@@ -117,7 +122,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
           SERVER_ERROR: t('ai_error_server'),
           NETWORK: t('ai_error_offline'),
         };
-        const errMsg = errMap[res.error] ?? t('ai_error_server');
+        const errMsg = errMap[res.error || ''] ?? t('ai_error_server');
         setAnalyzeError(errMsg);
         showToast(errMsg, 'error');
       }
@@ -134,7 +139,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
 
   useEffect(() => {
     let active = true;
-    if (!session?.id) {
+    if (!session?.id || !fetchRelatedNotes) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- clear related notes when no session is selected
       setRelatedNotes([]);
       return;
@@ -148,7 +153,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
 
     void (async () => {
       try {
-        const related = await findRelatedNotes({ docId: session.id }, { maxResults: 4 });
+        const related = await fetchRelatedNotes(session.id!);
         if (active) {
           relatedNotesCache.set(session.id!, related);
           setRelatedNotes(related);
@@ -161,7 +166,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
     return () => {
       active = false;
     };
-  }, [session?.id]);
+  }, [session?.id, fetchRelatedNotes]);
 
   const handleSelectRelatedNote = useCallback(async (id: string) => {
     try {

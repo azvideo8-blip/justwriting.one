@@ -42,7 +42,7 @@ vi.mock('../store/useTimerStore', () => ({
   })
 }));
 
-vi.mock('../contexts/WritingSettingsContext', () => ({
+vi.mock('../../../core/settings/WritingSettingsContext', () => ({
   useWritingSettings: () => ({
     fontFamily: 'Inter',
     fontSize: 18,

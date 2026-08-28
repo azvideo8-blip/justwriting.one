@@ -3,7 +3,7 @@ import { Database, Loader2, Trash2 } from 'lucide-react';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { VersionService } from '../../../core/services/VersionService';
-import { AdminUserService } from '../../admin/services/AdminUserService';
+import { AdminUserService } from '../../../core/services/AdminUserService';
 import { cn } from '../../../core/utils/utils';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';

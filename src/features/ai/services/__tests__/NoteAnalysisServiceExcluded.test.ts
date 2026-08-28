@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import "fake-indexeddb/auto";
 import { NoteAnalysisService } from "../NoteAnalysisService";
 import { AIService } from "../AIService";
-import { AISummaryService } from "../../../../core/services/AISummaryService";
-import { AIEmbeddingService } from "../../../../core/services/AIEmbeddingService";
+import { AISummaryService } from "../AISummaryService";
+import { AIEmbeddingService } from "../AIEmbeddingService";
 import { getLocalDb } from "../../../../core/storage/localDb";
 import { toggleAIExclusion } from "../../../archive/services/archiveCrud";
 import { DocumentService } from "../../../../core/services/DocumentService";
@@ -20,11 +20,15 @@ vi.mock("../../../../core/data", () => ({
   },
 }));
 
+import { initAiDomainEvents } from "../../subscribeDomainEvents";
+
 describe("D4.18 NoteAnalysisService & ArchiveCrud Exclusion", () => {
   const EXCLUDED_ID = "doc_excluded_1";
+  let unsub: () => void;
 
   beforeEach(async () => {
     vi.restoreAllMocks();
+    unsub = initAiDomainEvents();
     const db = await getLocalDb();
     for (const store of ["documents", "versions", "aiSummaries", "aiEmbeddings"] as const) {
       const all = await db.getAll(store);
@@ -62,16 +66,16 @@ describe("D4.18 NoteAnalysisService & ArchiveCrud Exclusion", () => {
       sessionStartedAt: 1000,
     } as never);
 
-    await AISummaryService.save({
+    await db.put("aiSummaries", {
       documentId: EXCLUDED_ID,
-      summary: "Старая сводка",
-      processedAt: 1000,
-      contentHash: "hash",
       tone: "neutral",
       frequentWords: ["слово"],
       insights: ["мысль"],
       themes: ["тема"],
       extractedFacts: ["факт"],
+      processedAt: 1000,
+      contentHash: "hash",
+      summary: "Старая сводка",
     });
 
     await AIEmbeddingService.save({
@@ -82,6 +86,10 @@ describe("D4.18 NoteAnalysisService & ArchiveCrud Exclusion", () => {
       model: "test-model",
       dim: 3,
     });
+  });
+
+  afterEach(() => {
+    unsub?.();
   });
 
   it("analyze() returns early with { ok: false, error: 'EXCLUDED' } on excluded note", async () => {
@@ -138,9 +146,14 @@ describe("D4.18 NoteAnalysisService & ArchiveCrud Exclusion", () => {
     const doc = await db.get("documents", EXCLUDED_ID);
     expect(doc?.excludedFromAI).toBe(true);
 
-    // Analysis was cleared
-    const summary = await AISummaryService.get(EXCLUDED_ID);
-    expect(summary).toBeFalsy();
+    // Уборка разбора идёт через шину доменных событий и подгружает модули ИИ
+    // динамически (иначе весь граф ИИ уезжает в стартовый бандл), поэтому она
+    // асинхронна и наступает не в том же тике. Ждём её явно: если подписчик
+    // не отработает, waitFor истечёт и тест покраснеет — смысл проверки тот же.
+    await vi.waitFor(async () => {
+      const summary = await AISummaryService.get(EXCLUDED_ID);
+      expect(summary).toBeFalsy();
+    }, { timeout: 2000 });
 
     // Cloud update was requested
     expect(updateCloudSpy).toHaveBeenCalledWith("u_test_123", "cloud_doc_123", true);

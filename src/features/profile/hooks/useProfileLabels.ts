@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ProfileService } from '../services/ProfileService';
+import { ProfileService } from '../../../core/services/ProfileService';
 import { randomUUID } from '../../../core/storage/localDb';
 import { Label } from '../../../types';
 import { DocumentService } from '../../../core/services/DocumentService';

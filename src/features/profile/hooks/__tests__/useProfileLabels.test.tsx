@@ -115,7 +115,7 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
   // правдой.
   it('чтение здорового профиля не переписывает метки', async () => {
     const { DataProvider } = await import('../../../../core/data');
-    const { ProfileService } = await import('../../services/ProfileService');
+    const { ProfileService } = await import('../../../../core/services/ProfileService');
 
     const encrypted = await encryptLabels(
       [{ id: 'l1', name: 'Терапия', color: '#111' }],
@@ -137,7 +137,7 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
   // метки останутся такими навсегда, молча.
   it('чтение профиля со старыми незашифрованными метками их шифрует', async () => {
     const { DataProvider } = await import('../../../../core/data');
-    const { ProfileService } = await import('../../services/ProfileService');
+    const { ProfileService } = await import('../../../../core/services/ProfileService');
 
     mockProfileStore = { uid: 'user_test', labels: [{ id: 'l1', name: 'Практика6', color: '#222' }] };
     vi.mocked(DataProvider.updateProfile).mockClear();

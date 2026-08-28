@@ -3,7 +3,7 @@ import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../../../../test/utils/render';
 import { SettingsPanel } from '../SettingsPanel';
 import { ThemeProvider } from '../../../../core/theme/ThemeProvider';
-import { WritingSettingsProvider } from '../../../writing/contexts/WritingSettingsContext';
+import { WritingSettingsProvider } from '../../../../core/settings/WritingSettingsContext';
 
 describe('SettingsPanel (Editor Panel)', () => {
   it('renders single editor panel without tablist', () => {

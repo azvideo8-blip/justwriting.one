@@ -17,7 +17,7 @@ import { Heatmap } from '../../features/profile/components/Heatmap';
 import { HourRhythm } from '../../features/profile/components/HourRhythm';
 import { Achievements } from '../../features/profile/components/Achievements';
 import { useNavigate } from 'react-router-dom';
-import { ProfileService } from '../../core/services/ProfileServiceRef';
+import { ProfileService } from '../../core/services/ProfileService';
 import { MobilePageHeader } from '../../shared/components/MobilePageHeader';
 import { LoadingSkeleton } from '../../shared/components/LoadingSkeleton';
 import { useProfileStats } from '../../features/profile/hooks/useProfileStats';

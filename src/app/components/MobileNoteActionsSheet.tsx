@@ -1,0 +1,395 @@
+import { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { X, ExternalLink, EyeOff, Pencil, Tag, Trash2, Cloud, HardDrive, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { useLanguage } from '../../shared/i18n';
+import { useToast } from '../../shared/components/Toast';
+import { StorageService } from '../../core/services/StorageService';
+import { LocalDocumentService } from '../../core/services/LocalDocumentService';
+import { SyncService } from '../../core/services/SyncService';
+import { getSessionKey } from '../../core/crypto/encrypt';
+import { UnlockPrompt } from '../UnlockPrompt';
+import { EncryptionPasswordModal } from '../EncryptionPasswordModal';
+import { useAuthStatus } from '../useAuthStatus';
+import { reportError } from '../../shared/errors/reportError';
+import { Label } from '../../types';
+import { cn } from '../../core/utils/utils';
+import { Button } from '../../shared/components/Button';
+import { IconButton } from '../../shared/components/IconButton';
+import { ModalShell } from '../../shared/components/ModalShell';
+
+interface MobileNoteActionsSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  session: {
+    id: string;
+    title?: string | undefined;
+    labelId?: string | undefined;
+    _isLocal?: boolean | undefined;
+    _linkedCloudId?: string | undefined;
+    _hasCloudCopy?: boolean | undefined;
+    _hasPendingSync?: boolean | undefined;
+  };
+  userId: string;
+  labels?: Label[] | undefined;
+  onOpen: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  onLabelChange: (labelId: string | undefined) => void;
+  onStorageChange: () => void;
+  /** Разбор заметки ИИ — тот же обработчик, что у кнопки ✨ в списке. */
+  aiProcessed?: boolean | undefined;
+  aiLoading?: boolean | undefined;
+  onAIClick?: (() => void) | undefined;
+  aiExcluded?: boolean | undefined;
+  aiExclusionLoading?: boolean | undefined;
+  onAIExclusionClick?: (() => void) | undefined;
+}
+
+export function MobileNoteActionsSheet({
+  isOpen,
+  onClose,
+  session,
+  userId,
+  labels,
+  onOpen,
+  onRename,
+  onDelete,
+  onLabelChange,
+  onStorageChange,
+  aiProcessed,
+  aiLoading,
+  onAIClick,
+  aiExcluded,
+  aiExclusionLoading,
+  onAIExclusionClick,
+}: MobileNoteActionsSheetProps) {
+  const { t } = useLanguage();
+  const { showToast } = useToast();
+  const { profile } = useAuthStatus();
+  const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [showLabelsSelector, setShowLabelsSelector] = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
+
+  const doc = {
+    localId: session._isLocal ? session.id : undefined,
+    cloudId: session._linkedCloudId,
+    hasLocal: !!session._isLocal,
+    hasCloud: !!session._hasCloudCopy,
+    hasPendingSync: !!session._hasPendingSync,
+  };
+
+  const handleUploadOrSync = async () => {
+    if (!doc.localId || !userId || userId.startsWith('guest_')) return;
+    if (!getSessionKey()) {
+      if (hasEncryption) {
+        setShowUnlock(true);
+      } else {
+        setShowEncryptionSetup(true);
+      }
+      return;
+    }
+    setLoadingAction('upload');
+    try {
+      if (doc.hasPendingSync) {
+        const ok = await SyncService.syncDocument(userId, doc.localId, true);
+        if (ok) {
+          showToast(t('storage_uploaded_cloud'), 'success');
+        } else {
+          showToast(t('error_generic_action'), 'error');
+        }
+      } else {
+        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, true);
+        if (cloudId) {
+          showToast(t('storage_uploaded_cloud'), 'success');
+        } else {
+          showToast(t('error_generic_action'), 'error');
+        }
+      }
+      onStorageChange();
+      onClose();
+    } catch (e) {
+      reportError(e, { action: doc.hasPendingSync ? 'syncDocument' : 'addCloudCopy', userId, localId: doc.localId });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const handleDeleteLocalOnly = async () => {
+    setLoadingAction('delete-local');
+    try {
+      await StorageService.removeLocalCopy(doc.localId!);
+      showToast(t('storage_deleted_local'), 'success');
+      onStorageChange();
+      onClose();
+    } catch (e) {
+      reportError(e, { action: 'removeLocalCopy', userId });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const handleDeleteCloudOnly = async () => {
+    setLoadingAction('delete-cloud');
+    try {
+      await StorageService.removeCloudCopy(userId, doc.cloudId!);
+      if (doc.localId) {
+        // Deliberate removal from the cloud: record the intent, do not just
+        // drop the link. `updateLinkedCloudId(id, '')` leaves the note looking
+        // like one whose link was LOST, and the re-link pass restores it —
+        // putting back the copy the user just asked to delete.
+        await LocalDocumentService.unlinkFromCloud(doc.localId);
+      }
+      showToast(t('storage_deleted_cloud'), 'success');
+      onStorageChange();
+      onClose();
+    } catch (e) {
+      reportError(e, { action: 'removeCloudCopy', userId });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const canUpload = !doc.hasCloud && !!doc.localId && !!userId && !userId.startsWith('guest_');
+
+  const selectedLabel = labels?.find(l => l.id === session.labelId);
+
+  return (
+    <ModalShell open={isOpen} onClose={onClose} labelId="note-actions-sheet-title" variant="sheet">
+        {/* Grab Handle */}
+        <div className="flex justify-center py-3">
+          <div className="w-12 h-1.5 rounded-full bg-white/10" />
+        </div>
+
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 pb-3">
+          <h3 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions') || 'Действия с заметкой'}</h3>
+          <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
+            {t('archive_note_actions') || 'Действия с заметкой'}
+          </span>
+          <IconButton
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/[0.04] border-none flex items-center justify-center text-text-main/60 hover:text-text-main/70 cursor-pointer"
+            label={t('close')}
+            icon={<X size={18} />}
+          />
+        </div>
+
+        {/* Document Title Header */}
+        <div className="px-6 py-4 bg-white/[0.01] border-y border-white/[0.04] flex items-center justify-between">
+          <div className="min-w-0 flex-1 pr-4">
+            <div className="text-base font-bold text-text-main truncate">
+              {session.title || t('common_untitled')}
+            </div>
+            {selectedLabel && (
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedLabel.color }} />
+                <span className="text-xs text-text-main/60">{selectedLabel.name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Options List */}
+        <div className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+          {!showLabelsSelector ? (
+            <>
+              {/* 1. Preview Option */}
+              <Button
+                onClick={() => { onOpen(); onClose(); }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+              >
+                <ExternalLink size={18} className="text-text-main/60" />
+                <span>{t('archive_preview') || 'Открыть превью'}</span>
+              </Button>
+
+              <Button
+                onClick={() => { onRename(); onClose(); }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+              >
+                <Pencil size={18} className="text-text-main/60" />
+                <span>{t('archive_rename_title') || 'Переименовать'}</span>
+              </Button>
+
+              {(labels && labels.length > 0 || session.labelId) && (
+                <Button
+                  onClick={() => setShowLabelsSelector(true)}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  <Tag size={18} className="text-text-main/60" />
+                  <span>{t('archive_assign_label') || 'Назначить ярлык'}</span>
+                </Button>
+              )}
+
+              {(canUpload || doc.hasPendingSync) && (
+                <Button
+                  onClick={() => void handleUploadOrSync()}
+                  disabled={!!loadingAction}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-brand-primary bg-brand-primary/10 border border-brand-primary/20 active:bg-brand-primary/20 transition-colors text-left"
+                >
+                  {loadingAction === 'upload' ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : doc.hasPendingSync ? (
+                    <>
+                      <RefreshCw size={18} />
+                      <span>{t('storage_sync_pending') || 'Синхронизировать изменения'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Cloud size={18} />
+                      <span>{t('storage_upload_to_cloud') || 'Загрузить в облако'}</span>
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {onAIExclusionClick && (
+                <Button
+                  onClick={() => {
+                    if (!aiExclusionLoading) {
+                      onAIExclusionClick();
+                      onClose();
+                    }
+                  }}
+                  disabled={!!aiExclusionLoading}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  {aiExclusionLoading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <EyeOff size={18} className={aiExcluded ? 'text-accent-danger' : 'text-text-main/60'} />
+                  )}
+                  <span>{aiExcluded ? t('ai_note_include') : t('ai_note_exclude')}</span>
+                </Button>
+              )}
+
+              {onAIClick && (
+                <Button
+                  onClick={() => { if (!aiLoading && !aiExcluded) { onAIClick(); onClose(); } }}
+                  disabled={!!aiLoading || !!aiExcluded}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left disabled:opacity-40"
+                >
+                  {aiLoading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={18} className={aiProcessed ? 'text-brand-soft' : undefined} />
+                  )}
+                  <span>{aiExcluded ? t('ai_note_excluded') : aiProcessed ? t('ai_note_clear') : t('ai_note_analyze')}</span>
+                </Button>
+              )}
+
+              {doc.hasLocal && doc.hasCloud && (
+                <Button
+                  onClick={() => void handleDeleteLocalOnly()}
+                  disabled={!!loadingAction}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  {loadingAction === 'delete-local' ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>
+                      <HardDrive size={18} className="text-text-main/60" />
+                      <span>{t('storage_remove_local') || 'Удалить локальную копию'}</span>
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {doc.hasLocal && doc.hasCloud && (
+                <Button
+                  onClick={() => void handleDeleteCloudOnly()}
+                  disabled={!!loadingAction}
+                  className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/70 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
+                >
+                  {loadingAction === 'delete-cloud' ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>
+                      <Cloud size={18} className="text-text-main/60" />
+                      <span>{t('storage_remove_cloud') || 'Удалить из облака'}</span>
+                    </>
+                  )}
+                </Button>
+              )}
+
+              <Button
+                onClick={() => { onDelete(); onClose(); }}
+                className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-accent-danger bg-accent-danger/10 border border-accent-danger/20 active:bg-accent-danger/20 transition-colors text-left"
+              >
+                <Trash2 size={18} />
+                <span>{t('archive_delete') || 'Удалить полностью'}</span>
+              </Button>
+
+            </>
+          ) : (
+            // Labels Sub-selector
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-text-main/60 uppercase tracking-wider">{t('archive_assign_label')}</span>
+                <Button onClick={() => setShowLabelsSelector(false)} className="text-xs text-brand-soft hover:underline">
+                  {t('writing_back') || 'Назад'}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {session.labelId && (
+                  <Button
+                    onClick={() => {
+                      onLabelChange(undefined);
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border bg-white/[0.01] border-white/[0.04] text-text-main/60 hover:bg-white/[0.03]"
+                  >
+                    <div className="w-3.5 h-3.5 rounded-full border border-dashed border-text-main/20 shrink-0" />
+                    <span className="flex-1">{t('archive_no_label')}</span>
+                  </Button>
+                )}
+                {labels?.map(l => (
+                  <Button
+                    key={l.id}
+                    onClick={() => {
+                      onLabelChange(session.labelId === l.id ? undefined : l.id);
+                      onClose();
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-left transition-colors border",
+                      session.labelId === l.id
+                        ? "bg-text-main/10 border-text-main/20 text-text-main"
+                        : "bg-white/[0.01] border-white/[0.04] text-text-main/60 hover:bg-white/[0.03]"
+                    )}
+                  >
+                    <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: l.color }} />
+                    <span className="flex-1">{l.name}</span>
+                    {session.labelId === l.id && <span className="text-xs text-brand-soft">✓</span>}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+      <AnimatePresence>
+        {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
+          <UnlockPrompt
+            uid={userId}
+            onUnlocked={() => { setShowUnlock(false); void handleUploadOrSync(); }}
+            onClose={() => setShowUnlock(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {showEncryptionSetup && userId && !userId.startsWith('guest_') && (
+        <EncryptionPasswordModal
+          mode="setup"
+          userId={userId}
+          context="cloud-sync"
+          onDone={() => { setShowEncryptionSetup(false); void handleUploadOrSync(); }}
+          onClose={() => setShowEncryptionSetup(false)}
+        />
+      )}
+    </ModalShell>
+  );
+}

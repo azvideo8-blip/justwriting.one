@@ -1,3 +1,4 @@
+import { onDomainEvent } from '../../../core/events/domainEvents';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
 import { useSessionMetaStore } from './useSessionMetaStore';
@@ -50,6 +51,12 @@ function resetSession() {
   useTimerStore.setState(TIMER_DEFAULTS);
   useSessionMetaStore.setState(META_DEFAULTS);
 }
+
+onDomainEvent(e => {
+  if (e.type === 'account.reset') {
+    resetSession();
+  }
+});
 
 export { resetSession, resetSession as resetAndClear };
 

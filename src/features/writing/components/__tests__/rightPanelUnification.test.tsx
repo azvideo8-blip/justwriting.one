@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, renderHook, act } from '@testing-library/react';
-import { WritingSettingsProvider, useWritingSettings } from '../../contexts/WritingSettingsContext';
+import { WritingSettingsProvider, useWritingSettings } from '../../../../core/settings/WritingSettingsContext';
 import { WritingHeader } from '../WritingHeader';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../../../navigation/components/Sidebar';

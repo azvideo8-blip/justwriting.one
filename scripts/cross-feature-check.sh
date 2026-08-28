@@ -1,12 +1,5 @@
 #!/bin/bash
 # AUDIT-part3 9: храповик cross-feature импортов внутри src/features.
-#
-# v2 (2026-08-26): v1 ловил только '../features/x' и пропускал настоящий
-# класс — '../../admin/services' (соседняя фича относительным путём).
-# v2 перебирает фичи и ищет импорты из ЛЮБОЙ другой фичи, кроме
-# санкционированного auth (провайдер сессии). Эталон совпадает с зоной
-# import/no-restricted-paths «features -> features» в eslint.config.js —
-# включить её, когда счётчик дойдёт до нуля.
 set -e
 feats=$(ls -d src/features/*/ | xargs -n1 basename)
 count=0
@@ -27,5 +20,13 @@ if [ "$count" -gt "$baseline" ]; then
     grep -rEn "from '(\.\./)+($others)/" "src/features/$f" --include='*.ts' --include='*.tsx' 2>/dev/null \
       | grep -v __tests__ || true
   done
+  exit 1
+fi
+
+# Ensure no eslint-disable suppressions bypass the boundary
+suppressions=$(grep -rn 'eslint-disable.*import/no-restricted-paths' src/ | wc -l | tr -d ' ')
+if [ "$suppressions" -gt 0 ]; then
+  echo "::error::Found $suppressions eslint-disable comments for import/no-restricted-paths in src/:"
+  grep -rn 'eslint-disable.*import/no-restricted-paths' src/
   exit 1
 fi

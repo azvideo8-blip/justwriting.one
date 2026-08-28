@@ -5,12 +5,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { getWpmHex } from '../utils/wpmColors';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { AIToggleButton } from './AIPanel';
+import { AIToggleButton } from './AIToggleButton';
 import { Mic, MicOff } from 'lucide-react';
 import { useSpeechInput } from '../../../shared/hooks/useSpeechInput';
 

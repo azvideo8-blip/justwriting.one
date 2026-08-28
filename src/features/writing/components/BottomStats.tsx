@@ -8,7 +8,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useLanguage } from '../../../shared/i18n';
 import { getWpmColor, getWpmHex } from '../utils/wpmColors';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';

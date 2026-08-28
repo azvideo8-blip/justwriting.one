@@ -1,5 +1,5 @@
 import { ThemeProvider } from '../core/theme/ThemeProvider';
-import { WritingSettingsProvider } from '../features/writing/contexts/WritingSettingsContext';
+import { WritingSettingsProvider } from '../core/settings/WritingSettingsContext';
 import { SettingsProvider } from '../core/settings/SettingsProvider';
 import { SettingsPanel } from '../features/settings/components/SettingsPanel';
 import { LanguageProvider } from '../shared/i18n';
@@ -24,6 +24,8 @@ import { SyncService } from '../core/services/SyncService';
 import { STORAGE_KEYS } from '../shared/constants/storageKeys';
 import { reportError } from '../shared/errors/reportError';
 
+import { initAiDomainEvents } from '../features/ai/subscribeDomainEvents';
+
 // Resolves the auth-aware userId here so core's SettingsProvider stays free of
 // feature imports (core must not import from features/).
 function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
@@ -44,6 +46,10 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
   const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
   const { showConsent, setShowConsent } = useSyncConsentCheck();
   useBackgroundSync();
+
+  useEffect(() => {
+    return initAiDomainEvents();
+  }, []);
 
   // One-time backfill: give canonical uuids to notes created before C1.1.
   // Uses useAuthStatus() so the effect fires once auth resolves —

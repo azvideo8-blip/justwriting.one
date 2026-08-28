@@ -5,7 +5,7 @@ import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
 import { Shield, Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
-import { useSyncStatus } from '../../settings/hooks/useSyncStatus';
+import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"

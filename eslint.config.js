@@ -58,12 +58,15 @@ export default [
           { target: './src/core', from: './src/features', message: 'core must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/features', message: 'shared must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/core', message: 'shared must stay dependency-free of core (ARCHITECTURE.md)' },
-          // AUDIT-part3 9 (2026-08-26): зона подготовлена, но НЕ включена:
-          // реальный долг 48 импортов в ~35 файлах. v1-детектор храповика мерял
-          // неверный класс ('../features/x'), v2 (scripts/cross-feature-check.sh)
-          // считает соседние фичи по относительному пути — см. базлайн 48.
-          // Включить зону, когда счётчик дойдёт до нуля. Исключение: './auth'.
           { target: './src/features/auth', from: './src/features', except: ['./auth'], message: 'auth is feature-import-free — keep it that way (ARCHITECTURE.md)' },
+          { target: './src/features/admin', from: './src/features', except: ['./admin', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
+          { target: './src/features/ai', from: './src/features', except: ['./ai', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
+          { target: './src/features/archive', from: './src/features', except: ['./archive', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
+          { target: './src/features/encryption', from: './src/features', except: ['./encryption', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
+          { target: './src/features/navigation', from: './src/features', except: ['./navigation', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
+          { target: './src/features/profile', from: './src/features', except: ['./profile', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
+          { target: './src/features/settings', from: './src/features', except: ['./settings', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
+          { target: './src/features/writing', from: './src/features', except: ['./writing', './auth'], message: 'cross-feature imports forbidden (ARCHITECTURE.md)' },
         ],
       }],
       'no-console': ['error', { allow: ['error', 'warn'] }],

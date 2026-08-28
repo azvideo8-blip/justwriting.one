@@ -9,7 +9,7 @@ import { StorageIcons } from './StorageIcons';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { highlightText, getSearchContext } from '../../../shared/utils/highlightText';
-import { MobileNoteActionsSheet } from './MobileNoteActionsSheet';
+import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { AnimatePresence } from 'motion/react';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Button } from '../../../shared/components/Button';

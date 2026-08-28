@@ -5,7 +5,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { loadAllSessions, hydrateSessionContent } from '../../../core/services/UnifiedSessionLoader';
-import { exportAllAsZip } from '../../export/ExportAllService';
+import { exportAllAsZip } from '../../../core/services/ExportAllService';
 import { ExportStrings } from '../../../shared/types/common';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';

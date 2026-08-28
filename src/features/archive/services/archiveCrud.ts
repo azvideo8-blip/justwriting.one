@@ -6,10 +6,7 @@ import { SyncService } from '../../../core/services/SyncService';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { ArchiveSession } from '../types';
 import { reportError } from '../../../shared/errors/reportError';
-import { AISummaryService } from '../../../core/services/AISummaryService';
-import { AIEmbeddingService } from '../../../core/services/AIEmbeddingService';
-import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
-import { refreshMiniSearchDoc } from '../../ai/utils/noteRetriever';
+import { emitDomainEvent } from '../../../core/events/domainEvents';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
 type ArchiveFieldValue = string[] | string | Date | undefined;
@@ -26,9 +23,7 @@ export async function toggleAIExclusion(
 
   if (session._isLocal) {
     await LocalDocumentService.updateExcludedFromAI(session.id, excluded);
-    if (excluded) {
-      await NoteAnalysisService.clear(session.id);
-    }
+    emitDomainEvent({ type: 'note.excludedFromAI', documentId: session.id, excluded });
     if (session._linkedCloudId && user) {
       await DocumentService.updateExcludedFromAI(user.uid, session._linkedCloudId, excluded).catch(e => {
         cloudSyncFailed = true;
@@ -36,7 +31,6 @@ export async function toggleAIExclusion(
         void SyncService.addToQueue(session.id);
       });
     }
-    void refreshMiniSearchDoc(session.id);
     return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
   }
 
@@ -44,25 +38,20 @@ export async function toggleAIExclusion(
   if (user) {
     try {
       await DocumentService.updateExcludedFromAI(user.uid, session.id, excluded);
-      if (excluded) {
-        await NoteAnalysisService.clear(session.id);
-      }
+      emitDomainEvent({ type: 'note.excludedFromAI', documentId: session.id, excluded });
     } catch (e) {
       reportError(e, { action: 'toggleAIExclusion_cloudOnly', documentId: session.id });
       cloudSyncFailed = true;
       try {
         const localId = await CloudSyncService.addLocalCopy(user.uid, session.id);
         await LocalDocumentService.updateExcludedFromAI(localId, excluded);
-        if (excluded) {
-          await NoteAnalysisService.clear(localId);
-        }
+        emitDomainEvent({ type: 'note.excludedFromAI', documentId: localId, excluded });
         void SyncService.addToQueue(localId);
       } catch (localErr) {
         reportError(localErr, { action: 'toggleAIExclusion_localFallback', documentId: session.id });
         throw localErr;
       }
     }
-    void refreshMiniSearchDoc(session.id);
   }
   return cloudSyncFailed ? { success: true, cloudSyncFailed } : { success: true };
 }
@@ -211,6 +200,5 @@ export async function deleteArchiveSession(
     } catch { /* fall back to the snapshot */ }
   }
   await StorageService.deleteDocument(userId, localId, cloudId);
-  await AISummaryService.delete(session.id);
-  await AIEmbeddingService.delete(session.id);
+  emitDomainEvent({ type: 'note.deleted', documentId: session.id });
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { loadSessionContent } from '../UnifiedSessionLoader';
+import { loadSessionContent } from '../../../../core/services/UnifiedSessionLoader';
 import { VersionService } from '../../../../core/services/VersionService';
 
 // AUD-5: getLatestVersion возвращал null и на «версии нет», и на «запись не

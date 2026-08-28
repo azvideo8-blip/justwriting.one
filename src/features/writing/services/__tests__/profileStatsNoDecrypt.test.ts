@@ -29,7 +29,7 @@ vi.mock('../../../../core/services/VersionService', () => ({
   VersionService: { getLatestVersion: vi.fn().mockResolvedValue(null) },
 }));
 
-import { loadAllSessions } from '../UnifiedSessionLoader';
+import { loadAllSessions } from '../../../../core/services/UnifiedSessionLoader';
 
 const doc = (id: string) => ({
   id, guestId: 'u_prof_1', title: `n-${id}`, currentVersion: 1,

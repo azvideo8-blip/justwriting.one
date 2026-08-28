@@ -3,7 +3,7 @@ import { X, Plus } from 'lucide-react';
 import { getCurrentUser } from '../../../core/auth';
 import { Session } from '../../../types';
 import { useLanguage } from '../../../shared/i18n';
-import { useSessionTags } from '../hooks/useSessionTags';
+import { useSessionTags } from '../../../shared/hooks/useSessionTags';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 

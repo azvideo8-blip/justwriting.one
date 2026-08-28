@@ -4,7 +4,7 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { DocumentService } from '../../../core/services/DocumentService';
 import { SyncService } from '../../../core/services/SyncService';
 import { StorageService } from '../../../core/services/StorageService';
-import { AdminUserService } from '../../admin/services/AdminUserService';
+import { AdminUserService } from '../../../core/services/AdminUserService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';

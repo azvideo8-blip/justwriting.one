@@ -4,7 +4,7 @@ import { AuthService } from '../../../app/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
-import { resetAndClear } from '../../writing/store/storeActions';
+import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
@@ -25,7 +25,7 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
   const handleConfirmSignOut = async (opts: { clearLocalData: boolean; force?: boolean }) => {
     try {
       await AuthService.signOut(opts);
-      resetAndClear();
+      emitDomainEvent({ type: 'account.reset' });
       showToast(opts.clearLocalData ? 'Вы вышли, локальные данные удалены' : 'Вы вышли из аккаунта', 'success');
     } catch (e) {
       const isUnsynced = (e as { name?: string }).name === 'UnsyncedLocalDataError';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../../shared/i18n';
 import { useTheme } from '../../../core/theme/ThemeProvider';
-import { useWritingSettings } from '../../writing/contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { cn } from '../../../core/utils/utils';
 import { Section, ToggleRow } from './SettingsHelpers';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';

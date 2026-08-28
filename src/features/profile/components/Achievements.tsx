@@ -5,7 +5,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { Session, Achievement } from '../../../types';
 import { ACHIEVEMENTS as ACH_DATA } from '../constants/achievements';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { ProfileService } from '../services/ProfileService';
+import { ProfileService } from '../../../core/services/ProfileService';
 import { calculateBestStreak, cn } from '../../../core/utils/utils';
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';

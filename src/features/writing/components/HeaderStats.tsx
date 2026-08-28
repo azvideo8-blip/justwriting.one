@@ -5,7 +5,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { GoalPopup } from './GoalPopup';
 import { getWpmColor } from '../utils/wpmColors';
-import { HeaderVisibility } from '../contexts/WritingSettingsContext';
+import { HeaderVisibility } from '../../../core/settings/WritingSettingsContext';
 
 interface HeaderStatsProps {
   wordGoal: number;

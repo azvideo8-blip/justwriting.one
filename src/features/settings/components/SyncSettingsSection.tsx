@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle, CloudDownload, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -7,19 +7,26 @@ import { Section } from './SettingsHelpers';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
-import { useSyncStatus } from '../hooks/useSyncStatus';
+import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { SyncService } from '../../../core/services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
-import { RestoreFromCloudModal } from '../../sync/components/RestoreFromCloudModal';
 import { getOversizedRecordCount } from '../../../core/services/LocalStoreSyncService';
-import { AIDerivedDataSyncService } from '../../ai/services/AIDerivedDataSyncService';
 
 interface SyncSettingsSectionProps {
   userId: string;
+  onSyncDerivedData?: (userId: string) => Promise<{
+    summaries: { synced: number };
+    embeddings: { synced: number };
+    stores: { synced: number };
+    totalSynced: number;
+    totalFailed: number;
+    skippedLocked: boolean;
+  }>;
+  renderRestoreModal?: (props: { open: boolean; onClose: () => void }) => ReactNode;
 }
 
-export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
+export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreModal }: SyncSettingsSectionProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { isAuthenticated, isGuest } = useAuthStatus();
@@ -57,9 +64,10 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
   };
 
   const handleSyncDerived = async () => {
+    if (!onSyncDerivedData) return;
     setSyncingDerived(true);
     try {
-      const res = await AIDerivedDataSyncService.syncAllDerivedData(userId);
+      const res = await onSyncDerivedData(userId);
       if (res.skippedLocked) {
         // Сначала о том, что успело уехать: проход прерывается на середине, и
         // молчание о сделанном читается как «ничего не вышло».
@@ -222,10 +230,7 @@ export function SyncSettingsSection({ userId }: SyncSettingsSectionProps) {
               )}
             </Button>
 
-            <RestoreFromCloudModal
-              open={restoreModalOpen}
-              onClose={() => setRestoreModalOpen(false)}
-            />
+            {renderRestoreModal ? renderRestoreModal({ open: restoreModalOpen, onClose: () => setRestoreModalOpen(false) }) : null}
           </>
         ) : (
           <div className="space-y-3">

@@ -4,8 +4,8 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { AuthService } from '../../../app/AuthService';
-import { ProfileService } from '../../../core/services/ProfileServiceRef';
-import { resetAndClear } from '../../writing/store/storeActions';
+import { ProfileService } from '../../../core/services/ProfileService';
+import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { reportError } from '../../../shared/errors/reportError';
@@ -50,7 +50,7 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
     setAuthError(false);
     try {
       await AuthService.deleteAccount(password);
-      resetAndClear();
+      emitDomainEvent({ type: 'account.reset', userId });
       showToast(t('settings_delete_account_success'), 'success');
       void navigate('/login');
     } catch (err) {

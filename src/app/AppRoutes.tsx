@@ -4,14 +4,14 @@ import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 
-const WritingPage = React.lazy(() => import('../features/writing/pages/WritingPage').then(m => ({ default: m.WritingPage })));
+const WritingPage = React.lazy(() => import('./pages/WritingPage').then(m => ({ default: m.WritingPage })));
 const MobileMePage = React.lazy(() => import('./pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
-const ArchivePage = React.lazy(() => import('../features/archive/pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
-const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const ArchivePage = React.lazy(() => import('./pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const ResetPasswordPage = React.lazy(() => import('../features/auth/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
-const AIPage = React.lazy(() => import('../features/ai/pages/AIPage').then(m => ({ default: m.AIPage })));
-const DiagnosticsPage = React.lazy(() => import('../features/ai/pages/DiagnosticsPage').then(m => ({ default: m.DiagnosticsPage })));
+const AIPage = React.lazy(() => import('./pages/AIPage').then(m => ({ default: m.AIPage })));
+const DiagnosticsPage = React.lazy(() => import('./pages/DiagnosticsPage').then(m => ({ default: m.DiagnosticsPage })));
 const RerankBenchPage = React.lazy(() => import('../features/ai/pages/RerankBenchPage').then(m => ({ default: m.RerankBenchPage })));
 const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const ChangelogPage = React.lazy(() => import('../features/navigation/pages/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
@@ -19,7 +19,7 @@ const LandingPage = React.lazy(() => import('../features/navigation/pages/Landin
 const PrivacyPolicyPage = React.lazy(() => import('../features/navigation/pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 const TermsOfServicePage = React.lazy(() => import('../features/navigation/pages/TermsOfServicePage').then(m => ({ default: m.TermsOfServicePage })));
 const ConsentPage = React.lazy(() => import('../features/navigation/pages/ConsentPage').then(m => ({ default: m.ConsentPage })));
-const SettingsPage = React.lazy(() => import('../features/settings/pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const NotFoundPage = React.lazy(() => import('../features/navigation/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
 import { Loader2 } from 'lucide-react';

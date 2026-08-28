@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { AnimatePresence, motion } from 'motion/react';
@@ -12,7 +12,6 @@ import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { ConnectionStatusBanner } from './ConnectionStatusBanner';
-import { AIPanel } from './AIPanel';
 import { getWpmHex } from '../utils/wpmColors';
 import { cn } from '../../../core/utils/utils';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
@@ -25,10 +24,11 @@ interface MobileWriteScreenProps {
   onNew?: () => void;
   saveStatus?: string;
   keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
+  renderAiPanel?: (open: boolean, onClose: () => void) => React.ReactNode;
 }
 
 export function MobileWriteScreen({
-  onPlay, onPause, onStop, onNew, saveStatus, keystrokeTrackerRef
+  onPlay, onPause, onStop, onNew, saveStatus, keystrokeTrackerRef, renderAiPanel
 }: MobileWriteScreenProps) {
   const { t } = useLanguage();
   const { content, setContent, title, setTitle, wordCount, wpm } = useContentStore(
@@ -369,7 +369,7 @@ export function MobileWriteScreen({
         )}
       </AnimatePresence>
 
-      <AIPanel open={aiPanelOpen} onClose={() => setAiPanelOpen(false)} />
+      {renderAiPanel ? renderAiPanel(aiPanelOpen, () => setAiPanelOpen(false)) : null}
     </div>
     </>
   );

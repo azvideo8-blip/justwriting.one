@@ -1,0 +1,63 @@
+import { downloadBlob } from '../../shared/utils/downloadBlob';
+import { format } from 'date-fns';
+import { ArchiveSession, ExportStrings } from '../../shared/types/common';
+import { buildMarkdownContent, getFilenameBase, stripMarkdown } from './ArchiveExportService';
+import { toDate } from '../utils/dateUtils';
+
+interface LockedFlags {
+  _locked?: boolean;
+  _decryptionError?: boolean;
+  _contentError?: boolean;
+  // Never exported: its text was never fetched, so writing it now produces an
+  // empty file for a note that is intact in the cloud. Callers hydrate first
+  // (hydrateSessionContent); this is the backstop if one forgets.
+  _contentNotLoaded?: boolean;
+}
+
+export interface ExportAllResult {
+  exported: number;
+  skipped: number;
+}
+
+export async function exportAllAsZip(
+  sessions: ArchiveSession[],
+  s: ExportStrings,
+): Promise<ExportAllResult> {
+  // jszip грузится по требованию: 95 кБ ради кнопки, которую в большинстве
+  // сессий не нажимают, не должны лежать в общем чанке.
+  const { default: JSZip } = await import('jszip');
+  const zip = new JSZip();
+  const usedNames = new Set<string>();
+  let exported = 0;
+  let skipped = 0;
+
+  for (const session of sessions) {
+    const flags = session as LockedFlags;
+    if (flags._locked || flags._decryptionError || flags._contentError || flags._contentNotLoaded) {
+      skipped++;
+      continue;
+    }
+
+    const date = toDate(session.createdAt) ?? new Date();
+    const datePrefix = format(date, 'yyyy-MM-dd');
+    const base = `${datePrefix}_${getFilenameBase(session, s)}`;
+
+    let name = `${base}.txt`;
+    let n = 2;
+    while (usedNames.has(name)) {
+      name = `${base}_${n}.txt`;
+      n++;
+    }
+    usedNames.add(name);
+
+    const mdContent = buildMarkdownContent(session, s);
+    const txtContent = stripMarkdown(mdContent);
+    zip.file(name, txtContent);
+    exported++;
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(blob, `justwriting_backup_${format(new Date(), 'yyyy-MM-dd')}.zip`);
+
+  return { exported, skipped };
+}

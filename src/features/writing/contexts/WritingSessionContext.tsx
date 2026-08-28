@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimerStore } from '../store/useTimerStore';
 
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { useWritingSettings } from '../contexts/WritingSettingsContext';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../../../core/services/SyncService';
 import { useSessionFlow } from '../hooks/useSessionFlow';

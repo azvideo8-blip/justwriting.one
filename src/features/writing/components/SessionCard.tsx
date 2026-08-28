@@ -15,7 +15,7 @@ import { SessionEditor } from './SessionEditor';
 import { ExportMenu } from './ExportMenu';
 import { TagsSection } from './TagsSection';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
-import { MobileNoteActionsSheet } from '../../archive/components/MobileNoteActionsSheet';
+import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { Button } from '../../../shared/components/Button';
 
 export const SessionCard = React.memo(function SessionCard({

@@ -1,12 +1,12 @@
 import React, { useEffect, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
-import { useWritingSettings } from '../features/writing/contexts/WritingSettingsContext';
+import { useWritingSettings } from '../core/settings/WritingSettingsContext';
 import { useLayoutMode } from '../shared/hooks/useLayoutMode';
 import { useLanguage } from '../shared/i18n';
 import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
-import { useSyncStatus } from '../features/settings/hooks/useSyncStatus';
+import { useSyncStatus } from '../core/sync/useSyncStatus';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -26,9 +26,9 @@ import { ActivityLogBadge } from './ActivityLogBadge';
 import { AppRoutes } from './AppRoutes';
 import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
 import { useAdminStatus } from '../features/auth/hooks/useAdminStatus';
-import { useEmptyDeviceDetection } from '../features/sync/hooks/useEmptyDeviceDetection';
+import { useEmptyDeviceDetection } from '../core/sync/useEmptyDeviceDetection';
 const RestoreFromCloudModal = React.lazy(() =>
-  import('../features/sync/components/RestoreFromCloudModal').then(m => ({ default: m.RestoreFromCloudModal })),
+  import('./modals/RestoreFromCloudModal').then(m => ({ default: m.RestoreFromCloudModal })),
 );
 import { useOtherUserDetection } from '../features/auth/hooks/useOtherUserDetection';
 import { OtherUserDataModal } from '../features/auth/components/OtherUserDataModal';
