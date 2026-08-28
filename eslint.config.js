@@ -132,5 +132,32 @@ export default [
     ],
     rules: { 'no-restricted-syntax': 'off' },
   },
+  {
+    // AG-LINT-1: React-Compiler-сюита (v7 recommended тянет её через спред
+    // выше) уходит в экспоненту по памяти на распиленном aiChatContext.ts —
+    // ESLint OOM на 6 и 12 ГБ даже как одиночный файл. Классика
+    // (rules-of-hooks/exhaustive-deps) остаётся. Снять override, когда файл
+    // перестанет взрывать компиляторный анализ (кандидат — пункт 7, переезд
+    // buildContext). Полный список правил сюиты и таблица доказательства —
+    // в отчёте AG-LINT-1.
+    files: ['src/features/ai/services/aiChatContext.ts'],
+    rules: Object.fromEntries([
+      'react-hooks/static-components',
+      'react-hooks/use-memo',
+      'react-hooks/component-hook-factories',
+      'react-hooks/preserve-manual-memoization',
+      'react-hooks/incompatible-library',
+      'react-hooks/immutability',
+      'react-hooks/globals',
+      'react-hooks/refs',
+      'react-hooks/set-state-in-effect',
+      'react-hooks/error-boundaries',
+      'react-hooks/purity',
+      'react-hooks/set-state-in-render',
+      'react-hooks/unsupported-syntax',
+      'react-hooks/config',
+      'react-hooks/gating',
+    ].map(rule => [rule, 'off'])),
+  },
   prettier,
 ];
