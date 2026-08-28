@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.21',
+    date: '2026-08-28',
+    items: [
+      { category: 'improvement', ru: 'Приложение легче на старте: разбор заметок, поисковый указатель и индексатор загружаются только когда нужны, а не при каждом открытии', en: 'The app is lighter at startup: note analysis, the search index and the indexer load only when needed, instead of on every open' },
+      { category: 'improvement', ru: 'Внутренняя перестройка границ между частями приложения — для читателя ничего не меняется', en: 'Internal rework of the boundaries between parts of the app — nothing changes for the reader' },
+    ],
+  },
+  {
     version: '0.8.20',
     date: '2026-08-28',
     items: [

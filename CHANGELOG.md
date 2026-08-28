@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.21 — 2026-08-28
+
+- **[RU]** Приложение стало легче на старте: разбор заметок, поисковый указатель и индексатор больше не загружаются при открытии — только когда действительно нужны. Раньше их получал каждый, даже если ни разу не открывал ИИ.
+- **[EN]** The app is lighter at startup: note analysis, the search index and the indexer no longer load when you open it — only when they are actually needed. Everyone used to receive them, even readers who never opened the AI at all.
+- **[RU]** Внутренняя перестройка границ между частями приложения. Для читателя ничего не меняется; это цена будущих правок, а не сегодняшних.
+- **[EN]** Internal rework of the boundaries between parts of the app. Nothing changes for the reader; this pays for future edits, not today's.
+
 ## 0.8.20 — 2026-08-28
 
 - **[RU]** Диагностика, обозреватель базы, грани профиля и стенд ранжирования переведены на английский наравне с русским — около ста двадцати надписей, которые раньше были только по-русски. Эти страницы видит владелец, но язык интерфейса теперь один во всём приложении.
