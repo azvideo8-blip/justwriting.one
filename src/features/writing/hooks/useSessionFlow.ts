@@ -80,7 +80,7 @@ export function useSessionFlow(
 
   useEffect(() => {
     if (sessionStatus === 'writing') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- flash start animation when transitioning to writing status
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: setSessionStartFlash гасится таймером через 800 мс. Значение живёт дольше рендера, вывести его на рендере нельзя
       setSessionStartFlash(true);
       const hideTimer = setTimeout(() => setSessionStartFlash(false), 800);
       return () => { clearTimeout(hideTimer); };
@@ -102,7 +102,7 @@ export function useSessionFlow(
 
     if (sessionStatus === 'idle') {
       goalFiredRef.current = false;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset goal toast visibility when session returns to idle
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: у setGoalToastVisible три писателя (показ по достижению цели, скрытие по таймеру, сброс здесь)
       setGoalToastVisible(false);
     }
   }, [timeGoalReached, wordGoalReached, sessionStatus]);
@@ -130,7 +130,7 @@ export function useSessionFlow(
       }
     } else if (sessionStatus === 'idle') {
       totalDurationRef.current = null;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset deadline duration when session returns to idle
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: setTotalDurationForDeadline пишется и при старте сессии. Здесь сброс на null
       setTotalDurationForDeadline(null);
     }
   }, [sessionStatus, sessionType, targetTime]);

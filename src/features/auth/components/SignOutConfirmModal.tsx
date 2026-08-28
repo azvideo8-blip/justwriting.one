@@ -23,7 +23,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
 
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by open to reset dialog state and count local data on modal open
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: поля диалога пишет пользователь (галочки clearLocalData/forceWipe), здесь только сброс при открытии; плюс асинхронный подсчёт локальных данных за границей await
       setClearLocalData(false);
       setForceWipe(false);
       setErrorMsg(null);

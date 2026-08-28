@@ -31,7 +31,7 @@ describe('AG-HOOKS-1 — eslint-plugin-react-hooks@7.1.1 enforcement', () => {
   // ловит: двадцать новых отписок со словами «async fetch» пройдут молча.
   // Поэтому стережём ЧИСЛО. Опускать порог можно, поднимать — нет.
   it('the number of set-state-in-effect suppressions does not grow', () => {
-    const CEILING = 36; // замер 2026-08-28; править только вниз
+    const CEILING = 31; // замер 2026-08-28 (AG-HOOKS-2: 36 -> 31); править только вниз
     const out = execSync(
       'grep -rn "eslint-disable.*react-hooks/set-state-in-effect" src/features src/app src/core src/shared | wc -l',
       { encoding: 'utf8' },

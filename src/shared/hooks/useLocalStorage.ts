@@ -44,7 +44,7 @@ export function useLocalStorage<T>(key: string, initialValue: T, schema?: z.ZodT
   }, [storedValue]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize stored value when localStorage key changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: у setStoredValue три писателя (смена key, событие storage из другой вкладки, setValue). Правило видит только этот и считает значение выводимым
     setStoredValue(parseStoredValue());
   }, [key, parseStoredValue]);
 

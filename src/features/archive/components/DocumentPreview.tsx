@@ -43,7 +43,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
   const [session, setSession] = useState<ArchiveSession | null>(propSession);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize internal session state when propSession reference changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- prop as initial state with local edits (tags/labels) at :500+, synchronized when propSession reference changes
     setSession(propSession);
   }, [propSession]);
 

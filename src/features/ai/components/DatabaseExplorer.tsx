@@ -52,19 +52,11 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
 
   const tables = source === 'local' ? LOCAL_TABLES : CLOUD_TABLES;
 
-  useEffect(() => {
-    if (source === 'local') {
-      if (!LOCAL_TABLES.some(t => t.name === selectedTable)) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize valid table selection when source changes
-        setSelectedTable('documents');
-      }
-    } else {
-      if (!CLOUD_TABLES.some(t => t.name === selectedTable)) {
-        setSelectedTable('users');
-      }
-    }
+  const handleSelectSource = (newSource: DBSource) => {
+    setSource(newSource);
+    setSelectedTable(newSource === 'local' ? 'documents' : 'users');
     setSelectedRecord(null);
-  }, [source, selectedTable]);
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -219,7 +211,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
         {/* Source Switcher */}
         <div className="flex gap-1 p-1 bg-surface-base/10 rounded-xl border border-border-subtle text-[11px] font-bold">
           <Button
-            onClick={() => setSource('local')}
+            onClick={() => handleSelectSource('local')}
             className={cn(
               "flex-1 py-1.5 rounded-lg transition-[color,background-color,box-shadow] duration-200",
               source === 'local' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"
@@ -228,7 +220,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
             {t('admin_db_local')}
           </Button>
           <Button
-            onClick={() => setSource('cloud')}
+            onClick={() => handleSelectSource('cloud')}
             className={cn(
               "flex-1 py-1.5 rounded-lg transition-[color,background-color,box-shadow] duration-200",
               source === 'cloud' ? "bg-surface-base/20 text-text-main shadow-sm" : "text-text-main/60 hover:text-text-main"

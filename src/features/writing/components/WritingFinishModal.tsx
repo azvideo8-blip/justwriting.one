@@ -259,12 +259,10 @@ export function WritingFinishModal({
   }, [isOpen]);
 
   const goalReached = wordGoalReached || timeGoalReached;
-  const [showCelebration, setShowCelebration] = useState(false);
+  const showCelebration = Boolean(isOpen && goalReached);
 
   React.useEffect(() => {
     if (isOpen && goalReached) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize celebration animation state on modal open with goal
-      setShowCelebration(true);
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         try {
           navigator.vibrate(30);
@@ -272,15 +270,11 @@ export function WritingFinishModal({
           // ignore
         }
       }
-    } else {
-      setShowCelebration(false);
     }
   }, [isOpen, goalReached]);
 
   const [editTitle, setEditTitle] = useState('');
   const titleInputValue = editTitle || title || '';
-
-  const [popularWords, setPopularWords] = useState<string[]>([]);
 
   const fallbackPopularWords = React.useMemo(() => {
     if (!isOpen) return [];
@@ -296,14 +290,13 @@ export function WritingFinishModal({
       .map(([word]) => word);
   }, [content, isOpen]);
 
+  const [tfidfWords, setTfidfWords] = useState<string[] | null>(null);
+
   React.useEffect(() => {
     if (!isOpen || !content) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear popular words when modal closes or content is empty
-      setPopularWords([]);
       return;
     }
     let cancelled = false;
-    setPopularWords(fallbackPopularWords);
     void (async () => {
       try {
         const { df, N } = await buildCorpusDf();
@@ -321,13 +314,18 @@ export function WritingFinishModal({
           .sort((a, b) => b.weight - a.weight)
           .slice(0, 5)
           .map(s => s.word);
-        if (!cancelled) setPopularWords(scored);
+        if (!cancelled) setTfidfWords(scored);
       } catch {
-        // fallback already set
+        // fallback already available
       }
     })();
-    return () => { cancelled = true; };
-  }, [isOpen, content, fallbackPopularWords]);
+    return () => {
+      cancelled = true;
+      setTfidfWords(null);
+    };
+  }, [isOpen, content]);
+
+  const popularWords = tfidfWords ?? fallbackPopularWords;
 
   const allSuggestions = React.useMemo(() => {
     const suggestions = new Set([(title || '').trim(), ...popularWords].filter(Boolean));

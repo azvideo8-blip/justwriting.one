@@ -104,7 +104,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   useEffect(() => {
     context.resetSession();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset crisis banner state when active dialogueId changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: setCrisisActive пишется ещё и по ответу модели. Здесь сброс при смене диалога, а не вывод значения
     setCrisisActive(false);
     // Abort any in-flight stream from the previous dialogue
     abortRef.current?.abort();
@@ -119,7 +119,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset dialogue state when dialogueId becomes null
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: у setDialogue девять писателей (загрузка, отправка, переименование, удаление). Здесь только сброс на null
     if (!dialogueId) { setDialogue(null); return; }
     const refresh = () => {
       void AIDialogueService.get(dialogueId).then(async d => {

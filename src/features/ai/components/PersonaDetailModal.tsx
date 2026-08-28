@@ -53,7 +53,7 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
 
   useEffect(() => {
     if (persona && editKey !== persona.id) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by editKey !== persona.id to synchronize form fields when selected persona changes
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by editKey !== persona.id: prop as initial state, reset on persona ID change; form fields have local user input writers
       setEditKey(persona.id);
       setName(persona.name);
       setPrompt(persona.systemPrompt ?? '');
