@@ -1,19 +1,31 @@
 #!/bin/bash
-# AUDIT-part2 1.4 / слой 9: храповик cross-feature импортов.
-# Зона import/no-restricted-paths для features->features будет включена,
-# когда долг (см. число ниже) сойдёт к нулю. Пока: количество не растёт.
-# Санкционированное исключение: features/auth (провайдер сессии).
-# features/calendar расформирована (Calendar переехал в features/archive) —
-# в фильтре ниже она оставлена намеренно: строка исключает и путь ИМПОРТИРУЮЩЕГО
-# файла, поэтому счётчик слегка занижен. Сужать фильтр можно только вместе с
-# пересчётом baseline, иначе CI покраснеет на ровном месте.
+# AUDIT-part3 9: храповик cross-feature импортов внутри src/features.
+#
+# v2 (2026-08-26): v1 ловил только '../features/x' и пропускал настоящий
+# класс — '../../admin/services' (соседняя фича относительным путём).
+# v2 перебирает фичи и ищет импорты из ЛЮБОЙ другой фичи, кроме
+# санкционированного auth (провайдер сессии). Эталон совпадает с зоной
+# import/no-restricted-paths «features -> features» в eslint.config.js —
+# включить её, когда счётчик дойдёт до нуля.
 set -e
-count=$(grep -rEn "^import .*from '(\.\./)+features/[a-z]+" src/features src/app --include='*.ts' --include='*.tsx' 2>/dev/null \
-  | grep -vE "/(auth|calendar)/" | grep -v __tests__ | wc -l | tr -d ' ')
+feats=$(ls -d src/features/*/ | xargs -n1 basename)
+count=0
+for f in $feats; do
+  [ "$f" = "auth" ] && continue
+  others=$(echo "$feats" | tr ' ' '\n' | grep -vx "$f" | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
+  n=$(grep -rEn "from '(\.\./)+($others)/" "src/features/$f" --include='*.ts' --include='*.tsx' 2>/dev/null \
+    | grep -v __tests__ | wc -l | tr -d ' ')
+  count=$((count + n))
+done
 baseline=$(cat scripts/cross-feature-baseline.txt 2>/dev/null || echo 0)
 echo "cross-feature imports: $count (baseline: $baseline)"
 if [ "$count" -gt "$baseline" ]; then
   echo "::error::cross-feature imports grew ($count > $baseline). Move code to core/shared or drop the import."
-  grep -rEn "^import .*from '(\.\./)+features/[a-z]+" src/features src/app --include='*.ts' --include='*.tsx' | grep -vE "/(auth|calendar)/" | grep -v __tests__
+  for f in $feats; do
+    [ "$f" = "auth" ] && continue
+    others=$(echo "$feats" | tr ' ' '\n' | grep -vx "$f" | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
+    grep -rEn "from '(\.\./)+($others)/" "src/features/$f" --include='*.ts' --include='*.tsx' 2>/dev/null \
+      | grep -v __tests__ || true
+  done
   exit 1
 fi

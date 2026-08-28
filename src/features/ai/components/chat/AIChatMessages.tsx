@@ -1,7 +1,7 @@
 import { type RefObject } from 'react';
 import { Trash2, Paperclip, AlertTriangle, Sparkles } from 'lucide-react';
 import { MarkdownRenderer } from '../MarkdownRenderer';
-import type { ArchiveSession } from '../../../archive/types';
+import type { ArchiveSession } from '../../../../shared/types/common';
 import { Button } from '../../../../shared/components/Button';
 import { useLanguage } from '../../../../shared/i18n';
 import { cn } from '../../../../core/utils/utils';

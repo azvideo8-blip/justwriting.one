@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { AIDialogue } from '../../../../core/storage/localDb';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
-import type { ArchiveSession } from '../../../archive/types';
+import type { ArchiveSession } from '../../../../shared/types/common';
 import { CITATION_RE, isRecognisedCitation } from '../../shared/citationPatterns';
 
 export type ChatMessage = AIDialogue['messages'][number];
