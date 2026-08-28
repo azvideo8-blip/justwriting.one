@@ -55,6 +55,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   useEffect(() => {
     if (source === 'local') {
       if (!LOCAL_TABLES.some(t => t.name === selectedTable)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize valid table selection when source changes
         setSelectedTable('documents');
       }
     } else {
@@ -99,6 +100,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   }, [source, selectedTable, userId, showToast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on table/source selection change
     void loadData();
   }, [loadData]);
 

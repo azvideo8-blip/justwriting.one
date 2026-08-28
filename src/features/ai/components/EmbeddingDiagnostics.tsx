@@ -38,6 +38,7 @@ export function EmbeddingDiagnostics() {
     }
   }, [showToast]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on mount/refresh
   useEffect(() => { void refresh(); }, [refresh]);
 
   const handleIndexNow = async () => {

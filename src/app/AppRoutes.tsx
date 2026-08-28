@@ -5,7 +5,7 @@ import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 
 const WritingPage = React.lazy(() => import('../features/writing/pages/WritingPage').then(m => ({ default: m.WritingPage })));
-const MobileMePage = React.lazy(() => import('../features/writing/pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
+const MobileMePage = React.lazy(() => import('./pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
 const ArchivePage = React.lazy(() => import('../features/archive/pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
 const ProfilePage = React.lazy(() => import('../features/profile/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const LoginPage = React.lazy(() => import('../features/auth/pages/LoginPage').then(m => ({ default: m.LoginPage })));

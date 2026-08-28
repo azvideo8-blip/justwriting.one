@@ -216,7 +216,9 @@ export function MobileWriteScreen({
   const fontFamilyStr = getFontStack(fontFamily);
 
   return (
-    <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] flex flex-col z-30">
+    <>
+      {/* not-a-modal: fullscreen mobile screen */}
+      <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] flex flex-col z-30">
       <ConnectionStatusBanner showZen={showZen} />
 
       <AnimatePresence>
@@ -369,5 +371,6 @@ export function MobileWriteScreen({
 
       <AIPanel open={aiPanelOpen} onClose={() => setAiPanelOpen(false)} />
     </div>
+    </>
   );
 }

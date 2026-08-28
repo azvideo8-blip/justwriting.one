@@ -17,6 +17,7 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   useEffect(() => {
     if (initialLabels.length > 0 && !labelCache.has(userId)) {
       labelCache.set(userId, initialLabels);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by !labelCache.has(userId) to seed initial labels once
       setLabels(initialLabels);
     }
   }, [initialLabels, userId]);

@@ -23,6 +23,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by open to reset dialog state and count local data on modal open
       setClearLocalData(false);
       setForceWipe(false);
       setErrorMsg(null);

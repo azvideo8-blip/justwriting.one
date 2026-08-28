@@ -33,6 +33,75 @@ import { SyncService } from '../../../core/services/SyncService';
 import { useLanguage } from '../../../shared/i18n';
 
 
+function ReconcileSessionsButton() {
+  const { showToast } = useToast();
+  const [running, setRunning] = useState(false);
+  const { user } = useAuthStatus();
+  const { t } = useLanguage();
+  const guestId = user?.uid ?? 'guest';
+
+  const handleReconcile = async () => {
+    setRunning(true);
+    try {
+      const { LocalDocumentService } = await import('../../../core/services/LocalDocumentService');
+      const result = await LocalDocumentService.reconcileSessionsCount(guestId);
+      const msg = `Документов исправлено: ${result.docsFixed}, профиль${result.profileFixed ? '' : ' не'} требовал исправления`;
+      showToast(msg, 'success');
+    } catch (e) {
+      showToast('Ошибка реконсиляции: ' + String(e), 'error');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        onClick={() => void handleReconcile()}
+        disabled={running}
+        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
+      >
+        <RotateCcw size={13} />
+        {running ? t('admin_reconcile_running') : t('admin_reconcile_btn')}
+      </Button>
+      <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_reconcile_desc')}</p>
+    </>
+  );
+}
+
+function RebuildTimelineButton() {
+  const { showToast } = useToast();
+  const { t } = useLanguage();
+  const [running, setRunning] = useState(false);
+
+  const handleRebuild = async () => {
+    setRunning(true);
+    try {
+      const { AITimelineService } = await import('../services/AITimelineService');
+      const count = await AITimelineService.rebuildFromSummaries();
+      showToast(`Хронология ИИ успешно перестроена. Записей: ${count}`, 'success');
+    } catch (e) {
+      showToast('Ошибка пересбора хронологии: ' + String(e), 'error');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        onClick={() => void handleRebuild()}
+        disabled={running}
+        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
+      >
+        <RotateCcw size={13} />
+        {running ? t('admin_rebuild_running') : t('admin_rebuild_btn')}
+      </Button>
+      <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_rebuild_desc')}</p>
+    </>
+  );
+}
+
 export function DiagnosticsPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -107,75 +176,6 @@ export function DiagnosticsPage() {
       <div className="flex justify-center py-20">
         <LoadingSpinner size={10} />
     </div>
-  );
-}
-
-function ReconcileSessionsButton() {
-  const { showToast } = useToast();
-  const [running, setRunning] = useState(false);
-  const { user } = useAuthStatus();
-  const { t } = useLanguage();
-  const guestId = user?.uid ?? 'guest';
-
-  const handleReconcile = async () => {
-    setRunning(true);
-    try {
-      const { LocalDocumentService } = await import('../../../core/services/LocalDocumentService');
-      const result = await LocalDocumentService.reconcileSessionsCount(guestId);
-      const msg = `Документов исправлено: ${result.docsFixed}, профиль${result.profileFixed ? '' : ' не'} требовал исправления`;
-      showToast(msg, 'success');
-    } catch (e) {
-      showToast('Ошибка реконсиляции: ' + String(e), 'error');
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return (
-    <>
-      <Button
-        onClick={() => void handleReconcile()}
-        disabled={running}
-        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
-      >
-        <RotateCcw size={13} />
-        {running ? t('admin_reconcile_running') : t('admin_reconcile_btn')}
-      </Button>
-      <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_reconcile_desc')}</p>
-    </>
-  );
-}
-
-function RebuildTimelineButton() {
-  const { showToast } = useToast();
-  const { t } = useLanguage();
-  const [running, setRunning] = useState(false);
-
-  const handleRebuild = async () => {
-    setRunning(true);
-    try {
-      const { AITimelineService } = await import('../services/AITimelineService');
-      const count = await AITimelineService.rebuildFromSummaries();
-      showToast(`Хронология ИИ успешно перестроена. Записей: ${count}`, 'success');
-    } catch (e) {
-      showToast('Ошибка пересбора хронологии: ' + String(e), 'error');
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return (
-    <>
-      <Button
-        onClick={() => void handleRebuild()}
-        disabled={running}
-        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-elevated border border-border-subtle text-text-main/80 text-xs font-semibold hover:text-text-main transition-colors"
-      >
-        <RotateCcw size={13} />
-        {running ? t('admin_rebuild_running') : t('admin_rebuild_btn')}
-      </Button>
-      <p className="mt-1.5 text-[11px] text-text-main/50">{t('admin_rebuild_desc')}</p>
-    </>
   );
 }
 
@@ -791,6 +791,7 @@ function MassAnalyzeNotes() {
   }, []);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async stats calculation on mount and on archive-refresh
     void loadStats();
     const handleRefresh = () => { void loadStats(); };
     window.addEventListener('archive-refresh', handleRefresh);

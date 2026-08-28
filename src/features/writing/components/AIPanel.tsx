@@ -246,13 +246,16 @@ export function AIPanel({ open, onClose }: AIPanelProps) {
       {open && (
         <>
           {isMobile && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={onClose}
-              className="fixed inset-0 z-[var(--z-overlay)] bg-black/60 backdrop-blur-sm"
-            />
+            <>
+              {/* not-a-modal: slide-over panel backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="fixed inset-0 z-[var(--z-overlay)] bg-black/60 backdrop-blur-sm"
+              />
+            </>
           )}
           <motion.div
             role="dialog"

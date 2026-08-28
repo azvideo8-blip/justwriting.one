@@ -193,3 +193,26 @@ export interface ArchiveSession extends Session {
   // empty note — load it before showing or exporting.
   _contentNotLoaded?: boolean | undefined;
 }
+
+export interface ExportStrings {
+  date: string;
+  words: string;
+  time: string;
+  tags: string;
+  untitled: string;
+  untitledFilename: string;
+}
+
+export interface RelatedNote {
+  documentId: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  score: number;
+}
+
+export interface FindRelatedNotesOptions {
+  maxResults?: number;
+  minAgeDays?: number;
+  ignoredDocIds?: Set<string> | string[];
+}
+

@@ -115,6 +115,7 @@ export function WritingSetup({
     <>
       {setupMode === 'countdown' && (
         <div className="fixed inset-0 z-[var(--z-sheet)] bg-surface-base flex items-center justify-center">
+          {/* not-a-modal: fullscreen takeover */}
           <motion.div 
             key={countdown}
             initial={{ scale: 0.2, opacity: 0, rotate: -20, filter: 'blur(10px)' }}

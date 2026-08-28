@@ -117,12 +117,14 @@ export function MobileHomeScreen({
   };
 
   return (
-    <div 
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] flex flex-col z-30 overflow-hidden"
-    >
+    <>
+      {/* not-a-modal: fullscreen mobile screen */}
+      <div 
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] flex flex-col z-30 overflow-hidden"
+      >
       {/* Pull to refresh indicator */}
       {pullOffset > 0 && (
         <div className="absolute top-2.5 left-1/2 z-[100] flex items-center gap-1.5 bg-[var(--surface-card)] border border-[var(--border-light)] px-3 py-1.5 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none" style={{
@@ -308,5 +310,6 @@ export function MobileHomeScreen({
         )}
       </div>
     </div>
+    </>
   );
 }

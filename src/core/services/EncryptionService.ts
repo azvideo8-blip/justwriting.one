@@ -34,7 +34,7 @@ import { reportError } from '../../shared/errors/reportError';
 
 export { hasVault, hasLegacyEncryption };
 
-export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+export async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   return deriveMasterKey(password, salt);
 }
 
@@ -326,7 +326,7 @@ async function encryptAll(userId: string, onProgress: (p: MigrationProgress) => 
   return encryptAllExistingNotes(userId, onProgress, signal);
 }
 
-function _generateEncryptionSalt(): Uint8Array {
+function _generateEncryptionSalt(): Uint8Array<ArrayBuffer> {
   return generateSalt();
 }
 

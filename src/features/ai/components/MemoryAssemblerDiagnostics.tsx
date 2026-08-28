@@ -24,6 +24,7 @@ export function MemoryAssemblerDiagnostics() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch from IndexedDB on mount
     void refreshData();
   }, []);
 

@@ -80,7 +80,7 @@ export function useSessionFlow(
 
   useEffect(() => {
     if (sessionStatus === 'writing') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- flash start animation when transitioning to writing status
       setSessionStartFlash(true);
       const hideTimer = setTimeout(() => setSessionStartFlash(false), 800);
       return () => { clearTimeout(hideTimer); };
@@ -94,7 +94,6 @@ export function useSessionFlow(
       goalFiredRef.current = true;
       playGoalSound();
       const type = wordGoalReached ? 'words' : 'time';
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGoalToastType(type);
       setGoalToastVisible(true);
       const hideTimer = setTimeout(() => setGoalToastVisible(false), 4000);
@@ -103,6 +102,7 @@ export function useSessionFlow(
 
     if (sessionStatus === 'idle') {
       goalFiredRef.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset goal toast visibility when session returns to idle
       setGoalToastVisible(false);
     }
   }, [timeGoalReached, wordGoalReached, sessionStatus]);
@@ -126,11 +126,11 @@ export function useSessionFlow(
         const remaining = Math.max(0, (target.getTime() - now.getTime()) / 1000);
         const dur = remaining + useTimerStore.getState().getElapsedSeconds();
         totalDurationRef.current = dur;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTotalDurationForDeadline(dur);
       }
     } else if (sessionStatus === 'idle') {
       totalDurationRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset deadline duration when session returns to idle
       setTotalDurationForDeadline(null);
     }
   }, [sessionStatus, sessionType, targetTime]);

@@ -99,6 +99,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
 
   return (
     <>
+      {/* not-a-modal: preview backdrop */}
       {previewSession && <div className="fixed inset-0 z-40 bg-black/20" onClick={onClosePreview} />}
 
       <div className="relative z-[1] flex-1 overflow-y-auto px-6 py-7">

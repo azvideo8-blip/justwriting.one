@@ -14,7 +14,13 @@ interface ContactDoorsProps {
 export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
   const [data, setData] = useState<AggregatedDoors | null>(null);
   const [loading, setLoading] = useState(false);
-  const [cache, setCache] = useState<AggregatedDoors | null>(null);
+  const [cache, setCache] = useState<AggregatedDoors | null>(() => {
+    try {
+      const saved = localStorage.getItem(DOORS_CACHE_KEY);
+      if (saved) return JSON.parse(saved) as AggregatedDoors;
+    } catch { /* ignore */ }
+    return null;
+  });
 
   const handleAnalyze = async () => {
     setLoading(true);
@@ -44,21 +50,12 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
     }
   };
 
-  // Load from localStorage on mount
   useEffect(() => {
-    let hasCache = false;
-    try {
-      const saved = localStorage.getItem(DOORS_CACHE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as AggregatedDoors;
-        setCache(parsed);
-        hasCache = true;
-      }
-    } catch { /* ignore */ }
-
-    if (readOnly && !hasCache) {
+    if (readOnly && !cache) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async data analysis on mount when readOnly without cache
       void handleAnalyze();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
   const display = data ?? cache;

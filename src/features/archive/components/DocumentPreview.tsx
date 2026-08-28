@@ -18,7 +18,8 @@ import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
-import { findRelatedNotes, RelatedNote } from '../../ai/utils/relatedNotes';
+import { findRelatedNotes } from '../../ai/utils/relatedNotes';
+import type { RelatedNote } from '../../../shared/types/common';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { NoteAnalysisService } from '../../ai/services/NoteAnalysisService';
@@ -42,6 +43,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
   const [session, setSession] = useState<ArchiveSession | null>(propSession);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize internal session state when propSession reference changes
     setSession(propSession);
   }, [propSession]);
 
@@ -73,6 +75,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
 
   useEffect(() => {
     let active = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset analysis state when switching previewed session
     setAnalyzing(false);
     setJustFinished(false);
     setAnalyzeError(null);
@@ -90,7 +93,7 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
     };
   }, [session?.id]);
 
-  const handleAnalyzeNote = useCallback(async () => {
+  const handleAnalyzeNote = async () => {
     if (!session?.id || analyzing || session.excludedFromAI) return;
     setAnalyzing(true);
     setAnalyzeError(null);
@@ -125,13 +128,14 @@ export function DocumentPreview({ session: propSession, onClose, onContinue, onT
     } finally {
       setAnalyzing(false);
     }
-  }, [session?.id, session?.excludedFromAI, analyzing, showToast, t]);
+  };
 
   const [relatedNotes, setRelatedNotes] = useState<RelatedNote[]>([]);
 
   useEffect(() => {
     let active = true;
     if (!session?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear related notes when no session is selected
       setRelatedNotes([]);
       return;
     }

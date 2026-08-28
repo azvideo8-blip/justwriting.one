@@ -81,15 +81,17 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      className="fixed inset-0 bg-surface-base z-40 flex flex-col"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <>
+      {/* not-a-modal: fullscreen mobile screen */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="fixed inset-0 bg-surface-base z-40 flex flex-col"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
       <textarea
         value={content}
         onChange={e => {
@@ -140,5 +142,6 @@ export function MobileFocusScreen({ onExit }: MobileFocusScreenProps) {
         />
       </div>
     </motion.div>
+    </>
   );
 }

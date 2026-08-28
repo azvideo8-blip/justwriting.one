@@ -6,7 +6,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { loadAllSessions, hydrateSessionContent } from '../../../core/services/UnifiedSessionLoader';
 import { exportAllAsZip } from '../../export/ExportAllService';
-import { ExportStrings } from '../../archive/services/ArchiveExportService';
+import { ExportStrings } from '../../../shared/types/common';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 import { downloadBlob } from '../../../shared/utils/downloadBlob';

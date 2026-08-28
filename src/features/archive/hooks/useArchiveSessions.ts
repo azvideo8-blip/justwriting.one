@@ -44,6 +44,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetching when user/credentials change
     void fetchSessions();
   }, [fetchSessions]);
 

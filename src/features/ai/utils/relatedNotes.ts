@@ -6,19 +6,9 @@ import { RESURFACE_FLOOR } from './noteRetriever';
 import { reportError } from '../../../shared/errors/reportError';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import type { RelatedNote, FindRelatedNotesOptions } from '../../../shared/types/common';
 
-export interface RelatedNote {
-  documentId: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  score: number;
-}
-
-export interface FindRelatedNotesOptions {
-  maxResults?: number;
-  minAgeDays?: number;
-  ignoredDocIds?: Set<string> | string[];
-}
+export type { RelatedNote, FindRelatedNotesOptions };
 
 export async function findRelatedNotes(
   seed: { text?: string; docId?: string },

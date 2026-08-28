@@ -27,7 +27,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
 
   useEffect(() => {
     if (!isOnline) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- record offline status when connection drops
       setWasOffline(true);
       setShowSynced(false);
     }
@@ -35,7 +35,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
 
   useEffect(() => {
     if (isOnline && wasOffline) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- flash synced indicator when reconnecting from offline
       setShowSynced(true);
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       syncTimerRef.current = setTimeout(() => setShowSynced(false), 3000);

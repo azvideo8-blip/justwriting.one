@@ -104,6 +104,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   useEffect(() => {
     context.resetSession();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset crisis banner state when active dialogueId changes
     setCrisisActive(false);
     // Abort any in-flight stream from the previous dialogue
     abortRef.current?.abort();
@@ -118,6 +119,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset dialogue state when dialogueId becomes null
     if (!dialogueId) { setDialogue(null); return; }
     const refresh = () => {
       void AIDialogueService.get(dialogueId).then(async d => {

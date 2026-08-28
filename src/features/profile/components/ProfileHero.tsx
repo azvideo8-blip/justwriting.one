@@ -33,6 +33,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
 
   useEffect(() => {
     const profileName = profile?.nickname || user?.displayName || '';
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by !name to populate initial profile name once loaded
     if (profileName && !name) setName(profileName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.nickname, user?.displayName]);

@@ -74,6 +74,7 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
   }, [userId, isGuest]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch from local and cloud stores on mount/user change
     void fetchSessions();
   }, [fetchSessions]);
 

@@ -1,16 +1,9 @@
-import { ArchiveSession } from '../types';
+import { ArchiveSession, ExportStrings } from '../types';
 import { toDate } from '../../../core/utils/dateUtils';
 import { escapeHtml } from '../../../shared/utils/exportUtils';
 import { reportError } from '../../../shared/errors/reportError';
 
-export interface ExportStrings {
-  date: string;
-  words: string;
-  time: string;
-  tags: string;
-  untitled: string;
-  untitledFilename: string;
-}
+export type { ExportStrings };
 
 /**
  * Отказ Web Share — это НЕ сбой экспорта.

@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { MobileMeScreen } from '../components/MobileMeScreen';
-import { useAuthStatus } from '../../../app/useAuthStatus';
-import { AuthService } from '../../../app/AuthService';
+import { MobileMeScreen } from './MobileMeScreen';
+import { useAuthStatus } from '../useAuthStatus';
+import { AuthService } from '../AuthService';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '../../../shared/components/Toast';
-import { useLoginModal } from '../../../app/useLoginModal';
-import { SignOutConfirmModal } from '../../auth/components/SignOutConfirmModal';
+import { useToast } from '../../shared/components/Toast';
+import { useLoginModal } from '../useLoginModal';
+import { SignOutConfirmModal } from '../../features/auth/components/SignOutConfirmModal';
 
 export function MobileMePage() {
   const { user, profile } = useAuthStatus();
@@ -51,4 +51,3 @@ export function MobileMePage() {
     </>
   );
 }
-

@@ -66,7 +66,7 @@ export function generateRecoveryCode(): string {
  */
 export async function deriveRecoveryMasterKey(
   recoveryCode: string,
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
   iterations: number = PBKDF2_ITERATIONS,
 ): Promise<CryptoKey> {
   const normalized = normalizeRecoveryCode(recoveryCode);
@@ -79,7 +79,7 @@ export async function deriveRecoveryMasterKey(
 export async function wrapDataKeyWithRecoveryCode(
   dataKey: CryptoKey,
   recoveryCode: string,
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
   iterations: number = PBKDF2_ITERATIONS,
 ): Promise<string> {
   const recoveryMasterKey = await deriveRecoveryMasterKey(recoveryCode, salt, iterations);
@@ -92,7 +92,7 @@ export async function wrapDataKeyWithRecoveryCode(
 export async function unwrapDataKeyWithRecoveryCode(
   wrappedKey: string,
   recoveryCode: string,
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
   iterations: number = PBKDF2_ITERATIONS,
 ): Promise<CryptoKey> {
   const recoveryMasterKey = await deriveRecoveryMasterKey(recoveryCode, salt, iterations);

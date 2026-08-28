@@ -1,12 +1,12 @@
-# Храповик гейта сырых оверлеев (.github/workflows/ci.yml, AUDIT-part3 п.1).
-# Строки-пути ТОЛЬКО убирать (мигрируя файл на ModalShell), добавлять нельзя.
+# Храповик гейта сырых оверлеев (scripts/raw-overlay-check.sh, AG-GATE-1).
+# Строки-пути ТОЛЬКО убирать (мигрируя диалог на ModalShell), добавлять нельзя.
 #
-# Ограничение гейта (зафиксировано в [ПРОВЕРКА] part3): фильтр отбирает файлы
-# ПО ИМЕНИ (modal|sheet|prompt|overlay) — сырые оверлеи в файлах с другими
-# именами (AIPage.tsx, ArchivePage.tsx и т.п.) он не видит. Пустой базлайн
-# означает чистоту только среди модалко-подобных имён.
+# Полноэкранные заставки (3-2-1 takeover, мобильные экраны, шторки, подложки)
+# помечаются маркером `{/* not-a-modal: ... */}` прямо в коде и исключаются.
 #
-# Единственный легитимный остаток — полноэкранная заставка 3-2-1 countdown:
-# это не диалог (не ловит фокус, не закрывается Escape), помечен в коде
-# маркером {/* not-a-modal: fullscreen takeover */}.
-src/features/writing/components/MobileSessionSetupSheet.tsx
+# Базлайн содержит реальные диалоги, ожидающие миграции на ModalShell (5 шт.):
+src/features/archive/components/StorageIcons.tsx
+src/features/auth/pages/LoginPage.tsx
+src/features/profile/components/ProfileRefreshButton.tsx
+src/features/settings/components/AccountVaultSection.tsx
+src/features/writing/components/MobileWriteToolbar.tsx

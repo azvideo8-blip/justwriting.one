@@ -114,6 +114,7 @@ export function LifeStoryTimeline() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch from localDb on mount
     void loadData();
   }, []);
 

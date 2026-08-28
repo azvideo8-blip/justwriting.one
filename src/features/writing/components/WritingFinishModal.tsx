@@ -231,6 +231,7 @@ export function WritingFinishModal({
   React.useEffect(() => {
     if (step !== 'mood') return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear previous echo before asynchronous computation
     setEchoText('');
     void (async () => {
       try {
@@ -250,6 +251,7 @@ export function WritingFinishModal({
 
   React.useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset modal steps and mood selection on open
       setStep('form');
       setSaveDataState(null);
       setSelectedMood(undefined);
@@ -261,6 +263,7 @@ export function WritingFinishModal({
 
   React.useEffect(() => {
     if (isOpen && goalReached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize celebration animation state on modal open with goal
       setShowCelebration(true);
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         try {
@@ -295,6 +298,7 @@ export function WritingFinishModal({
 
   React.useEffect(() => {
     if (!isOpen || !content) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear popular words when modal closes or content is empty
       setPopularWords([]);
       return;
     }

@@ -217,6 +217,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       return;
     }
     if (isAdmin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetching when activeTab or admin state changes
       void fetchData();
       if (activeTab === 'ai_usage') { void fetchAIUsage(); }
       if (activeTab === 'ai_profile') void loadAIProfileData();

@@ -91,6 +91,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch from IndexedDB on mount
   useEffect(() => { void load(); }, [load]);
 
   const handleBuild = async () => {

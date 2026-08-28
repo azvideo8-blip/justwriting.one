@@ -299,6 +299,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery}
             />
           </Suspense>
+          {/* not-a-modal: preview backdrop */}
           {previewSession && <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setPreviewSession(null)} />}
 
           <AnimatePresence>

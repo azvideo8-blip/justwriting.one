@@ -81,7 +81,9 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
   }, [sessionGroups]);
 
   return (
-    <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] z-30 flex flex-col pt-0">
+    <>
+      {/* not-a-modal: fullscreen mobile screen */}
+      <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] z-30 flex flex-col pt-0">
 
       <MobilePageHeader
         title={t('lifelog_tab_log')}
@@ -214,5 +216,6 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }

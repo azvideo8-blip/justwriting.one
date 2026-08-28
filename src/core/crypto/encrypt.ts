@@ -25,7 +25,7 @@ function toBase64(buf: Uint8Array): string {
   return btoa(binary);
 }
 
-function fromBase64(b64: string): Uint8Array {
+function fromBase64(b64: string): Uint8Array<ArrayBuffer> {
   const binary = atob(b64);
   const len = binary.length;
   const buf = new Uint8Array(len);
@@ -39,7 +39,7 @@ function secureClear(buf: Uint8Array): void {
 
 export async function deriveMasterKey(
   password: string,
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
   iterations: number = PBKDF2_ITERATIONS,
 ): Promise<CryptoKey> {
   const encoder = new TextEncoder();
@@ -85,7 +85,7 @@ export async function wrapDataKey(dataKey: CryptoKey, masterKey: CryptoKey): Pro
 export async function unwrapDataKeyWithPassword(
   wrappedKey: string,
   password: string,
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
   // Overridable so tests can exercise the fallback with cheap counts. PBKDF2 at
   // 600k is slow by design; running it for real in the test suite saturates the
   // CPU and makes unrelated tests time out.

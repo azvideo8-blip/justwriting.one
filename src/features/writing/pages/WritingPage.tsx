@@ -142,13 +142,16 @@ function WritingPageUI() {
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
       <AnimatePresence>
         {flow.sessionStartFlash && (
-          <motion.div
-            initial={{ opacity: 0.6 }}
-            animate={{ opacity: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="fixed inset-0 z-[var(--z-auth)] bg-text-main pointer-events-none"
-          />
+          <>
+            {/* not-a-modal: session start flash animation */}
+            <motion.div
+              initial={{ opacity: 0.6 }}
+              animate={{ opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="fixed inset-0 z-[var(--z-auth)] bg-text-main pointer-events-none"
+            />
+          </>
         )}
       </AnimatePresence>
       <CancelConfirmModal

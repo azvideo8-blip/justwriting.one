@@ -30,6 +30,7 @@ export function useOtherUserDetection() {
   }, [user, isGuest]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async check for lingering data on mount/user change
     void check();
   }, [check]);
 

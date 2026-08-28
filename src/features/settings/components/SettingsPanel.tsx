@@ -52,6 +52,7 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog }: Set
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* not-a-modal: slide-over panel backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

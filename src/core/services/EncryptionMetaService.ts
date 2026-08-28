@@ -66,7 +66,7 @@ export async function hasEncryptionMeta(uid: string): Promise<boolean> {
   return meta !== null;
 }
 
-export function generateSalt(): Uint8Array {
+export function generateSalt(): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(16));
 }
 
@@ -74,7 +74,7 @@ export function saltToBase64(salt: Uint8Array): string {
   return toBase64(salt);
 }
 
-export function saltFromBase64(b64: string): Uint8Array {
+export function saltFromBase64(b64: string): Uint8Array<ArrayBuffer> {
   return fromBase64(b64);
 }
 

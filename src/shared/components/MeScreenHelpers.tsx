@@ -28,7 +28,7 @@ export function StatCard({ value, label, accent }: {
 export function SettingRow({ label, children, hint }: {
   label: string;
   children: React.ReactNode;
-  hint?: string;
+  hint?: string | undefined;
 }) {
   return (
     <div className="py-3.5 border-b border-white/[0.05] flex flex-col gap-1">

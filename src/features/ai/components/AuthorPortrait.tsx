@@ -34,6 +34,7 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetching from IndexedDB on mount
     void loadData();
   }, []);
 
