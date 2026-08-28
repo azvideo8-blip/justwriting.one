@@ -12,6 +12,27 @@ export interface ExportStrings {
   untitledFilename: string;
 }
 
+/**
+ * Отказ Web Share — это НЕ сбой экспорта.
+ *
+ * `navigator.canShare({files})` на десктопе отвечает утвердительно, а
+ * `navigator.share()` потом бросает `NotAllowedError` («Permission denied»);
+ * человек, закрывший системную шторку, даёт `AbortError`. В обоих случаях ниже
+ * отрабатывает обычная загрузка файла, и файл сохраняется — то есть операция
+ * УДАЛАСЬ. Запись «ERROR archive_export_share: Permission denied» на каждом
+ * сохранении — ложная тревога, а журнал, где привычно лежит неправдивая
+ * ошибка, перестают читать: настоящая теряется среди неё.
+ *
+ * Всё, что сюда не попало, остаётся ошибкой и репортится как раньше.
+ */
+export function isExpectedShareRefusal(e: unknown): boolean {
+  const name = (e as { name?: unknown } | null)?.name;
+  return name === 'AbortError'        // человек закрыл шторку
+    || name === 'NotAllowedError'     // браузер отказал (нет жеста/десктоп)
+    || name === 'NotSupportedError'   // тип файла не шарится
+    || name === 'SecurityError';      // небезопасный контекст
+}
+
 function getLocale(): string {
   return localStorage.getItem('app_language') || 'ru';
 }
@@ -68,7 +89,10 @@ async function downloadBlob(content: string | Blob, type: string, filename: stri
         return;
       }
     } catch (e) {
-      reportError(e, { action: 'archive_export_share' });
+      // Отказ шторки — ожидаемый исход, ниже сработает загрузка файла.
+      if (!isExpectedShareRefusal(e)) {
+        reportError(e, { action: 'archive_export_share' });
+      }
     }
   }
 
@@ -187,8 +211,10 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
         shareData.text = session.content || '';
       }
 
-      navigator.share(shareData).catch(err => {
-        reportError(err, { action: 'archive_export_share_fallback' });
+      navigator.share(shareData).catch((err: unknown) => {
+        if (!isExpectedShareRefusal(err)) {
+          reportError(err, { action: 'archive_export_share_fallback' });
+        }
         void downloadBlob(html, 'text/html;charset=utf-8', filename);
       });
     } else {

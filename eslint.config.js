@@ -58,14 +58,11 @@ export default [
           { target: './src/core', from: './src/features', message: 'core must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/features', message: 'shared must not import from features/ (ARCHITECTURE.md)' },
           { target: './src/shared', from: './src/core', message: 'shared must stay dependency-free of core (ARCHITECTURE.md)' },
-          // AUDIT-part2 1.4: жёсткая зона features->features подготовлена, но
-          // не включена: грандфатеренный долг ~570 импортов (не ~80, см.
-          // scripts/cross-feature-check.sh). Пока долг гасится храповиком в
-          // CI; включить зону, когда счётчик дойдёт до нуля. Санкционированное
-          // исключение на тот момент: './auth' (провайдер сессии).
-          // Зона на './src/features/calendar' убрана: фича расформирована,
-          // Calendar переехал в features/archive. Правило на несуществующий
-          // каталог ничего не сторожит, но читается как защита.
+          // AUDIT-part3 9 (2026-08-26): зона подготовлена, но НЕ включена:
+          // реальный долг 48 импортов в ~35 файлах. v1-детектор храповика мерял
+          // неверный класс ('../features/x'), v2 (scripts/cross-feature-check.sh)
+          // считает соседние фичи по относительному пути — см. базлайн 48.
+          // Включить зону, когда счётчик дойдёт до нуля. Исключение: './auth'.
           { target: './src/features/auth', from: './src/features', except: ['./auth'], message: 'auth is feature-import-free — keep it that way (ARCHITECTURE.md)' },
         ],
       }],
@@ -122,15 +119,31 @@ export default [
     },
   },
   {
-    // AUDIT-L13: известный долг — админ/диагностические страницы целиком
-    // русскоязычные. Отключаем правило здесь, пока не переведены в ключи.
-    files: [
-      'src/features/ai/pages/DiagnosticsPage.tsx',
-      'src/features/ai/pages/RerankBenchPage.tsx',
-      'src/features/ai/components/DatabaseExplorer.tsx',
-      'src/features/ai/components/ProfileFacets.tsx',
-    ],
-    rules: { 'no-restricted-syntax': 'off' },
+    // AG-LINT-1: React-Compiler-сюита (v7 recommended тянет её через спред
+    // выше) уходит в экспоненту по памяти на распиленном aiChatContext.ts —
+    // ESLint OOM на 6 и 12 ГБ даже как одиночный файл. Классика
+    // (rules-of-hooks/exhaustive-deps) остаётся. Снять override, когда файл
+    // перестанет взрывать компиляторный анализ (кандидат — пункт 7, переезд
+    // buildContext). Полный список правил сюиты и таблица доказательства —
+    // в отчёте AG-LINT-1.
+    files: ['src/features/ai/services/aiChatContext.ts'],
+    rules: Object.fromEntries([
+      'react-hooks/static-components',
+      'react-hooks/use-memo',
+      'react-hooks/component-hook-factories',
+      'react-hooks/preserve-manual-memoization',
+      'react-hooks/incompatible-library',
+      'react-hooks/immutability',
+      'react-hooks/globals',
+      'react-hooks/refs',
+      'react-hooks/set-state-in-effect',
+      'react-hooks/error-boundaries',
+      'react-hooks/purity',
+      'react-hooks/set-state-in-render',
+      'react-hooks/unsupported-syntax',
+      'react-hooks/config',
+      'react-hooks/gating',
+    ].map(rule => [rule, 'off'])),
   },
   prettier,
 ];

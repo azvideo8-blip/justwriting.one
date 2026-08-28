@@ -14,6 +14,24 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.20',
+    date: '2026-08-28',
+    items: [
+      { category: 'improvement', ru: 'Диагностика, обозреватель базы, грани профиля и стенд ранжирования переведены на английский наравне с русским — около ста двадцати надписей', en: 'Diagnostics, the database explorer, profile facets and the ranking bench are available in English as well as Russian — about a hundred and twenty labels' },
+      { category: 'improvement', ru: 'Внутренняя перестройка: страница чата и сборка контекста разложены по частям вместо двух файлов на тысячу строк. Для человека ничего не меняется — это цена будущих правок', en: 'Internal rework: the chat page and the context builder are split into parts instead of two thousand-line files. Nothing changes for the reader — this pays for future edits' },
+      { category: 'fix', ru: 'Сравнение размера сборки в проверках снова говорит правду: из-за ошибки в разборе имён служебные части приложения считались одной и той же, и отчёт показывал несуществующий рост', en: 'The build-size comparison tells the truth again: a name-parsing bug made vendor chunks look like the same one, so the report showed non-existent growth' },
+    ],
+  },
+  {
+    version: '0.8.19',
+    date: '2026-08-25',
+    items: [
+      { category: 'fix', ru: 'Импортированная заметка больше не появляется в архиве дважды: рядом с настоящей возникала пустая копия с тем же названием, потому что список ещё не знал, что облачная строка и локальная заметка — одно и то же', en: 'An imported note no longer appears twice in the archive: an empty copy with the same title showed up because the list did not yet know the cloud row and the local note were the same thing' },
+      { category: 'fix', ru: 'В заголовке группы по дате снова стоит число заметок — вместо него показывалась служебная строка, потому что перевод для счётчика забыли добавить', en: 'The date-group header shows the note count again — a technical string was displayed because the translation for that counter was never added' },
+      { category: 'fix', ru: 'Сохранение заметки в файл больше не пишет в журнал ошибку: файл сохранялся, но отказ браузера в системном окне «Поделиться» записывался как сбой', en: 'Saving a note to a file no longer writes an error to the journal: the file saved, but the browser refusing the system share sheet was recorded as a failure' },
+    ],
+  },
+  {
     version: '0.8.18',
     date: '2026-08-25',
     items: [

@@ -7,6 +7,13 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+        # typescript вынесен из пачки: подъём 5.8 → 5.9 ломает типы в
+        # src/core/crypto/encrypt.ts (Uint8Array<ArrayBufferLike> против
+        # BufferSource в WebCrypto), и в группе из 35 пакетов это выглядит как
+        # «обновления красные», хотя красный ровно один. Отдельным PR видно,
+        # что чинить, и остальные 34 не ждут крипто-правок.
+        exclude-patterns:
+          - "typescript" 
     ignore:
       # Мажоры — руками, с открытым changelog.
       - dependency-name: "*"

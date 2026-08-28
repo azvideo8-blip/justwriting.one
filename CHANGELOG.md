@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.20 — 2026-08-28
+
+- **[RU]** Диагностика, обозреватель базы, грани профиля и стенд ранжирования переведены на английский наравне с русским — около ста двадцати надписей, которые раньше были только по-русски. Эти страницы видит владелец, но язык интерфейса теперь один во всём приложении.
+- **[EN]** Diagnostics, the database explorer, profile facets and the ranking bench are now available in English as well as Russian — about a hundred and twenty labels that used to exist only in Russian. These pages are owner-facing, but the interface language is now consistent across the whole app.
+- **[RU]** Внутренняя перестройка: страница чата и сборка контекста разложены по отдельным частям вместо двух файлов на тысячу строк каждый. Для человека ничего не меняется — это цена будущих правок, а не сегодняшних.
+- **[EN]** Internal rework: the chat page and the context builder are split into separate parts instead of two thousand-line files. Nothing changes for the reader — this pays for future edits, not today's.
+- **[RU]** Сравнение размера сборки в проверках снова говорит правду: из-за ошибки в разборе имён все служебные части приложения считались одной и той же, и отчёт показывал несуществующий рост на сотни процентов.
+- **[EN]** The build-size comparison in the checks tells the truth again: a name-parsing bug made all vendor chunks look like the same one, so the report showed non-existent growth of hundreds of percent.
+
+## 0.8.19 — 2026-08-25
+
+- **[RU]** Импортированная заметка больше не появляется в архиве дважды. Рядом с настоящей возникала пустая копия с тем же названием, и её приходилось удалять руками: импорт отправляет заметку в облако не дожидаясь ответа, а список в этот момент ещё не знал, что облачная строка и локальная заметка — одно и то же.
+- **[EN]** An imported note no longer appears twice in the archive. An empty copy with the same title showed up next to the real one and had to be deleted by hand: import sends the note to the cloud without waiting, and at that moment the list did not yet know the cloud row and the local note were the same thing.
+- **[RU]** В заголовке группы по дате снова стоит число заметок. Вместо него показывалась служебная строка — перевод для этого счётчика забыли добавить, когда его вводили.
+- **[EN]** The date-group header shows the note count again. A technical string was displayed instead: the translation for that counter was never added when it was introduced.
+- **[RU]** Сохранение заметки в файл больше не пишет в журнал ошибку. Файл сохранялся как надо, но браузер отказывал в системном окне «Поделиться», и этот отказ записывался как сбой — хотя экспорт удавался.
+- **[EN]** Saving a note to a file no longer writes an error to the journal. The file saved fine, but the browser refused the system share sheet and that refusal was recorded as a failure — while the export had actually succeeded.
+
 ## 0.8.18 — 2026-08-25
 
 - **[RU]** Дневной остаток запросов к ИИ теперь приходит с сервера, а не считается в браузере. Раньше число жило только на этом устройстве: после восстановления архива или во второй вкладке оно расходилось с настоящим, а у администратора показывалось втрое меньше, чем разрешено на самом деле.

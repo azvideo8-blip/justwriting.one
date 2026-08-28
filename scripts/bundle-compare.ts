@@ -4,10 +4,15 @@ import path from 'path';
 /** Имя чанка без хэша содержимого: index-CSCSaN6_.js → index.js.
  *  Без этого изменившийся чанк получает новое имя, не находит себе пару в базе
  *  и уходит в «новый» — а к новым порог не применяется, поэтому оба гейта
- *  (index > 5%, vendor > 10%) не срабатывали никогда. */
+ *  (index > 5%, vendor > 10%) не срабатывали никогда.
+ *
+ *  AUDIT-part3 bundle-size: хэш vite — ровно 8 символов последнего сегмента.
+ *  Жадный {8,} с дефисом в классе съедал ИМЯ чанка тоже (vendor-sentry-Cdc_SYrQ
+ *  → 'vendor.js'): все vendor-чанки схлопывались в одно имя и парились с чужой
+ *  базой — отсюда фиктивные «+153%» и вечный красный Compare. */
 export function stripHash(name: string): string {
   const ext = path.extname(name);
-  return name.slice(0, -ext.length).replace(/-[A-Za-z0-9_-]{8,}$/, '') + ext;
+  return name.slice(0, -ext.length).replace(/-[A-Za-z0-9_-]{8}$/, '') + ext;
 }
 
 interface ChunkReport {
@@ -36,42 +41,63 @@ function formatBytes(bytes: number): string {
 function compareChunks(base: ChunkReport[], current: ChunkReport[]) {
   const changes: { name: string; diff: number; percent: string; baseSize: number; currentSize: number }[] = [];
 
-  for (const cur of current) {
-    const baseChunk = base.find(b => stripHash(b.name) === stripHash(cur.name));
-    if (baseChunk) {
-      const diff = cur.size - baseChunk.size;
-      const percent = baseChunk.size === 0 ? '0.0' : ((diff / baseChunk.size) * 100).toFixed(1);
-      if (Math.abs(diff) > 512) { // > 512 bytes
+  // AUDIT-part3 bundle-size: паринг multiset'ом. В одной сборке бывает два
+  // чанка с одинаковым stripped-именем (index entry + legacy index) — наивный
+  // find() сводил оба текущих к одному базовому, а второй базовый уходил в
+  // «removed». Паринг по отсортированным размерам сводит большой с большим.
+  const groupBy = (rows: ChunkReport[]) => {
+    const g = new Map<string, number[]>();
+    for (const r of rows) {
+      const k = stripHash(r.name);
+      const list = g.get(k) ?? [];
+      list.push(r.size);
+      g.set(k, list);
+    }
+    for (const list of g.values()) list.sort((a, b) => a - b);
+    return g;
+  };
+
+  const baseGroups = groupBy(base);
+  const currentGroups = groupBy(current);
+
+  for (const [key, curSizes] of currentGroups) {
+    const baseSizes = baseGroups.get(key);
+    if (!baseSizes) {
+      // New chunks (all sizes)
+      for (const size of [...curSizes].sort((a, b) => a - b)) {
+        changes.push({ name: key, diff: size, percent: 'new', baseSize: 0, currentSize: size });
+      }
+      continue;
+    }
+    const n = Math.min(curSizes.length, baseSizes.length);
+    for (let i = 0; i < n; i++) {
+      const curSize = curSizes[i]!;
+      const baseSize = baseSizes[i]!;
+      const diff = curSize - baseSize;
+      const percent = baseSize === 0 ? '0.0' : ((diff / baseSize) * 100).toFixed(1);
+      if (Math.abs(diff) > 512) {
         changes.push({
-          name: cur.name,
+          name: key,
           diff,
           percent: `${diff > 0 ? '+' : ''}${percent}%`,
-          baseSize: baseChunk.size,
-          currentSize: cur.size,
+          baseSize,
+          currentSize: curSize,
         });
       }
-    } else {
-      // New chunk
-      changes.push({
-        name: cur.name,
-        diff: cur.size,
-        percent: 'new',
-        baseSize: 0,
-        currentSize: cur.size,
-      });
+    }
+    for (const size of curSizes.slice(n)) {
+      changes.push({ name: key, diff: size, percent: 'new', baseSize: 0, currentSize: size });
+    }
+    for (const size of baseSizes.slice(n)) {
+      changes.push({ name: key, diff: -size, percent: 'removed', baseSize: size, currentSize: 0 });
     }
   }
 
-  // Removed chunks
-  for (const b of base) {
-    if (!current.find(c => stripHash(c.name) === stripHash(b.name))) {
-      changes.push({
-        name: b.name,
-        diff: -b.size,
-        percent: 'removed',
-        baseSize: b.size,
-        currentSize: 0,
-      });
+  for (const [key, baseSizes] of baseGroups) {
+    if (!currentGroups.has(key)) {
+      for (const size of baseSizes) {
+        changes.push({ name: key, diff: -size, percent: 'removed', baseSize: size, currentSize: 0 });
+      }
     }
   }
 
@@ -116,24 +142,26 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.log(`   ${formatBytes(baseSize)} → ${formatBytes(currentSize)} (${diffStr}, ${percent})`);
   }
 
-  // Exit with error if index chunk grew > 5%
-  const indexChange = changes.find(c => c.name.startsWith('index-'));
-  if (indexChange && indexChange.percent !== 'new' && indexChange.percent !== 'removed') {
-    const percentValue = parseFloat(indexChange.percent);
-    if (percentValue > 5) {
-      console.error('\n❌ index chunk grew > 5%');
-      process.exit(1);
-    }
+  // Exit with error if the entry index chunk grew > 5%.
+  // AUDIT-part3: имя теперь stripped ('index'); из двух одноимённых чанков
+  // паринг даёт две записи — гейт смотрит на наибольший рост.
+  const indexChanges = changes.filter(c => c.name === 'index');
+  const worstIndex = indexChanges
+    .filter(c => c.percent !== 'new' && c.percent !== 'removed')
+    .sort((a, b) => parseFloat(b.percent) - parseFloat(a.percent))[0];
+  if (worstIndex && parseFloat(worstIndex.percent) > 5) {
+    console.error(`\n❌ index chunk grew > 5% (${formatBytes(worstIndex.baseSize)} → ${formatBytes(worstIndex.currentSize)}, ${worstIndex.percent})`);
+    process.exit(1);
   }
 
-  // Exit with error if vendor chunk grew > 10%
-  const vendorChange = changes.find(c => c.name.startsWith('vendor-'));
-  if (vendorChange && vendorChange.percent !== 'new' && vendorChange.percent !== 'removed') {
-    const percentValue = parseFloat(vendorChange.percent);
-    if (percentValue > 10) {
-      console.error('\n❌ vendor chunk grew > 10%');
-      process.exit(1);
-    }
+  // Exit with error if any vendor chunk grew > 10%
+  const vendorChange = changes
+    .filter(c => c.name === 'vendor' || c.name.startsWith('vendor-'))
+    .filter(c => c.percent !== 'new' && c.percent !== 'removed')
+    .sort((a, b) => parseFloat(b.percent) - parseFloat(a.percent))[0];
+  if (vendorChange && parseFloat(vendorChange.percent) > 10) {
+    console.error(`\n❌ vendor chunk grew > 10% (${vendorChange.name}: ${formatBytes(vendorChange.baseSize)} → ${formatBytes(vendorChange.currentSize)}, ${vendorChange.percent})`);
+    process.exit(1);
   }
 
   console.log('\n✅ Bundle size changes within acceptable limits.');
