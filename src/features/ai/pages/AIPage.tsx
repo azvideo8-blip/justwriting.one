@@ -8,7 +8,7 @@ import { PersonaDetailModal } from '../components/PersonaDetailModal';
 import { MemoryManagerModal } from '../components/MemoryManagerModal';
 import { IndexingConsentModal } from '../components/IndexingConsentModal';
 import { DocumentPreview } from '../../archive/components/DocumentPreview';
-import type { ArchiveSession } from '../../archive/types';
+import type { ArchiveSession } from '../../../shared/types/common';
 import { useToast } from '../../../shared/components/Toast';
 import { useProfile } from '../../auth/contexts/ProfileContext';
 import { personaVisual } from '../constants/personaVisuals';
