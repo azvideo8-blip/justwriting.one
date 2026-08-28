@@ -1,99 +1,37 @@
 import { useRef } from 'react';
-import type { AIMessage } from '../services/AIService';
 import { getLocalDb } from '../../../core/storage/localDb';
-import { AIProfileService } from '../services/AIProfileService';
-import { AIPersonaService, PRESET_PERSONAS } from '../services/AIPersonaService';
-import { AIProfileFacetService } from '../services/AIProfileFacetService';
-import { AIEmbeddingService } from '../services/AIEmbeddingService';
+import { AIProfileService } from './AIProfileService';
+import { AIPersonaService, PRESET_PERSONAS } from './AIPersonaService';
+import { AIProfileFacetService } from './AIProfileFacetService';
+import { AIEmbeddingService } from './AIEmbeddingService';
 import { searchNotesMulti, vectorScore01, type RetrievedNote } from '../utils/noteRetriever';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
-import { AIService } from '../services/AIService';
+import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { parseTemporalQuery, MONTHS_MAP, type TemporalQuery } from '../utils/temporalQueryParser';
-import { AITimelineService } from '../services/AITimelineService';
-import { AIThemeLedgerService } from '../services/AIThemeLedgerService';
-import { AIMonthlyDigestService } from '../services/AIMonthlyDigestService';
 import { relativeDate } from '../../../core/utils/dateUtils';
-import { looksLikeNoteSearch, shouldRunFullSearch, looksLikeAggregateQuery } from '../utils/aiChatTransport';
-import { cosineSimilarity, topKMultiWithChunkIndex } from '../utils/vectorSearch';
-import { AIDialogueService } from '../services/AIDialogueService';
-import { AIChatMemoryService } from '../services/AIChatMemoryService';
-import { AIMemoryAssembler, extractDocumentIdsFromText } from '../services/AIMemoryAssembler';
-import { MemoryFlagsService } from '../services/memoryFlags';
+import { looksLikeNoteSearch, shouldRunFullSearch } from '../utils/aiChatTransport';
+import { cosineSimilarity } from '../utils/vectorSearch';
+import { AIChatMemoryService } from './AIChatMemoryService';
+import { AIMemoryAssembler, extractDocumentIdsFromText } from './AIMemoryAssembler';
+import { MemoryFlagsService } from './memoryFlags';
 import { setAIStage } from '../store/useAIStageStore';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
-
-// How much the search actually covered. Without it the model has no idea
-// whether the notes in front of it are the whole archive or a handful, and it
-// guesses — which is how "I only see the two you sent" gets said about a search
-// over the entire corpus.
-async function getCorpusStats(db: Awaited<ReturnType<typeof getLocalDb>>): Promise<{ total: number; from: string; to: string }> {
-  const docs = await db.getAll('documents');
-  const dates = docs.map(d => d.lastSessionAt || d.firstSessionAt || 0).filter(Boolean).sort((a, b) => a - b);
-  return {
-    total: docs.length,
-    from: formatDateYYYYMMDD(dates[0]),
-    to: formatDateYYYYMMDD(dates[dates.length - 1]),
-  };
-}
-
-function formatDateYYYYMMDD(timestamp: number | undefined): string {
-  if (!timestamp) return 'unknown-date';
-  const date = new Date(timestamp);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-async function getDocDate(docId: string): Promise<string> {
-  try {
-    const db = await getLocalDb();
-    const doc = await db.get('documents', docId);
-    if (doc?.lastSessionAt) {
-      const date = new Date(doc.lastSessionAt);
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const dd = String(date.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-  } catch { /* ignore */ }
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 import { extractFirstSeenDates } from '../utils/dateGuard';
 import { reportAIDegradation, isDailyLimitError } from '../utils/aiDegradationReporter';
-
-export interface ChatContextResult {
-  userPortrait: string | null;
-  customPersona: string | undefined; // customSystemPrompt
-  searchContext: string | undefined;
-  documentMood: string | undefined;
-  memoryContext?: string | null;
-  injectedDocumentIds?: string[];
-  allowedFirstSeenDates?: string[];
-  degradedReason?: 'daily_limit' | undefined;
-}
-
+import type { ChatContextResult, BuildContextParams } from './chatContext/types';
+import { getCorpusStats, formatDateYYYYMMDD, getDocDate } from './chatContext/corpusStats';
+import { extractCitationIds, validateCitationIds } from './chatContext/citations';
+import { createEmbedOnce } from './chatContext/embeddings';
+import { buildProactiveBlock } from './chatContext/proactive';
+import { buildTemporalBlocks } from './chatContext/temporalBlocks';
+import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
+import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 
 export function useAIChatContext(personaId: string): {
-  buildContext(params: {
-    text: string;
-    attached: { content: string; documentId?: string } | null;
-    mood: string | undefined;
-    messageHistory: AIMessage[];
-    isFirstTurn: boolean;
-    dialogueId?: string | null;
-    forcedSearchQuery?: string | undefined;
-    attachedIsSticky?: boolean | undefined;
-  }): Promise<ChatContextResult>;
+  buildContext(params: BuildContextParams): Promise<ChatContextResult>;
   resetSession(): void;
   setAttachedNote(note: { content: string; documentId?: string } | null): void;
   getAttachedNote(): { content: string; documentId?: string } | null;
@@ -138,16 +76,7 @@ export function useAIChatContext(personaId: string): {
     return messageCountRef.current;
   };
 
-  const buildContext = async (params: {
-    text: string;
-    attached: { content: string; documentId?: string } | null;
-    mood: string | undefined;
-    messageHistory: AIMessage[];
-    isFirstTurn: boolean;
-    dialogueId?: string | null;
-    forcedSearchQuery?: string | undefined;
-    attachedIsSticky?: boolean | undefined;
-  }): Promise<ChatContextResult> => {
+  const buildContext = async (params: BuildContextParams): Promise<ChatContextResult> => {
     const { text, attached, mood, isFirstTurn, forcedSearchQuery, attachedIsSticky } = params;
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
@@ -157,15 +86,10 @@ export function useAIChatContext(personaId: string): {
     const uid = getCurrentUser()?.uid;
     // AUDIT-M5: один текст за ход векторизуется ОДИН раз — повторные вызовы
     // (поисковый запрос === текст реплики) переиспользуют результат.
-    let turnEmbPromise: Promise<number[] | undefined> | null = null;
-    const embedOnce = (content: string): Promise<number[] | undefined> => {
-      if (content !== text) return AIService.embed({ content }).then(r => (r.ok ? r.vectors[0] : undefined));
-      turnEmbPromise ??= AIService.embed({ content }).then(r => {
-        if (!r.ok && isDailyLimitError(r.error)) degradedDueToDailyLimit = true;
-        return r.ok ? r.vectors[0] : undefined;
-      });
-      return turnEmbPromise;
-    };
+    const embedOnce = createEmbedOnce({
+      text,
+      onDailyLimitError: () => { degradedDueToDailyLimit = true; },
+    });
     if (text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
@@ -216,7 +140,7 @@ export function useAIChatContext(personaId: string): {
     // 2. Hydrate searchContext
     const noteAnalysisIntent = /(заметк|запис|аскез)/i.test(text) && /(разбер|разбор|проанализ|анализ|прочит|посмотр|глян)/i.test(text);
     const noteIntentNoText = !attached?.content && noteAnalysisIntent;
-    
+
     // The forced turn: use the provided query and force the search
     const explicitSearch = forcedSearchQuery ? true : shouldRunFullSearch(text, !!attached);
     const effectiveQuery = forcedSearchQuery ?? text;
@@ -227,7 +151,6 @@ export function useAIChatContext(personaId: string): {
       let isAttachedExcluded = false;
       if (attached.documentId) {
         try {
-          const db = await getLocalDb();
           const doc = await db.get('documents', attached.documentId);
           if (doc?.excludedFromAI) {
             isAttachedExcluded = true;
@@ -245,21 +168,17 @@ export function useAIChatContext(personaId: string): {
             : '[Прикрепленная заметка]';
           searchContext = `[#${docId} · ${yyyymmdd}]\n${label}\n${attached.content}`;
         }
-        
+
         if (attached.documentId) {
           injectedDocumentIds.push(attached.documentId);
         }
         // AUDIT-M3: `[#id]` в тексте заметки не должен открывать цитирование
         // исключённых из AI или несуществующих документов — валидируем по корпусу.
-        const matches = attached.content.matchAll(/\[#([a-zA-Z0-9_-]+)\]/g);
-        for (const m of matches) {
-          if (!m[1]) continue;
-          try {
-            const db = await getLocalDb();
-            const cited = await db.get('documents', m[1]);
-            if (cited && !cited.excludedFromAI) injectedDocumentIds.push(m[1]);
-          } catch { /* ignore */ }
-        }
+        const citedIds = await validateCitationIds(
+          extractCitationIds(attached.content),
+          async id => (await db.get('documents', id)) ?? undefined,
+        );
+        injectedDocumentIds.push(...citedIds);
       }
     }
 
@@ -341,263 +260,42 @@ export function useAIChatContext(personaId: string): {
       let semanticIndexMissing = false;
       let allNotes: RetrievedNote[] = [];
 
-      const isComparison = /(?:^|[^а-яёА-ЯЁa-zA-Z0-9])(?:vs|сравни|противо|по сравнению|разниц|отличи)(?![а-яёА-ЯЁa-zA-Z0-9])/i.test(text);
-      let comparisonScopes: TemporalQuery[] = [];
-      if (isComparison) {
-        const monthStems = Object.keys(MONTHS_MAP);
-        const foundMonths: { stem: string; index: number; year?: number }[] = [];
-        const lowerText = text.toLowerCase();
-        const yearMatch = lowerText.match(/(?:^|[^0-9])(202\d)(?![0-9])/);
-        const defaultYear = yearMatch ? parseInt(yearMatch[1]!, 10) : new Date().getFullYear();
-
-        monthStems.forEach(stem => {
-          let idx = lowerText.indexOf(stem);
-          while (idx !== -1) {
-            foundMonths.push({ stem, index: idx, year: defaultYear });
-            idx = lowerText.indexOf(stem, idx + 1);
-          }
-        });
-        foundMonths.sort((a, b) => a.index - b.index);
-        const uniqueMonths = foundMonths.filter((m, i) => i === 0 || m.stem !== foundMonths[i - 1]!.stem);
-
-        if (uniqueMonths.length >= 2) {
-          comparisonScopes = uniqueMonths.slice(0, 2).map(m => ({
-            type: 'month' as const,
-            month: `${m.year}-${MONTHS_MAP[m.stem]!}`,
-            rawText: m.stem,
-          }));
-        } else {
-          const seasons = [
-            { name: 'зима', months: ['12', '01', '02'] },
-            { name: 'зим', months: ['12', '01', '02'] },
-            { name: 'весна', months: ['03', '04', '05'] },
-            { name: 'весн', months: ['03', '04', '05'] },
-            { name: 'лето', months: ['06', '07', '08'] },
-            { name: 'летн', months: ['06', '07', '08'] },
-            { name: 'осень', months: ['09', '10', '11'] },
-            { name: 'осен', months: ['09', '10', '11'] },
-          ];
-          const foundSeasons: { name: string; index: number; months: string[] }[] = [];
-          seasons.forEach(s => {
-            let idx = lowerText.indexOf(s.name);
-            while (idx !== -1) {
-              foundSeasons.push({ name: s.name, index: idx, months: s.months });
-              idx = lowerText.indexOf(s.name, idx + 1);
-            }
-          });
-          foundSeasons.sort((a, b) => a.index - b.index);
-          const uniqueSeasons = foundSeasons.filter((s, i) => i === 0 || s.name !== foundSeasons[i - 1]!.name);
-
-          if (uniqueSeasons.length >= 2) {
-            comparisonScopes = uniqueSeasons.slice(0, 2).map(s => ({
-              type: 'dateRange' as const,
-              from: `${defaultYear}-${s.months[0]}-01`,
-              to: `${defaultYear}-${s.months[2]}-30`,
-              rawText: s.name,
-            }));
-          } else {
-            const yearMatches = [...lowerText.matchAll(/(?:^|[^0-9])(202\d)(?![0-9])/g)];
-            if (yearMatches.length >= 2) {
-              comparisonScopes = yearMatches.slice(0, 2).map(m => ({
-                type: 'dateRange' as const,
-                from: `${m[1]}-01-01`,
-                to: `${m[1]}-12-31`,
-                rawText: m[1]!,
-              }));
-            }
-          }
-        }
-      }
+      let minTime: number | undefined;
+      let maxTime: number | undefined;
 
       // Scope comes from THIS message only. It used to be pinned to the whole
       // dialogue from the first question, so a later question that named no
       // period was silently answered from inside the old one — invisibly making
       // every following answer worse. Follow-ups already keep their thread
       // through the sticky search below.
-      const temporalQuery = parseTemporalQuery(text);
-
-      let minTime: number | undefined;
-      let maxTime: number | undefined;
-
-      if (comparisonScopes.length === 2) {
-        const scopeA = comparisonScopes[0]!;
-        const scopeB = comparisonScopes[1]!;
-        
-        const getScopeBlock = async (scope: TemporalQuery, label: string) => {
-          let sMin: number | undefined;
-          let sMax: number | undefined;
-          if (scope.type === 'month') {
-            const [yyyy, mm] = scope.month!.split('-');
-            const year = parseInt(yyyy!, 10);
-            const month = parseInt(mm!, 10) - 1;
-            sMin = Date.UTC(year, month, 1);
-            sMax = Date.UTC(year, month + 1, 1) - 1;
-          } else if (scope.type === 'dateRange') {
-            sMin = new Date(scope.from!).getTime();
-            sMax = new Date(scope.to!).getTime() + 86_400_000 - 1;
-          }
-
-          let digestNarrative = '';
-          if (scope.type === 'month') {
-            const digest = await AIMonthlyDigestService.get(scope.month!);
-            if (digest?.narrative) digestNarrative = `Сводка за месяц: ${digest.narrative}\n`;
-          }
-
-          let timelineFacts = '';
-          if (scope.type === 'month') {
-            const entries = await AITimelineService.getByMonth(scope.month!);
-            timelineFacts = entries.flatMap(e => e.facts).join('; ');
-          } else if (scope.type === 'dateRange') {
-            const entries = await AITimelineService.getByDateRange(scope.from!, scope.to!);
-            timelineFacts = entries.flatMap(e => e.facts).join('; ');
-          }
-
-          const searchQuery = explicitSearch ? effectiveQuery : `${lastSearchQueryRef.current}\n${text}`;
-          setAIStage('search');
-          const notesResult = await searchNotesMulti([searchQuery], 5, { minTime: sMin, maxTime: sMax });
-          const notesText = notesResult.notes.map(n => `[#${n.documentId} · ${formatDateYYYYMMDD(n.lastSessionAt)}] Заметка "${n.title}": ${n.content.slice(0, 1000)}`).join('\n\n');
-
-          return `=== ПЕРИОД ${label} (${scope.rawText}) ===\n` +
-                 (digestNarrative ? `${digestNarrative}\n` : '') +
-                 (timelineFacts ? `События: ${timelineFacts}\n\n` : '') +
-                 `Релевантные заметки:\n${notesResult.failed ? '[ОШИБКА ПОИСКА: не удалось выполнить поиск, скажите пользователю, что поиск сейчас недоступен]' : (notesText || '(нет заметок)')}\n`;
-        };
-
-        const blockA = await getScopeBlock(scopeA, 'А');
-        const blockB = await getScopeBlock(scopeB, 'Б');
-
-        searchContext = `[РЕЖИМ СРАВНЕНИЯ ПЕРИОДОВ]\nНиже приведены данные для двух сравниваемых периодов. Отвечай на вопросы пользователя, сравнивая их, но не смешивай факты между периодами.\n\n` +
-                        `${blockA}\n\n${blockB}`;
-        handledByTemporal = true;
-        skipSemantic = true;
-      } else if (temporalQuery.type === 'month') {
-        const [yyyy, mm] = temporalQuery.month!.split('-');
-        const year = parseInt(yyyy!, 10);
-        const month = parseInt(mm!, 10) - 1;
-        minTime = Date.UTC(year, month, 1);
-        maxTime = Date.UTC(year, month + 1, 1) - 1;
-        handledByTemporal = true;
-        try {
-          const entries = await AITimelineService.getByMonth(temporalQuery.month!);
-          const factsStr = entries.flatMap(e => {
-            const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
-            return e.facts.map(f => `${dateLabel} ${f}`);
-          }).join('; ');
-          const digest = await AIMonthlyDigestService.get(temporalQuery.month!);
-          const narrative = digest?.narrative ? `${digest.narrative}\n\n` : '';
-          const textBlock = `${narrative}В ${temporalQuery.month}: ${factsStr || 'записи отсутствуют'}. Было ${entries.length} заметок.`;
-          searchContext = (searchContext ?? '') + `\n\n[Результаты поиска по хронологии]\n${textBlock}`;
-        } catch (e) {
-          reportError(e, { action: '[useAIChatContext] temporal query month failed' });
-        }
-      } else if (temporalQuery.type === 'dateRange') {
-        minTime = new Date(temporalQuery.from!).getTime();
-        maxTime = new Date(temporalQuery.to!).getTime() + 86_400_000 - 1;
-        handledByTemporal = true;
-        try {
-          const entries = await AITimelineService.getByDateRange(temporalQuery.from!, temporalQuery.to!);
-          const factsStr = entries.flatMap(e => {
-            const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
-            return e.facts.map(f => `${dateLabel} ${f}`);
-          }).join('; ');
-          const textBlock = `В период с ${temporalQuery.from} по ${temporalQuery.to}: ${factsStr || 'записи отсутствуют'}. Было ${entries.length} заметок.`;
-          searchContext = (searchContext ?? '') + `\n\n[Результаты поиска по хронологии]\n${textBlock}`;
-        } catch (e) {
-          reportError(e, { action: '[useAIChatContext] temporal query dateRange failed' });
-        }
-      } else if (temporalQuery.type === 'recent') {
-        handledByTemporal = true;
-        skipSemantic = true;
-        try {
-          const digests = await AIMonthlyDigestService.getRecent(3);
-          setAIStage('timeline');
-          const timelines = await AITimelineService.getMostRecent(10);
-          const sortedDigests = [...digests].reverse();
-          const digestLines = sortedDigests.map(d => `${d.month}: ${d.narrative}`).join('\n');
-          const eventLines = timelines.flatMap(e => {
-            const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
-            return e.facts.map(f => `- ${dateLabel}: ${f}`);
-          }).join('\n');
-          const catchUpBlock = `За последние месяцы:\n${digestLines || 'Нет обзоров.'}\n\nПоследние события:\n${eventLines || 'Нет зафиксированных событий.'}`;
-          searchContext = (searchContext ?? '') + `\n\n[Хронологическая сводка]\n${catchUpBlock}`;
-        } catch (e) {
-          reportError(e, { action: '[useAIChatContext] temporal query recent failed' });
-        }
+      const temporal = await buildTemporalBlocks({
+        text,
+        effectiveQuery,
+        explicitSearch,
+        lastSearchQuery: lastSearchQueryRef.current,
+        db,
+      });
+      handledByTemporal = temporal.outcome.handledByTemporal;
+      skipSemantic = temporal.outcome.skipSemantic;
+      minTime = temporal.outcome.minTime;
+      maxTime = temporal.outcome.maxTime;
+      if (temporal.setSearchContextTo !== undefined) {
+        searchContext = temporal.setSearchContextTo;
+      } else if (temporal.appended) {
+        searchContext = (searchContext ?? '') + temporal.appended;
       }
 
-      if (minTime && maxTime) {
-        try {
-          const db = await getLocalDb();
-          const docs = await db.getAll('documents');
-          let noteCountForPeriod = 0;
-          for (const doc of docs) {
-            const ts = doc.lastSessionAt;
-            if (ts && ts >= minTime && ts <= maxTime) {
-              noteCountForPeriod++;
-            }
-          }
-          if (noteCountForPeriod <= 2) {
-            searchContext = (searchContext ?? '') + `\n\n[СИСТЕМНОЕ ПРЕДУПРЕЖДЕНИЕ: За выбранный период найдено мало записей (${noteCountForPeriod}). Обязательно честно скажи об этом пользователю ("за этот период мало записей — ...") вместо того, чтобы придумывать или обобщать.]`;
-          }
-        } catch { /* ignore */ }
-      }
-
-      if (looksLikeAggregateQuery(effectiveQuery)) {
-        try {
-          const activeThemes = await AIThemeLedgerService.getActive();
-          const queryLower = effectiveQuery.toLowerCase();
-          
-          let localQueryEmb = queryEmb;
-          if (!localQueryEmb && hasIndexingConsent(uid)) {
-            const embResult = await AIService.embed({ content: effectiveQuery });
-            if (!embResult.ok) {
-              if (isDailyLimitError(embResult.error)) {
-                degradedDueToDailyLimit = true;
-              }
-              reportAIDegradation({
-                feature: 'chat_aggregate_embed',
-                cause: embResult.error,
-                action: 'Поиск по реестру тем',
-                impact: 'Статистика по темам недоступна',
-              });
-            }
-            localQueryEmb = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
-          }
-
-          const scoredThemes = activeThemes.map(t => {
-            let score = 0;
-            if (localQueryEmb && t.themeVector?.length > 0) {
-              score = cosineSimilarity(localQueryEmb, t.themeVector);
-            }
-            if (queryLower.includes(t.theme.toLowerCase())) {
-              score += 0.2;
-            }
-            return { ...t, score };
-          })
-          .filter(t => t.score > 0.7)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 5);
-
-          if (scoredThemes.length > 0) {
-            const themeStats = scoredThemes.map(t => {
-              return `- Тема "${t.theme}": упоминалась ${t.count} раз. Впервые: ${new Date(t.firstSeenAt).toLocaleDateString('ru-RU')}, последний раз: ${new Date(t.lastReinforcedAt).toLocaleDateString('ru-RU')}.\n  Контекст: ${t.evidence.map(e => e.sentence).join('; ')}`;
-            }).join('\n\n');
-            searchContext = (searchContext ?? '') + `\n\n[ТОЧНАЯ СТАТИСТИКА ПО ВСЕЙ БАЗЕ ЗАМЕТОК, НЕ ТРЕБУЕТ ОЦЕНОК]\n${themeStats}\n(Используй только эти точные цифры для ответа на вопросы о частоте или количестве. Не пытайся экстраполировать количество на основе найденных ниже примеров записей.)`;
-          } else {
-            searchContext = (searchContext ?? '') + `\n\n[ТОЧНАЯ СТАТИСТИКА ПО ВСЕЙ БАЗЕ ЗАМЕТОК, НЕ ТРЕБУЕТ ОЦЕНОК]\nВ базе нет точных данных (ledger) по запрашиваемой теме. Честно сообщи пользователю, что точной статистики нет (не пытайся угадывать число по отдельным заметкам ниже).`;
-          }
-        } catch (e) {
-          reportError(e, { action: '[useAIChatContext] aggregate query failed' });
-          // Without a block the model falls back to counting the top-K notes
-          // below and states a number — the ledger being unreadable must not
-          // turn into a confident count, or into "you never wrote about this".
-          searchContext = (searchContext ?? '') +
-            `\n\n[ТОЧНАЯ СТАТИСТИКА ПО ВСЕЙ БАЗЕ ЗАМЕТОК НЕДОСТУПНА]\nНе удалось прочитать реестр тем. Скажи, что не можешь сейчас посчитать точно, и не называй никаких чисел — ни своих, ни выведенных из примеров записей ниже.`;
-        }
+      const aggregateBlock = await buildAggregateThemeBlock({
+        effectiveQuery,
+        queryEmb,
+        uid,
+        onDailyLimitError: () => { degradedDueToDailyLimit = true; },
+      });
+      if (aggregateBlock) {
+        searchContext = (searchContext ?? '') + aggregateBlock;
       }
 
       if (explicitSearch || stickySearch) {
-        const db = await getLocalDb();
         const candidateNames = [...new Set([
           ...effectiveQuery.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
           ...lastSearchNamesRef.current,
@@ -803,7 +501,7 @@ export function useAIChatContext(personaId: string): {
               setAIStage('summaries');
               const noteSummary = await db.get('aiSummaries', n.documentId);
               const summaryPrefix = noteSummary?.summary ? `[Суть: ${noteSummary.summary}]\n` : '';
-              
+
               const dateLabel = n.lastSessionAt ? relativeDate(n.lastSessionAt) : '';
               const datePart = dateLabel ? ` (${dateLabel})` : '';
               const yyyymmdd = formatDateYYYYMMDD(n.lastSessionAt);
@@ -846,43 +544,15 @@ export function useAIChatContext(personaId: string): {
       // Lite retrieval if no full search was performed
       const performedFullSearch = explicitSearch || stickySearch;
       if (!attached && !performedFullSearch && !noteIntentNoText) {
-        if (turnEmb) {
-          try {
-            const allEmb = await AIEmbeddingService.getAll();
-            const docs = await db.getAll('documents');
-            const usable = new Set(docs.filter(d => {
-              if (d.excludedFromAI) return false;
-              const ts = d.lastSessionAt || d.firstSessionAt;
-              if (minTime !== undefined && (!ts || ts < minTime)) return false;
-              if (maxTime !== undefined && (!ts || ts > maxTime)) return false;
-              return true;
-            }).map(d => d.id));
-            const filteredEmb = allEmb.filter(e => usable.has(e.documentId));
-            const results = topKMultiWithChunkIndex(turnEmb, filteredEmb.map(e => ({ id: e.documentId, vectors: e.vectors })), 3);
-            if (results.length > 0) {
-              const parts = [];
-              let idx = 0;
-              for (const r of results) {
-                const doc = await db.get('documents', r.id);
-                if (!doc) continue;
-                const emb = allEmb.find(e => e.documentId === r.id);
-                const textChunk = emb?.chunkTexts?.[r.chunkIndex] || '';
-                if (!textChunk.trim()) continue;
-                idx++;
-                const dateLabel = doc.lastSessionAt ? relativeDate(doc.lastSessionAt) : '';
-                const datePart = dateLabel ? ` (${dateLabel})` : '';
-                const yyyymmdd = formatDateYYYYMMDD(doc.lastSessionAt);
-                injectedDocumentIds.push(r.id);
-                parts.push(`[#${doc.id} · ${yyyymmdd}]\nЗаметка ${idx}${datePart}: "${doc.title || 'Без названия'}"\n${textChunk}`);
-              }
-              if (parts.length > 0) {
-                const liteBlock = `[Возможно релевантные заметки]\n` + parts.join('\n\n');
-                searchContext = searchContext ? `${searchContext}\n\n${liteBlock}` : liteBlock;
-              }
-            }
-          } catch (e) {
-            reportError(e, { action: '[useAIChatContext] lite retrieval failed' });
-          }
+        const liteBlock = await buildLiteRetrievalBlock({
+          turnEmb,
+          db,
+          minTime,
+          maxTime,
+          injectedDocumentIds,
+        });
+        if (liteBlock) {
+          searchContext = searchContext ? `${searchContext}\n\n${liteBlock}` : liteBlock;
         }
       }
 
@@ -934,7 +604,6 @@ export function useAIChatContext(personaId: string): {
             if (cachedDocsMap) {
               docsList = Array.from(cachedDocsMap.values());
             } else {
-              const db = await getLocalDb();
               docsList = await db.getAll('documents');
               const map = new Map();
               docsList.forEach(d => map.set(d.id, d));
@@ -973,149 +642,7 @@ export function useAIChatContext(personaId: string): {
     // 3. Proactive recent context and dialogue memory
     const shouldInjectProactive = isFirstTurn && !explicitSearch && !recentContextInjectedRef.current;
     if (shouldInjectProactive) {
-      let proactiveBlock = '';
-      try {
-        const recentDigests = await AIMonthlyDigestService.getRecent(2);
-        const db = await getLocalDb();
-        const docs = await db.getAllFromIndex('documents', 'by-lastSession');
-        const sortedDocs = [...docs].sort((a, b) => (b.lastSessionAt ?? 0) - (a.lastSessionAt ?? 0));
-
-        const recentDocSummaries: string[] = [];
-        for (const doc of sortedDocs.slice(0, 3)) {
-          const summary = await db.get('aiSummaries', doc.id);
-          if (summary) {
-            const summaryText = summary.summary || summary.tone;
-            if (summaryText) {
-              recentDocSummaries.push(`- «${doc.title || 'Без названия'}»: ${summaryText}`);
-            }
-          }
-        }
-
-        let recentBlock = '';
-        const digestsPart = recentDigests.map(d => d.narrative).join('\n\n');
-        const notesPart = recentDocSummaries.length > 0
-          ? `\n\nПоследние заметки:\n${recentDocSummaries.join('\n')}`
-          : '';
-        if (digestsPart || notesPart) {
-          recentBlock = `[Что ты писал недавно]\n${digestsPart}${notesPart}`;
-        }
-
-        const isPsychPersona = ['cbt', 'group_psychology'].includes(personaId);
-        if (isPsychPersona) {
-          const moodTrend = await AITimelineService.getMoodTrend(3);
-          if (moodTrend.length > 0) {
-            const monthNamesRu = [
-              'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
-              'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'
-            ];
-            const trendStr = moodTrend.map(t => {
-              const parts = t.month.split('-');
-              const monthIdx = parseInt(parts[1] ?? '1', 10) - 1;
-              const monthName = monthNamesRu[monthIdx] ?? t.month;
-              return `${monthName} — ${t.dominantTone}`;
-            }).join(', ');
-
-            recentBlock += `\n\nДинамика настроения: ${trendStr}.`;
-          }
-        }
-
-        if (recentBlock) {
-          proactiveBlock = recentBlock.slice(0, 2000);
-        }
-      } catch (e) {
-        reportError(e, { action: '[useAIChatContext] proactive context failed' });
-      }
-
-      const shownIds = new Set<string>();
-      try {
-        const archived = await AIDialogueService.list({ includeArchived: true });
-        const personaArchived = archived.filter(d => d.personaId === personaId && d.archivedAt !== undefined && d.closingSummary !== undefined && d.closingSummary !== '');
-        const recentArchived = personaArchived
-          .sort((a, b) => (b.archivedAt ?? 0) - (a.archivedAt ?? 0))
-          .slice(0, 3);
-
-        if (recentArchived.length > 0) {
-          recentArchived.forEach(d => shownIds.add(d.id));
-          const prevSessionLines = recentArchived.map(d => {
-            const dateStr = new Date(d.archivedAt!).toLocaleDateString('ru-RU');
-            return `- ${dateStr}: ${d.closingSummary}`;
-          }).join('\n');
-          const previousContextBlock = `[Предыдущие сессии с этим персонажем]\n${prevSessionLines}`;
-          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${previousContextBlock}` : previousContextBlock;
-        }
-      } catch (e) {
-        reportError(e, { action: '[useAIChatContext] same persona dialogue memory context failed' });
-      }
-
-      try {
-        const db = await getLocalDb();
-        const allEvents = await db.getAll('aiDialogueEvents');
-        const otherEvents = allEvents
-          .filter(e => !shownIds.has(e.dialogueId))
-          .sort((a, b) => b.date.localeCompare(a.date))
-          .slice(0, 5);
-
-        if (otherEvents.length > 0) {
-          const crossSessionLines = otherEvents.map(e => {
-            let dateStr = e.date;
-            try {
-              const dObj = new Date(e.date);
-              if (!isNaN(dObj.getTime())) {
-                dateStr = dObj.toLocaleDateString('ru-RU');
-              }
-            } catch { /* ignore */ }
-            return `- ${dateStr} (${e.personaName}): ${e.summary}`;
-          }).join('\n');
-          const crossContextBlock = `[Выводы прошлых разговоров]\n${crossSessionLines}`;
-          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${crossContextBlock}` : crossContextBlock;
-        }
-      } catch (e) {
-        reportError(e, { action: '[useAIChatContext] cross dialogue memory context failed' });
-      }
-
-      try {
-        const db = await getLocalDb();
-        const timeline = await db.getAll('aiTimeline');
-        
-        // Trends
-        const { computeTrends, formatTrendsBlock } = await import('../utils/contextTrends');
-        const trends = computeTrends(timeline);
-        const trendsBlock = formatTrendsBlock(trends);
-        if (trendsBlock) {
-          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${trendsBlock}` : trendsBlock;
-        }
-
-        // Contradictions
-        const { detectContradictions, formatContradictions } = await import('../utils/contradictionDetect');
-        const contradictions = detectContradictions(timeline);
-        if (contradictions.length > 0) {
-          const contraBlock = formatContradictions(contradictions);
-          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${contraBlock}` : contraBlock;
-        }
-
-        // Commitments
-        const { AICommitmentService } = await import('../services/AICommitmentService');
-        const openCommitments = await AICommitmentService.getOpenCommitments();
-        if (openCommitments.length > 0) {
-          const commitmentsLines = openCommitments.map(c => `- «${c.text}» (создано: ${relativeDate(c.createdAt)})`).join('\n');
-          const commitmentsBlock = `[Твои открытые планы / обязательства]\n${commitmentsLines}`;
-          proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${commitmentsBlock}` : commitmentsBlock;
-        }
-
-        // Narrative threads
-        if (turnEmb) {
-          const { AIThreadService } = await import('../services/AIThreadService');
-          const relevantThreads = await AIThreadService.getRelevant(turnEmb, 2);
-          if (relevantThreads.length > 0) {
-            const threadLines = relevantThreads.map(t => `- [Сюжетная линия, активность ${t.ageDays} дней назад]: ${t.summary}`).join('\n');
-            const threadBlock = `[Связанные сюжетные линии]\n${threadLines}`;
-            proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${threadBlock}` : threadBlock;
-          }
-        }
-      } catch (e) {
-        reportError(e, { action: '[useAIChatContext] proactive advanced context failed' });
-      }
-
+      const proactiveBlock = await buildProactiveBlock({ personaId, turnEmb });
       if (proactiveBlock) {
         searchContext = searchContext ? `${proactiveBlock}\n\n${searchContext}` : proactiveBlock;
         recentContextInjectedRef.current = true;
@@ -1156,13 +683,10 @@ export function useAIChatContext(personaId: string): {
     // произвольные [#...] маркеры), валидируются по корпусу — исключённые из AI
     // и несуществующие документы не попадают в allowlist цитат.
     const rawDocIds = [...memoryDocIds, ...searchDocIds];
-    const validatedDocIds: string[] = [];
-    for (const id of rawDocIds) {
-      try {
-        const cited = await db.get('documents', id);
-        if (cited && !cited.excludedFromAI) validatedDocIds.push(id);
-      } catch { /* ignore */ }
-    }
+    const validatedDocIds = await validateCitationIds(
+      rawDocIds,
+      async id => (await db.get('documents', id)) ?? undefined,
+    );
     const allInjectedDocIds = [
       ...injectedDocumentIds,
       ...validatedDocIds,

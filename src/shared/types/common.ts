@@ -173,3 +173,23 @@ export interface Version {
    *  Версию видно и она восстановима, но доверять метрикам в ней нельзя. */
   _degraded?: boolean | undefined;
 }
+
+/**
+ * Сессия с пометками состояния синхронизации и читаемости.
+ *
+ * Живёт в shared, а не в features/archive: этот же тип нужен чату (превью
+ * цитаты), экспорту и архиву. Пока он лежал в фиче, каждый его потребитель
+ * оказывался cross-feature импортом — храповик границ ловил ровно это.
+ */
+export interface ArchiveSession extends Session {
+  _linkedCloudId?: string | undefined;
+  _hasCloudCopy?: boolean | undefined;
+  _isLegacy?: boolean | undefined;
+  _hasPendingSync?: boolean | undefined;
+  _locked?: boolean | undefined;
+  _decryptionError?: boolean | undefined;
+  _contentError?: boolean | undefined;
+  // Cloud-only note whose text the list view did not fetch. Not the same as an
+  // empty note — load it before showing or exporting.
+  _contentNotLoaded?: boolean | undefined;
+}

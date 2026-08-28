@@ -6,7 +6,7 @@ vi.mock('../../../shared/utils/downloadBlob', () => ({
 }));
 
 import { exportAllAsZip } from '../ExportAllService';
-import type { ArchiveSession } from '../../archive/types';
+import type { ArchiveSession } from '../../../shared/types/common';
 
 const STRINGS = {
   untitled: 'Без названия', words: 'слов', minutes: 'мин', wpm: 'зн/мин',
