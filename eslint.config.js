@@ -119,17 +119,6 @@ export default [
     },
   },
   {
-    // AUDIT-L13: известный долг — админ/диагностические страницы целиком
-    // русскоязычные. Отключаем правило здесь, пока не переведены в ключи.
-    files: [
-      'src/features/ai/pages/DiagnosticsPage.tsx',
-      'src/features/ai/pages/RerankBenchPage.tsx',
-      'src/features/ai/components/DatabaseExplorer.tsx',
-      'src/features/ai/components/ProfileFacets.tsx',
-    ],
-    rules: { 'no-restricted-syntax': 'off' },
-  },
-  {
     // AG-LINT-1: React-Compiler-сюита (v7 recommended тянет её через спред
     // выше) уходит в экспоненту по памяти на распиленном aiChatContext.ts —
     // ESLint OOM на 6 и 12 ГБ даже как одиночный файл. Классика

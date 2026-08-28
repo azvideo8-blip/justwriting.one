@@ -9,6 +9,7 @@ import { AIFacetJudgeService, type JudgeLog } from '../services/AIFacetJudgeServ
 import type { AIProfileFacet, LocalDocument, AIDialogueEvent } from '../../../core/storage/localDb';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 const NEW_MS = 14 * 24 * 60 * 60 * 1000;
 const ACTIVE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -30,6 +31,7 @@ interface ProfileFacetsProps {
 
 export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [facets, setFacets] = useState<AIProfileFacet[]>([]);
   const [docMap, setDocMap] = useState<Map<string, LocalDocument>>(new Map());
@@ -170,7 +172,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider flex items-center gap-2">
           <Layers size={13} className="text-brand-soft" />
-          Темы профиля
+          {t('admin_facets_title')}
         </span>
           {!readOnly && (
             <div className="flex items-center gap-1.5">
@@ -179,10 +181,10 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   onClick={() => { void handleJudge(); }}
                   disabled={building}
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
-                  title="ИИ-судья сверяет описания тем с фактами и исправляет выдумки/неверные роли"
+                  title={t('admin_judge_hint')}
                 >
                   <Scale size={12} />
-                  Судить
+                  {t('admin_judge_btn')}
                 </Button>
               )}
               {facets.some(f => f.dirty) && (
@@ -192,7 +194,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 text-[10px] font-bold disabled:opacity-50"
                 >
                   <Sparkles size={12} />
-                  Обновить описания
+                  {t('admin_resummarize')}
                 </Button>
               )}
               {facets.length > 0 && (
@@ -202,7 +204,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
                 >
                   <Copy size={12} />
-                  Выгрузить
+                  {t('admin_export')}
                 </Button>
               )}
               <Button
@@ -211,7 +213,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
               >
                 {building ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                {building && progress ? `Анализ ${progress.done}/${progress.total}…` : (facets.length ? 'Перестроить' : 'Построить темы')}
+                {building && progress ? t('admin_building', { done: progress.done, total: progress.total }) : (facets.length ? t('admin_rebuild') : t('admin_build_btn'))}
               </Button>
             </div>
           )}
@@ -225,7 +227,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
           >
             <span className="flex items-center gap-2">
               <Scale size={12} className="text-brand-soft" />
-              Журнал судьи · {fmt(judgeLog.at)} · исправлено {judgeLog.entries.filter(e => e.status === 'corrected').length} из {judgeLog.entries.length}
+              {t('admin_judge_log', { date: fmt(judgeLog.at), fixed: judgeLog.entries.filter(e => e.status === 'corrected').length, total: judgeLog.entries.length })}
             </span>
             <ChevronDown size={13} className={cn('transition-transform', judgeLogOpen && 'rotate-180')} />
           </button>
@@ -239,7 +241,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   <div className="flex-1 min-w-0">
                     <span className="font-semibold text-text-main">{e.label}</span>
                     <span className="text-text-main/60">
-                      {e.status === 'ok' ? ' — без нареканий' : e.status === 'corrected' ? ' — исправлено' : ' — помечено, оставлено как есть'}
+                      {e.status === 'ok' ? t('admin_judge_ok') : e.status === 'corrected' ? t('admin_judge_corrected') : t('admin_judge_flagged')}
                     </span>
                     {e.issues.length > 0 && (
                       <div className="text-[10px] text-text-main/60 mt-0.5">{e.issues.join('; ')}</div>
@@ -258,18 +260,18 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
         ) : facets.length === 0 ? (
           readOnly && summariesCount < 20 ? (
             <p className="text-xs text-text-main/60 italic py-6 text-center">
-              Темы появятся автоматически после ~20 проанализированных заметок (сейчас проанализировано: {summariesCount}/20).
+              {t('admin_facets_warmup', { count: summariesCount })}
             </p>
           ) : (
             <p className="text-xs text-text-main/60 italic py-6 text-center">
-              Темы ещё не построены. Нажми «Построить темы» — заметки сгруппируются по смыслу, и для каждой темы появится описание.
+              {t('admin_facets_empty')}
             </p>
           )
         ) : (
           <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {facets.map(f => {
-              const t = trend(f);
+              const tr = trend(f);
               const isExp = expanded.has(f.id);
               return (
                 <div
@@ -283,19 +285,19 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   <div className="flex items-center justify-between gap-2">
                     <span className={cn('text-sm font-semibold text-text-main', !isExp && 'truncate')}>{f.label}</span>
                     <div className="flex items-center gap-1.5">
-                      {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">новое</span>}
+                      {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">{t('admin_new_badge')}</span>}
                       {f.dialogueIds && f.dialogueIds.length > 0 && (
                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">
                           💬 {f.dialogueIds.length}
                         </span>
                       )}
-                      <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0', t.cls)}>{t.label}</span>
+                      <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0', tr.cls)}>{tr.label}</span>
                     </div>
                   </div>
                   <p className={cn('text-[11px] text-text-main/60 leading-relaxed whitespace-pre-wrap', !isExp && 'line-clamp-4')}>{f.summary || '—'}</p>
                   {isExp && (
                     <div className="mt-2 space-y-1">
-                      <span className="text-[9px] font-bold text-text-main/60 uppercase tracking-wider">Заметки темы</span>
+                      <span className="text-[9px] font-bold text-text-main/60 uppercase tracking-wider">{t('admin_facet_notes')}</span>
                       <div className="max-h-40 overflow-y-auto space-y-0.5">
                         {f.noteIds.map(id => {
                           const doc = docMap.get(id);
@@ -306,7 +308,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                               className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-md hover:bg-brand-soft/10 transition-colors group"
                             >
                               <FileText size={10} className="shrink-0 text-text-main/60 group-hover:text-brand-soft" />
-                              <span className="text-[10px] text-text-main/60 group-hover:text-text-main/80 truncate flex-1">{doc?.title ?? '(без названия)'}</span>
+                              <span className="text-[10px] text-text-main/60 group-hover:text-text-main/80 truncate flex-1">{doc?.title ?? t('admin_unnamed')}</span>
                               <span className="text-[9px] text-text-main/60 font-mono shrink-0">{doc ? fmt(doc.lastSessionAt) : ''}</span>
                             </button>
                           );
@@ -316,7 +318,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   )}
                   {isExp && f.dialogueIds && f.dialogueIds.length > 0 && (
                     <div className="mt-2 space-y-1">
-                      <span className="text-[9px] font-bold text-text-main/60 uppercase tracking-wider">Диалоги темы</span>
+                      <span className="text-[9px] font-bold text-text-main/60 uppercase tracking-wider">{t('admin_facet_dialogues')}</span>
                       <div className="max-h-40 overflow-y-auto space-y-0.5">
                         {f.dialogueIds.map(id => {
                           const dlg = dialogueEvents.get(id);
@@ -327,7 +329,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                             >
                               <span className="shrink-0 text-text-main/40">💬</span>
                               <span className="truncate flex-1">
-                                {dlg?.personaName || 'ИИ'}: {dlg?.summary || 'Без описания'}
+                                {t('admin_dialogue_line', { persona: dlg?.personaName || t('admin_persona_default'), summary: dlg?.summary || t('admin_dialogue_no_summary') })}
                               </span>
                               <span className="text-[9px] font-mono shrink-0">{dlg ? dlg.date : ''}</span>
                             </div>
@@ -338,10 +340,10 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   )}
                   <div className="flex items-center justify-between gap-2 pt-1 border-t border-border-subtle/40 mt-1">
                     <span className="text-[9px] text-text-main/60 font-mono">
-                      {f.noteCount} заметок
-                      {f.dialogueIds && f.dialogueIds.length > 0 ? ` + ${f.dialogueIds.length} диалогов` : ''}
+                      {t('admin_notes_count', { count: f.noteCount })}
+                      {f.dialogueIds && f.dialogueIds.length > 0 ? ` ${t('admin_dialogues_count', { count: f.dialogueIds.length })}` : ''}
                       {` · `}
-                      {isExp ? 'свернуть' : 'развернуть'}
+                      {isExp ? t('admin_collapse') : t('admin_expand')}
                     </span>
                     <Button
                       onClick={e => {
@@ -350,7 +352,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                       }}
                       className="px-2 py-0.5 text-[9px] font-bold rounded bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 transition-colors"
                     >
-                      ✨ Обсудить
+                      {t('admin_discuss')}
                     </Button>
                   </div>
                 </div>
@@ -361,7 +363,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
           </>
         )}
         <p className="text-[10px] text-text-main/60 mt-3">
-          Темы выделяются кластеризацией эмбеддингов заметок (локально), описание каждой — ИИ по её заметкам. Заметка может попадать в несколько тем.
+          {t('admin_footer_note')}
         </p>
       </div>
     </div>

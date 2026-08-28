@@ -6,6 +6,7 @@ import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 import { getIndexingConsent } from '../../../core/ai/indexingConsent';
 import { getCurrentUser } from '../../../core/auth';
+import { useLanguage } from '../../../shared/i18n';
 
 // Оценка сохраняется после каждого нажатия. В прошлый заход случайный жест
 // «назад» на тачпаде стёр час работы — здесь этого не повторится.
@@ -74,6 +75,7 @@ function scoreOrdering(ids: string[], verdicts: Record<string, Verdict>) {
 
 export function RerankBenchPage() {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [state, setState] = useState<BenchState | null>(() => loadState());
   const [queriesText, setQueriesText] = useState(() => loadState()?.queriesText ?? '');
   const [running, setRunning] = useState(false);
@@ -214,22 +216,20 @@ export function RerankBenchPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-text-main">Замер вклада реранка</h1>
+        <h1 className="text-xl font-bold text-text-main">{t('admin_bench_title')}</h1>
         <p className="text-xs text-text-main/60 mt-1">
-          Каждый запрос выполняется дважды: только локальное слияние и оно же плюс облачное
-          переупорядочивание. Обе выдачи показываются вперемешку, без указания, откуда какая.
-          Оценки сохраняются сразу — страницу можно закрыть и вернуться.
+          {t('admin_bench_desc')}
         </p>
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-medium text-text-main/70">Запросы, по одному в строке</label>
+        <label className="text-xs font-medium text-text-main/70">{t('admin_bench_queries_label')}</label>
         <textarea
           value={queriesText}
           onChange={e => setQueriesText(e.target.value)}
           rows={10}
           disabled={running}
-          placeholder={'по одному запросу в строке\nнапример: разговор о работе\n…'}
+          placeholder={t('admin_bench_queries_placeholder')}
           className="w-full p-3 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/40 font-mono leading-relaxed"
         />
         <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export function RerankBenchPage() {
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-soft text-white text-sm font-medium disabled:opacity-50"
           >
             {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            {running ? `Запрос ${progress}…` : 'Прогнать'}
+            {running ? t('admin_bench_running_q', { count: progress }) : t('admin_bench_run')}
           </Button>
           {runs.length > 0 && (
             <Button
@@ -250,7 +250,7 @@ export function RerankBenchPage() {
               }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border-subtle text-xs text-text-main/60 hover:text-text-main"
             >
-              <RotateCcw size={12} /> Начать заново
+              <RotateCcw size={12} /> {t('admin_bench_restart')}
             </Button>
           )}
         </div>
@@ -261,7 +261,7 @@ export function RerankBenchPage() {
           <div className="p-4 rounded-xl border border-border-subtle bg-surface-card space-y-3 sticky top-2 z-10 backdrop-blur">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-text-main">
-                Оценено {judgedPairs} из {totalPairs}
+                {t('admin_bench_judged_of', { judged: judgedPairs, total: totalPairs })}
               </span>
               <Button
                 onClick={() => {
@@ -273,24 +273,24 @@ export function RerankBenchPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main"
               >
                 {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-                Скопировать сводку
+                {t('admin_bench_copy')}
               </Button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
               <div className="p-2 rounded-lg bg-surface-base/10 border border-border-subtle/50">
-                <div className="text-text-main/50 text-[10px]">В зачёте запросов</div>
-                <div className="font-semibold text-text-main mt-0.5">{scored} из {runs.length}</div>
+                <div className="text-text-main/50 text-[10px]">{t('admin_bench_in_count')}</div>
+                <div className="font-semibold text-text-main mt-0.5">{t('admin_bench_scored_of', { scored, total: runs.length })}</div>
               </div>
               <div className="p-2 rounded-lg bg-surface-base/10 border border-border-subtle/50">
-                <div className="text-text-main/50 text-[10px]">Точность RRF / реранк</div>
+                <div className="text-text-main/50 text-[10px]">{t('admin_bench_precision')}</div>
                 <div className="font-semibold text-text-main mt-0.5">{pc(aP)}% / {pc(bP)}%</div>
               </div>
               <div className="p-2 rounded-lg bg-surface-base/10 border border-border-subtle/50">
-                <div className="text-text-main/50 text-[10px]">MRR RRF / реранк</div>
+                <div className="text-text-main/50 text-[10px]">{t('admin_bench_mrr')}</div>
                 <div className="font-semibold text-text-main mt-0.5">{mr(aM)} / {mr(bM)}</div>
               </div>
               <div className="p-2 rounded-lg bg-surface-base/10 border border-border-subtle/50">
-                <div className="text-text-main/50 text-[10px]">Реранк лучше / хуже / так же</div>
+                <div className="text-text-main/50 text-[10px]">{t('admin_bench_winloss')}</div>
                 <div className="font-semibold text-text-main mt-0.5">{win} / {lose} / {tie}</div>
               </div>
             </div>
@@ -308,16 +308,16 @@ export function RerankBenchPage() {
                     <span className="flex items-center gap-2">
                       {r.bypassed && (
                         <span className="text-[10px] px-2 py-0.5 rounded bg-surface-base/20 text-text-main/60 font-mono">
-                          обход ({r.bypassReason ?? 'условие'})
+                          {t('admin_bench_bypassed', { reason: r.bypassReason ?? t('admin_bench_bypass_default') })}
                         </span>
                       )}
                       {r.rerankFailed && (
                         <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/15 text-red-400 font-mono">
-                          реранк не сработал
+                          {t('admin_bench_rerank_failed')}
                         </span>
                       )}
                       <span className="text-[10px] text-text-main/40">
-                        {left === 0 ? 'оценено' : `осталось ${left}`}
+                        {left === 0 ? t('admin_bench_done') : t('admin_bench_left', { count: left })}
                       </span>
                     </span>
                   </div>
@@ -337,7 +337,7 @@ export function RerankBenchPage() {
                         }`}
                       >
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="font-medium text-text-main/90">{m?.title || 'Без названия'}</span>
+                          <span className="font-medium text-text-main/90">{m?.title || t('admin_unnamed')}</span>
                           {m?.date && (
                             <span className="text-[10px] text-text-main/40 shrink-0 font-mono">
                               {new Date(m.date).toLocaleDateString()}
@@ -355,11 +355,11 @@ export function RerankBenchPage() {
                           className="flex items-center gap-1 text-[11px] text-text-main/50 hover:text-text-main"
                         >
                           {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                          {isOpen ? 'свернуть' : 'читать заметку целиком'}
+                          {isOpen ? t('admin_collapse') : t('admin_read_full')}
                         </button>
 
                         <div className="flex items-center gap-2 flex-wrap">
-                          {([['hit', 'Попадание'], ['similar', 'Нашёл похожее'], ['miss', 'Не попал']] as [Verdict, string][]).map(([key, label]) => (
+                          {([['hit', t('admin_verdict_hit')], ['similar', t('admin_verdict_similar')], ['miss', t('admin_verdict_miss')]] as [Verdict, string][]).map(([key, label]) => (
                             <Button
                               key={key}
                               onClick={() => setVerdict(qi, docId, key)}
