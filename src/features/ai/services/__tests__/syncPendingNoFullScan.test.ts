@@ -22,6 +22,7 @@ vi.mock('../../../../core/sync/cloudSyncEnabled', () => ({
 // в руках оказался векторный payload. Проход не должен читать свежие записи
 // целиком; свежесть берётся из реестра (localStorage).
 let embeddingRows: Map<string, Record<string, unknown>>;
+let documentRows: Map<string, Record<string, unknown>>;
 let deserializedCount: number;
 
 vi.mock('../../../../core/storage/localDb', async (importOriginal) => {
@@ -30,7 +31,12 @@ vi.mock('../../../../core/storage/localDb', async (importOriginal) => {
     ...actual,
     getLocalDb: vi.fn(async () => ({
       getAllKeys: async (_s: string) => [...embeddingRows.keys()],
-      get: async (_s: string, k: string) => {
+      // Заглушка теперь различает сторы. Раньше get() отдавал строку из
+      // embeddingRows на ЛЮБОЙ стор, поэтому запрос документа возвращал
+      // эмбеддинг — и тест не мог выразить то, что проверяет RLS: выгрузка
+      // ключуется documents.uuid, а без документа её быть не должно.
+      get: async (store: string, k: string) => {
+        if (store === 'documents') return documentRows.get(k);
         const row = embeddingRows.get(k);
         if (row && Array.isArray(row.vectors)) deserializedCount++;
         return row;
@@ -42,7 +48,8 @@ vi.mock('../../../../core/storage/localDb', async (importOriginal) => {
         }
         return [...embeddingRows.values()];
       },
-      put: async (_s: string, v: Record<string, unknown>) => {
+      put: async (store: string, v: Record<string, unknown>) => {
+        if (store === 'documents') { documentRows.set(v.id as string, v); return; }
         embeddingRows.set(v.documentId as string, v);
       },
     })),
@@ -53,6 +60,10 @@ const fresh = (id: string) => ({
   documentId: id, cloudSyncedAt: Date.now(), vectors: [[0.1]], vectorsJson: '[[0.1]]',
   chunkTexts: [], chunkTextsJson: '[]', model: 'm', dim: 2, contentHash: 'h', processedAt: 1,
 });
+// У каждого эмбеддинга должен быть документ с каноническим uuid — без него
+// выгрузка не делается вовсе (RLS: document_id = documents.uuid).
+const seedDoc = (id: string) => documentRows.set(id, { id, uuid: `uuid-${id}` });
+
 const stale = (id: string) => ({
   documentId: id, vectors: [[0.2]], vectorsJson: '[[0.2]]',
   chunkTexts: [], chunkTextsJson: '[]', model: 'm', dim: 2, contentHash: 'h', processedAt: 1,
@@ -63,6 +74,7 @@ describe('syncPendingToCloud — чтение пропорционально у�
     vi.clearAllMocks();
     deserializedCount = 0;
     embeddingRows = new Map();
+    documentRows = new Map();
     localStorage.clear();
   });
 
@@ -70,6 +82,7 @@ describe('syncPendingToCloud — чтение пропорционально у�
     for (let i = 0; i < 200; i++) embeddingRows.set(`d${i}`, fresh(`d${i}`));
     embeddingRows.set('stale1', stale('stale1'));
     embeddingRows.set('stale2', stale('stale2'));
+    seedDoc('stale1'); seedDoc('stale2');
     // Свежесть уже известна (обычный случай после первого прохода/выгрузки).
     for (let i = 0; i < 200; i++) markCloudFresh(`d${i}`);
 
@@ -93,6 +106,7 @@ describe('syncPendingToCloud — чтение пропорционально у�
 
   it('после выгрузки запись попадает в реестр и на следующем проходе не читается', async () => {
     embeddingRows.set('stale1', stale('stale1'));
+    seedDoc('stale1');
 
     const first = await AIEmbeddingService.syncPendingToCloud();
     expect(first.synced).toBe(1);
@@ -109,6 +123,7 @@ describe('syncPendingToCloud — чтение пропорционально у�
     vi.mocked((await import('../../../../core/data')).DataProvider.saveEmbedding)
       .mockRejectedValueOnce(new Error('network down'));
     embeddingRows.set('doc1', fresh('doc1'));
+    seedDoc('doc1');
     markCloudFresh('doc1');
 
     await AIEmbeddingService.save(stale('doc1') as never);

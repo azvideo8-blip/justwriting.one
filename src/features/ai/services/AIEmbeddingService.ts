@@ -106,7 +106,16 @@ export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedd
     return { skipped: true };
   }
 
-  await DataProvider.saveEmbedding(userId, emb.documentId, encrypted);
+  // Ключ строки — КАНОНИЧЕСКИЙ uuid документа, а не локальный id.
+  //
+  // Политика RLS требует
+  //   exists (select 1 from documents d where d.uuid = document_id and ...)
+  // поэтому `local_…` её не проходит: Postgres отвечает 403 «new row violates
+  // row-level security policy». Раньше выбор зависел от порядка ключей —
+  // documentId и documentUuid оба ложатся в колонку document_id, и uuid
+  // перебивал локальный id только когда был. Теперь выбор явный.
+  const canonicalId = emb.documentUuid ?? emb.documentId;
+  await DataProvider.saveEmbedding(userId, canonicalId, encrypted);
   return { skipped: false };
 }
 
@@ -251,14 +260,39 @@ export const AIEmbeddingService = {
     for (let i = 0; i < pending.length; i++) {
       const emb = pending[i]!;
 
-      try {
-        const { skipped } = await saveEmbeddingToCloud(uid, emb);
-        if (skipped) {
-          await db.put('aiEmbeddings', { ...emb, cloudSkipped: true });
-          markCloudFresh(emb.documentId);
+      // save() подставляет documentUuid при записи, а этот путь — повторная
+      // выгрузка отставших — раньше брал запись из хранилища как есть. У записей,
+      // сохранённых до появления этого поля, uuid нет, выгрузка отлетает по RLS,
+      // запись остаётся pending и повторяется КАЖДЫЙ фоновый проход. Отсюда и
+      // поток одинаковых ошибок в журнале.
+      let ready = emb;
+      if (!ready.documentUuid) {
+        const doc = await db.get('documents', emb.documentId);
+        if (doc?.uuid) {
+          ready = { ...emb, documentUuid: doc.uuid };
+          // Сохраняем, чтобы не разрешать заново на каждом проходе.
+          await db.put('aiEmbeddings', ready);
         } else {
-          await db.put('aiEmbeddings', { ...emb, cloudSyncedAt: Date.now() });
-          markCloudFresh(emb.documentId);
+          // Документа с каноническим id пока нет — выгружать нечего: RLS всё
+          // равно откажет. Пропускаем ПОПЫТКУ, но запись НЕ помечаем.
+          //
+          // Помечать нельзя: при восстановлении из облака данные ИИ могут
+          // приехать раньше самих заметок, и запись, похороненная как
+          // «пропущенная», не выгрузилась бы уже никогда. Так она просто ждёт
+          // документа — без запроса в сеть и без строки в журнале, то есть без
+          // того спама, ради которого всё и чинится.
+          continue;
+        }
+      }
+
+      try {
+        const { skipped } = await saveEmbeddingToCloud(uid, ready);
+        if (skipped) {
+          await db.put('aiEmbeddings', { ...ready, cloudSkipped: true });
+          markCloudFresh(ready.documentId);
+        } else {
+          await db.put('aiEmbeddings', { ...ready, cloudSyncedAt: Date.now() });
+          markCloudFresh(ready.documentId);
           synced++;
         }
       } catch (e) {

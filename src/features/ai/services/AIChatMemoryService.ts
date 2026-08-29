@@ -1,4 +1,5 @@
 import { getLocalDb, type AIChatMemory, randomUUID } from '../../../core/storage/localDb';
+import { MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS } from '../../../shared/ai/aiPolicy';
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
@@ -20,10 +21,24 @@ export const AIChatMemoryService = {
     if (userMessages.length < 2) return;
 
     try {
-      // Backend caps the array at 50 messages — send only the most recent chat
-      // turns (a long dialogue would otherwise 400). Recent context is enough.
-      const recent = messages.filter(m => m.type !== 'system').slice(-40);
-      const result = await AIService.extractChatMemory({ messages: recent as { role: string; content: string }[] });
+      // Пределы берутся из общей константы, а не переписываются здесь руками:
+      // раньше схема на сервере разрешала 30, срез брал 40, а комментарий
+      // обещал 50 — разговор длиннее тридцати реплик отлетал с «Invalid
+      // payload», и память переставала извлекаться у тех, кто говорит много.
+      //
+      // Отбор по role, а не по type: схема проверяет именно role, и сообщение
+      // с role:'system' проходило фильтр по type и валило запрос целиком.
+      const recent = messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-MEMORY_EXTRACT_MAX_MESSAGES)
+        .map(m => ({
+          role: m.role,
+          // Длинная вставка в чат превышала лимит на сообщение и тоже валила
+          // весь запрос. Обрезаем здесь: половина памяти лучше, чем никакой.
+          content: m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS),
+        }));
+      if (recent.length === 0) return;
+      const result = await AIService.extractChatMemory({ messages: recent });
       if (!result.ok) {
         reportAIDegradation({
           feature: 'chat_memory_extract',

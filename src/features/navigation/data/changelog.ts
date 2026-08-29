@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.22',
+    date: '2026-08-29',
+    items: [
+      { category: 'fix', ru: 'Поисковые векторы заметок снова уходят в облако: они отправлялись под локальным номером заметки вместо постоянного, сервер их отклонял, а приложение повторяло попытку при каждой синхронизации', en: 'Note search vectors reach the cloud again: they were sent under a note local number instead of its permanent one, the server refused them, and the app retried on every sync' },
+      { category: 'fix', ru: 'Долговременная память из разговоров снова извлекается: ограничение на длину диалога было записано в трёх местах разными числами, и всё длиннее тридцати реплик отклонялось целиком', en: 'Long-term memory from conversations is extracted again: the dialogue length limit was written in three places with three different numbers, and anything past thirty turns was refused' },
+    ],
+  },
+  {
     version: '0.8.21',
     date: '2026-08-28',
     items: [

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.22 — 2026-08-29
+
+- **[RU]** Поисковые векторы заметок снова уходят в облако. Они отправлялись под локальным номером заметки вместо постоянного, сервер такую запись отклонял, а приложение пробовало снова при каждой фоновой синхронизации — и заполняло журнал одной и той же ошибкой.
+- **[EN]** Note search vectors reach the cloud again. They were sent under a note's local number instead of its permanent one, the server refused the row, and the app retried on every background sync — filling the journal with the same error over and over.
+- **[RU]** Долговременная память из разговоров снова извлекается. Ограничение на длину диалога было записано в трёх местах разными числами, и всё, что длиннее тридцати реплик, отклонялось целиком — то есть память переставала пополняться именно у тех, кто разговаривает много.
+- **[EN]** Long-term memory from conversations is extracted again. The dialogue length limit was written in three places with three different numbers, and anything past thirty turns was refused outright — so memory stopped growing precisely for those who talk the most.
+
 ## 0.8.21 — 2026-08-28
 
 - **[RU]** Приложение стало легче на старте: разбор заметок, поисковый указатель и индексатор больше не загружаются при открытии — только когда действительно нужны. Раньше их получал каждый, даже если ни разу не открывал ИИ.

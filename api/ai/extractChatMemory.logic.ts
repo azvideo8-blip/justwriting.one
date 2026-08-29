@@ -4,13 +4,13 @@ import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis, M
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
-import { chargeCall, refundCall } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, refundCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
-    content: z.string().max(5_000),
-  })).min(1).max(30).refine(
+    content: z.string().max(MEMORY_EXTRACT_MAX_MESSAGE_CHARS),
+  })).min(1).max(MEMORY_EXTRACT_MAX_MESSAGES).refine(
     msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= MAX_AI_CONTENT_LENGTH,
     'Total messages content exceeds 50K characters',
   ),
