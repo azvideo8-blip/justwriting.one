@@ -38,6 +38,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     const db = await getLocalDb();
     await db.put('aiSummaries', {
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       summary: 'Разбор 1',
       tone: 'нейтральный',
       frequentWords: [],
@@ -48,6 +49,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     });
     await db.put('aiEmbeddings', {
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       vectors: [[0.1, 0.2]],
       model: 'm1',
       dim: 2,
@@ -74,6 +76,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     const db = await getLocalDb();
     await db.put('aiSummaries', {
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       summary: 'Разбор 1',
       tone: 'нейтральный',
       frequentWords: [],
@@ -98,6 +101,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     const db = await getLocalDb();
     await db.put('aiSummaries', {
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       summary: 'Разбор 1',
       tone: 'нейтральный',
       frequentWords: [],
@@ -123,6 +127,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     const db = await getLocalDb();
     await db.put('aiSummaries', {
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       tone: 'спокойный',
       frequentWords: [],
       insights: [],
@@ -132,6 +137,7 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     });
     await db.put('aiEmbeddings', {
       documentId: 'doc_2',
+      documentUuid: 'uuid-doc_2',
       vectors: [[0.1, 0.2]],
       chunkTexts: ['кусок'],
       model: 'test',

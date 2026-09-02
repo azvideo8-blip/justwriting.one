@@ -106,10 +106,13 @@ describe('AISummaryService', () => {
     it('saves locally and encrypts + syncs to firestore', async () => {
       mockPut.mockResolvedValue(undefined);
       mockSetDoc.mockResolvedValue(undefined);
+      // У заметки есть постоянный номер — в проде он есть всегда, и именно его
+      // требует политика доступа при записи сводки в облако.
+      mockGet.mockResolvedValue({ id: 'doc-123', uuid: 'uuid-123' });
 
       await AISummaryService.save(dummySummary);
 
-      expect(mockPut).toHaveBeenCalledWith('aiSummaries', dummySummary);
+      expect(mockPut).toHaveBeenCalledWith('aiSummaries', { ...dummySummary, documentUuid: 'uuid-123' });
       expect(mockMaybeEncrypt).toHaveBeenCalledWith(
         expect.objectContaining({ documentId: 'doc-123' }),
         ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'],

@@ -17,14 +17,41 @@ const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'e
 const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
 const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
 
+/**
+ * Единственная точка выгрузки сводки в облако — и запись при разборе, и ручной
+ * проход выгрузки идут через неё.
+ *
+ * Политика доступа в базе требует ПОСТОЯННЫЙ номер заметки:
+ *   exists (select 1 from documents d where d.uuid = document_id and d.user_id = auth.uid())
+ * Локальный `documentId` ей не подходит: строка отклоняется, а `.catch` наверху
+ * только пишет в журнал, повтора нет ни на одном пути — сводка остаётся жить
+ * ровно в одном браузере. Ровно эта ошибка была починена для векторов в 0.8.22
+ * и только для них: сводки ходят своей дорогой и остались с локальным номером.
+ */
 export async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): Promise<void> {
+  let canonicalId = summary.documentUuid;
+  if (!canonicalId) {
+    // Старые строки писались до появления documentUuid — постоянный номер
+    // берём у самой заметки.
+    const db = await getLocalDb();
+    const doc = await db.get('documents', summary.documentId);
+    canonicalId = doc?.uuid;
+    if (canonicalId) await db.put('aiSummaries', { ...summary, documentUuid: canonicalId });
+  }
+  if (!canonicalId) {
+    // Постоянного номера нет ни у сводки, ни у заметки: выгружать под локальным
+    // бессмысленно — база всё равно откажет. Отказ громкий, чтобы проход
+    // выгрузки посчитал это неудачей, а не тихо отчитался успехом.
+    throw new Error(`NO_CANONICAL_ID:${summary.documentId}`);
+  }
+
   const encrypted = await maybeEncrypt(
-    { ...summary },
+    { ...summary, documentUuid: canonicalId },
     STRING_FIELDS_LIST,
     ARRAY_FIELDS_LIST,
     userId,
   );
-  await DataProvider.saveSummary(userId, summary.documentId, encrypted);
+  await DataProvider.saveSummary(userId, canonicalId, encrypted);
 }
 
 /**

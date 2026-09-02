@@ -50,6 +50,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     // 1. AISummaryService.save
     await AISummaryService.save({
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       summary: 'Тестовая сводка',
       tone: 'нейтральный',
       frequentWords: [],
@@ -63,6 +64,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     // 2. AIEmbeddingService.save
     await AIEmbeddingService.save({
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       vectors: [[0.1, 0.2, 0.3]],
       processedAt: Date.now(),
       model: 'test-model',
@@ -87,6 +89,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     // 1. AISummaryService.save
     await AISummaryService.save({
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       summary: 'Тестовая сводка',
       tone: 'нейтральный',
       frequentWords: [],
@@ -100,6 +103,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
     // 2. AIEmbeddingService.save
     await AIEmbeddingService.save({
       documentId: 'doc_1',
+      documentUuid: 'uuid-doc_1',
       vectors: [[0.1, 0.2, 0.3]],
       processedAt: Date.now(),
       model: 'test-model',
