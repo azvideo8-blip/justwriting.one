@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.29 — 2026-09-02
+
+- **[RU]** Психологический портрет больше не остаётся в браузере после выхода из аккаунта и не может достаться другому человеку. Его копия хранилась под общим ключом, не привязанным к аккаунту: выход стирал базу и помеченные ключи, а этот — нет. При пустой базе портрет читается из этой копии, то есть следующий вошедший в том же браузере получал чужой портрет в подсказку на каждом ходу разговора. Копия теперь помечена аккаунтом, входит в список стираемого при выходе, а старая общая копия уносится при первом же чтении.
+- **[EN]** The psychological portrait no longer stays in the browser after signing out and can no longer reach another person. Its copy was kept under a shared key with no account attached: signing out cleared the database and the account-tagged keys, but not this one. With an empty database the portrait is read from that copy — so the next person signing in on the same browser received someone else's portrait in the prompt on every turn of a conversation. The copy is now tagged with the account, is on the list of what signing out erases, and the old shared copy is removed on first read.
+- **[RU]** Портрет выгружается в облако из базы, а не из этой копии. Копия могла быть пуста в момент, когда до задачи доходила очередь синхронизации, — поэтому в облаке колонка портрета оставалась пустой при живом портрете на устройстве.
+- **[EN]** The portrait is uploaded to the cloud from the database rather than from that copy. The copy could be empty when the sync queue reached the task, which is why the cloud column stayed empty while the portrait was alive on the device.
+- **[RU]** Список данных, показываемый перед выходом, снова считает портрет: он искал его по имени, которого в приложении нет.
+- **[EN]** The data inventory shown before signing out counts the portrait again: it was looking for a name that does not exist in the app.
+
 ## 0.8.28 — 2026-09-02
 
 - **[RU]** Раздел «Обо мне» — портрет, грани, двери контакта и оба прохода пересчёта — пока виден только владельцу. Показывать его людям рано: обновление профиля стоит около 125 обращений к ИИ на архиве в полторы сотни заметок, при обычном дневном лимите оно недостижимо, и оно не возобновляемое — упёршись в лимит на четвёртом шаге из шести, оставляет портрет несобранным. Кнопка, которая доводит до половины и бросает, хуже отсутствующей. Разбор отдельной заметки, поиск по смыслу и карточки работают у всех по-прежнему.

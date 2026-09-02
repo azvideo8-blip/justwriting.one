@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.29',
+    date: '2026-09-02',
+    items: [
+      { category: 'fix', ru: 'Психологический портрет больше не остаётся в браузере после выхода и не может достаться другому человеку: его копия хранилась под общим ключом, и следующий вошедший получал чужой портрет в подсказку', en: 'The psychological portrait no longer stays in the browser after signing out and cannot reach another person: its copy was kept under a shared key, so the next person signing in received someone else\u2019s portrait in the prompt' },
+      { category: 'fix', ru: 'Портрет выгружается в облако из базы, а не из копии, которая могла быть пуста в нужный момент', en: 'The portrait is uploaded to the cloud from the database rather than from a copy that could be empty at the wrong moment' },
+      { category: 'fix', ru: 'Список данных перед выходом снова считает портрет — он искал его по несуществующему имени', en: 'The pre-sign-out data inventory counts the portrait again — it was looking for a name that does not exist' },
+    ],
+  },
+  {
     version: '0.8.28',
     date: '2026-09-02',
     items: [
