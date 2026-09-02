@@ -157,4 +157,31 @@ describe('SEC-6: AIDerivedDataSyncService cloud backfill pass', () => {
     expect(result.summaries.synced).toBe(1);
     expect(result.totalSynced).toBe(1);
   });
+
+  /**
+   * Разбор, за которым не стоит заметки (её удалили), отправить нельзя: политика
+   * доступа в базе такую строку не примет. Но это пропуск, а не сбой — иначе
+   * успешный проход заканчивается пачкой красных ошибок и человек считает, что
+   * ничего не выгрузилось.
+   */
+  it('counts an analysis with no note behind it as skipped, not failed', async () => {
+    const db = await getLocalDb();
+    await db.put('aiSummaries', {
+      documentId: 'uuid-ghost',
+      summary: 'Разбор удалённой заметки',
+      tone: 'нейтральный',
+      frequentWords: [],
+      insights: [],
+      themes: [],
+      extractedFacts: [],
+      processedAt: Date.now(),
+    });
+
+    const result = await AIDerivedDataSyncService.syncAllDerivedData('user_1');
+
+    expect(result.summaries.orphaned).toBe(1);
+    expect(result.summaries.failed).toBe(0);
+    expect(result.totalFailed).toBe(0);
+    expect(DataProvider.saveSummary).not.toHaveBeenCalled();
+  });
 });

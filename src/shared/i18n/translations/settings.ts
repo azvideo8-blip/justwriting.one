@@ -23,6 +23,7 @@ export const settingsTranslations: Translations = {
   settings_sync_derived_button: { ru: 'Отправить разбор и диалоги в облако', en: 'Upload analysis and dialogues to cloud' },
   settings_sync_derived_progress: { ru: 'Отправка разборов и диалогов...', en: 'Uploading analysis and dialogues...' },
   settings_sync_derived_done: { ru: 'Синхронизировано: {summaries} разборов, {embeddings} векторов, {stores} записей', en: 'Synced: {summaries} summaries, {embeddings} vectors, {stores} records' },
+  settings_sync_derived_orphaned: { ru: 'Пропущено разборов без заметки: {orphaned} — сами заметки удалены', en: 'Skipped analyses with no note: {orphaned} — those notes were deleted' },
   settings_sync_derived_failed: { ru: 'Не удалось отправить: {failed}', en: 'Failed to upload: {failed}' },
   settings_sync_derived_locked: { ru: 'Сейф заблокирован. Разблокируйте шифрование для синхронизации', en: 'Vault is locked. Unlock encryption to sync' },
 

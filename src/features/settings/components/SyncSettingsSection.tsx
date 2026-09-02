@@ -16,7 +16,7 @@ import { getOversizedRecordCount } from '../../../core/services/LocalStoreSyncSe
 interface SyncSettingsSectionProps {
   userId: string;
   onSyncDerivedData?: (userId: string) => Promise<{
-    summaries: { synced: number };
+    summaries: { synced: number; orphaned?: number };
     embeddings: { synced: number };
     stores: { synced: number };
     totalSynced: number;
@@ -92,6 +92,11 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
         }),
         'success'
       );
+      if (res.summaries.orphaned) {
+        showToast(
+          t('settings_sync_derived_orphaned', { orphaned: String(res.summaries.orphaned) }),
+        );
+      }
       if (res.totalFailed > 0) {
         showToast(
           t('settings_sync_derived_failed', { failed: String(res.totalFailed) }),

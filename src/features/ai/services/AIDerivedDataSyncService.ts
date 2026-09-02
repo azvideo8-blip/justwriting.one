@@ -14,7 +14,8 @@ export interface DerivedSyncProgress {
 }
 
 export interface DerivedSyncResult {
-  summaries: { synced: number; failed: number };
+  /** `orphaned` — разборы, за которыми не стоит заметки: отправлять нечего. */
+  summaries: { synced: number; failed: number; orphaned: number };
   embeddings: { synced: number; failed: number };
   stores: { synced: number; failed: number; skippedOversized: number };
   totalSynced: number;
@@ -30,16 +31,17 @@ export const AIDerivedDataSyncService = {
   async syncAllSummaries(
     userId: string,
     onProgress?: (current: number, total: number) => void
-  ): Promise<{ synced: number; failed: number; skippedLocked: boolean }> {
-    if (!userId) return { synced: 0, failed: 0, skippedLocked: false };
+  ): Promise<{ synced: number; failed: number; orphaned: number; skippedLocked: boolean }> {
+    if (!userId) return { synced: 0, failed: 0, orphaned: 0, skippedLocked: false };
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
-      return { synced: 0, failed: 0, skippedLocked: true };
+      return { synced: 0, failed: 0, orphaned: 0, skippedLocked: true };
     }
 
     const db = await getLocalDb();
     const summaries = await db.getAll('aiSummaries');
     let synced = 0;
     let failed = 0;
+    let orphaned = 0;
 
     for (let i = 0; i < summaries.length; i++) {
       const summary = summaries[i]!;
@@ -50,14 +52,21 @@ export const AIDerivedDataSyncService = {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes('ENCRYPT_REQUIRED') || msg.includes('LOCKED')) {
-          return { synced, failed, skippedLocked: true };
+          return { synced, failed, orphaned, skippedLocked: true };
+        }
+        // За разбором не стоит заметки: её удалили, а разбор остался. Отправлять
+        // нечего — политика доступа такую строку и не примет, — но это пропуск,
+        // а не сбой: сыпать красным в журнал и пугать человека тут не за что.
+        if (msg.startsWith('NO_CANONICAL_ID')) {
+          orphaned++;
+          continue;
         }
         failed++;
         reportError(err, { action: 'syncAllSummaries_doc', docId: summary.documentId });
       }
     }
 
-    return { synced, failed, skippedLocked: false };
+    return { synced, failed, orphaned, skippedLocked: false };
   },
 
   /**
@@ -115,7 +124,7 @@ export const AIDerivedDataSyncService = {
     onProgress?: (progress: DerivedSyncProgress) => void
   ): Promise<DerivedSyncResult> {
     const result: DerivedSyncResult = {
-      summaries: { synced: 0, failed: 0 },
+      summaries: { synced: 0, failed: 0, orphaned: 0 },
       embeddings: { synced: 0, failed: 0 },
       stores: { synced: 0, failed: 0, skippedOversized: 0 },
       totalSynced: 0,
@@ -145,6 +154,7 @@ export const AIDerivedDataSyncService = {
     });
     result.summaries.synced = summariesRes.synced;
     result.summaries.failed = summariesRes.failed;
+    result.summaries.orphaned = summariesRes.orphaned;
     if (summariesRes.skippedLocked) {
       result.skippedLocked = true;
       return finish();
