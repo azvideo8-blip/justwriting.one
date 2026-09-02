@@ -39,9 +39,14 @@ export async function callAi<T>(
     const legacyCode = typeof (body as { error?: unknown })?.error === 'string'
       ? (body as { error: string }).error
       : undefined;
+    // Отказ без разбираемого тела приходит не от нашей логики, а с края:
+    // nginx отдаёт 429 своей страницей, без JSON. Без этой подстановки такой
+    // отказ доезжал до вызывающего как «internal», то есть ограничение частоты
+    // выглядело поломкой сервиса — и повторять его никто не пробовал.
+    const statusCode = res.status === 429 ? 'resource-exhausted' : 'internal';
     throw Object.assign(
       new Error(body?.error?.message ?? legacyCode ?? 'AI request failed'),
-      { code: body?.error?.code ?? legacyCode ?? 'internal' },
+      { code: body?.error?.code ?? legacyCode ?? statusCode, status: res.status },
     );
   }
   return body.result as T;

@@ -37,7 +37,14 @@ export interface AISummaryPayload {
 }
 
 function mapAIError(e: unknown): AIErrorCode {
-  const code = (e as { code?: string }).code;
+  // Коды приходят от нашего HTTP-API без префикса ('resource-exhausted').
+  // Префикс `functions/` — наследие Firebase SDK, которого в сборке уже нет;
+  // после переезда на VPS ни одна ветка ниже по нему не совпадала, и КАЖДЫЙ
+  // отказ по лимиту, авторизации и разбору тела превращался в SERVER_ERROR.
+  // Поэтому здесь нормализация, а не отдельные ветки на две формы.
+  const rawCode = (e as { code?: string }).code ?? '';
+  const code = rawCode.startsWith('functions/') ? rawCode.slice('functions/'.length) : rawCode;
+  const status = (e as { status?: number }).status;
   const message = (e as { message?: string }).message ?? '';
   if (code === 'AI_CONSENT_REQUIRED' || message === 'AI_CONSENT_REQUIRED') return 'AI_CONSENT_REQUIRED';
   // Связь оборвалась, а не сервис сломался. Раньше всё это попадало в
@@ -47,21 +54,26 @@ function mapAIError(e: unknown): AIErrorCode {
   // 'internal' с сообщением ровно 'internal' — это SDK, не наша функция:
   // chatWithAI бросает internal только с причиной (UNKNOWN / BAD_REQUEST /
   // MISCONFIGURED), а judgeFacets не бросает его ни на одном пути.
-  if (code === 'functions/deadline-exceeded') return 'NETWORK';
-  if (code === 'functions/internal' && message.trim().toLowerCase() === 'internal') return 'NETWORK';
+  if (code === 'deadline-exceeded') return 'NETWORK';
+  if (code === 'internal' && message.trim().toLowerCase() === 'internal') return 'NETWORK';
   if (message === 'Timeout' || (e as { isTimeout?: boolean }).isTimeout) return 'NETWORK';
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'NETWORK';
-  if (code === 'functions/unauthenticated' || message === 'AUTH_REQUIRED') return 'AUTH_REQUIRED';
-  if (code === 'functions/resource-exhausted') {
+  if (code === 'unauthenticated' || message === 'AUTH_REQUIRED') return 'AUTH_REQUIRED';
+  if (code === 'resource-exhausted' || status === 429) {
     const errData = (e as { details?: { errorType?: string } }).details;
-    if (errData?.errorType === 'DAILY_LIMIT' || message.toLowerCase().includes('daily limit')) return 'DAILY_LIMIT';
+    // Дневной потолок и минутное окно приходят одним кодом и различаются только
+    // текстом. Сообщений о дне два — «Daily limit reached.» и «Daily bulk
+    // operations limit reached.», — и точная подстрока 'daily limit' второе из
+    // них не ловила: исчерпанный фоновый лимит читался как «подождите минуту»,
+    // то есть предлагал повторять до утра.
+    if (errData?.errorType === 'DAILY_LIMIT' || message.toLowerCase().includes('daily')) return 'DAILY_LIMIT';
     return 'RATE_LIMIT';
   }
-  if (code === 'functions/invalid-argument') return 'TOO_LONG';
+  if (code === 'invalid-argument') return 'TOO_LONG';
   // The model provider failed, not us. Worth its own code: it is the one cause
   // where retrying in a minute is the right advice, and where the user should
   // not wonder whether something is wrong with their notes or their account.
-  if (code === 'functions/unavailable') return 'UPSTREAM';
+  if (code === 'unavailable') return 'UPSTREAM';
   return 'SERVER_ERROR';
 }
 
