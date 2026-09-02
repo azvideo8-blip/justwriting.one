@@ -16,7 +16,7 @@ export interface DerivedSyncProgress {
 export interface DerivedSyncResult {
   /** `orphaned` — разборы, за которыми не стоит заметки: отправлять нечего. */
   summaries: { synced: number; failed: number; orphaned: number };
-  embeddings: { synced: number; failed: number };
+  embeddings: { synced: number; failed: number; orphaned: number };
   stores: { synced: number; failed: number; skippedOversized: number };
   totalSynced: number;
   totalFailed: number;
@@ -76,16 +76,17 @@ export const AIDerivedDataSyncService = {
   async syncAllEmbeddings(
     userId: string,
     onProgress?: (current: number, total: number) => void
-  ): Promise<{ synced: number; failed: number; skippedLocked: boolean }> {
-    if (!userId) return { synced: 0, failed: 0, skippedLocked: false };
+  ): Promise<{ synced: number; failed: number; orphaned: number; skippedLocked: boolean }> {
+    if (!userId) return { synced: 0, failed: 0, orphaned: 0, skippedLocked: false };
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
-      return { synced: 0, failed: 0, skippedLocked: true };
+      return { synced: 0, failed: 0, orphaned: 0, skippedLocked: true };
     }
 
     const db = await getLocalDb();
     const embeddings = await db.getAll('aiEmbeddings');
     let synced = 0;
     let failed = 0;
+    let orphaned = 0;
 
     for (let i = 0; i < embeddings.length; i++) {
       const emb = embeddings[i]!;
@@ -101,14 +102,20 @@ export const AIDerivedDataSyncService = {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes('ENCRYPT_REQUIRED') || msg.includes('LOCKED')) {
-          return { synced, failed, skippedLocked: true };
+          return { synced, failed, orphaned, skippedLocked: true };
+        }
+        // За вектором не стоит заметки — тот же случай, что и у разборов:
+        // пропуск, а не сбой.
+        if (msg.startsWith('NO_CANONICAL_ID')) {
+          orphaned++;
+          continue;
         }
         failed++;
         reportError(err, { action: 'syncAllEmbeddings_doc', docId: emb.documentId });
       }
     }
 
-    return { synced, failed, skippedLocked: false };
+    return { synced, failed, orphaned, skippedLocked: false };
   },
 
   /**
@@ -125,7 +132,7 @@ export const AIDerivedDataSyncService = {
   ): Promise<DerivedSyncResult> {
     const result: DerivedSyncResult = {
       summaries: { synced: 0, failed: 0, orphaned: 0 },
-      embeddings: { synced: 0, failed: 0 },
+      embeddings: { synced: 0, failed: 0, orphaned: 0 },
       stores: { synced: 0, failed: 0, skippedOversized: 0 },
       totalSynced: 0,
       totalFailed: 0,
@@ -166,6 +173,7 @@ export const AIDerivedDataSyncService = {
     });
     result.embeddings.synced = embeddingsRes.synced;
     result.embeddings.failed = embeddingsRes.failed;
+    result.embeddings.orphaned = embeddingsRes.orphaned;
     if (embeddingsRes.skippedLocked) {
       result.skippedLocked = true;
       return finish();

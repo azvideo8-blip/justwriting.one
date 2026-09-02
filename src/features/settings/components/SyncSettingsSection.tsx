@@ -17,7 +17,7 @@ interface SyncSettingsSectionProps {
   userId: string;
   onSyncDerivedData?: (userId: string) => Promise<{
     summaries: { synced: number; orphaned?: number };
-    embeddings: { synced: number };
+    embeddings: { synced: number; orphaned?: number };
     stores: { synced: number };
     totalSynced: number;
     totalFailed: number;
@@ -92,9 +92,10 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
         }),
         'success'
       );
-      if (res.summaries.orphaned) {
+      const orphaned = (res.summaries.orphaned ?? 0) + (res.embeddings.orphaned ?? 0);
+      if (orphaned) {
         showToast(
-          t('settings_sync_derived_orphaned', { orphaned: String(res.summaries.orphaned) }),
+          t('settings_sync_derived_orphaned', { orphaned: String(orphaned) }),
         );
       }
       if (res.totalFailed > 0) {

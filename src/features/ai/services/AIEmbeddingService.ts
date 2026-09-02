@@ -79,9 +79,17 @@ function roundVectors(vectors: number[][]): number[][] {
 }
 
 export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<{ skipped: boolean }> {
+  const canonicalId = await resolveCanonicalId(emb);
+  if (!canonicalId) {
+    // За вектором не стоит заметки: под локальным номером база строку не
+    // примет, и отправлять её бессмысленно. Отказ громкий, чтобы проход
+    // выгрузки не отчитался успехом за строку, которой в облаке не появилось.
+    throw new Error(`NO_CANONICAL_ID:${emb.documentId}`);
+  }
+
   let payload: Record<string, unknown> = {
     documentId: emb.documentId,
-    ...(emb.documentUuid ? { documentUuid: emb.documentUuid } : {}),
+    documentUuid: canonicalId,
     vectorsJson: JSON.stringify(roundVectors(emb.vectors)),
     chunkTextsJson: JSON.stringify(emb.chunkTexts ?? []),
     model: emb.model,
@@ -106,17 +114,33 @@ export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedd
     return { skipped: true };
   }
 
-  // Ключ строки — КАНОНИЧЕСКИЙ uuid документа, а не локальный id.
-  //
-  // Политика RLS требует
-  //   exists (select 1 from documents d where d.uuid = document_id and ...)
-  // поэтому `local_…` её не проходит: Postgres отвечает 403 «new row violates
-  // row-level security policy». Раньше выбор зависел от порядка ключей —
-  // documentId и documentUuid оба ложатся в колонку document_id, и uuid
-  // перебивал локальный id только когда был. Теперь выбор явный.
-  const canonicalId = emb.documentUuid ?? emb.documentId;
   await DataProvider.saveEmbedding(userId, canonicalId, encrypted);
   return { skipped: false };
+}
+
+/**
+ * Канонический номер заметки для строки в облаке.
+ *
+ * Политика RLS требует
+ *   exists (select 1 from documents d where d.uuid = document_id and ...)
+ * поэтому `local_…` её не проходит: Postgres отвечает 403 «new row violates
+ * row-level security policy».
+ *
+ * Резолвинг живёт ЗДЕСЬ, в единственной точке выгрузки, а не у вызывающих.
+ * В 0.8.22 он был расставлен по вызывающим — и `save`, и `syncPendingToCloud`
+ * подставляли uuid сами, — а третий путь, `AIDerivedDataSyncService`,
+ * читает строки из хранилища как есть и про эту договорённость не знал: 114
+ * векторов отбились по политике на первом же ручном проходе выгрузки.
+ * Одно правило — одна реализация, в той функции, через которую идут все.
+ */
+async function resolveCanonicalId(emb: AIDocumentEmbedding): Promise<string | null> {
+  if (emb.documentUuid) return emb.documentUuid;
+  const db = await getLocalDb();
+  const doc = await db.get('documents', emb.documentId);
+  if (!doc?.uuid) return null;
+  // Найденное запоминается: следующий проход не ищет заново.
+  await db.put('aiEmbeddings', { ...emb, documentUuid: doc.uuid });
+  return doc.uuid;
 }
 
 function parseVectors(decrypted: Record<string, unknown>): number[][] {

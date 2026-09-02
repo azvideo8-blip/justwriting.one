@@ -81,3 +81,51 @@ describe('выгрузка эмбеддингов ключуется канон�
     expect((rec as { cloudSkipped?: boolean } | undefined)?.cloudSkipped).toBeFalsy();
   });
 });
+
+/**
+ * Третий путь выгрузки — ручной проход `AIDerivedDataSyncService`. Он читает
+ * записи из хранилища как есть и в 0.8.22 остался в стороне: обогащение uuid
+ * тогда расставили по вызывающим (`save` и `syncPendingToCloud`), а не в самой
+ * точке выгрузки. На живом архиве это дало 114 отказов по политике доступа за
+ * один заход.
+ */
+describe('saveEmbeddingToCloud сам достаёт канонический номер', () => {
+  beforeEach(async () => {
+    saveEmbedding.mockClear();
+    const db = await getLocalDb();
+    for (const store of ['documents', 'aiEmbeddings'] as const) {
+      for (const r of await db.getAll(store)) {
+        await db.delete(store, (r as { id?: string; documentId?: string }).id
+          ?? (r as { documentId: string }).documentId);
+      }
+    }
+  });
+
+  const rawEmbedding = {
+    documentId: 'local_note_9',
+    vectors: [[0.1, 0.2]],
+    chunkTexts: ['кусок'],
+    model: 'm', dim: 2, contentHash: 'h', processedAt: 1, schemaV: 3,
+  };
+
+  it('запись без documentUuid всё равно уезжает под uuid заметки', async () => {
+    const { saveEmbeddingToCloud } = await import('../AIEmbeddingService');
+    const db = await getLocalDb();
+    await db.put('documents', {
+      id: 'local_note_9', uuid: CANON, guestId: 'u1', title: 'Заметка',
+      currentVersion: 1, totalWords: 5, totalDuration: 0, sessionsCount: 1,
+      firstSessionAt: 1, lastSessionAt: 1, tags: [],
+    } as never);
+
+    await saveEmbeddingToCloud('u1', rawEmbedding as never);
+
+    expect(saveEmbedding).toHaveBeenCalledWith('u1', CANON, expect.anything());
+  });
+
+  it('вектор без заметки отказывает громко, а не уезжает под номером, который база отвергнет', async () => {
+    const { saveEmbeddingToCloud } = await import('../AIEmbeddingService');
+
+    await expect(saveEmbeddingToCloud('u1', rawEmbedding as never)).rejects.toThrow(/NO_CANONICAL_ID/);
+    expect(saveEmbedding).not.toHaveBeenCalled();
+  });
+});

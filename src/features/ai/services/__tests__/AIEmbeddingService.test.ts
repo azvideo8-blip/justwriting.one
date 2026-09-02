@@ -29,6 +29,7 @@ describe('AIEmbeddingService — Size Guard & Error Handler (EMB-1)', () => {
   it('saves standard-sized embeddings to cloud without shrinking', async () => {
     const emb: AIDocumentEmbedding = {
       documentId: 'doc_normal',
+      documentUuid: 'uuid-doc_normal',
       vectors: [[0.1, 0.2, 0.3]],
       chunkTexts: ['normal chunk text'],
       model: 'qwen/qwen3-embedding-8b',
@@ -45,6 +46,7 @@ describe('AIEmbeddingService — Size Guard & Error Handler (EMB-1)', () => {
     const hugeChunkText = 'a'.repeat(600_000);
     const emb: AIDocumentEmbedding = {
       documentId: 'doc_large',
+      documentUuid: 'uuid-doc_large',
       vectors: [[0.1, 0.2]],
       chunkTexts: [hugeChunkText, hugeChunkText], // > 1MB with chunkTexts
       model: 'qwen/qwen3-embedding-8b',
@@ -63,6 +65,7 @@ describe('AIEmbeddingService — Size Guard & Error Handler (EMB-1)', () => {
     const hugeVectors = Array.from({ length: 500 }, () => Array.from({ length: 500 }, (_, i) => i * 0.123456789));
     const emb: AIDocumentEmbedding = {
       documentId: 'doc_massive',
+      documentUuid: 'uuid-doc_massive',
       vectors: hugeVectors,
       chunkTexts: ['some text'],
       model: 'qwen/qwen3-embedding-8b',
