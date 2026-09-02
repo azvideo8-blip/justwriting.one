@@ -5,7 +5,7 @@ import { ModalShell } from '../../../shared/components/ModalShell';
 import { useToast } from '../../../shared/components/Toast';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
-import { NoteAnalysisService, type BatchResult } from '../services/NoteAnalysisService';
+import { NoteAnalysisService, type BatchResult, type PendingSurvey } from '../services/NoteAnalysisService';
 import { reportError } from '../../../shared/errors/reportError';
 
 /**
@@ -27,16 +27,16 @@ const STOP_MESSAGES: Record<NonNullable<BatchResult['stopped']>, string> = {
 
 export function ArchiveAnalysisButton() {
   const { showToast } = useToast();
-  const [pending, setPending] = useState<string[] | null>(null);
+  const [survey, setSurvey] = useState<PendingSurvey | null>(null);
   const [counting, setCounting] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; waiting?: boolean } | null>(null);
 
   const indexingOn = hasIndexingConsent(getCurrentUser()?.uid);
 
   const openDialog = async () => {
     setCounting(true);
     try {
-      setPending(await NoteAnalysisService.findPending());
+      setSurvey(await NoteAnalysisService.findPending());
     } catch (e) {
       reportError(e, { action: 'archiveAnalysis_count' });
       showToast('Не удалось посчитать, сколько заметок ждёт разбора', 'error');
@@ -46,8 +46,9 @@ export function ArchiveAnalysisButton() {
   };
 
   const start = async () => {
-    setPending(null);
-    setProgress({ done: 0, total: pending?.length ?? 0 });
+    const total = survey?.ids.length ?? 0;
+    setSurvey(null);
+    setProgress({ done: 0, total });
     try {
       const result = await NoteAnalysisService.analyzePending({
         onProgress: setProgress,
@@ -61,7 +62,10 @@ export function ArchiveAnalysisButton() {
       } else if (result.analyzed === 0) {
         showToast('Разбирать было нечего', 'success');
       } else {
-        showToast(`Разобрано заметок: ${result.analyzed}. Теперь можно обновить профиль`, 'success');
+        const tail = result.missingVectors > 0
+          ? `, без вектора осталось ${result.missingVectors}`
+          : '';
+        showToast(`Разобрано заметок: ${result.analyzed}${tail}. Теперь можно обновить профиль`, 'success');
       }
     } catch (e) {
       reportError(e, { action: 'archiveAnalysis_run' });
@@ -71,7 +75,7 @@ export function ArchiveAnalysisButton() {
     }
   };
 
-  const nothingToDo = pending !== null && pending.length === 0;
+  const nothingToDo = survey !== null && survey.ids.length === 0;
 
   return (
     <>
@@ -83,7 +87,9 @@ export function ArchiveAnalysisButton() {
         {progress !== null ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            Разбираю {progress.done} из {progress.total}…
+            {progress.waiting
+              ? 'Жду сброса ограничения…'
+              : `Разбираю ${progress.done} из ${progress.total}…`}
           </>
         ) : counting ? (
           <>
@@ -98,10 +104,10 @@ export function ArchiveAnalysisButton() {
         )}
       </Button>
 
-      {pending !== null && (
+      {survey !== null && (
         <ModalShell
-          open={pending !== null}
-          onClose={() => setPending(null)}
+          open={survey !== null}
+          onClose={() => setSurvey(null)}
           labelId="archive-analysis-modal-title"
           className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-lg"
         >
@@ -111,14 +117,49 @@ export function ArchiveAnalysisButton() {
 
           {nothingToDo ? (
             <p className="text-xs text-text-main/60 mb-4">
-              Разбирать нечего: у всех заметок разбор есть и он свежий.
+              Разбирать нечего. На устройстве заметок: {survey.totalDocuments}, из них
+              разобраны {survey.alreadyAnalyzed}
+              {survey.noContent > 0 && `, без текста на устройстве ${survey.noContent}`}
+              {survey.tooShort > 0 && `, слишком коротких ${survey.tooShort}`}
+              {survey.excluded > 0 && `, исключено из ИИ ${survey.excluded}`}.
             </p>
           ) : (
             <>
               <p className="text-xs text-text-main/60 mb-3">
-                Ждут разбора: <span className="font-mono text-text-main">{pending.length}</span>.
+                Ждут разбора: <span className="font-mono text-text-main">{survey.ids.length}</span>.
                 Текст этих заметок уйдёт поставщику ИИ — по одной, по вашему нажатию.
               </p>
+
+              <div className="space-y-1 mb-3 text-xs text-text-main/50">
+                <div className="flex items-center justify-between">
+                  <span>Заметок на этом устройстве</span>
+                  <span className="font-mono">{survey.totalDocuments}</span>
+                </div>
+                {survey.alreadyAnalyzed > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span>Уже разобраны</span>
+                    <span className="font-mono">{survey.alreadyAnalyzed}</span>
+                  </div>
+                )}
+                {survey.noContent > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span>Текста нет на устройстве</span>
+                    <span className="font-mono">{survey.noContent}</span>
+                  </div>
+                )}
+                {survey.tooShort > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span>Слишком короткие</span>
+                    <span className="font-mono">{survey.tooShort}</span>
+                  </div>
+                )}
+                {survey.excluded > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span>Исключены из ИИ</span>
+                    <span className="font-mono">{survey.excluded}</span>
+                  </div>
+                )}
+              </div>
 
               <p className="text-xs text-text-main/60 mb-3">
                 Проход остановится сам, когда упрётся в дневной лимит, и продолжится
@@ -144,7 +185,7 @@ export function ArchiveAnalysisButton() {
               </Button>
             )}
             <Button
-              onClick={() => setPending(null)}
+              onClick={() => setSurvey(null)}
               className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/60 text-sm hover:text-text-main transition-colors"
             >
               {nothingToDo ? 'Понятно' : 'Отмена'}

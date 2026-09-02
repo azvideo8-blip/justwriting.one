@@ -5,7 +5,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { AIService } from './AIService';
 import { AISummaryService } from './AISummaryService';
 import { AIEmbeddingService } from './AIEmbeddingService';
-import { indexDocument, sha256Hex, type IndexResult } from '../utils/embeddingIndexer';
+import { indexDocument, indexPending, sha256Hex, type IndexResult } from '../utils/embeddingIndexer';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import type { AIErrorCode } from '../types/aiErrors';
 
@@ -31,16 +31,42 @@ export interface BatchResult {
   /** Отсеяны без обращения к поставщику: пусто, коротко, исключено из ИИ. */
   skipped: number;
   failed: number;
+  /** Разобраны, но вектор посчитать не вышло — в поиске по смыслу их пока нет. */
+  missingVectors: number;
   stopped: BatchStop | null;
 }
 
+/** Что из архива в разбор не пойдёт и почему — чтобы счётчик не врал. */
+export interface PendingSurvey {
+  ids: string[];
+  /** Сколько заметок вообще лежит НА ЭТОМ устройстве. */
+  totalDocuments: number;
+  alreadyAnalyzed: number;
+  excluded: number;
+  tooShort: number;
+  noContent: number;
+}
+
 /**
- * Шаг между заметками. Окно частоты на сервере — своё на каждый эндпоинт
- * (`AI_BULK_MAX_PER_WINDOW`, по умолчанию 20 вызовов в минуту на пару
- * uid+эндпоинт), а заметка стоит по одному вызову к `summarizeDocument` и к
- * `embed`. Двадцать заметок в минуту — это 3 секунды на заметку.
+ * Шаг между заметками.
+ *
+ * Считать его от «двух вызовов на заметку» нельзя, и это выяснилось дорого:
+ * `AISummaryService.save` разворачивается в `AICommitmentService`, а тот зовёт
+ * `embed` ОТДЕЛЬНО НА КАЖДОЕ обязательство из заметки. На живом архиве вышло
+ * около восьми обращений на заметку вместо двух — 112 запросов к `embed` на 14
+ * сводок, — и проход снёс и наше минутное окно, и ограничитель nginx (60 в
+ * минуту на адрес).
+ *
+ * Поэтому шаг здесь — только вежливость, а настоящая защита ниже: проход
+ * пережидает отказ по частоте вместо того, чтобы предсказывать цену заметки.
  */
 const NOTE_PACING_MS = 3_100;
+
+/** Пауза после отказа по частоте: окно на сервере минутное. */
+const RATE_BACKOFF_MS = 60_000;
+
+/** Сколько раз подряд пережидаем, прежде чем признать, что дело не в частоте. */
+const MAX_RATE_WAITS = 3;
 
 /**
  * Подряд идущие отказы, после которых проход прекращается. Сеть, упавшая на
@@ -141,28 +167,49 @@ export const NoteAnalysisService = {
    * него. Отсев здесь тот же, что и в `analyze`, — чтобы счётчик перед запуском
    * называл настоящую цену, а не считал заодно исключённые и слишком короткие.
    */
-  async findPending(): Promise<string[]> {
+  async findPending(): Promise<PendingSurvey> {
     const db = await getLocalDb();
     const documents = await db.getAll('documents');
     const summaries = await db.getAll('aiSummaries');
     const byDocument = new Map(summaries.map(s => [s.documentId, s]));
 
-    const pending: string[] = [];
-    for (const doc of documents) {
-      if (doc.excludedFromAI) continue;
+    const survey: PendingSurvey = {
+      ids: [],
+      totalDocuments: documents.length,
+      alreadyAnalyzed: 0,
+      excluded: 0,
+      tooShort: 0,
+      noContent: 0,
+    };
 
+    for (const doc of documents) {
+      if (doc.excludedFromAI) {
+        survey.excluded++;
+        continue;
+      }
+
+      // Текста нет НА ЭТОМ устройстве: заметка может лежать в облаке целиком, а
+      // сюда ещё не приехать. Разбирать нечего, но и молчать нельзя — иначе
+      // очередь из полутора сотен заметок выглядит как очередь из тринадцати.
       const content = await latestContent(doc.id);
-      if (!content || content.trim().length === 0) continue;
-      if (content.length < MIN_CONTENT_CHARS) continue;
+      if (!content || content.trim().length === 0) {
+        survey.noContent++;
+        continue;
+      }
+      if (content.length < MIN_CONTENT_CHARS) {
+        survey.tooShort++;
+        continue;
+      }
 
       const existing = byDocument.get(doc.id);
       if (!existing) {
-        pending.push(doc.id);
+        survey.ids.push(doc.id);
         continue;
       }
-      if (existing.contentHash !== await sha256Hex(content)) pending.push(doc.id);
+      if (existing.contentHash !== await sha256Hex(content)) survey.ids.push(doc.id);
+      else survey.alreadyAnalyzed++;
     }
-    return pending;
+    return survey;
   },
 
   /**
@@ -175,30 +222,60 @@ export const NoteAnalysisService = {
    */
   async analyzePending(opts?: {
     limit?: number;
-    onProgress?: (p: { done: number; total: number }) => void;
+    onProgress?: (p: { done: number; total: number; waiting?: boolean }) => void;
   }): Promise<BatchResult> {
-    const pending = await NoteAnalysisService.findPending();
-    const targets = opts?.limit != null ? pending.slice(0, opts.limit) : pending;
+    const survey = await NoteAnalysisService.findPending();
+    const targets = opts?.limit != null ? survey.ids.slice(0, opts.limit) : survey.ids;
 
-    const result: BatchResult = { analyzed: 0, skipped: 0, failed: 0, stopped: null };
+    const result: BatchResult = { analyzed: 0, skipped: 0, failed: 0, missingVectors: 0, stopped: null };
     let consecutiveFailures = 0;
+    let rateWaits = 0;
+    let i = 0;
 
-    for (let i = 0; i < targets.length; i++) {
+    while (i < targets.length) {
       const res = await NoteAnalysisService.analyze(targets[i]!);
-      opts?.onProgress?.({ done: i + 1, total: targets.length });
+
+      // Отказ по частоте — не повод останавливать проход: цена заметки заранее
+      // неизвестна (обязательства векторизуются по одному), так что попасть в
+      // окно расчётом нельзя, а пережить его ожиданием — можно.
+      if (!res.ok && res.error === 'RATE_LIMIT') {
+        if (++rateWaits > MAX_RATE_WAITS) {
+          result.stopped = 'rate';
+          break;
+        }
+        opts?.onProgress?.({ done: i, total: targets.length, waiting: true });
+        await sleep(RATE_BACKOFF_MS);
+        continue;   // ту же заметку: за неё ничего не списано
+      }
+
+      i++;
+      opts?.onProgress?.({ done: i, total: targets.length });
 
       if (res.ok) {
         result.analyzed++;
         consecutiveFailures = 0;
-        if (res.indexed === 'daily' || res.indexed === 'rate') {
-          result.stopped = res.indexed;
+
+        if (res.indexed === 'daily') {
+          result.missingVectors++;
+          result.stopped = 'daily';
           break;
         }
+        if (res.indexed === 'rate') {
+          // Сводка уже сохранена и оплачена — повторять заметку нельзя, иначе
+          // платим за неё дважды. Вектор доберём отдельным заходом в конце.
+          result.missingVectors++;
+          if (++rateWaits > MAX_RATE_WAITS) {
+            result.stopped = 'rate';
+            break;
+          }
+          opts?.onProgress?.({ done: i, total: targets.length, waiting: true });
+          await sleep(RATE_BACKOFF_MS);
+          continue;
+        }
+        if (res.indexed !== 'ok' && res.indexed !== 'skip') result.missingVectors++;
+        rateWaits = 0;
       } else if (res.error === 'DAILY_LIMIT') {
         result.stopped = 'daily';
-        break;
-      } else if (res.error === 'RATE_LIMIT') {
-        result.stopped = 'rate';
         break;
       } else if (res.error === 'GLOBAL_LIMIT') {
         result.stopped = 'global';
@@ -218,7 +295,20 @@ export const NoteAnalysisService = {
         }
       }
 
-      if (res.ok && i < targets.length - 1) await sleep(NOTE_PACING_MS);
+      if (i < targets.length) await sleep(NOTE_PACING_MS);
+    }
+
+    // Заметки, оставшиеся без вектора, добираются штатным проходом индексации:
+    // он сам пропускает свежие и умеет останавливаться на лимите. Без этого
+    // такая заметка осталась бы без вектора навсегда — очередь разбора смотрит
+    // на сводки и второй раз её не предложит.
+    if (result.missingVectors > 0 && result.stopped !== 'daily' && result.stopped !== 'consent') {
+      try {
+        const caught = await indexPending();
+        result.missingVectors = Math.max(0, result.missingVectors - caught.ok);
+      } catch (e) {
+        reportError(e, { action: 'analyzePending_vectorCatchUp' });
+      }
     }
 
     return result;

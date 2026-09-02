@@ -31,8 +31,10 @@ vi.mock('../AIService', () => ({ AIService: { summarize } }));
 vi.mock('../AISummaryService', () => ({ AISummaryService: { save: saveSummary, delete: vi.fn() } }));
 vi.mock('../AIEmbeddingService', () => ({ AIEmbeddingService: { delete: vi.fn() } }));
 vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() }));
+const indexPending = vi.fn(async () => ({ ok: 0, skipped: 0, failed: 0, stopped: null }));
 vi.mock('../../utils/embeddingIndexer', () => ({
   indexDocument,
+  indexPending,
   sha256Hex: vi.fn(async (text: string) => `hash:${text.length}`),
 }));
 
@@ -52,6 +54,7 @@ describe('NoteAnalysisService.analyzePending', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     indexDocument.mockResolvedValue('ok');
+    indexPending.mockResolvedValue({ ok: 0, skipped: 0, failed: 0, stopped: null });
     summarize.mockResolvedValue(okSummary());
     documents = [];
     summaries = [];
@@ -83,9 +86,12 @@ describe('NoteAnalysisService.analyzePending', () => {
       doc_empty: '   ',
     };
 
-    const pending = await NoteAnalysisService.findPending();
+    const survey = await NoteAnalysisService.findPending();
 
-    expect(pending).toEqual(['doc_ok']);
+    expect(survey.ids).toEqual(['doc_ok']);
+    // Разбивка отвечает на вопрос «почему в очереди так мало»: без неё
+    // отсеянные заметки просто исчезают из счётчика.
+    expect(survey).toMatchObject({ totalDocuments: 4, excluded: 1, tooShort: 1, noContent: 1 });
   });
 
   it('skips a note whose text has not changed since its summary', async () => {
@@ -96,7 +102,9 @@ describe('NoteAnalysisService.analyzePending', () => {
       { documentId: 'doc_edited', contentHash: 'hash:older' },
     ];
 
-    expect(await NoteAnalysisService.findPending()).toEqual(['doc_edited']);
+    const survey = await NoteAnalysisService.findPending();
+    expect(survey.ids).toEqual(['doc_edited']);
+    expect(survey.alreadyAnalyzed).toBe(1);
   });
 
   /**
@@ -111,7 +119,7 @@ describe('NoteAnalysisService.analyzePending', () => {
 
     const result = await run();
 
-    expect(result).toEqual({ analyzed: 2, skipped: 0, failed: 0, stopped: 'daily' });
+    expect(result).toEqual({ analyzed: 2, skipped: 0, failed: 0, missingVectors: 1, stopped: 'daily' });
     expect(summarize).toHaveBeenCalledTimes(2);
   });
 
@@ -124,7 +132,7 @@ describe('NoteAnalysisService.analyzePending', () => {
 
     const result = await run();
 
-    expect(result).toEqual({ analyzed: 1, skipped: 0, failed: 0, stopped: 'daily' });
+    expect(result).toEqual({ analyzed: 1, skipped: 0, failed: 0, missingVectors: 0, stopped: 'daily' });
     expect(summarize).toHaveBeenCalledTimes(2);
   });
 
@@ -135,7 +143,7 @@ describe('NoteAnalysisService.analyzePending', () => {
 
     const result = await run();
 
-    expect(result).toEqual({ analyzed: 0, skipped: 0, failed: 3, stopped: 'errors' });
+    expect(result).toEqual({ analyzed: 0, skipped: 0, failed: 3, missingVectors: 0, stopped: 'errors' });
     expect(summarize).toHaveBeenCalledTimes(3);
   });
 
@@ -145,7 +153,57 @@ describe('NoteAnalysisService.analyzePending', () => {
 
     const result = await run({ limit: 2 });
 
-    expect(result).toEqual({ analyzed: 2, skipped: 0, failed: 0, stopped: null });
+    expect(result).toEqual({ analyzed: 2, skipped: 0, failed: 0, missingVectors: 0, stopped: null });
     expect(summarize).toHaveBeenCalledTimes(2);
+  });
+
+  /**
+   * Цена заметки заранее неизвестна: каждое обязательство из неё векторизуется
+   * отдельным вызовом, и на живом архиве вышло около восьми обращений на
+   * заметку вместо двух. Значит попасть в минутное окно расчётом нельзя — можно
+   * только пережить его ожиданием. Раньше первый же отказ обрывал проход.
+   */
+  it('waits out a rate refusal and retries the same note instead of stopping', async () => {
+    documents = [{ id: 'doc_1' }, { id: 'doc_2' }];
+    contentByDoc = { doc_1: LONG, doc_2: LONG };
+    summarize
+      .mockResolvedValueOnce({ ok: false, error: 'RATE_LIMIT' })
+      .mockResolvedValue(okSummary());
+
+    const result = await run();
+
+    expect(result).toMatchObject({ analyzed: 2, stopped: null });
+    // Три вызова на две заметки: отказавшая повторена, а не пропущена.
+    expect(summarize).toHaveBeenCalledTimes(3);
+  });
+
+  it('gives up on rate only after waiting it out several times', async () => {
+    documents = [{ id: 'doc_1' }];
+    contentByDoc = { doc_1: LONG };
+    summarize.mockResolvedValue({ ok: false, error: 'RATE_LIMIT' });
+
+    const result = await run();
+
+    expect(result).toMatchObject({ analyzed: 0, stopped: 'rate' });
+    expect(summarize).toHaveBeenCalledTimes(4);
+  });
+
+  /**
+   * Сводка сохранена и оплачена, а вектор не дался. Повторять заметку нельзя —
+   * заплатим за сводку дважды; бросать тоже нельзя — очередь разбора смотрит на
+   * сводки и второй раз эту заметку не предложит, вектора у неё не будет никогда.
+   */
+  it('does not re-pay for a note whose summary landed but vector was throttled', async () => {
+    documents = [{ id: 'doc_1' }, { id: 'doc_2' }];
+    contentByDoc = { doc_1: LONG, doc_2: LONG };
+    indexDocument.mockResolvedValueOnce('rate').mockResolvedValue('ok');
+    indexPending.mockResolvedValue({ ok: 1, skipped: 0, failed: 0, stopped: null });
+
+    const result = await run();
+
+    expect(summarize).toHaveBeenCalledTimes(2);
+    expect(indexPending).toHaveBeenCalledOnce();
+    // Догоняющий проход посчитал недостающий вектор — долг закрыт.
+    expect(result).toMatchObject({ analyzed: 2, missingVectors: 0, stopped: null });
   });
 });
