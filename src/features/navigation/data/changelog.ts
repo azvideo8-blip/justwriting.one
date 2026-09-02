@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.26',
+    date: '2026-09-02',
+    items: [
+      { category: 'fix', ru: 'Разбор, за которым не осталось заметки, считается пропуском, а не сбоем выгрузки: успешный проход больше не заканчивается пачкой красных сообщений', en: 'An analysis whose note no longer exists counts as a skip, not an upload failure: a successful run no longer ends in a pile of red messages' },
+    ],
+  },
+  {
     version: '0.8.25',
     date: '2026-09-02',
     items: [
