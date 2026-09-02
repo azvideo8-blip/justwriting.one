@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.24',
+    date: '2026-09-02',
+    items: [
+      { category: 'fix', ru: 'Отказы ИИ снова называются своими именами: приложение сверяло коды со старым форматом, и «подождите минуту», «лимит исчерпан» и «нет авторизации» все превращались в «сбой сервиса»', en: 'AI refusals are called by their right names again: the app compared codes against the old format, so "wait a minute", "limit reached" and "not authorised" all became "service failure"' },
+      { category: 'fix', ru: 'Разбор архива пережидает ограничение частоты вместо того, чтобы обрываться, а заметка со сводкой без вектора не оплачивается второй раз', en: 'Analysing the archive waits out a rate limit instead of dying, and a note whose summary landed without its vector is never paid for twice' },
+      { category: 'improvement', ru: 'Окно перед разбором показывает, почему заметок в очереди меньше, чем в архиве', en: 'The dialogue before a run shows why the queue is shorter than the archive' },
+    ],
+  },
+  {
     version: '0.8.23',
     date: '2026-09-02',
     items: [

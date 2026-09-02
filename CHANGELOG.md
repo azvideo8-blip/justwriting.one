@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.24 — 2026-09-02
+
+- **[RU]** Отказы ИИ снова называются своими именами. После переезда на свой сервер приложение сверяло коды отказа со старым, firebase'овским форматом, а сервер шлёт новый — и «подождите минуту», «лимит на сегодня исчерпан» и «нет авторизации» все до единого превращались в «сбой сервиса». Из-за этого разбор архива обрывался на первом же ограничении частоты вместо того, чтобы его переждать.
+- **[EN]** AI refusals are called by their right names again. After the move to our own server the app compared refusal codes against the old Firebase format while the server sends the new one — so "wait a minute", "daily limit reached" and "not authorised" all turned into "service failure". That is why analysing the archive died at the first rate limit instead of waiting it out.
+- **[RU]** Разбор архива пережидает ограничение частоты вместо того, чтобы падать. Цену заметки нельзя посчитать заранее: каждое обязательство из неё векторизуется отдельным запросом, и на живом архиве вышло около восьми обращений на заметку вместо двух. Заметка, чья сводка сохранилась, а вектор не дался, второй раз не оплачивается — вектор досчитывается отдельным заходом в конце.
+- **[EN]** Analysing the archive waits out a rate limit instead of dying on it. A note's cost cannot be computed in advance: every commitment in it is vectorised by its own request, which came to about eight calls per note instead of two. A note whose summary landed but whose vector did not is never paid for twice — the vector is caught up in a separate pass at the end.
+- **[RU]** Окно перед разбором показывает, почему заметок в очереди меньше, чем в архиве: сколько их всего на этом устройстве, сколько уже разобрано, у скольких текста на устройстве нет, сколько слишком коротких и сколько исключено из ИИ.
+- **[EN]** The dialogue before a run shows why the queue is shorter than the archive: how many notes are on this device, how many are already analysed, how many have no text here, how many are too short and how many are excluded from AI.
+
 ## 0.8.23 — 2026-09-02
 
 - **[RU]** Кнопка «Разобрать заметки» в профиле: разбирает весь архив подряд, а не по одной записи. До неё разбор запускался только вручную на конкретной заметке, и накопить корпус для памяти было нечем — из 170 заметок разобранными оказались 17, а портрету нужно хотя бы 20. Проход возобновляемый: упёрся в дневной лимит — продолжает со следующего нажатия, уже разобранное второй раз не отправляет.
