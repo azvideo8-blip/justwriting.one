@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.25 — 2026-09-02
+
+- **[RU]** Разборы заметок снова уезжают в облако. Сводка отправлялась под локальным номером заметки вместо постоянного, база такую строку отклоняла, а повтора не было ни при разборе, ни в ручной выгрузке — и разборы оставались жить ровно в одном браузере: на устройстве их 166, в облаке было 26. Та же ошибка была исправлена для поисковых векторов в 0.8.22, но сводки ходят своей дорогой и остались с ней.
+- **[EN]** Note analyses reach the cloud again. A summary was sent under the note's local number instead of its permanent one, the database refused the row, and nothing retried — on write or in the manual upload — so analyses lived in exactly one browser: 166 on the device, 26 in the cloud. The same bug was fixed for search vectors in 0.8.22, but summaries travel their own path and kept it.
+- **[RU]** Выгрузка, которой не подо что подставить постоянный номер, теперь отказывает громко, а не отчитывается успехом за строки, которых в облаке не появилось.
+- **[EN]** An upload with no permanent id to use now refuses loudly instead of reporting success for rows that never reached the cloud.
+
 ## 0.8.24 — 2026-09-02
 
 - **[RU]** Отказы ИИ снова называются своими именами. После переезда на свой сервер приложение сверяло коды отказа со старым, firebase'овским форматом, а сервер шлёт новый — и «подождите минуту», «лимит на сегодня исчерпан» и «нет авторизации» все до единого превращались в «сбой сервиса». Из-за этого разбор архива обрывался на первом же ограничении частоты вместо того, чтобы его переждать.

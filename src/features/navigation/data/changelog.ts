@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.25',
+    date: '2026-09-02',
+    items: [
+      { category: 'fix', ru: 'Разборы заметок снова уезжают в облако: сводка отправлялась под локальным номером вместо постоянного, база её отклоняла, и разборы оставались жить в одном браузере', en: 'Note analyses reach the cloud again: a summary was sent under its local number instead of the permanent one, the database refused it, and analyses lived in one browser only' },
+      { category: 'fix', ru: 'Выгрузка без постоянного номера отказывает громко, а не отчитывается успехом за строки, которых в облаке не появилось', en: 'An upload with no permanent id refuses loudly instead of reporting success for rows that never reached the cloud' },
+    ],
+  },
+  {
     version: '0.8.24',
     date: '2026-09-02',
     items: [
