@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.27',
+    date: '2026-09-02',
+    items: [
+      { category: 'fix', ru: 'Поисковые векторы уезжают в облако и с ручной выгрузки: постоянный номер заметки подставлялся у двух путей из трёх, и на третьем база отклоняла запись по правам доступа', en: 'Search vectors reach the cloud from the manual upload too: the permanent note id was resolved in two of three paths, and on the third the database refused the row on access rights' },
+      { category: 'fix', ru: 'Вектор, за которым не осталось заметки, считается пропуском, а не сбоем', en: 'A vector whose note no longer exists counts as a skip, not a failure' },
+    ],
+  },
+  {
     version: '0.8.26',
     date: '2026-09-02',
     items: [

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.27 — 2026-09-02
+
+- **[RU]** Поисковые векторы уезжают в облако и с ручной выгрузки. Постоянный номер заметки подставлялся у двух путей выгрузки из трёх, а третий — кнопка «Отправить разбор и диалоги в облако» — брал запись из хранилища как есть, и база отклоняла её по правам доступа: 114 отказов за один заход. Теперь номер достаётся в самой точке выгрузки, через которую идут все три пути.
+- **[EN]** Search vectors reach the cloud from the manual upload too. The note's permanent id was resolved in two of the three upload paths; the third — the "Upload analysis and dialogues" button — took records from storage as they were, and the database refused them on access rights: 114 refusals in a single run. The id is now resolved at the upload point itself, where all three paths meet.
+- **[RU]** Вектор, за которым не осталось заметки, считается пропуском, а не сбоем — как и разбор без заметки.
+- **[EN]** A vector whose note no longer exists counts as a skip, not a failure — same as an analysis without its note.
+
 ## 0.8.26 — 2026-09-02
 
 - **[RU]** Разбор, за которым не осталось заметки, больше не считается сбоем выгрузки. Такие разборы отправить нельзя — база не примет строку без заметки, — но это пропуск, а не ошибка: успешный проход заканчивался пачкой красных сообщений, и выглядело это так, будто ничего не выгрузилось. Теперь они считаются отдельно и названы своим именем.
