@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.28 — 2026-09-02
+
+- **[RU]** Раздел «Обо мне» — портрет, грани, двери контакта и оба прохода пересчёта — пока виден только владельцу. Показывать его людям рано: обновление профиля стоит около 125 обращений к ИИ на архиве в полторы сотни заметок, при обычном дневном лимите оно недостижимо, и оно не возобновляемое — упёршись в лимит на четвёртом шаге из шести, оставляет портрет несобранным. Кнопка, которая доводит до половины и бросает, хуже отсутствующей. Разбор отдельной заметки, поиск по смыслу и карточки работают у всех по-прежнему.
+- **[EN]** The "About me" section — portrait, facets, contact doors and both recompute passes — is owner-only for now. Showing it to people is premature: refreshing the profile costs about 125 AI calls on an archive of a hundred and fifty notes, it is unreachable under an ordinary daily limit, and it does not resume — hitting the limit on step four of six leaves the portrait unbuilt. A button that reliably gets halfway and quits is worse than no button. Analysing a single note, semantic search and cards are unchanged for everyone.
+
 ## 0.8.27 — 2026-09-02
 
 - **[RU]** Поисковые векторы уезжают в облако и с ручной выгрузки. Постоянный номер заметки подставлялся у двух путей выгрузки из трёх, а третий — кнопка «Отправить разбор и диалоги в облако» — брал запись из хранилища как есть, и база отклоняла её по правам доступа: 114 отказов за один заход. Теперь номер достаётся в самой точке выгрузки, через которую идут все три пути.

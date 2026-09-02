@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.28',
+    date: '2026-09-02',
+    items: [
+      { category: 'improvement', ru: 'Раздел «Обо мне» — портрет, грани и проходы пересчёта — пока виден только владельцу: обновление профиля недостижимо при обычном дневном лимите и не возобновляется с середины. Разбор заметок, поиск по смыслу и карточки работают по-прежнему', en: 'The "About me" section — portrait, facets and the recompute passes — is owner-only for now: refreshing the profile is unreachable under an ordinary daily limit and does not resume midway. Note analysis, semantic search and cards are unchanged' },
+    ],
+  },
+  {
     version: '0.8.27',
     date: '2026-09-02',
     items: [
