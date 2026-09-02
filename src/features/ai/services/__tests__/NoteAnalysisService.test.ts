@@ -60,7 +60,7 @@ describe('NoteAnalysisService', () => {
 
     const res = await NoteAnalysisService.analyze('doc_1');
 
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, indexed: 'ok' });
     expect(saveSummary).toHaveBeenCalledOnce();
     expect(indexDocument).toHaveBeenCalledWith('doc_1', true);
   });
@@ -86,7 +86,9 @@ describe('NoteAnalysisService', () => {
 
     const res = await NoteAnalysisService.analyze('doc_1');
 
-    expect(res).toEqual({ ok: true });
+    // Сводка сохранена, но провал вектора назван провалом: проход по архиву
+    // принимает решение остановиться именно по этому полю.
+    expect(res).toEqual({ ok: true, indexed: 'error' });
     expect(saveSummary).toHaveBeenCalledOnce();
   });
 });

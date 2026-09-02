@@ -24,6 +24,7 @@ import { ProfileFacets } from '../../features/ai/components/ProfileFacets';
 import { ContactDoors } from '../../features/ai/components/ContactDoors';
 import { AuthorPortrait } from '../../features/ai/components/AuthorPortrait';
 import { ProfileRefreshButton } from '../../features/ai/components/ProfileRefreshButton';
+import { ArchiveAnalysisButton } from '../../features/ai/components/ArchiveAnalysisButton';
 import { LifeStoryTimeline } from '../../features/ai/components/LifeStoryTimeline';
 
 interface ProfilePageProps {
@@ -158,6 +159,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
 
         <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me_v3" defaultOpen={false}>
           <div className="space-y-6">
+            <ArchiveAnalysisButton />
             <ProfileRefreshButton />
             <AuthorPortrait readOnly={true} />
             <ProfileFacets readOnly={true} />

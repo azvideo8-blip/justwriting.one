@@ -5,7 +5,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { AIService } from './AIService';
 import { AISummaryService } from './AISummaryService';
 import { AIEmbeddingService } from './AIEmbeddingService';
-import { indexDocument, sha256Hex } from '../utils/embeddingIndexer';
+import { indexDocument, sha256Hex, type IndexResult } from '../utils/embeddingIndexer';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import type { AIErrorCode } from '../types/aiErrors';
 
@@ -20,8 +20,35 @@ import type { AIErrorCode } from '../types/aiErrors';
  */
 
 export type AnalyzeResult =
-  | { ok: true }
+  | { ok: true; indexed: IndexResult }
   | { ok: false; error: 'NO_CONTENT' | 'TOO_SHORT' | 'EXCLUDED' | AIErrorCode };
+
+/** Почему проход по архиву остановился, не дойдя до конца очереди. */
+export type BatchStop = 'daily' | 'rate' | 'global' | 'consent' | 'errors';
+
+export interface BatchResult {
+  analyzed: number;
+  /** Отсеяны без обращения к поставщику: пусто, коротко, исключено из ИИ. */
+  skipped: number;
+  failed: number;
+  stopped: BatchStop | null;
+}
+
+/**
+ * Шаг между заметками. Окно частоты на сервере — своё на каждый эндпоинт
+ * (`AI_BULK_MAX_PER_WINDOW`, по умолчанию 20 вызовов в минуту на пару
+ * uid+эндпоинт), а заметка стоит по одному вызову к `summarizeDocument` и к
+ * `embed`. Двадцать заметок в минуту — это 3 секунды на заметку.
+ */
+const NOTE_PACING_MS = 3_100;
+
+/**
+ * Подряд идущие отказы, после которых проход прекращается. Сеть, упавшая на
+ * первой заметке, не должна перебрать все полторы сотни по очереди.
+ */
+const MAX_CONSECUTIVE_FAILURES = 3;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /** Ниже этого заметка слишком коротка, чтобы из неё вышло что-то осмысленное. */
 const MIN_CONTENT_CHARS = 50;
@@ -93,13 +120,108 @@ export const NoteAnalysisService = {
 
     // Вектор — вторым шагом и не критично: сводка уже сохранена, а без вектора
     // заметка просто не участвует в поиске по смыслу до следующего нажатия.
+    //
+    // Исход возвращается наружу, а не теряется здесь: indexDocument сообщает об
+    // упёршемся лимите возвратом ('daily'/'rate'), а не исключением. Проходу по
+    // архиву это нужно знать — иначе он спокойно доберёт остаток дневного
+    // бюджета на сводки, для которых векторов уже не будет, и отчитается
+    // успехом за половину работы.
+    let indexed: IndexResult = 'error';
     try {
-      await indexDocument(documentId, true);
+      indexed = await indexDocument(documentId, true);
     } catch (e) {
       reportError(e, { action: 'noteAnalysis_embed', documentId });
     }
 
-    return { ok: true };
+    return { ok: true, indexed };
+  },
+
+  /**
+   * Заметки, которым разбор нужен: его нет вовсе либо текст изменился после
+   * него. Отсев здесь тот же, что и в `analyze`, — чтобы счётчик перед запуском
+   * называл настоящую цену, а не считал заодно исключённые и слишком короткие.
+   */
+  async findPending(): Promise<string[]> {
+    const db = await getLocalDb();
+    const documents = await db.getAll('documents');
+    const summaries = await db.getAll('aiSummaries');
+    const byDocument = new Map(summaries.map(s => [s.documentId, s]));
+
+    const pending: string[] = [];
+    for (const doc of documents) {
+      if (doc.excludedFromAI) continue;
+
+      const content = await latestContent(doc.id);
+      if (!content || content.trim().length === 0) continue;
+      if (content.length < MIN_CONTENT_CHARS) continue;
+
+      const existing = byDocument.get(doc.id);
+      if (!existing) {
+        pending.push(doc.id);
+        continue;
+      }
+      if (existing.contentHash !== await sha256Hex(content)) pending.push(doc.id);
+    }
+    return pending;
+  },
+
+  /**
+   * Разбор очереди заметок одним заказанным человеком проходом.
+   *
+   * Возобновляемый по построению: очередь считается от состояния хранилища, так
+   * что следующий запуск начинается там, где предыдущий упёрся в лимит. Ничего
+   * не помечает «пропущено навсегда» — заметка, до которой не дошли сегодня,
+   * просто остаётся в очереди.
+   */
+  async analyzePending(opts?: {
+    limit?: number;
+    onProgress?: (p: { done: number; total: number }) => void;
+  }): Promise<BatchResult> {
+    const pending = await NoteAnalysisService.findPending();
+    const targets = opts?.limit != null ? pending.slice(0, opts.limit) : pending;
+
+    const result: BatchResult = { analyzed: 0, skipped: 0, failed: 0, stopped: null };
+    let consecutiveFailures = 0;
+
+    for (let i = 0; i < targets.length; i++) {
+      const res = await NoteAnalysisService.analyze(targets[i]!);
+      opts?.onProgress?.({ done: i + 1, total: targets.length });
+
+      if (res.ok) {
+        result.analyzed++;
+        consecutiveFailures = 0;
+        if (res.indexed === 'daily' || res.indexed === 'rate') {
+          result.stopped = res.indexed;
+          break;
+        }
+      } else if (res.error === 'DAILY_LIMIT') {
+        result.stopped = 'daily';
+        break;
+      } else if (res.error === 'RATE_LIMIT') {
+        result.stopped = 'rate';
+        break;
+      } else if (res.error === 'GLOBAL_LIMIT') {
+        result.stopped = 'global';
+        break;
+      } else if (res.error === 'AUTH_REQUIRED' || res.error === 'AI_CONSENT_REQUIRED') {
+        result.stopped = 'consent';
+        break;
+      } else if (res.error === 'NO_CONTENT' || res.error === 'TOO_SHORT' || res.error === 'EXCLUDED') {
+        // Ничего не потрачено: до поставщика такая заметка не доходит.
+        result.skipped++;
+      } else {
+        result.failed++;
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          result.stopped = 'errors';
+          break;
+        }
+      }
+
+      if (res.ok && i < targets.length - 1) await sleep(NOTE_PACING_MS);
+    }
+
+    return result;
   },
 
   /** Удаляет всё, что разбор оставил после себя, — и на устройстве, и в облаке. */
