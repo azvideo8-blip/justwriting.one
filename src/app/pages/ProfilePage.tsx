@@ -18,6 +18,7 @@ import { Achievements } from '../../features/profile/components/Achievements';
 import { ProfileService } from '../../core/services/ProfileService';
 import { useToast } from '../../shared/components/Toast';
 import { useProfileStats } from '../../features/profile/hooks/useProfileStats';
+import { useAdminStatus } from '../../features/auth/hooks/useAdminStatus';
 import { Button } from '../../shared/components/Button';
 import { CollapsibleSection } from '../../features/profile/components/CollapsibleSection';
 import { ProfileFacets } from '../../features/ai/components/ProfileFacets';
@@ -35,6 +36,7 @@ interface ProfilePageProps {
 export function ProfilePage({ user, profile }: ProfilePageProps) {
   const { t } = useLanguage();
   const isGuest = !user;
+  const { isAdmin } = useAdminStatus();
   const userId = useUserId(user);
   const navigate = useNavigate();
 
@@ -157,15 +159,31 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me_v3" defaultOpen={false}>
-          <div className="space-y-6">
-            <ArchiveAnalysisButton />
-            <ProfileRefreshButton />
-            <AuthorPortrait readOnly={true} />
-            <ProfileFacets readOnly={true} />
-            <ContactDoors readOnly={true} />
-          </div>
-        </CollapsibleSection>
+        {/*
+          Профиль ИИ — портрет, грани, двери контакта и оба прохода пересчёта —
+          пока только для владельца.
+
+          Дело не в секретности, а в том, что показывать эту машинерию людям
+          рано: обновление профиля стоит около 125 вызовов на архиве в полторы
+          сотни заметок, при обычном дневном лимите в 30 оно недостижимо, и оно
+          НЕ возобновляемое — упёршись в лимит на четвёртом шаге из шести, оно
+          оставляет портрет несобранным. Кнопка, которая гарантированно доводит
+          до половины и бросает, хуже отсутствующей кнопки.
+
+          Разбор отдельной заметки (✨ в архиве) этим не затронут: сводки,
+          карточки и векторы поиска работают у всех.
+        */}
+        {isAdmin && (
+          <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me_v3" defaultOpen={false}>
+            <div className="space-y-6">
+              <ArchiveAnalysisButton />
+              <ProfileRefreshButton />
+              <AuthorPortrait readOnly={true} />
+              <ProfileFacets readOnly={true} />
+              <ContactDoors readOnly={true} />
+            </div>
+          </CollapsibleSection>
+        )}
 
         <CollapsibleSection title="История моей жизни" storageKey="profile_sec_life_story_v3" defaultOpen={false}>
           <LifeStoryTimeline />
