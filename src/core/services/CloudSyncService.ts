@@ -21,10 +21,6 @@ import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
 const LOCK_TTL_MS = 30_000;
-// Must match AIProfileService's PORTRAIT_LS_KEY. Duplicated here (rather than
-// imported) because core must not import from features/ (ARCHITECTURE.md) —
-// AIProfileService.syncPortraitToCloud delegates to this method instead.
-const PORTRAIT_LS_KEY = 'ai_user_portrait';
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
   return withTimeoutBase(promise, ms, 'Sync timeout');
@@ -781,7 +777,13 @@ export const CloudSyncService = {
    *  which must not import from features/) can call it directly for queued
    *  'portrait' tasks. AIProfileService.syncPortraitToCloud delegates here. */
   async syncPortraitToCloud(userId: string): Promise<void> {
-    const portraitMarkdown = localStorage.getItem(PORTRAIT_LS_KEY);
+    // Источник — IndexedDB, а не кэш в localStorage. Кэш привязан к аккаунту и
+    // может быть пуст в момент, когда очередь синхронизации доходит до задачи:
+    // именно поэтому колонка users.ai_portrait стояла пустой при живом
+    // портрете на устройстве.
+    const db = await getLocalDb();
+    const stored = await db.get('aiPortrait', 'singleton');
+    const portraitMarkdown = stored?.portrait;
     if (!portraitMarkdown) return;
 
     const encrypted = await maybeEncrypt(

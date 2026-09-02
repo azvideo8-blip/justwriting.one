@@ -28,6 +28,10 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `jw_restore_prompt_dismissed_${uid}`,
     // отложенные ключи сейфа (AuthService)
     `pending_keys_${uid}`,
+    // кэш психологического портрета (AIProfileService.portraitCacheKey).
+    // Самый чувствительный единичный артефакт в приложении: спецкатегории и
+    // имена третьих лиц открытым текстом.
+    `ai_user_portrait_${uid}`,
   ];
 }
 

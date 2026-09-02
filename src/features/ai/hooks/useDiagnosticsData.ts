@@ -135,7 +135,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         const portrait = await AIProfileService.getPortrait();
         setPortraitText(portrait);
       } catch {
-        const local = localStorage.getItem('ai_user_portrait');
+        const { portraitCacheKey } = await import('../services/AIProfileService');
+        const local = localStorage.getItem(portraitCacheKey(getCurrentUser()?.uid));
         setPortraitText(local);
       }
 

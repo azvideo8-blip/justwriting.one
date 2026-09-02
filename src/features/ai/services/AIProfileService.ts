@@ -12,7 +12,24 @@ import { useAiLimitStore } from '../store/useAiLimitStore';
 
 import type { CallAiOptions } from '../../../core/ai/callAi';
 
-const PORTRAIT_LS_KEY = 'ai_user_portrait';
+/**
+ * Кэш портрета в localStorage — ПРИВЯЗАН К АККАУНТУ.
+ *
+ * Раньше ключ был общий (`ai_user_portrait`), и это давало две беды сразу.
+ * Выход из аккаунта чистит IndexedDB и ключи, помеченные uid'ом, — общий ключ
+ * не попадал ни туда, ни туда, поэтому портрет со специальными категориями
+ * (интимная жизнь, семья, имена третьих лиц) оставался в браузере открытым
+ * текстом после «стереть всё с этого компьютера». А `getPortrait` читает
+ * localStorage вторым шагом, когда в IndexedDB пусто, — то есть СЛЕДУЮЩИЙ
+ * человек, вошедший в этом браузере, получал чужой портрет в подсказку на
+ * каждом ходу чата.
+ */
+export function portraitCacheKey(uid: string | null | undefined): string {
+  return uid ? `ai_user_portrait_${uid}` : 'ai_user_portrait_guest';
+}
+
+/** Ключ до привязки к аккаунту. Читается один раз — чтобы стереть. */
+const LEGACY_PORTRAIT_LS_KEY = 'ai_user_portrait';
 const SECTIONS_CACHE_KEY = 'ai_portrait_sections';
 let _autoGenInProgress = false;
 
@@ -48,7 +65,7 @@ async function sha256Hex(str: string): Promise<string> {
 
 export const AIProfileService = {
   async savePortrait(portraitMarkdown: string): Promise<void> {
-    localStorage.setItem(PORTRAIT_LS_KEY, portraitMarkdown);
+    localStorage.setItem(portraitCacheKey(getCurrentUser()?.uid), portraitMarkdown);
 
     try {
       const db = await getLocalDb();
@@ -108,28 +125,36 @@ export const AIProfileService = {
   },
 
   async getPortrait(): Promise<string | null> {
+    const uid = getCurrentUser()?.uid;
+    const cacheKey = portraitCacheKey(uid);
+
+    // Общий ключ прошлых сборок уносится при первом же чтении: он мог остаться
+    // от другого человека, и подставлять его в подсказку нельзя.
+    try {
+      localStorage.removeItem(LEGACY_PORTRAIT_LS_KEY);
+    } catch { /* ignore */ }
+
     try {
       const db = await getLocalDb();
       const cached = await db.get('aiPortrait', 'singleton');
       if (cached?.portrait) {
-        localStorage.setItem(PORTRAIT_LS_KEY, cached.portrait);
+        localStorage.setItem(cacheKey, cached.portrait);
         return cached.portrait;
       }
     } catch (e) {
       console.error('[AIProfileService] Failed to load portrait from IDB:', e);
     }
 
-    const local = localStorage.getItem(PORTRAIT_LS_KEY);
+    const local = localStorage.getItem(cacheKey);
     if (local) return local;
 
-    const uid = getCurrentUser()?.uid;
     if (uid) {
       try {
         const profile = await DataProvider.getProfile(uid);
         if (profile && profile.aiPortrait) {
           const decrypted = await maybeDecrypt(profile, ['aiPortrait'], []);
           const portrait = typeof decrypted.aiPortrait === 'string' ? decrypted.aiPortrait : '';
-          localStorage.setItem(PORTRAIT_LS_KEY, portrait);
+          localStorage.setItem(cacheKey, portrait);
           return portrait;
         }
       } catch (e) {
@@ -313,7 +338,7 @@ ${activeSections.communication_prefs}
   },
 
   async exportMarkdown(): Promise<string | null> {
-    const portrait = localStorage.getItem(PORTRAIT_LS_KEY);
+    const portrait = localStorage.getItem(portraitCacheKey(getCurrentUser()?.uid));
     if (!portrait) return null;
 
     const blob = new Blob([portrait], { type: 'text/markdown' });

@@ -65,6 +65,9 @@ import { AIService } from '../AIService';
 describe('AIProfileService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks стирает вызовы, но НЕ реализации: без явного умолчания
+    // mockResolvedValue из одного теста протекал в следующие.
+    mockGet.mockResolvedValue(undefined);
     mockGetAll.mockResolvedValue([]);
     localStorage.clear();
   });
@@ -79,7 +82,7 @@ describe('AIProfileService', () => {
 
       await AIProfileService.savePortrait('test-portrait-md');
 
-      expect(localStorage.getItem('ai_user_portrait')).toBe('test-portrait-md');
+      expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe('test-portrait-md');
       expect(mockMaybeEncrypt).toHaveBeenCalledWith(
         { aiPortrait: 'test-portrait-md' },
         ['aiPortrait'],
@@ -94,7 +97,7 @@ describe('AIProfileService', () => {
 
       await expect(AIProfileService.savePortrait('test-portrait-md')).resolves.not.toThrow();
 
-      expect(localStorage.getItem('ai_user_portrait')).toBe('test-portrait-md');
+      expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe('test-portrait-md');
       expect(mockSetDoc).not.toHaveBeenCalled();
     });
 
@@ -103,7 +106,7 @@ describe('AIProfileService', () => {
 
       await expect(AIProfileService.savePortrait('test-portrait-md-offline')).resolves.not.toThrow();
 
-      expect(localStorage.getItem('ai_user_portrait')).toBe('test-portrait-md-offline');
+      expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe('test-portrait-md-offline');
       expect(mockPut).toHaveBeenCalledWith('syncQueue', expect.objectContaining({
         type: 'portrait',
         documentId: 'test-user-123',
@@ -112,8 +115,14 @@ describe('AIProfileService', () => {
   });
 
   describe('syncPortraitToCloud', () => {
-    it('reads from localStorage and uploads to Firestore', async () => {
-      localStorage.setItem('ai_user_portrait', 'test-synced-portrait');
+    /**
+     * Источник — IndexedDB, а не кэш в localStorage. Кэш привязан к аккаунту и
+     * может быть пуст в момент, когда очередь синхронизации доходит до задачи:
+     * именно поэтому колонка users.ai_portrait стояла пустой при живом
+     * портрете на устройстве.
+     */
+    it('reads the portrait from the local store and uploads it', async () => {
+      mockGet.mockResolvedValueOnce({ id: 'singleton', portrait: 'test-synced-portrait' });
       mockSetDoc.mockResolvedValue(undefined);
 
       await AIProfileService.syncPortraitToCloud('test-user-123');
@@ -130,7 +139,7 @@ describe('AIProfileService', () => {
 
   describe('getPortrait', () => {
     it('returns local portrait if stored in localStorage', async () => {
-      localStorage.setItem('ai_user_portrait', 'local-portrait');
+      localStorage.setItem('ai_user_portrait_test-user-123', 'local-portrait');
 
       const res = await AIProfileService.getPortrait();
       expect(res).toBe('local-portrait');
@@ -142,7 +151,7 @@ describe('AIProfileService', () => {
 
       const res = await AIProfileService.getPortrait();
       expect(res).toBe('encrypted-portrait');
-      expect(localStorage.getItem('ai_user_portrait')).toBe('encrypted-portrait');
+      expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe('encrypted-portrait');
     });
 
     it('returns null if not found anywhere', async () => {
@@ -230,7 +239,7 @@ describe('AIProfileService', () => {
       expect(AIService.chat).toHaveBeenCalledWith(expect.objectContaining({
         personaId: 'custom',
       }));
-      expect(localStorage.getItem('ai_user_portrait')).toBe(expectedMarkdown);
+      expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe(expectedMarkdown);
     });
   });
 });

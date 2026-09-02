@@ -227,6 +227,10 @@ export const LocalDocumentService = {
           LocalStoreSyncService.scheduleStoreDelete('aiPortrait', 'singleton');
           if (typeof localStorage !== 'undefined') {
             localStorage.removeItem('ai_user_portrait');
+            // Кэш портрета привязан к аккаунту — снести надо и его копию.
+            for (const k of Object.keys(localStorage)) {
+              if (k.startsWith('ai_user_portrait_')) localStorage.removeItem(k);
+            }
             localStorage.removeItem('ai_portrait_sections');
           }
         } catch { /* ignore */ }

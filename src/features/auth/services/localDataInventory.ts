@@ -43,9 +43,9 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
   let hasPortrait = false;
   try {
     const portrait = await db.get('aiPortrait', 'singleton');
-    hasPortrait = Boolean(portrait?.portrait || localStorage.getItem('ai_profile_portrait'));
+    hasPortrait = Boolean(portrait?.portrait || localStorage.getItem(`ai_user_portrait_${userId ?? ''}`));
   } catch {
-    hasPortrait = Boolean(localStorage.getItem('ai_profile_portrait'));
+    hasPortrait = Boolean(localStorage.getItem(`ai_user_portrait_${userId ?? ''}`));
   }
 
   const safeCount = async (storeName: Parameters<typeof db.count>[0]): Promise<number> => {
