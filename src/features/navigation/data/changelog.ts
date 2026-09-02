@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.23',
+    date: '2026-09-02',
+    items: [
+      { category: 'new', ru: 'Кнопка «Разобрать заметки» в профиле разбирает весь архив подряд, а не по одной записи: проход останавливается на дневном лимите и продолжается со следующего нажатия, уже разобранное второй раз не отправляется', en: 'An "Analyse notes" button in the profile works through the whole archive instead of one note at a time: the run stops at the daily limit and continues on the next press, never re-sending what is already done' },
+      { category: 'fix', ru: 'Разбор заметки больше не отчитывается успехом, когда вектор посчитать не удалось', en: 'Analysing a note no longer reports success when its vector could not be computed' },
+    ],
+  },
+  {
     version: '0.8.22',
     date: '2026-08-29',
     items: [

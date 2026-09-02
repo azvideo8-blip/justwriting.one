@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.23 — 2026-09-02
 
 - **[RU]** Кнопка «Разобрать заметки» в профиле: разбирает весь архив подряд, а не по одной записи. До неё разбор запускался только вручную на конкретной заметке, и накопить корпус для памяти было нечем — из 170 заметок разобранными оказались 17, а портрету нужно хотя бы 20. Проход возобновляемый: упёрся в дневной лимит — продолжает со следующего нажатия, уже разобранное второй раз не отправляет.
 - **[EN]** An "Analyse notes" button in the profile: it works through the whole archive instead of one note at a time. Before it, analysis could only be started by hand on a single note, so the corpus the memory feeds on never accumulated — 17 of 170 notes were analysed, and the portrait needs at least 20. The run resumes: when it hits the daily limit it continues on the next press, and never re-sends what is already done.
