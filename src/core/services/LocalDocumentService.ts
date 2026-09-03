@@ -378,7 +378,11 @@ export const LocalDocumentService = {
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    await tx.store.put({ ...existing, linkedCloudId: cloudId });
+    // Появилась связь — значит заметка больше не «только на устройстве».
+    // Оставить флаг рядом с живой связью значит оставить противоречие: она
+    // и связана, и объявлена локальной, и следующий проход её пропустит.
+    const { localOnly: _dropped, ...rest } = existing;
+    await tx.store.put(cloudId ? { ...rest, linkedCloudId: cloudId } : { ...existing, linkedCloudId: cloudId });
     await tx.done;
   },
 

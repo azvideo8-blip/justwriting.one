@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.34',
+    date: '2026-09-03',
+    items: [
+      { category: 'fix', ru: 'Заметка, потерявшая связь с облачной копией, находит её по постоянному номеру и наконец уезжает в облако', en: 'A note that lost the link to its cloud copy finds it by the permanent id and finally reaches the cloud' },
+      { category: 'fix', ru: 'Текст диалога не уходит на сервер до проверки согласия — раньше проверка была только на сервере', en: 'Conversation text no longer leaves for the server before the consent check — it used to live on the server only' },
+      { category: 'fix', ru: 'Удаление облачной копии заметки уносит и её разбор с вектором', en: 'Removing a note cloud copy removes its analysis and vector too' },
+      { category: 'fix', ru: 'Удаление аккаунта и очистка при выходе доводятся до конца, а неудача больше не выглядит успехом', en: 'Account deletion and the sign-out wipe run to completion, and a failure no longer looks like success' },
+    ],
+  },
+  {
     version: '0.8.33',
     date: '2026-09-03',
     items: [

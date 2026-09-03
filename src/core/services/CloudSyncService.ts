@@ -274,6 +274,19 @@ export const CloudSyncService = {
       if (localDoc._locked || localDoc._decryptionError) {
         throw new Error('LOCKED: cannot add cloud copy of locked document');
       }
+      if (localDoc.localOnly) {
+        try {
+          const syncDb = await getLocalDb();
+          const allTasks = await syncDb.getAll('syncQueue');
+          const docTasks = allTasks.filter(t => t.documentId === localDocumentId);
+          if (docTasks.length > 0) {
+            const tx = syncDb.transaction('syncQueue', 'readwrite');
+            for (const t of docTasks) void tx.store.delete(t.id);
+            await tx.done;
+          }
+        } catch { /* ignore */ }
+        return '';
+      }
 
       if (localDoc.linkedCloudId) {
         const getDoc = DocumentService.getDocumentWithDeleted?.bind(DocumentService) ?? DocumentService.getDocument.bind(DocumentService);
@@ -564,6 +577,13 @@ export const CloudSyncService = {
 
   async removeCloudCopy(userId: string, cloudDocumentId: string, localDocumentId?: string): Promise<void> {
     await DocumentService.deleteDocument(userId, cloudDocumentId);
+    const { DataProvider } = await import('../data');
+    try {
+      await Promise.allSettled([
+        DataProvider.deleteSummary(userId, cloudDocumentId),
+        DataProvider.deleteEmbedding(userId, cloudDocumentId),
+      ]);
+    } catch { /* non-critical */ }
     if (localDocumentId) {
       await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
     }
@@ -839,10 +859,58 @@ function isRelinkCandidate(doc: LocalDocument): boolean {
  * so a caller that already holds the array sees the new links.
  */
 async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[]): Promise<number> {
-  const candidates = localDocs.filter(isRelinkCandidate);
-  if (candidates.length === 0) return 0;
-
   const takenCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
+  let relinkedByUuid = 0;
+
+  // Проход первый — по ПОСТОЯННОМУ номеру заметки. Это не догадка: совпадение
+  // uuid означает, что облачная строка и есть эта заметка. Сверка по времени
+  // ниже появилась раньше uuid и осталась запасной.
+  //
+  // Сюда попадают и заметки, помеченные «только на устройстве». Это безопасно
+  // по построению: удалённые в облаке строки сюда не приходят вовсе —
+  // getUserDocuments отдаёт только живые, — значит совпадение возможно лишь с
+  // существующей копией, а не с воскрешаемой. Без этого заметка, чья облачная
+  // строка когда-то потерялась, не может вернуться в облако никогда: под своим
+  // номером она не вставится (uuid уникален), а под чужим её быть не должно.
+  const cloudByUuid = new Map<string, Document>();
+  for (const cloudDoc of cloudDocs) {
+    const uuid = (cloudDoc as { uuid?: string }).uuid;
+    if (!uuid || takenCloudIds.has(cloudDoc.id)) continue;
+    if (cloudByUuid.has(uuid)) { cloudByUuid.delete(uuid); continue; }  // неоднозначно — не трогаем
+    cloudByUuid.set(uuid, cloudDoc);
+  }
+  for (const local of localDocs) {
+    const status = syncStatusOf(local);
+    if (status !== 'unlinked-new' && status !== 'local-only') continue;
+    if (!local.uuid) continue;
+    const match = cloudByUuid.get(local.uuid);
+    if (!match) continue;
+    await LocalStorageService.updateLinkedCloudId(local.id, match.id);
+    local.linkedCloudId = match.id;
+    delete local.localOnly;
+    takenCloudIds.add(match.id);
+    cloudByUuid.delete(local.uuid);
+    relinkedByUuid++;
+
+    // Связь вернулась — но содержимое в облаке от этого не появилось: строка
+    // могла остаться пустой, как и было у осиротевших. Ставим задачу в
+    // очередь, иначе заметка числится связанной и не выгружается никогда.
+    try {
+      const syncDb = await getLocalDb();
+      await syncDb.put('syncQueue', {
+        id: `sync_${local.id}`,
+        documentId: local.id,
+        type: 'document' as const,
+        createdAt: Date.now(),
+        ownerId: local.guestId,
+      });
+    } catch (queueErr) {
+      reportError(queueErr, { action: 'relinkByUuid_queueSync', documentId: local.id });
+    }
+  }
+
+  const candidates = localDocs.filter(isRelinkCandidate);
+  if (candidates.length === 0) return relinkedByUuid;
   const localsByStart = new Map<number, LocalDocument[]>();
   for (const doc of candidates) {
     const group = localsByStart.get(doc.firstSessionAt);
@@ -877,7 +945,7 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
     return a.slice(0, 32) !== b.slice(0, 32);
   };
 
-  let relinked = 0;
+  let relinked = relinkedByUuid;
   for (const [start, locals] of localsByStart) {
     const cloudMatches = cloudByStart.get(start);
     const local = locals[0];
@@ -899,3 +967,5 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
   }
   return relinked;
 }
+
+export const __testing = { relinkOrphaned };

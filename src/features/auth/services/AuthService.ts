@@ -241,8 +241,10 @@ async function deleteAccount(password: string): Promise<void> {
   await callAi('deleteAccount', {});
   // Аккаунт удалён на сервере — оставлять его заметки, разборы и портрет на
   // устройстве нельзя. Без явного флага signOut сохраняет локальное, и
-  // «удалить аккаунт» уносило только облачную половину.
-  await signOut({ clearLocalData: true });
+  // «удалить аккаунт» уносило только облачную половину. Флаг force обязателен:
+  // аккаунт на сервере уже уничтожен, отменять локальную очистку из-за
+  // несинхронизированных данных бессмысленно и заблокировало бы выход.
+  await signOut({ clearLocalData: true, force: true });
 }
 
 export const AuthService = {

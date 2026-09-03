@@ -145,6 +145,11 @@ export async function streamChat(params: {
     throw new Error('You must be logged in to chat with the AI.');
   }
 
+  const { getAiConsent, isProfileLoaded } = await import('../../../core/ai/aiConsent');
+  if (isProfileLoaded(user.uid) && !getAiConsent(user.uid)) {
+    throw Object.assign(new Error('AI_CONSENT_REQUIRED'), { code: 'AI_CONSENT_REQUIRED' });
+  }
+
   const idToken = await getIdToken();
 
   const headers: Record<string, string> = {

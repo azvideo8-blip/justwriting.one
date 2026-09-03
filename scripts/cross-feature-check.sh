@@ -4,9 +4,14 @@ set -e
 feats=$(ls -d src/features/*/ | xargs -n1 basename)
 count=0
 for f in $feats; do
-  [ "$f" = "auth" ] && continue
-  others=$(echo "$feats" | tr ' ' '\n' | grep -vx "$f" | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
-  n=$(grep -rEn "from '(\.\./)+($others)/" "src/features/$f" --include='*.ts' --include='*.tsx' 2>/dev/null \
+  if [ "$f" = "auth" ]; then
+    # auth is feature-import-free (ARCHITECTURE.md): cannot import ANY other feature
+    others=$(echo "$feats" | tr ' ' '\n' | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
+  else
+    # other features can only import themselves and auth
+    others=$(echo "$feats" | tr ' ' '\n' | grep -vx "$f" | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
+  fi
+  n=$(grep -rEn "(from |import\()['\"][.][.](/|\.\./)+($others)/" "src/features/$f" --include='*.ts' --include='*.tsx' 2>/dev/null \
     | grep -v __tests__ | wc -l | tr -d ' ')
   count=$((count + n))
 done
@@ -15,9 +20,12 @@ echo "cross-feature imports: $count (baseline: $baseline)"
 if [ "$count" -gt "$baseline" ]; then
   echo "::error::cross-feature imports grew ($count > $baseline). Move code to core/shared or drop the import."
   for f in $feats; do
-    [ "$f" = "auth" ] && continue
-    others=$(echo "$feats" | tr ' ' '\n' | grep -vx "$f" | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
-    grep -rEn "from '(\.\./)+($others)/" "src/features/$f" --include='*.ts' --include='*.tsx' 2>/dev/null \
+    if [ "$f" = "auth" ]; then
+      others=$(echo "$feats" | tr ' ' '\n' | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
+    else
+      others=$(echo "$feats" | tr ' ' '\n' | grep -vx "$f" | grep -vx "auth" | tr '\n' '|' | sed 's/|$//')
+    fi
+    grep -rEn "(from |import\()['\"][.][.](/|\.\./)+($others)/" "src/features/$f" --include='*.ts' --include='*.tsx' 2>/dev/null \
       | grep -v __tests__ || true
   done
   exit 1

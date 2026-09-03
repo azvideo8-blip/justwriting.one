@@ -630,6 +630,7 @@ export async function clearAllLocalStores(customUid?: string): Promise<void> {
     }
   } catch (e) {
     console.warn('[localDb] Failed to clear all object stores:', e);
+    throw e;
   } finally {
     resetDbInstance(dbName);
   }
@@ -639,6 +640,8 @@ interface DatabaseWithClosed {
   closed?: boolean;
 }
 
+const inFlightMigrations = new Map<string, Promise<void>>();
+
 async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): Promise<void> {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   if (targetDbName === 'justwriting-local') return;
@@ -647,104 +650,129 @@ async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): P
     if (localStorage.getItem(migrationKey)) return;
   } catch { /* ignore */ }
 
-  try {
-    const legacyDb = await openDB<JustWritingDB>('justwriting-local', 21, {
-      upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
-    });
-    if (!legacyDb.objectStoreNames.contains('documents')) {
-      legacyDb.close();
-      return;
-    }
+  const existing = inFlightMigrations.get(targetDbName);
+  if (existing) {
+    await existing;
+    return;
+  }
 
-    const docs = await legacyDb.getAll('documents');
-    // Переносим только то, что явно принадлежит этому аккаунту: «первый, кто
-    // открыл приложение» — не владелец.
-    const userDocs = docs.filter(d => d.guestId === targetUid);
-    if (userDocs.length === 0) {
-      legacyDb.close();
-      return;
-    }
-
-    // Портрет, убеждения, память чата лежат без пометки владельца. Пока в общей
-    // базе жил один аккаунт, отдать их ему — правильно. Если аккаунтов было
-    // два, приписать эти записи кому-то одному нельзя: это ровно та утечка,
-    // ради которой базу и разделяли.
-    const ownersInLegacy = new Set(docs.map(d => d.guestId).filter(Boolean));
-    const claimUnowned = ownersInLegacy.size <= 1;
-
-    const targetDb = await openDB<JustWritingDB>(targetDbName, 21, {
-      upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
-    });
-
-    let copyFailed = false;
-    const storeNames = Array.from(legacyDb.objectStoreNames);
-    for (const storeName of storeNames) {
-      try {
-        const records = await (legacyDb as unknown as { getAll(s: string): Promise<unknown[]> }).getAll(storeName);
-        if (records.length === 0) continue;
-        const tx = targetDb.transaction(storeName as never, 'readwrite');
-        const targetStore = tx.objectStore(storeName as never) as unknown as { put(v: unknown): Promise<unknown> };
-        for (const record of records) {
-          const rec = record as { guestId?: string; userId?: string };
-          if (rec.guestId && rec.guestId !== targetUid) continue;
-          if (rec.userId && rec.userId !== targetUid) continue;
-          if (!rec.guestId && !rec.userId && !claimUnowned) continue;
-          await targetStore.put(record);
-        }
-        await tx.done;
-      } catch (err) {
-        copyFailed = true;
-        console.warn(`[localDb] Error copying store ${storeName} in legacy migration:`, err);
-      }
-    }
-
-    // Оригиналы удаляются ТОЛЬКО после проверки, что копия на месте.
-    //
-    // Раньше копирование по хранилищам глотало ошибку предупреждением, а
-    // удаление шло следом безусловно: провалившееся копирование плюс
-    // состоявшееся удаление — это архив, которого нет нигде. Второго источника
-    // у локальных заметок не существует.
-    // Из двух условий тестом закрыто первое: сбой копирования любого хранилища
-    // оставляет оригиналы на месте. Второе — сверка поимённо — страховка на
-    // случай молчаливой частичной записи; сделать её падающей на выдуманном
-    // сценарии не вышло, и притворяться, что она проверена, не буду. Оно может
-    // только ужесточить условие, но не ослабить.
-    let verified = false;
+  const migrationPromise = (async () => {
     try {
-      const copied = await targetDb.getAll('documents');
-      const copiedIds = new Set(copied.map(d => d.id));
-      verified = !copyFailed && userDocs.every(d => copiedIds.has(d.id));
-    } catch (err) {
-      console.warn('[localDb] Legacy migration verification failed:', err);
-    }
+      const legacyDb = await openDB<JustWritingDB>('justwriting-local', 21, {
+        upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
+      });
+      if (!legacyDb.objectStoreNames.contains('documents')) {
+        legacyDb.close();
+        try { localStorage.setItem(migrationKey, '1'); } catch { /* ignore */ }
+        return;
+      }
 
-    if (!verified) {
-      // Ничего не удаляем и не отмечаем переезд сделанным: следующий запуск
-      // попробует снова. Молчать нельзя — человек должен узнать, что его архив
-      // остался в старой базе, а не считать, что всё прошло.
-      console.error(
-        '[localDb] Legacy migration did NOT complete: originals kept in the shared database, ' +
-        'nothing deleted, migration will be retried on next open.',
-      );
+      const docs = await legacyDb.getAll('documents');
+      // Переносим только то, что явно принадлежит этому аккаунту: «первый, кто
+      // открыл приложение» — не владелец.
+      const userDocs = docs.filter(d => d.guestId === targetUid);
+      if (userDocs.length === 0) {
+        // У этого пользователя нет записей в старой базе. Фиксируем завершение
+        // миграции, чтобы не переоткрывать justwriting-local на каждый getLocalDb.
+        try { localStorage.setItem(migrationKey, '1'); } catch { /* ignore */ }
+        legacyDb.close();
+        return;
+      }
+
+      // Портрет, убеждения, память чата лежат без пометки владельца. Пока в общей
+      // базе жил один аккаунт, отдать их ему — правильно. Если аккаунтов было
+      // два, приписать эти записи кому-то одному нельзя: это ровно та утечка,
+      // ради которой базу и разделяли.
+      const ownersInLegacy = new Set(docs.map(d => d.guestId).filter(Boolean));
+      const multiOwnerMarker = 'jw_legacy_has_multi_owners';
+      let hadMultipleOwners = false;
+      try {
+        hadMultipleOwners = localStorage.getItem(multiOwnerMarker) === '1';
+      } catch { /* ignore */ }
+
+      if (ownersInLegacy.size > 1) {
+        hadMultipleOwners = true;
+        try { localStorage.setItem(multiOwnerMarker, '1'); } catch { /* ignore */ }
+        // Если в общей базе жили несколько аккаунтов, записи без владельца
+        // спорные. Стираем их из legacyDb, чтобы ни первый, ни второй вошедший
+        // аккаунт не присвоил чужой психологический портрет.
+        for (const storeName of ['aiPortrait', 'aiBeliefs', 'aiChatMemory']) {
+          if (legacyDb.objectStoreNames.contains(storeName as never)) {
+            try {
+              await legacyDb.clear(storeName as never);
+            } catch { /* ignore */ }
+          }
+        }
+      }
+
+      const claimUnowned = ownersInLegacy.size <= 1 && !hadMultipleOwners;
+
+      const targetDb = await openDB<JustWritingDB>(targetDbName, 21, {
+        upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
+      });
+
+      let copyFailed = false;
+      const storeNames = Array.from(legacyDb.objectStoreNames);
+      for (const storeName of storeNames) {
+        try {
+          const records = await (legacyDb as unknown as { getAll(s: string): Promise<unknown[]> }).getAll(storeName);
+          if (records.length === 0) continue;
+          const tx = targetDb.transaction(storeName as never, 'readwrite');
+          const targetStore = tx.objectStore(storeName as never) as unknown as { put(v: unknown): Promise<unknown> };
+          for (const record of records) {
+            const rec = record as { guestId?: string; userId?: string };
+            if (rec.guestId && rec.guestId !== targetUid) continue;
+            if (rec.userId && rec.userId !== targetUid) continue;
+            if (!rec.guestId && !rec.userId && !claimUnowned) continue;
+            await targetStore.put(record);
+          }
+          await tx.done;
+        } catch (err) {
+          copyFailed = true;
+          console.warn(`[localDb] Error copying store ${storeName} in legacy migration:`, err);
+        }
+      }
+
+      // Оригиналы удаляются ТОЛЬКО после проверки, что копия на месте.
+      let verified = false;
+      try {
+        const copied = await targetDb.getAll('documents');
+        const copiedIds = new Set(copied.map(d => d.id));
+        verified = !copyFailed && userDocs.every(d => copiedIds.has(d.id));
+      } catch (err) {
+        console.warn('[localDb] Legacy migration verification failed:', err);
+      }
+
+      if (!verified) {
+        console.error(
+          '[localDb] Legacy migration did NOT complete: originals kept in the shared database, ' +
+          'nothing deleted, migration will be retried on next open.',
+        );
+        targetDb.close();
+        legacyDb.close();
+        return;
+      }
+
+      for (const doc of userDocs) {
+        try {
+          await legacyDb.delete('documents', doc.id);
+        } catch { /* ignore */ }
+      }
+
       targetDb.close();
       legacyDb.close();
-      return;
-    }
-
-    for (const doc of userDocs) {
       try {
-        await legacyDb.delete('documents', doc.id);
+        localStorage.setItem(migrationKey, '1');
       } catch { /* ignore */ }
+    } catch (err) {
+      console.warn('[localDb] Legacy migration skipped/failed:', err);
+    } finally {
+      inFlightMigrations.delete(targetDbName);
     }
+  })();
 
-    targetDb.close();
-    legacyDb.close();
-    try {
-      localStorage.setItem(migrationKey, '1');
-    } catch { /* ignore */ }
-  } catch (err) {
-    console.warn('[localDb] Legacy migration skipped/failed:', err);
-  }
+  inFlightMigrations.set(targetDbName, migrationPromise);
+  await migrationPromise;
 }
 
 export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustWritingDB>> {

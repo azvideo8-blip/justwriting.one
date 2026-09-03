@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.34 — 2026-09-03
+
+- **[RU]** Заметка, потерявшая связь со своей облачной копией, теперь находит её по постоянному номеру и уезжает в облако. Раньше вернуть такую было нельзя ничем: выгрузка как новой падала — строка с этим номером уже существовала, — а сверка по времени не помогала, потому что у осиротевшей строки записано время её создания, а не дата заметки. Четырнадцать заметок так и лежали только на устройстве.
+- **[EN]** A note that lost the link to its cloud copy now finds it by the permanent id and reaches the cloud. Such a note could not be recovered before: uploading it as new failed — a row with that id already existed — and matching by time did not help, because an orphaned row records when it was created, not the note's date. Fourteen notes were left on the device alone.
+- **[RU]** Текст диалога больше не уходит на сервер до проверки согласия: проверка была только на сервере, то есть содержимое уже улетало по сети, и лишь потом получало отказ.
+- **[EN]** Conversation text no longer leaves for the server before the consent check: the check lived on the server only, so the content was already on the wire before being refused.
+- **[RU]** Удаление облачной копии заметки уносит и её разбор с вектором — раньше они оставались в базе без заметки.
+- **[EN]** Removing a note's cloud copy now removes its analysis and vector too — they used to stay in the database with no note.
+- **[RU]** Удаление аккаунта больше не останавливается на полпути: серверная половина отрабатывала, а стирание на устройстве прерывалось проверкой несохранённого.
+- **[EN]** Deleting an account no longer stops halfway: the server half worked while the device wipe was aborted by the unsynced-data check.
+- **[RU]** Неудачная очистка устройства при выходе больше не выглядит удачной: ошибка базы проглатывалась, и выход сообщал об успехе.
+- **[EN]** A failed device wipe on sign-out no longer looks successful: the database error was swallowed and sign-out reported success.
+- **[RU]** Удаление записи ИИ из облака не теряется при обрыве связи — намерение возвращается в очередь.
+- **[EN]** Deleting an AI record from the cloud is no longer lost on a network failure — the intent goes back into the queue.
+
 ## 0.8.33 — 2026-09-03
 
 - **[RU]** Данные ИИ больше не общие на устройстве: у каждого аккаунта своя локальная база. Раньше портрет лежал в единственной строке на браузер, а память чата, убеждения и разборы не знали владельца вовсе — второй вошедший на том же компьютере видел чужое, а выгрузка записывала это ему в облако. Существующий архив переезжает при первом открытии, и оригиналы удаляются только после проверки, что копия на месте.

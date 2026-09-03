@@ -348,6 +348,12 @@ class LocalStoreSyncManager {
         } else {
           result.failed++;
           reportError(err, { action: 'LocalStoreSyncService_item', store: item.store, key: item.key });
+          // If this was a delete, it cannot be reconstructed from IDB because it
+          // was already deleted locally before scheduleStoreDelete was called.
+          // Re-queue it so network/server errors do not drop the delete permanently.
+          if (item.isDelete) {
+            this.pending.set(itemKey, item);
+          }
         }
       }
     }
