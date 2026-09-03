@@ -127,6 +127,8 @@
           "select([\"*\"])",
           "eq([\"user_id\",\"u1\"])",
           "is([\"deleted_at\",null])",
+          "order([\"uuid\",{\"ascending\":true}])",
+          "range([0,999])",
           "<await>"
         ]
       }
@@ -371,6 +373,8 @@
           "select([\"*\"])",
           "eq([\"user_id\",\"u1\"])",
           "eq([\"document_uuid\",\"doc_1\"])",
+          "order([\"version\",{\"ascending\":true}])",
+          "range([0,999])",
           "<await>"
         ]
       }
@@ -716,6 +720,8 @@
         "chain": [
           "select([\"*\"])",
           "eq([\"user_id\",\"u1\"])",
+          "order([\"document_id\",{\"ascending\":true}])",
+          "range([0,999])",
           "<await>"
         ]
       }
@@ -1143,6 +1149,8 @@
           "select([\"*\"])",
           "eq([\"user_id\",\"u1\"])",
           "eq([\"store\",\"aiDialogues\"])",
+          "order([\"key\",{\"ascending\":true}])",
+          "range([0,999])",
           "<await>"
         ]
       }

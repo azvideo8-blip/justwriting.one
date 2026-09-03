@@ -17,6 +17,7 @@ interface MockQueryBuilder {
   contains: ReturnType<typeof vi.fn>;
   is: ReturnType<typeof vi.fn>;
   maybeSingle: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
   then: ReturnType<typeof vi.fn>;
   // 2.17: счётчик сессий переехал на RPC вместо чтения-изменения-записи.
   rpc: ReturnType<typeof vi.fn>;
@@ -44,6 +45,7 @@ describe('SupabaseDataProvider', () => {
       gt: vi.fn().mockReturnThis(),
       contains: vi.fn().mockResolvedValue({ data: [], error: null }),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      range: vi.fn().mockImplementation(() => Promise.resolve({ data: [], error: null })),
       then: vi.fn().mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null })),
     };
 
@@ -216,8 +218,7 @@ describe('SupabaseDataProvider', () => {
     });
 
     it('getVersions reads snake_case rows into camelCase version objects', async () => {
-      mockQueryBuilder.eq.mockReturnValueOnce(mockQueryBuilder);
-      mockQueryBuilder.eq.mockResolvedValueOnce({
+      mockQueryBuilder.range.mockResolvedValueOnce({
         data: [
           {
             id: 10,

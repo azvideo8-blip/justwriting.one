@@ -13,6 +13,8 @@ export const VersionService = {
       content: string;
       previousContent: string;
       wordCount: number;
+      wordsAdded?: number | undefined;
+      charsAdded?: number | undefined;
       duration: number;
       wpm: number;
       versionNumber: number;
@@ -31,7 +33,9 @@ export const VersionService = {
     if (estimatedDocSize > 900_000) {
       throw new Error(`Document too large for cloud sync (${(estimatedDocSize / 1024).toFixed(0)}KB estimated). Consider splitting into multiple documents.`);
     }
-    const diff = computeWordDelta(data.previousContent, data.content);
+    const diff = (data.wordsAdded !== undefined && data.charsAdded !== undefined)
+      ? { wordsAdded: data.wordsAdded, charsAdded: data.charsAdded }
+      : (data._encrypted ? { wordsAdded: 0, charsAdded: 0 } : computeWordDelta(data.previousContent, data.content));
     const doc: Record<string, unknown> = {
       documentId,
       userId,

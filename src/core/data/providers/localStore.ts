@@ -34,16 +34,27 @@ export async function getLocalStoreRecord(userId: string, store: string, key: st
 }
 
 export async function getLocalStoreRecords(userId: string, store?: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>> {
-  let q = getSupabase()
-    .from('local_store_records')
-    .select('*')
-    .eq('user_id', userId);
-  if (store) {
-    q = q.eq('store', store);
+  const PAGE_SIZE = 1000;
+  let from = 0;
+  const allRows: Record<string, unknown>[] = [];
+  while (true) {
+    let q = getSupabase()
+      .from('local_store_records')
+      .select('*')
+      .eq('user_id', userId);
+    if (store) {
+      q = q.eq('store', store);
+    }
+    const { data, error } = await q
+      .order('key', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error != null) throw error;
+    if (data === null || data.length === 0) break;
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
-  const { data, error } = await q;
-  if (error != null) throw error;
-  return (data ?? []).map(row => {
+  return allRows.map(row => {
     const rec: { store: string; key: string; payload: ProviderRecord; checksum?: string } = {
       store: row.store as string,
       key: row.key as string,

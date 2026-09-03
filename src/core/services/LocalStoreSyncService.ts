@@ -257,6 +257,16 @@ class LocalStoreSyncManager {
           continue;
         }
 
+        // Belt-and-braces: refuse to upload records belonging to another user
+        if (rawRecord && typeof rawRecord === 'object') {
+          const owner = (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).userId
+            ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).ownerId
+            ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).guestId;
+          if (owner && owner !== uid) {
+            continue;
+          }
+        }
+
         const jsonString = JSON.stringify(rawRecord);
         const recordBytes = new TextEncoder().encode(jsonString).length;
 
@@ -349,6 +359,10 @@ class LocalStoreSyncManager {
   public async syncAllLocalStores(userId: string): Promise<{ synced: number; failed: number; skippedLocked: boolean; skippedOversized: number }> {
     const result = { synced: 0, failed: 0, skippedLocked: false, skippedOversized: 0 };
     if (!userId) return result;
+    const currentUid = getCurrentUser()?.uid;
+    if (!currentUid || currentUid !== userId) {
+      return result;
+    }
 
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
       result.skippedLocked = true;

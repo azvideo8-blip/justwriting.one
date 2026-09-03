@@ -169,6 +169,8 @@ export interface Version {
   savedAt: Date | null;
   sessionStartedAt: Date | null;
   mood?: string | undefined;
+  _encrypted?: boolean | undefined;
+  _decryptionError?: boolean | undefined;
   /** Запись не прошла zod-валидацию и собрана из проверенных полей вручную.
    *  Версию видно и она восстановима, но доверять метрикам в ней нельзя. */
   _degraded?: boolean | undefined;

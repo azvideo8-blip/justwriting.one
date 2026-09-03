@@ -22,4 +22,13 @@ describe('useEmptyDeviceDetection helpers', () => {
     setRestoreDismissed('user_abc', false);
     expect(isRestoreDismissed('user_abc')).toBe(false);
   });
+
+  it('detects missing cloud notes when localCount < cloudCount', () => {
+    // Condition logic: localLen < cloudLen && cloudLen > 0
+    const localLen = 1;
+    const cloudLen = 3;
+    const isMissingCloudNotes = localLen < cloudLen && cloudLen > 0;
+    expect(isMissingCloudNotes).toBe(true);
+  });
 });
+

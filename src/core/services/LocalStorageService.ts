@@ -179,6 +179,10 @@ export const LocalStorageService = {
     await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
   },
 
+  async unlinkFromCloud(localId: string) {
+    await LocalDocumentService.unlinkFromCloud(localId);
+  },
+
   async migrateDocumentOwner(localId: string, userId: string) {
     await LocalDocumentService.migrateDocumentOwner(localId, userId);
   },

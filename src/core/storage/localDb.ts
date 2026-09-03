@@ -1,6 +1,7 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { reportError } from '../../shared/errors/reportError';
 import type { DocumentFields } from '../../shared/types/common';
+import { getCurrentUser } from '../auth';
 
 // AUDIT-part2 4.2: скалярные поля наследуются от канонического DocumentFields
 // (shared/types) — расхождение локальной и облачной форм ловит компилятор.
@@ -412,214 +413,364 @@ interface JustWritingDB extends DBSchema {
   };
 }
 
+/** Транзакция апгрейда: idb не выводит её тип, когда обработчик вынесен из вызова. */
+type UpgradeTx = {
+  objectStore(name: string): {
+    indexNames: DOMStringList;
+    openCursor(): Promise<UpgradeCursor | null>;
+    createIndex(name: string, keyPath: string | string[], options?: IDBIndexParameters): void;
+  };
+};
+type UpgradeCursor = {
+  value: unknown;
+  update(value: unknown): void;
+  continue(): Promise<UpgradeCursor | null>;
+};
 
-let dbInstance: IDBPDatabase<JustWritingDB> | null = null;
-let dbOpenPromise: Promise<IDBPDatabase<JustWritingDB>> | null = null;
-let dbGeneration = 0;
-
-export function resetDbInstance(): void {
-  dbGeneration++;
-  if (dbInstance) {
-    try { dbInstance.close(); } catch { /* ignore */ }
-    dbInstance = null;
+async function upgradeJustWritingDB(
+  db: IDBPDatabase<JustWritingDB>,
+  oldVersion: number,
+  _newVersion: number | null,
+  transaction: UpgradeTx,
+) {
+  if (oldVersion < 1) {
+    const docStore = db.createObjectStore('documents', { keyPath: 'id' });
+    docStore.createIndex('by-guest', 'guestId');
+    docStore.createIndex('by-lastSession', 'lastSessionAt');
+    const verStore = db.createObjectStore('versions', { keyPath: 'id' });
+    verStore.createIndex('by-document', 'documentId');
+    verStore.createIndex('by-version', 'version');
+    db.createObjectStore('profile', { keyPath: 'guestId' });
+    db.createObjectStore('syncQueue', { keyPath: 'id' });
   }
-  dbOpenPromise = null;
+  if (oldVersion < 2) {
+    if (!db.objectStoreNames.contains('drafts'))
+      db.createObjectStore('drafts', { keyPath: 'userId' });
+    if (!db.objectStoreNames.contains('pending_sessions'))
+      db.createObjectStore('pending_sessions', { keyPath: 'id', autoIncrement: true });
+  }
+  if (oldVersion < 3) {
+    const store = transaction!.objectStore('versions');
+    if (!store.indexNames.contains('by-doc-version'))
+      store.createIndex('by-doc-version', ['documentId', 'version']);
+  }
+  if (oldVersion < 4) {
+    // No-op: placeholder for a skipped upgrade step.
+  }
+  if (oldVersion < 5) {
+    if (!db.objectStoreNames.contains('aiDialogues')) {
+      const dialogueStore = db.createObjectStore('aiDialogues', { keyPath: 'id' });
+      dialogueStore.createIndex('by-document', 'documentId');
+      dialogueStore.createIndex('by-updatedAt', 'updatedAt');
+    }
+    if (!db.objectStoreNames.contains('aiSummaries'))
+      db.createObjectStore('aiSummaries', { keyPath: 'documentId' });
+    if (!db.objectStoreNames.contains('aiPersonas'))
+      db.createObjectStore('aiPersonas', { keyPath: 'id' });
+  }
+  if (oldVersion < 6) {
+    if (!db.objectStoreNames.contains('aiEmbeddings')) {
+      db.createObjectStore('aiEmbeddings', { keyPath: 'documentId' });
+    }
+  }
+  if (oldVersion < 7) {
+    if (!db.objectStoreNames.contains('aiProfileFacets')) {
+      db.createObjectStore('aiProfileFacets', { keyPath: 'id' });
+    }
+  }
+  if (oldVersion < 8) {
+    if (!db.objectStoreNames.contains('aiChatMemory')) {
+      const memoryStore = db.createObjectStore('aiChatMemory', { keyPath: 'id' });
+      memoryStore.createIndex('by-dialogue', 'sourceDialogueId');
+      memoryStore.createIndex('by-updatedAt', 'updatedAt');
+    }
+    if (!db.objectStoreNames.contains('aiDomainVectors')) {
+      db.createObjectStore('aiDomainVectors', { keyPath: 'cacheKey' });
+    }
+  }
+  if (oldVersion < 9) {
+    if (!db.objectStoreNames.contains('aiTimeline')) {
+      const timelineStore = db.createObjectStore('aiTimeline', { keyPath: 'documentId' });
+      timelineStore.createIndex('by-month', 'month');
+      timelineStore.createIndex('by-date', 'date');
+    }
+    if (!db.objectStoreNames.contains('aiMonthlyDigest')) {
+      db.createObjectStore('aiMonthlyDigest', { keyPath: 'month' });
+    }
+    if (!db.objectStoreNames.contains('aiCommitments')) {
+      db.createObjectStore('aiCommitments', { keyPath: 'id' });
+    }
+  }
+  if (oldVersion < 10) {
+    if (!db.objectStoreNames.contains('aiThreads')) {
+      db.createObjectStore('aiThreads', { keyPath: 'id' });
+    }
+  }
+  if (oldVersion < 11) {
+    if (!db.objectStoreNames.contains('lifeStory')) {
+      const storyStore = db.createObjectStore('lifeStory', { keyPath: 'eventDate' });
+      storyStore.createIndex('by-eventDate', 'eventDate');
+    }
+  }
+  if (oldVersion < 12) {
+    if (!db.objectStoreNames.contains('aiPortrait')) {
+      db.createObjectStore('aiPortrait', { keyPath: 'id' });
+    }
+  }
+  if (oldVersion < 13) {
+    if (!db.objectStoreNames.contains('aiThemeLedger')) {
+      const store = db.createObjectStore('aiThemeLedger', { keyPath: 'id' });
+      store.createIndex('by-tier', 'tier');
+      store.createIndex('by-lastReinforcedAt', 'lastReinforcedAt');
+    }
+  }
+  if (oldVersion < 14) {
+    if (!db.objectStoreNames.contains('aiDialogueEvents')) {
+      const eventStore = db.createObjectStore('aiDialogueEvents', { keyPath: 'dialogueId' });
+      eventStore.createIndex('by-date', 'date');
+    }
+  }
+  if (oldVersion < 15) {
+    if (!db.objectStoreNames.contains('aiInjectionJournal')) {
+      const store = db.createObjectStore('aiInjectionJournal', { keyPath: 'id' });
+      store.createIndex('by-timestamp', 'timestamp');
+    }
+  }
+  if (oldVersion < 16) {
+    if (!db.objectStoreNames.contains('aiBeliefs')) {
+      const beliefStore = db.createObjectStore('aiBeliefs', { keyPath: 'id' });
+      beliefStore.createIndex('by-firstSeenAt', 'firstSeenAt');
+      beliefStore.createIndex('by-createdAt', 'createdAt');
+      beliefStore.createIndex('by-verdict', 'judgeVerdict');
+    }
+    if (!db.objectStoreNames.contains('aiBeliefRejections')) {
+      const rejStore = db.createObjectStore('aiBeliefRejections', { keyPath: 'id' });
+      rejStore.createIndex('by-timestamp', 'timestamp');
+    }
+  }
+  if (oldVersion < 17) {
+    const docStore = transaction!.objectStore('documents');
+    if (!docStore.indexNames.contains('by-linkedCloudId')) {
+      docStore.createIndex('by-linkedCloudId', 'linkedCloudId');
+    }
+  }
+  if (oldVersion < 18) {
+    // No-op: placeholder for schema parity.
+  }
+  if (oldVersion < 19) {
+    const docStore = transaction!.objectStore('documents');
+    if (!docStore.indexNames.contains('by-uuid')) {
+      docStore.createIndex('by-uuid', 'uuid', { unique: true });
+    }
+  }
+  if (oldVersion < 20) {
+    const rawDb = db as unknown as IDBDatabase;
+    if (rawDb.objectStoreNames.contains('aiPeopleIndex')) {
+      rawDb.deleteObjectStore('aiPeopleIndex');
+    }
+    if (db.objectStoreNames.contains('aiSummaries')) {
+      const req = transaction.objectStore('aiSummaries').openCursor();
+      await req.then(function strip(cursor: UpgradeCursor | null): unknown {
+        if (!cursor) return undefined;
+        const value = { ...(cursor.value as object) } as AIDocumentSummary & { mentionedPeople?: unknown };
+        if ('mentionedPeople' in value) {
+          delete value.mentionedPeople;
+          void cursor.update(value);
+        }
+        return cursor.continue().then(strip);
+      });
+    }
+  }
+  if (oldVersion < 21) {
+    // D4.18: absent excludedFromAI means false — no data migration needed.
+  }
 }
 
-export async function clearAllLocalStores(): Promise<void> {
+export function getLocalDbName(customUid?: string | null): string {
+  if (customUid === 'justwriting-local') return 'justwriting-local';
+  if (customUid && customUid !== 'guest') return `justwriting-local-${customUid}`;
+  const uid = getCurrentUser()?.uid;
+  if (uid) return `justwriting-local-${uid}`;
+  return 'justwriting-local';
+}
+
+const dbInstances = new Map<string, IDBPDatabase<JustWritingDB>>();
+const dbOpenPromises = new Map<string, Promise<IDBPDatabase<JustWritingDB>>>();
+let dbGeneration = 0;
+
+export function resetDbInstance(name?: string): void {
+  dbGeneration++;
+  if (name) {
+    const inst = dbInstances.get(name);
+    if (inst) {
+      try { inst.close(); } catch { /* ignore */ }
+      dbInstances.delete(name);
+    }
+    dbOpenPromises.delete(name);
+  } else {
+    for (const inst of dbInstances.values()) {
+      try { inst.close(); } catch { /* ignore */ }
+    }
+    dbInstances.clear();
+    dbOpenPromises.clear();
+  }
+}
+
+export async function clearAllLocalStores(customUid?: string): Promise<void> {
+  const dbName = getLocalDbName(customUid);
   try {
-    const db = await getLocalDb();
+    const db = await getLocalDb(customUid);
     const names = Array.from(db.objectStoreNames);
     if (names.length > 0) {
       const tx = db.transaction(names, 'readwrite');
       for (const name of names) {
         void tx.objectStore(name).clear();
       }
-
       await tx.done;
     }
   } catch (e) {
     console.warn('[localDb] Failed to clear all object stores:', e);
   } finally {
-    resetDbInstance();
+    resetDbInstance(dbName);
   }
 }
-
 
 interface DatabaseWithClosed {
   closed?: boolean;
 }
 
-export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
-  if (dbInstance) {
+async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): Promise<void> {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  if (targetDbName === 'justwriting-local') return;
+  const migrationKey = `jw_legacy_migrated_${targetUid}`;
+  try {
+    if (localStorage.getItem(migrationKey)) return;
+  } catch { /* ignore */ }
+
+  try {
+    const legacyDb = await openDB<JustWritingDB>('justwriting-local', 21, {
+      upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
+    });
+    if (!legacyDb.objectStoreNames.contains('documents')) {
+      legacyDb.close();
+      return;
+    }
+
+    const docs = await legacyDb.getAll('documents');
+    // Переносим только то, что явно принадлежит этому аккаунту: «первый, кто
+    // открыл приложение» — не владелец.
+    const userDocs = docs.filter(d => d.guestId === targetUid);
+    if (userDocs.length === 0) {
+      legacyDb.close();
+      return;
+    }
+
+    // Портрет, убеждения, память чата лежат без пометки владельца. Пока в общей
+    // базе жил один аккаунт, отдать их ему — правильно. Если аккаунтов было
+    // два, приписать эти записи кому-то одному нельзя: это ровно та утечка,
+    // ради которой базу и разделяли.
+    const ownersInLegacy = new Set(docs.map(d => d.guestId).filter(Boolean));
+    const claimUnowned = ownersInLegacy.size <= 1;
+
+    const targetDb = await openDB<JustWritingDB>(targetDbName, 21, {
+      upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
+    });
+
+    let copyFailed = false;
+    const storeNames = Array.from(legacyDb.objectStoreNames);
+    for (const storeName of storeNames) {
+      try {
+        const records = await (legacyDb as unknown as { getAll(s: string): Promise<unknown[]> }).getAll(storeName);
+        if (records.length === 0) continue;
+        const tx = targetDb.transaction(storeName as never, 'readwrite');
+        const targetStore = tx.objectStore(storeName as never) as unknown as { put(v: unknown): Promise<unknown> };
+        for (const record of records) {
+          const rec = record as { guestId?: string; userId?: string };
+          if (rec.guestId && rec.guestId !== targetUid) continue;
+          if (rec.userId && rec.userId !== targetUid) continue;
+          if (!rec.guestId && !rec.userId && !claimUnowned) continue;
+          await targetStore.put(record);
+        }
+        await tx.done;
+      } catch (err) {
+        copyFailed = true;
+        console.warn(`[localDb] Error copying store ${storeName} in legacy migration:`, err);
+      }
+    }
+
+    // Оригиналы удаляются ТОЛЬКО после проверки, что копия на месте.
+    //
+    // Раньше копирование по хранилищам глотало ошибку предупреждением, а
+    // удаление шло следом безусловно: провалившееся копирование плюс
+    // состоявшееся удаление — это архив, которого нет нигде. Второго источника
+    // у локальных заметок не существует.
+    // Из двух условий тестом закрыто первое: сбой копирования любого хранилища
+    // оставляет оригиналы на месте. Второе — сверка поимённо — страховка на
+    // случай молчаливой частичной записи; сделать её падающей на выдуманном
+    // сценарии не вышло, и притворяться, что она проверена, не буду. Оно может
+    // только ужесточить условие, но не ослабить.
+    let verified = false;
     try {
-      if (!(dbInstance as DatabaseWithClosed).closed) return dbInstance;
+      const copied = await targetDb.getAll('documents');
+      const copiedIds = new Set(copied.map(d => d.id));
+      verified = !copyFailed && userDocs.every(d => copiedIds.has(d.id));
+    } catch (err) {
+      console.warn('[localDb] Legacy migration verification failed:', err);
+    }
+
+    if (!verified) {
+      // Ничего не удаляем и не отмечаем переезд сделанным: следующий запуск
+      // попробует снова. Молчать нельзя — человек должен узнать, что его архив
+      // остался в старой базе, а не считать, что всё прошло.
+      console.error(
+        '[localDb] Legacy migration did NOT complete: originals kept in the shared database, ' +
+        'nothing deleted, migration will be retried on next open.',
+      );
+      targetDb.close();
+      legacyDb.close();
+      return;
+    }
+
+    for (const doc of userDocs) {
+      try {
+        await legacyDb.delete('documents', doc.id);
+      } catch { /* ignore */ }
+    }
+
+    targetDb.close();
+    legacyDb.close();
+    try {
+      localStorage.setItem(migrationKey, '1');
     } catch { /* ignore */ }
+  } catch (err) {
+    console.warn('[localDb] Legacy migration skipped/failed:', err);
   }
-  if (dbOpenPromise) return dbOpenPromise;
+}
+
+export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustWritingDB>> {
+  const dbName = getLocalDbName(customUid);
+  const existing = dbInstances.get(dbName);
+  if (existing) {
+    try {
+      if (!(existing as DatabaseWithClosed).closed) return existing;
+    } catch { /* ignore */ }
+    dbInstances.delete(dbName);
+  }
+
+  const existingPromise = dbOpenPromises.get(dbName);
+  if (existingPromise) return existingPromise;
 
   const currentGeneration = dbGeneration;
-  dbOpenPromise = openDB<JustWritingDB>('justwriting-local', 21, {
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- idb поддерживает async upgrade: await внутри транзакции удерживает её открытой
-    async upgrade(db, oldVersion, _newVersion, transaction) {
-      if (oldVersion < 1) {
-        const docStore = db.createObjectStore('documents', { keyPath: 'id' });
-        docStore.createIndex('by-guest', 'guestId');
-        docStore.createIndex('by-lastSession', 'lastSessionAt');
-        const verStore = db.createObjectStore('versions', { keyPath: 'id' });
-        verStore.createIndex('by-document', 'documentId');
-        verStore.createIndex('by-version', 'version');
-        db.createObjectStore('profile', { keyPath: 'guestId' });
-        db.createObjectStore('syncQueue', { keyPath: 'id' });
-      }
-      if (oldVersion < 2) {
-        if (!db.objectStoreNames.contains('drafts'))
-          db.createObjectStore('drafts', { keyPath: 'userId' });
-        if (!db.objectStoreNames.contains('pending_sessions'))
-          db.createObjectStore('pending_sessions', { keyPath: 'id', autoIncrement: true });
-      }
-      if (oldVersion < 3) {
-        const store = transaction!.objectStore('versions');
-        if (!store.indexNames.contains('by-doc-version'))
-          store.createIndex('by-doc-version', ['documentId', 'version']);
-      }
-      if (oldVersion < 4) {
-        // No-op: placeholder for a skipped upgrade step.
-      }
-      if (oldVersion < 5) {
-        if (!db.objectStoreNames.contains('aiDialogues')) {
-          const dialogueStore = db.createObjectStore('aiDialogues', { keyPath: 'id' });
-          dialogueStore.createIndex('by-document', 'documentId');
-          dialogueStore.createIndex('by-updatedAt', 'updatedAt');
-        }
-        if (!db.objectStoreNames.contains('aiSummaries'))
-          db.createObjectStore('aiSummaries', { keyPath: 'documentId' });
-        if (!db.objectStoreNames.contains('aiPersonas'))
-          db.createObjectStore('aiPersonas', { keyPath: 'id' });
-      }
-      if (oldVersion < 6) {
-        if (!db.objectStoreNames.contains('aiEmbeddings'))
-          db.createObjectStore('aiEmbeddings', { keyPath: 'documentId' });
-      }
-      if (oldVersion < 7) {
-        if (!db.objectStoreNames.contains('aiProfileFacets'))
-          db.createObjectStore('aiProfileFacets', { keyPath: 'id' });
-      }
-      if (oldVersion < 8) {
-        if (!db.objectStoreNames.contains('aiChatMemory')) {
-          const memoryStore = db.createObjectStore('aiChatMemory', { keyPath: 'id' });
-          memoryStore.createIndex('by-dialogue', 'sourceDialogueId');
-          memoryStore.createIndex('by-updatedAt', 'updatedAt');
-        }
-      }
-      if (oldVersion < 9) {
-        if (!db.objectStoreNames.contains('aiDomainVectors')) {
-          db.createObjectStore('aiDomainVectors', { keyPath: 'cacheKey' });
-        }
-      }
-      if (oldVersion < 10) {
-        if (!db.objectStoreNames.contains('aiTimeline')) {
-          const timelineStore = db.createObjectStore('aiTimeline', { keyPath: 'documentId' });
-          timelineStore.createIndex('by-month', 'month');
-          timelineStore.createIndex('by-date', 'date');
-        }
-      }
-      if (oldVersion < 11) {
-        if (!db.objectStoreNames.contains('aiMonthlyDigest')) {
-          db.createObjectStore('aiMonthlyDigest', { keyPath: 'month' });
-        }
-      }
-      // Версия 12 заводила стор aiPeopleIndex — картотеку упомянутых в заметках
-      // людей. Удалена в 20 (D4.17), поэтому здесь больше не создаётся.
-      if (oldVersion < 13) {
-        if (!db.objectStoreNames.contains('aiCommitments')) {
-          db.createObjectStore('aiCommitments', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('aiThreads')) {
-          db.createObjectStore('aiThreads', { keyPath: 'id' });
-        }
-      }
-      if (oldVersion < 14) {
-        if (!db.objectStoreNames.contains('lifeStory')) {
-          const storyStore = db.createObjectStore('lifeStory', { keyPath: 'eventDate' });
-          storyStore.createIndex('by-eventDate', 'eventDate');
-        }
-        if (!db.objectStoreNames.contains('aiPortrait')) {
-          db.createObjectStore('aiPortrait', { keyPath: 'id' });
-        }
-      }
-      if (oldVersion < 15) {
-        if (!db.objectStoreNames.contains('aiDialogueEvents')) {
-          const eventStore = db.createObjectStore('aiDialogueEvents', { keyPath: 'dialogueId' });
-          eventStore.createIndex('by-date', 'date');
-        }
-      }
-      if (oldVersion < 16) {
-        if (!db.objectStoreNames.contains('aiThemeLedger')) {
-          const themeStore = db.createObjectStore('aiThemeLedger', { keyPath: 'id' });
-          themeStore.createIndex('by-tier', 'tier');
-          themeStore.createIndex('by-lastReinforcedAt', 'lastReinforcedAt');
-        }
-      }
-      if (oldVersion < 17) {
-        if (!db.objectStoreNames.contains('aiInjectionJournal')) {
-          const journalStore = db.createObjectStore('aiInjectionJournal', { keyPath: 'id' });
-          journalStore.createIndex('by-timestamp', 'timestamp');
-        }
-      }
-      if (oldVersion < 18) {
-        if (!db.objectStoreNames.contains('aiBeliefs')) {
-          const beliefStore = db.createObjectStore('aiBeliefs', { keyPath: 'id' });
-          beliefStore.createIndex('by-firstSeenAt', 'firstSeenAt');
-          beliefStore.createIndex('by-createdAt', 'createdAt');
-          beliefStore.createIndex('by-verdict', 'judgeVerdict');
-        }
-      }
-      if (oldVersion < 19) {
-        if (!db.objectStoreNames.contains('aiBeliefRejections')) {
-          const rejStore = db.createObjectStore('aiBeliefRejections', { keyPath: 'id' });
-          rejStore.createIndex('by-timestamp', 'timestamp');
-        }
-      }
-      if (oldVersion < 20) {
-        // D4.17: картотека упомянутых людей убрана из продукта. Мало перестать
-        // писать — накопленное нужно снести, иначе имена и характер отношений
-        // остаются лежать на устройстве после «удаления» функции.
-        // Имя стора больше не входит в схему, отсюда приведение типа.
-        const rawDb = db as unknown as { objectStoreNames: DOMStringList; deleteObjectStore(name: string): void };
-        if (rawDb.objectStoreNames.contains('aiPeopleIndex')) {
-          rawDb.deleteObjectStore('aiPeopleIndex');
-        }
-        // Те же имена лежат внутри сохранённых сводок. Курсор синхронный —
-        // транзакция обновления живёт до конца обхода.
-        // ponytail: если обход почему-то оборвётся, стор уже удалён, а поле в
-        // сводках останется до следующего пересчёта сводки — не блокер.
-        if (db.objectStoreNames.contains('aiSummaries')) {
-          const req = transaction.objectStore('aiSummaries').openCursor();
-          // AUDIT-L10: await внутри upgrade-транзакции (idb умеет ждать промисы
-          // в upgrade) — раньше fire-and-forget мог оборвать обход молча.
-          await req.then(function strip(cursor): unknown {
-            if (!cursor) return undefined;
-            const value = { ...cursor.value } as AIDocumentSummary & { mentionedPeople?: unknown };
-            if ('mentionedPeople' in value) {
-              delete value.mentionedPeople;
-              void cursor.update(value);
-            }
-            return cursor.continue().then(strip);
-          });
-        }
-      }
-      if (oldVersion < 21) {
-        // D4.18: absent excludedFromAI means false — no data migration needed.
-      }
-    },
+  const effectiveUid = customUid ?? getCurrentUser()?.uid;
+  if (effectiveUid && dbName !== 'justwriting-local') {
+    await migrateLegacyIfNeeded(dbName, effectiveUid);
+  }
 
+  const openPromise = openDB<JustWritingDB>(dbName, 21, {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    upgrade: upgradeJustWritingDB,
     blocked() {
       console.warn('[localDb] Database upgrade blocked — close other tabs and reload.');
-      // AUDIT-L10: без видимого сообщения пользователь застревает на старой
-      // схеме непонятно почему. Показываем постоянный overlay.
-      // document.body ещё может не существовать: обработчик зовётся из открытия
-      // базы, а оно может стартовать раньше разбора разметки.
       if (typeof document !== 'undefined' && document.body !== null && !document.getElementById('db-upgrade-blocked-overlay')) {
         const el = document.createElement('div');
         el.id = 'db-upgrade-blocked-overlay';
@@ -630,23 +781,33 @@ export async function getLocalDb(): Promise<IDBPDatabase<JustWritingDB>> {
     },
     blocking() {
       console.warn('[localDb] Another tab is trying to upgrade — closing this connection.');
-      if (dbInstance) { dbInstance.close(); dbInstance = null; dbOpenPromise = null; }
+      const inst = dbInstances.get(dbName);
+      if (inst) {
+        try { inst.close(); } catch { /* ignore */ }
+        dbInstances.delete(dbName);
+      }
+      dbOpenPromises.delete(dbName);
     },
   });
 
   try {
-    dbInstance = await dbOpenPromise;
+    const db = await openPromise;
     if (dbGeneration !== currentGeneration) {
-      dbInstance.close();
-      dbInstance = null;
-      dbOpenPromise = null;
-      return getLocalDb();
+      db.close();
+      dbInstances.delete(dbName);
+      dbOpenPromises.delete(dbName);
+      return getLocalDb(customUid);
     }
-    dbInstance.addEventListener('close', () => { dbInstance = null; dbOpenPromise = null; });
-    return dbInstance;
+    dbInstances.set(dbName, db);
+    dbOpenPromises.delete(dbName);
+    db.addEventListener('close', () => {
+      dbInstances.delete(dbName);
+      dbOpenPromises.delete(dbName);
+    });
+    return db;
   } catch (e) {
-    dbOpenPromise = null;
-    reportError(e, { action: 'localDb_open_indexeddb' });
+    dbOpenPromises.delete(dbName);
+    reportError(e, { action: 'localDb_open_indexeddb', dbName });
     throw e;
   }
 }

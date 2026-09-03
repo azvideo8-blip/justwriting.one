@@ -18,6 +18,7 @@ import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
 import { ConflictResolver } from './ConflictResolver';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
+import { computeWordDelta } from './DiffService';
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
 const LOCK_TTL_MS = 30_000;
@@ -295,30 +296,35 @@ export const CloudSyncService = {
             LocalVersionService.getVersions(localDocumentId),
             withTimeout(VersionService.getVersions(userId, cloudId)),
           ]);
-          const cloudVerMap = new Map(cloudVersions.map(v => [v.version, v]));
-          const localVerMap = new Map(localVersions.map(v => [v.version, v]));
-          const newestCloud = cloudVersions.reduce((max, v) => Math.max(max, v.version ?? 0), 0);
-
-          // 1. Pull missing cloud versions down to local
-          for (const cv of cloudVersions) {
-            if (localVerMap.has(cv.version)) continue;
-
-            // Локальный стор хранит открытый текст — инвариант объявлен в
-            // addLocalCopy. Нерасшифрованную версию писать в него нельзя:
-            // редактор покажет Base64, а первое же сохранение сделает мусор
-            // текущей версией и увезёт его в облако.
-            let plain: Record<string, unknown>;
+          const decryptedCloudVersions = await Promise.all(cloudVersions.map(async (cv) => {
+            if (!cv._encrypted) return cv;
             try {
-              plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+              const plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+              return {
+                ...cv,
+                content: typeof plain.content === 'string' ? plain.content : cv.content,
+              };
             } catch (decErr) {
               if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
               if (!(decErr instanceof DecryptionError)) throw decErr;
               reportError(decErr, { action: 'addCloudCopy_decrypt', cloudId, version: cv.version });
-              continue;
+              return { ...cv, _decryptionError: true };
             }
+          }));
+          const cloudVerMap = new Map(decryptedCloudVersions.map(v => [v.version, v]));
+          const localVerMap = new Map(localVersions.map(v => [v.version, v]));
+          const newestCloud = cloudVersions.reduce((max, v) => Math.max(max, v.version ?? 0), 0);
+          const oldestCloud = cloudVersions.length > 0
+            ? cloudVersions.reduce((min, v) => Math.min(min, v.version ?? 0), Infinity)
+            : 0;
+
+          // 1. Pull missing cloud versions down to local
+          for (const cv of decryptedCloudVersions) {
+            if (localVerMap.has(cv.version)) continue;
+            if (cv._decryptionError) continue;
 
             await LocalVersionService.addVersion(userId, localDocumentId, {
-              content: typeof plain.content === 'string' ? plain.content : '',
+              content: cv.content || '',
               previousContent: '',
               wordCount: cv.wordCount,
               duration: cv.duration,
@@ -337,7 +343,8 @@ export const CloudSyncService = {
           for (const ver of localVersions) {
             const cloudVer = cloudVerMap.get(ver.version);
             if (!cloudVer) {
-              if (ver.version > newestCloud) {
+              // AG-SYNC-4: push if newer than newestCloud OR if filling a gap inside the active window
+              if (ver.version > newestCloud || (ver.version >= oldestCloud && oldestCloud < newestCloud)) {
                 missing.push(ver);
               }
             } else if (cloudVer.content !== ver.content) {
@@ -397,6 +404,8 @@ export const CloudSyncService = {
               content,
               previousContent,
               wordCount: ver.wordCount,
+              wordsAdded: ver.wordsAdded,
+              charsAdded: ver.charsAdded,
               duration: ver.duration,
               wpm: ver.wpm,
               versionNumber: ver.version,
@@ -482,6 +491,8 @@ export const CloudSyncService = {
             content,
             previousContent,
             wordCount: ver.wordCount,
+            wordsAdded: ver.wordsAdded,
+            charsAdded: ver.charsAdded,
             duration: ver.duration,
             wpm: ver.wpm,
             versionNumber: ver.version,
@@ -592,7 +603,7 @@ export const CloudSyncService = {
       }
       if (cloudDoc?.deletedAt) {
         // Document was soft-deleted in the cloud (tombstone). Clean up local link and syncQueue.
-        await LocalStorageService.updateLinkedCloudId(documentId, '');
+        await LocalStorageService.unlinkFromCloud(documentId);
         const syncDb = await getLocalDb();
         await syncDb.delete('syncQueue', `sync_${documentId}`);
         return { forked: false };
@@ -611,28 +622,32 @@ export const CloudSyncService = {
 
       // Reconcile cloud versions before pushing (pull-before-push)
       const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
-      const localVersions = await LocalVersionService.getVersions(documentId);
-      const cloudVerMap = new Map(cloudVersions.map(v => [v.version, v]));
-      const localVerNums = new Set(localVersions.map(v => v.version));
-
-      // Pull missing cloud versions down to local
-      for (const cv of cloudVersions) {
-        if (localVerNums.has(cv.version)) continue;
-
-        // Тот же инвариант, что в addCloudCopy: локальный стор хранит
-        // открытый текст, шифротекст в него не пишется.
-        let plain: Record<string, unknown>;
+      const decryptedCloudVersions = await Promise.all(cloudVersions.map(async (cv) => {
+        if (!cv._encrypted) return cv;
         try {
-          plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+          const plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+          return {
+            ...cv,
+            content: typeof plain.content === 'string' ? plain.content : cv.content,
+          };
         } catch (decErr) {
           if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
           if (!(decErr instanceof DecryptionError)) throw decErr;
           reportError(decErr, { action: 'syncVersionToCloud_decrypt', cloudId: linkedCloudId, version: cv.version });
-          continue;
+          return { ...cv, _decryptionError: true };
         }
+      }));
+      const localVersions = await LocalVersionService.getVersions(documentId);
+      const cloudVerMap = new Map(decryptedCloudVersions.map(v => [v.version, v]));
+      const localVerNums = new Set(localVersions.map(v => v.version));
+
+      // Pull missing cloud versions down to local
+      for (const cv of decryptedCloudVersions) {
+        if (localVerNums.has(cv.version)) continue;
+        if (cv._decryptionError) continue;
 
         await LocalVersionService.addVersion(userId, documentId, {
-          content: typeof plain.content === 'string' ? plain.content : '',
+          content: cv.content || '',
           previousContent: '',
           wordCount: cv.wordCount,
           duration: cv.duration,
@@ -681,6 +696,7 @@ export const CloudSyncService = {
       if (isNaN(startedAt.getTime())) {
         throw new Error('Invalid sessionStartedAt');
       }
+      const localDiff = computeWordDelta(prevContent, data.content);
       const versionPayload = await maybeEncrypt({
         content: data.content,
         previousContent: prevContent,
@@ -703,6 +719,8 @@ export const CloudSyncService = {
           content,
           previousContent,
           wordCount: data.wordCount,
+          wordsAdded: localDiff.wordsAdded,
+          charsAdded: localDiff.charsAdded,
           duration: data.duration,
           wpm: data.wpm,
           versionNumber: newVersion,
@@ -723,6 +741,8 @@ export const CloudSyncService = {
             content,
             previousContent,
             wordCount: data.wordCount,
+            wordsAdded: localDiff.wordsAdded,
+            charsAdded: localDiff.charsAdded,
             duration: data.duration,
             wpm: data.wpm,
             versionNumber: newVersion,
@@ -737,6 +757,7 @@ export const CloudSyncService = {
           throw addVerErr;
         }
       }
+
 
       await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
         totalWords: data.documentWordCount ?? data.wordCount,

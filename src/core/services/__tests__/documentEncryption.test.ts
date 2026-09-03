@@ -23,6 +23,8 @@ vi.mock('../../supabase/client', () => ({
               filtered = filtered.filter(row => (val === null ? row[col] == null : row[col] === val));
               return createFilterObj();
             },
+            order: () => createFilterObj(),
+            range: (from: number, to: number) => Promise.resolve({ data: filtered.slice(from, to + 1), error: null }),
             maybeSingle: async () => ({ data: filtered[0] ?? null, error: null }),
             then: (resolve: any) => resolve({ data: filtered, error: null }),
           });

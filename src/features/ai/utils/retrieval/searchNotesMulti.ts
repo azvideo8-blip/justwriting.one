@@ -50,7 +50,8 @@ export async function searchNotesMulti(
     // получил бы чужой ответ из кэша. Два тега отвечают на разные вопросы —
     // «изменились ли заметки» и «тот ли это запрос», — и нужны оба.
     const vecTag = opts?.queryVector ? `\x01vec:${opts.queryVector.slice(0, 5).join(',')}` : '';
-    const corpusTag = `\x01corpus:${corpusFingerprint()}`;
+    const uid = getCurrentUser()?.uid ?? 'guest';
+    const corpusTag = `\x01corpus:${corpusFingerprint(uid)}`;
     const cacheKey = [...queries].sort().join('\x00') + `\x01${opts?.minTime ?? ''}\x01${opts?.maxTime ?? ''}` + vecTag + corpusTag;
     const cached = getCached(cacheKey);
     if (cached) {
@@ -70,7 +71,6 @@ export async function searchNotesMulti(
       return { notes: results, failed: false };
     }
 
-    const uid = getCurrentUser()?.uid;
     if (!opts?.queryVector && !hasIndexingConsent(uid)) {
       const combinedQuery = queries.join(' ');
       const results = await searchNotes(combinedQuery, maxResults, opts);
@@ -108,10 +108,6 @@ export async function searchNotesMulti(
   const db = await getLocalDb();
   let filteredEmbeddings = opts?.allEmbeddings ?? await AIEmbeddingService.getAll();
   {
-    // Always restrict to embeddings that still belong to a local note. Analysis
-    // restored from the cloud can outnumber the notes (older records from
-    // earlier local-id generations), and an orphan competing in the ranking
-    // takes a slot from a real note and resolves to nothing.
     const hasTimeFilter = opts?.minTime !== undefined || opts?.maxTime !== undefined;
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
@@ -126,10 +122,6 @@ export async function searchNotesMulti(
     filteredEmbeddings = filteredEmbeddings.filter(e => allowed.has(e.documentId));
   }
 
-  // Same as the single-query path: an empty embedding store must not skip the
-  // keyword search. This return is why a library of 120 notes answered nothing
-  // to every question — semantic and keyword alike — while reporting it as an
-  // empty archive.
   const semanticUnavailable = filteredEmbeddings.length === 0;
 
   // Single vector search with combined embedding
@@ -146,7 +138,7 @@ export async function searchNotesMulti(
   const keywordScores = new Map<string, number>();
   let queryIdx = 0;
   for (const q of queries) {
-    let kwResults = await keywordSearch(q, KEYWORD_TOP);
+    let kwResults = await keywordSearch(q, KEYWORD_TOP, uid);
     const decay = Math.pow(0.5, queryIdx);
     queryIdx++;
     if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {

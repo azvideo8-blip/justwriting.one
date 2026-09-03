@@ -2,12 +2,15 @@ import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser, re
 import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
+import { resetDbInstance } from '../../../core/storage/localDb';
 
 async function signUpWithEmail(email: string, password: string) {
+  resetDbInstance();
   return signUp(email, password);
 }
 
 async function signInWithEmail(email: string, password: string): Promise<{ user: AppUser; recoveryCode?: string }> {
+  resetDbInstance();
   const user = await signIn(email, password);
   const currentUid = user.uid;
   const { DataProvider } = await import('../../../core/data');
@@ -128,6 +131,7 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
   }
 
   await signOutUser();
+  resetDbInstance();
 
   // AUD-11: выход состоялся; теперь сообщаем, что локальная очистка не прошла.
   if (wipeFailed) {

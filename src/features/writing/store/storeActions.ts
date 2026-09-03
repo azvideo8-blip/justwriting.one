@@ -53,6 +53,21 @@ function resetSession() {
 }
 
 onDomainEvent(e => {
+  if (e.type === 'draft.migrated') {
+    // Черновик гостя уже лежит в базе аккаунта — остаётся отправить его копию
+    // в облако. Ошибка здесь не критична: черновик на устройстве уже цел.
+    void (async () => {
+      try {
+        const { getLocalDb } = await import('../../../core/storage/localDb');
+        const db = await getLocalDb(e.userId);
+        const draft = await db.get('drafts', e.userId);
+        if (!draft) return;
+        const { WritingDraftService } = await import('../services/WritingDraftService');
+        await WritingDraftService.saveDraftToCloud(draft);
+      } catch { /* ignore */ }
+    })();
+    return;
+  }
   if (e.type === 'account.reset') {
     resetSession();
   }

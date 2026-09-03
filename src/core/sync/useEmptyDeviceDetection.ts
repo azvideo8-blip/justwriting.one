@@ -71,11 +71,10 @@ export function useEmptyDeviceDetection(): EmptyDeviceDetectionState {
       setLocalCount(localLen);
       setCloudCount(cloudLen);
 
-      // Detection condition: 0 notes locally while cloud has notes, OR noticeably fewer (< 50% when cloud >= 5)
-      const hasZeroLocal = localLen === 0 && cloudLen > 0;
-      const hasSignificantlyFewer = cloudLen >= 5 && localLen < cloudLen * 0.5;
+      // AG-RESTORE-1: Prompt if local device has fewer notes than the cloud
+      const isMissingCloudNotes = localLen < cloudLen && cloudLen > 0;
 
-      if (hasZeroLocal || hasSignificantlyFewer) {
+      if (isMissingCloudNotes) {
         setShouldPrompt(true);
       } else {
         setShouldPrompt(false);

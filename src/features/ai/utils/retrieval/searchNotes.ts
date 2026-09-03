@@ -24,9 +24,9 @@ export async function searchNotes(
   maxResults = 5,
   opts?: SearchNotesOptions,
 ): Promise<RetrievedNote[]> {
-  const uid = getCurrentUser()?.uid;
+  const uid = getCurrentUser()?.uid ?? 'guest';
   if (!opts?.queryVector && !hasIndexingConsent(uid)) {
-    let keywordMatches = await keywordSearch(query, maxResults);
+    let keywordMatches = await keywordSearch(query, maxResults, uid);
     const db = await getLocalDb();
     if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {
       const allowed = new Set<string>();
@@ -101,7 +101,7 @@ export async function searchNotes(
     VECTOR_TOP,
   ));
 
-  let keywordMatches = await keywordSearch(query, KEYWORD_TOP);
+  let keywordMatches = await keywordSearch(query, KEYWORD_TOP, uid);
   if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');

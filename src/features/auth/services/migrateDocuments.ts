@@ -1,69 +1,84 @@
 import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { emitDomainEvent } from '../../../core/events/domainEvents';
 
 /**
- * Re-keys this device's guest notes, versions and draft onto a signed-in
+ * Re-keys this device's guest notes, versions, draft and profile onto a signed-in
  * account. Lives outside MigrationPrompt.tsx so the tests can run the real
  * thing: a copy of it in the test file drifted from production and kept
  * passing while the code it was meant to cover was wrong.
  */
 export async function migrateDocuments(userId: string): Promise<number> {
   const guestId = getOrCreateGuestId();
-  const db = await getLocalDb();
-  const hasDrafts = db.objectStoreNames.contains('drafts');
-  const tx = db.transaction(
-    hasDrafts ? ['documents', 'versions', 'drafts'] : ['documents', 'versions'],
-    'readwrite',
-  );
-  const docStore = tx.objectStore('documents');
-  const verStore = tx.objectStore('versions');
-  const draftStore = hasDrafts ? tx.objectStore('drafts') : null;
+  const guestDb = await getLocalDb('justwriting-local');
+  const userDb = await getLocalDb(userId);
 
-  const guestDocs = await docStore.index('by-guest').getAll(guestId);
+  const hasDraftsInGuest = guestDb.objectStoreNames.contains('drafts');
+  const hasDraftsInUser = userDb.objectStoreNames.contains('drafts');
 
-  // D-3: migrate guest draft to user draft (don't clobber existing user draft).
-  // A8: the guest draft is keyed by the literal 'guest_draft' — the key
-  // GuestDraftService writes. Reading it by guestId found nothing, so the
-  // unsaved text on screen at sign-in was quietly left behind.
-  const draftPuts: Promise<unknown>[] = [];
-  if (draftStore) {
-    const guestDraft = await draftStore.get('guest_draft');
+  // D-3 / AG-MIG-1: migrate guest draft to user draft (don't clobber existing user draft).
+  if (hasDraftsInGuest) {
+    const guestDraft = await guestDb.get('drafts', 'guest_draft');
     if (guestDraft) {
-      const existingUserDraft = await draftStore.get(userId);
-      if (!existingUserDraft) {
-        draftPuts.push(draftStore.put({ ...guestDraft, userId }));
+      if (hasDraftsInUser) {
+        const existingUserDraft = await userDb.get('drafts', userId);
+        if (!existingUserDraft) {
+          const newDraft = { ...guestDraft, userId };
+          await userDb.put('drafts', newDraft);
+          // Выгрузку делает слой письма по событию: прямой импорт из auth в
+          // writing запрещён зонами import/no-restricted-paths.
+          emitDomainEvent({ type: 'draft.migrated', userId });
+        }
       }
-      // Источник съедается в любом случае: содержимое либо переехало, либо
-      // отклонено явно. Оставленный гостевой черновик означал вечный промпт
-      // миграции и фантомное восстановление при следующем гостевом входе.
-      draftPuts.push(draftStore.delete('guest_draft'));
+      if (hasDraftsInGuest && userDb !== guestDb) {
+        const existingInGuest = await guestDb.get('drafts', userId);
+        if (!existingInGuest) {
+          await guestDb.put('drafts', { ...guestDraft, userId });
+        }
+      }
+      await guestDb.delete('drafts', 'guest_draft');
       try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
     }
   }
 
-  if (guestDocs.length === 0) {
-    await Promise.all([...draftPuts, tx.done]);
-    return 0;
-  }
-
-  const verIndex = verStore.index('by-document');
-  const versionPuts: Promise<string>[] = [];
-  for (const doc of guestDocs) {
-    let cursor = await verIndex.openCursor(doc.id);
-    while (cursor) {
-      if (cursor.value.guestId === guestId) {
-        versionPuts.push(verStore.put({ ...cursor.value, guestId: userId }));
+  // AG-MIG-1: migrate profile store if present
+  if (guestDb.objectStoreNames.contains('profile') && userDb.objectStoreNames.contains('profile')) {
+    const guestProfile = await guestDb.get('profile', guestId);
+    if (guestProfile) {
+      const existingUserProfile = await userDb.get('profile', userId);
+      if (!existingUserProfile) {
+        await userDb.put('profile', { ...guestProfile, guestId: userId });
       }
-      cursor = await cursor.continue();
+      await guestDb.delete('profile', guestId);
     }
   }
 
-  await Promise.all([
-    ...guestDocs.map(doc => docStore.put({ ...doc, guestId: userId })),
-    ...versionPuts,
-    ...draftPuts,
-    tx.done,
-  ]);
+  // Migrate documents and versions
+  const guestDocs = await guestDb.getAllFromIndex('documents', 'by-guest', guestId);
+  if (guestDocs.length === 0) {
+    return 0;
+  }
+
+  for (const doc of guestDocs) {
+    const versions = await guestDb.getAllFromIndex('versions', 'by-document', doc.id);
+
+    if (userDb !== guestDb) {
+      const userTx = userDb.transaction(['documents', 'versions'], 'readwrite');
+      await userTx.objectStore('documents').put({ ...doc, guestId: userId });
+      for (const ver of versions) {
+        await userTx.objectStore('versions').put({ ...ver, guestId: userId });
+      }
+      await userTx.done;
+    }
+
+    // Re-key in guestDb
+    const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
+    await guestTx.objectStore('documents').put({ ...doc, guestId: userId });
+    for (const ver of versions) {
+      await guestTx.objectStore('versions').put({ ...ver, guestId: userId });
+    }
+    await guestTx.done;
+  }
 
   return guestDocs.length;
 }

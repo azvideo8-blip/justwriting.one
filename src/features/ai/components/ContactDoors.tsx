@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { getLocalDb } from '../../../core/storage/localDb';
+import { getCurrentUser } from '../../../core/auth';
 import { analyzeDoors, aggregateDoors, doorLabel, type AggregatedDoors } from '../utils/contactDoors';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
@@ -14,9 +15,12 @@ interface ContactDoorsProps {
 export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
   const [data, setData] = useState<AggregatedDoors | null>(null);
   const [loading, setLoading] = useState(false);
+  const uid = getCurrentUser()?.uid ?? 'guest';
+  const cacheKey = `${DOORS_CACHE_KEY}_${uid}`;
+
   const [cache, setCache] = useState<AggregatedDoors | null>(() => {
     try {
-      const saved = localStorage.getItem(DOORS_CACHE_KEY);
+      const saved = localStorage.getItem(cacheKey);
       if (saved) return JSON.parse(saved) as AggregatedDoors;
     } catch { /* ignore */ }
     return null;
@@ -26,7 +30,7 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
     setLoading(true);
     try {
       const db = await getLocalDb();
-      const docs = await db.getAll('documents');
+      const docs = await db.getAllFromIndex('documents', 'by-guest', uid);
       const perNote: { doors: ReturnType<typeof analyzeDoors>; ts: number }[] = [];
       for (const doc of docs) {
         const versions = await db.getAllFromIndex('versions', 'by-document', doc.id);
@@ -41,7 +45,7 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
       setCache(result);
       // Persist to localStorage
       try {
-        localStorage.setItem(DOORS_CACHE_KEY, JSON.stringify(result));
+        localStorage.setItem(cacheKey, JSON.stringify(result));
       } catch { /* ignore quota */ }
     } catch (e) {
       reportError(e, { action: 'contact_doors_analysis' });

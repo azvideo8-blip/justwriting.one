@@ -85,4 +85,19 @@ describe('AUDIT-H3 tombstoned note must not resurrect via auto-upload', () => {
     expect(synced).toBe(0);
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it('AG-DEL-3: syncVersionToCloud on tombstoned doc unlinks WITH localOnly', async () => {
+    await seedLinked();
+    getDocWithDeleted.mockResolvedValue({ id: 'cloud_del', deletedAt: new Date() });
+
+    const { CloudSyncService } = await import('../CloudSyncService');
+    const syncData = { title: 'Doc', content: 'new content', tags: [], wordCount: 2, duration: 10, wpm: 20, sessionStartedAt: new Date() };
+    await CloudSyncService.syncVersionToCloud(USER, 'local_del', 'cloud_del', syncData, 2, 'prev content');
+
+    const db = await getLocalDb();
+    const doc = await db.get('documents', 'local_del');
+    expect(doc!.localOnly).toBe(true);
+    expect(doc!.linkedCloudId).toBe('');
+  });
 });
+

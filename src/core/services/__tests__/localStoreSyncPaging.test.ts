@@ -24,6 +24,7 @@ vi.mock('../../crypto/cryptoHelpers', () => ({
 describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    vi.spyOn(DataProvider, 'getUserEmbeddingsPaginated').mockResolvedValue({ items: [], readCount: 0 });
     const db = await getLocalDb();
     await db.clear('aiDialogues');
   });

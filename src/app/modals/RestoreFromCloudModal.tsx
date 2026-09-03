@@ -26,6 +26,7 @@ interface RestoreProgressState {
   notesCurrent: number;
   notesTotal: number;
   summariesCount: number;
+  embeddingsCount: number;
   localStoreCount: number;
   percent: number;
 }
@@ -33,6 +34,7 @@ interface RestoreProgressState {
 interface RestoreSummaryReport {
   restoredNotes: number;
   restoredSummaries: number;
+  restoredEmbeddings: number;
   restoredAIStoreRecords: number;
   failedCount: number;
 }
@@ -61,6 +63,7 @@ export function RestoreFromCloudModal({
     notesCurrent: 0,
     notesTotal: 0,
     summariesCount: 0,
+    embeddingsCount: 0,
     localStoreCount: 0,
     percent: 0,
   });
@@ -100,6 +103,7 @@ export function RestoreFromCloudModal({
     const resultSummary: RestoreSummaryReport = {
       restoredNotes: 0,
       restoredSummaries: 0,
+      restoredEmbeddings: 0,
       restoredAIStoreRecords: 0,
       failedCount: 0,
     };
@@ -112,6 +116,7 @@ export function RestoreFromCloudModal({
           notesCurrent: 0,
           notesTotal: cloudCount,
           summariesCount: 0,
+          embeddingsCount: 0,
           localStoreCount: 0,
           percent: 10,
         });
@@ -131,7 +136,7 @@ export function RestoreFromCloudModal({
         resultSummary.restoredNotes = noteRes.restored;
       }
 
-      // Step 2: AI Summaries & Local Store Records (13 stores)
+      // Step 2: AI Summaries, Embeddings & Local Store Records (13 stores)
       if (includeSummaries || includeAIData) {
         setProgress(prev => ({
           ...prev,
@@ -142,6 +147,7 @@ export function RestoreFromCloudModal({
         if (onRestoreAIData) {
           const aiRes = await onRestoreAIData(user.uid);
           resultSummary.restoredSummaries = aiRes.summaries;
+          resultSummary.restoredEmbeddings = (aiRes as { embeddings?: number }).embeddings ?? 0;
           resultSummary.restoredAIStoreRecords = aiRes.localStoreRecords;
           resultSummary.failedCount += aiRes.failed;
         } else {
@@ -152,6 +158,7 @@ export function RestoreFromCloudModal({
           ...prev,
           currentStage: 'Привязка разбора к заметкам...',
           summariesCount: resultSummary.restoredSummaries,
+          embeddingsCount: resultSummary.restoredEmbeddings,
           localStoreCount: resultSummary.restoredAIStoreRecords,
           percent: 90,
         }));
@@ -167,6 +174,7 @@ export function RestoreFromCloudModal({
       // AUD-12: восстановившее ноль заметок — не «завершённое» восстановление.
       if (resultSummary.restoredNotes === 0
         && resultSummary.restoredSummaries === 0
+        && resultSummary.restoredEmbeddings === 0
         && resultSummary.restoredAIStoreRecords === 0) {
         // Проход дошёл до конца и не вернул ничего — это не то же самое, что
         // падение. Сказать «прервано ошибкой» там, где ошибки не было, —
@@ -332,6 +340,12 @@ export function RestoreFromCloudModal({
                   <span className="text-text-main font-medium">{progress.summariesCount}</span>
                 </div>
               )}
+              {progress.embeddingsCount > 0 && (
+                <div className="flex justify-between">
+                  <span>Векторов поиска (эмбеддингов):</span>
+                  <span className="text-text-main font-medium">{progress.embeddingsCount}</span>
+                </div>
+              )}
               {progress.localStoreCount > 0 && (
                 <div className="flex justify-between">
                   <span>Записей ИИ и диалогов:</span>
@@ -356,10 +370,11 @@ export function RestoreFromCloudModal({
                   : 'Проход завершился, но из облака ничего не вернулось.'}
               </div>
               {/* Частичный успех — числами: что успело вернуться до падения. */}
-              {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredAIStoreRecords)) && (
+              {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredEmbeddings) || Boolean(report?.restoredAIStoreRecords)) && (
                 <div className="text-[11px] text-text-main/70 space-y-1 pl-6">
                   {Boolean(report?.restoredNotes) && <div>Заметок восстановлено: <strong className="text-text-main">{report?.restoredNotes}</strong></div>}
                   {Boolean(report?.restoredSummaries) && <div>Сводок ИИ: <strong className="text-text-main">{report?.restoredSummaries}</strong></div>}
+                  {Boolean(report?.restoredEmbeddings) && <div>Векторов поиска: <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>}
                   {Boolean(report?.restoredAIStoreRecords) && <div>Записей ИИ: <strong className="text-text-main">{report?.restoredAIStoreRecords}</strong></div>}
                 </div>
               )}
@@ -389,6 +404,9 @@ export function RestoreFromCloudModal({
               <div className="text-[11px] text-text-main/70 space-y-1 pl-6">
                 <div>Заметок восстановлено: <strong className="text-text-main">{report?.restoredNotes ?? 0}</strong></div>
                 <div>Сводок ИИ: <strong className="text-text-main">{report?.restoredSummaries ?? 0}</strong></div>
+                {Boolean(report?.restoredEmbeddings) && (
+                  <div>Векторов поиска (эмбеддингов): <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>
+                )}
                 <div>Записей ИИ (диалоги, портрет, темы): <strong className="text-text-main">{report?.restoredAIStoreRecords ?? 0}</strong></div>
                 {Boolean(report?.failedCount) && (
                   <div className="text-amber-400 flex items-center gap-1 mt-1">

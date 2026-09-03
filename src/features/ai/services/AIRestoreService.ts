@@ -299,31 +299,26 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     );
     const cloudHashes = new Set<string>();
 
-    // NOT part of the automatic pass. An embedding record carries its chunk
-    // vectors — hundreds of KB, dozens of read units each — so walking this
-    // collection costs more than the entire free daily read quota and locks the
-    // user out of their own notes for the rest of the day. Embeddings are a
-    // cache of a deterministic computation: the indexer rebuilds a missing one
-    // locally, at its own daily pace, for zero cloud reads. Restoring them
-    // is a deliberate, user-initiated action (requestEmbeddingRestore) and
-    // resumes across days from a stored cursor.
-    if (isEmbeddingRestoreRequested()) {
-      const PAGE = 5;
-      const docsPage: Record<string, unknown>[] = [];
-      let cursorId: string | undefined = getEmbeddingRestoreCursor() || undefined;
-      for (;;) {
-        const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
-        if (res.items.length === 0) { clearEmbeddingRestoreRequest(); break; }
-        
-        docsPage.push(...res.items);
-        cursorId = res.nextCursorId;
-        if (cursorId) {
-          setEmbeddingRestoreCursor(cursorId);
-        }
-        
-        if (res.items.length < PAGE) { clearEmbeddingRestoreRequest(); break; }
+    // AG-RESTORE-1: Embeddings are restored by default during cloud restore.
+    // Paginated in chunks of 10 with a cap per pass to avoid quota bursts.
+    const PAGE = 10;
+    const MAX_EMBEDS_PER_RUN = 100;
+    const docsPage: Record<string, unknown>[] = [];
+    let cursorId: string | undefined = getEmbeddingRestoreCursor() || undefined;
+    while (docsPage.length < MAX_EMBEDS_PER_RUN) {
+      const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
+      if (res.items.length === 0) { clearEmbeddingRestoreRequest(); break; }
+      
+      docsPage.push(...res.items);
+      cursorId = res.nextCursorId;
+      if (cursorId) {
+        setEmbeddingRestoreCursor(cursorId);
       }
-      for (const d of docsPage) {
+      
+      if (res.items.length < PAGE) { clearEmbeddingRestoreRequest(); break; }
+    }
+
+    for (const d of docsPage) {
         const dId = d.id as string;
         const alreadyLocal = existingEmbeddings.has(dId);
         // Decoding an already-local record is pure CPU, no extra quota — worth it
@@ -340,7 +335,6 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
           result.failed++;
         }
       }
-    }
 
     if (needsRepair && cloudHashes.size > 0) {
       for (const e of await db.getAll('aiEmbeddings')) {

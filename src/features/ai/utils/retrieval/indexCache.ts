@@ -1,12 +1,22 @@
 import MiniSearch from 'minisearch';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
+import { getCurrentUser } from '../../../../core/auth';
 import { CACHE_TTL_MS } from './types';
 import { searchCache } from './resultCache';
 
-export function invalidateMiniSearchCache(): void {
-  miniSearchInstance = null;
-  miniSearchBuiltAt = 0;
+interface MiniSearchCacheEntry {
+  instance: MiniSearch;
+  builtAt: number;
+}
+const miniSearchInstances = new Map<string, MiniSearchCacheEntry>();
+
+export function invalidateMiniSearchCache(ownerId?: string): void {
+  if (ownerId) {
+    miniSearchInstances.delete(ownerId);
+  } else {
+    miniSearchInstances.clear();
+  }
   searchCache.length = 0;
   corpusVersion++;
 }
@@ -14,9 +24,11 @@ export function invalidateMiniSearchCache(): void {
 // AUD-23: правка заметки не должна ронять весь индекс и пересобирать его по
 // всему архиву. MiniSearch умеет discard/add — обновляем одну запись; полный
 // rebuild остаётся для импорта, восстановления и выхода (invalidate выше).
-export async function refreshMiniSearchDoc(documentId: string): Promise<void> {
-  const ms = miniSearchInstance;
-  if (!ms) return; // Индекс ещё не построен — полная сборка возьмёт свежие данные.
+export async function refreshMiniSearchDoc(documentId: string, ownerId?: string): Promise<void> {
+  const effectiveOwner = ownerId ?? getCurrentUser()?.uid ?? 'guest';
+  const cached = miniSearchInstances.get(effectiveOwner);
+  if (!cached) return;
+  const ms = cached.instance;
   // Кэш ответов на запросы жил пять минут и раньше сбрасывался вместе с
   // индексом. Точечное обновление без этого оставляло правку невидимой для
   // повторного запроса: индекс свежий, а отдаётся старый ответ.
@@ -36,7 +48,7 @@ export async function refreshMiniSearchDoc(documentId: string): Promise<void> {
     }]);
   } catch {
     // Не смогли обновить точечно — безопасный путь: пересобрать целиком.
-    invalidateMiniSearchCache();
+    invalidateMiniSearchCache(effectiveOwner);
   }
 }
 
@@ -52,33 +64,33 @@ if (typeof window !== 'undefined') {
   });
 }
 
-let miniSearchInstance: MiniSearch | null = null;
-let miniSearchBuiltAt = 0;
 // AUDIT-L8: версия корпуса — растёт при любом изменении индекса/заметок.
 let corpusVersion = 0;
 
 // AUDIT-L8: дешёвый отпечаток корпуса для ключа кэша. Меняется при любом
 // изменении набора заметок/эмбеддингов — устаревший кэш перестаёт совпадать.
-let _corpusFp = { value: '', computedAt: 0 };
-export function corpusFingerprint(): string {
-  if (Date.now() - _corpusFp.computedAt < 30_000 && _corpusFp.value) return _corpusFp.value;
+const _corpusFpMap = new Map<string, { value: string; computedAt: number }>();
+export function corpusFingerprint(ownerId?: string): string {
+  const effectiveOwner = ownerId ?? getCurrentUser()?.uid ?? 'guest';
+  const cached = _corpusFpMap.get(effectiveOwner);
+  if (cached && Date.now() - cached.computedAt < 30_000 && cached.value) return cached.value;
   try {
-    // Синхронного доступа к idb нет — используем счётчик версий индекса,
-    // который refreshMiniSearchDoc/invalidate уже поддерживают неявно.
-    // Компромисс: fingerprint = builtAt MiniSearch + длина кэша; точность
-    // достаточна, т.к. invalidateMiniSearchCache сбрасывает и кэш поиска.
-    const fp = `ms:${corpusVersion}`;
-    _corpusFp = { value: fp, computedAt: Date.now() };
+    const fp = `ms:${effectiveOwner}:${corpusVersion}`;
+    _corpusFpMap.set(effectiveOwner, { value: fp, computedAt: Date.now() });
     return fp;
   } catch {
     return 'unknown';
   }
 }
 
-export async function getMiniSearch(): Promise<MiniSearch> {
-  if (miniSearchInstance && Date.now() - miniSearchBuiltAt < CACHE_TTL_MS) return miniSearchInstance;
-  const db = await getLocalDb();
+export async function getMiniSearch(ownerId?: string): Promise<MiniSearch> {
+  const effectiveOwner = ownerId ?? getCurrentUser()?.uid ?? 'guest';
+  const cached = miniSearchInstances.get(effectiveOwner);
+  if (cached && Date.now() - cached.builtAt < CACHE_TTL_MS) return cached.instance;
+
+  const db = await getLocalDb(effectiveOwner);
   const docs = await db.getAll('documents');
+
   const entries: { id: string; title: string; content: string }[] = [];
   for (const doc of docs) {
     if (doc.excludedFromAI) continue;
@@ -90,7 +102,7 @@ export async function getMiniSearch(): Promise<MiniSearch> {
       content: content.slice(0, 10_000),
     });
   }
-  miniSearchInstance = new MiniSearch({
+  const miniSearchInstance = new MiniSearch({
     fields: ['title', 'content'],
     storeFields: [],
     searchOptions: {
@@ -100,14 +112,14 @@ export async function getMiniSearch(): Promise<MiniSearch> {
     },
   });
   await miniSearchInstance.addAllAsync(entries);
-  miniSearchBuiltAt = Date.now();
+  miniSearchInstances.set(effectiveOwner, { instance: miniSearchInstance, builtAt: Date.now() });
   return miniSearchInstance;
 }
 
 /** BM25 keyword search via MiniSearch with prefix + fuzzy support.
  *  AUD-22: этап размечен — сюда попадает и первая сборка индекса. */
-export async function keywordSearch(query: string, topN: number): Promise<{ id: string; score: number }[]> {
-  const ms = await timed('index_build_or_get', getMiniSearch);
+export async function keywordSearch(query: string, topN: number, ownerId?: string): Promise<{ id: string; score: number }[]> {
+  const ms = await timed('index_build_or_get', () => getMiniSearch(ownerId));
   const results = ms.search(query);
   return results.slice(0, topN).map(r => ({ id: r.id as string, score: r.score }));
 }

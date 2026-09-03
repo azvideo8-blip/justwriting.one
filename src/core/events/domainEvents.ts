@@ -5,7 +5,10 @@ export type DomainEvent =
   | { type: 'note.excludedFromAI'; documentId: string; excluded: boolean }
   | { type: 'account.reset'; userId?: string }
   | { type: 'sync.restoredFromCloud'; userId: string }
-  | { type: 'ai.indexPending'; userId?: string };
+  | { type: 'ai.indexPending'; userId?: string }
+  // Черновик гостя переехал на аккаунт. Слой письма подхватывает и отправляет
+  // его в облако: `auth` не должен знать про `writing` (ARCHITECTURE.md).
+  | { type: 'draft.migrated'; userId: string };
 
 type DomainEventHandler = (e: DomainEvent) => void | Promise<void>;
 

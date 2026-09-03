@@ -180,7 +180,7 @@ describe('restoreAIDataFromCloud', () => {
   });
 
 
-  it('does not touch the embeddings collection unless it was asked to', async () => {
+  it('restores embeddings by default during cloud restore (AG-RESTORE-1)', async () => {
     localStorage.clear();
     summaryDocs.push({ id: 'doc-1', data: () => ({ tone: 'calm' }) });
     embeddingDocs.push({ id: 'doc-1', data: () => ({ vectorsJson: '[[1,2,3]]', contentHash: 'h1' }) });
@@ -188,7 +188,7 @@ describe('restoreAIDataFromCloud', () => {
     const result = await restoreAIDataFromCloud('user_1');
 
     expect(result.summaries).toBe(1);
-    expect(result.embeddings).toBe(0);
+    expect(result.embeddings).toBe(1);
   });
 
   it('pulls summaries and embeddings that are missing locally', async () => {
