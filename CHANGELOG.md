@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.32 — 2026-09-03
+
+- **[RU]** Удаление заметки снова уносит её разбор и вектор из облака. Вчерашняя правка этого не делала: постоянный номер заметки искался уже после того, как саму заметку удалили, — находилось «ничего», и в облако уходил запрос на удаление по локальному номеру, которого там нет. Номер теперь снимается до удаления и передаётся уборке.
+- **[EN]** Deleting a note removes its analysis and vector from the cloud again. Yesterday's fix did not: the note's permanent number was looked up after the note itself had been deleted — nothing was found, and the cloud received a delete request for a local number it does not use. The number is now taken before deletion and handed to the cleanup.
+- **[RU]** Удаление аккаунта стирает данные и с устройства. Серверная половина отрабатывала, а локальная нет: заметки, версии, черновики, разборы и портрет удалённого аккаунта оставались в браузере навсегда.
+- **[EN]** Deleting an account now erases data from the device too. The server half worked and the local half did not: notes, versions, drafts, analyses and the portrait of a deleted account stayed in the browser forever.
+- **[RU]** «Не показывать заметку ИИ» переживает дорогу в облако и обратно. Колонка в базе была, но выгрузка её не отправляла, а загрузка не восстанавливала — на втором устройстве запрет молча снимался, и заметку начинал читать индексатор. Настроение заметки терялось так же.
+- **[EN]** "Do not show this note to the AI" now survives the trip to the cloud and back. The column existed but upload never sent it and download never restored it — on a second device the ban was silently lifted and the indexer began reading the note. The note's mood was lost the same way.
+
 ## 0.8.31 — 2026-09-03
 
 - **[RU]** Кнопка «Убрать разборы без заметок» в Настройках → Синхронизация. Убирает разборы и поисковые векторы удалённых заметок — они оставались после удаления по старой логике и лежали мёртвым грузом: отправить их нельзя, а восстановить из них нечего. Перед удалением показывается число и предупреждение, что это безвозвратно; сами заметки и их текст не затрагиваются.

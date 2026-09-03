@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.32',
+    date: '2026-09-03',
+    items: [
+      { category: 'fix', ru: 'Удаление заметки снова уносит её разбор и вектор из облака: постоянный номер искался уже после удаления самой заметки и не находился', en: 'Deleting a note removes its analysis and vector from the cloud again: the permanent number was looked up after the note itself was gone' },
+      { category: 'fix', ru: 'Удаление аккаунта стирает данные и с устройства, а не только в облаке', en: 'Deleting an account erases data from the device too, not only in the cloud' },
+      { category: 'fix', ru: '«Не показывать заметку ИИ» переживает дорогу в облако и обратно — раньше на втором устройстве запрет молча снимался', en: '"Do not show this note to the AI" survives the trip to the cloud and back — the ban used to be silently lifted on a second device' },
+    ],
+  },
+  {
     version: '0.8.31',
     date: '2026-09-03',
     items: [
