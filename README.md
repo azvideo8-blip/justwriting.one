@@ -73,18 +73,19 @@ With consent given, text reaches the provider when:
 | Analyse a note | the note's full text | a button, per note or per archive |
 | Chat | your message, the persona, the portrait, retrieved note fragments | you, per message |
 | Semantic search | your query, then note cards for reranking | a search inside chat |
-| Compute vectors | the note's text, in chunks | analysing a note, the indexer, **and saving a note while the AI page is open** |
+| Compute vectors | the note's text, in chunks | analysing a note; the one-time pass when indexing consent is granted |
 
-**Analysis** happens only on an explicit press: the timer that used to summarise
-notes by itself was removed in August 2026.
+Text reaches the provider on an explicit action: the timer that used to
+summarise notes by itself was removed in August 2026. Writing and saving a note
+send nothing.
 
-**Indexing is not the same.** A listener on `doc-version-saved` calls
-`indexDocument` whenever a note is saved while the AI page's hook is mounted —
-so with indexing consent given, finishing a session can send that note's text to
-the provider without anyone pressing anything for it. It is consent-gated and it
-is automatic, and those are different claims. An earlier version of this
-paragraph said everything happens on an explicit press; that was wrong, and it
-was found by attacking the third postulate rather than by reading the code.
+One narrow exception exists and is worth naming rather than leaving to be
+discovered. A listener on `doc-version-saved` in `useAIPageData` calls
+`indexDocument`. That hook belongs to the `/ai` route alone, and routes are
+mutually exclusive — while you are writing, the listener does not exist. It can
+only fire if a version is saved while the AI page is open, which no ordinary
+path does; a conflict fork created by a sync running in the background is the
+one way found so far.
 
 Models are configurable by environment variable; the defaults are
 `deepseek/deepseek-v4-flash` for chat and `qwen/qwen3-embedding-8b` at 4096
