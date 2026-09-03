@@ -30,7 +30,15 @@ export function portraitCacheKey(uid: string | null | undefined): string {
 
 /** Ключ до привязки к аккаунту. Читается один раз — чтобы стереть. */
 const LEGACY_PORTRAIT_LS_KEY = 'ai_user_portrait';
-const SECTIONS_CACHE_KEY = 'ai_portrait_sections';
+/**
+ * Кэш разделов портрета — вторая копия того же текста, и та же беда, что была
+ * у самого портрета: под общим ключом он переживал выход из аккаунта. Помечен
+ * аккаунтом по той же причине.
+ */
+function sectionsCacheKey(uid: string | null | undefined): string {
+  return uid ? `ai_portrait_sections_${uid}` : 'ai_portrait_sections_guest';
+}
+const LEGACY_SECTIONS_CACHE_KEY = 'ai_portrait_sections';
 let _autoGenInProgress = false;
 
 interface PortraitSectionCache {
@@ -215,7 +223,8 @@ export const AIProfileService = {
       // Load cached sections
       let cache: PortraitCacheData = {};
       try {
-        const raw = localStorage.getItem(SECTIONS_CACHE_KEY);
+        localStorage.removeItem(LEGACY_SECTIONS_CACHE_KEY);
+        const raw = localStorage.getItem(sectionsCacheKey(getCurrentUser()?.uid));
         if (raw) cache = JSON.parse(raw);
       } catch { /* ignore */ }
 
@@ -302,7 +311,7 @@ export const AIProfileService = {
 
       // Save sections cache (so successfully generated sections are preserved for cheap retry)
       try {
-        localStorage.setItem(SECTIONS_CACHE_KEY, JSON.stringify(cache));
+        localStorage.setItem(sectionsCacheKey(getCurrentUser()?.uid), JSON.stringify(cache));
       } catch { /* ignore */ }
 
       // If any section failed generation and had no cached content, do NOT save a degraded portrait

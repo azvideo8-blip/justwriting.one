@@ -328,11 +328,16 @@ export const NoteAnalysisService = {
 
     // Облачные копии: «удалить разбор» без этого оставляло бы сводку и вектор
     // лежать в базе, то есть ничего по сути не удаляло.
+    //
+    // Ключ строки в облаке — ПОСТОЯННЫЙ номер заметки: политика доступа сверяет
+    // его с documents.uuid. По локальному `local_…` не удалялось бы ничего, и
+    // кнопка снова врала бы — только тише, чем раньше.
     const uid = getCurrentUser()?.uid;
     if (!uid || uid.startsWith('guest_')) return;
+    const canonicalId = doc?.uuid ?? documentId;
     try {
-      await DataProvider.deleteSummary(uid, documentId);
-      await DataProvider.deleteEmbedding(uid, documentId);
+      await DataProvider.deleteSummary(uid, canonicalId);
+      await DataProvider.deleteEmbedding(uid, canonicalId);
     } catch (e) {
       reportError(e, { action: 'noteAnalysis_clearCloud', documentId });
     }

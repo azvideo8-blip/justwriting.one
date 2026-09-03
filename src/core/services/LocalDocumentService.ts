@@ -2,6 +2,27 @@ import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
 import { withFacetLock } from './facetLock';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
+import { DataProvider } from '../data';
+import { getCurrentUser } from '../auth';
+
+/**
+ * Сносит облачную копию производной ИИ, привязанной к заметке.
+ *
+ * Сводки и векторы лежат не в `local_store_records`, а в своих таблицах, и
+ * очередь `scheduleStoreDelete` до них не достаёт. Ключ строки — ПОСТОЯННЫЙ
+ * номер заметки: политика доступа в базе сверяет его с `documents.uuid`, и по
+ * локальному `local_…` не удалится ничего.
+ */
+async function deleteCloudDerivative(kind: 'summary' | 'embedding', canonicalId: string): Promise<void> {
+  const uid = getCurrentUser()?.uid;
+  if (!uid || uid.startsWith('guest_')) return;
+  try {
+    if (kind === 'summary') await DataProvider.deleteSummary(uid, canonicalId);
+    else await DataProvider.deleteEmbedding(uid, canonicalId);
+  } catch (e) {
+    reportError(e, { action: `cascadeDelete_cloud_${kind}`, canonicalId });
+  }
+}
 
 
 export const LocalDocumentService = {
@@ -121,12 +142,22 @@ export const LocalDocumentService = {
     try {
       const db = await getLocalDb();
 
+      // Постоянный номер заметки нужен раньше, чем она исчезнет: облачные
+      // строки сводки и вектора ключуются им, а не локальным id.
+      const doc = await db.get('documents', documentId).catch(() => undefined);
+      const canonicalId = doc?.uuid ?? documentId;
+
       // 1. Delete aiSummaries, aiEmbeddings, aiTimeline
       await Promise.all([
         db.delete('aiSummaries', documentId).catch(() => {}),
         db.delete('aiEmbeddings', documentId).catch(() => {}),
         db.delete('aiTimeline', documentId).catch(() => {}),
       ]);
+      // Облачные копии тех же трёх. Локального удаления мало: восстановление
+      // из облака вернуло бы разбор удалённой заметки обратно на устройство.
+      LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);
+      void deleteCloudDerivative('summary', canonicalId);
+      void deleteCloudDerivative('embedding', canonicalId);
 
       // 2. Delete aiDialogues & related aiChatMemory
       try {
@@ -136,9 +167,11 @@ export const LocalDocumentService = {
             const memories = await db.getAllFromIndex('aiChatMemory', 'by-dialogue', d.id);
             for (const m of memories) {
               await db.delete('aiChatMemory', m.id).catch(() => {});
+              LocalStoreSyncService.scheduleStoreDelete('aiChatMemory', m.id);
             }
           } catch { /* ignore */ }
           await db.delete('aiDialogues', d.id).catch(() => {});
+          LocalStoreSyncService.scheduleStoreDelete('aiDialogues', d.id);
         }
       } catch { /* ignore */ }
 
@@ -148,6 +181,7 @@ export const LocalDocumentService = {
         for (const c of commitments) {
           if (c.documentId === documentId) {
             await db.delete('aiCommitments', c.id).catch(() => {});
+            LocalStoreSyncService.scheduleStoreDelete('aiCommitments', c.id);
           }
         }
       } catch { /* ignore */ }
@@ -158,6 +192,7 @@ export const LocalDocumentService = {
         for (const t of threads) {
           if ((t as { documentId?: string }).documentId === documentId) {
             await db.delete('aiThreads', t.id).catch(() => {});
+            LocalStoreSyncService.scheduleStoreDelete('aiThreads', t.id);
           }
         }
       } catch { /* ignore */ }
@@ -170,6 +205,7 @@ export const LocalDocumentService = {
             const updatedSources = entry.sourceDocumentIds.filter(sid => sid !== documentId);
             if (updatedSources.length === 0) {
               await db.delete('lifeStory', entry.eventDate).catch(() => {});
+              LocalStoreSyncService.scheduleStoreDelete('lifeStory', entry.eventDate);
             } else {
               await db.put('lifeStory', { ...entry, sourceDocumentIds: updatedSources }).catch(() => {});
             }
@@ -188,6 +224,7 @@ export const LocalDocumentService = {
             const newCount = Math.max(0, record.count - 1);
             if (filteredEv.length === 0 || newCount === 0) {
               await db.delete('aiThemeLedger', record.id).catch(() => {});
+              LocalStoreSyncService.scheduleStoreDelete('aiThemeLedger', record.id);
             } else {
               await db.put('aiThemeLedger', { ...record, evidence: filteredEv, count: newCount }).catch(() => {});
             }

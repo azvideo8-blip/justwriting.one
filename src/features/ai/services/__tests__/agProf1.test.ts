@@ -68,7 +68,7 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
     expect(localStorage.getItem('ai_user_portrait')).toBeNull();
 
     // But successful section is kept in cache for fast retry
-    const cachedSections = JSON.parse(localStorage.getItem('ai_portrait_sections') || '{}');
+    const cachedSections = JSON.parse(localStorage.getItem('ai_portrait_sections_guest') || '{}');
     expect(cachedSections.themes?.content).toBe('Успешный раздел тем');
   });
 
