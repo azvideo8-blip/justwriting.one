@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.33',
+    date: '2026-09-03',
+    items: [
+      { category: 'fix', ru: 'У каждого аккаунта своя локальная база: портрет, память чата и убеждения больше не достаются второму вошедшему на том же компьютере', en: 'Each account gets its own local database: the portrait, chat memory and beliefs no longer reach a second person signing in on the same computer' },
+      { category: 'fix', ru: 'Поиск и разбор «дверей контакта» не читают чужие заметки', en: 'Search and the contact-doors analysis no longer read another owner\u2019s notes' },
+      { category: 'fix', ru: 'Удалённая в облаке заметка больше не воскресает', en: 'A note deleted in the cloud no longer comes back' },
+      { category: 'fix', ru: 'Статистика версий не портится при шифровании, а лишние копии «(Конфликт …)» больше не появляются', en: 'Version statistics survive encryption, and spurious "(Conflict …)" duplicates are gone' },
+      { category: 'improvement', ru: 'Восстановление на чистом устройстве возвращает и поисковые векторы, а большие архивы читаются страницами', en: 'Restore on a clean device brings back search vectors too, and large archives are read page by page' },
+      { category: 'fix', ru: 'Черновик и статистика, накопленные до регистрации, переезжают на аккаунт', en: 'The draft and statistics accumulated before signing up move to the account' },
+    ],
+  },
+  {
     version: '0.8.32',
     date: '2026-09-03',
     items: [

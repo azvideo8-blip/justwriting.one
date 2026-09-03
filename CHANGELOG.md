@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.33 — 2026-09-03
+
+- **[RU]** Данные ИИ больше не общие на устройстве: у каждого аккаунта своя локальная база. Раньше портрет лежал в единственной строке на браузер, а память чата, убеждения и разборы не знали владельца вовсе — второй вошедший на том же компьютере видел чужое, а выгрузка записывала это ему в облако. Существующий архив переезжает при первом открытии, и оригиналы удаляются только после проверки, что копия на месте.
+- **[EN]** AI data is no longer shared on a device: each account gets its own local database. The portrait used to live in a single row per browser, and chat memory, beliefs and analyses carried no owner at all — a second person signing in on the same computer saw someone else's, and the upload wrote it into their cloud. An existing archive moves across on first open, and the originals are deleted only after the copy is verified.
+- **[RU]** Поиск и разбор «дверей контакта» больше не читают чужие заметки: и указатель поиска, и его кэш привязаны к аккаунту.
+- **[EN]** Search and the contact-doors analysis no longer read another owner's notes: both the index and its cache are keyed to the account.
+- **[RU]** Удалённая в облаке заметка больше не воскресает: оба места, реагирующие на удаление, помечают её локальной, а не только одно из двух.
+- **[EN]** A note deleted in the cloud no longer comes back: both places that react to the deletion mark it local-only, not just one of the two.
+- **[RU]** Статистика версий не портится при шифровании: числа слов и знаков передаются посчитанными, а не пересчитываются поверх шифротекста, где всё выглядит одним словом.
+- **[EN]** Version statistics survive encryption: word and character counts are passed through instead of recomputed over ciphertext, where everything looks like a single word.
+- **[RU]** Пропали лишние копии заметок «(Конфликт …)»: облачные версии расшифровываются перед сравнением, а не сравниваются с открытым текстом как есть.
+- **[EN]** Spurious "(Conflict …)" duplicates are gone: cloud versions are decrypted before comparison instead of being compared to plaintext as-is.
+- **[RU]** Восстановление на чистом устройстве предлагается всегда, когда в облаке заметок больше, чем на устройстве, и возвращает поисковые векторы, а не только тексты. Большие архивы читаются страницами — раньше выборка молча обрывалась на тысяче строк.
+- **[EN]** Restore on a clean device is offered whenever the cloud has more notes than the device, and it brings back search vectors, not only texts. Large archives are read page by page — a query used to stop silently at a thousand rows.
+- **[RU]** Прерванная выгрузка версий догоняет пропущенное вместо того, чтобы навсегда оставить дыру в истории.
+- **[EN]** An interrupted version upload catches up on what it missed instead of leaving a permanent gap in the history.
+- **[RU]** Черновик и статистика письма, накопленные до регистрации, переезжают на аккаунт и уходят в облако.
+- **[EN]** The draft and writing statistics accumulated before signing up move to the account and reach the cloud.
+
 ## 0.8.32 — 2026-09-03
 
 - **[RU]** Удаление заметки снова уносит её разбор и вектор из облака. Вчерашняя правка этого не делала: постоянный номер заметки искался уже после того, как саму заметку удалили, — находилось «ничего», и в облако уходил запрос на удаление по локальному номеру, которого там нет. Номер теперь снимается до удаления и передаётся уборке.
