@@ -1,149 +1,191 @@
-# justwriting — тихий редактор
+# justwriting
 
-A calm, distraction-free writing app built around one idea: the best session is the one you actually finish.
+A quiet writing app: a timer, a blank page, and an archive that remembers. An
+optional AI layer reads what you wrote and talks to you about it.
 
----
-
-## What it does
-
-**justwriting** sits between a blank page and a productivity tool. You open it, start the timer, and write. While you write, the interface fades away. When you stop, it comes back — showing you exactly how far you went.
+Live at **https://justwriting.ru**. Private repository, one maintainer, one
+production user. A closed beta for 10–20 invited people is being prepared.
 
 ---
 
-## Features
+## Status
 
-### The editor
+| | |
+| :--- | :--- |
+| Version | `0.8.32` (`src/version.ts` is what the UI shows) |
+| Hosting | single VPS in Russia — nginx, systemd, Docker |
+| Database | self-hosted Supabase (Postgres + GoTrue + PostgREST + Kong) |
+| AI provider | RouterAI, OpenAI-compatible API |
+| Client | React 19 · TypeScript · Vite · Tailwind v4 · Zustand |
+| Tests | Vitest — 255 files, 1578 tests |
+| Node | 22 (CI and the API service) |
 
-A single textarea. No toolbars, no markdown preview, no buttons fighting for attention. The cursor blinks in your brand accent color. The font, size, and line width are yours to configure.
-
-**Stream mode** — backspace is disabled. You can only move forward. A gentle nudge toward flow over perfection.
-
-**Zen mode** — once you start writing, the header and stats fade out after a few seconds. Move the mouse, and they return. Writing in peace, stats on demand.
-
-### Sessions
-
-Each writing session is timed and counted from the moment you press play. The bottom bar tracks:
-
-- **Total words** — everything you've ever written in this editor
-- **Session words** — just this session, with an optional target
-- **Session time** — elapsed time, or a countdown if you set a timer
-- **WPM** — words per minute with a live color indicator (green → yellow → amber as you slow down)
-
-Goal progress is shown as a thin animated bar beneath the word and time counters. When you hit your goal, both the number and the bar turn green.
-
-### Goals
-
-Click the session word count to set a word target (250 · 500 · 1000 · 1500 · 2000, or any number). Click the timer to set a duration (15 · 25 · 30 · 60 minutes, or any number). Both goals are optional and independent.
-
-### Life log
-
-A collapsible side panel that lists all sessions from today in a compact timeline. Useful when you write in multiple short bursts and want to see the full day at a glance.
-
-### Archive
-
-All past sessions in one place. Two views:
-
-- **List view** — compact rows with date, title, snippet, tags, and per-row actions. Color-coded by label with a left-edge glow.
-- **Grid view** — cards with title, excerpt, word count, and duration.
-
-Both views support full-text search with highlighted matches.
-
-### Labels & tags
-
-**Labels** are color swatches — assign one to any session to group and visually distinguish your notes. The label color bleeds into the row as a subtle background tint and left-border glow.
-
-**Tags** are freeform strings you type inline directly on the row. Autocomplete suggests tags you've already used. Up to 7 suggestions at a time.
-
-### Statistics
-
-- **WPM chart** — a line chart of your words-per-minute over the course of the session, with an animated draw effect on load and a highlighted peak
-- **Session chart** — a bar chart of daily word counts over a date range, with a gradient fill
-- **Streak** — a row of animated dots showing your consecutive writing days, with a spring pop on each dot
-
-### Profile
-
-Your lifetime numbers at a glance: total words, total sessions, current streak, average session length, typical writing hour, and words per day.
-
-### Calendar
-
-A calendar view of your writing history — see which days had sessions at a glance.
-
-### Export
-
-From any session preview: export as **plain text (.txt)**, **PDF**, or **JSON** backup.
-
-### Storage
-
-Sessions live in the cloud (Firebase) and optionally offline (IndexedDB). Each note shows small icons indicating where it's stored — cloud, local, or both. You can promote a local note to the cloud or keep it offline-only.
+There is no Firebase, no Firestore and no Cloud Functions: that stack was
+replaced in August 2026. `vercel.json` is a leftover from the same era and no
+longer governs anything — the live headers come from nginx.
 
 ---
 
-## Tech
+## How the data is arranged
 
-React 19 · TypeScript · Vite · Tailwind CSS v4 · Motion · Firebase · Zustand · Vitest · PostHog · Sentry
+**Local first.** Everything is written to IndexedDB on the device before it is
+written anywhere else. The app is fully usable with no account and no network:
+notes, versions, archive, statistics and export all work offline.
 
-## Features
+**The cloud is a second copy.** With an account, notes and their versions sync to
+Postgres, protected by row-level security keyed on `auth.uid()`. Derived AI data
+(analyses, vectors, dialogues, memory, the portrait) syncs too, through a
+separate explicit action.
 
-- **Editor** — distraction-free textarea, stream mode (no backspace), zen mode (UI fades while writing)
-- **Sessions** — timed writing sessions with word/time goals, WPM tracking
-- **AI** — chat with personas (psychology panel, CBT, coach, editor), AI editing, AI summarization, semantic search, AI portrait
-- **Encryption** — AES-256-GCM client-side encryption with PBKDF2 key derivation, auto-lock after 15 min inactivity
-- **Archive** — list/grid views, full-text search, labels, tags
-- **Statistics** — WPM charts, streak tracker, calendar heatmap
-- **Profile** — lifetime stats, achievements
-- **Export** — plain text (.txt), PDF, JSON backup, DOCX
-- **Storage** — local-first (IndexedDB), optional cloud sync (Firestore), offline queue with conflict resolution
-- **Privacy** — Privacy Policy (`/privacy`), Terms of Service (`/terms`), consent-gated analytics
+**Encryption is client-side.** With the vault enabled, note content, titles,
+tags, analyses, vectors and the portrait are encrypted on the device before
+upload. The server never has the key. What stays readable in the database — row
+ids, timestamps, word counts — and why, is listed field by field in
+[SECURITY.md](SECURITY.md#what-is-encrypted-and-what-is-not).
 
-## Security
+### Where each kind of data lives
 
-- AES-256-GCM encryption with PBKDF2 (300K iterations)
-- Firestore security rules: strict user isolation, RBAC, role protection
-- Prompt injection guards (15 patterns, shared between Edge API and Cloud Functions)
-- Multi-layer rate limiting (per-user daily limit + cooldown + global cap)
-- DOMPurify sanitization on all AI output
-- Comprehensive CSP headers (HSTS, X-Frame-Options, nosniff, etc.)
-- Consent-gated PostHog analytics, PII-masked Sentry error reporting
-
-See [SECURITY.md](SECURITY.md) for full documentation.
+| Data | Device | Cloud |
+| :--- | :--- | :--- |
+| Notes, versions, drafts | IndexedDB | `documents`, `versions`, `drafts` |
+| Per-note analyses | `aiSummaries` | `ai_summaries` |
+| Search vectors | `aiEmbeddings` | `ai_embeddings` |
+| Dialogues, chat memory, themes, beliefs, timeline, life story, portrait, facets, commitments, threads, personas | 13 IndexedDB stores | `local_store_records` |
+| Injection journal, belief rejections, domain vectors | IndexedDB only | — (diagnostics and recomputable data, deliberately local) |
 
 ---
 
-## API Documentation
+## The AI layer, and what leaves the device
 
-- [AI Endpoints](docs/api/ai-endpoints.md) — Streaming chat, callable functions, rate limits
+This is the part worth reading carefully, because it is the only place where
+text leaves the machine in the clear.
+
+Nothing is sent to the AI provider without consent, and consent is split in two:
+
+- **AI consent** — analysis, chat, editing. Without it every AI endpoint refuses.
+- **Indexing consent** — computing search vectors. Separate because indexing is
+  the one path that used to run without a button press.
+
+With consent given, text reaches the provider when:
+
+| Action | What is sent | Started by |
+| :--- | :--- | :--- |
+| Analyse a note | the note's full text | a button, per note or per archive |
+| Chat | your message, the persona, the portrait, retrieved note fragments | you, per message |
+| Semantic search | your query, then note cards for reranking | a search inside chat |
+| Compute vectors | the note's text, in chunks | note analysis, or the indexer |
+
+There is no background pass. A timer used to analyse notes on its own; it was
+removed in August 2026, and everything now happens on an explicit press.
+
+Models are configurable by environment variable; the defaults are
+`deepseek/deepseek-v4-flash` for chat and `qwen/qwen3-embedding-8b` at 4096
+dimensions for vectors.
+
+**The portrait is injected into every chat turn.** It is a psychological
+summary built from your analyses, and it is part of the system prompt on every
+message, not a page you visit. See `docs/protocols-2026-09-02.md` for the
+measurement protocol that will decide whether it stays.
 
 ---
 
-## Local setup
+## Development
 
-**Prerequisites:** Node.js v20+
+**Prerequisites:** Node 22+.
 
 ```bash
-git clone <repo>
-cd justwriting
 npm install
+npm run dev          # http://localhost:3000
 ```
 
-Create `.env.local`:
+`.env.local` for the client:
 
 ```env
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-VITE_POSTHOG_KEY=...           # Optional — analytics
-VITE_POSTHOG_HOST=...          # Optional — default: https://eu.i.posthog.com
-VITE_SENTRY_DSN=...            # Optional — error monitoring
-VITE_SITE_URL=...              # Optional — default: https://justwriting.one
+VITE_SUPABASE_URL=https://<your-supabase-host>
+VITE_SUPABASE_ANON_KEY=...
+VITE_SITE_URL=https://justwriting.ru   # optional
+VITE_SENTRY_DSN=...                    # optional — error reporting
+VITE_POSTHOG_KEY=...                   # optional — analytics, consent-gated
+VITE_POSTHOG_HOST=...                  # optional
 ```
+
+A build without `VITE_SUPABASE_*` produces a client that loads and then fails
+every request. This has happened in production: a green deploy and a dead app
+look identical if only the server is checked. The post-deploy smoke check exists
+because of it.
+
+### Scripts
 
 ```bash
-npm run dev
+npm run typecheck    # tsc --noEmit
+npm run lint         # full lint; needs NODE_OPTIONS=--max-old-space-size=8192
+npm run lint:changed # only files changed against origin/main
+npm run test:ci      # vitest run --coverage
+npm run ci           # typecheck + lint + tests
+npm run build        # vite build + prerender
+npm run i18n:audit   # missing / unused / incomplete translation keys
 ```
 
-For production: `npm run build` → `npm run preview`
+### Gates that run in CI
 
-For Firebase functions: `cd functions && npm install && firebase deploy --only functions`
+- `typecheck`, `lint`, the full test suite;
+- `scripts/prod-audit.mjs` — blocks on any production dependency advisory of
+  moderate severity or above;
+- `scripts/cross-feature-check.sh` — a ratchet on cross-feature imports, at 0;
+- `scripts/raw-overlay-check.sh` — a ratchet on raw overlay usage;
+- bundle size ceilings on the index chunk, raw and gzipped;
+- Supabase RLS tests.
+
+Ratchets have baselines that only go down. If a change raises one, the fix is
+the change, not the baseline.
+
+---
+
+## Layout
+
+```
+src/core/        storage, crypto, sync, data providers, auth — knows no features
+src/features/    ai, archive, auth, navigation, profile, settings, writing
+src/shared/      i18n, components, utilities shared by everything
+src/app/         pages and composition — where features are allowed to meet
+api/             the Node service: AI endpoints, limits, CSP reports
+supabase/        migrations and the migration runner
+scripts/         gates, the post-deploy smoke check, one-off tools
+docs/            tickets, audit reports, measurement protocols
+```
+
+`core` must not import from `features`. This is enforced by
+`import/no-restricted-paths` and by the cross-feature ratchet.
+
+---
+
+## Deploy
+
+Deployment is a manual GitHub Actions run — `Выкатка на сервер`, with
+`what = client | api | both`. It builds, uploads, restarts the service, and then
+runs `scripts/post-deploy-smoke.ts`, which checks that the site answers, that
+the expected version is live, that an unauthenticated AI call is refused, and
+that an aborted chat stream refunds its quota slot. On failure it rolls back.
+
+Releasing means bumping the version in **four** places — `package.json`,
+`package-lock.json`, `public/sw.js` (`CACHE_VERSION`, which evicts stale caches)
+and `src/version.ts` (what the UI shows) — plus both changelogs: `CHANGELOG.md`
+and the in-app `src/features/navigation/data/changelog.ts`.
+
+---
+
+## Known gaps
+
+Open findings live in `docs/ag-audit-2026-09-03-tickets.md`, each with a status
+saying whether I verified it myself or only checked that the mechanism exists.
+The two that block the closed beta:
+
+- **AI stores are not partitioned by account** (`AG-ISO-1`). On a shared device,
+  a second account can read the first one's portrait and chat memory.
+- **Search reads every document on the device** (`AG-ISO-2`), including notes
+  belonging to another owner.
+
+One cosmetic mismatch worth knowing: `index.html` still declares
+`https://justwriting.one/` as the canonical URL, and that domain does not
+resolve. Left alone deliberately — changing a canonical URL is an SEO decision,
+not a cleanup.

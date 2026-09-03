@@ -1,148 +1,250 @@
-# Security Documentation
+# Security policy
 
-## Postulates
+This document has two jobs: to say how to report a vulnerability, and to
+describe honestly what the application does and does not protect.
 
-Four statements the whole design answers to. When a change conflicts with one of
-them, the change is wrong — not the postulate.
+The second job is the harder one. In February 2026 a privacy assessment in this
+repository stated that note text reached the AI provider "only on an explicit
+user action". That was false for six months — a background timer was sending it.
+The lesson is written down here because it governs how this file is maintained:
+**a promise this document makes that the code does not keep is worse than no
+document at all.** Every claim below was checked against the tree at `0.8.32`.
 
-1. **What a person writes locally is never lost** — except when they themselves
-   choose to delete it. A failed read, a half-finished write, a locked vault or a
-   parse error must never be rendered as absence of data, and must never be
-   written back as truth. This is the recurring bug class in this codebase; every
-   fix for it carries a regression test.
+---
+
+## Reporting a vulnerability
+
+**Do not open a public issue.**
+
+1. **Preferred — GitHub private vulnerability reporting.** Use the *Report a
+   vulnerability* button under the repository's Security tab.
+   *Maintainer note: this must be switched on in Settings → Code security before
+   the first outside tester is invited; it is not on by default.*
+2. **Fallback — email.** `security@justwriting.ru`.
+   *Maintainer note: this alias does not exist yet and must be created, or this
+   line replaced with an address that does.*
+
+What helps: the version (shown in the sidebar), what you did, what you expected,
+what happened. A proof of concept is welcome but never required.
+
+**Please do not** run automated scanners against `justwriting.ru`, attempt
+denial of service, or access data belonging to anyone but yourself. The service
+runs on a single small VPS with one real user; load testing it is
+indistinguishable from an attack.
+
+**What to expect.** A single maintainer, so: acknowledgement within 72 hours, an
+assessment within a week, and a fix timeline stated honestly rather than
+optimistically. Reporters are credited in the changelog unless they prefer not
+to be. There is no bounty programme.
+
+---
+
+## Scope
+
+**In scope:** the client at `justwriting.ru`, the API service (`api/`), the
+Supabase deployment and its row-level security policies, the deploy pipeline.
+
+**Out of scope:** the AI provider's infrastructure; findings that require a
+compromised device or a malicious browser extension (an extension in the origin
+can already do anything the app can); social engineering; missing headers with
+no demonstrated impact.
+
+---
+
+## The four postulates
+
+Statements the design answers to. When a change conflicts with one of them, the
+change is wrong — not the postulate.
+
+1. **What a person writes locally is never lost**, except when they choose to
+   delete it. A failed read, a half-finished write, a locked vault or a parse
+   error must never be rendered as absence of data, and must never be written
+   back as truth. This is the recurring bug class here; every fix for it carries
+   a regression test.
 2. **Nothing leaves for the cloud unencrypted.** Notes, titles, tags, labels,
-   analyses, embeddings, dialogues, the portrait — everything the person wrote,
-   or that was concluded about them, is encrypted with a key derived on their
-   device. A new field that syncs is encrypted before it syncs, not after someone
-   notices.
-3. **AI is the one disclosed exception.** Analysis requires sending the text to
-   the provider in the clear; there is no way around it today. The person is told
+   analyses, vectors, dialogues, the portrait — everything the person wrote or
+   that was concluded about them is encrypted with a key derived on their
+   device. A new field that syncs is encrypted before it syncs, not after
+   someone notices.
+3. **AI is the one disclosed exception.** Analysis requires sending text to the
+   provider in the clear; there is no way around that today. The person is told
    so plainly, decides for themselves, and loses no other functionality by
    declining.
 4. **Saved, encrypted, synchronised, nothing leaked** — apart from what the
    person deliberately sent for analysis.
 
-
-## Role Model
-The application uses a role-based access control (RBAC) system defined in Firestore:
-- `user`: Standard user, can manage their own sessions and profile.
-- `admin`: Elevated privileges, can view all sessions and manage users.
-
-**Admin Assignment:** Admin roles are strictly assigned manually via the Firebase Console. The client cannot mutate the `role` field.
-
-Roles are stored in the `users` collection within the `role` field. The `AuthService` acts as the single source of truth for role-checking logic on the client side, while Firestore rules and Cloud Functions enforce these roles on the backend.
-
-## Data Isolation
-- **User Data**: Users can only access their own profile and sessions.
-- **Session Data**: Sessions are private by default, unless explicitly set to `isPublic: true`.
-- **Admin Access**: Admins have read access to all sessions and user profiles.
-
-## Firestore Security Rules
-
-Our Firestore rules are designed with the principle of "Least Privilege". Security is enforced at the database level.
-
-### Key Principles:
-- **Role-Based Access Control (RBAC):** Admin access is strictly controlled via the `role` field in the user's Firestore document. No hardcoded emails are used.
-- **Strict User Isolation:** Users can only read, update, or delete their own sessions. Update and delete operations strictly require `request.auth.uid == resource.data.userId`.
-- **Public Feed Logic:** Any "Public Feed" logic only allows read access for `isPublic == true` and explicitly prevents write access by non-owners.
-- **Data Validation:** All input fields (content, title, tags) are validated for type and size to prevent malicious payloads and DoS attacks.
-- **Default Deny:** All access is denied by default unless explicitly allowed.
-- **Role Protection:** The `role`, `uid`, and `email` fields are explicitly excluded from client-side updates.
+---
 
 ## Encryption
 
-AES-256-GCM encryption with PBKDF2 key derivation:
-1. User password → PBKDF2 (300K iterations, SHA-256) → Master Key (AES-KW, `extractable: false`)
-2. Random Data Key (AES-256-GCM) generated per user
-3. Data Key wrapped with Master Key → stored in Firestore
-4. Content encrypted with Data Key (12-byte CSPRNG IV per encryption)
-5. Verification plaintext encrypted for key validation
-6. Session key held in memory (useEncryptionStore) while vault is unlocked
-7. **Auto-lock:** CryptoKey is automatically cleared after 15 minutes of inactivity or on tab visibility change. `secureClear` zeros sensitive byte arrays after use. CryptoKey objects cannot be zeroed from JavaScript (platform limitation — cleared on GC).
-8. **Legacy vault unlock:** On `OperationError` (wrong password), the vault returns `false` — encryption is NOT silently enabled without a valid data key.
-9. **Device Key Vault (SEC-15):** Optional "remember on device" caches non-extractable AES keys in IndexedDB via WebCrypto API. While keys cannot be read directly via JavaScript, any same-origin script executing in the browser origin could trigger decryption. Users opting into device key caching are informed of this threat model.
-10. **Signup Salt & Key Handling (SEC-16):** Temporary enrollment parameters (`encryptionSalt`, `encryptedDataKey`) held in `sessionStorage` during registration are cleared immediately upon account creation or tab closure.
+Client-side, AES-256-GCM, with an envelope so the password can change without
+re-encrypting the archive.
 
-## Cloud Functions Security
+1. Password → PBKDF2, **600 000 iterations**, SHA-256 → master key (AES-KW,
+   `extractable: false`). Vaults created before the raise are unwrapped with the
+   legacy 300 000 and re-wrapped.
+2. A random per-user data key (AES-256-GCM).
+3. The data key is wrapped with the master key and stored server-side; the
+   server never sees it unwrapped.
+4. Content is encrypted with the data key, a fresh 12-byte CSPRNG IV each time.
+5. A verification plaintext detects a wrong password without touching real data.
+6. The session key lives in memory only, and is cleared after 15 minutes of
+   inactivity or on tab visibility change. `secureClear` zeroes sensitive byte
+   arrays; `CryptoKey` objects cannot be zeroed from JavaScript and are released
+   to garbage collection — a platform limitation, stated rather than hidden.
+7. A wrong password returns `false`. Encryption is never silently enabled
+   without a valid data key.
+8. **"Remember on device"** caches non-extractable keys in IndexedDB. They
+   cannot be read by script, but any script running in this origin can ask the
+   browser to decrypt with them. Anyone opting in is shown this trade-off.
 
-All AI functions enforce:
-- **Authentication:** Firebase Auth verified ID token required before processing.
-- **Payload Validation:** Zod schema validation on every endpoint. Content limited to 50,000 characters.
-- **Action Validation:** Predefined list of allowed actions.
-- **Prompt Injection Guard:** `INJECTION_PATTERNS` (15 patterns, shared between Edge API and Cloud Functions) checked against custom system prompts and user messages.
-- **Input Sanitization:** `sanitizeAiInput` removes special token markers (`<|system|>`, `<|im_start|>`, `[INST]`, `<developer>`, etc.).
-- **Output Sanitization:** `sanitizeAiResponse` (DOMPurify, strips all HTML) applied to all Cloud Function AI responses.
-- **Rate Limiting:** Per-user daily limit (5-50 requests/day, admin: 100) + 10s cooldown + project-wide daily cap (10K requests/day). Limit refund on AI failures prevents quota burn from transient errors.
-- **Error Handling:** AI API calls wrapped in try-catch to prevent internal errors from leaking to the client. Generic error messages returned to client.
+---
 
-## Vercel Edge API (`/api/chat`)
+## What is encrypted, and what is not
 
-- **Auth:** Bearer token (Firebase ID) verified via Admin SDK.
-- **Validation:** Zod schema validation, same as Cloud Functions.
-- **Injection Guard:** Same `INJECTION_PATTERNS` (imported from `src/shared/ai/injectionPatterns.ts`) applied to custom prompts and user messages.
-- **Streaming:** AI output is streamed directly to the client. **Security constraint:** The client-side `MarkdownRenderer` must never add `rehype-raw` — it would re-enable XSS from unsanitized streaming output. Only `rehype-sanitize` is used (strips all raw HTML). This is documented in the component source.
+Encryption covers content. Some metadata stays readable in the database — a
+deliberate trade-off, because without it synchronisation, quotas and
+deduplication do not work.
 
-## App Check
+| Field | Table | Why it is readable |
+| :--- | :--- | :--- |
+| `uuid`, `document_id`, `first_session_at`, `last_session_at`, `sessions_count` | documents, versions | row keys, ordering, relations |
+| `word_count`, `duration`, `wpm` | documents, versions | progress statistics; server-side aggregates are impossible over ciphertext |
+| `dim`, `processed_at` | ai_embeddings | model-compatibility check and the freshness filter |
+| `schema_v`, `_encrypted`, `version` | all tables | migrations and read branching |
+| `current_version`, `total_words` | documents | conflict detection and reconciliation |
+| row sizes | physical layer | Postgres does not hide lengths |
 
-> **Status:** App Check is wired up on the client, but enforcement is **off** on all callable functions and the Edge API (`enforceAppCheck: false`). Endpoints are protected by Firebase Auth + rate limits. Enabling enforcement is planned after the Supabase migration.
+**Not disclosed:** note text, titles, tags, and the contents of vectors —
+`vectorsJson`, `chunkTexts`, `model` and `contentHash` are all encrypted.
 
-## Content Security Policy
+**Disclosed indirectly:** activity by day, from timestamps, and archive volume,
+from word counts. A statistical profile over ciphertext.
 
-Comprehensive CSP headers configured in `vercel.json`:
-- HSTS (`max-age=63072000; includeSubDomains; preload`)
-- X-Frame-Options: DENY
-- X-Content-Type-Options: nosniff
-- Referrer-Policy: strict-origin-when-cross-origin
-- Permissions-Policy (camera, microphone, geography disabled)
-- COOP, CORP, frame-ancestors: none, object-src: none
-- Firebase API keys in client are acceptable — restricted by Firebase security rules.
+**The boundary encryption does not close:** with AI features on, note text
+reaches the provider in the clear. Consent wording is required to say this
+outright.
 
-## Analytics & Error Reporting
+---
 
-- **PostHog:** Opt-in only (`hasConsent()` check). `analytics.track()`, `trackEvent()`, and `webVitals` all verify consent before sending data. `person_profiles: 'identified_only'`.
-- **Sentry & Activity Log:** `maskAllText: true`, `blockAllMedia: true`. User identified by UID only. PII keys are stripped by `reportError` before anything is stored: identifiers (`userId`, `uid`, `email`, `linkedCloudId`, `documentId`, `docId`, `docUuid`, `localId`, `versionId`, `sessionId`, `personaId`, `domainId`, `labelId`, `noteId`, `threadId`) and anything the person wrote (`title`, `docTitle`, `content`, `text`, `rawContent`, `summary`, `tag`, `theme`, `label`, `name`, `query`, `snippet`, `prompt`, `answer`, `message`). Redaction matches the exact key name, so the list covers whole families: `docId` next to `documentId` is the same identifier under another name. These are stripped before entering `activity_log_v1` in `localStorage` or Sentry.
-- **Langfuse:** AI request observability (tokens, model, usage). No user note content or model generation text stored — only metadata and token metrics.
+## Isolation and access control
 
-## Shared Injection Patterns
+Postgres row-level security is the enforcement point; the client is not trusted.
 
-Injection patterns are maintained in a single source: `src/shared/ai/injectionPatterns.ts`. Both `api/chat.ts` (Vercel Edge) and `functions/src/shared/aiUtils.ts` (Cloud Functions) import from this file. A parity test exists at `src/features/ai/shared/__tests__/injectionPatterns.test.ts`.
+- Every per-user table carries `user_id` and a policy requiring
+  `user_id = auth.uid()` for select, insert, update and delete.
+- Derived AI tables carry a second condition — the row must belong to a note the
+  same user owns:
+  `exists (select 1 from documents d where d.uuid = document_id and d.user_id = auth.uid())`.
+  This is why derived rows are keyed by the note's permanent uuid and not by its
+  local id; sending the local id produces a silent zero-row result, which has
+  been the cause of three separate defects.
+- Roles live in `users.role`. Admin is assigned by hand in the database; the
+  client cannot write the field.
+- Account deletion removes `local_store_records` explicitly, then the `users`
+  row — which cascades to documents, versions, drafts, summaries and vectors —
+  then the auth record. Since `0.8.32` it also wipes the device.
 
-> **Note:** Cloud Functions maintain a mirror copy with a "keep in sync" comment due to separate `rootDir`/`tsconfig.json`. After Supabase migration, both sides will import from a single shared package.
+---
 
-## Известные компромиссы (документированные)
+## API service hardening
 
-- **Черновик сессии в IndexedDB лежит plaintext у E2E-юзеров** (#84, вариант B).
-  Черновик — автосейв рабочего состояния, а не хранимая заметка: он затирается
-  при завершении сессии и чистится при выходе с очисткой данных. localStorage-
-  копия при включённом шифровании по-прежнему подавлена (SEC-56). Если
-  threat-model ужесточается — вариант A (шифровать content/title тем же
-  maybeEncrypt) описан в `docs/audit-cleanup-plan.md` §3.10.
-- **Стрим + fallback списывают два слота** (#77). Остаточный случай после
-  refund-on-disconnect — обрыв соединения посреди стрима: генерация на обеих
-  попытках реально произошла. Вариант A (списывать после первого байта
-  апстрима) отклонён — переносит биллинг в середину запроса и дробит атомарный
-  claim cooldown+лимит; решение задокументировано в `useAIChat.ts`.
+Every AI endpoint enforces, in this order:
 
-## Metadata Exposure (AUDIT-M17, осознанный компромисс)
+- **Authentication** — a Supabase JWT, verified before anything else.
+- **Consent** — AI consent for analysis and chat, indexing consent for vectors.
+  Refusal is a 403 with a distinct code, not a generic error.
+- **Schema validation** — Zod on every endpoint; content is capped at 50 000
+  characters.
+- **Prompt-injection screening** — a shared list of 21 patterns, Latin and
+  Cyrillic, in `src/shared/ai/injectionPatterns.ts`, applied to custom system
+  prompts and user messages. Invisible characters are normalised first, so a
+  guard phrase cannot be broken up with zero-width joiners.
+- **Input sanitisation** — special token markers (`<|system|>`, `<|im_start|>`,
+  `[INST]`, `<developer>`, …) are stripped.
+- **Output sanitisation** — DOMPurify over model output. The client's markdown
+  renderer must never gain `rehype-raw`: it would re-enable XSS from streamed
+  output. Only `rehype-sanitize` is used, and the constraint is repeated in the
+  component source.
+- **Rate limiting**, in three independent layers:
+  - a per-user daily limit for interactive calls (default 30; administrators 60);
+  - a per-user daily limit for background calls (default 50) plus a sliding
+    window per endpoint (default 20 per minute), so a batch cannot drain a day
+    in one burst;
+  - a deployment-wide daily ceiling on requests and tokens, with an optional
+    hard spend limit in roubles.
+  Quota is refunded when a request fails or the client disconnects before an
+  answer arrives — tokens the provider actually produced are paid for and never
+  refunded.
+- **Edge rate limiting** — nginx limits requests per IP independently of all of
+  the above.
 
-Шифрование покрывает содержимое; часть метаданных остаётся в открытом виде
-в базе. Принято сознательно — без этого ломаются синхронизация, лимиты и
-дедупликация. Поле за полем:
+Note-derived text is fenced inside the prompt with explicit markers stating that
+the content is data and never instructions.
 
-| Поле | Где | Почему видно |
-| --- | --- | --- |
-| `documentId` / `uuid`, `firstSessionAt`, `lastSessionAt`, `sessionsCount` | documents, versions | Ключи строк и сортировка лент; реляционные связи |
-| `wordCount`, `duration`, `wpm` | documents, versions | Статистика прогресса; шифрование сделало бы невозможным server-side aggregate |
-| `dim`, `processedAt` | ai_embeddings | Проверка совместимости модели и freshness-фильтр выгрузки (AUD-8) |
-| `schemaV`, `_encrypted`, `version` | все таблицы | Миграции и ветвление чтения |
-| `currentVersion`, `totalWords` | documents | Conflict detection (MH1) и reconcile |
-| Размеры строк (vectorsJson, content) | физический уровень | Postgres не шифрует длины |
+---
 
-Чего это не раскрывает: тексты, заголовки, теги, содержимое эмбеддингов
-(vectorsJson/chunkTexts/model/contentHash шифруются, `ENCRYPT_FIELDS`).
-Что раскрывает косвенно: активность по дням (timestamps) и объём архива
-(word counts) — статистический профиль поверх шифротекста.
+## Transport and headers
 
-Граница, которую шифрование не закрывает в принципе: при включённых AI-функциях
-plaintext заметок уходит на сервер для обработки моделью (embed/chat/summary).
-Это consent-gated; формулировка согласия обязана это называть прямо (AUDIT-MH7).
+Served by nginx over TLS: HSTS with preload, `X-Frame-Options: DENY`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin`, a Permissions-Policy disabling camera,
+microphone and geolocation, COOP/CORP, `frame-ancestors: none`,
+`object-src: none`, and a Content-Security-Policy. CSP violations are reported to
+the API service, which rate-limits reports per origin.
+
+`vercel.json` still exists in the repository and is **not** the source of these
+headers; it is a leftover from the previous hosting.
+
+---
+
+## Analytics and error reporting
+
+- **PostHog** — opt-in only. Every tracking call checks consent first;
+  `person_profiles: 'identified_only'`.
+- **Sentry and the in-app activity log** — `maskAllText`, `blockAllMedia`, the
+  user identified by uid alone. `reportError` strips personal keys before
+  anything is stored: identifiers (`userId`, `uid`, `email`, `documentId`,
+  `docId`, `localId`, `versionId`, `sessionId`, `personaId`, `labelId`,
+  `noteId`, `threadId`, …) and anything the person wrote (`title`, `content`,
+  `text`, `summary`, `tag`, `theme`, `label`, `name`, `query`, `snippet`,
+  `prompt`, `answer`, `message`). Redaction matches exact key names, so the list
+  deliberately covers families — `docId` beside `documentId` is the same thing
+  under another name.
+- **Langfuse** — AI request observability: tokens, model, usage. No note content
+  and no model output.
+
+---
+
+## Known open weaknesses
+
+Listed because a security document that hides them is worth less than none.
+Details and fix plans are in `docs/ag-audit-2026-09-03-tickets.md`.
+
+| | Weakness | Consequence |
+| :--- | :--- | :--- |
+| `AG-ISO-1` | AI stores in IndexedDB carry no account. `aiPortrait` is a single row under the key `'singleton'`. | On a shared device, if the first account signs out without choosing to erase, the second account can read the first one's portrait, chat memory and beliefs — and an upload will write them into the second account's cloud data. |
+| `AG-ISO-2` | Five retrieval paths read every document on the device with no owner filter. | Search results and chat context can include another owner's notes. |
+| `AG-DEL-3` | Two code paths react to a cloud tombstone; one of them does not mark the note local-only. | A note deleted on one device can be re-uploaded from another and reappear. Unverified — see the ticket. |
+| `AG-RESTORE-2` | Bulk reads are unpaginated and stop at the server's row cap without an error. | On a large archive a restore can be silently incomplete. |
+
+The default on sign-out is to **keep** local data; erasing is a choice offered in
+the dialogue ("this is someone else's computer"). That is a deliberate product
+decision, not a defect — but it is the precondition that makes `AG-ISO-1`
+reachable, so it is named here rather than left implicit.
+
+---
+
+## Documented trade-offs
+
+- **The session draft is stored in IndexedDB as plaintext even for vault users.**
+  A draft is an autosave of working state rather than a stored note: it is
+  overwritten when the session ends and removed on sign-out with erasure. The
+  `localStorage` copy is suppressed while encryption is on. If the threat model
+  tightens, encrypting it with the same helper is described in
+  `docs/audit-cleanup-plan.md` §3.10.
+- **A stream that falls back mid-generation charges two slots.** The remaining
+  case after refund-on-disconnect: the connection drops mid-stream and both
+  attempts really did generate. Charging after the first upstream byte was
+  rejected — it moves billing into the middle of a request and splits an atomic
+  claim.
