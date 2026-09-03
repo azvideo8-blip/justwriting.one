@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.31 — 2026-09-03
+
+- **[RU]** Кнопка «Убрать разборы без заметок» в Настройках → Синхронизация. Убирает разборы и поисковые векторы удалённых заметок — они оставались после удаления по старой логике и лежали мёртвым грузом: отправить их нельзя, а восстановить из них нечего. Перед удалением показывается число и предупреждение, что это безвозвратно; сами заметки и их текст не затрагиваются.
+- **[EN]** A "Remove analyses with no note" button in Settings → Sync. It removes analyses and search vectors of deleted notes — they were left behind by the old deletion logic and sat as dead weight: they cannot be uploaded and nothing can be restored from them. The count and an irreversibility warning are shown first; notes and their text are not affected.
+- **[RU]** Уборка сверяется с облаком и без этой сверки не делает ничего. «Заметки нет на устройстве» и «заметки нет вообще» — разные вещи: на втором устройстве локально лежит только часть архива, и уборка по одному локальному признаку снесла бы разборы живых заметок.
+- **[EN]** The cleanup checks against the cloud and does nothing without that check. "The note is not on this device" and "the note does not exist" are different things: a second device holds only part of the archive locally, and a cleanup by the local signal alone would destroy analyses of living notes.
+
 ## 0.8.30 — 2026-09-02
 
 - **[RU]** «Выйти и стереть всё с этого компьютера» теперь действительно стирает всё. Список стираемого перечислял ключи поимённо и дважды разошёлся с приложением: кэш разделов портрета, журнал событий, наблюдения о том, как человек пишет, его поисковые запросы со стенда и незавершённый черновик оставались в браузере. Список перевёрнут — перечисляются настройки устройства (тема, язык, ширина панели), стирается всё остальное. Забытая настройка теперь просто сбросится, а не оставит данные лежать.

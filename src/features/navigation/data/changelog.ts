@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.31',
+    date: '2026-09-03',
+    items: [
+      { category: 'new', ru: 'Кнопка «Убрать разборы без заметок» в Настройках → Синхронизация: убирает разборы и векторы удалённых заметок, показав число и предупредив, что это безвозвратно', en: 'A "Remove analyses with no note" button in Settings → Sync: it removes analyses and vectors of deleted notes, showing the count and warning that it is irreversible' },
+      { category: 'fix', ru: 'Уборка сверяется с облаком и без сверки не делает ничего — иначе на втором устройстве она снесла бы разборы живых заметок', en: 'The cleanup checks against the cloud and does nothing without it — otherwise on a second device it would destroy analyses of living notes' },
+    ],
+  },
+  {
     version: '0.8.30',
     date: '2026-09-02',
     items: [
