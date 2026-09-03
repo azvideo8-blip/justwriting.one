@@ -1,5 +1,7 @@
 // src/features/ai/services/AIDerivedDataSyncService.ts
 import { getLocalDb } from '../../../core/storage/localDb';
+import { DataProvider } from '../../../core/data';
+import type { ProviderRecord } from '../../../core/data/types';
 import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { LocalStoreSyncService, getLocalStoreRecordCounts } from '../../../core/services/LocalStoreSyncService';
@@ -11,6 +13,14 @@ export interface DerivedSyncProgress {
   phase: 'summaries' | 'embeddings' | 'stores';
   current: number;
   total: number;
+}
+
+/** Производные, за которыми не стоит заметки ни на устройстве, ни в облаке. */
+export interface OrphanSurvey {
+  summaries: string[];
+  embeddings: string[];
+  /** false — облако недоступно, и вывод о сиротстве делать нельзя. */
+  cloudChecked: boolean;
 }
 
 export interface DerivedSyncResult {
@@ -190,6 +200,78 @@ export const AIDerivedDataSyncService = {
     }
 
     return finish();
+  },
+
+  /**
+   * Разборы и векторы, за которыми не стоит заметки — ни на устройстве, ни в
+   * облаке.
+   *
+   * Такие остаются после удаления заметки по старой логике: она сносила
+   * локальные производные, но облачные копии и часть локальных семейств не
+   * трогала. Отправить их нельзя (политика доступа требует заметку), и лежат
+   * они мёртвым грузом.
+   *
+   * ОБЛАЧНАЯ СВЕРКА ОБЯЗАТЕЛЬНА, и это главное здесь. «Заметки нет на
+   * устройстве» и «заметки нет вообще» — разные вещи: на втором устройстве
+   * локально лежит часть архива, и уборка по одному локальному признаку снесла
+   * бы разборы живых заметок. Если облако недоступно, проход не возвращает
+   * ничего: лучше не убрать, чем убрать лишнее.
+   */
+  async findOrphanedDerivatives(userId: string): Promise<OrphanSurvey> {
+    const empty: OrphanSurvey = { summaries: [], embeddings: [], cloudChecked: false };
+    if (!userId || userId.startsWith('guest_')) return empty;
+
+    let cloudUuids: Set<string>;
+    try {
+      const cloudDocs = await DataProvider.getUserDocuments(userId);
+      cloudUuids = new Set(
+        cloudDocs.map((d: ProviderRecord) => String((d as { uuid?: unknown; id?: unknown }).uuid ?? (d as { id?: unknown }).id ?? ''))
+          .filter(Boolean),
+      );
+    } catch (e) {
+      reportError(e, { action: 'findOrphanedDerivatives_cloudList' }, 'warning');
+      return empty;
+    }
+
+    const db = await getLocalDb();
+    const documents = await db.getAll('documents');
+    const known = new Set<string>(cloudUuids);
+    for (const doc of documents) {
+      known.add(doc.id);
+      if (doc.uuid) known.add(doc.uuid);
+    }
+
+    const isOrphan = (r: { documentId: string; documentUuid?: string | undefined }): boolean =>
+      !known.has(r.documentId) && !(r.documentUuid !== undefined && known.has(r.documentUuid));
+
+    const summaries = (await db.getAll('aiSummaries')).filter(isOrphan).map(r => r.documentId);
+    const embeddings = (await db.getAll('aiEmbeddings')).filter(isOrphan).map(r => r.documentId);
+
+    return { summaries, embeddings, cloudChecked: true };
+  },
+
+  /**
+   * Убирает найденные сироты с устройства. Облачных копий у них нет по
+   * определению — база их и не приняла бы.
+   *
+   * Опись делается заново, а не берётся готовой: между показом числа человеку и
+   * нажатием могла приехать синхронизация, и удалять по устаревшему списку
+   * значит удалять то, что уже перестало быть сиротой.
+   */
+  async deleteOrphanedDerivatives(userId: string): Promise<{ summaries: number; embeddings: number }> {
+    const survey = await AIDerivedDataSyncService.findOrphanedDerivatives(userId);
+    if (!survey.cloudChecked) return { summaries: 0, embeddings: 0 };
+
+    const db = await getLocalDb();
+    let summaries = 0;
+    let embeddings = 0;
+    for (const id of survey.summaries) {
+      try { await db.delete('aiSummaries', id); summaries++; } catch { /* ignore */ }
+    }
+    for (const id of survey.embeddings) {
+      try { await db.delete('aiEmbeddings', id); embeddings++; } catch { /* ignore */ }
+    }
+    return { summaries, embeddings };
   },
 
   /**

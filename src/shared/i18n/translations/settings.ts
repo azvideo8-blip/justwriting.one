@@ -24,6 +24,13 @@ export const settingsTranslations: Translations = {
   settings_sync_derived_progress: { ru: 'Отправка разборов и диалогов...', en: 'Uploading analysis and dialogues...' },
   settings_sync_derived_done: { ru: 'Синхронизировано: {summaries} разборов, {embeddings} векторов, {stores} записей', en: 'Synced: {summaries} summaries, {embeddings} vectors, {stores} records' },
   settings_sync_derived_orphaned: { ru: 'Пропущено разборов без заметки: {orphaned} — сами заметки удалены', en: 'Skipped analyses with no note: {orphaned} — those notes were deleted' },
+  settings_sync_orphans_button: { ru: 'Убрать разборы без заметок', en: 'Remove analyses with no note' },
+  settings_sync_orphans_checking: { ru: 'Ищу разборы без заметок...', en: 'Looking for analyses with no note...' },
+  settings_sync_orphans_none: { ru: 'Разборов без заметок нет', en: 'No analyses without a note' },
+  settings_sync_orphans_offline: { ru: 'Облако недоступно — без сверки с ним убирать нельзя: заметка может быть жива, просто не на этом устройстве', en: 'The cloud is unreachable — without checking it nothing can be removed: a note may be alive, just not on this device' },
+  settings_sync_orphans_confirm_title: { ru: 'Убрать разборы без заметок?', en: 'Remove analyses with no note?' },
+  settings_sync_orphans_confirm: { ru: 'Найдено записей: {count}. Это разборы и векторы удалённых заметок — самих заметок нет ни здесь, ни в облаке. Они будут удалены с устройства безвозвратно. Заметки и их текст не затрагиваются.', en: 'Found {count} records. These are analyses and vectors of deleted notes — the notes exist neither here nor in the cloud. They will be permanently removed from the device. Notes and their text are not affected.' },
+  settings_sync_orphans_done: { ru: 'Убрано: {summaries} разборов, {embeddings} векторов', en: 'Removed: {summaries} analyses, {embeddings} vectors' },
   settings_sync_derived_failed: { ru: 'Не удалось отправить: {failed}', en: 'Failed to upload: {failed}' },
   settings_sync_derived_locked: { ru: 'Сейф заблокирован. Разблокируйте шифрование для синхронизации', en: 'Vault is locked. Unlock encryption to sync' },
 

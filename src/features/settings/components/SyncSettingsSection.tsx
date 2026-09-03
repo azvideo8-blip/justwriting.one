@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle, CloudDownload, AlertTriangle } from 'lucide-react';
+import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle, CloudDownload, AlertTriangle, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
@@ -11,6 +11,7 @@ import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { SyncService } from '../../../core/services/SyncService';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getOversizedRecordCount } from '../../../core/services/LocalStoreSyncService';
 
 interface SyncSettingsSectionProps {
@@ -24,16 +25,20 @@ interface SyncSettingsSectionProps {
     skippedLocked: boolean;
   }>;
   renderRestoreModal?: (props: { open: boolean; onClose: () => void }) => ReactNode;
+  onFindOrphans?: (userId: string) => Promise<{ summaries: string[]; embeddings: string[]; cloudChecked: boolean }>;
+  onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number }>;
 }
 
-export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreModal }: SyncSettingsSectionProps) {
+export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreModal, onFindOrphans, onDeleteOrphans }: SyncSettingsSectionProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(userId);
+  const { confirm: confirmDialog } = useConfirmDialog();
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncingDerived, setSyncingDerived] = useState(false);
+  const [cleaningOrphans, setCleaningOrphans] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [autoSync, setAutoSync] = useState(
     () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
@@ -60,6 +65,50 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
       showToast(t('error_generic_action'), 'error');
     } finally {
       setSyncingAll(false);
+    }
+  };
+
+  /**
+   * Уборка производных, за которыми не осталось заметки.
+   *
+   * Сначала опись и подтверждение с числом — это удаление, и молча его делать
+   * нельзя. Отдельно обрабатывается недоступное облако: без сверки с ним
+   * «заметки нет» означает лишь «нет на этом устройстве», и уборка снесла бы
+   * разборы живых заметок.
+   */
+  const handleCleanOrphans = async () => {
+    if (!onFindOrphans || !onDeleteOrphans) return;
+    setCleaningOrphans(true);
+    try {
+      const survey = await onFindOrphans(userId);
+      if (!survey.cloudChecked) {
+        showToast(t('settings_sync_orphans_offline'), 'error');
+        return;
+      }
+      const count = survey.summaries.length + survey.embeddings.length;
+      if (count === 0) {
+        showToast(t('settings_sync_orphans_none'), 'success');
+        return;
+      }
+      const ok = await confirmDialog({
+        title: t('settings_sync_orphans_confirm_title'),
+        message: t('settings_sync_orphans_confirm', { count: String(count) }),
+      });
+      if (!ok) return;
+
+      const removed = await onDeleteOrphans(userId);
+      showToast(
+        t('settings_sync_orphans_done', {
+          summaries: String(removed.summaries),
+          embeddings: String(removed.embeddings),
+        }),
+        'success',
+      );
+    } catch (err) {
+      reportError(err, { action: 'cleanOrphanedDerivatives' });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setCleaningOrphans(false);
     }
   };
 
@@ -235,6 +284,27 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 </>
               )}
             </Button>
+
+            {onFindOrphans && onDeleteOrphans && (
+              <Button
+                onClick={() => void handleCleanOrphans()}
+                disabled={cleaningOrphans}
+                data-testid="clean-orphans-btn"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors disabled:opacity-50"
+              >
+                {cleaningOrphans ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    {t('settings_sync_orphans_checking')}
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    {t('settings_sync_orphans_button')}
+                  </>
+                )}
+              </Button>
+            )}
 
             {renderRestoreModal ? renderRestoreModal({ open: restoreModalOpen, onClose: () => setRestoreModalOpen(false) }) : null}
           </>
