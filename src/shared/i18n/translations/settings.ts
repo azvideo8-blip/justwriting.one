@@ -163,6 +163,7 @@ export const settingsTranslations: Translations = {
     ru: 'Ошибка отправки в облако ({reason}): {queued} заметок поставлены в очередь',
     en: 'Cloud upload error ({reason}): {queued} documents queued for retry',
   },
+  sync_off_all_uploaded: { ru: 'Всё есть в облаке, но автоотправка выключена — новое туда само не поедет', en: 'Everything is in the cloud, but auto-upload is off — new writing will not go there by itself' },
   sync_paused_unsynced: {
     ru: 'Не синхронизировано заметок: {count}',
     en: 'Unsynced documents: {count}',

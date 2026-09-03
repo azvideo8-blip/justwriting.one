@@ -169,7 +169,11 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
   // Guests have no cloud sync relationship at all, so isCloudConnected
   // staying false for them isn't a "cloud unavailable" problem — gate on
   // being an actual authenticated user, same as AppTab's settings row.
-  const showSyncIndicator = !isGuest && syncStatus.autoSyncEnabled && syncStatus.status !== 'synced';
+  // Значок показывается и при выключенной автоотправке: незалитые заметки —
+  // повод сказать об этом, а не молчать, потому что отправка выключена.
+  const showSyncIndicator = !isGuest
+    && syncStatus.status !== 'synced'
+    && syncStatus.status !== 'sync_off';
 
   const navItems = [
     { id: 'write',   path: '/',       icon: <PenLine size={20} />,   label: t('nav_write') },

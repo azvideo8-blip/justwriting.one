@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.35',
+    date: '2026-09-03',
+    items: [
+      { category: 'fix', ru: '«Все данные синхронизированы» больше не говорится, когда это неправда: при выключенной автоотправке состояние назначалось не глядя на данные', en: '"All data synced" is no longer said when untrue: with auto-upload off the state was set without looking at the data' },
+      { category: 'fix', ru: 'Перепривязка по постоянному номеру действительно запускается — раньше она стояла за воротами, которые её не пускали', en: 'Relinking by permanent id actually runs — it used to sit behind a gate that excluded it' },
+      { category: 'improvement', ru: 'Значок синхронизации виден и при выключенной автоотправке, а отказ выгрузить заметку больше не молчит', en: 'The sync indicator is visible with auto-upload off, and a refusal to upload a note is no longer silent' },
+    ],
+  },
+  {
     version: '0.8.34',
     date: '2026-09-03',
     items: [

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.35 — 2026-09-03
+
+- **[RU]** «Все данные синхронизированы» больше не говорится, когда это неправда. При выключенной автоотправке — а она выключена по умолчанию — состояние назначалось «синхронизировано» сразу, не глядя на данные, а счётчик незалитых принудительно обнулялся. Приложение сообщало, что всё в облаке, человеку, у которого четырнадцать заметок лежали ровно в одном браузере. Теперь незалитые считаются всегда, «синхронизировано» говорится только когда в облаке действительно всё, а выключенная автоотправка при полном облаке — отдельное состояние со своими словами.
+- **[EN]** "All data synced" is no longer said when it is untrue. With auto-upload off — and it is off by default — the state was set to "synced" immediately, without looking at the data, and the count of un-uploaded notes was forced to zero. The app told someone everything was in the cloud while fourteen notes lived in exactly one browser. Un-uploaded notes are now always counted, "synced" is said only when the cloud really has everything, and auto-upload being off with a complete cloud is its own state with its own words.
+- **[RU]** Значок синхронизации показывается и при выключенной автоотправке: незалитые заметки — повод сказать, а не молчать.
+- **[EN]** The sync indicator appears with auto-upload off as well: notes missing from the cloud are worth saying out loud, not staying quiet about.
+- **[RU]** Перепривязка по постоянному номеру теперь действительно запускается. Проход проверял пригодность заметок до чтения облака, и заметки, помеченные «только на устройстве», в эту проверку не попадали — то есть исправление стояло за воротами, которые его не пускали, а кнопка честно сообщала «синхронизировано 0».
+- **[EN]** Relinking by permanent id now actually runs. The pass tested notes for eligibility before reading the cloud, and notes marked device-only failed that test — so the fix sat behind a gate that excluded it, and the button truthfully reported "0 synced".
+- **[RU]** Отказ выгрузить заметку, помеченную «только на устройстве», больше не молчит: кнопка, которая ничего не делает и ничего не говорит, читается как поломка.
+- **[EN]** Refusing to upload a device-only note is no longer silent: a button that does nothing and says nothing reads as broken.
+
 ## 0.8.34 — 2026-09-03
 
 - **[RU]** Заметка, потерявшая связь со своей облачной копией, теперь находит её по постоянному номеру и уезжает в облако. Раньше вернуть такую было нельзя ничем: выгрузка как новой падала — строка с этим номером уже существовала, — а сверка по времени не помогала, потому что у осиротевшей строки записано время её создания, а не дата заметки. Четырнадцать заметок так и лежали только на устройстве.

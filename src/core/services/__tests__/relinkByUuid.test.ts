@@ -19,10 +19,13 @@ import 'fake-indexeddb/auto';
  */
 
 const updateLinkedCloudId = vi.fn(async () => undefined);
+const getGuestDocuments = vi.fn(async () => [] as unknown[]);
+const getUserDocuments = vi.fn(async () => [] as unknown[]);
 
 vi.mock('../LocalStorageService', () => ({
-  LocalStorageService: { updateLinkedCloudId },
+  LocalStorageService: { updateLinkedCloudId, getGuestDocuments },
 }));
+vi.mock('../DocumentService', () => ({ DocumentService: { getUserDocuments } }));
 vi.mock('../../../shared/activity/useActivityLogStore', () => ({
   useActivityLogStore: { getState: () => ({ addActivity: vi.fn() }) },
 }));
@@ -117,5 +120,28 @@ describe('перепривязка по постоянному номеру', ()
     const n = await __testing.relinkOrphaned(docs, [cloud({ uuid: 'другой-номер' })]);
 
     expect(n).toBe(0);
+  });
+
+  /**
+   * Проверка НАСТОЯЩЕГО входа, а не внутренней функции.
+   *
+   * `relinkOrphanedDocuments` спрашивает `isRelinkCandidate` ДО чтения облака и
+   * возвращает 0, если кандидатов нет. Тот принимает только «не связана», а
+   * заметки, ради которых сверка по номеру и писалась, помечены «только на
+   * устройстве» — то есть исправление стояло за воротами, которые его не
+   * пускали, и проход честно сообщал «синхронизировано 0».
+   *
+   * Тест выше этого не видел: он звал relinkOrphaned напрямую.
+   */
+  it('через настоящий вход возвращает заметку, помеченную «только на устройстве»', async () => {
+    const docs = [local({ localOnly: true })];
+    getGuestDocuments.mockResolvedValue(docs);
+    getUserDocuments.mockResolvedValue([cloud()]);
+
+    const { CloudSyncService } = await import('../CloudSyncService');
+    const n = await CloudSyncService.relinkOrphanedDocuments('u1');
+
+    expect(n).toBe(1);
+    expect(updateLinkedCloudId).toHaveBeenCalledWith('local_1', 'cloud_1');
   });
 });

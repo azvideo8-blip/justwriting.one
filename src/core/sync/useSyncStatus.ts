@@ -4,7 +4,15 @@ import { useOnlineStatus } from '../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../services/SyncService';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
-export type SyncStatus = 'synced' | 'offline' | 'cloud_unavailable' | 'pending' | 'unsynced';
+export type SyncStatus =
+  | 'synced'
+  | 'offline'
+  | 'cloud_unavailable'
+  | 'pending'
+  | 'unsynced'
+  /** Автосинхронизация выключена, и в облаке всё же всё есть. Не то же самое,
+   *  что «синхронизировано»: новое туда само не поедет. */
+  | 'sync_off';
 
 export interface SyncStatusState {
   status: SyncStatus;
@@ -103,7 +111,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
   // Subscribe to the shared sync status poll (deduped across hook instances)
   useEffect(() => {
-    if (!userId || !autoSyncEnabled) {
+    if (!userId) {
       // Defer to avoid synchronous setState in effect body
       const t = setTimeout(() => {
         setPendingCount(0);
@@ -169,16 +177,23 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   }, [userId, autoSyncEnabled, pendingCount]);
 
   // Determine status (pure render logic)
+  //
+  // «Синхронизировано» говорится ТОЛЬКО когда в облаке действительно всё.
+  // Раньше выключенная автосинхронизация давала этот ответ сразу, не глядя на
+  // данные, — а выключена она по умолчанию. То есть приложение сообщало
+  // «все данные синхронизированы» человеку, у которого четырнадцать заметок
+  // лежали в одном браузере. «Мы не проверяем» — не то же самое, что «всё
+  // хорошо», и путать их нельзя нигде.
   let status: SyncStatus = 'synced';
 
-  if (!autoSyncEnabled) {
-    status = 'synced';
-  } else if (!isBrowserOnline) {
+  if (!isBrowserOnline) {
     status = 'offline';
   } else if (pendingCount > 0 && showPending) {
     status = 'pending';
   } else if (unsyncedCount > 0) {
     status = 'unsynced';
+  } else if (!autoSyncEnabled) {
+    status = 'sync_off';
   }
 
   return { status, pendingCount, unsyncedCount, autoSyncEnabled };

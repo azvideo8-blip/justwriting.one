@@ -97,7 +97,7 @@ export const CloudSyncService = {
    */
   async relinkOrphanedDocuments(userId: string): Promise<number> {
     const localDocs = await LocalStorageService.getGuestDocuments(userId);
-    if (!localDocs.some(isRelinkCandidate)) return 0;
+    if (!localDocs.some(hasRelinkWork)) return 0;
     const cloudDocs = await DocumentService.getUserDocuments(userId);
     return relinkOrphaned(localDocs, cloudDocs);
   },
@@ -285,6 +285,14 @@ export const CloudSyncService = {
             await tx.done;
           }
         } catch { /* ignore */ }
+        // Кнопка, которая ничего не делает и молчит, читается как поломка.
+        // Отказ здесь законный, но человек должен узнать причину.
+        useActivityLogStore.getState().addActivity(
+          'Заметка помечена «только на устройстве» — в облако не отправлена',
+          { action: 'addCloudCopy_localOnly', documentId: localDocumentId },
+          'warning',
+          'sync',
+        );
         return '';
       }
 
@@ -846,6 +854,23 @@ export const CloudSyncService = {
 // AUDIT-part2 5.1: интерпретация флагов через единый syncStatusOf.
 function isRelinkCandidate(doc: LocalDocument): boolean {
   return syncStatusOf(doc) === 'unlinked-new' && !!doc.firstSessionAt;
+}
+
+/**
+ * Есть ли для заметки работа у перепривязки — вопрос, который задаётся ДО
+ * чтения облака и решает, читать ли его вообще.
+ *
+ * Отдельно от isRelinkCandidate, потому что тот описывает только сверку по
+ * времени. Сверка по постоянному номеру работает и с заметками, помеченными
+ * «только на устройстве», — и без этой функции она стояла за воротами,
+ * пропускавшими ровно тех, для кого была написана: проход возвращал 0, не
+ * дойдя до неё.
+ */
+function hasRelinkWork(doc: LocalDocument): boolean {
+  const status = syncStatusOf(doc);
+  if (status === 'unlinked-new') return !!doc.firstSessionAt || !!doc.uuid;
+  if (status === 'local-only') return !!doc.uuid;
+  return false;
 }
 
 /**

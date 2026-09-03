@@ -219,6 +219,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                     {syncStatus.status === 'cloud_unavailable' && t('sync_paused_cloud_unavailable')}
                     {syncStatus.status === 'pending' && t('sync_paused_pending', { count: String(syncStatus.pendingCount) })}
                     {syncStatus.status === 'unsynced' && t('sync_paused_unsynced', { count: String(syncStatus.unsyncedCount) })}
+                    {syncStatus.status === 'sync_off' && t('sync_off_all_uploaded')}
                   </span>
                 )}
               </div>
