@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.30',
+    date: '2026-09-02',
+    items: [
+      { category: 'fix', ru: '«Выйти и стереть всё с этого компьютера» действительно стирает всё: список перевёрнут — названы настройки устройства, стирается всё остальное', en: '"Sign out and erase everything on this computer" really erases everything: the list is inverted — device settings are named, everything else is erased' },
+      { category: 'fix', ru: 'Удаление заметки уносит её разбор и вектор из облака, а не только с устройства — иначе восстановление вернуло бы удалённое обратно', en: 'Deleting a note removes its analysis and vector from the cloud, not only from the device — otherwise a restore would bring the deleted back' },
+      { category: 'fix', ru: 'Диалоги, память чата, обязательства, ветки, хроника и реестр тем удалённой заметки тоже уходят из облака', en: 'Dialogues, chat memory, commitments, threads, timeline and theme ledger of a deleted note now leave the cloud too' },
+    ],
+  },
+  {
     version: '0.8.29',
     date: '2026-09-02',
     items: [

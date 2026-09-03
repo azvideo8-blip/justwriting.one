@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.30 — 2026-09-02
+
+- **[RU]** «Выйти и стереть всё с этого компьютера» теперь действительно стирает всё. Список стираемого перечислял ключи поимённо и дважды разошёлся с приложением: кэш разделов портрета, журнал событий, наблюдения о том, как человек пишет, его поисковые запросы со стенда и незавершённый черновик оставались в браузере. Список перевёрнут — перечисляются настройки устройства (тема, язык, ширина панели), стирается всё остальное. Забытая настройка теперь просто сбросится, а не оставит данные лежать.
+- **[EN]** "Sign out and erase everything on this computer" now really does erase everything. The list of what to erase named keys one by one and drifted from the app twice: the portrait section cache, the event log, observations about how the person writes, their bench search queries and an unfinished draft all stayed in the browser. The list is inverted — device settings (theme, language, panel width) are named, everything else is erased. A forgotten setting now merely resets instead of leaving data behind.
+- **[RU]** Удаление заметки уносит её разбор и вектор из облака, а не только с устройства. Пока в облаке лежала малая часть разборов, это было незаметно; теперь там весь архив, и восстановление вернуло бы разбор удалённой заметки обратно. То же исправлено для кнопки «удалить разбор»: она стирала облачную строку по локальному номеру заметки, которого в облаке нет.
+- **[EN]** Deleting a note removes its analysis and vector from the cloud, not only from the device. While the cloud held a small share of analyses this went unnoticed; now the whole archive is there, and a restore would bring a deleted note's analysis back. The same is fixed for the "delete analysis" button: it erased the cloud row by the note's local number, which the cloud does not use.
+- **[RU]** Диалоги, память чата, обязательства, ветки, хроника, история жизни и реестр тем удалённой заметки тоже уходят из облака.
+- **[EN]** Dialogues, chat memory, commitments, threads, timeline, life story and the theme ledger of a deleted note now leave the cloud as well.
+
 ## 0.8.29 — 2026-09-02
 
 - **[RU]** Психологический портрет больше не остаётся в браузере после выхода из аккаунта и не может достаться другому человеку. Его копия хранилась под общим ключом, не привязанным к аккаунту: выход стирал базу и помеченные ключи, а этот — нет. При пустой базе портрет читается из этой копии, то есть следующий вошедший в том же браузере получал чужой портрет в подсказку на каждом ходу разговора. Копия теперь помечена аккаунтом, входит в список стираемого при выходе, а старая общая копия уносится при первом же чтении.
