@@ -3,6 +3,7 @@ import { Loader2, RefreshCw, Upload, Trash2 } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { useLanguage } from '../../../shared/i18n';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { SyncService } from '../../../core/services/SyncService';
 import { reportError } from '../../../shared/errors/reportError';
@@ -16,6 +17,7 @@ interface QueueItem {
 }
 
 export function QueueExplorer({ userId }: { userId: string }) {
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [items, setItems] = useState<QueueItem[]>([]);
@@ -57,8 +59,16 @@ export function QueueExplorer({ userId }: { userId: string }) {
     }
     setSyncingAll(true);
     try {
-      await SyncService.syncPending(userId);
-      showToast('Синхронизация завершена', 'success');
+      const res = await SyncService.syncPending(userId);
+      if (res.skippedReason === 'sync_disabled') {
+        showToast(t('sync_queue_disabled'), 'error');
+      } else if (res.failed > 0) {
+        showToast(t('sync_queue_partial', { drained: String(res.drained), failed: String(res.failed) }), 'error');
+      } else if (res.drained === 0) {
+        showToast(t('sync_queue_empty'), 'success');
+      } else {
+        showToast(t('sync_queue_processed', { drained: String(res.drained) }), 'success');
+      }
     } catch (e) {
       reportError(e, { action: 'queue_sync_all' });
       showToast('Ошибка синхронизации', 'error');

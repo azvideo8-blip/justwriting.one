@@ -21,7 +21,8 @@ export async function cleanupDraftsAfterSave(
   userId: string,
   isGuest: boolean,
   docIdToSync: string | null
-): Promise<void> {
+): Promise<{ cloudSynced: boolean }> {
+  let cloudSynced = false;
   if (isGuest) {
     await clearGuestDraft();
   } else {
@@ -33,17 +34,24 @@ export async function cleanupDraftsAfterSave(
       logger.warn('sessionActions', 'Failed to delete draft', { error: String(delErr) });
     }
     if (docIdToSync) {
-      const { SyncService } = await import('../../../core/services/SyncService');
-      SyncService.syncOne(userId, docIdToSync).catch((e) => {
+      try {
+        const { SyncService } = await import('../../../core/services/SyncService');
+        const cloudId = await SyncService.syncOne(userId, docIdToSync);
+        cloudSynced = Boolean(cloudId);
+      } catch (e) {
         logger.warn('sessionActions', 'Cloud sync failed', { error: String(e) });
-        SyncService.addToQueue(docIdToSync).catch((queueErr) => {
+        try {
+          const { SyncService } = await import('../../../core/services/SyncService');
+          await SyncService.addToQueue(docIdToSync);
+        } catch (queueErr) {
           logger.error('sessionActions', 'Failed to add failed sync to syncQueue', {
             error: String(queueErr),
           });
-        });
-      });
+        }
+      }
     }
   }
+  return { cloudSynced };
 }
 
 async function clearGuestDraft() {

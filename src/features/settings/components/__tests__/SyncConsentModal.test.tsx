@@ -30,7 +30,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
 
   it("clicking 'Turn sync on' sets AUTO_SYNC_ENABLED=true and AUTO_SYNC_ASKED=true and syncs pending", () => {
     const onClose = vi.fn();
-    const syncSpy = vi.spyOn(SyncService, "syncPending").mockResolvedValue();
+    const syncSpy = vi.spyOn(SyncService, "syncPending").mockResolvedValue({ drained: 0, failed: 0 });
 
     render(<SyncConsentModal onClose={onClose} userId="u_sync_123" />);
 

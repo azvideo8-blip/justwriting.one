@@ -151,6 +151,11 @@ export async function unlockVault(userId: string, password: string): Promise<voi
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
+  try {
+    const { SyncService } = await import('./SyncService');
+    await SyncService.reviveLockedTasks(userId);
+    void SyncService.syncPending(userId);
+  } catch { /* non-critical */ }
 }
 
 export async function recoverVaultWithCode(
@@ -197,6 +202,11 @@ export async function recoverVaultWithCode(
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
+  try {
+    const { SyncService } = await import('./SyncService');
+    await SyncService.reviveLockedTasks(userId);
+    void SyncService.syncPending(userId);
+  } catch { /* non-critical */ }
 
   if (getCurrentUser()) {
     try {

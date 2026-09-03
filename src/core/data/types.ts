@@ -23,6 +23,7 @@ export interface IDataProvider {
   clearLabelFromAllDocs(userId: string, labelId: string): Promise<void>;
   renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void>;
   removeTagFromAllDocs(userId: string, tag: string): Promise<void>;
+  getCloudVersionDiscrepancyCount?(userId: string): Promise<number>;
 
   // --- Version Operations ---
   addVersion(userId: string, documentId: string, versionId: string, data: ProviderRecord): Promise<void>;

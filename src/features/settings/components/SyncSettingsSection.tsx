@@ -224,8 +224,22 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 )}
               </div>
               {syncStatus.unsyncedCount > 0 && (
-                <p className="text-[11px] text-text-main/50">
-                  Не отправлено в облако: {syncStatus.unsyncedCount}
+                <div className="space-y-0.5 text-[11px]">
+                  {syncStatus.behindCount > 0 && (
+                    <p className="text-amber-400 font-medium">
+                      {t('sync_behind_count', { count: String(syncStatus.behindCount) })}
+                    </p>
+                  )}
+                  {syncStatus.unlinkedCount > 0 && (
+                    <p className="text-text-main/60">
+                      {t('sync_unlinked_count', { count: String(syncStatus.unlinkedCount) })}
+                    </p>
+                  )}
+                </div>
+              )}
+              {syncStatus.deviceOnlyCount > 0 && (
+                <p className="text-[11px] text-text-main/40">
+                  {t('sync_device_only_count', { count: String(syncStatus.deviceOnlyCount) })}
                 </p>
               )}
               {oversizedCount > 0 && (

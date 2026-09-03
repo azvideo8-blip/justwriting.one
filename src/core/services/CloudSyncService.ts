@@ -14,7 +14,6 @@ import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
 
 import { DataProvider } from '../data';
 
-import pLimit from 'p-limit';
 import { SaveDocumentData } from './storageTypes';
 import { ConflictResolver } from './ConflictResolver';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
@@ -212,6 +211,7 @@ export const CloudSyncService = {
         totalDuration: cloudDoc.totalDuration,
         currentVersion: cloudDoc.currentVersion,
         sessionsCount: cloudDoc.sessionsCount ?? 1,
+        lastSyncedCloudVersion: cloudDoc.currentVersion,
       });
 
       await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId);
@@ -274,7 +274,7 @@ export const CloudSyncService = {
       if (localDoc._locked || localDoc._decryptionError) {
         throw new Error('LOCKED: cannot add cloud copy of locked document');
       }
-      if (localDoc.localOnly) {
+      if (localDoc.localOnly && !localDoc.unlinkedByTombstone) {
         try {
           const syncDb = await getLocalDb();
           const allTasks = await syncDb.getAll('syncQueue');
@@ -304,9 +304,16 @@ export const CloudSyncService = {
             // AUDIT-H3: заметка удалена в облаке. Unlink с флагом localOnly:
             // иначе следующий syncAllUnlinked зальёт её как НОВЫЙ облачный
             // документ и удаление «воскреснет» под другим id.
-            await LocalDocumentService.unlinkFromCloud(localDocumentId);
+            await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone');
             const syncDb = await getLocalDb();
-            await syncDb.delete('syncQueue', `sync_${localDocumentId}`);
+            const tx = syncDb.transaction('syncQueue', 'readwrite');
+            const allTasks = await tx.store.getAll();
+            for (const t of allTasks) {
+              if (t.documentId === localDocumentId || t.id === `sync_${localDocumentId}`) {
+                await tx.store.delete(t.id);
+              }
+            }
+            await tx.done;
             return '';
           }
           if (existingDoc._locked) throw new Error('LOCKED: cannot sync to locked cloud document');
@@ -364,8 +371,16 @@ export const CloudSyncService = {
           for (const ver of localVersions) {
             const cloudVer = cloudVerMap.get(ver.version);
             if (!cloudVer) {
-              // AG-SYNC-4: push if newer than newestCloud OR if filling a gap inside the active window
-              if (ver.version > newestCloud || (ver.version >= oldestCloud && oldestCloud < newestCloud)) {
+              // Older snapshots below oldestCloud were pruned by cloud housekeeping.
+              // Any missing version within [oldestCloud, newestCloud] is a genuine gap.
+              if (ver.version >= oldestCloud || cloudVersions.length === 0) {
+                if (ver.version < newestCloud) {
+                  reportError(
+                    new Error(`Cloud version history gap detected: missing v${ver.version}`),
+                    { action: 'addCloudCopy_versionGap', cloudId, missingVersion: ver.version, oldestCloud, newestCloud },
+                    'warning',
+                  );
+                }
                 missing.push(ver);
               }
             } else if (cloudVer.content !== ver.content) {
@@ -395,9 +410,8 @@ export const CloudSyncService = {
               localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt).getTime() : undefined
             );
           }
-          const limiter = pLimit(3);
-          await Promise.all(missing.map((ver) => limiter(async () => {
-
+          missing.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
+          for (const ver of missing) {
             const idx = localVersions.findIndex(v => v.id === ver.id);
             const prevContent = idx <= 0 ? '' : (localVersions[idx - 1]?.content ?? '');
             const startedAt = ver.sessionStartedAt != null
@@ -437,7 +451,7 @@ export const CloudSyncService = {
               savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
               _encrypted,
             }));
-          })));
+          }
           // A run that ran out of write budget left versions behind. Advancing
           // currentVersion anyway told the cloud it holds text it never received,
           // and returning the id cleared the queue — so the gap became permanent
@@ -458,6 +472,12 @@ export const CloudSyncService = {
               mood: localDoc.mood,
             }));
           }
+          const syncdVer = Math.max(localDoc.currentVersion, existingDoc.currentVersion);
+          try {
+            const db = await getLocalDb();
+            const cur = await db.get('documents', localDocumentId);
+            if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: syncdVer });
+          } catch { /* ignore */ }
           return cloudId;
         }
         await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
@@ -481,10 +501,10 @@ export const CloudSyncService = {
           excludedFromAI: localDoc.excludedFromAI,
         }));
 
-        const limiter = pLimit(3);
-        await Promise.all(versions.map((ver, i) => limiter(async () => {
-
-          const prevContent = i === 0 ? '' : (versions[i - 1]?.content ?? '');
+        const sortedVersions = [...versions].sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
+        for (let i = 0; i < sortedVersions.length; i++) {
+          const ver = sortedVersions[i]!;
+          const prevContent = i === 0 ? '' : (sortedVersions[i - 1]?.content ?? '');
           const startedAt = ver.sessionStartedAt != null
             ? new Date(ver.sessionStartedAt)
             : new Date(ver.savedAt || Date.now());
@@ -524,8 +544,7 @@ export const CloudSyncService = {
             savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
             _encrypted,
           }));
-
-        })));
+        }
 
         await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
@@ -563,6 +582,11 @@ export const CloudSyncService = {
       // exists, and a retry that did not know about it would create a second one.
       await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
       await LocalStorageService.migrateDocumentOwner(localDocumentId, userId);
+      try {
+        const db = await getLocalDb();
+        const cur = await db.get('documents', localDocumentId);
+        if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: cur.currentVersion });
+      } catch { /* ignore */ }
 
 
 
@@ -608,7 +632,7 @@ export const CloudSyncService = {
     data: SaveDocumentData,
     newVersion: number,
     prevContent: string
-  ): Promise<{ forked: boolean }> {
+  ): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean }> {
     if (!navigator.onLine) {
       const syncDb = await getLocalDb();
       await syncDb.put('syncQueue', {
@@ -618,7 +642,7 @@ export const CloudSyncService = {
         createdAt: Date.now(),
         ownerId: userId,
       });
-      return { forked: false };
+      return { forked: false, cloudSynced: false };
     }
     try {
       const getDoc = DocumentService.getDocumentWithDeleted?.bind(DocumentService) ?? DocumentService.getDocument.bind(DocumentService);
@@ -631,10 +655,17 @@ export const CloudSyncService = {
       }
       if (cloudDoc?.deletedAt) {
         // Document was soft-deleted in the cloud (tombstone). Clean up local link and syncQueue.
-        await LocalStorageService.unlinkFromCloud(documentId);
+        await LocalStorageService.unlinkFromCloud(documentId, 'tombstone');
         const syncDb = await getLocalDb();
-        await syncDb.delete('syncQueue', `sync_${documentId}`);
-        return { forked: false };
+        const tx = syncDb.transaction('syncQueue', 'readwrite');
+        const allTasks = await tx.store.getAll();
+        for (const t of allTasks) {
+          if (t.documentId === documentId || t.id === `sync_${documentId}`) {
+            await tx.store.delete(t.id);
+          }
+        }
+        await tx.done;
+        return { forked: false, cloudSynced: false };
       }
       if (!cloudDoc) {
         const syncDb = await getLocalDb();
@@ -645,7 +676,7 @@ export const CloudSyncService = {
           createdAt: Date.now(),
           ownerId: userId,
         });
-        return { forked: false };
+        return { forked: false, cloudSynced: false };
       }
 
       // Reconcile cloud versions before pushing (pull-before-push)
@@ -692,18 +723,22 @@ export const CloudSyncService = {
 
       if (maxCloudVersion >= newVersion) {
         const localDoc = await LocalStorageService.getDocument(documentId);
-        // AUDIT-MH1: конфликт — расхождение с базовой версией, а не строк.
-        // Если известен lastSyncedCloudVersion (версия облака, от которой
-        // строилась локальная правка), divergence = base не совпал с ней.
-        // Иначе — legacy-сравнение контента (старые записи без поля).
-        const baseVersion = newVersion - 1;
-        const hasKnownBase = localDoc?.lastSyncedCloudVersion !== undefined;
-        const hasMatchingBase = hasKnownBase
-          ? localDoc?.lastSyncedCloudVersion === baseVersion
-          : (cloudVerMap.get(baseVersion)?.content === prevContent);
-        const hasContentDivergence = !hasMatchingBase;
+        const cloudHead = cloudVerMap.get(maxCloudVersion);
+        const cloudHeadContent = cloudHead?.content;
 
-        if (hasContentDivergence) {
+        // 1. Idempotent write: cloud already holds this exact content at head
+        if (cloudHeadContent !== undefined && data.content === cloudHeadContent) {
+          newVersion = maxCloudVersion;
+        }
+        // 2. Genuine fast-forward: local edit was built directly on top of cloud head
+        else if (cloudHeadContent !== undefined && prevContent === cloudHeadContent) {
+          // Local started from the cloud head, but local version counter was behind:
+          // advance cleanly to maxCloudVersion + 1 with NO fork
+          newVersion = maxCloudVersion + 1;
+        }
+        // 3. Genuine divergence: cloud moved to maxCloudVersion with different content,
+        // and local created divergent content from an older base
+        else {
           const result = await ConflictResolver.resolveConflict(
             userId,
             documentId,
@@ -713,10 +748,7 @@ export const CloudSyncService = {
             cloudDoc,
             localDoc?.firstSessionAt
           );
-          return result;
-        } else {
-          // Local was just lagging behind cloud without divergence: advance version to maxCloudVersion + 1
-          newVersion = maxCloudVersion + 1;
+          return { ...result, cloudSynced: false };
         }
       }
 
@@ -809,6 +841,7 @@ export const CloudSyncService = {
         'success',
         'sync'
       );
+      return { forked: false, cloudSynced: true };
     } catch (e) {
       reportError(e, { action: 'syncVersionToCloud', documentId, linkedCloudId });
       try {
@@ -824,7 +857,7 @@ export const CloudSyncService = {
         reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
       }
     }
-    return { forked: false };
+    return { forked: false, cloudSynced: false };
   },
 
   /** Pushes the locally-cached AI profile portrait to Supabase. Lives here

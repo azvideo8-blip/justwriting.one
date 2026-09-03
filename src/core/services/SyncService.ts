@@ -6,7 +6,6 @@ import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
-import { syncStatusOf } from '../sync/syncStatus';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
@@ -21,25 +20,26 @@ const DETERMINISTIC_ERROR = /LOCKED|DECRYPTION_ERROR|Invalid sessionStartedAt/;
 async function bumpAttempts(
   taskId: string,
   reason: unknown,
-  mutate: (id: string, patch: { attempts: number; dead: boolean }) => Promise<void>,
+  mutate: (id: string, patch: { attempts: number; dead: boolean; lastError?: string }) => Promise<void>,
 ): Promise<void> {
   const db = await getLocalDb();
   const item = await db.get('syncQueue', taskId);
   if (!item || item.dead) return;
   const attempts = (item.attempts ?? 0) + 1;
-  const dead = DETERMINISTIC_ERROR.test(String(reason)) || attempts >= MAX_ATTEMPTS;
-  await mutate(taskId, { attempts, dead });
+  const reasonStr = String(reason);
+  const dead = DETERMINISTIC_ERROR.test(reasonStr) || attempts >= MAX_ATTEMPTS;
+  await mutate(taskId, { attempts, dead, lastError: reasonStr });
   if (dead) {
-    reportError(new Error('Sync task quarantined'), { taskId, attempts, reason: String(reason) }, 'warning');
+    reportError(new Error('Sync task quarantined'), { taskId, attempts, reason: reasonStr }, 'warning');
     announceQueueChange();
   }
 }
 
-async function markAttempt(taskId: string, patch: { attempts: number; dead: boolean }): Promise<void> {
+async function markAttempt(taskId: string, patch: { attempts: number; dead: boolean; lastError?: string }): Promise<void> {
   const db = await getLocalDb();
   const item = await db.get('syncQueue', taskId);
   if (!item) return;
-  await db.put('syncQueue', { ...item, attempts: patch.attempts, dead: patch.dead });
+  await db.put('syncQueue', { ...item, attempts: patch.attempts, dead: patch.dead, lastError: patch.lastError });
 }
 
 // AUD-25: индикатор синка больше не опрашивает IndexedDB каждые 10 секунд —
@@ -52,6 +52,20 @@ function announceQueueChange(): void {
   } catch { /* non-critical */ }
 }
 
+export interface SyncUnsyncedSummary {
+  unsyncedCount: number;
+  behindCount: number;
+  unlinkedCount: number;
+  deviceOnlyCount: number;
+  hasUnknown: boolean;
+}
+
+export interface SyncPendingResult {
+  drained: number;
+  failed: number;
+  skippedReason?: 'sync_disabled' | 'in_progress' | undefined;
+}
+
 export const SyncService = {
   async addToQueue(documentId: string): Promise<void> {
     const db = await getLocalDb();
@@ -59,12 +73,13 @@ export const SyncService = {
     // drained under whichever account happens to be signed in next.
     const doc = await db.get('documents', documentId);
     const tx = db.transaction('syncQueue', 'readwrite');
-    const existing = await tx.store.getAll();
+    const taskId = `sync_${documentId}`;
+    const existing = await tx.store.get(taskId);
     const cutoff = Date.now() - 60_000;
-    const hasRecent = existing.some(item => item.documentId === documentId && item.createdAt >= cutoff);
-    if (!hasRecent) {
+    // Overwrite or update task; avoid rapid re-queueing of recent tasks unless failed/dead
+    if (!existing || existing.createdAt < cutoff || existing.dead) {
       await tx.store.put({
-        id: `sync_${documentId}_${Date.now()}`,
+        id: taskId,
         documentId,
         type: 'document' as const,
         createdAt: Date.now(),
@@ -75,25 +90,126 @@ export const SyncService = {
     announceQueueChange();
   },
 
+  async removeQueueTasksForDocument(documentId: string): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('syncQueue', 'readwrite');
+    const all = await tx.store.getAll();
+    const matching = all.filter(t => t.documentId === documentId || t.id === `sync_${documentId}`);
+    for (const item of matching) {
+      await tx.store.delete(item.id);
+    }
+    await tx.done;
+    if (matching.length > 0) announceQueueChange();
+  },
+
+  async reviveLockedTasks(userId?: string): Promise<number> {
+    const db = await getLocalDb();
+    const queue = await db.getAll('syncQueue');
+    const toRevive = queue.filter(item =>
+      Boolean(item.dead) &&
+      (item.lastError?.includes('LOCKED') || item.lastError?.includes('locked')) &&
+      (userId ? item.ownerId === undefined || item.ownerId === userId : true)
+    );
+    if (toRevive.length === 0) return 0;
+    const tx = db.transaction('syncQueue', 'readwrite');
+    for (const item of toRevive) {
+      await tx.store.put({ ...item, dead: false, attempts: 0 });
+    }
+    await tx.done;
+    announceQueueChange();
+    return toRevive.length;
+  },
+
   async getPendingCount(): Promise<number> {
     const db = await getLocalDb();
     const all = await db.getAll('syncQueue');
-    return all.filter(i => !i.id.startsWith('lock_cloud_')).length;
+    return all.filter(i => !i.id.startsWith('lock_cloud_') && !i.dead).length;
+  },
+
+  async getDeadCount(): Promise<number> {
+    const db = await getLocalDb();
+    const all = await db.getAll('syncQueue');
+    return all.filter(i => !i.id.startsWith('lock_cloud_') && Boolean(i.dead)).length;
+  },
+
+  async getUnsyncedSummary(userId: string): Promise<SyncUnsyncedSummary> {
+    const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+    let behindCount = 0;
+    let unlinkedCount = 0;
+    let deviceOnlyCount = 0;
+    let hasUnknown = false;
+
+    // 1. Identify unresolved linked documents whose lastSyncedCloudVersion is undefined
+    const unresolvedDocs = localDocs.filter(
+      d => Boolean(d.linkedCloudId) && d.lastSyncedCloudVersion === undefined && !d.localOnly
+    );
+
+    if (unresolvedDocs.length > 0) {
+      if (!navigator.onLine) {
+        hasUnknown = true;
+      } else {
+        try {
+          const cloudDocVersions = await DocumentService.getCloudDocumentVersions(userId);
+          const db = await getLocalDb();
+          const tx = db.transaction('documents', 'readwrite');
+          for (const d of unresolvedDocs) {
+            const cloudVer = cloudDocVersions.get(d.linkedCloudId!) ?? 0;
+            d.lastSyncedCloudVersion = cloudVer;
+            await tx.store.put(d);
+          }
+          await tx.done;
+        } catch (err) {
+          reportError(err, { action: 'getUnsyncedSummary_resolveCloudVersions', userId }, 'warning');
+          hasUnknown = true;
+        }
+      }
+    }
+
+    for (const d of localDocs) {
+      if (d.localOnly) {
+        deviceOnlyCount++;
+        continue;
+      }
+      if (!d.linkedCloudId) {
+        unlinkedCount++;
+        continue;
+      }
+      if (d.lastSyncedCloudVersion === undefined) {
+        hasUnknown = true;
+        continue;
+      }
+      if ((d.currentVersion ?? 0) > d.lastSyncedCloudVersion) {
+        behindCount++;
+      }
+    }
+
+    return {
+      unsyncedCount: behindCount + unlinkedCount,
+      behindCount,
+      unlinkedCount,
+      deviceOnlyCount,
+      hasUnknown,
+    };
   },
 
   async getUnsyncedCount(userId: string): Promise<number> {
-    const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-    return localDocs.filter(d => !d.linkedCloudId).length;
+    const summary = await this.getUnsyncedSummary(userId);
+    return summary.unsyncedCount;
   },
 
-  async syncPending(userId: string): Promise<void> {
+  async syncPending(userId: string): Promise<SyncPendingResult> {
     // SEC-8: Автосинк выключен по умолчанию: молчание = согласия нет.
-    if (!cloudSyncEnabled()) return;
-    if (_syncInProgress.get(userId)) return;
+    if (!cloudSyncEnabled()) {
+      return { drained: 0, failed: 0, skippedReason: 'sync_disabled' };
+    }
+    if (_syncInProgress.get(userId)) {
+      return { drained: 0, failed: 0, skippedReason: 'in_progress' };
+    }
     _syncInProgress.set(userId, true);
 
     try {
-      await _drainPendingQueue(userId);
+      const res = await _drainPendingQueue(userId);
+      return res;
     } finally {
       _syncInProgress.delete(userId); // [A-08] delete вместо set(false): очищаем Map, а не накапливаем false-записи
     }
@@ -106,21 +222,25 @@ export const SyncService = {
     _syncInProgress.set(userId, true);
 
     try {
-      await _drainPendingQueue(userId);
-
-      // Re-link first. A note whose link was lost still has its cloud copy, and
+      // 1. Re-link first. A note whose link was lost still has its cloud copy, and
       // uploading it "unlinked" creates a second cloud document. Deliberately
       // not caught: if the cloud can't be read we must not upload blind, and
       // both callers surface the rejection to the user.
       await CloudSyncService.relinkOrphanedDocuments(userId);
 
-      const localDocs = await LocalDocumentService.getGuestDocuments(userId);
-      // AUDIT-H3: localOnly-заметки осознанно отвязаны (например, удалены в
-      // облаке) — автозаливка создала бы дубль и воскресила удалённое.
-      // AUDIT-part2 5.1: чтение флагов через единый syncStatusOf.
-      const unlinked = localDocs.filter(d => syncStatusOf(d) === 'unlinked-new');
+      // 2. Resolve unknown cloud versions against cloud map
+      await this.getUnsyncedSummary(userId);
 
-      const results = await Promise.allSettled(unlinked.map(doc =>
+      // 3. Collect work: any note that is not localOnly and where the cloud lacks
+      // what the device has (unlinked or linked-but-behind).
+      const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+      const toUpload = localDocs.filter(d => {
+        if (d.localOnly || d._locked || d._decryptionError) return false;
+        if (!d.linkedCloudId) return true;
+        return (d.currentVersion ?? 0) > (d.lastSyncedCloudVersion ?? 0);
+      });
+
+      const results = await Promise.allSettled(toUpload.map(doc =>
         limit(() => StorageService.addCloudCopy(userId, doc.id).then(cloudId => {
           if (!cloudId) throw new Error('no cloudId');
         }))
@@ -130,13 +250,10 @@ export const SyncService = {
       const failedIds: string[] = [];
       results.forEach((r, i) => {
         if (r.status === 'fulfilled') synced++;
-        else failedIds.push(unlinked[i]!.id);
+        else failedIds.push(toUpload[i]!.id);
       });
 
-      // Ставим упавшую выгрузку в очередь: иначе её никто не повторит. Эту
-      // функцию зовут только перенос гостевых заметок и ручная кнопка в
-      // диагностике, автоматического прохода по несвязанным заметкам нет, и
-      // заметка молча остаётся только локальной.
+      // Failed uploads are put into the queue for subsequent retries.
       for (const id of failedIds) {
         try {
           await SyncService.addToQueue(id);
@@ -144,6 +261,9 @@ export const SyncService = {
           reportError(e, { action: 'syncAllUnlinked_queueFailed', documentId: id });
         }
       }
+
+      // 4. Drain the queue AFTER all producers (relink, background tasks, deletes, portraits).
+      await _drainPendingQueue(userId);
 
       return { synced, failed: failedIds.length };
     } finally {
@@ -214,7 +334,7 @@ export const SyncService = {
 
 };
 
-async function _drainPendingQueue(userId: string): Promise<void> {
+async function _drainPendingQueue(userId: string): Promise<{ drained: number; failed: number }> {
   const db = await getLocalDb();
   const queue = await db.getAll('syncQueue');
 
@@ -239,7 +359,7 @@ async function _drainPendingQueue(userId: string): Promise<void> {
     return true;
   });
 
-  if (pending.length === 0) return;
+  if (pending.length === 0) return { drained: 0, failed: 0 };
 
   const deleteTasks = pending.filter(p => p.type === 'delete');
   const portraitTasks = pending.filter(p => p.type === 'portrait');
@@ -306,7 +426,7 @@ async function _drainPendingQueue(userId: string): Promise<void> {
     } catch (e) {
       logger.error('drainPendingQueue', 'Skipping uploads: could not verify cloud links', { reason: String(e) });
       if (syncedIds.length > 0) await _clearQueueItems(syncedIds);
-      return;
+      return { drained: syncedIds.length, failed: docTasks.length };
     }
 
     const documentIds = [...new Set(docTasks.map(p => p.documentId))];
@@ -341,6 +461,8 @@ async function _drainPendingQueue(userId: string): Promise<void> {
     await _clearQueueItems(syncedIds);
     announceQueueChange();
   }
+
+  return { drained: syncedIds.length, failed: pendingBumps.length };
 }
 
 async function _clearQueueItems(ids: string[]): Promise<void> {

@@ -205,4 +205,11 @@ export const settingsTranslations: Translations = {
   settings_diagnostics_button: { ru: 'Открыть диагностику', en: 'Open diagnostics' },
   settings_diagnostics_active: { ru: 'Режим диагностики активирован', en: 'Diagnostics mode activated' },
   settings_guest_security_hint: { ru: 'Шифрование и настройки ИИ доступны после входа в аккаунт.', en: 'Encryption and AI settings are available when signed in.' },
+  sync_behind_count: { ru: 'Облачная копия отстаёт: {count}', en: 'Cloud copy is behind: {count}' },
+  sync_unlinked_count: { ru: 'Не привязано к облаку: {count}', en: 'Not linked to cloud: {count}' },
+  sync_device_only_count: { ru: 'Только на этом устройстве (по выбору): {count}', en: 'Device-only by choice: {count}' },
+  sync_queue_processed: { ru: 'Обработано задач: {drained}', en: 'Processed tasks: {drained}' },
+  sync_queue_partial: { ru: 'Обработано: {drained}, ошибок: {failed}', en: 'Processed: {drained}, failed: {failed}' },
+  sync_queue_empty: { ru: 'Очередь пуста', en: 'Queue is empty' },
+  sync_queue_disabled: { ru: 'Автосинхронизация отключена в настройках', en: 'Auto-sync is disabled in settings' },
 };

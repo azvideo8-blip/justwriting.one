@@ -10,9 +10,31 @@ export async function createDocument(userId: string, data: ProviderRecord): Prom
   const docId = (data.uuid || data.id || crypto.randomUUID()) as string;
   const payload = toDb(DOCUMENT_FIELDS, { ...data, uuid: docId, userId });
   delete payload.id;
-  const { error } = await getSupabase()
+  const supabase = getSupabase();
+  let { error } = await supabase
     .from('documents')
     .insert(payload);
+
+  if (error != null && (error as { code?: string }).code === '23505') {
+    const { data: tombstone } = await supabase
+      .from('documents')
+      .select('uuid, deleted_at')
+      .eq('user_id', userId)
+      .eq('uuid', docId)
+      .maybeSingle();
+    if (tombstone?.deleted_at != null) {
+      await supabase
+        .from('documents')
+        .delete()
+        .eq('user_id', userId)
+        .eq('uuid', docId);
+      const retry = await supabase
+        .from('documents')
+        .insert(payload);
+      error = retry.error;
+    }
+  }
+
   if (error != null) throw error;
   return docId;
 }
@@ -268,4 +290,29 @@ export async function removeTagFromAllDocs(userId: string, tag: string): Promise
   if (failedUuids.length > 0) {
     throw new Error(`TAG_OP_PARTIAL:${failedUuids.length}`);
   }
+}
+
+export async function getCloudVersionDiscrepancyCount(userId: string): Promise<number> {
+  const supabase = getSupabase();
+  const [docsRes, versRes] = await Promise.all([
+    supabase.from('documents').select('uuid, current_version').eq('user_id', userId).is('deleted_at', null),
+    supabase.from('versions').select('document_uuid').eq('user_id', userId),
+  ]);
+  if (docsRes.error != null || versRes.error != null) return 0;
+  const versionCounts = new Map<string, number>();
+  for (const row of versRes.data ?? []) {
+    const id = (row as { document_uuid?: string }).document_uuid;
+    if (id) {
+      versionCounts.set(id, (versionCounts.get(id) ?? 0) + 1);
+    }
+  }
+  let discrepancies = 0;
+  for (const doc of docsRes.data ?? []) {
+    const current = (doc as { current_version?: number }).current_version ?? 0;
+    const actual = versionCounts.get((doc as { uuid?: string }).uuid ?? '') ?? 0;
+    if (current !== actual && actual > 0) {
+      discrepancies++;
+    }
+  }
+  return discrepancies;
 }

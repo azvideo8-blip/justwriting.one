@@ -164,10 +164,13 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       const existingDocId = metaState.savedDocumentId;
 
+      let cloudSynced = false;
       if (existingDocId) {
         const saveResult = await StorageService.saveVersion(userId, existingDocId, saveData);
+        cloudSynced = saveResult.cloudSynced;
         if (saveResult.forked) {
-          showToast(t('sync_conflict_forked'), 'error');
+          const forkTitle = saveResult.forkTitle || '';
+          showToast(t('sync_version_saved_as_copy', { title: forkTitle }));
         }
       } else {
         const result = await StorageService.saveNew(userId, saveData);
@@ -176,7 +179,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       const docIdToSync = useSessionMetaStore.getState().savedDocumentId;
 
-      await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
+      const cleanupRes = await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
+      if (!existingDocId && !isGuest) {
+        cloudSynced = cleanupRes.cloudSynced;
+      }
 
       // Reset AFTER cleanup succeeds (so content survives a cleanup failure), but
       // BEFORE the refreshes below: those await, and an autosave firing in that gap
@@ -187,7 +193,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       await refreshDocuments();
       await refreshLifeLog();
 
-      return docIdToSync ?? null;
+      return { docId: docIdToSync ?? null, cloudSynced };
     } catch (e) {
       reportError(e, { action: 'writingActions/save' });
       throw e;

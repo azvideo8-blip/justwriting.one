@@ -76,6 +76,11 @@ export function useEncryptionSetup(): {
             setRememberDevice(true);
             setEncryptionEnabled(user.uid, true);
             setMode('none');
+            try {
+              const { SyncService } = await import('../../../core/services/SyncService');
+              await SyncService.reviveLockedTasks(user.uid);
+              void SyncService.syncPending(user.uid);
+            } catch { /* non-critical */ }
           } else {
             // V-4: verification string missing/empty — refuse auto-unlock,
             // force password prompt (do not call setSessionKey).

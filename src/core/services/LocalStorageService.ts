@@ -179,8 +179,8 @@ export const LocalStorageService = {
     await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
   },
 
-  async unlinkFromCloud(localId: string) {
-    await LocalDocumentService.unlinkFromCloud(localId);
+  async unlinkFromCloud(localId: string, reason?: 'user_choice' | 'tombstone') {
+    await LocalDocumentService.unlinkFromCloud(localId, reason);
   },
 
   async migrateDocumentOwner(localId: string, userId: string) {

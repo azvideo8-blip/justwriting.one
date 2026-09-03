@@ -49,6 +49,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const [items, setItems] = useState<DiagnosticItem[]>([]);
   const [cloudUnavailable, setCloudUnavailable] = useState(false);
   const [queueCount, setQueueCount] = useState(0);
+  const [discrepancyCount, setDiscrepancyCount] = useState(0);
 
   const [processedDocs, setProcessedDocs] = useState<Record<string, boolean>>({});
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     let cloudReadFailed = false;
     setCloudUnavailable(false);
     try {
-      const [localDocs, cloudDocs, queue] = await Promise.all([
+      const [localDocs, cloudDocs, queue, cloudDiscrepancies] = await Promise.all([
         getLocalDb().then(db => db.getAll('documents')).catch(e => {
           reportError(e, { action: '[SyncDiagnostics] Local docs fetch failed' });
           return [];
@@ -87,9 +88,11 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
           reportError(e, { action: '[SyncDiagnostics] Queue fetch failed' });
           return [];
         }),
+        DocumentService.getCloudVersionDiscrepancyCount(userId).catch(() => 0),
       ]);
 
       setCloudUnavailable(cloudReadFailed);
+      setDiscrepancyCount(cloudDiscrepancies);
 
       const filteredQueue = queue.filter(item => !item.id.startsWith('migrated_') && !item.id.startsWith('lock_cloud_'));
       setQueueCount(filteredQueue.length);
@@ -290,8 +293,16 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   const handleSyncAllQueue = async () => {
     setLoading(true);
     try {
-      await SyncService.syncPending(userId);
-      showToast('Synced pending queue items', 'success');
+      const res = await SyncService.syncPending(userId);
+      if (res.skippedReason === 'sync_disabled') {
+        showToast(t('sync_queue_disabled'), 'error');
+      } else if (res.failed > 0) {
+        showToast(t('sync_queue_partial', { drained: String(res.drained), failed: String(res.failed) }), 'error');
+      } else if (res.drained === 0) {
+        showToast(t('sync_queue_empty'), 'success');
+      } else {
+        showToast(t('sync_queue_processed', { drained: String(res.drained) }), 'success');
+      }
       await fetchData();
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Sync queue failed' });
@@ -436,7 +447,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
   };
 
   return {
-    loading, syncingId, items, queueCount, cloudReadFailed: cloudUnavailable,
+    loading, syncingId, items, queueCount, discrepancyCount, cloudReadFailed: cloudUnavailable,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
     fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem,

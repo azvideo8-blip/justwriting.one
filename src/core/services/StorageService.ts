@@ -36,7 +36,7 @@ export const StorageService = {
     return LocalStorageService.saveNew(userId, data);
   },
 
-  async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean }> {
+  async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean }> {
     return _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000, 'Sync timeout'));
   },
 
@@ -86,7 +86,7 @@ export const StorageService = {
   },
 };
 
-async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean }> {
+async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean }> {
   const db = await getLocalDb();
   const now = Date.now();
   const totalWords = data.documentWordCount ?? data.wordCount;
@@ -122,7 +122,8 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
       newVersion,
       prevContent
     );
-    if (result.forked) return { forked: true };
+    if (result.forked) return { forked: true, forkTitle: result.forkTitle, cloudSynced: false };
+    return { forked: false, cloudSynced: result.cloudSynced };
   }
-  return { forked: false };
+  return { forked: false, cloudSynced: false };
 }

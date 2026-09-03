@@ -18,6 +18,10 @@ export interface SyncStatusState {
   status: SyncStatus;
   pendingCount: number;
   unsyncedCount: number;
+  behindCount: number;
+  unlinkedCount: number;
+  deviceOnlyCount: number;
+  hasUnknown: boolean;
   /** false when user disabled auto-sync — indicator should be hidden */
   autoSyncEnabled: boolean;
 }
@@ -30,27 +34,60 @@ const PENDING_GRACE_MS = 30_000;
 // перечитывает счётчики только на эти события плюс один раз при подписке.
 const QUEUE_EVENTS = ['sync-queue-changed', 'doc-version-saved'] as const;
 
+export interface SharedCounts {
+  pending: number;
+  unsynced: number;
+  behind: number;
+  unlinked: number;
+  deviceOnly: number;
+  hasUnknown: boolean;
+}
+
 // Shared across all useSyncStatus() instances (Sidebar, BottomNav, AppShell, AppTab
 // can all be mounted at once) so they don't each run their own IndexedDB read.
-let sharedPendingCount = 0;
-let sharedUnsyncedCount = 0;
+let sharedCounts: SharedCounts = {
+  pending: 0,
+  unsynced: 0,
+  behind: 0,
+  unlinked: 0,
+  deviceOnly: 0,
+  hasUnknown: false,
+};
 let activeSubscribers = 0;
 let currentSubscribedUserId: string | null = null;
-const statusListeners = new Set<(counts: { pending: number; unsynced: number }) => void>();
+const statusListeners = new Set<(counts: SharedCounts) => void>();
 
 async function pollSyncStatus(userId: string | null) {
   try {
-    const [pending, unsynced] = await Promise.all([
+    const [pending, summary] = await Promise.all([
       SyncService.getPendingCount(),
-      userId ? SyncService.getUnsyncedCount(userId) : Promise.resolve(0),
+      userId !== null
+        ? (typeof SyncService.getUnsyncedSummary === 'function'
+            ? SyncService.getUnsyncedSummary(userId)
+            : typeof (SyncService as unknown as { getUnsyncedCount?: (uid: string) => Promise<number> }).getUnsyncedCount === 'function'
+              ? (SyncService as unknown as { getUnsyncedCount: (uid: string) => Promise<number> }).getUnsyncedCount(userId).then(c => ({
+                  unsyncedCount: c,
+                  behindCount: 0,
+                  unlinkedCount: c,
+                  deviceOnlyCount: 0,
+                  hasUnknown: false,
+                }))
+              : Promise.resolve(null))
+        : Promise.resolve(null),
     ]);
-    sharedPendingCount = pending;
-    sharedUnsyncedCount = unsynced;
-    statusListeners.forEach(fn => fn({ pending, unsynced }));
+    sharedCounts = {
+      pending,
+      unsynced: summary?.unsyncedCount ?? 0,
+      behind: summary?.behindCount ?? 0,
+      unlinked: summary?.unlinkedCount ?? 0,
+      deviceOnly: summary?.deviceOnlyCount ?? 0,
+      hasUnknown: summary?.hasUnknown ?? false,
+    };
+    statusListeners.forEach(fn => fn(sharedCounts));
   } catch { /* non-critical */ }
 }
 
-function subscribeSyncStatus(userId: string | null, listener: (counts: { pending: number; unsynced: number }) => void): () => void {
+function subscribeSyncStatus(userId: string | null, listener: (counts: SharedCounts) => void): () => void {
   statusListeners.add(listener);
   activeSubscribers++;
   currentSubscribedUserId = userId;
@@ -89,14 +126,16 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
   const [pendingCount, setPendingCount] = useState(0);
   const [unsyncedCount, setUnsyncedCount] = useState(0);
+  const [behindCount, setBehindCount] = useState(0);
+  const [unlinkedCount, setUnlinkedCount] = useState(0);
+  const [deviceOnlyCount, setDeviceOnlyCount] = useState(0);
+  const [hasUnknown, setHasUnknown] = useState(false);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
     () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
   );
   const [showPending, setShowPending] = useState(false);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevPendingRef = useRef(0);
-
-
 
   // Listen for auto_sync_enabled changes (from other tabs)
   useEffect(() => {
@@ -116,17 +155,29 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       const t = setTimeout(() => {
         setPendingCount(0);
         setUnsyncedCount(0);
+        setBehindCount(0);
+        setUnlinkedCount(0);
+        setDeviceOnlyCount(0);
+        setHasUnknown(false);
       }, 0);
       return () => clearTimeout(t);
     }
 
     const t = setTimeout(() => {
-      setPendingCount(sharedPendingCount);
-      setUnsyncedCount(sharedUnsyncedCount);
+      setPendingCount(sharedCounts.pending);
+      setUnsyncedCount(sharedCounts.unsynced);
+      setBehindCount(sharedCounts.behind);
+      setUnlinkedCount(sharedCounts.unlinked);
+      setDeviceOnlyCount(sharedCounts.deviceOnly);
+      setHasUnknown(sharedCounts.hasUnknown);
     }, 0);
-    const unsubscribe = subscribeSyncStatus(userId, counts => {
-      setPendingCount(counts.pending);
-      setUnsyncedCount(counts.unsynced);
+    const unsubscribe = subscribeSyncStatus(userId, c => {
+      setPendingCount(c.pending);
+      setUnsyncedCount(c.unsynced);
+      setBehindCount(c.behind);
+      setUnlinkedCount(c.unlinked);
+      setDeviceOnlyCount(c.deviceOnly);
+      setHasUnknown(c.hasUnknown);
     });
     return () => { clearTimeout(t); unsubscribe(); };
   }, [userId, autoSyncEnabled]);
@@ -188,6 +239,8 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
   if (!isBrowserOnline) {
     status = 'offline';
+  } else if (hasUnknown) {
+    status = 'cloud_unavailable';
   } else if (pendingCount > 0 && showPending) {
     status = 'pending';
   } else if (unsyncedCount > 0) {
@@ -196,5 +249,14 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     status = 'sync_off';
   }
 
-  return { status, pendingCount, unsyncedCount, autoSyncEnabled };
+  return {
+    status,
+    pendingCount,
+    unsyncedCount,
+    behindCount,
+    unlinkedCount,
+    deviceOnlyCount,
+    hasUnknown,
+    autoSyncEnabled,
+  };
 }

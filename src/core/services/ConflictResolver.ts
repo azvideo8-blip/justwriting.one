@@ -13,7 +13,7 @@ export const ConflictResolver = {
     newVersion: number,
     cloudDoc: { currentVersion: number; totalWords?: number; totalDuration?: number },
     originalFirstSessionAt?: number
-  ): Promise<{ forked: boolean }> {
+  ): Promise<{ forked: boolean; forkTitle?: string }> {
     // AUDIT-MH3: дата без времени делала одноимённые форки одного дня
     // неразличимыми; превью контента помогает узнать свою заметку.
     const hhmm = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -78,15 +78,21 @@ export const ConflictResolver = {
     try {
       const { VersionService } = await import('./VersionService');
       const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
-      const localVersions = await LocalVersionService.getVersions(documentId);
-      const localVerNums = new Set(localVersions.map(v => v.version));
+
+      // Decrypt cloud versions
+      const { maybeDecrypt, DecryptionError } = await import('../crypto/cryptoHelpers');
+      const decryptedCloudVersions: Array<{
+        version: number;
+        content: string;
+        wordCount: number;
+        duration: number;
+        wpm: number;
+        sessionStartedAt?: Date | undefined;
+        savedAt?: Date | undefined;
+        mood?: string | undefined;
+      }> = [];
 
       for (const cv of cloudVersions) {
-        if (localVerNums.has(cv.version)) continue;
-
-        // Тот же инвариант, что в addCloudCopy: локальный стор хранит
-        // открытый текст, шифротекст в него не пишется.
-        const { maybeDecrypt, DecryptionError } = await import('../crypto/cryptoHelpers');
         let plain: Record<string, unknown>;
         try {
           plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
@@ -95,16 +101,47 @@ export const ConflictResolver = {
           reportError(decErr, { action: 'resolveConflict_decrypt', linkedCloudId, version: cv.version });
           continue;
         }
+        decryptedCloudVersions.push({
+          version: cv.version,
+          content: typeof plain.content === 'string' ? plain.content : '',
+          wordCount: cv.wordCount,
+          duration: cv.duration,
+          wpm: cv.wpm,
+          sessionStartedAt: cv.sessionStartedAt ? new Date(cv.sessionStartedAt) : undefined,
+          savedAt: cv.savedAt ? new Date(cv.savedAt) : undefined,
+          mood: cv.mood ?? undefined,
+        });
+      }
+
+      const cloudVerMap = new Map(decryptedCloudVersions.map(v => [v.version, v]));
+      const localVersions = await LocalVersionService.getVersions(documentId);
+
+      // Clean up any divergent local versions from original doc (they live safely in the fork now)
+      const db = await getLocalDb();
+      const tx = db.transaction('versions', 'readwrite');
+      for (const lv of localVersions) {
+        const cv = cloudVerMap.get(lv.version);
+        if (!cv || cv.content !== lv.content) {
+          await tx.store.delete(lv.id);
+        }
+      }
+      await tx.done;
+
+      const remainingLocalVersions = await LocalVersionService.getVersions(documentId);
+      const remainingVerNums = new Set(remainingLocalVersions.map(v => v.version));
+
+      for (const cv of decryptedCloudVersions) {
+        if (remainingVerNums.has(cv.version)) continue;
 
         await LocalVersionService.addVersion(userId, documentId, {
-          content: typeof plain.content === 'string' ? plain.content : '',
+          content: cv.content,
           previousContent: '',
           wordCount: cv.wordCount,
           duration: cv.duration,
           wpm: cv.wpm,
           versionNumber: cv.version,
-          sessionStartedAt: cv.sessionStartedAt ?? new Date(),
-          savedAt: cv.savedAt ?? undefined,
+          sessionStartedAt: cv.sessionStartedAt ? new Date(cv.sessionStartedAt) : new Date(),
+          savedAt: cv.savedAt ? new Date(cv.savedAt) : undefined,
           mood: cv.mood,
         });
       }
@@ -114,19 +151,32 @@ export const ConflictResolver = {
         totalDuration: cloudDoc.totalDuration ?? data.duration,
         currentVersion: maxCloudVersion,
       });
+
+      try {
+        const updatedOrig = await LocalStorageService.getDocument(documentId);
+        if (updatedOrig) {
+          const udb = await getLocalDb();
+          await udb.put('documents', { ...updatedOrig, lastSyncedCloudVersion: maxCloudVersion });
+        }
+      } catch { /* ignore */ }
     } catch (reconcileErr) {
       reportError(reconcileErr, { action: 'resolveConflict_reconcileOriginal', documentId, linkedCloudId });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('doc-version-saved', { detail: { documentId: forkedDocId } }));
+      window.dispatchEvent(new CustomEvent('doc-version-saved', { detail: { documentId } }));
     }
 
     reportError(new Error('Sync conflict: document forked'), { action: 'syncVersionToCloud_conflict', documentId, linkedCloudId, cloudVersion: cloudDoc.currentVersion, localVersion: newVersion }, 'warning');
     const syncDb = await getLocalDb();
     await syncDb.put('syncQueue', {
-      id: `sync_${forkedDocId}_${Date.now()}`,
+      id: `sync_${forkedDocId}`,
       documentId: forkedDocId,
       type: 'document' as const,
       createdAt: Date.now(),
       ownerId: userId,
     });
-    return { forked: true };
+    return { forked: true, forkTitle: conflictTitle };
   },
 };

@@ -15,10 +15,17 @@ import { renderHook, waitFor } from '@testing-library/react';
  */
 
 const getUnsyncedCount = vi.fn(async () => 0);
+const getUnsyncedSummary = vi.fn(async () => ({
+  unsyncedCount: await getUnsyncedCount(),
+  behindCount: 0,
+  unlinkedCount: await getUnsyncedCount(),
+  deviceOnlyCount: 0,
+  hasUnknown: false,
+}));
 const getPendingCount = vi.fn(async () => 0);
 
 vi.mock('../../services/SyncService', () => ({
-  SyncService: { getUnsyncedCount, getPendingCount },
+  SyncService: { getUnsyncedCount, getUnsyncedSummary, getPendingCount },
 }));
 vi.mock('../useOnlineStatus', () => ({ useOnlineStatus: () => true }));
 
@@ -61,5 +68,20 @@ describe('состояние синхронизации не выдаёт нез
     const { result } = renderHook(() => useSyncStatus('user-1'));
 
     await waitFor(() => expect(result.current.status).toBe('sync_off'));
+  });
+
+  it('когда чтение облака недоступно (hasUnknown = true), статус всегда cloud_unavailable, никогда не synced', async () => {
+    localStorage.setItem('auto_sync_enabled', 'true');
+    getUnsyncedSummary.mockResolvedValue({
+      unsyncedCount: 0,
+      behindCount: 0,
+      unlinkedCount: 0,
+      deviceOnlyCount: 0,
+      hasUnknown: true,
+    });
+
+    const { result } = renderHook(() => useSyncStatus('user-1'));
+
+    await waitFor(() => expect(result.current.status).toBe('cloud_unavailable'));
   });
 });

@@ -93,7 +93,7 @@ describe('StorageService.saveVersion — cloud resilience', () => {
     // The local save should succeed regardless.
     const result = await StorageService.saveVersion(userId, docId, makeSaveData());
 
-    expect(result).toEqual({ forked: false });
+    expect(result).toEqual({ forked: false, cloudSynced: false });
 
     // Verify local save succeeded — version bumped
     const db = await getLocalDb();
@@ -108,7 +108,7 @@ describe('StorageService.saveVersion — cloud resilience', () => {
 
     const result = await StorageService.saveVersion(userId, docId, makeSaveData());
 
-    expect(result).toEqual({ forked: false });
+    expect(result).toEqual({ forked: false, cloudSynced: false });
 
     const db = await getLocalDb();
     const doc = await db.get('documents', docId);

@@ -149,6 +149,41 @@ export const DocumentService = {
     return docs;
   },
 
+  async getCloudDocumentVersions(userId: string): Promise<Map<string, number>> {
+    try {
+      const records = await DataProvider.getUserDocuments(userId);
+      const map = new Map<string, number>();
+      for (const r of records) {
+        const id = (r.uuid as string) || (r.id as string);
+        if (id) {
+          map.set(id, typeof r.currentVersion === 'number' ? r.currentVersion : 0);
+        }
+      }
+      return map;
+    } catch {
+      const docs = await DocumentService.getUserDocuments(userId);
+      const map = new Map<string, number>();
+      for (const d of docs) {
+        if (d.id) {
+          map.set(d.id, d.currentVersion ?? 0);
+        }
+      }
+      return map;
+    }
+  },
+
+  async getCloudVersionDiscrepancyCount(userId: string): Promise<number> {
+    try {
+      if (typeof DataProvider.getCloudVersionDiscrepancyCount === 'function') {
+        return await DataProvider.getCloudVersionDiscrepancyCount(userId);
+      }
+      return 0;
+    } catch (e) {
+      reportError(e, { action: 'getCloudVersionDiscrepancyCount', userId }, 'warning');
+      return 0;
+    }
+  },
+
   async updateDocumentAfterSession(
     userId: string,
     documentId: string,

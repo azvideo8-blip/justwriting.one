@@ -109,7 +109,7 @@ export const LocalDocumentService = {
 
   async updateDocument(
     id: string,
-    data: { totalWords?: number; totalDuration?: number; currentVersion?: number; sessionsCount?: number }
+    data: { totalWords?: number; totalDuration?: number; currentVersion?: number; sessionsCount?: number; lastSyncedCloudVersion?: number }
   ): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');
@@ -121,6 +121,7 @@ export const LocalDocumentService = {
       ...(data.totalDuration !== undefined && { totalDuration: data.totalDuration }),
       ...(data.currentVersion !== undefined && { currentVersion: data.currentVersion }),
       ...(data.sessionsCount !== undefined && { sessionsCount: data.sessionsCount }),
+      ...(data.lastSyncedCloudVersion !== undefined && { lastSyncedCloudVersion: data.lastSyncedCloudVersion }),
     });
     await tx.done;
   },
@@ -381,19 +382,24 @@ export const LocalDocumentService = {
     // Появилась связь — значит заметка больше не «только на устройстве».
     // Оставить флаг рядом с живой связью значит оставить противоречие: она
     // и связана, и объявлена локальной, и следующий проход её пропустит.
-    const { localOnly: _dropped, ...rest } = existing;
+    const { localOnly: _dropped, unlinkedByTombstone: _dropped2, ...rest } = existing;
     await tx.store.put(cloudId ? { ...rest, linkedCloudId: cloudId } : { ...existing, linkedCloudId: cloudId });
     await tx.done;
   },
 
   // Deliberate unlink: drops the link AND records that it was intentional, so
   // the re-link pass leaves this note alone.
-  async unlinkFromCloud(id: string): Promise<void> {
+  async unlinkFromCloud(id: string, reason?: 'user_choice' | 'tombstone'): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    await tx.store.put({ ...existing, linkedCloudId: '', localOnly: true });
+    await tx.store.put({
+      ...existing,
+      linkedCloudId: '',
+      localOnly: true,
+      unlinkedByTombstone: reason === 'tombstone',
+    });
     await tx.done;
   },
 

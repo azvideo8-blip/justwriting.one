@@ -47,6 +47,7 @@ vi.mock('../../../core/services/VersionService', () => ({
 vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeEncrypt: vi.fn(async (doc: Record<string, unknown>) => ({ ...doc, _encrypted: false })),
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
+  DecryptionError: class DecryptionError extends Error {},
 }));
 
 // Removed firestore mock
@@ -227,7 +228,7 @@ describe('StorageService.saveVersion', () => {
         content: 'Should not throw',
         wordCount: 3,
       })
-    ).resolves.toEqual({ forked: false });
+    ).resolves.toEqual({ forked: false, cloudSynced: false });
   });
 });
 

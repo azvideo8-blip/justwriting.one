@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.36',
+    date: '2026-09-03',
+    items: [
+      { category: 'fix', ru: 'Правка с одного устройства больше не затирает молча правку с другого: расхождение сохраняется отдельной «конфликтной копией», оба текста целы', en: 'An edit from one device no longer silently overwrites an edit from another: divergence is kept as a separate conflict copy and both texts survive' },
+      { category: 'fix', ru: 'Состояние синхронизации сравнивает содержимое, а не наличие ссылки, и называет неизвестное неизвестным', en: 'The sync state compares content rather than the presence of a link, and calls the unknown unknown' },
+      { category: 'fix', ru: '«Заметка сохранена» говорится только когда она действительно в облаке', en: '"Note saved" is said only when it really is in the cloud' },
+      { category: 'fix', ru: '«Отправить все заметки в облако» отправляет и связанные, но отставшие; кнопки синхронизации сообщают, что произошло на самом деле', en: '"Upload all notes" also uploads linked-but-behind notes; the sync buttons report what actually happened' },
+      { category: 'fix', ru: 'Брошенная задача не держит индикатор в «приостановлено» навсегда, а заметка с удалённой облачной копией больше не запирается на устройстве', en: 'An abandoned task no longer holds the indicator at "paused" forever, and a note whose cloud copy was deleted is no longer locked to the device' },
+    ],
+  },
+  {
     version: '0.8.35',
     date: '2026-09-03',
     items: [

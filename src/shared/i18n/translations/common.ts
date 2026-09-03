@@ -61,6 +61,10 @@ export const commonTranslations: Translations = {
   unlock_success: { ru: 'Шифрование разблокировано', en: 'Encryption unlocked' },
 
   save_success: { ru: 'Заметка сохранена', en: 'Note saved' },
+  save_local_only_queued: {
+    ru: 'Сохранено на этом устройстве — в облако отправится позже',
+    en: 'Saved on this device — not in the cloud yet',
+  },
   session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },
   save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
   save_status_saved:  { ru: 'сохранено', en: 'saved' },

@@ -70,7 +70,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       ''
     );
 
-    expect(result).toEqual({ forked: false });
+    expect(result).toEqual({ forked: false, cloudSynced: false });
     expect(addVersionSpy).not.toHaveBeenCalled();
 
     const localDoc = await LocalStorageService.getDocument(docId);
@@ -118,7 +118,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       'cloud_collab_1',
       {
         title: 'Collaborative note',
-        content: 'Base version 1 + my offline edit',
+        content: 'Cloud version 2 added elsewhere + my edit',
         tags: [],
         wordCount: 8,
         duration: 15,
@@ -126,10 +126,10 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
         sessionStartedAt: new Date(3000),
       },
       2,
-      'Base version 1'
+      'Cloud version 2 added elsewhere'
     );
 
-    expect(result).toEqual({ forked: false });
+    expect(result).toEqual({ forked: false, cloudSynced: true });
     expect(resolveConflictSpy).not.toHaveBeenCalled();
     expect(addVersionSpy).toHaveBeenCalledWith(
       userId,
@@ -141,6 +141,56 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
 
     const localVersions = await LocalVersionService.getVersions(docId);
     expect(localVersions.some(v => v.version === 2)).toBe(true);
+  });
+
+  it('Requirement 2b: forks when local edit started from base v1 while cloud advanced to v2 (SYNC-0)', async () => {
+    const docId = await LocalStorageService.createDocument(userId, {
+      title: 'Collaborative note divergent',
+      tags: [],
+    });
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collab_divergent');
+
+    await LocalVersionService.addVersion(userId, docId, {
+      content: 'Base version 1',
+      previousContent: '',
+      wordCount: 3,
+      duration: 10,
+      wpm: 20,
+      versionNumber: 1,
+      sessionStartedAt: new Date(1000),
+    });
+
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
+      id: 'cloud_collab_divergent',
+      currentVersion: 2,
+    } as any);
+
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
+      { id: 'v1', version: 1, content: 'Base version 1' } as any,
+      { id: 'v2', version: 2, content: 'Cloud version 2 added on Device A' } as any,
+    ]);
+
+    const resolveConflictSpy = vi.spyOn(ConflictResolver, 'resolveConflict');
+
+    const result = await CloudSyncService.syncVersionToCloud(
+      userId,
+      docId,
+      'cloud_collab_divergent',
+      {
+        title: 'Collaborative note divergent',
+        content: 'Base version 1 + edit on Device B',
+        tags: [],
+        wordCount: 8,
+        duration: 15,
+        wpm: 30,
+        sessionStartedAt: new Date(3000),
+      },
+      2,
+      'Base version 1'
+    );
+
+    expect(result.forked).toBe(true);
+    expect(resolveConflictSpy).toHaveBeenCalled();
   });
 
   it('Requirement 3: conflict fork brings original local document in line with cloud versions', async () => {
@@ -277,7 +327,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       'Base'
     );
 
-    expect(result).toEqual({ forked: false });
+    expect(result).toEqual({ forked: false, cloudSynced: true });
     expect(addVersionSpy).toHaveBeenCalledTimes(2);
     expect(addVersionSpy).toHaveBeenLastCalledWith(
       userId,

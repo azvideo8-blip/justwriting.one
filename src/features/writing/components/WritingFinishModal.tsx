@@ -16,6 +16,7 @@ import { FinishModalStats } from './FinishModalStats';
 import { FinishModalTags } from './FinishModalTags';
 import { FinishModalExport } from './FinishModalExport';
 import { Button } from '../../../shared/components/Button';
+import { useToast } from '../../../shared/components/Toast';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
@@ -160,7 +161,7 @@ interface WritingFinishModalProps {
   labelId?: string | undefined;
   setLabelId: (labelId?: string) => void;
   labels: Label[];
-  onSave: (data: SaveData) => Promise<string | null>;
+  onSave: (data: SaveData) => Promise<string | null | { docId: string | null; cloudSynced: boolean }>;
   onCancel: () => void;
   onSkipSave: () => void;
   streakDays?: number | undefined;
@@ -183,6 +184,7 @@ export function WritingFinishModal({
   savedDocumentId,
 }: WritingFinishModalProps) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const { execute, isLoading: isSaving } = useServiceAction();
   const { layoutMode } = useLayoutMode();
@@ -224,6 +226,7 @@ export function WritingFinishModal({
   const [selectedMood, setSelectedMood] = useState<string | undefined>(undefined);
   const [echoText, setEchoText] = useState('');
   const savedDocIdRef = useRef<string | null>(null);
+  const savedCloudSyncedRef = useRef<boolean>(true);
 
   // Echo ("Связь мыслей") is computed locally from the draft when we reach the
   // mood step, and only shown when there is a genuine semantic match with past
@@ -365,15 +368,23 @@ export function WritingFinishModal({
     if (!saveDataState) return;
     void execute(
       async () => {
-        const docId = await onSave({ ...saveDataState, mood: selectedMood });
+        const saveRes = await onSave({ ...saveDataState, mood: selectedMood });
+        const docId = typeof saveRes === 'object' && saveRes !== null ? saveRes.docId : saveRes;
+        const cloudSynced = typeof saveRes === 'object' && saveRes !== null ? saveRes.cloudSynced : true;
         savedDocIdRef.current = docId ?? null;
+        savedCloudSyncedRef.current = cloudSynced;
       },
       {
-        successMessage: t('save_success'),
         errorMessage: t('error_save_failed'),
         onSuccess: () => {
           const docId = savedDocIdRef.current;
+          const cloudSynced = savedCloudSyncedRef.current;
           onCancel();
+          if (cloudSynced) {
+            showToast(t('save_success'), 'success');
+          } else {
+            showToast(t('save_local_only_queued'));
+          }
           if (discuss && docId) void navigate(`/ai?doc=${docId}`);
         },
       }

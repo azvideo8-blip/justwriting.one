@@ -15,7 +15,7 @@ interface SyncDiagnosticsProps {
 export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
   const { layoutMode } = useLayoutMode();
   const {
-    loading, syncingId, items, queueCount,
+    loading, syncingId, items, queueCount, discrepancyCount,
     processedDocs, processingDocId, readSummary, setReadSummary,
     hasEncryption,
     fetchData, handleSyncItem, handleDownloadItem, handleUnlinkItem, cloudReadFailed,
@@ -77,6 +77,12 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
             <div className="text-label-sm text-amber-500/80 mt-1 font-medium flex items-center gap-1">
               <AlertTriangle size={11} />
               Vault is locked. Decrypted sync is disabled until unlocked.
+            </div>
+          )}
+          {discrepancyCount > 0 && (
+            <div className="text-label-sm text-amber-500/80 mt-1 font-medium flex items-center gap-1">
+              <AlertTriangle size={11} />
+              Обнаружено расхождение версий в облаке: {discrepancyCount} {discrepancyCount === 1 ? 'заметка' : 'заметок'} (current_version ≠ числу версий)
             </div>
           )}
         </div>

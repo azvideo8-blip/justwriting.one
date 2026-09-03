@@ -69,7 +69,8 @@ describe('ConflictResolver', () => {
       5,
       { currentVersion: 3 }
     );
-    expect(result).toEqual({ forked: true });
+    expect(result.forked).toBe(true);
+    expect(result.forkTitle).toBeDefined();
     expect(LocalStorageService.createDocument).toHaveBeenCalledWith('user1', expect.objectContaining({
       title: expect.stringContaining('Conflict'),
       tags: ['fiction'],

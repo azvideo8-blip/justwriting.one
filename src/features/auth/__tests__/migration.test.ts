@@ -30,6 +30,13 @@ const { cloudDocs, cloudVersions, MockDocumentService, MockVersionService } = vi
     }),
     getDocument: vi.fn(async (_userId: string, id: string) => cloudDocs.get(id) ?? null),
     getUserDocuments: vi.fn(async () => [...cloudDocs.values()]),
+    getCloudDocumentVersions: vi.fn(async () => {
+      const map = new Map<string, number>();
+      for (const [id, doc] of cloudDocs.entries()) {
+        map.set(id, (doc as { currentVersion?: number }).currentVersion ?? 0);
+      }
+      return map;
+    }),
     updateDocumentAfterSession: vi.fn(async (_userId: string, id: string, data: Record<string, unknown>) => {
       const doc = cloudDocs.get(id);
       if (doc) cloudDocs.set(id, { ...doc, ...data });
@@ -446,6 +453,7 @@ describe('GROUP C — Concurrent scenarios', () => {
 
     // Pre-set linked cloud ID
     await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_already_linked_xyz');
+    cloudDocs.set('cloud_already_linked_xyz', { id: 'cloud_already_linked_xyz', currentVersion: 1 });
 
     const result = await SyncService.syncAllUnlinked(USER_ID);
 

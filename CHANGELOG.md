@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.36 — 2026-09-03
+
+- **[RU]** Правка, сделанная на одном устройстве, больше не затирает молча правку, сделанную на другом. Приложение считало совпадение исходной версии признаком отсутствия конфликта — хотя совпадение исходной и есть конфликт: обе правки выросли из одного места. Текст второго устройства просто становился текущим, а работа первого уходила в историю, которую ни один экран не показывает. Теперь расхождение сохраняется отдельной заметкой «Конфликтная копия», оба текста остаются целыми, а у человека с одним устройством копия не появляется никогда.
+- **[EN]** An edit made on one device no longer silently overwrites an edit made on another. A matching base version was treated as the absence of a conflict — although a matching base IS a conflict: both edits grew from the same place. The second device's text simply became current while the first device's work went into a history no screen shows. Divergence is now kept as a separate "conflict copy", both texts survive, and someone with a single device never sees one.
+- **[RU]** Состояние синхронизации сравнивает содержимое, а не наличие ссылки: заметка, связанная с пустой облачной строкой, больше не числится отправленной. Заметки, про которые пока ничего не известно, названы неизвестными, а не отправленными и не потерянными; истина выясняется одним запросом и запоминается.
+- **[EN]** The sync state compares content rather than the presence of a link: a note linked to an empty cloud row is no longer counted as uploaded. Notes whose state is not yet known are called unknown rather than uploaded or lost; the truth is resolved in one query and remembered.
+- **[RU]** «Заметка сохранена» говорится только когда она действительно в облаке. Иначе — «Сохранено на этом устройстве, в облако отправится позже».
+- **[EN]** "Note saved" is said only when it really is in the cloud. Otherwise: "Saved on this device, it will reach the cloud later".
+- **[RU]** «Отправить все заметки в облако» отправляет и те, что связаны, но отстали, а очередь разбирается после всех, кто в неё добавляет. Кнопки синхронизации сообщают, что произошло на самом деле, а не «готово» при выключенной автоотправке.
+- **[EN]** "Upload all notes" also uploads notes that are linked but behind, and the queue is drained after everything that fills it. The sync buttons report what actually happened instead of "done" while auto-upload is off.
+- **[RU]** Брошенная задача синхронизации больше не держит индикатор в «приостановлено» навсегда: она считается отдельно, а задачи, упавшие на запертом сейфе, оживают после его разблокировки.
+- **[EN]** An abandoned sync task no longer holds the indicator at "paused" forever: it is counted separately, and tasks that failed on a locked vault revive once it is unlocked.
+- **[RU]** Заметка, чью облачную копию удалили с другого устройства, больше не запирается навсегда: её правки возвращаются в облако под собственным постоянным номером, поэтому разбор и вектор остаются привязанными.
+- **[EN]** A note whose cloud copy was deleted from another device is no longer locked away forever: its edits return to the cloud under their own permanent id, so the analysis and vector stay attached.
+- **[RU]** Версии выгружаются строго по порядку, пропуск в середине истории обнаруживается, а сбой чтения облака показывается как «облако недоступно», а не как «всё синхронизировано».
+- **[EN]** Versions upload strictly in order, a gap in the middle of the history is detected, and a failed cloud read is shown as "cloud unavailable" rather than "all synced".
+
 ## 0.8.35 — 2026-09-03
 
 - **[RU]** «Все данные синхронизированы» больше не говорится, когда это неправда. При выключенной автоотправке — а она выключена по умолчанию — состояние назначалось «синхронизировано» сразу, не глядя на данные, а счётчик незалитых принудительно обнулялся. Приложение сообщало, что всё в облаке, человеку, у которого четырнадцать заметок лежали ровно в одном браузере. Теперь незалитые считаются всегда, «синхронизировано» говорится только когда в облаке действительно всё, а выключенная автоотправка при полном облаке — отдельное состояние со своими словами.
