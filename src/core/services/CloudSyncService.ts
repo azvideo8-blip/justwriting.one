@@ -120,6 +120,8 @@ export const CloudSyncService = {
       labelId: cloudDoc.labelId ?? undefined,
       firstSessionAt: firstSessionMs ?? undefined,
       lastSessionAt: lastSessionMs ?? undefined,
+      mood: cloudDoc.mood,
+      excludedFromAI: cloudDoc.excludedFromAI,
     });
 
     // Accept canonical uuid from the cloud doc if present; don't overwrite a
@@ -443,6 +445,10 @@ export const CloudSyncService = {
           uuid: localDoc.uuid,
           firstSessionAt: localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt) : undefined,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
+          // Колонки в облаке есть, а сюда их не клали: «не показывать ИИ»
+          // терялось при первой же выгрузке и не возвращалось никогда.
+          mood: localDoc.mood,
+          excludedFromAI: localDoc.excludedFromAI,
         }));
 
         const limiter = pLimit(3);

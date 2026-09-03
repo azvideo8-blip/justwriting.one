@@ -26,18 +26,33 @@ vi.mock('../facetLock', () => ({ withFacetLock: async (fn: () => Promise<void>) 
 vi.mock('../LocalStoreSyncService', () => ({
   LocalStoreSyncService: { scheduleStoreDelete, scheduleStoreSync: vi.fn() },
 }));
+/**
+ * Заглушка ведёт себя как настоящая база: удалённая заметка перестаёт читаться.
+ * Прежняя отдавала документ ВСЕГДА — и поэтому не могла увидеть, что в проде
+ * уборка вызывается уже ПОСЛЕ удаления и читает undefined.
+ */
+const docs = new Map<string, { id: string; uuid?: string; guestId?: string }>();
+
 vi.mock('../../storage/localDb', () => ({
   randomUUID: () => 'uuid',
   getLocalDb: vi.fn(async () => ({
-    get: vi.fn(async (store: string) =>
-      (store === 'documents' ? { id: 'local_1', uuid: CANON } : undefined)),
+    get: vi.fn(async (store: string, id: string) =>
+      (store === 'documents' ? docs.get(id) : undefined)),
     getAll: vi.fn(async () => []),
     getAllFromIndex: vi.fn(async () => []),
-    delete: vi.fn(async () => undefined),
+    delete: vi.fn(async (store: string, id: string) => {
+      if (store === 'documents') docs.delete(id);
+    }),
     put: vi.fn(async () => undefined),
+    count: vi.fn(async () => 0),
     transaction: vi.fn(() => ({
-      store: { delete: vi.fn(), put: vi.fn() },
-      objectStore: () => ({ delete: vi.fn(), put: vi.fn() }),
+      store: { delete: vi.fn(), put: vi.fn(), get: vi.fn(async () => undefined) },
+      objectStore: (name: string) => ({
+        delete: async (id: string) => { if (name === 'documents') docs.delete(id); },
+        put: vi.fn(),
+        get: async (id: string) => (name === 'documents' ? docs.get(id) : undefined),
+        index: () => ({ getAll: async () => [] }),
+      }),
       done: Promise.resolve(),
     })),
   })),
@@ -46,7 +61,11 @@ vi.mock('../../storage/localDb', () => ({
 const { LocalDocumentService } = await import('../LocalDocumentService');
 
 describe('cascadeDeleteAIDerivatives — облачные копии', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    docs.clear();
+    docs.set('local_1', { id: 'local_1', uuid: CANON, guestId: 'u1' });
+  });
 
   it('сносит облачные сводку и вектор по постоянному номеру заметки', async () => {
     await LocalDocumentService.cascadeDeleteAIDerivatives('local_1');
@@ -59,5 +78,19 @@ describe('cascadeDeleteAIDerivatives — облачные копии', () => {
     await LocalDocumentService.cascadeDeleteAIDerivatives('local_1');
 
     expect(scheduleStoreDelete).toHaveBeenCalledWith('aiTimeline', 'local_1');
+  });
+
+  /**
+   * Проверка НАСТОЯЩЕГО пути: удаление заметки, а не уборка в отрыве от него.
+   *
+   * deleteDocument сносит строку заметки и только потом зовёт уборку — то есть
+   * достать uuid изнутри уборки уже нельзя. Прежний тест звал уборку напрямую
+   * и подсовывал ей живой документ, поэтому не видел ничего.
+   */
+  it('удаление заметки сносит облачные копии по постоянному номеру', async () => {
+    await LocalDocumentService.deleteDocument('local_1');
+
+    expect(deleteSummary).toHaveBeenCalledWith('user-1', CANON);
+    expect(deleteEmbedding).toHaveBeenCalledWith('user-1', CANON);
   });
 });

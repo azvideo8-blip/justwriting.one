@@ -235,7 +235,10 @@ async function deleteAccount(password: string): Promise<void> {
 
   const { callAi } = await import('../../../core/ai/callAi');
   await callAi('deleteAccount', {});
-  await signOut();
+  // Аккаунт удалён на сервере — оставлять его заметки, разборы и портрет на
+  // устройстве нельзя. Без явного флага signOut сохраняет локальное, и
+  // «удалить аккаунт» уносило только облачную половину.
+  await signOut({ clearLocalData: true });
 }
 
 export const AuthService = {

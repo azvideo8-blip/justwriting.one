@@ -28,7 +28,7 @@ async function deleteCloudDerivative(kind: 'summary' | 'embedding', canonicalId:
 export const LocalDocumentService = {
   async createDocument(
     guestId: string,
-    data: { title: string; tags?: string[] | undefined; labelId?: string | undefined; uuid?: string | undefined; firstSessionAt?: number | undefined; lastSessionAt?: number | undefined; _locked?: boolean | undefined; _decryptionError?: boolean | undefined }
+    data: { title: string; tags?: string[] | undefined; labelId?: string | undefined; uuid?: string | undefined; firstSessionAt?: number | undefined; lastSessionAt?: number | undefined; mood?: string | undefined; excludedFromAI?: boolean | undefined; _locked?: boolean | undefined; _decryptionError?: boolean | undefined }
   ): Promise<string> {
     if (data._locked || data._decryptionError) {
       throw new Error('LOCKED: cannot save locked document to local storage');
@@ -49,6 +49,11 @@ export const LocalDocumentService = {
       firstSessionAt: data.firstSessionAt ?? now,
       lastSessionAt: data.lastSessionAt ?? now,
       tags: data.tags ?? [],
+      // Исключение из ИИ — решение человека о приватности, а не украшение
+      // карточки. Не переехав на второе устройство, оно там молча
+      // отменяется, и заметку начинает читать индексатор.
+      ...(data.excludedFromAI !== undefined ? { excludedFromAI: data.excludedFromAI } : {}),
+      ...(data.mood !== undefined ? { mood: data.mood } : {}),
       labelId: data.labelId ?? undefined,
     });
 
@@ -134,18 +139,26 @@ export const LocalDocumentService = {
     ]);
     if (doc) await LocalDocumentService._updateProfile(doc.guestId);
 
-    // SEC-41: Cascade delete AI derivatives for deleted document
-    await LocalDocumentService.cascadeDeleteAIDerivatives(id);
+    // SEC-41: Cascade delete AI derivatives for deleted document.
+    //
+    // Постоянный номер передаётся ОТСЮДА, потому что заметки уже нет: строкой
+    // выше её удалили. Уборка производных не может достать uuid сама — она
+    // прочитает undefined и пойдёт удалять облачные строки по локальному
+    // номеру, которого в облаке нет. Ровно эта ошибка тут и была.
+    await LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid);
   },
 
-  async cascadeDeleteAIDerivatives(documentId: string): Promise<void> {
+  /**
+   * @param canonicalUuid Постоянный номер заметки, снятый ДО её удаления.
+   *   Обязателен, когда заметки в хранилище уже нет: облачные строки сводки и
+   *   вектора ключуются им, и по локальному номеру не удалится ничего.
+   */
+  async cascadeDeleteAIDerivatives(documentId: string, canonicalUuid?: string): Promise<void> {
     try {
       const db = await getLocalDb();
 
-      // Постоянный номер заметки нужен раньше, чем она исчезнет: облачные
-      // строки сводки и вектора ключуются им, а не локальным id.
-      const doc = await db.get('documents', documentId).catch(() => undefined);
-      const canonicalId = doc?.uuid ?? documentId;
+      const doc = canonicalUuid ? undefined : await db.get('documents', documentId).catch(() => undefined);
+      const canonicalId = canonicalUuid ?? doc?.uuid;
 
       // 1. Delete aiSummaries, aiEmbeddings, aiTimeline
       await Promise.all([
@@ -156,8 +169,19 @@ export const LocalDocumentService = {
       // Облачные копии тех же трёх. Локального удаления мало: восстановление
       // из облака вернуло бы разбор удалённой заметки обратно на устройство.
       LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);
-      void deleteCloudDerivative('summary', canonicalId);
-      void deleteCloudDerivative('embedding', canonicalId);
+      if (canonicalId) {
+        void deleteCloudDerivative('summary', canonicalId);
+        void deleteCloudDerivative('embedding', canonicalId);
+      } else {
+        // Постоянного номера нет ни здесь, ни у вызывающего: удалять в облаке
+        // нечем. Молчать нельзя — иначе разбор удалённой заметки останется там
+        // навсегда, и узнать об этом будет неоткуда.
+        reportError(
+          new Error('cascadeDelete: canonical uuid unavailable, cloud derivatives left behind'),
+          { action: 'cascadeDeleteAIDerivatives_noUuid', documentId },
+          'warning',
+        );
+      }
 
       // 2. Delete aiDialogues & related aiChatMemory
       try {
