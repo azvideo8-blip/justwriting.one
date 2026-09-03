@@ -12,12 +12,12 @@ production user. A closed beta for 10–20 invited people is being prepared.
 
 | | |
 | :--- | :--- |
-| Version | `0.8.32` (`src/version.ts` is what the UI shows) |
+| Version | `0.8.36` (`src/version.ts` is what the UI shows) |
 | Hosting | single VPS in Russia — nginx, systemd, Docker |
 | Database | self-hosted Supabase (Postgres + GoTrue + PostgREST + Kong) |
 | AI provider | RouterAI, OpenAI-compatible API |
 | Client | React 19 · TypeScript · Vite · Tailwind v4 · Zustand |
-| Tests | Vitest — 255 files, 1578 tests |
+| Tests | Vitest — 274 files, 1672 tests |
 | Node | 22 (CI and the API service) |
 
 There is no Firebase, no Firestore and no Cloud Functions: that stack was
@@ -73,10 +73,18 @@ With consent given, text reaches the provider when:
 | Analyse a note | the note's full text | a button, per note or per archive |
 | Chat | your message, the persona, the portrait, retrieved note fragments | you, per message |
 | Semantic search | your query, then note cards for reranking | a search inside chat |
-| Compute vectors | the note's text, in chunks | note analysis, or the indexer |
+| Compute vectors | the note's text, in chunks | analysing a note, the indexer, **and saving a note while the AI page is open** |
 
-There is no background pass. A timer used to analyse notes on its own; it was
-removed in August 2026, and everything now happens on an explicit press.
+**Analysis** happens only on an explicit press: the timer that used to summarise
+notes by itself was removed in August 2026.
+
+**Indexing is not the same.** A listener on `doc-version-saved` calls
+`indexDocument` whenever a note is saved while the AI page's hook is mounted —
+so with indexing consent given, finishing a session can send that note's text to
+the provider without anyone pressing anything for it. It is consent-gated and it
+is automatic, and those are different claims. An earlier version of this
+paragraph said everything happens on an explicit press; that was wrong, and it
+was found by attacking the third postulate rather than by reading the code.
 
 Models are configurable by environment variable; the defaults are
 `deepseek/deepseek-v4-flash` for chat and `qwen/qwen3-embedding-8b` at 4096
