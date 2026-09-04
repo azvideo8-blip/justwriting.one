@@ -27,6 +27,27 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   // Baseline: All 10 sequences run cleanly with fault = 'none'
   // =========================================================================
   describe('Baseline Execution (fault = "none")', () => {
+    /**
+     * Прибор не должен кричать о нарушении там, где нарушения нет.
+     *
+     * Проверка «с выключенным сейфом открытый текст обязан быть в облаке»
+     * ставилась против пустого прогона. Но сценарии, которые заканчиваются
+     * удалением, честно стирают то, что писали, — и на здоровом seq4 харнесс
+     * объявлял нарушение постулата 2. Ложная тревога в приборе не безобиднее
+     * зашитого `true`: её либо гоняют впустую, либо приучаются не замечать
+     * колонку целиком.
+     */
+    it('здоровое удаление не выдаётся за нарушение постулата 2', async () => {
+      const res = await runner.runSeq4_WriteSaveSyncDelete('none', 'delete_cloud');
+
+      expect(res.p2Held, 'стёртый текст — это работа удаления, а не утечка').not.toBe(false);
+      expect(
+        res.notes.filter(n => n.includes('HARNESS INVERSION')),
+        'ложных тревог быть не должно',
+      ).toEqual([]);
+      expect(res.p4Held, 'и постулат 4 не должен падать следом').toBe(true);
+    });
+
     it('Sequence 1: write → save → sync succeeds end-to-end', async () => {
       const res = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
       expect(res.p1Held).toBe(true);
@@ -1037,25 +1058,20 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       const realityMatches = runner.toldMatchesReality(told, device, postgres);
       expect(realityMatches).toBe(true);
 
-      const p2True: boolean | undefined = true;
-      const p2False: boolean | undefined = false;
-      const p2Undefined: boolean | undefined = undefined;
+      // Формула берётся из проверяемого кода, а не переписывается здесь:
+      // тест, повторяющий правило, переживает его расхождение с кодом.
+      const p4 = (p1: boolean, p2: boolean | undefined, p3: boolean) =>
+        runner.computeP4(p1, p2, p3, told, device, postgres);
 
-      // When P1 fails:
-      const p4WhenP1Fails = Boolean(false && (p2True ?? true) && true && realityMatches);
-      expect(p4WhenP1Fails).toBe(false);
+      expect(p4(false, true, true), 'падает постулат 1').toBe(false);
+      expect(p4(true, false, true), 'падает постулат 2').toBe(false);
+      expect(p4(true, true, false), 'падает постулат 3').toBe(false);
+      expect(p4(true, true, true), 'все три держатся и сказанное сходится').toBe(true);
 
-      // When P2 fails:
-      const p4WhenP2Fails = Boolean(true && (p2False ?? true) && true && realityMatches);
-      expect(p4WhenP2Fails).toBe(false);
-
-      // When P3 fails:
-      const p4WhenP3Fails = Boolean(true && (p2True ?? true) && false && realityMatches);
-      expect(p4WhenP3Fails).toBe(false);
-
-      // When P2 is undefined (unmeasured/offline):
-      const p4WhenP2Undefined = Boolean(true && (p2Undefined ?? true) && true && realityMatches);
-      expect(p4WhenP2Undefined).toBe(true);
+      // Известная слабость, записанная в GUARD-5: непроверенный постулат 2
+      // засчитывается как выполненный. Тест закрепляет текущее поведение —
+      // менять его надо вместе с GUARD-5, а не молча.
+      expect(p4(true, undefined, true), 'непроверенный постулат 2 сегодня засчитывается').toBe(true);
     });
   });
 

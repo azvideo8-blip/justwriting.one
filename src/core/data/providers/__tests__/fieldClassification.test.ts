@@ -234,7 +234,20 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       expect(CONTENT_FIELDS.size + METADATA_FIELDS.size).toBe(allCols.length);
     });
 
-    it('Finding AG-ENC-1: versions.mood carries personal content but is NOT encrypted at write site', () => {
+    /**
+     * ИЗВЕСТНЫЙ ДЕФЕКТ, зафиксированный намеренно: AG-ENC-1.
+     *
+     * `mood` шифруется на документе (`['title', 'mood']`) и не шифруется на
+     * версии (`['content', 'previousContent']`) — одно поле, два места записи,
+     * одно правило. Починка не однострочная: `versions.mood` в схеме ограничен
+     * пятьюдесятью символами, шифротекст туда не влезет, и путь чтения
+     * расшифровывает только `content`. Нужны миграция и обе стороны сразу.
+     *
+     * Тест утверждает ТЕКУЩЕЕ положение дел, а не желаемое. Он обязан упасть в
+     * тот день, когда дефект починят, — и это правильное поведение: удалите
+     * его вместе с починкой. Не ослабляйте его, чтобы «стало зелено».
+     */
+    it('AG-ENC-1 (известный дефект): versions.mood уходит в облако открытым — упадёт, когда почините', () => {
       expect(CONTENT_FIELDS.has('mood')).toBe(true);
       expect(ENCRYPTED_AT_WRITE_SITE.has('mood')).toBe(false);
     });

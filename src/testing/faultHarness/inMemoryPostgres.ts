@@ -66,7 +66,7 @@ export class InMemoryPostgres {
 
   public plaintextLeaks(markers: string[]): string[] {
     const leaks: string[] = [];
-    if (!markers || markers.length === 0) return leaks;
+    if (markers.length === 0) return leaks;
 
     for (const [table, rows] of this.tables.entries()) {
       for (const row of rows) {
