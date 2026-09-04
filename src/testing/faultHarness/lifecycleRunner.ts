@@ -184,6 +184,96 @@ export class LifecycleRunner {
     return p3Held;
   }
 
+  public toldMatchesReality(
+    told: ToldState,
+    device: DeviceState,
+    postgres: PostgresState
+  ): boolean {
+    switch (told.status) {
+      case 'synced_to_cloud': {
+        if (!postgres.documentExists || Boolean(postgres.deletedAt)) {
+          return false;
+        }
+        if (!device.documentExists) {
+          return false;
+        }
+        // Device should not have pending un-dead sync tasks for this document
+        const hasPendingSync = device.queueTasks.some(
+          t => !t.dead && (t.type === 'document' || t.type === 'version')
+        );
+        if (hasPendingSync) {
+          return false;
+        }
+        // Version alignment
+        if (
+          device.currentVersion !== undefined &&
+          postgres.currentVersion !== undefined &&
+          device.currentVersion !== postgres.currentVersion
+        ) {
+          return false;
+        }
+        return true;
+      }
+
+      case 'saved_local_queued': {
+        if (!device.documentExists) {
+          return false;
+        }
+        const hasQueueTask = device.queueTasks.length > 0;
+        const isLocalOnly = device.localOnly === true || device.unlinkedByTombstone === true;
+        if (!hasQueueTask && !isLocalOnly) {
+          return false;
+        }
+        return true;
+      }
+
+      case 'forked_conflict': {
+        return (
+          told.forked === true &&
+          device.documentExists &&
+          postgres.documentExists
+        );
+      }
+
+      case 'deleted': {
+        if (device.documentExists) {
+          return false;
+        }
+        const hasOrphanUpload = device.queueTasks.some(
+          t => !t.dead && (t.type === 'document' || t.type === 'version')
+        );
+        if (hasOrphanUpload) {
+          return false;
+        }
+        const deleteQueued = device.queueTasks.some(t => t.type === 'delete');
+        const cloudGoneOrTombstoned = !postgres.documentExists || Boolean(postgres.deletedAt);
+        return cloudGoneOrTombstoned || deleteQueued;
+      }
+
+      case 'restored': {
+        return device.documentExists && postgres.documentExists;
+      }
+
+      case 'migrated': {
+        if (!device.documentExists && !postgres.documentExists) {
+          return false;
+        }
+        if (told.cloudSynced && !postgres.documentExists) {
+          return false;
+        }
+        return true;
+      }
+
+      case 'error_thrown': {
+        // Person was told there was an error; cloudSynced must be false
+        return told.cloudSynced === false;
+      }
+
+      default:
+        return false;
+    }
+  }
+
   // =========================================================================
   // SEQUENCE 1: write → save → sync
   // =========================================================================
@@ -266,7 +356,12 @@ export class LifecycleRunner {
     const p1Held = told.status === 'error_thrown' ? true : (device.documentExists && device.latestContent === initialText);
     const p2Held = this.evaluateP2(['Seq 1 Note', initialText], told.status === 'synced_to_cloud', notes);
     const p3Held = this.evaluateP3(notes);
-    const p4Held = true;
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq1_write_save_sync',
@@ -348,7 +443,12 @@ export class LifecycleRunner {
     const p1Held = told.status === 'error_thrown' ? true : (device.latestContent === v2Text);
     const p2Held = this.evaluateP2(['Seq 2 Note', 'Version 1 text', v2Text], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
-    const p4Held = true;
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq2_write_save_edit_save_sync',
@@ -440,7 +540,12 @@ export class LifecycleRunner {
     const p1Held = told.forked === true || Boolean(device.latestContent?.includes('Device A edit v2'));
     const p2Held = this.evaluateP2(['Divergent Note', 'Base v1 text'], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
-    const p4Held = told.forked === true;
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq3_cross_device_divergence',
@@ -507,7 +612,12 @@ export class LifecycleRunner {
     const p1Held = true; // Deletion is intended exception to retention
     const p2Held = this.evaluateP2(['To Delete', 'Text to delete'], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
-    const p4Held = !postgres.documentExists || postgres.deletedAt !== null || deleteQueued;
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq4_write_save_sync_delete',
@@ -572,8 +682,15 @@ export class LifecycleRunner {
       notes.push('DEFECT: Deleting unlinked local note leaves orphaned task in syncQueue that fails on drain');
     }
 
+    const p1Held = true;
     const p2Held = this.evaluateP2(['Offline Note', 'Unsynced text'], false, notes);
     const p3Held = this.evaluateP3(notes);
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq5_delete_before_sync',
@@ -582,10 +699,10 @@ export class LifecycleRunner {
       told,
       device,
       postgres,
-      p1Held: true,
+      p1Held,
       p2Held,
       p3Held,
-      p4Held: !hasOrphanTask,
+      p4Held,
       notes,
       defectFound: hasOrphanTask ? 'SYNC-DEFECT: orphan syncQueue task after local note deletion' : undefined,
     };
@@ -656,7 +773,12 @@ export class LifecycleRunner {
     const p1Held = device.documentExists && device.latestContent?.includes('offline edits') && device.unlinkedByTombstone === true;
     const p2Held = this.evaluateP2(['Tombstone Note', 'Original v1'], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
-    const p4Held = true;
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq6_tombstone_edit_recovery',
@@ -724,7 +846,12 @@ export class LifecycleRunner {
     const p1Held = told.status === 'restored' ? device.documentExists : true;
     const p2Held = this.evaluateP2(['Cloud Archive Note', 'Cloud Archive Content'], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
-    const p4Held = true;
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq7_sign_out_erase_restore',
@@ -788,7 +915,12 @@ export class LifecycleRunner {
     const p1Held = device.latestContent === 'Guest text content';
     const p2Held = this.evaluateP2(['Guest Note', 'Guest text content'], told.cloudSynced || postgres.documentExists, notes);
     const p3Held = this.evaluateP3(notes);
-    const p4Held = true;
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq8_guest_signup_migrate_sync',
@@ -850,7 +982,7 @@ export class LifecycleRunner {
     this.interceptor.setStep(faultStep);
     this.interceptor.armFault(fault, faultStep);
 
-    let told: ToldState = { status: 'synced_to_cloud', cloudSynced: true };
+    let told: ToldState = { status: 'migrated', cloudSynced: true };
     try {
       await encryptAllExistingNotes(this.userId);
     } catch (e: unknown) {
@@ -858,10 +990,12 @@ export class LifecycleRunner {
       notes.push(`Error during encryptAllExistingNotes: ${(e as Error).message}`);
     }
 
+    const device = await this.inspectDevice(cloudId);
     const postgres = this.inspectPostgres(cloudId);
     const summaryRows = this.interceptor.postgres.getRows('ai_summaries');
     const summary = summaryRows.find(s => s.document_id === cloudId);
 
+    const p1Held = true;
     // P2 Evaluation:
     const p2Held = this.evaluateP2(
       ['Plaintext Cloud Title', 'Plaintext secret note content', 'secret_tag', 'Plaintext psychological analysis summary'],
@@ -875,18 +1009,24 @@ export class LifecycleRunner {
     }
 
     const p3Held = this.evaluateP3(notes);
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq9_enable_encryption_sync_restore',
       fault,
       step: faultStep,
       told,
-      device: await this.inspectDevice(cloudId),
+      device,
       postgres,
-      p1Held: true,
+      p1Held,
       p2Held,
       p3Held,
-      p4Held: true,
+      p4Held,
       notes,
       defectFound: p2Held === false ? 'P2-DEFECT: unencrypted AI derivatives remain plaintext after vault setup' : undefined,
     };
@@ -940,12 +1080,19 @@ export class LifecycleRunner {
     const device = await this.inspectDevice(docId);
     const postgres = this.inspectPostgres(cloudId);
 
+    const p1Held = true;
     const p2Held = this.evaluateP2(
       ['Delete Account Note', 'Text to be deleted with account'],
       postgres.documentExists || postgres.versionsCount > 0,
       notes
     );
     const p3Held = this.evaluateP3(notes);
+    const p4Held = Boolean(
+      p1Held &&
+      (p2Held ?? true) &&
+      p3Held &&
+      this.toldMatchesReality(told, device, postgres)
+    );
 
     return {
       sequence: 'seq10_delete_account',
@@ -954,10 +1101,10 @@ export class LifecycleRunner {
       told,
       device,
       postgres,
-      p1Held: true,
+      p1Held,
       p2Held,
       p3Held,
-      p4Held: true,
+      p4Held,
       notes,
     };
   }

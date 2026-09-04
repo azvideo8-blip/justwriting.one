@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { LifecycleRunner } from '../../../testing/faultHarness/lifecycleRunner';
+import type { DeviceState, PostgresState } from '../../../testing/faultHarness/faultTypes';
 import { DocumentService } from '../DocumentService';
 import { StorageService } from '../StorageService';
 import { LocalStorageService } from '../LocalStorageService';
@@ -780,8 +781,284 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   });
 
   // =========================================================================
-  // Full Matrix Execution
+  // Postulate 4 Verification (GUARD-4)
   // =========================================================================
+  describe('Postulate 4 Verification (GUARD-4)', () => {
+    const makeDevice = (overrides?: Partial<DeviceState>): DeviceState => ({
+      documentExists: true,
+      versionsCount: 1,
+      queueTasks: [],
+      ...overrides,
+    });
+
+    const makePostgres = (overrides?: Partial<PostgresState>): PostgresState => ({
+      documentExists: true,
+      versionsCount: 1,
+      ...overrides,
+    });
+
+    it('toldMatchesReality accurately validates synced_to_cloud', () => {
+      // True when cloud and device exist, versions match, and no pending tasks
+      expect(
+        runner.toldMatchesReality(
+          { status: 'synced_to_cloud', cloudSynced: true },
+          makeDevice({ documentExists: true, latestContent: 'hi', currentVersion: 1 }),
+          makePostgres({ documentExists: true, latestContent: 'hi', currentVersion: 1 })
+        )
+      ).toBe(true);
+
+      // False when postgres does not exist
+      expect(
+        runner.toldMatchesReality(
+          { status: 'synced_to_cloud', cloudSynced: true },
+          makeDevice({ documentExists: true, latestContent: 'hi' }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(false);
+
+      // False when postgres row is soft-deleted
+      expect(
+        runner.toldMatchesReality(
+          { status: 'synced_to_cloud', cloudSynced: true },
+          makeDevice({ documentExists: true, latestContent: 'hi' }),
+          makePostgres({ documentExists: true, deletedAt: '2026-09-04T00:00:00Z' })
+        )
+      ).toBe(false);
+
+      // False when device does not have the document
+      expect(
+        runner.toldMatchesReality(
+          { status: 'synced_to_cloud', cloudSynced: true },
+          makeDevice({ documentExists: false }),
+          makePostgres({ documentExists: true })
+        )
+      ).toBe(false);
+
+      // False when device has an un-dead pending upload/sync task
+      expect(
+        runner.toldMatchesReality(
+          { status: 'synced_to_cloud', cloudSynced: true },
+          makeDevice({
+            documentExists: true,
+            latestContent: 'hi',
+            queueTasks: [{ id: '1', type: 'document', documentId: 'd1', attempts: 0, dead: false }],
+          }),
+          makePostgres({ documentExists: true })
+        )
+      ).toBe(false);
+
+      // False when version numbers mismatch
+      expect(
+        runner.toldMatchesReality(
+          { status: 'synced_to_cloud', cloudSynced: true },
+          makeDevice({ documentExists: true, currentVersion: 2 }),
+          makePostgres({ documentExists: true, currentVersion: 1 })
+        )
+      ).toBe(false);
+    });
+
+    it('toldMatchesReality accurately validates saved_local_queued', () => {
+      // True when device exists and queue has pending tasks
+      expect(
+        runner.toldMatchesReality(
+          { status: 'saved_local_queued', cloudSynced: false },
+          makeDevice({
+            documentExists: true,
+            queueTasks: [{ id: '1', type: 'document', documentId: 'd1', attempts: 0, dead: false }],
+          }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(true);
+
+      // True when device exists and document is localOnly or unlinkedByTombstone
+      expect(
+        runner.toldMatchesReality(
+          { status: 'saved_local_queued', cloudSynced: false },
+          makeDevice({ documentExists: true, localOnly: true }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(true);
+
+      expect(
+        runner.toldMatchesReality(
+          { status: 'saved_local_queued', cloudSynced: false },
+          makeDevice({ documentExists: true, unlinkedByTombstone: true }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(true);
+
+      // False when device does not exist
+      expect(
+        runner.toldMatchesReality(
+          { status: 'saved_local_queued', cloudSynced: false },
+          makeDevice({ documentExists: false }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(false);
+
+      // False when queue is empty and not localOnly / tombstoned
+      expect(
+        runner.toldMatchesReality(
+          { status: 'saved_local_queued', cloudSynced: false },
+          makeDevice({ documentExists: true, localOnly: false, queueTasks: [] }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(false);
+    });
+
+    it('toldMatchesReality accurately validates deleted, forked_conflict, restored, migrated, error_thrown', () => {
+      // deleted: true when device document does not exist and cloud row is absent/tombstoned or delete task queued
+      expect(
+        runner.toldMatchesReality(
+          { status: 'deleted', cloudSynced: true },
+          makeDevice({ documentExists: false, queueTasks: [] }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(true);
+
+      // deleted: false if device still exists
+      expect(
+        runner.toldMatchesReality(
+          { status: 'deleted', cloudSynced: true },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(false);
+
+      // deleted: false if orphan upload task remains in sync queue
+      expect(
+        runner.toldMatchesReality(
+          { status: 'deleted', cloudSynced: true },
+          makeDevice({
+            documentExists: false,
+            queueTasks: [{ id: '1', type: 'document', documentId: 'd1', attempts: 0, dead: false }],
+          }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(false);
+
+      // forked_conflict: requires told.forked === true and both exist
+      expect(
+        runner.toldMatchesReality(
+          { status: 'forked_conflict', cloudSynced: true, forked: true },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: true, versionsCount: 2 })
+        )
+      ).toBe(true);
+
+      expect(
+        runner.toldMatchesReality(
+          { status: 'forked_conflict', cloudSynced: true, forked: false },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: true, versionsCount: 2 })
+        )
+      ).toBe(false);
+
+      // restored: requires both device and postgres to exist
+      expect(
+        runner.toldMatchesReality(
+          { status: 'restored', cloudSynced: true },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: true })
+        )
+      ).toBe(true);
+
+      expect(
+        runner.toldMatchesReality(
+          { status: 'restored', cloudSynced: true },
+          makeDevice({ documentExists: false }),
+          makePostgres({ documentExists: true })
+        )
+      ).toBe(false);
+
+      // migrated: requires either to exist, and if cloudSynced, postgres must exist
+      expect(
+        runner.toldMatchesReality(
+          { status: 'migrated', cloudSynced: true },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: true })
+        )
+      ).toBe(true);
+
+      expect(
+        runner.toldMatchesReality(
+          { status: 'migrated', cloudSynced: true },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(false);
+
+      // error_thrown: requires told.cloudSynced === false
+      expect(
+        runner.toldMatchesReality(
+          { status: 'error_thrown', cloudSynced: false },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(true);
+
+      expect(
+        runner.toldMatchesReality(
+          { status: 'error_thrown', cloudSynced: true },
+          makeDevice({ documentExists: true }),
+          makePostgres({ documentExists: false, versionsCount: 0 })
+        )
+      ).toBe(false);
+    });
+
+    it('discrepancy between told and reality breaks P4 conjunction', async () => {
+      // In Seq 1 with network_pre on sync_cloud:
+      // told.status is 'saved_local_queued'
+      // Local note exists, queue holds sync task, cloud has no doc
+      const res = await runner.runSeq1_WriteSaveSync('network_pre', 'sync_cloud');
+      // P1 held (note saved locally), P2 held/unmeasured, P3 held (no AI calls)
+      // and told was 'saved_local_queued' matching reality
+      expect(res.told.status).toBe('saved_local_queued');
+      expect(res.p1Held).toBe(true);
+      expect(res.p3Held).toBe(true);
+      expect(res.p4Held).toBe(true);
+
+      // If we tamper with told to lie that it synced to cloud:
+      const liedTold = { status: 'synced_to_cloud' as const, cloudSynced: true };
+      const liedP4 = Boolean(
+        res.p1Held &&
+        (res.p2Held ?? true) &&
+        res.p3Held &&
+        runner.toldMatchesReality(liedTold, res.device, res.postgres)
+      );
+      // P4 MUST fail because reality has no cloud copy!
+      expect(liedP4).toBe(false);
+    });
+
+    it('failure of any single postulate (P1, P2, P3) prevents P4 from holding', () => {
+      const told = { status: 'synced_to_cloud' as const, cloudSynced: true };
+      const device = makeDevice({ documentExists: true, currentVersion: 1 });
+      const postgres = makePostgres({ documentExists: true, currentVersion: 1 });
+      const realityMatches = runner.toldMatchesReality(told, device, postgres);
+      expect(realityMatches).toBe(true);
+
+      const p2True: boolean | undefined = true;
+      const p2False: boolean | undefined = false;
+      const p2Undefined: boolean | undefined = undefined;
+
+      // When P1 fails:
+      const p4WhenP1Fails = Boolean(false && (p2True ?? true) && true && realityMatches);
+      expect(p4WhenP1Fails).toBe(false);
+
+      // When P2 fails:
+      const p4WhenP2Fails = Boolean(true && (p2False ?? true) && true && realityMatches);
+      expect(p4WhenP2Fails).toBe(false);
+
+      // When P3 fails:
+      const p4WhenP3Fails = Boolean(true && (p2True ?? true) && false && realityMatches);
+      expect(p4WhenP3Fails).toBe(false);
+
+      // When P2 is undefined (unmeasured/offline):
+      const p4WhenP2Undefined = Boolean(true && (p2Undefined ?? true) && true && realityMatches);
+      expect(p4WhenP2Undefined).toBe(true);
+    });
+  });
+
   describe('Full Matrix Execution', () => {
     it('MatrixRunner executes all sequence × fault scenarios and captures 3 states', async () => {
       const { MatrixRunner } = await import('../../../testing/faultHarness/matrixRunner');
