@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.37 — 2026-09-04
+
+- **[RU]** Настроение сессии больше не уходит в облако открытым: при включённом сейфе оно шифруется наравне со всем остальным, а записи, сделанные прежними версиями приложения, продолжают читаться.
+- **[EN]** The mood of a session no longer reaches the cloud in the clear: with the vault on it is encrypted like everything else, and entries written by earlier versions keep opening.
+- **[RU]** Восстановление заметки из облака больше не теряет отмеченное настроение.
+- **[EN]** Restoring a note from the cloud no longer loses the mood that was marked.
+- **[RU]** Метки черновика шифруются перед отправкой — раньше они уезжали открытым текстом.
+- **[EN]** Draft tags are encrypted before upload — they used to travel in the clear.
+- **[RU]** Включение шифрования охватывает и то, что ИИ вывел о вас: разборы, векторы и записи памяти, а не только заметки и версии.
+- **[EN]** Turning encryption on now covers what the AI concluded about you too — analyses, vectors and memory records, not only notes and versions.
+- **[RU]** Заметка ничего не отправляет ИИ сама по себе: путь, на котором сохранение версии могло запустить индексацию, убран, а окно согласия теперь говорит не только что отправляется, но и когда.
+- **[EN]** A note sends nothing to the AI by itself: the path where saving a version could start indexing is gone, and the consent dialogue now says not only what is sent but when.
+- **[RU]** Удаление заметки убирает и её задачи синхронизации — раньше они оставались гоняться за строкой, которой уже нет.
+- **[EN]** Deleting a note also clears its sync tasks — they used to keep chasing a row that no longer exists.
+- **[RU]** Заметка, чей номер занят удалённой облачной строкой, больше не запирается навсегда с непонятной ошибкой: приложение говорит, что облачная копия была удалена, заметка остаётся на устройстве, а повторное «отправить в облако» создаёт новую копию.
+- **[EN]** A note whose id is held by a deleted cloud row is no longer locked away with a cryptic error: the app says the cloud copy was deleted, the note stays on the device, and pressing «upload» again makes a new copy.
+- **[RU]** Задачи чужого аккаунта в очереди больше не блокируют отправку, а выход из аккаунта их не стирает.
+- **[EN]** Another account's queued tasks no longer block uploads, and signing out no longer erases them.
+- **[RU]** Заблокированный сейф больше не заклинивает очередь: такие задачи уходят в карантин сразу и оживают после разблокировки.
+- **[EN]** A locked vault no longer jams the queue: those tasks are quarantined at once and revive once it is unlocked.
+- **[RU]** Догон версий с другого устройства больше не падает, когда облако присылает время числом.
+- **[EN]** Catching up on versions from another device no longer crashes when the cloud sends a timestamp as a number.
+
 ## 0.8.36 — 2026-09-03
 
 - **[RU]** Правка, сделанная на одном устройстве, больше не затирает молча правку, сделанную на другом. Приложение считало совпадение исходной версии признаком отсутствия конфликта — хотя совпадение исходной и есть конфликт: обе правки выросли из одного места. Текст второго устройства просто становился текущим, а работа первого уходила в историю, которую ни один экран не показывает. Теперь расхождение сохраняется отдельной заметкой «Конфликтная копия», оба текста остаются целыми, а у человека с одним устройством копия не появляется никогда.

@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.37',
+    date: '2026-09-04',
+    items: [
+      { category: 'fix', ru: 'Настроение сессии больше не уходит в облако открытым: при включённом сейфе оно шифруется наравне со всем остальным, а записи, сделанные прежними версиями приложения, продолжают читаться.', en: 'The mood of a session no longer reaches the cloud in the clear: with the vault on it is encrypted like everything else, and entries written by earlier versions keep opening.' },
+      { category: 'fix', ru: 'Восстановление заметки из облака больше не теряет отмеченное настроение.', en: 'Restoring a note from the cloud no longer loses the mood that was marked.' },
+      { category: 'fix', ru: 'Метки черновика шифруются перед отправкой — раньше они уезжали открытым текстом.', en: 'Draft tags are encrypted before upload — they used to travel in the clear.' },
+      { category: 'improvement', ru: 'Включение шифрования охватывает и то, что ИИ вывел о вас: разборы, векторы и записи памяти, а не только заметки и версии.', en: 'Turning encryption on now covers what the AI concluded about you too — analyses, vectors and memory records, not only notes and versions.' },
+      { category: 'improvement', ru: 'Заметка ничего не отправляет ИИ сама по себе: путь, на котором сохранение версии могло запустить индексацию, убран, а окно согласия теперь говорит не только что отправляется, но и когда.', en: 'A note sends nothing to the AI by itself: the path where saving a version could start indexing is gone, and the consent dialogue now says not only what is sent but when.' },
+      { category: 'fix', ru: 'Удаление заметки убирает и её задачи синхронизации — раньше они оставались гоняться за строкой, которой уже нет.', en: 'Deleting a note also clears its sync tasks — they used to keep chasing a row that no longer exists.' },
+      { category: 'fix', ru: 'Заметка, чей номер занят удалённой облачной строкой, больше не запирается навсегда с непонятной ошибкой: приложение говорит, что облачная копия была удалена, заметка остаётся на устройстве, а повторное «отправить в облако» создаёт новую копию.', en: 'A note whose id is held by a deleted cloud row is no longer locked away with a cryptic error: the app says the cloud copy was deleted, the note stays on the device, and pressing «upload» again makes a new copy.' },
+      { category: 'fix', ru: 'Задачи чужого аккаунта в очереди больше не блокируют отправку, а выход из аккаунта их не стирает.', en: 'Another account\'s queued tasks no longer block uploads, and signing out no longer erases them.' },
+      { category: 'fix', ru: 'Заблокированный сейф больше не заклинивает очередь: такие задачи уходят в карантин сразу и оживают после разблокировки.', en: 'A locked vault no longer jams the queue: those tasks are quarantined at once and revive once it is unlocked.' },
+      { category: 'fix', ru: 'Догон версий с другого устройства больше не падает, когда облако присылает время числом.', en: 'Catching up on versions from another device no longer crashes when the cloud sends a timestamp as a number.' },
+    ],
+  },
+  {
     version: '0.8.36',
     date: '2026-09-03',
     items: [
