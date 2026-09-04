@@ -131,11 +131,13 @@ npm run test:ci      # vitest run --coverage
 npm run ci           # typecheck + lint + tests
 npm run build        # vite build + prerender
 npm run i18n:audit   # missing / unused / incomplete translation keys
+npm run postulates   # verify the 4 postulates + database plaintext sweep
 ```
 
 ### Gates that run in CI
 
 - `typecheck`, `lint`, the full test suite;
+- `npm run postulates` — verifies the four postulates across the lifecycle fault matrix;
 - `scripts/prod-audit.mjs` — blocks on any production dependency advisory of
   moderate severity or above;
 - `scripts/cross-feature-check.sh` — a ratchet on cross-feature imports, at 0;
@@ -183,14 +185,14 @@ and the in-app `src/features/navigation/data/changelog.ts`.
 
 ## Known gaps
 
-Open findings live in `docs/ag-audit-2026-09-03-tickets.md`, each with a status
-saying whether I verified it myself or only checked that the mechanism exists.
-The two that block the closed beta:
+Open findings live in `docs/ag-audit-2026-09-03-tickets.md` and `docs/beta-postulate-closeout-tickets.md`.
+The isolation weaknesses that previously blocked the closed beta (`AG-ISO-1` and `AG-ISO-2`) were
+resolved in commit `2710c0d0` by scoping local IndexedDB databases strictly per authenticated account.
 
-- **AI stores are not partitioned by account** (`AG-ISO-1`). On a shared device,
-  a second account can read the first one's portrait and chat memory.
-- **Search reads every document on the device** (`AG-ISO-2`), including notes
-  belonging to another owner.
+The honest residual limit:
+- **Two guests on one device share a database** (`BETA-7`). Two people using the app without signing in
+  on the same device share `justwriting-local`. Partitioning without accounts relies on separate browser profiles
+  or private browsing.
 
 One cosmetic mismatch worth knowing: `index.html` still declares
 `https://justwriting.one/` as the canonical URL, and that domain does not

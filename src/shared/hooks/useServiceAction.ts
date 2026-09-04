@@ -3,10 +3,10 @@ import { useToast } from '../components/Toast';
 import { useLanguage } from '../../shared/i18n';
 import { reportError } from '../../shared/errors/reportError';
 
-interface ServiceActionOptions {
-  successMessage?: string;
+interface ServiceActionOptions<T = unknown> {
+  successMessage?: string | ((result: T) => string | undefined);
   errorMessage?: string;
-  onSuccess?: () => void;
+  onSuccess?: (result: T) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -27,7 +27,7 @@ export function useServiceAction() {
 
   const execute = useCallback(async <T>(
     action: (signal?: AbortSignal) => Promise<T>,
-    options: ServiceActionOptions = {}
+    options: ServiceActionOptions<T> = {}
   ): Promise<T | null> => {
     const controller = new AbortController();
     setIsLoading(true);
@@ -40,11 +40,12 @@ export function useServiceAction() {
 
       if (abortedRef.current) return null;
 
-      if (options.successMessage) {
-        showToast(options.successMessage, 'success');
+      if (options.successMessage !== undefined) {
+        const msg = typeof options.successMessage === 'function' ? options.successMessage(result) : options.successMessage;
+        if (msg) showToast(msg, 'success');
       }
 
-      options.onSuccess?.();
+      options.onSuccess?.(result);
       return result;
 
     } catch (err) {

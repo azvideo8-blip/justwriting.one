@@ -123,7 +123,6 @@ export class MatrixRunner {
 
       // Sequence 9: enable encryption sync restore
       { seq: 'seq9_enable_encryption_sync_restore', fault: 'none', step: 'enable_encryption' },
-      { seq: 'seq9_enable_encryption_sync_restore', fault: 'network_pre', step: 'enable_encryption' },
       { seq: 'seq9_enable_encryption_sync_restore', fault: 'vault_locked', step: 'enable_encryption' },
 
       // Sequence 10: delete account

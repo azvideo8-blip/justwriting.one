@@ -15,6 +15,10 @@ export const DocumentService = {
       lastSessionAt?: Date | undefined;
       mood?: string | undefined;
       excludedFromAI?: boolean | undefined;
+      currentVersion?: number | undefined;
+      totalWords?: number | undefined;
+      totalDuration?: number | undefined;
+      sessionsCount?: number | undefined;
       _locked?: boolean | undefined;
       _decryptionError?: boolean | undefined;
     }
@@ -24,10 +28,10 @@ export const DocumentService = {
     }
     const rawPayload: Record<string, unknown> = {
       title: data.title ?? '',
-      currentVersion: 0,
-      totalWords: 0,
-      totalDuration: 0,
-      sessionsCount: 0,
+      currentVersion: data.currentVersion ?? 0,
+      totalWords: data.totalWords ?? 0,
+      totalDuration: data.totalDuration ?? 0,
+      sessionsCount: data.sessionsCount ?? 0,
       firstSessionAt: data.firstSessionAt ? data.firstSessionAt.getTime() : Date.now(),
       lastSessionAt: data.lastSessionAt ? data.lastSessionAt.getTime() : Date.now(),
       tags: data.tags ?? [],

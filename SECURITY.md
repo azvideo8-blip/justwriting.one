@@ -73,6 +73,10 @@ change is wrong — not the postulate.
 4. **Saved, encrypted, synchronised, nothing leaked** — apart from what the
    person deliberately sent for analysis.
 
+You can verify that these hold by running `npm run postulates`. It executes the
+fault-injection matrix across all lifecycle sequences under both vault states,
+and runs the plaintext sweep against the database when `DATABASE_URL` is set.
+
 ---
 
 ## Encryption
@@ -229,19 +233,30 @@ headers; it is a leftover from the previous hosting.
 ## Known open weaknesses
 
 Listed because a security document that hides them is worth less than none.
-Details and fix plans are in `docs/ag-audit-2026-09-03-tickets.md`.
+Details and fix plans are in `docs/ag-audit-2026-09-03-tickets.md` and `docs/beta-postulate-closeout-tickets.md`.
 
 | | Weakness | Consequence |
 | :--- | :--- | :--- |
-| `AG-ISO-1` | AI stores in IndexedDB carry no account. `aiPortrait` is a single row under the key `'singleton'`. | On a shared device, if the first account signs out without choosing to erase, the second account can read the first one's portrait, chat memory and beliefs — and an upload will write them into the second account's cloud data. |
-| `AG-ISO-2` | Five retrieval paths read every document on the device with no owner filter. | Search results and chat context can include another owner's notes. |
-| `AG-DEL-3` | Two code paths react to a cloud tombstone; one of them does not mark the note local-only. | A note deleted on one device can be re-uploaded from another and reappear. Unverified — see the ticket. |
-| `AG-RESTORE-2` | Bulk reads are unpaginated and stop at the server's row cap without an error. | On a large archive a restore can be silently incomplete. |
+| `BETA-7` | Two guests on one device share a database (`justwriting-local`). | Two people who both use the app without signing in, on the same browser profile and device, share one IndexedDB database (`justwriting-local`) — notes, AI stores, and everything else. Without an account identity to partition by, isolation cannot be enforced; using separate browser profiles or private browsing is required on shared hardware. |
 
 The default on sign-out is to **keep** local data; erasing is a choice offered in
 the dialogue ("this is someone else's computer"). That is a deliberate product
-decision, not a defect — but it is the precondition that makes `AG-ISO-1`
-reachable, so it is named here rather than left implicit.
+decision, not a defect. For guest users who have no account, clearing browser storage
+or using private browsing is the only way to partition data on a shared computer.
+
+---
+
+## Closed weaknesses (Audit history)
+
+Weaknesses identified in previous security audits that have been resolved and verified:
+
+| | Weakness | Resolution & Commit |
+| :--- | :--- | :--- |
+| `AG-ISO-1` | AI stores in IndexedDB carried no account (`aiPortrait` singleton). | Closed in `2710c0d0` (2026-09-03). IndexedDB is strictly partitioned per account (`justwriting-local-<uid>`), and AI stores reside within the user's isolated database. |
+| `AG-ISO-2` | Retrieval paths read every document on the device with no owner filter. | Closed in `2710c0d0` (2026-09-03). `getMiniSearch` and retrieval open the owner's database (`getLocalDb(effectiveOwner)`). Notes from other accounts are not reachable. |
+| `AG-DEL-3` | Cloud tombstone reaction did not mark note local-only in all paths. | Closed in `2710c0d0` (2026-09-03). Both tombstone reaction paths call `LocalDocumentService.unlinkFromCloud(id, 'tombstone')`, setting `localOnly: true` and `unlinkedByTombstone: true`. Verified by `tombstoneNoResurrect.test.ts`. |
+| `AG-RESTORE-2` | Bulk reads were unpaginated and stopped at 1000 rows. | Closed in `2710c0d0` (2026-09-03). All bulk reads across documents, versions, summaries, embeddings, and local store records paginate with `PAGE_SIZE = 1000` and range queries. |
+| `AG-ENC-1` | `versions.mood` synced in plaintext. | Closed in `5fe48bd8` & `228ac4d2` (0.8.37). `versions.mood` is encrypted with the vault key. Database sweep on 2026-09-04 verified zero plaintext. |
 
 ---
 

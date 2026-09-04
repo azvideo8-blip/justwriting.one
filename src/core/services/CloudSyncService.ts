@@ -509,6 +509,10 @@ export const CloudSyncService = {
         // терялось при первой же выгрузке и не возвращалось никогда.
         mood: localDoc.mood,
         excludedFromAI: localDoc.excludedFromAI,
+        currentVersion: localDoc.currentVersion ?? (versions.length > 0 ? versions.length : 1),
+        totalWords: localDoc.totalWords,
+        totalDuration: localDoc.totalDuration,
+        sessionsCount: localDoc.sessionsCount,
       };
 
       try {
@@ -717,7 +721,7 @@ export const CloudSyncService = {
     data: SaveDocumentData,
     newVersion: number,
     prevContent: string
-  ): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean }> {
+  ): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean; reason?: string }> {
     if (!navigator.onLine) {
       const syncDb = await getLocalDb();
       await syncDb.put('syncQueue', {
@@ -803,6 +807,38 @@ export const CloudSyncService = {
         const localDoc = await LocalStorageService.getDocument(documentId);
         const cloudHead = cloudVerMap.get(maxCloudVersion);
         const cloudHeadContent = cloudHead?.content;
+
+        // AG-CORRUPT-2 (BETA-4): Refuse to declare divergence or fork when forms mismatch
+        // (e.g. ciphertext vs plaintext) or when cloud head could not be decrypted.
+        // An unreadable side is unknown, not different. Leave queued for retry.
+        const isCiphertext = (text?: string): boolean => {
+          if (!text) return false;
+          return text.startsWith('enc:') || text.startsWith('ey');
+        };
+        const cloudIsCiphertext = cloudHead?._encrypted === true && (isCiphertext(cloudHeadContent) || cloudHead?._decryptionError === true);
+        const localIsCiphertext = isCiphertext(data.content);
+
+        if (
+          cloudHead?._decryptionError === true ||
+          cloudHead?._degraded === true ||
+          (Boolean(cloudHead) && cloudIsCiphertext !== localIsCiphertext)
+        ) {
+          const syncDb = await getLocalDb();
+          await syncDb.put('syncQueue', {
+            id: `sync_${documentId}`,
+            documentId,
+            type: 'document' as const,
+            createdAt: Date.now(),
+            ownerId: userId,
+          });
+          useActivityLogStore.getState().addActivity(
+            'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
+            { action: 'syncVersionToCloud_unreadableCloudHead', documentId, version: maxCloudVersion },
+            'warning',
+            'sync',
+          );
+          return { forked: false, cloudSynced: false, reason: 'unknown' };
+        }
 
         // 1. Idempotent write: cloud already holds this exact content at head
         if (cloudHeadContent !== undefined && data.content === cloudHeadContent) {

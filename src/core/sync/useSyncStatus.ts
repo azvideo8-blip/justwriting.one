@@ -17,6 +17,7 @@ export type SyncStatus =
 export interface SyncStatusState {
   status: SyncStatus;
   pendingCount: number;
+  pendingDeletionsCount: number;
   unsyncedCount: number;
   behindCount: number;
   unlinkedCount: number;
@@ -36,6 +37,7 @@ const QUEUE_EVENTS = ['sync-queue-changed', 'doc-version-saved'] as const;
 
 export interface SharedCounts {
   pending: number;
+  pendingDeletions: number;
   unsynced: number;
   behind: number;
   unlinked: number;
@@ -47,6 +49,7 @@ export interface SharedCounts {
 // can all be mounted at once) so they don't each run their own IndexedDB read.
 let sharedCounts: SharedCounts = {
   pending: 0,
+  pendingDeletions: 0,
   unsynced: 0,
   behind: 0,
   unlinked: 0,
@@ -59,8 +62,11 @@ const statusListeners = new Set<(counts: SharedCounts) => void>();
 
 async function pollSyncStatus(userId: string | null) {
   try {
-    const [pending, summary] = await Promise.all([
+    const [pending, pendingDeletions, summary] = await Promise.all([
       SyncService.getPendingCount(),
+      typeof SyncService.getPendingDeletionsCount === 'function'
+        ? SyncService.getPendingDeletionsCount(userId ?? undefined)
+        : Promise.resolve(0),
       userId !== null
         ? (typeof SyncService.getUnsyncedSummary === 'function'
             ? SyncService.getUnsyncedSummary(userId)
@@ -77,6 +83,7 @@ async function pollSyncStatus(userId: string | null) {
     ]);
     sharedCounts = {
       pending,
+      pendingDeletions,
       unsynced: summary?.unsyncedCount ?? 0,
       behind: summary?.behindCount ?? 0,
       unlinked: summary?.unlinkedCount ?? 0,
@@ -125,6 +132,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   const isBrowserOnline = useOnlineStatus();
 
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingDeletionsCount, setPendingDeletionsCount] = useState(0);
   const [unsyncedCount, setUnsyncedCount] = useState(0);
   const [behindCount, setBehindCount] = useState(0);
   const [unlinkedCount, setUnlinkedCount] = useState(0);
@@ -154,6 +162,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       // Defer to avoid synchronous setState in effect body
       const t = setTimeout(() => {
         setPendingCount(0);
+        setPendingDeletionsCount(0);
         setUnsyncedCount(0);
         setBehindCount(0);
         setUnlinkedCount(0);
@@ -165,6 +174,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
     const t = setTimeout(() => {
       setPendingCount(sharedCounts.pending);
+      setPendingDeletionsCount(sharedCounts.pendingDeletions);
       setUnsyncedCount(sharedCounts.unsynced);
       setBehindCount(sharedCounts.behind);
       setUnlinkedCount(sharedCounts.unlinked);
@@ -173,6 +183,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     }, 0);
     const unsubscribe = subscribeSyncStatus(userId, c => {
       setPendingCount(c.pending);
+      setPendingDeletionsCount(c.pendingDeletions);
       setUnsyncedCount(c.unsynced);
       setBehindCount(c.behind);
       setUnlinkedCount(c.unlinked);
@@ -252,6 +263,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   return {
     status,
     pendingCount,
+    pendingDeletionsCount,
     unsyncedCount,
     behindCount,
     unlinkedCount,

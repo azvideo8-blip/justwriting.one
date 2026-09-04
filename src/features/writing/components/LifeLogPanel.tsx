@@ -8,6 +8,7 @@ import { Session } from '../../../types';
 import { CancelConfirmModal } from '../../../shared/components/CancelConfirmModal';
 import { deleteSession } from '../services/SessionDeleteService';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
+import { useToast } from '../../../shared/components/Toast';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { X, Pin, Trash2, ArrowRight } from 'lucide-react';
 import { highlightText } from '../../../shared/utils/highlightText';
@@ -130,6 +131,7 @@ export function LifeLogPanel({
   const [searchQuery, setSearchQuery] = useState('');
 
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const { execute } = useServiceAction();
   const { isGuest } = useAuthStatus();
   const { sessionGroups, summary, loading, cloudUnknown, refresh, unifiedDocuments } = useLifeLog(userId, isGuest);
@@ -383,7 +385,16 @@ export function LifeLogPanel({
           if (deleteTarget?.id) {
             void execute(
               () => deleteSession(userId, deleteTarget),
-              { successMessage: t('session_deleted'), errorMessage: t('error_delete_failed') }
+              {
+                errorMessage: t('error_delete_failed'),
+                onSuccess: (res) => {
+                  if (res?.cloudSynced) {
+                    showToast(t('session_deleted'), 'success');
+                  } else {
+                    showToast(t('delete_local_only_queued'));
+                  }
+                },
+              }
             ).then(() => void refresh());
           }
           setDeleteTarget(null);

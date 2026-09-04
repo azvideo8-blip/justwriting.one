@@ -66,6 +66,10 @@ export const commonTranslations: Translations = {
     en: 'Saved on this device — not in the cloud yet',
   },
   session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },
+  delete_local_only_queued: {
+    ru: 'Удалено на этом устройстве — из облака удалится позже',
+    en: 'Deleted on this device — will be removed from the cloud later',
+  },
   save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
   save_status_saved:  { ru: 'сохранено', en: 'saved' },
 

@@ -187,7 +187,7 @@ async function _applyLocalFieldEdit(
 export async function deleteArchiveSession(
   session: ArchiveSession,
   userId: string
-): Promise<void> {
+): Promise<{ cloudSynced: boolean }> {
   const localId = session._isLocal ? session.id : undefined;
   let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
   // The snapshot above was captured when the confirm dialog opened; a background
@@ -199,6 +199,7 @@ export async function deleteArchiveSession(
       if (fresh?.linkedCloudId) cloudId = fresh.linkedCloudId;
     } catch { /* fall back to the snapshot */ }
   }
-  await StorageService.deleteDocument(userId, localId, cloudId);
+  const result = await StorageService.deleteDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.deleted', documentId: session.id });
+  return result;
 }

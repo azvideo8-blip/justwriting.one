@@ -66,6 +66,7 @@ export const settingsTranslations: Translations = {
   sync_paused_no_network: { ru: 'Синхронизация приостановлена (нет сети)', en: 'Sync paused (no network)' },
   sync_paused_cloud_unavailable: { ru: 'Синхронизация приостановлена (облако недоступно)', en: 'Sync paused (cloud unavailable)' },
   sync_paused_pending: { ru: '{count} заметок ждут отправки', en: '{count} notes pending sync' },
+  sync_pending_deletions_count: { ru: '{count} удалений ожидают удаления из облака', en: '{count} deletions pending cloud removal' },
   sync_indicator_label: { ru: 'Синхронизация', en: 'Sync' },
 
   settings_change_password:    { ru: 'Сменить пароль', en: 'Change password' },

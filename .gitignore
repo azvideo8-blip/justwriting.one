@@ -30,3 +30,5 @@ __pycache__/
 scripts/rerank-bench/*.json
 scripts/ai-bench/*-real.*
 corpus-real.json
+.postulates-results*.json
+

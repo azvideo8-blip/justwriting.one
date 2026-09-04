@@ -36,7 +36,7 @@ export const StorageService = {
     return LocalStorageService.saveNew(userId, data);
   },
 
-  async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean }> {
+  async saveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
     return _lockManager.acquire(documentId, () => withTimeout(_doSaveVersion(userId, documentId, data), 60_000, 'Sync timeout'));
   },
 
@@ -56,25 +56,35 @@ export const StorageService = {
     return CloudSyncService.removeCloudCopy(userId, cloudDocumentId, localDocumentId);
   },
 
-  async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<void> {
+  async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
+    let targetCloudId = cloudId;
+    if (localId && !targetCloudId) {
+      try {
+        const fresh = await LocalStorageService.getDocument(localId);
+        if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
+      } catch { /* ignore */ }
+    }
     if (localId) {
       await LocalStorageService.deleteDocument(localId);
     }
-    if (cloudId) {
+    let cloudSynced = true;
+    if (targetCloudId) {
       try {
-        await CloudSyncService.removeCloudCopy(userId, cloudId);
+        await CloudSyncService.removeCloudCopy(userId, targetCloudId);
       } catch (e) {
-        reportError(e, { action: 'deleteDocument_cloudDelete', documentId: cloudId });
+        cloudSynced = false;
+        reportError(e, { action: 'deleteDocument_cloudDelete', documentId: targetCloudId });
         const db = await getLocalDb();
         await db.put('syncQueue', {
-          id: `delete_${cloudId}_${Date.now()}`,
-          documentId: cloudId,
+          id: `delete_${targetCloudId}_${Date.now()}`,
+          documentId: targetCloudId,
           type: 'delete' as const,
           createdAt: Date.now(),
           ownerId: userId,
         });
       }
     }
+    return { cloudSynced };
   },
 
   async getStorageState(userId: string, localId?: string, cloudId?: string): Promise<StorageState> {
@@ -86,7 +96,14 @@ export const StorageService = {
   },
 };
 
-async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean }> {
+export type SaveVersionResult = {
+  forked: boolean;
+  forkTitle?: string | undefined;
+  cloudSynced: boolean;
+  reason?: string | undefined;
+};
+
+async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
   const db = await getLocalDb();
   const now = Date.now();
   const totalWords = data.documentWordCount ?? data.wordCount;
@@ -123,7 +140,7 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
       prevContent
     );
     if (result.forked) return { forked: true, forkTitle: result.forkTitle, cloudSynced: false };
-    return { forked: false, cloudSynced: result.cloudSynced };
+    return { forked: false, cloudSynced: result.cloudSynced, reason: result.reason };
   }
   return { forked: false, cloudSynced: false };
 }

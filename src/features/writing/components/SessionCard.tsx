@@ -8,6 +8,7 @@ import { Session, Label } from '../../../types';
 import { parseCloudDate, cn } from '../../../core/utils/utils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { useLanguage } from '../../../shared/i18n';
+import { useToast } from '../../../shared/components/Toast';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
@@ -47,6 +48,7 @@ export const SessionCard = React.memo(function SessionCard({
   onLabelChange?: ((session: Session, labelId: string | undefined) => void) | undefined,
 }) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const { execute } = useServiceAction();
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode !== 'desktop';
@@ -56,7 +58,6 @@ export const SessionCard = React.memo(function SessionCard({
   const [isEditing, setIsEditing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportButtonRef = useRef<HTMLButtonElement>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const triggerVibration = () => {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -77,51 +78,34 @@ export const SessionCard = React.memo(function SessionCard({
     const touch = e.touches[0];
     if (!touch) return;
     setTouchStart(touch.clientX);
-
-    if (isMobile && userId && !userId.startsWith('guest_')) {
-      longPressTimer.current = setTimeout(() => {
-        triggerVibration();
-        setShowActionsSheet(true);
-      }, 600);
-    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStart === null || isEditing) return;
     const touch = e.touches[0];
     if (!touch) return;
-    const current = touch.clientX;
-    const diff = current - touchStart;
-
-    if (Math.abs(diff) > 10 && longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-
+    const diff = touch.clientX - touchStart;
     if (diff < 0) {
-      swipeOffsetRef.current = diff;
-      setSwipeOffset(diff);
+      const next = Math.max(diff, -100);
+      swipeOffsetRef.current = next;
+      setSwipeOffset(next);
     }
   };
 
   const handleTouchEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-    if (touchStart === null) return;
-    // Use ref to avoid stale closure — check before resetting
-    if (swipeOffsetRef.current < -150) {
+    if (touchStart === null || isEditing) return;
+    if (swipeOffsetRef.current < -60) {
       triggerVibration();
-      setShowDeleteConfirm(true);
+      setShowActionsSheet(true);
     }
     swipeOffsetRef.current = 0;
-    setTouchStart(null);
     setSwipeOffset(0);
+    setTouchStart(null);
   };
 
+  // Auto-expand on search match
   React.useEffect(() => {
-    if (searchQuery && (
+    if (searchQuery.trim() && (
       session.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       session.title?.toLowerCase().includes(searchQuery.toLowerCase())
     )) {
@@ -135,10 +119,14 @@ export const SessionCard = React.memo(function SessionCard({
     void execute(
       () => deleteSession(userId || '', session),
       {
-        successMessage: t('session_deleted'),
         errorMessage: t('error_delete_failed'),
-        onSuccess: () => {
+        onSuccess: (res) => {
           setShowDeleteConfirm(false);
+          if (res?.cloudSynced) {
+            showToast(t('session_deleted'), 'success');
+          } else {
+            showToast(t('delete_local_only_queued'));
+          }
           if (onDeleteSuccess) onDeleteSuccess(session.id);
         }
       }

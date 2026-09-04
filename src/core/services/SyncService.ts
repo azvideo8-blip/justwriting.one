@@ -140,6 +140,17 @@ export const SyncService = {
     ).length;
   },
 
+  async getPendingDeletionsCount(userId?: string): Promise<number> {
+    const db = await getLocalDb();
+    const all = await db.getAll('syncQueue');
+    return all.filter(i =>
+      !i.id.startsWith('lock_cloud_') &&
+      !i.dead &&
+      i.type === 'delete' &&
+      (userId ? (i.ownerId === undefined || i.ownerId === userId) : true)
+    ).length;
+  },
+
   async getUnsyncedSummary(userId: string): Promise<SyncUnsyncedSummary> {
     const localDocs = await LocalDocumentService.getGuestDocuments(userId);
     let behindCount = 0;

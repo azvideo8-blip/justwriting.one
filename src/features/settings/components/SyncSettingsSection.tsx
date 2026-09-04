@@ -242,6 +242,11 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                   {t('sync_device_only_count', { count: String(syncStatus.deviceOnlyCount) })}
                 </p>
               )}
+              {syncStatus.pendingDeletionsCount > 0 && (
+                <p className="text-[11px] text-amber-400">
+                  {t('sync_pending_deletions_count', { count: String(syncStatus.pendingDeletionsCount) })}
+                </p>
+              )}
               {oversizedCount > 0 && (
                 <div className="text-[11px] text-amber-400 flex items-center gap-1 mt-1">
                   <AlertTriangle size={12} />

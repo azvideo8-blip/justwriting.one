@@ -923,6 +923,30 @@ END $$;
 RESET role;
 RESET request.jwt.claims;
 
+-- ------------------------------------------------------------
+-- BETA-5 (SYNC-10): Consistency invariant: current_version = max(version)
+-- Every active document in Postgres must have its current_version aligned
+-- with the maximum version number in versions table.
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  drift_count int;
+BEGIN
+  SELECT count(*) INTO drift_count
+    FROM public.documents d
+    JOIN (
+      SELECT document_uuid, MAX(version) AS max_v
+      FROM public.versions
+      GROUP BY document_uuid
+    ) sub ON d.uuid = sub.document_uuid
+   WHERE d.deleted_at IS NULL
+     AND d.current_version <> sub.max_v;
+
+  IF drift_count > 0 THEN
+    RAISE EXCEPTION 'FAIL: documents found where current_version does not equal max(version): %', drift_count;
+  END IF;
+END $$;
+
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
 -- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),

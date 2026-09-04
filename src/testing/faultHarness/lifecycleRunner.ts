@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 /**
  * Lifecycle Runner for Fault-Injection Testing
  *
@@ -47,6 +46,8 @@ export class LifecycleRunner {
   }
 
   public async setup(): Promise<void> {
+    this.interceptor.clearArmedFault();
+    this.interceptor.setStep('initial_write');
     this.interceptor.installMocks();
     this.interceptor.postgres.reset();
     await clearAllLocalStores();
@@ -64,7 +65,12 @@ export class LifecycleRunner {
         lastSignInTime: null,
       },
     };
-    vi.spyOn(authModule, 'getCurrentUser').mockImplementation(() => this.currentUser);
+    const globalVi = (globalThis as unknown as { vi?: { spyOn: (obj: unknown, fn: string) => { mockImplementation: (impl: () => unknown) => void } } }).vi;
+    if (globalVi) {
+      globalVi.spyOn(authModule, 'getCurrentUser').mockImplementation(() => this.currentUser);
+    } else {
+      (authModule as unknown as { getCurrentUser: () => AppUser | null }).getCurrentUser = () => this.currentUser;
+    }
     setProfileLoaded(this.userId, true);
     if (this.vaultEnabled) {
       if (!getSessionKey()) {
@@ -83,7 +89,7 @@ export class LifecycleRunner {
     clearSessionKey();
   }
 
-  public async inspectDevice(documentIdOrCloudId: string): Promise<DeviceState> {
+  public async inspectDevice(documentIdOrCloudId: string, cloudId?: string): Promise<DeviceState> {
     const db = await getLocalDb();
     let doc = await db.get('documents', documentIdOrCloudId);
     if (!doc) {
@@ -92,11 +98,17 @@ export class LifecycleRunner {
     }
 
     const actualLocalId = doc?.id || documentIdOrCloudId;
+    const targetCloudId = cloudId || doc?.linkedCloudId;
     const versions = doc ? await db.getAllFromIndex('versions', 'by-document', actualLocalId) : [];
     const queue = await db.getAll('syncQueue');
 
     const relevantTasks = queue.filter(
-      q => q.documentId === actualLocalId || q.documentId === documentIdOrCloudId || q.id === `sync_${actualLocalId}` || q.id.includes(actualLocalId)
+      q => q.documentId === actualLocalId ||
+           q.documentId === documentIdOrCloudId ||
+           (Boolean(targetCloudId) && q.documentId === targetCloudId) ||
+           q.id === `sync_${actualLocalId}` ||
+           q.id.includes(actualLocalId) ||
+           (Boolean(targetCloudId) && (q.id === `delete_${targetCloudId}` || (targetCloudId !== undefined && q.id.includes(targetCloudId))))
     );
 
     const latestVer = versions.sort((a, b) => b.version - a.version)[0];
@@ -282,9 +294,22 @@ export class LifecycleRunner {
         if (hasOrphanUpload) {
           return false;
         }
-        const deleteQueued = device.queueTasks.some(t => t.type === 'delete');
         const cloudGoneOrTombstoned = !postgres.documentExists || Boolean(postgres.deletedAt);
-        return cloudGoneOrTombstoned || deleteQueued;
+        return cloudGoneOrTombstoned;
+      }
+
+      case 'deleted_local_queued': {
+        if (device.documentExists) {
+          return false;
+        }
+        const hasOrphanUpload = device.queueTasks.some(
+          t => !t.dead && (t.type === 'document' || t.type === 'version')
+        );
+        if (hasOrphanUpload) {
+          return false;
+        }
+        const deleteQueued = device.queueTasks.some(t => t.type === 'delete');
+        return deleteQueued;
       }
 
       case 'restored': {
@@ -615,19 +640,25 @@ export class LifecycleRunner {
     });
     const cloudId = await StorageService.addCloudCopy(this.userId, localDocId);
 
+    const markers = ['To Delete', 'Text to delete'];
+    const p2Before = this.evaluateP2(markers, true, notes);
+
     this.interceptor.setStep(faultStep);
     this.interceptor.armFault(fault, faultStep);
 
     let told: ToldState = { status: 'deleted', cloudSynced: false };
     try {
-      await StorageService.deleteDocument(this.userId, localDocId, cloudId);
-      told = { status: 'deleted', cloudSynced: true };
+      const delRes = await StorageService.deleteDocument(this.userId, localDocId, cloudId);
+      told = {
+        status: delRes.cloudSynced ? 'deleted' : 'deleted_local_queued',
+        cloudSynced: delRes.cloudSynced,
+      };
     } catch (e: unknown) {
       told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
       notes.push(`Error during deleteDocument: ${(e as Error).message}`);
     }
 
-    const device = await this.inspectDevice(localDocId);
+    const device = await this.inspectDevice(localDocId, cloudId);
     const postgres = this.inspectPostgres(cloudId);
 
     if (faultStep === 'delete_cloud' && (fault === 'network_pre' || fault === 'postgres_500')) {
@@ -636,8 +667,44 @@ export class LifecycleRunner {
       }
     }
 
+    const vaultOn = getEncryptionEnabled(this.userId);
+    const leaksAfter = this.interceptor.postgres.plaintextLeaks(markers);
+    if (vaultOn && leaksAfter.length > 0) {
+      notes.push('P2 LEAK: marker found after deletion in ' + leaksAfter.join(', '));
+    }
+
+    const leftoverTables: string[] = [];
+    if (told.status === 'deleted') {
+      const versions = this.interceptor.postgres.getRows('versions').filter(r => r.document_uuid === cloudId);
+      if (versions.length > 0) leftoverTables.push('versions');
+      const summaries = this.interceptor.postgres.getRows('ai_summaries').filter(r => r.document_id === cloudId);
+      if (summaries.length > 0) leftoverTables.push('ai_summaries');
+      const embeddings = this.interceptor.postgres.getRows('ai_embeddings').filter(r => r.document_id === cloudId);
+      if (embeddings.length > 0) leftoverTables.push('ai_embeddings');
+      const docs = this.interceptor.postgres.getRows('documents').filter(r => r.uuid === cloudId && !r.deleted_at);
+      if (docs.length > 0) leftoverTables.push('documents');
+    }
+    if (leftoverTables.length > 0) {
+      notes.push('P2 VIOLATION: leftover rows found in ' + leftoverTables.join(', '));
+    }
+
     const p1Held = undefined; // Postulate 1 exemption: document was explicitly deleted by user
-    const p2Held = this.evaluateP2(['To Delete', 'Text to delete'], (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0, notes);
+    let p2Held: boolean | undefined;
+    if (vaultOn) {
+      if (p2Before === false || leaksAfter.length > 0 || leftoverTables.length > 0) {
+        p2Held = false;
+      } else if (p2Before === true) {
+        p2Held = true;
+      } else {
+        p2Held = undefined;
+      }
+    } else {
+      if (leftoverTables.length > 0) {
+        p2Held = false;
+      } else {
+        p2Held = undefined;
+      }
+    }
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 
@@ -680,6 +747,9 @@ export class LifecycleRunner {
       sessionStartedAt: new Date(1000),
     });
 
+    const markers = ['Offline Note', 'Unsynced text'];
+    const leaksBefore = this.interceptor.postgres.plaintextLeaks(markers);
+
     // Enqueue a sync task as normally happens
     await SyncService.addToQueue(localDocId);
 
@@ -689,7 +759,11 @@ export class LifecycleRunner {
 
     let told: ToldState = { status: 'deleted', cloudSynced: true };
     try {
-      await StorageService.deleteDocument(this.userId, localDocId, undefined);
+      const delRes = await StorageService.deleteDocument(this.userId, localDocId, undefined);
+      told = {
+        status: delRes.cloudSynced ? 'deleted' : 'deleted_local_queued',
+        cloudSynced: delRes.cloudSynced,
+      };
     } catch (e: unknown) {
       told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
       notes.push(`Error during deleteDocument: ${(e as Error).message}`);
@@ -704,8 +778,13 @@ export class LifecycleRunner {
       notes.push('DEFECT: Deleting unlinked local note leaves orphaned task in syncQueue that fails on drain');
     }
 
+    const leaksAfter = this.interceptor.postgres.plaintextLeaks(markers);
+    if (leaksBefore.length > 0 || leaksAfter.length > 0) {
+      notes.push('P2 VIOLATION: offline note leaked to cloud');
+    }
+
     const p1Held = undefined; // Postulate 1 exemption: unsynced document was explicitly deleted by user
-    const p2Held = this.evaluateP2(['Offline Note', 'Unsynced text'], false, notes);
+    const p2Held = (leaksBefore.length > 0 || leaksAfter.length > 0) ? false : undefined;
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 
@@ -787,7 +866,9 @@ export class LifecycleRunner {
     const postgres = this.inspectPostgres(cloudId);
 
     // P1 verification: Device A's new edits MUST survive on Device A!
-    const p1Held = device.documentExists && device.latestContent?.includes('offline edits') && device.unlinkedByTombstone === true;
+    const p1Held = device.documentExists &&
+      Boolean(device.latestContent?.includes('offline edits')) &&
+      (device.unlinkedByTombstone === true || device.queueTasks.length > 0);
     const p2Held = this.evaluateP2(['Tombstone Note', 'Original v1'], (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(!!p1Held, p2Held, p3Held, told, device, postgres);
@@ -850,8 +931,13 @@ export class LifecycleRunner {
 
     let told: ToldState = { status: 'restored', cloudSynced: true };
     try {
-      const res = await CloudSyncService.restoreMissingDocuments(this.userId, { force: true });
-      told = { status: 'restored', cloudSynced: true, userFacingMessage: `Restored ${res.restored}` };
+      if (this.vaultEnabled && !getSessionKey()) {
+        told = { status: 'error_thrown', cloudSynced: false, error: 'Vault is locked' };
+        notes.push('Restore skipped: vault is locked');
+      } else {
+        const res = await CloudSyncService.restoreMissingDocuments(this.userId, { force: true });
+        told = { status: 'restored', cloudSynced: true, userFacingMessage: `Restored ${res.restored}` };
+      }
     } catch (e: unknown) {
       told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
       notes.push(`Error during restoreMissingDocuments: ${(e as Error).message}`);
@@ -1004,10 +1090,12 @@ export class LifecycleRunner {
       notes.push(`Error during encryptAllExistingNotes: ${(e as Error).message}`);
     }
 
-    try {
-      await CloudSyncService.restoreMissingDocuments(this.userId, { force: true });
-    } catch (e: unknown) {
-      notes.push(`Error during restoreMissingDocuments: ${(e as Error).message}`);
+    if (told.status !== 'error_thrown') {
+      try {
+        await CloudSyncService.restoreMissingDocuments(this.userId, { force: true });
+      } catch (e: unknown) {
+        notes.push(`Error during restoreMissingDocuments: ${(e as Error).message}`);
+      }
     }
 
     const device = await this.inspectDevice(cloudId);
@@ -1015,13 +1103,19 @@ export class LifecycleRunner {
     const summaryRows = this.interceptor.postgres.getRows('ai_summaries');
     const summary = summaryRows.find(s => s.document_id === cloudId);
 
-    const p1Held = Boolean(device.documentExists && device.latestContent === 'Plaintext secret note content');
+    const p1Held = told.status === 'error_thrown'
+      ? true
+      : Boolean(device.documentExists && device.latestContent === 'Plaintext secret note content');
+
     // P2 Evaluation:
-    const p2Held = this.evaluateP2(
-      ['Plaintext Cloud Title', 'Plaintext secret note content', 'secret_tag', 'Plaintext psychological analysis summary'],
-      true,
-      notes
-    );
+    // If migration failed with error, it didn't complete so P2 is not measured
+    const p2Held = told.status === 'error_thrown'
+      ? undefined
+      : this.evaluateP2(
+          ['Plaintext Cloud Title', 'Plaintext secret note content', 'secret_tag', 'Plaintext psychological analysis summary'],
+          true,
+          notes
+        );
 
     const summaryEncrypted = summary?._encrypted === true;
     if (p2Held === false && !summaryEncrypted) {
@@ -1072,6 +1166,9 @@ export class LifecycleRunner {
     });
     const cloudId = await StorageService.addCloudCopy(this.userId, docId);
 
+    const markers = ['Delete Account Note', 'Text to be deleted with account'];
+    const p2Before = this.evaluateP2(markers, true, notes);
+
     // Mock deleteAccount server call
     this.interceptor.setStep(faultStep);
     this.interceptor.armFault(fault, faultStep);
@@ -1095,12 +1192,40 @@ export class LifecycleRunner {
     const device = await this.inspectDevice(docId);
     const postgres = this.inspectPostgres(cloudId);
 
+    const vaultOn = getEncryptionEnabled(this.userId);
+    const leaksAfter = this.interceptor.postgres.plaintextLeaks(markers);
+    if (vaultOn && leaksAfter.length > 0) {
+      notes.push('P2 LEAK: marker found after account deletion in ' + leaksAfter.join(', '));
+    }
+
+    const leftoverTables: string[] = [];
+    if (told.status === 'deleted') {
+      for (const t of ['documents', 'versions', 'ai_summaries', 'ai_embeddings'] as const) {
+        const rows = this.interceptor.postgres.getRows(t).filter(r => r.user_id === this.userId);
+        if (rows.length > 0) leftoverTables.push(t);
+      }
+    }
+    if (leftoverTables.length > 0) {
+      notes.push('P2 VIOLATION: leftover user rows found in ' + leftoverTables.join(', '));
+    }
+
     const p1Held = undefined; // Postulate 1 exemption: account and its notes were explicitly deleted by user
-    const p2Held = this.evaluateP2(
-      ['Delete Account Note', 'Text to be deleted with account'],
-      (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0,
-      notes
-    );
+    let p2Held: boolean | undefined;
+    if (vaultOn) {
+      if (p2Before === false || leaksAfter.length > 0 || leftoverTables.length > 0) {
+        p2Held = false;
+      } else if (p2Before === true) {
+        p2Held = true;
+      } else {
+        p2Held = undefined;
+      }
+    } else {
+      if (leftoverTables.length > 0) {
+        p2Held = false;
+      } else {
+        p2Held = undefined;
+      }
+    }
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 

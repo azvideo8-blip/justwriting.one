@@ -148,8 +148,12 @@ export function MobileStorageActionsSheet({
     setLoadingAction('delete-complete');
     triggerVibration();
     try {
-      await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
-      showToast(t('storage_deleted_completely'), 'success');
+      const res = await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
+      if (res.cloudSynced) {
+        showToast(t('storage_deleted_completely'), 'success');
+      } else {
+        showToast(t('delete_local_only_queued'));
+      }
       onStorageChange();
       onClose();
     } catch (e) {

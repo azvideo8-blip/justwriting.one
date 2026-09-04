@@ -10,7 +10,7 @@ import * as supabaseClientModule from '../../core/supabase/client';
 import * as callAiModule from '../../core/ai/callAi';
 import * as authModule from '../../core/auth';
 import * as aiConsentModule from '../../core/ai/aiConsent';
-import { vi } from 'vitest';
+// Optional vitest spyOn; fallback to manual monkey-patch when running outside vitest
 import { clearSessionKey } from '../../core/crypto/encrypt';
 
 export interface ArmedFault {
@@ -65,9 +65,32 @@ export class FaultInterceptor {
     }
   }
 
+  private cleanups: (() => void)[] = [];
+
+  private spy<T extends object, K extends keyof T>(obj: T, method: K, mock: unknown): void {
+    const globalVi = (globalThis as unknown as { vi?: { spyOn: (o: unknown, m: string) => { mockImplementation: (fn: unknown) => void } } }).vi;
+    if (globalVi) {
+      globalVi.spyOn(obj, method as string).mockImplementation(mock as () => unknown);
+    } else {
+      const desc = Object.getOwnPropertyDescriptor(obj, method);
+      Object.defineProperty(obj, method, {
+        value: mock,
+        configurable: true,
+        writable: true,
+      });
+      this.cleanups.push(() => {
+        if (desc) {
+          Object.defineProperty(obj, method, desc);
+        } else {
+          delete (obj as Record<keyof T, unknown>)[method];
+        }
+      });
+    }
+  }
+
   public installMocks(): void {
     // 1. Mock getSupabase to route through InMemoryPostgres with fault injection
-    vi.spyOn(supabaseClientModule, 'getSupabase').mockImplementation(() => {
+    this.spy(supabaseClientModule, 'getSupabase', () => {
       return this.createMockSupabaseClient() as never;
     });
 
@@ -78,7 +101,7 @@ export class FaultInterceptor {
 
     // 3. Spy on callAi to detect unsolicited AI calls
     this.aiCallsIntercepted = [];
-    vi.spyOn(callAiModule, 'callAi').mockImplementation(async (name: string, data: unknown) => {
+    const mockCallAi = async (name: string, data: unknown) => {
       let consent = false;
       try {
         const u = authModule.getCurrentUser();
@@ -94,14 +117,15 @@ export class FaultInterceptor {
         consentPresent: consent,
       });
       return { success: true } as never;
-    });
+    };
+    this.spy(callAiModule, 'callAi', mockCallAi);
 
     // 4. Spy on fetch to detect streaming chat endpoint (/api/chat) (GUARD-7).
     // The product maintains two AI doors by design:
     // - callAi: request/response JSON endpoints (summaries, embeddings, rerank)
     // - /api/chat: streaming Server-Sent Events consumed via ReadableStream
     const originalFetch = globalThis.fetch;
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const mockFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       if (urlStr.includes('/api/chat')) {
         let consent = false;
@@ -138,11 +162,19 @@ export class FaultInterceptor {
       }
 
       return originalFetch(input, init);
-    });
+    };
+
+    this.spy(globalThis, 'fetch', mockFetch);
   }
 
   public uninstallMocks(): void {
-    vi.restoreAllMocks();
+    const globalVi = (globalThis as unknown as { vi?: { restoreAllMocks: () => void } }).vi;
+    if (globalVi) {
+      globalVi.restoreAllMocks();
+    }
+    for (const c of this.cleanups) c();
+    this.cleanups = [];
+
     Date.now = this.originalDateNow;
     this.clockOffsetMs = 0;
     this.aiCallsIntercepted = [];

@@ -74,9 +74,14 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
 
   const handleDeleteSession = async (s: ArchiveSession) => {
     try {
-      await deleteArchiveSession(s, userId);
+      const res = await deleteArchiveSession(s, userId);
       setSessions(prev => prev.filter(x => x.id !== s.id));
       if (previewSession?.id === s.id) setPreviewSession(null);
+      if (res.cloudSynced) {
+        showToast(t('session_deleted'), 'success');
+      } else {
+        showToast(t('delete_local_only_queued'));
+      }
       void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {
       logger.error('archive', 'Failed to delete session', { error: String(e) });

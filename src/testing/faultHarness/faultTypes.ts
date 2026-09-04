@@ -55,6 +55,7 @@ export interface ToldState {
     | 'saved_local_queued'
     | 'forked_conflict'
     | 'deleted'
+    | 'deleted_local_queued'
     | 'restored'
     | 'migrated'
     | 'error_thrown';
