@@ -763,6 +763,70 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   });
 
   // =========================================================================
+  // Postulate 2 Vault Axis Verification (GUARD-5)
+  // =========================================================================
+  describe('Postulate 2 Vault Axis Verification (GUARD-5)', () => {
+    it('with vault on, syncing sequences report p2Held === true and no plaintext leaks', async () => {
+      runner.vaultEnabled = true;
+      const resSeq1 = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      expect(resSeq1.p2Held).toBe(true);
+      expect(runner.interceptor.postgres.plaintextLeaks(['Seq 1 Note', 'Text from Seq1'])).toHaveLength(0);
+
+      runner.vaultEnabled = true;
+      const resSeq2 = await runner.runSeq2_WriteSaveEditSaveSync('none', 'sync_second');
+      expect(resSeq2.p2Held).toBe(true);
+
+      runner.vaultEnabled = true;
+      const resSeq3 = await runner.runSeq3_CrossDeviceDivergence('none', 'device_b_edit');
+      expect(resSeq3.p2Held).toBe(true);
+
+      runner.vaultEnabled = true;
+      const resSeq7 = await runner.runSeq7_SignOutEraseRestore('none', 'restore');
+      expect(resSeq7.p2Held).toBe(true);
+
+      runner.vaultEnabled = true;
+      const resSeq8 = await runner.runSeq8_GuestSignupMigrateSync('none', 'migrate');
+      expect(resSeq8.p2Held).toBe(true);
+    });
+
+    it('with vault off, syncing sequences report markers present in cloud (anti-theatre check)', async () => {
+      runner.vaultEnabled = false;
+      const resSeq1 = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      // When vault is off, p2Held is undefined (not measured/unencrypted by design),
+      // and evaluateP2 asserted that plaintext markers did reach Postgres without throwing inversion error
+      expect(resSeq1.notes.some(n => n.includes('P2 HARNESS INVERSION'))).toBe(false);
+      expect(runner.interceptor.postgres.plaintextLeaks(['Seq 1 Note', 'Text from Seq1']).length).toBeGreaterThan(0);
+    });
+
+    it('no sequence reports p2Held: undefined when it successfully synced data with vault on', async () => {
+      runner.vaultEnabled = true;
+      const res = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      expect(res.told.status).toBe('synced_to_cloud');
+      expect(res.p2Held).toBe(true);
+      expect(res.p2Held).not.toBeUndefined();
+    });
+
+    it('falsification: leak in encryption with vault on turns p2Held false and names table.column', async () => {
+      // Intentionally insert an unencrypted marker into documents table during run
+      runner.vaultEnabled = true;
+      runner.interceptor.onStep = async (step) => {
+        if (step === 'sync_cloud') {
+          runner.interceptor.postgres.executeInsert('documents', {
+            uuid: 'doc_rogue_plain',
+            user_id: runner.userId,
+            title: 'Seq 1 Note', // Plaintext leak of note title
+            _encrypted: false,
+          });
+        }
+      };
+
+      const res = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      expect(res.p2Held).toBe(false);
+      expect(res.notes.some(n => n.includes('P2 LEAK') && n.includes('documents.title'))).toBe(true);
+    });
+  });
+
+  // =========================================================================
   // Postulate 3 Verification (GUARD-3)
   // =========================================================================
   describe('Postulate 3 Verification (GUARD-3)', () => {

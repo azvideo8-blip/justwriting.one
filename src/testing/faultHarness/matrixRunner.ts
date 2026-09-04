@@ -27,30 +27,47 @@ export class MatrixRunner {
   public async runCell(
     sequence: LifecycleSequence,
     fault: FaultType,
-    step: StepName
+    step: StepName,
+    vaultEnabled?: boolean
   ): Promise<MatrixCellResult> {
+    if (vaultEnabled !== undefined) {
+      this.runner.vaultEnabled = vaultEnabled;
+    }
+    let res: MatrixCellResult;
     switch (sequence) {
       case 'seq1_write_save_sync':
-        return this.runner.runSeq1_WriteSaveSync(fault, step);
+        res = await this.runner.runSeq1_WriteSaveSync(fault, step);
+        break;
       case 'seq2_write_save_edit_save_sync':
-        return this.runner.runSeq2_WriteSaveEditSaveSync(fault, step);
+        res = await this.runner.runSeq2_WriteSaveEditSaveSync(fault, step);
+        break;
       case 'seq3_cross_device_divergence':
-        return this.runner.runSeq3_CrossDeviceDivergence(fault, step);
+        res = await this.runner.runSeq3_CrossDeviceDivergence(fault, step);
+        break;
       case 'seq4_write_save_sync_delete':
-        return this.runner.runSeq4_WriteSaveSyncDelete(fault, step);
+        res = await this.runner.runSeq4_WriteSaveSyncDelete(fault, step);
+        break;
       case 'seq5_delete_before_sync':
-        return this.runner.runSeq5_DeleteBeforeSync(fault, step);
+        res = await this.runner.runSeq5_DeleteBeforeSync(fault, step);
+        break;
       case 'seq6_tombstone_edit_recovery':
-        return this.runner.runSeq6_TombstoneEditRecovery(fault, step);
+        res = await this.runner.runSeq6_TombstoneEditRecovery(fault, step);
+        break;
       case 'seq7_sign_out_erase_restore':
-        return this.runner.runSeq7_SignOutEraseRestore(fault, step);
+        res = await this.runner.runSeq7_SignOutEraseRestore(fault, step);
+        break;
       case 'seq8_guest_signup_migrate_sync':
-        return this.runner.runSeq8_GuestSignupMigrateSync(fault, step);
+        res = await this.runner.runSeq8_GuestSignupMigrateSync(fault, step);
+        break;
       case 'seq9_enable_encryption_sync_restore':
-        return this.runner.runSeq9_EnableEncryptionSyncRestore(fault, step);
+        res = await this.runner.runSeq9_EnableEncryptionSyncRestore(fault, step);
+        break;
       case 'seq10_delete_account':
-        return this.runner.runSeq10_DeleteAccount(fault, step);
+        res = await this.runner.runSeq10_DeleteAccount(fault, step);
+        break;
     }
+    res.vaultEnabled = vaultEnabled ?? this.runner.vaultEnabled;
+    return res;
   }
 
   public async runFullMatrix(): Promise<MatrixCellResult[]> {
@@ -115,23 +132,30 @@ export class MatrixRunner {
     ];
 
     for (const item of scenarios) {
-      try {
-        const res = await this.runCell(item.seq, item.fault, item.step);
-        results.push(res);
-      } catch (err: unknown) {
-        results.push({
-          sequence: item.seq,
-          fault: item.fault,
-          step: item.step,
-          told: { status: 'error_thrown', cloudSynced: false, error: (err as Error).message },
-          device: { documentExists: false, versionsCount: 0, queueTasks: [] },
-          postgres: { documentExists: false, versionsCount: 0 },
-          p1Held: true,
-          p2Held: undefined,
-          p3Held: false,
-          p4Held: false,
-          notes: [`Unhandled error during runCell: ${(err as Error).message}`],
-        });
+      const vaultOptions = item.seq === 'seq9_enable_encryption_sync_restore'
+        ? [false]
+        : [false, true];
+
+      for (const vault of vaultOptions) {
+        try {
+          const res = await this.runCell(item.seq, item.fault, item.step, vault);
+          results.push(res);
+        } catch (err: unknown) {
+          results.push({
+            sequence: item.seq,
+            fault: item.fault,
+            step: item.step,
+            vaultEnabled: vault,
+            told: { status: 'error_thrown', cloudSynced: false, error: (err as Error).message },
+            device: { documentExists: false, versionsCount: 0, queueTasks: [] },
+            postgres: { documentExists: false, versionsCount: 0 },
+            p1Held: true,
+            p2Held: undefined,
+            p3Held: false,
+            p4Held: false,
+            notes: [`Unhandled error during runCell: ${(err as Error).message}`],
+          });
+        }
       }
     }
 

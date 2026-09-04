@@ -27,7 +27,7 @@ import {
   clearSessionKey,
   generateDataKey,
 } from '../../core/crypto/encrypt';
-import { getEncryptionEnabled, setEncryptionEnabled, setProfileLoaded } from '../../core/crypto/cryptoHelpers';
+import { getEncryptionEnabled, setEncryptionEnabled, setProfileLoaded, maybeEncrypt } from '../../core/crypto/cryptoHelpers';
 import { SaveDocumentData } from '../../core/services/storageTypes';
 import { AppUser } from '../../core/auth/types';
 
@@ -520,13 +520,19 @@ export class LifecycleRunner {
 
     // Device B receives v1 and pushes v2
     this.interceptor.setStep('device_b_edit');
+    const bContent = this.vaultEnabled
+      ? (await maybeEncrypt({ content: 'Device B edit v2' }, ['content'], [], true)).content
+      : 'Device B edit v2';
     this.interceptor.postgres.executeInsert('versions', {
       document_uuid: cloudId,
       user_id: this.userId,
       version: 2,
-      content: 'Device B edit v2',
+      content: bContent as string,
       word_count: 4,
       duration: 20,
+      saved_at: new Date(2000).toISOString(),
+      session_started_at: new Date(1000).toISOString(),
+      _encrypted: this.vaultEnabled,
     });
     this.interceptor.postgres.executeUpdate(
       'documents',
@@ -810,7 +816,7 @@ export class LifecycleRunner {
 
     // Create note in cloud
     const cloudId = 'cloud_seq7';
-    this.interceptor.postgres.executeInsert('documents', {
+    const rawDoc: Record<string, unknown> = {
       uuid: cloudId,
       user_id: this.userId,
       title: 'Cloud Archive Note',
@@ -819,22 +825,28 @@ export class LifecycleRunner {
       current_version: 1,
       first_session_at: new Date(1000).toISOString(),
       last_session_at: new Date(1000).toISOString(),
-    });
-    this.interceptor.postgres.executeInsert('versions', {
+    };
+    const rawVer: Record<string, unknown> = {
       document_uuid: cloudId,
       user_id: this.userId,
       version: 1,
       content: 'Cloud Archive Content',
       word_count: 5,
       duration: 30,
-    });
+      saved_at: new Date(1000).toISOString(),
+      session_started_at: new Date(1000).toISOString(),
+    };
+    const encDoc = this.vaultEnabled ? await maybeEncrypt(rawDoc, ['title'], ['tags'], true) : rawDoc;
+    const encVer = this.vaultEnabled ? await maybeEncrypt(rawVer, ['content'], [], true) : rawVer;
+    this.interceptor.postgres.executeInsert('documents', encDoc);
+    this.interceptor.postgres.executeInsert('versions', encVer);
 
     // Sign out with clearAllLocalStores
     await clearAllLocalStores();
 
     // Now restore from cloud
-    this.interceptor.setStep(faultStep);
     this.interceptor.armFault(fault, faultStep);
+    this.interceptor.setStep(faultStep);
 
     let told: ToldState = { status: 'restored', cloudSynced: true };
     try {

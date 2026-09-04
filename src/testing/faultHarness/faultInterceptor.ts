@@ -42,6 +42,9 @@ export class FaultInterceptor {
       triggerCount: 1,
       currentCount: 0,
     };
+    if (this.currentStep === step && fault === 'vault_locked') {
+      clearSessionKey();
+    }
   }
 
   public clearArmedFault(): void {

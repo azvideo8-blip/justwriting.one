@@ -97,6 +97,7 @@ export interface MatrixCellResult {
   sequence: LifecycleSequence;
   fault: FaultType;
   step: StepName;
+  vaultEnabled?: boolean | undefined;
   told: ToldState;
   device: DeviceState;
   postgres: PostgresState;
