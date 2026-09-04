@@ -12,10 +12,10 @@ const _syncInProgress = new Map<string, boolean>();
 const limit = pLimit(5);
 
 // AUDIT-H4: детерминированные ошибки (LOCKED, DECRYPTION_ERROR,
-// Invalid sessionStartedAt) не исправятся ретраями — задача уходит в карантин
+// Invalid sessionStartedAt, ENCRYPT_REQUIRED) не исправятся ретраями — задача уходит в карантин
 // сразу; остальным даём MAX_ATTEMPTS проходов, потом тоже карантин.
 const MAX_ATTEMPTS = 10;
-const DETERMINISTIC_ERROR = /LOCKED|DECRYPTION_ERROR|Invalid sessionStartedAt/;
+const DETERMINISTIC_ERROR = /LOCKED|DECRYPTION_ERROR|Invalid sessionStartedAt|ENCRYPT_REQUIRED/;
 
 async function bumpAttempts(
   taskId: string,
@@ -107,7 +107,7 @@ export const SyncService = {
     const queue = await db.getAll('syncQueue');
     const toRevive = queue.filter(item =>
       Boolean(item.dead) &&
-      (item.lastError?.includes('LOCKED') || item.lastError?.includes('locked')) &&
+      (item.lastError?.includes('LOCKED') || item.lastError?.includes('locked') || item.lastError?.includes('ENCRYPT_REQUIRED')) &&
       (userId ? item.ownerId === undefined || item.ownerId === userId : true)
     );
     if (toRevive.length === 0) return 0;
@@ -120,16 +120,24 @@ export const SyncService = {
     return toRevive.length;
   },
 
-  async getPendingCount(): Promise<number> {
+  async getPendingCount(userId?: string): Promise<number> {
     const db = await getLocalDb();
     const all = await db.getAll('syncQueue');
-    return all.filter(i => !i.id.startsWith('lock_cloud_') && !i.dead).length;
+    return all.filter(i =>
+      !i.id.startsWith('lock_cloud_') &&
+      !i.dead &&
+      (userId ? (i.ownerId === undefined || i.ownerId === userId) : true)
+    ).length;
   },
 
-  async getDeadCount(): Promise<number> {
+  async getDeadCount(userId?: string): Promise<number> {
     const db = await getLocalDb();
     const all = await db.getAll('syncQueue');
-    return all.filter(i => !i.id.startsWith('lock_cloud_') && Boolean(i.dead)).length;
+    return all.filter(i =>
+      !i.id.startsWith('lock_cloud_') &&
+      Boolean(i.dead) &&
+      (userId ? (i.ownerId === undefined || i.ownerId === userId) : true)
+    ).length;
   },
 
   async getUnsyncedSummary(userId: string): Promise<SyncUnsyncedSummary> {

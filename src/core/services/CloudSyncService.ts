@@ -500,7 +500,33 @@ export const CloudSyncService = {
           mood: localDoc.mood,
           excludedFromAI: localDoc.excludedFromAI,
         }));
+      } catch (createErr: unknown) {
+        const is23505 =
+          (createErr !== null && typeof createErr === 'object' && 'code' in createErr && (createErr as { code: string }).code === '23505') ||
+          (createErr instanceof Error && /23505|documents_uuid_key|duplicate key/i.test(createErr.message));
 
+        const localDocUuid = localDoc.uuid;
+        if (Boolean(is23505) && typeof localDocUuid === 'string' && localDocUuid.length > 0) {
+          // Check for genuine duplicate: another local document claiming this UUID
+          const allLocal = await LocalStorageService.getGuestDocuments(userId);
+          const conflictingLocal = allLocal.find(d => d.id !== localDocumentId && (d.uuid === localDocUuid || d.linkedCloudId === localDocUuid));
+          if (conflictingLocal) {
+            throw new Error(`DUPLICATE_UUID_COLLISION: local document ${conflictingLocal.id} already claims uuid ${localDocUuid}`);
+          }
+
+          const existing = await DocumentService.findByUuid(userId, localDocUuid);
+          if (existing) {
+            cloudId = existing.uuid || existing.id;
+            await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
+          } else {
+            throw createErr;
+          }
+        } else {
+          throw createErr;
+        }
+      }
+
+      try {
         const sortedVersions = [...versions].sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
         for (let i = 0; i < sortedVersions.length; i++) {
           const ver = sortedVersions[i]!;

@@ -76,7 +76,7 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
 
     try {
       const { clearAllLocalStores } = await import('../../../core/storage/localDb');
-      await clearAllLocalStores();
+      await clearAllLocalStores(currentUid);
     } catch (e) {
       wipeFailed = e;
       reportError(e, { action: 'signOut_clearLocalDb' });

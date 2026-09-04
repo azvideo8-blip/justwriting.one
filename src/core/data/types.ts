@@ -55,6 +55,7 @@ export interface IDataProvider {
   getEmbedding(userId: string, documentId: string): Promise<ProviderRecord | null>;
   saveEmbedding(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
   deleteEmbedding(userId: string, documentId: string): Promise<void>;
+  getUserEmbeddings(userId: string): Promise<ProviderRecord[]>;
   getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }>;
   getEmbeddingsPage(userId: string, limitCount: number, startAfterId?: string): Promise<ProviderRecord[]>;
 

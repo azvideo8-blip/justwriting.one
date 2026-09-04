@@ -531,7 +531,12 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   });
 
   try {
-    result.pipeTextStreamToResponse(res);
+    // Обёртка нужна из-за смены сигнатуры между версиями SDK: в ai@6.0.191
+    // метод возвращает void, в следующей — промис. Голый await ругает линт
+    // сегодня, а отсутствие await завтра пропустит сбой пайпа мимо этого
+    // catch — то есть слот лимита перестанет возвращаться при обрыве стрима.
+    // Promise.resolve одинаково верна для обеих сигнатур.
+    await Promise.resolve(result.pipeTextStreamToResponse(res));
   } catch (streamErr) {
     console.error('[api/chat] pipe failed:', streamErr);
     await settlement.settle('failed');

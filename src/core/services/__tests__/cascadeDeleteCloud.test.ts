@@ -51,6 +51,9 @@ vi.mock('../../storage/localDb', () => ({
         delete: async (id: string) => { if (name === 'documents') docs.delete(id); },
         put: vi.fn(),
         get: async (id: string) => (name === 'documents' ? docs.get(id) : undefined),
+        // Удаление заметки теперь чистит и очередь синхронизации (LIFE-4),
+        // поэтому заглушка обязана уметь читать её целиком.
+        getAll: async () => [],
         index: () => ({ getAll: async () => [] }),
       }),
       done: Promise.resolve(),

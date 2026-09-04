@@ -150,9 +150,13 @@ export class InMemoryPostgres {
         matchIndex = current.findIndex(r => r.document_id === row.document_id);
       } else if (table === 'ai_embeddings' && row.document_id) {
         matchIndex = current.findIndex(r => r.document_id === row.document_id);
-      } else if (table === 'local_store_records' && row.store_name && row.record_key) {
+      } else if (table === 'local_store_records' && (row.store || row.store_name) && (row.key || row.record_key)) {
+        const rowStore = row.store || row.store_name;
+        const rowKey = row.key || row.record_key;
         matchIndex = current.findIndex(
-          r => r.store_name === row.store_name && r.record_key === row.record_key && r.user_id === row.user_id
+          r => (r.store === rowStore || r.store_name === rowStore) &&
+               (r.key === rowKey || r.record_key === rowKey) &&
+               r.user_id === row.user_id
         );
       }
 

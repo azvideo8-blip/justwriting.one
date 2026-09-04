@@ -67,3 +67,24 @@ export async function getEmbeddingsPage(userId: string, limitCount: number, star
   if (error != null) throw error;
   return (data ?? []).map(row => fromDb(AI_EMBEDDING_REV, row));
 }
+
+export async function getUserEmbeddings(userId: string): Promise<ProviderRecord[]> {
+  const PAGE_SIZE = 1000;
+  let from = 0;
+  const allRows: Record<string, unknown>[] = [];
+  while (true) {
+    const { data, error } = await getSupabase()
+      .from('ai_embeddings')
+      .select('*')
+      .eq('user_id', userId)
+      .order('document_id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error != null) throw error;
+    if (data === null || data.length === 0) break;
+    allRows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return allRows.map(row => fromDb(AI_EMBEDDING_REV, row));
+}
+

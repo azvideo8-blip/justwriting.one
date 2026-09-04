@@ -88,7 +88,8 @@ describe('userProfileDbSchema', () => {
     // Ни одно поле не должно исчезнуть при разборе.
     expect(Object.keys(parsed.data).sort()).toEqual(Object.keys(full).sort());
     expect(parsed.data.labels).toEqual([{ id: 'l1', name: 'Дневник', color: '#ff0000' }]);
-    expect(parsed.data.privacyAcceptedAt).toBe(1755000000000);
+    // LIFE-5: отметка времени приводится к Date, какой бы формы ни пришла.
+    expect(parsed.data.privacyAcceptedAt).toEqual(new Date(1755000000000));
     expect(parsed.data.avgSessionWords).toBe(300);
     expect(parsed.data.streakDays).toBe(7);
   });

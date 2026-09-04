@@ -237,7 +237,7 @@ async function _encryptAllExistingNotesInner(
           report();
           continue;
         }
-        const encrypted = await maybeEncrypt(d.data as Record<string, unknown>, ['content'], ['pinnedThoughts'], true);
+        const encrypted = await maybeEncrypt(d.data as Record<string, unknown>, ['content', 'title'], ['pinnedThoughts', 'tags'], true);
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
         pending.push({ type: 'draft', userId, draftId, data: clean, checkKey: ck });
         if (pending.length >= BATCH_SIZE) await flush();
@@ -258,6 +258,145 @@ async function _encryptAllExistingNotesInner(
     if (e instanceof VaultLockedError) throw e;
     hadErrors = true;
     reportError(e, { action: 'encryptAllExistingNotes_draftsQuery', userId });
+  }
+
+  // AI Summaries
+  try {
+    const summaries = await DataProvider.getUserSummaries(userId);
+    progress.total += summaries.length;
+    report();
+
+    for (const s of summaries) {
+      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+      if (!getSessionKey()) throw new VaultLockedError();
+
+      const summaryDocId = (s.documentUuid || s.documentId || s.id) as string;
+      const ck = `summary_${summaryDocId}`;
+      if (checkpoint.has(ck) || s._encrypted) {
+        checkpoint.add(ck);
+        progress.processed++;
+        report();
+        continue;
+      }
+
+      try {
+        const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'];
+        const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'];
+        const encrypted = await maybeEncrypt(s as Record<string, unknown>, STRING_FIELDS, ARRAY_FIELDS, true);
+        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
+        await DataProvider.saveSummary(userId, summaryDocId, clean);
+        checkpoint.add(ck);
+        saveCheckpoint(userId, checkpoint);
+        progress.encrypted++;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') throw e;
+        if (e instanceof VaultLockedError) throw e;
+        progress.errors++;
+        hadErrors = true;
+        reportError(e, { action: 'encryptAllExistingNotes_summary', summaryDocId });
+      }
+      progress.processed++;
+      report();
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    if (e instanceof VaultLockedError) throw e;
+    hadErrors = true;
+    reportError(e, { action: 'encryptAllExistingNotes_summariesQuery', userId });
+  }
+
+  // AI Embeddings
+  try {
+    const embeddings = await DataProvider.getUserEmbeddings(userId);
+    progress.total += embeddings.length;
+    report();
+
+    for (const emb of embeddings) {
+      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+      if (!getSessionKey()) throw new VaultLockedError();
+
+      const embDocId = (emb.documentUuid || emb.documentId || emb.id) as string;
+      const ck = `emb_${embDocId}`;
+      if (checkpoint.has(ck) || emb._encrypted) {
+        checkpoint.add(ck);
+        progress.processed++;
+        report();
+        continue;
+      }
+
+      try {
+        const encrypted = await maybeEncrypt(emb as Record<string, unknown>, ['vectorsJson', 'chunkTextsJson'], [], true);
+        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
+        await DataProvider.saveEmbedding(userId, embDocId, clean);
+        checkpoint.add(ck);
+        saveCheckpoint(userId, checkpoint);
+        progress.encrypted++;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') throw e;
+        if (e instanceof VaultLockedError) throw e;
+        progress.errors++;
+        hadErrors = true;
+        reportError(e, { action: 'encryptAllExistingNotes_embedding', embDocId });
+      }
+      progress.processed++;
+      report();
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    if (e instanceof VaultLockedError) throw e;
+    hadErrors = true;
+    reportError(e, { action: 'encryptAllExistingNotes_embeddingsQuery', userId });
+  }
+
+  // Local Store Records
+  try {
+    const storeRecords = await DataProvider.getLocalStoreRecords(userId);
+    progress.total += storeRecords.length;
+    report();
+
+    for (const rec of storeRecords) {
+      if (signal?.aborted) throw new DOMException('Migration aborted', 'AbortError');
+      if (!getSessionKey()) throw new VaultLockedError();
+
+      const ck = `ls_${rec.store}_${rec.key}`;
+      const payload = rec.payload as Record<string, unknown> | undefined;
+      if (checkpoint.has(ck) || payload?._encrypted) {
+        checkpoint.add(ck);
+        progress.processed++;
+        report();
+        continue;
+      }
+
+      try {
+        const dataStr = typeof payload?.data === 'string' ? payload.data : JSON.stringify(payload ?? {});
+        const encrypted = await maybeEncrypt(
+          {
+            data: dataStr,
+            updatedAt: payload?.updatedAt ?? Date.now(),
+          },
+          ['data'],
+          [],
+          true
+        );
+        await DataProvider.saveLocalStoreRecord(userId, rec.store, rec.key, encrypted);
+        checkpoint.add(ck);
+        saveCheckpoint(userId, checkpoint);
+        progress.encrypted++;
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') throw e;
+        if (e instanceof VaultLockedError) throw e;
+        progress.errors++;
+        hadErrors = true;
+        reportError(e, { action: 'encryptAllExistingNotes_localStoreRecord', store: rec.store, key: rec.key });
+      }
+      progress.processed++;
+      report();
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    if (e instanceof VaultLockedError) throw e;
+    hadErrors = true;
+    reportError(e, { action: 'encryptAllExistingNotes_localStoreRecordsQuery', userId });
   }
 
   // Чекпойнт — память о проделанной работе. Снести его после завершения без ошибок.

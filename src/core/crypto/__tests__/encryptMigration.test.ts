@@ -42,6 +42,12 @@ vi.mock('../../data', () => ({
     getVersions: mockGetVersions,
     getMigrationDrafts: mockGetMigrationDrafts,
     executeMigrationBatch: mockExecuteMigrationBatch,
+    // Проход шифрует ещё и производные ИИ. Метода, которого нет в подделке,
+    // достаточно, чтобы проход счёл себя упавшим и оставил контрольную точку:
+    // добавляя сюда хранилище, добавь его и в миграцию.
+    getUserSummaries: vi.fn(async () => []),
+    getUserEmbeddings: vi.fn(async () => []),
+    getLocalStoreRecords: vi.fn(async () => []),
   },
 }));
 

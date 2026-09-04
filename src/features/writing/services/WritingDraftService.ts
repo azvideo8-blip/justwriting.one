@@ -101,7 +101,7 @@ export const WritingDraftService = {
       withTimeout((async () => {
         const draftData = await DataProvider.getDraft(userId);
         if (draftData) {
-          const decrypted: unknown = await maybeDecrypt(draftData, ['content', 'title'], ['pinnedThoughts']);
+          const decrypted: unknown = await maybeDecrypt(draftData, ['content', 'title'], ['pinnedThoughts', 'tags']);
           // Битый облачный черновик не доходит до таймеров и сравнений дат:
           // локальная копия побеждает, мусор в состояние приложения не входит.
           const parsed = draftDbSchema.safeParse(decrypted);
@@ -207,7 +207,7 @@ export const WritingDraftService = {
     if (_lastCloudSignature.get(draft.userId) === signature) return true;
 
     const draftRecord = draft as unknown as Record<string, unknown>;
-    const encrypted = await maybeEncrypt(draftRecord, ['content', 'title'], ['pinnedThoughts'], draft.userId);
+    const encrypted = await maybeEncrypt(draftRecord, ['content', 'title'], ['pinnedThoughts', 'tags'], draft.userId);
     if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
       return false;
     }

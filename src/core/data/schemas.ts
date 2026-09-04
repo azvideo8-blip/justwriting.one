@@ -1,11 +1,22 @@
 import { z } from 'zod';
+import { toDate } from '../utils/dateUtils';
 
+/**
+ * Приводит любую форму облачной отметки времени к `Date | null`.
+ *
+ * `z.undefined()` в объединение НЕ добавляется намеренно: поля помечены
+ * `.optional()`, и приняв undefined здесь, схема материализует отсутствующее
+ * поле как `null`. Разобранный профиль, записанный обратно, тогда проставил бы
+ * `aiConsentAt: null` там, где значения просто не было, — то есть отозвал бы
+ * согласие артефактом разбора. Отсутствие обязано оставаться отсутствием.
+ */
 export const cloudTimestampSchema = z.union([
   z.object({ seconds: z.number(), nanoseconds: z.number() }),
   z.date(),
   z.number(),
+  z.string(),
   z.null(),
-]).transform(v => v ?? null);
+]).transform(v => toDate(v));
 
 export const labelSchema = z.object({
   id: z.string(),

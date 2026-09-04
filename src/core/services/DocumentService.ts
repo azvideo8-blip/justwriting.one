@@ -41,6 +41,10 @@ export const DocumentService = {
     return DataProvider.createDocument(userId, payload);
   },
 
+  async findByUuid(userId: string, uuid: string): Promise<Document | null> {
+    return DocumentService.getDocument(userId, uuid);
+  },
+
   async getDocument(userId: string, documentId: string): Promise<Document | null> {
     const data = await DataProvider.getDocument(userId, documentId);
     if (!data) return null;

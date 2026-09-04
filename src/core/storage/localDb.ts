@@ -618,6 +618,7 @@ export function resetDbInstance(name?: string): void {
 }
 
 export async function clearAllLocalStores(customUid?: string): Promise<void> {
+  const effectiveUid = customUid ?? getCurrentUser()?.uid;
   const dbName = getLocalDbName(customUid);
   try {
     const db = await getLocalDb(customUid);
@@ -625,7 +626,17 @@ export async function clearAllLocalStores(customUid?: string): Promise<void> {
     if (names.length > 0) {
       const tx = db.transaction(names, 'readwrite');
       for (const name of names) {
-        void tx.objectStore(name).clear();
+        if (name === 'syncQueue' && effectiveUid) {
+          const queueStore = tx.objectStore('syncQueue');
+          const all = await queueStore.getAll();
+          for (const item of all) {
+            if (!item.ownerId || item.ownerId === effectiveUid) {
+              void queueStore.delete(item.id);
+            }
+          }
+        } else {
+          void tx.objectStore(name).clear();
+        }
       }
       await tx.done;
     }

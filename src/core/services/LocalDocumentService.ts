@@ -128,13 +128,25 @@ export const LocalDocumentService = {
 
   async deleteDocument(id: string): Promise<void> {
     const db = await getLocalDb();
-    const tx = db.transaction(['documents', 'versions'], 'readwrite');
+    const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     const verStore = tx.objectStore('versions');
     const docStore = tx.objectStore('documents');
+    const queueStore = tx.objectStore('syncQueue');
     const versions = await verStore.index('by-document').getAll(id);
     const doc = await docStore.get(id);
+
+    const allQueue = await queueStore.getAll();
+    const docUuid = doc?.uuid;
+    const linkedCloudId = doc?.linkedCloudId;
+    const matchingTasks = allQueue.filter(
+      t => t.documentId === id ||
+           (Boolean(docUuid) && t.documentId === docUuid) ||
+           (Boolean(linkedCloudId) && t.documentId === linkedCloudId)
+    );
+
     await Promise.all([
       ...versions.map(v => verStore.delete(v.id)),
+      ...matchingTasks.map(t => queueStore.delete(t.id)),
       docStore.delete(id),
       tx.done,
     ]);

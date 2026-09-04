@@ -5,7 +5,7 @@ import { StorageService } from '../StorageService';
 import { LocalStorageService } from '../LocalStorageService';
 import { CloudSyncService } from '../CloudSyncService';
 import { SyncService } from '../SyncService';
-import { getLocalDb } from '../../storage/localDb';
+import { getLocalDb, clearAllLocalStores } from '../../storage/localDb';
 import { generateDataKey, setSessionKey, clearSessionKey } from '../../crypto/encrypt';
 import { setEncryptionEnabled } from '../../crypto/cryptoHelpers';
 import { encryptAllExistingNotes } from '../../crypto/encryptMigration';
@@ -155,6 +155,78 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       // P1 held: text is safe on device
       expect(res.p1Held).toBe(true);
     });
+
+    it('LIFE-1: next drain after phantom write adopts existing row and uploads versions to cloud', async () => {
+      // 1. Run phantom write
+      await runner.runSeq1_WriteSaveSync('network_post', 'sync_cloud');
+
+      // Before drain: Postgres doc exists with 0 versions, client holds queued task
+      const db = await getLocalDb();
+      const allDocs = await db.getAll('documents');
+      const localDoc = allDocs[0]!;
+      expect(localDoc.linkedCloudId).toBeFalsy();
+
+      const pgBefore = runner.inspectPostgres(localDoc.uuid!);
+      expect(pgBefore.documentExists).toBe(true);
+      expect(pgBefore.versionsCount).toBe(0);
+
+      // Disarm fault interceptor so retry succeeds
+      runner.interceptor.clearArmedFault();
+
+      // 2. Next queue drain runs
+      const drainRes = await SyncService.syncPending(runner.userId);
+      expect(drainRes.drained).toBe(1);
+      expect(drainRes.failed).toBe(0);
+
+      // Local doc is now linked to cloud
+      const updatedLocalDoc = await db.get('documents', localDoc.id);
+      expect(updatedLocalDoc?.linkedCloudId).toBe(localDoc.uuid);
+
+      // Postgres now has the versions and latest content!
+      const pgAfter = runner.inspectPostgres(localDoc.uuid!);
+      expect(pgAfter.documentExists).toBe(true);
+      expect(pgAfter.versionsCount).toBeGreaterThanOrEqual(1);
+      expect(pgAfter.latestContent).toBe('Text from Seq1');
+    });
+
+    it('LIFE-1: genuine duplicate — two different local notes claiming one uuid fails loudly', async () => {
+      const db = await getLocalDb();
+      const sharedUuid = 'shared-duplicate-uuid';
+
+      // Insert cloud doc with sharedUuid
+      runner.interceptor.postgres.executeInsert('documents', {
+        uuid: sharedUuid,
+        user_id: runner.userId,
+        title: 'Cloud Doc',
+        current_version: 1,
+      });
+
+      // Local note 1 already linked to sharedUuid
+      const doc1Id = await LocalStorageService.createDocument(runner.userId, {
+        title: 'Note 1',
+        tags: [],
+        firstSessionAt: 1000,
+        lastSessionAt: 1000,
+      });
+      await LocalStorageService.updateLinkedCloudId(doc1Id, sharedUuid);
+
+      // Local note 2 claiming the same uuid as its own permanent uuid
+      const doc2Id = await LocalStorageService.createDocument(runner.userId, {
+        title: 'Note 2',
+        tags: [],
+        firstSessionAt: 2000,
+        lastSessionAt: 2000,
+      });
+      const doc2 = await db.get('documents', doc2Id);
+      // Give doc2 the sharedUuid as its uuid
+      // (doc1 has a different uuid, but linkedCloudId = sharedUuid)
+      await db.put('documents', { ...doc2!, uuid: sharedUuid });
+
+      // Attempting to add cloud copy of doc2 must fail loudly on collision
+      await expect(
+        CloudSyncService.addCloudCopy(runner.userId, doc2Id)
+      ).rejects.toThrow(/DUPLICATE_UUID_COLLISION/);
+    });
   });
 
   // =========================================================================
@@ -228,7 +300,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   // Attack on Corner 3: Deletion Integrity & Orphan Leakage
   // =========================================================================
   describe('Corner 3: Deletion Integrity & Orphan Leakage', () => {
-    it('DEFECT VERIFICATION: deleting an unlinked local note leaves orphan task in syncQueue', async () => {
+    it('LIFE-4: deleting an unlinked local note removes its tasks from syncQueue', async () => {
       const localDocId = await LocalStorageService.createDocument(runner.userId, {
         title: 'Unlinked Note',
         tags: [],
@@ -254,18 +326,15 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       const doc = await db.get('documents', localDocId);
       expect(doc).toBeUndefined();
 
-      // Check syncQueue: the task `sync_${localDocId}` STILL EXISTS in syncQueue!
+      // Check syncQueue: the task `sync_${localDocId}` is REMOVED from syncQueue!
       const queue = await db.getAll('syncQueue');
       const orphanTask = queue.find(q => q.documentId === localDocId || q.id === `sync_${localDocId}`);
-      expect(orphanTask).toBeDefined();
+      expect(orphanTask).toBeUndefined();
 
-      // When syncPending runs, the orphan task throws "Local document not found" and increments attempts
+      // When syncPending runs, there is no orphan task and drain completes cleanly with 0 failures
       const drainRes = await SyncService.syncPending(runner.userId);
-      expect(drainRes.failed).toBeGreaterThanOrEqual(1);
-
-      const taskAfterDrain = await db.get('syncQueue', orphanTask!.id);
-      expect(taskAfterDrain?.attempts).toBe(1);
-      expect(taskAfterDrain?.lastError).toContain('Local document not found');
+      expect(drainRes.failed).toBe(0);
+      expect(drainRes.drained).toBe(0);
     });
 
     it('Asymmetric deletion: cloud delete failure enqueues delete task in syncQueue', async () => {
@@ -309,9 +378,9 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   // Attack on Corner 4: Encryption Boundaries (P2)
   // =========================================================================
   describe('Corner 4: Encryption Boundaries (P2)', () => {
-    it('DEFECT VERIFICATION: encryptAllExistingNotes fails to re-encrypt AI derivatives in Postgres', async () => {
+    it('LIFE-3: encryptAllExistingNotes re-encrypts AI derivatives (summaries, embeddings, localStore) in Postgres', async () => {
       const cloudId = 'doc_with_ai';
-      // Setup cloud documents, versions, and ai_summaries in plaintext
+      // Setup cloud documents, versions, ai_summaries, ai_embeddings, local_store_records in plaintext
       runner.interceptor.postgres.executeInsert('documents', {
         uuid: cloudId,
         user_id: runner.userId,
@@ -333,6 +402,19 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
         summary: 'Secret Psychological Summary',
         _encrypted: false,
       });
+      runner.interceptor.postgres.executeInsert('ai_embeddings', {
+        document_id: cloudId,
+        user_id: runner.userId,
+        vectors_json: '[[0.1, 0.2]]',
+        chunk_texts_json: '["Secret semantic chunk"]',
+        _encrypted: false,
+      });
+      runner.interceptor.postgres.executeInsert('local_store_records', {
+        user_id: runner.userId,
+        store: 'aiPortrait',
+        key: 'portrait_1',
+        payload: { data: 'Psychological Portrait Text' },
+      });
 
       // Enable encryption
       const dataKey = await generateDataKey();
@@ -340,7 +422,8 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       setEncryptionEnabled(runner.userId, true);
 
       // Run migration
-      await encryptAllExistingNotes(runner.userId);
+      const progress = await encryptAllExistingNotes(runner.userId);
+      expect(progress.errors).toBe(0);
 
       // Check document row
       const doc = runner.interceptor.postgres.getRows('documents').find(d => d.uuid === cloudId);
@@ -350,10 +433,18 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       const ver = runner.interceptor.postgres.getRows('versions').find(v => v.document_uuid === cloudId);
       expect(ver?._encrypted).toBe(true);
 
-      // Check ai_summaries row: IT WAS NOT TOUCHED AND REMAINS PLAINTEXT!
+      // Check ai_summaries row: MUST BE ENCRYPTED
       const summary = runner.interceptor.postgres.getRows('ai_summaries').find(s => s.document_id === cloudId);
-      expect(summary?._encrypted).toBe(false);
-      expect(summary?.summary).toBe('Secret Psychological Summary');
+      expect(summary?._encrypted).toBe(true);
+      expect(summary?.summary).not.toBe('Secret Psychological Summary');
+
+      // Check ai_embeddings row: MUST BE ENCRYPTED
+      const emb = runner.interceptor.postgres.getRows('ai_embeddings').find(e => e.document_id === cloudId);
+      expect(emb?._encrypted).toBe(true);
+
+      // Check local_store_records row: MUST BE ENCRYPTED
+      const ls = runner.interceptor.postgres.getRows('local_store_records').find(r => r.record_key === 'portrait_1' || r.key === 'portrait_1');
+      expect((ls?.payload as { _encrypted?: boolean })?._encrypted).toBe(true);
     });
 
     it('Locking vault between save and sync quarantines task without data loss (SYNC-5)', async () => {
@@ -389,9 +480,20 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       expect(task).toBeDefined();
       expect(task?.lastError).toContain('ENCRYPT_REQUIRED');
       expect(task?.attempts).toBe(1);
+      expect(task?.dead).toBe(true);
 
-      // Now unlock vault
+      // Pending queue considers this task quarantined (dead), so pending count is 0
+      const pendingCountWhileLocked = await SyncService.getPendingCount(runner.userId);
+      expect(pendingCountWhileLocked).toBe(0);
+
+      // Now unlock vault and revive locked tasks
       setSessionKey(dataKey);
+      const revived = await SyncService.reviveLockedTasks(runner.userId);
+      expect(revived).toBe(1);
+
+      const taskAfterRevive = await db.get('syncQueue', task!.id);
+      expect(taskAfterRevive?.dead).toBe(false);
+      expect(taskAfterRevive?.attempts).toBe(0);
 
       // Next sync succeeds without losing text
       const postUnlockRes = await SyncService.syncPending(runner.userId);
@@ -403,6 +505,47 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       const pgState = runner.inspectPostgres(pgLookup);
       expect(pgState.documentExists).toBe(true);
       expect(pgState.isEncrypted).toBe(true);
+    });
+
+    it('LIFE-8: queue holding tasks for two accounts isolates pending count and wipe removes only current account tasks', async () => {
+      const db = await getLocalDb();
+      const userA = runner.userId;
+      const userB = 'foreign_user_b';
+
+      // Enqueue task for user A
+      await db.put('syncQueue', {
+        id: 'task_user_a',
+        documentId: 'doc_a',
+        type: 'document',
+        createdAt: Date.now(),
+        ownerId: userA,
+      });
+
+      // Enqueue task for user B
+      await db.put('syncQueue', {
+        id: 'task_user_b',
+        documentId: 'doc_b',
+        type: 'document',
+        createdAt: Date.now(),
+        ownerId: userB,
+      });
+
+      // 1. Pending count for user A only sees user A's tasks
+      const countA = await SyncService.getPendingCount(userA);
+      expect(countA).toBe(1);
+
+      // Pending count for user B only sees user B's tasks
+      const countB = await SyncService.getPendingCount(userB);
+      expect(countB).toBe(1);
+
+      // 2. Wipe user A's data
+      await clearAllLocalStores(userA);
+
+      // Check queue: user A's task was wiped, but user B's task remains!
+      const dbAfter = await getLocalDb();
+      const remainingTasks = await dbAfter.getAll('syncQueue');
+      expect(remainingTasks.find(t => t.id === 'task_user_a')).toBeUndefined();
+      expect(remainingTasks.find(t => t.id === 'task_user_b')).toBeDefined();
     });
   });
 
