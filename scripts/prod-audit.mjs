@@ -22,6 +22,18 @@ const ALLOW = {
   // docx only calls nanoid() with default positive size, never passing negative size
   // to custom non-secure generators.
   'GHSA-28wg-ghj8-5hjv': 'nanoid negative size loop via docx — N/A (docx only uses standard positive-size ID generation)',
+
+  // fflate "unzipSync can loop forever on a malformed ZIP64 archive". Pulled
+  // transitively by posthog-js, which pins fflate ^0.4.8 — the latest posthog-js
+  // (1.426.2) still does, so there is no forward fix short of an override that
+  // jumps fflate two minors under an analytics library.
+  // The vulnerable function is not reachable: posthog-js imports exactly
+  // gzipSync, strToU8 and strFromU8 (lib/src/request.js, the lazy session
+  // recorder), all on the COMPRESSION side, to gzip its own outgoing payloads.
+  // Nothing in this app unzips an archive, let alone one supplied by anyone else.
+  // Re-check on the next posthog-js bump — the day it moves to fflate 0.8.x this
+  // entry should go.
+  'GHSA-px8p-9vwx-vf98': 'fflate unzipSync ZIP64 infinite loop via posthog-js — N/A (only gzipSync/strToU8 are called; nothing here unzips)',
 };
 
 let raw;
