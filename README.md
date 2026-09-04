@@ -79,13 +79,11 @@ Text reaches the provider on an explicit action: the timer that used to
 summarise notes by itself was removed in August 2026. Writing and saving a note
 send nothing.
 
-One narrow exception exists and is worth naming rather than leaving to be
-discovered. A listener on `doc-version-saved` in `useAIPageData` calls
-`indexDocument`. That hook belongs to the `/ai` route alone, and routes are
-mutually exclusive — while you are writing, the listener does not exist. It can
-only fire if a version is saved while the AI page is open, which no ordinary
-path does; a conflict fork created by a sync running in the background is the
-one way found so far.
+There used to be one narrow exception: a listener on `doc-version-saved` in
+`useAIPageData` called `indexDocument`, so a version saved while the AI page was
+open — a conflict fork from a background sync, in practice — could index without
+a press. It was removed in September 2026. Today the only callers of
+`indexDocument` are the analyse button and the one-time indexing pass.
 
 Models are configurable by environment variable; the defaults are
 `deepseek/deepseek-v4-flash` for chat and `qwen/qwen3-embedding-8b` at 4096
