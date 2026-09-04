@@ -386,6 +386,25 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
+  /**
+   * Сменить постоянный номер заметки.
+   *
+   * Нужно ровно в одном случае (LIFE-10): прежний номер занят надгробием, а
+   * надгробие неизменяемо, — и человек осознанно просит новую облачную копию.
+   * Производные ИИ хранятся локально по id заметки, а в облако уходят с
+   * номером, который берётся в момент выгрузки, так что смена номера их не
+   * рвёт; облачных производных у похороненного номера не осталось — их сносит
+   * удаление, до того как поставит надгробие.
+   */
+  async updateDocumentUuid(id: string, uuid: string): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, uuid });
+    await tx.done;
+  },
+
   async updateLinkedCloudId(id: string, cloudId: string): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');

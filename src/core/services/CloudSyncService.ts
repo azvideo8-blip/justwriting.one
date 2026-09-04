@@ -22,6 +22,27 @@ import { computeWordDelta } from './DiffService';
 const CLOUD_SYNC_TIMEOUT = 30_000;
 const LOCK_TTL_MS = 30_000;
 
+/**
+ * Снять задачи очереди, относящиеся к заметке.
+ *
+ * Правило одно: задача принадлежит заметке, если совпал её documentId или это
+ * задача с именем `sync_<id>`. Раньше оно жило тремя копиями в этом файле, и
+ * копии успели разойтись — одна из них знала только про documentId.
+ */
+async function dropQueueTasksFor(localDocumentId: string): Promise<void> {
+  try {
+    const db = await getLocalDb();
+    const tx = db.transaction('syncQueue', 'readwrite');
+    const all = await tx.store.getAll();
+    for (const t of all) {
+      if (t.documentId === localDocumentId || t.id === `sync_${localDocumentId}`) {
+        await tx.store.delete(t.id);
+      }
+    }
+    await tx.done;
+  } catch { /* очередь переживёт лишнюю задачу; потеря заметки — нет */ }
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
   return withTimeoutBase(promise, ms, 'Sync timeout');
 }
@@ -275,16 +296,7 @@ export const CloudSyncService = {
         throw new Error('LOCKED: cannot add cloud copy of locked document');
       }
       if (localDoc.localOnly && !localDoc.unlinkedByTombstone) {
-        try {
-          const syncDb = await getLocalDb();
-          const allTasks = await syncDb.getAll('syncQueue');
-          const docTasks = allTasks.filter(t => t.documentId === localDocumentId);
-          if (docTasks.length > 0) {
-            const tx = syncDb.transaction('syncQueue', 'readwrite');
-            for (const t of docTasks) void tx.store.delete(t.id);
-            await tx.done;
-          }
-        } catch { /* ignore */ }
+        await dropQueueTasksFor(localDocumentId);
         // Кнопка, которая ничего не делает и молчит, читается как поломка.
         // Отказ здесь законный, но человек должен узнать причину.
         useActivityLogStore.getState().addActivity(
@@ -305,15 +317,7 @@ export const CloudSyncService = {
             // иначе следующий syncAllUnlinked зальёт её как НОВЫЙ облачный
             // документ и удаление «воскреснет» под другим id.
             await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone');
-            const syncDb = await getLocalDb();
-            const tx = syncDb.transaction('syncQueue', 'readwrite');
-            const allTasks = await tx.store.getAll();
-            for (const t of allTasks) {
-              if (t.documentId === localDocumentId || t.id === `sync_${localDocumentId}`) {
-                await tx.store.delete(t.id);
-              }
-            }
-            await tx.done;
+            await dropQueueTasksFor(localDocumentId);
             return '';
           }
           if (existingDoc._locked) throw new Error('LOCKED: cannot sync to locked cloud document');
@@ -487,19 +491,21 @@ export const CloudSyncService = {
 
       let cloudId: string | null = null;
 
+      const createPayload = {
+        title: localDoc.title,
+        tags: localDoc.tags,
+        labelId: localDoc.labelId ?? undefined,
+        uuid: localDoc.uuid,
+        firstSessionAt: localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt) : undefined,
+        lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
+        // Колонки в облаке есть, а сюда их не клали: «не показывать ИИ»
+        // терялось при первой же выгрузке и не возвращалось никогда.
+        mood: localDoc.mood,
+        excludedFromAI: localDoc.excludedFromAI,
+      };
+
       try {
-        cloudId = await withTimeout(DocumentService.createDocument(userId, {
-          title: localDoc.title,
-          tags: localDoc.tags,
-          labelId: localDoc.labelId ?? undefined,
-          uuid: localDoc.uuid,
-          firstSessionAt: localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt) : undefined,
-          lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
-          // Колонки в облаке есть, а сюда их не клали: «не показывать ИИ»
-          // терялось при первой же выгрузке и не возвращалось никогда.
-          mood: localDoc.mood,
-          excludedFromAI: localDoc.excludedFromAI,
-        }));
+        cloudId = await withTimeout(DocumentService.createDocument(userId, createPayload));
       } catch (createErr: unknown) {
         const is23505 =
           (createErr !== null && typeof createErr === 'object' && 'code' in createErr && (createErr as { code: string }).code === '23505') ||
@@ -519,7 +525,50 @@ export const CloudSyncService = {
             cloudId = existing.uuid || existing.id;
             await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
           } else {
-            throw createErr;
+            // LIFE-10: живой строки с этим номером нет, а ограничение
+            // documents_uuid_key всё равно сработало — значит номер держит
+            // НАДГРОБИЕ. Ровно этот тупик запер четырнадцать заметок в августе:
+            // поиск отсеивает удалённые строки (`deleted_at is null`), а
+            // ограничение — нет, и наружу выходила «duplicate key value
+            // violates unique constraint».
+            const buried = await withTimeout(DocumentService.getDocumentWithDeleted(userId, localDocUuid));
+            if (!buried?.deletedAt) throw createErr;
+
+            if (localDoc.unlinkedByTombstone !== true) {
+              // Об удалении это устройство узнаёт впервые — возможно, её
+              // сделали на другом. Обойти удаление, выгрузив заметку под новым
+              // номером, значило бы отменить чужое решение молча. Записываем
+              // удаление так же, как его записывает обычный проход, и говорим
+              // человеку, что заметка осталась здесь.
+              await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone');
+              await dropQueueTasksFor(localDocumentId);
+              useActivityLogStore.getState().addActivity(
+                'Облачная копия этой заметки была удалена. Заметка осталась на устройстве; повторное «отправить в облако» создаст новую облачную копию',
+                { action: 'addCloudCopy_tombstonedUuid', documentId: localDocumentId, uuid: localDocUuid },
+                'warning',
+                'sync',
+              );
+              return '';
+            }
+
+            // Повторное нажатие после того предупреждения — осознанный ответ
+            // человека: сделать новую облачную копию. Старый номер остаётся за
+            // могилой навсегда (RLS 0016 делает надгробие неизменяемым), поэтому
+            // копия получает новый — и это смена личности заметки, о которой
+            // надо сказать вслух, а не выполнить тихо.
+            const freshUuid = crypto.randomUUID();
+            await LocalDocumentService.updateDocumentUuid(localDocumentId, freshUuid);
+            cloudId = await withTimeout(DocumentService.createDocument(userId, {
+              ...createPayload,
+              uuid: freshUuid,
+            }));
+            await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
+            useActivityLogStore.getState().addActivity(
+              'Создана новая облачная копия: прежний номер заметки занят удалённой строкой',
+              { action: 'addCloudCopy_newIdentity', documentId: localDocumentId, previousUuid: localDocUuid, uuid: freshUuid },
+              'success',
+              'sync',
+            );
           }
         } else {
           throw createErr;
@@ -682,15 +731,7 @@ export const CloudSyncService = {
       if (cloudDoc?.deletedAt) {
         // Document was soft-deleted in the cloud (tombstone). Clean up local link and syncQueue.
         await LocalStorageService.unlinkFromCloud(documentId, 'tombstone');
-        const syncDb = await getLocalDb();
-        const tx = syncDb.transaction('syncQueue', 'readwrite');
-        const allTasks = await tx.store.getAll();
-        for (const t of allTasks) {
-          if (t.documentId === documentId || t.id === `sync_${documentId}`) {
-            await tx.store.delete(t.id);
-          }
-        }
-        await tx.done;
+        await dropQueueTasksFor(documentId);
         return { forked: false, cloudSynced: false };
       }
       if (!cloudDoc) {
