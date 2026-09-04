@@ -128,7 +128,7 @@ export class MatrixRunner {
           postgres: { documentExists: false, versionsCount: 0 },
           p1Held: true,
           p2Held: undefined,
-          p3Held: true,
+          p3Held: false,
           p4Held: false,
           notes: [`Unhandled error during runCell: ${(err as Error).message}`],
         });

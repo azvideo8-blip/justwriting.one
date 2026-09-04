@@ -7,6 +7,9 @@
 import { InMemoryPostgres, TableName, QueryFilter, QueryOrder } from './inMemoryPostgres';
 import { FaultType, StepName } from './faultTypes';
 import * as supabaseClientModule from '../../core/supabase/client';
+import * as callAiModule from '../../core/ai/callAi';
+import * as authModule from '../../core/auth';
+import * as aiConsentModule from '../../core/ai/aiConsent';
 import { vi } from 'vitest';
 import { clearSessionKey } from '../../core/crypto/encrypt';
 
@@ -24,6 +27,7 @@ export class FaultInterceptor {
   public currentStep: StepName = 'initial_write';
   public aiCallsIntercepted: { endpoint: string; payload: unknown; consentPresent: boolean }[] = [];
   public clockOffsetMs: number = 0;
+  public onStep?: ((step: StepName) => void | Promise<void>) | undefined;
   private originalDateNow = Date.now;
 
   constructor(postgres?: InMemoryPostgres) {
@@ -53,6 +57,9 @@ export class FaultInterceptor {
         this.clockOffsetMs = -600_000; // Jump 10 minutes into the past
       }
     }
+    if (this.onStep) {
+      void this.onStep(step);
+    }
   }
 
   public installMocks(): void {
@@ -65,12 +72,34 @@ export class FaultInterceptor {
     Date.now = () => {
       return this.originalDateNow() + this.clockOffsetMs;
     };
+
+    // 3. Spy on callAi to detect unsolicited AI calls
+    this.aiCallsIntercepted = [];
+    vi.spyOn(callAiModule, 'callAi').mockImplementation(async (name: string, data: unknown) => {
+      let consent = false;
+      try {
+        const u = authModule.getCurrentUser();
+        if (u) {
+          consent = aiConsentModule.getAiConsent(u.uid);
+        }
+      } catch {
+        // ignore
+      }
+      this.aiCallsIntercepted.push({
+        endpoint: name,
+        payload: data,
+        consentPresent: consent,
+      });
+      return { success: true } as never;
+    });
   }
 
   public uninstallMocks(): void {
     vi.restoreAllMocks();
     Date.now = this.originalDateNow;
     this.clockOffsetMs = 0;
+    this.aiCallsIntercepted = [];
+    this.onStep = undefined;
   }
 
   private shouldTriggerFault(table?: TableName): FaultType | null {

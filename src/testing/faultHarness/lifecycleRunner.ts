@@ -174,6 +174,16 @@ export class LifecycleRunner {
     return undefined; // Not measured (vault disabled, no cloud data expected)
   }
 
+  public evaluateP3(notes: string[]): boolean {
+    const p3Held = this.interceptor.aiCallsIntercepted.length === 0;
+    if (!p3Held) {
+      notes.push(
+        `P3 VIOLATION: unsolicited AI calls detected: ${this.interceptor.aiCallsIntercepted.map(c => c.endpoint).join(', ')}`
+      );
+    }
+    return p3Held;
+  }
+
   // =========================================================================
   // SEQUENCE 1: write → save → sync
   // =========================================================================
@@ -255,7 +265,7 @@ export class LifecycleRunner {
     // Evaluate Postulates
     const p1Held = told.status === 'error_thrown' ? true : (device.documentExists && device.latestContent === initialText);
     const p2Held = this.evaluateP2(['Seq 1 Note', initialText], told.status === 'synced_to_cloud', notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
     const p4Held = true;
 
     return {
@@ -337,7 +347,7 @@ export class LifecycleRunner {
     // Did P1 hold? Was version 2 text preserved on device?
     const p1Held = told.status === 'error_thrown' ? true : (device.latestContent === v2Text);
     const p2Held = this.evaluateP2(['Seq 2 Note', 'Version 1 text', v2Text], postgres.documentExists || postgres.versionsCount > 0, notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
     const p4Held = true;
 
     return {
@@ -429,7 +439,7 @@ export class LifecycleRunner {
     // Fork must preserve Device A's text and Device B's text
     const p1Held = told.forked === true || Boolean(device.latestContent?.includes('Device A edit v2'));
     const p2Held = this.evaluateP2(['Divergent Note', 'Base v1 text'], postgres.documentExists || postgres.versionsCount > 0, notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
     const p4Held = told.forked === true;
 
     return {
@@ -496,7 +506,7 @@ export class LifecycleRunner {
 
     const p1Held = true; // Deletion is intended exception to retention
     const p2Held = this.evaluateP2(['To Delete', 'Text to delete'], postgres.documentExists || postgres.versionsCount > 0, notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
     const p4Held = !postgres.documentExists || postgres.deletedAt !== null || deleteQueued;
 
     return {
@@ -563,7 +573,7 @@ export class LifecycleRunner {
     }
 
     const p2Held = this.evaluateP2(['Offline Note', 'Unsynced text'], false, notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
 
     return {
       sequence: 'seq5_delete_before_sync',
@@ -645,7 +655,7 @@ export class LifecycleRunner {
     // P1 verification: Device A's new edits MUST survive on Device A!
     const p1Held = device.documentExists && device.latestContent?.includes('offline edits') && device.unlinkedByTombstone === true;
     const p2Held = this.evaluateP2(['Tombstone Note', 'Original v1'], postgres.documentExists || postgres.versionsCount > 0, notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
     const p4Held = true;
 
     return {
@@ -713,7 +723,7 @@ export class LifecycleRunner {
     // If restore was interrupted or failed, does device have corrupted partial state?
     const p1Held = told.status === 'restored' ? device.documentExists : true;
     const p2Held = this.evaluateP2(['Cloud Archive Note', 'Cloud Archive Content'], postgres.documentExists || postgres.versionsCount > 0, notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
     const p4Held = true;
 
     return {
@@ -777,7 +787,7 @@ export class LifecycleRunner {
 
     const p1Held = device.latestContent === 'Guest text content';
     const p2Held = this.evaluateP2(['Guest Note', 'Guest text content'], told.cloudSynced || postgres.documentExists, notes);
-    const p3Held = true;
+    const p3Held = this.evaluateP3(notes);
     const p4Held = true;
 
     return {
@@ -864,6 +874,8 @@ export class LifecycleRunner {
       notes.push('P2 VIOLATION: encryptAllExistingNotes does NOT re-encrypt ai_summaries or ai_embeddings in Postgres');
     }
 
+    const p3Held = this.evaluateP3(notes);
+
     return {
       sequence: 'seq9_enable_encryption_sync_restore',
       fault,
@@ -873,7 +885,7 @@ export class LifecycleRunner {
       postgres,
       p1Held: true,
       p2Held,
-      p3Held: true,
+      p3Held,
       p4Held: true,
       notes,
       defectFound: p2Held === false ? 'P2-DEFECT: unencrypted AI derivatives remain plaintext after vault setup' : undefined,
@@ -933,6 +945,7 @@ export class LifecycleRunner {
       postgres.documentExists || postgres.versionsCount > 0,
       notes
     );
+    const p3Held = this.evaluateP3(notes);
 
     return {
       sequence: 'seq10_delete_account',
@@ -943,7 +956,7 @@ export class LifecycleRunner {
       postgres,
       p1Held: true,
       p2Held,
-      p3Held: true,
+      p3Held,
       p4Held: true,
       notes,
     };

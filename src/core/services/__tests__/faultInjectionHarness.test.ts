@@ -741,6 +741,45 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   });
 
   // =========================================================================
+  // Postulate 3 Verification (GUARD-3)
+  // =========================================================================
+  describe('Postulate 3 Verification (GUARD-3)', () => {
+    it('normal write/save/sync makes zero AI calls and p3Held is true', async () => {
+      const res = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      expect(res.p3Held).toBe(true);
+      expect(runner.interceptor.aiCallsIntercepted).toHaveLength(0);
+    });
+
+    it('injecting an unsolicited AI call sets p3Held to false and names the endpoint in notes', async () => {
+      runner.interceptor.onStep = async (step) => {
+        if (step === 'save_local') {
+          const { callAi } = await import('../../ai/callAi');
+          await callAi('unsolicitedBackgroundSummary', { content: 'secret note text' });
+        }
+      };
+
+      const res = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      expect(res.p3Held).toBe(false);
+      expect(res.notes.some(n => n.includes('unsolicitedBackgroundSummary'))).toBe(true);
+      expect(runner.interceptor.aiCallsIntercepted).toHaveLength(1);
+      expect(runner.interceptor.aiCallsIntercepted[0]?.endpoint).toBe('unsolicitedBackgroundSummary');
+    });
+
+    it('direct evaluateP3 verification with populated intercepted calls', () => {
+      const notes: string[] = [];
+      runner.interceptor.aiCallsIntercepted.push({
+        endpoint: 'rogueTelemetryAI',
+        payload: {},
+        consentPresent: false,
+      });
+
+      const p3Held = runner.evaluateP3(notes);
+      expect(p3Held).toBe(false);
+      expect(notes.some(n => n.includes('rogueTelemetryAI'))).toBe(true);
+    });
+  });
+
+  // =========================================================================
   // Full Matrix Execution
   // =========================================================================
   describe('Full Matrix Execution', () => {
