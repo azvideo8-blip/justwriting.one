@@ -95,6 +95,50 @@ export class FaultInterceptor {
       });
       return { success: true } as never;
     });
+
+    // 4. Spy on fetch to detect streaming chat endpoint (/api/chat) (GUARD-7).
+    // The product maintains two AI doors by design:
+    // - callAi: request/response JSON endpoints (summaries, embeddings, rerank)
+    // - /api/chat: streaming Server-Sent Events consumed via ReadableStream
+    const originalFetch = globalThis.fetch;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (urlStr.includes('/api/chat')) {
+        let consent = false;
+        try {
+          const u = authModule.getCurrentUser();
+          if (u) {
+            consent = aiConsentModule.getAiConsent(u.uid);
+          }
+        } catch {
+          // ignore
+        }
+        let parsedBody: unknown = undefined;
+        try {
+          if (init?.body && typeof init.body === 'string') {
+            parsedBody = JSON.parse(init.body);
+          }
+        } catch {
+          // ignore
+        }
+        this.aiCallsIntercepted.push({
+          endpoint: 'chat',
+          payload: parsedBody,
+          consentPresent: consent,
+        });
+
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'text/event-stream' } }
+        );
+      }
+
+      return originalFetch(input, init);
+    });
   }
 
   public uninstallMocks(): void {

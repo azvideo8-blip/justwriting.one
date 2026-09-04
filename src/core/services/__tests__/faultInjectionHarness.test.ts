@@ -863,6 +863,25 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       expect(p3Held).toBe(false);
       expect(notes.some(n => n.includes('rogueTelemetryAI'))).toBe(true);
     });
+
+    it('intercepts streaming chat endpoint /api/chat and marks p3Held false naming chat in notes (GUARD-7)', async () => {
+      runner.interceptor.onStep = async (step) => {
+        if (step === 'save_local') {
+          // Simulate unsolicited streaming chat request
+          await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: [{ role: 'user', content: 'hello AI' }] }),
+          });
+        }
+      };
+
+      const res = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      expect(res.p3Held).toBe(false);
+      expect(res.notes.some(n => n.includes('P3 VIOLATION') && n.includes('chat'))).toBe(true);
+      expect(runner.interceptor.aiCallsIntercepted).toHaveLength(1);
+      expect(runner.interceptor.aiCallsIntercepted[0]?.endpoint).toBe('chat');
+    });
   });
 
   // =========================================================================
