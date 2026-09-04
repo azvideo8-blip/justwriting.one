@@ -115,7 +115,7 @@ export class FaultInterceptor {
         }
         let parsedBody: unknown = undefined;
         try {
-          if (init?.body && typeof init.body === 'string') {
+          if (typeof init?.body === 'string') {
             parsedBody = JSON.parse(init.body);
           }
         } catch {
