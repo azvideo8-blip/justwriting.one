@@ -34,6 +34,16 @@ function formatThreeValued(val) {
   return 'not measured';
 }
 
+function entryFlag(table, col, cols) {
+  const e = cols.find(x => x.table === table && x.col === col);
+  return e?.flag ?? '_encrypted = true';
+}
+
+function entryVal(table, col, cols) {
+  const e = cols.find(x => x.table === table && x.col === col);
+  return e?.val ?? `"${col}"`;
+}
+
 async function runLifecycleMatrix() {
   console.log('================================================================');
   console.log('PART 1: LIFECYCLE MATRIX RUNNER (FAULT-INJECTION HARNESS)');
@@ -167,6 +177,7 @@ async function runDatabaseSweep(databaseUrl) {
   await client.connect();
 
   let totalViolations = 0;
+  let skipped = 0;
 
   try {
     // 1. Cyrillic scan across public text/jsonb columns
@@ -198,19 +209,27 @@ async function runDatabaseSweep(databaseUrl) {
 
     // 2. Base64 shape check in encrypted columns
     console.log('\n--- 2. Base64 shape check (verifies ciphertext structure) ---');
+    // `flag` и `val` задаются явно там, где признак шифрования и данные лежат не
+    // в колонках, а внутри JSON. Без этого хранилища ИИ — портрет, убеждения,
+    // хроника, обязательства, самая чувствительная часть архива — молча
+    // выпадали из трёх проверок из четырёх по ошибке «нет колонки _encrypted».
+    // `versions.previous_content` убрана: такой колонки нет, то есть это была
+    // проверка, которая не могла сработать никогда.
     const encCols = [
       { table: 'documents', col: 'title' },
       { table: 'documents', col: 'mood' },
       { table: 'versions', col: 'content' },
-      { table: 'versions', col: 'previous_content' },
       { table: 'versions', col: 'mood' },
       { table: 'ai_summaries', col: 'summary' },
-      { table: 'local_store_records', col: 'payload' },
+      { table: 'local_store_records', col: 'payload.data',
+        flag: `payload->>'_encrypted' = 'true'`, val: `payload->>'data'` },
     ];
 
     console.log('SQL Query: SELECT count(*) FROM public.%I WHERE _encrypted = true AND %I IS NOT NULL AND %I <> \'\' AND NOT (%I ~ \'^[A-Za-z0-9+/=]+$\')');
     for (const { table, col } of encCols) {
-      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE _encrypted = true AND "${col}" IS NOT NULL AND "${col}"::text <> '' AND NOT ("${col}"::text ~ '^[A-Za-z0-9+/=]+$')`;
+      const flag = entryFlag(table, col, encCols);
+      const val = entryVal(table, col, encCols);
+      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text <> '' AND NOT (${val}::text ~ '^[A-Za-z0-9+/=]+$')`;
       try {
         const res = await client.query(q);
         const cnt = res.rows[0]?.cnt || 0;
@@ -222,6 +241,7 @@ async function runDatabaseSweep(databaseUrl) {
         }
       } catch (err) {
         // Table or column may not have _encrypted or may not exist
+        skipped++;
         console.log(`  [SKIP] ${table}.${col}: ${err.message}`);
       }
     }
@@ -230,7 +250,9 @@ async function runDatabaseSweep(databaseUrl) {
     console.log('\n--- 3. Whitespace check (ciphertext never contains spaces) ---');
     console.log('SQL Query: SELECT count(*) FROM public.%I WHERE _encrypted = true AND %I IS NOT NULL AND %I::text ~ \'\\s\'');
     for (const { table, col } of encCols) {
-      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE _encrypted = true AND "${col}" IS NOT NULL AND "${col}"::text ~ '\\s'`;
+      const flag = entryFlag(table, col, encCols);
+      const val = entryVal(table, col, encCols);
+      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text ~ '\\s'`;
       try {
         const res = await client.query(q);
         const cnt = res.rows[0]?.cnt || 0;
@@ -241,26 +263,41 @@ async function runDatabaseSweep(databaseUrl) {
           console.log(`  [OK]   ${table}.${col}: 0 rows with whitespace`);
         }
       } catch (err) {
+        skipped++;
         console.log(`  [SKIP] ${table}.${col}: ${err.message}`);
       }
     }
 
     // 4. _encrypted census
     console.log('\n--- 4. _encrypted census (all rows in encrypted tables must have _encrypted = true) ---');
-    const censusTables = ['documents', 'versions', 'ai_summaries', 'local_store_records'];
+    const censusTables = [
+      { table: 'documents', unencrypted: '_encrypted IS NOT TRUE' },
+      { table: 'versions', unencrypted: '_encrypted IS NOT TRUE' },
+      { table: 'ai_summaries', unencrypted: '_encrypted IS NOT TRUE' },
+      { table: 'ai_embeddings', unencrypted: '_encrypted IS NOT TRUE' },
+      { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true'` },
+    ];
     console.log('SQL Query: SELECT count(*) FROM public.%I WHERE _encrypted IS NOT TRUE');
-    for (const table of censusTables) {
-      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE _encrypted IS NOT TRUE`;
+    for (const { table, unencrypted } of censusTables) {
+      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${unencrypted}`;
       try {
         const res = await client.query(q);
         const cnt = res.rows[0]?.cnt || 0;
-        console.log(`  [INFO] ${table}: ${cnt} unencrypted rows`);
+        if (cnt > 0) {
+          // Незашифрованная строка в таблице, которая обязана быть зашифрованной,
+          // — это нарушение постулата 2, а не справка к сведению.
+          console.log(`  [FAIL] ${table}: ${cnt} unencrypted rows`);
+          totalViolations += cnt;
+        } else {
+          console.log(`  [OK]   ${table}: 0 unencrypted rows`);
+        }
       } catch (err) {
+        skipped++;
         console.log(`  [SKIP] ${table}: ${err.message}`);
       }
     }
 
-    return { success: totalViolations === 0, checked: true, totalViolations };
+    return { success: totalViolations === 0, checked: true, totalViolations, skipped };
   } finally {
     await client.end();
   }
@@ -297,7 +334,7 @@ async function main() {
     console.log('');
   }
   console.log(dbRes.checked
-    ? '  Database sweep: RAN'
+    ? `  Database sweep: RAN${dbRes.skipped ? ` — ${dbRes.skipped} check(s) SKIPPED, read them above` : ' — every check executed'}`
     : '  Database sweep: NOT RUN — set DATABASE_URL to include it.');
   console.log('');
 
