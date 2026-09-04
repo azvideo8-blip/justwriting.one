@@ -173,11 +173,13 @@ export const CloudSyncService = {
 
         const verRecord: Record<string, unknown> = { ...ver };
         let verContent: string | null = null;
+        let verMood: string | undefined = undefined;
         try {
-          const decryptedVer = await maybeDecrypt(verRecord, ['content'], []);
+          const decryptedVer = await maybeDecrypt(verRecord, ['content', 'mood'], []);
           // A non-string here means the payload is not what we think it is —
           // treated as corrupt rather than falling back to the raw field.
           verContent = typeof decryptedVer.content === 'string' ? decryptedVer.content : null;
+          verMood = typeof decryptedVer.mood === 'string' ? decryptedVer.mood : (typeof ver.mood === 'string' ? ver.mood : undefined);
         } catch (decErr) {
           if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
           if (!(decErr instanceof DecryptionError)) throw decErr;
@@ -201,6 +203,7 @@ export const CloudSyncService = {
           goalReached: ver.goalReached,
           sessionStartedAt: startedAt,
           savedAt: ver.savedAt ? toDate(ver.savedAt) ?? undefined : undefined,
+          mood: verMood,
         });
         prevContent = verContent;
       }
@@ -331,10 +334,11 @@ export const CloudSyncService = {
           const decryptedCloudVersions = await Promise.all(cloudVersions.map(async (cv) => {
             if (!cv._encrypted) return cv;
             try {
-              const plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+              const plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content', 'mood'], []);
               return {
                 ...cv,
                 content: typeof plain.content === 'string' ? plain.content : cv.content,
+                mood: typeof plain.mood === 'string' ? plain.mood : cv.mood,
               };
             } catch (decErr) {
               if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
@@ -751,10 +755,11 @@ export const CloudSyncService = {
       const decryptedCloudVersions = await Promise.all(cloudVersions.map(async (cv) => {
         if (!cv._encrypted) return cv;
         try {
-          const plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+          const plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content', 'mood'], []);
           return {
             ...cv,
             content: typeof plain.content === 'string' ? plain.content : cv.content,
+            mood: typeof plain.mood === 'string' ? plain.mood : cv.mood,
           };
         } catch (decErr) {
           if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;

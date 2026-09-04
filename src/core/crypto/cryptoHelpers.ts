@@ -81,6 +81,12 @@ function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
+export const VALID_MOOD_EMOJIS = new Set(['😊', '😢', '😠', '😨', '🤢', '🤔']);
+
+export function isKnownMoodEmoji(val: unknown): val is string {
+  return typeof val === 'string' && VALID_MOOD_EMOJIS.has(val);
+}
+
 export class DecryptionError extends Error {
   constructor(field: string, cause?: unknown) {
     super(`DECRYPTION_FAILED: "${field}"`);
@@ -108,6 +114,11 @@ export async function maybeDecrypt(
       try {
         result[field] = await decryptContent(val, key);
       } catch (e) {
+        if (field === 'mood' && isKnownMoodEmoji(val)) {
+          // AG-ENC-1: Tolerant read for legacy unencrypted mood on encrypted rows.
+          // Keep raw emoji instead of locking out older versions.
+          continue;
+        }
         reportError(e, { action: 'maybeDecrypt_stringField', field });
         throw new DecryptionError(field, e);
       }

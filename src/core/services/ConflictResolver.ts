@@ -95,7 +95,7 @@ export const ConflictResolver = {
       for (const cv of cloudVersions) {
         let plain: Record<string, unknown>;
         try {
-          plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content'], []);
+          plain = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content', 'mood'], []);
         } catch (decErr) {
           if (!(decErr instanceof DecryptionError)) throw decErr;
           reportError(decErr, { action: 'resolveConflict_decrypt', linkedCloudId, version: cv.version });
@@ -109,7 +109,7 @@ export const ConflictResolver = {
           wpm: cv.wpm,
           sessionStartedAt: cv.sessionStartedAt ? new Date(cv.sessionStartedAt) : undefined,
           savedAt: cv.savedAt ? new Date(cv.savedAt) : undefined,
-          mood: cv.mood ?? undefined,
+          mood: typeof plain.mood === 'string' ? plain.mood : (cv.mood ?? undefined),
         });
       }
 
