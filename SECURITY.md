@@ -236,7 +236,6 @@ Details and fix plans are in `docs/ag-audit-2026-09-03-tickets.md`.
 | `AG-ISO-1` | AI stores in IndexedDB carry no account. `aiPortrait` is a single row under the key `'singleton'`. | On a shared device, if the first account signs out without choosing to erase, the second account can read the first one's portrait, chat memory and beliefs — and an upload will write them into the second account's cloud data. |
 | `AG-ISO-2` | Five retrieval paths read every document on the device with no owner filter. | Search results and chat context can include another owner's notes. |
 | `AG-DEL-3` | Two code paths react to a cloud tombstone; one of them does not mark the note local-only. | A note deleted on one device can be re-uploaded from another and reappear. Unverified — see the ticket. |
-| `AG-ENC-1` | `versions.mood` is transmitted unencrypted during session save (`CloudSyncService.ts:838, 858`). | When vault is enabled, `documents.mood` is encrypted, but `versions.mood` is written in plaintext to Postgres with `_encrypted: true`. Personal emotional state leaks in the cloud database. |
 | `AG-RESTORE-2` | Bulk reads are unpaginated and stop at the server's row cap without an error. | On a large archive a restore can be silently incomplete. |
 
 The default on sign-out is to **keep** local data; erasing is a choice offered in

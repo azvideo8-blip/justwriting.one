@@ -770,7 +770,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       runner.vaultEnabled = true;
       const resSeq1 = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
       expect(resSeq1.p2Held).toBe(true);
-      expect(runner.interceptor.postgres.plaintextLeaks(['Seq 1 Note', 'Text from Seq1'])).toHaveLength(0);
+      expect(runner.interceptor.postgres.plaintextLeaks(['Seq 1 Note', 'Text from Seq1', '😊'])).toHaveLength(0);
 
       runner.vaultEnabled = true;
       const resSeq2 = await runner.runSeq2_WriteSaveEditSaveSync('none', 'sync_second');
@@ -795,7 +795,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       // When vault is off, p2Held is undefined (not measured/unencrypted by design),
       // and evaluateP2 asserted that plaintext markers did reach Postgres without throwing inversion error
       expect(resSeq1.notes.some(n => n.includes('P2 HARNESS INVERSION'))).toBe(false);
-      expect(runner.interceptor.postgres.plaintextLeaks(['Seq 1 Note', 'Text from Seq1']).length).toBeGreaterThan(0);
+      expect(runner.interceptor.postgres.plaintextLeaks(['Seq 1 Note', 'Text from Seq1', '😊']).length).toBeGreaterThan(0);
     });
 
     it('no sequence reports p2Held: undefined when it successfully synced data with vault on', async () => {

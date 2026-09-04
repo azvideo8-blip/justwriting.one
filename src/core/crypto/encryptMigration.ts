@@ -1,5 +1,5 @@
-import { getSessionKey } from './encrypt';
-import { maybeEncrypt } from './cryptoHelpers';
+import { getSessionKey, encryptContent } from './encrypt';
+import { maybeEncrypt, isKnownMoodEmoji } from './cryptoHelpers';
 import { DataProvider } from '../data';
 
 import { reportError } from '../../shared/errors/reportError';
@@ -177,14 +177,22 @@ async function _encryptAllExistingNotesInner(
           try {
             const versionId = v.id as string;
             const ck = `v_${documentId}_${versionId}`;
-            if (checkpoint.has(ck) || v._encrypted) {
+            const needsMoodEncryption = v._encrypted && typeof v.mood === 'string' && isKnownMoodEmoji(v.mood);
+            if (checkpoint.has(ck) || (v._encrypted && !needsMoodEncryption)) {
               checkpoint.add(ck);
               progress.processed++;
               report();
               continue;
             }
-            const encrypted = await maybeEncrypt(v as Record<string, unknown>, ['content'], [], true);
-            const clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined)) as Record<string, unknown>;
+            let clean: Record<string, unknown>;
+            if (needsMoodEncryption) {
+              const key = getSessionKey()!;
+              const encMood = await encryptContent(v.mood as string, key);
+              clean = { ...v, mood: encMood, _encrypted: true };
+            } else {
+              const encrypted = await maybeEncrypt(v as Record<string, unknown>, ['content', 'mood'], [], true);
+              clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined)) as Record<string, unknown>;
+            }
             pending.push({ type: 'version', userId, documentId, versionId, data: clean, checkKey: ck });
             if (pending.length >= BATCH_SIZE) await flush();
             progress.encrypted++;

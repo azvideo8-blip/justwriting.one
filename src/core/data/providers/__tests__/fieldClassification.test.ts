@@ -11,6 +11,9 @@ import { setEncryptionEnabled, setProfileLoaded } from '../../../../core/crypto/
 import { generateDataKey, setSessionKey, clearSessionKey } from '../../../../core/crypto/encrypt';
 import { DataProvider } from '../../../../core/data';
 import { DocumentService } from '../../../services/DocumentService';
+import { CloudSyncService } from '../../../services/CloudSyncService';
+import { VersionService } from '../../../services/VersionService';
+import { LocalStorageService } from '../../../services/LocalStorageService';
 import { WritingDraftService } from '../../../../features/writing/services/WritingDraftService';
 import { saveSummaryToCloud } from '../../../../features/ai/services/AISummaryService';
 import { saveEmbeddingToCloud } from '../../../../features/ai/services/AIEmbeddingService';
@@ -200,7 +203,7 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
   describe('VERSION_FIELDS inventory & write-site binding', () => {
     // Note: finding AG-ENC-1: 'mood' carries content but is unencrypted in versions table.
     const CONTENT_FIELDS = new Set(['content', 'mood']);
-    const ENCRYPTED_AT_WRITE_SITE = new Set(['content']);
+    const ENCRYPTED_AT_WRITE_SITE = new Set(['content', 'mood']);
     const METADATA_FIELDS = new Set([
       'documentId',
       'documentUuid',
@@ -234,22 +237,65 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       expect(CONTENT_FIELDS.size + METADATA_FIELDS.size).toBe(allCols.length);
     });
 
-    /**
-     * ИЗВЕСТНЫЙ ДЕФЕКТ, зафиксированный намеренно: AG-ENC-1.
-     *
-     * `mood` шифруется на документе (`['title', 'mood']`) и не шифруется на
-     * версии (`['content', 'previousContent']`) — одно поле, два места записи,
-     * одно правило. Починка не однострочная: `versions.mood` в схеме ограничен
-     * пятьюдесятью символами, шифротекст туда не влезет, и путь чтения
-     * расшифровывает только `content`. Нужны миграция и обе стороны сразу.
-     *
-     * Тест утверждает ТЕКУЩЕЕ положение дел, а не желаемое. Он обязан упасть в
-     * тот день, когда дефект починят, — и это правильное поведение: удалите
-     * его вместе с починкой. Не ослабляйте его, чтобы «стало зелено».
-     */
-    it('AG-ENC-1 (известный дефект): versions.mood уходит в облако открытым — упадёт, когда почините', () => {
+    it('AG-ENC-1 (fixed): versions.mood is classified as content and encrypted at write-site', () => {
       expect(CONTENT_FIELDS.has('mood')).toBe(true);
-      expect(ENCRYPTED_AT_WRITE_SITE.has('mood')).toBe(false);
+      expect(ENCRYPTED_AT_WRITE_SITE.has('mood')).toBe(true);
+    });
+
+    it('write-site encrypts content and mood before calling VersionService.addVersion', async () => {
+      const key = await generateDataKey();
+      setSessionKey(key);
+      setEncryptionEnabled(userId, true);
+      setProfileLoaded(userId, true);
+
+      const fakeDoc = {
+        id: 'doc_cloud_123',
+        uuid: 'doc_cloud_123',
+        userId,
+        title: 'Title',
+        currentVersion: 0,
+        totalWords: 0,
+        totalDuration: 0,
+        tags: [],
+        firstSessionAt: new Date(1000),
+        lastSessionAt: new Date(1000),
+      } as any;
+      vi.spyOn(DocumentService, 'getDocument').mockResolvedValue(fakeDoc);
+      vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(fakeDoc);
+      vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined as any);
+      vi.spyOn(LocalStorageService, 'getDocument').mockResolvedValue(null as any);
+
+      vi.spyOn(VersionService, 'getVersions').mockResolvedValue([]);
+
+      let savedData: any = null;
+      vi.spyOn(VersionService, 'addVersion').mockImplementation(async (_uid, _cid, data) => {
+        savedData = data;
+        return 'v1';
+      });
+
+      await CloudSyncService.syncVersionToCloud(
+        userId,
+        'doc_local_123',
+        'doc_cloud_123',
+        {
+          title: 'Title',
+          content: 'Secret content',
+          wordCount: 2,
+          duration: 30,
+          wpm: 4,
+          sessionStartedAt: new Date(1000),
+          tags: ['test'],
+          mood: '😊',
+        },
+        1,
+        ''
+      );
+
+      expect(savedData).not.toBeNull();
+      expect(savedData._encrypted).toBe(true);
+      expect(savedData.content).not.toBe('Secret content');
+      expect(savedData.mood).not.toBe('😊');
+      expect(typeof savedData.mood).toBe('string');
     });
 
     it('falsification: adding an unclassified column fails naming that column', () => {

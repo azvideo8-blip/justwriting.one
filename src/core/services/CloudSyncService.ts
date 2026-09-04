@@ -439,9 +439,11 @@ export const CloudSyncService = {
               goalTime: ver.goalTime,
               goalReached: ver.goalReached,
               sessionStartedAt: startedAt,
-            } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
+              mood: ver.mood,
+            } satisfies VersionEncryptPayload, ['content', 'previousContent', 'mood'], [], userId);
             const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
             const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
+            const mood = typeof versionPayload.mood === 'string' ? versionPayload.mood : ver.mood;
             const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
             await withTimeout(VersionService.addVersion(userId, cloudId, {
               content,
@@ -457,6 +459,7 @@ export const CloudSyncService = {
               goalReached: ver.goalReached,
               sessionStartedAt: startedAt,
               savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
+              mood,
               _encrypted,
             }));
           }
@@ -602,10 +605,12 @@ export const CloudSyncService = {
             goalTime: ver.goalTime,
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
-          } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
+            mood: ver.mood,
+          } satisfies VersionEncryptPayload, ['content', 'previousContent', 'mood'], [], userId);
 
           const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
           const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
+          const mood = typeof versionPayload.mood === 'string' ? versionPayload.mood : ver.mood;
           const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
           await withTimeout(VersionService.addVersion(userId, cloudId!, {
             content,
@@ -621,6 +626,7 @@ export const CloudSyncService = {
             goalReached: ver.goalReached,
             sessionStartedAt: startedAt,
             savedAt: ver.savedAt ? new Date(ver.savedAt) : undefined,
+            mood,
             _encrypted,
           }));
         }
@@ -841,9 +847,10 @@ export const CloudSyncService = {
         goalReached: data.goalReached,
         sessionStartedAt: startedAt,
         mood: data.mood,
-      } satisfies VersionEncryptPayload, ['content', 'previousContent'], [], userId);
+      } satisfies VersionEncryptPayload, ['content', 'previousContent', 'mood'], [], userId);
       const content = typeof versionPayload.content === 'string' ? versionPayload.content : '';
       const previousContent = typeof versionPayload.previousContent === 'string' ? versionPayload.previousContent : '';
+      const mood = typeof versionPayload.mood === 'string' ? versionPayload.mood : data.mood;
       const _encrypted = typeof versionPayload._encrypted === 'boolean' ? versionPayload._encrypted : undefined;
 
       try {
@@ -860,7 +867,7 @@ export const CloudSyncService = {
           goalTime: data.goalTime,
           goalReached: data.goalReached,
           sessionStartedAt: startedAt,
-          mood: data.mood,
+          mood,
           _encrypted,
         });
       } catch (addVerErr) {

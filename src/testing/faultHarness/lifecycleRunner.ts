@@ -346,6 +346,7 @@ export class LifecycleRunner {
         wpm: 3,
         sessionStartedAt: new Date(),
         tags: ['test'],
+        mood: '😊',
       };
 
       this.interceptor.setStep('save_local');
@@ -391,7 +392,7 @@ export class LifecycleRunner {
 
     // Evaluate Postulates
     const p1Held = told.status === 'error_thrown' ? true : (device.documentExists && device.latestContent === initialText);
-    const p2Held = this.evaluateP2(['Seq 1 Note', initialText], told.status === 'synced_to_cloud', notes);
+    const p2Held = this.evaluateP2(['Seq 1 Note', initialText, '😊'], told.status === 'synced_to_cloud', notes);
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 
