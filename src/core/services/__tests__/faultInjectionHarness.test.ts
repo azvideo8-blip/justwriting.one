@@ -698,6 +698,49 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   });
 
   // =========================================================================
+  // Postulate 2 Verification (GUARD-2)
+  // =========================================================================
+  describe('Postulate 2 Verification (GUARD-2)', () => {
+    it('with vault on, plaintext leak planted in tables marks p2Held false and names documents.title', () => {
+      setEncryptionEnabled(runner.userId, true);
+      const notes: string[] = [];
+      const titleMarker = 'Secret Vault Note Title';
+
+      // Plant an unencrypted copy of its title straight into tables
+      runner.interceptor.postgres.executeInsert('documents', {
+        uuid: 'doc_leak_p2',
+        user_id: runner.userId,
+        title: titleMarker,
+        _encrypted: false,
+      });
+
+      const p2Held = runner.evaluateP2([titleMarker], true, notes);
+      expect(p2Held).toBe(false);
+      expect(notes.some(n => n.includes('documents.title'))).toBe(true);
+    });
+
+    it('when harness writes nothing to Postgres, vault-off fails confidentiality assertion', () => {
+      setEncryptionEnabled(runner.userId, false);
+      const notes: string[] = [];
+      const titleMarker = 'Unencrypted Title';
+
+      // Ensure postgres is empty (writes nothing)
+      runner.interceptor.postgres.reset();
+
+      const p2Held = runner.evaluateP2([titleMarker], true, notes);
+      expect(p2Held).toBe(false);
+      expect(notes.some(n => n.includes('P2 HARNESS INVERSION'))).toBe(true);
+    });
+
+    it('returns undefined when no cloud data is expected (cannot judge)', () => {
+      setEncryptionEnabled(runner.userId, true);
+      const notes: string[] = [];
+      const p2Held = runner.evaluateP2(['Offline Note'], false, notes);
+      expect(p2Held).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
   // Full Matrix Execution
   // =========================================================================
   describe('Full Matrix Execution', () => {

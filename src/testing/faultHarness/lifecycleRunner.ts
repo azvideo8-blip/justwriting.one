@@ -22,11 +22,12 @@ import { SyncService } from '../../core/services/SyncService';
 import { LocalStorageService } from '../../core/services/LocalStorageService';
 import * as authModule from '../../core/auth';
 import {
+  getSessionKey,
   setSessionKey,
   clearSessionKey,
   generateDataKey,
 } from '../../core/crypto/encrypt';
-import { setEncryptionEnabled, setProfileLoaded } from '../../core/crypto/cryptoHelpers';
+import { getEncryptionEnabled, setEncryptionEnabled, setProfileLoaded } from '../../core/crypto/cryptoHelpers';
 import { SaveDocumentData } from '../../core/services/storageTypes';
 import { AppUser } from '../../core/auth/types';
 
@@ -34,6 +35,7 @@ export class LifecycleRunner {
   public interceptor: FaultInterceptor;
   public userId = 'user_test_123';
   public guestId = 'guest_test_123';
+  public vaultEnabled = false;
   private currentUser: AppUser | null = null;
 
   constructor(interceptor?: FaultInterceptor) {
@@ -64,12 +66,20 @@ export class LifecycleRunner {
     };
     vi.spyOn(authModule, 'getCurrentUser').mockImplementation(() => this.currentUser);
     setProfileLoaded(this.userId, true);
-    setEncryptionEnabled(this.userId, false);
+    if (this.vaultEnabled) {
+      if (!getSessionKey()) {
+        setSessionKey(await generateDataKey());
+      }
+      setEncryptionEnabled(this.userId, true);
+    } else {
+      setEncryptionEnabled(this.userId, false);
+    }
   }
 
   public teardown(): void {
     this.interceptor.uninstallMocks();
     this.currentUser = null;
+    this.vaultEnabled = false;
     clearSessionKey();
   }
 
@@ -132,6 +142,36 @@ export class LifecycleRunner {
       deletedAt: (doc?.deleted_at as string | null) ?? undefined,
       rawRows: docVers,
     };
+  }
+
+  public evaluateP2(
+    markers: string[],
+    expectedInCloud: boolean,
+    notes: string[]
+  ): boolean | undefined {
+    const vaultOn = getEncryptionEnabled(this.userId);
+    const leaks = this.interceptor.postgres.plaintextLeaks(markers);
+
+    if (vaultOn) {
+      if (leaks.length === 0) {
+        return expectedInCloud ? true : undefined;
+      }
+      notes.push('P2 LEAK: marker found in ' + leaks.join(', '));
+      return false;
+    }
+
+    // Vault is off: P2 is only meaningful when vault encryption is enabled.
+    // However, we assert that plaintext markers did reach Postgres if cloud sync was expected.
+    // This sanity check prevents empty-theatre passes where tests pass because no data was written.
+    if (expectedInCloud) {
+      if (leaks.length > 0) {
+        return undefined; // Not measured (vault disabled, plaintext expected in cloud, leak detection verified)
+      }
+      notes.push('P2 HARNESS INVERSION: expected plaintext in cloud when vault off, but markers missing');
+      return false; // Detection or harness sync broke!
+    }
+
+    return undefined; // Not measured (vault disabled, no cloud data expected)
   }
 
   // =========================================================================
@@ -214,7 +254,7 @@ export class LifecycleRunner {
 
     // Evaluate Postulates
     const p1Held = told.status === 'error_thrown' ? true : (device.documentExists && device.latestContent === initialText);
-    const p2Held = true;
+    const p2Held = this.evaluateP2(['Seq 1 Note', initialText], told.status === 'synced_to_cloud', notes);
     const p3Held = true;
     const p4Held = true;
 
@@ -296,7 +336,7 @@ export class LifecycleRunner {
 
     // Did P1 hold? Was version 2 text preserved on device?
     const p1Held = told.status === 'error_thrown' ? true : (device.latestContent === v2Text);
-    const p2Held = true;
+    const p2Held = this.evaluateP2(['Seq 2 Note', 'Version 1 text', v2Text], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = true;
     const p4Held = true;
 
@@ -388,7 +428,7 @@ export class LifecycleRunner {
     // P1: Did both Device A's text and Device B's text survive without loss?
     // Fork must preserve Device A's text and Device B's text
     const p1Held = told.forked === true || Boolean(device.latestContent?.includes('Device A edit v2'));
-    const p2Held = true;
+    const p2Held = this.evaluateP2(['Divergent Note', 'Base v1 text'], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = true;
     const p4Held = told.forked === true;
 
@@ -455,7 +495,7 @@ export class LifecycleRunner {
     }
 
     const p1Held = true; // Deletion is intended exception to retention
-    const p2Held = true;
+    const p2Held = this.evaluateP2(['To Delete', 'Text to delete'], postgres.documentExists || postgres.versionsCount > 0, notes);
     const p3Held = true;
     const p4Held = !postgres.documentExists || postgres.deletedAt !== null || deleteQueued;
 
@@ -522,6 +562,9 @@ export class LifecycleRunner {
       notes.push('DEFECT: Deleting unlinked local note leaves orphaned task in syncQueue that fails on drain');
     }
 
+    const p2Held = this.evaluateP2(['Offline Note', 'Unsynced text'], false, notes);
+    const p3Held = true;
+
     return {
       sequence: 'seq5_delete_before_sync',
       fault,
@@ -530,8 +573,8 @@ export class LifecycleRunner {
       device,
       postgres,
       p1Held: true,
-      p2Held: true,
-      p3Held: true,
+      p2Held,
+      p3Held,
       p4Held: !hasOrphanTask,
       notes,
       defectFound: hasOrphanTask ? 'SYNC-DEFECT: orphan syncQueue task after local note deletion' : undefined,
@@ -601,6 +644,9 @@ export class LifecycleRunner {
 
     // P1 verification: Device A's new edits MUST survive on Device A!
     const p1Held = device.documentExists && device.latestContent?.includes('offline edits') && device.unlinkedByTombstone === true;
+    const p2Held = this.evaluateP2(['Tombstone Note', 'Original v1'], postgres.documentExists || postgres.versionsCount > 0, notes);
+    const p3Held = true;
+    const p4Held = true;
 
     return {
       sequence: 'seq6_tombstone_edit_recovery',
@@ -610,9 +656,9 @@ export class LifecycleRunner {
       device,
       postgres,
       p1Held: !!p1Held,
-      p2Held: true,
-      p3Held: true,
-      p4Held: true,
+      p2Held,
+      p3Held,
+      p4Held,
       notes,
     };
   }
@@ -666,6 +712,9 @@ export class LifecycleRunner {
 
     // If restore was interrupted or failed, does device have corrupted partial state?
     const p1Held = told.status === 'restored' ? device.documentExists : true;
+    const p2Held = this.evaluateP2(['Cloud Archive Note', 'Cloud Archive Content'], postgres.documentExists || postgres.versionsCount > 0, notes);
+    const p3Held = true;
+    const p4Held = true;
 
     return {
       sequence: 'seq7_sign_out_erase_restore',
@@ -675,9 +724,9 @@ export class LifecycleRunner {
       device,
       postgres,
       p1Held,
-      p2Held: true,
-      p3Held: true,
-      p4Held: true,
+      p2Held,
+      p3Held,
+      p4Held,
       notes,
     };
   }
@@ -727,6 +776,9 @@ export class LifecycleRunner {
     const postgres = this.inspectPostgres(device.linkedCloudId || guestDocId);
 
     const p1Held = device.latestContent === 'Guest text content';
+    const p2Held = this.evaluateP2(['Guest Note', 'Guest text content'], told.cloudSynced || postgres.documentExists, notes);
+    const p3Held = true;
+    const p4Held = true;
 
     return {
       sequence: 'seq8_guest_signup_migrate_sync',
@@ -736,9 +788,9 @@ export class LifecycleRunner {
       device,
       postgres,
       p1Held,
-      p2Held: true,
-      p3Held: true,
-      p4Held: true,
+      p2Held,
+      p3Held,
+      p4Held,
       notes,
     };
   }
@@ -801,12 +853,14 @@ export class LifecycleRunner {
     const summary = summaryRows.find(s => s.document_id === cloudId);
 
     // P2 Evaluation:
-    // Did notes get encrypted in Postgres?
-    const noteEncrypted = postgres.isEncrypted;
-    // Did AI summaries get encrypted?
-    const summaryEncrypted = summary?._encrypted === true;
+    const p2Held = this.evaluateP2(
+      ['Plaintext Cloud Title', 'Plaintext secret note content', 'secret_tag', 'Plaintext psychological analysis summary'],
+      true,
+      notes
+    );
 
-    if (!summaryEncrypted) {
+    const summaryEncrypted = summary?._encrypted === true;
+    if (p2Held === false && !summaryEncrypted) {
       notes.push('P2 VIOLATION: encryptAllExistingNotes does NOT re-encrypt ai_summaries or ai_embeddings in Postgres');
     }
 
@@ -818,11 +872,11 @@ export class LifecycleRunner {
       device: await this.inspectDevice(cloudId),
       postgres,
       p1Held: true,
-      p2Held: !!noteEncrypted && summaryEncrypted,
+      p2Held,
       p3Held: true,
       p4Held: true,
       notes,
-      defectFound: !summaryEncrypted ? 'P2-DEFECT: unencrypted AI derivatives remain plaintext after vault setup' : undefined,
+      defectFound: p2Held === false ? 'P2-DEFECT: unencrypted AI derivatives remain plaintext after vault setup' : undefined,
     };
   }
 
@@ -874,6 +928,12 @@ export class LifecycleRunner {
     const device = await this.inspectDevice(docId);
     const postgres = this.inspectPostgres(cloudId);
 
+    const p2Held = this.evaluateP2(
+      ['Delete Account Note', 'Text to be deleted with account'],
+      postgres.documentExists || postgres.versionsCount > 0,
+      notes
+    );
+
     return {
       sequence: 'seq10_delete_account',
       fault,
@@ -882,7 +942,7 @@ export class LifecycleRunner {
       device,
       postgres,
       p1Held: true,
-      p2Held: true,
+      p2Held,
       p3Held: true,
       p4Held: true,
       notes,

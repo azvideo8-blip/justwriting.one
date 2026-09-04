@@ -101,7 +101,7 @@ export interface MatrixCellResult {
   device: DeviceState;
   postgres: PostgresState;
   p1Held: boolean;
-  p2Held: boolean;
+  p2Held: boolean | undefined;
   p3Held: boolean;
   p4Held: boolean;
   notes: string[];

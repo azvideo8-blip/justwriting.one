@@ -127,7 +127,7 @@ export class MatrixRunner {
           device: { documentExists: false, versionsCount: 0, queueTasks: [] },
           postgres: { documentExists: false, versionsCount: 0 },
           p1Held: true,
-          p2Held: true,
+          p2Held: undefined,
           p3Held: true,
           p4Held: false,
           notes: [`Unhandled error during runCell: ${(err as Error).message}`],

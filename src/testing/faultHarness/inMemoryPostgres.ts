@@ -64,6 +64,27 @@ export class InMemoryPostgres {
     this.tables.set(table, [...rows]);
   }
 
+  public plaintextLeaks(markers: string[]): string[] {
+    const leaks: string[] = [];
+    if (!markers || markers.length === 0) return leaks;
+
+    for (const [table, rows] of this.tables.entries()) {
+      for (const row of rows) {
+        for (const [col, val] of Object.entries(row)) {
+          if (val === null || val === undefined) continue;
+          const strVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+          for (const marker of markers) {
+            if (marker && strVal.includes(marker)) {
+              leaks.push(`${table}.${col}`);
+              break;
+            }
+          }
+        }
+      }
+    }
+    return Array.from(new Set(leaks));
+  }
+
   private nextId(table: string): string {
     const next = (this.sequences.get(table) || 0) + 1;
     this.sequences.set(table, next);
