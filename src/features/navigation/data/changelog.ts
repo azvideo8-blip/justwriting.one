@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.38',
+    date: '2026-09-04',
+    items: [
+      { category: 'improvement', ru: 'Удаление заметки теперь честно говорит, дошло ли оно до облака. Если сети нет или облако не ответило, вместо «удалено» появится «Удалено на этом устройстве — из облака удалится позже», а число таких отложенных удалений видно в настройках синхронизации.', en: 'Deleting a note now says honestly whether the deletion reached the cloud. With no network, or a cloud that did not answer, «deleted» is replaced by «Deleted on this device — will be removed from the cloud later», and the number of such pending deletions is visible in the sync settings.' },
+      { category: 'fix', ru: 'Нечитаемая облачная версия больше не порождает «конфликтную копию» на пустом месте. Если одну из сторон не удалось расшифровать, приложение считает её неизвестной, а не отличающейся, и откладывает сверку до следующего раза.', en: 'An unreadable cloud version no longer produces a «conflict copy» out of nothing. When one side cannot be decrypted, the app treats it as unknown rather than different, and leaves the comparison for the next attempt.' },
+      { category: 'fix', ru: 'Заметка, у которой счётчик версий отставал от их настоящего числа, больше не выглядит для другого устройства уже загруженной — иначе последняя версия туда никогда бы не приехала.', en: 'A note whose version counter lagged behind the number of versions it actually holds no longer looks up to date to another device — otherwise the latest version would never have reached it.' },
+      { category: 'fix', ru: 'Настроение сессии теперь шифруется и в версиях, а не только в заметке.', en: 'The mood of a session is now encrypted on versions too, not only on the note.' },
+    ],
+  },
+  {
     version: '0.8.37',
     date: '2026-09-04',
     items: [

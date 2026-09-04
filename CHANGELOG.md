@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.38 — 2026-09-04
+
+- **[RU]** Удаление заметки теперь честно говорит, дошло ли оно до облака. Если сети нет или облако не ответило, вместо «удалено» появится «Удалено на этом устройстве — из облака удалится позже», а число таких отложенных удалений видно в настройках синхронизации.
+- **[EN]** Deleting a note now says honestly whether the deletion reached the cloud. With no network, or a cloud that did not answer, «deleted» is replaced by «Deleted on this device — will be removed from the cloud later», and the number of such pending deletions is visible in the sync settings.
+- **[RU]** Нечитаемая облачная версия больше не порождает «конфликтную копию» на пустом месте. Если одну из сторон не удалось расшифровать, приложение считает её неизвестной, а не отличающейся, и откладывает сверку до следующего раза.
+- **[EN]** An unreadable cloud version no longer produces a «conflict copy» out of nothing. When one side cannot be decrypted, the app treats it as unknown rather than different, and leaves the comparison for the next attempt.
+- **[RU]** Заметка, у которой счётчик версий отставал от их настоящего числа, больше не выглядит для другого устройства уже загруженной — иначе последняя версия туда никогда бы не приехала.
+- **[EN]** A note whose version counter lagged behind the number of versions it actually holds no longer looks up to date to another device — otherwise the latest version would never have reached it.
+- **[RU]** Настроение сессии теперь шифруется и в версиях, а не только в заметке.
+- **[EN]** The mood of a session is now encrypted on versions too, not only on the note.
+
 ## 0.8.37 — 2026-09-04
 
 - **[RU]** Настроение сессии больше не уходит в облако открытым: при включённом сейфе оно шифруется наравне со всем остальным, а записи, сделанные прежними версиями приложения, продолжают читаться.
