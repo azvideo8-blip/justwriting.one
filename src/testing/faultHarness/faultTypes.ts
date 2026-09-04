@@ -104,7 +104,7 @@ export interface MatrixCellResult {
   p1Held: boolean;
   p2Held: boolean | undefined;
   p3Held: boolean;
-  p4Held: boolean;
+  p4Held: boolean | undefined;
   notes: string[];
   defectFound?: string | undefined;
 }

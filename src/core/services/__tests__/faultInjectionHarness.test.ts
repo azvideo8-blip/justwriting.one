@@ -45,7 +45,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
         res.notes.filter(n => n.includes('HARNESS INVERSION')),
         'ложных тревог быть не должно',
       ).toEqual([]);
-      expect(res.p4Held, 'и постулат 4 не должен падать следом').toBe(true);
+      expect(res.p4Held, 'и постулат 4 не должен падать следом').not.toBe(false);
     });
 
     it('Sequence 1: write → save → sync succeeds end-to-end', async () => {
@@ -1092,26 +1092,26 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
     });
 
     it('discrepancy between told and reality breaks P4 conjunction', async () => {
-      // In Seq 1 with network_pre on sync_cloud:
-      // told.status is 'saved_local_queued'
-      // Local note exists, queue holds sync task, cloud has no doc
-      const res = await runner.runSeq1_WriteSaveSync('network_pre', 'sync_cloud');
-      // P1 held (note saved locally), P2 held/unmeasured, P3 held (no AI calls)
-      // and told was 'saved_local_queued' matching reality
-      expect(res.told.status).toBe('saved_local_queued');
+      runner.vaultEnabled = true;
+      const res = await runner.runSeq1_WriteSaveSync('none', 'sync_cloud');
+      // When all measured and hold with vault on:
+      expect(res.told.status).toBe('synced_to_cloud');
       expect(res.p1Held).toBe(true);
+      expect(res.p2Held).toBe(true);
       expect(res.p3Held).toBe(true);
       expect(res.p4Held).toBe(true);
 
-      // If we tamper with told to lie that it synced to cloud:
-      const liedTold = { status: 'synced_to_cloud' as const, cloudSynced: true };
-      const liedP4 = Boolean(
-        res.p1Held &&
-        (res.p2Held ?? true) &&
-        res.p3Held &&
-        runner.toldMatchesReality(liedTold, res.device, res.postgres)
+      // If we tamper with told to lie that reality diverged:
+      const liedTold = { status: 'forked_conflict' as const, cloudSynced: true, forked: false };
+      const liedP4 = runner.computeP4(
+        res.p1Held,
+        res.p2Held,
+        res.p3Held,
+        liedTold,
+        res.device,
+        res.postgres
       );
-      // P4 MUST fail because reality has no cloud copy!
+      // P4 MUST fail because told lied!
       expect(liedP4).toBe(false);
     });
 
@@ -1122,9 +1122,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       const realityMatches = runner.toldMatchesReality(told, device, postgres);
       expect(realityMatches).toBe(true);
 
-      // Формула берётся из проверяемого кода, а не переписывается здесь:
-      // тест, повторяющий правило, переживает его расхождение с кодом.
-      const p4 = (p1: boolean, p2: boolean | undefined, p3: boolean) =>
+      const p4 = (p1: boolean | undefined, p2: boolean | undefined, p3: boolean | undefined) =>
         runner.computeP4(p1, p2, p3, told, device, postgres);
 
       expect(p4(false, true, true), 'падает постулат 1').toBe(false);
@@ -1132,10 +1130,11 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       expect(p4(true, true, false), 'падает постулат 3').toBe(false);
       expect(p4(true, true, true), 'все три держатся и сказанное сходится').toBe(true);
 
-      // Известная слабость, записанная в GUARD-5: непроверенный постулат 2
-      // засчитывается как выполненный. Тест закрепляет текущее поведение —
-      // менять его надо вместе с GUARD-5, а не молча.
-      expect(p4(true, undefined, true), 'непроверенный постулат 2 сегодня засчитывается').toBe(true);
+      // GUARD-6: unmeasured postulate 2 yields undefined, not true (no laundering)
+      expect(p4(true, undefined, true), 'непроверенный постулат 2 не засчитывается').toBeUndefined();
+
+      // If one leg failed and another is unmeasured, false takes precedence:
+      expect(p4(false, undefined, true), 'отказ постулата 1 важнее не проверенного постулата 2').toBe(false);
     });
   });
 

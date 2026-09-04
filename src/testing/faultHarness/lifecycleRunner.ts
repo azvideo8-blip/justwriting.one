@@ -195,31 +195,30 @@ export class LifecycleRunner {
   }
 
   /**
-   * Постулат 4 — конъюнкция, и живёт она ровно здесь.
+   * Postulate 4 is the conjunction:
+   * saved, encrypted, synchronised, nothing leaked, apart from what the person deliberately sent.
    *
-   * Формула была выписана в десяти сценариях и ещё раз в тесте на неё. Тест,
-   * который повторяет проверяемое правило, остаётся зелёным, когда правило
-   * разъезжается с кодом, — тот же класс, что «одно правило, две реализации».
-   *
-   * `p2 ?? true` — известная слабость: непроверенный постулат засчитывается
-   * как выполненный. Оставлено осознанно и записано в GUARD-5; менять надо
-   * вместе с прогоном сценариев при включённом сейфе, иначе матрица станет
-   * сплошным «не измерено».
+   * Three-valued logic (GUARD-6):
+   * - false if any leg is false (including toldMatchesReality === false)
+   * - undefined if no leg is false but some leg is unmeasured (undefined)
+   * - true only when every leg was measured and held
    */
   public computeP4(
-    p1Held: boolean,
+    p1Held: boolean | undefined,
     p2Held: boolean | undefined,
-    p3Held: boolean,
+    p3Held: boolean | undefined,
     told: ToldState,
     device: DeviceState,
     postgres: PostgresState
-  ): boolean {
-    return Boolean(
-      p1Held &&
-      (p2Held ?? true) &&
-      p3Held &&
-      this.toldMatchesReality(told, device, postgres)
-    );
+  ): boolean | undefined {
+    const realityMatches = this.toldMatchesReality(told, device, postgres);
+    if (p1Held === false || p2Held === false || p3Held === false || realityMatches === false) {
+      return false;
+    }
+    if (p1Held === undefined || p2Held === undefined || p3Held === undefined) {
+      return undefined;
+    }
+    return true;
   }
 
   public toldMatchesReality(
