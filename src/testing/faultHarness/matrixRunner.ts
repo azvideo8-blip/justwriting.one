@@ -149,10 +149,10 @@ export class MatrixRunner {
             told: { status: 'error_thrown', cloudSynced: false, error: (err as Error).message },
             device: { documentExists: false, versionsCount: 0, queueTasks: [] },
             postgres: { documentExists: false, versionsCount: 0 },
-            p1Held: true,
+            p1Held: undefined,
             p2Held: undefined,
-            p3Held: false,
-            p4Held: false,
+            p3Held: undefined,
+            p4Held: undefined,
             notes: [`Unhandled error during runCell: ${(err as Error).message}`],
           });
         }

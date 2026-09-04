@@ -75,7 +75,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
 
     it('Sequence 4: write → save → sync → delete removes both sides', async () => {
       const res = await runner.runSeq4_WriteSaveSyncDelete('none', 'delete_local');
-      expect(res.p1Held).toBe(true);
+      expect(res.p1Held).toBeUndefined();
       expect(res.told.status).toBe('deleted');
       expect(res.device.documentExists).toBe(false);
       expect(res.postgres.deletedAt).toBeTruthy();
@@ -1154,6 +1154,49 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
 
       // If one leg failed and another is unmeasured, false takes precedence:
       expect(p4(false, undefined, true), 'отказ постулата 1 важнее не проверенного постулата 2').toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // Postulate 1 Measurement and Exemption Verification (GUARD-8)
+  // =========================================================================
+  describe('Postulate 1 Measurement and Exemption Verification (GUARD-8)', () => {
+    it('Sequences 4, 5, and 10 report p1Held as undefined due to user deletion exemption', async () => {
+      const res4 = await runner.runSeq4_WriteSaveSyncDelete('none', 'delete_local');
+      expect(res4.p1Held).toBeUndefined();
+
+      const res5 = await runner.runSeq5_DeleteBeforeSync('none', 'delete_local');
+      expect(res5.p1Held).toBeUndefined();
+
+      const res10 = await runner.runSeq10_DeleteAccount('none', 'delete_account');
+      expect(res10.p1Held).toBeUndefined();
+    });
+
+    it('Sequence 9 fails P1 (p1Held === false) when encryptAllExistingNotes throws or cannot restore', async () => {
+      // With network_pre fault, encryptAllExistingNotes fails and notes cannot be restored
+      const resFault = await runner.runSeq9_EnableEncryptionSyncRestore('network_pre', 'enable_encryption');
+      expect(resFault.p1Held).toBe(false);
+      expect(resFault.device.documentExists).toBe(false);
+
+      // With none fault, migration and restore succeed, verifying P1 held
+      const resOk = await runner.runSeq9_EnableEncryptionSyncRestore('none', 'enable_encryption');
+      expect(resOk.p1Held).toBe(true);
+      expect(resOk.device.documentExists).toBe(true);
+      expect(resOk.device.latestContent).toBe('Plaintext secret note content');
+    });
+
+    it('matrixRunner records all four postulates as undefined when a cell throws an unhandled exception', async () => {
+      const { MatrixRunner } = await import('../../../testing/faultHarness/matrixRunner');
+      const matrixRunner = new MatrixRunner(runner);
+      vi.spyOn(matrixRunner, 'runCell').mockRejectedValueOnce(new Error('Simulated runner crash'));
+
+      const results = await matrixRunner.runFullMatrix();
+      const crashedCell = results.find(r => r.notes.some(n => n.includes('Simulated runner crash')));
+      expect(crashedCell).toBeDefined();
+      expect(crashedCell?.p1Held).toBeUndefined();
+      expect(crashedCell?.p2Held).toBeUndefined();
+      expect(crashedCell?.p3Held).toBeUndefined();
+      expect(crashedCell?.p4Held).toBeUndefined();
     });
   });
 

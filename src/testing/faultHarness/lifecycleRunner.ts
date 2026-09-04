@@ -635,7 +635,7 @@ export class LifecycleRunner {
       }
     }
 
-    const p1Held = true; // Deletion is intended exception to retention
+    const p1Held = undefined; // Postulate 1 exemption: document was explicitly deleted by user
     const p2Held = this.evaluateP2(['To Delete', 'Text to delete'], (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
@@ -703,7 +703,7 @@ export class LifecycleRunner {
       notes.push('DEFECT: Deleting unlinked local note leaves orphaned task in syncQueue that fails on drain');
     }
 
-    const p1Held = true;
+    const p1Held = undefined; // Postulate 1 exemption: unsynced document was explicitly deleted by user
     const p2Held = this.evaluateP2(['Offline Note', 'Unsynced text'], false, notes);
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
@@ -961,6 +961,8 @@ export class LifecycleRunner {
       total_words: 4,
       total_duration: 30,
       tags: ['secret_tag'],
+      first_session_at: new Date(1000).toISOString(),
+      last_session_at: new Date(1000).toISOString(),
       _encrypted: false,
     });
     this.interceptor.postgres.executeInsert('versions', {
@@ -968,6 +970,10 @@ export class LifecycleRunner {
       user_id: this.userId,
       version: 1,
       content: 'Plaintext secret note content',
+      word_count: 4,
+      duration: 30,
+      saved_at: new Date(1000).toISOString(),
+      session_started_at: new Date(1000).toISOString(),
       _encrypted: false,
     });
 
@@ -997,12 +1003,18 @@ export class LifecycleRunner {
       notes.push(`Error during encryptAllExistingNotes: ${(e as Error).message}`);
     }
 
+    try {
+      await CloudSyncService.restoreMissingDocuments(this.userId, { force: true });
+    } catch (e: unknown) {
+      notes.push(`Error during restoreMissingDocuments: ${(e as Error).message}`);
+    }
+
     const device = await this.inspectDevice(cloudId);
     const postgres = this.inspectPostgres(cloudId);
     const summaryRows = this.interceptor.postgres.getRows('ai_summaries');
     const summary = summaryRows.find(s => s.document_id === cloudId);
 
-    const p1Held = true;
+    const p1Held = Boolean(device.documentExists && device.latestContent === 'Plaintext secret note content');
     // P2 Evaluation:
     const p2Held = this.evaluateP2(
       ['Plaintext Cloud Title', 'Plaintext secret note content', 'secret_tag', 'Plaintext psychological analysis summary'],
@@ -1082,7 +1094,7 @@ export class LifecycleRunner {
     const device = await this.inspectDevice(docId);
     const postgres = this.inspectPostgres(cloudId);
 
-    const p1Held = true;
+    const p1Held = undefined; // Postulate 1 exemption: account and its notes were explicitly deleted by user
     const p2Held = this.evaluateP2(
       ['Delete Account Note', 'Text to be deleted with account'],
       (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0,

@@ -101,9 +101,9 @@ export interface MatrixCellResult {
   told: ToldState;
   device: DeviceState;
   postgres: PostgresState;
-  p1Held: boolean;
+  p1Held: boolean | undefined;
   p2Held: boolean | undefined;
-  p3Held: boolean;
+  p3Held: boolean | undefined;
   p4Held: boolean | undefined;
   notes: string[];
   defectFound?: string | undefined;
