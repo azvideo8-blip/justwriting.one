@@ -108,8 +108,18 @@ deduplication do not work.
 
 | Field | Table | Why it is readable |
 | :--- | :--- | :--- |
-| `uuid`, `document_id`, `first_session_at`, `last_session_at`, `sessions_count` | documents, versions | row keys, ordering, relations |
-| `word_count`, `duration`, `wpm` | documents, versions | progress statistics; server-side aggregates are impossible over ciphertext |
+| `uuid`, `id`, `document_id`, `document_uuid`, `user_id`, `uid` | all tables | row keys, foreign keys, RLS scoping |
+| `first_session_at`, `last_session_at`, `sessions_count`, `created_at`, `saved_at`, `session_started_at`, `updated_at` | documents, versions, users, drafts, ai_* | ordering, relations, timestamps |
+| `word_count`, `duration`, `wpm`, `words_added`, `chars_added`, `total_words`, `total_duration`, `total_word_count`, `streak_days`, `avg_wpm`, `avg_session_words` | documents, versions, users | progress and aggregate statistics; server-side aggregates are impossible over ciphertext |
+| `goal_words`, `goal_time`, `goal_reached` | versions | goal achievement tracking |
+| `earned_achievements`, `achievements_reset_at` | users | gamification identifiers and reset timestamp |
+| `is_public`, `label_id`, `excluded_from_ai`, `deleted_at` | documents, drafts | document share status, label relation, AI exclusion flag, tombstones |
+| `email`, `nickname`, `role` | users | auth identity, profile handle, server permissions |
+| `encryption_salt`, `encrypted_data_key`, `encryption_meta` | users | cryptographic envelope stored server-side |
+| `privacy_accepted_at`, `privacy_version`, `ai_consent_at`, `ai_consent_version`, `indexing_consent_at`, `indexing_consent_version` | users | legal consent stamps |
+| `seconds`, `initial_word_count`, `active_session_id`, `session_start_time`, `accumulated_duration`, `total_pause_seconds`, `saved_document_id` | drafts | draft session counters and linkage |
+| `valence`, `arousal` | ai_summaries | sentiment statistics |
+| `content_hash`, `prompt_version` | ai_summaries | freshness checks and prompt versioning |
 | `dim`, `processed_at` | ai_embeddings | model-compatibility check and the freshness filter |
 | `schema_v`, `_encrypted`, `version` | all tables | migrations and read branching |
 | `current_version`, `total_words` | documents | conflict detection and reconciliation |
@@ -226,6 +236,7 @@ Details and fix plans are in `docs/ag-audit-2026-09-03-tickets.md`.
 | `AG-ISO-1` | AI stores in IndexedDB carry no account. `aiPortrait` is a single row under the key `'singleton'`. | On a shared device, if the first account signs out without choosing to erase, the second account can read the first one's portrait, chat memory and beliefs — and an upload will write them into the second account's cloud data. |
 | `AG-ISO-2` | Five retrieval paths read every document on the device with no owner filter. | Search results and chat context can include another owner's notes. |
 | `AG-DEL-3` | Two code paths react to a cloud tombstone; one of them does not mark the note local-only. | A note deleted on one device can be re-uploaded from another and reappear. Unverified — see the ticket. |
+| `AG-ENC-1` | `versions.mood` is transmitted unencrypted during session save (`CloudSyncService.ts:838, 858`). | When vault is enabled, `documents.mood` is encrypted, but `versions.mood` is written in plaintext to Postgres with `_encrypted: true`. Personal emotional state leaks in the cloud database. |
 | `AG-RESTORE-2` | Bulk reads are unpaginated and stop at the server's row cap without an error. | On a large archive a restore can be silently incomplete. |
 
 The default on sign-out is to **keep** local data; erasing is a choice offered in
