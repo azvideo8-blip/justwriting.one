@@ -23,8 +23,12 @@ INSERT INTO public.users (uid, email, nickname) VALUES
   ('00000000-0000-0000-0000-000000000002', 'bob@test.com', 'Bob')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.documents (uuid, user_id, title) VALUES
-  ('bob-doc-001', '00000000-0000-0000-0000-000000000002', 'Bob''s secret')
+-- current_version задан явно и равен номеру версии ниже. Приложение иначе и не
+-- пишет, а строка «документ на версии 0 с версией номер 1» — это состояние,
+-- которое BETA-5 как раз объявляет невозможным. Данные для проверки политик
+-- доступа не повод нарушать инвариант, который тут же и проверяется.
+INSERT INTO public.documents (uuid, user_id, title, current_version) VALUES
+  ('bob-doc-001', '00000000-0000-0000-0000-000000000002', 'Bob''s secret', 1)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO public.versions (document_uuid, user_id, version, content, word_count) VALUES
@@ -925,6 +929,13 @@ RESET request.jwt.claims;
 
 -- ------------------------------------------------------------
 -- BETA-5 (SYNC-10): Consistency invariant: current_version = max(version)
+--
+-- Оговорка о силе этой проверки. Здесь не исполняется ни строчки кода
+-- приложения: строки вставлены руками этим же файлом. Значит проверка ловит
+-- ровно одно — что сами данные для проверок непротиворечивы. Регрессию в
+-- продукте она поймать не может по устройству. Настоящие два места, где этот
+-- инвариант меряется на данных, написанных приложением, — обход базы в
+-- `npm run postulates` (там он идёт по живой базе) и харнесс жизненного цикла.
 -- Every active document in Postgres must have its current_version aligned
 -- with the maximum version number in versions table.
 -- ------------------------------------------------------------

@@ -297,6 +297,31 @@ async function runDatabaseSweep(databaseUrl) {
       }
     }
 
+    // 5. Инвариант версий (BETA-5). В rls.test.sql он проверяет только опрятность
+    // собственных данных: там не исполняется код приложения. Здесь — живая база,
+    // строки в которой писал продукт, и это единственное место, где расхождение
+    // счётчика с фактом что-то значит. Именно так нашлись те две строки.
+    console.log('\n--- 5. Version counter invariant (current_version must equal max(version)) ---');
+    console.log("SQL Query: SELECT count(*) FROM documents d JOIN (SELECT document_uuid, max(version) ...) sub ON d.uuid = sub.document_uuid WHERE d.current_version <> sub.max_v");
+    try {
+      const res = await client.query(`
+        SELECT count(*)::int AS cnt
+          FROM public.documents d
+          JOIN (SELECT document_uuid, max(version) AS max_v FROM public.versions GROUP BY document_uuid) sub
+            ON d.uuid = sub.document_uuid
+         WHERE d.deleted_at IS NULL AND d.current_version <> sub.max_v`);
+      const cnt = res.rows[0]?.cnt || 0;
+      if (cnt > 0) {
+        console.log(`  [FAIL] documents: ${cnt} rows whose current_version disagrees with their versions`);
+        totalViolations += cnt;
+      } else {
+        console.log('  [OK]   documents: 0 rows with a lagging version counter');
+      }
+    } catch (err) {
+      skipped++;
+      console.log(`  [SKIP] documents invariant: ${err.message}`);
+    }
+
     return { success: totalViolations === 0, checked: true, totalViolations, skipped };
   } finally {
     await client.end();
