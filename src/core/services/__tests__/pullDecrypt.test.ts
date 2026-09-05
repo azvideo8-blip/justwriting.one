@@ -20,7 +20,7 @@ const cloudVersion = (v: number, content = CIPHERTEXT) => ({
 describe('pull облачных версий в локальный стор (AUD-1)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
       { id: 'local_1', guestId: 'user_1', linkedCloudId: 'cloud_1' } as never,
     ]);
     vi.spyOn(LocalStorageService, 'getDocument').mockResolvedValue({
@@ -46,10 +46,14 @@ describe('pull облачных версий в локальный стор (AUD
 
   afterEach(() => vi.restoreAllMocks());
 
-  /** maybeDecrypt: v2 расшифровывается, остальное — мусор. */
+  /** maybeDecrypt: v1 и v2 расшифровываются, v3 — нечитаемый мусор. */
   function mockDecrypt() {
     return vi.spyOn(CryptoHelpers, 'maybeDecrypt').mockImplementation(async (doc) => {
-      if ((doc as { version?: number }).version === 2) {
+      const ver = (doc as { version?: number }).version;
+      if (ver === 1) {
+        return { ...(doc as object), content: 'локальный текст v1' } as never;
+      }
+      if (ver === 2) {
         return { ...(doc as object), content: 'облачный текст v2' } as never;
       }
       throw new CryptoHelpers.DecryptionError('content');

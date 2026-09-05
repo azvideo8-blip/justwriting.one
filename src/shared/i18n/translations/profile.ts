@@ -27,6 +27,8 @@ export const profileTranslations: Translations = {
   profile_heatmap_hint:       { ru: 'оттенок — объём слов',       en: 'shade = word count' },
   profile_heatmap_less:       { ru: 'меньше',                     en: 'less' },
   profile_heatmap_more:       { ru: 'больше',                     en: 'more' },
+  profile_act_map:            { ru: 'Карта активности',           en: 'Activity Map' },
+  profile_rhythm:             { ru: 'Ритм по часам',              en: 'Hourly Rhythm' },
   profile_rhythm_title:       { ru: 'Ритм дня',                   en: 'Daily rhythm' },
   profile_rhythm_peak:        { ru: 'типичный час',               en: 'typical hour' },
   profile_mood_title:         { ru: 'Настроение',                 en: 'Mood' },
@@ -116,6 +118,8 @@ export const profileTranslations: Translations = {
   me_stat_avg_session: { ru: 'слов/сессия',        en: 'words/session' },
   me_anonymous:      { ru: 'Аноним',               en: 'Anonymous' },
   account_local_title: { ru: 'Локальный аккаунт',  en: 'Local Account' },
+  me_account_status:   { ru: 'Статус аккаунта',    en: 'Account Status' },
+  me_guest_desc:       { ru: 'Локальный гостевой режим. Войдите, чтобы синхронизировать данные.', en: 'Local guest mode. Sign in to sync your data across devices.' },
   me_account_email:  { ru: 'Email',                en: 'Email' },
   me_sign_out:       { ru: 'Выйти',                en: 'Sign out' },
 };

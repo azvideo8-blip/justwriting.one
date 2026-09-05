@@ -101,6 +101,31 @@ export function estimateInputTokens(parts: Array<string | null | undefined>): nu
 
 import type { AiContext } from './context.js';
 import { AiError } from './context.js';
+import { hasInjectionAttempt } from './injectionPatterns.js';
+
+// AUDIT-MH8: Shared injection policy across streaming and non-streaming chat endpoints.
+// Hard-rejects only apply to direct instructions (messages, customSystemPrompt).
+// Note-derived content (documentContent, userPortrait, memoryContext, documentMood)
+// comes from the user's own notes/archive and must NOT cause a self-DoS.
+// Note-derived fields are fenced in DATA_CONTEXT_* blocks and sanitized via buildChatSystemPrompt.
+export function assertNoSystemPromptInjection(params: {
+  messages: Array<{ content: string }>;
+  customSystemPrompt?: string | null | undefined;
+  personaId?: string;
+}): void {
+  if (params.personaId === 'custom') {
+    if (!params.customSystemPrompt) {
+      throw new AiError('invalid-argument', 'customSystemPrompt is required when personaId is "custom".');
+    }
+    if (hasInjectionAttempt(params.customSystemPrompt)) {
+      throw new AiError('invalid-argument', 'Custom prompt failed security check.');
+    }
+  }
+
+  if (params.messages.some(m => hasInjectionAttempt(m.content))) {
+    throw new AiError('invalid-argument', 'Disallowed patterns detected in messages.');
+  }
+}
 
 export type ChargeTarget = 'bulk' | 'user';
 

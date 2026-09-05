@@ -88,7 +88,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
 export async function checkGuestDocuments(): Promise<{ guestId: string; docs: import('../../../core/storage/localDb').LocalDocument[]; hasDraft: boolean } | null> {
   const guestId = getOrCreateGuestId();
   try {
-    const localDocs = await LocalDocumentService.getGuestDocuments(guestId);
+    const localDocs = await LocalDocumentService.getDocumentsByOwner(guestId);
     
     // Незаконченный черновик — тоже работа, которую надо перенести. Без этой
     // проверки человек, писавший в гостевом режиме и не сохранивший заметку,

@@ -37,7 +37,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
     void (async () => {
       try {
         const guestId = getCurrentUser()?.uid ?? getOrCreateGuestId();
-        const allDocs = (await LocalDocumentService.getGuestDocuments(guestId)).filter(d => !d.excludedFromAI);
+        const allDocs = (await LocalDocumentService.getDocumentsByOwner(guestId)).filter(d => !d.excludedFromAI);
         const db = await getLocalDb();
         // Build a latest-version-per-document map in one bulk read instead of an
         // index query per doc — lets us list/search ALL notes (was capped at 20,

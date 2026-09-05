@@ -5,9 +5,8 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
-import { hasInjectionAttempt } from '../src/shared/ai/injectionPatterns.js';
 import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens } from '../src/shared/ai/aiPolicy.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection } from '../src/shared/ai/aiPolicy.js';
 import type { GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, MAX_AI_CONTENT_LENGTH } from './ai/pure';
 
@@ -431,21 +430,14 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
   const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, memoryContext, responseLength, reasoning } = parsed.data;
 
-  // Injection guards
-  if (personaId === 'custom' && customSystemPrompt && hasInjectionAttempt(customSystemPrompt)) {
-    await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    await postgresAiContext.refundGlobalRequest(reservation);
-    sendError(res, 400, 'BAD_REQUEST');
-    return;
-  }
-
-  // AUDIT-MH8: hard-reject только для system-prompt-подобных полей (messages,
-  // customSystemPrompt выше). Note-derived контент (documentContent,
-  // memoryContext, userPortrait, documentMood) — это ТЕКСТЫ ЗАМЕТОК юзера:
-  // совпадение с паттерном в его же архиве не должно ломать чат (self-DoS).
-  // Такой контент нейтрализуется data-fence в buildChatPrompt (AUDIT-MH9)
-  // поверх санитайзера ниже.
-  if (messages.some(m => hasInjectionAttempt(m.content))) {
+  // Injection guards (AUDIT-MH8: direct instructions only; note-derived fields are fenced and sanitized)
+  try {
+    assertNoSystemPromptInjection({
+      messages,
+      customSystemPrompt,
+      personaId,
+    });
+  } catch {
     if (isInternalCall) await postgresAiContext.refundBulkLimit(uid, chargedDay);
     else await postgresAiContext.refundDailyLimit(uid, chargedDay);
     await postgresAiContext.refundGlobalRequest(reservation);
@@ -460,14 +452,28 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
+  // AG-MEM-1: Single shared prompt options builder. Prevents divergent argument lists
+  // between the reasoning and non-reasoning paths so memory, persona, and document context
+  // never quietly drop on one side.
+  const basePromptParams = {
+    personaId,
+    customSystemPrompt: sanitizedCustomPrompt,
+    userPortrait: sanitizedPortrait,
+    memoryContext: sanitizedMemory,
+    responseLength: responseLength ?? 'detailed',
+    documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
+    documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
+  };
+
   if (reasoning) {
+    // AG-MEM-1: OpenRouter reasoning uses native provider-side CoT via
+    // `reasoning: { effort: CHAT_REASONING_EFFORT }` (line 167) rather than
+    // in-band prompt-based CoT sections. We pass reasoning: false here so that
+    // buildChatSystemPrompt suppresses in-band <reasoning> blocks, preventing
+    // duplicate "ХОД МЫСЛИ:" headers and conflicts with the native reasoning stream.
     const baseReasoningSystem = buildChatSystemPrompt({
-      personaId,
-      customSystemPrompt: sanitizedCustomPrompt,
-      userPortrait: sanitizedPortrait,
-      responseLength: responseLength ?? 'detailed',
-      documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
-      documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
+      ...basePromptParams,
+      reasoning: false,
     });
     const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.`;
     const reasoningMessages = providerMessages.map((m, i) =>
@@ -480,14 +486,9 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   }
 
   const systemPrompt = buildChatSystemPrompt({
-    personaId,
-    customSystemPrompt: sanitizedCustomPrompt,
-    userPortrait: sanitizedPortrait,
-    memoryContext: sanitizedMemory,
+    ...basePromptParams,
     responseLength,
-    reasoning,
-    documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
-    documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
+    reasoning: false,
   });
 
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay);

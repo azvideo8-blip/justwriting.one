@@ -16,7 +16,7 @@ vi.mock('../../../../core/services/DocumentService', () => ({
 
 vi.mock('../../../../core/services/LocalDocumentService', () => ({
   LocalDocumentService: {
-    getGuestDocuments: mocks.mockGetGuestDocuments,
+    getDocumentsByOwner: mocks.mockGetGuestDocuments,
   },
 }));
 

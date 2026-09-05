@@ -45,15 +45,15 @@ describe('createDocument + getDocument', () => {
   });
 });
 
-// ─── getGuestDocuments ────────────────────────────────────────────────────────
+// ─── getDocumentsByOwner ────────────────────────────────────────────────────────
 
-describe('getGuestDocuments', () => {
-  it('returns only docs for that guestId', async () => {
+describe('getDocumentsByOwner', () => {
+  it('returns only docs for that ownerId', async () => {
     await LocalDocumentService.createDocument(GUEST, { title: 'Doc A' });
     await LocalDocumentService.createDocument(GUEST, { title: 'Doc B' });
     await LocalDocumentService.createDocument('guest_other', { title: 'Other' });
 
-    const docs = await LocalDocumentService.getGuestDocuments(GUEST);
+    const docs = await LocalDocumentService.getDocumentsByOwner(GUEST);
     expect(docs).toHaveLength(2);
     docs.forEach(d => expect(d.guestId).toBe(GUEST));
   });
@@ -77,7 +77,7 @@ describe('getGuestDocuments', () => {
 
     spy.mockRestore();
 
-    const docs = await LocalDocumentService.getGuestDocuments(GUEST);
+    const docs = await LocalDocumentService.getDocumentsByOwner(GUEST);
     // id1 was updated more recently, should come first
     expect(docs[0]?.id).toBe(id1);
     expect(docs[1]?.id).toBe(id2);

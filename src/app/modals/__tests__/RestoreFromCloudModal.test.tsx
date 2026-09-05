@@ -30,9 +30,12 @@ vi.mock('../../../core/services/DocumentService', () => ({
   DocumentService: { getUserDocuments: vi.fn().mockResolvedValue([]) },
 }));
 
-vi.mock('../../../core/services/LocalStorageService', () => ({
-  LocalStorageService: { getGuestDocuments: vi.fn().mockResolvedValue([]) },
-}));
+vi.mock('../../../core/services/LocalStorageService', () => {
+  const getDocs = vi.fn().mockResolvedValue([]);
+  return {
+    LocalStorageService: { getDocumentsByOwner: getDocs },
+  };
+});
 
 vi.mock('../../../core/sync/useEmptyDeviceDetection', () => ({
   setRestoreDismissed: vi.fn(),
@@ -78,5 +81,44 @@ describe('AUD-12 restore modal reports failure', () => {
 
     expect(await screen.findByText('Восстановление завершено')).toBeDefined();
     expect(screen.getByText('Данные успешно загружены')).toBeDefined();
+  });
+
+  it('AG-RESTORE-3: notes already present (restored: 0) but AI data restored: finishes on completed and dismisses empty device prompt', async () => {
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, hasMore: false });
+    const onRestoreAIData = vi.fn().mockResolvedValue({
+      summaries: 5,
+      embeddings: 10,
+      localStoreRecords: 2,
+      failed: 0,
+    });
+
+    render(<RestoreFromCloudModal open onClose={() => {}} onRestoreAIData={onRestoreAIData} />);
+
+    fireEvent.click(screen.getByText('Начать загрузку'));
+
+    expect(await screen.findByText('Восстановление завершено')).toBeDefined();
+    expect(screen.getByText('Данные успешно загружены')).toBeDefined();
+    expect(onRestoreAIData).toHaveBeenCalledWith('u_restore_1');
+    const { setRestoreDismissed } = await import('../../../core/sync/useEmptyDeviceDetection');
+    expect(setRestoreDismissed).toHaveBeenCalledWith('u_restore_1', true);
+  });
+
+  it('AG-RESTORE-3: genuinely empty cloud (0 notes, 0 AI records): ends on failed and does not dismiss prompt', async () => {
+    vi.mocked(CloudSyncService.restoreMissingDocuments).mockResolvedValue({ restored: 0, hasMore: false });
+    const onRestoreAIData = vi.fn().mockResolvedValue({
+      summaries: 0,
+      embeddings: 0,
+      localStoreRecords: 0,
+      failed: 0,
+    });
+
+    render(<RestoreFromCloudModal open onClose={() => {}} onRestoreAIData={onRestoreAIData} />);
+
+    fireEvent.click(screen.getByText('Начать загрузку'));
+
+    expect(await screen.findByText('Нечего восстанавливать')).toBeDefined();
+    expect(screen.queryByText('Восстановление завершено')).toBeNull();
+    const { setRestoreDismissed } = await import('../../../core/sync/useEmptyDeviceDetection');
+    expect(setRestoreDismissed).not.toHaveBeenCalled();
   });
 });

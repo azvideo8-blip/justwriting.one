@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.39 — 2026-09-04
+
+- **[RU]** Заметка, чей текст начинается со слова вроде «Eyes», больше не выпадает из синхронизации навсегда. Признак «это шифротекст» угадывался по первым буквам и совпадал с обычной прозой; теперь берётся честная пометка о шифровании.
+- **[EN]** A note whose text begins with a word like «Eyes» no longer drops out of syncing for ever. Whether a text was ciphertext used to be guessed from its first letters, which ordinary prose matches; the honest encryption flag is used instead.
+- **[RU]** Отсутствующая облачная версия больше не считается совпадающей с пустой заметкой, а нечитаемая сторона — отличающейся. И то и другое теперь называется неизвестностью, и сверка откладывается.
+- **[EN]** An absent cloud version is no longer treated as equal to an empty note, nor an unreadable side as a different one. Both are now called unknown, and the comparison waits.
+- **[RU]** Режим рассуждений больше не теряет память диалога: контекст доезжал до модели только в обычном режиме.
+- **[EN]** Reasoning mode no longer loses the dialogue memory: the context used to reach the model in the ordinary mode only.
+- **[RU]** Восстановление из облака больше не называет успешное восстановление неудачей и правильно считает восстановленные записи ИИ.
+- **[EN]** Restoring from the cloud no longer calls a successful restore a failure, and counts the restored AI records correctly.
+- **[RU]** Общее время письма на мобильном экране «Обо мне» показывалось в шестьдесят раз больше настоящего — час письма выглядел как «60ч».
+- **[EN]** Total writing time on the mobile «About me» screen was shown sixty times too large — an hour of writing looked like «60h».
+- **[RU]** Сессия без ограничения по времени больше не объявляет, что цель по времени достигнута.
+- **[EN]** A session with no time limit no longer announces that its time goal was reached.
+- **[RU]** На мобильном экране профиля вернулся график настроения, а вместо трёх служебных ключей показывается текст. Подтверждение удаления аккаунта переведено, а не зашито по-русски.
+- **[EN]** The mood trend is back on the mobile profile screen, and three raw translation keys are shown as text again. The account-deletion confirmation is translated rather than hard-coded in Russian.
+- **[RU]** Значок «ошибка» больше не загорается из-за чужого кода. Когда сайт открыт внутри стороннего фрейма или расширения браузера, внешний скрипт получает отказ в доступе к нашему окну — и эта чужая ошибка записывалась как наша. Свои ошибки, включая отказы доступа по нашей вине, по-прежнему видны.
+- **[EN]** The «error» badge no longer lights up because of somebody else's code. When the site is open inside a third-party frame or a browser extension, the outside script is refused access to our window — and that foreign error was recorded as ours. Real errors, including access refusals that are our fault, are still reported.
+
 ## 0.8.38 — 2026-09-04
 
 - **[RU]** Удаление заметки теперь честно говорит, дошло ли оно до облака. Если сети нет или облако не ответило, вместо «удалено» появится «Удалено на этом устройстве — из облака удалится позже», а число таких отложенных удалений видно в настройках синхронизации.

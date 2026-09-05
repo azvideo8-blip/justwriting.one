@@ -11,7 +11,9 @@ const mockGetLatestContent = vi.fn();
 const mockGetLatestVersionMeta = vi.fn();
 
 vi.mock('../../../../core/services/LocalDocumentService', () => ({
-  LocalDocumentService: { getGuestDocuments: (...a: unknown[]) => mockGetGuestDocuments(...a) },
+  LocalDocumentService: {
+    getDocumentsByOwner: (...a: unknown[]) => mockGetGuestDocuments(...a),
+  },
 }));
 
 vi.mock('../../../../core/services/DocumentService', () => ({

@@ -18,6 +18,7 @@ import { SaveDocumentData } from './storageTypes';
 import { ConflictResolver } from './ConflictResolver';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { computeWordDelta } from './DiffService';
+import { comparableOrUnknown } from '../sync/comparableOrUnknown';
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
 const LOCK_TTL_MS = 30_000;
@@ -77,7 +78,7 @@ export const CloudSyncService = {
       return bTime - aTime;
     });
 
-    const localDocs = await LocalStorageService.getGuestDocuments(userId);
+    const localDocs = await LocalStorageService.getDocumentsByOwner(userId);
     await relinkOrphaned(localDocs, cloudDocs);
     const localCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
 
@@ -116,14 +117,14 @@ export const CloudSyncService = {
    * caller as "nothing matched".
    */
   async relinkOrphanedDocuments(userId: string): Promise<number> {
-    const localDocs = await LocalStorageService.getGuestDocuments(userId);
+    const localDocs = await LocalStorageService.getDocumentsByOwner(userId);
     if (!localDocs.some(hasRelinkWork)) return 0;
     const cloudDocs = await DocumentService.getUserDocuments(userId);
     return relinkOrphaned(localDocs, cloudDocs);
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
-    const allLocal = await LocalStorageService.getGuestDocuments(userId);
+    const allLocal = await LocalStorageService.getDocumentsByOwner(userId);
     const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
     if (existing) return existing.id;
 
@@ -339,6 +340,7 @@ export const CloudSyncService = {
                 ...cv,
                 content: typeof plain.content === 'string' ? plain.content : cv.content,
                 mood: typeof plain.mood === 'string' ? plain.mood : cv.mood,
+                _encrypted: false,
               };
             } catch (decErr) {
               if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
@@ -376,6 +378,7 @@ export const CloudSyncService = {
           const missing: typeof localVersions = [];
           // AUDIT-MH5: коллизии собираем все, форк — ОДИН на документ.
           const collisions: typeof localVersions = [];
+          let hasUnreadableVersion = false;
           for (const ver of localVersions) {
             const cloudVer = cloudVerMap.get(ver.version);
             if (!cloudVer) {
@@ -391,10 +394,35 @@ export const CloudSyncService = {
                 }
                 missing.push(ver);
               }
-            } else if (cloudVer.content !== ver.content) {
-              // Same version number, but DIFFERENT content! Fork to preserve local edits
-              collisions.push(ver);
+            } else {
+              // AG-CORRUPT-3: Refuse to declare divergence when unreadable (ciphertext vs plaintext, etc.)
+              const comp = comparableOrUnknown(cloudVer, ver);
+              if (!comp.comparable) {
+                hasUnreadableVersion = true;
+                continue;
+              }
+              if (!comp.same) {
+                // Same version number, but DIFFERENT content! Fork to preserve local edits
+                collisions.push(ver);
+              }
             }
+          }
+          if (hasUnreadableVersion) {
+            const syncDb = await getLocalDb();
+            await syncDb.put('syncQueue', {
+              id: `sync_${localDocumentId}`,
+              documentId: localDocumentId,
+              type: 'document' as const,
+              createdAt: Date.now(),
+              ownerId: userId,
+            });
+            useActivityLogStore.getState().addActivity(
+              'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
+              { action: 'addCloudCopy_unreadableCloudVersion', documentId: localDocumentId, cloudId },
+              'warning',
+              'sync',
+            );
+            throw new Error('SYNC_UNRESOLVED: unreadable cloud version cannot be compared');
           }
           if (collisions.length > 0) {
             const last = collisions[collisions.length - 1]!;
@@ -525,7 +553,7 @@ export const CloudSyncService = {
         const localDocUuid = localDoc.uuid;
         if (Boolean(is23505) && typeof localDocUuid === 'string' && localDocUuid.length > 0) {
           // Check for genuine duplicate: another local document claiming this UUID
-          const allLocal = await LocalStorageService.getGuestDocuments(userId);
+          const allLocal = await LocalStorageService.getDocumentsByOwner(userId);
           const conflictingLocal = allLocal.find(d => d.id !== localDocumentId && (d.uuid === localDocUuid || d.linkedCloudId === localDocUuid));
           if (conflictingLocal) {
             throw new Error(`DUPLICATE_UUID_COLLISION: local document ${conflictingLocal.id} already claims uuid ${localDocUuid}`);
@@ -770,6 +798,7 @@ export const CloudSyncService = {
             ...cv,
             content: typeof plain.content === 'string' ? plain.content : cv.content,
             mood: typeof plain.mood === 'string' ? plain.mood : cv.mood,
+            _encrypted: false,
           };
         } catch (decErr) {
           if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
@@ -808,51 +837,54 @@ export const CloudSyncService = {
         const cloudHead = cloudVerMap.get(maxCloudVersion);
         const cloudHeadContent = cloudHead?.content;
 
-        // AG-CORRUPT-2 (BETA-4): Refuse to declare divergence or fork when forms mismatch
-        // (e.g. ciphertext vs plaintext) or when cloud head could not be decrypted.
-        // An unreadable side is unknown, not different. Leave queued for retry.
-        const isCiphertext = (text?: string): boolean => {
-          if (!text) return false;
-          return text.startsWith('enc:') || text.startsWith('ey');
-        };
-        const cloudIsCiphertext = cloudHead?._encrypted === true && (isCiphertext(cloudHeadContent) || cloudHead?._decryptionError === true);
-        const localIsCiphertext = isCiphertext(data.content);
+        if (cloudHead) {
+          // AG-CORRUPT-3: Shared predicate. An unreadable side is unknown, not different. Leave queued for retry.
+          const comp = comparableOrUnknown(cloudHead, { content: data.content });
+          if (!comp.comparable) {
+            const syncDb = await getLocalDb();
+            await syncDb.put('syncQueue', {
+              id: `sync_${documentId}`,
+              documentId,
+              type: 'document' as const,
+              createdAt: Date.now(),
+              ownerId: userId,
+            });
+            useActivityLogStore.getState().addActivity(
+              'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
+              { action: 'syncVersionToCloud_unreadableCloudHead', documentId, version: maxCloudVersion },
+              'warning',
+              'sync',
+            );
+            return { forked: false, cloudSynced: false, reason: 'unknown' };
+          }
 
-        if (
-          cloudHead?._decryptionError === true ||
-          cloudHead?._degraded === true ||
-          (Boolean(cloudHead) && cloudIsCiphertext !== localIsCiphertext)
-        ) {
-          const syncDb = await getLocalDb();
-          await syncDb.put('syncQueue', {
-            id: `sync_${documentId}`,
-            documentId,
-            type: 'document' as const,
-            createdAt: Date.now(),
-            ownerId: userId,
-          });
-          useActivityLogStore.getState().addActivity(
-            'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
-            { action: 'syncVersionToCloud_unreadableCloudHead', documentId, version: maxCloudVersion },
-            'warning',
-            'sync',
-          );
-          return { forked: false, cloudSynced: false, reason: 'unknown' };
-        }
-
-        // 1. Idempotent write: cloud already holds this exact content at head
-        if (cloudHeadContent !== undefined && data.content === cloudHeadContent) {
-          newVersion = maxCloudVersion;
-        }
-        // 2. Genuine fast-forward: local edit was built directly on top of cloud head
-        else if (cloudHeadContent !== undefined && prevContent === cloudHeadContent) {
-          // Local started from the cloud head, but local version counter was behind:
-          // advance cleanly to maxCloudVersion + 1 with NO fork
-          newVersion = maxCloudVersion + 1;
-        }
-        // 3. Genuine divergence: cloud moved to maxCloudVersion with different content,
-        // and local created divergent content from an older base
-        else {
+          // 1. Idempotent write: cloud already holds this exact content at head
+          if (comp.same) {
+            newVersion = maxCloudVersion;
+          }
+          // 2. Genuine fast-forward: local edit was built directly on top of cloud head
+          else if (cloudHeadContent !== undefined && prevContent === cloudHeadContent) {
+            // Local started from the cloud head, but local version counter was behind:
+            // advance cleanly to maxCloudVersion + 1 with NO fork
+            newVersion = maxCloudVersion + 1;
+          }
+          // 3. Genuine divergence: cloud moved to maxCloudVersion with different content,
+          // and local created divergent content from an older base
+          else {
+            const result = await ConflictResolver.resolveConflict(
+              userId,
+              documentId,
+              linkedCloudId,
+              data,
+              newVersion,
+              cloudDoc,
+              localDoc?.firstSessionAt
+            );
+            return { ...result, cloudSynced: false };
+          }
+        } else {
+          // AG-SYNC-11: No cloud row for maxCloudVersion. The write is not treated as idempotent.
+          // Fall back to conflict resolution (divergence).
           const result = await ConflictResolver.resolveConflict(
             userId,
             documentId,

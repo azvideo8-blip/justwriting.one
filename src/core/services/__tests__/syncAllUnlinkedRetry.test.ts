@@ -43,6 +43,20 @@ describe('syncAllUnlinked queues what it could not upload', () => {
     expect(queued[0]!.ownerId).toBe(USER);
   });
 
+  // AG-QUAR-1: '' — штатный ответ addCloudCopy (параллельный проход держит
+  // lock; облачная копия удалена и ссылка уже снята). Провалом это не считается
+  // и в очередь не ставится: обе ветки прибрали за собой.
+  it('does not count an empty cloudId as a failure', async () => {
+    vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('');
+
+    const { synced, failed } = await SyncService.syncAllUnlinked(USER);
+
+    expect(synced).toBe(0);
+    expect(failed).toBe(0);
+    const db = await getLocalDb();
+    expect((await db.getAll('syncQueue')).filter(i => i.documentId === 'local_fails')).toHaveLength(0);
+  });
+
   it('does not queue anything when the upload succeeds', async () => {
     vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('cloud_1');
 

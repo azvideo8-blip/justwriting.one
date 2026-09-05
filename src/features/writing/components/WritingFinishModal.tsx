@@ -52,7 +52,7 @@ async function buildCorpusDf(): Promise<{ df: Map<string, number>; N: number }> 
     return { df: corpusCache.df, N: corpusCache.N };
   }
   const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
-  const docs = await LocalDocumentService.getGuestDocuments(uid);
+  const docs = await LocalDocumentService.getDocumentsByOwner(uid);
   const df = new Map<string, number>();
   for (const doc of docs) {
     try {

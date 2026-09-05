@@ -54,7 +54,7 @@ describe('useEmptyDeviceDetection hook', () => {
   });
 
   it('prompts to restore when local device has fewer notes than cloud (AG-RESTORE-1)', async () => {
-    vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
       { id: 'local_1' } as any,
     ]);
     vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
@@ -73,7 +73,7 @@ describe('useEmptyDeviceDetection hook', () => {
   });
 
   it('does NOT prompt when local device has equal or more notes than cloud', async () => {
-    vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
       { id: 'local_1' } as any,
       { id: 'local_2' } as any,
     ]);

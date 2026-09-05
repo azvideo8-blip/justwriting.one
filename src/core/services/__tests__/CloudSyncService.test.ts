@@ -24,7 +24,7 @@ describe('CloudSyncService', () => {
         { id: 'cloud_1' } as any,
         { id: 'cloud_2' } as any,
       ]);
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([]);
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
       const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_1');
 
       const result = await CloudSyncService.restoreMissingDocuments('user_1');
@@ -37,7 +37,7 @@ describe('CloudSyncService', () => {
       vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
         { id: 'cloud_1', firstSessionAt: new Date(1000), lastSessionAt: new Date(2000) } as any,
       ]);
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000 } as any,
       ]);
       const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
@@ -56,7 +56,7 @@ describe('CloudSyncService', () => {
       ({ id, firstSessionAt: new Date(startMs), lastSessionAt: new Date(startMs) }) as any;
 
     it('does not read the cloud when there is nothing to re-link', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000, linkedCloudId: 'cloud_1' } as any,
       ]);
       const cloudRead = vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([]);
@@ -66,7 +66,7 @@ describe('CloudSyncService', () => {
     });
 
     it('leaves a deliberately unlinked note alone', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000, localOnly: true } as any,
       ]);
       const cloudRead = vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([]);
@@ -81,7 +81,7 @@ describe('CloudSyncService', () => {
     // расшифрован, при переименовании на одном устройстве — расходится.
     // Фальсификация: вернуть безусловное сравнение — три теста ниже краснеют.
     it('re-links when the cloud title is unreadable (locked vault)', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000, title: 'Про осень' } as never,
       ]);
       vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
@@ -94,7 +94,7 @@ describe('CloudSyncService', () => {
     });
 
     it('re-links when one side has no title at all', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000, title: '' } as never,
       ]);
       vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
@@ -107,7 +107,7 @@ describe('CloudSyncService', () => {
     });
 
     it('refuses when two readable titles genuinely disagree', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000, title: 'Про осень' } as never,
       ]);
       vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([
@@ -120,7 +120,7 @@ describe('CloudSyncService', () => {
     });
 
     it('skips ambiguous matches rather than guessing', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000 } as any,
         { id: 'local_2', firstSessionAt: 1000 } as any,
         { id: 'local_3', firstSessionAt: 3000 } as any,
@@ -138,7 +138,7 @@ describe('CloudSyncService', () => {
     });
 
     it('never hands a cloud copy to two local notes', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000, linkedCloudId: 'cloud_1' } as any,
         { id: 'local_2', firstSessionAt: 1000 } as any,
       ]);
@@ -150,7 +150,7 @@ describe('CloudSyncService', () => {
     });
 
     it('propagates a failed cloud read instead of reporting "nothing matched"', async () => {
-      vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([
+      vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([
         { id: 'local_1', firstSessionAt: 1000 } as any,
       ]);
       vi.spyOn(DocumentService, 'getUserDocuments').mockRejectedValue(new Error('unavailable'));

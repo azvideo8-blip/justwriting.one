@@ -18,11 +18,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * отставшая и не синхронизированная.
  */
 
-const getGuestDocuments = vi.fn();
+const getDocumentsByOwner = vi.fn();
 const getCloudDocumentVersions = vi.fn();
 const dbPut = vi.fn(async () => undefined);
 
-vi.mock('../LocalDocumentService', () => ({ LocalDocumentService: { getGuestDocuments } }));
+vi.mock('../LocalDocumentService', () => ({ LocalDocumentService: { getDocumentsByOwner } }));
 vi.mock('../DocumentService', () => ({ DocumentService: { getCloudDocumentVersions } }));
 vi.mock('../StorageService', () => ({ StorageService: {} }));
 vi.mock('../CloudSyncService', () => ({ CloudSyncService: {} }));
@@ -54,7 +54,7 @@ const unresolved = () => ({
 describe('незаполненная отметка о версии не считается отставанием', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getGuestDocuments.mockImplementation(async () => [unresolved()]);
+    getDocumentsByOwner.mockImplementation(async () => [unresolved()]);
   });
 
   it('облако недоступно → заметка «неизвестна», а не «не отправлена»', async () => {

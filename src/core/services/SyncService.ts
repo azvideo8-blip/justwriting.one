@@ -58,6 +58,7 @@ export interface SyncUnsyncedSummary {
   unlinkedCount: number;
   deviceOnlyCount: number;
   hasUnknown: boolean;
+  deadCount?: number;
 }
 
 export interface SyncPendingResult {
@@ -107,7 +108,24 @@ export const SyncService = {
     const queue = await db.getAll('syncQueue');
     const toRevive = queue.filter(item =>
       Boolean(item.dead) &&
-      (item.lastError?.includes('LOCKED') || item.lastError?.includes('locked') || item.lastError?.includes('ENCRYPT_REQUIRED')) &&
+      (item.lastError?.includes('LOCKED') || item.lastError?.includes('locked') || item.lastError?.includes('ENCRYPT_REQUIRED') || item.lastError?.includes('SYNC_UNRESOLVED')) &&
+      (userId ? item.ownerId === undefined || item.ownerId === userId : true)
+    );
+    if (toRevive.length === 0) return 0;
+    const tx = db.transaction('syncQueue', 'readwrite');
+    for (const item of toRevive) {
+      await tx.store.put({ ...item, dead: false, attempts: 0 });
+    }
+    await tx.done;
+    announceQueueChange();
+    return toRevive.length;
+  },
+
+  async retryQuarantinedTasks(userId?: string): Promise<number> {
+    const db = await getLocalDb();
+    const queue = await db.getAll('syncQueue');
+    const toRevive = queue.filter(item =>
+      Boolean(item.dead) &&
       (userId ? item.ownerId === undefined || item.ownerId === userId : true)
     );
     if (toRevive.length === 0) return 0;
@@ -152,7 +170,7 @@ export const SyncService = {
   },
 
   async getUnsyncedSummary(userId: string): Promise<SyncUnsyncedSummary> {
-    const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+    const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
     let behindCount = 0;
     let unlinkedCount = 0;
     let deviceOnlyCount = 0;
@@ -202,12 +220,15 @@ export const SyncService = {
       }
     }
 
+    const deadCount = await this.getDeadCount(userId);
+
     return {
       unsyncedCount: behindCount + unlinkedCount,
       behindCount,
       unlinkedCount,
       deviceOnlyCount,
       hasUnknown,
+      deadCount,
     };
   },
 
@@ -252,7 +273,7 @@ export const SyncService = {
 
       // 3. Collect work: any note that is not localOnly and where the cloud lacks
       // what the device has (unlinked or linked-but-behind).
-      const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+      const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
       const toUpload = localDocs.filter(d => {
         if (d.localOnly || d._locked || d._decryptionError) return false;
         if (!d.linkedCloudId) return true;
@@ -260,16 +281,19 @@ export const SyncService = {
       });
 
       const results = await Promise.allSettled(toUpload.map(doc =>
-        limit(() => StorageService.addCloudCopy(userId, doc.id).then(cloudId => {
-          if (!cloudId) throw new Error('no cloudId');
-        }))
+        limit(() => StorageService.addCloudCopy(userId, doc.id))
       ));
 
       let synced = 0;
       const failedIds: string[] = [];
       results.forEach((r, i) => {
-        if (r.status === 'fulfilled') synced++;
-        else failedIds.push(toUpload[i]!.id);
+        if (r.status === 'rejected') { failedIds.push(toUpload[i]!.id); return; }
+        // AG-QUAR-1: пустой cloudId — не отказ. Так отвечают штатные ветки
+        // addCloudCopy: работу забрал параллельный проход (жив lock) или
+        // облачная копия удалена и ссылка уже снята. Обе прибрали за собой;
+        // считать их провалом — занизить счётчик и поставить в очередь
+        // работу, которой нет. Настоящий сбой приходит исключением.
+        if (r.value) synced++;
       });
 
       // Failed uploads are put into the queue for subsequent retries.
@@ -317,7 +341,7 @@ export const SyncService = {
   ): Promise<{ downloaded: number; skipped: number; failed: number }> {
     const [cloudDocs, localDocs] = await Promise.all([
       DocumentService.getUserDocuments(userId),
-      LocalDocumentService.getGuestDocuments(userId),
+      LocalDocumentService.getDocumentsByOwner(userId),
     ]);
 
     const linkedCloudMap = new Map(localDocs.filter(d => d.linkedCloudId).map(d => [d.linkedCloudId!, d]));

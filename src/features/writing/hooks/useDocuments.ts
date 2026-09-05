@@ -39,7 +39,7 @@ export function useDocuments(userId: string, isGuest?: boolean) {
       setError(null);
       try {
         if (isGuest) {
-          const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+          const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
           if (!cancelled) setDocuments(localDocs.map(localDocToDocument));
         } else {
           const [cloudDocs, localDocs] = await Promise.all([
@@ -47,7 +47,7 @@ export function useDocuments(userId: string, isGuest?: boolean) {
               reportError(err, { action: 'fetchDocuments_cloud_partial', userId }, 'warning');
               return [] as Document[];
             }),
-            LocalDocumentService.getGuestDocuments(userId),
+            LocalDocumentService.getDocumentsByOwner(userId),
           ]);
           if (!cancelled) {
             const localMapped = localDocs.map(localDocToDocument);
@@ -74,7 +74,7 @@ export function useDocuments(userId: string, isGuest?: boolean) {
     setError(null);
     try {
       if (isGuest) {
-        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+        const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
         setDocuments(localDocs.map(localDocToDocument));
       } else {
         const [cloudDocs, localDocs] = await Promise.all([
@@ -82,7 +82,7 @@ export function useDocuments(userId: string, isGuest?: boolean) {
             reportError(err, { action: 'fetchDocuments_cloud_partial', userId }, 'warning');
             return [] as Document[];
           }),
-          LocalDocumentService.getGuestDocuments(userId),
+          LocalDocumentService.getDocumentsByOwner(userId),
         ]);
         const localMapped = localDocs.map(localDocToDocument);
         const seenIds = new Set(localMapped.map(d => d.id));

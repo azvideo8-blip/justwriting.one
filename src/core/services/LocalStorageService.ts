@@ -187,7 +187,7 @@ export const LocalStorageService = {
     await LocalDocumentService.migrateDocumentOwner(localId, userId);
   },
 
-  async getGuestDocuments(userId: string) {
-    return LocalDocumentService.getGuestDocuments(userId);
+  async getDocumentsByOwner(userId: string) {
+    return LocalDocumentService.getDocumentsByOwner(userId);
   },
 };

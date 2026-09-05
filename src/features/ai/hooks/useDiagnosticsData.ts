@@ -143,7 +143,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const db = await getLocalDb();
       const summaries = await db.getAll('aiSummaries');
       const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
-      const localDocs = await LocalDocumentService.getGuestDocuments(uid);
+      const localDocs = await LocalDocumentService.getDocumentsByOwner(uid);
 
       const logs = summaries.map(s => {
         const doc = localDocs.find(d => d.id === s.documentId);
@@ -164,7 +164,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const loadSystemStats = useCallback(async () => {
     try {
       const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
-      const localDocs = await LocalDocumentService.getGuestDocuments(uid);
+      const localDocs = await LocalDocumentService.getDocumentsByOwner(uid);
       const db = await getLocalDb();
       const dialogues = await db.getAll('aiDialogues');
       const summaries = await db.getAll('aiSummaries');
@@ -361,7 +361,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     if (!ok) return;
     try {
       const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
-      const docs = await LocalDocumentService.getGuestDocuments(uid);
+      const docs = await LocalDocumentService.getDocumentsByOwner(uid);
       let removed = 0;
       for (const d of docs) {
         removed += await LocalVersionService.collapseToLatest(d.id);

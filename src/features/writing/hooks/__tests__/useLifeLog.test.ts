@@ -4,7 +4,7 @@ import { useLifeLog } from '../useLifeLog';
 
 const mocks = vi.hoisted(() => ({
   getUserDocuments: vi.fn(),
-  getGuestDocuments: vi.fn(),
+  getDocumentsByOwner: vi.fn(),
 }));
 
 vi.mock('../../../../core/services/DocumentService', () => ({
@@ -12,7 +12,7 @@ vi.mock('../../../../core/services/DocumentService', () => ({
 }));
 
 vi.mock('../../../../core/services/LocalDocumentService', () => ({
-  LocalDocumentService: { getGuestDocuments: mocks.getGuestDocuments },
+  LocalDocumentService: { getDocumentsByOwner: mocks.getDocumentsByOwner },
 }));
 
 const stableT = (key: string) => key;
@@ -28,7 +28,7 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 describe('useLifeLog — unknown is not empty', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getGuestDocuments.mockResolvedValue([]);
+    mocks.getDocumentsByOwner.mockResolvedValue([]);
   });
 
   it('reports the cloud as unknown when the read fails', async () => {

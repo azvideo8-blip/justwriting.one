@@ -62,7 +62,7 @@ export function useEmptyDeviceDetection(): EmptyDeviceDetectionState {
     }
 
     try {
-      const localDocs = await LocalStorageService.getGuestDocuments(uid);
+      const localDocs = await LocalStorageService.getDocumentsByOwner(uid);
       const cloudDocs = await DocumentService.getUserDocuments(uid);
 
       const localLen = localDocs.length;

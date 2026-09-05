@@ -65,9 +65,9 @@ export const LocalDocumentService = {
     return db.get('documents', id) ?? undefined;
   },
 
-  async getGuestDocuments(guestId: string): Promise<LocalDocument[]> {
+  async getDocumentsByOwner(ownerId: string): Promise<LocalDocument[]> {
     const db = await getLocalDb();
-    const all = await db.getAllFromIndex('documents', 'by-guest', guestId);
+    const all = await db.getAllFromIndex('documents', 'by-guest', ownerId);
     return all.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
   },
 
@@ -499,7 +499,7 @@ export const LocalDocumentService = {
 
   async _updateProfile(guestId: string): Promise<void> {
     const db = await getLocalDb();
-    const docs = await LocalDocumentService.getGuestDocuments(guestId);
+    const docs = await LocalDocumentService.getDocumentsByOwner(guestId);
 
     await db.put('profile', {
       guestId,

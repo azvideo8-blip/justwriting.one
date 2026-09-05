@@ -201,7 +201,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
     expect(syncResult.forkTitle).toBeDefined();
 
     // B. Assert a fork document was created carrying Device B's work
-    const allDocs = await LocalDocumentService.getGuestDocuments(USER);
+    const allDocs = await LocalDocumentService.getDocumentsByOwner(USER);
     expect(allDocs).toHaveLength(2); // Original doc + Fork doc
     const forkDoc = allDocs.find(d => d.id !== localDocId)!;
     expect(forkDoc).toBeDefined();
@@ -290,7 +290,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
     expect(mockCloudDocs.get(CLOUD_ID)!.currentVersion).toBe(3);
 
     // Only 1 document locally (no fork)
-    const allDocs = await LocalDocumentService.getGuestDocuments(USER);
+    const allDocs = await LocalDocumentService.getDocumentsByOwner(USER);
     expect(allDocs).toHaveLength(1);
   });
 
@@ -391,7 +391,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
 
     // 5. Zero conflict calls throughout the entire lifecycle
     expect(conflictSpy).not.toHaveBeenCalled();
-    const allDocs = await LocalDocumentService.getGuestDocuments(USER);
+    const allDocs = await LocalDocumentService.getDocumentsByOwner(USER);
     expect(allDocs).toHaveLength(1);
     expect(mockCloudDocs.get(CLOUD_ID)!.currentVersion).toBe(3);
   });
@@ -449,7 +449,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
     expect(conflictSpy).not.toHaveBeenCalled();
     expect(res.forked).toBe(false);
     expect(mockCloudDocs.get(CLOUD_ID)!.currentVersion).toBe(2);
-    const allDocs = await LocalDocumentService.getGuestDocuments(USER);
+    const allDocs = await LocalDocumentService.getDocumentsByOwner(USER);
     expect(allDocs).toHaveLength(1);
   });
 });

@@ -36,7 +36,7 @@ export function MeStatsSection({ profile }: MeStatsSectionProps) {
           label={t('me_stat_streak')}
         />
         <StatCard
-          value={`${Math.round((profile?.totalDuration || 0) / 60)}ч`}
+          value={`${Math.round((profile?.totalDuration || 0) / 3600)}${t('unit_hour')}`}
           label={t('me_stat_total_time')}
         />
       </div>

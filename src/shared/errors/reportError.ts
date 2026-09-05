@@ -61,6 +61,25 @@ export function reportError(
   });
 }
 
+/**
+ * Ошибка чужого окна — не наша ошибка.
+ *
+ * Когда сайт открыт внутри чужого фрейма (панель предпросмотра, встраивание,
+ * расширение браузера), внешний скрипт лезет к нашему окну и получает
+ * `SecurityError: Blocked a frame ... from accessing a cross-origin frame`.
+ * Событие всплывает в наш `window.onerror`, и человек видит значок «1 ошибка»
+ * на ровном месте, а в Sentry уходит шум с чужого кода.
+ *
+ * Родиться у нас такая ошибка не может: в исходниках нет ни одного обращения к
+ * `window.parent`, `window.top` или `frameElement`. Поэтому её отсекаем — узко,
+ * по имени и тексту, чтобы не проглотить настоящую.
+ */
+function isForeignFrameError(error: unknown, message: string): boolean {
+  const name = (error as { name?: string } | null)?.name ?? '';
+  const text = `${(error as { message?: string } | null)?.message ?? ''} ${message}`;
+  return name === 'SecurityError' && /cross-origin frame|Blocked a frame/i.test(text);
+}
+
 let _globalListenersInstalled = false;
 
 export function setupGlobalErrorListeners(): void {
@@ -69,6 +88,7 @@ export function setupGlobalErrorListeners(): void {
 
   window.addEventListener('error', (event: ErrorEvent) => {
     if (!event.message && !event.error) return;
+    if (isForeignFrameError(event.error, event.message)) return;
     reportError(event.error || event.message, {
       source: 'window.onerror',
       filename: event.filename,

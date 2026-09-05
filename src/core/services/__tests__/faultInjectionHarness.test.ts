@@ -266,7 +266,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       expect(res.restored).toBe(0);
 
       // Verify that local documents were NOT deleted or overwritten with empty sets
-      const allLocal = await LocalStorageService.getGuestDocuments(runner.userId);
+      const allLocal = await LocalStorageService.getDocumentsByOwner(runner.userId);
       expect(Array.isArray(allLocal)).toBe(true);
     });
 
@@ -713,7 +713,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       await expect(CloudSyncService.addLocalCopy(runner.userId, cloudId)).rejects.toThrow();
 
       // Verify that no half-built document remains in IndexedDB
-      const allLocal = await LocalStorageService.getGuestDocuments(runner.userId);
+      const allLocal = await LocalStorageService.getDocumentsByOwner(runner.userId);
       const halfBuilt = allLocal.find(d => d.linkedCloudId === cloudId || d.title === 'Interrupted Note');
       expect(halfBuilt).toBeUndefined();
     });

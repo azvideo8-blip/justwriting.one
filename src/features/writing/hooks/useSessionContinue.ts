@@ -74,7 +74,7 @@ export function useSessionContinue({
     const linkedCloudId = (session as Session & { _linkedCloudId?: string })._linkedCloudId;
     if (linkedCloudId) {
       try {
-        const localDocs = await LocalDocumentService.getGuestDocuments(userId);
+        const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
         const existing = localDocs.find(d => d.linkedCloudId === linkedCloudId);
         if (existing) savedDocumentId = existing.id;
       } catch (e) { reportError(e, { action: 'sessionContinue/lookupLinkedDoc' }); }

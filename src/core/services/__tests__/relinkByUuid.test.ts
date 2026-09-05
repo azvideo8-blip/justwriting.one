@@ -19,11 +19,11 @@ import 'fake-indexeddb/auto';
  */
 
 const updateLinkedCloudId = vi.fn(async () => undefined);
-const getGuestDocuments = vi.fn(async () => [] as unknown[]);
+const getDocumentsByOwner = vi.fn(async () => [] as unknown[]);
 const getUserDocuments = vi.fn(async () => [] as unknown[]);
 
 vi.mock('../LocalStorageService', () => ({
-  LocalStorageService: { updateLinkedCloudId, getGuestDocuments },
+  LocalStorageService: { updateLinkedCloudId, getDocumentsByOwner },
 }));
 vi.mock('../DocumentService', () => ({ DocumentService: { getUserDocuments } }));
 vi.mock('../../../shared/activity/useActivityLogStore', () => ({
@@ -135,7 +135,7 @@ describe('перепривязка по постоянному номеру', ()
    */
   it('через настоящий вход возвращает заметку, помеченную «только на устройстве»', async () => {
     const docs = [local({ localOnly: true })];
-    getGuestDocuments.mockResolvedValue(docs);
+    getDocumentsByOwner.mockResolvedValue(docs);
     getUserDocuments.mockResolvedValue([cloud()]);
 
     const { CloudSyncService } = await import('../CloudSyncService');

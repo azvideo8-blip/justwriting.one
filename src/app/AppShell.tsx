@@ -118,6 +118,9 @@ export function AppShell() {
             onClose={dismissEmptyDevice}
             initialLocalCount={localCount}
             initialCloudCount={cloudCount}
+            onRestoreAIData={(uid) =>
+              import('../features/ai/services/AIRestoreService').then(m => m.restoreAndReattachAIData(uid))
+            }
           />
         </Suspense>
       )}

@@ -12,7 +12,7 @@ import { setRestoreDismissed } from '../../core/sync/useEmptyDeviceDetection';
 import { CloudDownload, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export interface RestoreFromCloudModalProps {
-  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; localStoreRecords: number; failed: number }>) | undefined;
+  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number }>) | undefined;
   open: boolean;
   onClose: () => void;
   initialLocalCount?: number | undefined;
@@ -77,7 +77,7 @@ export function RestoreFromCloudModal({
     let active = true;
     if (open && user && (initialCloudCount === undefined || initialLocalCount === undefined)) {
       void Promise.all([
-        LocalStorageService.getGuestDocuments(user.uid),
+        LocalStorageService.getDocumentsByOwner(user.uid),
         DocumentService.getUserDocuments(user.uid),
       ]).then(([localDocs, cloudDocs]) => {
         if (active) {
@@ -137,6 +137,7 @@ export function RestoreFromCloudModal({
       }
 
       // Step 2: AI Summaries, Embeddings & Local Store Records (13 stores)
+      let aiDataMeasured = false;
       if (includeSummaries || includeAIData) {
         setProgress(prev => ({
           ...prev,
@@ -145,6 +146,7 @@ export function RestoreFromCloudModal({
         }));
 
         if (onRestoreAIData) {
+          aiDataMeasured = true;
           const aiRes = await onRestoreAIData(user.uid);
           resultSummary.restoredSummaries = aiRes.summaries;
           resultSummary.restoredEmbeddings = (aiRes as { embeddings?: number }).embeddings ?? 0;
@@ -171,11 +173,17 @@ export function RestoreFromCloudModal({
       }));
 
       setReport(resultSummary);
-      // AUD-12: восстановившее ноль заметок — не «завершённое» восстановление.
-      if (resultSummary.restoredNotes === 0
-        && resultSummary.restoredSummaries === 0
-        && resultSummary.restoredEmbeddings === 0
-        && resultSummary.restoredAIStoreRecords === 0) {
+      // AUD-12 / AG-RESTORE-3: Восстановившее ноль заметок — не «завершённое» восстановление,
+      // НО если были восстановлены производные данные ИИ (когда заметки уже есть на устройстве),
+      // это успешное восстановление. Неизмеренные стадии не считаются за ноль.
+      const hasRestoredData = resultSummary.restoredNotes > 0
+        || (aiDataMeasured && (
+          resultSummary.restoredSummaries > 0
+          || resultSummary.restoredEmbeddings > 0
+          || resultSummary.restoredAIStoreRecords > 0
+        ));
+
+      if (!hasRestoredData) {
         // Проход дошёл до конца и не вернул ничего — это не то же самое, что
         // падение. Сказать «прервано ошибкой» там, где ошибки не было, —
         // такая же ложь наоборот, как и «завершено» после падения.

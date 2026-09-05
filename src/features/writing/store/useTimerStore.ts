@@ -116,7 +116,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       if (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration) {
         timeGoalReached = true;
       }
-      if (s.targetTime && /^\d{1,2}:\d{2}$/.test(s.targetTime)) {
+      // AG-TIMER-1: A session honours only the goal of its own type.
+      if (s.sessionType === 'finish-by' && s.targetTime && /^\d{1,2}:\d{2}$/.test(s.targetTime)) {
         const parts = s.targetTime.split(':').map(Number);
         const hours = parts[0] ?? 0;
         const minutes = parts[1] ?? 0;

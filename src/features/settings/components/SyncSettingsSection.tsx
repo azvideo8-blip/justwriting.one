@@ -24,7 +24,11 @@ interface SyncSettingsSectionProps {
     totalFailed: number;
     skippedLocked: boolean;
   }>;
-  renderRestoreModal?: (props: { open: boolean; onClose: () => void }) => ReactNode;
+  renderRestoreModal?: (props: {
+    open: boolean;
+    onClose: () => void;
+    onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number }>) | undefined;
+  }) => ReactNode;
   onFindOrphans?: (userId: string) => Promise<{ summaries: string[]; embeddings: string[]; cloudChecked: boolean }>;
   onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number }>;
 }
@@ -45,6 +49,21 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
   );
 
   const oversizedCount = getOversizedRecordCount();
+  const [retryingQuarantined, setRetryingQuarantined] = useState(false);
+
+  const handleRetryQuarantined = async () => {
+    if (!userId) return;
+    setRetryingQuarantined(true);
+    try {
+      await SyncService.retryQuarantinedTasks(userId);
+      await SyncService.syncPending(userId);
+    } catch (err) {
+      reportError(err, { action: 'retryQuarantined' });
+      showToast(t('error_generic_action'), 'error');
+    } finally {
+      setRetryingQuarantined(false);
+    }
+  };
 
   const handleSyncAll = async () => {
     setSyncingAll(true);
@@ -246,6 +265,22 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 <p className="text-[11px] text-amber-400">
                   {t('sync_pending_deletions_count', { count: String(syncStatus.pendingDeletionsCount) })}
                 </p>
+              )}
+              {syncStatus.deadCount > 0 && (
+                <div className="text-[11px] text-red-400 flex items-center justify-between gap-2 font-medium">
+                  <div className="flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    <span>{t('sync_quarantined_count', { count: String(syncStatus.deadCount) })}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleRetryQuarantined()}
+                    disabled={retryingQuarantined}
+                    className="underline hover:no-underline text-xs text-red-300 font-normal cursor-pointer disabled:opacity-50"
+                  >
+                    {t('sync_quarantined_retry')}
+                  </button>
+                </div>
               )}
               {oversizedCount > 0 && (
                 <div className="text-[11px] text-amber-400 flex items-center gap-1 mt-1">

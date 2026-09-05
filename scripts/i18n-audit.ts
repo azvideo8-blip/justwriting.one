@@ -63,3 +63,8 @@ missingLocale.forEach(({ key, missing }) => console.log(`  ⚠️  ${key} — mi
 console.log(`\nTotal defined: ${definedKeys.size}`);
 console.log(`Total used: ${usedKeys.size}`);
 console.log(`Missing: ${missing.length}, Unused: ${unused.length}, Incomplete: ${missingLocale.length}`);
+
+if (missing.length > 0 || missingLocale.length > 0) {
+  process.exit(1);
+}
+

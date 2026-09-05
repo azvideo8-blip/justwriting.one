@@ -93,7 +93,8 @@ re-encrypting the archive.
 4. Content is encrypted with the data key, a fresh 12-byte CSPRNG IV each time.
 5. A verification plaintext detects a wrong password without touching real data.
 6. The session key lives in memory only, and is cleared after 15 minutes of
-   inactivity or on tab visibility change. `secureClear` zeroes sensitive byte
+   inactivity (1 hour if "Remember on device" is checked), re-checked on tab
+   visibility change, and locked on page unload. `secureClear` zeroes sensitive byte
    arrays; `CryptoKey` objects cannot be zeroed from JavaScript and are released
    to garbage collection — a platform limitation, stated rather than hidden.
 7. A wrong password returns `false`. Encryption is never silently enabled

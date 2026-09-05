@@ -207,7 +207,7 @@ describe('GROUP A — Base data states', () => {
     const count = await migrateDocuments(GUEST_ID, USER_ID);
     expect(count).toBe(1);
 
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs).toHaveLength(1);
     expect(userDocs[0]?.title).toBe('My First Doc');
     expect(userDocs[0]?.guestId).toBe(USER_ID);
@@ -254,7 +254,7 @@ describe('GROUP A — Base data states', () => {
     const count = await migrateDocuments(GUEST_ID, USER_ID);
     expect(count).toBe(5);
 
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs).toHaveLength(5);
 
     const db = await getLocalDb();
@@ -266,7 +266,7 @@ describe('GROUP A — Base data states', () => {
     }
 
     // Old guest id should be gone
-    const guestDocs = await LocalDocumentService.getGuestDocuments(GUEST_ID);
+    const guestDocs = await LocalDocumentService.getDocumentsByOwner(GUEST_ID);
     expect(guestDocs).toHaveLength(0);
   });
 
@@ -277,7 +277,7 @@ describe('GROUP A — Base data states', () => {
 
     await migrateDocuments(GUEST_ID, USER_ID);
 
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs[0]?.tags).toEqual(['tag1', 'tag2']);
   });
 
@@ -289,7 +289,7 @@ describe('GROUP A — Base data states', () => {
     const count = await migrateDocuments(GUEST_ID, USER_ID);
     expect(count).toBe(1);
 
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs[0]?.title).toBe('');
     expect(userDocs[0]?.tags).toEqual([]);
   });
@@ -353,7 +353,7 @@ describe('GROUP B — Error/interruption scenarios', () => {
     expect(result.failed).toBe(2);
 
     // IDB should still have user docs (IDB migration was not rolled back)
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs).toHaveLength(2);
   });
 
@@ -484,7 +484,7 @@ describe('GROUP D — Idempotency', () => {
     expect(count2).toBe(0);
 
     // Data should still be intact
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs).toHaveLength(1);
   });
 
@@ -571,7 +571,7 @@ describe('GROUP D — Idempotency', () => {
 // GROUP E — Post-migration state verification
 // ─────────────────────────────────────────────────────────────────────────────
 describe('GROUP E — Post-migration state', () => {
-  it('E01: after migrateDocuments, getGuestDocuments(userId) finds all docs', async () => {
+  it('E01: after migrateDocuments, getDocumentsByOwner(userId) finds all docs', async () => {
     const docCount = 4;
     await seedGuestData(
       Array.from({ length: docCount }, (_, i) => ({
@@ -582,18 +582,18 @@ describe('GROUP E — Post-migration state', () => {
 
     await migrateDocuments(GUEST_ID, USER_ID);
 
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs).toHaveLength(docCount);
   });
 
-  it('E02: after migrateDocuments, getGuestDocuments(guestId) returns empty', async () => {
+  it('E02: after migrateDocuments, getDocumentsByOwner(guestId) returns empty', async () => {
     await seedGuestData([
       { title: 'Doc', versions: [{ content: 'text', wordCount: 1 }] },
     ]);
 
     await migrateDocuments(GUEST_ID, USER_ID);
 
-    const guestDocs = await LocalDocumentService.getGuestDocuments(GUEST_ID);
+    const guestDocs = await LocalDocumentService.getDocumentsByOwner(GUEST_ID);
     expect(guestDocs).toHaveLength(0);
   });
 
@@ -608,7 +608,7 @@ describe('GROUP E — Post-migration state', () => {
     expect(synced).toBeGreaterThan(0);
     expect(failed).toBe(0);
 
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     for (const doc of userDocs) {
       expect(doc.linkedCloudId).toBeTruthy();
       expect(typeof doc.linkedCloudId).toBe('string');
@@ -623,7 +623,7 @@ describe('GROUP E — Post-migration state', () => {
 
     await migrateDocuments(GUEST_ID, USER_ID);
 
-    const userDocs = await LocalDocumentService.getGuestDocuments(USER_ID);
+    const userDocs = await LocalDocumentService.getDocumentsByOwner(USER_ID);
     expect(userDocs).toHaveLength(1);
 
     const firstUserDoc = userDocs[0];

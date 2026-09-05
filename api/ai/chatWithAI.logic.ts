@@ -1,7 +1,7 @@
 // functions/src/ai/chatWithAI.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from './pure';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, type InternalCallType } from '../../src/shared/ai/aiPolicy.js';
+import { sanitizeAiInput, sanitizeAiResponse, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from './pure';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, type InternalCallType } from '../../src/shared/ai/aiPolicy.js';
 import { generate, getActiveModel } from './provider';
 import { buildChatSystemPrompt } from '../../src/shared/ai/buildChatPrompt.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
@@ -19,6 +19,7 @@ const inputSchema = z.object({
   documentContent: z.string().max(MAX_AI_CONTENT_LENGTH).nullish(),
   documentMood: z.string().max(50).nullish(),
   userPortrait: z.string().max(10_000).nullish(),
+  memoryContext: z.string().max(20_000).nullish(),
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish() as z.ZodType<InternalCallType | null>,
@@ -31,7 +32,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     throw new AiError('invalid-argument', 'Invalid payload.');
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, responseLength, reasoning } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, memoryContext, responseLength, reasoning } = parsed.data;
 
   let isInternalCall = false;
   try {
@@ -48,30 +49,15 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     throw new AiError((e as { code: string }).code, (e as Error).message);
   }
 
-  if (personaId === 'custom') {
-    if (!customSystemPrompt) {
-      throw new AiError('invalid-argument', 'customSystemPrompt is required when personaId is "custom".');
-    }
-    if (hasInjectionAttempt(customSystemPrompt)) {
-      throw new AiError('invalid-argument', 'Custom prompt failed security check.');
-    }
-  }
-
-  if (messages.some(m => hasInjectionAttempt(m.content))) {
-    throw new AiError('invalid-argument', 'Disallowed patterns detected in messages.');
-  }
-
-  if (documentContent && hasInjectionAttempt(documentContent)) {
-    throw new AiError('invalid-argument', 'Disallowed patterns detected in document content.');
-  }
-
-  if (userPortrait && hasInjectionAttempt(userPortrait)) {
-    throw new AiError('invalid-argument', 'Disallowed patterns detected in user portrait.');
-  }
-
-  if (documentMood && hasInjectionAttempt(documentMood)) {
-    throw new AiError('invalid-argument', 'Disallowed patterns detected in document mood.');
-  }
+  // AUDIT-MH8: Note-derived context (documentContent, memoryContext, userPortrait,
+  // documentMood) is fenced and sanitized via buildChatSystemPrompt — matching
+  // an injection heuristic in user's diary notes must not self-DoS chat.
+  // Only direct instructions (messages, customSystemPrompt) are hard-rejected.
+  assertNoSystemPromptInjection({
+    messages,
+    customSystemPrompt,
+    personaId,
+  });
 
   // Внутренний вызов не бесплатный: у него свой счётчик. Раньше `callType`
   // с клиента снимал и дневной лимит, и задержку между запросами — один
@@ -103,7 +89,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // AUD-19: вход тоже резервируется — см. api/chat.ts.
   const inputEstimate = estimateInputTokens([
     ...messages.map(m => m.content),
-    documentContent, userPortrait, customSystemPrompt,
+    documentContent, userPortrait, memoryContext, customSystemPrompt,
   ]);
   const reservation = await ctx.tryReserveGlobalRequest(maxTokens + inputEstimate);
   if (!reservation) {
@@ -116,6 +102,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     personaId,
     customSystemPrompt: customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined,
     userPortrait: userPortrait ? sanitizeAiInput(userPortrait) : undefined,
+    memoryContext: memoryContext ? sanitizeAiInput(memoryContext) : undefined,
     responseLength,
     reasoning,
     documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,

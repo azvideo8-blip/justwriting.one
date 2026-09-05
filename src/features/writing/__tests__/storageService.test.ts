@@ -492,7 +492,7 @@ describe('StorageService.saveVersion — cloud conflict fork', () => {
     expect(originalDoc).not.toBeNull();
 
     // A forked document should have been created
-    const allDocs = await LocalDocumentService.getGuestDocuments(GUEST);
+    const allDocs = await LocalDocumentService.getDocumentsByOwner(GUEST);
     const forked = allDocs.find(d => d.title.includes('Conflict'));
     expect(forked).toBeDefined();
     expect(forked!.totalWords).toBe(8);

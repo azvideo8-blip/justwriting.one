@@ -38,10 +38,10 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
     setLoading(true);
     setCloudUnknown(false);
     try {
-      let localDocs: Awaited<ReturnType<typeof LocalDocumentService.getGuestDocuments>> = [];
+      let localDocs: Awaited<ReturnType<typeof LocalDocumentService.getDocumentsByOwner>> = [];
       let didFail = false;
       try {
-        localDocs = await LocalDocumentService.getGuestDocuments(userId);
+        localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
       } catch (e) {
         reportError(e, { action: 'lifeLog/fetchLocalDocs' });
         didFail = true;

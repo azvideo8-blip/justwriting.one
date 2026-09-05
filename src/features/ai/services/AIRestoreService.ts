@@ -544,3 +544,13 @@ async function rebuildTimelineEntry(
   // Очередь тем не наполняем: её разбирал фоновый проход, которого больше
   // нет (см. AISummaryService.save).
 }
+
+/**
+ * Restores AI data from cloud and immediately re-attaches any analysis
+ * to local notes. Used by UI components during cloud restore.
+ */
+export async function restoreAndReattachAIData(userId: string): Promise<AIRestoreResult> {
+  const res = await restoreAIDataFromCloud(userId);
+  await reattachOrphanedAnalysis();
+  return res;
+}

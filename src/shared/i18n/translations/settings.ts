@@ -2,6 +2,8 @@ import { Translations } from '../types';
 
 export const settingsTranslations: Translations = {
   settings_title: { ru: 'Настройки', en: 'Settings' },
+  settings_more_options: { ru: 'Внешний вид, синхронизация, хранилище', en: 'Appearance, sync, storage' },
+  settings_open_panel: { ru: 'Открыть', en: 'Open' },
   settings_font: { ru: 'Шрифт', en: 'Font' },
   settings_editor_width: { ru: 'Ширина редактора', en: 'Editor width' },
   settings_font_size: { ru: 'Размер шрифта', en: 'Font Size' },
@@ -203,6 +205,14 @@ export const settingsTranslations: Translations = {
   },
   settings_delete_account_success: { ru: 'Аккаунт удалён', en: 'Account deleted' },
   settings_delete_account_error: { ru: 'Не удалось удалить аккаунт', en: 'Failed to delete account' },
+  settings_delete_account_password_prompt: {
+    ru: 'Введите пароль, чтобы подтвердить удаление аккаунта. Это необратимо.',
+    en: 'Enter your password to confirm account deletion. This cannot be undone.',
+  },
+  settings_delete_account_password_placeholder: { ru: 'Пароль', en: 'Password' },
+  settings_delete_account_wrong_password: { ru: 'Неверный пароль.', en: 'Incorrect password.' },
+  settings_delete_account_progress: { ru: 'Удаление аккаунта...', en: 'Deleting account...' },
+  settings_delete_account_confirm_button: { ru: 'Удалить безвозвратно', en: 'Delete permanently' },
   settings_diagnostics_button: { ru: 'Открыть диагностику', en: 'Open diagnostics' },
   settings_diagnostics_active: { ru: 'Режим диагностики активирован', en: 'Diagnostics mode activated' },
   settings_guest_security_hint: { ru: 'Шифрование и настройки ИИ доступны после входа в аккаунт.', en: 'Encryption and AI settings are available when signed in.' },
@@ -213,4 +223,6 @@ export const settingsTranslations: Translations = {
   sync_queue_partial: { ru: 'Обработано: {drained}, ошибок: {failed}', en: 'Processed: {drained}, failed: {failed}' },
   sync_queue_empty: { ru: 'Очередь пуста', en: 'Queue is empty' },
   sync_queue_disabled: { ru: 'Автосинхронизация отключена в настройках', en: 'Auto-sync is disabled in settings' },
+  sync_quarantined_count: { ru: 'Ошибки синхронизации (задачи в карантине): {count}', en: 'Sync errors (quarantined tasks): {count}' },
+  sync_quarantined_retry: { ru: 'Повторить', en: 'Retry' },
 };

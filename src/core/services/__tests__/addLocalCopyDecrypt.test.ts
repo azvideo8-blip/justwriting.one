@@ -22,7 +22,7 @@ const cloudVersion = (v: number) => ({
 describe('addLocalCopy — a failed decrypt never becomes local text', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.spyOn(LocalStorageService, 'getGuestDocuments').mockResolvedValue([]);
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
     vi.spyOn(LocalStorageService, 'createDocument').mockResolvedValue('local_new');
     vi.spyOn(LocalStorageService, 'updateDocument').mockResolvedValue(undefined as never);
     vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);

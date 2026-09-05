@@ -14,6 +14,8 @@ export const commonTranslations: Translations = {
   nav_notes_short: { ru: 'Заметки', en: 'Notes' },
   nav_profile_short: { ru: 'Профиль', en: 'Profile' },
   nav_me: { ru: 'Профиль', en: 'Profile' },
+  nav_login: { ru: 'Войти', en: 'Sign in' },
+  nav_logout: { ru: 'Выйти', en: 'Sign out' },
 
   about_subtitle:       { ru: 'Место для текста', en: 'A place for writing' },
   about_description:    { ru: 'justwriting — минималистичный редактор для фрирайтинга и потокового письма. Всё сохраняется локально, облако — опционально.', en: 'justwriting is a minimalist editor for freewriting and stream-of-consciousness writing. Everything saves locally, cloud is optional.' },

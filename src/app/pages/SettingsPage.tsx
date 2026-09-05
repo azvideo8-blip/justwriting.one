@@ -49,7 +49,14 @@ export function SettingsPage() {
 
   const sections = [
     { id: 'account',  n: 1, title: t('settings_sec_account'),  desc: t('settings_sec_account_desc'),  node: <AccountProfileSection userId={userId} /> },
-    { id: 'sync',     n: 2, title: t('settings_sec_sync'),     desc: t('settings_sec_sync_desc'),     node: <SyncSettingsSection userId={userId} onSyncDerivedData={id => AIDerivedDataSyncService.syncAllDerivedData(id)} onFindOrphans={id => AIDerivedDataSyncService.findOrphanedDerivatives(id)} onDeleteOrphans={id => AIDerivedDataSyncService.deleteOrphanedDerivatives(id)} renderRestoreModal={props => <RestoreFromCloudModal {...props} />} /> },
+    { id: 'sync',     n: 2, title: t('settings_sec_sync'),     desc: t('settings_sec_sync_desc'),     node: <SyncSettingsSection userId={userId} onSyncDerivedData={id => AIDerivedDataSyncService.syncAllDerivedData(id)} onFindOrphans={id => AIDerivedDataSyncService.findOrphanedDerivatives(id)} onDeleteOrphans={id => AIDerivedDataSyncService.deleteOrphanedDerivatives(id)} renderRestoreModal={props => (
+      <RestoreFromCloudModal
+        {...props}
+        onRestoreAIData={(uid) =>
+          import('../../features/ai/services/AIRestoreService').then(m => m.restoreAndReattachAIData(uid))
+        }
+      />
+    )} /> },
     { id: 'security', n: 3, title: t('settings_sec_security'), desc: t('settings_sec_security_desc'), node: <AccountSecuritySection userId={userId} /> },
     { id: 'backup',   n: 4, title: t('settings_sec_backup'),   desc: t('settings_sec_backup_desc'),   node: <AccountExportSection userId={userId} /> },
     { id: 'about',    n: 5, title: t('settings_sec_about'),    desc: t('settings_sec_about_desc'),    node: <AboutSettingsSection /> },

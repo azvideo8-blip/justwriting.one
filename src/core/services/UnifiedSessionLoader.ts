@@ -63,7 +63,7 @@ export async function loadAllSessions(
   const idsToQuery = user ? [user.uid, userId] : [userId];
 
   for (const uid of idsToQuery) {
-    const localDocs = await LocalDocumentService.getGuestDocuments(uid);
+    const localDocs = await LocalDocumentService.getDocumentsByOwner(uid);
     const localByCloudId = new Set(localDocs.filter(d => d.linkedCloudId).map(d => d.linkedCloudId!));
     // Второй ключ дедупликации — канонический uuid. В облаке id документа И
     // ЕСТЬ этот uuid (см. карту полей: id ↔ uuid), а linkedCloudId проставляется

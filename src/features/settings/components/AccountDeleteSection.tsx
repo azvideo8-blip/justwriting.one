@@ -106,7 +106,7 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
             onSubmit={(e) => { e.preventDefault(); if (password && !deleting) void handleConfirmPassword(); }}
           >
             <p className="text-xs text-text-main/70">
-              Введите пароль, чтобы подтвердить удаление аккаунта. Это необратимо.
+              {t('settings_delete_account_password_prompt')}
             </p>
             <input
               type="password"
@@ -115,10 +115,10 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
               disabled={deleting}
               autoFocus
               className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-transparent text-sm text-text-main focus:border-accent-danger/50 outline-none"
-              placeholder="Пароль"
+              placeholder={t('settings_delete_account_password_placeholder')}
             />
             {authError && (
-              <p className="text-xs text-accent-danger">Неверный пароль.</p>
+              <p className="text-xs text-accent-danger">{t('settings_delete_account_wrong_password')}</p>
             )}
           </form>
         ) : (
@@ -129,7 +129,7 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-accent-danger/40 bg-accent-danger/10 text-accent-danger hover:bg-accent-danger/20 text-xs font-bold transition-colors disabled:opacity-50"
           >
             <Trash2 size={14} />
-            {deleting ? 'Удаление аккаунта...' : t('settings_delete_account_button')}
+            {deleting ? t('settings_delete_account_progress') : t('settings_delete_account_button')}
           </Button>
 
           {!confirmReset ? (
@@ -165,7 +165,7 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
               disabled={deleting || !password}
               className="px-4 py-3 rounded-xl border border-accent-danger/40 bg-accent-danger/10 text-accent-danger hover:bg-accent-danger/20 text-xs font-bold transition-colors disabled:opacity-50"
             >
-              {deleting ? 'Удаление аккаунта...' : 'Удалить безвозвратно'}
+              {deleting ? t('settings_delete_account_progress') : t('settings_delete_account_confirm_button')}
             </Button>
             <Button
               onClick={() => { setAskingPassword(false); setPassword(''); }}

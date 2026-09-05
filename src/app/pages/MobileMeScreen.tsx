@@ -16,6 +16,7 @@ import { StreakRibbon } from '../../features/profile/components/StreakRibbon';
 import { Heatmap } from '../../features/profile/components/Heatmap';
 import { HourRhythm } from '../../features/profile/components/HourRhythm';
 import { Achievements } from '../../features/profile/components/Achievements';
+import { MoodTrend } from '../../features/profile/components/MoodTrend';
 import { useNavigate } from 'react-router-dom';
 import { ProfileService } from '../../core/services/ProfileService';
 import { MobilePageHeader } from '../../shared/components/MobilePageHeader';
@@ -140,7 +141,10 @@ export function MobileMeScreen({ user, profile, onSignOut, onSignIn }: MobileMeS
                 <HourRhythm sessions={sessions} />
               </div>
 
-              {/* 6. Achievements */}
+              {/* 6. Mood Trend */}
+              <MoodTrend userId={userId} className="rounded-2xl border border-white/[0.04] bg-white/[0.01] p-4" />
+
+              {/* 7. Achievements */}
               <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] p-4">
                 <Achievements
                   key={achievementsResetKey}

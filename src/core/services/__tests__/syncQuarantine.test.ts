@@ -101,4 +101,78 @@ describe('AUDIT-H4 sync queue quarantine', () => {
     await SyncService.syncPending(USER);
     expect(await getTasks()).toHaveLength(0);
   });
+
+  it('concurrent lock loss (addCloudCopy returns empty string) records no failure and no attempt bump (AG-QUAR-1)', async () => {
+    await seedDoc('doc_lock_loss');
+    await queueTask('doc_lock_loss');
+    // Lock contention returns ''
+    vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('');
+
+    const res = await SyncService.syncPending(USER);
+    expect(res.failed).toBe(0);
+
+    const tasks = await getTasks();
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]!.attempts ?? 0).toBe(0);
+    expect(tasks[0]!.dead ?? false).toBe(false);
+  });
+
+  it('device-only note and tombstoned note drain without incrementing attempts (AG-QUAR-1)', async () => {
+    await seedDoc('doc_device_only');
+    await queueTask('doc_device_only');
+    // Device-only / tombstone returns '' after cleanup
+    vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('');
+
+    const res = await SyncService.syncPending(USER);
+    expect(res.failed).toBe(0);
+
+    const tasks = await getTasks();
+    expect(tasks[0]!.attempts ?? 0).toBe(0);
+    expect(tasks[0]!.dead ?? false).toBe(false);
+  });
+
+  it('quarantined task can be revived via retryQuarantinedTasks and reviveLockedTasks and drains afterwards (AG-QUAR-1)', async () => {
+    await seedDoc('doc_revive');
+    await queueTask('doc_revive');
+    const db = await getLocalDb();
+    const tasks = await getTasks();
+    const taskId = tasks[0]!.id;
+
+    // Simulate task quarantined with SYNC_UNRESOLVED
+    await db.put('syncQueue', {
+      ...tasks[0]!,
+      dead: true,
+      attempts: 10,
+      lastError: 'SYNC_UNRESOLVED: unreadable cloud version cannot be compared',
+    });
+
+    // 1. Revive via reviveLockedTasks
+    const revivedCount = await SyncService.reviveLockedTasks(USER);
+    expect(revivedCount).toBe(1);
+
+    let currentTask = await db.get('syncQueue', taskId);
+    expect(currentTask?.dead).toBe(false);
+    expect(currentTask?.attempts).toBe(0);
+
+    // Re-quarantine to test retryQuarantinedTasks
+    await db.put('syncQueue', {
+      ...currentTask!,
+      dead: true,
+      attempts: 10,
+      lastError: 'Some other persistent error',
+    });
+
+    // 2. Revive via retryQuarantinedTasks
+    const retryCount = await SyncService.retryQuarantinedTasks(USER);
+    expect(retryCount).toBe(1);
+
+    currentTask = await db.get('syncQueue', taskId);
+    expect(currentTask?.dead).toBe(false);
+    expect(currentTask?.attempts).toBe(0);
+
+    // 3. Successfully drains afterwards
+    vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('cloud_revived');
+    await SyncService.syncPending(USER);
+    expect(await getTasks()).toHaveLength(0);
+  });
 });

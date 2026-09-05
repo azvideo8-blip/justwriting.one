@@ -21,14 +21,14 @@ const TONE_CLASS: Record<string, string> = {
   neg: 'bg-rose-400/15 border-rose-400/30',
 };
 
-export function MoodTrend({ userId }: { userId: string }) {
+export function MoodTrend({ userId, className }: { userId: string; className?: string }) {
   const { t, language } = useLanguage();
   const [entries, setEntries] = useState<{ mood: string; date: number }[]>([]);
 
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    void LocalDocumentService.getGuestDocuments(userId).then(docs => {
+    void LocalDocumentService.getDocumentsByOwner(userId).then(docs => {
       if (!active) return;
       const cutoff = Date.now() - 60 * 86_400_000; // last ~2 months
       const withMood = docs
@@ -67,7 +67,7 @@ export function MoodTrend({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle">
+    <div className={className ?? "px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle"}>
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3 mb-4">
         <h2 className="text-[18px] font-medium text-text-main">{t('profile_mood_title')}</h2>
         {top && (

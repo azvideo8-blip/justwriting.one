@@ -23,6 +23,7 @@ export interface SyncStatusState {
   unlinkedCount: number;
   deviceOnlyCount: number;
   hasUnknown: boolean;
+  deadCount: number;
   /** false when user disabled auto-sync — indicator should be hidden */
   autoSyncEnabled: boolean;
 }
@@ -43,6 +44,7 @@ export interface SharedCounts {
   unlinked: number;
   deviceOnly: number;
   hasUnknown: boolean;
+  deadCount: number;
 }
 
 // Shared across all useSyncStatus() instances (Sidebar, BottomNav, AppShell, AppTab
@@ -55,6 +57,7 @@ let sharedCounts: SharedCounts = {
   unlinked: 0,
   deviceOnly: 0,
   hasUnknown: false,
+  deadCount: 0,
 };
 let activeSubscribers = 0;
 let currentSubscribedUserId: string | null = null;
@@ -77,6 +80,7 @@ async function pollSyncStatus(userId: string | null) {
                   unlinkedCount: c,
                   deviceOnlyCount: 0,
                   hasUnknown: false,
+                  deadCount: 0,
                 }))
               : Promise.resolve(null))
         : Promise.resolve(null),
@@ -89,6 +93,7 @@ async function pollSyncStatus(userId: string | null) {
       unlinked: summary?.unlinkedCount ?? 0,
       deviceOnly: summary?.deviceOnlyCount ?? 0,
       hasUnknown: summary?.hasUnknown ?? false,
+      deadCount: summary?.deadCount ?? 0,
     };
     statusListeners.forEach(fn => fn(sharedCounts));
   } catch { /* non-critical */ }
@@ -138,6 +143,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   const [unlinkedCount, setUnlinkedCount] = useState(0);
   const [deviceOnlyCount, setDeviceOnlyCount] = useState(0);
   const [hasUnknown, setHasUnknown] = useState(false);
+  const [deadCount, setDeadCount] = useState(0);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
     () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
   );
@@ -168,6 +174,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
         setUnlinkedCount(0);
         setDeviceOnlyCount(0);
         setHasUnknown(false);
+        setDeadCount(0);
       }, 0);
       return () => clearTimeout(t);
     }
@@ -180,6 +187,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       setUnlinkedCount(sharedCounts.unlinked);
       setDeviceOnlyCount(sharedCounts.deviceOnly);
       setHasUnknown(sharedCounts.hasUnknown);
+      setDeadCount(sharedCounts.deadCount);
     }, 0);
     const unsubscribe = subscribeSyncStatus(userId, c => {
       setPendingCount(c.pending);
@@ -189,6 +197,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       setUnlinkedCount(c.unlinked);
       setDeviceOnlyCount(c.deviceOnly);
       setHasUnknown(c.hasUnknown);
+      setDeadCount(c.deadCount);
     });
     return () => { clearTimeout(t); unsubscribe(); };
   }, [userId, autoSyncEnabled]);
@@ -269,6 +278,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     unlinkedCount,
     deviceOnlyCount,
     hasUnknown,
+    deadCount,
     autoSyncEnabled,
   };
 }
