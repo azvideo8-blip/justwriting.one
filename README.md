@@ -148,6 +148,13 @@ npm run postulates   # verify the 4 postulates + database plaintext sweep
 Ratchets have baselines that only go down. If a change raises one, the fix is
 the change, not the baseline.
 
+The raw index-chunk ceiling is the exception, and it is a debt rather than a
+rule: it went 700000 → 750000 → 760000 in a week. The chunk is dominated by the
+Supabase client, which every route needs, so there is no cheap split left —
+gzipped it is 219 KB against a 225 KB ceiling, so what travels is still within
+budget. The next time this trips, the work is to move that client out of the
+main chunk or split the routes, not to raise the number again.
+
 ---
 
 ## Layout
