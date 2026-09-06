@@ -289,6 +289,39 @@ describe('3.8 stream disconnect', () => {
     expect(refundGlobal, 'а выданные токены оплачены: резерв не возвращается').not.toHaveBeenCalled();
   });
 
+  it('порог считает текст, а не обёртку SSE: много мелких кадров — слот всё равно возвращается', async () => {
+    // Ошибка, которую поймала только выкатка: в ветке рассуждений объём считался
+    // по длине сырого кадра. `data: {"choices":[{"delta":{"content":"Ти"}}]}` —
+    // это полсотни символов служебного текста на два содержательных, поэтому
+    // порог проскакивал на первых же кадрах и слот не возвращался никогда.
+    // Здесь обёртка заведомо больше порога, а содержимого — десяток символов.
+    const enc = new TextEncoder();
+    const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
+    fetchMock.mockImplementationOnce(() => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) { streamController = controller; },
+      }),
+      { status: 200 },
+    )));
+
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+
+    const frame = 'data: {"choices":[{"delta":{"content":"Ти"}}]}\n\n';
+    expect(frame.length * 6, 'обёртка шести кадров обязана перекрыть порог').toBeGreaterThan(200);
+    for (let i = 0; i < 6; i++) streamController?.enqueue(enc.encode(frame));
+    await new Promise(r => setTimeout(r, 10));
+    res.emit('close');
+    streamController?.close();
+    await done;
+
+    expect(refundDaily, 'двенадцать символов текста — это не полученный ответ').toHaveBeenCalledTimes(1);
+  });
+
   it('AG-BILL-1 мутация: без !upstreamProduced тест обязан краснеть (проверено снятием защиты)', async () => {
     // Этот тест документирует приёмку: удаление условия !upstreamProduced
     // в api/chat.ts делает предыдущий тест красным — refundGlobal начнёт

@@ -248,7 +248,12 @@ async function streamOpenRouterReasoning(
       const { done, value } = await reader.read();
       if (done) break;
       const decoded = decoder.decode(value, { stream: true });
-      settlement.markUpstreamProduced(decoded.length);
+      // Кадр от поставщика пришёл — значит токены выданы, и глобальный резерв
+      // за них не возвращается (AG-BILL-1). Объём считается НЕ здесь: сырой
+      // кадр SSE — это полсотни символов обёртки на пару символов текста, и по
+      // нему любой порог проскакивает мгновенно. Считается ниже, по разобранным
+      // delta.content и delta.reasoning.
+      settlement.markUpstreamProduced(0);
       sawUpstreamChunk = true;
       buffer += decoded;
       const lines = buffer.split('\n');
@@ -268,6 +273,7 @@ async function streamOpenRouterReasoning(
         if (!delta) continue;
         const reasoning = delta.reasoning_content ?? delta.reasoning;
         const content = delta.content;
+        settlement.markUpstreamProduced((reasoning?.length ?? 0) + (content?.length ?? 0));
         if (reasoning) {
           sawNativeReasoning = true;
           if (!wroteReasoningHeader) { write('ХОД МЫСЛИ:\n'); wroteReasoningHeader = true; }
