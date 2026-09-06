@@ -83,11 +83,23 @@ export async function loadAllSessions(
       let _contentError = false;
       let _contentNotLoaded = false;
       let sessionWordsAdded: number | undefined;
+      let sittings: import('../../types').SessionSitting[] | undefined;
       try {
-        const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id);
-        // Дневная дельта для heatmap/стрика; для документов без версий
-        // остаётся undefined — компоненты падают на старое поведение.
-        sessionWordsAdded = latestMeta?.wordsAdded;
+        const docSittings = await LocalVersionService.getDocumentSittings(doc.id);
+        if (docSittings.length > 0) {
+          sittings = docSittings;
+          sessionWordsAdded = docSittings[docSittings.length - 1]?.wordsAdded;
+        } else {
+          const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id);
+          sessionWordsAdded = latestMeta?.wordsAdded;
+        }
+      } catch {
+        // Сидячие-данные не критичны для загрузки заметки. Ошибка здесь
+        // не должна ни блокировать чтение текста, ни ставить _contentError.
+        sittings = undefined;
+        sessionWordsAdded = (await LocalVersionService.getLatestVersionMeta(doc.id).catch(() => null))?.wordsAdded;
+      }
+      try {
         if (withContent) {
           content = await LocalVersionService.getLatestContent(doc.id);
         } else {
@@ -105,6 +117,7 @@ export async function loadAllSessions(
         duration: doc.totalDuration,
         wordCount: doc.totalWords,
         sessionWordsAdded,
+        sittings,
         charCount: 0,
         wpm: 0,
         title: doc.title,

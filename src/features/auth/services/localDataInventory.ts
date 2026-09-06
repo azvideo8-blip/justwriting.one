@@ -28,10 +28,10 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
 
   try {
     if (userId) {
-      const docs = await db.getAllFromIndex('documents', 'by-guest', userId);
-      notesCount = docs.length;
-      const allVers = await db.getAll('versions');
-      versionsCount = allVers.filter(v => v.guestId === userId).length;
+      const docIds = await db.getAllKeysFromIndex('documents', 'by-guest', userId);
+      notesCount = docIds.length;
+      const counts = await Promise.all(docIds.map(docId => db.countFromIndex('versions', 'by-document', String(docId))));
+      versionsCount = counts.reduce((sum, c) => sum + c, 0);
     } else {
       notesCount = await db.count('documents');
       versionsCount = await db.count('versions');

@@ -24,6 +24,7 @@ vi.mock('../ai/provider', async (importOriginal) => {
 
 import { validateCustomPromptLogic } from '../ai/validateCustomPrompt.logic';
 import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
+import { editWithAILogic } from '../ai/editWithAI.logic';
 import { hashUid } from '../ai/pure';
 import type { AiContext } from '../../src/shared/ai/context.js';
 
@@ -94,14 +95,14 @@ describe('2.20 model JSON validated by zod, refund on schema failure', () => {
     });
     const ctx = makeCtx();
     await expect(summarizeDocumentLogic(ctx, 'u1', { content }))
-      .rejects.toMatchObject({ code: 'invalid-argument' });
+      .rejects.toMatchObject({ code: 'unavailable' });
     // Same refund region as the JSON.parse failure — the person does not pay.
     expect(ctx.refundBulkLimit).toHaveBeenCalledWith('u1', '2026-08-22');
     expect(ctx.refundGlobalRequest).toHaveBeenCalled();
     expect(ctx.recordUsage).not.toHaveBeenCalled();
   });
 
-  it('out-of-range valence (1e999 → Infinity) is rejected', async () => {
+  it('out-of-range valence (1e999 → Infinity) is rejected as unavailable (model output failure)', async () => {
     generateMock.mockResolvedValue({
       text: JSON.stringify({
         tone: 'x', frequentWords: [], insights: [], themes: [], extractedFacts: [],
@@ -110,6 +111,55 @@ describe('2.20 model JSON validated by zod, refund on schema failure', () => {
       usage: { promptTokens: 1, completionTokens: 1 },
     });
     await expect(summarizeDocumentLogic(makeCtx(), 'u1', { content }))
-      .rejects.toMatchObject({ code: 'invalid-argument' });
+      .rejects.toMatchObject({ code: 'unavailable' });
   });
 });
+
+describe('DEEP-9: editWithAI and validateCustomPrompt pass chargedDay to refundDailyLimit', () => {
+  it('editWithAI refunds with chargedDay on global reservation failure', async () => {
+    const ctx = makeCtx();
+    vi.mocked(ctx.checkAndIncrementLimit).mockResolvedValue({ ok: true, day: '2026-09-06' });
+    vi.mocked(ctx.tryReserveGlobalRequest).mockResolvedValue(null);
+
+    await expect(editWithAILogic(ctx, 'user_1', { content: 'My text', action: 'summarize' }))
+      .rejects.toMatchObject({ code: 'resource-exhausted' });
+
+    expect(ctx.refundDailyLimit).toHaveBeenCalledWith('user_1', '2026-09-06');
+  });
+
+  it('editWithAI refunds with chargedDay on model failure', async () => {
+    const ctx = makeCtx();
+    vi.mocked(ctx.checkAndIncrementLimit).mockResolvedValue({ ok: true, day: '2026-09-06' });
+    generateMock.mockRejectedValue(new Error('upstream model error'));
+
+    await expect(editWithAILogic(ctx, 'user_1', { content: 'My text', action: 'summarize' }))
+      .rejects.toMatchObject({ code: 'internal' });
+
+    expect(ctx.refundDailyLimit).toHaveBeenCalledWith('user_1', '2026-09-06');
+    expect(ctx.refundGlobalRequest).toHaveBeenCalled();
+  });
+
+  it('validateCustomPrompt refunds with chargedDay on global reservation failure', async () => {
+    const ctx = makeCtx();
+    vi.mocked(ctx.checkAndIncrementLimit).mockResolvedValue({ ok: true, day: '2026-09-06' });
+    vi.mocked(ctx.tryReserveGlobalRequest).mockResolvedValue(null);
+
+    await expect(validateCustomPromptLogic(ctx, 'user_1', { prompt: 'Valid assistant prompt text for testing' }))
+      .rejects.toMatchObject({ code: 'resource-exhausted' });
+
+    expect(ctx.refundDailyLimit).toHaveBeenCalledWith('user_1', '2026-09-06');
+  });
+
+  it('validateCustomPrompt refunds with chargedDay on model failure', async () => {
+    const ctx = makeCtx();
+    vi.mocked(ctx.checkAndIncrementLimit).mockResolvedValue({ ok: true, day: '2026-09-06' });
+    generateMock.mockRejectedValue(new Error('upstream model error'));
+
+    await expect(validateCustomPromptLogic(ctx, 'user_1', { prompt: 'Valid assistant prompt text for testing' }))
+      .rejects.toMatchObject({ code: 'internal' });
+
+    expect(ctx.refundDailyLimit).toHaveBeenCalledWith('user_1', '2026-09-06');
+    expect(ctx.refundGlobalRequest).toHaveBeenCalled();
+  });
+});
+

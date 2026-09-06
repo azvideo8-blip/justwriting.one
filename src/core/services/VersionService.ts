@@ -97,6 +97,42 @@ export const VersionService = {
     return versions;
   },
 
+  async getAllVersionsForUser(userId: string): Promise<Version[]> {
+    if (!DataProvider.getAllVersionsForUser) return [];
+    const records = await DataProvider.getAllVersionsForUser(userId);
+    const versions = records
+      .map(d => {
+        const parsed = versionDbSchema.safeParse({ id: d.id, ...d });
+        if (!parsed.success) {
+          reportError(parsed.error, { action: 'getAllVersionsForUser_parse', docId: d.id as string });
+          const r = d as Record<string, unknown>;
+          const str = (v: unknown, fb = ''): string => (typeof v === 'string' ? v : fb);
+          const num = (v: unknown, fb = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : fb);
+          const savedAt = num(r.savedAt, Date.now());
+          return {
+            id: str(d.id),
+            documentId: str(r.documentId),
+            version: num(r.version),
+            content: str(r.content),
+            wordCount: num(r.wordCount),
+            duration: num(r.duration),
+            wpm: num(r.wpm),
+            wordsAdded: num(r.wordsAdded),
+            charsAdded: num(r.charsAdded),
+            goalReached: r.goalReached === true,
+            savedAt: new Date(savedAt),
+            sessionStartedAt: new Date(num(r.sessionStartedAt, savedAt)),
+            ...(r._encrypted === true ? { _encrypted: true } : {}),
+            _degraded: true,
+          } as Version;
+        }
+        return parsed.data as Version;
+      })
+      .filter((v): v is Version => v !== null);
+    versions.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
+    return versions;
+  },
+
   async getLatestContent(userId: string, documentId: string): Promise<string> {
     const raw = await DataProvider.getLatestVersion(userId, documentId);
     if (!raw) return '';

@@ -760,6 +760,16 @@ BEGIN
   END IF;
 END $$;
 
+-- DEEP-5: Plain user cannot read public.admin_users_view (0 rows).
+DO $$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n FROM public.admin_users_view;
+  IF n <> 0 THEN
+    RAISE EXCEPTION 'FAIL: plain user read admin_users_view (% rows)', n;
+  END IF;
+END $$;
+
 -- Telemetry stays invisible to the plain user (policy now uses is_admin()).
 DO $$
 DECLARE n int;
@@ -772,15 +782,32 @@ END $$;
 RESET role;
 RESET request.jwt.claims;
 
--- The admin JWT sees every users-row through the same policy.
+-- DEEP-5: Admin JWT can ONLY see own row in public.users, preventing exposure of
+-- other users' private unencrypted ai_portrait.
 SET role = 'authenticated';
 SET request.jwt.claims = '{"sub":"99999999-9999-9999-9999-999999999999","role":"authenticated"}';
 DO $$
-DECLARE visible_for_admin int;
+DECLARE
+  visible_for_admin int;
+  alice_portrait_visible int;
+  view_count int;
 BEGIN
+  -- 1. Direct query to public.users returns ONLY admin's own row.
   SELECT count(*) INTO visible_for_admin FROM public.users;
-  IF visible_for_admin < 2 THEN
-    RAISE EXCEPTION 'FAIL: admin sees only % users rows', visible_for_admin;
+  IF visible_for_admin <> 1 THEN
+    RAISE EXCEPTION 'FAIL: admin sees % users rows directly (expected own row only = 1)', visible_for_admin;
+  END IF;
+
+  -- 2. Admin cannot select Alice's row or ai_portrait from public.users.
+  SELECT count(*) INTO alice_portrait_visible FROM public.users WHERE uid = '00000000-0000-0000-0000-000000000001';
+  IF alice_portrait_visible <> 0 THEN
+    RAISE EXCEPTION 'FAIL: admin read Alice profile from public.users (% rows)', alice_portrait_visible;
+  END IF;
+
+  -- 3. Admin can list users via public.admin_users_view (operational metadata only).
+  SELECT count(*) INTO view_count FROM public.admin_users_view;
+  IF view_count < 2 THEN
+    RAISE EXCEPTION 'FAIL: admin sees only % rows in admin_users_view (expected >= 2)', view_count;
   END IF;
 END $$;
 RESET role;

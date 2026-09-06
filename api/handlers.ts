@@ -53,6 +53,7 @@ const CODE_TO_HTTP: Record<string, number> = {
   // Согласие не дано — отказ по праву субъекта, а не сбой сервиса.
   'AI_CONSENT_REQUIRED': 403,
   'internal': 500,
+  'unavailable': 503,
 };
 
 export interface EndpointResult {

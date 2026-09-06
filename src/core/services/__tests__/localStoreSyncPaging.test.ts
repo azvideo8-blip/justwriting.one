@@ -5,9 +5,12 @@ import {
   LocalStoreSyncService,
   splitStringIntoChunks,
   PAGE_SPLIT_THRESHOLD_BYTES,
+  MAX_LOCAL_RECORD_BYTES,
 } from '../LocalStoreSyncService';
 import { DataProvider } from '../../data';
 import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreService';
+import { sha256Hex } from '../../../features/ai/utils/embeddingIndexer';
+import * as reportErrorModule from '../../../shared/errors/reportError';
 
 const USER = 'user_sync4_test';
 
@@ -260,5 +263,277 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       const current = await db.get('aiDialogues', 'dialogue_version_mismatch');
       expect(current).toEqual(localDialogue);
     });
+
+    // AG-RESTORE-4: The longest dialogue cannot be restored and was called "malformed"
+    it('restores a two-page record totalling ~941 KB and verifies its checksum (production shape)', async () => {
+      const db = await getLocalDb();
+      // Generate a synthetic ~941 KB dialogue record across 2 pages
+      const targetBytes = 941 * 1024;
+      const prefix = '{"id":"dialogue_9aee5b54","guestId":"' + USER + '","title":"Длинный диалог","messages":[{"id":"m1","role":"user","content":"Вопрос"},{"id":"m2","role":"assistant","content":"';
+      const suffix = '"}],"updatedAt":6000}';
+      const contentBytes = targetBytes - (new TextEncoder().encode(prefix).length + new TextEncoder().encode(suffix).length);
+      const fullJson = prefix + 'X'.repeat(contentBytes) + suffix;
+      const originalDialogue = JSON.parse(fullJson);
+
+      const byteLength = new TextEncoder().encode(fullJson).length;
+      expect(byteLength).toBe(941 * 1024);
+
+      const chunks = splitStringIntoChunks(fullJson, PAGE_SPLIT_THRESHOLD_BYTES);
+      expect(chunks.length).toBe(2);
+
+      const checksum = await sha256Hex(fullJson);
+
+      const cloudRecords = chunks.map((chunk, i) => ({
+        store: 'aiDialogues',
+        key: `dialogue_9aee5b54#${i}`,
+        payload: {
+          data: chunk,
+          updatedAt: 6000,
+          page: i,
+          totalPages: chunks.length,
+        },
+        checksum: i === 0 ? checksum : undefined,
+      }));
+
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.localStoreRecords).toBe(1);
+      expect(res.failed).toBe(0);
+      expect(res.oversized).toBe(0);
+
+      const restored = await db.get('aiDialogues', 'dialogue_9aee5b54');
+      expect(restored).toEqual(originalDialogue);
+    });
+
+    it('fails when checksum does not match on ~941 KB record after passing size gate', async () => {
+      const reportErrorSpy = vi.spyOn(reportErrorModule, 'reportError');
+      const targetBytes = 941 * 1024;
+      const prefix = '{"id":"dialogue_bad_checksum","guestId":"' + USER + '","title":"Диалог с неверной чексуммой","messages":[{"id":"m1","role":"user","content":"';
+      const suffix = '"}],"updatedAt":6000}';
+      const contentBytes = targetBytes - (new TextEncoder().encode(prefix).length + new TextEncoder().encode(suffix).length);
+      const fullJson = prefix + 'Y'.repeat(contentBytes) + suffix;
+
+      const chunks = splitStringIntoChunks(fullJson, PAGE_SPLIT_THRESHOLD_BYTES);
+      expect(chunks.length).toBe(2);
+
+      const cloudRecords = chunks.map((chunk, i) => ({
+        store: 'aiDialogues',
+        key: `dialogue_bad_checksum#${i}`,
+        payload: {
+          data: chunk,
+          updatedAt: 6000,
+          page: i,
+          totalPages: chunks.length,
+        },
+        checksum: i === 0 ? '0000000000000000000000000000000000000000000000000000000000000000' : undefined,
+      }));
+
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.localStoreRecords).toBe(0);
+      expect(res.failed).toBe(1);
+      expect(reportErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('checksum mismatch') }),
+        expect.objectContaining({ store: 'aiDialogues', key: 'dialogue_bad_checksum' })
+      );
+    });
+
+    it('restores a record assembled from pages to just under MAX_LOCAL_RECORD_BYTES (~9.5 MB)', async () => {
+      const db = await getLocalDb();
+      const targetBytes = 9.5 * 1024 * 1024;
+      const basePayload = '{"id":"dialogue_near_max","guestId":"' + USER + '","title":"Max Size","content":"';
+      const suffix = '","updatedAt":7000}';
+      const paddingLength = targetBytes - (basePayload.length + suffix.length);
+      const jsonString = basePayload + 'A'.repeat(paddingLength) + suffix;
+
+      const recordBytes = new TextEncoder().encode(jsonString).length;
+      expect(recordBytes).toBeLessThan(MAX_LOCAL_RECORD_BYTES);
+      expect(recordBytes).toBeGreaterThan(9 * 1024 * 1024);
+
+      const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
+      expect(chunks.length).toBeGreaterThan(15);
+
+      const cloudRecords = chunks.map((chunk, i) => ({
+        store: 'aiDialogues',
+        key: `dialogue_near_max#${i}`,
+        payload: {
+          data: chunk,
+          updatedAt: 7000,
+          page: i,
+          totalPages: chunks.length,
+        },
+      }));
+
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.localStoreRecords).toBe(1);
+      expect(res.failed).toBe(0);
+      expect(res.oversized).toBe(0);
+
+      const restored = (await db.get('aiDialogues', 'dialogue_near_max')) as unknown as { id: string; content: string };
+      expect(restored).toBeDefined();
+      expect(restored.id).toBe('dialogue_near_max');
+    });
+
+    it('reports oversized, never malformed, carrying both numbers for a record exceeding MAX_LOCAL_RECORD_BYTES', async () => {
+      const db = await getLocalDb();
+      const reportErrorSpy = vi.spyOn(reportErrorModule, 'reportError');
+
+      // Target: 10.5 MB (> MAX_LOCAL_RECORD_BYTES)
+      const targetBytes = 10.5 * 1024 * 1024;
+      const basePayload = '{"id":"dialogue_too_large","title":"Too Large","content":"';
+      const suffix = '","updatedAt":8000}';
+      const paddingLength = targetBytes - (basePayload.length + suffix.length);
+      const jsonString = basePayload + 'B'.repeat(paddingLength) + suffix;
+
+      const recordBytes = new TextEncoder().encode(jsonString).length;
+      expect(recordBytes).toBeGreaterThan(MAX_LOCAL_RECORD_BYTES);
+
+      const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
+      const cloudRecords = chunks.map((chunk, i) => ({
+        store: 'aiDialogues',
+        key: `dialogue_too_large#${i}`,
+        payload: {
+          data: chunk,
+          updatedAt: 8000,
+          page: i,
+          totalPages: chunks.length,
+        },
+      }));
+
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.localStoreRecords).toBe(0);
+      expect(res.oversized).toBe(1);
+
+      // Verify reportError call carries both measured size and limit
+      expect(reportErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringMatching(new RegExp(`oversized.*${recordBytes}.*${MAX_LOCAL_RECORD_BYTES}`)),
+        }),
+        expect.objectContaining({
+          store: 'aiDialogues',
+          key: 'dialogue_too_large',
+          bytes: recordBytes,
+          limit: MAX_LOCAL_RECORD_BYTES,
+        }),
+        'warning'
+      );
+
+      // Verify that "malformed" is NEVER reported for an oversized record
+      const malformedCall = reportErrorSpy.mock.calls.find(call => {
+        const err = call[0];
+        const msg = err instanceof Error ? err.message : String(err);
+        return msg.includes('malformed');
+      });
+      expect(malformedCall).toBeUndefined();
+
+      // Database is untouched
+      const recordInDb = await db.get('aiDialogues', 'dialogue_too_large');
+      expect(recordInDb).toBeUndefined();
+    });
+
+    it('reports malformed for a record that genuinely does not parse', async () => {
+      const reportErrorSpy = vi.spyOn(reportErrorModule, 'reportError');
+
+      const cloudRecords = [
+        {
+          store: 'aiDialogues',
+          key: 'dialogue_corrupted_json',
+          payload: {
+            data: '{"id":"corrupted", title: broken json without quotes and truncated...',
+            updatedAt: 9000,
+          },
+        },
+      ];
+
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.localStoreRecords).toBe(0);
+      expect(res.failed).toBe(1);
+      expect(res.oversized).toBe(0);
+
+      expect(reportErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'restoreAIData: malformed local_store_record' }),
+        expect.objectContaining({ store: 'aiDialogues', key: 'dialogue_corrupted_json' })
+      );
+    });
+
+    it('reports malformed for a parsed payload that is not an object or is an array', async () => {
+      const reportErrorSpy = vi.spyOn(reportErrorModule, 'reportError');
+
+      const cloudRecords = [
+        {
+          store: 'aiDialogues',
+          key: 'dialogue_array_payload',
+          payload: {
+            data: JSON.stringify([{ id: 'not_an_object' }]),
+            updatedAt: 9000,
+          },
+        },
+      ];
+
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.localStoreRecords).toBe(0);
+      expect(res.failed).toBe(1);
+
+      expect(reportErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'restoreAIData: malformed local_store_record' }),
+        expect.objectContaining({ store: 'aiDialogues', key: 'dialogue_array_payload' })
+      );
+    });
+
+    it('restores aiThemeLedger record above the old 512 KB cap', async () => {
+      const db = await getLocalDb();
+      await db.clear('aiThemeLedger');
+      const largeEvidence = 'Цитата из заметки для подкрепления темы. '.repeat(10000); // ~550 KB
+      const themeRecord = {
+        id: 'theme_large_evidence',
+        theme: 'Работа над продуктом',
+        tier: 'active',
+        count: 542,
+        evidence: [{ noteId: 'note-1', quote: largeEvidence }],
+        updatedAt: 10000,
+      };
+      const themeJson = JSON.stringify(themeRecord);
+      expect(new TextEncoder().encode(themeJson).length).toBeGreaterThan(512 * 1024);
+
+      const chunks = splitStringIntoChunks(themeJson, PAGE_SPLIT_THRESHOLD_BYTES);
+      const cloudRecords = chunks.map((chunk, i) => ({
+        store: 'aiThemeLedger',
+        key: `theme_large_evidence#${i}`,
+        payload: {
+          data: chunk,
+          updatedAt: 10000,
+          page: i,
+          totalPages: chunks.length,
+        },
+      }));
+
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.localStoreRecords).toBe(1);
+      expect(res.failed).toBe(0);
+      expect(res.oversized).toBe(0);
+
+      const restored = await db.get('aiThemeLedger', 'theme_large_evidence');
+      expect(restored).toEqual(themeRecord);
+    });
   });
 });
+

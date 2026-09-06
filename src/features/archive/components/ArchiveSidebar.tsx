@@ -58,9 +58,9 @@ export function ArchiveSidebar({
       <Calendar
         sessions={sessions}
         sessionsByDate={sessionsByDate}
-        selectedDate={selectedDate ?? new Date()}
+        selectedDate={selectedDate}
         onSelectDate={(d) => {
-          if (selectedDate && isSameDay(d, selectedDate)) {
+          if (selectedDate && d && isSameDay(d, selectedDate)) {
             onSelectDate(null);
           } else {
             onSelectMonth(null);

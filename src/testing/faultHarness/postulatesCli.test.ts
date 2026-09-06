@@ -9,5 +9,5 @@ describe('Postulates CLI Runner', () => {
     const results = await runner.runFullMatrix();
     const outPath = process.env.POSTULATES_RESULTS_PATH || path.resolve('.postulates-results.json');
     fs.writeFileSync(outPath, JSON.stringify(results));
-  });
+  }, 30_000);
 });

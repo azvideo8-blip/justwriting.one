@@ -292,27 +292,76 @@ export async function removeTagFromAllDocs(userId: string, tag: string): Promise
   }
 }
 
+/**
+ * DEEP-11: Bulk reads across tables that grow per note (documents, versions, etc.)
+ * MUST be paginated using .range() in batches of PAGE_SIZE (1000). PostgREST default
+ * query limit is 1000 rows; unpaginated queries truncate silently and corrupt counts.
+ */
 export async function getCloudVersionDiscrepancyCount(userId: string): Promise<number> {
   const supabase = getSupabase();
-  const [docsRes, versRes] = await Promise.all([
-    supabase.from('documents').select('uuid, current_version').eq('user_id', userId).is('deleted_at', null),
-    supabase.from('versions').select('document_uuid').eq('user_id', userId),
-  ]);
-  if (docsRes.error != null || versRes.error != null) return 0;
-  const versionCounts = new Map<string, number>();
-  for (const row of versRes.data ?? []) {
-    const id = (row as { document_uuid?: string }).document_uuid;
-    if (id) {
-      versionCounts.set(id, (versionCounts.get(id) ?? 0) + 1);
+  const PAGE_SIZE = 1000;
+
+  const fetchDocs = async () => {
+    const docs: { uuid: string; current_version: number }[] = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('uuid, current_version')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('uuid', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error != null) throw error;
+      if (data === null || data.length === 0) break;
+      for (const row of data) {
+        docs.push({
+          uuid: (row as { uuid?: string }).uuid ?? '',
+          current_version: (row as { current_version?: number }).current_version ?? 0,
+        });
+      }
+      if (data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
-  }
-  let discrepancies = 0;
-  for (const doc of docsRes.data ?? []) {
-    const current = (doc as { current_version?: number }).current_version ?? 0;
-    const actual = versionCounts.get((doc as { uuid?: string }).uuid ?? '') ?? 0;
-    if (current !== actual && actual > 0) {
-      discrepancies++;
+    return docs;
+  };
+
+  const fetchVersionCounts = async () => {
+    const counts = new Map<string, number>();
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('versions')
+        .select('document_uuid')
+        .eq('user_id', userId)
+        .order('id', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error != null) throw error;
+      if (data === null || data.length === 0) break;
+      for (const row of data) {
+        const id = (row as { document_uuid?: string }).document_uuid;
+        if (id) {
+          counts.set(id, (counts.get(id) ?? 0) + 1);
+        }
+      }
+      if (data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
+    return counts;
+  };
+
+  try {
+    const [docs, versionCounts] = await Promise.all([fetchDocs(), fetchVersionCounts()]);
+    let discrepancies = 0;
+    for (const doc of docs) {
+      const current = doc.current_version;
+      const actual = versionCounts.get(doc.uuid) ?? 0;
+      if (current !== actual && actual > 0) {
+        discrepancies++;
+      }
+    }
+    return discrepancies;
+  } catch {
+    return 0;
   }
-  return discrepancies;
 }

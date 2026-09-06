@@ -21,6 +21,7 @@ import { useBackgroundSync } from '../features/ai/hooks/useBackgroundSync';
 import { useOnlineStatus } from '../shared/hooks/useOnlineStatus';
 
 import { SyncService } from '../core/services/SyncService';
+import { VAULT_UNLOCKED_EVENT } from '../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../shared/constants/storageKeys';
 import { reportError } from '../shared/errors/reportError';
 
@@ -79,11 +80,23 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
 }
 
 /** Global sync queue drain — fires on connection recovery from any screen. */
-function SyncManager() {
+export function SyncManager() {
   const { user } = useAuthStatus();
   const isBrowserOnline = useOnlineStatus();
   const prevBrowserOnline = useRef(isBrowserOnline);
 
+
+  // Сейф открыт (в этой вкладке или в соседней) — задачи, отложенные в карантин
+  // из-за закрытого сейфа, оживают. Стор объявляет об этом событием: прямой
+  // импорт SyncService из него замыкает цикл модулей.
+  useEffect(() => {
+    const onVaultUnlocked = () => {
+      void SyncService.reviveLockedTasks(user?.uid)
+        .catch(e => reportError(e, { action: 'revive_locked_tasks_on_vault_unlock' }));
+    };
+    window.addEventListener(VAULT_UNLOCKED_EVENT, onVaultUnlocked);
+    return () => window.removeEventListener(VAULT_UNLOCKED_EVENT, onVaultUnlocked);
+  }, [user]);
 
   // Browser online recovery
   useEffect(() => {

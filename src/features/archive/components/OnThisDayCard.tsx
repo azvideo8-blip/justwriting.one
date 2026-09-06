@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { CalendarClock, ArrowRight, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { getSessionDate } from '../../../core/utils/utils';
+import { format, subMonths, subYears } from 'date-fns';
+import { getSessionDate, getSessionDates } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
 import { ArchiveSession } from '../types';
@@ -13,20 +13,18 @@ function isSameCalendarDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function findMatch(sessions: ArchiveSession[], t: (k: string) => string): { session: ArchiveSession; label: string } | null {
-  const now = new Date();
-  const periods: { label: string; shift: (d: Date) => void }[] = [
-    { label: t('archive_on_this_day_year'), shift: d => d.setFullYear(now.getFullYear() - 1) },
-    { label: t('archive_on_this_day_half_year'), shift: d => d.setMonth(now.getMonth() - 6) },
-    { label: t('archive_on_this_day_month'), shift: d => d.setMonth(now.getMonth() - 1) },
+export function findMatch(sessions: ArchiveSession[], t: (k: string) => string, referenceDate: Date = new Date()): { session: ArchiveSession; label: string } | null {
+  const now = referenceDate;
+  // DEEP-12: subMonths/subYears корректно зажимают 31-е числа (например, 31 марта -> 28/29 февраля)
+  const periods: { label: string; target: Date }[] = [
+    { label: t('archive_on_this_day_year'), target: subYears(now, 1) },
+    { label: t('archive_on_this_day_half_year'), target: subMonths(now, 6) },
+    { label: t('archive_on_this_day_month'), target: subMonths(now, 1) },
   ];
   for (const p of periods) {
-    const target = new Date(now);
-    p.shift(target);
     const hit = sessions.find(s => {
-      const d = getSessionDate(s);
-      if (!d || isNaN(d.getTime())) return false;
-      return isSameCalendarDay(d, target);
+      const dates = getSessionDates(s);
+      return dates.some(d => isSameCalendarDay(d, p.target));
     });
     if (hit) return { session: hit, label: p.label };
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getUserDocuments } from '../providers/documents';
+import { getUserDocuments, getCloudVersionDiscrepancyCount } from '../providers/documents';
 import { getUserSummaries } from '../providers/summaries';
 import { getLocalStoreRecords } from '../providers/localStore';
 import { getVersions } from '../providers/versions';
@@ -143,5 +143,46 @@ describe('AG-RESTORE-2: Bulk read methods pagination beyond 1000 rows', () => {
     const versions = await getVersions('user_1', 'doc_1');
     expect(versions).toHaveLength(1005);
     expect(mockRange).toHaveBeenCalledTimes(2);
+  });
+
+  it('DEEP-11: getCloudVersionDiscrepancyCount pages both documents and versions beyond 1000 rows', async () => {
+    // 1 document with current_version = 1500
+    const docs = [{ uuid: 'doc_big', current_version: 1500 }];
+
+    // 1500 versions for doc_big spread across 2 pages
+    const verPage1 = Array.from({ length: 1000 }, () => ({ document_uuid: 'doc_big' }));
+    const verPage2 = Array.from({ length: 500 }, () => ({ document_uuid: 'doc_big' }));
+
+    const mockDocRange = vi.fn().mockResolvedValue({ data: docs, error: null });
+    const mockVerRange = vi.fn()
+      .mockResolvedValueOnce({ data: verPage1, error: null })
+      .mockResolvedValueOnce({ data: verPage2, error: null });
+
+    const mockFrom = vi.fn((table: string) => {
+      if (table === 'documents') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          is: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          range: mockDocRange,
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        range: mockVerRange,
+      };
+    });
+
+    vi.mocked(getSupabase).mockReturnValue({ from: mockFrom } as any);
+
+    const discrepancies = await getCloudVersionDiscrepancyCount('user_1');
+    // All 1500 versions counted, matching current_version 1500 -> 0 discrepancies
+    expect(discrepancies).toBe(0);
+    expect(mockVerRange).toHaveBeenCalledTimes(2);
+    expect(mockVerRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mockVerRange).toHaveBeenNthCalledWith(2, 1000, 1999);
   });
 });

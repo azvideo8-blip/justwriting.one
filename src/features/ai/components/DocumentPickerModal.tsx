@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react';
 import { X, Search } from 'lucide-react';
+import pLimit from 'p-limit';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
-import { getLocalDb, getOrCreateGuestId } from '../../../core/storage/localDb';
+import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../shared/i18n';
 import { getCurrentUser } from '../../../core/auth';
 import { Button } from '../../../shared/components/Button';
@@ -38,26 +40,22 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
       try {
         const guestId = getCurrentUser()?.uid ?? getOrCreateGuestId();
         const allDocs = (await LocalDocumentService.getDocumentsByOwner(guestId)).filter(d => !d.excludedFromAI);
-        const db = await getLocalDb();
-        // Build a latest-version-per-document map in one bulk read instead of an
-        // index query per doc — lets us list/search ALL notes (was capped at 20,
-        // so older notes were invisible to the picker's title search).
-        const allVersions = await db.getAll('versions');
-        const latestByDoc = new Map<string, { version: number; content: string }>();
-        for (const v of allVersions) {
-          const cur = latestByDoc.get(v.documentId);
-          if (!cur || v.version > cur.version) {
-            latestByDoc.set(v.documentId, { version: v.version, content: v.content });
-          }
-        }
-        const entries: DocEntry[] = allDocs.map(doc => ({
-          id: doc.id,
-          title: doc.title || t('common_untitled'),
-          lastSessionAt: doc.lastSessionAt,
-          preview: latestByDoc.get(doc.id)?.content?.slice(0, 100) ?? '',
-          mood: doc.mood,
-        }));
-        entries.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
+        allDocs.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
+        const limit = pLimit(10);
+        const entries: DocEntry[] = await Promise.all(
+          allDocs.map(doc =>
+            limit(async () => {
+              const preview = await LocalVersionService.getLatestPreview(doc.id, 100, guestId);
+              return {
+                id: doc.id,
+                title: doc.title || t('common_untitled'),
+                lastSessionAt: doc.lastSessionAt,
+                preview,
+                mood: doc.mood,
+              };
+            })
+          )
+        );
         setDocs(entries);
       } catch { /* ignore */ }
     })();

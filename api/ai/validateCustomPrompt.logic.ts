@@ -29,10 +29,11 @@ export async function validateCustomPromptLogic(ctx: AiContext, uid: string, dat
   if (limitResult === 'RATE_LIMIT') {
     throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
+  const chargedDay = limitResult.day;
 
   const reservation = await ctx.tryReserveGlobalRequest(256);
   if (!reservation) {
-    await ctx.refundDailyLimit(uid);
+    await ctx.refundDailyLimit(uid, chargedDay);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -55,7 +56,7 @@ export async function validateCustomPromptLogic(ctx: AiContext, uid: string, dat
     generation?.end({ usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'validate' }, reservation).catch(e => console.error('[AI validate] usage record failed:', e));
   } catch (e) {
-    await ctx.refundDailyLimit(uid);
+    await ctx.refundDailyLimit(uid, chargedDay);
     await ctx.refundGlobalRequest(reservation);
     generation?.end({ output: String(e), level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});

@@ -290,8 +290,9 @@ export async function changePassword(userId: string, currentPassword: string, ne
     if (!valid) throw new WrongPasswordError();
   }
 
+  const iterations = meta.iterations ?? PBKDF2_ITERATIONS;
   const newSalt = generateSalt();
-  const newMasterKey = await deriveMasterKey(newPassword, newSalt);
+  const newMasterKey = await deriveMasterKey(newPassword, newSalt, iterations);
   const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
 
   await saveEncryptionMeta(userId, {
@@ -301,6 +302,7 @@ export async function changePassword(userId: string, currentPassword: string, ne
     verification: meta.verification || (await createVerification(dataKey)),
     recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
     recoverySalt: meta.recoverySalt,
+    iterations,
   });
 
   setSessionKey(dataKey);

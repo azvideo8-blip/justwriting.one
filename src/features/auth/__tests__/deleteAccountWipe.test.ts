@@ -61,4 +61,35 @@ describe('Area 1: deleteAccount must force wipe even with unsynced local data', 
     const remaining = await freshDb.getAll('documents');
     expect(remaining).toHaveLength(0);
   });
+
+  it('DEEP-14: deleteAccount completely deletes the user IndexedDB database file', async () => {
+    const { getLocalDbName } = await import('../../../core/storage/localDb');
+    const userDbName = getLocalDbName(USER);
+    const userDb = await getLocalDb(USER);
+    await userDb.put('documents', {
+      id: 'doc_to_delete',
+      guestId: USER,
+      title: 'Doc to delete',
+      currentVersion: 1,
+      totalWords: 5,
+      totalDuration: 0,
+      sessionsCount: 1,
+      firstSessionAt: 1,
+      lastSessionAt: 1,
+      tags: [],
+    } as any);
+
+    if (typeof indexedDB.databases === 'function') {
+      const dbsBefore = await indexedDB.databases();
+      expect(dbsBefore.some(db => db.name === userDbName)).toBe(true);
+    }
+
+    const { AuthService } = await import('../services/AuthService');
+    await AuthService.deleteAccount('secretPassword');
+
+    if (typeof indexedDB.databases === 'function') {
+      const dbsAfter = await indexedDB.databases();
+      expect(dbsAfter.some(db => db.name === userDbName)).toBe(false);
+    }
+  });
 });

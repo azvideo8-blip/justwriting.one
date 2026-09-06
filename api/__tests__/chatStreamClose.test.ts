@@ -219,9 +219,9 @@ describe('3.8 stream disconnect', () => {
     expect(recordUsage).not.toHaveBeenCalled();
   });
 
-  it('AG-BILL-2: токен обработан ДО обрыва → слот возвращён, глобальный резерв нет', async () => {
-    // Поставщик успел выдать и обработать кусок до разрыва — токены потрачены
-    // по-настоящему, холостого возврата резерва быть не должно.
+  it('DEEP-8: токен обработан ДО обрыва → слот НЕ возвращён, глобальный резерв не возвращён', async () => {
+    // DEEP-8: Поставщик успел выдать и обработать кусок до разрыва — токены потрачены
+    // по-настоящему, суточный слот и глобальный резерв списываются.
     const enc = new TextEncoder();
     const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
     // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
@@ -250,9 +250,8 @@ describe('3.8 stream disconnect', () => {
 
     await done;
 
-    // Разговор не доехал целиком → слот возвращается (правило BILL-1)...
-    expect(refundDaily).toHaveBeenCalledTimes(1);
-    // ...но поставщик поработал → глобальный резерв не трогаем.
+    // DEEP-8: Токены обработаны -> ни слот, ни глобальный резерв не возвращаются
+    expect(refundDaily).not.toHaveBeenCalled();
     expect(refundGlobal).not.toHaveBeenCalled();
     expect(recordUsage).toHaveBeenCalled();
   });
@@ -305,7 +304,7 @@ describe('3.8 stream disconnect', () => {
     expect(refundGlobal).toHaveBeenCalledTimes(1);
   });
 
-  it('AG-BILL-3: ordinary chat refunds slot but NOT global reservation when client leaves after chunks arrived', async () => {
+  it('DEEP-8: ordinary chat does NOT refund slot or global reservation when client leaves after chunks arrived', async () => {
     const enc = new TextEncoder();
     const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
     // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
@@ -330,8 +329,7 @@ describe('3.8 stream disconnect', () => {
 
     await done;
 
-    expect(refundDaily).toHaveBeenCalledTimes(1);
-    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundDaily).not.toHaveBeenCalled();
     expect(refundGlobal).not.toHaveBeenCalled();
   });
 

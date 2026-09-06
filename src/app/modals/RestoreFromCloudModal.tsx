@@ -12,7 +12,7 @@ import { setRestoreDismissed } from '../../core/sync/useEmptyDeviceDetection';
 import { CloudDownload, CheckCircle, AlertTriangle } from 'lucide-react';
 
 export interface RestoreFromCloudModalProps {
-  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number }>) | undefined;
+  onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number; oversized?: number }>) | undefined;
   open: boolean;
   onClose: () => void;
   initialLocalCount?: number | undefined;
@@ -37,6 +37,7 @@ interface RestoreSummaryReport {
   restoredEmbeddings: number;
   restoredAIStoreRecords: number;
   failedCount: number;
+  oversizedCount?: number;
 }
 
 export function RestoreFromCloudModal({
@@ -106,6 +107,7 @@ export function RestoreFromCloudModal({
       restoredEmbeddings: 0,
       restoredAIStoreRecords: 0,
       failedCount: 0,
+      oversizedCount: 0,
     };
 
     try {
@@ -152,6 +154,7 @@ export function RestoreFromCloudModal({
           resultSummary.restoredEmbeddings = (aiRes as { embeddings?: number }).embeddings ?? 0;
           resultSummary.restoredAIStoreRecords = aiRes.localStoreRecords;
           resultSummary.failedCount += aiRes.failed;
+          resultSummary.oversizedCount = (aiRes as { oversized?: number }).oversized ?? 0;
         } else {
           emitDomainEvent({ type: 'sync.restoredFromCloud', userId: user.uid });
         }
@@ -378,12 +381,13 @@ export function RestoreFromCloudModal({
                   : 'Проход завершился, но из облака ничего не вернулось.'}
               </div>
               {/* Частичный успех — числами: что успело вернуться до падения. */}
-              {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredEmbeddings) || Boolean(report?.restoredAIStoreRecords)) && (
+              {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredEmbeddings) || Boolean(report?.restoredAIStoreRecords) || Boolean(report?.oversizedCount)) && (
                 <div className="text-[11px] text-text-main/70 space-y-1 pl-6">
                   {Boolean(report?.restoredNotes) && <div>Заметок восстановлено: <strong className="text-text-main">{report?.restoredNotes}</strong></div>}
                   {Boolean(report?.restoredSummaries) && <div>Сводок ИИ: <strong className="text-text-main">{report?.restoredSummaries}</strong></div>}
                   {Boolean(report?.restoredEmbeddings) && <div>Векторов поиска: <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>}
                   {Boolean(report?.restoredAIStoreRecords) && <div>Записей ИИ: <strong className="text-text-main">{report?.restoredAIStoreRecords}</strong></div>}
+                  {Boolean(report?.oversizedCount) && <div>Превышают лимит размера (10 МБ): <strong className="text-amber-400">{report?.oversizedCount}</strong></div>}
                 </div>
               )}
             </div>
@@ -420,6 +424,12 @@ export function RestoreFromCloudModal({
                   <div className="text-amber-400 flex items-center gap-1 mt-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     Пропущено с ошибкой: {report?.failedCount}
+                  </div>
+                )}
+                {Boolean(report?.oversizedCount) && (
+                  <div className="text-amber-400 flex items-center gap-1 mt-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Пропущено из-за превышения лимита 10 МБ: {report?.oversizedCount}
                   </div>
                 )}
               </div>

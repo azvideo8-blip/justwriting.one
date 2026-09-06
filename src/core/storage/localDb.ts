@@ -312,7 +312,7 @@ interface JustWritingDB extends DBSchema {
   profile: { key: string; value: LocalProfile; };
   syncQueue: {
     key: string;
-    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; ownerId?: string | undefined; attempts?: number | undefined; dead?: boolean | undefined; lastError?: string | undefined; };
+    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; ownerId?: string | undefined; attempts?: number | undefined; dead?: boolean | undefined; lastError?: string | undefined; ownerToken?: string | undefined; };
   };
   drafts: { key: string; value: LocalDraft; };
   pending_sessions: { key: number; value: PendingSession; autoIncrement: true; };
@@ -570,6 +570,11 @@ async function upgradeJustWritingDB(
       rawDb.deleteObjectStore('aiPeopleIndex');
     }
     if (db.objectStoreNames.contains('aiSummaries')) {
+      // DEEP-P1: курсор идёт цепочкой промисов (continue().then(strip)), а не
+      // через await в теле цикла, — намеренно. Каждый следующий запрос ставится
+      // из колбэка предыдущего, поэтому versionchange-транзакция остаётся
+      // активной. Await над чем-то посторонним здесь её закроет, и миграция
+      // оборвётся на середине с TransactionInactiveError.
       const req = transaction.objectStore('aiSummaries').openCursor();
       await req.then(function strip(cursor: UpgradeCursor | null): unknown {
         if (!cursor) return undefined;
@@ -588,10 +593,14 @@ async function upgradeJustWritingDB(
 }
 
 export function getLocalDbName(customUid?: string | null): string {
-  if (customUid === 'justwriting-local') return 'justwriting-local';
-  if (customUid && customUid !== 'guest') return `justwriting-local-${customUid}`;
+  if (customUid === 'justwriting-local' || customUid === 'guest' || customUid?.startsWith('guest_')) {
+    return 'justwriting-local';
+  }
+  if (customUid) {
+    return `justwriting-local-${customUid}`;
+  }
   const uid = getCurrentUser()?.uid;
-  if (uid) return `justwriting-local-${uid}`;
+  if (uid && uid !== 'guest' && !uid.startsWith('guest_')) return `justwriting-local-${uid}`;
   return 'justwriting-local';
 }
 
@@ -646,6 +655,28 @@ export async function clearAllLocalStores(customUid?: string): Promise<void> {
   } finally {
     resetDbInstance(dbName);
   }
+}
+
+/** DEEP-14: Полное удаление файла БД при удалении аккаунта (indexedDB.deleteDatabase).
+ *  Закрывает открытые соединения и гарантирует, что имя justwriting-usr_<uid>
+ *  не остаётся на устройстве как артефакт существования аккаунта. */
+export async function deleteLocalDatabase(customUid?: string): Promise<void> {
+  const dbName = getLocalDbName(customUid);
+  resetDbInstance(dbName);
+
+  if (typeof indexedDB === 'undefined' || typeof indexedDB.deleteDatabase !== 'function') {
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(dbName);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error ?? new Error(`Failed to delete database ${dbName}`));
+    req.onblocked = () => {
+      console.warn(`[localDb] deleteDatabase for ${dbName} blocked by open connections`);
+      resolve();
+    };
+  });
 }
 
 interface DatabaseWithClosed {
@@ -770,6 +801,11 @@ async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): P
           await legacyDb.delete('documents', doc.id);
         } catch { /* ignore */ }
       }
+      if (legacyDb.objectStoreNames.contains('drafts')) {
+        try {
+          await legacyDb.delete('drafts', targetUid);
+        } catch { /* ignore */ }
+      }
 
       targetDb.close();
       legacyDb.close();
@@ -785,6 +821,19 @@ async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): P
 
   inFlightMigrations.set(targetDbName, migrationPromise);
   await migrationPromise;
+}
+
+/** Полноэкранное сообщение поверх приложения: база недоступна, и делать это
+ *  должен человек — закрыть вкладки или перезагрузить. Клик перезагружает. */
+function showDbOverlay(text: string): void {
+  if (typeof document === 'undefined' || document.body === null) return;
+  if (document.getElementById('db-upgrade-blocked-overlay')) return;
+  const el = document.createElement('div');
+  el.id = 'db-upgrade-blocked-overlay';
+  el.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);color:#fff;font:16px system-ui;text-align:center;padding:24px;cursor:pointer;';
+  el.textContent = text;
+  el.addEventListener('click', () => { try { location.reload(); } catch { /* ignore */ } });
+  document.body.appendChild(el);
 }
 
 export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustWritingDB>> {
@@ -811,13 +860,7 @@ export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustW
     upgrade: upgradeJustWritingDB,
     blocked() {
       console.warn('[localDb] Database upgrade blocked — close other tabs and reload.');
-      if (typeof document !== 'undefined' && document.body !== null && !document.getElementById('db-upgrade-blocked-overlay')) {
-        const el = document.createElement('div');
-        el.id = 'db-upgrade-blocked-overlay';
-        el.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);color:#fff;font:16px system-ui;text-align:center;padding:24px;';
-        el.textContent = 'Закройте другие вкладки justwriting и обновите страницу — база данных ожидает обновления.';
-        document.body.appendChild(el);
-      }
+      showDbOverlay('Закройте другие вкладки justwriting и обновите страницу — база данных ожидает обновления.');
     },
     blocking() {
       console.warn('[localDb] Another tab is trying to upgrade — closing this connection.');
@@ -847,6 +890,15 @@ export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustW
     return db;
   } catch (e) {
     dbOpenPromises.delete(dbName);
+    // DEEP-P2: VersionError = база на устройстве новее, чем знает этот бандл.
+    // Так выглядит вкладка, пережившая выкатку: соседняя обновилась и подняла
+    // схему, а эта работает на старом коде. Без сообщения человек видит пустой
+    // архив и читает это как пропажу заметок — так уже было на бампе v6.
+    // Проверяем по name, а не через instanceof Error: это DOMException, и в
+    // части сред (jsdom, fake-indexeddb) он Error не наследует.
+    if (typeof e === 'object' && e !== null && (e as { name?: string }).name === 'VersionError') {
+      showDbOverlay('Приложение обновилось в другой вкладке. Обновите страницу — данные на месте.');
+    }
     reportError(e, { action: 'localDb_open_indexeddb', dbName });
     throw e;
   }

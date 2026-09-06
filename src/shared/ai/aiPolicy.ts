@@ -139,7 +139,7 @@ export interface CallReservation {
   /** День списания из verdict'а. Refund целится в него, а не в today() на
    *  момент неудачи — иначе запрос, списавший квоту в 23:58 и упавший после
    *  полуночи, возвращает единицу в пустую строку. */
-  day?: string;
+  day: string;
   refunded?: boolean;
 }
 
@@ -165,6 +165,7 @@ export async function refundCall(
   ctx: AiContext,
   resOrUid: CallReservation | string | null | undefined,
   maybeCharge?: ChargeTarget,
+  chargedDay?: string,
 ): Promise<void> {
   if (resOrUid == null) return;
   if (typeof resOrUid === 'object') {
@@ -179,11 +180,14 @@ export async function refundCall(
   }
   const uid = resOrUid;
   const charge = maybeCharge ?? 'bulk';
+  if (!chargedDay) {
+    throw new Error('refundCall requires chargedDay when called with string uid');
+  }
   if (charge === 'user') {
-    await ctx.refundDailyLimit(uid);
+    await ctx.refundDailyLimit(uid, chargedDay);
     return;
   }
-  await ctx.refundBulkLimit(uid);
+  await ctx.refundBulkLimit(uid, chargedDay);
 }
 
 // Пределы извлечения долговременной памяти из диалога.

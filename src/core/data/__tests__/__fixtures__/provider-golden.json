@@ -533,14 +533,14 @@
     ],
     "calls": [
       {
-        "table": "users",
+        "table": "admin_users_view",
         "chain": [
           "select([\"uid,email,nickname,role,created_at,_encrypted,labels,earned_achievements,total_word_count,sessions_count,streak_days,total_duration,avg_wpm,avg_session_words,privacy_accepted_at,privacy_version,ai_consent_at,ai_consent_version,indexing_consent_at,indexing_consent_version\"])"
         ],
         "payload": "uid,email,nickname,role,created_at,_encrypted,labels,earned_achievements,total_word_count,sessions_count,streak_days,total_duration,avg_wpm,avg_session_words,privacy_accepted_at,privacy_version,ai_consent_at,ai_consent_version,indexing_consent_at,indexing_consent_version"
       },
       {
-        "table": "users",
+        "table": "admin_users_view",
         "chain": [
           "select([\"uid,email,nickname,role,created_at,_encrypted,labels,earned_achievements,total_word_count,sessions_count,streak_days,total_duration,avg_wpm,avg_session_words,privacy_accepted_at,privacy_version,ai_consent_at,ai_consent_version,indexing_consent_at,indexing_consent_version\"])",
           "limit([50])",

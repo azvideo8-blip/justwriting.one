@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Session } from '../../../types';
-import { getSessionDate } from '../../../core/utils/utils';
 import { isSameDay } from 'date-fns';
+import { getSessionDates } from '../../../core/utils/utils';
+import { ArchiveSession } from '../types';
 
-export function useArchiveFilters<T extends Session>(sessions: T[]) {
+export function useArchiveFilters(sessions: ArchiveSession[]) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -15,10 +15,10 @@ export function useArchiveFilters<T extends Session>(sessions: T[]) {
 
   const filteredSessions = useMemo(() => {
     return sessions.filter(s => {
-      const sDate = getSessionDate(s);
-      if (!sDate) return false;
-      const matchesDate = !selectedDate || isSameDay(sDate, selectedDate);
-      const matchesMonth = !selectedMonth || (sDate.getMonth() === selectedMonth.getMonth() && sDate.getFullYear() === selectedMonth.getFullYear());
+      const dates = getSessionDates(s);
+      if (dates.length === 0) return false;
+      const matchesDate = !selectedDate || dates.some(d => isSameDay(d, selectedDate));
+      const matchesMonth = !selectedMonth || dates.some(d => d.getMonth() === selectedMonth.getMonth() && d.getFullYear() === selectedMonth.getFullYear());
       const matchesTags = selectedTags.length === 0 || selectedTags.every(t => s.tags?.includes(t));
       const matchesLabels = selectedLabels.length === 0 || selectedLabels.includes(s.labelId ?? '');
       return matchesDate && matchesMonth && matchesTags && matchesLabels;

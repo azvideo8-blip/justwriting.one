@@ -4,7 +4,12 @@ import { DataProvider } from '../../../core/data';
 import { sha256Hex, getLatestContent } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
-import { extractRecordTimestamp, SUPPORTED_LOCAL_STORES, SupportedLocalStoreName } from '../../../core/services/LocalStoreSyncService';
+import {
+  extractRecordTimestamp,
+  SUPPORTED_LOCAL_STORES,
+  SupportedLocalStoreName,
+  MAX_LOCAL_RECORD_BYTES,
+} from '../../../core/services/LocalStoreSyncService';
 
 import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
@@ -49,6 +54,7 @@ export interface AIRestoreResult {
   /** Local records the cloud already holds, marked so they are not re-uploaded. */
   markedSynced: number;
   failed: number;
+  oversized: number;
   skippedLocked: boolean;
 }
 
@@ -67,7 +73,7 @@ export interface AIRestoreResult {
  * already there: a restore must not clobber work newer than the cloud copy.
  */
 export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreResult> {
-  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, skippedLocked: false };
+  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false };
   if (!userId) return result;
 
   // With E2E on but the vault locked, every decrypt throws. Restoring now would
@@ -234,14 +240,40 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
           cloudTs = expectedUpdatedAt;
         }
 
-        // Единственный read-путь без структурной валидации. Минимальный
-        // гейт: плоский JSON-объект разумного размера. Чексумка, если запись
-        // её несёт, обязательна к совпадению.
-        const parsedData: unknown = JSON.parse(fullJson);
-        if (
-          parsedData === null || typeof parsedData !== 'object' || Array.isArray(parsedData)
-          || fullJson.length > 512 * 1024
-        ) {
+        // AG-RESTORE-4: Limit is MAX_LOCAL_RECORD_BYTES (10 MB), aligned with LocalStoreSyncService.
+        // Oversized records (> 10 MB) are refused and reported separately with size and limit.
+        // Malformed records (corrupted JSON or non-object) are reported as malformed.
+        const recordBytes = new TextEncoder().encode(fullJson).length;
+        if (recordBytes > MAX_LOCAL_RECORD_BYTES) {
+          result.oversized++;
+          logger.warn(
+            'AIRestoreService',
+            `Record too large to restore (${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes): ${store}/${baseKey}`
+          );
+          reportError(
+            new Error(`restoreAIData: oversized local_store_record (${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes)`),
+            { store, key: baseKey, bytes: recordBytes, limit: MAX_LOCAL_RECORD_BYTES },
+            'warning'
+          );
+          useActivityLogStore.getState().addActivity(
+            `Запись ${store}/${baseKey} (${Math.round(recordBytes / 1024)} КБ) в облаке превышает лимит размера 10 МБ и не может быть загружена на устройство`,
+            { action: 'restoreAIData_oversized', store, key: baseKey, bytes: recordBytes, limit: MAX_LOCAL_RECORD_BYTES },
+            'warning',
+            'ai'
+          );
+          continue;
+        }
+
+        let parsedData: unknown;
+        try {
+          parsedData = JSON.parse(fullJson);
+        } catch {
+          result.failed++;
+          reportError(new Error('restoreAIData: malformed local_store_record'), { store, key: baseKey });
+          continue;
+        }
+
+        if (parsedData === null || typeof parsedData !== 'object' || Array.isArray(parsedData)) {
           result.failed++;
           reportError(new Error('restoreAIData: malformed local_store_record'), { store, key: baseKey });
           continue;
@@ -348,12 +380,23 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     reportError(e, { action: 'restoreAIData_embeddings', userId });
   }
 
-  if (result.summaries || result.embeddings || result.localStoreRecords || result.failed) {
+  if (result.summaries || result.embeddings || result.localStoreRecords || result.failed || result.oversized) {
     logger.info('AIRestoreService', 'Restored AI data from cloud', { ...result });
+    const parts = [
+      `сводок: ${result.summaries}`,
+      `записей ИИ: ${result.localStoreRecords}`,
+      `эмбеддингов: ${result.embeddings}`,
+    ];
+    if (result.oversized) {
+      parts.push(`превысили лимит: ${result.oversized}`);
+    }
+    if (result.failed) {
+      parts.push(`ошибок: ${result.failed}`);
+    }
     useActivityLogStore.getState().addActivity(
-      `Анализ восстановлен из облака (сводок: ${result.summaries}, записей ИИ: ${result.localStoreRecords}, эмбеддингов: ${result.embeddings})`,
+      `Анализ восстановлен из облака (${parts.join(', ')})`,
       { action: 'restoreAIDataFromCloud', ...result },
-      'info',
+      result.oversized || result.failed ? 'warning' : 'info',
       'ai'
     );
   }

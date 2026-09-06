@@ -64,15 +64,30 @@ function computeKPIStats(sessions: Session[], docStats: DocLevelStats): KPIStats
 
     sessions.forEach(s => {
       try {
-        const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
-        if (!ts) return;
-        const d = new Date(ts);
-        if (isNaN(d.getTime())) return;
-        dates.add(d.toDateString());
-        const h = d.getHours();
-        if (!isNaN(h) && h >= 0 && h < 24) {
-          const val = hours[h];
-          if (val !== undefined) hours[h] = val + 1;
+        if (s.sittings && s.sittings.length > 0) {
+          s.sittings.forEach(sitting => {
+            const ts = sitting.savedAt || sitting.sessionStartedAt;
+            if (!ts) return;
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return;
+            dates.add(d.toDateString());
+            const h = d.getHours();
+            if (!isNaN(h) && h >= 0 && h < 24) {
+              const val = hours[h];
+              if (val !== undefined) hours[h] = val + 1;
+            }
+          });
+        } else {
+          const ts = s.sessionStartTime ?? toTimestampMs(s.createdAt);
+          if (!ts) return;
+          const d = new Date(ts);
+          if (isNaN(d.getTime())) return;
+          dates.add(d.toDateString());
+          const h = d.getHours();
+          if (!isNaN(h) && h >= 0 && h < 24) {
+            const val = hours[h];
+            if (val !== undefined) hours[h] = val + 1;
+          }
         }
       } catch (e) { reportError(e, { action: 'parseSessionDate' }, 'warning'); }
     });

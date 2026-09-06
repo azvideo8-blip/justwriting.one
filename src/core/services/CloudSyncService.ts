@@ -4,7 +4,7 @@ import { LocalStorageService } from './LocalStorageService';
 import { syncStatusOf } from '../sync/syncStatus';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
-import { getLocalDb, type LocalDocument } from '../storage/localDb';
+import { getLocalDb, type LocalDocument, randomUUID } from '../storage/localDb';
 import { Document } from '../../types';
 import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, DecryptionError, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
@@ -265,6 +265,7 @@ export const CloudSyncService = {
 
     const db = await getLocalDb();
     const lockKey = `lock_cloud_${localDocumentId}`;
+    const lockOwnerToken = randomUUID();
 
     const lockTx = db.transaction('syncQueue', 'readwrite');
     const existing = await lockTx.store.get(lockKey);
@@ -275,7 +276,13 @@ export const CloudSyncService = {
         return '';
       }
     }
-    await lockTx.store.put({ id: lockKey, documentId: localDocumentId, type: 'document' as const, createdAt: Date.now() });
+    await lockTx.store.put({
+      id: lockKey,
+      documentId: localDocumentId,
+      type: 'document' as const,
+      createdAt: Date.now(),
+      ownerToken: lockOwnerToken,
+    });
     await lockTx.done;
 
     // AUDIT-MH2: upload routinely живёт дольше LOCK_TTL_MS (pLimit(3) + таймауты
@@ -287,7 +294,9 @@ export const CloudSyncService = {
           const hdb = await getLocalDb();
           const htx = hdb.transaction('syncQueue', 'readwrite');
           const cur = await htx.store.get(lockKey);
-          if (cur) await htx.store.put({ ...cur, createdAt: Date.now() });
+          if (cur && cur.ownerToken === lockOwnerToken) {
+            await htx.store.put({ ...cur, createdAt: Date.now() });
+          }
           await htx.done;
         } catch { /* некритично: протухший lock лучше дубля */ }
       })();
@@ -719,7 +728,12 @@ export const CloudSyncService = {
       clearInterval(lockHeartbeat);
       try {
         const cleanupDb = await getLocalDb();
-        await cleanupDb.delete('syncQueue', lockKey);
+        const cleanupTx = cleanupDb.transaction('syncQueue', 'readwrite');
+        const cur = await cleanupTx.store.get(lockKey);
+        if (cur && cur.ownerToken === lockOwnerToken) {
+          await cleanupTx.store.delete(lockKey);
+        }
+        await cleanupTx.done;
       } catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_lockCleanup', lockKey }); }
     }
   },
@@ -761,6 +775,37 @@ export const CloudSyncService = {
       });
       return { forked: false, cloudSynced: false };
     }
+
+    const lockKey = `lock_cloud_${documentId}`;
+    const syncDb = await getLocalDb();
+    const lockTx = syncDb.transaction('syncQueue', 'readwrite');
+    const existingLock = await lockTx.store.get(lockKey);
+    if (existingLock) {
+      const age = Date.now() - (existingLock.createdAt ?? 0);
+      if (age < LOCK_TTL_MS) {
+        await lockTx.done;
+        // DEEP-3: Замок уже удерживается другим писателем (например, drain или addCloudCopy).
+        // Ставим задачу в syncQueue и уступаем активному писателю во избежание параллельных записей.
+        await syncDb.put('syncQueue', {
+          id: `sync_${documentId}`,
+          documentId,
+          type: 'document' as const,
+          createdAt: Date.now(),
+          ownerId: userId,
+        });
+        return { forked: false, cloudSynced: false, reason: 'LOCK_HELD' };
+      }
+    }
+    const lockOwnerToken = randomUUID();
+    await lockTx.store.put({
+      id: lockKey,
+      documentId,
+      type: 'document' as const,
+      createdAt: Date.now(),
+      ownerToken: lockOwnerToken,
+    });
+    await lockTx.done;
+
     try {
       const getDoc = DocumentService.getDocumentWithDeleted?.bind(DocumentService) ?? DocumentService.getDocument.bind(DocumentService);
       const cloudDoc = await getDoc(userId, linkedCloudId);
@@ -1002,6 +1047,18 @@ export const CloudSyncService = {
         });
       } catch (queueErr) {
         reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
+      }
+    } finally {
+      try {
+        const cleanupDb = await getLocalDb();
+        const cleanupTx = cleanupDb.transaction('syncQueue', 'readwrite');
+        const cur = await cleanupTx.store.get(lockKey);
+        if (cur && cur.ownerToken === lockOwnerToken) {
+          await cleanupTx.store.delete(lockKey);
+        }
+        await cleanupTx.done;
+      } catch (cleanupErr) {
+        reportError(cleanupErr, { action: 'syncVersionToCloud_lockCleanup', lockKey });
       }
     }
     return { forked: false, cloudSynced: false };

@@ -200,7 +200,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     console.error('[AI summarize] failed to parse model output, length:', text.length);
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
-    throw new AiError('internal', 'Failed to parse summary.');
+    throw new AiError('unavailable', 'Failed to parse summary.');
   }
 
   const validated = summarySchema.safeParse(rawParsed);
@@ -214,7 +214,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     console.error('[AI summarize] model output failed schema:', validated.error.issues.length, 'issues');
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
-    throw new AiError('invalid-argument', 'Model returned malformed summary.');
+    throw new AiError('unavailable', 'Model returned malformed summary.');
   }
   const parsed_json: ParsedJson = validated.data;
 

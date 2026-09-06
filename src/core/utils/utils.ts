@@ -33,12 +33,32 @@ export function getSessionDate(session: Session): Date | null {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+/** DEEP-2: Возвращает даты всех подходов к заметке (через sittings),
+ *  либо дату единственной сессии. Гарантирует, что стрик и активность
+ *  не теряют дни при редактировании старых заметок. */
+export function getSessionDates(session: Session): Date[] {
+  if (session.sittings && session.sittings.length > 0) {
+    const dates: Date[] = [];
+    for (const sitting of session.sittings) {
+      const ts = sitting.savedAt || sitting.sessionStartedAt;
+      if (ts) {
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) {
+          dates.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+        }
+      }
+    }
+    if (dates.length > 0) return dates;
+  }
+  const single = getSessionDate(session);
+  return single ? [single] : [];
+}
+
 export function calculateStreak(sessions: Session[], frozen?: Set<string>): number {
   if (sessions.length === 0) return 0;
   
   const dates = sessions
-    .map(s => getSessionDate(s))
-    .filter((d): d is Date => d !== null)
+    .flatMap(s => getSessionDates(s))
     .map(d => format(d, 'yyyy-MM-dd'));
   if (dates.length === 0) return 0;
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -92,8 +112,7 @@ export function consumeStreakFreezes(sessions: Session[]): Set<string> {
   if (sessions.length === 0) return getFrozenDates();
   
   const dates = sessions
-    .map(s => getSessionDate(s))
-    .filter((d): d is Date => d !== null)
+    .flatMap(s => getSessionDates(s))
     .map(d => format(d, 'yyyy-MM-dd'));
   if (dates.length === 0) return getFrozenDates();
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -155,8 +174,7 @@ export function calculateBestStreak(sessions: Session[], frozen?: Set<string>): 
   if (sessions.length === 0) return 0;
   const today = format(new Date(), 'yyyy-MM-dd');
   const dates = new Set(
-    sessions.map(s => getSessionDate(s))
-      .filter((d): d is Date => d !== null)
+    sessions.flatMap(s => getSessionDates(s))
       .map(d => format(d, 'yyyy-MM-dd'))
       .filter(d => d <= today)
   );

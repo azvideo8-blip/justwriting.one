@@ -115,8 +115,8 @@ export async function importMigrationManifest(
     existingDocsById.set(doc.id, doc);
   }
 
-  const existingVers = (await db.getAll("versions")) as LocalVersion[];
-  const existingVerIds = new Set(existingVers.map(v => v.id));
+  const existingVerKeys = await db.getAllKeys("versions");
+  const existingVerIds = new Set(existingVerKeys.map(String));
 
   const existingSummaries = (await db.getAll("aiSummaries")) as AIDocumentSummary[];
   const existingSummaryDocIds = new Set(existingSummaries.map(s => s.documentId));

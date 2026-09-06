@@ -28,6 +28,7 @@ export interface IDataProvider {
   // --- Version Operations ---
   addVersion(userId: string, documentId: string, versionId: string, data: ProviderRecord): Promise<void>;
   getVersions(userId: string, documentId: string): Promise<ProviderRecord[]>;
+  getAllVersionsForUser?(userId: string): Promise<ProviderRecord[]>;
   getLatestVersion(userId: string, documentId: string): Promise<ProviderRecord | null>;
   updateVersion(userId: string, documentId: string, versionId: string, data: ProviderRecord): Promise<void>;
   updateVersionsBatch(userId: string, documentId: string, updates: { versionId: string; data: ProviderRecord }[]): Promise<void>;

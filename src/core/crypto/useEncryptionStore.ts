@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import { reportError } from '../../shared/errors/reportError';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
+/**
+ * Сейф открылся — об этом объявляется событием, а не вызовом синхронизации.
+ *
+ * Прямой импорт `SyncService` отсюда заводит цикл: сервис тянет провайдеров
+ * данных, те — помощников шифрования, а те — этот стор. Динамический `import()`
+ * цикл не разрывает, он лишь прячет его от глаза: во время инициализации
+ * модулей одна из сторон всё равно видит другую недособранной. Слушателя вешает
+ * `AppProviders`, который синхронизацией уже владеет.
+ */
+export const VAULT_UNLOCKED_EVENT = 'vault-unlocked';
+
 const AUTO_LOCK_MS = 15 * 60 * 1000;
 // SEC-5: "Remember on this device" maintains convenience (no password on reload)
 // but enforces a 1-hour inactivity ceiling so an idle tab does not leave the in-memory
@@ -103,14 +114,92 @@ export function setupEncryptionStoreListeners() {
   };
   window.addEventListener('pagehide', unloadListener);
   registeredListeners.push({ target: window, type: 'pagehide', listener: unloadListener });
+
+  // DEEP-4: Cross-tab vault state observability.
+  // Note: Only the status flag (unlocked: true/false) is broadcast. The CryptoKey NEVER leaves tab memory.
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const channel = new BroadcastChannel(VAULT_STATE_CHANNEL);
+      const onMsg = (event: MessageEvent) => {
+        if (event.data?.type === 'VAULT_UNLOCKED') {
+          window.dispatchEvent(new CustomEvent(VAULT_UNLOCKED_EVENT));
+        }
+      };
+      channel.addEventListener('message', onMsg);
+      registeredListeners.push({
+        target: channel,
+        type: 'message',
+        listener: onMsg as EventListener,
+      });
+    } catch { /* ignore */ }
+  }
 }
 
 export function cleanupEncryptionStoreListeners() {
   for (const item of registeredListeners) {
-    item.target.removeEventListener(item.type, item.listener, item.options);
+    if (typeof window !== 'undefined' && item.target !== (window as unknown) && 'close' in item.target && typeof (item.target as { close: () => void }).close === 'function') {
+      try { (item.target as { close: () => void }).close(); } catch { /* ignore */ }
+    } else {
+      item.target.removeEventListener(item.type, item.listener, item.options);
+    }
   }
   registeredListeners = [];
   clearAutoLockTimer();
+  stopCrossTabHeartbeat();
+}
+
+const VAULT_STATE_CHANNEL = 'jw_vault_state';
+const VAULT_UNLOCKED_LS_KEY = 'jw_vault_unlocked_time';
+let crossTabHeartbeat: ReturnType<typeof setInterval> | null = null;
+
+function broadcastVaultState(unlocked: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (unlocked) {
+      localStorage.setItem(VAULT_UNLOCKED_LS_KEY, String(Date.now()));
+    } else {
+      localStorage.removeItem(VAULT_UNLOCKED_LS_KEY);
+    }
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(VAULT_STATE_CHANNEL);
+      channel.postMessage({ type: unlocked ? 'VAULT_UNLOCKED' : 'VAULT_LOCKED', timestamp: Date.now() });
+      channel.close();
+    }
+  } catch { /* ignore */ }
+}
+
+function startCrossTabHeartbeat() {
+  if (crossTabHeartbeat) clearInterval(crossTabHeartbeat);
+  if (typeof window === 'undefined') return;
+  crossTabHeartbeat = setInterval(() => {
+    try {
+      if (useEncryptionStore.getState().isVaultUnlocked) {
+        localStorage.setItem(VAULT_UNLOCKED_LS_KEY, String(Date.now()));
+      }
+    } catch { /* ignore */ }
+  }, 10_000);
+}
+
+function stopCrossTabHeartbeat() {
+  if (crossTabHeartbeat) {
+    clearInterval(crossTabHeartbeat);
+    crossTabHeartbeat = null;
+  }
+}
+
+/** DEEP-4: Проверяет, открыт ли сейф в текущей или любой другой вкладке браузера.
+ *  Ключ шифрования не передаётся — только статус активности. */
+export function isAnyTabVaultUnlocked(): boolean {
+  if (useEncryptionStore.getState().isVaultUnlocked) return true;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const last = localStorage.getItem(VAULT_UNLOCKED_LS_KEY);
+      if (last && (Date.now() - Number(last) < 25_000)) {
+        return true;
+      }
+    }
+  } catch { /* ignore */ }
+  return false;
 }
 
 if (typeof window !== 'undefined') {
@@ -128,13 +217,20 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
     if (key) {
       lastActivity = Date.now();
       startAutoLockTimer();
+      startCrossTabHeartbeat();
+      broadcastVaultState(true);
+      window.dispatchEvent(new CustomEvent(VAULT_UNLOCKED_EVENT));
     } else {
       clearAutoLockTimer();
+      stopCrossTabHeartbeat();
+      broadcastVaultState(false);
     }
   },
   lockVault: () => {
     set({ dataKey: null, isVaultUnlocked: false });
     clearAutoLockTimer();
+    stopCrossTabHeartbeat();
+    broadcastVaultState(false);
     // V-3: reset rememberDevice so User A's "remember" preference doesn't
     // leak to User B on the same browser.
     setRememberDevice(false);

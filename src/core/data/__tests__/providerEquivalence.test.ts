@@ -26,7 +26,7 @@ function makeMockClient() {
       const v = row({ document_uuid: 'doc_1', user_id: 'u1', version: 2, content: 'c', saved_at: '2026-08-25T11:00:00Z', session_started_at: null });
       return terminal === 'maybeSingle' ? { data: v, error: null } : { data: [v], error: null };
     }
-    if (table === 'users') {
+    if (table === 'users' || table === 'admin_users_view') {
       const u = row({ uid: 'u1', email: 'e@x', created_at: '2026-01-01T00:00:00Z', encryption_salt: null });
       if (terminal === 'maybeSingle') return { data: u, error: null };
       return { data: [row({ uid: 'u1', email: 'e@x', role: 'user' })], error: null };

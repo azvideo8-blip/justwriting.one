@@ -234,6 +234,7 @@ export function ArchiveNoteList({
       return (
         <VirtuosoGrid
           data={filteredSessions}
+          computeItemKey={(_, s) => s.id}
           className="custom-scrollbar h-full"
           components={gridComponents}
           listClassName={gridListClassName}
@@ -259,6 +260,7 @@ export function ArchiveNoteList({
     return (
       <Virtuoso
         data={filteredSessions}
+        computeItemKey={(_, s) => s.id}
         className="h-full"
         itemContent={(index, session) => (
           <NoteRow

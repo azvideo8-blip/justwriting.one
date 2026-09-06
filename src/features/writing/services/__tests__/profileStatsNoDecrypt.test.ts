@@ -56,6 +56,7 @@ describe('AUD-24 profile stats do not decrypt the archive', () => {
     expect(sessions).toHaveLength(50);
     // Счётчики берутся из записи документа, а не из расшифрованного текста.
     expect(sessions[0]!.wordCount).toBeGreaterThan(0);
+    expect(sessions[0]!.sessionWordsAdded).toBe(3);
     // «Не читали» — не «не смогли прочитать»: _contentError остаётся false.
     expect(sessions.every(s => !s._contentError)).toBe(true);
     expect(sessions.every(s => s._contentNotLoaded === true)).toBe(true);

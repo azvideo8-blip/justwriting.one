@@ -116,5 +116,22 @@ describe('AIService', () => {
       expect(res.ok).toBe(false);
       if (!res.ok) expect(res.error).toBe('UPSTREAM');
     });
+
+    it('DEEP-13: model output schema failure surfaces as UPSTREAM, not TOO_LONG', async () => {
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('Model returned malformed summary.'), { code: 'unavailable', status: 503 }));
+      const res = await AIService.summarize({ content: 'text' });
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.error).toBe('UPSTREAM');
+        expect(res.error).not.toBe('TOO_LONG');
+      }
+    });
+
+    it('DEEP-13: client input too long / invalid argument surfaces as TOO_LONG', async () => {
+      mockCallAi.mockRejectedValueOnce(Object.assign(new Error('Invalid payload.'), { code: 'invalid-argument', status: 400 }));
+      const res = await AIService.summarize({ content: 'text' });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe('TOO_LONG');
+    });
   });
 });

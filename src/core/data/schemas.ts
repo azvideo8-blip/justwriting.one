@@ -113,7 +113,7 @@ export const documentDbSchema = z.object({
   isPublic: z.boolean().optional(),
   firstSessionAt: cloudTimestampSchema,
   lastSessionAt: cloudTimestampSchema,
-  mood: z.string().optional(),
+  mood: z.string().nullable().optional(),
   excludedFromAI: z.boolean().optional().default(false),
   _encrypted: z.boolean().optional(),
   _locked: z.boolean().optional(),
@@ -138,7 +138,7 @@ export const versionDbSchema = z.object({
   savedAt: cloudTimestampSchema,
   sessionStartedAt: cloudTimestampSchema,
   _encrypted: z.boolean().optional(),
-  mood: z.string().optional(),
+  mood: z.string().nullable().optional(),
 });
 
 export type SessionDb = z.infer<typeof sessionDbSchema>;

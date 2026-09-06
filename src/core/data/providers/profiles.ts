@@ -49,7 +49,7 @@ export function subscribeToProfile(userId: string, onUpdate: (data: ProviderReco
 
 export async function getUsers(limitCount: number): Promise<ProviderRecord[]> {
   const { data, error } = await getSupabase()
-    .from('users')
+    .from('admin_users_view')
     .select(ADMIN_USER_COLUMNS)
     .limit(limitCount);
   if (error != null) throw error;

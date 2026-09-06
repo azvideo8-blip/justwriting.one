@@ -23,10 +23,9 @@ export interface AiContext {
    *  `day` is the day the charge landed on — a refund must target it, not the
    *  day the failure happens to fall on (cross-midnight requests). */
   checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitVerdict>;
-  /** chargedDay: the day the charge landed on. Omitting it falls back to
-   *  today() — legacy shape kept for the string-form refundCall path only;
-   *  new code must always thread the day through. */
-  refundDailyLimit(uid: string, chargedDay?: string): Promise<void>;
+  /** chargedDay: the day the charge landed on. DEEP-9: required so a request charged
+   *  at 23:58 and failing after midnight refunds the right day row. */
+  refundDailyLimit(uid: string, chargedDay: string): Promise<void>;
   getDailyLimitCount(uid: string): Promise<{ used: number; date: string }>;
   getUserDailyLimit(uid: string): Promise<number>;
   isAdmin(uid: string): Promise<boolean>;
@@ -34,7 +33,7 @@ export interface AiContext {
    *  AUD-18: also enforces a per-interval cooldown keyed (uid, endpoint);
    *  returns 'RATE_LIMIT' when the interval has not elapsed. */
   checkAndIncrementBulkLimit(uid: string, endpoint?: string): Promise<LimitVerdict | 'RATE_LIMIT'>;
-  refundBulkLimit(uid: string, chargedDay?: string): Promise<void>;
+  refundBulkLimit(uid: string, chargedDay: string): Promise<void>;
   /** Combined chat limit + cooldown check; increments on success. */
   checkAndIncrementLimit(
     uid: string,

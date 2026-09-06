@@ -2,18 +2,18 @@ import { useState, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, subMonths, addMonths } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn, getSessionDate } from '../../../core/utils/utils';
+import { cn, getSessionDates } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
-import { Session } from '../../../types';
+import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../shared/i18n';
 
 interface CalendarProps {
-  sessions: Session[];
+  sessions: ArchiveSession[];
   sessionsByDate?: Record<string, number>;
-  selectedDate: Date;
-  onSelectDate: (d: Date) => void;
-  onSelectMonth?: (d: Date) => void;
+  selectedDate: Date | null;
+  onSelectDate: (date: Date | null) => void;
+  onSelectMonth?: (month: Date) => void;
 }
 
 export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate, onSelectMonth }: CalendarProps) {
@@ -27,7 +27,7 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
   // Adjust for Monday start (0=Mon, ..., 6=Sun)
   const offset = (startDay === 0 ? 6 : startDay - 1);
 
-  const activeDays = useMemo(() => sessions.map(s => getSessionDate(s)).filter((d): d is Date => d !== null), [sessions]);
+  const activeDays = useMemo(() => sessions.flatMap(s => getSessionDates(s)), [sessions]);
 
   return (
     <div className="space-y-4">
@@ -48,9 +48,9 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
         ))}
         {days.map(day => {
           const dateKey = format(day, 'yyyy-MM-dd');
-          const sessionCount = sessionsByDate?.[dateKey] ?? (activeDays.some(ad => isSameDay(ad, day)) ? 1 : 0);
+          const sessionCount = sessionsByDate ? (sessionsByDate[dateKey] ?? 0) : (activeDays.some(ad => isSameDay(ad, day)) ? 1 : 0);
           const hasSessions = sessionCount > 0;
-          const isSelected = isSameDay(day, selectedDate);
+          const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
           const today = isToday(day);
           return (
             <Button

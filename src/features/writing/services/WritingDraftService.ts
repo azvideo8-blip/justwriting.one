@@ -84,7 +84,7 @@ export const WritingDraftService = {
 
     const [localResult, legacyResult, cloudResult] = await Promise.allSettled([
       (async () => {
-        const localDb = await getLocalDb();
+        const localDb = await getLocalDb(userId);
         if (hasDraftsStore(localDb)) {
           return await localDb.get('drafts', userId) ?? null;
         }
@@ -167,11 +167,14 @@ export const WritingDraftService = {
   },
 
   saveToLocal: async (draft: LocalDraft, generation?: number): Promise<void> => {
+    if (!draft.userId) {
+      return;
+    }
     if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
       return;
     }
     try {
-      const localDb = await getLocalDb();
+      const localDb = await getLocalDb(draft.userId);
       if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
         return;
       }
@@ -237,7 +240,7 @@ export const WritingDraftService = {
     _lastCloudSignature.delete(userId);
     try { sessionStorage.setItem(STORAGE_KEYS.DRAFT_DELETED(userId), Date.now().toString()); } catch (e) { reportError(e, { action: 'deleteDraft_sessionStorageWrite', userId }); }
     try {
-      const localDb = await getLocalDb();
+      const localDb = await getLocalDb(userId);
       if (hasDraftsStore(localDb)) {
         await localDb.delete('drafts', userId);
       }

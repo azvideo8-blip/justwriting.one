@@ -63,7 +63,7 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
  * When `clearLocalData` is true (e.g. user selected "shared computer"), all local stores
  * are cleared, guarded by unsynced data protection unless `force` is true.
  */
-async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
+async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAccountDeletion?: boolean }) {
   const currentUid = getCurrentUser()?.uid;
   let wipeFailed: unknown = null;
 
@@ -75,8 +75,11 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean }) {
     }
 
     try {
-      const { clearAllLocalStores } = await import('../../../core/storage/localDb');
+      const { clearAllLocalStores, deleteLocalDatabase } = await import('../../../core/storage/localDb');
       await clearAllLocalStores(currentUid);
+      if (opts?.isAccountDeletion && currentUid) {
+        await deleteLocalDatabase(currentUid);
+      }
     } catch (e) {
       wipeFailed = e;
       reportError(e, { action: 'signOut_clearLocalDb' });
@@ -244,7 +247,7 @@ async function deleteAccount(password: string): Promise<void> {
   // «удалить аккаунт» уносило только облачную половину. Флаг force обязателен:
   // аккаунт на сервере уже уничтожен, отменять локальную очистку из-за
   // несинхронизированных данных бессмысленно и заблокировало бы выход.
-  await signOut({ clearLocalData: true, force: true });
+  await signOut({ clearLocalData: true, force: true, isAccountDeletion: true });
 }
 
 export const AuthService = {

@@ -80,10 +80,11 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   if (limitResult === 'RATE_LIMIT') {
     throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
+  const chargedDay = limitResult.day;
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
   if (!reservation) {
-    await ctx.refundDailyLimit(uid);
+    await ctx.refundDailyLimit(uid, chargedDay);
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
 
@@ -96,7 +97,7 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   try {
     result = await callModel(sanitizedInput, action, history ?? undefined);
   } catch (e) {
-    await ctx.refundDailyLimit(uid);
+    await ctx.refundDailyLimit(uid, chargedDay);
     await ctx.refundGlobalRequest(reservation);
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});

@@ -61,7 +61,8 @@ describe('WritingDraftService', () => {
   describe('loadDraft', () => {
     it('returns null when nothing found', async () => {
       makeLocalDb();
-            const draft = await WritingDraftService.loadDraft(mockUserId);
+      const draft = await WritingDraftService.loadDraft(mockUserId);
+      expect(getLocalDb).toHaveBeenCalledWith(mockUserId);
       expect(draft).toBeNull();
     });
 
@@ -261,6 +262,23 @@ describe('WritingDraftService', () => {
       await WritingDraftService.saveToLocal(draft, genAtStart);
       expect(db.put).not.toHaveBeenCalled();
     });
+
+    it('DEEP-1: saveToLocal passes draft.userId to getLocalDb so partition never falls back to guest DB', async () => {
+      makeLocalDb();
+      const uid = 'user_cross_tab_signout';
+      const draft = { userId: uid, content: 'private text', updatedAt: 1000 } as unknown as LocalDraft;
+
+      await WritingDraftService.saveToLocal(draft);
+      expect(getLocalDb).toHaveBeenCalledWith(uid);
+    });
+
+    it('DEEP-1: saveToLocal refuses to write when draft.userId is empty', async () => {
+      const db = makeLocalDb();
+      const draft = { userId: '', content: 'no owner', updatedAt: 1000 } as unknown as LocalDraft;
+
+      await WritingDraftService.saveToLocal(draft);
+      expect(db.put).not.toHaveBeenCalled();
+    });
   });
 
   describe('deleteDraft', () => {
@@ -271,7 +289,8 @@ describe('WritingDraftService', () => {
 
     it('deletes from localDb, localStorage, and firestore', async () => {
       const db = makeLocalDb();
-            await WritingDraftService.deleteDraft(mockUserId);
+      await WritingDraftService.deleteDraft(mockUserId);
+      expect(getLocalDb).toHaveBeenCalledWith(mockUserId);
       expect(db.delete).toHaveBeenCalledWith('drafts', mockUserId);
       expect(localStorage.getItem(STORAGE_KEYS.DRAFT(mockUserId))).toBeNull();
       expect(DataProvider.deleteDraft).toHaveBeenCalledWith(mockUserId);

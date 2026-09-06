@@ -285,7 +285,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
               {oversizedCount > 0 && (
                 <div className="text-[11px] text-amber-400 flex items-center gap-1 mt-1">
                   <AlertTriangle size={12} />
-                  <span>{oversizedCount} {oversizedCount === 1 ? 'диалог / запись превышает' : 'диалогов / записей превышают'} лимит размера 2 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)</span>
+                  <span>{oversizedCount} {oversizedCount === 1 ? 'диалог / запись превышает' : 'диалогов / записей превышают'} лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)</span>
                 </div>
               )}
             </div>

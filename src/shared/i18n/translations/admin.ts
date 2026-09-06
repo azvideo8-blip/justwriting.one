@@ -91,7 +91,12 @@ export const adminTranslations: Translations = {
   admin_clear_memory: { ru: 'Очистить память ИИ ({count})', en: 'Clear AI memory ({count})' },
   admin_clear_memory_desc: { ru: 'Удаляет накопленные факты/инсайты из прошлых бесед. Диалоги и заметки не затрагиваются.', en: 'Deletes accumulated facts/insights from past conversations. Dialogues and notes are unaffected.' },
   admin_collapse_versions: { ru: 'Схлопнуть версии заметок', en: 'Collapse note versions' },
-  admin_collapse_versions_desc: { ru: 'Оставляет у каждой заметки только последнюю версию (убирает «2 / N»). Текст не меняется.', en: 'Keeps only the latest version for each note (removes "2 / N"). Text unchanged.' },
+  admin_collapse_versions_desc: { ru: 'Оставляет у каждой заметки только последнюю версию. Старые снимки удаляются навсегда — с этого устройства и из облака на всех устройствах. Текст последней версии не меняется.', en: 'Keeps only the latest version for each note. Old snapshots are permanently deleted — from this device and from the cloud on all devices. The text of the latest version is unchanged.' },
+  admin_collapse_versions_confirm_title: { ru: 'Схлопнуть версии ({count})?', en: 'Collapse versions ({count})?' },
+  admin_collapse_versions_confirm_message: { ru: 'Оставляет у каждой заметки только последнюю версию. Старые снимки удаляются навсегда — с этого устройства и из облака на всех устройствах. Текст последней версии не меняется.', en: 'Keeps only the latest version for each note. Old snapshots are permanently deleted — from this device and from the cloud on all devices. The text of the latest version is unchanged.' },
+  admin_collapse_versions_done: { ru: 'Готово: удалено старых версий — {count}', en: 'Done: removed old versions — {count}' },
+  admin_collapse_versions_partial: { ru: 'Схлопнуто частично: удалено локально ({count}), но не удалось удалить из облака ({failures})', en: 'Partially collapsed: removed locally ({count}), but failed to delete from cloud ({failures})' },
+  admin_collapse_versions_error: { ru: 'Не удалось схлопнуть версии', en: 'Failed to collapse versions' },
 
   // Mass analyze card
   admin_mass_title: { ru: 'Фоновый анализ ИИ заметок', en: 'Background AI note analysis' },

@@ -44,8 +44,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
     throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
   }
   // День списания фиксируем сразу: refund после полуночи должен вернуть слот
-  // в тот день, когда он был взят (AUD-BILL: refund без chargedDay чинит чужой день).
-  const chargedDay: string | undefined = verdict.ok ? verdict.day : undefined;
+  const chargedDay: string = verdict.day;
 
   const safeQuery = sanitizeAiInput(query);
   const cardsText = candidates

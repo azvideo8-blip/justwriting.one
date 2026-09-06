@@ -11,11 +11,13 @@ import pLimit from 'p-limit';
 const _syncInProgress = new Map<string, boolean>();
 const limit = pLimit(5);
 
-// AUDIT-H4: детерминированные ошибки (LOCKED, DECRYPTION_ERROR,
+// AUDIT-H4: детерминированные ошибки (DECRYPTION_ERROR, LOCKED,
 // Invalid sessionStartedAt, ENCRYPT_REQUIRED) не исправятся ретраями — задача уходит в карантин
 // сразу; остальным даём MAX_ATTEMPTS проходов, потом тоже карантин.
+// DEEP-4: LOCKED детерминирован (10 попыток расшифровать закрытый сейф — 10 бесполезных
+// вызовов); broadcast-канал vault оживляет карантинные LOCKED-задачи, когда сейф открыт.
 const MAX_ATTEMPTS = 10;
-const DETERMINISTIC_ERROR = /LOCKED|DECRYPTION_ERROR|Invalid sessionStartedAt|ENCRYPT_REQUIRED/;
+const DETERMINISTIC_ERROR = /DECRYPTION_ERROR|LOCKED|Invalid sessionStartedAt|ENCRYPT_REQUIRED/;
 
 async function bumpAttempts(
   taskId: string,
@@ -27,7 +29,8 @@ async function bumpAttempts(
   if (!item || item.dead) return;
   const attempts = (item.attempts ?? 0) + 1;
   const reasonStr = String(reason);
-  const dead = DETERMINISTIC_ERROR.test(reasonStr) || attempts >= MAX_ATTEMPTS;
+  const isDeterministic = DETERMINISTIC_ERROR.test(reasonStr);
+  const dead = isDeterministic || attempts >= MAX_ATTEMPTS;
   await mutate(taskId, { attempts, dead, lastError: reasonStr });
   if (dead) {
     reportError(new Error('Sync task quarantined'), { taskId, attempts, reason: reasonStr }, 'warning');

@@ -51,6 +51,9 @@ export async function getEncryptionMeta(uid: string): Promise<EncryptionMeta | n
   const version = typeof meta.version === 'number' ? meta.version : 1;
   const recoveryWrappedDataKey = typeof meta.recoveryWrappedDataKey === 'string' ? meta.recoveryWrappedDataKey : undefined;
   const recoverySalt = typeof meta.recoverySalt === 'string' ? meta.recoverySalt : undefined;
+  const iterations = typeof meta.iterations === 'number' && Number.isFinite(meta.iterations) && meta.iterations > 0
+    ? meta.iterations
+    : undefined;
   return {
     salt,
     version,
@@ -58,6 +61,7 @@ export async function getEncryptionMeta(uid: string): Promise<EncryptionMeta | n
     verification,
     recoveryWrappedDataKey,
     recoverySalt,
+    iterations,
   };
 }
 

@@ -96,6 +96,16 @@ export interface SessionCore {
   mood?: string | undefined;
 }
 
+export interface SessionSitting {
+  id: string;
+  documentId: string;
+  version: number;
+  sessionStartedAt?: number | null | undefined;
+  savedAt: number;
+  wordsAdded?: number | undefined;
+  duration?: number | undefined;
+}
+
 export interface Session extends SessionCore {
   id: string;
   labelId?: string | undefined;
@@ -104,6 +114,8 @@ export interface Session extends SessionCore {
   /** Слова именно этой сессии (дельта последней версии), а не объём всей
    *  заметки: heatmap и стрик красят день работой этого дня (#101). */
   sessionWordsAdded?: number | undefined;
+  /** DEEP-2: хронология всех подходов (сессий/версий) к заметке для статистики (heatmap, стрик, ритм). */
+  sittings?: SessionSitting[] | undefined;
   _isLocal?: boolean | undefined;
   _isLegacy?: boolean | undefined;
   _hasCloudCopy?: boolean | undefined;

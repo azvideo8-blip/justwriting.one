@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../../core/storage/localDb';
 import {
@@ -106,5 +106,48 @@ describe('localDataInventory', () => {
     expect(docs).toHaveLength(1);
     expect(docs[0]?.guestId).toBe('user_B');
     expect(await hasOtherUserData('user_B')).toBe(false);
+  });
+
+  it('DEEP-10: counts versions without calling getAll on versions store', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', {
+      id: 'doc_10',
+      guestId: 'user_10',
+      title: 'Doc 10',
+      currentVersion: 5,
+      totalWords: 50,
+      totalDuration: 0,
+      sessionsCount: 5,
+      firstSessionAt: 1,
+      lastSessionAt: 5,
+      tags: [],
+    } as never);
+
+    for (let i = 1; i <= 5; i++) {
+      await db.put('versions', {
+        id: `ver_10_${i}`,
+        documentId: 'doc_10',
+        version: i,
+        content: `Long text content for version ${i}`.repeat(100),
+        savedAt: i * 1000,
+        wordsAdded: 10,
+        pauseCount: 0,
+      } as never);
+    }
+
+    const getAllSpy = vi.spyOn(db, 'getAll');
+
+    const invScoped = await countLocalDataInventory('user_10');
+    expect(invScoped.notesCount).toBe(1);
+    expect(invScoped.versionsCount).toBe(5);
+
+    // Verify getAll('versions') was never called
+    expect(getAllSpy).not.toHaveBeenCalledWith('versions');
+
+    const invGlobal = await countLocalDataInventory();
+    expect(invGlobal.versionsCount).toBe(5);
+    expect(getAllSpy).not.toHaveBeenCalledWith('versions');
+
+    getAllSpy.mockRestore();
   });
 });

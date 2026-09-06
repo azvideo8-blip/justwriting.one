@@ -10,6 +10,7 @@ import { AIChatMemoryService } from '../services/AIChatMemoryService';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { useLanguage } from '../../../shared/i18n';
 import { UserProfile } from '../../../types';
 import { getCurrentUser } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
@@ -59,6 +60,7 @@ const ADMIN_AI_USERS_LIMIT = 150;
 export function useDiagnosticsData(profile: UserProfile | null, authLoading: boolean, activeTab: Tab) {
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
+  const { t } = useLanguage();
 
   const [loadingData, setLoadingData] = useState(true);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -357,20 +359,38 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleCollapseVersions = async () => {
-    const ok = await confirmDialog({ title: 'Схлопнуть версии?', message: 'Оставить только последнюю версию у каждой заметки. Текст не меняется, удаляются лишь старые снимки. Действие необратимо.' });
-    if (!ok) return;
     try {
       const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
       const docs = await LocalDocumentService.getDocumentsByOwner(uid);
+      const toDeleteCount = await LocalVersionService.countCollapsibleVersions(docs.map(d => d.id));
+
+      const ok = await confirmDialog({
+        title: t('admin_collapse_versions_confirm_title', { count: toDeleteCount }),
+        message: t('admin_collapse_versions_confirm_message'),
+      });
+      if (!ok) return;
+
       let removed = 0;
+      let cloudFailures = 0;
       for (const d of docs) {
-        removed += await LocalVersionService.collapseToLatest(d.id);
+        const res = await LocalVersionService.collapseToLatest(d.id, uid);
+        removed += res.removedCount;
+        if (res.cloudError) {
+          cloudFailures++;
+        }
       }
-      showToast(`Готово: удалено старых версий — ${removed}`, 'success');
+      if (cloudFailures > 0) {
+        showToast(
+          t('admin_collapse_versions_partial', { count: removed, failures: cloudFailures }),
+          'error',
+        );
+      } else {
+        showToast(t('admin_collapse_versions_done', { count: removed }), 'success');
+      }
       await loadSystemStats();
     } catch (e: unknown) {
       reportError(e, { action: 'Failed to collapse versions' });
-      showToast('Не удалось схлопнуть версии', 'error');
+      showToast(t('admin_collapse_versions_error'), 'error');
     }
   };
 

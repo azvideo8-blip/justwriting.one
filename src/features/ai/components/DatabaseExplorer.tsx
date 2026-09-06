@@ -73,12 +73,18 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
           const data = await DocumentService.getUserDocuments(userId);
           setRecords(data as unknown as RecordType[]);
         } else if (selectedTable === 'user_versions') {
-          const docs = await DocumentService.getUserDocuments(userId);
-          const allVersions: RecordType[] = [];
+          const [docs, versions] = await Promise.all([
+            DocumentService.getUserDocuments(userId),
+            VersionService.getAllVersionsForUser(userId),
+          ]);
+          const docTitleMap = new Map<string, string>();
           for (const doc of docs) {
-            const vers = await VersionService.getVersions(userId, doc.id);
-            allVersions.push(...vers.map(v => ({ ...v, docTitle: doc.title } as unknown as RecordType)));
+            docTitleMap.set(doc.id, doc.title || '');
           }
+          const allVersions = versions.map(v => ({
+            ...v,
+            docTitle: docTitleMap.get(v.documentId) ?? '',
+          } as unknown as RecordType));
           setRecords(allVersions);
         }
       }

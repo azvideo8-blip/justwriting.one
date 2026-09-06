@@ -57,12 +57,23 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
   const { cells, monthLabels } = useMemo(() => {
     const wordsByDate: Record<string, number> = {};
     sessions.forEach(s => {
-      const d = getSessionDate(s);
-      if (!d) return;
-      const key = d.toDateString();
-      // Дневная дельта, а не объём заметки: правка 10k-заметки на слово
-      // не должна красить день десятью тысячами (#101).
-      wordsByDate[key] = (wordsByDate[key] || 0) + (s.sessionWordsAdded || s.wordCount || 0);
+      if (s.sittings && s.sittings.length > 0) {
+        s.sittings.forEach(sitting => {
+          const ts = sitting.savedAt || sitting.sessionStartedAt;
+          if (!ts) return;
+          const d = new Date(ts);
+          if (isNaN(d.getTime())) return;
+          const key = d.toDateString();
+          wordsByDate[key] = (wordsByDate[key] || 0) + (sitting.wordsAdded ?? 0);
+        });
+      } else {
+        const d = getSessionDate(s);
+        if (!d) return;
+        const key = d.toDateString();
+        // Дневная дельта, а не объём заметки: правка 10k-заметки на слово
+        // не должна красить день десятью тысячами (#101).
+        wordsByDate[key] = (wordsByDate[key] || 0) + (s.sessionWordsAdded || s.wordCount || 0);
+      }
     });
 
     const endDate = new Date();

@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.8.40 — 2026-09-06
+
+- **[RU]** Черновик больше не может попасть в общую гостевую базу. Выход из аккаунта в одной вкладке обнулял состояние во всех, и автосохранение в соседней записывало текст в базу, доступную следующему гостю на устройстве. Теперь база берётся из владельца записи, а запись без владельца просто не делается.
+- **[EN]** A draft can no longer end up in the shared guest database. Signing out in one tab reset the state in all of them, and autosave in a neighbouring tab wrote the text into a database the next guest on the device could open. The database is now chosen by the record's owner, and a record without one is not written at all.
+- **[RU]** Администратор больше не может прочитать психологический портрет другого человека: политика доступа сужена до собственной строки, а служебная вкладка работает через отдельное представление без портрета и ключей.
+- **[EN]** An administrator can no longer read another person's psychological portrait: the access policy is narrowed to their own row, and the admin screen works through a separate view that carries neither the portrait nor any key material.
+- **[RU]** Удаление аккаунта убирает саму локальную базу, а не только её содержимое — на устройстве не остаётся даже её имени как следа того, что аккаунт существовал.
+- **[EN]** Deleting an account removes the local database itself, not only its contents — not even its name is left on the device as a trace that the account existed.
+- **[RU]** История заметки больше не схлопывается в один день. Продолжение старой заметки гасило предыдущие дни в тепловой карте и обрывало серию; теперь считаются все подходы.
+- **[EN]** A note's history no longer collapses into a single day. Continuing an old note used to erase the earlier days from the heat map and break the streak; every sitting is counted now.
+- **[RU]** Сейф, открытый в одной вкладке, виден остальным: соседняя вкладка больше не откладывает задачи синхронизации в карантин, пока сейф уже открыт. Сам ключ между вкладками не передаётся — только факт разблокировки.
+- **[EN]** A vault unlocked in one tab is visible to the others: a neighbouring tab no longer quarantines sync tasks while the vault is already open. The key itself never travels between tabs — only the fact of unlocking.
+- **[RU]** Разблокировка сейфа перестала быть медленной: при чтении настроек терялось число раундов, и каждая попытка пароля перебирала сначала 600 000, потом 300 000 — на телефоне это были секунды замершего экрана после опечатки.
+- **[EN]** Unlocking the vault is no longer slow: the number of rounds was dropped when the settings were read, so every password attempt tried 600,000 and then 300,000 of them — seconds of a frozen screen on a phone after a typo.
+- **[RU]** Две операции синхронизации больше не берутся за один документ одновременно: у замка появился владелец, и снять его может только он.
+- **[EN]** Two sync operations no longer take the same document at once: the lock has an owner, and only its owner can release it.
+- **[RU]** Проверка расхождений с облаком больше не останавливается на первой тысяче строк, а списки архива и обозреватель базы перестали вычитывать все версии целиком ради счётчика — на большом архиве это укладывало вкладку на телефоне.
+- **[EN]** The cloud discrepancy check no longer stops at the first thousand rows, and the archive lists and the database explorer no longer read every version in full just to count them — on a large archive that used to kill the tab on a phone.
+- **[RU]** Карточка «в этот день» перестала промахиваться мимо месяца 29-го, 30-го и 31-го числа.
+- **[EN]** The «on this day» card no longer misses the month on the 29th, 30th and 31st.
+- **[RU]** Вкладка, пережившая выкатку, больше не показывает пустой архив молча: появляется сообщение, что приложение обновилось в другой вкладке, и предложение обновить страницу — данные на месте.
+- **[EN]** A tab that outlived a deploy no longer shows an empty archive in silence: it now says the application was updated in another tab and offers to reload — the data is where it was.
+- **[RU]** Обрыв связи после того, как модель начала отвечать, больше не возвращает дневную квоту; возврат остаётся, когда ответ так и не начался. Сбой разбора ответа показывается как ошибка провайдера, а не как «текст слишком длинный».
+- **[EN]** Losing the connection after the model has begun answering no longer refunds the daily quota; the refund stays for the case where the answer never started. A failure to parse the answer is shown as a provider error rather than «the text is too long».
+- **[RU]** «Схлопнуть версии» удаляет старые снимки и в облаке, поэтому следующая синхронизация не возвращает их обратно, а подтверждение теперь честно говорит, сколько версий будет удалено и что это необратимо на всех устройствах.
+- **[EN]** «Collapse versions» now deletes the old snapshots in the cloud as well, so the next sync does not bring them back, and the confirmation says honestly how many versions will go and that it cannot be undone, on any device.
+
 ## 0.8.39 — 2026-09-04
 
 - **[RU]** Заметка, чей текст начинается со слова вроде «Eyes», больше не выпадает из синхронизации навсегда. Признак «это шифротекст» угадывался по первым буквам и совпадал с обычной прозой; теперь берётся честная пометка о шифровании.

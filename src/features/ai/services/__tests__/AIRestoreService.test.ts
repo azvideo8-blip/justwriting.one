@@ -50,7 +50,7 @@ vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() })
 
 const summaryDocs: Array<{ id: string; data: () => unknown }> = [];
 const embeddingDocs: Array<{ id: string; data: () => unknown }> = [];
-const localStoreRecordsDocs: Array<{ store: string; key: string; payload: Record<string, unknown> }> = [];
+const localStoreRecordsDocs: Array<{ store: string; key: string; payload: Record<string, unknown>; checksum?: string }> = [];
 
 vi.mock('../../../../core/data', () => ({
   DataProvider: {
@@ -92,6 +92,9 @@ vi.mock('../AIEmbeddingService', () => ({
 }));
 
 import { restoreAIDataFromCloud, reattachOrphanedAnalysis, requestEmbeddingRestore } from '../AIRestoreService';
+import { reportError } from '../../../../shared/errors/reportError';
+import { logger } from '../../../../shared/errors/logger';
+import { MAX_LOCAL_RECORD_BYTES } from '../../../../core/services/LocalStoreSyncService';
 
 describe('restoreAIDataFromCloud', () => {
   beforeEach(() => {
@@ -177,6 +180,149 @@ describe('restoreAIDataFromCloud', () => {
 
     expect(res.localStoreRecords).toBe(1);
     expect(localStore.aiPortrait.get('singleton')).toMatchObject({ portrait: 'Cloud Newer' });
+  });
+
+  it('restores assembled record just under MAX_LOCAL_RECORD_BYTES (AG-RESTORE-4)', async () => {
+    // Large synthetic payload (~9.5 MB)
+    const paddingSize = 9.5 * 1024 * 1024;
+    const padding = 'x'.repeat(paddingSize);
+    const largeObj = { id: 'large-dlg', pad: padding, updatedAt: 3000 };
+    const jsonStr = JSON.stringify(largeObj);
+    const byteLen = new TextEncoder().encode(jsonStr).length;
+    expect(byteLen).toBeLessThan(MAX_LOCAL_RECORD_BYTES);
+
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'large-dlg',
+      payload: { data: jsonStr, updatedAt: 3000 },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(1);
+    expect(res.oversized).toBe(0);
+    expect(res.failed).toBe(0);
+    expect(localStore.aiDialogues.get('large-dlg')).toMatchObject({ id: 'large-dlg', pad: padding });
+  });
+
+  it('rejects record exceeding MAX_LOCAL_RECORD_BYTES, reports oversized with both numbers and never malformed (AG-RESTORE-4)', async () => {
+    // Payload slightly above MAX_LOCAL_RECORD_BYTES (10 MB)
+    const padding = 'y'.repeat(MAX_LOCAL_RECORD_BYTES + 1024);
+    const oversizedObj = { id: 'huge-dlg', pad: padding, updatedAt: 3000 };
+    const jsonStr = JSON.stringify(oversizedObj);
+    const recordBytes = new TextEncoder().encode(jsonStr).length;
+    expect(recordBytes).toBeGreaterThan(MAX_LOCAL_RECORD_BYTES);
+
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'huge-dlg',
+      payload: { data: jsonStr, updatedAt: 3000 },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(0);
+    expect(res.oversized).toBe(1);
+    expect(res.failed).toBe(0);
+    expect(localStore.aiDialogues.get('huge-dlg')).toBeUndefined();
+
+    // Verify reportError was called with warning level, recordBytes, and limit
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringMatching(new RegExp(`oversized local_store_record \\(${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes\\)`)),
+      }),
+      { store: 'aiDialogues', key: 'huge-dlg', bytes: recordBytes, limit: MAX_LOCAL_RECORD_BYTES },
+      'warning'
+    );
+
+    // Verify reportError was NEVER called with 'malformed'
+    const reportCalls = vi.mocked(reportError).mock.calls;
+    for (const call of reportCalls) {
+      const err = call[0] as Error;
+      expect(err.message).not.toContain('malformed');
+    }
+
+    // Verify logger.warn was called with size and limit
+    expect(logger.warn).toHaveBeenCalledWith(
+      'AIRestoreService',
+      expect.stringContaining(`Record too large to restore (${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes): aiDialogues/huge-dlg`)
+    );
+  });
+
+  it('reports genuinely unparseable corrupted JSON as malformed (AG-RESTORE-4)', async () => {
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'corrupt-dlg',
+      payload: { data: '{ "id": "corrupt-dlg", invalid-json-syntax-here', updatedAt: 3000 },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(0);
+    expect(res.failed).toBe(1);
+    expect(res.oversized).toBe(0);
+    expect(localStore.aiDialogues.get('corrupt-dlg')).toBeUndefined();
+
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'restoreAIData: malformed local_store_record' }),
+      { store: 'aiDialogues', key: 'corrupt-dlg' }
+    );
+  });
+
+  it('restores production-shaped dialogue record (~941 KB across 2 pages) and validates checksum (AG-RESTORE-4)', async () => {
+    // Production shape: ~941 KB across 2 pages (~470 KB each), paged with #0, #1
+    const halfChunkSize = 470 * 1024;
+    const chunk0 = '{"id":"prod-dlg","messages":["' + 'A'.repeat(halfChunkSize);
+    const chunk1 = 'B'.repeat(halfChunkSize) + '"],"updatedAt":3000}';
+    const fullJson = chunk0 + chunk1;
+    const expectedChecksum = `hash-of:${fullJson}`;
+
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'prod-dlg#0',
+      payload: { data: chunk0, totalPages: 2, updatedAt: 3000 },
+      checksum: expectedChecksum,
+    });
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'prod-dlg#1',
+      payload: { data: chunk1, totalPages: 2, updatedAt: 3000 },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(1);
+    expect(res.oversized).toBe(0);
+    expect(res.failed).toBe(0);
+    expect(localStore.aiDialogues.get('prod-dlg')).toBeDefined();
+    expect((localStore.aiDialogues.get('prod-dlg') as any).id).toBe('prod-dlg');
+  });
+
+  it('fails restore and logs warning when checksum does not match for paged record (AG-RESTORE-4)', async () => {
+    const chunk0 = '{"id":"bad-checksum-dlg","data":"part1';
+    const chunk1 = 'part2","updatedAt":3000}';
+
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'bad-checksum-dlg#0',
+      payload: { data: chunk0, totalPages: 2, updatedAt: 3000 },
+      checksum: 'hash-of:wrong-checksum-data',
+    });
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'bad-checksum-dlg#1',
+      payload: { data: chunk1, totalPages: 2, updatedAt: 3000 },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.localStoreRecords).toBe(0);
+    expect(res.failed).toBe(1);
+    expect(localStore.aiDialogues.get('bad-checksum-dlg')).toBeUndefined();
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'restoreAIData: checksum mismatch' }),
+      { store: 'aiDialogues', key: 'bad-checksum-dlg' }
+    );
   });
 
 

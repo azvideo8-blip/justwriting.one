@@ -100,7 +100,7 @@ function createSettlement(
   uid: string,
   isInternalCall: boolean,
   reservation: GlobalReservation | null,
-  chargedDay: string | undefined,
+  chargedDay: string,
 ): Settlement {
   let upstreamProduced = false;
   let settled = false;
@@ -113,14 +113,15 @@ function createSettlement(
       settled = true;
       if (reason === 'done') return;
 
-      if (isInternalCall) {
-        await postgresAiContext.refundBulkLimit(uid, chargedDay);
-      } else {
-        await postgresAiContext.refundDailyLimit(uid, chargedDay);
-      }
-      // Выданные токены оплачены на самом деле — глобальный резерв за них
-      // не возвращается. Правило AG-BILL-1, не менять.
+      // DEEP-8: Выданные токены оплачены на самом деле — если модель уже начала
+      // отвечать, сброс соединения клиентом не возвращает дневную квоту.
+      // Возврат происходит только если апстрим ничего не успел выдать (!upstreamProduced).
       if (!upstreamProduced) {
+        if (isInternalCall) {
+          await postgresAiContext.refundBulkLimit(uid, chargedDay);
+        } else {
+          await postgresAiContext.refundDailyLimit(uid, chargedDay);
+        }
         await postgresAiContext.refundGlobalRequest(reservation);
       }
     },
@@ -135,7 +136,7 @@ async function streamOpenRouterReasoning(
   messages: Array<{ role: string; content: string }>,
   isInternalCall: boolean,
   reservation: GlobalReservation | null,
-  chargedDay: string | undefined,
+  chargedDay: string,
 ): Promise<void> {
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay);
 
@@ -387,7 +388,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
   // День списания. Все refund'ы ниже целятся в него: запрос, начатый в
   // 23:58 и упавший после полуночи, возвращает единицу в правильную строку.
-  let chargedDay: string | undefined;
+  let chargedDay: string;
 
   if (isInternalCall) {
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit(uid, 'chat');

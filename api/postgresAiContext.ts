@@ -164,15 +164,11 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
   }
 }
 
-async function refundDailyLimit(uid: string, chargedDay?: string): Promise<void> {
+async function refundDailyLimit(uid: string, chargedDay: string): Promise<void> {
   try {
-    // Refund целится в день СПИСАНИЯ. Раньше здесь был today() на момент
-    // неудачи: запрос, списавший квоту в 23:58 и упавший после полуночи,
-    // возвращал единицу в пустую строку — юзер терял её навсегда.
-    const date = chargedDay ?? today();
     await pool.query(
       `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'chat'`,
-      [uid, date],
+      [uid, chargedDay],
     );
   } catch (e) {
     console.error('[postgresAiContext] refundDailyLimit error', e);
@@ -264,12 +260,11 @@ async function checkAndIncrementBulkLimit(
   }
 }
 
-async function refundBulkLimit(uid: string, chargedDay?: string): Promise<void> {
+async function refundBulkLimit(uid: string, chargedDay: string): Promise<void> {
   try {
-    const date = chargedDay ?? today();
     await pool.query(
       `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'bulk'`,
-      [uid, date],
+      [uid, chargedDay],
     );
   } catch (e) {
     console.error('[postgresAiContext] refundBulkLimit error', e);
