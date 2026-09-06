@@ -356,23 +356,16 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
   const issuer = process.env.SMOKE_JWT_ISS ?? `${origin}/auth/v1`;
   const token = mintSmokeJwt(secret, uid, issuer);
 
-  // «Заголовки пришли» значит РАЗНОЕ в двух ветках, и на этом проверка однажды
-  // упала на верном коде.
+  // Обрыв на заголовках — это «человек нажал Стоп сразу». Дневной слот обязан
+  // вернуться в обеих ветках: он возвращается, пока поставщик выдал меньше
+  // порога, а не по факту первого токена. Глобальный резерв за выданные токены
+  // не возвращается — это отдельное правило, AG-BILL-1.
   //
-  // Ветка рассуждений пишет res.writeHead ДО первого чтения от поставщика:
-  // обрыв на заголовках застаёт момент, когда модель ещё ничего не выдала, —
-  // значит слот обязан вернуться. Обычная ветка отдаёт заголовки через
-  // pipeTextStreamToResponse, а тот начинает писать вместе с первым куском:
-  // к этому моменту onChunk уже отметил выдачу. По правилу DEEP-8 выданные
-  // токены оплачены, и списание там — правильное поведение, а не сбой.
-  //
-  // Поэтому возврат проверяется на той ветке, где обрыв действительно
-  // происходит до выдачи. Возврат в обычной ветке — там, где его можно
-  // проверить без гонки: api/__tests__/chatStreamClose.test.ts, случай
-  // «клиент ушёл до первого байта».
+  // Пауза между случаями больше кулдауна, иначе второй запрос отбивается до
+  // тарификации и проверка становится пустой.
   const cases = [
     { reasoning: true, name: 'чат с рассуждениями', expectRefund: true },
-    { reasoning: false, name: 'обычный чат', expectRefund: false },
+    { reasoning: false, name: 'обычный чат', expectRefund: true },
   ];
 
   for (const c of cases) {
@@ -382,7 +375,10 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
       await openChatStreamThenDestroy(origin, token, c.reasoning);
 
       // Даём серверу время получить RST и исполнить res.on('close').
-      await new Promise((r) => setTimeout(r, 3_000));
+      // Пауза больше кулдауна (COOLDOWN_MS = 10 с): иначе второй запрос
+      // отбивается лимитом ДО тарификации, счётчик не меняется, и проверка
+      // выглядит пройденной, ничего не проверив. Так она и «проходила».
+      await new Promise((r) => setTimeout(r, 12_000));
 
       const after = await fetchDailyUsed(origin, token, uid);
       const delta = after - before;

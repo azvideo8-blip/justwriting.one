@@ -219,7 +219,9 @@ describe('3.8 stream disconnect', () => {
     expect(recordUsage).not.toHaveBeenCalled();
   });
 
-  it('DEEP-8: токен обработан ДО обрыва → слот НЕ возвращён, глобальный резерв не возвращён', async () => {
+  // Порог объёма, а не факта: дыра DEEP-8 — это дочитать ответ и оборваться,
+  // а не нажать «Стоп» на первом слоге. Фикстура выдаёт заведомо больше порога.
+  it('DEEP-8: ответ дочитан, потом обрыв → слот НЕ возвращён, глобальный резерв тоже', async () => {
     // DEEP-8: Поставщик успел выдать и обработать кусок до разрыва — токены потрачены
     // по-настоящему, суточный слот и глобальный резерв списываются.
     const enc = new TextEncoder();
@@ -239,7 +241,7 @@ describe('3.8 stream disconnect', () => {
     await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
     // Сначала токен обработан (reasoning-ветка копит в contentAccum, в сокет
     // не пишет)...
-    streamController?.enqueue(enc.encode('data: {"choices":[{"delta":{"content":"Привет"}}]}\n\n'));
+    streamController?.enqueue(enc.encode('data: {"choices":[{"delta":{"content":"аааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааааа"}}]}\n\n'));
     streamController?.enqueue(enc.encode('data: {"usage":{"prompt_tokens":7,"completion_tokens":2}}\n\n'));
     await vi.waitFor(() => expect(res.body).toBeDefined(), { timeout: 2000 });
     await new Promise((r) => setTimeout(r, 50));
@@ -254,6 +256,37 @@ describe('3.8 stream disconnect', () => {
     expect(refundDaily).not.toHaveBeenCalled();
     expect(refundGlobal).not.toHaveBeenCalled();
     expect(recordUsage).toHaveBeenCalled();
+  });
+
+  it('«Стоп» в начале ответа возвращает дневной слот, хотя поставщик уже что-то выдал', async () => {
+    // Вторая половина правила DEEP-8, и та, которую первая реализация потеряла:
+    // порог «хоть один токен» не срабатывал никогда, потому что до сервера
+    // обрыв доходит позже, чем поставщик успевает выдать первый кусок. Проверка
+    // после выкатки поймала это на живом сервере: слот списывался всегда.
+    const enc = new TextEncoder();
+    const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
+    fetchMock.mockImplementationOnce(() => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) { streamController = controller; },
+      }),
+      { status: 200 },
+    )));
+
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    // Поставщик выдал пару слогов — меньше порога.
+    streamController?.enqueue(enc.encode('data: {"choices":[{"delta":{"content":"Ти"}}]}\n\n'));
+    await new Promise(r => setTimeout(r, 10));
+    res.emit('close');
+    streamController?.close();
+    await done;
+
+    expect(refundDaily, 'человек не получил ответа — слот обязан вернуться').toHaveBeenCalledTimes(1);
+    expect(refundGlobal, 'а выданные токены оплачены: резерв не возвращается').not.toHaveBeenCalled();
   });
 
   it('AG-BILL-1 мутация: без !upstreamProduced тест обязан краснеть (проверено снятием защиты)', async () => {
@@ -304,7 +337,7 @@ describe('3.8 stream disconnect', () => {
     expect(refundGlobal).toHaveBeenCalledTimes(1);
   });
 
-  it('DEEP-8: ordinary chat does NOT refund slot or global reservation when client leaves after chunks arrived', async () => {
+  it('DEEP-8: обычный чат не возвращает слот, когда клиент ушёл, получив существенный ответ', async () => {
     const enc = new TextEncoder();
     const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
     // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
@@ -321,7 +354,7 @@ describe('3.8 stream disconnect', () => {
     const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
 
     await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
-    const chunk = JSON.stringify({ choices: [{ index: 0, delta: { content: 'Привет' } }] });
+    const chunk = JSON.stringify({ choices: [{ index: 0, delta: { content: 'а'.repeat(400) } }] });
     streamController?.enqueue(enc.encode(`data: ${chunk}\n\n`));
     await vi.waitFor(() => expect(res.body.length).toBeGreaterThan(0), { timeout: 2000 });
     res.destroyed = true;

@@ -89,13 +89,21 @@ type OrChunk = {
 };
 
 interface Settlement {
-  markUpstreamProduced: () => void;
+  markUpstreamProduced: (chars?: number) => void;
   settle: (reason: 'closed' | 'failed' | 'done') => Promise<void>;
 }
 
 // Одно правило — одна реализация. Две ветки стрима уже разошлись однажды:
 // AG-BILL-2 починил ветку рассуждений, а обычный чат остался без возврата на
 // девять релизов, потому что чинить пришли в тот файл, где искали.
+/**
+ * Ниже этого объёма выданного текста оборванный запрос считается не
+ * состоявшимся для человека, и дневной слот возвращается. Двести символов —
+ * это меньше абзаца: украсть ответ на такой длине нельзя, а нажать «Стоп»
+ * сразу после начала — обычное дело.
+ */
+const REFUND_IF_PRODUCED_UNDER_CHARS = 200;
+
 function createSettlement(
   uid: string,
   isInternalCall: boolean,
@@ -103,25 +111,41 @@ function createSettlement(
   chargedDay: string,
 ): Settlement {
   let upstreamProduced = false;
+  let producedChars = 0;
   let settled = false;
   return {
-    markUpstreamProduced: () => {
+    markUpstreamProduced: (chars = 0) => {
       upstreamProduced = true;
+      producedChars += chars;
     },
     settle: async (reason: 'closed' | 'failed' | 'done') => {
       if (settled) return;
       settled = true;
       if (reason === 'done') return;
 
-      // DEEP-8: Выданные токены оплачены на самом деле — если модель уже начала
-      // отвечать, сброс соединения клиентом не возвращает дневную квоту.
-      // Возврат происходит только если апстрим ничего не успел выдать (!upstreamProduced).
-      if (!upstreamProduced) {
+      // Две разные величины, и их однажды уже перепутали.
+      //
+      // Глобальный резерв — про токены, за которые мы платим поставщику: раз
+      // они выданы, они выданы. Это правило AG-BILL-1, оно не меняется.
+      //
+      // Дневной слот — наша собственная мера справедливости к человеку.
+      // DEEP-8 верно заметил, что возвращать его всегда — это дыра: можно
+      // дочитать ответ почти до конца, оборвать соединение до onFinish и
+      // сохранить и ответ, и слот. Но порог «хоть один токен» слишком груб:
+      // до того, как обрыв дойдёт до сервера, поставщик почти всегда успевает
+      // выдать что-нибудь, поэтому оговорка самого тикета — «возврат остаётся
+      // при нажатии Стоп в начале ответа» — не срабатывала никогда, и проверка
+      // после выкатки это поймала.
+      //
+      // Поэтому меряется объём, а не факт: ответа на пару фраз никто не крал.
+      if (producedChars < REFUND_IF_PRODUCED_UNDER_CHARS) {
         if (isInternalCall) {
           await postgresAiContext.refundBulkLimit(uid, chargedDay);
         } else {
           await postgresAiContext.refundDailyLimit(uid, chargedDay);
         }
+      }
+      if (!upstreamProduced) {
         await postgresAiContext.refundGlobalRequest(reservation);
       }
     },
@@ -223,9 +247,10 @@ async function streamOpenRouterReasoning(
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      settlement.markUpstreamProduced();
+      const decoded = decoder.decode(value, { stream: true });
+      settlement.markUpstreamProduced(decoded.length);
       sawUpstreamChunk = true;
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoded;
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
       for (const raw of lines) {
@@ -511,7 +536,10 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     providerOptions: { openai: { reasoningEffort: 'none' } },
     // Поставщик что-то выдал — это НЕ то же, что «байт дошёл до клиента».
     // Выданные токены потрачены и из глобального резерва не возвращаются.
-    onChunk: () => { settlement.markUpstreamProduced(); },
+    onChunk: (ev) => {
+      const delta = (ev as { chunk?: { text?: string } }).chunk?.text ?? '';
+      settlement.markUpstreamProduced(delta.length);
+    },
     onFinish: async ({ totalUsage }) => {
       await settlement.settle('done'); // до записи расхода и до конца ответа
       try {
