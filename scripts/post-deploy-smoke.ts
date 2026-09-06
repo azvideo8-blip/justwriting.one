@@ -356,9 +356,23 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
   const issuer = process.env.SMOKE_JWT_ISS ?? `${origin}/auth/v1`;
   const token = mintSmokeJwt(secret, uid, issuer);
 
+  // «Заголовки пришли» значит РАЗНОЕ в двух ветках, и на этом проверка однажды
+  // упала на верном коде.
+  //
+  // Ветка рассуждений пишет res.writeHead ДО первого чтения от поставщика:
+  // обрыв на заголовках застаёт момент, когда модель ещё ничего не выдала, —
+  // значит слот обязан вернуться. Обычная ветка отдаёт заголовки через
+  // pipeTextStreamToResponse, а тот начинает писать вместе с первым куском:
+  // к этому моменту onChunk уже отметил выдачу. По правилу DEEP-8 выданные
+  // токены оплачены, и списание там — правильное поведение, а не сбой.
+  //
+  // Поэтому возврат проверяется на той ветке, где обрыв действительно
+  // происходит до выдачи. Возврат в обычной ветке — там, где его можно
+  // проверить без гонки: api/__tests__/chatStreamClose.test.ts, случай
+  // «клиент ушёл до первого байта».
   const cases = [
-    { reasoning: false, name: 'обычный чат' },
-    { reasoning: true, name: 'чат с рассуждениями' },
+    { reasoning: true, name: 'чат с рассуждениями', expectRefund: true },
+    { reasoning: false, name: 'обычный чат', expectRefund: false },
   ];
 
   for (const c of cases) {
@@ -367,17 +381,35 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
 
       await openChatStreamThenDestroy(origin, token, c.reasoning);
 
-      // Даём серверу время получить RST и исполнить res.on('close') с refund'ом.
+      // Даём серверу время получить RST и исполнить res.on('close').
       await new Promise((r) => setTimeout(r, 3_000));
 
       const after = await fetchDailyUsed(origin, token, uid);
-      if (after !== before) {
+      const delta = after - before;
+
+      if (c.expectRefund) {
+        if (delta !== 0) {
+          errors.push(
+            `Обрыв стрима (${c.name}) списал слот: счётчик ai_daily_limit ${before} → ${after} ` +
+            '(возврат при обрыве до первой выдачи не сработал).',
+          );
+        } else {
+          console.log(`✅ Обрыв стрима (${c.name}): слот возвращён, счётчик не изменился (${before}).`);
+        }
+      } else if (delta < 0 || delta > 1) {
+        // Здесь допустимы и 0, и 1: успел ли поставщик выдать первый кусок до
+        // заголовков — вопрос миллисекунд, и оба исхода правильны по DEEP-8.
+        // Ворота выкатки не должны зависеть от такой гонки: откат исправного
+        // релиза стоит дороже, чем эта проверка приносит. Настоящая гарантия
+        // возврата для этой ветки — детерминированный юнит-тест в
+        // api/__tests__/chatStreamClose.test.ts. Здесь остаётся более грубое,
+        // но устойчивое утверждение: обрыв не может списать больше одного слота.
         errors.push(
-          `Обрыв стрима (${c.name}) списал слот: счётчик ai_daily_limit ${before} → ${after} ` +
-          '(refund при обрыве до первого байта не сработал).',
+          `Обрыв стрима (${c.name}): счётчик ai_daily_limit ${before} → ${after}, ожидалось 0 или +1 ` +
+          '(обрыв не должен списывать больше одного слота).',
         );
       } else {
-        console.log(`✅ Обрыв стрима (${c.name}): счётчик не изменился (${before}).`);
+        console.log(`✅ Обрыв стрима (${c.name}): списано не больше одного слота (${before} → ${after}).`);
       }
     } catch (err) {
       errors.push(`Кейс обрыва стрима (${c.name}) не выполнился: ${String(err)}`);
