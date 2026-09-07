@@ -6,6 +6,7 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { SetupMode } from '../components/WritingSetup';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { StorageService } from '../../../core/services/StorageService';
 import { countWords } from '../../../shared/utils/countWords';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -26,7 +27,13 @@ export function useSessionContinue({
       return;
     }
 
-    const isLocal = session._isLocal;
+    const s = session as Session & {
+      _isLocal?: boolean;
+      _linkedCloudId?: string;
+      _contentNotLoaded?: boolean;
+    };
+    const isLocal = !!s._isLocal && !s._contentNotLoaded;
+
     if (isLocal) {
       const doc = await LocalDocumentService.getDocument(session.id);
       const content = await LocalVersionService.getLatestContent(session.id);
@@ -70,17 +77,42 @@ export function useSessionContinue({
       return;
     }
 
+    // Cloud-only session or session with _contentNotLoaded
+    const cloudId = s._linkedCloudId || (!isLocal ? session.id : undefined);
     let savedDocumentId: string | null = null;
-    const linkedCloudId = (session as Session & { _linkedCloudId?: string })._linkedCloudId;
-    if (linkedCloudId) {
+    let sessionContent = '';
+
+    if (cloudId) {
       try {
         const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
-        const existing = localDocs.find(d => d.linkedCloudId === linkedCloudId);
-        if (existing) savedDocumentId = existing.id;
-      } catch (e) { reportError(e, { action: 'sessionContinue/lookupLinkedDoc' }); }
+        const existing = localDocs.find(d => d.linkedCloudId === cloudId);
+        if (existing) {
+          savedDocumentId = existing.id;
+          sessionContent = (await LocalVersionService.getLatestContent(existing.id)) || '';
+        }
+      } catch (e) {
+        reportError(e, { action: 'sessionContinue/lookupLinkedDoc' });
+      }
+
+      if (!savedDocumentId || (!sessionContent && (session.wordCount || 0) > 0)) {
+        try {
+          savedDocumentId = await StorageService.addLocalCopy(userId, cloudId);
+          sessionContent = (await LocalVersionService.getLatestContent(savedDocumentId)) || '';
+        } catch (e) {
+          reportError(e, { action: 'sessionContinue/importCloudDoc', cloudId });
+          if (String(e).includes('LOCKED')) {
+            window.dispatchEvent(new CustomEvent('open-vault-unlock'));
+          }
+          return; // Crucial: Do NOT open blank editor on failure!
+        }
+      }
     }
 
-    const sessionContent = session.content || '';
+    if (!sessionContent && (session.wordCount || 0) > 0 && cloudId) {
+      reportError(new Error('Refusing to open empty editor for non-empty note'), { action: 'sessionContinue/emptyContent', id: session.id });
+      return;
+    }
+
     const wc = countWords(sessionContent);
     useContentStore.setState({
       content: sessionContent,

@@ -114,4 +114,21 @@ describe('DocumentPreview — AI Analysis button states', () => {
       expect(screen.getAllByText('Заметка слишком короткая для разбора').length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  it('displays version count when note has multiple versions (L-10)', async () => {
+    const multiVersionSession: ArchiveSession = {
+      ...mockSession,
+      sittings: [
+        { id: 'v1', documentId: 'doc-1', version: 1, savedAt: Date.now() - 100000 },
+        { id: 'v2', documentId: 'doc-1', version: 2, savedAt: Date.now() - 50000 },
+        { id: 'v3', documentId: 'doc-1', version: 3, savedAt: Date.now() },
+      ],
+    };
+
+    renderPreview(multiVersionSession);
+
+    await waitFor(() => {
+      expect(screen.getByText('3 версии')).toBeInTheDocument();
+    });
+  });
 });

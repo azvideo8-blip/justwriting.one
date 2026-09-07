@@ -222,3 +222,6 @@ export function parseNoteMarkdown(rawText: string, fallbackTitle?: string): Pars
     tags: [],
   };
 }
+
+export { parseLocalizedDate } from '../utils/dateUtils';
+

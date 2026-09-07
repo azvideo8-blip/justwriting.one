@@ -59,6 +59,12 @@ export const settingsTranslations: Translations = {
   storage_deleted_completely: { ru: 'Документ удалён', en: 'Document deleted' },
   storage_cloud_guest_hint: { ru: 'Войди, чтобы сохранять в облако', en: 'Sign in to save to cloud' },
   storage_sign_in_for_cloud: { ru: 'Войти для облака', en: 'Sign in for cloud' },
+  storage_download_to_local: { ru: 'Скачать на это устройство', en: 'Download to this device' },
+  storage_confirm_download_local: { ru: 'Скачать на это устройство?', en: 'Download to this device?' },
+  storage_confirm_download_local_hint: { ru: 'Текст заметки будет загружен из облака и сохранён локально', en: 'The note text will be downloaded from the cloud and saved locally' },
+  storage_download_confirm: { ru: 'Скачать', en: 'Download' },
+  storage_downloaded_local: { ru: 'Загружено на устройство', en: 'Downloaded to device' },
+  storage_downloading: { ru: 'Загрузка…', en: 'Downloading…' },
 
   offline_working_locally: { ru: 'Нет соединения — работаем локально', en: 'Offline — working locally' },
   offline_syncing: { ru: 'Синхронизируется...', en: 'Syncing...' },

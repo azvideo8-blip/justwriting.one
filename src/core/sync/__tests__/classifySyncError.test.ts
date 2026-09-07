@@ -23,6 +23,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       expect(classifySyncError('locked: cannot sync')).toBe('blocked-until-unlock');
       expect(classifySyncError(new Error('Document is locked'))).toBe('blocked-until-unlock');
       expect(classifySyncError('ENCRYPT_REQUIRED: vault key needed')).toBe('blocked-until-unlock');
+      expect(classifySyncError('DECRYPT_FAILED_LATEST: cloud document c1 version 2')).toBe('blocked-until-unlock');
     });
 
     it('classifies permanent errors', () => {
@@ -41,6 +42,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
     it('identifies poison pill errors (quarantined on attempt 1)', () => {
       expect(isPoisonSyncError('LOCKED: vault locked')).toBe(true);
       expect(isPoisonSyncError('ENCRYPT_REQUIRED: key needed')).toBe(true);
+      expect(isPoisonSyncError('DECRYPT_FAILED_LATEST: cloud document c1 version 2')).toBe(true);
       expect(isPoisonSyncError('DECRYPTION_ERROR: bad ciphertext')).toBe(true);
       expect(isPoisonSyncError(new Error('Invalid sessionStartedAt'))).toBe(true);
       // SYNC_UNRESOLVED is NOT poison — it gets normal retries
@@ -53,6 +55,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       expect(isRevivableOnUnlock('LOCKED: vault locked')).toBe(true);
       expect(isRevivableOnUnlock('locked')).toBe(true);
       expect(isRevivableOnUnlock('ENCRYPT_REQUIRED: key needed')).toBe(true);
+      expect(isRevivableOnUnlock('DECRYPT_FAILED_LATEST: cloud document c1 version 2')).toBe(true);
       expect(isRevivableOnUnlock('SYNC_UNRESOLVED: conflict')).toBe(true);
       // Corrupted data is NOT revivable by vault unlock
       expect(isRevivableOnUnlock('DECRYPTION_ERROR: bad ciphertext')).toBe(false);
@@ -61,7 +64,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       expect(isRevivableOnUnlock(null)).toBe(false);
     });
 
-    it('FU-6: matches all 5 rules in SYNC_ERROR_RULES consistently', () => {
+    it('FU-6: matches all 6 rules in SYNC_ERROR_RULES consistently', () => {
       for (const rule of SYNC_ERROR_RULES) {
         const errorMsg = `Error occurred: ${rule.code} in sync operation`;
         expect(isPoisonSyncError(errorMsg)).toBe(rule.poison);
@@ -202,6 +205,32 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       task = await db.get('syncQueue', 'sync_doc_sync_unresolved');
       expect(task?.dead).toBe(false);
       expect(task?.attempts).toBe(0);
+    });
+
+    it('L-7: task failing with DECRYPT_FAILED_LATEST is quarantined immediately and revived on unlock', async () => {
+      await queueTask('doc_decrypt_latest');
+      vi.spyOn(StorageService, 'addCloudCopy').mockRejectedValueOnce(
+        new Error('DECRYPT_FAILED_LATEST: cloud document cloud_1 version 2'),
+      );
+      await SyncService.syncPending(USER);
+
+      const db = await getLocalDb();
+      let task = await db.get('syncQueue', 'sync_doc_decrypt_latest');
+      expect(task?.dead).toBe(true);
+
+      const revived = await SyncService.reviveLockedTasks(USER);
+      expect(revived).toBe(1);
+      task = await db.get('syncQueue', 'sync_doc_decrypt_latest');
+      expect(task?.dead).toBe(false);
+    });
+  });
+
+  describe('L-7: unit test DECRYPT_FAILED_LATEST rule attributes', () => {
+    it('produces category: blocked-until-unlock, poison: true, revivableOnUnlock: true', () => {
+      const err = new Error('DECRYPT_FAILED_LATEST: cloud document cloud_123 version 3');
+      expect(classifySyncError(err)).toBe('blocked-until-unlock');
+      expect(isPoisonSyncError(err)).toBe(true);
+      expect(isRevivableOnUnlock(err)).toBe(true);
     });
   });
 });

@@ -44,7 +44,8 @@ type ConfirmState =
   | { kind: 'delete-local' }
   | { kind: 'delete-cloud-only' }
   | { kind: 'delete-cloud' }
-  | { kind: 'exclude-ai' };
+  | { kind: 'exclude-ai' }
+  | { kind: 'download-local' };
 
 const IDLE: ConfirmState = { kind: 'idle' };
 
@@ -67,11 +68,22 @@ export function StorageIcons({
   const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
   const [confirmState, setConfirmState] = useState<ConfirmState>(IDLE);
   const [uploading, setUploading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'upload' | 'download' | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
 
   const handleLocalClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!doc.hasLocal && doc.hasCloud && doc.cloudId) {
+      if (hasEncryption && !getSessionKey()) {
+        setPendingAction('download');
+        setShowUnlock(true);
+        return;
+      }
+      setConfirmState({ kind: 'download-local' });
+      return;
+    }
     if (!doc.hasLocal) return;
     setConfirmState(doc.hasLocal && !doc.hasCloud ? { kind: 'delete-local-only' } : { kind: 'delete-local' });
   };
@@ -84,6 +96,7 @@ export function StorageIcons({
     }
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
     if (!getSessionKey()) {
+      setPendingAction('upload');
       if (hasEncryption) {
         setShowUnlock(true);
       } else {
@@ -92,6 +105,26 @@ export function StorageIcons({
       return;
     }
     void doUpload();
+  };
+
+  const doDownload = async () => {
+    if (!doc.cloudId || !userId || userId.startsWith('guest_')) return;
+    setDownloading(true);
+    try {
+      await StorageService.addLocalCopy(userId, doc.cloudId);
+      showToast(t('storage_downloaded_local'), 'success');
+      onStorageChange();
+    } catch (e) {
+      reportError(e, { action: 'downloadLocalCopy', userId, cloudId: doc.cloudId });
+      if (String(e).includes('LOCKED')) {
+        setPendingAction('download');
+        setShowUnlock(true);
+      } else {
+        showToast(t('error_generic_action'), 'error');
+      }
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const doUpload = async () => {
@@ -151,6 +184,9 @@ export function StorageIcons({
         case 'exclude-ai':
           if (exclusion) exclusion.onClick();
           break;
+        case 'download-local':
+          await doDownload();
+          break;
       }
       onStorageChange();
     } catch (e) {
@@ -172,6 +208,8 @@ export function StorageIcons({
         return t('storage_confirm_delete_cloud');
       case 'exclude-ai':
         return t('ai_note_exclude_confirm');
+      case 'download-local':
+        return t('storage_confirm_download_local');
     }
   })();
 
@@ -186,6 +224,8 @@ export function StorageIcons({
         return t('storage_confirm_delete_cloud_hint');
       case 'exclude-ai':
         return t('ai_note_exclude_confirm_hint');
+      case 'download-local':
+        return t('storage_confirm_download_local_hint');
     }
   })();
 
@@ -205,15 +245,25 @@ export function StorageIcons({
   return (
     <div className="flex items-center gap-1.5 shrink-0">
       <IconButton
-        icon={<HardDrive size={14} />}
-        label={doc.hasLocal ? t('storage_remove_local') : t('storage_no_local')}
+        icon={downloading ? <Loader2 size={14} className="animate-spin" /> : <HardDrive size={14} />}
+        label={
+          downloading
+            ? (t('storage_downloading') || 'Загрузка…')
+            : doc.hasLocal
+              ? t('storage_remove_local')
+              : doc.hasCloud
+                ? (t('storage_download_to_local') || 'Скачать на это устройство')
+                : t('storage_no_local')
+        }
         onClick={handleLocalClick}
+        disabled={downloading}
         size="sm"
         className={cn(
           "w-6 h-6 rounded-lg",
-          doc.hasLocal
-            ? "text-text-main/70 hover:text-accent-danger hover:bg-accent-danger/10"
-            : "text-text-main/60 cursor-default"
+          downloading && "animate-pulse text-brand-primary",
+          !downloading && doc.hasLocal && "text-text-main/70 hover:text-accent-danger hover:bg-accent-danger/10",
+          !downloading && !doc.hasLocal && doc.hasCloud && "text-text-main/60 hover:text-brand-primary hover:bg-brand-primary/10 cursor-pointer",
+          !downloading && !doc.hasLocal && !doc.hasCloud && "text-text-main/60 cursor-default"
         )}
       />
 
@@ -300,12 +350,21 @@ export function StorageIcons({
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant="danger"
+                  variant={confirmState.kind === 'download-local' ? 'primary' : 'danger'}
                   size="sm"
                   onClick={() => void handleConfirmDelete()}
-                  className="flex-1 py-2 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-sm font-medium hover:bg-accent-danger/20"
+                  className={cn(
+                    "flex-1 py-2 rounded-xl text-sm font-medium",
+                    confirmState.kind === 'download-local'
+                      ? "bg-text-main text-surface-base hover:opacity-90 cursor-pointer"
+                      : "bg-accent-danger/10 border border-accent-danger/20 text-accent-danger hover:bg-accent-danger/20"
+                  )}
                 >
-                  {confirmState.kind === 'exclude-ai' ? t('ai_note_exclude') : t('storage_delete_confirm')}
+                  {confirmState.kind === 'exclude-ai'
+                    ? t('ai_note_exclude')
+                    : confirmState.kind === 'download-local'
+                      ? (t('storage_download_confirm') || 'Скачать')
+                      : t('storage_delete_confirm')}
                 </Button>
                 <Button
                   variant="ghost"
@@ -325,8 +384,18 @@ export function StorageIcons({
         {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
           <UnlockPrompt
             uid={userId}
-            onUnlocked={() => { setShowUnlock(false); void doUpload(); }}
-            onClose={() => setShowUnlock(false)}
+            onUnlocked={() => {
+              setShowUnlock(false);
+              if (pendingAction === 'download') {
+                void doDownload();
+              } else {
+                void doUpload();
+              }
+            }}
+            onClose={() => {
+              setShowUnlock(false);
+              setPendingAction(null);
+            }}
           />
         )}
       </AnimatePresence>

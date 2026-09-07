@@ -70,6 +70,10 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         }
       }
 
+      if (!content && (doc.totalWords ?? 0) > 0 && (doc.cloudId || !localId)) {
+        throw new Error('Refusing to open empty editor for non-empty note');
+      }
+
       loadDraftIntoStore({
         content,
         title: doc.title,
@@ -87,7 +91,18 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       setLifeLogVisible(false);
     } catch (err) {
       reportError(err, { action: 'writingActions/continueDocument' });
-      showToast(t('error_load_failed'), 'error');
+      const errStr = String(err);
+      if (errStr.includes('LOCKED')) {
+        showToast(t('archive_note_locked') || 'Заметка заблокирована', 'error');
+        window.dispatchEvent(new CustomEvent('open-vault-unlock'));
+      } else if (!navigator.onLine) {
+        // Без `|| '...'`: t() при отсутствии ключа возвращает сам ключ, а не
+        // пустую строку, поэтому запасной текст никогда не показывался — он
+        // лишь прятал то, что ключа нет.
+        showToast(t('offline_action_unavailable'), 'error');
+      } else {
+        showToast(t('error_load_failed'), 'error');
+      }
     }
   }, [userId, setLifeLogVisible, showToast, t, flow]);
 
@@ -106,11 +121,13 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
           _totalDuration?: number;
           _sessionsCount?: number;
           _firstSessionAt?: number;
+          _contentNotLoaded?: boolean;
         };
-        const isLocal = !!s._isLocal;
+        const isLocal = !!s._isLocal && !s._contentNotLoaded;
+        const cloudId = s._linkedCloudId || (!isLocal ? s.id : undefined);
         const doc: LifeLogDocument = {
           localId: isLocal ? s.id : undefined,
-          cloudId: isLocal ? s._linkedCloudId : s.id,
+          cloudId,
           title: s.title || '',
           totalWords: s._totalWords ?? s.wordCount ?? 0,
           totalDuration: s._totalDuration ?? s.duration ?? 0,
@@ -120,7 +137,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
           lastSessionAt: s.sessionStartTime ?? 0,
           tags: s.tags || [],
           labelId: s.labelId,
-          storage: { local: isLocal, cloud: !!(s._hasCloudCopy || s._linkedCloudId || !isLocal) },
+          storage: { local: isLocal, cloud: !!(s._hasCloudCopy || cloudId || !isLocal) },
         };
         await handleContinueDocument(doc);
       }

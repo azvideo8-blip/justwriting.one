@@ -352,14 +352,14 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
         )}>
           <button
             onClick={() => void navigate('/about')}
-            className="hover:text-text-main/60 transition-colors underline underline-offset-2 decoration-dotted"
+            className="hover:text-text-main/60 transition-colors underline underline-offset-2 decoration-dotted min-h-[44px] flex items-center clickable-target-expansion"
           >
             {t('nav_about')}
           </button>
           <button
             type="button"
             onClick={() => void navigate('/changelog')}
-            className="hover:text-text-main/60 transition-colors"
+            className="hover:text-text-main/60 transition-colors min-h-[44px] flex items-center clickable-target-expansion"
           >
             v{APP_VERSION}
           </button>

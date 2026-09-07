@@ -60,14 +60,26 @@ export async function importNoteFile(
   file: File,
   userId: string,
   isSignedIn: boolean
-): Promise<{ success: boolean }> {
+): Promise<{ success: boolean; dateUnreadable?: boolean }> {
   const rawContent = await readFileContent(file);
   if (rawContent === null) return { success: false };
 
   const parsed = parseImportFile(file.name, rawContent);
 
-  const parsedDate = parsed.date ? new Date(parsed.date) : new Date();
-  const sessionStartedAt = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+  let dateUnreadable = false;
+  let sessionStartedAt: Date;
+  if (parsed.date) {
+    const { parseLocalizedDate } = await import('../../../core/services/noteFormat');
+    const parsedDate = parseLocalizedDate(parsed.date);
+    if (parsedDate && !isNaN(parsedDate.getTime())) {
+      sessionStartedAt = parsedDate;
+    } else {
+      dateUnreadable = true;
+      sessionStartedAt = file.lastModified ? new Date(file.lastModified) : new Date();
+    }
+  } else {
+    sessionStartedAt = file.lastModified ? new Date(file.lastModified) : new Date();
+  }
 
   const { LocalStorageService } = await import('../../../core/services/LocalStorageService');
   const { localId } = await LocalStorageService.saveNew(userId, {
@@ -89,7 +101,7 @@ export async function importNoteFile(
     });
   }
 
-  return { success: true };
+  return { success: true, dateUnreadable };
 }
 
 const MAX_BATCH_COUNT = 20;
@@ -98,13 +110,14 @@ export async function importBatchFiles(
   files: File[],
   userId: string,
   isSignedIn: boolean
-): Promise<{ successCount: number; failureCount: number }> {
+): Promise<{ successCount: number; failureCount: number; unreadableDateCount: number }> {
   if (files.length > MAX_BATCH_COUNT) {
     throw new Error(`BATCH_LIMIT_EXCEEDED: Maximum ${MAX_BATCH_COUNT} files allowed per import.`);
   }
 
   let successCount = 0;
   let failureCount = 0;
+  let unreadableDateCount = 0;
 
   for (const file of files) {
     const ext = file.name.split('.').pop()?.toLowerCase();
@@ -117,6 +130,7 @@ export async function importBatchFiles(
       const res = await importNoteFile(file, userId, isSignedIn);
       if (res.success) {
         successCount += 1;
+        if (res.dateUnreadable) unreadableDateCount += 1;
       } else {
         failureCount += 1;
       }
@@ -125,7 +139,7 @@ export async function importBatchFiles(
     }
   }
 
-  return { successCount, failureCount };
+  return { successCount, failureCount, unreadableDateCount };
 }
 
 

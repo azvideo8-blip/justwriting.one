@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serializeNoteMarkdown, parseNoteMarkdown } from '../noteFormat';
+import { serializeNoteMarkdown, parseNoteMarkdown, parseLocalizedDate } from '../noteFormat';
 
 describe('E-5: noteFormat serialization and parsing', () => {
   describe('serializeNoteMarkdown', () => {
@@ -135,4 +135,50 @@ describe('E-5: noteFormat serialization and parsing', () => {
       expect(parsed.tags).toEqual([]);
     });
   });
+
+  describe('parseLocalizedDate', () => {
+    it('parses Russian long date with г.', () => {
+      const d = parseLocalizedDate('14 августа 2024 г.');
+      expect(d).not.toBeNull();
+      expect(d?.getFullYear()).toBe(2024);
+      expect(d?.getMonth()).toBe(7); // August = 7
+      expect(d?.getDate()).toBe(14);
+    });
+
+    it('parses Russian long date with г', () => {
+      const d = parseLocalizedDate('5 сентября 2026 г');
+      expect(d).not.toBeNull();
+      expect(d?.getFullYear()).toBe(2026);
+      expect(d?.getMonth()).toBe(8); // September = 8
+      expect(d?.getDate()).toBe(5);
+    });
+
+    it('parses English US long date', () => {
+      const d = parseLocalizedDate('August 14, 2024');
+      expect(d).not.toBeNull();
+      expect(d?.getFullYear()).toBe(2024);
+      expect(d?.getMonth()).toBe(7);
+      expect(d?.getDate()).toBe(14);
+    });
+
+    it('parses English GB long date', () => {
+      const d = parseLocalizedDate('14 August 2024');
+      expect(d).not.toBeNull();
+      expect(d?.getFullYear()).toBe(2024);
+      expect(d?.getMonth()).toBe(7);
+      expect(d?.getDate()).toBe(14);
+    });
+
+    it('parses ISO date', () => {
+      const d = parseLocalizedDate('2026-09-07T14:30:00.000Z');
+      expect(d).not.toBeNull();
+      expect(d?.toISOString()).toBe('2026-09-07T14:30:00.000Z');
+    });
+
+    it('returns null for unparseable garbage', () => {
+      expect(parseLocalizedDate('not a date')).toBeNull();
+      expect(parseLocalizedDate('')).toBeNull();
+    });
+  });
 });
+

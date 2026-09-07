@@ -92,7 +92,7 @@ export function Toolbar({
           whileTap={{ scale: 0.9 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "relative w-9 h-9 flex items-center justify-center transition-colors",
+            "relative w-9 h-9 flex items-center justify-center transition-colors clickable-target-expansion",
             status !== 'idle' && wordCount > 0
               ? "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
               : "text-text-main/60 cursor-not-allowed"
@@ -119,7 +119,7 @@ export function Toolbar({
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "w-9 h-9 flex items-center justify-center transition-colors",
+            "w-9 h-9 flex items-center justify-center transition-colors clickable-target-expansion",
             status === 'writing'
               ? "text-accent-warning hover:bg-accent-warning/10"
               : "text-text-main hover:bg-text-main/5"
@@ -137,7 +137,7 @@ export function Toolbar({
             whileTap={{ scale: 0.82 }}
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             className={cn(
-              "w-9 h-9 flex items-center justify-center transition-colors rounded-lg",
+              "w-9 h-9 flex items-center justify-center transition-colors rounded-lg clickable-target-expansion",
               isListening
                 ? "text-accent-danger bg-accent-danger/10 hover:bg-accent-danger/20 animate-pulse"
                 : "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
@@ -156,7 +156,7 @@ export function Toolbar({
           whileTap={{ scale: 0.82 }}
           transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           className={cn(
-            "w-9 h-9 flex items-center justify-center transition-colors",
+            "w-9 h-9 flex items-center justify-center transition-colors clickable-target-expansion",
             status !== 'idle'
               ? "text-accent-danger hover:bg-accent-danger/10"
               : "text-text-main/60 cursor-not-allowed"

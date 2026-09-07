@@ -3,7 +3,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
 import { cn } from '../../../core/utils/utils';
 
-export function AIToggleButton({ onClick, active }: { onClick: () => void; active: boolean }) {
+export function AIToggleButton({ onClick, active, className }: { onClick: () => void; active: boolean; className?: string | undefined }) {
   const { t } = useLanguage();
   return (
     <IconButton
@@ -15,7 +15,8 @@ export function AIToggleButton({ onClick, active }: { onClick: () => void; activ
         "rounded-lg",
         active
           ? "bg-brand-soft/20 text-brand-soft"
-          : "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
+          : "text-text-main/60 hover:text-text-main hover:bg-text-main/5",
+        className
       )}
     />
   );

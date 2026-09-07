@@ -1,36 +1,51 @@
 #!/bin/bash
-# AUDIT-part2 3.1 & AG-GATE-1: raw overlay gate.
+# AUDIT-part2 3.1 & AG-GATE-1 & AUDIT-L6: raw overlay gate.
 # Modals and sheets must use shared/components/ModalShell instead of raw fixed inset-0 divs.
 # Deliberate full-screen surfaces (screens, countdown takeovers, preview backdrops, slide-overs)
-# are marked with `{/* not-a-modal: ... */}` in code and excluded by marker.
+# are marked with `{/* not-a-modal: ... */}` in code and excluded by marker adjacent to the overlay.
 # Any remaining raw overlays are checked against scripts/raw-overlay-baseline.txt.
 set -e
 
 TARGET_DIR="${1:-.}"
 BASELINE_FILE="${2:-$TARGET_DIR/scripts/raw-overlay-baseline.txt}"
 
-candidates=$(grep -rl "fixed inset-0" "$TARGET_DIR/src/features" "$TARGET_DIR/src/app" --include='*.tsx' 2>/dev/null || true)
-
-unmarked=""
-for file in $candidates; do
-  if grep -q "not-a-modal" "$file"; then
-    continue
-  fi
-  rel_file="${file#$TARGET_DIR/}"
-  rel_file="${rel_file#/}"
-  unmarked="${unmarked}${rel_file}"$'\n'
-done
-
+active_baseline=""
 if [ -f "$BASELINE_FILE" ]; then
   active_baseline=$(grep -v '^#' "$BASELINE_FILE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -v '^$' || true)
-  if [ -n "$active_baseline" ]; then
-    offenders=$(echo -n "$unmarked" | sed '/^$/d' | grep -vxFf <(echo "$active_baseline") || true)
-  else
-    offenders=$(echo -n "$unmarked" | sed '/^$/d' || true)
-  fi
-else
-  offenders=$(echo -n "$unmarked" | sed '/^$/d' || true)
 fi
+
+raw_matches=$(grep -rn "fixed inset-0" "$TARGET_DIR/src/features" "$TARGET_DIR/src/app" --include='*.tsx' 2>/dev/null || true)
+
+offenders=""
+
+while IFS= read -r match_line; do
+  [ -z "$match_line" ] && continue
+
+  file=$(echo "$match_line" | cut -d: -f1)
+  lineno=$(echo "$match_line" | cut -d: -f2)
+
+  rel_file="${file#$TARGET_DIR/}"
+  rel_file="${rel_file#/}"
+
+  # Check if covered by baseline (by file or file:line)
+  if [ -n "$active_baseline" ]; then
+    if echo "$active_baseline" | grep -qxF "$rel_file" || echo "$active_baseline" | grep -qxF "${rel_file}:${lineno}"; then
+      continue
+    fi
+  fi
+
+  # Check if a not-a-modal marker is within adjacent lines (-8 to +2)
+  start_line=$((lineno > 8 ? lineno - 8 : 1))
+  end_line=$((lineno + 2))
+
+  if sed -n "${start_line},${end_line}p" "$file" | grep -q "not-a-modal"; then
+    continue
+  fi
+
+  offenders="${offenders}${rel_file}:${lineno}"$'\n'
+done <<< "$raw_matches"
+
+offenders=$(echo -n "$offenders" | sed '/^$/d' || true)
 
 if [ -n "$offenders" ]; then
   echo "::error::Raw overlay divs outside ModalShell found:"

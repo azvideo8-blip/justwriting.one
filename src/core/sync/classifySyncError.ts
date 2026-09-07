@@ -5,6 +5,7 @@
  * |--------------------------|--------|---------------------|----------------------|
  * | LOCKED                   | true   | true                | blocked-until-unlock |
  * | ENCRYPT_REQUIRED         | true   | true                | blocked-until-unlock |
+ * | DECRYPT_FAILED_LATEST    | true   | true                | blocked-until-unlock |
  * | DECRYPTION_ERROR         | true   | false               | permanent            |
  * | Invalid sessionStartedAt | true   | false               | permanent            |
  * | SYNC_UNRESOLVED          | false  | true                | transient            |
@@ -29,6 +30,7 @@ export interface SyncErrorRule {
 export const SYNC_ERROR_RULES: readonly SyncErrorRule[] = [
   { code: 'LOCKED',                 poison: true,  revivableOnUnlock: true,  category: 'blocked-until-unlock' },
   { code: 'ENCRYPT_REQUIRED',       poison: true,  revivableOnUnlock: true,  category: 'blocked-until-unlock' },
+  { code: 'DECRYPT_FAILED_LATEST',  poison: true,  revivableOnUnlock: true,  category: 'blocked-until-unlock' },
   { code: 'DECRYPTION_ERROR',       poison: true,  revivableOnUnlock: false, category: 'permanent' },
   { code: 'Invalid sessionStartedAt', poison: true, revivableOnUnlock: false, category: 'permanent' },
   { code: 'SYNC_UNRESOLVED',        poison: false, revivableOnUnlock: true,  category: 'transient' },

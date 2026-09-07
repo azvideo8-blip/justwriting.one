@@ -27,7 +27,7 @@ interface ProfileHeroProps {
 }
 
 export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileHeroProps) {
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profile?.nickname || user?.displayName || '');
 
@@ -58,11 +58,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
       ? new Date(user.metadata.creationTime)
       : new Date()
   , [user]);
-  const [now] = useState(() => Date.now());
-  const daysSince = useMemo(
-    () => Math.floor((now - memberSince.getTime()) / 86400000),
-    [now, memberSince]
-  );
+  const streakDays = profile?.streakDays ?? 0;
 
   return (
     <div
@@ -151,7 +147,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             {memberSince.toLocaleDateString(language, { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
           <div className="font-mono text-label-sm text-text-main/60 mt-1">
-            {daysSince} {t('home_streak_days')}
+            {streakDays} {tp('home_streak_days', streakDays)}
           </div>
         </div>
       </div>

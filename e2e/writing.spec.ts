@@ -36,6 +36,7 @@ test.describe('Writing Session', () => {
 
     const wordButton = page.locator('button[aria-label="Word goal"]');
     await expect(wordButton).toBeVisible();
+    await expect(wordButton).toContainText('5');
   });
 
   test('timer area is present', async ({ page }) => {

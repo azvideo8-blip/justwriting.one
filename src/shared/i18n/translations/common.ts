@@ -42,6 +42,7 @@ export const commonTranslations: Translations = {
   error_generic_action: { ru: 'Что-то пошло не так. Попробуй ещё раз.', en: 'Something went wrong. Please try again.' },
   error_permission_denied: { ru: 'У тебя нет прав для выполнения этого действия.', en: "You don't have permission to perform this action." },
   error_unavailable: { ru: 'Сервис временно недоступен. Попробуй позже.', en: 'Service temporarily unavailable. Please try again later.' },
+  offline_action_unavailable: { ru: 'Действие недоступно без сети. Текст заметки лежит в облаке.', en: 'This action needs a connection. The note\'s text is in the cloud.' },
   error_too_many_requests: { ru: 'Слишком много попыток. Попробуй позже.', en: 'Too many attempts. Please try again later.' },
   error_save_failed:    { ru: 'Не удалось сохранить. Попробуй ещё раз.', en: 'Failed to save. Please try again.' },
   error_delete_failed:  { ru: 'Не удалось удалить.', en: 'Failed to delete.' },

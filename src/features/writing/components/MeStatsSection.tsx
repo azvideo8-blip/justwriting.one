@@ -2,12 +2,12 @@ import React from 'react';
 import { useLanguage } from '../../../shared/i18n';
 import { StatCard } from './MeScreenHelpers';
 interface StatsProfile {
-  totalWordCount?: number;
-  sessionsCount?: number;
-  totalDuration?: number;
-  streakDays?: number;
-  avgWpm?: number;
-  avgSessionWords?: number;
+  totalWordCount?: number | undefined;
+  sessionsCount?: number | undefined;
+  totalDuration?: number | undefined;
+  streakDays?: number | undefined;
+  avgWpm?: number | undefined;
+  avgSessionWords?: number | undefined;
 }
 
 interface MeStatsSectionProps {
@@ -15,7 +15,8 @@ interface MeStatsSectionProps {
 }
 
 export function MeStatsSection({ profile }: MeStatsSectionProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
+  const streak = profile?.streakDays || 0;
 
   return (
     <div className="flex flex-col gap-3" >
@@ -32,8 +33,8 @@ export function MeStatsSection({ profile }: MeStatsSectionProps) {
       </div>
       <div className="flex gap-2" >
         <StatCard
-          value={profile?.streakDays || 0}
-          label={t('me_stat_streak')}
+          value={streak}
+          label={typeof tp === 'function' ? tp('me_stat_streak', streak) : t('me_stat_streak')}
         />
         <StatCard
           value={`${Math.round((profile?.totalDuration || 0) / 3600)}${t('unit_hour')}`}

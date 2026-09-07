@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -8,11 +8,11 @@ describe('AG-GATE-1 — Raw Overlay Gate (scripts/raw-overlay-check.sh)', () => 
   let tmpDir: string;
   const scriptPath = path.resolve(__dirname, '../../scripts/raw-overlay-check.sh');
 
-  beforeAll(() => {
+  beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'raw-overlay-test-'));
   });
 
-  afterAll(() => {
+  afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
@@ -60,6 +60,51 @@ describe('AG-GATE-1 — Raw Overlay Gate (scripts/raw-overlay-check.sh)', () => 
 
     const output = execSync(`bash "${scriptPath}" "${tmpDir}"`, { encoding: 'utf8' });
     expect(output).toContain('Raw overlay check: 0 unmanaged raw overlays found (OK)');
+  });
+
+  it('AUDIT-L6: fails when a file has one marked not-a-modal overlay but also an unmarked raw overlay', () => {
+    const testFeatureDir = path.join(tmpDir, 'src/features/dummy');
+    fs.mkdirSync(testFeatureDir, { recursive: true });
+    const targetFile = path.join(testFeatureDir, 'MixedOverlaysComponent.tsx');
+
+    fs.writeFileSync(targetFile, `
+      export function MixedOverlaysComponent() {
+        return (
+          <>
+            {/* not-a-modal: fullscreen takeover */}
+            <div className="fixed inset-0 bg-black/50">Fullscreen takeover</div>
+
+            {/* 15 lines away, an unmarked raw overlay */}
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div>content</div>
+            <div className="fixed inset-0 bg-black/80">Unmanaged raw modal</div>
+          </>
+        );
+      }
+    `);
+
+    try {
+      let failed = false;
+      try {
+        execSync(`bash "${scriptPath}" "${tmpDir}"`, { stdio: 'pipe' });
+      } catch (err: unknown) {
+        failed = true;
+        const errorOutput = String((err as { stdout?: Buffer; stderr?: Buffer }).stdout ?? '');
+        expect(errorOutput).toContain('MixedOverlaysComponent.tsx:');
+      }
+      expect(failed).toBe(true);
+    } finally {
+      fs.rmSync(targetFile, { force: true });
+    }
   });
 
   it('passes when baseline explicitly records an unmigrated dialog', () => {

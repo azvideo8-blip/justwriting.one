@@ -63,7 +63,7 @@ describe('перепривязка по постоянному номеру', ()
 
     const n = await __testing.relinkOrphaned(docs, [cloud()]);
 
-    expect(n).toBe(1);
+    expect(n.relinked).toBe(1);
     expect(updateLinkedCloudId).toHaveBeenCalledWith('local_1', 'cloud_1');
   });
 
@@ -92,7 +92,7 @@ describe('перепривязка по постоянному номеру', ()
 
     const n = await __testing.relinkOrphaned(docs, [cloud()]);
 
-    expect(n).toBe(1);
+    expect(n.relinked).toBe(1);
     expect((docs[0] as unknown as { localOnly?: boolean }).localOnly).toBeUndefined();
   });
 
@@ -101,7 +101,7 @@ describe('перепривязка по постоянному номеру', ()
 
     const n = await __testing.relinkOrphaned(docs, [cloud()]);
 
-    expect(n).toBe(0);
+    expect(n.relinked).toBe(0);
     expect(updateLinkedCloudId).not.toHaveBeenCalled();
   });
 
@@ -110,7 +110,7 @@ describe('перепривязка по постоянному номеру', ()
 
     const n = await __testing.relinkOrphaned(docs, [cloud(), cloud({ id: 'cloud_2' })]);
 
-    expect(n).toBe(0);
+    expect(n.relinked).toBe(0);
     expect(updateLinkedCloudId).not.toHaveBeenCalled();
   });
 
@@ -119,7 +119,7 @@ describe('перепривязка по постоянному номеру', ()
 
     const n = await __testing.relinkOrphaned(docs, [cloud({ uuid: 'другой-номер' })]);
 
-    expect(n).toBe(0);
+    expect(n.relinked).toBe(0);
   });
 
   /**
@@ -141,7 +141,7 @@ describe('перепривязка по постоянному номеру', ()
     const { CloudSyncService } = await import('../CloudSyncService');
     const n = await CloudSyncService.relinkOrphanedDocuments('u1');
 
-    expect(n).toBe(1);
+    expect(n.relinked).toBe(1);
     expect(updateLinkedCloudId).toHaveBeenCalledWith('local_1', 'cloud_1');
   });
 });

@@ -62,6 +62,8 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
       abortMs: 50_000,
     });
 
+    callRes.markProduced(result.text.length);
+
     let ids: string[] = [];
     let txt = result.text.trim();
     if (txt.startsWith('```')) {
@@ -71,14 +73,13 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
       const obj = JSON.parse(txt) as { ids?: unknown };
       if (Array.isArray(obj.ids)) ids = obj.ids.filter((x): x is string => typeof x === 'string');
     } catch {
-      await callRes.settle('failed');
-      ids = [];
+      await callRes.settle('failed', { tokensIn: result.tokensIn, tokensOut: result.tokensOut, model: result.model });
+      throw new AiError('internal', 'Rerank response was not valid JSON.');
     }
 
     const candidateIds = new Set(candidates.map(c => c.documentId));
     ids = ids.filter(id => candidateIds.has(id));
 
-    callRes.markProduced(result.text.length);
     await callRes.settle('done');
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'rerank' }, reservation).catch(e =>
       console.error('[AI rerank] usage record failed:', e),
@@ -87,6 +88,9 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
     return { documentIds: ids.slice(0, maxResults) };
   } catch (e) {
     await callRes.settle('failed');
+    if (e instanceof AiError) {
+      throw e;
+    }
     console.error('[AI rerank] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

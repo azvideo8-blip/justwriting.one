@@ -21,6 +21,11 @@ import { computeWordDelta } from './DiffService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
 import { withDocumentLock } from '../sync/withDocumentLock';
 
+export interface RelinkResult {
+  relinked: number;
+  skippedIds: string[];
+}
+
 const CLOUD_SYNC_TIMEOUT = 30_000;
 
 /**
@@ -116,9 +121,9 @@ export const CloudSyncService = {
    * than returning 0 when that read fails — "could not ask" must never reach a
    * caller as "nothing matched".
    */
-  async relinkOrphanedDocuments(userId: string): Promise<number> {
+  async relinkOrphanedDocuments(userId: string): Promise<RelinkResult> {
     const localDocs = await LocalStorageService.getDocumentsByOwner(userId);
-    if (!localDocs.some(hasRelinkWork)) return 0;
+    if (!localDocs.some(hasRelinkWork)) return { relinked: 0, skippedIds: [] };
     const cloudDocs = await DocumentService.getUserDocuments(userId);
     return relinkOrphaned(localDocs, cloudDocs);
   },
@@ -1044,9 +1049,10 @@ function hasRelinkWork(doc: LocalDocument): boolean {
  * are left for the owner rather than guessed at. Mutates `localDocs` in place
  * so a caller that already holds the array sees the new links.
  */
-async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[]): Promise<number> {
+async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[]): Promise<RelinkResult> {
   const takenCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
   let relinkedByUuid = 0;
+  const skippedIds = new Set<string>();
 
   // Проход первый — по ПОСТОЯННОМУ номеру заметки. Это не догадка: совпадение
   // uuid означает, что облачная строка и есть эта заметка. Сверка по времени
@@ -1102,14 +1108,16 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
       {
         queueOnHeld: false,
         onLockHeld: () => {
-          // Document currently locked by active writer or sync drain; skip relink for now
+          // L-2: Document currently locked by active writer or sync drain.
+          // Record skipped id so syncAllUnlinked does not upload a duplicate cloud note.
+          skippedIds.add(local.id);
         },
       },
     );
   }
 
-  const candidates = localDocs.filter(isRelinkCandidate);
-  if (candidates.length === 0) return relinkedByUuid;
+  const candidates = localDocs.filter(d => isRelinkCandidate(d) && !skippedIds.has(d.id));
+  if (candidates.length === 0) return { relinked: relinkedByUuid, skippedIds: Array.from(skippedIds) };
   const localsByStart = new Map<number, LocalDocument[]>();
   for (const doc of candidates) {
     const group = localsByStart.get(doc.firstSessionAt);
@@ -1163,7 +1171,8 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
       {
         queueOnHeld: false,
         onLockHeld: () => {
-          // Document locked; skip for now
+          // L-2: Document locked; record skipped id to avoid duplicate upload
+          skippedIds.add(local.id);
         },
       },
     );
@@ -1177,7 +1186,7 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
       'sync'
     );
   }
-  return relinked;
+  return { relinked, skippedIds: Array.from(skippedIds) };
 }
 
 export const __testing = { relinkOrphaned };

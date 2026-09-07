@@ -402,7 +402,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       await AIChatMemoryService.addManual('preference', 'Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе.', activeDialogueId ?? undefined);
       showToast('Учту — продолжу в этом стиле', 'success');
     } else {
-      const reason = (await promptDialog({ title: 'Что не так с ответом?', message: 'короче / теплее / конкретнее / не выдумывай — или свой вариант', placeholder: 'Причина' }))?.trim() ?? '';
+      const reason = (await promptDialog({
+        title: t('ai_feedback_prompt_title'),
+        message: t('ai_feedback_prompt_message'),
+        placeholder: t('ai_feedback_prompt_placeholder'),
+      }))?.trim() ?? '';
       const text = reason
         ? `Пользователю не нравится в ответе: ${reason}. Скорректировать стиль.`
         : 'Пользователю не понравился такой ответ (тон/подход) — скорректировать стиль.';

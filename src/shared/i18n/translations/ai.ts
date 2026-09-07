@@ -45,4 +45,12 @@ export const aiTranslations: Translations = {
   ai_delete_message_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },
   ai_delete_dialogue_confirm_title: { ru: 'Удалить диалог?', en: 'Delete dialogue?' },
   ai_delete_dialogue_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },
+  ai_file_too_large_title: { ru: 'Файл слишком большой', en: 'File too large' },
+  ai_file_too_large_max_1mb: { ru: 'Максимум 1 МБ', en: 'Maximum 1 MB' },
+  ai_file_unsupported_title: { ru: 'Неподдерживаемый тип файла', en: 'Unsupported file type' },
+  ai_file_unsupported_message: { ru: 'Допустимы: {exts}', en: 'Allowed: {exts}' },
+  ai_file_too_large_chars: { ru: 'Более {count} символов', en: 'More than {count} characters' },
+  ai_feedback_prompt_title: { ru: 'Что не так с ответом?', en: 'What was wrong with the answer?' },
+  ai_feedback_prompt_message: { ru: 'короче / теплее / конкретнее / не выдумывай — или свой вариант', en: 'shorter / warmer / more specific / do not hallucinate — or your own' },
+  ai_feedback_prompt_placeholder: { ru: 'Причина', en: 'Reason' },
 };

@@ -4,9 +4,9 @@
 # Полноэкранные заставки (3-2-1 takeover, мобильные экраны, шторки, подложки)
 # помечаются маркером `{/* not-a-modal: ... */}` прямо в коде и исключаются.
 #
-# Базлайн содержит реальные диалоги, ожидающие миграции на ModalShell (5 шт.):
+# Базлайн содержит реальные диалоги, ожидающие миграции на ModalShell (4 шт.):
 src/features/archive/components/StorageIcons.tsx
 src/features/auth/pages/LoginPage.tsx
-src/features/profile/components/ProfileRefreshButton.tsx
 src/features/settings/components/AccountVaultSection.tsx
 src/features/writing/components/MobileWriteToolbar.tsx
+

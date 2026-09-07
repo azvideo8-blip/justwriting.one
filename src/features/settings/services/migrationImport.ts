@@ -10,6 +10,7 @@ import { emitDomainEvent } from "../../../core/events/domainEvents";
 import { type MigrationManifest } from "./migrationExport";
 import { SyncService } from "../../../core/services/SyncService";
 import { getSessionKey } from "../../../core/crypto/encrypt";
+import { toTimestampMs } from "../../../core/utils/dateUtils";
 
 export interface MigrationImportResult {
   success: boolean;
@@ -265,8 +266,8 @@ export async function importMigrationManifest(
       totalWords: doc.totalWords ?? 0,
       totalDuration: doc.totalDuration ?? 0,
       sessionsCount: doc.sessionsCount ?? 1,
-      firstSessionAt: doc.firstSessionAt ?? Date.now(),
-      lastSessionAt: doc.lastSessionAt ?? Date.now(),
+      firstSessionAt: toTimestampMs(doc.firstSessionAt) ?? Date.now(),
+      lastSessionAt: toTimestampMs(doc.lastSessionAt) ?? Date.now(),
       tags: doc.tags ?? [],
       labelId: finalLabelId,
       mood: doc.mood,
@@ -337,8 +338,8 @@ export async function importMigrationManifest(
         goalWords: ver.goalWords,
         goalTime: ver.goalTime,
         goalReached: ver.goalReached,
-        savedAt: ver.savedAt ?? Date.now(),
-        sessionStartedAt: ver.sessionStartedAt ?? Date.now(),
+        savedAt: toTimestampMs(ver.savedAt) ?? Date.now(),
+        sessionStartedAt: toTimestampMs(ver.sessionStartedAt) ?? Date.now(),
         mood: ver.mood,
       };
 

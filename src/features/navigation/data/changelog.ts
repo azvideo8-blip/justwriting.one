@@ -14,6 +14,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.42',
+    date: '2026-09-08',
+    items: [
+      { category: 'fix', ru: 'Второе устройство наконец забирает заметки из облака. Функция скачивания существовала, но её никто не вызывал: архив показывал правильные заголовки, даты и число слов, а текста на устройстве не было ни байта. Теперь скачивание запускается при входе, при возвращении сети и при разблокировке сейфа.', en: 'A second device finally fetches the notes from the cloud. The download existed but nothing called it: the archive showed the right titles, dates and word counts while not one byte of the text was on the device. It now runs on sign-in, when the network comes back, and when the vault is unlocked.' },
+      { category: 'fix', ru: '«Продолжить писать» больше не открывает облачную заметку пустой: текст подтягивается, а связь с облачной копией не теряется.', en: '«Continue writing» no longer opens a cloud note blank: the text is fetched and the link to the cloud copy is kept.' },
+      { category: 'fix', ru: 'У значка хранилища появился способ забрать заметку на устройство — раньше он умел только удалить ту копию, что уже здесь.', en: 'The storage icon can now bring a note down to the device — before, it could only delete the copy that was already here.' },
+      { category: 'fix', ru: 'Импорт заметки, выгруженной старой версией, больше не проставляет ей сегодняшнюю дату молча.', en: 'Importing a note exported by an older version no longer stamps it with today\'s date in silence.' },
+      { category: 'fix', ru: 'Перепривязка, пропущенная из-за занятого замка, больше не превращается в дубль заметки в облаке.', en: 'A relink skipped because the lock was held no longer turns into a duplicate note in the cloud.' },
+      { category: 'fix', ru: 'Ошибка расшифровки последней версии больше не гоняется десять раз впустую: она отнесена к правилам и оживает при разблокировке сейфа.', en: 'A failure to decrypt the latest version is no longer retried ten times for nothing: it is covered by the rules and revives when the vault is unlocked.' },
+      { category: 'fix', ru: 'Сбой разбора ответа модели больше не возвращает вызов и не отдаёт пустой список как успех, а ветка рассуждений перестала записывать расход дважды при обрыве.', en: 'A malformed model answer no longer refunds the call and returns an empty list as success, and the reasoning branch stopped recording its usage twice when the stream fails.' },
+      { category: 'fix', ru: 'На мобильных экранах шестнадцать элементов управления доведены до минимального размера нажатия.', en: 'Sixteen controls on the mobile screens were brought up to the minimum touch size.' },
+      { category: 'fix', ru: 'В профиле больше не встречаются «0 дней» и «1 дней подряд» на одном экране.', en: 'The profile no longer shows «0 days» and «1 days in a row» on the same screen.' },
+      { category: 'fix', ru: 'Диагностика объясняет гостю, что нужно и зачем, вместо одной строки «требуется регистрация».', en: 'The diagnostics screen explains to a guest what is needed and why, instead of a bare «sign-up required».' },
+    ],
+  },
+  {
     version: '0.8.41',
     date: '2026-09-07',
     items: [

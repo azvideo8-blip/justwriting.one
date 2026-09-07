@@ -159,7 +159,7 @@ export function MobileWriteToolbar({
         {headerVisibility.sessionWords && (
           <div
             onClick={onGoalClick}
-            className="flex-1 flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
+            className="flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
             role="button"
             tabIndex={0}
             aria-label={t('writing_mode_words')}
@@ -188,7 +188,7 @@ export function MobileWriteToolbar({
         {headerVisibility.sessionTime && (
           <div
             onClick={onGoalClick}
-            className="flex-1 flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
+            className="flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
             role="button"
             tabIndex={0}
             aria-label={t('writing_mode_timer')}
@@ -230,6 +230,7 @@ export function MobileWriteToolbar({
         <AIToggleButton
           active={aiPanelOpen}
           onClick={() => setAiPanelOpen(!aiPanelOpen)}
+          className="w-11 h-11 rounded-xl"
         />
 
         {hasSupport && (

@@ -43,6 +43,7 @@ export function MobileStorageActionsSheet({
   const { profile } = useAuthStatus();
   const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'upload' | 'download' | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [showEncryptionSetup, setShowEncryptionSetup] = useState(false);
 
@@ -50,9 +51,9 @@ export function MobileStorageActionsSheet({
 
   const doc = {
     localId: session._isLocal ? session.id : undefined,
-    cloudId: session._linkedCloudId,
+    cloudId: session._linkedCloudId || (!session._isLocal ? session.id : undefined),
     hasLocal: !!session._isLocal,
-    hasCloud: !!session._hasCloudCopy,
+    hasCloud: !!session._hasCloudCopy || (!session._isLocal && !!session.id),
     hasPendingSync: !!session._hasPendingSync,
   };
 
@@ -66,9 +67,38 @@ export function MobileStorageActionsSheet({
     }
   };
 
+  const handleDownloadLocal = async () => {
+    if (!doc.cloudId || !userId || userId.startsWith('guest_')) return;
+    if (hasEncryption && !getSessionKey()) {
+      setPendingAction('download');
+      setShowUnlock(true);
+      return;
+    }
+
+    setLoadingAction('download');
+    triggerVibration();
+    try {
+      await StorageService.addLocalCopy(userId, doc.cloudId);
+      showToast(t('storage_downloaded_local') || 'Загружено на устройство', 'success');
+      onStorageChange();
+      onClose();
+    } catch (e) {
+      reportError(e, { action: 'downloadLocalCopy', userId, cloudId: doc.cloudId });
+      if (String(e).includes('LOCKED')) {
+        setPendingAction('download');
+        setShowUnlock(true);
+      } else {
+        showToast(t('error_generic_action'), 'error');
+      }
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
   const handleUploadOrSync = async () => {
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
     if (!getSessionKey()) {
+      setPendingAction('upload');
       if (hasEncryption) {
         setShowUnlock(true);
       } else {
@@ -237,6 +267,26 @@ export function MobileStorageActionsSheet({
             </Button>
           )}
 
+          {/* Download to Device Button (when cloud note is missing locally) */}
+          {!doc.hasLocal && doc.hasCloud && (
+            <Button
+              variant="brand"
+              size="md"
+              onClick={() => void handleDownloadLocal()}
+              isLoading={loadingAction === 'download'}
+              className="w-full min-h-[48px] flex items-center justify-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm active:scale-[0.98]"
+            >
+              {loadingAction === 'download' ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <>
+                  <HardDrive size={18} />
+                  <span>{t('storage_download_to_local') || 'Скачать на это устройство'}</span>
+                </>
+              )}
+            </Button>
+          )}
+
           {/* 2. Delete Local Copy Button */}
           {doc.hasLocal && doc.hasCloud && (
             <Button
@@ -316,8 +366,18 @@ export function MobileStorageActionsSheet({
       {showUnlock && hasEncryption && userId && !userId.startsWith('guest_') && (
         <UnlockPrompt
           uid={userId}
-          onUnlocked={() => { setShowUnlock(false); void handleUploadOrSync(); }}
-          onClose={() => setShowUnlock(false)}
+          onUnlocked={() => {
+            setShowUnlock(false);
+            if (pendingAction === 'download') {
+              void handleDownloadLocal();
+            } else {
+              void handleUploadOrSync();
+            }
+          }}
+          onClose={() => {
+            setShowUnlock(false);
+            setPendingAction(null);
+          }}
         />
       )}
     </AnimatePresence>

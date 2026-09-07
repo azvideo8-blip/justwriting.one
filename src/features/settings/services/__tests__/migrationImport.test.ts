@@ -871,5 +871,59 @@ describe("C1 migrationImport", () => {
       const docDangling = await db.get("documents", "doc_dangling_label");
       expect(docDangling?.labelId).toBeUndefined();
     });
+
+    it("L-1: parses string date and localized date in document and version fields", async () => {
+      const content = "Test content for date parsing";
+      const manifest: MigrationManifest = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        documents: [
+          {
+            localId: "doc_date_str",
+            uuid: "uuid-date-str-1",
+            title: "Date Str Note",
+            currentVersion: 1,
+            tags: [],
+            firstSessionAt: "2026-09-05T10:00:00.000Z" as unknown as number,
+            lastSessionAt: "2026-09-05T10:30:00.000Z" as unknown as number,
+            totalWords: 5,
+            totalDuration: 60,
+            sessionsCount: 1,
+            versions: [
+              {
+                id: "v_date_str",
+                version: 1,
+                content,
+                wordCount: 5,
+                wordsAdded: 5,
+                charsAdded: 25,
+                duration: 60,
+                wpm: 5,
+                savedAt: "2026-09-05T10:30:00.000Z" as unknown as number,
+                sessionStartedAt: "2026-09-05T10:00:00.000Z" as unknown as number,
+              },
+            ],
+          },
+        ],
+        drafts: [], aiSummaries: [], aiEmbeddings: [], verbatim: [],
+        counters: { documents: 1, versions: 1, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+        checksums: {
+          v_date_str: await sha256Hex(content),
+        },
+        skipped: [],
+      };
+
+      const res = await importMigrationManifest(manifest, "u_target");
+      expect(res.imported.documents).toBe(1);
+      expect(res.imported.versions).toBe(1);
+
+      const db = await getLocalDb();
+      const doc = await db.get("documents", "doc_date_str");
+      expect(doc?.firstSessionAt).toBe(new Date("2026-09-05T10:00:00.000Z").getTime());
+
+      const ver = await db.get("versions", "v_date_str");
+      expect(ver?.sessionStartedAt).toBe(new Date("2026-09-05T10:00:00.000Z").getTime());
+    });
   });
 });
+

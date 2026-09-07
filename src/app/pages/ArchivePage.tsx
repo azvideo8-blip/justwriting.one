@@ -88,15 +88,20 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const handleImportFiles = async (files: FileList) => {
     let importedCount = 0;
     let failedCount = 0;
+    let dateWarningCount = 0;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (!file) continue;
       try {
         const { importNoteFile } = await import('../../features/archive/services/archiveImport');
-        const { success } = await importNoteFile(file, userId, !!user);
-        if (success) importedCount++;
-        else failedCount++;
+        const res = await importNoteFile(file, userId, !!user);
+        if (res.success) {
+          importedCount++;
+          if (res.dateUnreadable) dateWarningCount++;
+        } else {
+          failedCount++;
+        }
       } catch (err) {
         console.error('Failed to import file:', file.name, err);
         failedCount++;
@@ -106,6 +111,9 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     if (importedCount > 0) {
       showToast(t('archive_import_success', { count: importedCount }), 'success');
       void fetchSessions();
+    }
+    if (dateWarningCount > 0) {
+      showToast(t('archive_import_date_warning', { count: dateWarningCount }), 'error');
     }
     if (failedCount > 0) {
       showToast(t('archive_import_failed', { count: failedCount }), 'error');

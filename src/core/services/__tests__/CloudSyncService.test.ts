@@ -61,7 +61,7 @@ describe('CloudSyncService', () => {
       ]);
       const cloudRead = vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([]);
 
-      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect((await CloudSyncService.relinkOrphanedDocuments('user_1')).relinked).toBe(0);
       expect(cloudRead).not.toHaveBeenCalled();
     });
 
@@ -71,7 +71,7 @@ describe('CloudSyncService', () => {
       ]);
       const cloudRead = vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([]);
 
-      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect((await CloudSyncService.relinkOrphanedDocuments('user_1')).relinked).toBe(0);
       expect(cloudRead).not.toHaveBeenCalled();
     });
 
@@ -89,7 +89,7 @@ describe('CloudSyncService', () => {
       ]);
       const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
 
-      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(1);
+      expect((await CloudSyncService.relinkOrphanedDocuments('user_1')).relinked).toBe(1);
       expect(updateLink).toHaveBeenCalledWith('local_1', 'cloud_1');
     });
 
@@ -102,7 +102,7 @@ describe('CloudSyncService', () => {
       ]);
       const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
 
-      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(1);
+      expect((await CloudSyncService.relinkOrphanedDocuments('user_1')).relinked).toBe(1);
       expect(updateLink).toHaveBeenCalledWith('local_1', 'cloud_1');
     });
 
@@ -115,7 +115,7 @@ describe('CloudSyncService', () => {
       ]);
       const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
 
-      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect((await CloudSyncService.relinkOrphanedDocuments('user_1')).relinked).toBe(0);
       expect(updateLink).not.toHaveBeenCalled();
     });
 
@@ -132,7 +132,7 @@ describe('CloudSyncService', () => {
       ]);
       const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
 
-      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(1);
+      expect((await CloudSyncService.relinkOrphanedDocuments('user_1')).relinked).toBe(1);
       expect(updateLink).toHaveBeenCalledTimes(1);
       expect(updateLink).toHaveBeenCalledWith('local_3', 'cloud_3');
     });
@@ -145,7 +145,7 @@ describe('CloudSyncService', () => {
       vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([cloudDoc('cloud_1', 1000)]);
       const updateLink = vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
 
-      expect(await CloudSyncService.relinkOrphanedDocuments('user_1')).toBe(0);
+      expect((await CloudSyncService.relinkOrphanedDocuments('user_1')).relinked).toBe(0);
       expect(updateLink).not.toHaveBeenCalled();
     });
 

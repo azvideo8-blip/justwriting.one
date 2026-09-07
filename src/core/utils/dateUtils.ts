@@ -1,3 +1,4 @@
+import { parse } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { enUS } from 'date-fns/locale/en-US';
 
@@ -5,6 +6,47 @@ type DateFnsLocale = import('date-fns/locale').Locale;
 
 export function getDateLocale(lang: string): DateFnsLocale {
   return lang === 'ru' ? ru : enUS;
+}
+
+const LOCALIZED_DATE_FORMATS: { fmt: string; loc: DateFnsLocale }[] = [
+  { fmt: "d MMMM yyyy 'г.'", loc: ru },
+  { fmt: "d MMMM yyyy 'г'", loc: ru },
+  { fmt: 'd MMMM yyyy', loc: ru },
+  { fmt: 'dd.MM.yyyy', loc: ru },
+  { fmt: 'd.M.yyyy', loc: ru },
+  { fmt: 'MMMM d, yyyy', loc: enUS },
+  { fmt: 'd MMMM yyyy', loc: enUS },
+  { fmt: 'MM/dd/yyyy', loc: enUS },
+  { fmt: 'dd/MM/yyyy', loc: enUS },
+  { fmt: 'yyyy-MM-dd', loc: enUS },
+];
+
+export function parseLocalizedDate(v: unknown): Date | null {
+  if (!v || typeof v !== 'string') return null;
+  const trimmed = v.trim();
+  if (!trimmed) return null;
+
+  // 1. Check if native Date parses standard ISO-8601 strings
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    const iso = new Date(trimmed);
+    if (!isNaN(iso.getTime())) return iso;
+  }
+
+  // 2. Try explicit localized formats (Russian and English long dates)
+  for (const { fmt, loc } of LOCALIZED_DATE_FORMATS) {
+    try {
+      const d = parse(trimmed, fmt, new Date(), { locale: loc });
+      if (!isNaN(d.getTime())) return d;
+    } catch {
+      /* continue to next format */
+    }
+  }
+
+  // 3. Fallback to native Date parser
+  const native = new Date(trimmed);
+  if (!isNaN(native.getTime())) return native;
+
+  return null;
 }
 
 export function toDate(v: unknown): Date | null {
@@ -39,6 +81,8 @@ export function toDate(v: unknown): Date | null {
       const d = new Date(num);
       if (!isNaN(d.getTime())) return d;
     }
+    const localized = parseLocalizedDate(v);
+    if (localized) return localized;
   }
   try {
     const d = new Date(typeof v === 'string' || typeof v === 'number' ? v : String(v));

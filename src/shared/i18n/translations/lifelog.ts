@@ -25,7 +25,10 @@ export const lifelogTranslations: Translations = {
   greeting_night:     { ru: 'Доброй ночи',     en: 'Good night' },
   greeting_question:  { ru: 'что на уме?',     en: "what's on your mind?" },
 
-  home_streak_days:   { ru: 'дней',            en: 'days' },
+  home_streak_days:      { ru: 'дней', en: 'days' },
+  home_streak_days_one:  { ru: 'день', en: 'day' },
+  home_streak_days_few:  { ru: 'дня',  en: 'days' },
+  home_streak_days_many: { ru: 'дней', en: 'days' },
   home_nudge_today:   { ru: 'Сегодня ты ещё не писал — самое время начать практику.', en: "You haven't written today — a good moment to start." },
   home_cta:           { ru: 'Начать',          en: 'Start' },
   profile_cta:        { ru: 'Написать сейчас', en: 'Write now' },

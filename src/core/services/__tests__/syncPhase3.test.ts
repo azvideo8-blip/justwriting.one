@@ -67,7 +67,7 @@ describe('Phase 3 Fix Tickets: SYNC-3, SYNC-5, SYNC-6, SYNC-7, SYNC-8', () => {
         await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_relinked_id');
         await LocalDocumentService.updateDocument(docId, { currentVersion: 1, lastSyncedCloudVersion: 0 });
         await SyncService.addToQueue(docId);
-        return 1;
+        return { relinked: 1, skippedIds: [] };
       });
 
       vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('cloud_relinked_id');

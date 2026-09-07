@@ -68,14 +68,19 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
   const handleSyncAll = async () => {
     setSyncingAll(true);
     try {
-      const res = await SyncService.syncAllUnlinked(userId);
+      const [res, dlRes] = await Promise.all([
+        SyncService.syncAllUnlinked(userId),
+        SyncService.downloadAllFromCloud(userId),
+      ]);
+      const totalSynced = res.synced + dlRes.downloaded;
+      const totalFailed = res.failed + dlRes.failed;
       showToast(
-        t('settings_sync_all_unlinked_done', { synced: String(res.synced) }),
+        t('settings_sync_all_unlinked_done', { synced: String(totalSynced) }),
         'success'
       );
-      if (res.failed > 0) {
+      if (totalFailed > 0) {
         showToast(
-          t('settings_sync_all_unlinked_failed', { failed: String(res.failed) }),
+          t('settings_sync_all_unlinked_failed', { failed: String(totalFailed) }),
           'error'
         );
       }

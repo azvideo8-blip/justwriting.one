@@ -187,4 +187,60 @@ describe('DUP-1: reservationLifetime', () => {
     await callRes2.settle('failed');
     expect(refundDailyMock).toHaveBeenCalledWith('user_1', '2026-09-07');
   });
+
+  describe('L-3: usageRecorded latch prevents duplicate usage writes', () => {
+    it('calling settle(failed, usage) followed by recordUsage writes usage exactly once', async () => {
+      const res = createCallReservation(ctx, 'user_1', 'user', '2026-09-07', mockGlobalRes);
+      res.markProduced(300);
+
+      await res.settle('failed', { tokensIn: 120, tokensOut: 80, model: 'gpt-4' });
+      await res.recordUsage(120, 80, { model: 'gpt-4', fn: 'chat-stream' });
+
+      expect(recordUsageMock).toHaveBeenCalledTimes(1);
+      expect(recordUsageMock).toHaveBeenCalledWith(
+        'user_1',
+        120,
+        80,
+        { fn: 'chat-stream-abort', model: 'gpt-4' },
+        mockGlobalRes,
+      );
+      expect(res.usageRecorded).toBe(true);
+    });
+
+    it('calling recordUsage followed by settle(failed, usage) writes usage exactly once', async () => {
+      const res = createCallReservation(ctx, 'user_1', 'user', '2026-09-07', mockGlobalRes);
+      res.markProduced(300);
+
+      await res.recordUsage(120, 80, { model: 'gpt-4', fn: 'chat-stream' });
+      await res.settle('failed', { tokensIn: 120, tokensOut: 80, model: 'gpt-4' });
+
+      expect(recordUsageMock).toHaveBeenCalledTimes(1);
+      expect(recordUsageMock).toHaveBeenCalledWith(
+        'user_1',
+        120,
+        80,
+        { model: 'gpt-4', fn: 'chat-stream' },
+        mockGlobalRes,
+      );
+      expect(res.usageRecorded).toBe(true);
+    });
+
+    it('calling settle(done, usage) followed by recordUsage writes usage exactly once', async () => {
+      const res = createCallReservation(ctx, 'user_1', 'user', '2026-09-07', mockGlobalRes);
+      res.markProduced(300);
+
+      await res.settle('done', { tokensIn: 150, tokensOut: 100, model: 'gpt-4' });
+      await res.recordUsage(150, 100, { model: 'gpt-4', fn: 'chat-stream' });
+
+      expect(recordUsageMock).toHaveBeenCalledTimes(1);
+      expect(recordUsageMock).toHaveBeenCalledWith(
+        'user_1',
+        150,
+        100,
+        { fn: 'chat-stream', model: 'gpt-4' },
+        mockGlobalRes,
+      );
+      expect(res.usageRecorded).toBe(true);
+    });
+  });
 });

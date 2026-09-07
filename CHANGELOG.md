@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.42 — 2026-09-08
+
+- **[RU]** Второе устройство наконец забирает заметки из облака. Функция скачивания существовала, но её никто не вызывал: архив показывал правильные заголовки, даты и число слов, а текста на устройстве не было ни байта. Теперь скачивание запускается при входе, при возвращении сети и при разблокировке сейфа.
+- **[EN]** A second device finally fetches the notes from the cloud. The download existed but nothing called it: the archive showed the right titles, dates and word counts while not one byte of the text was on the device. It now runs on sign-in, when the network comes back, and when the vault is unlocked.
+- **[RU]** «Продолжить писать» больше не открывает облачную заметку пустой: текст подтягивается, а связь с облачной копией не теряется.
+- **[EN]** «Continue writing» no longer opens a cloud note blank: the text is fetched and the link to the cloud copy is kept.
+- **[RU]** У значка хранилища появился способ забрать заметку на устройство — раньше он умел только удалить ту копию, что уже здесь.
+- **[EN]** The storage icon can now bring a note down to the device — before, it could only delete the copy that was already here.
+- **[RU]** Импорт заметки, выгруженной старой версией, больше не проставляет ей сегодняшнюю дату молча.
+- **[EN]** Importing a note exported by an older version no longer stamps it with today's date in silence.
+- **[RU]** Перепривязка, пропущенная из-за занятого замка, больше не превращается в дубль заметки в облаке.
+- **[EN]** A relink skipped because the lock was held no longer turns into a duplicate note in the cloud.
+- **[RU]** Ошибка расшифровки последней версии больше не гоняется десять раз впустую: она отнесена к правилам и оживает при разблокировке сейфа.
+- **[EN]** A failure to decrypt the latest version is no longer retried ten times for nothing: it is covered by the rules and revives when the vault is unlocked.
+- **[RU]** Сбой разбора ответа модели больше не возвращает вызов и не отдаёт пустой список как успех, а ветка рассуждений перестала записывать расход дважды при обрыве.
+- **[EN]** A malformed model answer no longer refunds the call and returns an empty list as success, and the reasoning branch stopped recording its usage twice when the stream fails.
+- **[RU]** На мобильных экранах шестнадцать элементов управления доведены до минимального размера нажатия.
+- **[EN]** Sixteen controls on the mobile screens were brought up to the minimum touch size.
+- **[RU]** В профиле больше не встречаются «0 дней» и «1 дней подряд» на одном экране.
+- **[EN]** The profile no longer shows «0 days» and «1 days in a row» on the same screen.
+- **[RU]** Диагностика объясняет гостю, что нужно и зачем, вместо одной строки «требуется регистрация».
+- **[EN]** The diagnostics screen explains to a guest what is needed and why, instead of a bare «sign-up required».
+
 ## 0.8.41 — 2026-09-07
 
 - **[RU]** Экспортированная заметка снова импортируется обратно без потерь: экспорт и импорт наконец говорят на одном формате, а файлы прежних версий по-прежнему читаются.

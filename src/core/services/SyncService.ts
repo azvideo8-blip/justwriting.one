@@ -7,6 +7,9 @@ import { DocumentService } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { isPoisonSyncError, isRevivableOnUnlock } from '../sync/classifySyncError';
+import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { getSessionKey } from '../crypto/encrypt';
+import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
@@ -268,16 +271,22 @@ export const SyncService = {
       // uploading it "unlinked" creates a second cloud document. Deliberately
       // not caught: if the cloud can't be read we must not upload blind, and
       // both callers surface the rejection to the user.
-      await CloudSyncService.relinkOrphanedDocuments(userId);
+      const relinkRes = await CloudSyncService.relinkOrphanedDocuments(userId);
+      const skippedIds = relinkRes?.skippedIds ?? [];
+      const skippedSet = new Set(skippedIds);
 
       // 2. Resolve unknown cloud versions against cloud map
       await this.getUnsyncedSummary(userId);
 
       // 3. Collect work: any note that is not localOnly and where the cloud lacks
       // what the device has (unlinked or linked-but-behind).
+      // L-2: A note whose relink was skipped because the document lock was held
+      // must NOT be uploaded as an unlinked note on this pass. Doing so creates
+      // a second cloud copy and splits history. Exclude skippedIds from toUpload.
       const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
       const toUpload = localDocs.filter(d => {
         if (d.localOnly || d._locked || d._decryptionError) return false;
+        if (skippedSet.has(d.id)) return false;
         if (!d.linkedCloudId) return true;
         return (d.currentVersion ?? 0) > (d.lastSyncedCloudVersion ?? 0);
       });
@@ -341,40 +350,51 @@ export const SyncService = {
   async downloadAllFromCloud(
     userId: string
   ): Promise<{ downloaded: number; skipped: number; failed: number }> {
+    if (getEncryptionEnabled(userId) && !getSessionKey()) {
+      return { downloaded: 0, skipped: 0, failed: 0 };
+    }
+
+    try {
+      await CloudSyncService.relinkOrphanedDocuments(userId);
+    } catch (e) {
+      reportError(e, { action: 'downloadAllFromCloud_relink', userId });
+    }
+
     const [cloudDocs, localDocs] = await Promise.all([
       DocumentService.getUserDocuments(userId),
       LocalDocumentService.getDocumentsByOwner(userId),
     ]);
 
     const linkedCloudMap = new Map(localDocs.filter(d => d.linkedCloudId).map(d => [d.linkedCloudId!, d]));
-    const toDownload = cloudDocs.filter(d => !linkedCloudMap.has(d.id));
-    const toReconcile = cloudDocs.filter(d => linkedCloudMap.has(d.id));
+    const localUuidSet = new Set(localDocs.map(d => d.uuid).filter(Boolean));
+    const toDownload = cloudDocs.filter(d => !linkedCloudMap.has(d.id) && (!d.uuid || !localUuidSet.has(d.uuid)));
+    const skipped = cloudDocs.length - toDownload.length;
 
     const downloadResults = await Promise.allSettled(
       toDownload.map(cloudDoc => limit(() => StorageService.addLocalCopy(userId, cloudDoc.id)))
-    );
-
-    const reconcileResults = await Promise.allSettled(
-      toReconcile.map(cloudDoc => {
-        const localDoc = linkedCloudMap.get(cloudDoc.id)!;
-        return limit(() => StorageService.addCloudCopy(userId, localDoc.id));
-      })
     );
 
     let downloaded = 0;
     let failed = 0;
     for (const r of downloadResults) {
       if (r.status === 'fulfilled') downloaded++;
-      else { failed++; logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) }); }
-    }
-    for (const r of reconcileResults) {
-      if (r.status === 'rejected') {
+      else {
         failed++;
-        logger.error('downloadAllFromCloud', 'Reconcile failed', { reason: String(r.reason) });
+        logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) });
       }
     }
 
-    return { downloaded, skipped: toReconcile.length, failed };
+    if (downloaded > 0) {
+      useActivityLogStore.getState().addActivity(
+        `Загружено заметок из облака: ${downloaded}`,
+        { action: 'downloadAllFromCloud', downloaded, skipped, failed },
+        'info',
+        'sync'
+      );
+      announceQueueChange();
+    }
+
+    return { downloaded, skipped, failed };
   },
 
 };
@@ -466,17 +486,23 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
     // missing. If the check itself can't run, leave the queue alone and retry
     // on the next pass — a stuck task is recoverable, a duplicate cloud doc is
     // not.
+    let skippedSet = new Set<string>();
     try {
-      await CloudSyncService.relinkOrphanedDocuments(userId);
+      const relinkRes = await CloudSyncService.relinkOrphanedDocuments(userId);
+      // Тот же приём, что в syncAllUnlinked: результат читается через `?.`.
+      // Вызывающий не должен падать на форме ответа — TypeError здесь оставил
+      // бы очередь недренированной, а документ незагруженным.
+      skippedSet = new Set(relinkRes?.skippedIds ?? []);
     } catch (e) {
       logger.error('drainPendingQueue', 'Skipping uploads: could not verify cloud links', { reason: String(e) });
       if (syncedIds.length > 0) await _clearQueueItems(syncedIds);
       return { drained: syncedIds.length, failed: docTasks.length };
     }
 
-    const documentIds = [...new Set(docTasks.map(p => p.documentId))];
+    const eligibleDocTasks = docTasks.filter(p => !skippedSet.has(p.documentId));
+    const documentIds = [...new Set(eligibleDocTasks.map(p => p.documentId))];
     const pendingByDoc = new Map<string, typeof docTasks>();
-    for (const p of docTasks) {
+    for (const p of eligibleDocTasks) {
       const arr = pendingByDoc.get(p.documentId);
       if (arr) arr.push(p); else pendingByDoc.set(p.documentId, [p]);
     }

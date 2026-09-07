@@ -155,6 +155,7 @@ export interface CallReservation {
   readonly upstreamProduced?: boolean;
   readonly producedChars?: number;
   readonly settled?: boolean;
+  readonly usageRecorded?: boolean;
   readonly outcome?: SettleReason | undefined;
   readonly estimatedInputTokens?: number | undefined;
   attachGlobalReservation(res: GlobalReservation | null, estimatedInputTokens?: number): void;
@@ -177,6 +178,7 @@ export function createCallReservation(
   let currentGlobal = globalReservation;
   let currentEstimatedInput = estimatedInputTokens;
   let outcome: SettleReason | undefined = undefined;
+  let usageRecorded = false;
 
   const res: CallReservation = {
     uid,
@@ -195,6 +197,9 @@ export function createCallReservation(
     get settled() {
       return isSettled;
     },
+    get usageRecorded() {
+      return usageRecorded;
+    },
     get outcome() {
       return outcome;
     },
@@ -212,6 +217,8 @@ export function createCallReservation(
       producedChars += chars;
     },
     async recordUsage(tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) {
+      if (usageRecorded) return;
+      usageRecorded = true;
       await ctx.recordUsage(uid, tokensIn, tokensOut, opts, currentGlobal);
     },
     async settle(reason: SettleReason, usage?: CallReservationUsage) {
@@ -219,16 +226,19 @@ export function createCallReservation(
       isSettled = true;
       outcome = reason;
       if (reason === 'done') {
-        if (usage && currentGlobal && !currentGlobal.refunded) {
-          const meta: { model?: string; fn?: string } = { fn: 'chat-stream' };
-          if (usage.model) meta.model = usage.model;
-          await ctx.recordUsage(
-            uid,
-            usage.tokensIn ?? 0,
-            usage.tokensOut ?? 0,
-            meta,
-            currentGlobal,
-          );
+        if (usage && (!currentGlobal || !currentGlobal.refunded)) {
+          if (!usageRecorded) {
+            usageRecorded = true;
+            const meta: { model?: string; fn?: string } = { fn: 'chat-stream' };
+            if (usage.model) meta.model = usage.model;
+            await ctx.recordUsage(
+              uid,
+              usage.tokensIn ?? 0,
+              usage.tokensOut ?? 0,
+              meta,
+              currentGlobal,
+            );
+          }
         }
         return;
       }
@@ -246,23 +256,26 @@ export function createCallReservation(
       }
       if (!upstreamProduced && currentGlobal) {
         await ctx.refundGlobalRequest(currentGlobal);
-      } else if (currentGlobal && !currentGlobal.refunded) {
+      } else if (upstreamProduced && (!currentGlobal || !currentGlobal.refunded)) {
         // FU-1 & FU-4: Stream aborted or failed mid-stream after upstream produced chunks.
         // Reconcile global token reservation against actual or estimated usage so
         // the unconsumed remainder is refunded to ai_global_daily.
         // Prompt tokens (input) were genuinely consumed before upstream started producing;
         // fallback to estimatedInputTokens if usage.tokensIn is absent on abort.
-        const tokensIn = usage?.tokensIn ?? currentEstimatedInput ?? 0;
-        const tokensOut = usage?.tokensOut ?? Math.ceil(producedChars / 3);
-        const meta: { model?: string; fn?: string } = { fn: 'chat-stream-abort' };
-        if (usage?.model) meta.model = usage.model;
-        await ctx.recordUsage(
-          uid,
-          tokensIn,
-          tokensOut,
-          meta,
-          currentGlobal,
-        );
+        if (!usageRecorded) {
+          usageRecorded = true;
+          const tokensIn = usage?.tokensIn ?? currentEstimatedInput ?? 0;
+          const tokensOut = usage?.tokensOut ?? Math.ceil(producedChars / 3);
+          const meta: { model?: string; fn?: string } = { fn: 'chat-stream-abort' };
+          if (usage?.model) meta.model = usage.model;
+          await ctx.recordUsage(
+            uid,
+            tokensIn,
+            tokensOut,
+            meta,
+            currentGlobal,
+          );
+        }
       }
     },
   };
@@ -273,6 +286,7 @@ export function createCallReservation(
     upstreamProduced: { enumerable: false },
     producedChars: { enumerable: false },
     settled: { enumerable: false },
+    usageRecorded: { enumerable: false },
     outcome: { enumerable: false },
     estimatedInputTokens: { enumerable: false },
     attachGlobalReservation: { enumerable: false },

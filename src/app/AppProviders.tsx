@@ -97,6 +97,11 @@ export function SyncManager() {
             void SyncService.syncPending(user.uid).catch(e =>
               reportError(e, { action: 'sync_pending_on_vault_unlock' }),
             );
+            if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true') {
+              void SyncService.downloadAllFromCloud(user.uid).catch(e =>
+                reportError(e, { action: 'download_all_on_vault_unlock' }),
+              );
+            }
           }
         })
         .catch(e => reportError(e, { action: 'revive_locked_tasks_on_vault_unlock' }));
@@ -109,9 +114,21 @@ export function SyncManager() {
   useEffect(() => {
     if (isBrowserOnline && !prevBrowserOnline.current && user && localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true') {
       SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
+      SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
     }
     prevBrowserOnline.current = isBrowserOnline;
   }, [isBrowserOnline, user]);
+
+  // Initial mount / auth login sync: device converges on cloud notes
+  const initialSyncRanRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user || initialSyncRanRef.current === user.uid) return;
+    if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'true') return;
+    initialSyncRanRef.current = user.uid;
+    SyncService.downloadAllFromCloud(user.uid).catch(e =>
+      reportError(e, { action: 'download_all_on_auth' }),
+    );
+  }, [user]);
 
   return null;
 }

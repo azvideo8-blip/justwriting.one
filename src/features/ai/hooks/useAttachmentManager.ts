@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, type ChangeEvent } from 'react';
 import { API_MSG_CAP } from './useAIChat';
 import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 interface AttachmentManagerParams {
   prepareAttachment: (docId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
@@ -23,6 +24,7 @@ export function useAttachmentManager({
   inputText,
   setInputText,
 }: AttachmentManagerParams) {
+  const { t } = useLanguage();
   const [docPickerOpen, setDocPickerOpen] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<{ documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[]>([]);
@@ -33,7 +35,11 @@ export function useAttachmentManager({
   useEffect(() => {
     if (!attachMenuOpen) return;
     const dismiss = (e: MouseEvent) => {
-      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+      if (
+        attachMenuRef.current &&
+        !attachMenuRef.current.contains(e.target as Node) &&
+        !fileInputRef.current?.contains(e.target as Node)
+      ) {
         setAttachMenuOpen(false);
       }
     };
@@ -45,6 +51,19 @@ export function useAttachmentManager({
     setPendingAttachments(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  const handleDocSelect = useCallback(async (documentId: string) => {
+    try {
+      const prepared = await prepareAttachment(documentId);
+      if (prepared) {
+        setPendingAttachments(prev => [...prev, { documentId, title: prepared.title, content: prepared.content, lastSessionAt: prepared.lastSessionAt }]);
+      }
+      setDocPickerOpen(false);
+      setAttachMenuOpen(false);
+    } catch (e) {
+      reportError(e, { action: 'useAttachmentManager/prepareAttachment', documentId });
+    }
+  }, [prepareAttachment]);
+
   const handlePasteAsNote = useCallback(() => {
     const text = inputText.trim();
     if (!text) return;
@@ -52,23 +71,12 @@ export function useAttachmentManager({
     setInputText('');
   }, [inputText, setInputText]);
 
-  const handleDocSelect = useCallback(async (documentId: string) => {
-    try {
-      const prepared = await prepareAttachment(documentId);
-      if (prepared) {
-        setPendingAttachments(prev => [...prev, { documentId, title: prepared.title, content: prepared.content, lastSessionAt: prepared.lastSessionAt }]);
-      }
-    } catch (e) {
-      reportError(e, { action: 'useAttachmentManager/prepareAttachment', documentId });
-    }
-  }, [prepareAttachment]);
-
   const handleFileUpload = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const MAX_FILE_SIZE = 1_048_576;
     if (file.size > MAX_FILE_SIZE) {
-      void alertDialog({ title: 'Файл слишком большой', message: 'Максимум 1 МБ' });
+      void alertDialog({ title: t('ai_file_too_large_title'), message: t('ai_file_too_large_max_1mb') });
       e.target.value = '';
       setAttachMenuOpen(false);
       return;
@@ -77,7 +85,7 @@ export function useAttachmentManager({
     const allowedExts = ['.txt', '.md', '.csv', '.json', '.html', '.xml'];
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
-      void alertDialog({ title: 'Неподдерживаемый тип файла', message: `Допустимы: ${allowedExts.join(', ')}` });
+      void alertDialog({ title: t('ai_file_unsupported_title'), message: t('ai_file_unsupported_message', { exts: allowedExts.join(', ') }) });
       e.target.value = '';
       setAttachMenuOpen(false);
       return;
@@ -87,7 +95,7 @@ export function useAttachmentManager({
       const text = typeof ev.target?.result === 'string' ? ev.target.result : '';
       const formatted = `[Прикреплен файл: "${file.name}"]\n\n${text}`;
       if (formatted.length > API_MSG_CAP) {
-        void alertDialog({ title: 'Файл слишком большой', message: `Более ${API_MSG_CAP.toLocaleString()} символов` });
+        void alertDialog({ title: t('ai_file_too_large_title'), message: t('ai_file_too_large_chars', { count: API_MSG_CAP.toLocaleString() }) });
         return;
       }
       const id = await sendMessage(formatted);
@@ -99,7 +107,7 @@ export function useAttachmentManager({
     reader.readAsText(file);
     e.target.value = '';
     setAttachMenuOpen(false);
-  }, [alertDialog, sendMessage, activeDialogueId, setActiveDialogueId, loadDialogues]);
+  }, [alertDialog, sendMessage, activeDialogueId, setActiveDialogueId, loadDialogues, t]);
 
   return {
     docPickerOpen,

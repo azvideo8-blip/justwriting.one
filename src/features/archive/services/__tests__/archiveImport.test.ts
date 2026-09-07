@@ -97,4 +97,43 @@ describe('importNoteFile', () => {
     expect(saveNewMock).toHaveBeenCalled();
     expect(syncOneMock).not.toHaveBeenCalled();
   });
+
+  it('L-1: imports note exported by 0.8.39 with Russian header preserving original date', async () => {
+    const legacyExportContent = `# Заголовок заметки
+
+**Дата:** 5 сентября 2026 г.
+**Теги:** #мысли
+**Слов:** 10 · 1 мин
+
+Текст заметки из старой версии.`;
+    const file = makeFile('test-0.8.39.md', legacyExportContent);
+    const result = await importNoteFile(file, 'user-1', false);
+
+    expect(result.success).toBe(true);
+    expect(result.dateUnreadable).toBeFalsy();
+
+    const savedPayload = saveNewMock.mock.calls[saveNewMock.mock.calls.length - 1]![1];
+    expect(savedPayload.sessionStartedAt).toBeInstanceOf(Date);
+    expect(savedPayload.sessionStartedAt.getFullYear()).toBe(2026);
+    expect(savedPayload.sessionStartedAt.getMonth()).toBe(8); // September is 8 (0-indexed)
+    expect(savedPayload.sessionStartedAt.getDate()).toBe(5);
+  });
+
+  it('L-1: file with genuinely unreadable date imports and reports dateUnreadable', async () => {
+    const unreadableDateContent = `# Заголовок
+
+**Дата:** нечитаемая строка даты
+**Теги:** #тест
+
+Текст заметки.`;
+    const file = makeFile('unreadable-date.md', unreadableDateContent);
+    const result = await importNoteFile(file, 'user-1', false);
+
+    expect(result.success).toBe(true);
+    expect(result.dateUnreadable).toBe(true);
+
+    const savedPayload = saveNewMock.mock.calls[saveNewMock.mock.calls.length - 1]![1];
+    expect(savedPayload.sessionStartedAt).toBeInstanceOf(Date);
+  });
 });
+

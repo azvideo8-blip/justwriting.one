@@ -36,6 +36,15 @@ describe('DUP-7: Confirmation dialogs i18n convergence', () => {
     'ai_reasoning_mode_confirm_label',
     'ai_delete_message_confirm_title',
     'ai_delete_message_confirm_message',
+    'ai_feedback_prompt_title',
+    'ai_feedback_prompt_message',
+    'ai_feedback_prompt_placeholder',
+    // useAttachmentManager
+    'ai_file_too_large_title',
+    'ai_file_too_large_max_1mb',
+    'ai_file_unsupported_title',
+    'ai_file_unsupported_message',
+    'ai_file_too_large_chars',
     // useDialogueManager
     'ai_delete_dialogue_confirm_title',
     'ai_delete_dialogue_confirm_message',
@@ -72,12 +81,14 @@ describe('DUP-7: Confirmation dialogs i18n convergence', () => {
     }
   });
 
-  it('falsification: audit regex catches hardcoded inline Cyrillic inside confirmDialog', () => {
+  it('falsification: audit regex catches hardcoded inline Cyrillic inside confirmDialog, alertDialog, and promptDialog', () => {
     const snippetWithCyrillic = `
       const ok = await confirmDialog({
         title: 'Удалить диалог?',
         message: 'Действие необратимо.',
       });
+      void alertDialog({ title: 'Ошибка', message: \`Допустимы: \${allowedExts.join(', ')}\` });
+      const res = await promptDialog({ title: 'Вопрос', message: 'Введите ответ' });
     `;
 
     const snippetWithoutCyrillic = `
@@ -85,11 +96,36 @@ describe('DUP-7: Confirmation dialogs i18n convergence', () => {
         title: t('ai_delete_dialogue_confirm_title'),
         message: t('ai_delete_dialogue_confirm_message'),
       });
+      void alertDialog({ title: t('ai_file_too_large_title'), message: t('ai_file_too_large_max_1mb') });
+      const res = await promptDialog({ title: t('ai_feedback_prompt_title'), message: t('ai_feedback_prompt_message') });
     `;
 
-    const detectHardcoded = (code: string) => {
-      const matches = [...code.matchAll(/confirmDialog\s*\(\s*\{([^)]*?)\}\s*\)/gs)];
-      return matches.some(m => /[\u0400-\u04FF]/.test(m[1] ?? ''));
+    const detectHardcoded = (src: string) => {
+      const dialogPattern = /\b(confirmDialog|alertDialog|promptDialog)\s*\(/g;
+      let match: RegExpExecArray | null;
+      while ((match = dialogPattern.exec(src)) !== null) {
+        const startIndex = match.index + match[0].length;
+        let depth = 1;
+        let i = startIndex;
+        let inString: string | null = null;
+        let isEscaped = false;
+        while (i < src.length && depth > 0) {
+          const ch = src[i];
+          if (inString) {
+            if (isEscaped) isEscaped = false;
+            else if (ch === '\\\\') isEscaped = true;
+            else if (ch === inString) inString = null;
+          } else {
+            if (ch === "'" || ch === '"' || ch === '`') inString = ch;
+            else if (ch === '(') depth++;
+            else if (ch === ')') depth--;
+          }
+          i++;
+        }
+        const callContent = src.slice(startIndex, i - 1);
+        if (/[\u0400-\u04FF]/.test(callContent)) return true;
+      }
+      return false;
     };
 
     expect(detectHardcoded(snippetWithCyrillic)).toBe(true);

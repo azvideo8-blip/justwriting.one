@@ -50,8 +50,18 @@ export function DocumentPreview({
     setSession(propSession);
   }, [propSession]);
 
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const { showToast } = useToast();
+  const sittingCount = session?.sittings && session.sittings.length > 0 ? session.sittings.length : null;
+  const [fetchedVersions, setFetchedVersions] = useState<{ id: string; count: number | null } | null>(null);
+  // Сравнение через `?.` совпадало бы и когда обеих величин нет: `null?.id` и
+  // `null?.id` — это undefined === undefined, то есть истина, и следом шло
+  // чтение `.count` у null. Проверяем наличие обеих сторон явно.
+  const versionCount = sittingCount ?? (
+    fetchedVersions !== null && session !== null && fetchedVersions.id === session.id
+      ? fetchedVersions.count
+      : null
+  );
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
@@ -95,6 +105,23 @@ export function DocumentPreview({
       active = false;
     };
   }, [session?.id, fetchSummary]);
+
+  useEffect(() => {
+    let active = true;
+    if (!session?.id || (session.sittings && session.sittings.length > 0)) {
+      return;
+    }
+    LocalVersionService.getVersions(session.id)
+      .then(v => {
+        if (active) setFetchedVersions({ id: session.id, count: v.length });
+      })
+      .catch(() => {
+        if (active) setFetchedVersions({ id: session.id, count: null });
+      });
+    return () => {
+      active = false;
+    };
+  }, [session?.id, session?.sittings]);
 
   const handleAnalyzeNote = async () => {
     if (!session?.id || analyzing || session.excludedFromAI || !onAnalyzeNote) return;
@@ -403,6 +430,12 @@ export function DocumentPreview({
             {t('reading_time', { n: readingTimeMinutes(session.wordCount || 0) })}
             {' · '}
             {Math.round((session.duration || 0) / 60)} {t('goal_time_min')}
+            {versionCount !== null && versionCount > 1 && (
+              <>
+                {' · '}
+                <span>{tp('archive_version_count', versionCount)}</span>
+              </>
+            )}
           </div>
           {(labels || onAddLabel) && (
             <div className="relative mt-2">
@@ -624,6 +657,11 @@ export function DocumentPreview({
             <AlertCircle size={32} className="text-accent-danger/80 mb-3" />
             <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_decryption_error')}</p>
           </div>
+        ) : session._contentNotLoaded ? (
+          <div className="flex flex-col items-center justify-center text-center p-8 my-auto text-text-main/60">
+            <Loader2 size={24} className="animate-spin mb-2" />
+            <p className="text-xs">{t('common_loading') || 'Загрузка…'}</p>
+          </div>
         ) : (
           <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty">
             {session.content || (
@@ -660,7 +698,17 @@ export function DocumentPreview({
       {/* Actions */}
         <div className="p-5 border-t border-border-subtle flex gap-2 pb-[calc(env(safe-area-inset-bottom,0px)+var(--bottom-nav-height,72px)+8px)]">
         <Button
-          onClick={() => onContinue(session)}
+          onClick={() => {
+            if (session._locked) {
+              window.dispatchEvent(new CustomEvent('open-vault-unlock'));
+              return;
+            }
+            if (session._decryptionError) {
+              showToast(t('archive_decryption_error'), 'error');
+              return;
+            }
+            onContinue(session);
+          }}
           className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-text-main text-surface-base text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
         >
           <ArrowRight size={14} />
@@ -679,7 +727,21 @@ export function DocumentPreview({
 
         {session !== null && onCopyText && (
           <Button
-            onClick={() => onCopyText(session.content || '')}
+            onClick={() => {
+              if (session._locked) {
+                showToast(t('archive_note_locked'), 'error');
+                return;
+              }
+              if (session._decryptionError) {
+                showToast(t('archive_decryption_error'), 'error');
+                return;
+              }
+              if (session._contentNotLoaded) {
+                showToast(t('archive_no_content'), 'error');
+                return;
+              }
+              onCopyText(session.content || '');
+            }}
             className="flex items-center justify-center px-3 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
             title="Копировать текст"
           >

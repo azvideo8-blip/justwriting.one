@@ -16,6 +16,9 @@ export function ProtectedRoute({ children, requireAdmin }: { children: React.Rea
   if (loading) return null;
 
   if (!isAuthenticated) {
+    if (requireAdmin) {
+      return <Navigate to="/" replace />;
+    }
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
         <div className="w-12 h-12 rounded-full flex items-center justify-center bg-text-main/10 text-text-main/60">

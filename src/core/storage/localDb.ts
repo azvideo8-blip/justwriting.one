@@ -697,7 +697,7 @@ interface DatabaseWithClosed {
 
 const inFlightMigrations = new Map<string, Promise<void>>();
 
-async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): Promise<void> {
+export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): Promise<void> {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   if (targetDbName === 'justwriting-local') return;
   const migrationKey = `jw_legacy_migrated_${targetUid}`;
@@ -713,30 +713,37 @@ async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): P
 
   const migrationPromise = (async () => {
     try {
+      const databases = (await indexedDB.databases?.()) ?? [];
+      const legacyExists = databases.some(d => d.name === 'justwriting-local');
+      if (!legacyExists && databases.length > 0) {
+        try { localStorage.setItem(migrationKey, 'done_no_legacy'); } catch { /* ignore */ }
+        return;
+      }
+
       const legacyDb = await openDB<JustWritingDB>('justwriting-local', 21, {
         upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
       });
-      if (!legacyDb.objectStoreNames.contains('documents')) {
-        legacyDb.close();
-        try { localStorage.setItem(migrationKey, '1'); } catch { /* ignore */ }
-        return;
-      }
 
       const docs = await legacyDb.getAll('documents');
-      // Переносим только то, что явно принадлежит этому аккаунту: «первый, кто
-      // открыл приложение» — не владелец.
-      const userDocs = docs.filter(d => d.guestId === targetUid);
-      if (userDocs.length === 0) {
-        // У этого пользователя нет записей в старой базе. Фиксируем завершение
-        // миграции, чтобы не переоткрывать justwriting-local на каждый getLocalDb.
-        try { localStorage.setItem(migrationKey, '1'); } catch { /* ignore */ }
+      if (docs.length === 0) {
         legacyDb.close();
+        try { localStorage.setItem(migrationKey, '1'); } catch { /* ignore */ }
         return;
       }
 
-      // Портрет, убеждения, память чата лежат без пометки владельца. Пока в общей
-      // базе жил один аккаунт, отдать их ему — правильно. Если аккаунтов было
-      // два, приписать эти записи кому-то одному нельзя: это ровно та утечка,
+      const userDocs = docs.filter(d => d.guestId === targetUid);
+      if (userDocs.length === 0) {
+        legacyDb.close();
+        try { localStorage.setItem(migrationKey, '1'); } catch { /* ignore */ }
+        return;
+      }
+
+      // Если в legacyDb лежат заметки нескольких пользователей, миграция
+      // НЕ ДОЛЖНА копировать записи без владельца (aiPortrait со старым id
+      // 'singleton', aiBeliefs, aiChatMemory) в базу первого вошедшего: они
+      // могут принадлежать другому аккаунту. Копируются только документы
+      // и версии текущего пользователя. Это закрывает межпользовательскую
+      // утечку между аккаунтами на одном устройстве — ту самую изоляцию,
       // ради которой базу и разделяли.
       const ownersInLegacy = new Set(docs.map(d => d.guestId).filter(Boolean));
       const multiOwnerMarker = 'jw_legacy_has_multi_owners';
@@ -751,7 +758,7 @@ async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): P
         // Если в общей базе жили несколько аккаунтов, записи без владельца
         // спорные. Стираем их из legacyDb, чтобы ни первый, ни второй вошедший
         // аккаунт не присвоил чужой психологический портрет.
-        for (const storeName of ['aiPortrait', 'aiBeliefs', 'aiChatMemory']) {
+        for (const storeName of ['aiPortrait', 'aiBeliefs', 'aiChatMemory', 'aiFacets', 'aiSummaries', 'aiEmbeddings', 'aiDialogues', 'aiDialogueEvents']) {
           if (legacyDb.objectStoreNames.contains(storeName as never)) {
             try {
               await legacyDb.clear(storeName as never);

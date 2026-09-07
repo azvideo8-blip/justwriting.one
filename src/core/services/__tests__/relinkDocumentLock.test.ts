@@ -57,10 +57,11 @@ describe('FU-3: relinkOrphaned respects withDocumentLock', () => {
     });
 
     const doc = local();
-    const n = await __testing.relinkOrphaned([doc], [cloud()]);
+    const { relinked, skippedIds } = await __testing.relinkOrphaned([doc], [cloud()]);
 
     // Should safely yield without mutating
-    expect(n).toBe(0);
+    expect(relinked).toBe(0);
+    expect(skippedIds).toEqual(['local_locked_1']);
     expect(updateLinkedCloudId).not.toHaveBeenCalled();
     expect(doc.linkedCloudId).toBeUndefined();
 
@@ -71,9 +72,10 @@ describe('FU-3: relinkOrphaned respects withDocumentLock', () => {
 
   it('relinks successfully when document lock is free and cleans up lock afterwards', async () => {
     const doc = local();
-    const n = await __testing.relinkOrphaned([doc], [cloud()]);
+    const { relinked, skippedIds } = await __testing.relinkOrphaned([doc], [cloud()]);
 
-    expect(n).toBe(1);
+    expect(relinked).toBe(1);
+    expect(skippedIds).toEqual([]);
     expect(updateLinkedCloudId).toHaveBeenCalledWith('local_locked_1', 'cloud_1');
     expect(doc.linkedCloudId).toBe('cloud_1');
 
@@ -97,10 +99,42 @@ describe('FU-3: relinkOrphaned respects withDocumentLock', () => {
     const docWithoutUuid = local({ id: 'local_locked_2', uuid: 'different-uuid-1' });
     const cloudDocWithoutUuid = cloud({ id: 'cloud_2', uuid: 'different-uuid-2' });
 
-    const n = await __testing.relinkOrphaned([docWithoutUuid], [cloudDocWithoutUuid]);
+    const { relinked, skippedIds } = await __testing.relinkOrphaned([docWithoutUuid], [cloudDocWithoutUuid]);
 
-    expect(n).toBe(0);
+    expect(relinked).toBe(0);
+    expect(skippedIds).toEqual(['local_locked_2']);
     expect(updateLinkedCloudId).not.toHaveBeenCalled();
     expect(docWithoutUuid.linkedCloudId).toBeUndefined();
   });
+
+  it('L-2: when lock is held for note A, syncAllUnlinked does NOT upload A as duplicate cloud note', async () => {
+    const { SyncService } = await import('../SyncService');
+    const { StorageService } = await import('../StorageService');
+    const { LocalDocumentService } = await import('../LocalDocumentService');
+    const { CloudSyncService } = await import('../CloudSyncService');
+
+    const addCloudCopyMock = vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('new_cloud_id');
+    vi.spyOn(CloudSyncService, 'relinkOrphanedDocuments').mockResolvedValue({
+      relinked: 0,
+      skippedIds: ['local_locked_A'],
+    });
+    vi.spyOn(SyncService, 'getUnsyncedSummary').mockResolvedValue({} as any);
+    vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue([
+      {
+        id: 'local_locked_A',
+        guestId: 'u1',
+        title: 'Locked Note A',
+        currentVersion: 1,
+        lastSyncedCloudVersion: 0,
+      } as any,
+    ]);
+
+    const res = await SyncService.syncAllUnlinked('u1');
+
+    // Note A was skipped during relink because lock was held;
+    // syncAllUnlinked must NOT upload it on this pass!
+    expect(addCloudCopyMock).not.toHaveBeenCalled();
+    expect(res.synced).toBe(0);
+  });
 });
+

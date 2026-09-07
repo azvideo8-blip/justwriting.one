@@ -51,11 +51,45 @@ for (const file of srcFiles) {
 const hardcodedConfirmDialogs: { file: string; match: string }[] = [];
 for (const file of srcFiles) {
   const src = readFileSync(file, 'utf-8');
-  const confirmMatches = [...src.matchAll(/confirmDialog\s*\(\s*\{([^)]*?)\}\s*\)/gs)];
-  for (const match of confirmMatches) {
-    const dialogArgs = match[1] ?? '';
-    if (/[\u0400-\u04FF]/.test(dialogArgs)) {
-      hardcodedConfirmDialogs.push({ file, match: match[0].replace(/\s+/g, ' ').slice(0, 100) });
+  const dialogPattern = /\b(confirmDialog|alertDialog|promptDialog)\s*\(/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = dialogPattern.exec(src)) !== null) {
+    const fnName = match[1];
+    const startIndex = match.index + match[0].length;
+    let depth = 1;
+    let i = startIndex;
+    let inString: string | null = null;
+    let isEscaped = false;
+
+    while (i < src.length && depth > 0) {
+      const ch = src[i];
+      if (inString) {
+        if (isEscaped) {
+          isEscaped = false;
+        } else if (ch === '\\') {
+          isEscaped = true;
+        } else if (ch === inString) {
+          inString = null;
+        }
+      } else {
+        if (ch === "'" || ch === '"' || ch === '`') {
+          inString = ch;
+        } else if (ch === '(') {
+          depth++;
+        } else if (ch === ')') {
+          depth--;
+        }
+      }
+      i++;
+    }
+
+    const callContent = src.slice(startIndex, i - 1);
+    if (/[\u0400-\u04FF]/.test(callContent)) {
+      hardcodedConfirmDialogs.push({
+        file,
+        match: `${fnName}(${callContent.replace(/\s+/g, ' ').trim().slice(0, 100)})`,
+      });
     }
   }
 }

@@ -84,6 +84,7 @@ type OrChunk = {
 };
 
 interface Settlement {
+  readonly usageRecorded?: boolean | undefined;
   markUpstreamProduced: (chars?: number) => void;
   recordUsage: (tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) => Promise<void>;
   settle: (reason: SettleReason, usage?: CallReservationUsage) => Promise<void>;
@@ -108,6 +109,9 @@ function createSettlement(
     estimatedInputTokens,
   );
   return {
+    get usageRecorded() {
+      return callRes.usageRecorded;
+    },
     markUpstreamProduced: (chars = 0) => {
       callRes.markProduced(chars);
     },
@@ -292,16 +296,19 @@ async function streamOpenRouterReasoning(
     streamFailed = true;
   }
 
-  await settlement.settle(streamFailed ? 'failed' : 'done');
-
   if (contentAccum && !wroteAnswerHeader) {
     if (wroteReasoningHeader) { write('\n\nОТВЕТ:\n'); }
     wroteAnswerHeader = true;
     write(contentAccum);
   }
-  // При полном провале (sawUpstreamChunk === false) не пишем строку usage:
-  // токены нулевые, а requests+1 надувает счётчик запросов в статистике.
-  if (!streamFailed || sawUpstreamChunk) {
+
+  // AUDIT-L3: settle() with measured tokens handles single usage recording and reconciliation.
+  await settlement.settle(streamFailed ? 'failed' : 'done', { tokensIn, tokensOut, model });
+
+  // If settle() did not record usage (e.g. client disconnect raced ahead of stream
+  // tokens before settle could see them), recordUsage() acts as a fallback.
+  // The usageRecorded latch in aiPolicy guarantees this can never write twice.
+  if ((!streamFailed || sawUpstreamChunk) && !settlement.usageRecorded && (tokensIn > 0 || tokensOut > 0)) {
     try {
       await settlement.recordUsage(tokensIn, tokensOut, { model, fn: 'chat-stream' });
     } catch (e) {
