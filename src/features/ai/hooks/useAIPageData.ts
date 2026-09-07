@@ -24,6 +24,7 @@ import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch } from '../utils/aiChatTransport';
+import { useLanguage } from '../../../shared/i18n';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -42,6 +43,7 @@ export const CHAT_FOLLOW_UPS = [
 ];
 
 export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const { confirm: confirmDialog, alert: alertDialog, prompt: promptDialog } = useConfirmDialog();
 
@@ -445,9 +447,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleSetReasoning = useCallback(async (value: boolean) => {
     if (value) {
       const ok = await confirmDialog({
-        title: 'Режим рассуждений',
-        message: 'Дневной лимит запросов в режиме рассуждений ограничен 5 (вместо 10). Включить?',
-        confirmLabel: 'Включить',
+        title: t('ai_reasoning_mode_confirm_title'),
+        message: t('ai_reasoning_mode_confirm_message'),
+        confirmLabel: t('ai_reasoning_mode_confirm_label'),
         destructive: false,
       });
       if (!ok) return;
@@ -459,7 +461,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       await AIDialogueService.updateResponseLength(did, responseLength, value);
       await loadDialogues();
     }
-  }, [activeDialogueId, dialogue, responseLength, loadDialogues, confirmDialog]);
+  }, [activeDialogueId, dialogue, responseLength, loadDialogues, confirmDialog, t]);
 
   const handleCopyMessage = (text: string) => {
     void navigator.clipboard?.writeText(text);
@@ -468,7 +470,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleDeleteMessage = async (index: number) => {
     const id = activeDialogueId ?? dialogue?.id;
     if (!id) return;
-    const ok = await confirmDialog({ title: 'Удалить сообщение?', message: 'Действие необратимо.' });
+    const ok = await confirmDialog({
+      title: t('ai_delete_message_confirm_title'),
+      message: t('ai_delete_message_confirm_message'),
+    });
     if (!ok) return;
     await AIDialogueService.deleteMessage(id, index);
     await loadDialogues();

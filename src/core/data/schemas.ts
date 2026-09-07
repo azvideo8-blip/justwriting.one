@@ -119,6 +119,7 @@ export const documentDbSchema = z.object({
   _locked: z.boolean().optional(),
   _decryptionError: z.boolean().optional(),
   deletedAt: cloudTimestampSchema.optional(),
+  createdAt: cloudTimestampSchema.optional(),
 });
 
 export const versionDbSchema = z.object({
@@ -139,6 +140,7 @@ export const versionDbSchema = z.object({
   sessionStartedAt: cloudTimestampSchema,
   _encrypted: z.boolean().optional(),
   mood: z.string().nullable().optional(),
+  createdAt: cloudTimestampSchema.optional(),
 });
 
 export type SessionDb = z.infer<typeof sessionDbSchema>;

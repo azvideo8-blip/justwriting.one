@@ -99,7 +99,7 @@ export function estimateInputTokens(parts: Array<string | null | undefined>): nu
 // в отказ на втором. Дневной счётчик при этом общий с чатом — именно он и
 // ограничивает частоту.
 
-import type { AiContext } from './context.js';
+import type { AiContext, GlobalReservation } from './context.js';
 import { AiError } from './context.js';
 import { hasInjectionAttempt } from './injectionPatterns.js';
 
@@ -133,14 +133,155 @@ export function parseCharge(value: unknown): ChargeTarget {
   return value === 'user' ? 'user' : 'bulk';
 }
 
+export const REFUND_IF_PRODUCED_UNDER_CHARS = 200;
+
+export type SettleReason = 'done' | 'failed' | 'closed' | 'abort';
+
+export interface CallReservationUsage {
+  tokensIn?: number;
+  tokensOut?: number;
+  model?: string;
+}
+
 export interface CallReservation {
-  uid: string;
-  charge: ChargeTarget;
+  readonly uid: string;
+  readonly charge: ChargeTarget;
   /** День списания из verdict'а. Refund целится в него, а не в today() на
    *  момент неудачи — иначе запрос, списавший квоту в 23:58 и упавший после
    *  полуночи, возвращает единицу в пустую строку. */
-  day: string;
+  readonly day: string;
   refunded?: boolean;
+  readonly globalReservation?: GlobalReservation | null;
+  readonly upstreamProduced?: boolean;
+  readonly producedChars?: number;
+  readonly settled?: boolean;
+  readonly outcome?: SettleReason | undefined;
+  readonly estimatedInputTokens?: number | undefined;
+  attachGlobalReservation(res: GlobalReservation | null, estimatedInputTokens?: number): void;
+  markProduced(chars?: number): void;
+  recordUsage(tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }): Promise<void>;
+  settle(reason: SettleReason, usage?: CallReservationUsage): Promise<void>;
+}
+
+export function createCallReservation(
+  ctx: AiContext,
+  uid: string,
+  charge: ChargeTarget,
+  day: string,
+  globalReservation: GlobalReservation | null = null,
+  estimatedInputTokens?: number,
+): CallReservation {
+  let isSettled = false;
+  let upstreamProduced = false;
+  let producedChars = 0;
+  let currentGlobal = globalReservation;
+  let currentEstimatedInput = estimatedInputTokens;
+  let outcome: SettleReason | undefined = undefined;
+
+  const res: CallReservation = {
+    uid,
+    charge,
+    day,
+    refunded: false,
+    get globalReservation() {
+      return currentGlobal;
+    },
+    get upstreamProduced() {
+      return upstreamProduced;
+    },
+    get producedChars() {
+      return producedChars;
+    },
+    get settled() {
+      return isSettled;
+    },
+    get outcome() {
+      return outcome;
+    },
+    get estimatedInputTokens() {
+      return currentEstimatedInput;
+    },
+    attachGlobalReservation(reservation: GlobalReservation | null, estimatedInput?: number) {
+      currentGlobal = reservation;
+      if (estimatedInput !== undefined) {
+        currentEstimatedInput = estimatedInput;
+      }
+    },
+    markProduced(chars = 0) {
+      upstreamProduced = true;
+      producedChars += chars;
+    },
+    async recordUsage(tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) {
+      await ctx.recordUsage(uid, tokensIn, tokensOut, opts, currentGlobal);
+    },
+    async settle(reason: SettleReason, usage?: CallReservationUsage) {
+      if (isSettled) return;
+      isSettled = true;
+      outcome = reason;
+      if (reason === 'done') {
+        if (usage && currentGlobal && !currentGlobal.refunded) {
+          const meta: { model?: string; fn?: string } = { fn: 'chat-stream' };
+          if (usage.model) meta.model = usage.model;
+          await ctx.recordUsage(
+            uid,
+            usage.tokensIn ?? 0,
+            usage.tokensOut ?? 0,
+            meta,
+            currentGlobal,
+          );
+        }
+        return;
+      }
+
+      res.refunded = true;
+      // DEEP-8 & FU-5: A failed call always refunds the user/bulk slot.
+      // A stream closed by the client or aborted by server/client only refunds the daily slot
+      // if produced content was negligible (< 200 chars). Substantial partial answers keep the slot.
+      if (reason === 'failed' || producedChars < REFUND_IF_PRODUCED_UNDER_CHARS) {
+        if (charge === 'user') {
+          await ctx.refundDailyLimit(uid, day);
+        } else {
+          await ctx.refundBulkLimit(uid, day);
+        }
+      }
+      if (!upstreamProduced && currentGlobal) {
+        await ctx.refundGlobalRequest(currentGlobal);
+      } else if (currentGlobal && !currentGlobal.refunded) {
+        // FU-1 & FU-4: Stream aborted or failed mid-stream after upstream produced chunks.
+        // Reconcile global token reservation against actual or estimated usage so
+        // the unconsumed remainder is refunded to ai_global_daily.
+        // Prompt tokens (input) were genuinely consumed before upstream started producing;
+        // fallback to estimatedInputTokens if usage.tokensIn is absent on abort.
+        const tokensIn = usage?.tokensIn ?? currentEstimatedInput ?? 0;
+        const tokensOut = usage?.tokensOut ?? Math.ceil(producedChars / 3);
+        const meta: { model?: string; fn?: string } = { fn: 'chat-stream-abort' };
+        if (usage?.model) meta.model = usage.model;
+        await ctx.recordUsage(
+          uid,
+          tokensIn,
+          tokensOut,
+          meta,
+          currentGlobal,
+        );
+      }
+    },
+  };
+
+  // Keep methods and getters non-enumerable so toEqual({ uid, charge, day, refunded: false }) passes
+  Object.defineProperties(res, {
+    globalReservation: { enumerable: false },
+    upstreamProduced: { enumerable: false },
+    producedChars: { enumerable: false },
+    settled: { enumerable: false },
+    outcome: { enumerable: false },
+    estimatedInputTokens: { enumerable: false },
+    attachGlobalReservation: { enumerable: false },
+    markProduced: { enumerable: false },
+    recordUsage: { enumerable: false },
+    settle: { enumerable: false },
+  });
+
+  return res;
 }
 
 /** Списывает вызов с нужного счётчика. Возвращает объект резервации для идемпотентного возврата. Бросает AiError, если лимит исчерпан.
@@ -150,14 +291,44 @@ export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarg
   if (charge === 'user') {
     const verdict = await ctx.checkDailyLimit(uid);
     if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily limit reached.');
-    return { uid, charge, day: verdict.day, refunded: false };
+    return createCallReservation(ctx, uid, charge, verdict.day);
   }
   const verdict = await ctx.checkAndIncrementBulkLimit(uid, endpoint);
   if (verdict === 'RATE_LIMIT') {
     throw new AiError('resource-exhausted', 'Too many requests. Please wait a minute.');
   }
   if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  return { uid, charge, day: verdict.day, refunded: false };
+  return createCallReservation(ctx, uid, charge, verdict.day);
+}
+
+/**
+ * DUP-1: Combined chat quota reservation for streaming & non-streaming endpoints.
+ */
+export async function acquireChatReservation(
+  ctx: AiContext,
+  uid: string,
+  isInternalCall: boolean,
+  reasoning?: boolean,
+): Promise<CallReservation> {
+  if (isInternalCall) {
+    const verdict = await ctx.checkAndIncrementBulkLimit(uid, 'chat');
+    if (verdict === 'RATE_LIMIT') {
+      throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+    }
+    if (!verdict.ok) {
+      throw new AiError('resource-exhausted', 'Daily limit reached.');
+    }
+    return createCallReservation(ctx, uid, 'bulk', verdict.day);
+  } else {
+    const limitResult = await ctx.checkAndIncrementLimit(uid, reasoning === true);
+    if (limitResult === 'DAILY_LIMIT') {
+      throw new AiError('resource-exhausted', 'Daily limit reached.');
+    }
+    if (limitResult === 'RATE_LIMIT') {
+      throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
+    }
+    return createCallReservation(ctx, uid, 'user', limitResult.day);
+  }
 }
 
 /** Возврат списанного с гарантией идемпотентности: повторный вызов с той же резервацией ничего не делает. */
@@ -169,6 +340,10 @@ export async function refundCall(
 ): Promise<void> {
   if (resOrUid == null) return;
   if (typeof resOrUid === 'object') {
+    if (typeof resOrUid.settle === 'function') {
+      await resOrUid.settle('failed');
+      return;
+    }
     if (resOrUid.refunded === true) return;
     resOrUid.refunded = true;
     if (resOrUid.charge === 'user') {

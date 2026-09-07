@@ -12,6 +12,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
+import { useLanguage } from '../../../shared/i18n';
 
 interface AccountAISectionProps {
   userId: string;
@@ -19,6 +20,7 @@ interface AccountAISectionProps {
 }
 
 export function AccountAISection({ userId, onIndexPending }: AccountAISectionProps) {
+  const { t } = useLanguage();
   const { profile } = useProfile();
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
@@ -54,8 +56,8 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
 
   const handleWithdrawConsent = async () => {
     const ok = await confirmDialog({
-      title: 'Отозвать согласие на использование ИИ?',
-      message: 'Запросы к ИИ (разбор заметок, чат, обновление профиля) перестанут выполняться до повторного согласия.',
+      title: t('settings_ai_withdraw_consent_title'),
+      message: t('settings_ai_withdraw_consent_message'),
     });
     if (!ok) return;
 
@@ -100,8 +102,8 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
 
   const handleWithdrawIndexingConsent = async () => {
     const ok = await confirmDialog({
-      title: 'Отключить поиск по смыслу (векторную индексацию)?',
-      message: 'Новые заметки перестанут отправляться для вычисления числовых векторов. Поиск будет работать только по ключевым словам. Ранее созданные индексы останутся на устройстве до явного удаления.',
+      title: t('settings_ai_withdraw_indexing_title'),
+      message: t('settings_ai_withdraw_indexing_message'),
     });
     if (!ok) return;
 
@@ -123,8 +125,8 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
 
   const handleClearAiData = async () => {
     const ok = await confirmDialog({
-      title: 'Удалить все данные ИИ?',
-      message: 'Будут удалены все созданные ИИ сводки, темы, портрет, грани, история диалогов и векторные индексы. Сами заметки и их текст останутся в полной сохранности.',
+      title: t('settings_ai_clear_data_title'),
+      message: t('settings_ai_clear_data_message'),
     });
     if (!ok) return;
 

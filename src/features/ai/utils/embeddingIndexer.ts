@@ -1,4 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIService } from '../services/AIService';
 import { getCurrentUser } from '../../../core/auth';
@@ -28,15 +29,6 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function getLatestContent(documentId: string): Promise<string | null> {
-  const db = await getLocalDb();
-  const versions = await db.getAllFromIndex('versions', 'by-document', documentId);
-  if (versions.length === 0) return null;
-  versions.sort((a, b) => b.version - a.version);
-  return versions[0]?.content ?? null;
-}
-
-/** Document ids that have no embedding, or one from an outdated model/dimension. */
 export async function findStaleDocuments(): Promise<string[]> {
   const db = await getLocalDb();
   const documents = await db.getAll('documents');
@@ -58,7 +50,7 @@ export async function indexDocument(documentId: string, force = false): Promise<
     return 'skip';
   }
 
-  const content = await getLatestContent(documentId);
+  const content = await LocalVersionService.getLatestContent(documentId);
   if (!content || content.trim().length === 0) return 'skip';
 
   const hash = await sha256Hex(content);

@@ -48,6 +48,18 @@ for (const file of srcFiles) {
   }
 }
 
+const hardcodedConfirmDialogs: { file: string; match: string }[] = [];
+for (const file of srcFiles) {
+  const src = readFileSync(file, 'utf-8');
+  const confirmMatches = [...src.matchAll(/confirmDialog\s*\(\s*\{([^)]*?)\}\s*\)/gs)];
+  for (const match of confirmMatches) {
+    const dialogArgs = match[1] ?? '';
+    if (/[\u0400-\u04FF]/.test(dialogArgs)) {
+      hardcodedConfirmDialogs.push({ file, match: match[0].replace(/\s+/g, ' ').slice(0, 100) });
+    }
+  }
+}
+
 const missing = [...usedKeys].filter(k => !definedKeys.has(k));
 const unused = [...definedKeys].filter(k => !usedKeys.has(k));
 
@@ -60,11 +72,16 @@ unused.forEach(k => console.log(`  🗑️  ${k}`));
 console.log('\n=== MISSING LOCALE ===');
 missingLocale.forEach(({ key, missing }) => console.log(`  ⚠️  ${key} — missing [${missing}]`));
 
+if (hardcodedConfirmDialogs.length > 0) {
+  console.log('\n=== HARDCODED CYRILLIC IN CONFIRM DIALOGS ===');
+  hardcodedConfirmDialogs.forEach(({ file, match }) => console.log(`  ❌ ${file}: ${match}`));
+}
+
 console.log(`\nTotal defined: ${definedKeys.size}`);
 console.log(`Total used: ${usedKeys.size}`);
-console.log(`Missing: ${missing.length}, Unused: ${unused.length}, Incomplete: ${missingLocale.length}`);
+console.log(`Missing: ${missing.length}, Unused: ${unused.length}, Incomplete: ${missingLocale.length}, Hardcoded Dialogs: ${hardcodedConfirmDialogs.length}`);
 
-if (missing.length > 0 || missingLocale.length > 0) {
+if (missing.length > 0 || missingLocale.length > 0 || hardcodedConfirmDialogs.length > 0) {
   process.exit(1);
 }
 

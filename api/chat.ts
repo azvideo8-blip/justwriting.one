@@ -2,13 +2,12 @@ import { sendError } from './sendError';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
-import { z } from 'zod';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
-import { buildChatSystemPrompt, sanitizeAiInputShared } from '../src/shared/ai/buildChatPrompt.js';
-import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection } from '../src/shared/ai/aiPolicy.js';
-import type { GlobalReservation } from '../src/shared/ai/context.js';
-import { MAX_REQUEST_BODY_BYTES, MAX_AI_CONTENT_LENGTH } from './ai/pure';
+import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema } from '../src/shared/ai/buildChatPrompt.js';
+import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
+import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
+import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 
 // AUDIT-part3 2: все ответы ошибок ушли через sendError (единая форма
 // {error:{code,message}}); локальный json-хелпер удалён как неиспользуемый.
@@ -78,10 +77,6 @@ async function getChatModel() {
   }).chat(ACTIVE_CHAT_MODEL);
 }
 
-function sanitizeAiInput(content: string): string {
-  return sanitizeAiInputShared(content);
-}
-
 type OrDelta = { reasoning_content?: string; reasoning?: string; content?: string };
 type OrChunk = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -90,64 +85,37 @@ type OrChunk = {
 
 interface Settlement {
   markUpstreamProduced: (chars?: number) => void;
-  settle: (reason: 'closed' | 'failed' | 'done') => Promise<void>;
+  recordUsage: (tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) => Promise<void>;
+  settle: (reason: SettleReason, usage?: CallReservationUsage) => Promise<void>;
 }
 
 // Одно правило — одна реализация. Две ветки стрима уже разошлись однажды:
 // AG-BILL-2 починил ветку рассуждений, а обычный чат остался без возврата на
 // девять релизов, потому что чинить пришли в тот файл, где искали.
-/**
- * Ниже этого объёма выданного текста оборванный запрос считается не
- * состоявшимся для человека, и дневной слот возвращается. Двести символов —
- * это меньше абзаца: украсть ответ на такой длине нельзя, а нажать «Стоп»
- * сразу после начала — обычное дело.
- */
-const REFUND_IF_PRODUCED_UNDER_CHARS = 200;
-
 function createSettlement(
   uid: string,
   isInternalCall: boolean,
   reservation: GlobalReservation | null,
   chargedDay: string,
+  estimatedInputTokens?: number,
 ): Settlement {
-  let upstreamProduced = false;
-  let producedChars = 0;
-  let settled = false;
+  const callRes = createCallReservation(
+    postgresAiContext,
+    uid,
+    isInternalCall ? 'bulk' : 'user',
+    chargedDay,
+    reservation,
+    estimatedInputTokens,
+  );
   return {
     markUpstreamProduced: (chars = 0) => {
-      upstreamProduced = true;
-      producedChars += chars;
+      callRes.markProduced(chars);
     },
-    settle: async (reason: 'closed' | 'failed' | 'done') => {
-      if (settled) return;
-      settled = true;
-      if (reason === 'done') return;
-
-      // Две разные величины, и их однажды уже перепутали.
-      //
-      // Глобальный резерв — про токены, за которые мы платим поставщику: раз
-      // они выданы, они выданы. Это правило AG-BILL-1, оно не меняется.
-      //
-      // Дневной слот — наша собственная мера справедливости к человеку.
-      // DEEP-8 верно заметил, что возвращать его всегда — это дыра: можно
-      // дочитать ответ почти до конца, оборвать соединение до onFinish и
-      // сохранить и ответ, и слот. Но порог «хоть один токен» слишком груб:
-      // до того, как обрыв дойдёт до сервера, поставщик почти всегда успевает
-      // выдать что-нибудь, поэтому оговорка самого тикета — «возврат остаётся
-      // при нажатии Стоп в начале ответа» — не срабатывала никогда, и проверка
-      // после выкатки это поймала.
-      //
-      // Поэтому меряется объём, а не факт: ответа на пару фраз никто не крал.
-      if (producedChars < REFUND_IF_PRODUCED_UNDER_CHARS) {
-        if (isInternalCall) {
-          await postgresAiContext.refundBulkLimit(uid, chargedDay);
-        } else {
-          await postgresAiContext.refundDailyLimit(uid, chargedDay);
-        }
-      }
-      if (!upstreamProduced) {
-        await postgresAiContext.refundGlobalRequest(reservation);
-      }
+    recordUsage: async (tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) => {
+      await callRes.recordUsage(tokensIn, tokensOut, opts);
+    },
+    settle: async (reason: SettleReason, usage?: CallReservationUsage) => {
+      await callRes.settle(reason, usage);
     },
   };
 }
@@ -161,8 +129,9 @@ async function streamOpenRouterReasoning(
   isInternalCall: boolean,
   reservation: GlobalReservation | null,
   chargedDay: string,
+  estimatedInputTokens?: number,
 ): Promise<void> {
-  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay);
+  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, estimatedInputTokens);
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -334,7 +303,7 @@ async function streamOpenRouterReasoning(
   // токены нулевые, а requests+1 надувает счётчик запросов в статистике.
   if (!streamFailed || sawUpstreamChunk) {
     try {
-      await postgresAiContext.recordUsage(uid, tokensIn, tokensOut, { model, fn: 'chat-stream' }, reservation);
+      await settlement.recordUsage(tokensIn, tokensOut, { model, fn: 'chat-stream' });
     } catch (e) {
       console.error('[api/chat] usage record failed:', e);
     }
@@ -342,24 +311,7 @@ async function streamOpenRouterReasoning(
   res.end();
 }
 
-const inputSchema = z.object({
-  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom']),
-  customSystemPrompt: z.string().max(500).nullish(),
-  messages: z.array(z.object({
-    role: z.enum(['user', 'assistant']),
-    content: z.string().max(MAX_AI_CONTENT_LENGTH),
-  })).max(100).refine(
-    msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= 200_000,
-    'Total messages content exceeds 200K characters',
-  ),
-  documentContent: z.string().max(MAX_AI_CONTENT_LENGTH).nullish(),
-  documentMood: z.string().max(50).nullish(),
-  userPortrait: z.string().max(10_000).nullish(),
-  memoryContext: z.string().max(20_000).nullish(),
-  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
-  reasoning: z.boolean().nullish(),
-  callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish(),
-});
+const inputSchema = chatInputSchema;
 
 export async function handleChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'POST') {
@@ -417,33 +369,28 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
 
-  // День списания. Все refund'ы ниже целятся в него: запрос, начатый в
-  // 23:58 и упавший после полуночи, возвращает единицу в правильную строку.
-  let chargedDay: string;
-
-  if (isInternalCall) {
-    const verdict = await postgresAiContext.checkAndIncrementBulkLimit(uid, 'chat');
-    if (verdict === 'RATE_LIMIT') { sendError(res, 429, 'RATE_LIMIT');
-    return; }
-    if (!verdict.ok) { sendError(res, 429, 'DAILY_LIMIT');
-    return; }
-    chargedDay = verdict.day;
-  } else {
-    const limitResult = await postgresAiContext.checkAndIncrementLimit(uid, parsed.data.reasoning === true);
-    if (limitResult === 'DAILY_LIMIT') {
+  let callRes: CallReservation;
+  try {
+    callRes = await acquireChatReservation(postgresAiContext, uid, isInternalCall, parsed.data.reasoning ?? undefined);
+  } catch (err) {
+    if (err instanceof AiError && err.code === 'resource-exhausted') {
+      if (err.message.includes('Too many requests')) {
+        sendError(res, 429, 'RATE_LIMIT');
+        return;
+      }
       sendError(res, 429, 'DAILY_LIMIT');
-    return;
+      return;
     }
-    if (limitResult === 'RATE_LIMIT') {
-      sendError(res, 429, 'RATE_LIMIT');
-    return;
-    }
-    chargedDay = limitResult.day;
+    throw err;
   }
+  const chargedDay = callRes.day;
 
   const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning);
-  // AUD-19: в резерв закладываем и вход — длинная заметка стоит токенов так же,
+  // AUD-19 & FU-4: в резерв закладываем и вход — длинная заметка стоит токенов так же,
   // как ответ; иначе потолок защищал меньше, чем обещал.
+  // Составная квота: allowance = maxOutputTokens + inputEstimate.
+  // inputEstimate сохраняется в резервации, чтобы при abort вернуть неизрасходованный остаток,
+  // честно списав реально потраченные провайдером входные токены.
   const inputEstimate = estimateInputTokens([
     ...parsed.data.messages.map(m => m.content),
     parsed.data.documentContent, parsed.data.memoryContext,
@@ -451,16 +398,13 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   ]);
   const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens + inputEstimate);
   if (!reservation) {
-    if (isInternalCall) {
-      await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    } else {
-      await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    }
+    await callRes.settle('failed');
     sendError(res, 429, 'GLOBAL_LIMIT');
     return;
   }
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
-  const { personaId, customSystemPrompt, messages, documentContent, documentMood, userPortrait, memoryContext, responseLength, reasoning } = parsed.data;
+  const { personaId, customSystemPrompt, messages, reasoning } = parsed.data;
 
   // Injection guards (AUDIT-MH8: direct instructions only; note-derived fields are fenced and sanitized)
   try {
@@ -470,32 +414,17 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       personaId,
     });
   } catch {
-    if (isInternalCall) await postgresAiContext.refundBulkLimit(uid, chargedDay);
-    else await postgresAiContext.refundDailyLimit(uid, chargedDay);
-    await postgresAiContext.refundGlobalRequest(reservation);
+    await callRes.settle('failed');
     sendError(res, 400, 'BAD_REQUEST');
     return;
   }
 
-  const sanitizedCustomPrompt = customSystemPrompt ? sanitizeAiInput(customSystemPrompt) : undefined;
-  const sanitizedPortrait = userPortrait ? sanitizeAiInput(userPortrait) : undefined;
-  const sanitizedMemory = memoryContext ? sanitizeAiInput(memoryContext) : undefined;
-  const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInput(m.content) }));
+  const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInputShared(m.content) }));
 
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
-  // AG-MEM-1: Single shared prompt options builder. Prevents divergent argument lists
-  // between the reasoning and non-reasoning paths so memory, persona, and document context
-  // never quietly drop on one side.
-  const basePromptParams = {
-    personaId,
-    customSystemPrompt: sanitizedCustomPrompt,
-    userPortrait: sanitizedPortrait,
-    memoryContext: sanitizedMemory,
-    responseLength: responseLength ?? 'detailed',
-    documentContent: documentContent ? sanitizeAiInput(documentContent) : undefined,
-    documentMood: documentMood ? sanitizeAiInput(documentMood) : undefined,
-  };
+  // DUP-2: Single shared prompt options builder.
+  const basePromptParams = assembleChatPromptParams(parsed.data);
 
   if (reasoning) {
     // AG-MEM-1: OpenRouter reasoning uses native provider-side CoT via
@@ -513,17 +442,16 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
         ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
         : m,
     );
-    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation, chargedDay);
+    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation, chargedDay, inputEstimate);
     return;
   }
 
   const systemPrompt = buildChatSystemPrompt({
     ...basePromptParams,
-    responseLength,
     reasoning: false,
   });
 
-  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay);
+  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, inputEstimate);
   const controller = new AbortController();
 
   // Уход клиента: обрываем запрос к поставщику (иначе он досчитывает ответ,
@@ -547,18 +475,11 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       settlement.markUpstreamProduced(delta.length);
     },
     onFinish: async ({ totalUsage }) => {
-      await settlement.settle('done'); // до записи расхода и до конца ответа
-      try {
-        await postgresAiContext.recordUsage(
-          uid,
-          totalUsage?.inputTokens ?? 0,
-          totalUsage?.outputTokens ?? 0,
-          { model: activeModel, fn: 'chat-stream' },
-          reservation,
-        );
-      } catch (e) {
-        console.error('[api/chat] usage record failed:', e);
-      }
+      await settlement.settle('done', {
+        tokensIn: totalUsage?.inputTokens ?? 0,
+        tokensOut: totalUsage?.outputTokens ?? 0,
+        model: activeModel,
+      });
     },
     onError: async (e) => {
       console.error('[api/chat] streamText failed:', e);

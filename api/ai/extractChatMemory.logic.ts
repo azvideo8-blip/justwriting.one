@@ -4,7 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis, M
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
-import { chargeCall, refundCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   messages: z.array(z.object({
@@ -55,11 +55,11 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
 
   const reservation = await ctx.tryReserveGlobalRequest(1000);
   if (!reservation) {
-    await refundCall(ctx, callRes);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
-  let settled = false;
   try {
     const result = await generate({
       system: SYSTEM_PROMPT,
@@ -70,10 +70,11 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
       abortMs: 50_000,
     });
 
+    callRes.markProduced(result.text.length);
+
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'extractMemory' }, reservation).catch(e =>
       console.error('[AI memory] usage record failed:', e),
     );
-    settled = true;
 
     const cleaned = sanitizeAiResponse(result.text).trim();
 
@@ -90,7 +91,9 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     }
 
     if (!Array.isArray(memories) || memories.length === 0) {
-      await refundCall(ctx, callRes);
+      await callRes.settle('failed');
+    } else {
+      await callRes.settle('done');
     }
 
     // Тот же случай, что и в summarizeDocument: намерение, записанное моделью
@@ -104,10 +107,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
 
     return { memories };
   } catch (e) {
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     console.error('[AI memory] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

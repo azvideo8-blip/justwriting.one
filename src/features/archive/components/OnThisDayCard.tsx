@@ -13,7 +13,11 @@ function isSameCalendarDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-export function findMatch(sessions: ArchiveSession[], t: (k: string) => string, referenceDate: Date = new Date()): { session: ArchiveSession; label: string } | null {
+export function findMatch(
+  sessions: ArchiveSession[],
+  t: (k: string) => string,
+  referenceDate: Date = new Date(),
+): { session: ArchiveSession; label: string; matchedDate: Date } | null {
   const now = referenceDate;
   // DEEP-12: subMonths/subYears корректно зажимают 31-е числа (например, 31 марта -> 28/29 февраля)
   const periods: { label: string; target: Date }[] = [
@@ -22,11 +26,13 @@ export function findMatch(sessions: ArchiveSession[], t: (k: string) => string, 
     { label: t('archive_on_this_day_month'), target: subMonths(now, 1) },
   ];
   for (const p of periods) {
-    const hit = sessions.find(s => {
+    for (const s of sessions) {
       const dates = getSessionDates(s);
-      return dates.some(d => isSameCalendarDay(d, p.target));
-    });
-    if (hit) return { session: hit, label: p.label };
+      const matched = dates.find(d => isSameCalendarDay(d, p.target));
+      if (matched) {
+        return { session: s, label: p.label, matchedDate: matched };
+      }
+    }
   }
   return null;
 }
@@ -51,10 +57,10 @@ export function OnThisDayCard({ sessions, onOpen }: {
   const [dismissing, setDismissing] = useState(false);
   const match = useMemo(() => findMatch(sessions, t), [sessions, t]);
   if (!match || match.session.id === dismissedId) return null;
-  const { session, label } = match;
+  const { session, label, matchedDate } = match;
   const excerpt = trimExcerpt(session.content || '');
-  const date = getSessionDate(session);
-  const dateChip = date ? format(date, 'd MMM yy', { locale: getDateLocale(language) }) : null;
+  const date = matchedDate ?? getSessionDate(session);
+  const dateChip = format(date, 'd MMM yy', { locale: getDateLocale(language) });
 
   const dismiss = () => {
     try { localStorage.setItem(DISMISS_KEY, session.id); } catch { /* ignore */ }

@@ -322,12 +322,9 @@ describe('3.8 stream disconnect', () => {
     expect(refundDaily, 'двенадцать символов текста — это не полученный ответ').toHaveBeenCalledTimes(1);
   });
 
-  it('AG-BILL-1 мутация: без !upstreamProduced тест обязан краснеть (проверено снятием защиты)', async () => {
-    // Этот тест документирует приёмку: удаление условия !upstreamProduced
-    // в api/chat.ts делает предыдущий тест красным — refundGlobal начнёт
-    // вызываться после того, как поставщик уже потратил токены.
-    expect(true).toBe(true);
-  });
+  // AG-BILL-1 мутация: без !upstreamProduced тест выше обязан краснеть —
+  // удаление условия !upstreamProduced делает тест красным, так как refundGlobal начнёт
+  // вызываться после того, как поставщик уже потратил токены.
 
   it('does NOT refund when bytes were streamed before normal completion', async () => {
     sseBody = sse([
@@ -370,7 +367,7 @@ describe('3.8 stream disconnect', () => {
     expect(refundGlobal).toHaveBeenCalledTimes(1);
   });
 
-  it('DEEP-8: обычный чат не возвращает слот, когда клиент ушёл, получив существенный ответ', async () => {
+  it('DEEP-8 / FU-1: обычный чат не возвращает слот, но сверяет резерв токенов при уходе клиента', async () => {
     const enc = new TextEncoder();
     const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
     // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
@@ -397,6 +394,45 @@ describe('3.8 stream disconnect', () => {
 
     expect(refundDaily).not.toHaveBeenCalled();
     expect(refundGlobal).not.toHaveBeenCalled();
+    // FU-1 & FU-4: Reconcile unconsumed reservation on abort mid-stream.
+    // FU-4 accounts for prompt input tokens spent before upstream produced chunks (20 tokens).
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+    expect(recordUsage).toHaveBeenCalledWith(
+      'u_stream',
+      20,
+      Math.ceil(400 / 3),
+      expect.objectContaining({ fn: 'chat-stream-abort' }),
+      expect.objectContaining({ allowance: 8192 }),
+    );
+  });
+
+  it('FU-1: one reservation is reconciled at most once even if settle called multiple times', async () => {
+    const enc = new TextEncoder();
+    const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
+    fetchMock.mockImplementationOnce(() => Promise.resolve(new Response(
+      new ReadableStream<Uint8Array>({
+        start(controller) { streamController = controller; },
+        cancel() { streamController = null; },
+      }),
+      { status: 200 },
+    )));
+
+    const req = new FakeReq(plainChatBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    const chunk = JSON.stringify({ choices: [{ index: 0, delta: { content: 'тест' } }] });
+    streamController?.enqueue(enc.encode(`data: ${chunk}\n\n`));
+    await vi.waitFor(() => expect(res.body.length).toBeGreaterThan(0), { timeout: 2000 });
+    // Emit close twice
+    res.emit('close');
+    res.emit('close');
+
+    await done;
+
+    expect(recordUsage).toHaveBeenCalledTimes(1);
   });
 
   it('AG-BILL-3: ordinary chat normal finish does NOT refund', async () => {
@@ -420,16 +456,15 @@ describe('3.8 stream disconnect', () => {
     expect(recordUsage).toHaveBeenCalled();
   });
 
-  it('AG-BILL-3: grep proof - both branches share createSettlement and exactly one refundDailyLimit site in settlement', async () => {
+  it('AG-BILL-3: grep proof - both branches share createSettlement and delegate via createCallReservation', async () => {
     const fs = await import('fs');
     const path = await import('path');
     const chatSrc = fs.readFileSync(path.resolve(__dirname, '../chat.ts'), 'utf-8');
 
-    // Exactly one refundDailyLimit call inside createSettlement
+    // createSettlement delegates to unified createCallReservation
     const createSettlementBlock = chatSrc.match(/function createSettlement[\s\S]*?^}/m)?.[0] ?? '';
-    expect(createSettlementBlock).toContain('postgresAiContext.refundDailyLimit(');
-    const settlementRefundDailyMatches = (createSettlementBlock.match(/refundDailyLimit\(/g) || []).length;
-    expect(settlementRefundDailyMatches).toBe(1);
+    expect(createSettlementBlock).toContain('createCallReservation(');
+    expect(createSettlementBlock).not.toContain('postgresAiContext.refundDailyLimit');
 
     // No refundDailyLimit or refundBulkLimit inside streamOpenRouterReasoning
     const reasoningBlock = chatSrc.match(/async function streamOpenRouterReasoning[\s\S]*?^}/m)?.[0] ?? '';

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, refundCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({ digest: z.string().min(20).max(60_000) });
 
@@ -46,10 +46,11 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
   if (!reservation) {
-    await refundCall(ctx, callRes);
+    await callRes.settle('failed');
     console.error('[AI taxonomy] global daily cap reached');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
   let settled = false;
   // Цикл ниже может сходить в модель дважды, а глобальная резервация одна.
@@ -74,6 +75,7 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
       tokensIn += result.tokensIn;
       tokensOut += result.tokensOut;
       usedModel = result.model;
+      callRes.markProduced(result.text.length);
       // Токены уже потрачены: возвращать резервацию нельзя, даже если дальше упадём.
       settled = true;
 
@@ -104,6 +106,8 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
       }
     }
 
+    await callRes.settle('done');
+
     if (domains.length === 0) {
       console.warn('[AI taxonomy] No domains generated, returning empty domains array.');
       return { domains: [] };
@@ -111,10 +115,7 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
 
     return { domains };
   } catch (e) {
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof AiError)) console.error('[AI taxonomy] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

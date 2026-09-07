@@ -2,6 +2,7 @@ import { ArchiveSession, ExportStrings } from '../../shared/types/common';
 import { toDate } from '../utils/dateUtils';
 import { escapeHtml } from '../../shared/utils/exportUtils';
 import { reportError } from '../../shared/errors/reportError';
+import { serializeNoteMarkdown } from './noteFormat';
 
 export type { ExportStrings };
 
@@ -53,19 +54,13 @@ function getFilename(session: ArchiveSession, ext: string, s: ExportStrings): st
 
 export function buildMarkdownContent(session: ArchiveSession, s: ExportStrings): string {
   const date = toDate(session.createdAt) ?? new Date();
-  const locOpts = getLocale();
-  return [
-    `# ${session.title || s.untitled}`,
-    '',
-    `**${s.date}:** ${date.toLocaleDateString(locOpts, { day: 'numeric', month: 'long', year: 'numeric' })}  `,
-    `**${s.words}:** ${session.wordCount}  `,
-    `**${s.time}:** ${Math.round((session.duration || 0) / 60)} ${s.time}  `,
-    session.tags?.length ? `**${s.tags}:** ${session.tags.map(t => '#' + t).join(' ')}` : '',
-    '',
-    '---',
-    '',
-    session.content || '',
-  ].filter(line => line !== undefined).join('\n');
+  return serializeNoteMarkdown({
+    title: session.title || s.untitled,
+    date: date.toISOString(),
+    tags: session.tags,
+    mood: session.mood,
+    content: session.content || '',
+  });
 }
 
 async function downloadBlob(content: string | Blob, type: string, filename: string): Promise<void> {
@@ -125,7 +120,17 @@ export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
 
 export function stripMarkdown(md: string): string {
   if (!md) return '';
-  return md
+  const frontMatterMatch = md.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  if (frontMatterMatch) {
+    const frontMatter = frontMatterMatch[0];
+    const body = md.slice(frontMatter.length);
+    return frontMatter + stripMarkdownBody(body);
+  }
+  return stripMarkdownBody(md);
+}
+
+function stripMarkdownBody(text: string): string {
+  return text
     .replace(/<[^>]*>/g, '')
     .replace(/^(?:#+)\s+(.*)$/gm, '$1')
     .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1')

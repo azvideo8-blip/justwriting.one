@@ -191,4 +191,28 @@ export const adminTranslations: Translations = {
   admin_verdict_hit: { ru: 'Попадание', en: 'Hit' },
   admin_verdict_similar: { ru: 'Нашёл похожее', en: 'Found similar' },
   admin_verdict_miss: { ru: 'Не попал', en: 'Miss' },
+  admin_db_delete_confirm_title: { ru: 'Удалить запись?', en: 'Delete record?' },
+  admin_db_delete_confirm_message: { ru: 'Запись будет безвозвратно удалена из базы данных.', en: 'The record will be permanently deleted from the database.' },
+  admin_embed_reindex_all_confirm_title: { ru: 'Переиндексировать все заметки?', en: 'Reindex all notes?' },
+  admin_embed_reindex_all_confirm_message: {
+    ru: 'Переиндексировать ВСЕ заметки ({total})? Каждая будет пересчитана заново и записана в облако — это потратит и лимит ИИ, и дневной бюджет записи в облако (общий на всё приложение).',
+    en: 'Reindex ALL notes ({total})? Each will be recomputed and written to cloud — this uses both AI quota and cloud write budget.',
+  },
+  admin_queue_clear_confirm_title: { ru: 'Очистить очередь?', en: 'Clear queue?' },
+  admin_queue_clear_confirm_message: {
+    ru: 'Удалить все {count} элементов из очереди? Отложенные облачные синхронизации будут безвозвратно отменены.',
+    en: 'Delete all {count} items from the queue? Pending cloud syncs will be permanently cancelled.',
+  },
+  admin_sync_unlink_confirm_title: { ru: 'Отвязать от облака?', en: 'Unlink from cloud?' },
+  admin_sync_unlink_confirm_message: { ru: 'Заметка останется только на этом устройстве.', en: 'This will keep it as local-only.' },
+  admin_clear_memory_confirm_title: { ru: 'Очистить память ИИ?', en: 'Clear AI memory?' },
+  admin_clear_memory_confirm_message: {
+    ru: 'Накопленные факты/инсайты будут удалены безвозвратно. Диалоги и заметки не затрагиваются.',
+    en: 'Accumulated facts/insights will be permanently deleted. Dialogues and notes are unaffected.',
+  },
+  admin_reset_user_limit_confirm_title: { ru: 'Сбросить лимит?', en: 'Reset limit?' },
+  admin_reset_user_limit_confirm_message: {
+    ru: 'Сбросить суточный счетчик запросов ИИ для пользователя {name}?',
+    en: 'Reset daily AI request counter for user {name}?',
+  },
 };

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, refundCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -58,11 +58,11 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
 
   const reservation = await ctx.tryReserveGlobalRequest(2048);
   if (!reservation) {
-    await refundCall(ctx, callRes);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
-  let settled = false;
   try {
     const result = await generate({
       system: systemWithCorrection,
@@ -73,10 +73,11 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
       abortMs: 110_000,
     });
 
+    callRes.markProduced(result.text.length);
+
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }, reservation).catch(e =>
       console.error('[AI facet] usage record failed:', e),
     );
-    settled = true;
 
     const text = result.text.trim();
     const META = /мы (имеем|должны)|нужно (определить|проанализ)|проанализир|(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])we need(?=$|[^а-яёА-ЯЁa-zA-Z0-9])|the (user|notes|theme)|given notes|<think>|похоже,?\s*что|возможно,?\s*(это|жен)|в заметке\s*\d|из заметок|предложени[яй] от третьего/i;
@@ -97,9 +98,11 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     let finalLabel = label;
     const truncated = summary.length > 0 && !/[.!?]$/.test(summary);
     if (!summary || META.test(summary) || cyr(summary) < summary.length * 0.3 || (truncated && summary.length < 200)) {
-      await refundCall(ctx, callRes);
+      await callRes.settle('failed');
       finalLabel = '';
       summary = '';
+    } else {
+      await callRes.settle('done');
     }
     if (finalLabel && (META.test(finalLabel) || cyr(finalLabel) === 0)) finalLabel = '';
     if (!finalLabel && summary) {
@@ -110,10 +113,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     const cleanSummary = sanitizeAiResponse(summary);
     return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     console.error('[AI facet] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { estimateInputTokens, chargeCall } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   query: z.string().min(1).max(2_000),
@@ -32,32 +32,23 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
     throw new AiError('invalid-argument', 'Invalid documentId in candidates.');
   }
 
-  // Возвращается объект `{ ok, day }`, а не булево: `!verdict` было всегда false,
-  // то есть исчерпанный дневной лимит здесь не срабатывал вовсе и реранк
-  // продолжал ходить к поставщику поверх квоты.
-  // AUD-18: cooldown ключится по эндпоинту, а не только по uid.
-  const verdict = await ctx.checkAndIncrementBulkLimit(uid, 'rerank');
-  if (verdict === 'RATE_LIMIT') {
-    throw new AiError('resource-exhausted', 'Too many requests. Please wait a minute.');
-  }
-  if (!verdict.ok) {
-    throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
-  }
-  // День списания фиксируем сразу: refund после полуночи должен вернуть слот
-  const chargedDay: string = verdict.day;
+  // DUP-1: Unified reservation lifetime
+  const callRes = await chargeCall(ctx, uid, 'bulk', 'rerank');
 
   const safeQuery = sanitizeAiInput(query);
   const cardsText = candidates
     .map((c, i) => `[${i + 1}] docId=${c.documentId}\n${sanitizeAiInput(c.card)}`)
     .join('\n\n');
 
-  // AUD-19: вход (запрос + карточки) тоже уходит в резерв.
+  // AUD-19 & FU-4: вход (запрос + карточки) тоже уходит в резерв.
+  // Составная квота: allowance = 512 + inputEstimate.
   const inputEstimate = estimateInputTokens([query, cardsText]);
   const reservation = await ctx.tryReserveGlobalRequest(512 + inputEstimate);
   if (!reservation) {
-    await ctx.refundBulkLimit(uid, chargedDay);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   try {
     const result = await generate({
@@ -71,10 +62,6 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
       abortMs: 50_000,
     });
 
-    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'rerank' }, reservation).catch(e =>
-      console.error('[AI rerank] usage record failed:', e),
-    );
-
     let ids: string[] = [];
     let txt = result.text.trim();
     if (txt.startsWith('```')) {
@@ -84,17 +71,22 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
       const obj = JSON.parse(txt) as { ids?: unknown };
       if (Array.isArray(obj.ids)) ids = obj.ids.filter((x): x is string => typeof x === 'string');
     } catch {
-      await ctx.refundBulkLimit(uid, chargedDay);
+      await callRes.settle('failed');
       ids = [];
     }
 
     const candidateIds = new Set(candidates.map(c => c.documentId));
     ids = ids.filter(id => candidateIds.has(id));
 
+    callRes.markProduced(result.text.length);
+    await callRes.settle('done');
+    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'rerank' }, reservation).catch(e =>
+      console.error('[AI rerank] usage record failed:', e),
+    );
+
     return { documentIds: ids.slice(0, maxResults) };
   } catch (e) {
-    await ctx.refundBulkLimit(uid, chargedDay);
-    await ctx.refundGlobalRequest(reservation);
+    await callRes.settle('failed');
     console.error('[AI rerank] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

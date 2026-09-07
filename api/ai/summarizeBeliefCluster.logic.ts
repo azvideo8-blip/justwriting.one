@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, refundCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
 
 const BELIEF_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -57,11 +57,11 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
 
   const reservation = await ctx.tryReserveGlobalRequest(2048);
   if (!reservation) {
-    await refundCall(ctx, callRes);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
-  let settled = false;
   try {
     const evidenceText = evidence
       .map((e, i) => `Фрагмент ${i + 1} [#${sanitizeAiInput(e.id)} · ${sanitizeAiInput(e.date)}]:\n${sanitizeAiInput(e.snippet ?? '')}`)
@@ -85,18 +85,17 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
       abortMs: 110_000,
     });
 
+    callRes.markProduced(result.text.length);
+    await callRes.settle('done');
+
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'summarizeBeliefCluster' }, reservation).catch(e =>
       console.error('[summarizeBeliefCluster] usage record failed:', e),
     );
-    settled = true;
 
     const cleanBelief = sanitizeAiResponse(result.text.trim());
     return { belief: cleanBelief };
   } catch (e) {
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     console.error('[summarizeBeliefCluster] failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

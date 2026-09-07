@@ -1,38 +1,26 @@
+import { parseNoteMarkdown } from '../../../core/services/noteFormat';
+
 export interface ParsedImportFile {
   title: string;
   content: string;
   tags: string[];
   wordCount: number;
+  date?: string | undefined;
+  mood?: string | undefined;
 }
 
-const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
-
 export function parseImportFile(fileName: string, rawContent: string): ParsedImportFile {
-  let title = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
-  let tags: string[] = [];
-  let content = rawContent;
-
-  const match = rawContent.match(FRONTMATTER_REGEX);
-  if (match) {
-    const yaml = match[1] ?? '';
-    content = rawContent.replace(FRONTMATTER_REGEX, '');
-    for (const line of yaml.split(/\r?\n/)) {
-      const parts = line.split(':');
-      if (parts.length < 2) continue;
-      const key = parts[0]?.trim().toLowerCase();
-      if (!key) continue;
-      const value = parts.slice(1).join(':').trim();
-      if (key === 'title') {
-        title = value.replace(/^["']|["']$/g, '');
-      } else if (key === 'tags') {
-        const cleanValue = value.replace('[', '').replace(']', '');
-        tags = cleanValue.split(',').map(t => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-      }
-    }
-  }
-
-  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
-  return { title, content, tags, wordCount };
+  const fallbackTitle = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+  const parsed = parseNoteMarkdown(rawContent, fallbackTitle);
+  const wordCount = parsed.content.trim().split(/\s+/).filter(Boolean).length;
+  return {
+    title: parsed.title,
+    content: parsed.content,
+    tags: parsed.tags,
+    wordCount,
+    date: parsed.date,
+    mood: parsed.mood,
+  };
 }
 
 const MAX_DOCX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit (SEC-40)
@@ -78,6 +66,9 @@ export async function importNoteFile(
 
   const parsed = parseImportFile(file.name, rawContent);
 
+  const parsedDate = parsed.date ? new Date(parsed.date) : new Date();
+  const sessionStartedAt = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+
   const { LocalStorageService } = await import('../../../core/services/LocalStorageService');
   const { localId } = await LocalStorageService.saveNew(userId, {
     title: parsed.title,
@@ -85,8 +76,9 @@ export async function importNoteFile(
     wordCount: parsed.wordCount,
     duration: 0,
     wpm: 0,
-    sessionStartedAt: new Date(),
+    sessionStartedAt,
     tags: parsed.tags,
+    mood: parsed.mood,
   });
 
   if (isSignedIn) {

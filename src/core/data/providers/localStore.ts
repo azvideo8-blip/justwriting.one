@@ -1,6 +1,7 @@
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
 import { likePrefix } from './fields';
+import { pageAll } from './pageAll';
 
 export async function saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void> {
   const { error } = await getSupabase()
@@ -34,10 +35,7 @@ export async function getLocalStoreRecord(userId: string, store: string, key: st
 }
 
 export async function getLocalStoreRecords(userId: string, store?: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>> {
-  const PAGE_SIZE = 1000;
-  let from = 0;
-  const allRows: Record<string, unknown>[] = [];
-  while (true) {
+  const allRows = await pageAll((from, to) => {
     let q = getSupabase()
       .from('local_store_records')
       .select('*')
@@ -45,16 +43,11 @@ export async function getLocalStoreRecords(userId: string, store?: string): Prom
     if (store) {
       q = q.eq('store', store);
     }
-    const { data, error } = await q
+    return q
       .order('key', { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
-    if (error != null) throw error;
-    if (data === null || data.length === 0) break;
-    allRows.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-  return allRows.map(row => {
+      .range(from, to);
+  });
+  return (allRows as Record<string, unknown>[]).map(row => {
     const rec: { store: string; key: string; payload: ProviderRecord; checksum?: string } = {
       store: row.store as string,
       key: row.key as string,

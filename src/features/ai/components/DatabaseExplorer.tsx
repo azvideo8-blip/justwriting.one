@@ -103,7 +103,10 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
   }, [loadData]);
 
   const handleDeleteRecord = async (record: RecordType) => {
-    const ok = await confirmDialog({ title: 'Удалить запись?', message: 'Запись будет безвозвратно удалена из базы данных.' });
+    const ok = await confirmDialog({
+      title: t('admin_db_delete_confirm_title'),
+      message: t('admin_db_delete_confirm_message'),
+    });
     if (!ok) return;
     try {
       if (source === 'local') {

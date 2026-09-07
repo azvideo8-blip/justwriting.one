@@ -10,8 +10,10 @@ import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 
 import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 export function EmbeddingDiagnostics() {
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
@@ -63,7 +65,10 @@ export function EmbeddingDiagnostics() {
 
   const handleReindexAll = async () => {
     const total = coverage?.totalDocs ?? 0;
-    const ok = await confirmDialog({ title: 'Переиндексировать все заметки?', message: `Переиндексировать ВСЕ заметки (${total})? Каждая будет пересчитана заново и записана в облако — это потратит и лимит ИИ, и дневной бюджет записи в облако (общий на всё приложение).` });
+    const ok = await confirmDialog({
+      title: t('admin_embed_reindex_all_confirm_title'),
+      message: t('admin_embed_reindex_all_confirm_message', { total: String(total) }),
+    });
     if (!ok) return;
     setReindexing(true);
     setProgress({ done: 0, total });

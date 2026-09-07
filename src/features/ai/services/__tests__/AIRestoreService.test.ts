@@ -41,9 +41,14 @@ vi.mock('../../../../core/storage/localDb', () => ({
 }));
 
 const latestContent = new Map<string, string>();
+vi.mock('../../../../core/services/LocalVersionService', () => ({
+  LocalVersionService: {
+    getLatestContent: async (id: string) => latestContent.get(id) ?? '',
+  },
+}));
+
 vi.mock('../../utils/embeddingIndexer', () => ({
   sha256Hex: async (text: string) => `hash-of:${text}`,
-  getLatestContent: async (id: string) => latestContent.get(id) ?? null,
 }));
 
 vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() }));

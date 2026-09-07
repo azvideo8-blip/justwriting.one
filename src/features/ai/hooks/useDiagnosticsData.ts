@@ -346,7 +346,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleClearMemory = async () => {
-    const ok = await confirmDialog({ title: 'Очистить память ИИ?', message: 'Накопленные факты/инсайты будут удалены безвозвратно. Диалоги и заметки не затрагиваются.' });
+    const ok = await confirmDialog({
+      title: t('admin_clear_memory_confirm_title'),
+      message: t('admin_clear_memory_confirm_message'),
+    });
     if (!ok) return;
     try {
       await AIChatMemoryService.deleteAll();
@@ -395,7 +398,11 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   };
 
   const handleResetUserLimit = async (targetUid: string, displayName: string) => {
-    const ok = await confirmDialog({ title: 'Сбросить лимит?', message: `Сбросить суточный счетчик запросов ИИ для пользователя ${displayName}?`, destructive: false });
+    const ok = await confirmDialog({
+      title: t('admin_reset_user_limit_confirm_title'),
+      message: t('admin_reset_user_limit_confirm_message', { name: displayName }),
+      destructive: false,
+    });
     if (!ok) return;
     setResettingUid(targetUid);
     try {

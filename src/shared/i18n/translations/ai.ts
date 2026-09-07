@@ -36,4 +36,13 @@ export const aiTranslations: Translations = {
   ai_memory_forget_all_confirm: { ru: 'Удалить все воспоминания безвозвратно?', en: 'Delete all memories permanently?' },
   ai_memory_delete: { ru: 'Удалить воспоминание', en: 'Delete memory' },
   ai_degraded_daily_limit_chat: { ru: 'Дневной лимит исчерпан: ответ сформирован без поиска по заметкам (восстановится завтра)', en: 'Daily limit reached: answer generated without note search (resets tomorrow)' },
+  ai_persona_delete_confirm_title: { ru: 'Удалить персону?', en: 'Delete persona?' },
+  ai_persona_delete_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },
+  ai_reasoning_mode_confirm_title: { ru: 'Режим рассуждений', en: 'Reasoning Mode' },
+  ai_reasoning_mode_confirm_message: { ru: 'Дневной лимит запросов в режиме рассуждений ограничен 5 (вместо 10). Включить?', en: 'Daily request limit in reasoning mode is capped at 5 (instead of 10). Enable?' },
+  ai_reasoning_mode_confirm_label: { ru: 'Включить', en: 'Enable' },
+  ai_delete_message_confirm_title: { ru: 'Удалить сообщение?', en: 'Delete message?' },
+  ai_delete_message_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },
+  ai_delete_dialogue_confirm_title: { ru: 'Удалить диалог?', en: 'Delete dialogue?' },
+  ai_delete_dialogue_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },
 };

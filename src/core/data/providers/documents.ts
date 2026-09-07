@@ -5,6 +5,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import {
   DOCUMENT_FIELDS, DOCUMENT_REV, toDb, fromDb,
 } from './fields';
+import { pageAll } from './pageAll';
 
 export async function createDocument(userId: string, data: ProviderRecord): Promise<string> {
   const docId = (data.uuid || data.id || crypto.randomUUID()) as string;
@@ -65,24 +66,16 @@ export async function getDocumentWithDeleted(userId: string, documentId: string)
 }
 
 export async function getUserDocuments(userId: string): Promise<ProviderRecord[]> {
-  const PAGE_SIZE = 1000;
-  let from = 0;
-  const allRows: Record<string, unknown>[] = [];
-  while (true) {
-    const { data, error } = await getSupabase()
+  const allRows = await pageAll((from, to) =>
+    getSupabase()
       .from('documents')
       .select('*')
       .eq('user_id', userId)
       .is('deleted_at', null)
       .order('uuid', { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
-    if (error != null) throw error;
-    if (data === null || data.length === 0) break;
-    allRows.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-  return allRows.map(row => fromDb(DOCUMENT_REV, row));
+      .range(from, to),
+  );
+  return allRows.map(row => fromDb(DOCUMENT_REV, row as Record<string, unknown>));
 }
 
 export async function updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void> {
@@ -299,53 +292,38 @@ export async function removeTagFromAllDocs(userId: string, tag: string): Promise
  */
 export async function getCloudVersionDiscrepancyCount(userId: string): Promise<number> {
   const supabase = getSupabase();
-  const PAGE_SIZE = 1000;
 
   const fetchDocs = async () => {
-    const docs: { uuid: string; current_version: number }[] = [];
-    let from = 0;
-    while (true) {
-      const { data, error } = await supabase
+    const rows = await pageAll((from, to) =>
+      supabase
         .from('documents')
         .select('uuid, current_version')
         .eq('user_id', userId)
         .is('deleted_at', null)
         .order('uuid', { ascending: true })
-        .range(from, from + PAGE_SIZE - 1);
-      if (error != null) throw error;
-      if (data === null || data.length === 0) break;
-      for (const row of data) {
-        docs.push({
-          uuid: (row as { uuid?: string }).uuid ?? '',
-          current_version: (row as { current_version?: number }).current_version ?? 0,
-        });
-      }
-      if (data.length < PAGE_SIZE) break;
-      from += PAGE_SIZE;
-    }
-    return docs;
+        .range(from, to),
+    );
+    return rows.map(row => ({
+      uuid: (row as { uuid?: string }).uuid ?? '',
+      current_version: (row as { current_version?: number }).current_version ?? 0,
+    }));
   };
 
   const fetchVersionCounts = async () => {
     const counts = new Map<string, number>();
-    let from = 0;
-    while (true) {
-      const { data, error } = await supabase
+    const rows = await pageAll((from, to) =>
+      supabase
         .from('versions')
         .select('document_uuid')
         .eq('user_id', userId)
         .order('id', { ascending: true })
-        .range(from, from + PAGE_SIZE - 1);
-      if (error != null) throw error;
-      if (data === null || data.length === 0) break;
-      for (const row of data) {
-        const id = (row as { document_uuid?: string }).document_uuid;
-        if (id) {
-          counts.set(id, (counts.get(id) ?? 0) + 1);
-        }
+        .range(from, to),
+    );
+    for (const row of rows) {
+      const id = (row as { document_uuid?: string }).document_uuid;
+      if (id) {
+        counts.set(id, (counts.get(id) ?? 0) + 1);
       }
-      if (data.length < PAGE_SIZE) break;
-      from += PAGE_SIZE;
     }
     return counts;
   };

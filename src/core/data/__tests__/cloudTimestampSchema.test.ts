@@ -92,4 +92,25 @@ describe('LIFE-5: cloudTimestampSchema normalisation', () => {
     const stored = await db.get('versions', versionId);
     expect(stored?.savedAt).toBe(tsMs);
   });
+
+  it('E-10: preserves createdAt across documentDbSchema and versionDbSchema', () => {
+    const doc = documentDbSchema.parse({
+      id: 'doc_1',
+      firstSessionAt: tsMs,
+      lastSessionAt: tsMs,
+      createdAt: tsMs,
+    });
+    expect(doc.createdAt).toBeInstanceOf(Date);
+    expect(doc.createdAt?.getTime()).toBe(tsMs);
+
+    const ver = versionDbSchema.parse({
+      id: 'ver_1',
+      documentId: 'doc_1',
+      savedAt: tsMs,
+      sessionStartedAt: tsMs,
+      createdAt: tsMs,
+    });
+    expect(ver.createdAt).toBeInstanceOf(Date);
+    expect(ver.createdAt?.getTime()).toBe(tsMs);
+  });
 });

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, getLangfuse, hashUid, splitFactsByModality, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, refundCall } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall } from '../../src/shared/ai/aiPolicy.js';
 
 // ── Helpers (kept in sync with summarizeDocument.ts) ─────────────────────────
 
@@ -145,9 +145,10 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
 
   const reservation = await ctx.tryReserveGlobalRequest(8192);
   if (!reservation) {
-    await refundCall(ctx, callRes);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
   const lf = getLangfuse();
   const trace = lf?.trace({ name: 'summarizeDocument', userId: hashUid(uid) });
@@ -155,7 +156,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
 
   let text: string;
   let tokensIn = 0, tokensOut = 0, usedModel = SUMMARY_MODEL;
-  let settled = false;
   try {
     const result = await generate({
       system: scaledPrompt,
@@ -171,10 +171,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     usedModel = result.model;
   } catch (e) {
     console.error('[AI summarize] generation failed:', e);
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     const msg = String((e as { message?: string })?.message ?? e);
@@ -193,10 +190,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     try { rawParsed = JSON.parse(textToParse); }
     catch { rawParsed = JSON.parse(repairTruncatedJson(textToParse)); console.warn('[AI summarize] recovered truncated JSON'); }
   } catch {
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     console.error('[AI summarize] failed to parse model output, length:', text.length);
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
@@ -207,10 +201,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   if (!validated.success) {
     // Тот же refund-регион, что у фейла парса: за мусор от модели платит
     // провайдер, а не человек.
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     console.error('[AI summarize] model output failed schema:', validated.error.issues.length, 'issues');
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
@@ -218,10 +209,11 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   }
   const parsed_json: ParsedJson = validated.data;
 
+  callRes.markProduced(text.length);
+  await callRes.settle('done');
   generation?.end({ usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }, reservation)
     .catch(e => console.error('[AI summarize] usage record failed:', e));
-  settled = true;
   if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   const cyrRatio = (s: string) => {

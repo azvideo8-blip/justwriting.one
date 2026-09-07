@@ -92,6 +92,13 @@ export function SyncManager() {
   useEffect(() => {
     const onVaultUnlocked = () => {
       void SyncService.reviveLockedTasks(user?.uid)
+        .then(() => {
+          if (user?.uid) {
+            void SyncService.syncPending(user.uid).catch(e =>
+              reportError(e, { action: 'sync_pending_on_vault_unlock' }),
+            );
+          }
+        })
         .catch(e => reportError(e, { action: 'revive_locked_tasks_on_vault_unlock' }));
     };
     window.addEventListener(VAULT_UNLOCKED_EVENT, onVaultUnlocked);

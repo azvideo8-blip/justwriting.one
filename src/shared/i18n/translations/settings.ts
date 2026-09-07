@@ -225,4 +225,28 @@ export const settingsTranslations: Translations = {
   sync_queue_disabled: { ru: 'Автосинхронизация отключена в настройках', en: 'Auto-sync is disabled in settings' },
   sync_quarantined_count: { ru: 'Ошибки синхронизации (задачи в карантине): {count}', en: 'Sync errors (quarantined tasks): {count}' },
   sync_quarantined_retry: { ru: 'Повторить', en: 'Retry' },
+  settings_ai_withdraw_consent_title: {
+    ru: 'Отозвать согласие на использование ИИ?',
+    en: 'Withdraw AI consent?',
+  },
+  settings_ai_withdraw_consent_message: {
+    ru: 'Запросы к ИИ (разбор заметок, чат, обновление профиля) перестанут выполняться до повторного согласия.',
+    en: 'AI requests (note analysis, chat, profile updates) will pause until consent is granted again.',
+  },
+  settings_ai_withdraw_indexing_title: {
+    ru: 'Отключить поиск по смыслу (векторную индексацию)?',
+    en: 'Disable semantic search (vector indexing)?',
+  },
+  settings_ai_withdraw_indexing_message: {
+    ru: 'Новые заметки перестанут отправляться для вычисления числовых векторов. Поиск будет работать только по ключевым словам. Ранее созданные индексы останутся на устройстве до явного удаления.',
+    en: 'New notes will no longer be sent for vector calculations. Search will work by keyword only. Previously created indexes will remain on device until deleted.',
+  },
+  settings_ai_clear_data_title: {
+    ru: 'Удалить все данные ИИ?',
+    en: 'Delete all AI data?',
+  },
+  settings_ai_clear_data_message: {
+    ru: 'Будут удалены все созданные ИИ сводки, темы, портрет, грани, история диалогов и векторные индексы. Сами заметки и их текст останутся в полной сохранности.',
+    en: 'All AI-generated summaries, themes, portrait, facets, dialogue history, and vector indexes will be deleted. Notes and their text will remain completely intact.',
+  },
 };

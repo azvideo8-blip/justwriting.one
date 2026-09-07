@@ -76,6 +76,14 @@ export async function loadAllSessions(
     // версии ещё не доехали. Человеку приходилось удалять пустую копию руками.
     const localUuids = new Set(localDocs.map(d => d.uuid).filter(Boolean));
 
+    // E-7: Batch-read sittings for all local docs in one cursor scan
+    let sittingsMap: Map<string, import('../../types').SessionSitting[]> | undefined;
+    try {
+      sittingsMap = await LocalVersionService.getAllDocumentSittings();
+    } catch (err) {
+      reportError(err, { action: 'loadAllSessions_getAllDocumentSittings' });
+    }
+
     for (const doc of localDocs) {
       if (seenIds.has(doc.id)) continue;
       seenIds.add(doc.id);
@@ -84,20 +92,24 @@ export async function loadAllSessions(
       let _contentNotLoaded = false;
       let sessionWordsAdded: number | undefined;
       let sittings: import('../../types').SessionSitting[] | undefined;
-      try {
-        const docSittings = await LocalVersionService.getDocumentSittings(doc.id);
-        if (docSittings.length > 0) {
-          sittings = docSittings;
-          sessionWordsAdded = docSittings[docSittings.length - 1]?.wordsAdded;
-        } else {
-          const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id);
-          sessionWordsAdded = latestMeta?.wordsAdded;
+      const docSittings = sittingsMap?.get(doc.id);
+      if (docSittings && docSittings.length > 0) {
+        sittings = docSittings;
+        sessionWordsAdded = docSittings[docSittings.length - 1]?.wordsAdded;
+      } else if (!sittingsMap) {
+        try {
+          const fallbackDocSittings = await LocalVersionService.getDocumentSittings(doc.id);
+          if (fallbackDocSittings.length > 0) {
+            sittings = fallbackDocSittings;
+            sessionWordsAdded = fallbackDocSittings[fallbackDocSittings.length - 1]?.wordsAdded;
+          } else {
+            const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id);
+            sessionWordsAdded = latestMeta?.wordsAdded;
+          }
+        } catch {
+          sittings = undefined;
+          sessionWordsAdded = (await LocalVersionService.getLatestVersionMeta(doc.id).catch(() => null))?.wordsAdded;
         }
-      } catch {
-        // Сидячие-данные не критичны для загрузки заметки. Ошибка здесь
-        // не должна ни блокировать чтение текста, ни ставить _contentError.
-        sittings = undefined;
-        sessionWordsAdded = (await LocalVersionService.getLatestVersionMeta(doc.id).catch(() => null))?.wordsAdded;
       }
       try {
         if (withContent) {

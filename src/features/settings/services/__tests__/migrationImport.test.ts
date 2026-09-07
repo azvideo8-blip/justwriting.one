@@ -783,4 +783,93 @@ describe("C1 migrationImport", () => {
     expect(await db.get("versions", "ver_nochecksum")).toBeUndefined();
     expect(await db.get("versions", "ver_ok")).toBeDefined();
   });
+
+  describe("E-4: labels migration and dangling labelId resolution", () => {
+    it("imports valid labels into profile while denying raw verbatim profile", async () => {
+      const manifest: MigrationManifest = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        labels: [
+          { id: "lbl_work", name: "Работа", color: "#ff0000" },
+          { id: "lbl_life", name: "Личное", color: "#00ff00" },
+          { id: "lbl_invalid", name: "", color: "" }, // invalid
+        ],
+        documents: [],
+        drafts: [],
+        aiSummaries: [],
+        aiEmbeddings: [],
+        verbatim: [
+          { store: "profile", key: "u_forged", payload: { guestId: "u_forged", nickname: "hacker" } },
+        ],
+        counters: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: { profile: 1 } },
+        checksums: {},
+        skipped: [],
+      };
+
+      const res = await importMigrationManifest(manifest, "u_target");
+      expect(res.imported.labels).toBe(2);
+      expect(res.skipped.labels).toBe(1);
+      expect(res.droppedOnPurpose.verbatimDenied.profile).toBe(1);
+
+      const db = await getLocalDb();
+      const profile = await db.get("profile", "u_target");
+      expect(profile).toBeDefined();
+      expect(profile?.labels).toEqual([
+        { id: "lbl_work", name: "Работа", color: "#ff0000" },
+        { id: "lbl_life", name: "Личное", color: "#00ff00" },
+      ]);
+      // The forged profile from verbatim was denied
+      expect(await db.get("profile", "u_forged")).toBeUndefined();
+    });
+
+    it("preserves valid labelId and unsets dangling labelId with droppedOnPurpose counter", async () => {
+      const content1 = "Заметка с меткой";
+      const content2 = "Заметка с битой меткой";
+      const manifest: MigrationManifest = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        labels: [
+          { id: "lbl_valid", name: "Дневник", color: "#0000ff" },
+        ],
+        documents: [
+          {
+            localId: "doc_with_label", uuid: "uuid-lbl-1", title: "С валидной меткой", currentVersion: 1,
+            totalWords: 3, totalDuration: 10, sessionsCount: 1,
+            firstSessionAt: 1000, lastSessionAt: 1000, tags: [],
+            labelId: "lbl_valid",
+            versions: [
+              { id: "v_lbl_1", version: 1, content: content1, wordCount: 3, wordsAdded: 3, charsAdded: 10, duration: 10, wpm: 18, savedAt: 1000, sessionStartedAt: 1000 },
+            ],
+          },
+          {
+            localId: "doc_dangling_label", uuid: "uuid-lbl-2", title: "С битой меткой", currentVersion: 1,
+            totalWords: 4, totalDuration: 10, sessionsCount: 1,
+            firstSessionAt: 2000, lastSessionAt: 2000, tags: [],
+            labelId: "lbl_nonexistent",
+            versions: [
+              { id: "v_lbl_2", version: 1, content: content2, wordCount: 4, wordsAdded: 4, charsAdded: 15, duration: 10, wpm: 24, savedAt: 2000, sessionStartedAt: 2000 },
+            ],
+          },
+        ],
+        drafts: [], aiSummaries: [], aiEmbeddings: [], verbatim: [],
+        counters: { documents: 2, versions: 2, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+        checksums: {
+          v_lbl_1: await sha256Hex(content1),
+          v_lbl_2: await sha256Hex(content2),
+        },
+        skipped: [],
+      };
+
+      const res = await importMigrationManifest(manifest, "u_target");
+      expect(res.imported.documents).toBe(2);
+      expect(res.droppedOnPurpose.danglingLabels).toBe(1);
+
+      const db = await getLocalDb();
+      const docValid = await db.get("documents", "doc_with_label");
+      expect(docValid?.labelId).toBe("lbl_valid");
+
+      const docDangling = await db.get("documents", "doc_dangling_label");
+      expect(docDangling?.labelId).toBeUndefined();
+    });
+  });
 });

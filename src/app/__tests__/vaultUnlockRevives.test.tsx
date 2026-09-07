@@ -13,9 +13,10 @@ import { render } from '@testing-library/react';
  */
 
 const reviveLockedTasks = vi.fn(async () => 0);
+const syncPending = vi.fn(async () => undefined);
 
 vi.mock('../../core/services/SyncService', () => ({
-  SyncService: { reviveLockedTasks, syncPending: vi.fn(async () => undefined) },
+  SyncService: { reviveLockedTasks, syncPending },
 }));
 vi.mock('../../features/auth/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { uid: 'u1' } }),
@@ -26,15 +27,18 @@ vi.mock('../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 const { SyncManager } = await import('../AppProviders');
 const { VAULT_UNLOCKED_EVENT } = await import('../../core/crypto/useEncryptionStore');
 
-describe('открытие сейфа оживляет карантинные задачи', () => {
+describe('открытие сейфа оживляет карантинные задачи и запускает синк (E-3)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('подписка на событие стоит и срабатывает', async () => {
+  it('подписка на событие стоит, оживляет задачи и запускает синк', async () => {
     render(<SyncManager />);
 
     window.dispatchEvent(new CustomEvent(VAULT_UNLOCKED_EVENT));
 
-    expect(reviveLockedTasks, 'слушатель обязан позвать оживление').toHaveBeenCalled();
+    expect(reviveLockedTasks, 'слушатель обязан позвать оживление').toHaveBeenCalledWith('u1');
+    // Allow promise chain to resolve
+    await new Promise((r) => setTimeout(r, 0));
+    expect(syncPending, 'оживление обязано запустить синк для пользователя').toHaveBeenCalledWith('u1');
   });
 
   it('после размонтирования слушатель снят', async () => {

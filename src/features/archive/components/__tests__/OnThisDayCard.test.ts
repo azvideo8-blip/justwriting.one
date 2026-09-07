@@ -65,4 +65,45 @@ describe("DEEP-12: OnThisDay month boundary clamping", () => {
     expect(matchApr?.session.id).toBe("session_apr30");
     expect(matchApr?.label).toBe("archive_on_this_day_month");
   });
+
+  it("E-6: returns matchedDate corresponding to sitting date, even when createdAt differs", () => {
+    // Note was created 2 years ago (2024-09-07)
+    // But had an edit sitting exactly 1 month ago (2026-08-07)
+    const refDate = new Date(2026, 8, 7, 12, 0); // 2026-09-07
+    const oneMonthAgo = new Date(2026, 7, 7, 12, 0); // 2026-08-07
+
+    const multiSittingSession: ArchiveSession = {
+      id: "session_multi_sitting",
+      userId: "user_1",
+      createdAt: new Date(2024, 8, 7, 10, 0).getTime(), // 2 years ago
+      duration: 300,
+      wordCount: 500,
+      charCount: 2500,
+      wpm: 30,
+      content: "A note created 2 years ago with an anniversary sitting 1 month ago",
+      sittings: [
+        {
+          id: "sit_old",
+          documentId: "session_multi_sitting",
+          version: 1,
+          savedAt: new Date(2024, 8, 7, 10, 0).getTime(),
+        },
+        {
+          id: "sit_anniversary",
+          documentId: "session_multi_sitting",
+          version: 2,
+          savedAt: oneMonthAgo.getTime(),
+        },
+      ],
+    };
+
+    const match = findMatch([multiSittingSession], t, refDate);
+    expect(match).not.toBeNull();
+    expect(match?.session.id).toBe("session_multi_sitting");
+    expect(match?.label).toBe("archive_on_this_day_month");
+    // matchedDate is 2026-08-07, NOT 2024-09-07
+    expect(match?.matchedDate.getFullYear()).toBe(2026);
+    expect(match?.matchedDate.getMonth()).toBe(7); // August
+    expect(match?.matchedDate.getDate()).toBe(7);
+  });
 });

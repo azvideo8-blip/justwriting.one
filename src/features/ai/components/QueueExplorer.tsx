@@ -80,8 +80,8 @@ export function QueueExplorer({ userId }: { userId: string }) {
 
   const handleClearQueue = async () => {
     const ok = await confirmDialog({
-      title: 'Очистить очередь?',
-      message: `Удалить все ${items.length} элементов из очереди? Отложенные облачные синхронизации будут безвозвратно отменены.`,
+      title: t('admin_queue_clear_confirm_title'),
+      message: t('admin_queue_clear_confirm_message', { count: String(items.length) }),
     });
     if (!ok) return;
     setClearing(true);

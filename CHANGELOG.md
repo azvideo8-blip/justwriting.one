@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.41 — 2026-09-07
+
+- **[RU]** Экспортированная заметка снова импортируется обратно без потерь: экспорт и импорт наконец говорят на одном формате, а файлы прежних версий по-прежнему читаются.
+- **[EN]** An exported note imports back without losses again: the exporter and the importer finally speak one format, and files from earlier versions still read.
+- **[RU]** Перенос архива больше не теряет метки: они переносятся отдельно и с проверкой, а ссылки на несуществующие метки снимаются и попадают в отчёт об импорте.
+- **[EN]** Migrating an archive no longer loses labels: they are carried over separately and validated, and references to labels that no longer exist are dropped and reported.
+- **[RU]** Карточка «в этот день» показывает ту дату, по которой нашла совпадение, а не дату создания заметки.
+- **[EN]** The "on this day" card shows the date it matched on, not the date the note was created.
+- **[RU]** Общий дневной лимит ИИ больше не расходуется впустую: оборванный ответ списывал полный резерв токенов, хотя модель успевала выдать малую часть.
+- **[EN]** The shared daily AI ceiling is no longer spent on nothing: an aborted answer used to consume the full token reservation, though the model had produced only a fraction of it.
+- **[RU]** Заметка, чью облачную версию не удалось сравнить, больше не уходит в карантин с первой попытки и оживает при разблокировке сейфа.
+- **[EN]** A note whose cloud version could not be compared is no longer quarantined on the first attempt, and comes back when the vault is unlocked.
+- **[RU]** Сейф, открытый в другой вкладке, теперь и выпускает задачи из карантина, и запускает синхронизацию — раньше они ждали следующего повода.
+- **[EN]** A vault unlocked in another tab now both releases the quarantined tasks and starts the sync — they used to wait for the next trigger.
+- **[RU]** Архив на большом числе заметок открывается быстрее: метаданные подходов читаются одним проходом вместо обращения к базе на каждую заметку.
+- **[EN]** A large archive opens faster: sitting metadata is read in one pass instead of one database round trip per note.
+- **[RU]** Удаление аккаунта больше не рапортует об успехе, когда локальная база осталась на устройстве из-за открытой соседней вкладки.
+- **[EN]** Deleting an account no longer reports success when the local database survived because another tab was holding it open.
+- **[RU]** Подтверждения необратимых действий переведены: восемь диалогов были захардкожены по-русски, один по-английски.
+- **[EN]** The confirmations for irreversible actions are translated: eight dialogs were hard-coded in Russian and one in English.
+- **[RU]** Текст, импортированный из чужого файла, больше не может подделать границы данных в промпте — маркеры распознаются и с пробелами в теге, и с похожими буквами кириллицы и греческого.
+- **[EN]** Text imported from someone else's file can no longer forge the data boundaries in the prompt — the markers are recognised with spaces inside the tag and with Cyrillic or Greek look-alike letters.
+
 ## 0.8.40 — 2026-09-06
 
 - **[RU]** Черновик больше не может попасть в общую гостевую базу. Выход из аккаунта в одной вкладке обнулял состояние во всех, и автосохранение в соседней записывало текст в базу, доступную следующему гостю на устройстве. Теперь база берётся из владельца записи, а запись без владельца просто не делается.

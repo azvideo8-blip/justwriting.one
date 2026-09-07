@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate, getActiveModel } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
+import { createCallReservation } from '../../src/shared/ai/aiPolicy.js';
 
 const actionSchema = z.enum(['accents', 'ideas', 'summarize', 'continue', 'gratitude', 'achievements']);
 
@@ -80,13 +81,14 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   if (limitResult === 'RATE_LIMIT') {
     throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }
-  const chargedDay = limitResult.day;
+  const callRes = createCallReservation(ctx, uid, 'user', limitResult.day);
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
   if (!reservation) {
-    await ctx.refundDailyLimit(uid, chargedDay);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
   const lf = getLangfuse();
   const activeModel = await getActiveModel();
@@ -97,13 +99,15 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   try {
     result = await callModel(sanitizedInput, action, history ?? undefined);
   } catch (e) {
-    await ctx.refundDailyLimit(uid, chargedDay);
-    await ctx.refundGlobalRequest(reservation);
+    await callRes.settle('failed');
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(() => {});
     throw e;
   }
   const sanitizedOutput = sanitizeAiResponse(result.text);
+
+  callRes.markProduced(result.text.length);
+  await callRes.settle('done');
 
   generation?.end({ usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
   ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'edit' }, reservation).catch(e => console.error('[AI] usage record failed:', e));

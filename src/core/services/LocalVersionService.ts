@@ -147,4 +147,38 @@ export const LocalVersionService = {
     }
     return sittings;
   },
+
+  /**
+   * E-7: Батч-чтение метаданных версий для всех документов за один проход cursor.
+   * Устраняет N+1 транзакций при загрузке архива/списка сессий в UnifiedSessionLoader.
+   */
+  async getAllDocumentSittings(customUid?: string): Promise<Map<string, import('../../types').SessionSitting[]>> {
+    const db = await getLocalDb(customUid);
+    const tx = db.transaction('versions', 'readonly');
+    const index = tx.store.index('by-doc-version');
+    let cursor = await index.openCursor();
+    const map = new Map<string, import('../../types').SessionSitting[]>();
+    while (cursor) {
+      const v = cursor.value;
+      const docId = v.documentId;
+      if (docId) {
+        let list = map.get(docId);
+        if (!list) {
+          list = [];
+          map.set(docId, list);
+        }
+        list.push({
+          id: v.id,
+          documentId: v.documentId,
+          version: v.version,
+          sessionStartedAt: v.sessionStartedAt,
+          savedAt: v.savedAt,
+          wordsAdded: typeof v.wordsAdded === 'number' ? v.wordsAdded : 0,
+          duration: typeof v.duration === 'number' ? v.duration : 0,
+        });
+      }
+      cursor = await cursor.continue();
+    }
+    return map;
+  },
 };

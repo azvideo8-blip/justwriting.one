@@ -69,6 +69,7 @@ export interface LocalProfile {
   sessionsCount: number;
   totalDuration: number;
   lastSessionAt: number;
+  labels?: Array<{ id: string; name: string; color: string }> | undefined;
 }
 
 export interface LocalDraft {
@@ -670,11 +671,22 @@ export async function deleteLocalDatabase(customUid?: string): Promise<void> {
 
   await new Promise<void>((resolve, reject) => {
     const req = indexedDB.deleteDatabase(dbName);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error ?? new Error(`Failed to delete database ${dbName}`));
+    let blockedTimer: ReturnType<typeof setTimeout> | null = null;
+    req.onsuccess = () => {
+      if (blockedTimer) clearTimeout(blockedTimer);
+      resolve();
+    };
+    req.onerror = () => {
+      if (blockedTimer) clearTimeout(blockedTimer);
+      reject(req.error ?? new Error(`Failed to delete database ${dbName}`));
+    };
     req.onblocked = () => {
       console.warn(`[localDb] deleteDatabase for ${dbName} blocked by open connections`);
-      resolve();
+      if (!blockedTimer) {
+        blockedTimer = setTimeout(() => {
+          reject(new Error(`DATABASE_DELETION_BLOCKED: deleteDatabase for ${dbName} blocked by open connections`));
+        }, 500);
+      }
     };
   });
 }

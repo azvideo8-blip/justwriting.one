@@ -14,6 +14,7 @@ import { getSessionKey } from "../../../core/crypto/encrypt";
 export interface MigrationImportResult {
   success: boolean;
   imported: {
+    labels?: number;
     documents: number;
     versions: number;
     drafts: number;
@@ -22,6 +23,7 @@ export interface MigrationImportResult {
     verbatim: Record<string, number>;
   };
   skipped: {
+    labels?: number;
     documents: number;
     versions: number;
     drafts: number;
@@ -35,6 +37,7 @@ export interface MigrationImportResult {
     summariesWithMentionedPeople: number;
     unknownStores: Record<string, number>;
     verbatimDenied: Record<string, number>;
+    danglingLabels?: number;
   };
   upload?: {
     status: "completed" | "vault_locked" | "skipped_no_notes" | "failed";
@@ -57,6 +60,7 @@ export async function importMigrationManifest(
   targetUserId: string
 ): Promise<MigrationImportResult> {
   const imported: MigrationImportResult["imported"] = {
+    labels: 0,
     documents: 0,
     versions: 0,
     drafts: 0,
@@ -66,6 +70,7 @@ export async function importMigrationManifest(
   };
 
   const skipped: MigrationImportResult["skipped"] = {
+    labels: 0,
     documents: 0,
     versions: 0,
     drafts: 0,
@@ -80,6 +85,7 @@ export async function importMigrationManifest(
     summariesWithMentionedPeople: 0,
     unknownStores: {},
     verbatimDenied: {},
+    danglingLabels: 0,
   };
 
   if (!rawManifest || typeof rawManifest !== "object") {
@@ -131,6 +137,84 @@ export async function importMigrationManifest(
   const docIdMap = new Map<string, string>();
   const importedDocIds: string[] = [];
 
+  // ── 0. Labels (E-4) ──────────────────────────────────────────────────────
+  const validLabelIds = new Set<string>();
+  let existingProfile: Record<string, unknown> | undefined;
+  if (db.objectStoreNames.contains("profile" as never)) {
+    existingProfile = (await db.get("profile", targetUserId)) as Record<string, unknown> | undefined;
+    if (existingProfile && Array.isArray(existingProfile.labels)) {
+      for (const l of existingProfile.labels) {
+        if (l && typeof l === "object" && typeof (l as { id?: unknown }).id === "string") {
+          validLabelIds.add((l as { id: string }).id);
+        }
+      }
+    }
+  }
+
+  // Sources of incoming labels: manifest.labels, or fallback to verbatim profile if manifest.labels is not provided
+  let incomingLabels: unknown[] = [];
+  if (Array.isArray(manifest.labels)) {
+    incomingLabels = manifest.labels;
+  } else if (Array.isArray(manifest.verbatim)) {
+    for (const v of manifest.verbatim) {
+      if (v.store === "profile" && v.payload && typeof v.payload === "object") {
+        const raw = (v.payload as { labels?: unknown[] }).labels;
+        if (Array.isArray(raw)) {
+          incomingLabels.push(...raw);
+        }
+      }
+    }
+  }
+
+  const validatedLabels: { id: string; name: string; color: string }[] = [];
+  for (const raw of incomingLabels) {
+    if (raw && typeof raw === "object") {
+      const item = raw as { id?: unknown; name?: unknown; color?: unknown };
+      if (
+        typeof item.id === "string" && item.id.trim() &&
+        typeof item.name === "string" && item.name.trim() &&
+        typeof item.color === "string" && item.color.trim()
+      ) {
+        if (!validatedLabels.some(l => l.id === item.id)) {
+          validatedLabels.push({
+            id: item.id.trim(),
+            name: item.name.trim(),
+            color: item.color.trim(),
+          });
+        }
+      } else {
+        skipped.labels = (skipped.labels || 0) + 1;
+        skipped.details.push({
+          store: "labels",
+          id: typeof item.id === "string" ? item.id : "?",
+          reason: "invalid label structure (id, name, and color must be non-empty strings)",
+        });
+      }
+    } else {
+      skipped.labels = (skipped.labels || 0) + 1;
+    }
+  }
+
+  if (validatedLabels.length > 0 && db.objectStoreNames.contains("profile" as never)) {
+    const currentLabels = (Array.isArray(existingProfile?.labels) ? [...existingProfile!.labels] : []) as { id: string; name: string; color: string }[];
+    for (const lbl of validatedLabels) {
+      validLabelIds.add(lbl.id);
+      if (!currentLabels.some(l => l.id === lbl.id)) {
+        currentLabels.push(lbl);
+        imported.labels = (imported.labels || 0) + 1;
+      }
+    }
+    await db.put("profile", {
+      totalWords: 0,
+      sessionsCount: 0,
+      totalDuration: 0,
+      lastSessionAt: Date.now(),
+      ...(existingProfile || {}),
+      guestId: targetUserId,
+      labels: currentLabels,
+    });
+  }
+
   // ── 1. Documents ────────────────────────────────────────────────────────
   const incomingDocs = Array.isArray(manifest.documents) ? manifest.documents : [];
   for (const doc of incomingDocs) {
@@ -163,6 +247,15 @@ export async function importMigrationManifest(
     }
     docIdMap.set(doc.localId, targetId);
 
+    let finalLabelId: string | undefined = undefined;
+    if (doc.labelId) {
+      if (validLabelIds.has(doc.labelId)) {
+        finalLabelId = doc.labelId;
+      } else {
+        droppedOnPurpose.danglingLabels = (droppedOnPurpose.danglingLabels || 0) + 1;
+      }
+    }
+
     const localDoc: LocalDocument = {
       id: targetId,
       uuid: doc.uuid,
@@ -175,7 +268,7 @@ export async function importMigrationManifest(
       firstSessionAt: doc.firstSessionAt ?? Date.now(),
       lastSessionAt: doc.lastSessionAt ?? Date.now(),
       tags: doc.tags ?? [],
-      labelId: doc.labelId,
+      labelId: finalLabelId,
       mood: doc.mood,
     };
 

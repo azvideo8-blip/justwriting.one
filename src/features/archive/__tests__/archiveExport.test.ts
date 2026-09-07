@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportAsMd, isExpectedShareRefusal, ExportStrings } from '../../../core/services/ArchiveExportService';
+import { exportAsMd, isExpectedShareRefusal, stripMarkdown, ExportStrings } from '../../../core/services/ArchiveExportService';
 import type { ArchiveSession } from '../types';
 import type { Session } from '../../../types/index';
 
@@ -81,45 +81,32 @@ function makeSession(overrides: Partial<ArchiveSession> = {}): ArchiveSession {
 // ─── exportAsMd ──────────────────────────────────────────────────────────────
 
 describe('exportAsMd', () => {
-  it('output starts with # Title', () => {
+  it('output starts with front matter fence and title', () => {
     exportAsMd(makeSession({ title: 'My Story' }), STRINGS);
-    expect(capturedContent).toMatch(/^# My Story/);
+    expect(capturedContent).toMatch(/^---\r?\ntitle: "My Story"/);
   });
 
   it('uses untitled fallback when title is missing', () => {
     exportAsMd(makeSession({ title: undefined }), STRINGS);
-    expect(capturedContent).toMatch(/^# Untitled/);
+    expect(capturedContent).toMatch(/^---\r?\ntitle: "Untitled"/);
   });
 
-  it('contains word count line', () => {
-    exportAsMd(makeSession({ wordCount: 42 }), STRINGS);
-    expect(capturedContent).toContain('42');
-  });
-
-  it('contains session content after ---', () => {
+  it('contains session content after closing --- fence', () => {
     exportAsMd(makeSession({ content: 'Hello world content' }), STRINGS);
     expect(capturedContent).toContain('---');
     const parts = capturedContent.split('---');
-    // Content should appear after the --- separator
-    expect(parts.slice(1).join('---')).toContain('Hello world content');
+    expect(parts.length).toBeGreaterThanOrEqual(3);
+    expect(parts.slice(2).join('---')).toContain('Hello world content');
   });
 
-  it('contains duration in minutes', () => {
-    // 300s = 5 min
-    exportAsMd(makeSession({ duration: 300 }), STRINGS);
-    expect(capturedContent).toContain('5');
-  });
-
-  it('includes tags formatted as #tag', () => {
+  it('includes tags in front matter', () => {
     exportAsMd(makeSession({ tags: ['fiction', 'draft'] }), STRINGS);
-    expect(capturedContent).toContain('#fiction');
-    expect(capturedContent).toContain('#draft');
+    expect(capturedContent).toContain('tags: ["fiction", "draft"]');
   });
 
   it('omits tags line when no tags', () => {
     exportAsMd(makeSession({ tags: [] }), STRINGS);
-    // The tags line with bold "Tags:" should not appear
-    expect(capturedContent).not.toContain(`**${STRINGS.tags}:**`);
+    expect(capturedContent).not.toContain('tags:');
   });
 
   it('filename uses title with .md extension', () => {
@@ -132,10 +119,9 @@ describe('exportAsMd', () => {
     expect(capturedFilename).toMatch(/untitled.*\.md$/);
   });
 
-  it('contains formatted date', () => {
+  it('contains formatted date in front matter', () => {
     exportAsMd(makeSession({ createdAt: new Date('2024-01-15') }), STRINGS);
-    // Date should contain year 2024
-    expect(capturedContent).toContain('2024');
+    expect(capturedContent).toContain('2024-01-15');
   });
 });
 
@@ -168,3 +154,34 @@ describe('отказ Web Share — ожидаемый исход, а не оши
     expect(isExpectedShareRefusal('Permission denied')).toBe(false);
   });
 });
+
+describe('stripMarkdown', () => {
+  it('preserves front matter fences and key-value lines while stripping markdown from body', () => {
+    const md =
+      '---\n' +
+      'title: "My Story"\n' +
+      'date: "2024-01-15T00:00:00.000Z"\n' +
+      'tags: ["work"]\n' +
+      '---\n\n' +
+      '# My Header\n\n' +
+      'This is **bold** and *italic* with a [link](https://example.com).\n\n' +
+      '---\n\n' +
+      '> A quote block';
+
+    const result = stripMarkdown(md);
+    // Front matter fences preserved
+    expect(result).toMatch(/^---\r?\ntitle: "My Story"\r?\ndate: "2024-01-15T00:00:00.000Z"\r?\ntags: \["work"\]\r?\n---/);
+    // Markdown from body stripped
+    expect(result).not.toContain('# My Header');
+    expect(result).toContain('My Header');
+    expect(result).toContain('bold and italic with a link');
+    expect(result).not.toContain('> A quote');
+    expect(result).toContain('A quote block');
+  });
+
+  it('strips markdown from plain text without front matter', () => {
+    const md = '# Header\n**bold**';
+    expect(stripMarkdown(md)).toBe('Header\nbold');
+  });
+});
+

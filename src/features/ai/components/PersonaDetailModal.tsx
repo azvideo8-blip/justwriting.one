@@ -91,7 +91,10 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
 
   const handleDelete = async () => {
     if (persona.isPreset) return;
-    const ok = await confirmDialog({ title: 'Удалить персону?', message: 'Действие необратимо.' });
+    const ok = await confirmDialog({
+      title: t('ai_persona_delete_confirm_title'),
+      message: t('ai_persona_delete_confirm_message'),
+    });
     if (!ok) return;
     await AIPersonaService.delete(persona.id);
     onChanged();

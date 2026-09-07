@@ -1,7 +1,8 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
-import { sha256Hex, getLatestContent } from '../utils/embeddingIndexer';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
+import { sha256Hex } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import {
@@ -514,7 +515,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
     const needsEmbedding = !hasEmbedding.has(doc.id) && orphanEmbeddingsByHash.size > 0;
     if (!needsSummary && !needsEmbedding) continue;
 
-    const content = await getLatestContent(doc.id);
+    const content = await LocalVersionService.getLatestContent(doc.id);
     if (!content) continue;
     const hash = await sha256Hex(content);
 

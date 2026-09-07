@@ -229,7 +229,10 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
 
   const handleUnlinkItem = async (item: DiagnosticItem) => {
     if (!item.localId) return;
-    const ok = await confirmDialog({ title: 'Unlink from cloud?', message: 'This will keep it as local-only.' });
+    const ok = await confirmDialog({
+      title: t('admin_sync_unlink_confirm_title'),
+      message: t('admin_sync_unlink_confirm_message'),
+    });
     if (!ok) return;
     setSyncingId(item.id);
     try {

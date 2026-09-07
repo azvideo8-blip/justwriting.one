@@ -4,7 +4,7 @@ import { LocalStorageService } from './LocalStorageService';
 import { syncStatusOf } from '../sync/syncStatus';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
-import { getLocalDb, type LocalDocument, randomUUID } from '../storage/localDb';
+import { getLocalDb, type LocalDocument } from '../storage/localDb';
 import { Document } from '../../types';
 import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, DecryptionError, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
@@ -19,9 +19,9 @@ import { ConflictResolver } from './ConflictResolver';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { computeWordDelta } from './DiffService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
+import { withDocumentLock } from '../sync/withDocumentLock';
 
 const CLOUD_SYNC_TIMEOUT = 30_000;
-const LOCK_TTL_MS = 30_000;
 
 /**
  * Снять задачи очереди, относящиеся к заметке.
@@ -263,47 +263,10 @@ export const CloudSyncService = {
       throw new Error('Not connected to cloud. Changes saved locally.');
     }
 
-    const db = await getLocalDb();
-    const lockKey = `lock_cloud_${localDocumentId}`;
-    const lockOwnerToken = randomUUID();
-
-    const lockTx = db.transaction('syncQueue', 'readwrite');
-    const existing = await lockTx.store.get(lockKey);
-    if (existing) {
-      const age = Date.now() - (existing.createdAt ?? 0);
-      if (age < LOCK_TTL_MS) {
-        await lockTx.done;
-        return '';
-      }
-    }
-    await lockTx.store.put({
-      id: lockKey,
-      documentId: localDocumentId,
-      type: 'document' as const,
-      createdAt: Date.now(),
-      ownerToken: lockOwnerToken,
-    });
-    await lockTx.done;
-
-    // AUDIT-MH2: upload routinely живёт дольше LOCK_TTL_MS (pLimit(3) + таймауты
-    // 30s) — вторая вкладка проходила «протухший» lock одновременно с первой.
-    // Heartbeat продлевает createdAt, пока держатель жив.
-    const lockHeartbeat = setInterval(() => {
-      void (async () => {
-        try {
-          const hdb = await getLocalDb();
-          const htx = hdb.transaction('syncQueue', 'readwrite');
-          const cur = await htx.store.get(lockKey);
-          if (cur && cur.ownerToken === lockOwnerToken) {
-            await htx.store.put({ ...cur, createdAt: Date.now() });
-          }
-          await htx.done;
-        } catch { /* некритично: протухший lock лучше дубля */ }
-      })();
-    }, LOCK_TTL_MS / 3);
-
-    try {
-      const localDoc = await LocalStorageService.getDocument(localDocumentId);
+    return withDocumentLock(
+      localDocumentId,
+      async () => {
+        const localDoc = await LocalStorageService.getDocument(localDocumentId);
       if (!localDoc) throw new Error('Local document not found');
       if (localDoc._locked || localDoc._decryptionError) {
         throw new Error('LOCKED: cannot add cloud copy of locked document');
@@ -724,18 +687,12 @@ export const CloudSyncService = {
       );
       
       return cloudId;
-    } finally {
-      clearInterval(lockHeartbeat);
-      try {
-        const cleanupDb = await getLocalDb();
-        const cleanupTx = cleanupDb.transaction('syncQueue', 'readwrite');
-        const cur = await cleanupTx.store.get(lockKey);
-        if (cur && cur.ownerToken === lockOwnerToken) {
-          await cleanupTx.store.delete(lockKey);
-        }
-        await cleanupTx.done;
-      } catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_lockCleanup', lockKey }); }
-    }
+      },
+      {
+        ownerId: userId,
+        onLockHeld: () => '',
+      },
+    );
   },
 
   async removeCloudCopy(userId: string, cloudDocumentId: string, localDocumentId?: string): Promise<void> {
@@ -776,37 +733,10 @@ export const CloudSyncService = {
       return { forked: false, cloudSynced: false };
     }
 
-    const lockKey = `lock_cloud_${documentId}`;
-    const syncDb = await getLocalDb();
-    const lockTx = syncDb.transaction('syncQueue', 'readwrite');
-    const existingLock = await lockTx.store.get(lockKey);
-    if (existingLock) {
-      const age = Date.now() - (existingLock.createdAt ?? 0);
-      if (age < LOCK_TTL_MS) {
-        await lockTx.done;
-        // DEEP-3: Замок уже удерживается другим писателем (например, drain или addCloudCopy).
-        // Ставим задачу в syncQueue и уступаем активному писателю во избежание параллельных записей.
-        await syncDb.put('syncQueue', {
-          id: `sync_${documentId}`,
-          documentId,
-          type: 'document' as const,
-          createdAt: Date.now(),
-          ownerId: userId,
-        });
-        return { forked: false, cloudSynced: false, reason: 'LOCK_HELD' };
-      }
-    }
-    const lockOwnerToken = randomUUID();
-    await lockTx.store.put({
-      id: lockKey,
+    return withDocumentLock(
       documentId,
-      type: 'document' as const,
-      createdAt: Date.now(),
-      ownerToken: lockOwnerToken,
-    });
-    await lockTx.done;
-
-    try {
+      async () => {
+        try {
       const getDoc = DocumentService.getDocumentWithDeleted?.bind(DocumentService) ?? DocumentService.getDocument.bind(DocumentService);
       const cloudDoc = await getDoc(userId, linkedCloudId);
       if (cloudDoc?._locked) {
@@ -1048,20 +978,14 @@ export const CloudSyncService = {
       } catch (queueErr) {
         reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
       }
-    } finally {
-      try {
-        const cleanupDb = await getLocalDb();
-        const cleanupTx = cleanupDb.transaction('syncQueue', 'readwrite');
-        const cur = await cleanupTx.store.get(lockKey);
-        if (cur && cur.ownerToken === lockOwnerToken) {
-          await cleanupTx.store.delete(lockKey);
-        }
-        await cleanupTx.done;
-      } catch (cleanupErr) {
-        reportError(cleanupErr, { action: 'syncVersionToCloud_lockCleanup', lockKey });
-      }
+      return { forked: false, cloudSynced: false };
     }
-    return { forked: false, cloudSynced: false };
+  },
+  {
+    ownerId: userId,
+    onLockHeld: () => ({ forked: false, cloudSynced: false, reason: 'LOCK_HELD' }),
+  },
+);
   },
 
   /** Pushes the locally-cached AI profile portrait to Supabase. Lives here
@@ -1147,28 +1071,41 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
     if (!local.uuid) continue;
     const match = cloudByUuid.get(local.uuid);
     if (!match) continue;
-    await LocalStorageService.updateLinkedCloudId(local.id, match.id);
-    local.linkedCloudId = match.id;
-    delete local.localOnly;
-    takenCloudIds.add(match.id);
-    cloudByUuid.delete(local.uuid);
-    relinkedByUuid++;
 
-    // Связь вернулась — но содержимое в облаке от этого не появилось: строка
-    // могла остаться пустой, как и было у осиротевших. Ставим задачу в
-    // очередь, иначе заметка числится связанной и не выгружается никогда.
-    try {
-      const syncDb = await getLocalDb();
-      await syncDb.put('syncQueue', {
-        id: `sync_${local.id}`,
-        documentId: local.id,
-        type: 'document' as const,
-        createdAt: Date.now(),
-        ownerId: local.guestId,
-      });
-    } catch (queueErr) {
-      reportError(queueErr, { action: 'relinkByUuid_queueSync', documentId: local.id });
-    }
+    // FU-3: protect against race with concurrent editor saves or other sync drains
+    await withDocumentLock(
+      local.id,
+      async () => {
+        await LocalStorageService.updateLinkedCloudId(local.id, match.id);
+        local.linkedCloudId = match.id;
+        delete local.localOnly;
+        takenCloudIds.add(match.id);
+        cloudByUuid.delete(local.uuid!);
+        relinkedByUuid++;
+
+        // Связь вернулась — но содержимое в облаке от этого не появилось: строка
+        // могла остаться пустой, как и было у осиротевших. Ставим задачу в
+        // очередь, иначе заметка числится связанной и не выгружается никогда.
+        try {
+          const syncDb = await getLocalDb();
+          await syncDb.put('syncQueue', {
+            id: `sync_${local.id}`,
+            documentId: local.id,
+            type: 'document' as const,
+            createdAt: Date.now(),
+            ownerId: local.guestId,
+          });
+        } catch (queueErr) {
+          reportError(queueErr, { action: 'relinkByUuid_queueSync', documentId: local.id });
+        }
+      },
+      {
+        queueOnHeld: false,
+        onLockHeld: () => {
+          // Document currently locked by active writer or sync drain; skip relink for now
+        },
+      },
+    );
   }
 
   const candidates = localDocs.filter(isRelinkCandidate);
@@ -1214,9 +1151,22 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
     const cloudDoc = cloudMatches?.[0];
     if (locals.length !== 1 || cloudMatches?.length !== 1 || !local || !cloudDoc) continue;
     if (titlesContradict(local, cloudDoc)) continue;
-    await LocalStorageService.updateLinkedCloudId(local.id, cloudDoc.id);
-    local.linkedCloudId = cloudDoc.id;
-    relinked++;
+
+    // FU-3: protect against race with concurrent editor saves or other sync drains
+    await withDocumentLock(
+      local.id,
+      async () => {
+        await LocalStorageService.updateLinkedCloudId(local.id, cloudDoc.id);
+        local.linkedCloudId = cloudDoc.id;
+        relinked++;
+      },
+      {
+        queueOnHeld: false,
+        onLockHeld: () => {
+          // Document locked; skip for now
+        },
+      },
+    );
   }
 
   if (relinked > 0) {

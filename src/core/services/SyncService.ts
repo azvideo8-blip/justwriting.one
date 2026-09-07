@@ -6,18 +6,18 @@ import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
+import { isPoisonSyncError, isRevivableOnUnlock } from '../sync/classifySyncError';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
 const limit = pLimit(5);
 
-// AUDIT-H4: детерминированные ошибки (DECRYPTION_ERROR, LOCKED,
-// Invalid sessionStartedAt, ENCRYPT_REQUIRED) не исправятся ретраями — задача уходит в карантин
-// сразу; остальным даём MAX_ATTEMPTS проходов, потом тоже карантин.
-// DEEP-4: LOCKED детерминирован (10 попыток расшифровать закрытый сейф — 10 бесполезных
-// вызовов); broadcast-канал vault оживляет карантинные LOCKED-задачи, когда сейф открыт.
+// AUDIT-H4 / FU-2: ядовитые ошибки (isPoisonSyncError: DECRYPTION_ERROR, LOCKED,
+// Invalid sessionStartedAt, ENCRYPT_REQUIRED) не исправятся простыми ретраями — задача уходит в карантин
+// сразу; остальным (включая SYNC_UNRESOLVED) даём MAX_ATTEMPTS проходов, потом тоже карантин.
+// DEEP-4: LOCKED/ENCRYPT_REQUIRED/SYNC_UNRESOLVED детерминированы или ждут ключа;
+// broadcast-канал vault оживляет задачи (isRevivableOnUnlock), когда сейф открыт.
 const MAX_ATTEMPTS = 10;
-const DETERMINISTIC_ERROR = /DECRYPTION_ERROR|LOCKED|Invalid sessionStartedAt|ENCRYPT_REQUIRED/;
 
 async function bumpAttempts(
   taskId: string,
@@ -29,8 +29,7 @@ async function bumpAttempts(
   if (!item || item.dead) return;
   const attempts = (item.attempts ?? 0) + 1;
   const reasonStr = String(reason);
-  const isDeterministic = DETERMINISTIC_ERROR.test(reasonStr);
-  const dead = isDeterministic || attempts >= MAX_ATTEMPTS;
+  const dead = isPoisonSyncError(reason) || attempts >= MAX_ATTEMPTS;
   await mutate(taskId, { attempts, dead, lastError: reasonStr });
   if (dead) {
     reportError(new Error('Sync task quarantined'), { taskId, attempts, reason: reasonStr }, 'warning');
@@ -111,7 +110,7 @@ export const SyncService = {
     const queue = await db.getAll('syncQueue');
     const toRevive = queue.filter(item =>
       Boolean(item.dead) &&
-      (item.lastError?.includes('LOCKED') || item.lastError?.includes('locked') || item.lastError?.includes('ENCRYPT_REQUIRED') || item.lastError?.includes('SYNC_UNRESOLVED')) &&
+      isRevivableOnUnlock(item.lastError) &&
       (userId ? item.ownerId === undefined || item.ownerId === userId : true)
     );
     if (toRevive.length === 0) return 0;

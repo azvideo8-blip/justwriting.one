@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, refundCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
 
 const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -66,11 +66,11 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
 
   const reservation = await ctx.tryReserveGlobalRequest(8192);
   if (!reservation) {
-    await refundCall(ctx, callRes);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
-  let settled = false;
   try {
     const result = await generate({
       system: SYSTEM_PROMPT,
@@ -80,8 +80,9 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
       abortMs: 100_000,
       model: JUDGE_MODEL,
     });
+    callRes.markProduced(result.text.length);
+    await callRes.settle('done');
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judge' }, reservation).catch(() => {});
-    settled = true;
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
@@ -103,10 +104,7 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
     }));
     return { verdicts };
   } catch (e) {
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     const msg = String((e as { message?: string })?.message ?? e);
     if (e instanceof AiError) throw e;
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput } from './pure';
 import { embed } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, refundCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   content: z.string().min(1).max(200_000),
@@ -47,11 +47,11 @@ export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unkn
 
   const reservation = await ctx.tryReserveGlobalRequest(512);
   if (!reservation) {
-    await refundCall(ctx, callRes);
+    await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
+  callRes.attachGlobalReservation(reservation);
 
-  let settled = false;
   try {
     const chunks = chunkText(sanitized);
     const result = await embed(chunks);
@@ -61,17 +61,16 @@ export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unkn
       throw new AiError('internal', 'Embedding failed.');
     }
 
+    callRes.markProduced(result.vectors.length);
+    await callRes.settle('done');
+
     ctx.recordUsage(uid, result.tokens, 0, { model: result.model, fn: 'embed' }, reservation).catch(e =>
       console.error('[AI embed] usage record failed:', e),
     );
-    settled = true;
 
     return { vectors: result.vectors, chunks, model: result.model, dim: result.dim };
   } catch (e) {
-    if (!settled) {
-      await refundCall(ctx, callRes);
-      await ctx.refundGlobalRequest(reservation);
-    }
+    await callRes.settle('failed');
     console.error('[AI embed] generation failed:', e);
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {

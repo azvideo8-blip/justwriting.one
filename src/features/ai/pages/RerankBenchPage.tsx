@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Play, Copy, Check, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import { searchNotes, type RetrievedNote } from '../utils/noteRetriever';
-import { getLatestContent } from '../utils/embeddingIndexer';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 import { getIndexingConsent } from '../../../core/ai/indexingConsent';
@@ -108,8 +108,8 @@ export function RerankBenchPage() {
     });
     const already = expanded[docId];
     if (already === undefined) {
-      const text = await getLatestContent(docId);
-      setExpanded(prev => (docId in prev ? { ...prev, [docId]: text ?? '(текст не найден)' } : prev));
+      const text = await LocalVersionService.getLatestContent(docId);
+      setExpanded(prev => (docId in prev ? { ...prev, [docId]: text || '(текст не найден)' } : prev));
     }
   }, [expanded]);
 

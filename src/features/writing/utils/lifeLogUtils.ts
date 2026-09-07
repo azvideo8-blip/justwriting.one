@@ -1,5 +1,5 @@
 import { Session, Document } from '../../../types';
-import { LocalDocument, getLocalDb } from '../../../core/storage/localDb';
+import { LocalDocument } from '../../../core/storage/localDb';
 import { toDate } from '../../../core/utils/dateUtils';
 import { getSessionDate } from '../../../core/utils/utils';
 import { LifeLogDocument, SessionGroup } from '../types/lifeLog';
@@ -19,15 +19,6 @@ export function localDocToSession(doc: LocalDocument, content: string): Session 
     _isLocal: true,
     mood: doc.mood,
   };
-}
-
-export async function getLatestContentForDoc(docId: string): Promise<string> {
-  const db = await getLocalDb();
-  const tx = db.transaction('versions', 'readonly');
-  const index = tx.store.index('by-doc-version');
-  const range = IDBKeyRange.bound([docId, 0], [docId, Number.MAX_SAFE_INTEGER]);
-  const cursor = await index.openCursor(range, 'prev');
-  return cursor?.value.content ?? '';
 }
 
 export function localDocToLifeLog(d: LocalDocument, hasCloud: boolean): LifeLogDocument {

@@ -39,15 +39,23 @@ export interface VerbatimRecord {
   payload: unknown;
 }
 
+export interface MigrationLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface MigrationManifest {
   version: number;
   exportedAt: string;
+  labels?: MigrationLabel[];
   documents: MigrationDocument[];
   drafts: MigrationDraft[];
   aiSummaries: AIDocumentSummary[];
   aiEmbeddings: AIDocumentEmbedding[];
   verbatim: VerbatimRecord[];
   counters: {
+    labels?: number;
     documents: number;
     versions: number;
     drafts: number;
@@ -213,6 +221,31 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
     skipped.push({ store: 'aiEmbeddings', id: '*', reason: String(e) });
   }
 
+  // ── labels (E-4) ───────────────────────────────────────────────────────
+  const labels: MigrationLabel[] = [];
+  try {
+    if (db.objectStoreNames.contains('profile' as never)) {
+      const allProfiles = await db.getAll('profile');
+      for (const p of allProfiles) {
+        const rawLabels = (p as { labels?: unknown[] }).labels;
+        if (Array.isArray(rawLabels)) {
+          for (const l of rawLabels) {
+            if (l && typeof l === 'object') {
+              const item = l as { id?: unknown; name?: unknown; color?: unknown };
+              if (typeof item.id === 'string' && typeof item.name === 'string' && typeof item.color === 'string') {
+                if (!labels.some(existing => existing.id === item.id)) {
+                  labels.push({ id: item.id, name: item.name, color: item.color });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    skipped.push({ store: 'labels', id: '*', reason: String(e) });
+  }
+
   // ── хранилища, переносимые дословно ───────────────────────────────────
   const verbatim: VerbatimRecord[] = [];
   const verbatimCounters: Record<string, number> = {};
@@ -244,12 +277,14 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
   return {
     version: MANIFEST_VERSION,
     exportedAt: new Date().toISOString(),
+    labels,
     documents,
     drafts,
     aiSummaries,
     aiEmbeddings,
     verbatim,
     counters: {
+      labels: labels.length,
       documents: documents.length,
       versions: versionCount,
       drafts: drafts.length,

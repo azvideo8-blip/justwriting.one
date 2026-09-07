@@ -3,9 +3,10 @@
 // NOTE: keep the .js extension — Vercel runs api/* as native ESM (no bundling),
 // so an extensionless relative import fails at runtime with ERR_MODULE_NOT_FOUND
 // and 500s the whole /api/chat endpoint. Vite resolves the .js → .ts for the SPA.
+import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD, REFLECTION_GUIDE, SAFETY_GUIDE } from './prompts.js';
 
-export function buildChatSystemPrompt(params: {
+export interface ChatPromptParams {
   personaId: string;
   customSystemPrompt?: string | null | undefined;
   userPortrait?: string | null | undefined;
@@ -14,7 +15,9 @@ export function buildChatSystemPrompt(params: {
   documentContent?: string | null | undefined;
   documentMood?: string | null | undefined;
   memoryContext?: string | null | undefined;
-}): string {
+}
+
+export function buildChatSystemPrompt(params: ChatPromptParams): string {
   const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood, memoryContext } = params;
 
   // AX-11: Reasoning is now a separate boolean flag, decoupled from length.
@@ -130,6 +133,26 @@ export function isInvisibleCodePoint(code: number): boolean {
   return classifyInvisibleCodePoint(code) !== 'keep';
 }
 
+// E-9: Small Cyrillic/Greek -> Latin confusable characters map
+export const CONFUSABLES_MAP: Record<string, string> = {
+  'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c',
+  'х': 'x', 'у': 'y', 'і': 'i', 'ѕ': 's', 'һ': 'h',
+  'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M',
+  'Н': 'H', 'О': 'O', 'Р': 'P', 'С': 'C', 'Т': 'T',
+  'Х': 'X', 'У': 'Y',
+  '\u03BF': 'o', '\u03B1': 'a', '\u03B9': 'i', '\u03BD': 'v', '\u03C1': 'p', '\u03C5': 'u', '\u03BA': 'k', '\u03C4': 't',
+  '\u0391': 'A', '\u0392': 'B', '\u0395': 'E', '\u0397': 'H', '\u0399': 'I', '\u039A': 'K', '\u039C': 'M',
+  '\u039D': 'N', '\u039F': 'O', '\u03A1': 'P', '\u03A4': 'T', '\u03A5': 'Y', '\u03A7': 'X',
+};
+
+export function foldConfusables(text: string): string {
+  let out = '';
+  for (const ch of text) {
+    out += CONFUSABLES_MAP[ch] ?? ch;
+  }
+  return out;
+}
+
 export function sanitizeAiInputShared(content: string): string {
   let sanitized = content.slice(0, MAX_AI_CONTENT_LENGTH);
   sanitized = sanitized.replace(/<\|system\|>/gi, '[system]');
@@ -138,12 +161,12 @@ export function sanitizeAiInputShared(content: string): string {
   sanitized = sanitized.replace(/<\|im_start\|>/gi, '[im_start]');
   sanitized = sanitized.replace(/<\|im_end\|>/gi, '[im_end]');
   sanitized = sanitized.replace(/\[INST\]/gi, '[inst]');
-  sanitized = sanitized.replace(/<\/?developer>/gi, '[developer]');
-  sanitized = sanitized.replace(/<end_of_turn>/gi, '[end_of_turn]');
-  sanitized = sanitized.replace(/<\/?custom_persona>/gi, '[custom_persona]');
-  sanitized = sanitized.replace(/<\/?user_document>/gi, '[user_document]');
-  sanitized = sanitized.replace(/<\/?reasoning>/gi, '[reasoning]');
-  sanitized = sanitized.replace(/<\/?answer>/gi, '[answer]');
+  sanitized = sanitized.replace(/<\s*\/?\s*developer\s*>/gi, '[developer]');
+  sanitized = sanitized.replace(/<\s*\/?\s*end_of_turn\s*>/gi, '[end_of_turn]');
+  sanitized = sanitized.replace(/<\s*\/?\s*custom_persona\s*>/gi, '[custom_persona]');
+  sanitized = sanitized.replace(/<\s*\/?\s*user_document\s*>/gi, '[user_document]');
+  sanitized = sanitized.replace(/<\s*\/?\s*reasoning\s*>/gi, '[reasoning]');
+  sanitized = sanitized.replace(/<\s*\/?\s*answer\s*>/gi, '[answer]');
   sanitized = sanitized.replace(/\[Контекст из заметок пользователя\]/gi, '[Контекст заметок]');
   sanitized = sanitized.replace(/\[Портрет пользователя/gi, '[Портрет');
   // Заметка с таким маркером внутри закрывала фенс summarizeDocument досрочно
@@ -163,10 +186,71 @@ export function sanitizeAiInputShared(content: string): string {
       out += ch;
     }
   }
-  // AUDIT-part2 6.2: маркер DATA_CONTEXT_END внутри заметки закрывал data-fence
-  // досрочно, и хвост заметки читался как инструкции. Замена ПОСЛЕ нормализации
-  // невидимых символов: иначе омоглиф-склейка («DATA_CONTEXT_EN\u200bD»)
-  // восстанавливала маркер уже после фильтра. Текст замены не содержит маркер
-  // даже в другом регистре.
-  return out.replace(/DATA_CONTEXT_(BEGIN|END)/gi, '[fence_marker]');
+  // AUDIT-part2 6.2 + E-9: маркер DATA_CONTEXT_END внутри заметки закрывал data-fence
+  // досрочно, и хвост заметки читался как инструкции.
+  // Модель угроз: пользовательские заметки не атакуют собственный промпт, но
+  // archiveImport принимает txt, md и docx из внешних источников, попадающих
+  // в промпт без проверки.
+  // Замена ПОСЛЕ нормализации невидимых символов и сворачивания омоглифов:
+  // иначе омоглиф-склейка («DATA_CONTEXT_EN\u200bD») или подмена букв
+  // («DATA_CОNTEXT_END» с кириллической О) восстанавливала маркер уже после фильтра.
+  out = out.replace(/D[A\u0410\u0391][T\u0422\u03A4][A\u0410\u0391]_[C\u0421][O\u041E\u039F]N[T\u0422\u03A4][E\u0415\u0395][X\u0425\u03A7][T\u0422\u03A4]_([B\u0412\u0392][E\u0415\u0395]G[I\u0406\u0399]N|[E\u0415\u0395]ND)/gi, '[fence_marker]');
+  out = out.replace(/[\w\u0400-\u04FF\u0370-\u03FF_]+/g, (token) => {
+    const folded = foldConfusables(token);
+    if (/^DATA_CONTEXT_(BEGIN|END)$/i.test(folded)) {
+      return '[fence_marker]';
+    }
+    return token;
+  });
+  return out;
 }
+
+export const chatInputSchema = z.object({
+  personaId: z.enum(['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom']),
+  customSystemPrompt: z.string().max(500).nullish(),
+  messages: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().max(MAX_AI_CONTENT_LENGTH),
+  })).max(100).refine(
+    msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= 200_000,
+    'Total messages content exceeds 200K characters',
+  ),
+  documentContent: z.string().max(MAX_AI_CONTENT_LENGTH).nullish(),
+  documentMood: z.string().max(50).nullish(),
+  userPortrait: z.string().max(10_000).nullish(),
+  memoryContext: z.string().max(20_000).nullish(),
+  responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
+  reasoning: z.boolean().nullish(),
+  callType: z.enum(['auto_name', 'follow_up', 'query_expand']).nullish(),
+});
+
+export type ChatInputPayload = z.infer<typeof chatInputSchema>;
+
+export interface ChatPromptInput {
+  personaId: string;
+  customSystemPrompt?: string | null | undefined;
+  documentContent?: string | null | undefined;
+  documentMood?: string | null | undefined;
+  userPortrait?: string | null | undefined;
+  memoryContext?: string | null | undefined;
+  responseLength?: 'short' | 'standard' | 'detailed' | null | undefined;
+  reasoning?: boolean | null | undefined;
+}
+
+/**
+ * DUP-2: Single source of truth for chat prompt parameter assembly and sanitization.
+ * Used by streaming, reasoning, and non-streaming endpoints.
+ */
+export function assembleChatPromptParams(input: ChatPromptInput): ChatPromptParams {
+  return {
+    personaId: input.personaId,
+    customSystemPrompt: input.customSystemPrompt ? sanitizeAiInputShared(input.customSystemPrompt) : undefined,
+    userPortrait: input.userPortrait ? sanitizeAiInputShared(input.userPortrait) : undefined,
+    memoryContext: input.memoryContext ? sanitizeAiInputShared(input.memoryContext) : undefined,
+    responseLength: input.responseLength ?? 'detailed',
+    reasoning: input.reasoning ?? false,
+    documentContent: input.documentContent ? sanitizeAiInputShared(input.documentContent) : undefined,
+    documentMood: input.documentMood ? sanitizeAiInputShared(input.documentMood) : undefined,
+  };
+}
+

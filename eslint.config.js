@@ -148,5 +148,19 @@ export default [
       'react-hooks/gating',
     ].map(rule => [rule, 'off'])),
   },
+  {
+    // DUP-1: Direct calls to refundDailyLimit, refundBulkLimit, and refundGlobalRequest are prohibited
+    // in API handlers and logic. All refunds must go through refundCall or callReservation.settle().
+    files: ['api/**/*.logic.ts', 'api/chat.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name=/^(refundDailyLimit|refundBulkLimit|refundGlobalRequest)$/]",
+          message: 'Direct calls to refundDailyLimit, refundBulkLimit, and refundGlobalRequest are forbidden. Use refundCall or callReservation.settle().',
+        },
+      ],
+    },
+  },
   prettier,
 ];

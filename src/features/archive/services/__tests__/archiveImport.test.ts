@@ -36,6 +36,22 @@ describe('parseImportFile', () => {
     expect(parsed.tags).toEqual(['one', 'two', 'three']);
     expect(parsed.content).toBe('body text here');
   });
+
+  it('extracts title, date, mood, and tags from legacy # Title format', () => {
+    const raw =
+      '# Legacy Title\n\n' +
+      '**Дата:** 2026-09-07 | **Слов:** 100\n' +
+      '**Теги:** #first #second\n' +
+      '**Настроение:** happy\n\n' +
+      '---\n\n' +
+      'Legacy body text';
+    const parsed = parseImportFile('export_2026-09-07_Legacy Title.txt', raw);
+    expect(parsed.title).toBe('Legacy Title');
+    expect(parsed.tags).toEqual(['first', 'second']);
+    expect(parsed.mood).toBe('happy');
+    expect(parsed.date).toBe('2026-09-07');
+    expect(parsed.content).toBe('Legacy body text');
+  });
 });
 
 describe('importNoteFile', () => {

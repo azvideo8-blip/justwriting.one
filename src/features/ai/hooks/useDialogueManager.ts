@@ -1,12 +1,14 @@
 import { useState, useCallback } from 'react';
 import { AIDialogueService } from '../services/AIDialogueService';
 import type { AIDialogue } from '../../../core/storage/localDb';
+import { useLanguage } from '../../../shared/i18n';
 
 interface DialogueManagerParams {
   confirmDialog: (options: { title: string; message: string }) => Promise<boolean>;
 }
 
 export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
+  const { t } = useLanguage();
   const [dialogues, setDialogues] = useState<AIDialogue[]>([]);
   const [archivedDialogues, setArchivedDialogues] = useState<AIDialogue[]>([]);
   const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
@@ -41,13 +43,16 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
 
   const handleDelete = useCallback(async () => {
     if (activeDialogueId) {
-      const ok = await confirmDialog({ title: 'Удалить диалог?', message: 'Действие необратимо.' });
+      const ok = await confirmDialog({
+        title: t('ai_delete_dialogue_confirm_title'),
+        message: t('ai_delete_dialogue_confirm_message'),
+      });
       if (!ok) return;
       await AIDialogueService.delete(activeDialogueId);
       setActiveDialogueId(null);
       await loadDialogues();
     }
-  }, [activeDialogueId, confirmDialog, loadDialogues]);
+  }, [activeDialogueId, confirmDialog, loadDialogues, t]);
 
   const handleExport = useCallback(async () => {
     if (!activeDialogueId) return;
