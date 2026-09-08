@@ -6,75 +6,79 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+/**
+ * Кладёт две заметки в ту же базу, которую читает приложение.
+ *
+ * Здесь были две ошибки, из-за которых тест не проходил ни разу ни в одном
+ * браузере, а падал по таймауту:
+ *
+ * 1. База открывалась с жёсткой версией и без `onupgradeneeded`. На чистом
+ *    профиле базы ещё нет, открытие требует создать схему, хранилищ не
+ *    появляется — и `db.transaction([...])` бросает ВНУТРИ обработчика события,
+ *    откуда исключение в промис не попадает. Промис не разрешался никогда.
+ *    Поэтому: схему создаёт приложение, а тест ждёт её и открывает без версии.
+ *
+ * 2. Владельцем ставилась строка `guest`, а приложение живёт под
+ *    `guest_<uuid>` из localStorage и по нему же фильтрует. Заметки с чужим
+ *    владельцем в списке и не должны появляться. Владелец читается из
+ *    хранилища страницы.
+ */
 async function seedNotes(page: import('@playwright/test').Page): Promise<void> {
-  await page.evaluate(async () => {
-    const request = indexedDB.open('justwriting-local', 21);
-    await new Promise<void>((resolve, reject) => {
-      request.onsuccess = () => {
-        const db = request.result;
-        const tx = db.transaction(['documents', 'versions'], 'readwrite');
-        const docsStore = tx.objectStore('documents');
-        const versStore = tx.objectStore('versions');
+  // Ждём, пока приложение само создаст базу со всеми хранилищами.
+  await page.waitForFunction(async () => {
+    const dbs = await indexedDB.databases?.();
+    return Boolean(dbs?.some(d => d.name === 'justwriting-local'));
+  }, undefined, { timeout: 15000 });
 
-        docsStore.put({
-          id: 'doc_alpha',
-          guestId: 'guest',
-          title: 'Apples harvest report',
-          currentVersion: 1,
-          totalWords: 10,
-          totalDuration: 60,
-          sessionsCount: 1,
-          firstSessionAt: Date.now(),
-          lastSessionAt: Date.now(),
-          tags: ['orchard'],
-        });
-
-        versStore.put({
-          id: 'ver_alpha',
-          documentId: 'doc_alpha',
-          guestId: 'guest',
-          version: 1,
-          content: 'Apples were harvested in great quantities today.',
-          wordCount: 10,
-          wordsAdded: 10,
-          charsAdded: 50,
-          duration: 60,
-          wpm: 20,
-        });
-
-        docsStore.put({
-          id: 'doc_beta',
-          guestId: 'guest',
-          title: 'Deep ocean exploration',
-          currentVersion: 1,
-          totalWords: 12,
-          totalDuration: 70,
-          sessionsCount: 1,
-          firstSessionAt: Date.now(),
-          lastSessionAt: Date.now(),
-          tags: ['marine'],
-        });
-
-        versStore.put({
-          id: 'ver_beta',
-          documentId: 'doc_beta',
-          guestId: 'guest',
-          version: 1,
-          content: 'Submarine voyage beneath the deep blue waves.',
-          wordCount: 12,
-          wordsAdded: 12,
-          charsAdded: 60,
-          duration: 70,
-          wpm: 25,
-        });
-
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      };
-      request.onerror = () => reject(request.error);
+  const missing = await page.evaluate(async () => {
+    const guestId = localStorage.getItem('jw_guest_id') ?? 'guest';
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('justwriting-local');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error('open blocked'));
     });
+    for (const store of ['documents', 'versions']) {
+      if (!db.objectStoreNames.contains(store)) return `нет хранилища ${store}`;
+    }
+
+    const now = Date.now();
+    const notes = [
+      { id: 'doc_alpha', title: 'Apples harvest report', tags: ['orchard'],
+        verId: 'ver_alpha', content: 'Apples were harvested in great quantities today.' },
+      { id: 'doc_beta', title: 'Deep ocean exploration', tags: ['sea'],
+        verId: 'ver_beta', content: 'The deep ocean holds pressures no diver survives.' },
+    ];
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(['documents', 'versions'], 'readwrite');
+      const docs = tx.objectStore('documents');
+      const vers = tx.objectStore('versions');
+      for (const n of notes) {
+        docs.put({
+          id: n.id, guestId, title: n.title, currentVersion: 1,
+          totalWords: 10, totalDuration: 60, sessionsCount: 1,
+          firstSessionAt: now, lastSessionAt: now, tags: n.tags,
+        });
+        vers.put({
+          id: n.verId, documentId: n.id, guestId, version: 1,
+          content: n.content, wordCount: 10, wordsAdded: 10, charsAdded: 48,
+          duration: 60, wpm: 10, createdAt: now, savedAt: now,
+        });
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error('transaction aborted'));
+    });
+    db.close();
+    return '';
   });
+
+  // Пустой посев — это молчаливый провал: список окажется пустым, и тест
+  // отчитается о фильтрации, ничего не отфильтровав.
+  if (missing) throw new Error(`посев не выполнен: ${missing}`);
 }
+
 
 test.describe('Archive Page', () => {
   test('navigates to archive and shows header', async ({ page }) => {
