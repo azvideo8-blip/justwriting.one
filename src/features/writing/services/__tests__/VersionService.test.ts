@@ -43,13 +43,12 @@ describe('VersionService', () => {
       }));
     });
 
-    it('rejects if estimated doc size exceeds MAX_VERSION_CONTENT_BYTES', async () => {
-      const hugeContent = 'a'.repeat(400_000);
-      const hugePrev = 'b'.repeat(300_000);
+    it('rejects plaintext whose character count exceeds MAX_VERSION_CONTENT_CHARS', async () => {
+      const hugeContent = 'a'.repeat(700_001);
       await expect(
         VersionService.addVersion('u1', 'doc1', {
           content: hugeContent,
-          previousContent: hugePrev,
+          previousContent: '',
           wordCount: 1,
           duration: 1,
           wpm: 1,
@@ -59,7 +58,24 @@ describe('VersionService', () => {
       ).rejects.toThrow(/Document too large/);
     });
 
-    it('T-3: rejects under vault if estimated ciphertext exceeds MAX_VERSION_CONTENT_BYTES (300k Cyrillic chars)', async () => {
+    it('T-3: accepts a plaintext note the server accepts — 400k Cyrillic chars is 800 KB of UTF-8 but 400k characters', async () => {
+      vi.spyOn(cryptoHelpers, 'getEncryptionEnabled').mockReturnValue(false);
+      vi.mocked(DataProvider.addVersion).mockResolvedValue();
+      // previousContent is not stored in versions.content; it must not count.
+      await expect(
+        VersionService.addVersion('u1', 'doc1', {
+          content: 'я'.repeat(400_000),
+          previousContent: 'я'.repeat(300_000),
+          wordCount: 1,
+          duration: 1,
+          wpm: 1,
+          versionNumber: 1,
+          sessionStartedAt: new Date()
+        })
+      ).resolves.toBe('v1');
+    });
+
+    it('T-3: rejects under vault if estimated ciphertext exceeds MAX_VERSION_CONTENT_CHARS (300k Cyrillic chars)', async () => {
       vi.spyOn(cryptoHelpers, 'getEncryptionEnabled').mockReturnValue(true);
       const cyrillicContent = 'я'.repeat(300_000);
       await expect(

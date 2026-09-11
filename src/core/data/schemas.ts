@@ -124,9 +124,11 @@ export const documentDbSchema = z.object({
 
 /**
  * PostgreSQL schema constraint: public.versions.content length(content) <= 700000
- * (supabase/migrations/0001_schema.sql:64).
+ * (supabase/migrations/0001_schema.sql:64). Postgres length() counts characters,
+ * not bytes — for a vault user that is the base64 ciphertext, for a plaintext
+ * account the text itself. Neither is the UTF-8 byte count.
  */
-export const MAX_VERSION_CONTENT_BYTES = 700_000;
+export const MAX_VERSION_CONTENT_CHARS = 700_000;
 
 export const versionDbSchema = z.object({
   id: z.string().optional().default(''),

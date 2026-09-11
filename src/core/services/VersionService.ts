@@ -2,10 +2,10 @@ import { DataProvider } from '../data';
 import { Version } from '../../types';
 import { computeWordDelta } from './DiffService';
 import { reportError } from '../../shared/errors/reportError';
-import { versionDbSchema, MAX_VERSION_CONTENT_BYTES } from '../data/schemas';
+import { versionDbSchema, MAX_VERSION_CONTENT_CHARS } from '../data/schemas';
 import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
 
-export { MAX_VERSION_CONTENT_BYTES };
+export { MAX_VERSION_CONTENT_CHARS };
 
 export const VersionService = {
 
@@ -30,13 +30,16 @@ export const VersionService = {
       mood?: string | undefined;
     }
   ): Promise<string> {
-    const contentSize = new TextEncoder().encode(data.content).length;
-    const prevContentSize = new TextEncoder().encode(data.previousContent || '').length;
+    // T-3: predict what the server measures — length(content) in characters.
+    // Ciphertext is base64 of the UTF-8 bytes plus IV and tag, so a Cyrillic
+    // note grows ~2.7x; plaintext is stored as typed, so its character count is
+    // the number. The old estimate (bytes x 1.35 + previousContent + 10 KB) was
+    // the Firestore 1 MiB document budget and measured neither.
     const isEncrypted = Boolean(data._encrypted || getEncryptionEnabled(userId));
     const estimatedDocSize = isEncrypted
-      ? (data._encrypted ? data.content.length : Math.ceil((contentSize + 28) * 4 / 3))
-      : Math.ceil((contentSize + prevContentSize) * 1.35) + 10_000;
-    if (estimatedDocSize > MAX_VERSION_CONTENT_BYTES) {
+      ? (data._encrypted ? data.content.length : Math.ceil((new TextEncoder().encode(data.content).length + 28) * 4 / 3))
+      : data.content.length;
+    if (estimatedDocSize > MAX_VERSION_CONTENT_CHARS) {
       throw new Error(`Document too large for cloud sync (${(estimatedDocSize / 1024).toFixed(0)}KB estimated). Consider splitting into multiple documents.`);
     }
     const diff = (data.wordsAdded !== undefined && data.charsAdded !== undefined)
