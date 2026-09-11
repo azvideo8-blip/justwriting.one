@@ -5,11 +5,11 @@ import { cn } from '../../shared/utils/cn';
 interface ToastItem {
   id: number;
   message: string;
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'info';
 }
 
 interface ToastContextType {
-  showToast: (message: string, type?: 'success' | 'error') => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -19,7 +19,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const nextIdRef = React.useRef(0);
   const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = ++nextIdRef.current;
     setToasts(prev => [...prev, { id, message, type }]);
     const timer = setTimeout(() => {
@@ -55,9 +55,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0, y: -10, scale: 0.9 }}
               className={cn(
                 "px-4 py-3 rounded-2xl text-sm font-medium backdrop-blur-xl border shadow-lg pointer-events-auto",
-                toast.type === 'success'
-                  ? "bg-accent-success/10 border-accent-success/30 text-accent-success"
-                  : "bg-accent-danger/10 border-accent-danger/30 text-accent-danger"
+                toast.type === 'error'
+                  ? "bg-accent-danger/10 border-accent-danger/30 text-accent-danger"
+                  : toast.type === 'info'
+                  ? "bg-accent-info/10 border-accent-info/30 text-accent-info"
+                  : "bg-accent-success/10 border-accent-success/30 text-accent-success"
               )}
             >
               {toast.message}
