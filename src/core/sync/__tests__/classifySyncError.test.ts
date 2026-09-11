@@ -102,6 +102,15 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       expect(isRevivableOnUnlock({ code: 'DECRYPTION_ERROR' })).toBe(false);
       expect(classifySyncError({ code: 'DECRYPTION_ERROR' })).toBe('permanent');
     });
+
+    it('T-3: classifies Postgres error codes 23514, 22001, 22P02 as permanent and poison', () => {
+      for (const code of ['23514', '22001', '22P02']) {
+        const err = { code, message: `Postgres error ${code}` };
+        expect(classifySyncError(err)).toBe('permanent');
+        expect(isPoisonSyncError(err)).toBe(true);
+        expect(isRevivableOnUnlock(err)).toBe(false);
+      }
+    });
   });
 
   describe('integration with SyncService quarantine and revival', () => {

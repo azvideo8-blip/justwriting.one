@@ -12,6 +12,9 @@
  * | DUPLICATE_UUID_COLLISION | true   | false               | permanent            |
  * | Cloud document not found | true   | false               | permanent            |
  * | EMPTY_CLOUD_DOCUMENT     | true   | false               | permanent            |
+ * | 23514                    | true   | false               | permanent            |
+ * | 22001                    | true   | false               | permanent            |
+ * | 22P02                    | true   | false               | permanent            |
  * | SYNC_UNRESOLVED          | false  | true                | transient            |
  *
  * NOTE: The server returns some of these as `{ code: '...' }` (or `{ error: { code: '...' } }`)
@@ -41,6 +44,9 @@ export const SYNC_ERROR_RULES: readonly SyncErrorRule[] = [
   { code: 'DUPLICATE_UUID_COLLISION', poison: true, revivableOnUnlock: false, category: 'permanent' },
   { code: 'Cloud document not found', poison: true, revivableOnUnlock: false, category: 'permanent' },
   { code: 'EMPTY_CLOUD_DOCUMENT',   poison: true,  revivableOnUnlock: false, category: 'permanent' },
+  { code: '23514',                  poison: true,  revivableOnUnlock: false, category: 'permanent' },
+  { code: '22001',                  poison: true,  revivableOnUnlock: false, category: 'permanent' },
+  { code: '22P02',                  poison: true,  revivableOnUnlock: false, category: 'permanent' },
   { code: 'SYNC_UNRESOLVED',        poison: false, revivableOnUnlock: true,  category: 'transient' },
 ];
 

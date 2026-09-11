@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { VersionService } from '../../../../core/services/VersionService';
 import { DataProvider } from '../../../../core/data';
+import * as cryptoHelpers from '../../../../core/crypto/cryptoHelpers';
 
 vi.mock('../../../../core/data', () => ({
   DataProvider: {
@@ -42,7 +43,7 @@ describe('VersionService', () => {
       }));
     });
 
-    it('rejects if estimated doc size exceeds 900_000', async () => {
+    it('rejects if estimated doc size exceeds MAX_VERSION_CONTENT_BYTES', async () => {
       const hugeContent = 'a'.repeat(400_000);
       const hugePrev = 'b'.repeat(300_000);
       await expect(
@@ -50,6 +51,22 @@ describe('VersionService', () => {
           content: hugeContent,
           previousContent: hugePrev,
           wordCount: 1,
+          duration: 1,
+          wpm: 1,
+          versionNumber: 1,
+          sessionStartedAt: new Date()
+        })
+      ).rejects.toThrow(/Document too large/);
+    });
+
+    it('T-3: rejects under vault if estimated ciphertext exceeds MAX_VERSION_CONTENT_BYTES (300k Cyrillic chars)', async () => {
+      vi.spyOn(cryptoHelpers, 'getEncryptionEnabled').mockReturnValue(true);
+      const cyrillicContent = 'я'.repeat(300_000);
+      await expect(
+        VersionService.addVersion('u1', 'doc1', {
+          content: cyrillicContent,
+          previousContent: '',
+          wordCount: 300_000,
           duration: 1,
           wpm: 1,
           versionNumber: 1,

@@ -122,6 +122,12 @@ export const documentDbSchema = z.object({
   createdAt: cloudTimestampSchema.optional(),
 });
 
+/**
+ * PostgreSQL schema constraint: public.versions.content length(content) <= 700000
+ * (supabase/migrations/0001_schema.sql:64).
+ */
+export const MAX_VERSION_CONTENT_BYTES = 700_000;
+
 export const versionDbSchema = z.object({
   id: z.string().optional().default(''),
   documentId: z.string().default(''),
