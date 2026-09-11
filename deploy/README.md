@@ -5,6 +5,7 @@
 | File | Destination |
 |------|-------------|
 | `nginx.conf` | `/etc/nginx/sites-available/justwriting` → symlink to `sites-enabled` |
+| `www-killswitch/sw.js` | `/var/www/www-killswitch/sw.js` — служебный работник-выключатель для `www.` (nginx отдаёт его вместо 301, иначе старая сборка из кэша живёт вечно) |
 | `justwriting.service` | `/etc/systemd/system/justwriting.service` |
 | `.env.example` | Copy to `/opt/justwriting/.env`, fill in values |
 
