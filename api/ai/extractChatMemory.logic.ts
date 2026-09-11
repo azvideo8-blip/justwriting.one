@@ -72,7 +72,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
 
     callRes.markProduced(result.text.length);
 
-    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'extractMemory' }, reservation).catch(e =>
+    callRes.recordUsage(result.tokensIn, result.tokensOut, { model: result.model, fn: 'extractMemory' }).catch(e =>
       console.error('[AI memory] usage record failed:', e),
     );
 

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
+import { summarizeFacetLogic } from '../ai/summarizeFacet.logic';
+import { extractChatMemoryLogic } from '../ai/extractChatMemory.logic';
 import { generate } from '../ai/provider';
 import { type AiContext, type GlobalReservation } from '../../src/shared/ai/context.js';
 
@@ -29,16 +31,16 @@ function mockAiContext() {
   return { ctx, refundBulkLimit, refundGlobalRequest, recordUsage, globalRes };
 }
 
-describe('S-11: summarizeDocumentLogic malformed response reconciliation', () => {
+describe('S-11 / T-1: endpoint malformed response reconciliation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('reconciles global reservation rather than full refund when model returns non-JSON text', async () => {
+  it('reconciles global reservation rather than full refund when model returns non-JSON text in summarizeDocument', async () => {
     const { ctx, refundBulkLimit, refundGlobalRequest, recordUsage } = mockAiContext();
 
     vi.mocked(generate).mockResolvedValueOnce({
-      text: 'Sorry, I cannot summarize this note properly.',
+      text: 'Sorry, I cannot summarize this note properly. '.repeat(6),
       tokensIn: 100,
       tokensOut: 30,
       model: 'openai/gpt-4o-mini',
@@ -50,8 +52,8 @@ describe('S-11: summarizeDocumentLogic malformed response reconciliation', () =>
       })
     ).rejects.toThrow('Failed to parse summary.');
 
-    // User slot is refunded on failed call
-    expect(refundBulkLimit).toHaveBeenCalledWith('user_1', '2026-09-11');
+    // S-11 / T-1: Model produced >= 200 chars, so slot is NOT refunded even though output was malformed
+    expect(refundBulkLimit).not.toHaveBeenCalled();
     // Because markProduced was called before parse failure, global reservation is reconciled, NOT refunded
     expect(refundGlobalRequest).not.toHaveBeenCalled();
     expect(recordUsage).toHaveBeenCalledWith(
@@ -61,5 +63,45 @@ describe('S-11: summarizeDocumentLogic malformed response reconciliation', () =>
       expect.objectContaining({ fn: 'chat-stream-abort' }),
       expect.anything()
     );
+  });
+
+  it('summarizeFacetLogic does not refund slot/global and records usage once on malformed answer', async () => {
+    const { ctx, refundBulkLimit, refundGlobalRequest, recordUsage } = mockAiContext();
+
+    vi.mocked(generate).mockResolvedValueOnce({
+      text: 'This is an unusable English meta response about the notes that fails Cyrillic check and meta regex filters. '.repeat(3),
+      tokensIn: 120,
+      tokensOut: 45,
+      model: 'openai/gpt-4o-mini',
+    });
+
+    const res = await summarizeFacetLogic(ctx, 'user_1', {
+      notes: [{ title: 'Заметка 1', excerpt: 'Содержимое заметки для проверки темы и фасета.' }],
+    });
+
+    expect(res).toEqual({ label: '', summary: '' });
+    expect(refundBulkLimit).not.toHaveBeenCalled();
+    expect(refundGlobalRequest).not.toHaveBeenCalled();
+    expect(recordUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it('extractChatMemoryLogic does not refund slot/global and records usage once on non-JSON answer', async () => {
+    const { ctx, refundBulkLimit, refundGlobalRequest, recordUsage } = mockAiContext();
+
+    vi.mocked(generate).mockResolvedValueOnce({
+      text: 'Sorry, I cannot extract any memories from this conversation. Here is an explanation of why that is not valid JSON. '.repeat(3),
+      tokensIn: 150,
+      tokensOut: 50,
+      model: 'openai/gpt-4o-mini',
+    });
+
+    const res = await extractChatMemoryLogic(ctx, 'user_1', {
+      messages: [{ role: 'user', content: 'Привет, я сегодня думал о планах.' }],
+    });
+
+    expect(res).toEqual({ memories: [] });
+    expect(refundBulkLimit).not.toHaveBeenCalled();
+    expect(refundGlobalRequest).not.toHaveBeenCalled();
+    expect(recordUsage).toHaveBeenCalledTimes(1);
   });
 });

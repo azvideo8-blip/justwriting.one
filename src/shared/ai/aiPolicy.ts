@@ -250,11 +250,12 @@ export function createCallReservation(
         return;
       }
 
-      res.refunded = true;
-      // DEEP-8 & FU-5: A failed call always refunds the user/bulk slot.
-      // A stream closed by the client or aborted by server/client only refunds the daily slot
-      // if produced content was negligible (< 200 chars). Substantial partial answers keep the slot.
-      if (reason === 'failed' || producedChars < REFUND_IF_PRODUCED_UNDER_CHARS) {
+      // S-11 / T-1: A slot is refunded only when the provider produced less than
+      // REFUND_IF_PRODUCED_UNDER_CHARS, whatever the settle reason.
+      // Upstream failure before production (producedChars === 0) still refunds.
+      // A stream or call that produced substantial text keeps the slot charged.
+      if (producedChars < REFUND_IF_PRODUCED_UNDER_CHARS) {
+        res.refunded = true;
         if (charge === 'user') {
           await ctx.refundDailyLimit(uid, day);
         } else {

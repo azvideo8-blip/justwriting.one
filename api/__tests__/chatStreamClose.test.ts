@@ -219,6 +219,26 @@ describe('3.8 stream disconnect', () => {
     expect(recordUsage).not.toHaveBeenCalled();
   });
 
+  it('T-1: stream fails with producedChars === 0 refunds daily limit and global reservation', async () => {
+    sseBody = holdOpen();
+
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    streamController?.error(new Error('upstream connection reset before any tokens'));
+    res.destroyed = false;
+
+    await done;
+
+    expect(refundDaily).toHaveBeenCalledTimes(1);
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundBulk).not.toHaveBeenCalled();
+    expect(refundGlobal).toHaveBeenCalledTimes(1);
+    expect(recordUsage).not.toHaveBeenCalled();
+  });
+
   // Порог объёма, а не факта: дыра DEEP-8 — это дочитать ответ и оборваться,
   // а не нажать «Стоп» на первом слоге. Фикстура выдаёт заведомо больше порога.
   it('DEEP-8: ответ дочитан, потом обрыв → слот НЕ возвращён, глобальный резерв тоже', async () => {

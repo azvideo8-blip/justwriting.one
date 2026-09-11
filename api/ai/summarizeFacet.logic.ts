@@ -75,7 +75,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
 
     callRes.markProduced(result.text.length);
 
-    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }, reservation).catch(e =>
+    callRes.recordUsage(result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }).catch(e =>
       console.error('[AI facet] usage record failed:', e),
     );
 
