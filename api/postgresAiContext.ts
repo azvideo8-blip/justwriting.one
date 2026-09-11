@@ -7,6 +7,13 @@ import { DAILY_LIMIT } from './ai/pure';
 
 import { pool } from './db';
 
+// Postgres error code, if the thrown thing carries one (pg errors do).
+function pgCode(e: unknown): string | undefined {
+  return typeof e === 'object' && e !== null && typeof (e as { code?: unknown }).code === 'string'
+    ? (e as { code: string }).code
+    : undefined;
+}
+
 const today = () => new Date().toISOString().slice(0, 10);
 
 // ── Global daily cap & Spend ceiling in Rubles ───────────────────────────────
@@ -134,7 +141,17 @@ async function getUserDailyLimit(uid: string): Promise<number> {
 }
 
 async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitVerdict> {
-  const client = await pool.connect();
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (e: unknown) {
+    console.error('[postgresAiContext] checkDailyLimit pool.connect error', e);
+    if (pgCode(e) === '23503') {
+      return { ok: false, day: today(), reason: 'unauthorized' };
+    }
+    return { ok: false, day: today(), reason: 'unavailable' };
+  }
+
   try {
     await client.query('BEGIN');
     const date = today();
@@ -151,14 +168,19 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
     const count = Number(res.rows[0]?.call_count ?? 1);
     if (count > limit) {
       await client.query('ROLLBACK');
-      return { ok: false, day: date };
+      return { ok: false, day: date, reason: 'limit_exceeded' };
     }
     await client.query('COMMIT');
     return { ok: true, day: date };
-  } catch (e) {
-    await client.query('ROLLBACK');
+  } catch (e: unknown) {
+    try {
+      await client.query('ROLLBACK');
+    } catch { /* ignore rollback failure */ }
     console.error('[postgresAiContext] checkDailyLimit error', e);
-    return { ok: false, day: today() };
+    if (pgCode(e) === '23503') {
+      return { ok: false, day: today(), reason: 'unauthorized' };
+    }
+    return { ok: false, day: today(), reason: 'unavailable' };
   } finally {
     client.release();
   }
@@ -226,14 +248,27 @@ async function checkAndIncrementBulkLimit(
       [uid, String(BULK_WINDOW_MS), endpoint],
     );
     if (Number(rows[0]?.calls ?? 1) > BULK_MAX_PER_WINDOW) return 'RATE_LIMIT';
-  } catch (e) {
+  } catch (e: unknown) {
+    if (pgCode(e) === '23503') {
+      return { ok: false, day: today(), reason: 'unauthorized' };
+    }
     console.error(
       '[postgresAiContext] AUD-18 bulk window unavailable — rate limiting is OFF, ' +
       'daily cap still applies. Apply supabase/migrations/0022_ai_bulk_cooldown.sql.',
       e,
     );
   }
-  const client = await pool.connect();
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (e: unknown) {
+    console.error('[postgresAiContext] checkAndIncrementBulkLimit pool.connect error', e);
+    if (pgCode(e) === '23503') {
+      return { ok: false, day: today(), reason: 'unauthorized' };
+    }
+    return { ok: false, day: today(), reason: 'unavailable' };
+  }
+
   try {
     await client.query('BEGIN');
     const date = today();
@@ -247,14 +282,19 @@ async function checkAndIncrementBulkLimit(
     const count = Number(res.rows[0]?.call_count ?? 1);
     if (count > BULK_LIMIT) {
       await client.query('ROLLBACK');
-      return { ok: false, day: date };
+      return { ok: false, day: date, reason: 'limit_exceeded' };
     }
     await client.query('COMMIT');
     return { ok: true, day: date };
-  } catch (e) {
-    await client.query('ROLLBACK');
+  } catch (e: unknown) {
+    try {
+      await client.query('ROLLBACK');
+    } catch { /* ignore rollback failure */ }
     console.error('[postgresAiContext] checkAndIncrementBulkLimit error', e);
-    return { ok: false, day: today() };
+    if (pgCode(e) === '23503') {
+      return { ok: false, day: today(), reason: 'unauthorized' };
+    }
+    return { ok: false, day: today(), reason: 'unavailable' };
   } finally {
     client.release();
   }
@@ -276,18 +316,27 @@ const COOLDOWN_MS = 10000;
 async function checkAndIncrementLimit(
   uid: string,
   reasoning?: boolean,
-): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT'> {
-  const { rows } = await pool.query(
-    `INSERT INTO ai_cooldown (uid, updated_at) VALUES ($1, now())
-     ON CONFLICT (uid) DO UPDATE SET updated_at = now()
-       WHERE ai_cooldown.updated_at < now() - ($2 || ' milliseconds')::interval
-     RETURNING uid`,
-    [uid, String(COOLDOWN_MS)],
-  );
-  if (rows.length === 0) return 'RATE_LIMIT';
+): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'> {
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ai_cooldown (uid, updated_at) VALUES ($1, now())
+       ON CONFLICT (uid) DO UPDATE SET updated_at = now()
+         WHERE ai_cooldown.updated_at < now() - ($2 || ' milliseconds')::interval
+       RETURNING uid`,
+      [uid, String(COOLDOWN_MS)],
+    );
+    if (rows.length === 0) return 'RATE_LIMIT';
+  } catch (e: unknown) {
+    if (pgCode(e) === '23503') return 'UNAUTHORIZED';
+    console.error('[postgresAiContext] checkAndIncrementLimit cooldown error', e);
+    return 'UNAVAILABLE';
+  }
 
   const verdict = await checkDailyLimit(uid, reasoning);
-  return verdict.ok ? { ok: true, day: verdict.day } : 'DAILY_LIMIT';
+  if (verdict.ok) return { ok: true, day: verdict.day };
+  if (verdict.reason === 'unauthorized') return 'UNAUTHORIZED';
+  if (verdict.reason === 'unavailable') return 'UNAVAILABLE';
+  return 'DAILY_LIMIT';
 }
 
 async function recordUsage(

@@ -96,10 +96,11 @@ describe('2.20 model JSON validated by zod, refund on schema failure', () => {
     const ctx = makeCtx();
     await expect(summarizeDocumentLogic(ctx, 'u1', { content }))
       .rejects.toMatchObject({ code: 'unavailable' });
-    // Same refund region as the JSON.parse failure — the person does not pay.
+    // S-11: The user's bulk limit is refunded so they are not charged, but tokens were burned,
+    // so global reservation is reconciled (recorded in usage) rather than refunded.
     expect(ctx.refundBulkLimit).toHaveBeenCalledWith('u1', '2026-08-22');
-    expect(ctx.refundGlobalRequest).toHaveBeenCalled();
-    expect(ctx.recordUsage).not.toHaveBeenCalled();
+    expect(ctx.refundGlobalRequest).not.toHaveBeenCalled();
+    expect(ctx.recordUsage).toHaveBeenCalled();
   });
 
   it('out-of-range valence (1e999 → Infinity) is rejected as unavailable (model output failure)', async () => {

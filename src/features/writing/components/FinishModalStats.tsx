@@ -21,6 +21,7 @@ interface FinishModalStatsProps {
   isMobile: boolean;
   statsExpanded: boolean;
   setStatsExpanded: (v: boolean) => void;
+  totalWords?: number;
 }
 
 export function FinishModalStats({
@@ -38,6 +39,7 @@ export function FinishModalStats({
   isMobile,
   statsExpanded,
   setStatsExpanded,
+  totalWords,
 }: FinishModalStatsProps) {
   const borderStyle = {
     borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1',
@@ -73,6 +75,11 @@ export function FinishModalStats({
               <div className="p-1">
                 <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/60">{t('writing_words')}</div>
                 <div className="text-lg font-mono font-bold text-text-main tabular-nums">{animWords}</div>
+                {totalWords !== undefined && totalWords > animWords && (
+                  <div className="text-[10px] text-text-main/50 font-sans tracking-normal">
+                    {t('finish_total_words', { n: totalWords })}
+                  </div>
+                )}
               </div>
               <div className="p-1 border-l border-r border-border-subtle">
                 <div className="text-label font-bold uppercase tracking-widest mb-0.5 text-text-main/60">{t('writing_time')}</div>
@@ -130,6 +137,11 @@ export function FinishModalStats({
         <div className="p-2">
           <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/60">{t('writing_words')}</div>
           <div className="text-xl font-mono font-bold text-text-main tabular-nums">{animWords}</div>
+          {totalWords !== undefined && totalWords > animWords && (
+            <div className="text-[10px] text-text-main/50 font-sans tracking-normal">
+              {t('finish_total_words', { n: totalWords })}
+            </div>
+          )}
         </div>
         <div className="p-2" style={borderStyle}>
           <div className="text-label-sm font-bold uppercase tracking-widest mb-1 text-text-main/60">{t('writing_time')}</div>

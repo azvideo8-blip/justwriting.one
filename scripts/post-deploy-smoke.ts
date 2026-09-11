@@ -78,6 +78,11 @@ export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCh
       errors.push(`Не удалось получить HTTP-ответ от ${baseUrl}`);
     } else if (response.status() !== 200) {
       errors.push(`Главная страница вернула HTTP ${response.status()} вместо 200`);
+    } else {
+      const permPolicy = response.headers()['permissions-policy'] || '';
+      if (permPolicy.includes('microphone=()')) {
+        errors.push(`Permissions-Policy header blocks microphone completely: "${permPolicy}" (expected microphone=(self))`);
+      }
     }
 
     try {

@@ -68,16 +68,22 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
   const handleSyncAll = async () => {
     setSyncingAll(true);
     try {
-      const [res, dlRes] = await Promise.all([
-        SyncService.syncAllUnlinked(userId),
-        SyncService.downloadAllFromCloud(userId),
-      ]);
+      // S-1: Run sequentially rather than in Promise.all to avoid racing relink and downloads
+      const res = await SyncService.syncAllUnlinked(userId);
+      const dlRes = await SyncService.downloadAllFromCloud(userId);
+
+      if (dlRes.locked) {
+        showToast(t('settings_sync_vault_locked'), 'error');
+      }
+
       const totalSynced = res.synced + dlRes.downloaded;
       const totalFailed = res.failed + dlRes.failed;
-      showToast(
-        t('settings_sync_all_unlinked_done', { synced: String(totalSynced) }),
-        'success'
-      );
+      if (!dlRes.locked || totalSynced > 0) {
+        showToast(
+          t('settings_sync_all_unlinked_done', { synced: String(totalSynced) }),
+          'success'
+        );
+      }
       if (totalFailed > 0) {
         showToast(
           t('settings_sync_all_unlinked_failed', { failed: String(totalFailed) }),

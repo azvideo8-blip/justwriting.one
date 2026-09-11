@@ -335,7 +335,11 @@ export function DocumentPreview({
   };
   // Refuse to export a note whose text could not be read (vault locked, decryption
   // or storage failure) — otherwise the user silently downloads an empty file.
-  const exportUnavailableMessage = language === 'ru'
+  const exportUnavailableMessage = session._contentNotLoaded
+    ? (language === 'ru' ? 'Текст заметки ещё не загружен из облака' : 'Note text is not loaded from cloud yet')
+    : session._locked
+    ? (language === 'ru' ? 'Заметка заперта — откройте сейф перед экспортом' : 'Note is locked — unlock vault before exporting')
+    : language === 'ru'
     ? 'Заметка зашифрована или недоступна — экспортировать нечего.'
     : 'This note is locked or unreadable — there is nothing to export.';
   // PDF and DOCX exporters are async; typing this as `() => void` made passing

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDraftManager } from '../useDraftManager';
 import { useTimerStore } from '../../store/useTimerStore';
+import { useContentStore } from '../../store/useContentStore';
 
 describe('useDraftManager', () => {
   const userId = 'user_manager_123';
@@ -21,6 +22,7 @@ describe('useDraftManager', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     useTimerStore.setState({ status: 'writing' });
+    useContentStore.setState({ content: '', title: '' });
   });
 
   afterEach(() => {
@@ -65,6 +67,24 @@ describe('useDraftManager', () => {
     });
 
     expect(mockOnSaveDraft).not.toHaveBeenCalled();
+  });
+
+  it('autosaves after 1s debounce when content is present even if timer status is idle (S-8)', async () => {
+    useTimerStore.setState({ status: 'idle' });
+    useContentStore.setState({ content: 'Pasted text without keydown' });
+    mockOnSaveDraft.mockResolvedValue(undefined);
+
+    renderHook(() =>
+      useDraftManager(userId, getDraftData, { onSaveDraft: mockOnSaveDraft })
+    );
+
+    expect(mockOnSaveDraft).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(mockOnSaveDraft).toHaveBeenCalledTimes(1);
   });
 
   it('saves draft on visibilitychange to hidden', async () => {

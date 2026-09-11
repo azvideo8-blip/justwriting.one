@@ -66,7 +66,8 @@ describe('useDraftAutosave', () => {
     expect(result.current.saveStatus).toBe('idle');
   });
 
-  it('does not save when status is idle', async () => {
+  it('saves draft even when status is idle if content is present (S-8)', async () => {
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, remoteOk: true });
     useTimerStore.setState({ status: 'idle' });
     const idleData = { ...initialData, status: 'idle' as const };
 
@@ -81,7 +82,10 @@ describe('useDraftAutosave', () => {
       await vi.advanceTimersByTimeAsync(510);
     });
 
-    expect(persistDraft).not.toHaveBeenCalled();
+    expect(persistDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'changed text' }),
+      { remote: false }
+    );
   });
 
   it('saves on visibilitychange hidden', async () => {
@@ -200,6 +204,32 @@ describe('useDraftAutosave', () => {
 
   it('immediately sets cloud-stale on permanent error and stops the interval', async () => {
     mockPersistByMode({ code: 'permission-denied' });
+
+    const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+
+    vi.mocked(persistDraft).mockClear();
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(persistDraft).not.toHaveBeenCalled();
+  });
+
+  it('immediately sets cloud-stale on Postgres check constraint violation (23514)', async () => {
+    mockPersistByMode({ code: '23514', message: 'new row for relation "drafts" violates check constraint "drafts_title_check"' });
+
+    const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(result.current.saveStatus).toBe('cloud-stale');
+
+    vi.mocked(persistDraft).mockClear();
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(persistDraft).not.toHaveBeenCalled();
+  });
+
+  it('immediately sets cloud-stale on HTTP 400 Bad Request', async () => {
+    mockPersistByMode({ status: 400, message: 'violates check constraint' });
 
     const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
 

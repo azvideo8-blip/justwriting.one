@@ -83,6 +83,15 @@ export function MobileWriteScreen({
     resetIdleTimer();
   };
 
+  const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    if (isIdle || isPaused) {
+      const val = (e.target as HTMLTextAreaElement).value;
+      if (val.length > 0) {
+        onPlay();
+      }
+    }
+  };
+
   const handleBeforeInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
     if (!streamMode) return;
     const inputEvent = e.nativeEvent as InputEvent;
@@ -271,6 +280,7 @@ export function MobileWriteScreen({
           value={content}
           onChange={e => { setContent(e.target.value); handleType(); }}
           onKeyDown={handleKeyDown}
+          onInput={handleInput}
           onBeforeInput={handleBeforeInput}
           onCut={e => { if (streamMode) e.preventDefault(); }}
           onCopy={e => { if (streamMode) e.preventDefault(); }}

@@ -216,7 +216,7 @@ export function WritingFinishModal({
     : 0;
   const readingMinutes = readingTimeMinutes(wordCount || sessionWords);
 
-  const animWords = useCountUp(wordCount);
+  const animWords = useCountUp(sessionWords);
   const animSeconds = useCountUp(totalPauseSeconds > 0 ? totalElapsedSeconds : sessionSeconds);
   const animWpm = useCountUp(avgWpm);
 
@@ -512,6 +512,7 @@ export function WritingFinishModal({
                 isMobile={isMobile}
                 statsExpanded={statsExpanded}
                 setStatsExpanded={setStatsExpanded}
+                totalWords={wordCount}
               />
               <FinishModalTags
                 tags={tags}
@@ -600,6 +601,7 @@ export function WritingFinishModal({
             isMobile={isMobile}
             statsExpanded={statsExpanded}
             setStatsExpanded={setStatsExpanded}
+            totalWords={wordCount}
           />
 
           <FinishModalTags

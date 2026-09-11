@@ -22,6 +22,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `unlocked_achievements_${uid}`,
     `achievement_earned_at_${uid}`,
     `achievements_reset_at_${uid}`,
+    // заморозки серий (streakFreeze, S-19)
+    `jw_streak_freezes_${uid}`,
     // чекпоинт миграции шифрования (encryptMigration.getCheckpointKey)
     `encryptionMigration_${uid}_checkpoint`,
     // подсказка «восстановить из облака» (useEmptyDeviceDetection)

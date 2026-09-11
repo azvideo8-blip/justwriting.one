@@ -193,7 +193,14 @@ export async function streamChat(params: {
     } catch { /* default to DAILY_LIMIT */ }
     throw new Error(errorKind);
   }
-  if (response.status === 502 || response.status === 503 || response.status === 504) throw new Error('UPSTREAM');
+  if (response.status === 503) {
+    // Only OUR "could not check the limit" 503 carries the code. A bare 503 from
+    // nginx or the provider is still an upstream outage, as it was before S-15.
+    let code: string | undefined;
+    try { code = extractErrorCode(await response.clone().json()); } catch { /* not json */ }
+    throw new Error(code === 'SERVICE_UNAVAILABLE' ? 'SERVICE_UNAVAILABLE' : 'UPSTREAM');
+  }
+  if (response.status === 502 || response.status === 504) throw new Error('UPSTREAM');
   if (!response.ok) {
     // Сервер отвечает кодом в теле; без разбора человек видит «произошла
     // ошибка» на несколько разных случаев, из которых часть он может исправить

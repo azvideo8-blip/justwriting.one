@@ -32,6 +32,14 @@ export async function deleteSummary(userId: string, documentId: string): Promise
   if (error != null) throw error;
 }
 
+export async function deleteAllSummaries(userId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('ai_summaries')
+    .delete()
+    .eq('user_id', userId);
+  if (error != null) throw error;
+}
+
 export async function getUserSummaries(userId: string): Promise<ProviderRecord[]> {
   const allRows = await pageAll((from, to) =>
     getSupabase()

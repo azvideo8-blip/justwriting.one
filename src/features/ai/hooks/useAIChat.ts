@@ -583,7 +583,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
 
       const isKnownCode = (m: string): m is AIErrorCode =>
-        ['ABORTED', 'RATE_LIMIT', 'DAILY_LIMIT', 'GLOBAL_LIMIT', 'AUTH_REQUIRED', 'AI_CONSENT_REQUIRED', 'EMPTY_RESPONSE', 'UPSTREAM', 'TOO_LONG', 'NETWORK', 'MISCONFIGURED', 'SERVER_ERROR'].includes(m);
+        ['ABORTED', 'RATE_LIMIT', 'DAILY_LIMIT', 'GLOBAL_LIMIT', 'AUTH_REQUIRED', 'AI_CONSENT_REQUIRED', 'EMPTY_RESPONSE', 'UPSTREAM', 'TOO_LONG', 'NETWORK', 'MISCONFIGURED', 'SERVER_ERROR', 'SERVICE_UNAVAILABLE'].includes(m);
 
       if (isKnownCode(rawMsg)) {
         switch (rawMsg) {
@@ -596,6 +596,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           case 'DAILY_LIMIT':
             setDailyLimitExhausted();
             setError('Дневной лимит достигнут');
+            break;
+          case 'SERVICE_UNAVAILABLE':
+            setError('Сервис временно не может проверить лимит. Попробуйте позже.');
             break;
           case 'GLOBAL_LIMIT':
             setError('Лимит приложения исчерпан — попробуйте позже');

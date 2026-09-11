@@ -7,6 +7,12 @@ import { SyncService } from '../SyncService';
 import { StorageService } from '../StorageService';
 
 vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }));
+vi.mock('../../data', () => ({
+  DataProvider: {
+    getLocalStoreRecord: vi.fn().mockResolvedValue(null),
+    saveLocalStoreRecord: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 // Облачные сервисы мокаем на уровне модулей: управляем ответом getDocumentWithDeleted.
 const getDocWithDeleted = vi.hoisted(() => vi.fn());

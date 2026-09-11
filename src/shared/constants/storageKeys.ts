@@ -22,5 +22,7 @@ export const STORAGE_KEYS = {
   AUTO_SYNC_ASKED: 'auto_sync_asked',
   DIAGNOSTICS_UNLOCKED: 'diagnostics_unlocked',
   PRIVACY_ACCEPTED: (uid: string) => `privacy_accepted_${uid}`,
-  STREAK_FREEZES: 'jw_streak_freezes',
+  STREAK_FREEZES: (userId?: string | null) => userId ? `jw_streak_freezes_${userId}` : 'jw_streak_freezes',
+  GUEST_STREAK_FREEZES: 'jw_streak_freezes',
+  DICTATION_NOTICE_SEEN: 'jw_dictation_notice_seen',
 } as const;

@@ -7,9 +7,7 @@ import { DocumentService } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { isPoisonSyncError, isRevivableOnUnlock } from '../sync/classifySyncError';
-import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
-import { getSessionKey } from '../crypto/encrypt';
-import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
+import { syncStreakFreezesWithCloud } from '../utils/streakFreeze';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
@@ -319,6 +317,11 @@ export const SyncService = {
       // 4. Drain the queue AFTER all producers (relink, background tasks, deletes, portraits).
       await _drainPendingQueue(userId);
 
+      // S-19: Sync streak freezes with cloud
+      await syncStreakFreezesWithCloud(userId).catch(e =>
+        reportError(e, { action: 'syncStreakFreezes_syncAllUnlinked', userId })
+      );
+
       return { synced, failed: failedIds.length };
     } finally {
       _syncInProgress.delete(userId);  // [A-08] delete instead of set(false)
@@ -348,53 +351,22 @@ export const SyncService = {
   },
 
   async downloadAllFromCloud(
-    userId: string
-  ): Promise<{ downloaded: number; skipped: number; failed: number }> {
-    if (getEncryptionEnabled(userId) && !getSessionKey()) {
-      return { downloaded: 0, skipped: 0, failed: 0 };
-    }
+    userId: string,
+    opts?: { onProgress?: (current: number, total: number) => void }
+  ): Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }> {
+    // The download itself lives in CloudSyncService so that
+    // restoreMissingDocuments can share it without importing this module back
+    // (import/no-cycle). This wrapper adds what only the sync layer owns.
+    const res = await CloudSyncService.downloadAllFromCloud(userId, opts);
+    if (res.downloaded > 0) announceQueueChange();
 
-    try {
-      await CloudSyncService.relinkOrphanedDocuments(userId);
-    } catch (e) {
-      reportError(e, { action: 'downloadAllFromCloud_relink', userId });
-    }
-
-    const [cloudDocs, localDocs] = await Promise.all([
-      DocumentService.getUserDocuments(userId),
-      LocalDocumentService.getDocumentsByOwner(userId),
-    ]);
-
-    const linkedCloudMap = new Map(localDocs.filter(d => d.linkedCloudId).map(d => [d.linkedCloudId!, d]));
-    const localUuidSet = new Set(localDocs.map(d => d.uuid).filter(Boolean));
-    const toDownload = cloudDocs.filter(d => !linkedCloudMap.has(d.id) && (!d.uuid || !localUuidSet.has(d.uuid)));
-    const skipped = cloudDocs.length - toDownload.length;
-
-    const downloadResults = await Promise.allSettled(
-      toDownload.map(cloudDoc => limit(() => StorageService.addLocalCopy(userId, cloudDoc.id)))
-    );
-
-    let downloaded = 0;
-    let failed = 0;
-    for (const r of downloadResults) {
-      if (r.status === 'fulfilled') downloaded++;
-      else {
-        failed++;
-        logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) });
-      }
-    }
-
-    if (downloaded > 0) {
-      useActivityLogStore.getState().addActivity(
-        `Загружено заметок из облака: ${downloaded}`,
-        { action: 'downloadAllFromCloud', downloaded, skipped, failed },
-        'info',
-        'sync'
+    if (!res.locked) {
+      // S-19: Sync streak freezes with cloud so device B picks up freezes from device A
+      await syncStreakFreezesWithCloud(userId).catch(e =>
+        reportError(e, { action: 'syncStreakFreezes_downloadAllFromCloud', userId })
       );
-      announceQueueChange();
     }
-
-    return { downloaded, skipped, failed };
+    return res;
   },
 
 };

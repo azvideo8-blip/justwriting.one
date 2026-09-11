@@ -98,8 +98,8 @@ async function downloadBlob(content: string | Blob, type: string, filename: stri
 // would produce a file with a header and no text. Mirrors the flag check the bulk
 // export already does (ExportAllService).
 export function isExportable(session: ArchiveSession): boolean {
-  const f = session as ArchiveSession & { _locked?: boolean; _decryptionError?: boolean; _contentError?: boolean };
-  return !f._locked && !f._decryptionError && !f._contentError;
+  const f = session as ArchiveSession & { _locked?: boolean; _decryptionError?: boolean; _contentError?: boolean; _contentNotLoaded?: boolean };
+  return !f._locked && !f._decryptionError && !f._contentError && !f._contentNotLoaded;
 }
 
 export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {

@@ -212,6 +212,13 @@ export function createCallReservation(
         currentEstimatedInput = estimatedInput;
       }
     },
+    /**
+     * S-11 / L-5 Policy: "A model that answered badly still costs what it cost."
+     * Call markProduced(chars) as soon as the upstream model produces an answer,
+     * BEFORE parsing JSON or validating schemas.
+     * When upstream has produced content, settle('failed') reconciles the global token
+     * reservation against actual/estimated usage rather than fully refunding the ceiling.
+     */
     markProduced(chars = 0) {
       upstreamProduced = true;
       producedChars += chars;
@@ -304,14 +311,30 @@ export function createCallReservation(
 export async function chargeCall(ctx: AiContext, uid: string, charge: ChargeTarget, endpoint?: string): Promise<CallReservation> {
   if (charge === 'user') {
     const verdict = await ctx.checkDailyLimit(uid);
-    if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily limit reached.');
+    if (!verdict.ok) {
+      if (verdict.reason === 'unavailable') {
+        throw new AiError('unavailable', 'The service could not check the daily limit.');
+      }
+      if (verdict.reason === 'unauthorized') {
+        throw new AiError('unauthenticated', 'User no longer exists.');
+      }
+      throw new AiError('resource-exhausted', 'Daily limit reached.');
+    }
     return createCallReservation(ctx, uid, charge, verdict.day);
   }
   const verdict = await ctx.checkAndIncrementBulkLimit(uid, endpoint);
   if (verdict === 'RATE_LIMIT') {
     throw new AiError('resource-exhausted', 'Too many requests. Please wait a minute.');
   }
-  if (!verdict.ok) throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
+  if (!verdict.ok) {
+    if (verdict.reason === 'unavailable') {
+      throw new AiError('unavailable', 'The service could not check the daily limit.');
+    }
+    if (verdict.reason === 'unauthorized') {
+      throw new AiError('unauthenticated', 'User no longer exists.');
+    }
+    throw new AiError('resource-exhausted', 'Daily bulk operations limit reached.');
+  }
   return createCallReservation(ctx, uid, charge, verdict.day);
 }
 
@@ -330,11 +353,23 @@ export async function acquireChatReservation(
       throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
     }
     if (!verdict.ok) {
+      if (verdict.reason === 'unavailable') {
+        throw new AiError('unavailable', 'The service could not check the daily limit.');
+      }
+      if (verdict.reason === 'unauthorized') {
+        throw new AiError('unauthenticated', 'User no longer exists.');
+      }
       throw new AiError('resource-exhausted', 'Daily limit reached.');
     }
     return createCallReservation(ctx, uid, 'bulk', verdict.day);
   } else {
     const limitResult = await ctx.checkAndIncrementLimit(uid, reasoning === true);
+    if (limitResult === 'UNAVAILABLE') {
+      throw new AiError('unavailable', 'The service could not check the daily limit.');
+    }
+    if (limitResult === 'UNAUTHORIZED') {
+      throw new AiError('unauthenticated', 'User no longer exists.');
+    }
     if (limitResult === 'DAILY_LIMIT') {
       throw new AiError('resource-exhausted', 'Daily limit reached.');
     }

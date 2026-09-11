@@ -50,7 +50,8 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
   const handleContinueDocument = React.useCallback(async (doc: LifeLogDocument) => {
     const currentStatus = useTimerStore.getState().status;
-    if (currentStatus === 'writing' || currentStatus === 'paused') {
+    const currentContent = useContentStore.getState().content.trim();
+    if (currentStatus === 'writing' || currentStatus === 'paused' || currentContent.length > 0) {
       flow.setShowCancelConfirm(true);
       return;
     }

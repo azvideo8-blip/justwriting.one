@@ -80,7 +80,17 @@ export async function persistDraft(
     logger.error('draftPersistence', 'Local save failed', { reason: String(localResult.reason) });
   }
   if (shouldRemoteSave && !remoteOk) {
-    logger.warn('draftPersistence', 'Cloud save failed (will retry on next change)', { reason: String(remoteError || 'Did not write') });
+    const err = remoteError as { code?: unknown; status?: unknown; message?: unknown } | undefined;
+    const code = typeof err?.code === 'string' ? err.code : typeof err?.code === 'number' ? String(err.code) : undefined;
+    const status = typeof err?.status === 'string' ? err.status : typeof err?.status === 'number' ? String(err.status) : undefined;
+    const msg = typeof err?.message === 'string' ? err.message : String(remoteError || 'Did not write');
+    const isPermanent = code === '23514' || status === '400' || msg.includes('check constraint') || msg.includes('23514');
+
+    if (isPermanent) {
+      logger.error('draftPersistence', 'Cloud save permanently refused by constraint/validation', { reason: msg, code, status });
+    } else {
+      logger.warn('draftPersistence', 'Cloud save failed (will retry on next change)', { reason: msg });
+    }
   }
 
   return { localOk, remoteOk, remoteError };

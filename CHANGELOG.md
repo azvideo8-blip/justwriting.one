@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.8.43 — 2026-09-11
+
+- **[RU]** Черновик при включённом сейфе не доходил до облака, если заголовок длиннее ~60 кириллических символов или текст больше ~37 тысяч: шифротекст не проходил ограничение базы, второе устройство видело старый черновик. Ограничение расширено, а постоянный отказ теперь виден в значке редактора, а не только в журнале.
+- **[EN]** A draft with the vault on could not reach the cloud once its title passed ~60 Cyrillic characters or its text ~37k: the ciphertext exceeded a database limit and the second device saw the old draft. The limit is raised, and a permanent refusal now shows in the editor badge instead of only the log.
+- **[RU]** «Удалить все данные ИИ» теперь удаляет на сервере то, что обещало: эмбеддинги, конспекты и зеркала локальных хранилищ. Раньше очищалось только устройство, а сообщение говорило, что удалено всё.
+- **[EN]** “Delete all AI data” now deletes on the server what it promised: embeddings, summaries and the mirrored local stores. Before, only the device was cleared while the message said everything was gone.
+- **[RU]** Заметка без текста на устройстве больше не выгружается файлом с заголовком и пустым телом — экспорт отказывает и объясняет почему. «В этот день» сохраняет совпадение и пишет «заблокировано» или «не загружено» вместо пустого отрывка.
+- **[EN]** A note with no text on the device can no longer be exported as a file with a header and an empty body — export refuses and says why. “On this day” keeps the match and says “locked” or “not loaded” in place of an empty excerpt.
+- **[RU]** Текст, попавший в редактор без нажатий клавиш — вставка, диктовка, мобильная клавиатура, — раньше не запускал автосохранение. Теперь автосохранение идёт от наличия текста, а 30-секундная страховка больше не сбрасывается на каждом символе.
+- **[EN]** Text that arrived without a keystroke — paste, dictation, a mobile keyboard — used to leave autosave idle. Autosave now keys off the presence of text, and the 30-second safety net no longer restarts on every character.
+- **[RU]** Второе устройство с запертым сейфом: облачный черновик перечитывается при разблокировке, а не затирается тем, что набрано следом. «Продолжить» другую заметку спрашивает, прежде чем заменить несохранённый текст.
+- **[EN]** Second device with the vault locked: the cloud draft is re-read on unlock instead of being overwritten by whatever is typed next. “Continue” on another note asks before replacing unsaved text.
+- **[RU]** Скачивание из облака выполняется по одному на аккаунт, откуда бы оно ни запустилось. Два запуска подряд создавали по лишней локальной копии на каждую облачную заметку, а затем отправляли их в облако как новые пустые документы.
+- **[EN]** Cloud download runs one at a time per account, whichever trigger fires. Two runs within a second created an extra local copy per cloud note and then uploaded them as new, empty cloud documents.
+- **[RU]** «Синхронизировать всё» при запертом сейфе говорит, что сейф заперт, а не «синхронизировано: 0». Четыре постоянные ошибки синхронизации уходят в карантин с первой попытки, а не после десяти.
+- **[EN]** “Sync everything” with a locked vault says the vault is locked instead of “synced: 0”. Four permanent sync errors go to quarantine on the first attempt instead of after ten.
+- **[RU]** Заморозки серии стали отдельными для гостя и аккаунта, переезжают между устройствами и хранятся в том же зашифрованном конверте, что и остальные записи.
+- **[EN]** Streak freezes are now separate for guest and account, travel between devices, and are stored in the same encrypted envelope as every other record.
+- **[RU]** Сбой проверки лимита ИИ (база недоступна или аккаунт удалён с другого устройства) показывается как «не удалось проверить лимит», а не как «дневной лимит достигнут». Ответ модели с испорченным JSON учитывается, а не возвращается.
+- **[EN]** A failed AI limit check (database down, or the account deleted from another device) is reported as “could not check the limit”, not as “daily limit reached”. A model answer with malformed JSON is charged, not refunded.
+- **[RU]** Микрофон был заблокирован на сайте нашим же заголовком с мая — диктовка не могла запросить доступ. Заголовок исправлен, проверка после выкатки следит, чтобы это не повторилось. Диктовка один раз предупреждает, что звук уходит в речевой сервис производителя браузера; при включённом сейфе — спрашивает каждый раз.
+- **[EN]** The microphone had been blocked on the site by our own header since May — dictation could not ask for access. The header is fixed and the post-deploy check watches that it stays so. Dictation states once that audio goes to the browser vendor’s speech service; with the vault on it asks every time.
+- **[RU]** Окно завершения считает слова сессии и показывает «всего: N», когда продолжается старая заметка. Импорт заметки с нечитаемой датой берёт дату соседей или манифеста и сообщает, сколько таких было.
+- **[EN]** The finish window counts the session’s words and shows “total: N” when continuing an older note. Importing a note with an unreadable date falls back to sibling or manifest dates and reports how many.
+
 ## 0.8.42 — 2026-09-08
 
 - **[RU]** Второе устройство наконец забирает заметки из облака. Функция скачивания существовала, но её никто не вызывал: архив показывал правильные заголовки, даты и число слов, а текста на устройстве не было ни байта. Теперь скачивание запускается при входе, при возвращении сети и при разблокировке сейфа.

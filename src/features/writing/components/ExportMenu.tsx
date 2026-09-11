@@ -7,6 +7,8 @@ import { ExportService } from '../../../core/services/ExportService';
 import { useLanguage } from '../../../shared/i18n';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { Button } from '../../../shared/components/Button';
+import { useToast } from '../../../shared/components/Toast';
+import { isExportable } from '../../../core/services/ArchiveExportService';
 
 interface ExportMenuProps {
   session: Session;
@@ -16,6 +18,7 @@ interface ExportMenuProps {
 
 export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const { execute } = useServiceAction();
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
@@ -51,19 +54,32 @@ export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
     zIndex: 9999,
   };
 
+  const checkExportable = (): boolean => {
+    if (!isExportable(session as never)) {
+      showToast(t('archive_no_content'), 'error');
+      onClose();
+      return false;
+    }
+    return true;
+  };
+
   const exportToTxt = () => {
+    if (!checkExportable()) return;
     ExportService.toTxt(session.title || 'session', session.content, new Date());
     onClose();
   };
   const exportPDF = () => {
+    if (!checkExportable()) return;
     ExportService.toPDF(session.title || 'Untitled Session', session.content);
     onClose();
   };
   const exportMarkdown = () => {
+    if (!checkExportable()) return;
     ExportService.toMarkdown(session.title || 'Untitled Session', session.content);
     onClose();
   };
   const exportDocx = () => {
+    if (!checkExportable()) return;
     void execute(
       () => ExportService.toDocx(session.title || 'Untitled Session', session.content),
       { errorMessage: t('error_export_failed') }

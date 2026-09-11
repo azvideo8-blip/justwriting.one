@@ -29,6 +29,10 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
     it('classifies permanent errors', () => {
       expect(classifySyncError('DECRYPTION_ERROR: corrupted ciphertext')).toBe('permanent');
       expect(classifySyncError(new Error('Invalid sessionStartedAt for version v1'))).toBe('permanent');
+      expect(classifySyncError(new Error('Document too large for cloud sync (900KB estimated)...'))).toBe('permanent');
+      expect(classifySyncError('DUPLICATE_UUID_COLLISION: uuid collision in local store')).toBe('permanent');
+      expect(classifySyncError(new Error('Cloud document not found'))).toBe('permanent');
+      expect(classifySyncError(new Error('EMPTY_CLOUD_DOCUMENT: Cloud document has no versions'))).toBe('permanent');
     });
 
     it('classifies transient errors (including SYNC_UNRESOLVED which is not a poison pill)', () => {

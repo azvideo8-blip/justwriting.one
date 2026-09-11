@@ -536,4 +536,50 @@ describe('SupabaseDataProvider', () => {
       expect(mockQueryBuilder.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('S-16: Clear AI Data server-side deletions', () => {
+    it('deleteAllEmbeddings deletes all rows for userId', async () => {
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.delete.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.then.mockImplementationOnce((resolve: (v: unknown) => unknown) => {
+        void Promise.resolve({ data: null, error: null }).then(resolve);
+      });
+
+      await SupabaseDataProvider.deleteAllEmbeddings('u1');
+
+      expect(mockFrom).toHaveBeenCalledWith('ai_embeddings');
+      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'u1');
+    });
+
+    it('deleteAllSummaries deletes all rows for userId', async () => {
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.delete.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.then.mockImplementationOnce((resolve: (v: unknown) => unknown) => {
+        void Promise.resolve({ data: null, error: null }).then(resolve);
+      });
+
+      await SupabaseDataProvider.deleteAllSummaries('u1');
+
+      expect(mockFrom).toHaveBeenCalledWith('ai_summaries');
+      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'u1');
+    });
+
+    it('deleteLocalStoreRecordsByStores deletes specified stores for userId', async () => {
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.delete.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.in.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.then.mockImplementationOnce((resolve: (v: unknown) => unknown) => {
+        void Promise.resolve({ data: null, error: null }).then(resolve);
+      });
+
+      await SupabaseDataProvider.deleteLocalStoreRecordsByStores('u1', ['aiPortrait', 'aiDialogues']);
+
+      expect(mockFrom).toHaveBeenCalledWith('local_store_records');
+      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'u1');
+      expect(mockQueryBuilder.in).toHaveBeenCalledWith('store', ['aiPortrait', 'aiDialogues']);
+    });
+  });
 });

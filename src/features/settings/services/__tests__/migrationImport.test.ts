@@ -924,6 +924,67 @@ describe("C1 migrationImport", () => {
       const ver = await db.get("versions", "v_date_str");
       expect(ver?.sessionStartedAt).toBe(new Date("2026-09-05T10:00:00.000Z").getTime());
     });
+
+    it("S-10: manifest with sessionStartedAt: 'x' reports unreadableDateCount and version is not dated today", async () => {
+      const content = "Test content for unreadable date";
+      const pastExportDate = new Date("2024-01-01T00:00:00.000Z").toISOString();
+      const pastVersionDate = new Date("2024-01-02T12:00:00.000Z").getTime();
+      const manifest: MigrationManifest = {
+        version: 1,
+        exportedAt: pastExportDate,
+        documents: [
+          {
+            localId: "doc_unreadable_date",
+            uuid: "uuid-unreadable-date-1",
+            title: "Unreadable Date Note",
+            currentVersion: 1,
+            tags: [],
+            firstSessionAt: pastVersionDate,
+            lastSessionAt: pastVersionDate,
+            totalWords: 5,
+            totalDuration: 60,
+            sessionsCount: 1,
+            versions: [
+              {
+                id: "v_unreadable_date",
+                version: 1,
+                content,
+                wordCount: 5,
+                wordsAdded: 5,
+                charsAdded: 25,
+                duration: 60,
+                wpm: 5,
+                savedAt: pastVersionDate,
+                sessionStartedAt: "x" as unknown as number,
+              },
+            ],
+          },
+        ],
+        drafts: [],
+        aiSummaries: [],
+        aiEmbeddings: [],
+        verbatim: [],
+        counters: { documents: 1, versions: 1, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+        checksums: {
+          v_unreadable_date: await sha256Hex(content),
+        },
+        skipped: [],
+      };
+
+      const res = await importMigrationManifest(manifest, "u_target");
+      expect(res.success).toBe(true);
+      expect(res.unreadableDateCount).toBe(1);
+      expect(res.imported.documents).toBe(1);
+      expect(res.imported.versions).toBe(1);
+
+      const db = await getLocalDb();
+      const ver = await db.get("versions", "v_unreadable_date");
+      expect(ver).toBeDefined();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      expect(ver?.sessionStartedAt).toBeLessThan(todayStart.getTime());
+      expect(ver?.sessionStartedAt).toBe(pastVersionDate);
+    });
   });
 });
 

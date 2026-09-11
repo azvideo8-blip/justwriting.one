@@ -3,6 +3,7 @@ import type { AppUser } from '../../../core/auth/types';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { LocalDraft } from '../../../core/storage/localDb';
 import { useContentStore } from '../store/useContentStore';
+import { VAULT_UNLOCKED_EVENT } from '../../../core/crypto/useEncryptionStore';
 
 import { applyDraftToStores } from '../utils/draftUtils';
 import { useDraftAutosave } from './useDraftAutosave';
@@ -97,7 +98,10 @@ export function useSessionPersistence(
       }
       await WritingDraftService.clearLegacyDraft(userId);
     }
-    draftLoadedForRef.current = userId;
+    // If cloud draft is currently locked, do not prevent reloading once vault is unlocked.
+    if (!WritingDraftService.isCloudDraftLocked()) {
+      draftLoadedForRef.current = userId;
+    }
   }, [userId, setHasDraft, applyDraftToStore]);
 
   /**
@@ -114,6 +118,16 @@ export function useSessionPersistence(
 
   useEffect(() => {
     void autoLoadDraftIfEmpty();
+  }, [autoLoadDraftIfEmpty]);
+
+  // S-4: When the vault is unlocked, reload the now-decryptable cloud draft.
+  useEffect(() => {
+    const onVaultUnlocked = () => {
+      draftLoadedForRef.current = null;
+      void autoLoadDraftIfEmpty();
+    };
+    window.addEventListener(VAULT_UNLOCKED_EVENT, onVaultUnlocked);
+    return () => window.removeEventListener(VAULT_UNLOCKED_EVENT, onVaultUnlocked);
   }, [autoLoadDraftIfEmpty]);
 
   const handleCancel = useCallback(async () => {

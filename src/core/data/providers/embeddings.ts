@@ -32,6 +32,14 @@ export async function deleteEmbedding(userId: string, documentId: string): Promi
   if (error != null) throw error;
 }
 
+export async function deleteAllEmbeddings(userId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('ai_embeddings')
+    .delete()
+    .eq('user_id', userId);
+  if (error != null) throw error;
+}
+
 export async function getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }> {
   let q = getSupabase()
     .from('ai_embeddings')

@@ -73,7 +73,12 @@ function mapAIError(e: unknown): AIErrorCode {
   // The model provider failed, not us. Worth its own code: it is the one cause
   // where retrying in a minute is the right advice, and where the user should
   // not wonder whether something is wrong with their notes or their account.
-  if (code === 'unavailable') return 'UPSTREAM';
+  if (code === 'unavailable' || status === 503) {
+    if (message.includes('could not check') || code === 'SERVICE_UNAVAILABLE') {
+      return 'SERVICE_UNAVAILABLE';
+    }
+    return 'UPSTREAM';
+  }
   return 'SERVER_ERROR';
 }
 

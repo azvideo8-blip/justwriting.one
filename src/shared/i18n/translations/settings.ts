@@ -156,10 +156,18 @@ export const settingsTranslations: Translations = {
     ru: 'Ошибка импорта: {error}',
     en: 'Import error: {error}',
   },
+  settings_migration_import_date_warning: {
+    ru: 'Нераспознанные даты ({count}) — восстановлены из манифеста',
+    en: 'Unreadable dates ({count}) — recovered from manifest',
+  },
   settings_sync_all_unlinked_button: { ru: 'Отправить все заметки в облако', en: 'Upload all notes to cloud' },
   settings_sync_all_unlinked_progress: { ru: 'Отправляю заметки в облако...', en: 'Uploading notes to cloud...' },
   settings_sync_all_unlinked_done: { ru: 'Синхронизировано: {synced} заметок', en: 'Synced: {synced} documents' },
   settings_sync_all_unlinked_failed: { ru: 'Не удалось отправить: {failed} заметок', en: 'Failed to upload: {failed} documents' },
+  settings_sync_vault_locked: {
+    ru: 'Сейф заперт. Откройте сейф, чтобы загрузить заметки из облака.',
+    en: 'Vault is locked. Unlock the vault to download notes from the cloud.',
+  },
   settings_migration_import_upload_done: {
     ru: 'Загружено в облако: {uploaded} заметок (в очереди: {queued})',
     en: 'Uploaded to cloud: {uploaded} documents (queued: {queued})',
@@ -244,15 +252,55 @@ export const settingsTranslations: Translations = {
     en: 'Disable semantic search (vector indexing)?',
   },
   settings_ai_withdraw_indexing_message: {
-    ru: 'Новые заметки перестанут отправляться для вычисления числовых векторов. Поиск будет работать только по ключевым словам. Ранее созданные индексы останутся на устройстве до явного удаления.',
-    en: 'New notes will no longer be sent for vector calculations. Search will work by keyword only. Previously created indexes will remain on device until deleted.',
+    ru: 'Новые заметки перестанут отправляться для вычисления числовых векторов. Поиск будет работать только по ключевым словам. Ранее созданные индексы останутся на устройстве и на сервере до явного удаления через «Удалить все данные ИИ».',
+    en: 'New notes will no longer be sent for vector calculations. Search will work by keyword only. Previously created indexes will remain on device and on the server until deleted via "Delete all AI data".',
   },
   settings_ai_clear_data_title: {
     ru: 'Удалить все данные ИИ?',
     en: 'Delete all AI data?',
   },
   settings_ai_clear_data_message: {
-    ru: 'Будут удалены все созданные ИИ сводки, темы, портрет, грани, история диалогов и векторные индексы. Сами заметки и их текст останутся в полной сохранности.',
-    en: 'All AI-generated summaries, themes, portrait, facets, dialogue history, and vector indexes will be deleted. Notes and their text will remain completely intact.',
+    ru: 'Будут удалены все созданные ИИ сводки, темы, портрет, грани, история диалогов и векторные индексы как на устройстве, так и на сервере. Сами заметки и их текст останутся в полной сохранности.',
+    en: 'All AI-generated summaries, themes, portrait, facets, dialogue history, and vector indexes will be deleted both locally and on the server. Notes and their text will remain completely intact.',
+  },
+  settings_ai_consent_granted: {
+    ru: 'Согласие на использование ИИ предоставлено',
+    en: 'AI consent granted',
+  },
+  settings_ai_consent_grant_failed: {
+    ru: 'Не удалось сохранить согласие',
+    en: 'Failed to save consent',
+  },
+  settings_ai_consent_withdrawn: {
+    ru: 'Согласие на использование ИИ отозвано',
+    en: 'AI consent withdrawn',
+  },
+  settings_ai_consent_withdraw_failed: {
+    ru: 'Не удалось отозвать согласие',
+    en: 'Failed to withdraw consent',
+  },
+  settings_ai_indexing_granted: {
+    ru: 'Поиск по смыслу (индексация) включён',
+    en: 'Semantic search (indexing) enabled',
+  },
+  settings_ai_indexing_grant_failed: {
+    ru: 'Не удалось включить поиск по смыслу',
+    en: 'Failed to enable semantic search',
+  },
+  settings_ai_indexing_withdrawn: {
+    ru: 'Поиск по смыслу отключён (поиск работает только по словам)',
+    en: 'Semantic search disabled (search works by words only)',
+  },
+  settings_ai_indexing_withdraw_failed: {
+    ru: 'Не удалось отключить поиск по смыслу',
+    en: 'Failed to disable semantic search',
+  },
+  settings_ai_data_cleared: {
+    ru: 'Все данные ИИ удалены',
+    en: 'All AI data deleted',
+  },
+  settings_ai_data_clear_failed: {
+    ru: 'Не удалось очистить данные ИИ',
+    en: 'Failed to clear AI data',
   },
 };

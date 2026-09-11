@@ -14,6 +14,7 @@ import { toTimestampMs } from "../../../core/utils/dateUtils";
 
 export interface MigrationImportResult {
   success: boolean;
+  unreadableDateCount?: number;
   imported: {
     labels?: number;
     documents: number;
@@ -104,11 +105,30 @@ export async function importMigrationManifest(
   if (manifest.version !== 1) {
     return {
       success: false,
+      unreadableDateCount: 0,
       imported,
       skipped,
       droppedOnPurpose,
       error: `Unsupported manifest version: ${String(manifest.version)} (expected 1)`,
     };
+  }
+
+  let unreadableDateCount = 0;
+  const manifestExportDate = manifest.exportedAt ? toTimestampMs(manifest.exportedAt) : null;
+
+  function resolveDate(primary: unknown, fallbacks: unknown[]): number {
+    const ts = toTimestampMs(primary);
+    if (ts !== null) {
+      return ts;
+    }
+    unreadableDateCount++;
+    for (const fb of fallbacks) {
+      const fbTs = toTimestampMs(fb);
+      if (fbTs !== null) {
+        return fbTs;
+      }
+    }
+    return manifestExportDate ?? 0;
   }
 
   const db = await getLocalDb();
@@ -266,8 +286,16 @@ export async function importMigrationManifest(
       totalWords: doc.totalWords ?? 0,
       totalDuration: doc.totalDuration ?? 0,
       sessionsCount: doc.sessionsCount ?? 1,
-      firstSessionAt: toTimestampMs(doc.firstSessionAt) ?? Date.now(),
-      lastSessionAt: toTimestampMs(doc.lastSessionAt) ?? Date.now(),
+      firstSessionAt: resolveDate(doc.firstSessionAt, [
+        doc.lastSessionAt,
+        doc.versions?.[0]?.sessionStartedAt,
+        doc.versions?.[0]?.savedAt,
+      ]),
+      lastSessionAt: resolveDate(doc.lastSessionAt, [
+        doc.firstSessionAt,
+        doc.versions?.[doc.versions.length - 1]?.savedAt,
+        doc.versions?.[doc.versions.length - 1]?.sessionStartedAt,
+      ]),
       tags: doc.tags ?? [],
       labelId: finalLabelId,
       mood: doc.mood,
@@ -338,8 +366,16 @@ export async function importMigrationManifest(
         goalWords: ver.goalWords,
         goalTime: ver.goalTime,
         goalReached: ver.goalReached,
-        savedAt: toTimestampMs(ver.savedAt) ?? Date.now(),
-        sessionStartedAt: toTimestampMs(ver.sessionStartedAt) ?? Date.now(),
+        savedAt: resolveDate(ver.savedAt, [
+          ver.sessionStartedAt,
+          doc.lastSessionAt,
+          doc.firstSessionAt,
+        ]),
+        sessionStartedAt: resolveDate(ver.sessionStartedAt, [
+          ver.savedAt,
+          doc.firstSessionAt,
+          doc.lastSessionAt,
+        ]),
         mood: ver.mood,
       };
 
@@ -437,7 +473,7 @@ export async function importMigrationManifest(
       seconds: 0,
       wpm: 0,
       wordCount: (draft.content ?? "").split(/\s+/).filter(Boolean).length,
-      updatedAt: draft.updatedAt ?? Date.now(),
+      updatedAt: resolveDate(draft.updatedAt, [manifestExportDate]),
     });
     existingDraftUserIds.add(targetDraftUserId);
     imported.drafts++;
@@ -612,6 +648,7 @@ export async function importMigrationManifest(
 
   return {
     success: true,
+    unreadableDateCount,
     imported,
     skipped,
     droppedOnPurpose,

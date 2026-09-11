@@ -13,6 +13,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 import { useLanguage } from '../../../shared/i18n';
+import { SUPPORTED_LOCAL_STORES } from '../../../core/services/LocalStoreSyncService';
 
 interface AccountAISectionProps {
   userId: string;
@@ -45,10 +46,10 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         aiConsentVersion: PRIVACY_VERSION,
       });
       setAiConsent(userId, true);
-      showToast('Согласие на использование ИИ предоставлено', 'success');
+      showToast(t('settings_ai_consent_granted'), 'success');
     } catch (e) {
       reportError(e, { action: 'grantAiConsent', userId });
-      showToast('Не удалось сохранить согласие', 'error');
+      showToast(t('settings_ai_consent_grant_failed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -68,10 +69,10 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         aiConsentVersion: null,
       });
       setAiConsent(userId, false);
-      showToast('Согласие на использование ИИ отозвано');
+      showToast(t('settings_ai_consent_withdrawn'));
     } catch (e) {
       reportError(e, { action: 'withdrawAiConsent', userId });
-      showToast('Не удалось отозвать согласие', 'error');
+      showToast(t('settings_ai_consent_withdraw_failed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -86,7 +87,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         indexingConsentVersion: INDEXING_CONSENT_VERSION,
       });
       setIndexingConsent(userId, 'granted');
-      showToast('Поиск по смыслу (индексация) включён', 'success');
+      showToast(t('settings_ai_indexing_granted'), 'success');
       if (onIndexPending) {
         void onIndexPending(userId);
       } else {
@@ -94,7 +95,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       }
     } catch (e) {
       reportError(e, { action: 'grantIndexingConsent', userId });
-      showToast('Не удалось включить поиск по смыслу', 'error');
+      showToast(t('settings_ai_indexing_grant_failed'), 'error');
     } finally {
       setIndexingLoading(false);
     }
@@ -114,10 +115,10 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         indexingConsentVersion: null,
       });
       setIndexingConsent(userId, 'refused');
-      showToast('Поиск по смыслу отключён (поиск работает только по словам)');
+      showToast(t('settings_ai_indexing_withdrawn'));
     } catch (e) {
       reportError(e, { action: 'withdrawIndexingConsent', userId });
-      showToast('Не удалось отключить поиск по смыслу', 'error');
+      showToast(t('settings_ai_indexing_withdraw_failed'), 'error');
     } finally {
       setIndexingLoading(false);
     }
@@ -132,6 +133,15 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
 
     setClearing(true);
     try {
+      // 1. Server-side deletes FIRST (S-16): embeddings, summaries, mirrored local stores, and profile portrait
+      await DataProvider.deleteAllEmbeddings(userId);
+      await DataProvider.deleteAllSummaries(userId);
+      await DataProvider.deleteLocalStoreRecordsByStores(userId, [...SUPPORTED_LOCAL_STORES]);
+      await DataProvider.updateProfile(userId, {
+        aiPortrait: null,
+      });
+
+      // 2. Local IndexedDB deletes SECOND
       const db = await getLocalDb();
       const aiStores = Array.from(db.objectStoreNames).filter(
         name => name.startsWith('ai') || name === 'lifeStory',
@@ -148,15 +158,10 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         }
       }
 
-      // Clear cloud portrait
-      await DataProvider.updateProfile(userId, {
-        aiPortrait: null,
-      });
-
-      showToast('Все данные ИИ удалены', 'success');
+      showToast(t('settings_ai_data_cleared'), 'success');
     } catch (e) {
       reportError(e, { action: 'clearAiData', userId });
-      showToast('Не удалось очистить данные ИИ', 'error');
+      showToast(t('settings_ai_data_clear_failed'), 'error');
     } finally {
       setClearing(false);
     }

@@ -6,7 +6,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { AIToggleButton } from './AIToggleButton';
-import { useSpeechInput } from '../../../shared/hooks/useSpeechInput';
+import { useGuardedSpeechInput } from '../hooks/useGuardedSpeechInput';
 import { useContentStore } from '../store/useContentStore';
 
 const PLAY_PATH = "M8 5v14l11-7z";
@@ -49,7 +49,7 @@ export function Toolbar({
   const { aiPanelOpen, setAiPanelOpen } = useWritingSettings();
   const setContent = useContentStore(s => s.setContent);
 
-  const { isListening, startListening, stopListening, hasSupport } = useSpeechInput({
+  const { isListening, toggleListening, hasSupport, isVaultActive } = useGuardedSpeechInput({
     onTranscript: (text) => {
       // Read the latest content from the store — a captured `content` would be stale
       // across successive utterances (continuous dictation) and overwrite earlier text.
@@ -131,19 +131,39 @@ export function Toolbar({
         {hasSupport && (
           <motion.button
             type="button"
-            onClick={isListening ? stopListening : startListening}
-            title={isListening ? t('voice_stop') : t('voice_start')}
-            aria-label={isListening ? t('voice_stop') : t('voice_start')}
+            onClick={() => { void toggleListening(); }}
+            title={
+              isListening
+                ? t('voice_stop')
+                : isVaultActive
+                ? `${t('voice_start')} (${t('voice_vault_badge')})`
+                : t('voice_start')
+            }
+            aria-label={
+              isListening
+                ? t('voice_stop')
+                : isVaultActive
+                ? `${t('voice_start')} (${t('voice_vault_badge')})`
+                : t('voice_start')
+            }
             whileTap={{ scale: 0.82 }}
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             className={cn(
-              "w-9 h-9 flex items-center justify-center transition-colors rounded-lg clickable-target-expansion",
+              "relative w-9 h-9 flex items-center justify-center transition-colors rounded-lg clickable-target-expansion",
               isListening
                 ? "text-accent-danger bg-accent-danger/10 hover:bg-accent-danger/20 animate-pulse"
+                : isVaultActive
+                ? "text-accent-warning/80 hover:text-accent-warning hover:bg-accent-warning/10"
                 : "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
             )}
           >
             {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            {isVaultActive && !isListening && (
+              <span
+                className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent-warning pointer-events-none"
+                title={t('voice_vault_badge')}
+              />
+            )}
           </motion.button>
         )}
 

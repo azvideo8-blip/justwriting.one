@@ -54,28 +54,38 @@ export function useDraftManager(
     );
   }, [wrapSave]);
 
+  const content = useContentStore(s => s.content);
+  const title = useContentStore(s => s.title);
+
+  // Depend on the boolean, not the text: with `content` in the deps the 30s
+  // interval restarts on every keystroke and never fires while someone types
+  // continuously — the case it exists for.
+  const hasContent = Boolean(content.trim() || title.trim());
+
   useEffect(() => {
-    if (timerStatus !== 'writing' && timerStatus !== 'paused') return;
-    const timeout = setTimeout(() => void doAutosave(), 3_000);
+    const isTimerActive = timerStatus === 'writing' || timerStatus === 'paused';
+    if (!isTimerActive && !hasContent) return;
+
+    // S-8: 3s initial timer persists session row on timer start if content is empty; 30s interval saves periodically.
+    const timeout = isTimerActive && !hasContent ? setTimeout(() => void doAutosave(), 3_000) : undefined;
     const interval = setInterval(() => void doAutosave(), 30_000);
-    return () => { clearTimeout(timeout); clearInterval(interval); };
-  }, [doAutosave, timerStatus]);
+    return () => {
+      if (timeout) clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [doAutosave, timerStatus, hasContent]);
 
   // Mirror of the authenticated debounce in useDraftAutosave: without it a guest is
   // only saved by the 30s interval above, so a crash mid-sentence can cost half a
   // minute of writing. A flat delay is enough here because this path writes to
   // IndexedDB only — the authenticated path uses 5s on mobile to protect the
   // Cloud write quotas, which do not apply to guests.
-  const content = useContentStore(s => s.content);
-  const title = useContentStore(s => s.title);
   useEffect(() => {
-    if (timerStatus !== 'writing' && timerStatus !== 'paused') return;
-    // Nothing written yet: the 3s timeout above already persists the session row,
-    // so firing here too would just duplicate that write on every session start.
-    if (!content) return;
+    // S-8: Save within 1s of content changing, regardless of timer status.
+    if (!hasContent) return;
     const timeout = setTimeout(() => void doAutosave(), 1_000);
     return () => clearTimeout(timeout);
-  }, [content, title, timerStatus, doAutosave]);
+  }, [content, title, hasContent, doAutosave]);
 
   useVisibilitySave(doAutosave, () => getDraftData().content);
 

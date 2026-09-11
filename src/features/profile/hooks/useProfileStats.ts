@@ -3,6 +3,7 @@ import type { AppUser } from '../../../core/auth/types';
 import { Session } from '../../../types';
 import { loadAllSessions } from '../../../core/services/UnifiedSessionLoader';
 import { calculateStreak, consumeStreakFreezes } from '../../../core/utils/utils';
+import { syncStreakFreezesWithCloud } from '../../../core/utils/streakFreeze';
 import { toTimestampMs } from '../../../core/utils/dateUtils';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -149,10 +150,18 @@ export function useProfileStats(userId: string, user: AppUser | null) {
       try {
         const result = await loadAllSessions(userId, user);
         if (cancelled) return;
+        if (user && !userId.startsWith('guest')) {
+          try {
+            await syncStreakFreezesWithCloud(userId);
+          } catch {
+            // offline fallback
+          }
+        }
+        if (cancelled) return;
         const loaded = result.sessions as StatsSession[];
         const docStats = computeDocStats(loaded);
-        const frozen = consumeStreakFreezes(result.sessions);
-        const streakVal = calculateStreak(result.sessions, frozen);
+        const frozen = consumeStreakFreezes(result.sessions, userId);
+        const streakVal = calculateStreak(result.sessions, frozen, userId);
         const kpi = computeKPIStats(result.sessions, docStats);
         const data: ProfileStatsData = {
           sessions: result.sessions,

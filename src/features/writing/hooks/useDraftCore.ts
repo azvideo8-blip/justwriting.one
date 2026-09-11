@@ -22,7 +22,18 @@ interface UseDraftCoreOptions {
   onError?: (err: unknown, action: string) => void;
 }
 
-const PERMANENT_ERRORS = new Set(['permission-denied', 'unauthenticated', 'invalid-argument', 'failed-precondition']);
+const PERMANENT_ERRORS = new Set([
+  'permission-denied',
+  'unauthenticated',
+  'invalid-argument',
+  'failed-precondition',
+  '23514', // Postgres check_violation (e.g. drafts_title_check / drafts_content_check)
+  '42501', // Postgres insufficient_privilege
+  '400',
+  '401',
+  '403',
+  'PGRST100',
+]);
 
 export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
   const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>('idle');
@@ -97,8 +108,18 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
       // fall through both branches: it neither proves the cloud copy is current
       // nor that it is stale, so it leaves the sticky flag exactly as it was.
       if (res && res.remoteOk === false) {
-        const code = (res.remoteError as { code?: unknown } | undefined)?.code;
-        const isPermanent = typeof code === 'string' && PERMANENT_ERRORS.has(code);
+        const err = res.remoteError as { code?: unknown; status?: unknown; message?: unknown; details?: unknown } | undefined;
+        const code = typeof err?.code === 'string' ? err.code : typeof err?.code === 'number' ? String(err.code) : undefined;
+        const status = typeof err?.status === 'string' ? err.status : typeof err?.status === 'number' ? String(err.status) : undefined;
+        const message = typeof err?.message === 'string' ? err.message : '';
+        const details = typeof err?.details === 'string' ? err.details : '';
+
+        const isPermanent = (code !== undefined && PERMANENT_ERRORS.has(code)) ||
+          (status !== undefined && PERMANENT_ERRORS.has(status)) ||
+          message.includes('check constraint') ||
+          message.includes('23514') ||
+          details.includes('check constraint');
+
         if (isPermanent) setRemotePermanentError(true);
 
         remoteFailCountRef.current += 1;
@@ -160,7 +181,7 @@ export function useSyncUnloadSave(
     const handleBeforeUnload = () => {
       const contentState = useContentStore.getState();
       const timerState_ = useTimerStore.getState();
-      if (user && contentState.content.trim() && (timerState_.status === 'writing' || timerState_.status === 'paused')) {
+      if (user && (contentState.content.trim() || contentState.title.trim())) {
         try {
           // Гостевой фолбэк обязан попадать в ключ, который реально читается
           // при возврате (GuestDraftService → STORAGE_KEYS.GUEST_DRAFT).
@@ -178,6 +199,7 @@ export function useSyncUnloadSave(
             content: contentState.content,
             title: contentState.title,
             seconds: timerState_.seconds,
+            status: timerState_.status,
             wordCount: contentState.wordCount,
             pinnedThoughts: draftDataRef.current.pinnedThoughts ?? [],
             sessionStartTime: draftDataRef.current.sessionStartTime ?? null,

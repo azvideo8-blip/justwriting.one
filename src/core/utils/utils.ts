@@ -54,7 +54,7 @@ export function getSessionDates(session: Session): Date[] {
   return single ? [single] : [];
 }
 
-export function calculateStreak(sessions: Session[], frozen?: Set<string>): number {
+export function calculateStreak(sessions: Session[], frozen?: Set<string>, userId?: string | null): number {
   if (sessions.length === 0) return 0;
   
   const dates = sessions
@@ -72,7 +72,7 @@ export function calculateStreak(sessions: Session[], frozen?: Set<string>): numb
     return 0;
   }
   
-  const frozenDates = frozen ? new Set(frozen) : getFrozenDates();
+  const frozenDates = frozen ? new Set(frozen) : getFrozenDates(userId);
   const frozenMonths = new Set<string>();
   for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
   
@@ -108,13 +108,13 @@ export function calculateStreak(sessions: Session[], frozen?: Set<string>): numb
   return streak;
 }
 
-export function consumeStreakFreezes(sessions: Session[]): Set<string> {
-  if (sessions.length === 0) return getFrozenDates();
+export function consumeStreakFreezes(sessions: Session[], userId?: string | null): Set<string> {
+  if (sessions.length === 0) return getFrozenDates(userId);
   
   const dates = sessions
     .flatMap(s => getSessionDates(s))
     .map(d => format(d, 'yyyy-MM-dd'));
-  if (dates.length === 0) return getFrozenDates();
+  if (dates.length === 0) return getFrozenDates(userId);
   const today = format(new Date(), 'yyyy-MM-dd');
   const uniqueDates = Array.from(new Set(dates))
     .filter(d => d <= today)
@@ -123,10 +123,10 @@ export function consumeStreakFreezes(sessions: Session[]): Set<string> {
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
   
   if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
-    return getFrozenDates();
+    return getFrozenDates(userId);
   }
   
-  const frozenDates = getFrozenDates();
+  const frozenDates = getFrozenDates(userId);
   const frozenMonths = new Set<string>();
   for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
   let freezesChanged = false;
@@ -159,7 +159,7 @@ export function consumeStreakFreezes(sessions: Session[]): Set<string> {
   }
   
   if (freezesChanged) {
-    saveFrozenDates(frozenDates);
+    saveFrozenDates(frozenDates, userId);
   }
   return frozenDates;
 }
@@ -170,7 +170,7 @@ export function consumeStreakFreezes(sessions: Session[]): Set<string> {
 // функция писала свой Set поверх чужого: два вычислителя строили Set из
 // getFrozenDates() в разное время, и тот, кто сохранял последним, откатывал
 // добавленное первым.
-export function calculateBestStreak(sessions: Session[], frozen?: Set<string>): number {
+export function calculateBestStreak(sessions: Session[], frozen?: Set<string>, userId?: string | null): number {
   if (sessions.length === 0) return 0;
   const today = format(new Date(), 'yyyy-MM-dd');
   const dates = new Set(
@@ -186,7 +186,7 @@ export function calculateBestStreak(sessions: Session[], frozen?: Set<string>): 
     .sort((a, b) => a - b);
   if (sorted.length === 0) return 0;
   
-  const frozenDates = new Set(frozen ?? getFrozenDates());
+  const frozenDates = new Set(frozen ?? getFrozenDates(userId));
   const frozenMonths = new Set<string>();
   for (const d of frozenDates) frozenMonths.add(d.substring(0, 7));
 

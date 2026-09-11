@@ -181,6 +181,8 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     throw new AiError('internal', 'AI summarization failed.');
   }
 
+  callRes.markProduced(text.length);
+
   let rawParsed: unknown;
   try {
     let textToParse = text.trim();
@@ -190,7 +192,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     try { rawParsed = JSON.parse(textToParse); }
     catch { rawParsed = JSON.parse(repairTruncatedJson(textToParse)); console.warn('[AI summarize] recovered truncated JSON'); }
   } catch {
-    await callRes.settle('failed');
+    await callRes.settle('failed', { tokensIn, tokensOut, model: usedModel });
     console.error('[AI summarize] failed to parse model output, length:', text.length);
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
@@ -199,9 +201,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
 
   const validated = summarySchema.safeParse(rawParsed);
   if (!validated.success) {
-    // Тот же refund-регион, что у фейла парса: за мусор от модели платит
-    // провайдер, а не человек.
-    await callRes.settle('failed');
+    await callRes.settle('failed', { tokensIn, tokensOut, model: usedModel });
     console.error('[AI summarize] model output failed schema:', validated.error.issues.length, 'issues');
     generation?.end({ level: 'ERROR' });
     if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
@@ -209,7 +209,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   }
   const parsed_json: ParsedJson = validated.data;
 
-  callRes.markProduced(text.length);
   await callRes.settle('done');
   generation?.end({ usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }, reservation)

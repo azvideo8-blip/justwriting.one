@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
-import { useTimerStore } from '../store/useTimerStore';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -33,8 +32,7 @@ export function useDraftAutosave(
   const doAutosaveLocal = useCallback(async () => {
     if (!user) return;
     const current = draftDataRef.current;
-    const storeStatus = useTimerStore.getState().status;
-    if (storeStatus !== 'writing' && storeStatus !== 'paused') return;
+    if (!current.content.trim() && !current.title.trim()) return;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: false });
@@ -49,8 +47,7 @@ export function useDraftAutosave(
   const doAutosaveRemote = useCallback(async () => {
     if (!user) return;
     const current = draftDataRef.current;
-    const storeStatus = useTimerStore.getState().status;
-    if (storeStatus !== 'writing' && storeStatus !== 'paused') return;
+    if (!current.content.trim() && !current.title.trim()) return;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: true });
@@ -62,10 +59,8 @@ export function useDraftAutosave(
 
   const doForceSave = useCallback(async () => {
     if (!user) return;
-    const storeStatus = useTimerStore.getState().status;
-    if (storeStatus === 'idle') return;
     const current = draftDataRef.current;
-    if (current.status === 'idle') return;
+    if (!current.content.trim() && !current.title.trim()) return;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: true });
@@ -107,22 +102,23 @@ export function useDraftAutosave(
 
   // Debounce: save LOCALLY shortly after the user stops typing to avoid cloud write-quota exhaustion.
   useEffect(() => {
-    const currentStatus = useTimerStore.getState().status;
-    if ((currentStatus === 'writing' || currentStatus === 'paused') && user) {
+    if (user && (draftData.content.trim() || draftData.title.trim())) {
       const debounceDelay = layoutMode === 'mobile' ? 5000 : 500;
       const timeout = setTimeout(() => void wrappedAutosaveLocal(), debounceDelay);
       return () => clearTimeout(timeout);
     }
-  }, [draftData.status, draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosaveLocal, layoutMode]);
+  }, [draftData.content, draftData.title, draftData.wordCount, user, wrappedAutosaveLocal, layoutMode]);
 
   // Interval safety net: save to cloud (remote) every 30s even if the user types continuously.
+  // Boolean dep on purpose: keyed on the text itself the interval would restart
+  // on every keystroke and the "safety net" would never fire while typing.
+  const hasDraftText = Boolean(draftData.content.trim() || draftData.title.trim());
   useEffect(() => {
     if (!user || remotePermanentError) return;
-    const currentStatus = useTimerStore.getState().status;
-    if (currentStatus !== 'writing' && currentStatus !== 'paused') return;
+    if (!hasDraftText) return;
     const interval = setInterval(() => void wrappedAutosaveRemote(), 30_000);
     return () => clearInterval(interval);
-  }, [user, wrappedAutosaveRemote, draftData.status, remotePermanentError]);
+  }, [user, wrappedAutosaveRemote, hasDraftText, remotePermanentError]);
 
   return { saveStatus: saveStatus as DraftSaveStatus, lastSavedAt };
 }

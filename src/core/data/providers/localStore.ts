@@ -106,3 +106,21 @@ export async function deleteLocalStoreRecordsByStore(userId: string, store: stri
     .eq('store', store);
   if (error != null) throw error;
 }
+
+export async function deleteLocalStoreRecordsByStores(userId: string, stores: string[]): Promise<void> {
+  if (stores.length === 0) return;
+  const { error } = await getSupabase()
+    .from('local_store_records')
+    .delete()
+    .eq('user_id', userId)
+    .in('store', stores);
+  if (error != null) throw error;
+}
+
+export async function deleteAllLocalStoreRecords(userId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('local_store_records')
+    .delete()
+    .eq('user_id', userId);
+  if (error != null) throw error;
+}

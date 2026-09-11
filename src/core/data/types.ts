@@ -51,11 +51,13 @@ export interface IDataProvider {
   saveSummary(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
   getUserSummaries(userId: string): Promise<ProviderRecord[]>;
   deleteSummary(userId: string, documentId: string): Promise<void>;
+  deleteAllSummaries(userId: string): Promise<void>;
 
   // --- AI Embedding Operations ---
   getEmbedding(userId: string, documentId: string): Promise<ProviderRecord | null>;
   saveEmbedding(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
   deleteEmbedding(userId: string, documentId: string): Promise<void>;
+  deleteAllEmbeddings(userId: string): Promise<void>;
   getUserEmbeddings(userId: string): Promise<ProviderRecord[]>;
   getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }>;
   getEmbeddingsPage(userId: string, limitCount: number, startAfterId?: string): Promise<ProviderRecord[]>;
@@ -81,6 +83,8 @@ export interface IDataProvider {
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStorePagedRecords?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
+  deleteLocalStoreRecordsByStores(userId: string, stores: string[]): Promise<void>;
+  deleteAllLocalStoreRecords?(userId: string): Promise<void>;
 
   // --- Migration ---
   getMigrationDrafts(userId: string): Promise<{ id: string; data: ProviderRecord }[]>;

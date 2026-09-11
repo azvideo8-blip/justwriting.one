@@ -38,7 +38,7 @@ export interface AiContext {
   checkAndIncrementLimit(
     uid: string,
     reasoning?: boolean,
-  ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT'>;
+  ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'>;
   /** Согласие на обработку специальных категорий (AUD-2). Серверный гейт:
    *  клиентский обходится прямым POST /api/chat. */
   getAiConsent(uid: string): Promise<{ granted: boolean }>;
@@ -52,6 +52,7 @@ export interface AiContext {
 export interface LimitVerdict {
   ok: boolean;
   day: string;
+  reason?: 'unavailable' | 'unauthorized' | 'limit_exceeded';
 }
 
 /** Error thrown by .logic.ts files in place of HttpsError. */

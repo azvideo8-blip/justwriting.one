@@ -68,6 +68,15 @@ export function DesktopWritingLayout() {
     }
   }, [session.status, keystrokeTrackerRef, handlePlayRef]);
 
+  const handleEditorInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
+    if (session.status === 'idle' || session.status === 'paused') {
+      const val = (e.target as HTMLTextAreaElement).value;
+      if (val.length > 0) {
+        handlePlayRef.current();
+      }
+    }
+  }, [session.status, handlePlayRef]);
+
   React.useEffect(() => {
     const el = editorColRef.current;
     if (!el) return;
@@ -173,6 +182,7 @@ export function DesktopWritingLayout() {
             ) : (
             <WritingEditor
               onKeyDown={handleEditorKeyDown}
+              onInput={handleEditorInput}
             />
             )}
           </div>

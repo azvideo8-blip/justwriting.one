@@ -72,6 +72,8 @@ function hasDraftsStore(localDb: { objectStoreNames: DOMStringList }): boolean {
 }
 
 export const WritingDraftService = {
+  _cloudDraftLocked: false,
+  isCloudDraftLocked: () => WritingDraftService._cloudDraftLocked,
   getDraftGeneration,
   bumpDraftGeneration,
 
@@ -117,7 +119,20 @@ export const WritingDraftService = {
 
     const localDraft: LocalDraft | null = localResult.status === 'fulfilled' ? localResult.value : null;
     const legacyDraft: LocalDraft | null = legacyResult.status === 'fulfilled' ? legacyResult.value : null;
-    const cloudDraft: LocalDraft | null = cloudResult.status === 'fulfilled' ? cloudResult.value : null;
+    let cloudDraft: LocalDraft | null = null;
+
+    if (cloudResult.status === 'fulfilled') {
+      cloudDraft = cloudResult.value;
+      WritingDraftService._cloudDraftLocked = false;
+    } else {
+      const reason = cloudResult.reason as Error | undefined;
+      if (
+        reason?.message?.startsWith('LOCKED') ||
+        reason?.message?.includes('session key not available')
+      ) {
+        WritingDraftService._cloudDraftLocked = true;
+      }
+    }
 
     const resolvedLocal = localDraft || legacyDraft;
 

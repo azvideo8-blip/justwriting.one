@@ -12,6 +12,8 @@ const clientQueries: CapturedQuery[] = [];
 
 let poolResult: { rows: unknown[] } = { rows: [{ tokens_reserved: 8192 }] };
 let poolShouldThrow: Error | null = null;
+let poolConnectShouldThrow: Error | null = null;
+let clientQueryShouldThrow: Error | null = null;
 let clientResults: Array<{ rows: unknown[] }> = [];
 
 vi.mock('pg', () => {
@@ -21,14 +23,18 @@ vi.mock('pg', () => {
       if (poolShouldThrow) throw poolShouldThrow;
       return poolResult;
     });
-    connect = vi.fn(async () => ({
-      query: vi.fn(async (text: string, params?: unknown[]) => {
-        clientQueries.push({ text, params: params ?? [] });
-        const r = clientResults.shift() ?? { rows: [] };
-        return r;
-      }),
-      release: vi.fn(),
-    }));
+    connect = vi.fn(async () => {
+      if (poolConnectShouldThrow) throw poolConnectShouldThrow;
+      return {
+        query: vi.fn(async (text: string, params?: unknown[]) => {
+          clientQueries.push({ text, params: params ?? [] });
+          if (clientQueryShouldThrow) throw clientQueryShouldThrow;
+          const r = clientResults.shift() ?? { rows: [] };
+          return r;
+        }),
+        release: vi.fn(),
+      };
+    });
   }
   return { Pool: FakePool };
 });
@@ -42,6 +48,8 @@ beforeEach(() => {
   clientQueries.length = 0;
   poolResult = { rows: [{ tokens_reserved: 8192 }] };
   poolShouldThrow = null;
+  poolConnectShouldThrow = null;
+  clientQueryShouldThrow = null;
   clientResults = [];
 });
 
@@ -114,7 +122,7 @@ describe('2.19 refunds target the charged day', () => {
       { rows: [{ call_count: 1 }] },      // daily limit insert
     ];
     const verdict = await postgresAiContext.checkAndIncrementLimit('u1');
-    if (verdict === 'DAILY_LIMIT' || verdict === 'RATE_LIMIT') throw new Error('expected success');
+    if (typeof verdict !== 'object' || verdict === null || !('ok' in verdict)) throw new Error('expected success');
     expect(verdict.ok).toBe(true);
     expect(verdict.day).toBe(TODAY);
   });
@@ -122,7 +130,7 @@ describe('2.19 refunds target the charged day', () => {
   it('checkAndIncrementBulkLimit returns a verdict object with day', async () => {
     clientResults = [{ rows: [{ call_count: 1 }] }];
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1');
-    if (verdict === 'RATE_LIMIT') throw new Error('expected success');
+    if (typeof verdict !== 'object' || verdict === null || !('ok' in verdict)) throw new Error('expected success');
     expect(verdict.ok).toBe(true);
     expect(verdict.day).toBe(TODAY);
   });
@@ -173,3 +181,47 @@ describe('AUD-18 bulk interval limit', () => {
     expect(clientQueries).toHaveLength(0);
   });
 });
+
+describe('S-15: limit check distinguishes unavailable/unauthorized from exhausted limit', () => {
+  it('checkDailyLimit returns reason: unavailable when pool.connect rejects', async () => {
+    poolConnectShouldThrow = new Error('connection refused');
+    const verdict = await postgresAiContext.checkDailyLimit('u1');
+    expect(verdict.ok).toBe(false);
+    expect(verdict.reason).toBe('unavailable');
+  });
+
+  it('checkDailyLimit returns reason: unauthorized on FK violation 23503', async () => {
+    const fkErr: any = new Error('foreign key violation');
+    fkErr.code = '23503';
+    clientQueryShouldThrow = fkErr;
+    const verdict = await postgresAiContext.checkDailyLimit('u1');
+    expect(verdict.ok).toBe(false);
+    expect(verdict.reason).toBe('unauthorized');
+  });
+
+  it('checkAndIncrementBulkLimit returns reason: unavailable when pool.connect rejects', async () => {
+    poolConnectShouldThrow = new Error('connection refused');
+    const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1');
+    expect(typeof verdict === 'object' && verdict.ok === false).toBe(true);
+    if (typeof verdict === 'object') {
+      expect(verdict.reason).toBe('unavailable');
+    }
+  });
+
+  it('checkAndIncrementLimit returns UNAVAILABLE when pool.connect rejects', async () => {
+    poolResult = { rows: [{ uid: 'u1' }] };
+    poolConnectShouldThrow = new Error('connection refused');
+    const verdict = await postgresAiContext.checkAndIncrementLimit('u1');
+    expect(verdict).toBe('UNAVAILABLE');
+  });
+
+  it('checkAndIncrementLimit returns UNAUTHORIZED on FK violation 23503', async () => {
+    poolResult = { rows: [{ uid: 'u1' }] };
+    const fkErr: any = new Error('foreign key violation');
+    fkErr.code = '23503';
+    clientQueryShouldThrow = fkErr;
+    const verdict = await postgresAiContext.checkAndIncrementLimit('u1');
+    expect(verdict).toBe('UNAUTHORIZED');
+  });
+});
+

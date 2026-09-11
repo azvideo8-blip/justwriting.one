@@ -24,6 +24,12 @@ export async function validateCustomPromptLogic(ctx: AiContext, uid: string, dat
   }
 
   const limitResult = await ctx.checkAndIncrementLimit(uid);
+  if (limitResult === 'UNAVAILABLE') {
+    throw new AiError('unavailable', 'The service could not check the daily limit.');
+  }
+  if (limitResult === 'UNAUTHORIZED') {
+    throw new AiError('unauthenticated', 'User no longer exists.');
+  }
   if (limitResult === 'DAILY_LIMIT') {
     throw new AiError('resource-exhausted', 'Daily limit reached.');
   }

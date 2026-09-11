@@ -8,6 +8,10 @@
  * | DECRYPT_FAILED_LATEST    | true   | true                | blocked-until-unlock |
  * | DECRYPTION_ERROR         | true   | false               | permanent            |
  * | Invalid sessionStartedAt | true   | false               | permanent            |
+ * | Document too large       | true   | false               | permanent            |
+ * | DUPLICATE_UUID_COLLISION | true   | false               | permanent            |
+ * | Cloud document not found | true   | false               | permanent            |
+ * | EMPTY_CLOUD_DOCUMENT     | true   | false               | permanent            |
  * | SYNC_UNRESOLVED          | false  | true                | transient            |
  *
  * NOTE: The server returns some of these as `{ code: '...' }` (or `{ error: { code: '...' } }`)
@@ -33,6 +37,10 @@ export const SYNC_ERROR_RULES: readonly SyncErrorRule[] = [
   { code: 'DECRYPT_FAILED_LATEST',  poison: true,  revivableOnUnlock: true,  category: 'blocked-until-unlock' },
   { code: 'DECRYPTION_ERROR',       poison: true,  revivableOnUnlock: false, category: 'permanent' },
   { code: 'Invalid sessionStartedAt', poison: true, revivableOnUnlock: false, category: 'permanent' },
+  { code: 'Document too large',     poison: true,  revivableOnUnlock: false, category: 'permanent' },
+  { code: 'DUPLICATE_UUID_COLLISION', poison: true, revivableOnUnlock: false, category: 'permanent' },
+  { code: 'Cloud document not found', poison: true, revivableOnUnlock: false, category: 'permanent' },
+  { code: 'EMPTY_CLOUD_DOCUMENT',   poison: true,  revivableOnUnlock: false, category: 'permanent' },
   { code: 'SYNC_UNRESOLVED',        poison: false, revivableOnUnlock: true,  category: 'transient' },
 ];
 

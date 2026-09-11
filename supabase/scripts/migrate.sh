@@ -112,8 +112,7 @@ apply_pending() {
     fi
     
     echo "Applying migration: $f..."
-    run_sql < "$MIGRATIONS_DIR/$f"
-    run_sql -c "INSERT INTO public.applied_migrations (filename) VALUES ('$f');"
+    (cat "$MIGRATIONS_DIR/$f"; printf "\nINSERT INTO public.applied_migrations (filename) VALUES ('%s');\n" "$f") | run_sql --single-transaction
     echo "✓ Applied and recorded: $f"
     applied_count=$((applied_count + 1))
   done

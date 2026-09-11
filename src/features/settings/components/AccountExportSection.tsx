@@ -155,6 +155,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       } catch (jsonErr) {
         setImportResult({
           success: false,
+          unreadableDateCount: 0,
           imported: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
           skipped: { documents: 0, versions: 0, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {}, details: [] },
           droppedOnPurpose: { peopleIndexRecords: 0, summariesWithMentionedPeople: 0, unknownStores: {}, verbatimDenied: {} },
@@ -376,6 +377,13 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                           importResult.droppedOnPurpose.peopleIndexRecords +
                             importResult.droppedOnPurpose.summariesWithMentionedPeople
                         ),
+                      })}
+                    </div>
+                  )}
+                  {importResult.unreadableDateCount !== undefined && importResult.unreadableDateCount > 0 && (
+                    <div className="text-amber-400">
+                      {t('settings_migration_import_date_warning', {
+                        count: String(importResult.unreadableDateCount),
                       })}
                     </div>
                   )}

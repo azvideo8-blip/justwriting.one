@@ -31,7 +31,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
 
     vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue(cloudDocs);
     vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue(localDocs);
-    const addLocalCopySpy = vi.spyOn(StorageService, 'addLocalCopy').mockResolvedValue('local_new');
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('local_new');
     const addCloudCopySpy = vi.spyOn(StorageService, 'addCloudCopy');
     const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
 
@@ -62,7 +62,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
 
     vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue(cloudDocs);
     vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue(localDocs);
-    const addLocalCopySpy = vi.spyOn(StorageService, 'addLocalCopy').mockResolvedValue('loc_2');
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockResolvedValue('loc_2');
     const addCloudCopySpy = vi.spyOn(StorageService, 'addCloudCopy');
 
     const result = await SyncService.downloadAllFromCloud(userId);
@@ -78,11 +78,11 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
     vi.spyOn(encryptModule, 'getSessionKey').mockReturnValue(null);
 
     const getUserDocsSpy = vi.spyOn(DocumentService, 'getUserDocuments');
-    const addLocalCopySpy = vi.spyOn(StorageService, 'addLocalCopy');
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy');
 
     const result = await SyncService.downloadAllFromCloud(userId);
 
-    expect(result).toEqual({ downloaded: 0, skipped: 0, failed: 0 });
+    expect(result).toEqual({ downloaded: 0, skipped: 0, failed: 0, locked: true });
     expect(getUserDocsSpy).not.toHaveBeenCalled();
     expect(addLocalCopySpy).not.toHaveBeenCalled();
   });
@@ -97,11 +97,40 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
 
     vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue(cloudDocs);
     vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue(localDocs);
-    const addLocalCopySpy = vi.spyOn(StorageService, 'addLocalCopy');
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy');
 
     const result = await SyncService.downloadAllFromCloud(userId);
 
     expect(result).toEqual({ downloaded: 0, skipped: 1, failed: 0 });
+    expect(addLocalCopySpy).not.toHaveBeenCalled();
+  });
+
+  it('S-1: coalesces concurrent calls into a single in-flight download per user', async () => {
+    const cloudDocs = [{ id: 'cloud_1', title: 'Note 1' }] as any[];
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue(cloudDocs);
+    vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue([]);
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy').mockImplementation(async () => {
+      await new Promise(r => setTimeout(r, 10));
+      return 'local_1';
+    });
+
+    const [res1, res2] = await Promise.all([
+      SyncService.downloadAllFromCloud(userId),
+      SyncService.downloadAllFromCloud(userId),
+    ]);
+
+    expect(res1).toEqual({ downloaded: 1, skipped: 0, failed: 0 });
+    expect(res2).toEqual({ downloaded: 1, skipped: 0, failed: 0 });
+    expect(addLocalCopySpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('S-2: propagates error when relinkOrphanedDocuments throws and halts download', async () => {
+    vi.spyOn(CloudSyncService, 'relinkOrphanedDocuments').mockRejectedValue(new Error('Network error during relink'));
+    const getUserDocsSpy = vi.spyOn(DocumentService, 'getUserDocuments');
+    const addLocalCopySpy = vi.spyOn(CloudSyncService, 'addLocalCopy');
+
+    await expect(SyncService.downloadAllFromCloud(userId)).rejects.toThrow('Network error during relink');
+    expect(getUserDocsSpy).not.toHaveBeenCalled();
     expect(addLocalCopySpy).not.toHaveBeenCalled();
   });
 });

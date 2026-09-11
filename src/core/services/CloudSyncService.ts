@@ -20,6 +20,11 @@ import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { computeWordDelta } from './DiffService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
 import { withDocumentLock } from '../sync/withDocumentLock';
+import { logger } from '../../shared/errors/logger';
+import pLimit from 'p-limit';
+
+const _activeDownloadPromises = new Map<string, Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }>>();
+const downloadLimit = pLimit(5);
 
 export interface RelinkResult {
   relinked: number;
@@ -59,9 +64,9 @@ export const CloudSyncService = {
   async restoreMissingDocuments(
     userId: string,
     opts?: { force?: boolean; onProgress?: (current: number, total: number) => void },
-  ): Promise<{ restored: number; hasMore: boolean }> {
+  ): Promise<{ restored: number; hasMore: boolean; locked?: boolean }> {
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
-      return { restored: 0, hasMore: false };
+      return { restored: 0, hasMore: false, locked: true };
     }
 
     if (!opts?.force) {
@@ -74,40 +79,82 @@ export const CloudSyncService = {
     // We update the timestamp only if we are actually going to list.
     localStorage.setItem('last_restore_listing_ts', Date.now().toString());
 
-    const cloudDocs = await DocumentService.getUserDocuments(userId);
-    if (!cloudDocs.length) return { restored: 0, hasMore: false };
+    const res = await CloudSyncService.downloadAllFromCloud(userId, opts?.onProgress ? { onProgress: opts.onProgress } : undefined);
+    return {
+      restored: res.downloaded,
+      hasMore: false,
+      ...(res.locked !== undefined ? { locked: res.locked } : {}),
+    };
+  },
 
-    cloudDocs.sort((a, b) => {
-      const aTime = a.lastSessionAt?.getTime() ?? 0;
-      const bTime = b.lastSessionAt?.getTime() ?? 0;
-      return bTime - aTime;
-    });
-
-    const localDocs = await LocalStorageService.getDocumentsByOwner(userId);
-    await relinkOrphaned(localDocs, cloudDocs);
-    const localCloudIds = new Set(localDocs.map(d => d.linkedCloudId).filter(Boolean));
-
-    const missingDocs = cloudDocs.filter(doc => !localCloudIds.has(doc.id));
-    // Полный проход: восстанавливаем все недостающие документы за этот вызов.
-    // Флаг оставлен, потому что оба вызывающих его деструктурируют
-    // (useBackgroundSync, RestoreFromCloudModal); по построению он всегда
-    // false. Если когда-нибудь понадобится пагинация — сначала добавить цикл
-    // повторного вызова в ОБОИХ вызывающих: сейчас ни один не циклит.
-    let restored = 0;
-    const hasMore = false;
-
-    for (let i = 0; i < missingDocs.length; i++) {
-      const doc = missingDocs[i]!;
-      opts?.onProgress?.(i + 1, missingDocs.length);
-      try {
-        await CloudSyncService.addLocalCopy(userId, doc.id);
-        restored++;
-      } catch (err) {
-        reportError(err, { action: 'restoreMissingDocuments_doc', cloudId: doc.id });
-      }
+  /**
+   * S-1: one download at a time per user, whichever entry point started it
+   * (auth mount, online recovery, vault unlock, the settings button, the daily
+   * background restore). A second caller joins the running promise.
+   */
+  async downloadAllFromCloud(
+    userId: string,
+    opts?: { onProgress?: (current: number, total: number) => void }
+  ): Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }> {
+    if (getEncryptionEnabled(userId) && !getSessionKey()) {
+      return { downloaded: 0, skipped: 0, failed: 0, locked: true };
     }
 
-    return { restored, hasMore };
+    const active = _activeDownloadPromises.get(userId);
+    if (active) return active;
+
+    const run = async () => {
+      // S-2: Do NOT catch relinkOrphanedDocuments error here. A download that could not relink must stop.
+      await CloudSyncService.relinkOrphanedDocuments(userId);
+
+      const [cloudDocs, localDocs] = await Promise.all([
+        DocumentService.getUserDocuments(userId),
+        LocalStorageService.getDocumentsByOwner(userId),
+      ]);
+
+      const linkedCloudMap = new Map(localDocs.filter(d => d.linkedCloudId).map(d => [d.linkedCloudId!, d]));
+      const localUuidSet = new Set(localDocs.map(d => d.uuid).filter(Boolean));
+      // S-2: The uuid check is the second line of defence. It does not cover documents
+      // created before UUID backfill; for those, relinkOrphanedDocuments above is the sole protection.
+      const toDownload = cloudDocs.filter(d => !linkedCloudMap.has(d.id) && (!d.uuid || !localUuidSet.has(d.uuid)));
+      const skipped = cloudDocs.length - toDownload.length;
+
+      const downloadResults = await Promise.allSettled(
+        toDownload.map((cloudDoc, idx) => downloadLimit(async () => {
+          opts?.onProgress?.(idx + 1, toDownload.length);
+          return CloudSyncService.addLocalCopy(userId, cloudDoc.id);
+        }))
+      );
+
+      let downloaded = 0;
+      let failed = 0;
+      for (const r of downloadResults) {
+        if (r.status === 'fulfilled') downloaded++;
+        else {
+          failed++;
+          logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) });
+        }
+      }
+
+      if (downloaded > 0) {
+        useActivityLogStore.getState().addActivity(
+          `Загружено заметок из облака: ${downloaded}`,
+          { action: 'downloadAllFromCloud', downloaded, skipped, failed },
+          'info',
+          'sync'
+        );
+      }
+
+      return { downloaded, skipped, failed };
+    };
+
+    const promise = run();
+    _activeDownloadPromises.set(userId, promise);
+    try {
+      return await promise;
+    } finally {
+      _activeDownloadPromises.delete(userId);
+    }
   },
 
   /**
@@ -129,138 +176,155 @@ export const CloudSyncService = {
   },
 
   async addLocalCopy(userId: string, cloudDocumentId: string): Promise<string> {
-    const allLocal = await LocalStorageService.getDocumentsByOwner(userId);
-    const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
-    if (existing) return existing.id;
+    return withDocumentLock(cloudDocumentId, async () => {
+      const allLocal = await LocalStorageService.getDocumentsByOwner(userId);
+      const existing = allLocal.find(d => d.linkedCloudId === cloudDocumentId);
+      if (existing) return existing.id;
 
-    const cloudDoc = await DocumentService.getDocument(userId, cloudDocumentId);
-    if (!cloudDoc) throw new Error('Cloud document not found');
-    if (cloudDoc._locked) throw new Error('LOCKED: cannot add local copy of locked document');
-    if (cloudDoc._decryptionError) throw new Error('DECRYPTION_ERROR: cannot add local copy of unreadable document');
+      const cloudDoc = await DocumentService.getDocument(userId, cloudDocumentId);
+      if (!cloudDoc) throw new Error('Cloud document not found');
+      if (cloudDoc._locked) throw new Error('LOCKED: cannot add local copy of locked document');
+      if (cloudDoc._decryptionError) throw new Error('DECRYPTION_ERROR: cannot add local copy of unreadable document');
 
-    const versions = await VersionService.getVersions(userId, cloudDocumentId);
-    const firstSessionMs = toDate(cloudDoc.firstSessionAt)?.getTime() ?? undefined;
-    const lastSessionMs = toDate(cloudDoc.lastSessionAt)?.getTime() ?? undefined;
-    const localId = await LocalStorageService.createDocument(userId, {
-      title: cloudDoc.title ?? '',
-      tags: cloudDoc.tags ?? [],
-      labelId: cloudDoc.labelId ?? undefined,
-      firstSessionAt: firstSessionMs ?? undefined,
-      lastSessionAt: lastSessionMs ?? undefined,
-      mood: cloudDoc.mood,
-      excludedFromAI: cloudDoc.excludedFromAI,
-    });
-
-    // Accept canonical uuid from the cloud doc if present; don't overwrite a
-    // local uuid when the cloud copy has none (backfill will assign one later).
-    if (cloudDoc.uuid) {
-      const db = await getLocalDb();
-      const tx = db.transaction('documents', 'readwrite');
-      const localDoc = await tx.store.get(localId);
-      if (localDoc) {
-        await tx.store.put({ ...localDoc, uuid: cloudDoc.uuid });
+      // S-5: Check versions before creating a local document.
+      // If the cloud document has 0 versions, do not create a zero-version local orphan.
+      const versions = await VersionService.getVersions(userId, cloudDocumentId);
+      if (!versions.length) {
+        throw new Error('EMPTY_CLOUD_DOCUMENT: Cloud document has no versions');
       }
-      await tx.done;
-    }
 
-    try {
-      let prevContent = '';
-      // Versions whose ciphertext could not be turned back into text. The local
-      // store holds PLAINTEXT, so a failed decrypt must never be written to it:
-      // `ver.content` is Base64 ciphertext, and saving it made the note read as
-      // gibberish that the app cannot tell from real writing — it would reach
-      // search, export, backups and the AI context.
-      const corruptedVersions: number[] = [];
-      const latestVersionNo = versions.reduce((max, v) => Math.max(max, v.version ?? 1), 0);
+      const firstSessionMs = toDate(cloudDoc.firstSessionAt)?.getTime() ?? undefined;
+      const lastSessionMs = toDate(cloudDoc.lastSessionAt)?.getTime() ?? undefined;
 
-      for (const ver of versions) {
-        let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
-        if (isNaN(startedAt.getTime())) startedAt = new Date();
+      let localId: string | undefined;
 
-        const verRecord: Record<string, unknown> = { ...ver };
-        let verContent: string | null = null;
-        let verMood: string | undefined = undefined;
-        try {
-          const decryptedVer = await maybeDecrypt(verRecord, ['content', 'mood'], []);
-          // A non-string here means the payload is not what we think it is —
-          // treated as corrupt rather than falling back to the raw field.
-          verContent = typeof decryptedVer.content === 'string' ? decryptedVer.content : null;
-          verMood = typeof decryptedVer.mood === 'string' ? decryptedVer.mood : (typeof ver.mood === 'string' ? ver.mood : undefined);
-        } catch (decErr) {
-          if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
-          if (!(decErr instanceof DecryptionError)) throw decErr;
-          verContent = null;
-        }
-
-        if (verContent === null) {
-          corruptedVersions.push(ver.version ?? 1);
-          continue;
-        }
-
-        await LocalVersionService.addVersion(userId, localId, {
-          content: verContent,
-          previousContent: prevContent,
-          wordCount: ver.wordCount,
-          duration: ver.duration,
-          wpm: ver.wpm,
-          versionNumber: ver.version ?? 1,
-          goalWords: ver.goalWords,
-          goalTime: ver.goalTime,
-          goalReached: ver.goalReached,
-          sessionStartedAt: startedAt,
-          savedAt: ver.savedAt ? toDate(ver.savedAt) ?? undefined : undefined,
-          mood: verMood,
+      try {
+        localId = await LocalStorageService.createDocument(userId, {
+          title: cloudDoc.title ?? '',
+          tags: cloudDoc.tags ?? [],
+          labelId: cloudDoc.labelId ?? undefined,
+          firstSessionAt: firstSessionMs ?? undefined,
+          lastSessionAt: lastSessionMs ?? undefined,
+          mood: cloudDoc.mood,
+          excludedFromAI: cloudDoc.excludedFromAI,
         });
-        prevContent = verContent;
-      }
 
-      // The newest version is what the note IS. If it could not be read, importing
-      // the rest would show older text as if it were current — worse than not
-      // having the note here at all, because nothing tells the user. The catch
-      // below deletes the half-built local document and rethrows.
-      if (corruptedVersions.includes(latestVersionNo)) {
-        throw new Error(`DECRYPT_FAILED_LATEST: cloud document ${cloudDocumentId} version ${latestVersionNo}`);
-      }
+        // S-1: Accept canonical uuid from the cloud doc inside the try block
+        // so that a unique constraint collision cleans up the localId properly.
+        if (cloudDoc.uuid) {
+          const db = await getLocalDb();
+          const tx = db.transaction('documents', 'readwrite');
+          const localDoc = await tx.store.get(localId);
+          if (localDoc) {
+            await tx.store.put({ ...localDoc, uuid: cloudDoc.uuid });
+          }
+          await tx.done;
+        }
 
-      if (corruptedVersions.length > 0) {
-        reportError(
-          new Error(`Skipped ${corruptedVersions.length} unreadable version(s) while importing a note`),
-          { action: 'addLocalCopy_corruptedVersions', cloudDocumentId, versions: corruptedVersions.join(',') },
-          'warning',
-        );
+        let prevContent = '';
+        // Versions whose ciphertext could not be turned back into text. The local
+        // store holds PLAINTEXT, so a failed decrypt must never be written to it:
+        // `ver.content` is Base64 ciphertext, and saving it made the note read as
+        // gibberish that the app cannot tell from real writing — it would reach
+        // search, export, backups and the AI context.
+        const corruptedVersions: number[] = [];
+        const latestVersionNo = versions.reduce((max, v) => Math.max(max, v.version ?? 1), 0);
+
+        for (const ver of versions) {
+          let startedAt = toDate(ver.sessionStartedAt) ?? toDate(ver.savedAt) ?? new Date();
+          if (isNaN(startedAt.getTime())) startedAt = new Date();
+
+          const verRecord: Record<string, unknown> = { ...ver };
+          let verContent: string | null = null;
+          let verMood: string | undefined = undefined;
+          try {
+            const decryptedVer = await maybeDecrypt(verRecord, ['content', 'mood'], []);
+            // A non-string here means the payload is not what we think it is —
+            // treated as corrupt rather than falling back to the raw field.
+            verContent = typeof decryptedVer.content === 'string' ? decryptedVer.content : null;
+            verMood = typeof decryptedVer.mood === 'string' ? decryptedVer.mood : (typeof ver.mood === 'string' ? ver.mood : undefined);
+          } catch (decErr) {
+            if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+            if (!(decErr instanceof DecryptionError)) throw decErr;
+            verContent = null;
+          }
+
+          if (verContent === null) {
+            corruptedVersions.push(ver.version ?? 1);
+            continue;
+          }
+
+          await LocalVersionService.addVersion(userId, localId, {
+            content: verContent,
+            previousContent: prevContent,
+            wordCount: ver.wordCount,
+            duration: ver.duration,
+            wpm: ver.wpm,
+            versionNumber: ver.version ?? 1,
+            goalWords: ver.goalWords,
+            goalTime: ver.goalTime,
+            goalReached: ver.goalReached,
+            sessionStartedAt: startedAt,
+            savedAt: ver.savedAt ? toDate(ver.savedAt) ?? undefined : undefined,
+            mood: verMood,
+          });
+          prevContent = verContent;
+        }
+
+        // The newest version is what the note IS. If it could not be read, importing
+        // the rest would show older text as if it were current — worse than not
+        // having the note here at all, because nothing tells the user. The catch
+        // below deletes the half-built local document and rethrows.
+        if (corruptedVersions.includes(latestVersionNo)) {
+          throw new Error(`DECRYPT_FAILED_LATEST: cloud document ${cloudDocumentId} version ${latestVersionNo}`);
+        }
+
+        if (corruptedVersions.length > 0) {
+          reportError(
+            new Error(`Skipped ${corruptedVersions.length} unreadable version(s) while importing a note`),
+            { action: 'addLocalCopy_corruptedVersions', cloudDocumentId, versions: corruptedVersions.join(',') },
+            'warning',
+          );
+          useActivityLogStore.getState().addActivity(
+            `Часть истории заметки не читается и пропущена (версий: ${corruptedVersions.length})`,
+            { action: 'addLocalCopy_corruptedVersions', cloudDocumentId },
+            'warning',
+            'sync',
+          );
+        }
+
+        await LocalStorageService.updateDocument(localId, {
+          totalWords: cloudDoc.totalWords,
+          totalDuration: cloudDoc.totalDuration,
+          currentVersion: cloudDoc.currentVersion,
+          sessionsCount: cloudDoc.sessionsCount ?? 1,
+          lastSyncedCloudVersion: cloudDoc.currentVersion,
+        });
+
+        await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId);
+        
         useActivityLogStore.getState().addActivity(
-          `Часть истории заметки не читается и пропущена (версий: ${corruptedVersions.length})`,
-          { action: 'addLocalCopy_corruptedVersions', cloudDocumentId },
-          'warning',
-          'sync',
+          'Заметка загружена из облака',
+          { action: 'addLocalCopy', documentId: localId, cloudDocumentId },
+          'success',
+          'sync'
         );
+
+        return localId;
+      } catch (e) {
+        reportError(e, { action: 'addLocalCopy', cloudDocumentId });
+        if (localId) {
+          try { await LocalStorageService.deleteDocument(localId); } catch (cleanupErr) {
+            reportError(cleanupErr, { action: 'addLocalCopy_cleanup', localId });
+          }
+        }
+        throw e;
       }
-
-      await LocalStorageService.updateDocument(localId, {
-        totalWords: cloudDoc.totalWords,
-        totalDuration: cloudDoc.totalDuration,
-        currentVersion: cloudDoc.currentVersion,
-        sessionsCount: cloudDoc.sessionsCount ?? 1,
-        lastSyncedCloudVersion: cloudDoc.currentVersion,
-      });
-
-      await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId);
-      
-      useActivityLogStore.getState().addActivity(
-        'Заметка загружена из облака',
-        { action: 'addLocalCopy', documentId: localId, cloudDocumentId },
-        'success',
-        'sync'
-      );
-    } catch (e) {
-      reportError(e, { action: 'addLocalCopy', cloudDocumentId });
-      try { await LocalStorageService.deleteDocument(localId); } catch (cleanupErr) {
-        reportError(cleanupErr, { action: 'addLocalCopy_cleanup', localId });
-      }
-      throw e;
-    }
-
-    return localId;
+    // queueOnHeld: false — the lock key here is a CLOUD id. The default would
+    // enqueue `sync_<cloudId>` as a document task, and the drain would then try
+    // to addCloudCopy a local document that does not exist (ten failed attempts,
+    // then quarantine). A second downloader simply fails with LOCK_HELD.
+    }, { queueOnHeld: false });
   },
 
   async addCloudCopy(userId: string, localDocumentId: string, _encryptionRequired = true): Promise<string> {

@@ -14,6 +14,7 @@ export type AIErrorCode =
   | 'NETWORK'
   | 'MISCONFIGURED'
   | 'EMPTY_RESPONSE'
+  | 'SERVICE_UNAVAILABLE'
   | 'ABORTED';
 
 export function assertNever(x: never): never {

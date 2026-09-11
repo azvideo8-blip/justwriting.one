@@ -380,13 +380,23 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   try {
     callRes = await acquireChatReservation(postgresAiContext, uid, isInternalCall, parsed.data.reasoning ?? undefined);
   } catch (err) {
-    if (err instanceof AiError && err.code === 'resource-exhausted') {
-      if (err.message.includes('Too many requests')) {
-        sendError(res, 429, 'RATE_LIMIT');
+    if (err instanceof AiError) {
+      if (err.code === 'resource-exhausted') {
+        if (err.message.includes('Too many requests')) {
+          sendError(res, 429, 'RATE_LIMIT');
+          return;
+        }
+        sendError(res, 429, 'DAILY_LIMIT');
         return;
       }
-      sendError(res, 429, 'DAILY_LIMIT');
-      return;
+      if (err.code === 'unavailable') {
+        sendError(res, 503, 'SERVICE_UNAVAILABLE', err.message);
+        return;
+      }
+      if (err.code === 'unauthenticated') {
+        sendError(res, 401, 'UNAUTHENTICATED', err.message);
+        return;
+      }
     }
     throw err;
   }

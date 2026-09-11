@@ -58,7 +58,13 @@ export function OnThisDayCard({ sessions, onOpen }: {
   const match = useMemo(() => findMatch(sessions, t), [sessions, t]);
   if (!match || match.session.id === dismissedId) return null;
   const { session, label, matchedDate } = match;
-  const excerpt = trimExcerpt(session.content || '');
+  // A note whose text is locked or not fetched yet still happened on this day —
+  // the match stays, the excerpt says why it is empty instead of showing ''.
+  const excerpt = session._locked
+    ? t('archive_note_locked')
+    : (session._decryptionError || session._contentError || session._contentNotLoaded)
+      ? t('archive_no_content')
+      : trimExcerpt(session.content || '');
   const date = matchedDate ?? getSessionDate(session);
   const dateChip = format(date, 'd MMM yy', { locale: getDateLocale(language) });
 

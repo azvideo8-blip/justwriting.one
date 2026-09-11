@@ -230,4 +230,43 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
     expect(resState.getBody()).toBe("Hello from AI");
     expect(streamText).toHaveBeenCalled();
   });
+
+  it("S-15: returns 503 when limit check is unavailable (e.g. pool.connect rejects)", async () => {
+    vi.mocked(postgresAiContext.checkAndIncrementLimit).mockResolvedValue("UNAVAILABLE");
+
+    const req = createMockReq("POST", {
+      personaId: "cbt",
+      messages: [{ role: "user", content: "hello" }],
+    });
+    const resState = createMockRes();
+
+    await handleChat(req, resState.res);
+    expect(resState.statusCode).toBe(503);
+    expect(resState.getJson()).toEqual({
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "The service could not check the daily limit.",
+      },
+    });
+  });
+
+  it("S-15: returns 401 when foreign key violation 23503 occurs (user deleted)", async () => {
+    vi.mocked(postgresAiContext.checkAndIncrementLimit).mockResolvedValue("UNAUTHORIZED");
+
+    const req = createMockReq("POST", {
+      personaId: "cbt",
+      messages: [{ role: "user", content: "hello" }],
+    });
+    const resState = createMockRes();
+
+    await handleChat(req, resState.res);
+    expect(resState.statusCode).toBe(401);
+    expect(resState.getJson()).toEqual({
+      error: {
+        code: "UNAUTHENTICATED",
+        message: "User no longer exists.",
+      },
+    });
+  });
 });
+

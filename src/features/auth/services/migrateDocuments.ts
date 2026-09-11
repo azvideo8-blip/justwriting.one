@@ -1,6 +1,7 @@
 import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
+import { getFrozenDates, saveFrozenDates, clearFrozenDates } from '../../../core/utils/streakFreeze';
 
 /**
  * Re-keys this device's guest notes, versions, draft and profile onto a signed-in
@@ -51,6 +52,15 @@ export async function migrateDocuments(userId: string): Promise<number> {
       }
       await guestDb.delete('profile', guestId);
     }
+  }
+
+  // S-19: migrate guest streak freezes
+  const guestFreezes = getFrozenDates(null);
+  if (guestFreezes.size > 0) {
+    const userFreezes = getFrozenDates(userId);
+    const merged = new Set([...guestFreezes, ...userFreezes]);
+    saveFrozenDates(merged, userId);
+    clearFrozenDates(null);
   }
 
   // Migrate documents and versions

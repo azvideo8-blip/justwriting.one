@@ -13,10 +13,12 @@ import { formatRussianTypography } from '../utils/typography';
 
 interface WritingEditorProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onInput?: (e: React.FormEvent<HTMLTextAreaElement>) => void;
 }
 
 export const WritingEditor = React.memo(function WritingEditor({
-  onKeyDown
+  onKeyDown,
+  onInput
 }: WritingEditorProps) {
   const { t } = useLanguage();
   const content = useContentStore(s => s.content);
@@ -186,6 +188,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         ref={textareaRef}
         value={content}
         onChange={handleContentChange}
+        onInput={onInput}
         onKeyDown={(e) => {
           handleKeyDown(e);
           onKeyDown?.(e);
