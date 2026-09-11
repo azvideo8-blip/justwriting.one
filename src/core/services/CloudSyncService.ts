@@ -117,7 +117,7 @@ export const CloudSyncService = {
       // S-2: The uuid check is the second line of defence. It does not cover documents
       // created before UUID backfill; for those, relinkOrphanedDocuments above is the sole protection.
       const toDownload = cloudDocs.filter(d => !linkedCloudMap.has(d.id) && (!d.uuid || !localUuidSet.has(d.uuid)));
-      const skipped = cloudDocs.length - toDownload.length;
+      let skipped = cloudDocs.length - toDownload.length;
 
       const downloadResults = await Promise.allSettled(
         toDownload.map((cloudDoc, idx) => downloadLimit(async () => {
@@ -131,8 +131,14 @@ export const CloudSyncService = {
       for (const r of downloadResults) {
         if (r.status === 'fulfilled') downloaded++;
         else {
-          failed++;
-          logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) });
+          const reasonStr = String((r.reason as { message?: string })?.message || r.reason);
+          if (reasonStr.startsWith('LOCK_HELD') || reasonStr.includes('LOCK_HELD')) {
+            skipped++;
+            logger.info('downloadAllFromCloud', 'Download already in progress in another tab', { reason: reasonStr });
+          } else {
+            failed++;
+            logger.error('downloadAllFromCloud', 'Download failed', { reason: String(r.reason) });
+          }
         }
       }
 

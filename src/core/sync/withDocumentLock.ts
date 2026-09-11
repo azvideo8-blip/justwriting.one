@@ -50,6 +50,7 @@ export async function withDocumentLock<T>(
       if (options?.onLockHeld) {
         return await options.onLockHeld(existing);
       }
+      // LOCK_HELD is deliberately not a substring of LOCKED; callers match on the prefix
       throw new Error(`LOCK_HELD: Document ${documentId} is currently locked`);
     }
   }

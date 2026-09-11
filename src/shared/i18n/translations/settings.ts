@@ -65,6 +65,7 @@ export const settingsTranslations: Translations = {
   storage_download_confirm: { ru: 'Скачать', en: 'Download' },
   storage_downloaded_local: { ru: 'Загружено на устройство', en: 'Downloaded to device' },
   storage_downloading: { ru: 'Загрузка…', en: 'Downloading…' },
+  storage_download_in_progress: { ru: 'Заметка уже загружается', en: 'This note is already being downloaded' },
 
   offline_working_locally: { ru: 'Нет соединения — работаем локально', en: 'Offline — working locally' },
   offline_syncing: { ru: 'Синхронизируется...', en: 'Syncing...' },

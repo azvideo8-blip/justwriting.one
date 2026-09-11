@@ -133,4 +133,26 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
     expect(getUserDocsSpy).not.toHaveBeenCalled();
     expect(addLocalCopySpy).not.toHaveBeenCalled();
   });
+
+  it('T-2: treats LOCK_HELD contention as skipped rather than failed', async () => {
+    const cloudDocs = [
+      { id: 'cloud_1', title: 'Note 1' },
+      { id: 'cloud_2', title: 'Note 2' },
+      { id: 'cloud_3', title: 'Note 3' },
+    ] as any[];
+    const localDocs = [] as any[];
+
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue(cloudDocs);
+    vi.spyOn(LocalDocumentService, 'getDocumentsByOwner').mockResolvedValue(localDocs);
+    vi.spyOn(CloudSyncService, 'addLocalCopy').mockImplementation(async (_uid, cloudId) => {
+      if (cloudId === 'cloud_2') {
+        throw new Error('LOCK_HELD: Document cloud_2 is currently locked');
+      }
+      return `local_${cloudId}`;
+    });
+
+    const result = await SyncService.downloadAllFromCloud(userId);
+
+    expect(result).toEqual({ downloaded: 2, skipped: 1, failed: 0 });
+  });
 });

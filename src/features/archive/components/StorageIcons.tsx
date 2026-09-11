@@ -115,12 +115,17 @@ export function StorageIcons({
       showToast(t('storage_downloaded_local'), 'success');
       onStorageChange();
     } catch (e) {
-      reportError(e, { action: 'downloadLocalCopy', userId, cloudId: doc.cloudId });
-      if (String(e).includes('LOCKED')) {
-        setPendingAction('download');
-        setShowUnlock(true);
+      const errStr = String((e as { message?: string })?.message || e);
+      if (errStr.startsWith('LOCK_HELD') || errStr.includes('LOCK_HELD')) {
+        showToast(t('storage_download_in_progress'), 'info');
       } else {
-        showToast(t('error_generic_action'), 'error');
+        reportError(e, { action: 'downloadLocalCopy', userId, cloudId: doc.cloudId });
+        if (String(e).includes('LOCKED')) {
+          setPendingAction('download');
+          setShowUnlock(true);
+        } else {
+          showToast(t('error_generic_action'), 'error');
+        }
       }
     } finally {
       setDownloading(false);
