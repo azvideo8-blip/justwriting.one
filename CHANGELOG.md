@@ -1,11 +1,14 @@
 # Changelog
 
+## 0.8.47 — 2026-09-12
+
+- **[RU]** После включения сейфа раздел настроек больше не показывает «Шифрование не настроено», хотя заметки уже шифруются: профиль обновляется сразу после настройки. Заметки при этом всё время уходили в облако зашифрованными — это была ошибка только в надписи.
+- **[EN]** After the vault is turned on, the settings section no longer shows “Encryption not configured” while notes are already being encrypted: the profile is refreshed right after setup. The notes were going to the cloud encrypted the whole time — the bug was only in the label.
+
 ## 0.8.46 — 2026-09-12
 
 - **[RU]** Приглашение в бету: владелец отправляет письмо одной командой на сервере, человек задаёт пароль по ссылке — с телефона тоже — и входит. Регистрация в интерфейсе остаётся закрытой.
 - **[EN]** Beta invitations: the owner sends a mail with one command on the server, the person sets a password from the link — on a phone too — and signs in. Sign-up in the UI stays closed.
-- **[RU]** После включения сейфа раздел настроек больше не показывает «Шифрование не настроено», хотя заметки уже шифруются: профиль обновляется сразу после настройки. Заметки при этом всё время уходили в облако зашифрованными — это была ошибка только в надписи.
-- **[EN]** After the vault is turned on, the settings section no longer shows “Encryption not configured” while notes are already being encrypted: the profile is refreshed right after setup. The notes were going to the cloud encrypted the whole time — the bug was only in the label.
 
 ## 0.8.45 — 2026-09-12
 
