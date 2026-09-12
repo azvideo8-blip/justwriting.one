@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportAsMd, isExpectedShareRefusal, stripMarkdown, ExportStrings } from '../../../core/services/ArchiveExportService';
+import { exportAsMd, isExpectedShareRefusal, stripMarkdown, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
 import type { ArchiveSession } from '../types';
 import type { Session } from '../../../types/index';
 
@@ -182,6 +182,38 @@ describe('stripMarkdown', () => {
   it('strips markdown from plain text without front matter', () => {
     const md = '# Header\n**bold**';
     expect(stripMarkdown(md)).toBe('Header\nbold');
+  });
+});
+
+describe('isExportable (S-6)', () => {
+  const plainSession: ArchiveSession = {
+    id: 's1',
+    userId: 'u1',
+    title: 'Plain Note',
+    content: 'Some plain content',
+    createdAt: Date.now(),
+    duration: 60,
+    wordCount: 3,
+    charCount: 18,
+    wpm: 3,
+    tags: [],
+    _isLocal: true,
+  };
+
+  it('allows plain session to be exported', () => {
+    expect(isExportable(plainSession)).toBe(true);
+  });
+
+  it('rejects unloaded session (_contentNotLoaded: true)', () => {
+    expect(isExportable({ ...plainSession, _contentNotLoaded: true })).toBe(false);
+  });
+
+  it('rejects locked session (_locked: true)', () => {
+    expect(isExportable({ ...plainSession, _locked: true })).toBe(false);
+  });
+
+  it('rejects decryption error session (_decryptionError: true)', () => {
+    expect(isExportable({ ...plainSession, _decryptionError: true })).toBe(false);
   });
 });
 

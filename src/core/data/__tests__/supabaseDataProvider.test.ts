@@ -548,7 +548,8 @@ describe('SupabaseDataProvider', () => {
       await SupabaseDataProvider.deleteAllEmbeddings('u1');
 
       expect(mockFrom).toHaveBeenCalledWith('ai_embeddings');
-      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.delete).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.delete).toHaveBeenCalledWith();
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'u1');
     });
 
@@ -562,7 +563,8 @@ describe('SupabaseDataProvider', () => {
       await SupabaseDataProvider.deleteAllSummaries('u1');
 
       expect(mockFrom).toHaveBeenCalledWith('ai_summaries');
-      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.delete).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.delete).toHaveBeenCalledWith();
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'u1');
     });
 
@@ -577,7 +579,8 @@ describe('SupabaseDataProvider', () => {
       await SupabaseDataProvider.deleteLocalStoreRecordsByStores('u1', ['aiPortrait', 'aiDialogues']);
 
       expect(mockFrom).toHaveBeenCalledWith('local_store_records');
-      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.delete).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.delete).toHaveBeenCalledWith();
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('user_id', 'u1');
       expect(mockQueryBuilder.in).toHaveBeenCalledWith('store', ['aiPortrait', 'aiDialogues']);
     });

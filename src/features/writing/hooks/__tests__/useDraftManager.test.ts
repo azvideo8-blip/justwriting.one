@@ -101,7 +101,13 @@ describe('useDraftManager', () => {
       await Promise.resolve();
     });
 
-    expect(mockOnSaveDraft).toHaveBeenCalled();
+    expect(mockOnSaveDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'Draft Content',
+        title: 'Draft Title',
+        wordCount: 2,
+      })
+    );
   });
 
   it('sets saveStatus to error and saves errorKind quota on QuotaExceededError', async () => {
@@ -133,5 +139,30 @@ describe('useDraftManager', () => {
 
     expect(result.current.saveStatus).toBe('error');
     expect(result.current.saveErrorKind).toBe('unknown');
+  });
+
+  it('RC-3: 30s autosave interval survives keystrokes during continuous typing in useDraftManager', async () => {
+    mockOnSaveDraft.mockResolvedValue(undefined);
+
+    useContentStore.setState({ content: '', title: '' });
+    renderHook(() =>
+      useDraftManager(userId, getDraftData, { onSaveDraft: mockOnSaveDraft })
+    );
+
+    expect(mockOnSaveDraft).not.toHaveBeenCalled();
+
+    // Type every 500ms for 45s (90 steps)
+    for (let i = 1; i <= 90; i++) {
+      await act(async () => {
+        useContentStore.setState({ content: 'а'.repeat(i) });
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      if (i === 66) {
+        // At 33 seconds, 30s autosave must have fired at least once
+        expect(mockOnSaveDraft).toHaveBeenCalled();
+      }
+    }
+
+    expect(mockOnSaveDraft).toHaveBeenCalled();
   });
 });

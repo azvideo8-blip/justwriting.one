@@ -3,6 +3,7 @@ import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../../../../test/utils/render';
 import { ToastProvider } from '../../../../shared/components/Toast';
 import { DocumentPreview } from '../DocumentPreview';
+import * as ArchiveExportService from '../../../../core/services/ArchiveExportService';
 import type { ArchiveSession } from '../../types';
 
 const mockAnalyze = vi.fn();
@@ -130,5 +131,27 @@ describe('DocumentPreview — AI Analysis button states', () => {
     await waitFor(() => {
       expect(screen.getByText('3 версии')).toBeInTheDocument();
     });
+  });
+
+  it('S-6: refuses export and shows refusal toast when session content is not loaded', async () => {
+    const exportTxtSpy = vi.spyOn(ArchiveExportService, 'exportAsTxt');
+    const unloadedSession: ArchiveSession = {
+      ...mockSession,
+      content: '',
+      _contentNotLoaded: true,
+    };
+
+    renderPreview(unloadedSession);
+
+    const exportTrigger = screen.getByTitle(/Экспортировать|Export/);
+    fireEvent.click(exportTrigger);
+
+    const txtOption = await screen.findByText('TXT');
+    fireEvent.click(txtOption);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Текст заметки ещё не загружен|Содержимое недоступно|archive_no_content/)).toBeInTheDocument();
+    });
+    expect(exportTxtSpy).not.toHaveBeenCalled();
   });
 });

@@ -79,7 +79,14 @@ describe('2.20 model JSON validated by zod, refund on schema failure', () => {
       usage: { promptTokens: 10, completionTokens: 10 },
     });
     const out = await summarizeDocumentLogic(makeCtx(), 'u1', { content });
-    expect(out).toBeDefined();
+    expect(out).toMatchObject({
+      tone: 'спокойный',
+      frequentWords: ['река', 'работа'],
+      insights: ['устал от дедлайна'],
+      themes: ['отдых'],
+      extractedFacts: ['гулял у реки'],
+      summary: 'Тихий день у реки.',
+    });
   });
 
   it('frequentWords as a number is rejected and refunded, not a TypeError after charging', async () => {
@@ -100,7 +107,13 @@ describe('2.20 model JSON validated by zod, refund on schema failure', () => {
     // so global reservation is reconciled (recorded in usage) rather than refunded.
     expect(ctx.refundBulkLimit).toHaveBeenCalledWith('u1', '2026-08-22');
     expect(ctx.refundGlobalRequest).not.toHaveBeenCalled();
-    expect(ctx.recordUsage).toHaveBeenCalled();
+    expect(ctx.recordUsage).toHaveBeenCalledWith(
+      'u1',
+      expect.any(Number),
+      expect.any(Number),
+      expect.objectContaining({ fn: 'chat-stream-abort' }),
+      expect.objectContaining({ date: '2026-08-22', shardId: '0' }),
+    );
   });
 
   it('out-of-range valence (1e999 → Infinity) is rejected as unavailable (model output failure)', async () => {

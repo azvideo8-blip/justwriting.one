@@ -125,7 +125,8 @@ describe('SYNC-D3: StorageIcons download to local', () => {
     await waitFor(() => {
       expect(StorageService.addLocalCopy).toHaveBeenCalledWith(userId, 'cloud_note_1');
       expect(mockShowToast).toHaveBeenCalledWith('storage_downloaded_local', 'success');
-      expect(mockOnStorageChange).toHaveBeenCalled();
+      expect(mockOnStorageChange).toHaveBeenCalledTimes(2);
+      expect(mockOnStorageChange).toHaveBeenCalledWith();
     });
   });
 

@@ -46,22 +46,60 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
     const legacy = await getLocalDb('justwriting-local');
     await legacy.put('documents', doc('doc_a', USER_A) as never);
     await legacy.put('documents', doc('doc_b', USER_B) as never);
-    // Unowned portrait singleton
-    await legacy.put('aiPortrait', { id: 'singleton', portrait: 'Secret psychological diary of USER_A', updatedAt: 1 } as never);
+
+    const storeSeeds: Record<string, unknown> = {
+      aiPortrait: { id: 'singleton', portrait: 'Secret psychological diary of USER_A', updatedAt: 1 },
+      aiBeliefs: { id: 'belief_1', content: 'Secret belief of USER_A' },
+      aiChatMemory: { id: 'mem_1', memory: 'Secret memory of USER_A' },
+      aiFacets: { id: 'facet_1', name: 'Secret facet of USER_A' },
+      aiSummaries: { documentId: 'doc_unowned', summary: 'Secret summary of USER_A' },
+      aiEmbeddings: { documentId: 'doc_unowned', embedding: [0.1, 0.2] },
+      aiDialogues: { id: 'diag_1', title: 'Secret dialogue of USER_A' },
+      aiDialogueEvents: { dialogueId: 'diag_1', event: 'Secret event of USER_A' },
+    };
+
+    const targetStores = [
+      'aiPortrait',
+      'aiBeliefs',
+      'aiChatMemory',
+      'aiFacets',
+      'aiSummaries',
+      'aiEmbeddings',
+      'aiDialogues',
+      'aiDialogueEvents',
+    ] as const;
+
+    for (const storeName of targetStores) {
+      if (legacy.objectStoreNames.contains(storeName as never)) {
+        await legacy.put(storeName as never, storeSeeds[storeName] as never);
+      }
+    }
 
     // 1. User A migrates first
     const dbA = await getLocalDb(USER_A);
-    const portraitA = await dbA.get('aiPortrait', 'singleton');
-    // User A correctly does not claim portrait because legacy DB had 2 owners
-    expect(portraitA).toBeUndefined();
+    for (const storeName of targetStores) {
+      if (dbA.objectStoreNames.contains(storeName as never)) {
+        const records = await dbA.getAll(storeName as never);
+        expect(records, `Store ${storeName} should not be claimed by User A`).toHaveLength(0);
+      }
+    }
 
     // 2. User B migrates second
     // At this point, User A's doc_a was deleted from legacy DB, so legacy DB only contains doc_b!
     const dbB = await getLocalDb(USER_B);
-    const portraitB = await dbB.get('aiPortrait', 'singleton');
+    for (const storeName of targetStores) {
+      if (dbB.objectStoreNames.contains(storeName as never)) {
+        const records = await dbB.getAll(storeName as never);
+        expect(records, `Store ${storeName} should not be claimed by User B`).toHaveLength(0);
+      }
+    }
 
-    // USER_B MUST NOT CLAIM USER_A'S PORTRAIT!
-    // Currently this FAILS because User B sees ownersInLegacy.size === 1!
-    expect(portraitB).toBeUndefined();
+    // 3. All unowned stores present in legacy DB must have been wiped
+    for (const storeName of targetStores) {
+      if (legacy.objectStoreNames.contains(storeName as never)) {
+        const records = await legacy.getAll(storeName as never);
+        expect(records, `Store ${storeName} should be cleared from legacy DB`).toHaveLength(0);
+      }
+    }
   });
 });

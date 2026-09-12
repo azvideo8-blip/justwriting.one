@@ -11,7 +11,7 @@ test.describe('Login Page', () => {
     // Needs a real Firebase Auth round-trip. Under App Check enforcement the
     // headless CI request has no valid App Check token, so the response is
     // non-deterministic and no error surfaces in time. Runs locally, skipped in CI.
-    test.skip(!!process.env.CI, 'real Firebase auth is non-deterministic in CI under App Check');
+    test.skip(!!process.env.CI, 'real auth backend is not running in CI (see L-15)');
     await page.goto('/login');
     await page.fill('input[type="email"]', 'invalid@example.com');
     await page.fill('input[type="password"]', 'wrongpassword');

@@ -51,4 +51,31 @@ describe('streamChat декодирует код ошибки из тела (AUD
       onChunk: () => {},
     })).rejects.toThrow('GLOBAL_LIMIT');
   });
+
+  it('503 с {"error":{"code":"SERVICE_UNAVAILABLE"}} → SERVICE_UNAVAILABLE (RC-4)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonRes(503, { error: { code: 'SERVICE_UNAVAILABLE' } })));
+    await expect(streamChat({
+      personaId: 'cbt', messages: [{ role: 'user', content: 'привет', type: 'chat' }],
+      onChunk: () => {},
+    })).rejects.toThrow('SERVICE_UNAVAILABLE');
+  });
+
+  it('503 с HTML-телом (nginx) → UPSTREAM (RC-4)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>503 Service Temporarily Unavailable</html>', {
+      status: 503,
+      headers: { 'Content-Type': 'text/html' },
+    })));
+    await expect(streamChat({
+      personaId: 'cbt', messages: [{ role: 'user', content: 'привет', type: 'chat' }],
+      onChunk: () => {},
+    })).rejects.toThrow('UPSTREAM');
+  });
+
+  it('503 с другим JSON-кодом → UPSTREAM (RC-4)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonRes(503, { error: { code: 'OTHER_ERROR' } })));
+    await expect(streamChat({
+      personaId: 'cbt', messages: [{ role: 'user', content: 'привет', type: 'chat' }],
+      onChunk: () => {},
+    })).rejects.toThrow('UPSTREAM');
+  });
 });

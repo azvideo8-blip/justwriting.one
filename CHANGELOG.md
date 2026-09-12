@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.44 — 2026-09-12
+
+- **[RU]** Ответ модели, который пришёл, но не разобрался, больше не возвращает вызов в дневной лимит: слот возвращается только если модель произвела меньше 200 символов, независимо от причины сбоя. Раньше в коде жили два правила, и старое побеждало — тест, написанный для нового, закреплял старое.
+- **[EN]** A model answer that arrived but could not be parsed no longer refunds the call to the daily limit: the slot is refunded only when the model produced under 200 characters, whatever the failure reason. Two rules lived in the code and the older one won — the test written for the new one pinned the old.
+- **[RU]** Заметка, которую в этот момент скачивает другая вкладка, больше не считается «не удалось»: «Синхронизировать всё» не пишет ошибку, а значок хранилища говорит «Заметка уже загружается».
+- **[EN]** A note another tab is downloading right now is no longer counted as “failed”: “Sync everything” shows no error for it, and the storage icon says “This note is already being downloaded”.
+- **[RU]** Проверка «заметка слишком велика для облака» теперь считает то же, что и база: символы одной версии — шифротекст под сейфом, сам текст без него. Раньше клиент мерил байты с довеском прошлой версии по формуле из времён Firestore и мог отказать заметке, которую сервер принял бы, или пропустить ту, которую сервер отвергнет. Отказ базы по ограничению теперь уходит в карантин с первой попытки, а не после десяти.
+- **[EN]** The “note too large for the cloud” check now measures what the database measures: characters of one version — ciphertext under the vault, the text itself without it. Before, the client counted bytes plus the previous version by a Firestore-era formula and could refuse a note the server would accept, or pass one the server would reject. A database constraint refusal now goes to quarantine on the first attempt instead of after ten.
+- **[RU]** Двенадцать исправлений последних двух версий получили тесты, которые краснеют, если исправление убрать: «Удалить все данные ИИ» на сервере раньше локального, запрет пустой облачной копии, страховка автосохранения при непрерывном наборе, различение «сервис не может проверить лимит» и сбоя поставщика, детектор непереведённых диалогов и другие. Ни один из них раньше не имел свидетеля.
+- **[EN]** Twelve fixes from the last two releases now have tests that go red when the fix is removed: “Delete all AI data” on the server before the device, the refusal of an empty cloud copy, the autosave safety net under continuous typing, the difference between “could not check the limit” and a provider outage, the untranslated-dialog detector, and more. None of them had a witness before.
+
 ## 0.8.43 — 2026-09-11
 
 - **[RU]** Черновик при включённом сейфе не доходил до облака, если заголовок длиннее ~60 кириллических символов или текст больше ~37 тысяч: шифротекст не проходил ограничение базы, второе устройство видело старый черновик. Ограничение расширено, а постоянный отказ теперь виден в значке редактора, а не только в журнале.

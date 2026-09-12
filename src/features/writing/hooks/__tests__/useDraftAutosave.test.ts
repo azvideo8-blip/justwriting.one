@@ -55,7 +55,10 @@ describe('useDraftAutosave', () => {
       await vi.advanceTimersByTimeAsync(510);
     });
 
-    expect(persistDraft).toHaveBeenCalled();
+    expect(persistDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'Some draft text changed', wordCount: 4 }),
+      { remote: false }
+    );
     expect(result.current.saveStatus).toBe('saved');
 
     // After 1000ms more it should return to idle
@@ -101,7 +104,10 @@ describe('useDraftAutosave', () => {
       await vi.advanceTimersByTimeAsync(600);
     });
 
-    expect(persistDraft).toHaveBeenCalled();
+    expect(persistDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'Some draft text', title: 'Autosave Title' }),
+      { remote: true }
+    );
   });
 
   it('reports error on save failure', async () => {
@@ -273,5 +279,36 @@ describe('useDraftAutosave', () => {
     // indicator — that reads as "all good" while the cloud copy is stale.
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     expect(result.current.saveStatus).toBe('cloud-stale');
+  });
+
+  it('RC-3: 30s remote autosave interval survives keystrokes during continuous typing', async () => {
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, remoteOk: true });
+
+    let currentDraft = { ...initialData, content: '', title: '' };
+    const { rerender } = renderHook(
+      ({ data }) => useDraftAutosave(mockUser, data),
+      { initialProps: { data: currentDraft } }
+    );
+
+    let remoteSaves = 0;
+    vi.mocked(persistDraft).mockImplementation(async (_draft, opts) => {
+      if (opts?.remote === true) remoteSaves++;
+      return { localOk: true, remoteOk: true };
+    });
+
+    // Type every 500ms for 45 seconds (90 steps)
+    for (let i = 1; i <= 90; i++) {
+      currentDraft = { ...currentDraft, content: 'а'.repeat(i), wordCount: 1 };
+      rerender({ data: currentDraft });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      if (i === 62) {
+        // At 31 seconds, remote autosave must have fired at least once
+        expect(remoteSaves).toBeGreaterThanOrEqual(1);
+      }
+    }
+
+    expect(remoteSaves).toBeGreaterThanOrEqual(1);
   });
 });

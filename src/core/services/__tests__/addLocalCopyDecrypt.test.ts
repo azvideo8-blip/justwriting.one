@@ -80,4 +80,12 @@ describe('addLocalCopy — a failed decrypt never becomes local text', () => {
 
     await expect(CloudSyncService.addLocalCopy('user_1', 'cloud_1')).rejects.toThrow(/LOCKED/);
   });
+
+  it('S-5: rejects with EMPTY_CLOUD_DOCUMENT and creates no local document when versions are empty', async () => {
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([] as never);
+    const createDoc = vi.spyOn(LocalStorageService, 'createDocument');
+
+    await expect(CloudSyncService.addLocalCopy('user_1', 'cloud_1')).rejects.toThrow(/^EMPTY_CLOUD_DOCUMENT/);
+    expect(createDoc).not.toHaveBeenCalled();
+  });
 });

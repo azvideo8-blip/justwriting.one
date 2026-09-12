@@ -136,5 +136,29 @@ describe('FU-3: relinkOrphaned respects withDocumentLock', () => {
     expect(addCloudCopyMock).not.toHaveBeenCalled();
     expect(res.synced).toBe(0);
   });
+
+  it('RC-1: lock contention does not enqueue a cloud id during addLocalCopy', async () => {
+    const { CloudSyncService } = await import('../CloudSyncService');
+    const db = await getLocalDb();
+
+    // Simulate active lock on cloud_1
+    await db.put('syncQueue', {
+      id: 'lock_cloud_cloud_1',
+      documentId: 'cloud_1',
+      type: 'document' as const,
+      createdAt: Date.now(),
+      ownerToken: 'some_other_writer',
+    });
+
+    await expect(CloudSyncService.addLocalCopy('u1', 'cloud_1')).rejects.toThrow(/^LOCK_HELD/);
+
+    // Ensure queueOnHeld: false prevented queuing sync_cloud_1 or documentId: cloud_1
+    const syncTask = await db.get('syncQueue', 'sync_cloud_1');
+    expect(syncTask).toBeUndefined();
+
+    const allTasks = await db.getAll('syncQueue');
+    const cloud1Tasks = allTasks.filter(t => t.documentId === 'cloud_1' && t.id !== 'lock_cloud_cloud_1');
+    expect(cloud1Tasks).toEqual([]);
+  });
 });
 

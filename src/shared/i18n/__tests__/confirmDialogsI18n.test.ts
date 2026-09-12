@@ -3,7 +3,9 @@ import { settingsTranslations } from '../translations/settings';
 import { aiTranslations } from '../translations/ai';
 import { adminTranslations } from '../translations/admin';
 
-describe('DUP-7: Confirmation dialogs i18n convergence', () => {
+import { findHardcodedDialogs } from '../../../../scripts/i18n-audit';
+
+describe('DUP-7 / WT-3: Confirmation dialogs i18n convergence and audit detector', () => {
   const allTranslations = {
     ...settingsTranslations,
     ...aiTranslations,
@@ -81,7 +83,7 @@ describe('DUP-7: Confirmation dialogs i18n convergence', () => {
     }
   });
 
-  it('falsification: audit regex catches hardcoded inline Cyrillic inside confirmDialog, alertDialog, and promptDialog', () => {
+  it('findHardcodedDialogs finds Russian text in confirmDialog, alertDialog, and promptDialog', () => {
     const snippetWithCyrillic = `
       const ok = await confirmDialog({
         title: 'Удалить диалог?',
@@ -91,6 +93,14 @@ describe('DUP-7: Confirmation dialogs i18n convergence', () => {
       const res = await promptDialog({ title: 'Вопрос', message: 'Введите ответ' });
     `;
 
+    const results = findHardcodedDialogs(snippetWithCyrillic, 'test.ts');
+    expect(results).toHaveLength(3);
+    expect(results[0]?.match).toContain('confirmDialog');
+    expect(results[1]?.match).toContain('alertDialog');
+    expect(results[2]?.match).toContain('promptDialog');
+  });
+
+  it('findHardcodedDialogs does not flag Russian translations referenced via t(...)', () => {
     const snippetWithoutCyrillic = `
       const ok = await confirmDialog({
         title: t('ai_delete_dialogue_confirm_title'),
@@ -100,35 +110,32 @@ describe('DUP-7: Confirmation dialogs i18n convergence', () => {
       const res = await promptDialog({ title: t('ai_feedback_prompt_title'), message: t('ai_feedback_prompt_message') });
     `;
 
-    const detectHardcoded = (src: string) => {
-      const dialogPattern = /\b(confirmDialog|alertDialog|promptDialog)\s*\(/g;
-      let match: RegExpExecArray | null;
-      while ((match = dialogPattern.exec(src)) !== null) {
-        const startIndex = match.index + match[0].length;
-        let depth = 1;
-        let i = startIndex;
-        let inString: string | null = null;
-        let isEscaped = false;
-        while (i < src.length && depth > 0) {
-          const ch = src[i];
-          if (inString) {
-            if (isEscaped) isEscaped = false;
-            else if (ch === '\\\\') isEscaped = true;
-            else if (ch === inString) inString = null;
-          } else {
-            if (ch === "'" || ch === '"' || ch === '`') inString = ch;
-            else if (ch === '(') depth++;
-            else if (ch === ')') depth--;
-          }
-          i++;
-        }
-        const callContent = src.slice(startIndex, i - 1);
-        if (/[\u0400-\u04FF]/.test(callContent)) return true;
-      }
-      return false;
-    };
+    const results = findHardcodedDialogs(snippetWithoutCyrillic, 'test.ts');
+    expect(results).toHaveLength(0);
+  });
 
-    expect(detectHardcoded(snippetWithCyrillic)).toBe(true);
-    expect(detectHardcoded(snippetWithoutCyrillic)).toBe(false);
+  it('findHardcodedDialogs handles nested brackets: confirmDialog({ title: t("a"), onConfirm: () => foo("б") })', () => {
+    const nestedSnippet = `
+      await confirmDialog({
+        title: t('a'),
+        onConfirm: () => foo('б'),
+      });
+    `;
+
+    const results = findHardcodedDialogs(nestedSnippet, 'test.ts');
+    expect(results).toHaveLength(1);
+    expect(results[0]?.match).toContain("foo('б')");
+  });
+
+  it('findHardcodedDialogs handles string with ) inside quotes without truncating: confirmDialog({ title: "привет ) мир" })', () => {
+    const quoteSnippet = `
+      await confirmDialog({
+        title: "привет ) мир",
+      });
+    `;
+
+    const results = findHardcodedDialogs(quoteSnippet, 'test.ts');
+    expect(results).toHaveLength(1);
+    expect(results[0]?.match).toContain('мир');
   });
 });

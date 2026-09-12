@@ -228,7 +228,12 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(200);
     expect(resState.getBody()).toBe("Hello from AI");
-    expect(streamText).toHaveBeenCalled();
+    expect(streamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: 'Привет' }],
+        maxOutputTokens: expect.any(Number),
+      })
+    );
   });
 
   it("S-15: returns 503 when limit check is unavailable (e.g. pool.connect rejects)", async () => {

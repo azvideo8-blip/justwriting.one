@@ -86,4 +86,17 @@ describe('разбор кодов отказа в формате VPS-служб�
     );
     expect(await AIService.summarize({ content: 'текст' })).toEqual({ ok: false, error: 'DAILY_LIMIT' });
   });
+
+  it('RC-4: 503 с SERVICE_UNAVAILABLE читается как SERVICE_UNAVAILABLE', async () => {
+    mockCallAi.mockRejectedValue(wireError('SERVICE_UNAVAILABLE', 'could not check limit', 503));
+    expect(await AIService.embed({ content: 'текст' })).toEqual({ ok: false, error: 'SERVICE_UNAVAILABLE' });
+  });
+
+  it('RC-4: 503 с HTML-телом или другим кодом читается как UPSTREAM', async () => {
+    mockCallAi.mockRejectedValue(wireError('unavailable', '<html>503 Bad Gateway</html>', 503));
+    expect(await AIService.embed({ content: 'текст' })).toEqual({ ok: false, error: 'UPSTREAM' });
+
+    mockCallAi.mockRejectedValue(wireError('other_code', 'Some error', 503));
+    expect(await AIService.embed({ content: 'текст' })).toEqual({ ok: false, error: 'UPSTREAM' });
+  });
 });
