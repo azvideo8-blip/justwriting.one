@@ -18,6 +18,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     date: '2026-09-12',
     items: [
       { category: 'new', ru: 'Приглашение в бету: владелец отправляет письмо одной командой на сервере, человек задаёт пароль по ссылке — с телефона тоже — и входит. Регистрация в интерфейсе остаётся закрытой.', en: 'Beta invitations: the owner sends a mail with one command on the server, the person sets a password from the link — on a phone too — and signs in. Sign-up in the UI stays closed.' },
+      { category: 'fix', ru: 'После включения сейфа раздел настроек больше не показывает «Шифрование не настроено», хотя заметки уже шифруются: профиль обновляется сразу после настройки. Заметки при этом всё время уходили в облако зашифрованными — это была ошибка только в надписи.', en: 'After the vault is turned on, the settings section no longer shows “Encryption not configured” while notes are already being encrypted: the profile is refreshed right after setup. The notes were going to the cloud encrypted the whole time — the bug was only in the label.' },
     ],
   },
   {

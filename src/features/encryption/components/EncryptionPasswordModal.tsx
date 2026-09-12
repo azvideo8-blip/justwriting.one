@@ -38,6 +38,12 @@ const MIN_PASSWORD_LENGTH = 8;
 export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose }: EncryptionPasswordModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  // Первичная настройка сейфа шла мимо ProfileContext: заметки шифровались
+  // (флаг записи + ключ сессии стоят), но раздел настроек читает
+  // profile.encryptionMeta и без обновления показывал «Шифрование не
+  // настроено». getProfile читает колонку authoritative — обновляем профиль
+  // после успешной настройки, как это уже делает AccountVaultSection.
+  const { refreshProfile } = useAuthStatus();
 
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState('');
@@ -79,6 +85,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setLoading(true);
     try {
       const { recoveryCode: created } = await initializeEncryption(userId, password);
+      await refreshProfile();
       const mig = await migrateNotesAfterSetup(userId);
       if (mig.errors > 0) {
         showToast(t('settings_encrypt_partial', { done: mig.encrypted, total: mig.total }), 'error');

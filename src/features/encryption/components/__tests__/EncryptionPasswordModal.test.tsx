@@ -10,8 +10,9 @@ vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
 
+const mockRefreshProfile = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../../../app/useAuthStatus', () => ({
-  useAuthStatus: () => ({ user: { uid: 'u1' }, profile: null }),
+  useAuthStatus: () => ({ user: { uid: 'u1' }, profile: null, refreshProfile: mockRefreshProfile }),
 }));
 
 const initializeEncryption = vi.fn();
@@ -41,6 +42,7 @@ describe('EncryptionPasswordModal, режим создания сейфа', () =
     vi.clearAllMocks();
     initializeEncryption.mockResolvedValue({ recoveryCode: 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX' });
     migrateNotesAfterSetup.mockResolvedValue({ encrypted: 0, total: 0, errors: 0, success: true });
+    mockRefreshProfile.mockClear();
   });
 
   const submitSetup = () => {
@@ -130,5 +132,15 @@ describe('EncryptionPasswordModal, режим создания сейфа', () =
     expect(mockShowToast).toHaveBeenCalledWith('settings_encrypt_partial', 'error');
     // Код восстановления всё равно отображается: сейф включён
     expect(await screen.findByText('ABCD-EFGH-IJKL-MNOP-QRST-UVWX')).toBeTruthy();
+  });
+
+  it('обновляет профиль после настройки, чтобы раздел не показывал «Шифрование не настроено»', async () => {
+    render(<EncryptionPasswordModal mode="setup" userId="u1" onDone={vi.fn()} />);
+
+    submitSetup();
+
+    // Профиль обновляется authoritative-запросом сразу после initializeEncryption,
+    // иначе plашка настроек читает пустой profile.encryptionMeta из старого снапшота.
+    await waitFor(() => expect(mockRefreshProfile).toHaveBeenCalledTimes(1));
   });
 });
