@@ -6,6 +6,7 @@ export type AIErrorCode =
   | 'AUTH_REQUIRED'
   | 'AI_CONSENT_REQUIRED'
   | 'DAILY_LIMIT'
+  | 'REASONING_LIMIT'
   | 'RATE_LIMIT'
   | 'GLOBAL_LIMIT'
   | 'TOO_LONG'

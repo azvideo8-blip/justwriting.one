@@ -10,6 +10,7 @@ import { ModalShell } from '../../../shared/components/ModalShell';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import {
   initializeEncryption,
+  migrateNotesAfterSetup,
   VaultAlreadyExistsError,
   unlockVault,
   recoverVaultWithCode,
@@ -78,7 +79,14 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setLoading(true);
     try {
       const { recoveryCode: created } = await initializeEncryption(userId, password);
-      showToast(t('enc_setup_success'), 'success');
+      const mig = await migrateNotesAfterSetup(userId);
+      if (mig.errors > 0) {
+        showToast(t('settings_encrypt_partial', { done: mig.encrypted, total: mig.total }), 'error');
+      } else if (mig.encrypted > 0) {
+        showToast(t('settings_encrypt_done', { count: mig.encrypted }), 'success');
+      } else {
+        showToast(t('enc_setup_success'), 'success');
+      }
       setPassword('');
       setConfirmPassword('');
       if (created) {

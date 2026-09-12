@@ -12,7 +12,7 @@ import { Button } from '../../../shared/components/Button';
 interface MigrationPromptProps {
   userId: string;
   docCount: number;
-  onDone: () => void;
+  onDone: (migrated: boolean) => void;
   onCloudSynced?: (count: number) => void;
 }
 
@@ -38,18 +38,18 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
           showToast(t('error_generic_action'), 'error');
         }
       }
-      onDone();
+      onDone(count > 0);
     } catch (e) {
       reportError(e, { action: 'migrateDocuments', userId });
       showToast(t('error_generic_action'), 'error');
-      onDone();
+      onDone(false);
     }
   };
 
   return (
     <ModalShell
       open
-      onClose={onDone}
+      onClose={() => onDone(false)}
       labelId="migration-prompt-title"
       className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
     >
@@ -75,7 +75,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
               {t('migration_move_to_account')}
             </Button>
             <Button
-              onClick={onDone}
+              onClick={() => onDone(false)}
               className="w-full py-2.5 rounded-xl text-text-main/60 text-sm hover:text-text-main/60 transition-colors"
             >
               {t('migration_keep_local')}

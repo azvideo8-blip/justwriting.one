@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   PENDING_KEYS: (uid: string) => `pending_keys_${uid}`,
   PENDING_SESSIONS: (userId: string) => `pending_sessions_${userId}`,
   ENCRYPTION_MIGRATION_CHECKPOINT: (userId: string) => `encryptionMigration_${userId}_checkpoint`,
+  AI_LIMIT: (uid?: string | null) => uid ? `jw_ai_daily_usage_${uid}` : 'ai_daily_usage',
   AI_DAILY_USAGE: 'ai_daily_usage',
   AI_DAILY_REMAINING: 'ai_daily_remaining',
   AUTO_SYNC_ENABLED: 'auto_sync_enabled',
@@ -24,5 +25,6 @@ export const STORAGE_KEYS = {
   PRIVACY_ACCEPTED: (uid: string) => `privacy_accepted_${uid}`,
   STREAK_FREEZES: (userId?: string | null) => userId ? `jw_streak_freezes_${userId}` : 'jw_streak_freezes',
   GUEST_STREAK_FREEZES: 'jw_streak_freezes',
+  MIGRATION_DECLINED: (uid: string) => `jw_migration_declined_${uid}`,
   DICTATION_NOTICE_SEEN: 'jw_dictation_notice_seen',
 } as const;

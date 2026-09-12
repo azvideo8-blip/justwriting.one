@@ -143,7 +143,7 @@ describe('3.8 stream disconnect', () => {
     // AG-BILL-1: поставщик не выдал ничего — возвращены и слот, и холостой
     // глобальный резерв. Один per-user возврат, целится в день списания.
     expect(refundDaily).toHaveBeenCalledTimes(1);
-    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20', 'reasoning');
     expect(refundBulk).not.toHaveBeenCalled();
     expect(refundGlobal).toHaveBeenCalledTimes(1);
   });
@@ -184,7 +184,7 @@ describe('3.8 stream disconnect', () => {
 
     // AG-BILL-1: человек не получил разговор → слот возвращён.
     expect(refundDaily).toHaveBeenCalledTimes(1);
-    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20', 'reasoning');
     expect(res.body).toBe('');
     // AG-BILL-2: сигнал close пришёл ДО первого куска поставщика — в этот
     // момент upstreamProduced ещё ложь, и резерв возвращается как холостой.
@@ -214,7 +214,7 @@ describe('3.8 stream disconnect', () => {
     await done;
 
     expect(refundDaily).toHaveBeenCalledTimes(1);
-    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20', 'reasoning');
     expect(refundGlobal).toHaveBeenCalledTimes(1);
     expect(recordUsage).not.toHaveBeenCalled();
   });
@@ -233,7 +233,7 @@ describe('3.8 stream disconnect', () => {
     await done;
 
     expect(refundDaily).toHaveBeenCalledTimes(1);
-    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20');
+    expect(refundDaily).toHaveBeenCalledWith('u_stream', '2026-08-20', 'reasoning');
     expect(refundBulk).not.toHaveBeenCalled();
     expect(refundGlobal).toHaveBeenCalledTimes(1);
     expect(recordUsage).not.toHaveBeenCalled();

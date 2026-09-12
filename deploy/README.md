@@ -99,6 +99,9 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 4. **Registration Email Enumeration**:
    - Silent suppression of `email-already-in-use` requires an active transactional email delivery pipeline ("confirmation email sent" + notifying existing accounts out-of-band). This item is tracked and deferred until transactional email service (SMTP) is integrated.
 
+5. **Cross-Browser Password Recovery (`token_hash`)**:
+   - GoTrue fetches its mail templates by URL (`GOTRUE_MAILER_TEMPLATES_RECOVERY` → `https://justwriting.ru/email/recovery.html`), and that file ships with the client from `public/email/recovery.html`. Its link is `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`, not `{{ .ConfirmationURL }}`: the PKCE code in the default link only works in the browser that requested the reset, and on a phone the mail opens elsewhere. The page exchanges the hash itself via `supabase.auth.verifyOtp`.
+   - No GoTrue restart is needed — deploying the client updates the template. `GOTRUE_MAILER_TEMPLATES_*` is a URL; inline HTML in that variable is not supported.
 
 ## Registration & Signup Control
 

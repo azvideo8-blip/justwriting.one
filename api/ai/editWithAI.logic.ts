@@ -84,6 +84,9 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   if (limitResult === 'DAILY_LIMIT') {
     throw new AiError('resource-exhausted', 'Daily limit reached.');
   }
+  if (limitResult === 'REASONING_LIMIT') {
+    throw new AiError('resource-exhausted', 'Reasoning limit reached.');
+  }
   if (limitResult === 'RATE_LIMIT') {
     throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }

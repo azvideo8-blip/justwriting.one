@@ -15,9 +15,16 @@ vi.mock('../../../../app/useAuthStatus', () => ({
 }));
 
 const initializeEncryption = vi.fn();
+const migrateNotesAfterSetup = vi.fn().mockResolvedValue({ encrypted: 0, total: 0, errors: 0, success: true });
+const mockShowToast = vi.fn();
+
+vi.mock('../../../../shared/components/Toast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
 
 vi.mock('../../../../core/services/EncryptionService', () => ({
   initializeEncryption: (...args: unknown[]) => initializeEncryption(...args),
+  migrateNotesAfterSetup: (...args: unknown[]) => migrateNotesAfterSetup(...args),
   unlockVault: vi.fn(),
   recoverVaultWithCode: vi.fn(),
   changePassword: vi.fn(),
@@ -33,6 +40,7 @@ describe('EncryptionPasswordModal, режим создания сейфа', () =
   beforeEach(() => {
     vi.clearAllMocks();
     initializeEncryption.mockResolvedValue({ recoveryCode: 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX' });
+    migrateNotesAfterSetup.mockResolvedValue({ encrypted: 0, total: 0, errors: 0, success: true });
   });
 
   const submitSetup = () => {
@@ -100,5 +108,27 @@ describe('EncryptionPasswordModal, режим создания сейфа', () =
     await waitFor(() => expect(screen.getByText('ABCD-EFGH-IJKL-MNOP-QRST-UVWX')).toBeTruthy());
 
     expect(initializeEncryption).toHaveBeenCalledTimes(1);
+  });
+
+  it('запускает шифрование существующих заметок после успешного создания сейфа', async () => {
+    migrateNotesAfterSetup.mockResolvedValueOnce({ encrypted: 3, total: 3, errors: 0, success: true });
+    render(<EncryptionPasswordModal mode="setup" userId="u1" onDone={vi.fn()} />);
+
+    submitSetup();
+
+    await waitFor(() => expect(migrateNotesAfterSetup).toHaveBeenCalledWith('u1'));
+    expect(mockShowToast).toHaveBeenCalledWith('settings_encrypt_done', 'success');
+  });
+
+  it('при ошибках миграции показывает предупреждение о частичном шифровании, но оставляет сейф включённым', async () => {
+    migrateNotesAfterSetup.mockResolvedValueOnce({ encrypted: 1, total: 2, errors: 1, success: false });
+    render(<EncryptionPasswordModal mode="setup" userId="u1" onDone={vi.fn()} />);
+
+    submitSetup();
+
+    await waitFor(() => expect(migrateNotesAfterSetup).toHaveBeenCalledWith('u1'));
+    expect(mockShowToast).toHaveBeenCalledWith('settings_encrypt_partial', 'error');
+    // Код восстановления всё равно отображается: сейф включён
+    expect(await screen.findByText('ABCD-EFGH-IJKL-MNOP-QRST-UVWX')).toBeTruthy();
   });
 });

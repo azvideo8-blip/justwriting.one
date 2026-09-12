@@ -60,11 +60,11 @@ describe('1.5 atomic global token reserve', () => {
     expect(poolQueries).toHaveLength(1);
     const sql = poolQueries[0]!.text;
     // Reserve touches the token column inside the same INSERT..ON CONFLICT:
-    expect(sql).toMatch(/INSERT INTO ai_global_daily \(date, call_count, tokens\)/);
-    expect(sql).toMatch(/tokens\s*=\s*coalesce\(ai_global_daily\.tokens, 0\) \+ \$3::int/);
+    expect(sql).toMatch(/INSERT INTO (public\.)?ai_global_daily \(date, call_count, tokens\)/);
+    expect(sql).toMatch(/tokens\s*=\s*coalesce\((public\.)?ai_global_daily\.tokens, 0\) \+ \$3::int/);
     // The WHERE guards on both ceilings:
     expect(sql).toMatch(/call_count < \$2::int/);
-    expect(sql).toMatch(/coalesce\(ai_global_daily\.tokens, 0\) \+ \$3::int <= \$4::bigint/);
+    expect(sql).toMatch(/coalesce\((public\.)?ai_global_daily\.tokens, 0\) \+ \$3::int <= \$4::bigint/);
     expect(poolQueries[0]!.params).toEqual([TODAY, expect.any(Number), 1000, expect.any(Number)]);
   });
 
@@ -106,8 +106,14 @@ describe('1.5 atomic global token reserve', () => {
 describe('2.19 refunds target the charged day', () => {
   it('refundDailyLimit uses chargedDay, not today()', async () => {
     await postgresAiContext.refundDailyLimit('u1', '2026-08-01');
-    expect(poolQueries[0]!.params).toEqual(['u1', '2026-08-01']);
-    expect(poolQueries[0]!.text).toMatch(/kind = 'chat'/);
+    expect(poolQueries[0]!.params).toEqual(['u1', '2026-08-01', 'chat']);
+    expect(poolQueries[0]!.text).toMatch(/kind = \$3/);
+  });
+
+  it('refundDailyLimit decrements reasoning kind when passed', async () => {
+    await postgresAiContext.refundDailyLimit('u1', '2026-08-01', 'reasoning');
+    expect(poolQueries[0]!.params).toEqual(['u1', '2026-08-01', 'reasoning']);
+    expect(poolQueries[0]!.text).toMatch(/kind = \$3/);
   });
 
   it('refundBulkLimit uses chargedDay, not today()', async () => {
@@ -148,10 +154,10 @@ describe('AUD-18 bulk interval limit', () => {
     clientResults = [{ rows: [{ call_count: 1 }] }];
     await postgresAiContext.checkAndIncrementBulkLimit('u1', 'rerank');
 
-    expect(poolQueries[0]!.text).toMatch(/INSERT INTO ai_bulk_cooldown \(uid, endpoint, window_start, calls\)/);
+    expect(poolQueries[0]!.text).toMatch(/INSERT INTO (public\.)?ai_bulk_cooldown \(uid, endpoint, window_start, calls\)/);
     expect(poolQueries[0]!.text).toMatch(/ON CONFLICT \(uid, endpoint\)/);
     expect(poolQueries[0]!.text).toMatch(/window_start < now\(\) - \(\$2 \|\| ' milliseconds'\)::interval/);
-    expect(poolQueries[0]!.text).toMatch(/THEN 1 ELSE ai_bulk_cooldown\.calls \+ 1 END/);
+    expect(poolQueries[0]!.text).toMatch(/THEN 1 ELSE (public\.)?ai_bulk_cooldown\.calls \+ 1 END/);
     expect(poolQueries[0]!.params).toEqual(['u1', expect.any(String), 'rerank']);
   });
 
@@ -224,4 +230,61 @@ describe('S-15: limit check distinguishes unavailable/unauthorized from exhauste
     expect(verdict).toBe('UNAUTHORIZED');
   });
 });
+
+describe('ST-4: separate reasoning quota', () => {
+  it('five chat calls then one reasoning call is allowed; 6th reasoning refused; chat still allowed', async () => {
+    // 1. One reasoning call with call_count = 1 (after 5 chats) -> allowed
+    clientResults = [
+      { rows: [] }, // role lookup (isAdmin)
+      { rows: [{ call_count: 1 }] }, // reasoning insert
+    ];
+    const r1 = await postgresAiContext.checkDailyLimit('u1', true);
+    expect(r1.ok).toBe(true);
+    expect(clientQueries.some(q => q.text.includes("kind, call_count)") && q.params.includes('reasoning'))).toBe(true);
+
+    // 2. Sixth reasoning call with call_count = 6 -> limit_exceeded
+    clientQueries.length = 0;
+    clientResults = [
+      { rows: [] },
+      { rows: [{ call_count: 6 }] },
+    ];
+    const r6 = await postgresAiContext.checkDailyLimit('u1', true);
+    expect(r6.ok).toBe(false);
+    expect(r6.reason).toBe('limit_exceeded');
+
+    // 3. Next chat call with call_count = 6 -> allowed (chat limit is 30)
+    clientQueries.length = 0;
+    clientResults = [
+      { rows: [] },
+      { rows: [{ call_count: 6 }] },
+    ];
+    const chatNext = await postgresAiContext.checkDailyLimit('u1', false);
+    expect(chatNext.ok).toBe(true);
+    expect(clientQueries.some(q => q.text.includes("kind, call_count)") && q.params.includes('chat'))).toBe(true);
+  });
+
+  it('checkAndIncrementLimit returns REASONING_LIMIT when reasoning is exhausted', async () => {
+    poolResult = { rows: [{ uid: 'u1' }] }; // cooldown OK
+    clientResults = [
+      { rows: [] }, // isAdmin
+      { rows: [{ call_count: 6 }] }, // reasoning limit exceeded
+    ];
+    const res = await postgresAiContext.checkAndIncrementLimit('u1', true);
+    expect(res).toBe('REASONING_LIMIT');
+  });
+
+  it('getDailyLimitCount returns both chat and reasoning counts', async () => {
+    poolResult = {
+      rows: [
+        { kind: 'chat', call_count: 5 },
+        { kind: 'reasoning', call_count: 2 },
+      ],
+    };
+    const counts = await postgresAiContext.getDailyLimitCount('u1');
+    expect(counts.used).toBe(5);
+    expect(counts.reasoningUsed).toBe(2);
+    expect(counts.date).toBe(TODAY);
+  });
+});
+
 

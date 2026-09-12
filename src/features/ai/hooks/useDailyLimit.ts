@@ -1,15 +1,30 @@
 import { useEffect } from 'react';
 import { useAiLimitStore } from '../store/useAiLimitStore';
+import { getCurrentUser } from '../../../core/auth';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 interface DailyLimitState {
   used: number;
   limit: number;
   remaining: number;
+  reasoningUsed: number;
+  reasoningLimit: number;
+  reasoningRemaining: number;
   resetsAt: Date;
 }
 
 export function useDailyLimit(): DailyLimitState {
-  const { used, limit, remaining, resetsAt, loaded, loadLimitFromServer } = useAiLimitStore();
+  const {
+    used,
+    limit,
+    remaining,
+    reasoningUsed,
+    reasoningLimit,
+    reasoningRemaining,
+    resetsAt,
+    loaded,
+    loadLimitFromServer,
+  } = useAiLimitStore();
 
   useEffect(() => {
     if (loaded) return;
@@ -26,16 +41,32 @@ export function useDailyLimit(): DailyLimitState {
     return () => clearInterval(interval);
   }, [resetsAt, loadLimitFromServer]);
 
-  return { used, limit, remaining, resetsAt };
+  return { used, limit, remaining, reasoningUsed, reasoningLimit, reasoningRemaining, resetsAt };
 }
 
-export function incrementDailyUsage(): void {
-  useAiLimitStore.getState().useRequest();
+export function incrementDailyUsage(reasoning?: boolean): void {
+  useAiLimitStore.getState().useRequest(reasoning);
 }
 
-export function setDailyLimitExhausted(): void {
-  const limit = useAiLimitStore.getState().limit;
+export function setDailyLimitExhausted(reasoning?: boolean): void {
+  const state = useAiLimitStore.getState();
+  const key = STORAGE_KEYS.AI_LIMIT(getCurrentUser()?.uid);
   const today = new Date().toISOString().slice(0, 10);
-  localStorage.setItem('ai_daily_usage', JSON.stringify({ count: limit, date: today }));
-  useAiLimitStore.setState({ used: limit, remaining: 0 });
+  if (reasoning) {
+    const reasoningLimit = state.reasoningLimit;
+    useAiLimitStore.setState({ reasoningUsed: reasoningLimit, reasoningRemaining: 0 });
+    try {
+      const raw = localStorage.getItem(key);
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(key, JSON.stringify({ ...prev, reasoningCount: reasoningLimit, date: today }));
+    } catch { /* ignore */ }
+  } else {
+    const limit = state.limit;
+    useAiLimitStore.setState({ used: limit, remaining: 0 });
+    try {
+      const raw = localStorage.getItem(key);
+      const prev = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(key, JSON.stringify({ ...prev, count: limit, date: today }));
+    } catch { /* ignore */ }
+  }
 }

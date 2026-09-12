@@ -27,6 +27,9 @@ export interface AIChatComposerProps {
   onFileUpload: (e: ChangeEvent<HTMLInputElement>) => void;  onOpenDocPicker: () => void;
   dailyLimitRemaining: number;
   dailyLimitTotal: number;
+  reasoningRemaining?: number;
+  reasoningLimit?: number;
+  reasoning?: boolean;
   maxInputChars: number;
   personaName: string;
   crisisActive: boolean;
@@ -52,6 +55,9 @@ export function AIChatComposer(props: AIChatComposerProps) {
     onOpenDocPicker,
     dailyLimitRemaining,
     dailyLimitTotal,
+    reasoningRemaining,
+    reasoningLimit,
+    reasoning,
     maxInputChars,
     personaName,
     crisisActive,
@@ -170,7 +176,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
             ) : (
               <Button
                 onClick={onSend}
-                disabled={(!inputText.trim() && pendingAttachments.length === 0) || dailyLimitRemaining === 0}
+                disabled={(!inputText.trim() && pendingAttachments.length === 0) || (reasoning ? (reasoningRemaining ?? 5) <= 0 : dailyLimitRemaining <= 0)}
                 className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
               >
                 <span className="hidden md:inline">{t('ai_send')}</span>
@@ -181,7 +187,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
 
           <div className="flex items-center gap-3.5 mt-2.5">
             <span className="text-[10px] font-mono text-text-main/60">
-              {t('ai_remaining_today')} <b className="text-text-main/60">{dailyLimitRemaining}/{dailyLimitTotal}</b> {t('ai_today')}
+              {t('ai_quota_chat')} <b className="text-text-main/60">{dailyLimitRemaining}/{dailyLimitTotal}</b> · {t('ai_quota_reasoning')} <b className="text-text-main/60">{reasoningRemaining ?? 5}/{reasoningLimit ?? 5}</b>
             </span>
             <div className="flex-1" />
             <span className={cn(

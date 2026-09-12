@@ -7,8 +7,6 @@ import { AuthService } from '../services/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
-import { useToast } from '../../../shared/components/Toast';
-import { MigrationPrompt, checkGuestDocuments } from '../components/MigrationPrompt';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { reportError } from '../../../shared/errors/reportError';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
@@ -67,15 +65,11 @@ export function mapSupabaseAuthError(
 
 export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const { t } = useLanguage();
-  const { showToast } = useToast();
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  const [migrationUserId, setMigrationUserId] = useState<string | null>(null);
-  const [migrationDocCount, setMigrationDocCount] = useState(0);
 
   const [generatedRecoveryCode, setGeneratedRecoveryCode] = useState<string | null>(null);
   const pendingRecoveryRef = React.useRef(false);
@@ -98,12 +92,6 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         onSuccess();
         return;
       }
-      void checkGuestDocuments().then(result => {
-        if (result) {
-          setMigrationDocCount(result.docs.length + (result.hasDraft ? 1 : 0));
-          setMigrationUserId(u.uid);
-        }
-      });
     });
     return unsub;
   }, [onSuccess]);
@@ -147,7 +135,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   };
 
   return (
-    <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "h-screen w-screen flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
+    <div className={isModal ? "flex flex-col items-center justify-center px-6 py-8" : "min-h-screen w-full flex flex-col items-center justify-center px-6 overflow-y-auto py-10 bg-surface-base"}>
       {!isModal && <SeoHead
         path="/login"
         titleRu="Вход — justwriting"
@@ -368,15 +356,6 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           </p>
         )}
       </motion.div>
-
-      {migrationUserId && migrationDocCount > 0 && (
-        <MigrationPrompt
-          userId={migrationUserId}
-          docCount={migrationDocCount}
-          onDone={() => { setMigrationUserId(null); setMigrationDocCount(0); }}
-          onCloudSynced={(synced) => showToast(t('migration_synced_cloud', { count: synced }), 'success')}
-        />
-      )}
 
       {generatedRecoveryCode && (
         <RecoveryCodeDisplayModal

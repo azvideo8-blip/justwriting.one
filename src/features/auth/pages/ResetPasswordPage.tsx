@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { updateUserPassword, onPasswordRecovery } from '../../../core/auth/supabaseAuthProvider';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { updateUserPassword, onPasswordRecovery, verifyOtpForRecovery } from '../../../core/auth/supabaseAuthProvider';
 import { reportError } from '../../../shared/errors/reportError';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -10,19 +10,46 @@ const MIN_PASSWORD_LENGTH = 8;
  *
  * Сессия восстановления активируется клиентом Supabase автоматически
  * (PKCE-обмен по ?code= или событие PASSWORD_RECOVERY у implicit-ссылок),
- * здесь только форма смены пароля. Сейф шифрования к аккаунтному паролю
- * отношения не имеет — трогать useEncryptionStore здесь запрещено.
+ * либо через прямой обмен token_hash при переходе с других устройств.
+ * Сейф шифрования к аккаунтному паролю отношения не имеет —
+ * трогать useEncryptionStore здесь запрещено.
  */
 export function ResetPasswordPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkExpired, setLinkExpired] = useState(false);
 
-  useEffect(() => onPasswordRecovery(() => setRecoveryMode(true)), []);
+  useEffect(() => {
+    const unsub = onPasswordRecovery(() => {
+      setRecoveryMode(true);
+      setLinkExpired(false);
+    });
+
+    const tokenHash = searchParams.get('token_hash');
+    const type = searchParams.get('type');
+
+    if (tokenHash && type === 'recovery') {
+      verifyOtpForRecovery(tokenHash)
+        .then(() => {
+          setRecoveryMode(true);
+          setLinkExpired(false);
+          window.history.replaceState(null, '', window.location.pathname);
+        })
+        .catch((err) => {
+          reportError(err, { action: 'verifyOtpRecovery' });
+          setLinkExpired(true);
+          window.history.replaceState(null, '', window.location.pathname);
+        });
+    }
+
+    return unsub;
+  }, [searchParams]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,7 +84,22 @@ export function ResetPasswordPage() {
       <div className="w-full max-w-sm space-y-4">
         <h1 className="text-xl font-semibold">Восстановление пароля</h1>
 
-        {!recoveryMode && !done && (
+        {linkExpired && !done && (
+          <div className="space-y-3">
+            <p className="text-sm text-red-500">
+              Ссылка уже использована или устарела — запросите новую
+            </p>
+            <button
+              type="button"
+              onClick={() => { void navigate('/login'); }}
+              className="rounded-lg px-3 py-2 bg-accent text-white text-sm"
+            >
+              Запросить новую ссылку
+            </button>
+          </div>
+        )}
+
+        {!recoveryMode && !done && !linkExpired && (
           <p className="text-sm opacity-70">
             Откройте эту страницу по ссылке из письма. Если вы перешли напрямую —
             запросите восстановление пароля на странице входа.

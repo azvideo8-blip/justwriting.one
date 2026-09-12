@@ -459,7 +459,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       if (!ok) return;
     }
     setReasoning(value);
-    useAiLimitStore.getState().setLimit(value ? 5 : 10);
     const did = activeDialogueId ?? dialogue?.id;
     if (did) {
       await AIDialogueService.updateResponseLength(did, responseLength, value);
@@ -503,7 +502,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     void Promise.resolve().then(() => {
       setResponseLength(curr => curr !== nextVal ? nextVal : curr);
       setReasoning(curr => curr !== nextReasoning ? nextReasoning : curr);
-      useAiLimitStore.getState().setLimit(nextReasoning ? 5 : 10);
     });
   }, [activeDialogue]);
 

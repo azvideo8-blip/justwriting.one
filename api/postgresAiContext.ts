@@ -35,13 +35,13 @@ async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservat
     // после инкремента call_count, и N конкурентных запросов видели один и тот
     // же устаревший остаток — потолок был мягким под нагрузкой.
     const res = await pool.query(
-      `INSERT INTO ai_global_daily (date, call_count, tokens)
+      `INSERT INTO public.ai_global_daily (date, call_count, tokens)
        VALUES ($1, 1, $3::int)
        ON CONFLICT (date) DO UPDATE SET
-         call_count = ai_global_daily.call_count + 1,
-         tokens     = coalesce(ai_global_daily.tokens, 0) + $3::int
-       WHERE ai_global_daily.call_count < $2::int
-         AND coalesce(ai_global_daily.tokens, 0) + $3::int <= $4::bigint
+         call_count = public.ai_global_daily.call_count + 1,
+         tokens     = coalesce(public.ai_global_daily.tokens, 0) + $3::int
+       WHERE public.ai_global_daily.call_count < $2::int
+         AND coalesce(public.ai_global_daily.tokens, 0) + $3::int <= $4::bigint
        RETURNING coalesce(tokens, 0) AS tokens_reserved`,
       [date, GLOBAL_DAILY_LIMIT, allowance, EFFECTIVE_TOKEN_LIMIT],
     );
@@ -63,7 +63,7 @@ async function refundGlobalRequest(res: GlobalReservation | null | undefined): P
     // свой allowance из суточного потолка — час лежащего провайдера выбрал бы
     // потолок, не потратив ни одного токена.
     await pool.query(
-      `UPDATE ai_global_daily
+      `UPDATE public.ai_global_daily
           SET call_count = GREATEST(0, call_count - 1),
               tokens     = GREATEST(0, coalesce(tokens, 0) - $2::int)
         WHERE date = $1`,
@@ -127,7 +127,7 @@ async function getIndexingConsent(uid: string): Promise<{ granted: boolean }> {
 
 async function isAdmin(uid: string): Promise<boolean> {
   try {
-    const { rows } = await pool.query('SELECT role FROM users WHERE uid = $1', [uid]);
+    const { rows } = await pool.query('SELECT role FROM public.users WHERE uid = $1', [uid]);
     return rows[0]?.role === 'admin';
   } catch (e) {
     console.error('[postgresAiContext] isAdmin error', e);
@@ -138,6 +138,13 @@ async function isAdmin(uid: string): Promise<boolean> {
 async function getUserDailyLimit(uid: string): Promise<number> {
   if (await isAdmin(uid)) return ADMIN_DAILY_LIMIT;
   return PER_USER_LIMIT;
+}
+
+const REASONING_DAILY_LIMIT = parseInt(process.env.AI_REASONING_DAILY_LIMIT ?? '5', 10);
+
+// ST-4: ADMIN_DAILY_LIMIT applies to chat; reasoning stays 5 for everyone unless the owner says otherwise
+async function getUserReasoningLimit(_uid: string): Promise<number> {
+  return REASONING_DAILY_LIMIT;
 }
 
 async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitVerdict> {
@@ -155,15 +162,15 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
   try {
     await client.query('BEGIN');
     const date = today();
-    const baseLimit = await getUserDailyLimit(uid);
-    const limit = reasoning ? Math.min(baseLimit, 5) : baseLimit;
+    const kind = reasoning ? 'reasoning' : 'chat';
+    const limit = reasoning ? await getUserReasoningLimit(uid) : await getUserDailyLimit(uid);
 
     const res = await client.query(
-      `INSERT INTO ai_daily_limit (uid, day, kind, call_count)
-       VALUES ($1, $2, 'chat', 1)
-       ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
+      `INSERT INTO public.ai_daily_limit (uid, day, kind, call_count)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = public.ai_daily_limit.call_count + 1
        RETURNING call_count`,
-      [uid, date],
+      [uid, date, kind],
     );
     const count = Number(res.rows[0]?.call_count ?? 1);
     if (count > limit) {
@@ -186,24 +193,30 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
   }
 }
 
-async function refundDailyLimit(uid: string, chargedDay: string): Promise<void> {
+async function refundDailyLimit(uid: string, chargedDay: string, kind: string = 'chat'): Promise<void> {
   try {
     await pool.query(
-      `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'chat'`,
-      [uid, chargedDay],
+      `UPDATE public.ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = $3`,
+      [uid, chargedDay, kind],
     );
   } catch (e) {
     console.error('[postgresAiContext] refundDailyLimit error', e);
   }
 }
 
-async function getDailyLimitCount(uid: string): Promise<{ used: number; date: string }> {
+async function getDailyLimitCount(uid: string): Promise<{ used: number; reasoningUsed: number; date: string }> {
   const date = today();
   const res = await pool.query(
-    `SELECT call_count FROM ai_daily_limit WHERE uid = $1 AND day = $2 AND kind = 'chat'`,
+    `SELECT kind, call_count FROM public.ai_daily_limit WHERE uid = $1 AND day = $2 AND kind IN ('chat', 'reasoning')`,
     [uid, date],
   );
-  return { used: Number(res.rows[0]?.call_count ?? 0), date };
+  let used = 0;
+  let reasoningUsed = 0;
+  for (const row of res.rows) {
+    if (row.kind === 'chat') used = Number(row.call_count ?? 0);
+    if (row.kind === 'reasoning') reasoningUsed = Number(row.call_count ?? 0);
+  }
+  return { used, reasoningUsed, date };
 }
 
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
@@ -235,15 +248,15 @@ async function checkAndIncrementBulkLimit(
   // это происходить не должно, поэтому в журнал уходит громкая строка.
   try {
     const { rows } = await pool.query(
-      `INSERT INTO ai_bulk_cooldown (uid, endpoint, window_start, calls)
+      `INSERT INTO public.ai_bulk_cooldown (uid, endpoint, window_start, calls)
        VALUES ($1, $3, now(), 1)
        ON CONFLICT (uid, endpoint) DO UPDATE SET
          window_start = CASE
-           WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
-           THEN now() ELSE ai_bulk_cooldown.window_start END,
+           WHEN public.ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+           THEN now() ELSE public.ai_bulk_cooldown.window_start END,
          calls = CASE
-           WHEN ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
-           THEN 1 ELSE ai_bulk_cooldown.calls + 1 END
+           WHEN public.ai_bulk_cooldown.window_start < now() - ($2 || ' milliseconds')::interval
+           THEN 1 ELSE public.ai_bulk_cooldown.calls + 1 END
        RETURNING calls`,
       [uid, String(BULK_WINDOW_MS), endpoint],
     );
@@ -273,9 +286,9 @@ async function checkAndIncrementBulkLimit(
     await client.query('BEGIN');
     const date = today();
     const res = await client.query(
-      `INSERT INTO ai_daily_limit (uid, day, kind, call_count)
+      `INSERT INTO public.ai_daily_limit (uid, day, kind, call_count)
        VALUES ($1, $2, 'bulk', 1)
-       ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = ai_daily_limit.call_count + 1
+       ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = public.ai_daily_limit.call_count + 1
        RETURNING call_count`,
       [uid, date],
     );
@@ -303,7 +316,7 @@ async function checkAndIncrementBulkLimit(
 async function refundBulkLimit(uid: string, chargedDay: string): Promise<void> {
   try {
     await pool.query(
-      `UPDATE ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'bulk'`,
+      `UPDATE public.ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'bulk'`,
       [uid, chargedDay],
     );
   } catch (e) {
@@ -316,12 +329,12 @@ const COOLDOWN_MS = 10000;
 async function checkAndIncrementLimit(
   uid: string,
   reasoning?: boolean,
-): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'> {
+): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'REASONING_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'> {
   try {
     const { rows } = await pool.query(
-      `INSERT INTO ai_cooldown (uid, updated_at) VALUES ($1, now())
+      `INSERT INTO public.ai_cooldown (uid, updated_at) VALUES ($1, now())
        ON CONFLICT (uid) DO UPDATE SET updated_at = now()
-         WHERE ai_cooldown.updated_at < now() - ($2 || ' milliseconds')::interval
+         WHERE public.ai_cooldown.updated_at < now() - ($2 || ' milliseconds')::interval
        RETURNING uid`,
       [uid, String(COOLDOWN_MS)],
     );
@@ -336,7 +349,7 @@ async function checkAndIncrementLimit(
   if (verdict.ok) return { ok: true, day: verdict.day };
   if (verdict.reason === 'unauthorized') return 'UNAUTHORIZED';
   if (verdict.reason === 'unavailable') return 'UNAVAILABLE';
-  return 'DAILY_LIMIT';
+  return reasoning ? 'REASONING_LIMIT' : 'DAILY_LIMIT';
 }
 
 async function recordUsage(
@@ -355,23 +368,23 @@ async function recordUsage(
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO ai_usage (uid, date, data)
+      `INSERT INTO public.ai_usage (uid, date, data)
          VALUES ($1, $4,
                  jsonb_build_object('promptTokens', $2::int,
                                     'completionTokens', $3::int,
                                     'requests', 1))
        ON CONFLICT (uid, date) DO UPDATE SET data =
-         jsonb_set(jsonb_set(jsonb_set(ai_usage.data,
-           '{promptTokens}',     to_jsonb(coalesce((ai_usage.data->>'promptTokens')::int, 0)     + $2::int)),
-           '{completionTokens}', to_jsonb(coalesce((ai_usage.data->>'completionTokens')::int, 0) + $3::int)),
-           '{requests}',         to_jsonb(coalesce((ai_usage.data->>'requests')::int, 0)         + 1))`,
+         jsonb_set(jsonb_set(jsonb_set(public.ai_usage.data,
+           '{promptTokens}',     to_jsonb(coalesce((public.ai_usage.data->>'promptTokens')::int, 0)     + $2::int)),
+           '{completionTokens}', to_jsonb(coalesce((public.ai_usage.data->>'completionTokens')::int, 0) + $3::int)),
+           '{requests}',         to_jsonb(coalesce((public.ai_usage.data->>'requests')::int, 0)         + 1))`,
       [uid, tokensIn, tokensOut, date],
     );
     // Сверка резерва с фактом: allowance уже лежит в tokens (зарезервирован
     // атомарно), добавляем только дельту. GREATEST защищает от гонки с refund.
     if (reservation && !reservation.refunded) {
       await client.query(
-        `UPDATE ai_global_daily
+        `UPDATE public.ai_global_daily
             SET tokens = GREATEST(0, coalesce(tokens, 0) - $3::int + $1::int)
           WHERE date = $2::text`,
         [tokensIn + tokensOut, reservation.date, reservation.allowance],

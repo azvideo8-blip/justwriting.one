@@ -99,6 +99,7 @@ function createSettlement(
   reservation: GlobalReservation | null,
   chargedDay: string,
   estimatedInputTokens?: number,
+  kind: 'chat' | 'reasoning' | string = 'chat',
 ): Settlement {
   const callRes = createCallReservation(
     postgresAiContext,
@@ -107,6 +108,7 @@ function createSettlement(
     chargedDay,
     reservation,
     estimatedInputTokens,
+    kind,
   );
   return {
     get usageRecorded() {
@@ -135,7 +137,7 @@ async function streamOpenRouterReasoning(
   chargedDay: string,
   estimatedInputTokens?: number,
 ): Promise<void> {
-  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, estimatedInputTokens);
+  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, estimatedInputTokens, 'reasoning');
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -386,6 +388,10 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
           sendError(res, 429, 'RATE_LIMIT');
           return;
         }
+        if (err.message.includes('Reasoning limit reached')) {
+          sendError(res, 429, 'REASONING_LIMIT');
+          return;
+        }
         sendError(res, 429, 'DAILY_LIMIT');
         return;
       }
@@ -468,7 +474,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     reasoning: false,
   });
 
-  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, inputEstimate);
+  const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, inputEstimate, 'chat');
   const controller = new AbortController();
 
   // Уход клиента: обрываем запрос к поставщику (иначе он досчитывает ответ,

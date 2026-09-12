@@ -24,6 +24,8 @@ export const aiTranslations: Translations = {
   ai_delete_message: { ru: 'Удалить сообщение', en: 'Delete message' },
   ai_remaining_today: { ru: 'осталось', en: 'remaining' },
   ai_today: { ru: 'сегодня', en: 'today' },
+  ai_quota_chat: { ru: 'чат', en: 'chat' },
+  ai_quota_reasoning: { ru: 'рассуждения', en: 'reasoning' },
   ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },
   ai_unarchive: { ru: 'Восстановить', en: 'Restore' },
   ai_memory_title: { ru: 'Память ИИ', en: 'AI memory' },

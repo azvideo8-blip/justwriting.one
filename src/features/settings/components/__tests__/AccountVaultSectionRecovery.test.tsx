@@ -11,18 +11,28 @@ vi.mock('../../../../shared/components/Toast', () => ({
 }));
 
 const generateRecoveryCodeForExistingVault = vi.fn();
+const initializeEncryption = vi.fn();
+const migrateNotesAfterSetup = vi.fn().mockResolvedValue({ encrypted: 0, total: 0, errors: 0, success: true });
+const mockShowToast = vi.fn();
+
+vi.mock('../../../../shared/components/Toast', () => ({
+  useToast: () => ({ showToast: mockShowToast }),
+}));
+
+const hasVaultMock = vi.fn(() => true);
 
 vi.mock('../../../../core/services/EncryptionService', () => ({
   EncryptionService: {
     generateRecoveryCodeForExistingVault: (...args: unknown[]) => generateRecoveryCodeForExistingVault(...args),
-    initializeEncryption: vi.fn(),
+    initializeEncryption: (...args: unknown[]) => initializeEncryption(...args),
+    migrateNotesAfterSetup: (...args: unknown[]) => migrateNotesAfterSetup(...args),
     lockVault: vi.fn(),
     encryptAll: vi.fn(),
     VaultAlreadyExistsError: class VaultAlreadyExistsError extends Error {},
     KeyNotExtractableError: class KeyNotExtractableError extends Error {},
   },
   WrongPasswordError: class WrongPasswordError extends Error {},
-  hasVault: () => true,
+  hasVault: () => hasVaultMock(),
 }));
 
 vi.mock('../../../../core/crypto/useEncryptionStore', () => ({
@@ -94,6 +104,27 @@ describe('AccountVaultSection: замена кода восстановлени�
     });
     await waitFor(() => {
       expect(screen.getByText('ABCD-EFGH-IJKL-MNOP-QRST-UVWX')).toBeTruthy();
+    });
+  });
+
+  it('при настройке сейфа запускает шифрование существующих заметок', async () => {
+    hasVaultMock.mockReturnValue(false);
+    initializeEncryption.mockResolvedValueOnce({ recoveryCode: 'INIT-RECV-CODE-1234' });
+    migrateNotesAfterSetup.mockResolvedValueOnce({ encrypted: 4, total: 4, errors: 0, success: true });
+
+    render(<AccountVaultSection userId="u1" />);
+
+    const inputs = screen.getAllByPlaceholderText(/settings_initialize_password|settings_initialize_confirm/);
+    expect(inputs).toHaveLength(2);
+    fireEvent.change(inputs[0]!, { target: { value: 'password123' } });
+    fireEvent.change(inputs[1]!, { target: { value: 'password123' } });
+
+    fireEvent.click(screen.getByText('settings_initialize_submit'));
+
+    await waitFor(() => {
+      expect(initializeEncryption).toHaveBeenCalledWith('u1', 'password123');
+      expect(migrateNotesAfterSetup).toHaveBeenCalledWith('u1');
+      expect(mockShowToast).toHaveBeenCalledWith('settings_encrypt_done', 'success');
     });
   });
 });

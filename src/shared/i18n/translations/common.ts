@@ -110,7 +110,7 @@ export const commonTranslations: Translations = {
   enc_confirm_password: { ru: 'Подтверди пароль', en: 'Confirm password' },
   enc_password_min_length: { ru: 'Минимум {min} символов', en: 'Minimum {min} characters' },
   enc_passwords_dont_match: { ru: 'Пароли не совпадают', en: 'Passwords do not match' },
-  enc_password_warning: { ru: 'Пароль нельзя восстановить. Если забудешь — данные потеряны навсегда.', en: 'This password cannot be recovered. If you forget it, your data will be lost forever.' },
+  enc_password_warning: { ru: 'Пароль нельзя восстановить. Вернуть доступ можно только кодом восстановления — он будет показан один раз.', en: 'This password cannot be recovered. Access can only be restored with a recovery code — it will be shown once.' },
   enc_cloud_sync_notice: { ru: 'Синхронизация с облаком включает сквозное шифрование. В облаке заметки хранятся только в зашифрованном виде — придумай пароль шифрования.', en: 'Cloud sync enables end-to-end encryption. Your notes are stored in the cloud only in encrypted form — create an encryption password.' },
   enc_migrate_title: { ru: 'Миграция шифрования', en: 'Encryption Migration' },
   enc_migrate_subtitle: { ru: 'Твоё шифрование привязано к паролю аккаунта. Настрой отдельный пароль шифрования.', en: 'Your encryption is tied to your account password. Set up a separate encryption password.' },

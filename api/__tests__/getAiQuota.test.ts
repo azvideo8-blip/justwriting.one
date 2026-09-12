@@ -47,4 +47,20 @@ describe('getAiQuota.logic (AUDIT-part3 3)', () => {
     expect(ctx.getDailyLimitCount).toHaveBeenCalledWith('u1');
     expect(out.used).toBe(0);
   });
+
+  it('returns both chat and reasoning numbers when both are present', async () => {
+    vi.mocked(ctx.getDailyLimitCount).mockResolvedValue({ used: 5, reasoningUsed: 2, date: '2026-08-25' });
+    vi.mocked(ctx.isAdmin).mockResolvedValue(false);
+
+    const out = await getAiQuotaLogic(ctx as never, 'u1', {}) as {
+      used: number;
+      limit: number;
+      reasoningUsed: number;
+      reasoningLimit: number;
+    };
+    expect(out.used).toBe(5);
+    expect(out.limit).toBe(30);
+    expect(out.reasoningUsed).toBe(2);
+    expect(out.reasoningLimit).toBe(5);
+  });
 });

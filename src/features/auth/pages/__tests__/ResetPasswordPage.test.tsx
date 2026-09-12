@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const { onPasswordRecoveryCb, updateUserPassword, signOutUser } = vi.hoisted(() => {
+const { onPasswordRecoveryCb, updateUserPassword, signOutUser, verifyOtpForRecovery } = vi.hoisted(() => {
   let cb: () => void = () => {};
   return {
     onPasswordRecoveryCb: {
@@ -13,6 +13,7 @@ const { onPasswordRecoveryCb, updateUserPassword, signOutUser } = vi.hoisted(() 
     },
     updateUserPassword: vi.fn().mockResolvedValue(undefined),
     signOutUser: vi.fn().mockResolvedValue(undefined),
+    verifyOtpForRecovery: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -20,17 +21,19 @@ vi.mock('../../../../core/auth/supabaseAuthProvider', () => ({
   updateUserPassword: (...a: unknown[]) => updateUserPassword(...(a as [])),
   signOutUser: (...a: unknown[]) => signOutUser(...(a as [])),
   onPasswordRecovery: (fn: () => void) => { onPasswordRecoveryCb.register(fn); return () => {}; },
+  verifyOtpForRecovery: (...a: unknown[]) => verifyOtpForRecovery(...(a as [])),
 }));
 
 import { ResetPasswordPage } from '../ResetPasswordPage';
 
-function renderPage() {
-  return render(<MemoryRouter><ResetPasswordPage /></MemoryRouter>);
+function renderPage(initialEntries = ['/']) {
+  return render(<MemoryRouter initialEntries={initialEntries}><ResetPasswordPage /></MemoryRouter>);
 }
 
 beforeEach(() => {
   updateUserPassword.mockClear();
   signOutUser.mockClear();
+  verifyOtpForRecovery.mockClear();
   onPasswordRecoveryCb.reset();
 });
 
@@ -67,5 +70,28 @@ describe('1.3 password recovery', () => {
 
     expect(await screen.findByText('Пароли не совпадают')).toBeTruthy();
     expect(updateUserPassword).not.toHaveBeenCalled();
+  });
+
+  it('token_hash and type=recovery in URL calls verifyOtp and reveals form on success', async () => {
+    const replaceSpy = vi.spyOn(window.history, 'replaceState');
+    renderPage(['/reset-password?token_hash=abc123hash&type=recovery']);
+
+    await waitFor(() => {
+      expect(verifyOtpForRecovery).toHaveBeenCalledWith('abc123hash');
+    });
+
+    const pwInputs = await screen.findAllByPlaceholderText(/Новый пароль|Повторите пароль/);
+    expect(pwInputs).toHaveLength(2);
+    expect(replaceSpy).toHaveBeenCalledWith(null, '', expect.any(String));
+    replaceSpy.mockRestore();
+  });
+
+  it('verifyOtp rejection shows expired link error and request-again button', async () => {
+    verifyOtpForRecovery.mockRejectedValueOnce(new Error('Email link is invalid or has expired'));
+    renderPage(['/reset-password?token_hash=expired-token&type=recovery']);
+
+    expect(await screen.findByText('Ссылка уже использована или устарела — запросите новую')).toBeTruthy();
+    expect(screen.getByText('Запросить новую ссылку')).toBeTruthy();
+    expect(screen.queryByPlaceholderText(/Новый пароль/)).toBeNull();
   });
 });

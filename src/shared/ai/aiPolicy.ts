@@ -150,6 +150,7 @@ export interface CallReservation {
    *  момент неудачи — иначе запрос, списавший квоту в 23:58 и упавший после
    *  полуночи, возвращает единицу в пустую строку. */
   readonly day: string;
+  readonly kind?: 'chat' | 'reasoning' | string | undefined;
   refunded?: boolean;
   readonly globalReservation?: GlobalReservation | null;
   readonly upstreamProduced?: boolean;
@@ -171,6 +172,7 @@ export function createCallReservation(
   day: string,
   globalReservation: GlobalReservation | null = null,
   estimatedInputTokens?: number,
+  kind?: 'chat' | 'reasoning' | string,
 ): CallReservation {
   let isSettled = false;
   let upstreamProduced = false;
@@ -184,6 +186,7 @@ export function createCallReservation(
     uid,
     charge,
     day,
+    kind,
     refunded: false,
     get globalReservation() {
       return currentGlobal;
@@ -257,7 +260,11 @@ export function createCallReservation(
       if (producedChars < REFUND_IF_PRODUCED_UNDER_CHARS) {
         res.refunded = true;
         if (charge === 'user') {
-          await ctx.refundDailyLimit(uid, day);
+          if (kind && kind !== 'chat') {
+            await ctx.refundDailyLimit(uid, day, kind);
+          } else {
+            await ctx.refundDailyLimit(uid, day);
+          }
         } else {
           await ctx.refundBulkLimit(uid, day);
         }
@@ -290,6 +297,7 @@ export function createCallReservation(
 
   // Keep methods and getters non-enumerable so toEqual({ uid, charge, day, refunded: false }) passes
   Object.defineProperties(res, {
+    kind: { enumerable: false },
     globalReservation: { enumerable: false },
     upstreamProduced: { enumerable: false },
     producedChars: { enumerable: false },
@@ -374,10 +382,13 @@ export async function acquireChatReservation(
     if (limitResult === 'DAILY_LIMIT') {
       throw new AiError('resource-exhausted', 'Daily limit reached.');
     }
+    if (limitResult === 'REASONING_LIMIT') {
+      throw new AiError('resource-exhausted', 'Reasoning limit reached.');
+    }
     if (limitResult === 'RATE_LIMIT') {
       throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
     }
-    return createCallReservation(ctx, uid, 'user', limitResult.day);
+    return createCallReservation(ctx, uid, 'user', limitResult.day, null, undefined, reasoning ? 'reasoning' : 'chat');
   }
 }
 
@@ -397,7 +408,11 @@ export async function refundCall(
     if (resOrUid.refunded === true) return;
     resOrUid.refunded = true;
     if (resOrUid.charge === 'user') {
-      await ctx.refundDailyLimit(resOrUid.uid, resOrUid.day);
+      if (resOrUid.kind && resOrUid.kind !== 'chat') {
+        await ctx.refundDailyLimit(resOrUid.uid, resOrUid.day, resOrUid.kind);
+      } else {
+        await ctx.refundDailyLimit(resOrUid.uid, resOrUid.day);
+      }
       return;
     }
     await ctx.refundBulkLimit(resOrUid.uid, resOrUid.day);

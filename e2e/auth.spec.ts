@@ -21,4 +21,11 @@ test.describe('Login Page', () => {
     // change auth/invalid-credential into a generic error).
     await expect(page.locator('[role="alert"]')).toBeVisible();
   });
+
+  test('does not overflow horizontally on mobile viewport (390x844) (S-14)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/login');
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(390);
+  });
 });

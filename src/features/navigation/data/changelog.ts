@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.45',
+    date: '2026-09-12',
+    items: [
+      { category: 'fix', ru: 'Ссылка для смены пароля теперь работает в любом браузере — в том числе во встроенном браузере почтового приложения на телефоне. Раньше она открывалась только там, где сброс запросили; на телефоне человек видел «Откройте эту страницу по ссылке из письма», а второе нажатие получало «ссылка устарела».', en: 'The password reset link now works in any browser — including the mail app’s built-in browser on a phone. Before, it opened only where the reset was requested; on a phone the person saw “open this page from the mail link”, and a second tap got “link expired”.' },
+      { category: 'fix', ru: 'Заметки, написанные гостем, больше не пропадают из виду при входе через страницу /login (туда ведёт «Я» на телефоне). Предложение перенести их теперь живёт над маршрутизатором и не исчезает вместе со страницей входа. «Оставить локальными» запоминается — спрашиваем один раз.', en: 'Notes written as a guest no longer vanish from view when signing in through the /login page (the phone’s “Me” page leads there). The offer to move them now lives above the router and does not disappear with the login page. “Keep local” is remembered — asked once.' },
+      { category: 'fix', ru: 'Включение сейфа теперь шифрует заметки, написанные до него, в обоих местах, где сейф можно включить, и показывает, сколько зашифровано. Раньше они оставались открытым текстом в облаке до нажатия отдельной кнопки в другом разделе, на которую ничто не указывало.', en: 'Turning the vault on now encrypts the notes written before it, in both places the vault can be set up, and says how many. Before, they stayed plaintext in the cloud until a separate button in another section — which nothing pointed at — was pressed.' },
+      { category: 'fix', ru: 'Режим рассуждений получил свой дневной счётчик (5) и своё число на экране: «чат N/30 · рассуждения M/5». Раньше пять любых сообщений исчерпывали рассуждения, а виджет показывал 25 оставшихся и «дневной лимит достигнут».', en: 'Reasoning mode has its own daily counter (5) and its own number on screen: “chat N/30 · reasoning M/5”. Before, five messages of any kind used up reasoning while the widget showed 25 left and “daily limit reached”.' },
+      { category: 'improvement', ru: 'Предупреждение при создании сейфа больше не противоречит следующему экрану: «вернуть доступ можно только кодом восстановления». Счётчик ИИ на устройстве привязан к аккаунту, а не к браузеру. Согласие на ИИ при отзыве говорит, что уже вычисленное остаётся до «Удалить все данные ИИ». Окно политики прокручивается на маленьких экранах; страница входа больше не уезжает вбок на 390 px.', en: 'The vault set-up warning no longer contradicts the next screen: “access can be restored only with the recovery code”. The on-device AI counter is keyed to the account, not the browser. Withdrawing AI consent says that what was already computed stays until “Delete all AI data”. The privacy dialog scrolls on small screens; the login page no longer overflows sideways at 390 px.' },
+    ],
+  },
+  {
     version: '0.8.44',
     date: '2026-09-12',
     items: [

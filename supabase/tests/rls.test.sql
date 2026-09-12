@@ -985,6 +985,37 @@ BEGIN
   END IF;
 END $$;
 
+-- ------------------------------------------------------------
+-- S-11: ai_bulk_cooldown cascade delete on user deletion
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+  test_uid uuid := '00000000-0000-0000-0000-000000000099';
+  remaining_cooldown int;
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (test_uid, 'cascade_test@test.com')
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.users (uid, email, nickname) VALUES (test_uid, 'cascade_test@test.com', 'Cascade')
+  ON CONFLICT (uid) DO NOTHING;
+
+  INSERT INTO public.ai_bulk_cooldown (uid, endpoint, window_start, calls)
+  VALUES (test_uid, 'chat', now(), 1)
+  ON CONFLICT (uid, endpoint) DO UPDATE SET calls = 1;
+
+  DELETE FROM public.users WHERE uid = test_uid;
+
+  SELECT count(*) INTO remaining_cooldown
+    FROM public.ai_bulk_cooldown
+   WHERE uid = test_uid;
+
+  IF remaining_cooldown > 0 THEN
+    RAISE EXCEPTION 'FAIL: ai_bulk_cooldown row survived user deletion (count: %)', remaining_cooldown;
+  END IF;
+
+  DELETE FROM auth.users WHERE id = test_uid;
+END $$;
+
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
 -- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),

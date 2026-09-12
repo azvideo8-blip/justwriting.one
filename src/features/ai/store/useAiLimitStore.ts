@@ -1,10 +1,18 @@
 import { create } from 'zustand';
 import { callAi } from '../../../core/ai/callAi';
+import { getCurrentUser } from '../../../core/auth';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
-const STORAGE_KEY = 'ai_daily_usage';
+// S-09: STORAGE_KEY is scoped to uid; guests share 'ai_daily_usage'
+function resolveKey(): string {
+  const uid = getCurrentUser()?.uid;
+  return STORAGE_KEYS.AI_LIMIT(uid);
+}
+
 // Должно совпадать с DAILY_LIMIT в api/ai/pure.ts: это лишь заглушка до ответа
 // сервера, но расхождение показывало бы человеку неверную цену обновления.
 const DEFAULT_LIMIT = 30;
+const DEFAULT_REASONING_LIMIT = 5;
 // Admin daily cap for the experiment. Must match the server env
 // AI_ADMIN_DAILY_LIMIT (chat + editWithAI) — this constant only drives the
 // client-side countdown; the server is authoritative.
@@ -21,27 +29,47 @@ function getMidnightUtc(): Date {
 
 // AUDIT-M12: форма localStorage валидируется — повреждённая запись
 // ({count: "999999"} и т.п.) не должна сбивать локальную квоту.
-function isValidUsage(v: unknown): v is { count: number; date: string } {
+function isValidUsage(v: unknown): v is { count: number; reasoningCount?: number; date: string } {
   return (
     typeof v === 'object' && v !== null &&
     typeof (v as { count?: unknown }).count === 'number' &&
     Number.isInteger((v as { count: number }).count) &&
     (v as { count: number }).count >= 0 &&
+    (typeof (v as { reasoningCount?: unknown }).reasoningCount === 'undefined' ||
+      (typeof (v as { reasoningCount?: unknown }).reasoningCount === 'number' &&
+       Number.isInteger((v as { reasoningCount: number }).reasoningCount) &&
+       (v as { reasoningCount: number }).reasoningCount >= 0)) &&
     typeof (v as { date?: unknown }).date === 'string' &&
     /^\d{4}-\d{2}-\d{2}$/.test((v as { date: string }).date)
   );
 }
 
-function readLocalUsage(): { count: number; date: string } {
+function readLocalUsage(): { count: number; reasoningCount: number; date: string } {
   const today = getUtcDateStr();
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const key = resolveKey();
+  let raw = localStorage.getItem(key);
+  // S-09: Adopt the old un-keyed value once for the current account, then remove it.
+  if (raw === null && key !== STORAGE_KEYS.AI_DAILY_USAGE) {
+    const legacy = localStorage.getItem(STORAGE_KEYS.AI_DAILY_USAGE);
+    if (legacy !== null) {
+      raw = legacy;
+      localStorage.setItem(key, legacy);
+      localStorage.removeItem(STORAGE_KEYS.AI_DAILY_USAGE);
+    }
+  }
   if (raw) {
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (isValidUsage(parsed) && parsed.date === today) return parsed;
+      if (isValidUsage(parsed) && parsed.date === today) {
+        return {
+          count: parsed.count,
+          reasoningCount: typeof parsed.reasoningCount === 'number' ? parsed.reasoningCount : 0,
+          date: today,
+        };
+      }
     } catch { /* ignore */ }
   }
-  return { count: 0, date: today };
+  return { count: 0, reasoningCount: 0, date: today };
 }
 
 interface AiLimitState {
@@ -49,6 +77,9 @@ interface AiLimitState {
   limit: number;
   baseLimit: number;
   used: number;
+  reasoningRemaining: number;
+  reasoningLimit: number;
+  reasoningUsed: number;
   resetsAt: Date;
   loaded: boolean;
   /** AUDIT-part3 3: false = число из локального счётчика, сервером не
@@ -57,7 +88,7 @@ interface AiLimitState {
   isAdmin: boolean;
   loadLimit: () => void;
   loadLimitFromServer: () => Promise<void>;
-  useRequest: () => void;
+  useRequest: (reasoning?: boolean) => void;
   setLimit: (newLimit: number) => void;
   setAdmin: (admin: boolean) => void;
 }
@@ -81,22 +112,40 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   limit: DEFAULT_LIMIT,
   baseLimit: DEFAULT_LIMIT,
   used: 0,
+  reasoningRemaining: DEFAULT_REASONING_LIMIT,
+  reasoningLimit: DEFAULT_REASONING_LIMIT,
+  reasoningUsed: 0,
   resetsAt: getMidnightUtc(),
   loaded: false,
   reconciled: false,
   isAdmin: false,
 
   loadLimit() {
-    const { count } = readLocalUsage();
+    const { count, reasoningCount } = readLocalUsage();
     const limit = get().isAdmin ? ADMIN_LIMIT : get().limit;
+    const reasoningLimit = get().reasoningLimit;
     // Локальное число показывается сразу, но помечено несверенным:
     // источник истины — /api/getAiQuota (см. loadLimitFromServer).
-    set({ used: count, remaining: Math.max(0, limit - count), resetsAt: getMidnightUtc(), loaded: true, reconciled: false });
+    set({
+      used: count,
+      remaining: Math.max(0, limit - count),
+      reasoningUsed: reasoningCount,
+      reasoningRemaining: Math.max(0, reasoningLimit - reasoningCount),
+      resetsAt: getMidnightUtc(),
+      loaded: true,
+      reconciled: false,
+    });
   },
 
   async loadLimitFromServer() {
     try {
-      const quota = await callAi<{ used: number; limit: number; date: string }>('getAiQuota', {});
+      const quota = await callAi<{
+        used: number;
+        limit: number;
+        reasoningUsed?: number;
+        reasoningLimit?: number;
+        date: string;
+      }>('getAiQuota', {});
       // Сервер — источник истины, в том числе для админа. Клампить ответ
       // клиентской константой значит вернуть тот самый дрейф, ради которого
       // эндпоинт и заводился: ADMIN_LIMIT здесь равен 20, а сервер отдаёт 60,
@@ -106,12 +155,23 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
       const limit = Number.isFinite(serverLimit) && serverLimit > 0
         ? serverLimit
         : (get().isAdmin ? ADMIN_LIMIT : DEFAULT_LIMIT);
-      const used = quota.date === getUtcDateStr() ? quota.used : 0;
+      const isToday = quota.date === getUtcDateStr();
+      const used = isToday ? quota.used : 0;
+      const reasoningLimit = quota.reasoningLimit ?? DEFAULT_REASONING_LIMIT;
+      const reasoningUsed = isToday ? (quota.reasoningUsed ?? 0) : 0;
+
+      const key = resolveKey();
+      const today = getUtcDateStr();
+      localStorage.setItem(key, JSON.stringify({ count: used, reasoningCount: reasoningUsed, date: today }));
+
       set({
         used,
         limit,
         baseLimit: limit,
         remaining: Math.max(0, limit - used),
+        reasoningUsed,
+        reasoningLimit,
+        reasoningRemaining: Math.max(0, reasoningLimit - reasoningUsed),
         resetsAt: getMidnightUtc(),
         loaded: true,
         reconciled: true,
@@ -123,14 +183,25 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
     }
   },
 
-  useRequest() {
+  useRequest(reasoning?: boolean) {
     const today = getUtcDateStr();
-    const { count: localCount, date: localDate } = readLocalUsage();
+    const { count: localCount, reasoningCount: localReasoningCount, date: localDate } = readLocalUsage();
     const count = localDate === today ? localCount : 0;
-    const newCount = count + 1;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ count: newCount, date: today }));
+    const reasoningCount = localDate === today ? localReasoningCount : 0;
+    const newCount = reasoning ? count : count + 1;
+    const newReasoningCount = reasoning ? reasoningCount + 1 : reasoningCount;
+
+    const key = resolveKey();
+    localStorage.setItem(key, JSON.stringify({ count: newCount, reasoningCount: newReasoningCount, date: today }));
+
     const limit = get().limit;
-    set({ used: newCount, remaining: Math.max(0, limit - newCount) });
+    const reasoningLimit = get().reasoningLimit;
+    set({
+      used: newCount,
+      remaining: Math.max(0, limit - newCount),
+      reasoningUsed: newReasoningCount,
+      reasoningRemaining: Math.max(0, reasoningLimit - newReasoningCount),
+    });
   },
 
   setLimit(newLimit: number) {

@@ -88,7 +88,14 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
     try {
       const { recoveryCode } = await EncryptionService.initializeEncryption(userId, vaultPassword);
-      showToast(t('unlock_success') || 'Encryption set up successfully', 'success');
+      const mig = await EncryptionService.migrateNotesAfterSetup(userId);
+      if (mig.errors > 0) {
+        showToast(t('settings_encrypt_partial', { done: mig.encrypted, total: mig.total }), 'error');
+      } else if (mig.encrypted > 0) {
+        showToast(t('settings_encrypt_done', { count: mig.encrypted }), 'success');
+      } else {
+        showToast(t('unlock_success') || 'Encryption set up successfully', 'success');
+      }
       setVaultPassword('');
       setConfirmVaultPassword('');
       // Как и после создания кода восстановления: снапшот новое значение

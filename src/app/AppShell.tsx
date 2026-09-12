@@ -32,6 +32,7 @@ const RestoreFromCloudModal = React.lazy(() =>
 );
 import { useOtherUserDetection } from '../features/auth/hooks/useOtherUserDetection';
 import { OtherUserDataModal } from '../features/auth/components/OtherUserDataModal';
+import { GuestMigrationGate } from '../features/auth/components/GuestMigrationGate';
 
 export function AppShell() {
   const location = useLocation();
@@ -99,6 +100,7 @@ export function AppShell() {
 
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
+      <GuestMigrationGate />
       <ConfirmDialogRenderer />
       <ActivityLogBadge />
       {encryptionMode !== 'none' && user && (

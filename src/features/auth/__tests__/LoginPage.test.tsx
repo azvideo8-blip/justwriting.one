@@ -110,4 +110,24 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
 
     expect(reportError).toHaveBeenCalledWith(error, { action: 'sendPasswordReset' });
   });
+
+  it('does not use w-screen and stays within 390px mobile viewport bounds (S-14)', () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalInnerHeight = window.innerHeight;
+    try {
+      window.innerWidth = 390;
+      window.innerHeight = 844;
+      const { container } = render(<LoginPage />);
+      const rootDiv = container.firstElementChild as HTMLElement;
+      expect(rootDiv).not.toBeNull();
+      // Ensure w-screen is not used (causes horizontal overflow with scrollbars on mobile)
+      expect(rootDiv.className).not.toContain('w-screen');
+      expect(rootDiv.className).toContain('w-full');
+      expect(rootDiv.className).toContain('min-h-screen');
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+    } finally {
+      window.innerWidth = originalInnerWidth;
+      window.innerHeight = originalInnerHeight;
+    }
+  });
 });

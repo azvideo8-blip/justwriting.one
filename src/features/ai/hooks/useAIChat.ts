@@ -223,14 +223,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       return null;
     }
 
-    const { remaining } = useAiLimitStore.getState();
-    if (remaining <= 0) {
+    const storedLength = dialogue?.responseLength;
+    const isLegacyReasoning = storedLength === 'reasoning' as unknown as 'short' | 'standard' | 'detailed';
+    const effectiveReasoning = dialogue?.reasoning ?? reasoning ?? isLegacyReasoning;
+
+    const { remaining, reasoningRemaining } = useAiLimitStore.getState();
+    const isExhausted = effectiveReasoning ? reasoningRemaining <= 0 : remaining <= 0;
+    if (isExhausted) {
       // R-1: reset the guard on this early return — the try/finally that clears
       // it hasn't started yet, so without this sendMessage would deadlock after
       // the first limit hit.
       sendingRef.current = false;
-      setDailyLimitExhausted();
-      setError('Дневной лимит достигнут');
+      setDailyLimitExhausted(effectiveReasoning);
+      setError(effectiveReasoning ? 'Лимит рассуждений исчерпан' : 'Дневной лимит достигнут');
       return null;
     }
 
@@ -301,11 +306,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // so regenerate (which trims the trailing turn before re-sending) doesn't
       // replay the old answer as context. Append the current user turn.
       // AX-11: Migrate old 'reasoning' value in stored dialogues
-      const storedLength = dialogue?.responseLength;
-      const isLegacyReasoning = storedLength === 'reasoning' as unknown as 'short' | 'standard' | 'detailed';
       const effectiveResponseLength: 'short' | 'standard' | 'detailed' =
         isLegacyReasoning ? 'standard' : (storedLength || responseLength || 'standard');
-      const effectiveReasoning = dialogue?.reasoning ?? reasoning ?? isLegacyReasoning;
 
       let effectiveDialogueId = dialogueId;
       let currentDialogue = effectiveDialogueId ? await AIDialogueService.get(effectiveDialogueId) : null;
@@ -487,7 +489,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         throw new Error('EMPTY_RESPONSE');
       }
 
-      incrementDailyUsage();
+      incrementDailyUsage(effectiveReasoning);
 
       const wasNew = !dialogueId;
 
@@ -583,7 +585,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
 
       const isKnownCode = (m: string): m is AIErrorCode =>
-        ['ABORTED', 'RATE_LIMIT', 'DAILY_LIMIT', 'GLOBAL_LIMIT', 'AUTH_REQUIRED', 'AI_CONSENT_REQUIRED', 'EMPTY_RESPONSE', 'UPSTREAM', 'TOO_LONG', 'NETWORK', 'MISCONFIGURED', 'SERVER_ERROR', 'SERVICE_UNAVAILABLE'].includes(m);
+        ['ABORTED', 'RATE_LIMIT', 'DAILY_LIMIT', 'REASONING_LIMIT', 'GLOBAL_LIMIT', 'AUTH_REQUIRED', 'AI_CONSENT_REQUIRED', 'EMPTY_RESPONSE', 'UPSTREAM', 'TOO_LONG', 'NETWORK', 'MISCONFIGURED', 'SERVER_ERROR', 'SERVICE_UNAVAILABLE'].includes(m);
 
       if (isKnownCode(rawMsg)) {
         switch (rawMsg) {
@@ -594,8 +596,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             setError('Слишком частые запросы. Подождите немного перед следующей отправкой.');
             break;
           case 'DAILY_LIMIT':
-            setDailyLimitExhausted();
+            setDailyLimitExhausted(false);
             setError('Дневной лимит достигнут');
+            break;
+          case 'REASONING_LIMIT':
+            setDailyLimitExhausted(true);
+            setError('Лимит рассуждений исчерпан');
             break;
           case 'SERVICE_UNAVAILABLE':
             setError('Сервис временно не может проверить лимит. Попробуйте позже.');

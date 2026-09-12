@@ -333,9 +333,49 @@ export async function changePasswordWithReEncrypt(
   return result;
 }
 
-async function encryptAll(userId: string, onProgress: (p: MigrationProgress) => void, signal: AbortSignal) {
+export async function encryptAll(
+  userId: string,
+  onProgress?: (p: MigrationProgress) => void,
+  signal?: AbortSignal,
+): Promise<MigrationProgress> {
   if (!getSessionKey()) throw new Error('Vault is locked');
   return encryptAllExistingNotes(userId, onProgress, signal);
+}
+
+export interface PostSetupMigrationResult {
+  encrypted: number;
+  total: number;
+  errors: number;
+  success: boolean;
+}
+
+export async function migrateNotesAfterSetup(
+  userId: string,
+  onProgress?: (p: MigrationProgress) => void,
+  signal?: AbortSignal,
+): Promise<PostSetupMigrationResult> {
+  let lastProgress: MigrationProgress = { total: 0, processed: 0, encrypted: 0, errors: 0 };
+  const progressHandler = (p: MigrationProgress) => {
+    lastProgress = p;
+    onProgress?.(p);
+  };
+  try {
+    const progress = await encryptAll(userId, progressHandler, signal);
+    return {
+      encrypted: progress.encrypted,
+      total: progress.total,
+      errors: progress.errors,
+      success: progress.errors === 0,
+    };
+  } catch (err) {
+    reportError(err, { action: 'migrateNotesAfterSetup', userId });
+    return {
+      encrypted: lastProgress.encrypted,
+      total: lastProgress.total,
+      errors: Math.max(1, lastProgress.errors),
+      success: false,
+    };
+  }
 }
 
 function _generateEncryptionSalt(): Uint8Array<ArrayBuffer> {
@@ -357,6 +397,7 @@ export const EncryptionService = {
   changePassword,
   changePasswordWithReEncrypt,
   encryptAll,
+  migrateNotesAfterSetup,
   isVaultUnlocked,
   WrongPasswordError,
   WrongRecoveryCodeError,

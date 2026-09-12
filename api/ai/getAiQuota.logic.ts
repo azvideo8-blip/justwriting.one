@@ -15,11 +15,13 @@ export async function getAiQuotaLogic(ctx: AiContext, uid: string, data: unknown
   if (!inputSchema.safeParse(data ?? {}).success) {
     throw new AiError('invalid-argument', 'Invalid arguments.');
   }
-  const { used } = await ctx.getDailyLimitCount(uid);
+  const { used, reasoningUsed } = await ctx.getDailyLimitCount(uid);
   const isAdmin = await ctx.isAdmin(uid);
   return {
     used,
     limit: isAdmin ? ADMIN_DAILY_LIMIT : DAILY_LIMIT,
+    reasoningUsed: reasoningUsed ?? 0,
+    reasoningLimit: 5,
     date: new Date().toISOString().slice(0, 10),
   };
 }

@@ -101,6 +101,7 @@ export const settingsTranslations: Translations = {
   settings_encrypting_progress:{ ru: 'Шифрование заметок...', en: 'Encrypting notes...' },
   settings_encrypted_label:    { ru: 'зашифровано', en: 'encrypted' },
   settings_encrypt_done:       { ru: 'Зашифровано заметок: {count}', en: 'Encrypted notes: {count}' },
+  settings_encrypt_partial:    { ru: 'Зашифровано {done} из {total}. Оставшиеся можно зашифровать в Настройках → Шифрование.', en: 'Encrypted {done} of {total}. The rest can be encrypted in Settings → Encryption.' },
   settings_encrypt_errors:     { ru: 'Ошибок: {count}', en: 'Errors: {count}' },
   settings_encrypt_budget_stop:{ ru: 'Дневной лимит записей исчерпан — зашифровано не всё. Продолжится завтра с того же места.', en: 'Daily write limit reached — not everything was encrypted. It will resume tomorrow where it stopped.' },
   settings_encryption_not_set: { ru: 'Шифрование не настроено', en: 'Encryption not configured' },
@@ -245,8 +246,8 @@ export const settingsTranslations: Translations = {
     en: 'Withdraw AI consent?',
   },
   settings_ai_withdraw_consent_message: {
-    ru: 'Запросы к ИИ (разбор заметок, чат, обновление профиля) перестанут выполняться до повторного согласия.',
-    en: 'AI requests (note analysis, chat, profile updates) will pause until consent is granted again.',
+    ru: 'Запросы к ИИ (разбор заметок, чат, обновление профиля) перестанут выполняться до повторного согласия. Уже вычисленные данные остаются на сервере до нажатия «Удалить все данные ИИ».',
+    en: 'AI requests (note analysis, chat, profile updates) will pause until consent is granted again. Already computed data remains on the server until you tap "Delete all AI data".',
   },
   settings_ai_withdraw_indexing_title: {
     ru: 'Отключить поиск по смыслу (векторную индексацию)?',

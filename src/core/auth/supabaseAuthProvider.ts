@@ -109,6 +109,11 @@ export function onPasswordRecovery(cb: () => void): () => void {
   return () => data.subscription.unsubscribe();
 }
 
+export async function verifyOtpForRecovery(token_hash: string): Promise<void> {
+  const { error } = await getSupabase().auth.verifyOtp({ token_hash, type: 'recovery' });
+  if (error) throw error;
+}
+
 export async function updateUserPassword(password: string): Promise<void> {
   const { error } = await getSupabase().auth.updateUser({ password });
   if (error) throw error;

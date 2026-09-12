@@ -190,6 +190,8 @@ export async function streamChat(params: {
       const body = await response.json();
       const code = extractErrorCode(body);
       if (code === 'GLOBAL_LIMIT') errorKind = 'GLOBAL_LIMIT';
+      if (code === 'RATE_LIMIT') errorKind = 'RATE_LIMIT';
+      if (code === 'REASONING_LIMIT') errorKind = 'REASONING_LIMIT';
     } catch { /* default to DAILY_LIMIT */ }
     throw new Error(errorKind);
   }
@@ -319,6 +321,7 @@ export async function callableChat(params: {
 
   if (!result.ok) {
     if (result.error === 'DAILY_LIMIT') throw new Error('DAILY_LIMIT');
+    if (result.error === 'REASONING_LIMIT') throw new Error('REASONING_LIMIT');
     if (result.error === 'AUTH_REQUIRED') throw new Error('AUTH_REQUIRED');
     if (result.error === 'RATE_LIMIT') throw new Error('RATE_LIMIT');
     if (result.error === 'UPSTREAM') throw new Error('UPSTREAM');

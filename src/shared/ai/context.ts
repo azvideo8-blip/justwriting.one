@@ -25,8 +25,8 @@ export interface AiContext {
   checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitVerdict>;
   /** chargedDay: the day the charge landed on. DEEP-9: required so a request charged
    *  at 23:58 and failing after midnight refunds the right day row. */
-  refundDailyLimit(uid: string, chargedDay: string): Promise<void>;
-  getDailyLimitCount(uid: string): Promise<{ used: number; date: string }>;
+  refundDailyLimit(uid: string, chargedDay: string, kind?: 'chat' | 'reasoning' | string): Promise<void>;
+  getDailyLimitCount(uid: string): Promise<{ used: number; reasoningUsed?: number; date: string }>;
   getUserDailyLimit(uid: string): Promise<number>;
   isAdmin(uid: string): Promise<boolean>;
   /** Bulk (background) limit — separate from the chat daily limit.
@@ -38,7 +38,7 @@ export interface AiContext {
   checkAndIncrementLimit(
     uid: string,
     reasoning?: boolean,
-  ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'>;
+  ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'REASONING_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'>;
   /** Согласие на обработку специальных категорий (AUD-2). Серверный гейт:
    *  клиентский обходится прямым POST /api/chat. */
   getAiConsent(uid: string): Promise<{ granted: boolean }>;

@@ -189,6 +189,9 @@ export function AIPage() {
           onOpenDocPicker={() => setDocPickerOpen(true)}
           dailyLimitRemaining={dailyLimit.remaining}
           dailyLimitTotal={dailyLimit.limit}
+          reasoningRemaining={dailyLimit.reasoningRemaining}
+          reasoningLimit={dailyLimit.reasoningLimit}
+          reasoning={reasoning}
           maxInputChars={MAX_INPUT_CHARS}
           personaName={activePersona?.name ?? ''}
           crisisActive={crisisActive}

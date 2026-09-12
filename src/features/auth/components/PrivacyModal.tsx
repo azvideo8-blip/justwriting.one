@@ -54,7 +54,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
       open
       labelId="privacy-modal-title"
       onClose={() => { /* обязательное согласие: Escape и клик по фону не закрывают */ }}
-      className="w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden m-4"
+      className="w-full max-w-md max-h-[calc(100dvh-2rem)] bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-y-auto m-4"
     >
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
