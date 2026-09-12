@@ -77,13 +77,22 @@ describe('1.3 password recovery', () => {
     renderPage(['/reset-password?token_hash=abc123hash&type=recovery']);
 
     await waitFor(() => {
-      expect(verifyOtpForRecovery).toHaveBeenCalledWith('abc123hash');
+      expect(verifyOtpForRecovery).toHaveBeenCalledWith('abc123hash', 'recovery');
     });
 
     const pwInputs = await screen.findAllByPlaceholderText(/Новый пароль|Повторите пароль/);
     expect(pwInputs).toHaveLength(2);
     expect(replaceSpy).toHaveBeenCalledWith(null, '', expect.any(String));
     replaceSpy.mockRestore();
+  });
+
+  it('token_hash and type=invite calls verifyOtp with invite and titles the page «Задайте пароль»', async () => {
+    renderPage(['/reset-password?token_hash=inv123&type=invite']);
+    await waitFor(() => {
+      expect(verifyOtpForRecovery).toHaveBeenCalledWith('inv123', 'invite');
+    });
+    expect(await screen.findByText('Задайте пароль')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Задать пароль' })).toBeTruthy();
   });
 
   it('verifyOtp rejection shows expired link error and request-again button', async () => {

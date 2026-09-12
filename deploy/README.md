@@ -6,6 +6,8 @@
 |------|-------------|
 | `nginx.conf` | `/etc/nginx/sites-available/justwriting` → symlink to `sites-enabled` |
 | `www-killswitch/sw.js` | `/var/www/www-killswitch/sw.js` — служебный работник-выключатель для `www.` (nginx отдаёт его вместо 301, иначе старая сборка из кэша живёт вечно) |
+| `supabase-compose.override.yml` | `/opt/justwriting/supabase/docker-compose.override.yml` — порты только на 127.0.0.1, русские письма GoTrue |
+| `invite.sh` | `/opt/justwriting/deploy/invite.sh` — пригласить тестера (регистрация в UI выключена) |
 | `justwriting.service` | `/etc/systemd/system/justwriting.service` |
 | `.env.example` | Copy to `/opt/justwriting/.env`, fill in values |
 
@@ -102,6 +104,18 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 5. **Cross-Browser Password Recovery (`token_hash`)**:
    - GoTrue fetches its mail templates by URL (`GOTRUE_MAILER_TEMPLATES_RECOVERY` → `https://justwriting.ru/email/recovery.html`), and that file ships with the client from `public/email/recovery.html`. Its link is `{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery`, not `{{ .ConfirmationURL }}`: the PKCE code in the default link only works in the browser that requested the reset, and on a phone the mail opens elsewhere. The page exchanges the hash itself via `supabase.auth.verifyOtp`.
    - No GoTrue restart is needed — deploying the client updates the template. `GOTRUE_MAILER_TEMPLATES_*` is a URL; inline HTML in that variable is not supported.
+
+## Inviting a beta tester
+
+Sign-up is off in the UI (`LoginPage.tsx`: `SIGNUP_ENABLED = false`). People get in by invitation only:
+
+```bash
+ssh justwriting 'sudo bash /opt/justwriting/deploy/invite.sh someone@example.com'
+```
+
+GoTrue creates the user and mails `public/email/invite.html` (subject and template URL in `deploy/supabase-compose.override.yml`). The link lands on `/reset-password?type=invite` with a `token_hash`, so it works from a phone's mail app. The tester sets a password and signs in; role is `user`, limits are the stranger's (`AI_DAILY_LIMIT`, reasoning 5).
+
+`deploy/supabase-compose.override.yml` is copied by hand to `/opt/justwriting/supabase/docker-compose.override.yml`; after changing it, `cd /opt/justwriting/supabase && sudo docker compose up -d auth`.
 
 ## Registration & Signup Control
 

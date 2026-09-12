@@ -24,6 +24,8 @@ export function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkExpired, setLinkExpired] = useState(false);
+  // Приглашённый задаёт первый пароль — те же поля, другие слова.
+  const isInvite = searchParams.get('type') === 'invite';
 
   useEffect(() => {
     const unsub = onPasswordRecovery(() => {
@@ -34,8 +36,8 @@ export function ResetPasswordPage() {
     const tokenHash = searchParams.get('token_hash');
     const type = searchParams.get('type');
 
-    if (tokenHash && type === 'recovery') {
-      verifyOtpForRecovery(tokenHash)
+    if (tokenHash && (type === 'recovery' || type === 'invite')) {
+      verifyOtpForRecovery(tokenHash, type)
         .then(() => {
           setRecoveryMode(true);
           setLinkExpired(false);
@@ -82,7 +84,7 @@ export function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold">Восстановление пароля</h1>
+        <h1 className="text-xl font-semibold">{isInvite ? 'Задайте пароль' : 'Восстановление пароля'}</h1>
 
         {linkExpired && !done && (
           <div className="space-y-3">
@@ -133,14 +135,14 @@ export function ResetPasswordPage() {
               disabled={busy || password.length < MIN_PASSWORD_LENGTH}
               className="w-full rounded-lg px-3 py-2 bg-accent text-white disabled:opacity-50"
             >
-              {busy ? 'Сохраняю…' : 'Сменить пароль'}
+              {busy ? 'Сохраняю…' : isInvite ? 'Задать пароль' : 'Сменить пароль'}
             </button>
           </form>
         )}
 
         {done && (
           <div className="space-y-3">
-            <p className="text-sm">Пароль изменён. Войдите с новым паролем.</p>
+            <p className="text-sm">{isInvite ? 'Пароль задан. Теперь можно войти.' : 'Пароль изменён. Войдите с новым паролем.'}</p>
             <button
               type="button"
               onClick={() => { void navigate('/login'); }}

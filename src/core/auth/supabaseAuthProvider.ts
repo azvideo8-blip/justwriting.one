@@ -109,8 +109,11 @@ export function onPasswordRecovery(cb: () => void): () => void {
   return () => data.subscription.unsubscribe();
 }
 
-export async function verifyOtpForRecovery(token_hash: string): Promise<void> {
-  const { error } = await getSupabase().auth.verifyOtp({ token_hash, type: 'recovery' });
+// Ссылка из письма несёт token_hash, а не PKCE-код: код работает только в том
+// браузере, где его запросили, а письмо на телефоне открывается в другом.
+// 'invite' — тот же обмен для приглашённого, который задаёт первый пароль.
+export async function verifyOtpForRecovery(token_hash: string, type: 'recovery' | 'invite' = 'recovery'): Promise<void> {
+  const { error } = await getSupabase().auth.verifyOtp({ token_hash, type });
   if (error) throw error;
 }
 

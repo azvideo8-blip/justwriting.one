@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.46',
+    date: '2026-09-12',
+    items: [
+      { category: 'new', ru: 'Приглашение в бету: владелец отправляет письмо одной командой на сервере, человек задаёт пароль по ссылке — с телефона тоже — и входит. Регистрация в интерфейсе остаётся закрытой.', en: 'Beta invitations: the owner sends a mail with one command on the server, the person sets a password from the link — on a phone too — and signs in. Sign-up in the UI stays closed.' },
+    ],
+  },
+  {
     version: '0.8.45',
     date: '2026-09-12',
     items: [

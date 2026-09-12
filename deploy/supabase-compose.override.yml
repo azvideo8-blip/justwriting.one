@@ -15,3 +15,19 @@ services:
     ports: !override
       - "127.0.0.1:${POSTGRES_PORT}:5432"
       - "127.0.0.1:${POOLER_PROXY_PORT_TRANSACTION}:6543"
+
+  # Письма на русском и от лица сервиса. Заводские шаблоны GoTrue англоязычные
+  # и безымянные («Confirm Your Email» неизвестно от кого) — такое письмо и
+  # человек, и спам-фильтр воспринимают одинаково плохо. Шаблоны лежат в
+  # репозитории (public/email) и раздаются с нашего же домена; GoTrue берёт их
+  # по URL при отправке, так что выкатка клиента обновляет и письма.
+  auth:
+    environment:
+      GOTRUE_MAILER_SUBJECTS_CONFIRMATION: "justwriting — подтвердите адрес"
+      GOTRUE_MAILER_SUBJECTS_RECOVERY: "justwriting — смена пароля"
+      GOTRUE_MAILER_SUBJECTS_MAGIC_LINK: "justwriting — вход"
+      GOTRUE_MAILER_SUBJECTS_EMAIL_CHANGE: "justwriting — смена адреса"
+      GOTRUE_MAILER_SUBJECTS_INVITE: "justwriting — приглашение"
+      GOTRUE_MAILER_TEMPLATES_CONFIRMATION: "https://justwriting.ru/email/confirm.html"
+      GOTRUE_MAILER_TEMPLATES_RECOVERY: "https://justwriting.ru/email/recovery.html"
+      GOTRUE_MAILER_TEMPLATES_INVITE: "https://justwriting.ru/email/invite.html"

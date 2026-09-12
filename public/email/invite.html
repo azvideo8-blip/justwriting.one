@@ -1,0 +1,26 @@
+<!-- Письмо-приглашение. См. комментарий в confirm.html. Ссылка несёт
+     token_hash, а не PKCE-код: код работает только в браузере, где его
+     запросили, а приглашение открывают на телефоне, в почтовом приложении. -->
+<div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #1a1a1a; max-width: 520px;">
+  <p style="margin: 0 0 20px;">Здравствуйте!</p>
+
+  <p style="margin: 0 0 20px;">
+    Вас пригласили в <strong>justwriting</strong> — дневник, в котором заметки
+    остаются вашими. Чтобы начать, задайте пароль по ссылке ниже.
+  </p>
+
+  <p style="margin: 0 0 28px;">
+    <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=invite"
+       style="display: inline-block; padding: 12px 24px; background: #6d5ce7; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 600;">
+      Задать пароль
+    </a>
+  </p>
+
+  <p style="margin: 0 0 20px; color: #555;">
+    Ссылка одноразовая. Если вы не ждали приглашения — просто не открывайте её.
+  </p>
+
+  <p style="margin: 0; color: #888; font-size: 14px;">
+    justwriting · <a href="https://justwriting.ru" style="color: #6d5ce7;">justwriting.ru</a>
+  </p>
+</div>
