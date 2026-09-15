@@ -155,4 +155,41 @@ export const commonTranslations: Translations = {
   enc_recovery_password_prompt_title: { ru: 'Подтвердите пароль', en: 'Confirm Password' },
   enc_recovery_password_prompt_desc: { ru: 'Для создания кода восстановления введите пароль шифрования.', en: 'Enter your encryption password to generate a recovery code.' },
   enc_recovery_password_submit: { ru: 'Подтвердить и создать', en: 'Confirm and generate' },
+
+  help_title: { ru: 'Помощь', en: 'Help' },
+  help_subtitle: { ru: 'Интерактивная диагностика и частые вопросы', en: 'Interactive troubleshooting and FAQ' },
+  help_section_notes_missing: { ru: 'Заметки не видны?', en: 'Notes not visible?' },
+  help_step_indicator: { ru: 'Шаг {step} из {total}', en: 'Step {step} of {total}' },
+  help_solution_title: { ru: 'Что делать', en: 'Recommended action' },
+  help_btn_back: { ru: 'Назад', en: 'Back' },
+  help_btn_restart: { ru: 'Сначала', en: 'Start over' },
+  help_copy_link: { ru: 'Скопировать ссылку на этот шаг', en: 'Copy link to this step' },
+  help_link_copied: { ru: 'Ссылка на шаг скопирована', en: 'Link to this step copied' },
+
+  help_ans_yes: { ru: 'Да', en: 'Yes' },
+  help_ans_no: { ru: 'Нет', en: 'No' },
+  help_notes_missing_a1_no: { ru: 'Нет / не уверен', en: 'No / not sure' },
+
+  help_notes_missing_q1: { ru: 'Вы вошли в тот же аккаунт, что и раньше?', en: 'Are you signed into the same account as before?' },
+  help_notes_missing_q1_hint: { ru: 'Внизу страницы Настроек указан текущий адрес e-mail.', en: 'The current e-mail address is shown at the bottom of Settings.' },
+  help_notes_missing_leaf_account: {
+    ru: 'Выйдите из аккаунта и войдите под тем адресом, на котором создавались заметки. Если вы писали без входа (гостевой режим), заметки сохранены в этом же браузере — они станут доступны сразу после выхода из учётной записи.',
+    en: 'Sign out and log in with the address where the notes were created. If you wrote without signing in (guest mode), notes are stored in this same browser — they will become visible immediately after signing out.',
+  },
+
+  help_notes_missing_q2: { ru: 'Это тот же браузер и то же устройство?', en: 'Is this the same browser and device?' },
+  help_notes_missing_leaf_device: {
+    ru: 'Заметки синхронизируются между устройствами, если включено «Облако» в Настройки → Синхронизация. Если сейф зашифрован — введите пароль от сейфа на новом устройстве, чтобы расшифровать копии.',
+    en: 'Notes sync across devices if "Cloud" is enabled in Settings → Sync. If your vault is encrypted, enter your vault password on the new device to decrypt cloud copies.',
+  },
+
+  help_notes_missing_q3: { ru: 'Приложение обновлялось или было открыто давно?', en: 'Has the app been updated or opened a long time ago?' },
+  help_notes_missing_leaf_cache: {
+    ru: 'Перезагрузите страницу с полной очисткой кеша (Cmd+Shift+R на Mac или Ctrl+Shift+R / Ctrl+F5 на Windows/Linux). Заметки на месте в базе браузера — при обновлении структуры базы старая версия приложения из кеша не могла их прочитать.',
+    en: 'Hard reload the page clearing cache (Cmd+Shift+R on Mac or Ctrl+Shift+R / Ctrl+F5 on Windows/Linux). Notes are intact in the local browser database — an outdated cached app version could fail to read them.',
+  },
+  help_notes_missing_leaf_filters: {
+    ru: 'Проверьте фильтры в разделе «Архив»: сбросьте выбранные теги, метку и дату. Если и там пусто — напишите на почту разработчику с текстом из Настройки → О приложении → Диагностика.',
+    en: 'Check filters in the "Archive" section: clear selected tags, label, and date. If still empty, email support with diagnostics from Settings → About → Diagnostics.',
+  },
 };

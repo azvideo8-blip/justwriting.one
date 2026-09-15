@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Info, FileText, Bug, ExternalLink } from 'lucide-react';
+import { Info, FileText, Bug, ExternalLink, HelpCircle } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
@@ -82,6 +82,17 @@ export function AboutSettingsSection() {
             <span className="flex items-center gap-2">
               <Info size={14} className="text-text-main/50" />
               {language === 'ru' ? 'О проекте' : 'About'}
+            </span>
+            <ExternalLink size={12} className="text-text-main/40" />
+          </Button>
+
+          <Button
+            onClick={() => void navigate('/help')}
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              <HelpCircle size={14} className="text-text-main/50" />
+              {language === 'ru' ? 'Помощь: заметки не видны?' : 'Help & Troubleshooting'}
             </span>
             <ExternalLink size={12} className="text-text-main/40" />
           </Button>
