@@ -9,7 +9,7 @@ export function Section({ title, children }: { title?: string; children: React.R
           страница — с номером и пояснением. Раздел, рисующий свой заголовок
           внутри чужого, давал две одинаковые строки подряд. */}
       {title !== undefined && title !== '' && (
-        <p className="text-label-sm font-bold uppercase tracking-widest text-text-main/60 px-1">{title}</p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-text-main/60 px-1">{title}</p>
       )}
       <div className="space-y-1">{children}</div>
     </div>
