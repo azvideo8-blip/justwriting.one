@@ -14,6 +14,10 @@
 - **[EN]** A new Help page with a step-by-step «Notes not visible?» guide: one question at a time — same account? same device? — ending in the one thing to do. Reachable from Settings → About.
 - **[RU]** Активный пункт меню теперь сплошная плашка вместо подкрашенной полосы; заголовки разделов настроек — с мелким моно-номером над названием. 46 мест, где цвета состояний были заданы напрямую, переведены на цвета темы — светлая тема стала читаемее, тёмная — ровнее.
 - **[EN]** The active menu item is now a solid pill instead of a tinted strip; settings section headers get a small mono number above the title. 46 places that hard-coded state colours now use the theme — the light theme reads better, the dark theme is more consistent.
+- **[RU]** Индикатор квоты ИИ показывает время до сброса относительно — «через N ч» вместо времени на циферблате, которое сбивало с толку в часовых поясах вдали от UTC.
+- **[EN]** The AI quota meter shows the time to reset relatively — «in N h» instead of a clock time that was confusing in zones far from UTC.
+- **[RU]** Досметка цветов завершена: оставшиеся сырые цвета (жёлтый, зелёный, красный) переведены на цвета темы — состояния выглядят одинаково во всём приложении.
+- **[EN]** The colour sweep is complete: the remaining raw colours (amber, emerald, rose) now use the theme tokens — state colours look the same across the whole app.
 
 ## 0.8.47 — 2026-09-12
 
