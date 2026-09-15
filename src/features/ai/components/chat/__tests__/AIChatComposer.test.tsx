@@ -42,7 +42,21 @@ describe('AIChatComposer quota indicator', () => {
     const sendButton = screen.getByRole('button', { name: /отправить|send/i });
     expect(sendButton).toBeDisabled();
 
-    expect(screen.getByText(/сброс в 00:00|resets at 00:00/i)).toBeInTheDocument();
+    expect(screen.getByText(/сброс в \d{2}:\d{2}|resets at \d{2}:\d{2}/i)).toBeInTheDocument();
+  });
+
+  it('keeps reasoning sends available when only the chat quota is spent', () => {
+    // Server keeps chat and reasoning in separate buckets (postgresAiContext.ts).
+    renderWithProviders(
+      <AIChatComposer
+        {...defaultProps}
+        dailyLimitRemaining={0}
+        reasoning={true}
+        reasoningRemaining={3}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /отправить|send/i })).not.toBeDisabled();
   });
 
   it('applies warning class when dailyLimitRemaining is 2', () => {

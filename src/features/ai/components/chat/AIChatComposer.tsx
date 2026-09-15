@@ -36,6 +36,14 @@ export interface AIChatComposerProps {
   dismissCrisis: () => void;
 }
 
+// The server keys the daily quota by UTC date (postgresAiContext.ts `today()`),
+// so the reset is UTC midnight — shown here in the viewer's local time.
+function quotaResetLocalTime(): string {
+  const d = new Date();
+  const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+  return `${String(next.getHours()).padStart(2, '0')}:${String(next.getMinutes()).padStart(2, '0')}`;
+}
+
 function QuotaMeter({ used, limit }: { used: number; limit: number }) {
   const remaining = Math.max(0, limit - used);
   const pct = limit > 0 ? Math.min(100, Math.max(0, (used / limit) * 100)) : 0;
@@ -205,7 +213,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
             ) : (
               <Button
                 onClick={onSend}
-                disabled={(!inputText.trim() && pendingAttachments.length === 0) || dailyLimitRemaining <= 0 || (reasoning ? (reasoningRemaining ?? 5) <= 0 : false)}
+                disabled={(!inputText.trim() && pendingAttachments.length === 0) || (reasoning ? (reasoningRemaining ?? 5) <= 0 : dailyLimitRemaining <= 0)}
                 className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
               >
                 <span className="hidden md:inline">{t('ai_send')}</span>
@@ -227,9 +235,9 @@ export function AIChatComposer(props: AIChatComposerProps) {
               <b className={reasoningDanger ? "text-accent-danger" : reasoningWarning ? "text-accent-warning" : "text-text-main/60"}>
                 {reasoningRem}/{reasoningLim}
               </b>
-              {dailyLimitRemaining === 0 && (
+              {(chatDanger || reasoningDanger) && (
                 <span className="text-accent-danger ml-1">
-                  ({t('ai_quota_reset_midnight')})
+                  ({t('ai_quota_reset_at', { time: quotaResetLocalTime() })})
                 </span>
               )}
             </span>

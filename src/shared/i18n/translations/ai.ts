@@ -26,7 +26,7 @@ export const aiTranslations: Translations = {
   ai_today: { ru: 'сегодня', en: 'today' },
   ai_quota_chat: { ru: 'чат', en: 'chat' },
   ai_quota_reasoning: { ru: 'рассуждения', en: 'reasoning' },
-  ai_quota_reset_midnight: { ru: 'сброс в 00:00', en: 'resets at 00:00' },
+  ai_quota_reset_at: { ru: 'сброс в {time}', en: 'resets at {time}' },
   ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },
   ai_unarchive: { ru: 'Восстановить', en: 'Restore' },
   ai_memory_title: { ru: 'Память ИИ', en: 'AI memory' },
