@@ -154,4 +154,25 @@ describe('DocumentPreview — AI Analysis button states', () => {
     });
     expect(exportTxtSpy).not.toHaveBeenCalled();
   });
+
+  it('renders breadcrumb with context and calls onClose when clicking breadcrumb root (UI-04)', async () => {
+    const mockClose = vi.fn();
+    renderWithProviders(
+      <ToastProvider>
+        <DocumentPreview
+          session={mockSession}
+          onClose={mockClose}
+          onContinue={vi.fn()}
+          context="Работа"
+        />
+      </ToastProvider>
+    );
+
+    const breadcrumbRoot = screen.getByRole('button', { name: /Архив|Archive/i });
+    expect(breadcrumbRoot).toBeInTheDocument();
+    expect(screen.getByText('Работа')).toBeInTheDocument();
+
+    fireEvent.click(breadcrumbRoot);
+    expect(mockClose).toHaveBeenCalledTimes(1);
+  });
 });

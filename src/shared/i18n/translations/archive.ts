@@ -49,6 +49,7 @@ export const archiveTranslations: Translations = {
   archive_stats_reset:       { ru: 'Сбросить фильтр', en: 'Reset filter' },
   archive_calendar_title: { ru: 'Календарь', en: 'Calendar' },
   archive_preview: { ru: 'Предпросмотр', en: 'Preview' },
+  preview_breadcrumb_root: { ru: 'Архив', en: 'Archive' },
   archive_version_count: { ru: '{count} версий', en: '{count} versions' },
   archive_version_count_one: { ru: '{count} версия', en: '{count} version' },
   archive_version_count_few: { ru: '{count} версии', en: '{count} versions' },

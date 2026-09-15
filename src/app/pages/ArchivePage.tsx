@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { format } from 'date-fns';
 import type { AppUser } from '../../core/auth/types';
 import { UserProfile } from '../../types';
 import { calculateStreak } from '../../core/utils/utils';
@@ -86,6 +87,21 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     sessionsByDate, wordCloud, maxCount,
     dateLocale, entriesLabel,
   } = useArchiveData(user, userId, t, language, profileLabels);
+
+  const previewContext = useMemo(() => {
+    const totalActive = selectedLabels.length + selectedTags.length + (selectedDate ? 1 : 0);
+    if (totalActive !== 1) return undefined;
+    if (selectedLabels.length === 1) {
+      return profileLabels.find(l => l.id === selectedLabels[0])?.name;
+    }
+    if (selectedTags.length === 1) {
+      return '#' + selectedTags[0];
+    }
+    if (selectedDate) {
+      return format(selectedDate, 'd MMM yyyy', { locale: dateLocale });
+    }
+    return undefined;
+  }, [selectedLabels, selectedTags, selectedDate, profileLabels, dateLocale]);
 
   const tagEditor = useTagEditor(userId, fetchSessions);
   const labelEditor = useLabelEditor({ addLabel, updateLabel, removeLabel: (id) => void removeLabel(id) });
@@ -335,6 +351,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               <Suspense fallback={null}>
                 <DocumentPreview
                 session={previewSession} onClose={() => setPreviewSession(null)}
+                context={previewContext}
                 onContinue={s => void navigate('/', { state: { sessionToContinue: s } })}
                 onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
                 onAddLabel={(label) => void addLabel(label)} labels={profileLabels} allTags={allTags}

@@ -27,7 +27,7 @@ const relatedNotesCache = new Map<string, RelatedNote[]>();
 
 export function DocumentPreview({
   session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach, onCopyText,
-  onAnalyzeNote, fetchSummary, fetchRelatedNotes,
+  onAnalyzeNote, fetchSummary, fetchRelatedNotes, context,
 }: {
   session: ArchiveSession | null;
   onClose: () => void;
@@ -42,6 +42,7 @@ export function DocumentPreview({
   onAnalyzeNote?: ((sessionId: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
   fetchSummary?: ((sessionId: string) => Promise<AIDocumentSummary | null>) | undefined;
   fetchRelatedNotes?: ((sessionId: string) => Promise<RelatedNote[]>) | undefined;
+  context?: string | undefined;
 }) {
   const [session, setSession] = useState<ArchiveSession | null>(propSession);
 
@@ -411,6 +412,20 @@ export function DocumentPreview({
       {/* Header */}
       <div className="flex items-start justify-between p-6 pb-4 border-b border-border-subtle pt-8 md:pt-6">
         <div className="flex-1 min-w-0 pr-4">
+          <div className="flex items-center font-mono text-[10px] uppercase tracking-widest text-text-main/60 mb-2">
+            <Button
+              onClick={onClose}
+              className="p-0 text-text-main/60 hover:text-text-main transition-colors font-mono text-[10px] uppercase tracking-widest flex items-center gap-1"
+            >
+              ‹ {t('preview_breadcrumb_root')}
+            </Button>
+            {context && (
+              <>
+                <span className="mx-1.5 opacity-60">/</span>
+                <span className="truncate">{context}</span>
+              </>
+            )}
+          </div>
           <h2 className="text-xl font-medium text-text-main leading-snug mb-1 flex items-center gap-2">
             {session._locked ? (
               <>
