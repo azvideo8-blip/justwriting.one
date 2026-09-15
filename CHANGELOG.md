@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.48 — 2026-09-15
+
+- **[RU]** Архив стал нагляднее: на метках и тегах — число заметок за ними, «/» ставит курсор в поиск из любого места, в превью появилась хлебная крошка «‹ Архив / #тег», а календарь превратился в теплокарту — дни закрашены по числу написанных слов, при наведении «3 заметки · 1240 слов».
+- **[EN]** The archive got clearer: labels and tags show how many notes are behind them, «/» focuses search from anywhere, the preview gains a breadcrumb «‹ Archive / #tag», and the calendar became a heat map — days shaded by words written, with «3 notes · 1240 words» on hover.
+- **[RU]** Кнопка «Скопировать» открывает окно с двумя вкладками — Markdown (с заголовком, датой и тегами) и просто текст: видно, что копируешь, до того как скопировал. Теперь она есть и в архиве, и в мобильном журнале.
+- **[EN]** The Copy button opens a window with two tabs — Markdown (with title, date and tags) and plain text: you see what you copy before you copy it. It is now in the archive and the mobile log too.
+- **[RU]** Под полем чата ИИ — индикатор квоты: за два вызова до конца он желтеет, на нуле краснеет и показывает время сброса в вашем часовом поясе; кнопка отправки блокируется до нажатия. Чат и рассуждения считаются отдельно — исчерпав чат, вы по-прежнему можете задать вопрос в режиме рассуждений.
+- **[EN]** Under the AI chat box, a quota meter: two calls from the end it turns amber, at zero red with the reset time in your local zone; the send button disables before you press it. Chat and reasoning count separately — spending chat still leaves reasoning available.
+- **[RU]** Сброс пароля: после отправки экран называет адрес, напоминает про «Спам» и даёт «Отправить ещё раз» с таймером на 60 секунд и «Указать другой адрес» — без перезагрузки. В настройках безопасности появилось «Выйти на остальных устройствах».
+- **[EN]** Password reset: after sending, the screen names the address, reminds about spam, and offers «Send again» with a 60-second timer and «Use another address» — without a reload. Security settings gained «Sign out of other devices».
+- **[RU]** Новая страница «Помощь» с пошаговым разбором «Заметки не видны?»: по одному вопросу за раз — тот же аккаунт? то же устройство? — и в конце одно действие. Доступна из «Настройки → О приложении».
+- **[EN]** A new Help page with a step-by-step «Notes not visible?» guide: one question at a time — same account? same device? — ending in the one thing to do. Reachable from Settings → About.
+- **[RU]** Активный пункт меню теперь сплошная плашка вместо подкрашенной полосы; заголовки разделов настроек — с мелким моно-номером над названием. 46 мест, где цвета состояний были заданы напрямую, переведены на цвета темы — светлая тема стала читаемее, тёмная — ровнее.
+- **[EN]** The active menu item is now a solid pill instead of a tinted strip; settings section headers get a small mono number above the title. 46 places that hard-coded state colours now use the theme — the light theme reads better, the dark theme is more consistent.
+
 ## 0.8.47 — 2026-09-12
 
 - **[RU]** После включения сейфа раздел настроек больше не показывает «Шифрование не настроено», хотя заметки уже шифруются: профиль обновляется сразу после настройки. Заметки при этом всё время уходили в облако зашифрованными — это была ошибка только в надписи.
