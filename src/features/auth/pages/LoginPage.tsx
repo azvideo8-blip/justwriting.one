@@ -79,7 +79,19 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [resendAt, setResendAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (!resendAt || resendAt <= Date.now()) return;
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendAt]);
+
+  const secondsLeft = resendAt ? Math.max(0, Math.ceil((resendAt - now) / 1000)) : 0;
 
   useEffect(() => {
     const unsub = onAuthStateChange((u) => {
@@ -131,6 +143,36 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       setError(mapSupabaseAuthError(err, t));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendPasswordReset = async () => {
+    if (!forgotEmail) return;
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      await AuthService.sendPasswordReset(forgotEmail);
+      setForgotSent(true);
+      setResendAt(Date.now() + 60_000);
+    } catch (err: unknown) {
+      reportError(err, { action: 'sendPasswordReset' });
+      const fe = err as { code?: string; status?: number };
+      if (fe.code === 'auth/user-not-found') {
+        setForgotSent(true);
+        setResendAt(Date.now() + 60_000);
+      } else if (
+        fe.status === 429 ||
+        fe.code === 'auth/too-many-requests' ||
+        fe.code === 'over_request_rate_limit' ||
+        fe.code === 'over_email_send_rate_limit' ||
+        fe.code === 'too_many_requests'
+      ) {
+        setForgotError(t('auth_error_rate_limited'));
+      } else {
+        setForgotError(t('auth_error_generic'));
+      }
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -282,8 +324,41 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               <p className="text-sm text-text-main/60 mb-4">{t('auth_forgot_warning')}</p>
 
               {forgotSent ? (
-                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
-                  {t('auth_forgot_sent')}
+                <div className="space-y-4">
+                  <div className="p-3 rounded-lg bg-accent-success/10 border border-accent-success/20 text-accent-success text-sm">
+                    {t('auth_forgot_sent_to', { email: forgotEmail })}
+                  </div>
+
+                  {forgotError && (
+                    <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs">{forgotError}</div>
+                  )}
+
+                  <div className="flex flex-col gap-2 pt-1">
+                    <Button
+                      onClick={() => void handleSendPasswordReset()}
+                      disabled={forgotLoading || secondsLeft > 0}
+                      className="w-full py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-[var(--brand-primary)]"
+                    >
+                      {forgotLoading ? (
+                        <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" />
+                      ) : secondsLeft > 0 ? (
+                        `${t('auth_forgot_resend')} (${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')})`
+                      ) : (
+                        t('auth_forgot_resend')
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        setForgotSent(false);
+                        setForgotError(null);
+                        setResendAt(null);
+                      }}
+                      className="text-xs text-text-main/60 hover:text-text-main transition-colors text-center py-1"
+                    >
+                      {t('auth_forgot_other_email')}
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -306,32 +381,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => {
-                        if (!forgotEmail) return;
-                        setForgotLoading(true);
-                        setForgotError(null);
-                        void AuthService.sendPasswordReset(forgotEmail).then(() => {
-                          setForgotSent(true);
-                        }).catch((err: unknown) => {
-                          reportError(err, { action: 'sendPasswordReset' });
-                          const fe = err as { code?: string; status?: number };
-                          if (fe.code === 'auth/user-not-found') {
-                            setForgotSent(true);
-                          } else if (
-                            fe.status === 429 ||
-                            fe.code === 'auth/too-many-requests' ||
-                            fe.code === 'over_request_rate_limit' ||
-                            fe.code === 'over_email_send_rate_limit' ||
-                            fe.code === 'too_many_requests'
-                          ) {
-                            setForgotError(t('auth_error_rate_limited'));
-                          } else {
-                            setForgotError(t('auth_error_generic'));
-                          }
-                        }).finally(() => {
-                          setForgotLoading(false);
-                        });
-                      }}
+                      onClick={() => void handleSendPasswordReset()}
                       disabled={forgotLoading || !forgotEmail}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-[var(--brand-primary)]"
                     >

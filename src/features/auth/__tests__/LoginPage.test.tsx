@@ -78,9 +78,9 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
     const submitBtn = screen.getByText('auth_forgot_confirm_anyway');
     fireEvent.click(submitBtn);
 
-    // Should display success message (auth_forgot_sent)
+    // Should display success message (auth_forgot_sent_to)
     await waitFor(() => {
-      expect(screen.getByText('auth_forgot_sent')).toBeInTheDocument();
+      expect(screen.getByText('auth_forgot_sent_to')).toBeInTheDocument();
     });
 
     // Should NOT show user not found error (auth_error_user_not_found)
@@ -88,6 +88,43 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
 
     // Should report error to internal diagnostics
     expect(reportError).toHaveBeenCalledWith(error, { action: 'sendPasswordReset' });
+  });
+
+  it('resend button disabled with countdown and enables after 60s (UI-08)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(AuthService.sendPasswordReset).mockResolvedValue(undefined);
+
+    await openForgotPasswordModal();
+
+    const emailInputs = screen.getAllByPlaceholderText('auth_email_placeholder');
+    const modalEmailInput = emailInputs[emailInputs.length - 1]!;
+    fireEvent.change(modalEmailInput, { target: { value: 'test@example.com' } });
+
+    const submitBtn = screen.getByText('auth_forgot_confirm_anyway');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('auth_forgot_sent_to')).toBeInTheDocument();
+    });
+    expect(AuthService.sendPasswordReset).toHaveBeenCalledTimes(1);
+
+    // Resend button should be disabled during countdown
+    const resendBtn = screen.getByRole('button', { name: /auth_forgot_resend/i });
+    expect(resendBtn).toBeDisabled();
+
+    // Fast-forward 60 seconds
+    vi.advanceTimersByTime(60_000);
+
+    // Resend button should now be enabled
+    await waitFor(() => {
+      expect(resendBtn).toBeEnabled();
+    });
+
+    // Clicking resend calls sendPasswordReset a second time
+    fireEvent.click(resendBtn);
+    expect(AuthService.sendPasswordReset).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
   });
 
   it('displays generic error on network or rate limit failure', async () => {
