@@ -36,6 +36,25 @@ export interface AIChatComposerProps {
   dismissCrisis: () => void;
 }
 
+function QuotaMeter({ used, limit }: { used: number; limit: number }) {
+  const remaining = Math.max(0, limit - used);
+  const pct = limit > 0 ? Math.min(100, Math.max(0, (used / limit) * 100)) : 0;
+  const isWarning = remaining > 0 && remaining <= 2;
+  const isDanger = remaining <= 0;
+
+  return (
+    <span className="inline-flex w-[40px] h-[3px] rounded-full bg-text-main/10 overflow-hidden shrink-0">
+      <span
+        className={cn(
+          "h-full transition-[width]",
+          isDanger ? "bg-accent-danger" : isWarning ? "bg-accent-warning" : "bg-text-main/50"
+        )}
+        style={{ width: `${pct}%` }}
+      />
+    </span>
+  );
+}
+
 export function AIChatComposer(props: AIChatComposerProps) {
   const {
     inputText,
@@ -64,6 +83,16 @@ export function AIChatComposer(props: AIChatComposerProps) {
     dismissCrisis,
   } = props;
   const { t } = useLanguage();
+
+  const chatUsed = Math.max(0, dailyLimitTotal - dailyLimitRemaining);
+  const chatWarning = dailyLimitRemaining > 0 && dailyLimitRemaining <= 2;
+  const chatDanger = dailyLimitRemaining <= 0;
+
+  const reasoningLim = reasoningLimit ?? 5;
+  const reasoningRem = reasoningRemaining ?? 5;
+  const reasoningUsed = Math.max(0, reasoningLim - reasoningRem);
+  const reasoningWarning = reasoningRem > 0 && reasoningRem <= 2;
+  const reasoningDanger = reasoningRem <= 0;
 
   useEffect(() => {
     const el = inputRef.current;
@@ -176,7 +205,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
             ) : (
               <Button
                 onClick={onSend}
-                disabled={(!inputText.trim() && pendingAttachments.length === 0) || (reasoning ? (reasoningRemaining ?? 5) <= 0 : dailyLimitRemaining <= 0)}
+                disabled={(!inputText.trim() && pendingAttachments.length === 0) || dailyLimitRemaining <= 0 || (reasoning ? (reasoningRemaining ?? 5) <= 0 : false)}
                 className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
               >
                 <span className="hidden md:inline">{t('ai_send')}</span>
@@ -185,9 +214,24 @@ export function AIChatComposer(props: AIChatComposerProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-3.5 mt-2.5">
-            <span className="text-[10px] font-mono text-text-main/60">
-              {t('ai_quota_chat')} <b className="text-text-main/60">{dailyLimitRemaining}/{dailyLimitTotal}</b> · {t('ai_quota_reasoning')} <b className="text-text-main/60">{reasoningRemaining ?? 5}/{reasoningLimit ?? 5}</b>
+          <div className="flex items-center gap-3.5 mt-2.5 flex-wrap">
+            <span className="flex items-center gap-1.5 text-[10px] font-mono text-text-main/60 flex-wrap">
+              <span>{t('ai_quota_chat')}</span>
+              <QuotaMeter used={chatUsed} limit={dailyLimitTotal} />
+              <b className={chatDanger ? "text-accent-danger" : chatWarning ? "text-accent-warning" : "text-text-main/60"}>
+                {dailyLimitRemaining}/{dailyLimitTotal}
+              </b>
+              <span>·</span>
+              <span>{t('ai_quota_reasoning')}</span>
+              <QuotaMeter used={reasoningUsed} limit={reasoningLim} />
+              <b className={reasoningDanger ? "text-accent-danger" : reasoningWarning ? "text-accent-warning" : "text-text-main/60"}>
+                {reasoningRem}/{reasoningLim}
+              </b>
+              {dailyLimitRemaining === 0 && (
+                <span className="text-accent-danger ml-1">
+                  ({t('ai_quota_reset_midnight')})
+                </span>
+              )}
             </span>
             <div className="flex-1" />
             <span className={cn(
