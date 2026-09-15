@@ -57,6 +57,23 @@ describe('AIChatComposer quota indicator', () => {
     );
 
     expect(screen.getByRole('button', { name: /отправить|send/i })).not.toBeDisabled();
+    // The input itself must stay enabled too: the send-button gate was fixed in
+    // review, the textarea was not, so a reasoning user with chat spent could not
+    // type. getByRole('textbox') is the composer's only textarea.
+    expect(screen.getByRole('textbox')).not.toBeDisabled();
+  });
+
+  it('disables the input as well as send when the active mode\'s quota is spent (reasoning=0)', () => {
+    renderWithProviders(
+      <AIChatComposer
+        {...defaultProps}
+        dailyLimitRemaining={10}
+        reasoning={true}
+        reasoningRemaining={0}
+      />
+    );
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /отправить|send/i })).toBeDisabled();
   });
 
   it('applies warning class when dailyLimitRemaining is 2', () => {

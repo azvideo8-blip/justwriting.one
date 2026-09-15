@@ -102,6 +102,12 @@ export function AIChatComposer(props: AIChatComposerProps) {
   const reasoningWarning = reasoningRem > 0 && reasoningRem <= 2;
   const reasoningDanger = reasoningRem <= 0;
 
+  // UI-07 review: chat and reasoning are separate server buckets. Gate BOTH the
+  // input and the send button on the active mode's bucket — the send button was
+  // fixed in review, the textarea was not, so a reasoning user with chat spent
+  // could not type. One predicate, two consumers, so they cannot drift again.
+  const outOfQuota = reasoning ? reasoningRem <= 0 : dailyLimitRemaining <= 0;
+
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -197,7 +203,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
               onChange={e => setInputText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
               placeholder={t('ai_write_placeholder', { name: personaName.toLowerCase() })}
-              disabled={isLoading || dailyLimitRemaining === 0}
+              disabled={isLoading || outOfQuota}
               rows={1}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-base text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"
             />
@@ -213,7 +219,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
             ) : (
               <Button
                 onClick={onSend}
-                disabled={(!inputText.trim() && pendingAttachments.length === 0) || (reasoning ? (reasoningRemaining ?? 5) <= 0 : dailyLimitRemaining <= 0)}
+                disabled={(!inputText.trim() && pendingAttachments.length === 0) || outOfQuota}
                 className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
               >
                 <span className="hidden md:inline">{t('ai_send')}</span>
