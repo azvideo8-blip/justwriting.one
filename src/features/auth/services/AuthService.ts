@@ -147,6 +147,10 @@ async function sendPasswordReset(email: string) {
   return sendPasswordResetEmail(email);
 }
 
+async function signOutOthers(): Promise<void> {
+  await signOutUser({ scope: 'others' });
+}
+
 async function recoverVault(userId: string, recoveryCode: string, newPassword: string): Promise<void> {
   const { recoverVaultWithCode } = await import('../../../core/services/EncryptionService');
   return recoverVaultWithCode(userId, recoveryCode, newPassword);
@@ -254,6 +258,7 @@ export const AuthService = {
   signUpWithEmail,
   signInWithEmail,
   signOut,
+  signOutOthers,
   sendPasswordReset,
   getCurrentUserId,
   getCurrentUser,

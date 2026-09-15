@@ -82,8 +82,8 @@ export async function signUp(email: string, password: string): Promise<AppUser> 
   return mapUser(data.user)!;
 }
 
-export async function signOutUser(): Promise<void> {
-  const { error } = await getSupabase().auth.signOut();
+export async function signOutUser(options?: { scope?: 'global' | 'local' | 'others' }): Promise<void> {
+  const { error } = await getSupabase().auth.signOut(options);
   if (error) throw error;
 }
 

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Laptop } from 'lucide-react';
 import { EncryptionService } from '../../../core/services/EncryptionService';
 import { AuthService } from '../../../app/AuthService';
 import { useLanguage } from '../../../shared/i18n';
+import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { Section } from './SettingsHelpers';
@@ -25,6 +26,8 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [signingOutOthers, setSigningOutOthers] = useState(false);
+  const { showToast } = useToast();
 
   const changePasswordRef = useRef<HTMLFormElement>(null);
 
@@ -64,6 +67,19 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
       setPasswordError(msg);
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleSignOutOthers = async () => {
+    setSigningOutOthers(true);
+    try {
+      await AuthService.signOutOthers();
+      showToast(t('settings_sessions_signed_out_others'), 'success');
+    } catch (err: unknown) {
+      reportError(err, { action: 'signOutOthers', userId });
+      showToast(t('settings_sessions_sign_out_failed'), 'error');
+    } finally {
+      setSigningOutOthers(false);
     }
   };
 
@@ -151,6 +167,32 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
                 </div>
               </form>
             )}
+          </div>
+
+          {/* Active Sessions / Other Devices */}
+          <div className="p-4 rounded-xl border border-border-subtle space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <div className="text-sm font-medium text-text-main flex items-center gap-2">
+                  <Laptop size={16} className="text-text-main/60" />
+                  {t('settings_sessions_title')}
+                </div>
+                <div className="text-xs text-text-main/60">
+                  {t('settings_sessions_desc')}
+                </div>
+              </div>
+              <Button
+                onClick={() => void handleSignOutOthers()}
+                disabled={signingOutOthers}
+                className="py-1.5 px-3 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors shrink-0"
+              >
+                {signingOutOthers ? (
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin border-text-main/20 border-t-text-main mx-auto" />
+                ) : (
+                  t('settings_sessions_sign_out_others')
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* End-to-End Encryption Vault */}
