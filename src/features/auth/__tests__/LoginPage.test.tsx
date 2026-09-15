@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { LoginPage } from '../pages/LoginPage';
 import { AuthService } from '../services/AuthService';
 import { reportError } from '../../../shared/errors/reportError';
@@ -56,6 +56,10 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   async function openForgotPasswordModal() {
     render(<LoginPage isModal={true} onClose={vi.fn()} />);
     const forgotBtn = screen.getByText('auth_forgot_password');
@@ -91,7 +95,6 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
   });
 
   it('resend button disabled with countdown and enables after 60s (UI-08)', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.mocked(AuthService.sendPasswordReset).mockResolvedValue(undefined);
 
     await openForgotPasswordModal();
@@ -100,28 +103,32 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
     const modalEmailInput = emailInputs[emailInputs.length - 1]!;
     fireEvent.change(modalEmailInput, { target: { value: 'test@example.com' } });
 
-    const submitBtn = screen.getByText('auth_forgot_confirm_anyway');
-    fireEvent.click(submitBtn);
+    vi.useFakeTimers();
 
-    await waitFor(() => {
-      expect(screen.getByText('auth_forgot_sent_to')).toBeInTheDocument();
+    const submitBtn = screen.getByText('auth_forgot_confirm_anyway');
+    await act(async () => {
+      fireEvent.click(submitBtn);
     });
+
+    expect(screen.getByText('auth_forgot_sent_to')).toBeInTheDocument();
     expect(AuthService.sendPasswordReset).toHaveBeenCalledTimes(1);
 
     // Resend button should be disabled during countdown
     const resendBtn = screen.getByRole('button', { name: /auth_forgot_resend/i });
     expect(resendBtn).toBeDisabled();
 
-    // Fast-forward 60 seconds
-    vi.advanceTimersByTime(60_000);
-
-    // Resend button should now be enabled
-    await waitFor(() => {
-      expect(resendBtn).toBeEnabled();
+    // Fast-forward 61 seconds with fake timers to complete cooldown
+    act(() => {
+      vi.advanceTimersByTime(61_000);
     });
 
+    // Resend button should now be enabled
+    expect(resendBtn).toBeEnabled();
+
     // Clicking resend calls sendPasswordReset a second time
-    fireEvent.click(resendBtn);
+    await act(async () => {
+      fireEvent.click(resendBtn);
+    });
     expect(AuthService.sendPasswordReset).toHaveBeenCalledTimes(2);
 
     vi.useRealTimers();
