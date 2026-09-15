@@ -16,6 +16,7 @@ import { useToast } from '../../shared/components/Toast';
 import { Upload } from 'lucide-react';
 import { ArchiveTagBar } from '../../features/archive/components/ArchiveTagBar';
 import { ArchiveLabelBar } from '../../features/archive/components/ArchiveLabelBar';
+import { isSearchShortcut } from '../../features/archive/utils/searchShortcut';
 import { ArchiveNoteList } from '../../features/archive/components/ArchiveNoteList';
 import { OnThisDayCard } from '../../features/archive/components/OnThisDayCard';
 import { ArchiveConfirmModals } from '../../features/archive/components/ArchiveConfirmModals';
@@ -55,16 +56,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      } else if (
-        e.key === '/' &&
-        !e.metaKey && !e.ctrlKey && !e.altKey &&
-        !(document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) &&
-        !(document.activeElement as HTMLElement | null)?.isContentEditable
-      ) {
+      if (isSearchShortcut(e, document.activeElement)) {
         e.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
