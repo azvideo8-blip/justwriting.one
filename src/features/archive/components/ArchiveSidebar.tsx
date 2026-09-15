@@ -13,6 +13,7 @@ interface ArchiveSidebarProps {
   onReset?: (() => void) | undefined;
   sessions: ArchiveSession[];
   sessionsByDate: Record<string, number>;
+  wordsByDate?: Record<string, number>;
   selectedDate: Date | null;
   onSelectDate: (d: Date | null) => void;
   onSelectMonth: (d: Date | null) => void;
@@ -23,7 +24,7 @@ interface ArchiveSidebarProps {
 
 export function ArchiveSidebar({
   filteredByFilters, streakDays, statsTitle, onReset,
-  sessions, sessionsByDate,
+  sessions, sessionsByDate, wordsByDate,
   selectedDate, onSelectDate, onSelectMonth,
   wordCloud, maxCount, onWordClick,
 }: ArchiveSidebarProps) {
@@ -58,6 +59,7 @@ export function ArchiveSidebar({
       <Calendar
         sessions={sessions}
         sessionsByDate={sessionsByDate}
+        wordsByDate={wordsByDate}
         selectedDate={selectedDate}
         onSelectDate={(d) => {
           if (selectedDate && d && isSameDay(d, selectedDate)) {

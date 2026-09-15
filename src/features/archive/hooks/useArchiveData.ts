@@ -53,6 +53,17 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
     return map;
   }, [sessionsData.sessions]);
 
+  const wordsByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    sessionsData.sessions.forEach(s => {
+      const d = s.sessionStartTime ? new Date(s.sessionStartTime) : (s.createdAt instanceof Date ? s.createdAt : null);
+      if (!d) return;
+      const key = format(d, 'yyyy-MM-dd');
+      map[key] = (map[key] || 0) + (s.sessionWordsAdded || s.wordCount || 0);
+    });
+    return map;
+  }, [sessionsData.sessions]);
+
   const statsTitle = useMemo(() => {
     if (selectedLabels.length > 0) {
       const names = selectedLabels.map(id => labels?.find(l => l.id === id)?.name).filter(Boolean);
@@ -97,7 +108,7 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
     selectedTags, setSelectedTags,
     selectedLabels, setSelectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
-    sessionsByDate, wordCloud, maxCount,
+    sessionsByDate, wordsByDate, wordCloud, maxCount,
     groupedSessions, sortedDates, dateLocale, entriesLabel,
   };
 }

@@ -17,6 +17,7 @@ interface MobileArchiveSidebarSheetProps {
   onReset?: (() => void) | undefined;
   sessions: ArchiveSession[];
   sessionsByDate: Record<string, number>;
+  wordsByDate?: Record<string, number>;
   selectedDate: Date | null;
   onSelectDate: (d: Date | null) => void;
   onSelectMonth: (d: Date | null) => void;
@@ -34,6 +35,7 @@ export function MobileArchiveSidebarSheet({
   onReset,
   sessions,
   sessionsByDate,
+  wordsByDate,
   selectedDate,
   onSelectDate,
   onSelectMonth,
@@ -103,6 +105,7 @@ export function MobileArchiveSidebarSheet({
               <Calendar
                 sessions={sessions}
                 sessionsByDate={sessionsByDate}
+                wordsByDate={wordsByDate}
                 selectedDate={selectedDate}
                 onSelectDate={(d) => {
                   if (selectedDate && d && isSameDay(d, selectedDate)) {

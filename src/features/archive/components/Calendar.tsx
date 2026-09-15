@@ -7,18 +7,20 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../shared/i18n';
+import { calculateQuartiles, levelOf, HEATMAP_BG_CLASSES } from '../utils/calendarHeatmap';
 
 interface CalendarProps {
   sessions: ArchiveSession[];
   sessionsByDate?: Record<string, number>;
+  wordsByDate?: Record<string, number>;
   selectedDate: Date | null;
   onSelectDate: (date: Date | null) => void;
   onSelectMonth?: (month: Date) => void;
 }
 
-export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate, onSelectMonth }: CalendarProps) {
+export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, onSelectDate, onSelectMonth }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const locale = language === 'ru' ? ru : enUS;
   const start = startOfMonth(currentMonth);
   const end = endOfMonth(currentMonth);
@@ -28,6 +30,29 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
   const offset = (startDay === 0 ? 6 : startDay - 1);
 
   const activeDays = useMemo(() => sessions.flatMap(s => getSessionDates(s)), [sessions]);
+
+  const computedWordsByDate = useMemo(() => {
+    if (wordsByDate) return wordsByDate;
+    const map: Record<string, number> = {};
+    sessions.forEach(s => {
+      const d = s.sessionStartTime ? new Date(s.sessionStartTime) : (s.createdAt instanceof Date ? s.createdAt : null);
+      if (!d) return;
+      const key = format(d, 'yyyy-MM-dd');
+      map[key] = (map[key] || 0) + (s.sessionWordsAdded || s.wordCount || 0);
+    });
+    return map;
+  }, [wordsByDate, sessions]);
+
+  // Compute quartiles across days of the visible month
+  const monthThresholds = useMemo(() => {
+    const monthValues = days.map(day => {
+      const dateKey = format(day, 'yyyy-MM-dd');
+      const words = computedWordsByDate[dateKey] ?? 0;
+      if (words > 0) return words;
+      return sessionsByDate ? (sessionsByDate[dateKey] ?? 0) : 0;
+    });
+    return calculateQuartiles(monthValues);
+  }, [days, computedWordsByDate, sessionsByDate]);
 
   return (
     <div className="space-y-4">
@@ -49,33 +74,43 @@ export function Calendar({ sessions, sessionsByDate, selectedDate, onSelectDate,
         {days.map(day => {
           const dateKey = format(day, 'yyyy-MM-dd');
           const sessionCount = sessionsByDate ? (sessionsByDate[dateKey] ?? 0) : (activeDays.some(ad => isSameDay(ad, day)) ? 1 : 0);
+          const wordCount = computedWordsByDate[dateKey] ?? 0;
+          const heatMetric = wordCount > 0 ? wordCount : sessionCount;
+          const heatLevel = levelOf(heatMetric, monthThresholds);
           const hasSessions = sessionCount > 0;
           const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
           const today = isToday(day);
+
+          let cellTitle: string | undefined = undefined;
+          if (sessionCount > 0) {
+            const notesStr = tp('archive_note_count', sessionCount);
+            if (wordCount > 0) {
+              const formattedWords = wordCount.toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US');
+              const wordsStr = tp('archive_word_count', wordCount).replace(String(wordCount), formattedWords);
+              cellTitle = `${notesStr} · ${wordsStr}`;
+            } else {
+              cellTitle = notesStr;
+            }
+          }
+
           return (
             <Button
               key={day.toString()}
               onClick={() => onSelectDate(day)}
+              title={cellTitle}
               className={cn(
                 "aspect-square rounded-lg flex items-center justify-center text-sm transition-colors relative flex-col gap-0",
-                hasSessions
-                  ? "text-text-main/80 font-medium"
-                  : "text-text-main/60 hover:text-text-main/60",
-                today && !hasSessions && "bg-text-main/10 border border-text-main/20 rounded-lg text-text-main",
-                isSelected && "ring-2 ring-text-main/30"
+                HEATMAP_BG_CLASSES[heatLevel],
+                heatLevel === 4
+                  ? "text-bg-base font-semibold"
+                  : hasSessions
+                    ? "text-text-main font-medium"
+                    : "text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5",
+                today && "ring-1 ring-text-main/40",
+                isSelected && "ring-2 ring-text-main/50"
               )}
             >
               {format(day, 'd')}
-              {sessionCount > 0 && (
-                <div className="flex gap-0.5 justify-center mt-0.5">
-                  {Array.from({ length: Math.min(sessionCount, 3) }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-1 h-1 rounded-full opacity-70 bg-[var(--flow-pulse-color,oklch(0.72_0.13_155))]"
-                    />
-                  ))}
-                </div>
-              )}
             </Button>
           );
         })}

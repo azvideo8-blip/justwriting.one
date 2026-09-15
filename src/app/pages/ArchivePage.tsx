@@ -84,7 +84,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
-    sessionsByDate, wordCloud, maxCount,
+    sessionsByDate, wordsByDate, wordCloud, maxCount,
     dateLocale, entriesLabel,
   } = useArchiveData(user, userId, t, language, profileLabels);
 
@@ -338,7 +338,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             <ArchiveSidebar
               filteredByFilters={filteredByFilters} streakDays={filteredStreakDays} statsTitle={statsTitle}
               onReset={hasActiveFilter ? resetStatsFilter : undefined}
-              sessions={sessions} sessionsByDate={sessionsByDate} selectedDate={selectedDate}
+              sessions={sessions} sessionsByDate={sessionsByDate} wordsByDate={wordsByDate} selectedDate={selectedDate}
               onSelectDate={setSelectedDate} onSelectMonth={setSelectedMonth}
               wordCloud={wordCloud} maxCount={maxCount} onWordClick={setSearchQuery}
             />
@@ -378,6 +378,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onReset={hasActiveFilter ? resetStatsFilter : undefined}
                 sessions={sessions}
                 sessionsByDate={sessionsByDate}
+                wordsByDate={wordsByDate}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
                 onSelectMonth={setSelectedMonth}
