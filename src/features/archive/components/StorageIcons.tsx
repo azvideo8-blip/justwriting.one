@@ -285,10 +285,10 @@ export function StorageIcons({
         size="sm"
         className={cn(
           "w-6 h-6 rounded-lg",
-          uploading && "animate-pulse text-blue-400",
+          uploading && "animate-pulse text-accent-info",
           !uploading && isUnsynced && "text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 cursor-pointer",
-          !uploading && !isUnsynced && doc.hasCloud && "text-blue-400 hover:text-accent-danger hover:bg-accent-danger/10",
-          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/60 hover:text-blue-400 hover:bg-blue-400/10 cursor-pointer",
+          !uploading && !isUnsynced && doc.hasCloud && "text-accent-info hover:text-accent-danger hover:bg-accent-danger/10",
+          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/60 hover:text-accent-info hover:bg-accent-info/10 cursor-pointer",
           !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/60 cursor-default"
         )}
       />

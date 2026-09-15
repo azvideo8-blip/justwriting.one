@@ -272,7 +272,7 @@ export function RerankBenchPage() {
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main"
               >
-                {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                {copied ? <Check size={12} className="text-accent-success" /> : <Copy size={12} />}
                 {t('admin_bench_copy')}
               </Button>
             </div>
@@ -312,7 +312,7 @@ export function RerankBenchPage() {
                         </span>
                       )}
                       {r.rerankFailed && (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/15 text-red-400 font-mono">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-accent-danger/15 text-accent-danger font-mono">
                           {t('admin_bench_rerank_failed')}
                         </span>
                       )}
@@ -330,7 +330,7 @@ export function RerankBenchPage() {
                       <div
                         key={docId}
                         className={`p-3 rounded-xl border text-xs space-y-2 ${
-                          v === 'hit' ? 'border-green-500/40 bg-green-500/5'
+                          v === 'hit' ? 'border-accent-success/40 bg-accent-success/5'
                           : v === 'similar' ? 'border-amber-500/40 bg-amber-500/5'
                           : v === 'miss' ? 'border-border-subtle bg-surface-base/5 opacity-60'
                           : 'border-border-subtle bg-surface-card'
@@ -365,7 +365,7 @@ export function RerankBenchPage() {
                               onClick={() => setVerdict(qi, docId, key)}
                               className={`px-3 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                                 v === key
-                                  ? key === 'hit' ? 'bg-green-600 text-white border-green-600'
+                                  ? key === 'hit' ? 'bg-accent-success text-white border-accent-success'
                                     : key === 'similar' ? 'bg-amber-600 text-white border-amber-600'
                                     : 'bg-text-main text-surface-base border-text-main'
                                   : 'border-border-subtle text-text-main/70 hover:bg-surface-base/10'

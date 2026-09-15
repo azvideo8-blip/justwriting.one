@@ -180,7 +180,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
               </span>
             </div>
             {hasConsent ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-success bg-accent-success/10 px-2.5 py-1 rounded-full border border-accent-success/20">
                 <CheckCircle2 size={12} />
                 Предоставлено
               </span>
@@ -237,7 +237,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
               </span>
             </div>
             {indexingConsentState === 'granted' ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-success bg-accent-success/10 px-2.5 py-1 rounded-full border border-accent-success/20">
                 <CheckCircle2 size={12} />
                 Включено
               </span>

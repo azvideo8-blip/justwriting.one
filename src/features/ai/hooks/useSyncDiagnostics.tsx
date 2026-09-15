@@ -399,7 +399,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     switch (status) {
       case 'synced':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-success/10 text-accent-success border border-accent-success/20">
             <CheckCircle2 size={10} />
             Synced
           </span>
@@ -427,7 +427,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         );
       case 'cloud_only':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-info/10 text-accent-info border border-accent-info/20">
             <Cloud size={10} />
             Cloud Only
           </span>

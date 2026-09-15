@@ -69,8 +69,8 @@ export function IndexingConsentModal({ isOpen, onConsent, onRefuse }: IndexingCo
               </ul>
             </div>
 
-            <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/20 space-y-1.5">
-              <div className="font-semibold text-green-500 flex items-center gap-1.5">
+            <div className="p-3 rounded-xl bg-accent-success/5 border border-accent-success/20 space-y-1.5">
+              <div className="font-semibold text-accent-success flex items-center gap-1.5">
                 <Check size={13} />
                 <span>Продолжает работать:</span>
               </div>

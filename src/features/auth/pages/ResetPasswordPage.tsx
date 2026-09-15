@@ -88,7 +88,7 @@ export function ResetPasswordPage() {
 
         {linkExpired && !done && (
           <div className="space-y-3">
-            <p className="text-sm text-red-500">
+            <p className="text-sm text-accent-danger">
               Ссылка уже использована или устарела — запросите новую
             </p>
             <button
@@ -129,7 +129,7 @@ export function ResetPasswordPage() {
               required
               className="w-full rounded-lg border px-3 py-2 bg-transparent"
             />
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-accent-danger">{error}</p>}
             <button
               type="submit"
               disabled={busy || password.length < MIN_PASSWORD_LENGTH}

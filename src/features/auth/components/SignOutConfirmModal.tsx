@@ -165,7 +165,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
           )}
 
           {errorMsg && (
-            <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 flex items-center gap-1.5">
+            <div className="p-2.5 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-xs text-accent-danger flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               {errorMsg}
             </div>

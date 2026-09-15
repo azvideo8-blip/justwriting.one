@@ -256,7 +256,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
               })}
             </div>
             {migrationResult.skipped > 0 && (
-              <div className="text-red-500">
+              <div className="text-accent-danger">
                 {t('settings_migration_export_skipped', { count: String(migrationResult.skipped) })}
               </div>
             )}
@@ -303,7 +303,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
             <div className="text-xs text-text-main/60 leading-relaxed space-y-1 mt-2">
               {importResult.success ? (
                 <>
-                  <div className="text-green-500 font-medium">
+                  <div className="text-accent-success font-medium">
                     {t('settings_migration_import_done', {
                       documents: String(importResult.imported.documents),
                       versions: String(importResult.imported.versions),
@@ -416,7 +416,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                   )}
                 </>
               ) : (
-                <div className="text-red-500 font-medium">
+                <div className="text-accent-danger font-medium">
                   {t('settings_migration_import_error', {
                     error: importResult.error ?? 'Unknown error',
                   })}

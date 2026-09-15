@@ -115,7 +115,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
                   <div className="p-3 rounded-lg text-xs bg-accent-danger/10 border border-accent-danger/30 text-accent-danger">{passwordError}</div>
                 )}
                 {passwordSuccess && (
-                  <div className="p-3 rounded-lg text-xs bg-green-500/10 border border-green-500/30 text-green-400">{t('settings_password_changed')}</div>
+                  <div className="p-3 rounded-lg text-xs bg-accent-success/10 border border-accent-success/30 text-accent-success">{t('settings_password_changed')}</div>
                 )}
                 <Input
                   type="password"

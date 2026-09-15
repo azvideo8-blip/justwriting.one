@@ -146,6 +146,12 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     }
   };
 
+  const startCooldown = () => {
+    const currentNow = Date.now();
+    setNow(currentNow);
+    setResendAt(currentNow + 60_000);
+  };
+
   const handleSendPasswordReset = async () => {
     if (!forgotEmail) return;
     setForgotLoading(true);
@@ -153,13 +159,13 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     try {
       await AuthService.sendPasswordReset(forgotEmail);
       setForgotSent(true);
-      setResendAt(Date.now() + 60_000);
+      startCooldown();
     } catch (err: unknown) {
       reportError(err, { action: 'sendPasswordReset' });
       const fe = err as { code?: string; status?: number };
       if (fe.code === 'auth/user-not-found') {
         setForgotSent(true);
-        setResendAt(Date.now() + 60_000);
+        startCooldown();
       } else if (
         fe.status === 429 ||
         fe.code === 'auth/too-many-requests' ||

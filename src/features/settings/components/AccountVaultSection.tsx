@@ -414,8 +414,8 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               )}
             </div>
           ) : (
-            <div className="p-4 rounded-xl border border-green-500/20 bg-green-500/5">
-              <div className={migrationProgress?.incomplete ? 'text-sm text-text-main' : 'text-sm text-green-400'}>
+            <div className="p-4 rounded-xl border border-accent-success/20 bg-accent-success/5">
+              <div className={migrationProgress?.incomplete ? 'text-sm text-text-main' : 'text-sm text-accent-success'}>
                 {t('settings_encrypt_done', { count: migrationProgress?.encrypted ?? 0 })}
               </div>
               {migrationProgress?.incomplete && (

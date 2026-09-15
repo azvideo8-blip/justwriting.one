@@ -144,7 +144,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
             {showResetConfirm ? (
               <div className="inline-flex items-center gap-3 bg-accent-danger/10 border border-accent-danger/20 rounded-lg px-4 py-2">
                 <span className="text-[12px] text-accent-danger">{t('profile_ach_reset_confirm')}</span>
-                <Button onClick={handleResetAchievements} className="text-label-sm font-medium text-accent-danger hover:text-red-300 transition-colors uppercase tracking-widest">
+                <Button onClick={handleResetAchievements} className="text-label-sm font-medium text-accent-danger hover:text-accent-danger/80 transition-colors uppercase tracking-widest">
                   {t('profile_ach_reset')}
                 </Button>
                 <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/60 hover:text-text-main/60 transition-colors uppercase tracking-widest">

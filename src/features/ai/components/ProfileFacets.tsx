@@ -288,7 +288,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                     <div className="flex items-center gap-1.5">
                       {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">{t('admin_new_badge')}</span>}
                       {f.dialogueIds && f.dialogueIds.length > 0 && (
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-accent-info/15 text-accent-info">
                           💬 {f.dialogueIds.length}
                         </span>
                       )}

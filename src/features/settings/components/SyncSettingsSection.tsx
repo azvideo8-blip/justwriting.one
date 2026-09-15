@@ -278,7 +278,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 </p>
               )}
               {syncStatus.deadCount > 0 && (
-                <div className="text-[11px] text-red-400 flex items-center justify-between gap-2 font-medium">
+                <div className="text-[11px] text-accent-danger flex items-center justify-between gap-2 font-medium">
                   <div className="flex items-center gap-1">
                     <AlertCircle size={12} />
                     <span>{t('sync_quarantined_count', { count: String(syncStatus.deadCount) })}</span>
@@ -287,7 +287,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                     type="button"
                     onClick={() => void handleRetryQuarantined()}
                     disabled={retryingQuarantined}
-                    className="underline hover:no-underline text-xs text-red-300 font-normal cursor-pointer disabled:opacity-50"
+                    className="underline hover:no-underline text-xs text-accent-danger/80 font-normal cursor-pointer disabled:opacity-50"
                   >
                     {t('sync_quarantined_retry')}
                   </button>

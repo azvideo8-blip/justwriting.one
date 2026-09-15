@@ -169,7 +169,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.status === 'local_only' && (
                         <Button
                           onClick={() => void handleSyncItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/20 transition-colors min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-info/10 hover:bg-accent-info/20 text-accent-info text-xs font-semibold border border-accent-info/20 transition-colors min-h-[44px]"
                         >
                           <Upload size={14} />
                           Upload
@@ -178,7 +178,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {item.status === 'cloud_only' && (
                         <Button
                           onClick={() => void handleDownloadItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs font-semibold border border-green-500/20 transition-colors min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-success/10 hover:bg-accent-success/20 text-accent-success text-xs font-semibold border border-accent-success/20 transition-colors min-h-[44px]"
                         >
                           <Download size={14} />
                           Download
@@ -206,7 +206,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       )}
                       {hasEncryption && item.hasCloud && item.cloudId && (
                         item.cloudEncrypted ? (
-                          <span className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-semibold border border-green-500/20 min-h-[44px]">
+                          <span className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-success/10 text-accent-success text-xs font-semibold border border-accent-success/20 min-h-[44px]">
                             <Lock size={14} />
                             Encrypted
                           </span>
@@ -237,7 +237,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                   <div>
                     {processedDocs[item.id] ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-green-400 font-medium">Processed</span>
+                        <span className="text-accent-success font-medium">Processed</span>
                         <Button
                           onClick={() => void handleReadSummary(item.id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-card border border-border-subtle text-text-main/70 text-xs font-medium"
@@ -306,7 +306,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     <td className="py-2.5 px-2 text-center whitespace-nowrap">
                       {processedDocs[item.id] ? (
                         <div className="flex items-center justify-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-success/10 text-accent-success border border-accent-success/20">
                             Processed
                           </span>
                           <IconButton
@@ -340,7 +340,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.status === 'local_only' && (
                               <Button
                                 onClick={() => void handleSyncItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-label font-semibold border border-blue-500/20 transition-colors"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-accent-info/10 hover:bg-accent-info/20 text-accent-info text-label font-semibold border border-accent-info/20 transition-colors"
                                 title="Upload to cloud"
                               >
                                 <Upload size={10} />
@@ -350,7 +350,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {item.status === 'cloud_only' && (
                               <Button
                                 onClick={() => void handleDownloadItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-400 text-label font-semibold border border-green-500/20 transition-colors"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-accent-success/10 hover:bg-accent-success/20 text-accent-success text-label font-semibold border border-accent-success/20 transition-colors"
                                 title="Download to device"
                               >
                                 <Download size={10} />
@@ -381,7 +381,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {hasEncryption && item.hasCloud && item.cloudId && (
                               item.cloudEncrypted ? (
                                 <span
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-500/10 text-green-400 text-label font-semibold border border-green-500/20"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-accent-success/10 text-accent-success text-label font-semibold border border-accent-success/20"
                                   title="Already encrypted in cloud"
                                 >
                                   <Lock size={10} />

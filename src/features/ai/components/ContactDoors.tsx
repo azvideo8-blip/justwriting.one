@@ -92,7 +92,7 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
         {display && !display.lowData && (
           <>
             <div className="space-y-3 mb-4">
-              <DoorBar label="Мысли" value={display.thinking} color="bg-blue-500/60" />
+              <DoorBar label="Мысли" value={display.thinking} color="bg-accent-info/60" />
               <DoorBar label="Чувства" value={display.feeling} color="bg-amber-500/60" />
               <DoorBar label="Поведение" value={display.behavior} color="bg-emerald-500/60" />
             </div>
@@ -111,7 +111,7 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
                   {display.byPeriod.map(p => (
                     <div key={p.period} className="shrink-0 w-20 text-center">
                       <div className="flex flex-col h-20 justify-end rounded-lg bg-surface-card/50 border border-border-subtle overflow-hidden">
-                        <div className="bg-blue-500/60" style={{ height: `${p.thinking * 100}%` }} />
+                        <div className="bg-accent-info/60" style={{ height: `${p.thinking * 100}%` }} />
                         <div className="bg-amber-500/60" style={{ height: `${p.feeling * 100}%` }} />
                         <div className="bg-emerald-500/60" style={{ height: `${p.behavior * 100}%` }} />
                       </div>
