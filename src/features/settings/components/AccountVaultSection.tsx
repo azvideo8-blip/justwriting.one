@@ -327,9 +327,9 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
           </div>
 
           {!hasRecoveryCode && (
-            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+            <div className="p-4 rounded-xl border border-accent-warning/30 bg-accent-warning/5 space-y-3">
               <div className="flex items-start gap-3">
-                <KeyRound size={18} className="text-amber-400 mt-0.5" />
+                <KeyRound size={18} className="text-accent-warning mt-0.5" />
                 <div className="flex-1 space-y-1">
                   <div className="text-sm font-medium text-text-main">{t('enc_recovery_code_missing_title')}</div>
                   <div className="text-xs text-text-main/60 leading-relaxed">{t('enc_generate_recovery_code_desc')}</div>

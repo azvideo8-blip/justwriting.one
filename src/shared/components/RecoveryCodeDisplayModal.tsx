@@ -73,8 +73,8 @@ export function RecoveryCodeDisplayModal({
           className="w-full max-w-[480px] bg-surface-card border border-border-subtle rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
-              <KeyRound size={20} className="text-amber-400" />
+            <div className="w-10 h-10 rounded-2xl bg-accent-warning/10 border border-accent-warning/30 flex items-center justify-center shrink-0">
+              <KeyRound size={20} className="text-accent-warning" />
             </div>
             <div>
               <h2 id="recovery-code-title" className="text-lg font-bold text-text-main">
@@ -86,7 +86,7 @@ export function RecoveryCodeDisplayModal({
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs flex gap-2.5 items-start">
+          <div className="p-3 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-accent-warning text-xs flex gap-2.5 items-start">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
             <span className="leading-relaxed">{t('enc_recovery_code_warning')}</span>
           </div>

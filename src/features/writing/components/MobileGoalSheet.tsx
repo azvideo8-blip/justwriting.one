@@ -88,7 +88,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
           {/* Words Goal Section */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-text-main/80 font-semibold text-sm">
-              <Target size={18} className="text-rose-400" />
+              <Target size={18} className="text-accent-danger" />
               <span>{t('writing_mode_words') || 'Цель по словам'}</span>
             </div>
 
@@ -101,7 +101,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                   className={cn(
                     "py-2 px-1 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center",
                     wordGoal === words
-                      ? "bg-rose-400/10 border-rose-400 text-rose-400"
+                      ? "bg-accent-danger/10 border-accent-danger text-accent-danger"
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
                   )}
                 >
@@ -126,7 +126,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
               {customWords && (
                 <IconButton
                   onClick={handleApplyCustomWords}
-                  className="w-7 h-7 rounded-lg bg-rose-400/10 text-rose-400 flex items-center justify-center border-none cursor-pointer"
+                  className="w-7 h-7 rounded-lg bg-accent-danger/10 text-accent-danger flex items-center justify-center border-none cursor-pointer"
                   label={t('apply') || 'Apply'}
                   icon={<Check size={14} />}
                 />

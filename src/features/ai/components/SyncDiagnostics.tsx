@@ -74,13 +74,13 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
             Compare local IndexedDB cache with cloud collections.
           </div>
           {hasEncryption && !getSessionKey() && (
-            <div className="text-label-sm text-amber-500/80 mt-1 font-medium flex items-center gap-1">
+            <div className="text-label-sm text-accent-warning/80 mt-1 font-medium flex items-center gap-1">
               <AlertTriangle size={11} />
               Vault is locked. Decrypted sync is disabled until unlocked.
             </div>
           )}
           {discrepancyCount > 0 && (
-            <div className="text-label-sm text-amber-500/80 mt-1 font-medium flex items-center gap-1">
+            <div className="text-label-sm text-accent-warning/80 mt-1 font-medium flex items-center gap-1">
               <AlertTriangle size={11} />
               Обнаружено расхождение версий в облаке: {discrepancyCount} {discrepancyCount === 1 ? 'заметка' : 'заметок'} (current_version ≠ числу версий)
             </div>
@@ -91,7 +91,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
             <Button
               onClick={() => void handleSyncAllQueue()}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-warning/10 border border-accent-warning/20 text-accent-warning text-xs font-semibold hover:bg-accent-warning/20 transition-colors"
             >
               Sync Queue ({queueCount})
             </Button>
@@ -187,7 +187,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                       {(item.status === 'pending' || item.status === 'mismatch') && (
                         <Button
                           onClick={() => void handleSyncItem(item)}
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-warning/10 hover:bg-accent-warning/20 text-accent-warning text-xs font-semibold border border-accent-warning/20 transition-colors min-h-[44px]"
                         >
                           <RefreshCw size={14} />
                           Sync
@@ -213,7 +213,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         ) : (
                           <Button
                             onClick={() => void handleEncryptItem(item)}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/20 transition-colors min-h-[44px]"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-warning/10 hover:bg-accent-warning/20 text-accent-warning text-xs font-semibold border border-accent-warning/20 transition-colors min-h-[44px]"
                           >
                             <Lock size={14} />
                             Encrypt
@@ -360,7 +360,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                             {(item.status === 'pending' || item.status === 'mismatch') && (
                               <Button
                                 onClick={() => void handleSyncItem(item)}
-                                className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
+                                className="flex items-center gap-1 px-2 py-1 rounded bg-accent-warning/10 hover:bg-accent-warning/20 text-accent-warning text-label font-semibold border border-accent-warning/20 transition-colors"
                                 title="Sync pending edits to cloud"
                               >
                                 <RefreshCw size={10} />
@@ -390,7 +390,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                               ) : (
                                 <Button
                                   onClick={() => void handleEncryptItem(item)}
-                                  className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-label font-semibold border border-amber-500/20 transition-colors"
+                                  className="flex items-center gap-1 px-2 py-1 rounded bg-accent-warning/10 hover:bg-accent-warning/20 text-accent-warning text-label font-semibold border border-accent-warning/20 transition-colors"
                                   title="Encrypt cloud versions"
                                 >
                                   <Lock size={10} />

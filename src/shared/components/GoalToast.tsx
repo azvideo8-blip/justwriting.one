@@ -22,7 +22,7 @@ export function GoalToast({ visible, type }: GoalToastProps) {
           className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[var(--z-skip)] pointer-events-none"
         >
           <div role="status" aria-live="polite" className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-surface-card border border-border-subtle backdrop-blur-xl shadow-lg">
-            <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
+            <CheckCircle2 size={18} className="text-accent-success shrink-0" />
             <span className="text-sm font-medium text-text-main whitespace-nowrap">
               {type === 'time' ? t('goal_reached_time') : t('goal_reached_words')}
             </span>

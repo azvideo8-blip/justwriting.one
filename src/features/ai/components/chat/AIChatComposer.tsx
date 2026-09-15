@@ -37,11 +37,14 @@ export interface AIChatComposerProps {
 }
 
 // The server keys the daily quota by UTC date (postgresAiContext.ts `today()`),
-// so the reset is UTC midnight — shown here in the viewer's local time.
-function quotaResetLocalTime(): string {
-  const d = new Date();
-  const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
-  return `${String(next.getHours()).padStart(2, '0')}:${String(next.getMinutes()).padStart(2, '0')}`;
+// so the reset is the next UTC midnight. Shown as a relative "in N h": a local
+// clock time reads oddly for anyone far from UTC (a person west of it sees the
+// reset «at 19:00»). Hours to the next UTC midnight, rounded up, never 0.
+function quotaResetInHours(): number {
+  const now = Date.now();
+  const d = new Date(now);
+  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  return Math.max(1, Math.ceil((next - now) / 3_600_000));
 }
 
 function QuotaMeter({ used, limit }: { used: number; limit: number }) {
@@ -243,7 +246,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
               </b>
               {(chatDanger || reasoningDanger) && (
                 <span className="text-accent-danger ml-1">
-                  ({t('ai_quota_reset_at', { time: quotaResetLocalTime() })})
+                  ({t('ai_quota_reset_in', { hours: String(quotaResetInHours()) })})
                 </span>
               )}
             </span>

@@ -233,7 +233,7 @@ export function MobileStorageActionsSheet({
               <span>{doc.hasLocal ? (t('storage_local') || 'Локально') : (t('storage_no_local') || 'Нет на устройстве')}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Cloud size={12} className={doc.hasCloud ? (doc.hasPendingSync ? "text-amber-500" : "text-accent-info") : "text-text-main/60"} />
+              <Cloud size={12} className={doc.hasCloud ? (doc.hasPendingSync ? "text-accent-warning" : "text-accent-info") : "text-text-main/60"} />
               <span>
                 {doc.hasPendingSync
                   ? (t('storage_sync_pending') || 'Ожидает синхронизации')

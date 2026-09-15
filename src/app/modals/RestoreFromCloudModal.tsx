@@ -387,7 +387,7 @@ export function RestoreFromCloudModal({
                   {Boolean(report?.restoredSummaries) && <div>Сводок ИИ: <strong className="text-text-main">{report?.restoredSummaries}</strong></div>}
                   {Boolean(report?.restoredEmbeddings) && <div>Векторов поиска: <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>}
                   {Boolean(report?.restoredAIStoreRecords) && <div>Записей ИИ: <strong className="text-text-main">{report?.restoredAIStoreRecords}</strong></div>}
-                  {Boolean(report?.oversizedCount) && <div>Превышают лимит размера (10 МБ): <strong className="text-amber-400">{report?.oversizedCount}</strong></div>}
+                  {Boolean(report?.oversizedCount) && <div>Превышают лимит размера (10 МБ): <strong className="text-accent-warning">{report?.oversizedCount}</strong></div>}
                 </div>
               )}
             </div>
@@ -421,13 +421,13 @@ export function RestoreFromCloudModal({
                 )}
                 <div>Записей ИИ (диалоги, портрет, темы): <strong className="text-text-main">{report?.restoredAIStoreRecords ?? 0}</strong></div>
                 {Boolean(report?.failedCount) && (
-                  <div className="text-amber-400 flex items-center gap-1 mt-1">
+                  <div className="text-accent-warning flex items-center gap-1 mt-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     Пропущено с ошибкой: {report?.failedCount}
                   </div>
                 )}
                 {Boolean(report?.oversizedCount) && (
-                  <div className="text-amber-400 flex items-center gap-1 mt-1">
+                  <div className="text-accent-warning flex items-center gap-1 mt-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     Пропущено из-за превышения лимита 10 МБ: {report?.oversizedCount}
                   </div>

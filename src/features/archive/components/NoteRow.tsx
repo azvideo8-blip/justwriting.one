@@ -265,7 +265,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             )}
             {session._locked ? (
               <span className="inline-flex items-center gap-1.5 text-text-main/70 italic">
-                <Lock size={13} className="shrink-0 text-amber-500/80" aria-label={t('archive_note_locked')} />
+                <Lock size={13} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
                 <span className="truncate">{t('archive_note_locked')}</span>
               </span>
             ) : session._decryptionError ? (

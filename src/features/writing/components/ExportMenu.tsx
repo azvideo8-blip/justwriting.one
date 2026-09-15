@@ -104,7 +104,7 @@ export function ExportMenu({ session, buttonRef, onClose }: ExportMenuProps) {
         <FileJson size={14} className="text-accent-info" /> {t('export_md')}
       </Button>
       <Button onClick={exportDocx} className="w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-2xl transition-colors text-text-main/70 hover:bg-white/10 hover:text-text-main">
-        <Download size={14} className="text-emerald-500" /> {t('export_docx')}
+        <Download size={14} className="text-accent-success" /> {t('export_docx')}
       </Button>
     </motion.div>,
     document.body

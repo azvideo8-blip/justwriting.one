@@ -167,7 +167,7 @@ export function LifeStoryTimeline() {
                           })}
                         </span>
                         {entry?.edited && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">изменено</span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-accent-warning/15 text-accent-warning">изменено</span>
                         )}
                       </div>
                       {hasDetails && (

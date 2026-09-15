@@ -90,7 +90,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
       {showSyncIndicator && (
         <button
           onClick={() => void navigate('/settings')}
-          className="absolute -top-8 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-medium"
+          className="absolute -top-8 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full bg-accent-warning/15 border border-accent-warning/30 text-accent-warning text-xs font-medium"
           title={t(
             syncStatus.status === 'offline' ? 'sync_paused_no_network'
               : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
@@ -98,7 +98,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) } : undefined
           )}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-accent-warning animate-pulse" />
           {t('sync_indicator_label')}
         </button>
       )}

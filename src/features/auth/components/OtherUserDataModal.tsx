@@ -31,7 +31,7 @@ export function OtherUserDataModal({ open, onClose, onClear }: OtherUserDataModa
     >
       <div className="space-y-4 p-2">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20 shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-accent-warning/10 text-accent-warning flex items-center justify-center border border-accent-warning/20 shrink-0">
             <Users className="w-5 h-5" />
           </div>
           <div>

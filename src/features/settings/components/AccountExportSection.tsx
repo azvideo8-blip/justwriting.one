@@ -381,7 +381,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                     </div>
                   )}
                   {importResult.unreadableDateCount !== undefined && importResult.unreadableDateCount > 0 && (
-                    <div className="text-amber-400">
+                    <div className="text-accent-warning">
                       {t('settings_migration_import_date_warning', {
                         count: String(importResult.unreadableDateCount),
                       })}
@@ -390,7 +390,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                   {importResult.upload && (
                     <div className="pt-1 text-xs">
                       {importResult.upload.status === 'completed' && (
-                        <div className="text-emerald-400">
+                        <div className="text-accent-success">
                           {t('settings_migration_import_upload_done', {
                             uploaded: String(importResult.upload.uploaded),
                             queued: String(importResult.upload.queued),
@@ -398,14 +398,14 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                         </div>
                       )}
                       {importResult.upload.status === 'vault_locked' && (
-                        <div className="text-amber-400">
+                        <div className="text-accent-warning">
                           {t('settings_migration_import_upload_locked', {
                             queued: String(importResult.upload.queued),
                           })}
                         </div>
                       )}
                       {importResult.upload.status === 'failed' && (
-                        <div className="text-amber-400">
+                        <div className="text-accent-warning">
                           {t('settings_migration_import_upload_failed', {
                             reason: importResult.upload.reason ?? 'Unknown error',
                             queued: String(importResult.upload.queued),

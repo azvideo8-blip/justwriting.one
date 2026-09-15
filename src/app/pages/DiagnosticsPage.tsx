@@ -464,7 +464,7 @@ export function DiagnosticsPage() {
                             <span className="text-text-main/60">{m.label}</span>
                             <span className="font-mono text-text-main/70">
                               {m.used.toLocaleString()} / {m.cap.toLocaleString()}{' '}
-                              <span className={cn(over ? 'text-accent-danger' : warn ? 'text-amber-400' : 'text-text-main/60')}>
+                              <span className={cn(over ? 'text-accent-danger' : warn ? 'text-accent-warning' : 'text-text-main/60')}>
                                 ({pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%{over ? ' !' : ''})
                               </span>
                             </span>

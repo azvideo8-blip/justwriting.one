@@ -106,7 +106,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
           {!clearLocalData ? (
             <div className="p-3.5 rounded-xl bg-surface-base/50 border border-border-subtle/60 text-xs text-text-main/70 space-y-2">
               <div className="flex items-center gap-1.5 font-medium text-text-main">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <ShieldCheck className="w-4 h-4 text-accent-success" />
                 Локальные записи сохраняются
               </div>
               <p className="leading-relaxed text-[11px] text-text-main/60">
@@ -117,7 +117,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
             <div className="space-y-3">
               <div className="p-3 rounded-xl bg-surface-base border border-border-subtle space-y-2 text-xs">
                 <div className="flex items-center gap-1.5 font-medium text-text-main">
-                  <Database className="w-4 h-4 text-amber-400" />
+                  <Database className="w-4 h-4 text-accent-warning" />
                   Будет удалено с этого устройства:
                 </div>
                 {loading ? (
@@ -140,8 +140,8 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
               </div>
 
               {inventory && inventory.unsyncedNotesCount > 0 && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs space-y-2">
-                  <div className="flex items-center gap-1.5 font-medium text-amber-400">
+                <div className="p-3 bg-accent-warning/10 border border-accent-warning/20 rounded-xl text-xs space-y-2">
+                  <div className="flex items-center gap-1.5 font-medium text-accent-warning">
                     <AlertTriangle className="w-4 h-4" />
                     Внимание: несинхронизированные данные
                   </div>
@@ -153,9 +153,9 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
                       type="checkbox"
                       checked={forceWipe}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForceWipe(e.target.checked)}
-                      className="rounded border-border-subtle text-amber-400"
+                      className="rounded border-border-subtle text-accent-warning"
                     />
-                    <span className="text-[11px] text-amber-300 font-medium">
+                    <span className="text-[11px] text-accent-warning font-medium">
                       Я понимаю риски и хочу удалить данные без отправки в облако
                     </span>
                   </label>

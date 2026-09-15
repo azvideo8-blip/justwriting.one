@@ -16,9 +16,9 @@ const MOOD_META: Record<string, { key: string; tone: 'pos' | 'neu' | 'neg' }> = 
 };
 const ORDER = ['😊', '🤔', '😨', '😠', '🤢', '😢'];
 const TONE_CLASS: Record<string, string> = {
-  pos: 'bg-emerald-400/15 border-emerald-400/30',
-  neu: 'bg-amber-400/15 border-amber-400/30',
-  neg: 'bg-rose-400/15 border-rose-400/30',
+  pos: 'bg-accent-success/15 border-accent-success/30',
+  neu: 'bg-accent-warning/15 border-accent-warning/30',
+  neg: 'bg-accent-danger/15 border-accent-danger/30',
 };
 
 export function MoodTrend({ userId, className }: { userId: string; className?: string }) {

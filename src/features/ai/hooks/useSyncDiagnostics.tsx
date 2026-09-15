@@ -406,14 +406,14 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         );
       case 'pending':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-warning/10 text-accent-warning border border-accent-warning/20 animate-pulse">
             <AlertTriangle size={10} />
             Pending Sync
           </span>
         );
       case 'mismatch':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-warning/10 text-accent-warning border border-accent-warning/20">
             <AlertTriangle size={10} />
             Unsynced Edits
           </span>

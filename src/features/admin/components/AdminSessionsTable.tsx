@@ -49,7 +49,7 @@ export function AdminSessionsTable({ sessions, onDelete, onProcess, onRead }: Ad
             <td className="px-6 py-4">
               {s._aiProcessed ? (
                 <div className="flex items-center gap-1.5">
-                  <Check size={14} className="text-emerald-500" />
+                  <Check size={14} className="text-accent-success" />
                   <span className="text-[10px] text-text-main/60">{s._aiAction}</span>
                   <IconButton
                     onClick={() => onRead(s._aiResultText ?? '')}

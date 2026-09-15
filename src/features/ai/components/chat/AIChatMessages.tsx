@@ -203,8 +203,8 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                     </details>
                   )}
                   {msg.degradedReason === 'daily_limit' && (
-                    <div className="mb-3 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400/90 font-medium flex items-center gap-2 w-fit">
-                      <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                    <div className="mb-3 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-center gap-2 w-fit">
+                      <AlertTriangle size={13} className="shrink-0 text-accent-warning" />
                       <span>{t('ai_degraded_daily_limit_chat')}</span>
                     </div>
                   )}

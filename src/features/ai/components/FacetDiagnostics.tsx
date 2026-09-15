@@ -192,7 +192,7 @@ export function FacetDiagnostics() {
                     className={cn(
                       'text-[10px] font-bold px-2 py-0.5 rounded-full',
                       d.noteCount > 0
-                        ? 'bg-emerald-500/15 text-emerald-400'
+                        ? 'bg-accent-success/15 text-accent-success'
                         : 'bg-surface-base/10 text-text-main/60',
                     )}
                   >
@@ -229,7 +229,7 @@ export function FacetDiagnostics() {
                           className={cn(
                             'text-[10px] font-mono px-1.5 py-0.5 rounded',
                             passes
-                              ? 'bg-emerald-500/15 text-emerald-400'
+                              ? 'bg-accent-success/15 text-accent-success'
                               : 'bg-surface-base/10 text-text-main/60',
                           )}
                           title={`порог: ${d.threshold}`}

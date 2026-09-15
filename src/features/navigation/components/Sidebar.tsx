@@ -248,7 +248,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
             onClick={() => void navigate('/settings')}
             className={cn(
               "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
-              "text-amber-400/80 hover:text-amber-400"
+              "text-accent-warning/80 hover:text-accent-warning"
             )}
             title={t(
               syncStatus.status === 'offline' ? 'sync_paused_no_network'
@@ -270,7 +270,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
               )}
             </span>
             {!expanded && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent-warning animate-pulse" />
             )}
           </button>
         )}

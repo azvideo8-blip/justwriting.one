@@ -238,12 +238,12 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
               <div className="flex items-center justify-between text-xs">
                 <span className="text-text-main/70">Состояние синхронизации:</span>
                 {syncStatus.status === 'synced' ? (
-                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-400">
+                  <span className="inline-flex items-center gap-1 font-semibold text-accent-success">
                     <CheckCircle2 size={13} />
                     {t('offline_synced')}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 font-semibold text-amber-400">
+                  <span className="inline-flex items-center gap-1 font-semibold text-accent-warning">
                     <AlertCircle size={13} />
                     {syncStatus.status === 'offline' && t('sync_paused_no_network')}
                     {syncStatus.status === 'cloud_unavailable' && t('sync_paused_cloud_unavailable')}
@@ -256,7 +256,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
               {syncStatus.unsyncedCount > 0 && (
                 <div className="space-y-0.5 text-[11px]">
                   {syncStatus.behindCount > 0 && (
-                    <p className="text-amber-400 font-medium">
+                    <p className="text-accent-warning font-medium">
                       {t('sync_behind_count', { count: String(syncStatus.behindCount) })}
                     </p>
                   )}
@@ -273,7 +273,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 </p>
               )}
               {syncStatus.pendingDeletionsCount > 0 && (
-                <p className="text-[11px] text-amber-400">
+                <p className="text-[11px] text-accent-warning">
                   {t('sync_pending_deletions_count', { count: String(syncStatus.pendingDeletionsCount) })}
                 </p>
               )}
@@ -294,7 +294,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 </div>
               )}
               {oversizedCount > 0 && (
-                <div className="text-[11px] text-amber-400 flex items-center gap-1 mt-1">
+                <div className="text-[11px] text-accent-warning flex items-center gap-1 mt-1">
                   <AlertTriangle size={12} />
                   <span>{oversizedCount} {oversizedCount === 1 ? 'диалог / запись превышает' : 'диалогов / записей превышают'} лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)</span>
                 </div>

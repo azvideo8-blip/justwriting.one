@@ -331,7 +331,7 @@ export function RerankBenchPage() {
                         key={docId}
                         className={`p-3 rounded-xl border text-xs space-y-2 ${
                           v === 'hit' ? 'border-accent-success/40 bg-accent-success/5'
-                          : v === 'similar' ? 'border-amber-500/40 bg-amber-500/5'
+                          : v === 'similar' ? 'border-accent-warning/40 bg-accent-warning/5'
                           : v === 'miss' ? 'border-border-subtle bg-surface-base/5 opacity-60'
                           : 'border-border-subtle bg-surface-card'
                         }`}
@@ -366,7 +366,7 @@ export function RerankBenchPage() {
                               className={`px-3 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                                 v === key
                                   ? key === 'hit' ? 'bg-accent-success text-white border-accent-success'
-                                    : key === 'similar' ? 'bg-amber-600 text-white border-amber-600'
+                                    : key === 'similar' ? 'bg-accent-warning text-white border-accent-warning'
                                     : 'bg-text-main text-surface-base border-text-main'
                                   : 'border-border-subtle text-text-main/70 hover:bg-surface-base/10'
                               }`}

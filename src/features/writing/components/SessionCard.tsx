@@ -218,7 +218,7 @@ export const SessionCard = React.memo(function SessionCard({
                 <span title={session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
                   <Cloud 
                     size={13} 
-                    className={session._hasPendingSync ? "text-amber-500 animate-pulse" : session._hasCloudCopy ? "text-accent-info" : "text-text-main/60"}
+                    className={session._hasPendingSync ? "text-accent-warning animate-pulse" : session._hasCloudCopy ? "text-accent-info" : "text-text-main/60"}
                     style={session._hasPendingSync ? { filter: 'drop-shadow(0 0 5px rgb(245 158 11 / 0.6))' } : undefined}
                   />
                 </span>

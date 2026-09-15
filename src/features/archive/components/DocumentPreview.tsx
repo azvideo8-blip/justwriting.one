@@ -430,7 +430,7 @@ export function DocumentPreview({
           <h2 className="text-xl font-medium text-text-main leading-snug mb-1 flex items-center gap-2">
             {session._locked ? (
               <>
-                <Lock size={18} className="shrink-0 text-amber-500/80" aria-label={t('archive_note_locked')} />
+                <Lock size={18} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
                 <span className="italic text-text-main/70">{t('archive_note_locked')}</span>
               </>
             ) : session._decryptionError ? (
@@ -658,8 +658,8 @@ export function DocumentPreview({
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 flex flex-col justify-between">
         {session._locked ? (
-          <div className="flex flex-col items-center justify-center text-center p-8 border border-amber-500/20 bg-amber-500/5 rounded-2xl my-auto">
-            <Lock size={32} className="text-amber-500/80 mb-3" />
+          <div className="flex flex-col items-center justify-center text-center p-8 border border-accent-warning/20 bg-accent-warning/5 rounded-2xl my-auto">
+            <Lock size={32} className="text-accent-warning/80 mb-3" />
             <p className="text-sm text-text-main/80 font-medium mb-1">{t('archive_note_locked')}</p>
             <p className="text-xs text-text-main/60 max-w-xs mb-4">{t('archive_locked_preview_desc')}</p>
             <Button

@@ -102,7 +102,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
 
       {session._locked ? (
         <h4 className="text-[17px] font-semibold text-text-main/70 italic flex items-center gap-1.5 leading-snug">
-          <Lock size={15} className="shrink-0 text-amber-500/80" aria-label={t('archive_note_locked')} />
+          <Lock size={15} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
           <span className="truncate">{t('archive_note_locked')}</span>
         </h4>
       ) : session._decryptionError ? (

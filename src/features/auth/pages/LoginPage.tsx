@@ -323,8 +323,8 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
               onClick={e => e.stopPropagation()}
             >
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-4">
-                <ShieldAlert size={18} className="text-amber-400" />
+              <div className="w-10 h-10 rounded-2xl bg-accent-warning/10 border border-accent-warning/30 flex items-center justify-center mb-4">
+                <ShieldAlert size={18} className="text-accent-warning" />
               </div>
               <h2 className="text-base font-medium text-text-main mb-2">{t('auth_forgot_title')}</h2>
               <p className="text-sm text-text-main/60 mb-4">{t('auth_forgot_warning')}</p>
@@ -381,7 +381,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                       className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
                     />
                   </div>
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400 mb-3 flex gap-2">
+                  <div className="rounded-xl border border-accent-warning/30 bg-accent-warning/10 p-3 text-sm text-accent-warning mb-3 flex gap-2">
                     <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                     <span>{t('auth_forgot_password_encryption_warning')}</span>
                   </div>

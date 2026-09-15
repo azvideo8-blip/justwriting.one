@@ -311,7 +311,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           )}
 
           {(isSetup || isMigrate) && (
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs mb-3 flex gap-2">
+            <div className="p-3 rounded-lg bg-accent-warning/10 border border-accent-warning/20 text-accent-warning text-xs mb-3 flex gap-2">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
               <span>{t('enc_password_warning')}</span>
             </div>

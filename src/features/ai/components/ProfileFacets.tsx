@@ -17,7 +17,7 @@ const ACTIVE_MS = 30 * 24 * 60 * 60 * 1000;
 function trend(f: AIProfileFacet): { label: string; cls: string } {
   const now = Date.now();
   if (f.firstAt && now - f.firstAt < NEW_MS) return { label: 'новая', cls: 'bg-brand-soft/15 text-brand-soft' };
-  if (f.lastAt && now - f.lastAt < ACTIVE_MS) return { label: 'активна', cls: 'bg-emerald-500/15 text-emerald-400' };
+  if (f.lastAt && now - f.lastAt < ACTIVE_MS) return { label: 'активна', cls: 'bg-accent-success/15 text-accent-success' };
   return { label: 'затихла', cls: 'bg-surface-base/10 text-text-main/60' };
 }
 
@@ -192,7 +192,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                 <Button
                   onClick={() => { void handleResummarize(); }}
                   disabled={building}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 text-[10px] font-bold disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-accent-warning/20 bg-accent-warning/10 text-accent-warning text-[10px] font-bold disabled:opacity-50"
                 >
                   <Sparkles size={12} />
                   {t('admin_resummarize')}
@@ -236,9 +236,9 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
             <div className="px-5 pb-3 space-y-1.5">
               {judgeLog.entries.map((e, i) => (
                 <div key={i} className="flex items-start gap-2 text-[11px]">
-                  {e.status === 'ok' && <CheckCircle2 size={12} className="text-emerald-400 mt-0.5 shrink-0" />}
+                  {e.status === 'ok' && <CheckCircle2 size={12} className="text-accent-success mt-0.5 shrink-0" />}
                   {e.status === 'corrected' && <Wrench size={12} className="text-violet-400 mt-0.5 shrink-0" />}
-                  {e.status === 'flagged' && <AlertTriangle size={12} className="text-amber-400 mt-0.5 shrink-0" />}
+                  {e.status === 'flagged' && <AlertTriangle size={12} className="text-accent-warning mt-0.5 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <span className="font-semibold text-text-main">{e.label}</span>
                     <span className="text-text-main/60">
@@ -286,7 +286,7 @@ export function ProfileFacets({ readOnly = false }: ProfileFacetsProps = {}) {
                   <div className="flex items-center justify-between gap-2">
                     <span className={cn('text-sm font-semibold text-text-main', !isExp && 'truncate')}>{f.label}</span>
                     <div className="flex items-center gap-1.5">
-                      {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">{t('admin_new_badge')}</span>}
+                      {f.dirty && <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-accent-warning/15 text-accent-warning">{t('admin_new_badge')}</span>}
                       {f.dialogueIds && f.dialogueIds.length > 0 && (
                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-accent-info/15 text-accent-info">
                           💬 {f.dialogueIds.length}

@@ -286,7 +286,7 @@ export function StorageIcons({
         className={cn(
           "w-6 h-6 rounded-lg",
           uploading && "animate-pulse text-accent-info",
-          !uploading && isUnsynced && "text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 cursor-pointer",
+          !uploading && isUnsynced && "text-accent-warning hover:text-accent-warning hover:bg-accent-warning/10 cursor-pointer",
           !uploading && !isUnsynced && doc.hasCloud && "text-accent-info hover:text-accent-danger hover:bg-accent-danger/10",
           !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/60 hover:text-accent-info hover:bg-accent-info/10 cursor-pointer",
           !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/60 cursor-default"

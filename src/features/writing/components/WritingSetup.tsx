@@ -146,10 +146,10 @@ export function WritingSetup({
 
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', color: 'text-amber-400', bg: 'bg-amber-400/10' },
+                      { id: 'stopwatch', icon: Zap, label: 'writing_mode_flow', desc: 'writing_mode_flow_desc', color: 'text-accent-warning', bg: 'bg-accent-warning/10' },
                       { id: 'timer-config', icon: Timer, label: 'writing_mode_timer', desc: 'writing_mode_timer_desc', color: 'text-accent-info', bg: 'bg-accent-info/10' },
-                      { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-rose-400', bg: 'bg-rose-400/10' },
-                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                      { id: 'words-config', icon: Target, label: 'writing_mode_words', desc: 'writing_mode_words_desc', color: 'text-accent-danger', bg: 'bg-accent-danger/10' },
+                      { id: 'finish-by-config', icon: Clock, label: 'writing_mode_deadline', desc: 'writing_mode_deadline_desc', color: 'text-accent-success', bg: 'bg-accent-success/10' },
                     ].map((mode) => (
                       <motion.button
                         type="button"

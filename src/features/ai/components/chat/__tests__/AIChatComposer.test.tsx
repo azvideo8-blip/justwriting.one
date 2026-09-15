@@ -42,7 +42,7 @@ describe('AIChatComposer quota indicator', () => {
     const sendButton = screen.getByRole('button', { name: /отправить|send/i });
     expect(sendButton).toBeDisabled();
 
-    expect(screen.getByText(/сброс в \d{2}:\d{2}|resets at \d{2}:\d{2}/i)).toBeInTheDocument();
+    expect(screen.getByText(/сброс через \d+ ч|resets in \d+ h/i)).toBeInTheDocument();
   });
 
   it('keeps reasoning sends available when only the chat quota is spent', () => {
