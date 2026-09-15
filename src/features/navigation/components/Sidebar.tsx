@@ -37,17 +37,18 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         "relative group flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden",
-        "px-3 py-3 pl-[10px]",
+        "px-3 py-3",
         isActive
-          ? "text-brand-soft"
+          ? "text-bg-base"
           : "text-text-main/60 hover:text-text-main/70"
       )}
     >
       {isActive && (
         <motion.div
           layoutId="active-nav-indicator"
-          className="absolute inset-0 bg-brand-soft/8 border-l-2 border-brand-soft rounded-xl"
+          className="absolute inset-0 bg-text-main rounded-xl"
           transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          aria-hidden="true"
         />
       )}
       <span className="relative z-10 shrink-0">{icon}</span>
