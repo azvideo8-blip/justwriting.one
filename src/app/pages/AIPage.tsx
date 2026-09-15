@@ -247,10 +247,6 @@ export function AIPage() {
             onClose={() => setPreviewSession(null)}
             onContinue={s => { void navigate('/', { state: { sessionToContinue: s } }); }}
             onAttach={id => { void handleDocSelect(id); setPreviewSession(null); }}
-            onCopyText={text => {
-              void navigator.clipboard.writeText(text);
-              showToast('Текст скопирован', 'success');
-            }}
             onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
             fetchSummary={async id => (await AISummaryService.get(id)) ?? null}
             fetchRelatedNotes={id => findRelatedNotes({ docId: id }, { maxResults: 4 })}

@@ -27,7 +27,7 @@ import { reportError } from '../../../shared/errors/reportError';
 const relatedNotesCache = new Map<string, RelatedNote[]>();
 
 export function DocumentPreview({
-  session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach, onCopyText,
+  session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach,
   onAnalyzeNote, fetchSummary, fetchRelatedNotes, context,
 }: {
   session: ArchiveSession | null;
@@ -39,7 +39,6 @@ export function DocumentPreview({
   labels?: Label[] | undefined;
   allTags?: string[] | undefined;
   onAttach?: ((documentId: string) => void) | undefined;
-  onCopyText?: ((text: string) => void) | undefined;
   onAnalyzeNote?: ((sessionId: string) => Promise<{ ok: boolean; error?: string }>) | undefined;
   fetchSummary?: ((sessionId: string) => Promise<AIDocumentSummary | null>) | undefined;
   fetchRelatedNotes?: ((sessionId: string) => Promise<RelatedNote[]>) | undefined;
@@ -811,7 +810,6 @@ export function DocumentPreview({
           open={copyModalOpen}
           onClose={() => setCopyModalOpen(false)}
           session={session}
-          onCopyText={onCopyText}
         />
       )}
     </motion.div>
