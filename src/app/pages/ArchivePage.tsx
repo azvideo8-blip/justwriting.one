@@ -58,6 +58,15 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
         e.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
+      } else if (
+        e.key === '/' &&
+        !e.metaKey && !e.ctrlKey && !e.altKey &&
+        !(document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) &&
+        !(document.activeElement as HTMLElement | null)?.isContentEditable
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
       }
     };
     document.addEventListener('keydown', handler);
