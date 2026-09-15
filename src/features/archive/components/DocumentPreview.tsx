@@ -9,6 +9,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { cn } from '../../../core/utils/utils';
 import { toDate, getDateLocale } from '../../../core/utils/dateUtils';
 import { exportAsTxt, exportAsMd, exportAsPdf, exportAsDocx, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
+import { CopyNoteModal } from './CopyNoteModal';
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -64,6 +65,7 @@ export function DocumentPreview({
       : null
   );
   const [exportOpen, setExportOpen] = useState(false);
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
   const [labelPopupOpen, setLabelPopupOpen] = useState(false);
   const labelPopupRef = useRef<HTMLDivElement>(null);
@@ -744,7 +746,7 @@ export function DocumentPreview({
           </Button>
         )}
 
-        {session !== null && onCopyText && (
+        {session !== null && (
           <Button
             onClick={() => {
               if (session._locked) {
@@ -759,10 +761,10 @@ export function DocumentPreview({
                 showToast(t('archive_no_content'), 'error');
                 return;
               }
-              onCopyText(session.content || '');
+              setCopyModalOpen(true);
             }}
             className="flex items-center justify-center px-3 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
-            title="Копировать текст"
+            title={t('archive_copy_modal_title')}
           >
             <Copy size={14} />
           </Button>
@@ -803,6 +805,15 @@ export function DocumentPreview({
           </AnimatePresence>
         </div>
       </div>
+
+      {copyModalOpen && session !== null && (
+        <CopyNoteModal
+          open={copyModalOpen}
+          onClose={() => setCopyModalOpen(false)}
+          session={session}
+          onCopyText={onCopyText}
+        />
+      )}
     </motion.div>
   );
 }

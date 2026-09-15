@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportAsMd, isExpectedShareRefusal, stripMarkdown, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
+import { exportAsMd, sessionToMarkdown, isExpectedShareRefusal, stripMarkdown, ExportStrings, isExportable } from '../../../core/services/ArchiveExportService';
 import type { ArchiveSession } from '../types';
 import type { Session } from '../../../types/index';
 
@@ -122,6 +122,21 @@ describe('exportAsMd', () => {
   it('contains formatted date in front matter', () => {
     exportAsMd(makeSession({ createdAt: new Date('2024-01-15') }), STRINGS);
     expect(capturedContent).toContain('2024-01-15');
+  });
+});
+
+describe('sessionToMarkdown (UI-07)', () => {
+  it('includes title and tags in serialized markdown', () => {
+    const md = sessionToMarkdown(makeSession({ title: 'My Chapter', tags: ['ideas', 'fiction'], content: 'Once upon a time' }), STRINGS);
+    expect(md).toContain('title: "My Chapter"');
+    expect(md).toContain('tags: ["ideas", "fiction"]');
+    expect(md).toContain('Once upon a time');
+  });
+
+  it('uses s.untitled when title is missing or empty', () => {
+    const md = sessionToMarkdown(makeSession({ title: undefined, content: 'Draft text' }), STRINGS);
+    expect(md).toContain(`title: "${STRINGS.untitled}"`);
+    expect(md).toContain('Draft text');
   });
 });
 

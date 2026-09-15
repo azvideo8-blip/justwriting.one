@@ -63,6 +63,10 @@ export function buildMarkdownContent(session: ArchiveSession, s: ExportStrings):
   });
 }
 
+export function sessionToMarkdown(session: ArchiveSession, s: ExportStrings): string {
+  return buildMarkdownContent(session, s);
+}
+
 async function downloadBlob(content: string | Blob, type: string, filename: string): Promise<void> {
   const blob = content instanceof Blob ? content : new Blob([content], { type });
   
@@ -114,7 +118,7 @@ export function exportAsTxt(session: ArchiveSession, s: ExportStrings): void {
 }
 
 export function exportAsMd(session: ArchiveSession, s: ExportStrings): void {
-  const content = buildMarkdownContent(session, s);
+  const content = sessionToMarkdown(session, s);
   void downloadBlob(content, 'text/markdown;charset=utf-8', getFilename(session, 'md', s));
 }
 
