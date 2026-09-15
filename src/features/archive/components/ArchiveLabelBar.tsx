@@ -8,6 +8,7 @@ import { IconButton } from '../../../shared/components/IconButton';
 interface ArchiveLabelBarProps {
   labels: Label[];
   selectedLabels: string[];
+  labelCounts?: Record<string, number>;
   onToggleLabel: (id: string) => void;
   addingLabel: boolean;
   setAddingLabel: (v: boolean) => void;
@@ -29,7 +30,7 @@ interface ArchiveLabelBarProps {
 }
 
 export function ArchiveLabelBar({
-  labels, selectedLabels, onToggleLabel,
+  labels, selectedLabels, labelCounts, onToggleLabel,
   addingLabel, setAddingLabel,
   newLabelName, setNewLabelName,
   newLabelColor, setNewLabelColor, onAddLabel,
@@ -92,7 +93,10 @@ export function ArchiveLabelBar({
               style={active ? { background: label.color, borderColor: label.color, boxShadow: `0 0 12px color-mix(in srgb, ${label.color} 45%, transparent)` } : {}}
             >
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: label.color }} />
-              {label.name}
+              <span>{label.name}</span>
+              <span className={cn("font-mono text-[9px]", active ? "text-white/75" : "text-text-main/60")}>
+                {labelCounts?.[label.id] ?? 0}
+              </span>
             </Button>
             {showControls && (
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/label:opacity-100 transition-opacity gap-0.5">

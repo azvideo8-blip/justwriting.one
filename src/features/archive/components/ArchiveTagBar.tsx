@@ -7,6 +7,7 @@ import { IconButton } from '../../../shared/components/IconButton';
 interface ArchiveTagBarProps {
   allTags: string[];
   selectedTags: string[];
+  tagCounts?: Record<string, number>;
   onToggleTag: (tag: string) => void;
   renamingTag: string | null;
   renameTagValue: string;
@@ -21,7 +22,7 @@ interface ArchiveTagBarProps {
 }
 
 export function ArchiveTagBar({
-  allTags, selectedTags, onToggleTag,
+  allTags, selectedTags, tagCounts, onToggleTag,
   renamingTag, renameTagValue, setRenameTagValue,
   onStartRename, onRenameSubmit, onRenameCancel, onDeleteTag,
   onResetTags, showControls, t,
@@ -60,13 +61,16 @@ export function ArchiveTagBar({
               transition={{ type: 'spring', stiffness: 350, damping: 30 }}
               onClick={() => onToggleTag(tag)}
               className={cn(
-                 "px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border",
+                 "px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border flex items-center gap-1",
                 active
                   ? "bg-brand-soft/15 border-brand-soft/40 text-brand-soft"
                   : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main/60"
               )}
             >
-              #{tag}
+              <span>#{tag}</span>
+              <span className={cn("font-mono text-[9px]", active ? "text-brand-soft/70" : "text-text-main/60")}>
+                {tagCounts?.[tag] ?? 0}
+              </span>
             </motion.button>
             {showControls && (
               <span className="hidden md:flex absolute -top-1.5 -right-1.5 opacity-0 group-hover/tag:opacity-100 transition-opacity gap-0.5">

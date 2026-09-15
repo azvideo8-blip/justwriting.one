@@ -26,6 +26,22 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
 
   const allTags = useMemo(() => Array.from(new Set(sessionsData.sessions.flatMap(s => s.tags || []))), [sessionsData.sessions]);
 
+  const { tagCounts, labelCounts } = useMemo(() => {
+    const tags: Record<string, number> = {};
+    const labels: Record<string, number> = {};
+    for (const s of sessionsData.sessions) {
+      if (s.tags) {
+        for (const tag of s.tags) {
+          tags[tag] = (tags[tag] || 0) + 1;
+        }
+      }
+      if (s.labelId) {
+        labels[s.labelId] = (labels[s.labelId] || 0) + 1;
+      }
+    }
+    return { tagCounts: tags, labelCounts: labels };
+  }, [sessionsData.sessions]);
+
   const sessionsByDate = useMemo(() => {
     const map: Record<string, number> = {};
     sessionsData.sessions.forEach(s => {
@@ -74,7 +90,7 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
 
   return {
     ...sessionsData,
-    allTags, filteredByFilters, filteredSessions,
+    allTags, tagCounts, labelCounts, filteredByFilters, filteredSessions,
     searchQuery, setSearchQuery,
     selectedDate, setSelectedDate,
     selectedMonth, setSelectedMonth,

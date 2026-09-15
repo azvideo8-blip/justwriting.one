@@ -70,7 +70,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     loading, error, cloudLoadFailed, fetchSessions, sessions,
     handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession, openPreview, deleteConfirm, setDeleteConfirm,
-    allTags, filteredByFilters, filteredSessions, searchQuery, setSearchQuery,
+    allTags, tagCounts, labelCounts, filteredByFilters, filteredSessions, searchQuery, setSearchQuery,
     selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
@@ -231,6 +231,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   <ArchiveTagBar
                     allTags={allTags}
                     selectedTags={selectedTags}
+                    tagCounts={tagCounts}
                     onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
                     renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
                     setRenameTagValue={tagEditor.setRenameTagValue}
@@ -240,6 +241,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   />
                   <ArchiveLabelBar
                     labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
+                    labelCounts={labelCounts}
                     addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
                     newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
                     newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
@@ -258,6 +260,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   <ArchiveTagBar
                     allTags={allTags}
                     selectedTags={selectedTags}
+                    tagCounts={tagCounts}
                     onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
                     renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
                     setRenameTagValue={tagEditor.setRenameTagValue}
@@ -267,6 +270,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   />
                   <ArchiveLabelBar
                     labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
+                    labelCounts={labelCounts}
                     addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
                     newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
                     newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
