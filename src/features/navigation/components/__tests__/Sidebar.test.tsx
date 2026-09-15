@@ -49,7 +49,7 @@ describe('Sidebar active navigation item styling (UI-03)', () => {
     const nav = screen.getByRole('navigation', { name: /навигация|navigation/i });
     const archiveButton = nav.querySelector('button[aria-current="page"]');
     expect(archiveButton).toBeTruthy();
-    expect(archiveButton?.className).toContain('text-bg-base');
+    expect(archiveButton?.className).toContain('text-surface-base');
     expect(archiveButton?.className).not.toContain('text-brand-soft');
     expect(archiveButton?.className).not.toContain('border-brand-soft');
 
@@ -63,6 +63,6 @@ describe('Sidebar active navigation item styling (UI-03)', () => {
     const inactiveButton = Array.from(buttons).find(btn => btn !== archiveButton);
     expect(inactiveButton).toBeTruthy();
     expect(inactiveButton?.className).toContain('text-text-main/60');
-    expect(inactiveButton?.className).not.toContain('text-bg-base');
+    expect(inactiveButton?.className).not.toContain('text-surface-base');
   });
 });

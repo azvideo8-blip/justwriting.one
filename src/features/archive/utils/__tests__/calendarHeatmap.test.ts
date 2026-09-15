@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateQuartiles, levelOf, createLevelOf, HEATMAP_BG_CLASSES } from '../calendarHeatmap';
+import { calculateQuartiles, levelOf, HEATMAP_BG_CLASSES } from '../calendarHeatmap';
 
 describe('calendarHeatmap (UI-11)', () => {
   it('calculates quartiles and levels for [0, 1, 1, 2, 5, 9]', () => {
@@ -10,7 +10,7 @@ describe('calendarHeatmap (UI-11)', () => {
     // p=0.25 -> 1, p=0.5 -> 2, p=0.75 -> 5
     expect(thresholds).toEqual([1, 2, 5]);
 
-    const lvl = createLevelOf(values);
+    const lvl = (n: number) => levelOf(n, thresholds);
     expect(lvl(0)).toBe(0);
     expect(lvl(1)).toBe(1);
     expect(lvl(2)).toBe(2);
@@ -31,7 +31,7 @@ describe('calendarHeatmap (UI-11)', () => {
   });
 
   it('handles empty or zero-only month values', () => {
-    const lvl = createLevelOf([0, 0, 0]);
+    const lvl = (n: number) => levelOf(n, calculateQuartiles([0, 0, 0]));
     expect(lvl(0)).toBe(0);
     // When month has no data, any positive value defaults to level 1
     expect(lvl(10)).toBe(1);

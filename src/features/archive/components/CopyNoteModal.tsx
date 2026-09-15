@@ -13,10 +13,9 @@ export interface CopyNoteModalProps {
   open: boolean;
   onClose: () => void;
   session: ArchiveSession;
-  onCopyText?: ((text: string) => void) | undefined;
 }
 
-export function CopyNoteModal({ open, onClose, session, onCopyText }: CopyNoteModalProps) {
+export function CopyNoteModal({ open, onClose, session }: CopyNoteModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'markdown' | 'text'>('markdown');
@@ -49,7 +48,6 @@ export function CopyNoteModal({ open, onClose, session, onCopyText }: CopyNoteMo
     if (typeof navigator !== 'undefined' && typeof navigator.clipboard?.writeText === 'function') {
       void navigator.clipboard.writeText(currentContent);
     }
-    onCopyText?.(currentContent);
     setCopied(true);
     showToast(t('archive_copied_toast'), 'success');
     setTimeout(() => {
@@ -71,7 +69,7 @@ export function CopyNoteModal({ open, onClose, session, onCopyText }: CopyNoteMo
             className={cn(
               "px-3 py-1.5 rounded-xl text-xs transition-colors duration-150 cursor-pointer",
               activeTab === 'markdown'
-                ? "bg-text-main text-bg-base font-semibold shadow-sm"
+                ? "bg-text-main text-surface-base font-semibold shadow-sm"
                 : "text-text-main/60 hover:text-text-main/70"
             )}
           >
@@ -84,7 +82,7 @@ export function CopyNoteModal({ open, onClose, session, onCopyText }: CopyNoteMo
             className={cn(
               "px-3 py-1.5 rounded-xl text-xs transition-colors duration-150 cursor-pointer",
               activeTab === 'text'
-                ? "bg-text-main text-bg-base font-semibold shadow-sm"
+                ? "bg-text-main text-surface-base font-semibold shadow-sm"
                 : "text-text-main/60 hover:text-text-main/70"
             )}
           >
@@ -99,7 +97,7 @@ export function CopyNoteModal({ open, onClose, session, onCopyText }: CopyNoteMo
               "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer",
               copied
                 ? "bg-accent-success/20 text-accent-success border border-accent-success/30"
-                : "bg-text-main text-bg-base hover:opacity-90 shadow-sm"
+                : "bg-text-main text-surface-base hover:opacity-90 shadow-sm"
             )}
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}

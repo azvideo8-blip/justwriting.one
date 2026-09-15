@@ -10,6 +10,7 @@ describe('CopyNoteModal (UI-07)', () => {
   const dummySession: ArchiveSession = {
     id: 's1',
     userId: 'u1',
+    charCount: 0,
     title: 'Testing Copy',
     tags: ['fiction', 'chapter1'],
     content: 'Plain body text without headers',
@@ -17,9 +18,7 @@ describe('CopyNoteModal (UI-07)', () => {
     wordCount: 5,
     wpm: 25,
     createdAt: new Date('2024-05-10T14:30:00Z'),
-    updatedAt: new Date('2024-05-10T14:30:00Z'),
     sessionStartTime: new Date('2024-05-10T14:30:00Z').getTime(),
-    type: 'freewrite',
   };
 
   beforeEach(() => {
@@ -32,7 +31,6 @@ describe('CopyNoteModal (UI-07)', () => {
 
   it('renders with Markdown tab active by default and switches to Text tab', () => {
     const onClose = vi.fn();
-    const onCopyText = vi.fn();
 
     renderWithProviders(
       <ToastProvider>
@@ -40,7 +38,6 @@ describe('CopyNoteModal (UI-07)', () => {
           open={true}
           onClose={onClose}
           session={dummySession}
-          onCopyText={onCopyText}
         />
       </ToastProvider>
     );
@@ -50,9 +47,9 @@ describe('CopyNoteModal (UI-07)', () => {
 
     // Active tab has inverted pill styling
     expect(mdTab.className).toMatch(/(?:^|\s)bg-text-main(?:\s|$)/);
-    expect(mdTab.className).toContain('text-bg-base');
+    expect(mdTab.className).toContain('text-surface-base');
     expect(textTab.className).not.toMatch(/(?:^|\s)bg-text-main(?:\s|$)/);
-    expect(textTab.className).not.toContain('text-bg-base');
+    expect(textTab.className).not.toContain('text-surface-base');
 
     // Pre contains serialized markdown
     const pre = screen.getByText((content) => content.includes('title: "Testing Copy"'));
@@ -62,9 +59,9 @@ describe('CopyNoteModal (UI-07)', () => {
     // Switch to Text tab
     fireEvent.click(textTab);
     expect(textTab.className).toMatch(/(?:^|\s)bg-text-main(?:\s|$)/);
-    expect(textTab.className).toContain('text-bg-base');
+    expect(textTab.className).toContain('text-surface-base');
     expect(mdTab.className).not.toMatch(/(?:^|\s)bg-text-main(?:\s|$)/);
-    expect(mdTab.className).not.toContain('text-bg-base');
+    expect(mdTab.className).not.toContain('text-surface-base');
 
     // Pre now contains only plain text
     expect(pre.textContent).toBe('Plain body text without headers');
@@ -74,7 +71,6 @@ describe('CopyNoteModal (UI-07)', () => {
     fireEvent.click(copyBtn);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('Plain body text without headers');
-    expect(onCopyText).toHaveBeenCalledWith('Plain body text without headers');
     expect(screen.getByRole('button', { name: /скопировано|copied/i })).toBeInTheDocument();
   });
 });

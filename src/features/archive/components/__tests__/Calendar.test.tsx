@@ -12,12 +12,11 @@ describe('Calendar Heatmap (UI-11)', () => {
     userId: 'u1',
     content: 'hello',
     wordCount,
+    charCount: wordCount * 5,
     duration: 60,
     wpm: 20,
     createdAt: new Date(`${dateStr}T12:00:00Z`),
     sessionStartTime: new Date(`${dateStr}T12:00:00Z`).getTime(),
-    updatedAt: new Date(`${dateStr}T12:00:00Z`),
-    type: 'freewrite',
   });
 
   it('renders heatmap shading and title with notes and words without dots', () => {
@@ -70,7 +69,7 @@ describe('Calendar Heatmap (UI-11)', () => {
     const btnDay4 = screen.getByRole('button', { name: /^4$/ });
     expect(btnDay4.getAttribute('title')).toMatch(/5.*1.*500/);
     expect(btnDay4.className).toContain('bg-text-main/55');
-    expect(btnDay4.className).toContain('text-bg-base');
+    expect(btnDay4.className).toContain('text-surface-base');
 
     // No pulse dots should exist in any calendar buttons
     expect(btnDay1.querySelector('.rounded-full.opacity-70')).toBeNull();

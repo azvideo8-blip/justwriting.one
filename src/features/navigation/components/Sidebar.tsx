@@ -39,7 +39,7 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
         "relative group flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden",
         "px-3 py-3",
         isActive
-          ? "text-bg-base"
+          ? "text-surface-base"
           : "text-text-main/60 hover:text-text-main/70"
       )}
     >

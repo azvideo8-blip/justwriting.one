@@ -25,7 +25,7 @@ export function calculateQuartiles(values: number[]): [number, number, number] {
     const lower = Math.floor(idx);
     const upper = Math.ceil(idx);
     const weight = idx - lower;
-    return nonZero[lower] * (1 - weight) + nonZero[upper] * weight;
+    return (nonZero[lower] ?? 0) * (1 - weight) + (nonZero[upper] ?? 0) * weight;
   };
 
   return [q(0.25), q(0.5), q(0.75)];
@@ -42,12 +42,4 @@ export function levelOf(n: number, thresholds: [number, number, number]): 0 | 1 
   if (n <= q2) return 2;
   if (n <= q3) return 3;
   return 4;
-}
-
-/**
- * Creates a helper function levelOf(n) pre-configured with the quartiles of the given dataset.
- */
-export function createLevelOf(values: number[]): (n: number) => 0 | 1 | 2 | 3 | 4 {
-  const thresholds = calculateQuartiles(values);
-  return (n: number) => levelOf(n, thresholds);
 }

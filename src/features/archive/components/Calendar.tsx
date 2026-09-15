@@ -9,10 +9,12 @@ import { ArchiveSession } from '../types';
 import { useLanguage } from '../../../shared/i18n';
 import { calculateQuartiles, levelOf, HEATMAP_BG_CLASSES } from '../utils/calendarHeatmap';
 
+const EMPTY_WORDS: Record<string, number> = {};
+
 interface CalendarProps {
   sessions: ArchiveSession[];
   sessionsByDate?: Record<string, number>;
-  wordsByDate?: Record<string, number>;
+  wordsByDate?: Record<string, number> | undefined;
   selectedDate: Date | null;
   onSelectDate: (date: Date | null) => void;
   onSelectMonth?: (month: Date) => void;
@@ -31,17 +33,9 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
 
   const activeDays = useMemo(() => sessions.flatMap(s => getSessionDates(s)), [sessions]);
 
-  const computedWordsByDate = useMemo(() => {
-    if (wordsByDate) return wordsByDate;
-    const map: Record<string, number> = {};
-    sessions.forEach(s => {
-      const d = s.sessionStartTime ? new Date(s.sessionStartTime) : (s.createdAt instanceof Date ? s.createdAt : null);
-      if (!d) return;
-      const key = format(d, 'yyyy-MM-dd');
-      map[key] = (map[key] || 0) + (s.sessionWordsAdded || s.wordCount || 0);
-    });
-    return map;
-  }, [wordsByDate, sessions]);
+  // Both mount points pass wordsByDate from useArchiveData; the empty map is
+  // only for tests that render the calendar bare.
+  const computedWordsByDate = wordsByDate ?? EMPTY_WORDS;
 
   // Compute quartiles across days of the visible month
   const monthThresholds = useMemo(() => {
@@ -102,7 +96,7 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
                 "aspect-square rounded-lg flex items-center justify-center text-sm transition-colors relative flex-col gap-0",
                 HEATMAP_BG_CLASSES[heatLevel],
                 heatLevel === 4
-                  ? "text-bg-base font-semibold"
+                  ? "text-surface-base font-semibold"
                   : hasSessions
                     ? "text-text-main font-medium"
                     : "text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5",
