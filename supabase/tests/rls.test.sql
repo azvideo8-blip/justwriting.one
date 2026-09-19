@@ -548,6 +548,10 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
+    -- protect_user_columns() (0015) raises a plain exception (SQLSTATE
+    -- P0001 / raise_exception) for role changes, not an RLS/CHECK error —
+    -- same as the email-immutability block below it.
+    WHEN raise_exception THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice made herself admin';
