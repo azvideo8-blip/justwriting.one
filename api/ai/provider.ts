@@ -18,6 +18,9 @@ const PROVIDER_ROUTING = process.env.AI_PROVIDER_COUNTRY
 
 const OPENROUTER_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const OPENROUTER_EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL ?? 'qwen/qwen3-embedding-8b';
+// Embeddings can point at a separate (e.g. local) server without moving chat
+// off RouterAI — AI_BASE_URL is shared with generateOpenRouter() and api/chat.ts.
+const EMBED_BASE_URL = process.env.AI_EMBED_BASE_URL ?? OPENROUTER_BASE_URL;
 
 export async function getActiveModel(): Promise<string> {
   return ACTIVE_CHAT_MODEL;
@@ -256,7 +259,7 @@ async function embedOpenRouter(texts: string[]): Promise<EmbedResult> {
     }, perAttemptTimeoutMs);
 
     try {
-      res = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
+      res = await fetch(`${EMBED_BASE_URL}/embeddings`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
