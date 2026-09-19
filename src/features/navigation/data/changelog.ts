@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.49',
+    date: '2026-09-19',
+    items: [
+      { category: 'improvement', ru: 'Заметки, изменённые на другом устройстве, теперь подтягиваются сами, когда вы возвращаетесь на вкладку — больше не нужно вручную пересохранять, чтобы увидеть свежую версию.', en: 'Notes changed on another device now pull in on their own when you come back to the tab — no more manual re-save to see the latest version.' },
+      { category: 'new', ru: 'Новая настройка «не отправлять портрет в диалог с ИИ». Сам портрет теперь описывает устойчивые черты характера, а не конкретные события, имена и даты — меньше личных деталей уходит модели.', en: 'A new setting to keep the portrait out of the AI dialogue. The portrait itself now describes durable character traits rather than specific events, names and dates — fewer personal details reach the model.' },
+      { category: 'fix', ru: '«Стереть всё с этого компьютера» теперь действительно ничего не оставляет — включая гостевые данные и следы предыдущего аккаунта на общем браузере. Согласие на облачную синхронизацию больше не передаётся между аккаунтами на одном устройстве.', en: '«Wipe this computer» now genuinely leaves nothing behind — including guest-session data and traces of the previous account on a shared browser. Cloud-sync consent no longer carries over between accounts on the same device.' },
+      { category: 'fix', ru: 'Восстановление из облака: если один аккаунт недавно проверял облако на этом браузере, следующий вошедший больше не получает пустой архив из-за общего с ним ограничения частоты запросов.', en: 'Cloud restore: if one account just checked the cloud on this browser, the next account signing in no longer gets an empty archive because of a rate limit it shared with the previous one.' },
+    ],
+  },
+  {
     version: '0.8.48',
     date: '2026-09-15',
     items: [

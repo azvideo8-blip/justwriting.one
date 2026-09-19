@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.49 — 2026-09-19
+
+- **[RU]** Заметки, изменённые на другом устройстве, теперь подтягиваются сами, когда вы возвращаетесь на вкладку — больше не нужно вручную пересохранять, чтобы увидеть свежую версию.
+- **[EN]** Notes changed on another device now pull in on their own when you come back to the tab — no more manual re-save to see the latest version.
+- **[RU]** Новая настройка «не отправлять портрет в диалог с ИИ». Сам портрет теперь описывает устойчивые черты характера, а не конкретные события, имена и даты — меньше личных деталей уходит модели.
+- **[EN]** A new setting to keep the portrait out of the AI dialogue. The portrait itself now describes durable character traits rather than specific events, names and dates — fewer personal details reach the model.
+- **[RU]** «Стереть всё с этого компьютера» теперь действительно ничего не оставляет — включая гостевые данные и следы предыдущего аккаунта на общем браузере. Согласие на облачную синхронизацию больше не передаётся между аккаунтами на одном устройстве.
+- **[EN]** «Wipe this computer» now genuinely leaves nothing behind — including guest-session data and traces of the previous account on a shared browser. Cloud-sync consent no longer carries over between accounts on the same device.
+- **[RU]** Восстановление из облака: если один аккаунт недавно проверял облако на этом браузере, следующий вошедший больше не получает пустой архив из-за общего с ним ограничения частоты запросов.
+- **[EN]** Cloud restore: if one account just checked the cloud on this browser, the next account signing in no longer gets an empty archive because of a rate limit it shared with the previous one.
+
 ## 0.8.48 — 2026-09-15
 
 - **[RU]** Архив стал нагляднее: на метках и тегах — число заметок за ними, «/» ставит курсор в поиск из любого места, в превью появилась хлебная крошка «‹ Архив / #тег», а календарь превратился в теплокарту — дни закрашены по числу написанных слов, при наведении «3 заметки · 1240 слов».
