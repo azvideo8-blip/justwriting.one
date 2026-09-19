@@ -4,6 +4,7 @@ import React from 'react';
 import { renderWithProviders } from '../../../../test/utils/render';
 import { AccountAISection } from '../AccountAISection';
 import { SUPPORTED_LOCAL_STORES } from '../../../../core/services/LocalStoreSyncService';
+import { getSendPortraitInDialogue, usePortraitDialoguePreferenceStore } from '../../../../core/ai/portraitDialoguePreference';
 
 const {
   executionLog,
@@ -165,5 +166,27 @@ describe('AccountAISection — «Удалить все данные ИИ» (WT-2
         [...SUPPORTED_LOCAL_STORES]
       );
     });
+  });
+});
+
+describe('AccountAISection — portrait-in-dialogue switch (backlog-ideas-2026-09-11)', () => {
+  const userId = 'test_user_portrait_toggle';
+
+  beforeEach(() => {
+    localStorage.clear();
+    usePortraitDialoguePreferenceStore.setState({ values: {} });
+  });
+
+  it('defaults to on, and a click writes the preference the AI hook actually reads', () => {
+    renderWithProviders(<AccountAISection userId={userId} />);
+
+    const toggle = screen.getByRole('switch', { name: /Отправлять портрет в диалог/i });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(getSendPortraitInDialogue(userId)).toBe(true);
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(getSendPortraitInDialogue(userId)).toBe(false);
   });
 });

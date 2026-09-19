@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Sparkles, CheckCircle2, XCircle, Trash2, Search, Database } from 'lucide-react';
+import { Sparkles, CheckCircle2, XCircle, Trash2, Search, Database, UserRound } from 'lucide-react';
 import { useProfile } from '../../auth/contexts/ProfileContext';
 import { DataProvider } from '../../../core/data';
 import { setAiConsent } from '../../../core/ai/aiConsent';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
+import { getSendPortraitInDialogue, setSendPortraitInDialogue } from '../../../core/ai/portraitDialoguePreference';
+import { Toggle } from '../../../shared/components/Toggle';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 import { useToast } from '../../../shared/components/Toast';
@@ -28,6 +30,14 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
   const [loading, setLoading] = useState(false);
   const [indexingLoading, setIndexingLoading] = useState(false);
   const [clearing, setClearing] = useState(false);
+  // Local preference, not server state: no network call, cannot fail, so no
+  // loading/error state — the store update and the render are one click.
+  const [sendPortrait, setSendPortraitState] = useState(() => getSendPortraitInDialogue(userId));
+
+  const handleTogglePortrait = (next: boolean) => {
+    setSendPortraitInDialogue(userId, next);
+    setSendPortraitState(next);
+  };
 
   const hasConsent = Boolean(
     profile?.aiConsentAt != null &&
@@ -280,6 +290,30 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
               </Button>
             )}
           </div>
+        </div>
+
+        {/* Portrait-in-dialogue preference — backlog "de-personalised portrait" shape 1 */}
+        <div className="p-4 rounded-xl border border-border-subtle space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <UserRound size={16} className="text-brand-soft" />
+              <span className="text-sm font-medium text-text-main">
+                Портрет в диалоге
+              </span>
+            </div>
+            <Toggle
+              checked={sendPortrait}
+              onChange={handleTogglePortrait}
+              ariaLabel="Отправлять портрет в диалог"
+            />
+          </div>
+
+          <p className="text-xs text-text-main/60 leading-relaxed">
+            Портрет — то, что ИИ понял о вас из заметок — сейчас уходит поставщику
+            вместе с каждым сообщением в чате, чтобы ответы были точнее. Здесь
+            можно отключить это для диалога, не трогая сам портрет и разбор
+            заметок — они продолжат работать как прежде.
+          </p>
         </div>
       </div>
     </Section>

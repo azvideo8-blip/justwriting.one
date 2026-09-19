@@ -19,6 +19,7 @@ import { MemoryFlagsService } from './memoryFlags';
 import { setAIStage } from '../store/useAIStageStore';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { getSendPortraitInDialogue } from '../../../core/ai/portraitDialoguePreference';
 import { extractFirstSeenDates } from '../utils/dateGuard';
 import { reportAIDegradation, isDailyLimitError } from '../utils/aiDegradationReporter';
 import type { ChatContextResult, BuildContextParams } from './chatContext/types';
@@ -128,7 +129,15 @@ export function useAIChatContext(personaId: string): {
       ? Promise.resolve(undefined)
       : AIPersonaService.getCustom(personaId);
 
-    const [userPortrait, customPersonaObj] = await Promise.all([portraitPromise, personaPromise]);
+    const [rawPortrait, customPersonaObj] = await Promise.all([portraitPromise, personaPromise]);
+    // Backlog idea "de-personalised portrait" (docs/backlog-ideas-2026-09-11.md),
+    // shape 1: gated here, the single point everything downstream reads the
+    // portrait from — both AIMemoryAssembler.assembleMemoryContext below (whose
+    // 'comp-portrait' item has a 600-char floor, so a raw value would survive
+    // even a tight budget) and effectivePortrait further down. Gating only at
+    // useAIChat's attach site, as the backlog note first sketched, would leave
+    // the portrait riding into memoryContext regardless.
+    const userPortrait = getSendPortraitInDialogue(uid) ? rawPortrait : null;
 
     let customSystemPrompt: string | undefined;
     let effectivePersonaId = personaId;
