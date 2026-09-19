@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { clearAllLocalStores } from '../../../../core/storage/localDb';
-import { AIMemoryAssembler } from '../AIMemoryAssembler';
+import { AIMemoryAssembler, MAX_BELIEF_CANDIDATES_PER_TURN } from '../AIMemoryAssembler';
 import { AIConsolidationService, type AIBelief } from '../AIConsolidationService';
 import { MemoryFlagsService } from '../memoryFlags';
+import { InjectionJournal } from '../injectionJournal';
 import { extractFirstSeenDates, sanitizeFirstSeenDates } from '../../utils/dateGuard';
 
 describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
@@ -212,5 +213,98 @@ describe('AG-MIND-W3-readpath AIMemoryAssembler Beliefs Integration', () => {
     const sanitizedReply = sanitizeFirstSeenDates(modelReply, extractedDates);
 
     expect(sanitizedReply).toBe('Эту мысль ты впервые записал 12 июля 2026 года.');
+  });
+
+  it('MIND-1: Caps belief candidates to MAX_BELIEF_CANDIDATES_PER_TURN (3) in journal', async () => {
+    const now = Date.now();
+    // Seed 10 valid beliefs with distinct clusterSize and updatedAt, deliberately out of order
+    const seedOrder = [5, 2, 10, 1, 8, 3, 9, 4, 7, 6];
+    for (const i of seedOrder) {
+      await AIConsolidationService.saveBelief({
+        id: `belief-seed-${i}`,
+        belief: `Убеждение номер ${i}: кастомная мысль ${i}`,
+        evidence: [{ id: `summary-doc${i}`, date: '2026-07-01', snippet: `Сниппет ${i}` }],
+        firstSeenAt: '2026-07-01',
+        clusterSize: i * 5, // 5 to 50
+        createdAt: now - (20 - i) * 1000,
+        updatedAt: now - (20 - i) * 1000,
+        judgeVerdict: 'PASSED',
+        unitIds: [`summary-doc${i}`],
+        isArchived: false,
+      });
+    }
+
+    await AIMemoryAssembler.assembleMemoryContext();
+
+    const entry = InjectionJournal.getLatestEntry();
+    expect(entry).not.toBeNull();
+
+    const beliefCandidates = entry!.candidates.filter(c => c.category === 'belief');
+    // At most 3 belief candidates appear in journal, NOT 10 (falsification of old behaviour)
+    expect(beliefCandidates.length).toBeLessThanOrEqual(MAX_BELIEF_CANDIDATES_PER_TURN);
+    expect(beliefCandidates.length).toBe(3);
+
+    // The 3 that remain are the top 3 by salience/sim, not array insertion order
+    const candidateIds = beliefCandidates.map(c => c.id);
+    expect(candidateIds).toContain('comp-belief-belief-seed-10');
+    expect(candidateIds).toContain('comp-belief-belief-seed-9');
+    expect(candidateIds).toContain('comp-belief-belief-seed-8');
+    // The lowest salience one must NOT be among the kept candidates
+    expect(candidateIds).not.toContain('comp-belief-belief-seed-1');
+  });
+
+  it('MIND-1: Respects query similarity in combination with salience for top-N selection', async () => {
+    const now = Date.now();
+    // Seed beliefs where one has lower clusterSize but exact query match
+    await AIConsolidationService.saveBelief({
+      id: 'belief-high-salience',
+      belief: 'Общая мысль без совпадения ключевых слов',
+      evidence: [],
+      firstSeenAt: '2026-07-01',
+      clusterSize: 30,
+      createdAt: now,
+      updatedAt: now,
+      judgeVerdict: 'PASSED',
+      unitIds: [],
+      isArchived: false,
+    });
+
+    await AIConsolidationService.saveBelief({
+      id: 'belief-query-match',
+      belief: 'Специфический термин квантовая запутанность в коде',
+      evidence: [],
+      firstSeenAt: '2026-07-01',
+      clusterSize: 25,
+      createdAt: now,
+      updatedAt: now,
+      judgeVerdict: 'PASSED',
+      unitIds: [],
+      isArchived: false,
+    });
+
+    for (let i = 1; i <= 8; i++) {
+      await AIConsolidationService.saveBelief({
+        id: `belief-filler-${i}`,
+        belief: `Наполнитель база ${i}`,
+        evidence: [],
+        firstSeenAt: '2026-07-01',
+        clusterSize: 2,
+        createdAt: now - 50000,
+        updatedAt: now - 50000,
+        judgeVerdict: 'PASSED',
+        unitIds: [],
+        isArchived: false,
+      });
+    }
+
+    await AIMemoryAssembler.assembleMemoryContext({
+      query: 'квантовая запутанность',
+    });
+
+    const entry = InjectionJournal.getLatestEntry();
+    const beliefCandidates = entry!.candidates.filter(c => c.category === 'belief');
+    expect(beliefCandidates.length).toBe(3);
+    const candidateIds = beliefCandidates.map(c => c.id);
+    expect(candidateIds).toContain('comp-belief-belief-query-match');
   });
 });

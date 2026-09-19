@@ -3,7 +3,7 @@ import { AIThemeLedgerService } from './AIThemeLedgerService';
 import { AIConsolidationService } from './AIConsolidationService';
 import { computeSalience } from './salience';
 import { selectWithMMR, textJaccardSimilarity } from '../utils/mmr';
-import { MemoryFlagsService } from './memoryFlags';
+import { MemoryFlagsService, type MemoryFeatureFlags } from './memoryFlags';
 import { InjectionJournal, EvaluatedCandidateRecord, calculateOverlapRatio } from './injectionJournal';
 import { sanitizeAiInputShared } from '../../../shared/ai/buildChatPrompt';
 
@@ -31,6 +31,22 @@ export interface W2MemoryAssemblerParams {
   customSystemPrompt?: string | null | undefined;
   dialogueId?: string | null | undefined;
   globalBudgetChars?: number | undefined; // Default 6,000 chars
+}
+
+export const MAX_BELIEF_CANDIDATES_PER_TURN = 3;
+
+const CATEGORY_TO_FLAG: Partial<Record<MemoryCandidateItem['category'], keyof MemoryFeatureFlags>> = {
+  portrait: 'ff_memory_assembler_portrait',
+  turn1: 'ff_memory_assembler_turn1',
+  retrieval: 'ff_memory_assembler_retrieval',
+  voice: 'ff_memory_assembler_chat_memory',
+  first_seen: 'ff_memory_assembler_chat_memory',
+  quote: 'ff_memory_assembler_chat_memory',
+  belief: 'ff_memory_assembler_beliefs',
+};
+
+export function categoryFlag(category: MemoryCandidateItem['category']): keyof MemoryFeatureFlags | null {
+  return CATEGORY_TO_FLAG[category] ?? null;
 }
 
 export function extractDocumentIdFromEvidenceId(evidenceId: string): string | null {
@@ -195,7 +211,23 @@ export const AIMemoryAssembler = {
     try {
       const allBeliefs = await AIConsolidationService.getAllBeliefs();
       const validBeliefs = allBeliefs.filter(b => b.judgeVerdict !== 'REJECTED' && !b.isArchived);
-      for (const b of validBeliefs) {
+
+      const queryText = params?.query ?? '';
+      const rankedBeliefs = [...validBeliefs]
+        .map(b => {
+          const salience = computeSalience(
+            { count: b.clusterSize, emotionalWeight: 0.7, lastReinforcedAt: b.updatedAt },
+            now
+          );
+          const sim = queryText ? textJaccardSimilarity(queryText, b.belief) : 1.0;
+          const score = salience * (0.5 + 0.5 * sim);
+          return { b, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, MAX_BELIEF_CANDIDATES_PER_TURN)
+        .map(entry => entry.b);
+
+      for (const b of rankedBeliefs) {
         const docIds = [...new Set(
           b.evidence
             .map(e => extractDocumentIdFromEvidenceId(e.id))
@@ -239,9 +271,36 @@ export const AIMemoryAssembler = {
       });
     }
 
-    const queryText = params?.query ?? '';
+    const isShadow = Boolean(flags.ff_memory_assembler_shadow);
+    const activeCompetitive: MemoryCandidateItem[] = [];
+    const inactiveCompetitive: MemoryCandidateItem[] = [];
 
     for (const item of competitiveItems) {
+      const flag = categoryFlag(item.category);
+      const isActive = isShadow || flag === null || Boolean(flags[flag]);
+      if (isActive) {
+        activeCompetitive.push(item);
+      } else {
+        inactiveCompetitive.push(item);
+      }
+    }
+
+    // Inactive candidates are logged to journal for diagnostics without consuming budget
+    for (const item of inactiveCompetitive) {
+      evaluatedRecords.push({
+        id: item.id,
+        category: item.category,
+        band: 'competitive',
+        textSnippet: item.text.slice(0, 100),
+        charLength: item.text.length,
+        selected: false,
+        droppedReason: 'shadow_only',
+      });
+    }
+
+    const queryText = params?.query ?? '';
+
+    for (const item of activeCompetitive) {
       const salience = computeSalience({
         count: item.count ?? 1,
         emotionalWeight: item.emotionalWeight ?? 0.5,
@@ -372,25 +431,11 @@ export const AIMemoryAssembler = {
       return legacyThinLines.join('\n') || null;
     }
 
-    // Cutover mode: assemble output based on active block flags
-    const cutoverLines: string[] = [...selectedMandatoryLines];
-
-    for (const c of selectedCompetitive) {
-      if (c.category === 'portrait' && flags.ff_memory_assembler_portrait) {
-        cutoverLines.push(sanitizeAiInputShared(c.text));
-      } else if (c.category === 'turn1' && flags.ff_memory_assembler_turn1) {
-        cutoverLines.push(sanitizeAiInputShared(c.text));
-      } else if (c.category === 'retrieval' && flags.ff_memory_assembler_retrieval) {
-        cutoverLines.push(sanitizeAiInputShared(c.text));
-      } else if (
-        (c.category === 'voice' || c.category === 'first_seen' || c.category === 'quote') &&
-        flags.ff_memory_assembler_chat_memory
-      ) {
-        cutoverLines.push(sanitizeAiInputShared(c.text));
-      } else if (c.category === 'belief' && flags.ff_memory_assembler_beliefs) {
-        cutoverLines.push(sanitizeAiInputShared(c.text));
-      }
-    }
+    // Cutover mode: all selectedCompetitive items were already flag-filtered in activeCompetitive
+    const cutoverLines: string[] = [
+      ...selectedMandatoryLines,
+      ...selectedCompetitive.map(c => sanitizeAiInputShared(c.text)),
+    ];
 
     return cutoverLines.join('\n') || null;
   },

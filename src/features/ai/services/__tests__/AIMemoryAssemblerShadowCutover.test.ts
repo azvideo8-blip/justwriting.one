@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AIMemoryAssembler } from '../AIMemoryAssembler';
 import { AILexiconService } from '../AILexiconService';
 import { AIThemeLedgerService } from '../AIThemeLedgerService';
+import { AIConsolidationService } from '../AIConsolidationService';
 import { MemoryFlagsService } from '../memoryFlags';
 import { InjectionJournal } from '../injectionJournal';
 import { extractFirstSeenDates } from '../../utils/dateGuard';
@@ -18,9 +19,16 @@ vi.mock('../AIThemeLedgerService', () => ({
   },
 }));
 
+vi.mock('../AIConsolidationService', () => ({
+  AIConsolidationService: {
+    getAllBeliefs: vi.fn(),
+  },
+}));
+
 describe('AG-MIND-W2 Shadow & Cutover Test Suite', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(AIConsolidationService.getAllBeliefs).mockResolvedValue([]);
     MemoryFlagsService.resetFlags();
     InjectionJournal.clearJournal();
     if (typeof localStorage !== 'undefined') {
@@ -224,5 +232,100 @@ describe('AG-MIND-W2 Shadow & Cutover Test Suite', () => {
     expect(stats.totalTurns).toBe(10);
     expect(stats.medianOverlap).toBeNull(); // no shadow samples at all
     expect(stats.p90BudgetUsage).toBe(100); // floor(10 * 0.9) -> index 9 -> 100 chars
+  });
+
+  it('MIND-2 Cutover mode: disabled category does not consume budget or crowd out active category', async () => {
+    vi.mocked(AILexiconService.getVoiceMap).mockResolvedValue(null);
+    vi.mocked(AIThemeLedgerService.getActive).mockResolvedValue([]);
+
+    // Seed 5 beliefs that would out-score portrait on raw salience
+    const now = Date.now();
+    const highSalienceBeliefs = Array.from({ length: 5 }, (_, i) => ({
+      id: `high-belief-${i}`,
+      belief: `Убеждение сверхвысокой важности номер ${i}`,
+      evidence: [],
+      firstSeenAt: '2026-07-01',
+      clusterSize: 100, // Very high salience compared to portrait count 5
+      createdAt: now,
+      updatedAt: now,
+      judgeVerdict: 'PASSED' as const,
+      unitIds: [],
+      isArchived: false,
+    }));
+    vi.mocked(AIConsolidationService.getAllBeliefs).mockResolvedValue(highSalienceBeliefs);
+
+    // Cutover mode: shadow=false, only portrait is active
+    MemoryFlagsService.setFlag('ff_memory_assembler_shadow', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_portrait', true);
+    MemoryFlagsService.setFlag('ff_memory_assembler_beliefs', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_chat_memory', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_retrieval', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_turn1', false);
+
+    // Tight budget where beliefs would have consumed it all
+    const result = await AIMemoryAssembler.assembleMemoryContext({
+      userPortrait: 'Портрет пользователя для проверки cutover',
+      globalBudgetChars: 1200,
+    });
+
+    // Portrait must be selected and injected, not dropped!
+    expect(result).not.toBeNull();
+    expect(result).toContain('Портрет пользователя для проверки cutover');
+
+    const journal = InjectionJournal.getLatestEntry();
+    expect(journal).not.toBeNull();
+    // Portrait is selected
+    const portraitCand = journal!.candidates.find(c => c.category === 'portrait');
+    expect(portraitCand?.selected).toBe(true);
+
+    // Beliefs were logged to journal but marked shadow_only and NOT scored
+    const beliefCands = journal!.candidates.filter(c => c.category === 'belief');
+    expect(beliefCands.length).toBeGreaterThan(0);
+    for (const b of beliefCands) {
+      expect(b.selected).toBe(false);
+      expect(b.droppedReason).toBe('shadow_only');
+      expect(b.rawScore).toBeUndefined();
+    }
+  });
+
+  it('MIND-2 Shadow mode: beliefs DO compete and are scored, not skipped', async () => {
+    vi.mocked(AILexiconService.getVoiceMap).mockResolvedValue(null);
+    vi.mocked(AIThemeLedgerService.getActive).mockResolvedValue([]);
+
+    const now = Date.now();
+    const highSalienceBeliefs = Array.from({ length: 5 }, (_, i) => ({
+      id: `shadow-belief-${i}`,
+      belief: `Убеждение для проверки теневого скоринга ${i}`,
+      evidence: [],
+      firstSeenAt: '2026-07-01',
+      clusterSize: 100,
+      createdAt: now,
+      updatedAt: now,
+      judgeVerdict: 'PASSED' as const,
+      unitIds: [],
+      isArchived: false,
+    }));
+    vi.mocked(AIConsolidationService.getAllBeliefs).mockResolvedValue(highSalienceBeliefs);
+
+    // Shadow mode default: shadow=true, all cutover flags false
+    MemoryFlagsService.setFlag('ff_memory_assembler_shadow', true);
+    MemoryFlagsService.setFlag('ff_memory_assembler_portrait', false);
+    MemoryFlagsService.setFlag('ff_memory_assembler_beliefs', false);
+
+    await AIMemoryAssembler.assembleMemoryContext({
+      userPortrait: 'Портрет пользователя в shadow mode',
+      globalBudgetChars: 6000,
+    });
+
+    const journal = InjectionJournal.getLatestEntry();
+    expect(journal).not.toBeNull();
+
+    // In shadow mode, beliefs DO compete and are scored
+    const beliefCands = journal!.candidates.filter(c => c.category === 'belief');
+    expect(beliefCands.length).toBeGreaterThan(0);
+    for (const b of beliefCands) {
+      expect(b.rawScore).toBeDefined();
+      expect(b.salience).toBeDefined();
+    }
   });
 });
