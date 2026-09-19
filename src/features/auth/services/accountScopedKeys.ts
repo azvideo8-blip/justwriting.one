@@ -12,9 +12,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
   return [
     // сейф и его состояние (STORAGE_KEYS.ENC_ENABLED)
     `enc_enabled_${uid}`,
-    // черновик письма и надгробие удаления (STORAGE_KEYS.DRAFT / DRAFT_DELETED)
+    // черновик письма (STORAGE_KEYS.DRAFT)
     `draft-${uid}`,
-    `draft-deleted-${uid}`,
     // согласия и версии (PrivacyModal, core/ai/indexingConsent)
     `privacy_accepted_${uid}`,
     `ai_indexing_consent_${uid}`,
@@ -28,16 +27,39 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `encryptionMigration_${uid}_checkpoint`,
     // подсказка «восстановить из облака» (useEmptyDeviceDetection)
     `jw_restore_prompt_dismissed_${uid}`,
-    // отложенные ключи сейфа (AuthService)
-    `pending_keys_${uid}`,
     // кэш психологического портрета (AIProfileService.portraitCacheKey).
     // Самый чувствительный единичный артефакт в приложении: спецкатегории и
     // имена третьих лиц открытым текстом.
     `ai_user_portrait_${uid}`,
     // кэш его разделов — вторая копия того же текста
     `ai_portrait_sections_${uid}`,
-    // незавершённые сессии письма (STORAGE_KEYS.PENDING_SESSIONS)
-    `pending_sessions_${uid}`,
+    // таксономия и лог судьи граней AI (LS-1)
+    `ai_taxonomy_${uid}`,
+    `ai_judge_log_${uid}`,
+    // троттлинг проверки облака при восстановлении (LS-3)
+    `last_restore_listing_ts_${uid}`,
+    // согласие и запрос облачной синхронизации (LS-2)
+    `auto_sync_enabled_${uid}`,
+    `auto_sync_asked_${uid}`,
+    // дневной лимит AI (LS-5)
+    `jw_ai_daily_usage_${uid}`,
+    // отказ от миграции гостя (LS-5)
+    `jw_migration_declined_${uid}`,
+    // отправка портрета в диалог AI (LS-5)
+    `ai_send_portrait_in_dialogue_${uid}`,
+    // дата завершения фонового восстановления заметок и AI (LS-5)
+    `ai_restore_done_date_${uid}`,
+    // флаг завершения миграции legacy IndexedDB (LS-5)
+    `jw_legacy_migrated_${uid}`,
+    // кэш анализа коммуникативных дверей (LS-5)
+    `contact_doors_cache_${uid}`,
+    // кэш облака слов архива (LS-5)
+    `cached_word_cloud_v2:${uid}`,
+    // курсор изменений синхронизации (LS-5)
+    `change_cursor_last_seen_${uid}`,
+    // запрос и курсор восстановления эмбеддингов (LS-4)
+    `ai_embed_restore_requested_${uid}`,
+    `ai_embed_restore_cursor_${uid}`,
   ];
 }
 
@@ -45,6 +67,8 @@ export function accountScopedSessionStorageKeys(uid: string): string[] {
   return [
     `pending_keys_${uid}`,
     `jw_other_user_dismissed_${uid}`,
+    // надгробие удаления черновика сессии (STORAGE_KEYS.DRAFT_DELETED, LS-8)
+    `draft-deleted-${uid}`,
   ];
 }
 
@@ -100,6 +124,10 @@ function belongsToAnotherAccount(key: string, uid: string): boolean {
   for (const { prefix, suffix } of accountKeyShapes()) {
     if (!key.startsWith(prefix) || !key.endsWith(suffix)) continue;
     const middle = key.slice(prefix.length, key.length - suffix.length);
+    // LS-6: Ключи с псевдо-идентификатором гостя ('guest' или 'guest_...')
+    // не принадлежат другому зарегистрированному аккаунту и должны стираться
+    // при выходе «на чужом компьютере», а не защищаться от стирания.
+    if (middle === 'guest' || middle.startsWith('guest_')) return false;
     if (middle.length > 0 && middle !== uid) return true;
   }
   return false;

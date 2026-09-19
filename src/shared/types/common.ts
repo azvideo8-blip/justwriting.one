@@ -162,6 +162,8 @@ export interface Document extends DocumentFields<Date | null> {
   _locked?: boolean | undefined;
   _decryptionError?: boolean | undefined;
   deletedAt?: Date | null | undefined;
+  createdAt?: Date | null | undefined;
+  updatedAt?: Date | null | undefined;
 }
 
 export interface Version {

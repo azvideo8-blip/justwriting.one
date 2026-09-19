@@ -103,9 +103,6 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
   } else {
     try {
       sessionStorage.clear();
-      if (currentUid) {
-        localStorage.removeItem(`pending_keys_${currentUid}`);
-      }
     } catch {
       /* ignore */
     }

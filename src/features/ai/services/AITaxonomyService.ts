@@ -5,6 +5,11 @@ import { getSeedVectors } from '../utils/domainSeeds';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { reportError } from '../../../shared/errors/reportError';
+import { getCurrentUser } from '../../../core/auth';
+
+export function taxonomyKey(uid: string | null | undefined): string {
+  return uid ? `ai_taxonomy_${uid}` : 'ai_taxonomy_guest';
+}
 
 export const TAXONOMY_LS_KEY = 'ai_taxonomy';
 export const TAXONOMY_FAIL_COOLDOWN_LS_KEY = 'ai_taxonomy_fail_ts';
@@ -26,7 +31,23 @@ let _rederiveInProgress = false;
 
 export const AITaxonomyService = {
   getStored(): TaxonomyDomain[] | null {
-    const raw = localStorage.getItem(TAXONOMY_LS_KEY);
+    const uid = getCurrentUser()?.uid;
+    const key = taxonomyKey(uid);
+    let raw = localStorage.getItem(key);
+    if (!raw && uid) {
+      const legacy = localStorage.getItem(TAXONOMY_LS_KEY);
+      if (legacy) {
+        try {
+          localStorage.setItem(key, legacy);
+          localStorage.removeItem(TAXONOMY_LS_KEY);
+        } catch { /* ignore */ }
+        raw = legacy;
+      }
+    } else if (raw) {
+      try {
+        localStorage.removeItem(TAXONOMY_LS_KEY);
+      } catch { /* ignore */ }
+    }
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw) as StoredTaxonomy;
@@ -38,12 +59,22 @@ export const AITaxonomyService = {
   },
 
   save(domains: TaxonomyDomain[]): void {
+    const uid = getCurrentUser()?.uid;
+    const key = taxonomyKey(uid);
     const payload: StoredTaxonomy = { version: 1, domains };
-    localStorage.setItem(TAXONOMY_LS_KEY, JSON.stringify(payload));
+    try {
+      localStorage.setItem(key, JSON.stringify(payload));
+      localStorage.removeItem(TAXONOMY_LS_KEY);
+    } catch { /* quota — non-critical */ }
   },
 
   clear(): void {
-    localStorage.removeItem(TAXONOMY_LS_KEY);
+    const uid = getCurrentUser()?.uid;
+    const key = taxonomyKey(uid);
+    try {
+      localStorage.removeItem(key);
+      localStorage.removeItem(TAXONOMY_LS_KEY);
+    } catch { /* ignore */ }
   },
 
   // The single seam build() reads. Stored taxonomy if present, else the

@@ -35,16 +35,17 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
 
   it('returns false when localStorage key is unset or not "true"', () => {
     expect(cloudSyncEnabled()).toBe(false);
+    expect(cloudSyncEnabled('user_123')).toBe(false);
 
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'false');
-    expect(cloudSyncEnabled()).toBe(false);
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_123'), 'false');
+    expect(cloudSyncEnabled('user_123')).toBe(false);
 
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'true');
-    expect(cloudSyncEnabled()).toBe(true);
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_123'), 'true');
+    expect(cloudSyncEnabled('user_123')).toBe(true);
   });
 
   it('performs 0 cloud calls on note analysis when switch is OFF (summaries, embeddings, derived stores)', async () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'false');
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_123'), 'false');
     vi.mocked(auth.getCurrentUser).mockReturnValue({ uid: 'user_123' } as unknown as auth.AppUser);
 
     // 1. AISummaryService.save
@@ -81,7 +82,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
   });
 
   it('performs cloud writes on write when switch is ON', async () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'true');
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_123'), 'true');
     vi.mocked(auth.getCurrentUser).mockReturnValue({ uid: 'user_123' } as unknown as auth.AppUser);
     const db = await getLocalDb();
     await db.put('aiPortrait', { id: 'p1', portrait: 'Портрет', updatedAt: Date.now(), generatedAtDelta: 0 });
@@ -120,7 +121,7 @@ describe('SEC-8: cloudSyncEnabled switch governing all background uploads', () =
   });
 
   it('manual backfill pass (syncAllLocalStores) works even when switch is OFF', async () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'false');
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_123'), 'false');
     vi.mocked(auth.getCurrentUser).mockReturnValue({ uid: 'user_123' } as unknown as auth.AppUser);
     const db = await getLocalDb();
     await db.put('aiPortrait', { id: 'p1', portrait: 'Портрет', updatedAt: Date.now(), generatedAtDelta: 0 });

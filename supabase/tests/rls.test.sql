@@ -1,10 +1,9 @@
 -- rls.test.sql — Negative tests for RLS policies.
 -- Run with:
---   psql -f supabase/tests/_auth_setup.sql \
---        -f supabase/migrations/0001_schema.sql \
---        -f supabase/migrations/0002_rls.sql \
---        -f supabase/migrations/0003_local_store_records.sql \
---        -f supabase/tests/rls.test.sql
+--   ARGS="-f supabase/tests/_auth_setup.sql"
+--   for f in supabase/migrations/*.sql; do ARGS="$ARGS -f $f"; done
+--   ARGS="$ARGS -f supabase/tests/rls.test.sql"
+--   psql -h localhost -U postgres -v ON_ERROR_STOP=1 $ARGS
 --
 -- Each case is wrapped in a DO block that RAISEs EXCEPTION on unexpected
 -- success, so psql will exit non-zero if any check fails.
@@ -55,6 +54,54 @@ ON CONFLICT DO NOTHING;
 INSERT INTO public.local_store_records (user_id, store, key, payload) VALUES
   ('00000000-0000-0000-0000-000000000002', 'aiDialogues', 'dlg-1', '{"id":"dlg-1"}')
 ON CONFLICT DO NOTHING;
+
+-- Seed deny-all and client-isolated tables so SELECT checks are not empty (TEST-GUARD-2)
+INSERT INTO public.ai_daily_limit (uid, data) VALUES
+  ('00000000-0000-0000-0000-000000000002', '{"limit": 100}')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.ai_cooldown (uid, data) VALUES
+  ('00000000-0000-0000-0000-000000000002', '{"cooldown": true}')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.ai_global_daily (date, data) VALUES
+  ('2026-01-01', '{"count": 50}')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.anonymized_telemetry (id, data) VALUES
+  ('telem-seed-001', '{"event": "test"}')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.applied_migrations (filename) VALUES
+  ('0000_seed.sql')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.connection_test (id) VALUES
+  ('ping')
+ON CONFLICT DO NOTHING;
+
+-- Positive control: ensure all seeded rows exist under postgres before testing client isolation
+DO $$
+DECLARE c int;
+BEGIN
+  SELECT count(*) INTO c FROM public.ai_daily_limit WHERE uid = '00000000-0000-0000-0000-000000000002';
+  IF c = 0 THEN RAISE EXCEPTION 'seed missing: ai_daily_limit'; END IF;
+
+  SELECT count(*) INTO c FROM public.ai_cooldown WHERE uid = '00000000-0000-0000-0000-000000000002';
+  IF c = 0 THEN RAISE EXCEPTION 'seed missing: ai_cooldown'; END IF;
+
+  SELECT count(*) INTO c FROM public.ai_global_daily WHERE date = '2026-01-01';
+  IF c = 0 THEN RAISE EXCEPTION 'seed missing: ai_global_daily'; END IF;
+
+  SELECT count(*) INTO c FROM public.anonymized_telemetry WHERE id = 'telem-seed-001';
+  IF c = 0 THEN RAISE EXCEPTION 'seed missing: anonymized_telemetry'; END IF;
+
+  SELECT count(*) INTO c FROM public.applied_migrations WHERE filename = '0000_seed.sql';
+  IF c = 0 THEN RAISE EXCEPTION 'seed missing: applied_migrations'; END IF;
+
+  SELECT count(*) INTO c FROM public.connection_test WHERE id = 'ping';
+  IF c = 0 THEN RAISE EXCEPTION 'seed missing: connection_test'; END IF;
+END $$;
 
 -- Impersonate Alice (non-admin authenticated user).
 SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
@@ -115,7 +162,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted document for Bob';
@@ -172,12 +218,11 @@ DECLARE ok boolean;
 BEGIN
   BEGIN
     INSERT INTO public.versions (document_uuid, user_id, version, content, word_count)
-    VALUES ('bob-doc-uuid', '00000000-0000-0000-0000-000000000002', 1, 'stolen', 1);
+    VALUES ('bob-doc-001', '00000000-0000-0000-0000-000000000002', 2, 'stolen', 1);
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted version for Bob';
@@ -267,7 +312,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted summary for Bob';
@@ -301,7 +345,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted embedding for Bob';
@@ -359,7 +402,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: client inserted into ai_usage';
@@ -403,7 +445,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: client inserted into anonymized_telemetry';
@@ -416,10 +457,11 @@ END $$;
 DO $$
 DECLARE cnt int;
 BEGIN
-  -- This should succeed (returns rows if seeded).
-  -- Failure here means the read policy is broken.
+  -- Authenticated user can read ping row (TEST-GUARD-2)
   SELECT count(*) INTO cnt FROM public.connection_test;
-  -- No assertion: read should work.  If RLS blocks it, psql will error.
+  IF cnt <> 1 THEN
+    RAISE EXCEPTION 'FAIL: authenticated user cannot read connection_test (got % rows, expected 1)', cnt;
+  END IF;
 END $$;
 
 -- ============================================================
@@ -434,7 +476,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: client inserted into connection_test';
@@ -468,7 +509,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted local_store_record for Bob';
@@ -489,7 +529,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted version for Bob''s document';
@@ -509,7 +548,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice made herself admin';
@@ -578,7 +616,6 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
     WHEN check_violation THEN ok := true;
-    WHEN others THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Charlie inserted profile with role=admin';
@@ -606,7 +643,8 @@ BEGIN
      WHERE uid = '00000000-0000-0000-0000-000000000001';
     ok := false;
   EXCEPTION
-    WHEN others THEN ok := true;
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN raise_exception THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice changed her email from client';
@@ -655,7 +693,7 @@ BEGIN
     INSERT INTO public.applied_migrations (filename) VALUES ('0999_evil.sql');
     ok := false;
   EXCEPTION
-    WHEN others THEN ok := true;
+    WHEN insufficient_privilege THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted into applied_migrations';
@@ -1016,6 +1054,315 @@ BEGIN
   DELETE FROM auth.users WHERE id = test_uid;
 END $$;
 
+-- ------------------------------------------------------------
+-- SYNC-CURSOR-1: documents.updated_at trigger and backfill tests
+-- ------------------------------------------------------------
+
+-- 1. Owner updates document title: updated_at advances, created_at does not.
+-- Also verifies client-supplied updated_at cannot override database now().
+DO $$
+DECLARE
+  owner_uid uuid := '00000000-0000-0000-0000-000000000001';
+  initial_created timestamptz;
+  initial_updated timestamptz;
+  new_updated timestamptz;
+  new_created timestamptz;
+BEGIN
+  INSERT INTO public.documents (uuid, user_id, title, created_at, updated_at)
+  VALUES ('cursor-test-doc-1', owner_uid, 'Original Title', now() - interval '1 hour', now() - interval '1 hour')
+  ON CONFLICT (uuid) DO UPDATE SET title = 'Original Title', created_at = now() - interval '1 hour', updated_at = now() - interval '1 hour';
+
+  SELECT created_at, updated_at INTO initial_created, initial_updated
+    FROM public.documents WHERE uuid = 'cursor-test-doc-1';
+
+  -- Impersonate owner
+  SET LOCAL role = 'authenticated';
+  SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+
+  -- Update title, and attempt to spoof client updated_at
+  UPDATE public.documents
+     SET title = 'Updated Title', updated_at = '1999-01-01 00:00:00+00'
+   WHERE uuid = 'cursor-test-doc-1';
+
+  RESET role;
+  RESET request.jwt.claims;
+
+  SELECT created_at, updated_at INTO new_created, new_updated
+    FROM public.documents WHERE uuid = 'cursor-test-doc-1';
+
+  IF new_created <> initial_created THEN
+    RAISE EXCEPTION 'FAIL: SYNC-CURSOR-1: created_at changed upon update (% vs %)', new_created, initial_created;
+  END IF;
+
+  IF new_updated <= initial_updated THEN
+    RAISE EXCEPTION 'FAIL: SYNC-CURSOR-1: updated_at did not advance upon update (% <= %)', new_updated, initial_updated;
+  END IF;
+
+  IF new_updated = '1999-01-01 00:00:00+00'::timestamptz THEN
+    RAISE EXCEPTION 'FAIL: SYNC-CURSOR-1: trigger allowed client-supplied updated_at';
+  END IF;
+
+  DELETE FROM public.documents WHERE uuid = 'cursor-test-doc-1';
+END $$;
+
+-- 2. Non-owner updates document: write rejected by RLS, no column changes, trigger does not fire.
+DO $$
+DECLARE
+  bob_uid uuid := '00000000-0000-0000-0000-000000000002';
+  affected int;
+  initial_created timestamptz;
+  initial_updated timestamptz;
+  cur_created timestamptz;
+  cur_updated timestamptz;
+BEGIN
+  INSERT INTO public.documents (uuid, user_id, title, created_at, updated_at)
+  VALUES ('cursor-test-doc-2', bob_uid, 'Bob Doc', now() - interval '1 hour', now() - interval '1 hour')
+  ON CONFLICT (uuid) DO UPDATE SET title = 'Bob Doc', created_at = now() - interval '1 hour', updated_at = now() - interval '1 hour';
+
+  SELECT created_at, updated_at INTO initial_created, initial_updated
+    FROM public.documents WHERE uuid = 'cursor-test-doc-2';
+
+  -- Impersonate Alice (non-owner)
+  SET LOCAL role = 'authenticated';
+  SET LOCAL request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+
+  UPDATE public.documents SET title = 'Alice Hack'
+   WHERE uuid = 'cursor-test-doc-2';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+
+  RESET role;
+  RESET request.jwt.claims;
+
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: SYNC-CURSOR-1: Alice updated Bob doc (% rows)', affected;
+  END IF;
+
+  SELECT created_at, updated_at INTO cur_created, cur_updated
+    FROM public.documents WHERE uuid = 'cursor-test-doc-2';
+
+  IF cur_created <> initial_created OR cur_updated <> initial_updated THEN
+    RAISE EXCEPTION 'FAIL: SYNC-CURSOR-1: timestamps modified on rejected write';
+  END IF;
+
+  DELETE FROM public.documents WHERE uuid = 'cursor-test-doc-2';
+END $$;
+
+-- 3. Backfill assertion: pre-migration row (updated_at = created_at after backfill)
+DO $$
+DECLARE
+  past_time timestamptz := '2025-05-01 12:00:00+00';
+  owner_uid uuid := '00000000-0000-0000-0000-000000000001';
+  rec record;
+BEGIN
+  INSERT INTO public.documents (uuid, user_id, title, created_at, updated_at)
+  VALUES ('cursor-test-doc-backfill', owner_uid, 'Old Doc', past_time, now())
+  ON CONFLICT (uuid) DO UPDATE SET created_at = past_time, updated_at = now();
+
+  -- Run backfill update matching 0028_documents_updated_at.sql
+  UPDATE public.documents
+     SET updated_at = coalesce(created_at, now())
+   WHERE uuid = 'cursor-test-doc-backfill';
+
+  SELECT created_at, updated_at INTO rec
+    FROM public.documents WHERE uuid = 'cursor-test-doc-backfill';
+
+  IF rec.updated_at <> rec.created_at THEN
+    RAISE EXCEPTION 'FAIL: SYNC-CURSOR-1 backfill: updated_at (%) != created_at (%)', rec.updated_at, rec.created_at;
+  END IF;
+
+  DELETE FROM public.documents WHERE uuid = 'cursor-test-doc-backfill';
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: drafts: Alice cannot insert draft as another user
+-- ============================================================
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+SET role = 'authenticated';
+
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    -- Charlie has no draft seeded, so RLS rejection is tested without PK unique_violation
+    INSERT INTO public.drafts (user_id, content)
+    VALUES ('00000000-0000-0000-0000-000000000003', 'hacked draft');
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice inserted draft as another user';
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: drafts: Alice cannot delete Bob's draft
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  DELETE FROM public.drafts
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice deleted Bob''s draft (% rows)', affected;
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: ai_summaries: Alice cannot update Bob's summaries
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.ai_summaries
+     SET tone = 'hacked'
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice updated Bob''s ai_summaries (% rows)', affected;
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: ai_summaries: Alice cannot delete Bob's summaries
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  DELETE FROM public.ai_summaries
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice deleted Bob''s ai_summaries (% rows)', affected;
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: ai_embeddings: Alice cannot update Bob's embeddings
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.ai_embeddings
+     SET model = 'hacked'
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice updated Bob''s ai_embeddings (% rows)', affected;
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: ai_embeddings: Alice cannot delete Bob's embeddings
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  DELETE FROM public.ai_embeddings
+   WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice deleted Bob''s ai_embeddings (% rows)', affected;
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: telemetry_cooldown: deny-all table (select & insert)
+-- ============================================================
+RESET ROLE;
+INSERT INTO public.telemetry_cooldown (uid, last_sent_at)
+VALUES ('00000000-0000-0000-0000-000000000001', now())
+ON CONFLICT (uid) DO UPDATE SET last_sent_at = now();
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+SET role = 'authenticated';
+
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.telemetry_cooldown;
+  IF cnt > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice read telemetry_cooldown (% rows)', cnt;
+  END IF;
+END $$;
+
+RESET ROLE;
+DELETE FROM public.telemetry_cooldown WHERE uid = '00000000-0000-0000-0000-000000000001';
+SET role = 'authenticated';
+
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.telemetry_cooldown (uid, last_sent_at)
+    VALUES ('00000000-0000-0000-0000-000000000001', now());
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice inserted into telemetry_cooldown';
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: ai_bulk_cooldown: deny-all table under authenticated (select & insert)
+-- ============================================================
+RESET ROLE;
+INSERT INTO public.ai_bulk_cooldown (uid, endpoint, window_start, calls)
+VALUES ('00000000-0000-0000-0000-000000000001', 'embed', now(), 1)
+ON CONFLICT (uid, endpoint) DO UPDATE SET calls = 1;
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+SET role = 'authenticated';
+
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.ai_bulk_cooldown;
+  IF cnt > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice read ai_bulk_cooldown (% rows)', cnt;
+  END IF;
+END $$;
+
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.ai_bulk_cooldown (uid, endpoint, window_start, calls)
+    VALUES ('00000000-0000-0000-0000-000000000001', 'chat', now(), 1);
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+    WHEN check_violation THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice inserted into ai_bulk_cooldown';
+  END IF;
+END $$;
+
+-- ============================================================
+-- RLS-TEST-1: users: Alice cannot delete own or Bob's user profile (no delete policy)
+-- ============================================================
+DO $$
+DECLARE affected int;
+BEGIN
+  DELETE FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice deleted own profile (% rows)', affected;
+  END IF;
+
+  DELETE FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice deleted Bob''s profile (% rows)', affected;
+  END IF;
+END $$;
+
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
 -- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),
@@ -1024,3 +1371,4 @@ DO $$
 BEGIN
   RAISE NOTICE 'All RLS checks passed.';
 END $$;
+

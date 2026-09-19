@@ -23,7 +23,10 @@ import { withDocumentLock } from '../sync/withDocumentLock';
 import { logger } from '../../shared/errors/logger';
 import pLimit from 'p-limit';
 
+import { getActiveEditorDocumentId } from '../sync/activeEditor';
+
 const _activeDownloadPromises = new Map<string, Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }>>();
+const _activeReconcilePromises = new Map<string, Promise<{ reconciled: number; skipped: number; failed: number; locked?: boolean }>>();
 const downloadLimit = pLimit(5);
 
 export interface RelinkResult {
@@ -64,20 +67,20 @@ export const CloudSyncService = {
   async restoreMissingDocuments(
     userId: string,
     opts?: { force?: boolean; onProgress?: (current: number, total: number) => void },
-  ): Promise<{ restored: number; hasMore: boolean; locked?: boolean }> {
+  ): Promise<{ restored: number; hasMore: boolean; locked?: boolean; throttled?: boolean }> {
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
       return { restored: 0, hasMore: false, locked: true };
     }
 
     if (!opts?.force) {
-      const lastListingTs = parseInt(localStorage.getItem('last_restore_listing_ts') || '0', 10);
+      const lastListingTs = parseInt(localStorage.getItem(`last_restore_listing_ts_${userId}`) || '0', 10);
       if (Date.now() - lastListingTs < 30 * 60 * 1000) {
-        return { restored: 0, hasMore: false };
+        return { restored: 0, hasMore: false, throttled: true };
       }
     }
     
     // We update the timestamp only if we are actually going to list.
-    localStorage.setItem('last_restore_listing_ts', Date.now().toString());
+    localStorage.setItem(`last_restore_listing_ts_${userId}`, Date.now().toString());
 
     const res = await CloudSyncService.downloadAllFromCloud(userId, opts?.onProgress ? { onProgress: opts.onProgress } : undefined);
     return {
@@ -160,6 +163,212 @@ export const CloudSyncService = {
       return await promise;
     } finally {
       _activeDownloadPromises.delete(userId);
+    }
+  },
+
+  /**
+   * SYNC-CURSOR-3: Policy B linked-note reconciliation.
+   *
+   * For each local document with linkedCloudId where the cloud copy is newer:
+   * - No pending local edit (and note not open in active editor): silent fast-forward.
+   * - Pending local edit exists (or note open in editor): keep on-screen content intact,
+   *   fetch incoming cloud version and write as an additional entry in version history,
+   *   and log exactly one activity log entry.
+   */
+  async reconcileLinkedDocuments(
+    userId: string,
+    opts?: { getActiveDocumentId?: () => string | null }
+  ): Promise<{ reconciled: number; skipped: number; failed: number; locked?: boolean }> {
+    if (getEncryptionEnabled(userId) && !getSessionKey()) {
+      return { reconciled: 0, skipped: 0, failed: 0, locked: true };
+    }
+
+    const active = _activeReconcilePromises.get(userId);
+    if (active) return active;
+
+    const run = async () => {
+      const pendingDocIds = new Set<string>();
+      try {
+        const db = await getLocalDb();
+        const queue = await db.getAll('syncQueue');
+        for (const item of queue) {
+          if (item.documentId && !item.id.startsWith('lock_cloud_')) {
+            pendingDocIds.add(item.documentId);
+          }
+        }
+      } catch (err) {
+        reportError(err, { action: 'reconcileLinkedDocuments_syncQueue' });
+      }
+
+      const activeEditorDocId = opts?.getActiveDocumentId ? opts.getActiveDocumentId() : getActiveEditorDocumentId();
+
+      const [localDocs, cloudDocs] = await Promise.all([
+        LocalStorageService.getDocumentsByOwner(userId),
+        DocumentService.getUserDocuments(userId),
+      ]);
+
+      const cloudDocMap = new Map(cloudDocs.map(cd => [cd.id, cd]));
+      const linkedLocalDocs = localDocs.filter(d => Boolean(d.linkedCloudId) && d.localOnly !== true && cloudDocMap.has(d.linkedCloudId!));
+
+      let reconciled = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (const localDoc of linkedLocalDocs) {
+        const cloudDoc = cloudDocMap.get(localDoc.linkedCloudId!)!;
+        const cloudTime = cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).getTime() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).getTime() : 0);
+        const localSeenTime = localDoc.lastSeenCloudUpdatedAt ? new Date(localDoc.lastSeenCloudUpdatedAt).getTime() : 0;
+
+        const isCloudNewer = localSeenTime > 0
+          ? cloudTime > localSeenTime
+          : (cloudDoc.currentVersion > (localDoc.lastSyncedCloudVersion ?? localDoc.currentVersion) ||
+             (cloudTime > (localDoc.lastSessionAt || 0) && cloudDoc.currentVersion >= localDoc.currentVersion));
+
+        if (!isCloudNewer) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          await withDocumentLock(localDoc.id, async () => {
+            const isPending = pendingDocIds.has(localDoc.id) || (activeEditorDocId === localDoc.id);
+
+            const cloudVersions = await VersionService.getVersions(userId, localDoc.linkedCloudId!);
+            if (!cloudVersions.length) {
+              skipped++;
+              return;
+            }
+
+            const cloudUpdatedAtIso = cloudDoc.updatedAt
+              ? new Date(cloudDoc.updatedAt).toISOString()
+              : new Date(cloudTime || Date.now()).toISOString();
+
+            if (isPending) {
+              const latestCloudVer = cloudVersions.reduce((latest, v) => (v.version > latest.version ? v : latest), cloudVersions[0]!);
+
+              let plainContent: string | null = null;
+              let plainMood: string | undefined = undefined;
+              try {
+                const decrypted = await maybeDecrypt(latestCloudVer as unknown as Record<string, unknown>, ['content', 'mood'], []);
+                plainContent = typeof decrypted.content === 'string' ? decrypted.content : null;
+                plainMood = typeof decrypted.mood === 'string' ? decrypted.mood : (typeof latestCloudVer.mood === 'string' ? latestCloudVer.mood : undefined);
+              } catch (decErr) {
+                if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+                if (!(decErr instanceof DecryptionError)) throw decErr;
+              }
+
+              if (plainContent !== null) {
+                const localVersions = await LocalVersionService.getVersions(localDoc.id);
+                const nextVersionNo = Math.max(...localVersions.map(v => v.version), 0) + 1;
+
+                await LocalVersionService.addVersion(userId, localDoc.id, {
+                  content: plainContent,
+                  previousContent: '',
+                  wordCount: latestCloudVer.wordCount ?? 0,
+                  duration: latestCloudVer.duration ?? 0,
+                  wpm: latestCloudVer.wpm ?? 0,
+                  versionNumber: nextVersionNo,
+                  goalWords: latestCloudVer.goalWords,
+                  goalTime: latestCloudVer.goalTime,
+                  goalReached: latestCloudVer.goalReached,
+                  sessionStartedAt: latestCloudVer.sessionStartedAt ? toDate(latestCloudVer.sessionStartedAt) ?? new Date() : new Date(),
+                  savedAt: latestCloudVer.savedAt ? toDate(latestCloudVer.savedAt) ?? undefined : undefined,
+                  mood: plainMood,
+                });
+
+                useActivityLogStore.getState().addActivity(
+                  'заметка изменилась на другом устройстве',
+                  { action: 'reconcileLinkedDocuments_remote_edit', documentId: localDoc.id, cloudDocumentId: localDoc.linkedCloudId },
+                  'info',
+                  'sync',
+                );
+
+                const db = await getLocalDb();
+                const cur = await db.get('documents', localDoc.id);
+                if (cur) {
+                  await db.put('documents', {
+                    ...cur,
+                    lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
+                  });
+                }
+                reconciled++;
+              }
+            } else {
+              const localVersions = await LocalVersionService.getVersions(localDoc.id);
+              const localVerSet = new Set(localVersions.map(v => v.version));
+
+              const sortedCloudVersions = [...cloudVersions].sort((a, b) => a.version - b.version);
+              let prevContent = '';
+              for (const cv of sortedCloudVersions) {
+                let cContent: string | null = null;
+                let cMood: string | undefined = undefined;
+                try {
+                  const dec = await maybeDecrypt(cv as unknown as Record<string, unknown>, ['content', 'mood'], []);
+                  cContent = typeof dec.content === 'string' ? dec.content : null;
+                  cMood = typeof dec.mood === 'string' ? dec.mood : (typeof cv.mood === 'string' ? cv.mood : undefined);
+                } catch (decErr) {
+                  if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+                  if (!(decErr instanceof DecryptionError)) throw decErr;
+                }
+
+                if (cContent !== null) {
+                  if (!localVerSet.has(cv.version)) {
+                    await LocalVersionService.addVersion(userId, localDoc.id, {
+                      content: cContent,
+                      previousContent: prevContent,
+                      wordCount: cv.wordCount ?? 0,
+                      duration: cv.duration ?? 0,
+                      wpm: cv.wpm ?? 0,
+                      versionNumber: cv.version,
+                      goalWords: cv.goalWords,
+                      goalTime: cv.goalTime,
+                      goalReached: cv.goalReached,
+                      sessionStartedAt: cv.sessionStartedAt ? toDate(cv.sessionStartedAt) ?? new Date() : new Date(),
+                      savedAt: cv.savedAt ? toDate(cv.savedAt) ?? undefined : undefined,
+                      mood: cMood,
+                    });
+                  }
+                  prevContent = cContent;
+                }
+              }
+
+              await LocalStorageService.updateDocument(localDoc.id, {
+                title: cloudDoc.title ?? localDoc.title,
+                tags: cloudDoc.tags ?? localDoc.tags,
+                labelId: cloudDoc.labelId !== undefined ? (cloudDoc.labelId ?? undefined) : localDoc.labelId,
+                mood: cloudDoc.mood ?? localDoc.mood,
+                currentVersion: cloudDoc.currentVersion,
+                totalWords: cloudDoc.totalWords ?? localDoc.totalWords,
+                totalDuration: cloudDoc.totalDuration ?? localDoc.totalDuration,
+                sessionsCount: cloudDoc.sessionsCount ?? localDoc.sessionsCount,
+                lastSyncedCloudVersion: cloudDoc.currentVersion,
+                lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
+                excludedFromAI: cloudDoc.excludedFromAI ?? localDoc.excludedFromAI,
+              });
+
+              reconciled++;
+            }
+          }, { queueOnHeld: false });
+        } catch (err) {
+          const msg = String((err as { message?: string })?.message || err);
+          if (msg.startsWith('LOCK_HELD') || msg.includes('LOCK_HELD')) {
+            skipped++;
+          } else {
+            failed++;
+            reportError(err, { action: 'reconcileLinkedDocuments_doc', docId: localDoc.id });
+          }
+        }
+      }
+
+      return { reconciled, skipped, failed };
+    };
+
+    const promise = run();
+    _activeReconcilePromises.set(userId, promise);
+    try {
+      return await promise;
+    } finally {
+      _activeReconcilePromises.delete(userId);
     }
   },
 
@@ -305,6 +514,7 @@ export const CloudSyncService = {
           currentVersion: cloudDoc.currentVersion,
           sessionsCount: cloudDoc.sessionsCount ?? 1,
           lastSyncedCloudVersion: cloudDoc.currentVersion,
+          lastSeenCloudUpdatedAt: cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).toISOString() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).toISOString() : new Date().toISOString()),
         });
 
         await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId);
@@ -562,7 +772,7 @@ export const CloudSyncService = {
           try {
             const db = await getLocalDb();
             const cur = await db.get('documents', localDocumentId);
-            if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: syncdVer });
+            if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: syncdVer, lastSeenCloudUpdatedAt: new Date().toISOString() });
           } catch { /* ignore */ }
           return cloudId;
         }
@@ -749,7 +959,7 @@ export const CloudSyncService = {
       try {
         const db = await getLocalDb();
         const cur = await db.get('documents', localDocumentId);
-        if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: cur.currentVersion });
+        if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: cur.currentVersion, lastSeenCloudUpdatedAt: new Date().toISOString() });
       } catch { /* ignore */ }
 
 

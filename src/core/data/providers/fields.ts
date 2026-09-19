@@ -63,6 +63,7 @@ export const DOCUMENT_FIELDS: Record<string, string> = {
   _encrypted: '_encrypted',
   deletedAt: 'deleted_at',
   createdAt: 'created_at',
+  updatedAt: 'updated_at',
 };
 
 export const VERSION_FIELDS: Record<string, string> = {

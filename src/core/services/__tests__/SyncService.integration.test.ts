@@ -9,6 +9,7 @@ describe('SyncService Integration', () => {
   const userId = 'test_user_integration';
 
   beforeEach(async () => {
+    localStorage.clear();
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'versions', 'syncQueue', 'profile'], 'readwrite');
     await Promise.all([

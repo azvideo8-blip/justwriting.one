@@ -118,10 +118,10 @@ describe('restoreAIDataFromCloud', () => {
     localStoreRecordsDocs.length = 0;
     getSessionKey.mockReturnValue({} as CryptoKey);
     getEncryptionEnabled.mockReturnValue(true);
-    localStorage.clear();
     // Pulling embeddings is opt-in: the collection costs more read units than a
     // whole free day. These cases exercise the restore itself, so they opt in.
-    requestEmbeddingRestore();
+    requestEmbeddingRestore('user_1');
+    requestEmbeddingRestore('user-a');
   });
 
   it('restores local_store_records (aiPortrait, aiDialogues, lifeStory) when missing locally', async () => {
@@ -331,8 +331,9 @@ describe('restoreAIDataFromCloud', () => {
   });
 
 
-  it('restores embeddings by default during cloud restore (AG-RESTORE-1)', async () => {
+  it('restores embeddings when requested during cloud restore', async () => {
     localStorage.clear();
+    requestEmbeddingRestore('user_1');
     summaryDocs.push({ id: 'doc-1', data: () => ({ tone: 'calm' }) });
     embeddingDocs.push({ id: 'doc-1', data: () => ({ vectorsJson: '[[1,2,3]]', contentHash: 'h1' }) });
 
@@ -439,6 +440,26 @@ describe('restoreAIDataFromCloud', () => {
     summaryDocs.push({ id: 'doc-1', data: () => ({}) });
     const res = await restoreAIDataFromCloud('');
     expect(res).toMatchObject({ summaries: 0, embeddings: 0 });
+  });
+
+  it('LS-4: User A requests embedding restore, User B does not fetch embeddings', async () => {
+    localStorage.clear();
+    const { DataProvider } = await import('../../../../core/data');
+    const paginatedSpy = vi.spyOn(DataProvider, 'getUserEmbeddingsPaginated');
+    paginatedSpy.mockClear();
+
+    // User A requests embedding restore
+    requestEmbeddingRestore('user-A');
+
+    // User B runs restoreAIDataFromCloud
+    const resB = await restoreAIDataFromCloud('user-B');
+
+    expect(paginatedSpy).not.toHaveBeenCalled();
+    expect(resB.embeddings).toBe(0);
+
+    // User A runs restoreAIDataFromCloud
+    await restoreAIDataFromCloud('user-A');
+    expect(paginatedSpy).toHaveBeenCalledWith('user-A', expect.any(Number), undefined);
   });
 });
 

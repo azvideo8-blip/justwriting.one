@@ -242,7 +242,7 @@ export const SyncService = {
 
   async syncPending(userId: string): Promise<SyncPendingResult> {
     // SEC-8: Автосинк выключен по умолчанию: молчание = согласия нет.
-    if (!cloudSyncEnabled()) {
+    if (!cloudSyncEnabled(userId)) {
       return { drained: 0, failed: 0, skippedReason: 'sync_disabled' };
     }
     if (_syncInProgress.get(userId)) {
@@ -366,6 +366,15 @@ export const SyncService = {
         reportError(e, { action: 'syncStreakFreezes_downloadAllFromCloud', userId })
       );
     }
+    return res;
+  },
+
+  async reconcileLinkedDocuments(
+    userId: string,
+    opts?: { getActiveDocumentId?: () => string | null }
+  ): Promise<{ reconciled: number; skipped: number; failed: number; locked?: boolean }> {
+    const res = await CloudSyncService.reconcileLinkedDocuments(userId, opts);
+    if (res.reconciled > 0) announceQueueChange();
     return res;
   },
 

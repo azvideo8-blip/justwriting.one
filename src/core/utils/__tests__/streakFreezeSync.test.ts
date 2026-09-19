@@ -114,10 +114,17 @@ describe('S-19: streak freeze user scoping and multi-device cloud sync', () => {
   });
 
   it('adopts the pre-S-19 un-keyed entry once for the first account that reads it', () => {
-    localStorage.setItem(STORAGE_KEYS.GUEST_STREAK_FREEZES, JSON.stringify(['2026-09-03']));
+    localStorage.setItem(STORAGE_KEYS.LEGACY_STREAK_FREEZES, JSON.stringify(['2026-09-03']));
     expect(Array.from(getFrozenDates('user-legacy'))).toEqual(['2026-09-03']);
     expect(localStorage.getItem(STORAGE_KEYS.STREAK_FREEZES('user-legacy'))).toBe(JSON.stringify(['2026-09-03']));
-    expect(localStorage.getItem(STORAGE_KEYS.GUEST_STREAK_FREEZES)).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.LEGACY_STREAK_FREEZES)).toBeNull();
+  });
+
+  it('LS-7: guest freeze is not adopted by a newly signed-in account', () => {
+    saveFrozenDates(new Set(['2026-09-03']), null);
+    expect(Array.from(getFrozenDates('user-new'))).toEqual([]);
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_STREAK_FREEZES)).toBe(JSON.stringify(['2026-09-03']));
+    expect(Array.from(getFrozenDates(null))).toEqual(['2026-09-03']);
   });
 
   it('consumeStreakFreezes uses specified userId and records freeze for that user', () => {

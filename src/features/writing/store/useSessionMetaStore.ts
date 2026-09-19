@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { registerActiveEditorDocIdGetter } from '../../../core/sync/activeEditor';
 
 export interface SessionMetaStateData {
   activeSessionId: string | null;
@@ -25,3 +26,6 @@ export const useSessionMetaStore = create<SessionMetaState>((set) => ({
     sessionStartTime: null,
   }),
 }));
+
+registerActiveEditorDocIdGetter(() => useSessionMetaStore.getState().savedDocumentId);
+

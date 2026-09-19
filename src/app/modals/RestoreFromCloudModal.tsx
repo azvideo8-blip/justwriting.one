@@ -206,7 +206,10 @@ export function RestoreFromCloudModal({
   };
 
   const handleEnableAutoSync = () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'true');
+    if (user) {
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid), 'true');
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid), 'true');
+    }
     setAutoSyncPromptAnswered(true);
   };
 
@@ -221,7 +224,7 @@ export function RestoreFromCloudModal({
     onClose();
   };
 
-  const isAutoSyncAlreadyEnabled = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true';
+  const isAutoSyncAlreadyEnabled = user ? localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true' : false;
 
   return (
     <ModalWrapper

@@ -1,4 +1,4 @@
-// src/core/sync/cloudSyncEnabled.ts
+import { getCurrentUser } from '../auth';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
 /**
@@ -12,7 +12,22 @@ import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
  * от этого флага, так как явное нажатие кнопки — более сильный сигнал, чем
  * фоновая настройка.
  */
-export function cloudSyncEnabled(): boolean {
+export function cloudSyncEnabled(uid?: string | null): boolean {
   if (typeof localStorage === 'undefined') return false;
-  return localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true';
+  const targetUid = uid !== undefined ? uid : getCurrentUser()?.uid;
+  if (!targetUid) return false;
+  try {
+    let raw = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(targetUid));
+    if (raw === null) {
+      const legacy = localStorage.getItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED);
+      if (legacy !== null) {
+        localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(targetUid), legacy);
+        localStorage.removeItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED);
+        raw = legacy;
+      }
+    }
+    return raw === 'true';
+  } catch {
+    return false;
+  }
 }

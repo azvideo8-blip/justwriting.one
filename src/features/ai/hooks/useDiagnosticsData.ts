@@ -262,7 +262,9 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   // Deliberately manual — see AIRestoreService: walking the embeddings
   // collection costs more read units than a whole free day.
   const handleRequestEmbeddingRestore = () => {
-    requestEmbeddingRestore();
+    const user = getCurrentUser();
+    if (!user?.uid) return;
+    requestEmbeddingRestore(user.uid);
     showToast('Индекс будет догружаться частями в фоне, по мере дневного лимита чтений', 'success');
   };
 

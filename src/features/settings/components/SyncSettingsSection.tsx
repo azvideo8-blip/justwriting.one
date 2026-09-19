@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle, CloudDownload, AlertTriangle, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -45,8 +45,17 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
   const [cleaningOrphans, setCleaningOrphans] = useState(false);
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const [autoSync, setAutoSync] = useState(
-    () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
+    () => (userId ? localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId)) === 'true' : false)
   );
+
+  useEffect(() => {
+    if (!userId) return;
+    // Defer to avoid synchronous setState in effect body
+    const t = setTimeout(() => {
+      setAutoSync(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId)) === 'true');
+    }, 0);
+    return () => clearTimeout(t);
+  }, [userId]);
 
   const oversizedCount = getOversizedRecordCount();
   const [retryingQuarantined, setRetryingQuarantined] = useState(false);
@@ -194,7 +203,9 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
   const toggleAutoSync = () => {
     const newVal = !autoSync;
     setAutoSync(newVal);
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, String(newVal));
+    if (userId) {
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), String(newVal));
+    }
   };
 
   return (

@@ -61,10 +61,24 @@ describe('S-09: useAiLimitStore user-scoped key', () => {
     expect(localStorage.getItem(STORAGE_KEYS.AI_DAILY_USAGE)).toBeNull();
   });
 
-  it('guests share ai_daily_usage key', () => {
+  it('guests share ai_daily_usage_guest key', () => {
     mockCurrentUser = null;
     useAiLimitStore.getState().useRequest(false);
     expect(useAiLimitStore.getState().used).toBe(1);
-    expect(localStorage.getItem('ai_daily_usage')).toContain('"count":1');
+    expect(localStorage.getItem('ai_daily_usage_guest')).toContain('"count":1');
+  });
+
+  it('LS-7: guest session writes ai_daily_usage_guest; account A signs in; readLocalUsage() for A returns {count: 0} and guest key is left untouched', () => {
+    // Guest session writes ai_daily_usage_guest
+    mockCurrentUser = null;
+    useAiLimitStore.getState().useRequest(false);
+    expect(localStorage.getItem('ai_daily_usage_guest')).toContain('"count":1');
+
+    // Account A signs in
+    mockCurrentUser = { uid: 'user-a' };
+    useAiLimitStore.getState().loadLimit();
+
+    expect(useAiLimitStore.getState().used).toBe(0);
+    expect(localStorage.getItem('ai_daily_usage_guest')).toContain('"count":1');
   });
 });

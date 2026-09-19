@@ -18,34 +18,50 @@ import { decodeCloudSummary } from './AISummaryService';
 import { decodeCloudEmbedding } from './AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
-const EMBED_RESTORE_FLAG = 'ai_embed_restore_requested';
-const EMBED_RESTORE_CURSOR = 'ai_embed_restore_cursor';
+const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
+const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
+const LEGACY_EMBED_RESTORE_FLAG = 'ai_embed_restore_requested';
+const LEGACY_EMBED_RESTORE_CURSOR = 'ai_embed_restore_cursor';
 
 /** Opt in to pulling the semantic index back from the cloud. Deliberately
  *  manual: the collection costs more read units than a whole free day. */
-export function requestEmbeddingRestore(): void {
-  try { localStorage.setItem(EMBED_RESTORE_FLAG, '1'); } catch { /* ignore */ }
+export function requestEmbeddingRestore(userId: string): void {
+  if (!userId) return;
+  try { localStorage.setItem(`${EMBED_RESTORE_FLAG_PREFIX}${userId}`, '1'); } catch { /* ignore */ }
 }
 
-export function isEmbeddingRestoreRequested(): boolean {
-  try { return localStorage.getItem(EMBED_RESTORE_FLAG) === '1'; } catch { return false; }
-}
-
-function clearEmbeddingRestoreRequest(): void {
+export function isEmbeddingRestoreRequested(userId: string): boolean {
+  if (!userId) return false;
   try {
-    localStorage.removeItem(EMBED_RESTORE_FLAG);
-    localStorage.removeItem(EMBED_RESTORE_CURSOR);
+    // Drop unscoped keys on first read rather than migrating them (LS-4 Task 1)
+    localStorage.removeItem(LEGACY_EMBED_RESTORE_FLAG);
+    return localStorage.getItem(`${EMBED_RESTORE_FLAG_PREFIX}${userId}`) === '1';
+  } catch { return false; }
+}
+
+function clearEmbeddingRestoreRequest(userId: string): void {
+  if (!userId) return;
+  try {
+    localStorage.removeItem(LEGACY_EMBED_RESTORE_FLAG);
+    localStorage.removeItem(LEGACY_EMBED_RESTORE_CURSOR);
+    localStorage.removeItem(`${EMBED_RESTORE_FLAG_PREFIX}${userId}`);
+    localStorage.removeItem(`${EMBED_RESTORE_CURSOR_PREFIX}${userId}`);
   } catch { /* ignore */ }
 }
 
 /** Where the last run stopped, so a budget-limited restore resumes tomorrow
  *  instead of paying for the same pages again. */
-function getEmbeddingRestoreCursor(): string {
-  try { return localStorage.getItem(EMBED_RESTORE_CURSOR) ?? ''; } catch { return ''; }
+function getEmbeddingRestoreCursor(userId: string): string {
+  if (!userId) return '';
+  try {
+    localStorage.removeItem(LEGACY_EMBED_RESTORE_CURSOR);
+    return localStorage.getItem(`${EMBED_RESTORE_CURSOR_PREFIX}${userId}`) ?? '';
+  } catch { return ''; }
 }
 
-function setEmbeddingRestoreCursor(id: string): void {
-  try { localStorage.setItem(EMBED_RESTORE_CURSOR, id); } catch { /* ignore */ }
+function setEmbeddingRestoreCursor(userId: string, id: string): void {
+  if (!userId) return;
+  try { localStorage.setItem(`${EMBED_RESTORE_CURSOR_PREFIX}${userId}`, id); } catch { /* ignore */ }
 }
 
 export interface AIRestoreResult {
@@ -104,7 +120,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     reportError(e, { action: 'restoreAIData_summaries', userId });
   }
 
-  // --- Restore local_store_records (13 AI stores) ---
+  // --- Restore local_store_records (allowlisted AI stores) ---
   try {
     const cloudRecords = await DataProvider.getLocalStoreRecords(userId);
 
@@ -332,26 +348,25 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     );
     const cloudHashes = new Set<string>();
 
-    // AG-RESTORE-1: Embeddings are restored by default during cloud restore.
-    // Paginated in chunks of 10 with a cap per pass to avoid quota bursts.
-    const PAGE = 10;
-    const MAX_EMBEDS_PER_RUN = 100;
-    const docsPage: Record<string, unknown>[] = [];
-    let cursorId: string | undefined = getEmbeddingRestoreCursor() || undefined;
-    while (docsPage.length < MAX_EMBEDS_PER_RUN) {
-      const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
-      if (res.items.length === 0) { clearEmbeddingRestoreRequest(); break; }
-      
-      docsPage.push(...res.items);
-      cursorId = res.nextCursorId;
-      if (cursorId) {
-        setEmbeddingRestoreCursor(cursorId);
+    if (isEmbeddingRestoreRequested(userId)) {
+      const PAGE = 10;
+      const MAX_EMBEDS_PER_RUN = 100;
+      const docsPage: Record<string, unknown>[] = [];
+      let cursorId: string | undefined = getEmbeddingRestoreCursor(userId) || undefined;
+      while (docsPage.length < MAX_EMBEDS_PER_RUN) {
+        const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
+        if (res.items.length === 0) { clearEmbeddingRestoreRequest(userId); break; }
+        
+        docsPage.push(...res.items);
+        cursorId = res.nextCursorId;
+        if (cursorId) {
+          setEmbeddingRestoreCursor(userId, cursorId);
+        }
+        
+        if (res.items.length < PAGE) { clearEmbeddingRestoreRequest(userId); break; }
       }
-      
-      if (res.items.length < PAGE) { clearEmbeddingRestoreRequest(); break; }
-    }
 
-    for (const d of docsPage) {
+      for (const d of docsPage) {
         const dId = d.id as string;
         const alreadyLocal = existingEmbeddings.has(dId);
         // Decoding an already-local record is pure CPU, no extra quota — worth it
@@ -369,12 +384,13 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
         }
       }
 
-    if (needsRepair && cloudHashes.size > 0) {
-      for (const e of await db.getAll('aiEmbeddings')) {
-        if (e.cloudSyncedAt || e.cloudSkipped || !e.contentHash) continue;
-        if (!cloudHashes.has(e.contentHash)) continue;
-        await db.put('aiEmbeddings', { ...e, cloudSyncedAt: Date.now() });
-        result.markedSynced++;
+      if (needsRepair && cloudHashes.size > 0) {
+        for (const e of await db.getAll('aiEmbeddings')) {
+          if (e.cloudSyncedAt || e.cloudSkipped || !e.contentHash) continue;
+          if (!cloudHashes.has(e.contentHash)) continue;
+          await db.put('aiEmbeddings', { ...e, cloudSyncedAt: Date.now() });
+          result.markedSynced++;
+        }
       }
     }
   } catch (e) {

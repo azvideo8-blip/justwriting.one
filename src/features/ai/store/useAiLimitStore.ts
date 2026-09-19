@@ -48,13 +48,13 @@ function readLocalUsage(): { count: number; reasoningCount: number; date: string
   const today = getUtcDateStr();
   const key = resolveKey();
   let raw = localStorage.getItem(key);
-  // S-09: Adopt the old un-keyed value once for the current account, then remove it.
-  if (raw === null && key !== STORAGE_KEYS.AI_DAILY_USAGE) {
-    const legacy = localStorage.getItem(STORAGE_KEYS.AI_DAILY_USAGE);
+  // S-09 / LS-7: Adopt the old un-keyed value once for the current account, then remove it.
+  if (raw === null && key !== STORAGE_KEYS.GUEST_AI_DAILY_USAGE && key !== STORAGE_KEYS.LEGACY_AI_DAILY_USAGE) {
+    const legacy = localStorage.getItem(STORAGE_KEYS.LEGACY_AI_DAILY_USAGE);
     if (legacy !== null) {
       raw = legacy;
       localStorage.setItem(key, legacy);
-      localStorage.removeItem(STORAGE_KEYS.AI_DAILY_USAGE);
+      localStorage.removeItem(STORAGE_KEYS.LEGACY_AI_DAILY_USAGE);
     }
   }
   if (raw) {

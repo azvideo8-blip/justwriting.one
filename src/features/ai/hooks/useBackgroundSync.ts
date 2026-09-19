@@ -34,10 +34,9 @@ export function useBackgroundSync(): void {
 
   const runPass = useCallback(async () => {
     if (runningRef.current) return;
-    if (!cloudSyncEnabled()) return;
-
     const uid = getCurrentUser()?.uid;
     if (!uid) return;
+    if (!cloudSyncEnabled(uid)) return;
 
     runningRef.current = true;
     try {
@@ -51,7 +50,7 @@ export function useBackgroundSync(): void {
       const restoreDoneKey = `ai_restore_done_date_${uid}`;
       if (localStorage.getItem(restoreDoneKey) !== new Date().toISOString().slice(0, 10)) {
         try {
-          const { restored, hasMore } = await CloudSyncService.restoreMissingDocuments(uid);
+          const { restored, hasMore, throttled } = await CloudSyncService.restoreMissingDocuments(uid);
           if (restored > 0) {
             useActivityLogStore.getState().addActivity(
               `Восстановлено заметок из облака: ${restored}`,
@@ -61,7 +60,7 @@ export function useBackgroundSync(): void {
             );
           }
           const aiRestored = await restoreAIDataFromCloud(uid);
-          const notesFullyRestored = !hasMore;
+          const notesFullyRestored = !hasMore && !throttled;
           if (!aiRestored.skippedLocked && notesFullyRestored) {
             localStorage.setItem(restoreDoneKey, new Date().toISOString().slice(0, 10));
           }

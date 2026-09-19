@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from "../../../../shared/constants/storageKeys";
 import { SyncService } from "../../../../core/services/SyncService";
 import { getLocalDb } from "../../../../core/storage/localDb";
 import * as authStatusModule from "../../../../features/auth/hooks/useAuthStatus";
+import { cloudSyncEnabled } from "../../../../core/sync/cloudSyncEnabled";
 
 vi.mock("../../../../shared/i18n", () => ({
   useLanguage: () => ({
@@ -37,8 +38,8 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
     const enableBtn = screen.getByText("sync_consent_enable");
     fireEvent.click(enableBtn);
 
-    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED)).toBe("true");
-    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED)).toBe("true");
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("u_sync_123"))).toBe("true");
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED("u_sync_123"))).toBe("true");
     expect(syncSpy).toHaveBeenCalledWith("u_sync_123");
     expect(onClose).toHaveBeenCalled();
   });
@@ -52,8 +53,8 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
     const keepOffBtn = screen.getByText("sync_consent_keep_off");
     fireEvent.click(keepOffBtn);
 
-    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED)).toBe("false");
-    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED)).toBe("true");
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("u_sync_123"))).toBe("false");
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED("u_sync_123"))).toBe("true");
     expect(syncSpy).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
@@ -101,7 +102,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
   });
 
   it("useSyncConsentCheck: does NOT show consent modal if AUTO_SYNC_ENABLED is already present", async () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, "false");
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("user_456"), "false");
 
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "user_456" } as never,
@@ -124,7 +125,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
   });
 
   it("useSyncConsentCheck: does NOT show consent modal if AUTO_SYNC_ASKED is already present", async () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED, "true");
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED("user_456"), "true");
 
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "user_456" } as never,
@@ -162,5 +163,102 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
     await waitFor(() => {
       expect(result.current.showConsent).toBe(false);
     });
+  });
+
+  it("LS-2 multi-account isolation: user A consents, user B is asked, A remains enabled, B disabled", async () => {
+    // 1. User A signs in and has local docs
+    const authSpy = vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
+      user: { uid: "user_A" } as never,
+      profile: null, refreshProfile: async () => {},
+      authState: "authenticated" as never,
+      isAuthenticated: true,
+      isGuest: false,
+      loading: false,
+      isConnected: false,
+    });
+
+    const db = await getLocalDb();
+    await db.put("documents", { id: "doc_A", guestId: "user_A", title: "Note A" } as never);
+
+    const { result: checkA } = renderHook(() => useSyncConsentCheck());
+    await waitFor(() => {
+      expect(checkA.current.showConsent).toBe(true);
+    });
+
+    // User A turns sync on
+    const onCloseA = vi.fn();
+    render(<SyncConsentModal onClose={onCloseA} userId="user_A" />);
+    fireEvent.click(screen.getByText("sync_consent_enable"));
+
+    expect(cloudSyncEnabled("user_A")).toBe(true);
+
+    // 2. User A signs out, User B signs in and has local docs
+    await db.put("documents", { id: "doc_B", guestId: "user_B", title: "Note B" } as never);
+
+    authSpy.mockReturnValue({
+      user: { uid: "user_B" } as never,
+      profile: null, refreshProfile: async () => {},
+      authState: "authenticated" as never,
+      isAuthenticated: true,
+      isGuest: false,
+      loading: false,
+      isConnected: false,
+    });
+
+    const { result: checkB } = renderHook(() => useSyncConsentCheck());
+    await waitFor(() => {
+      expect(checkB.current.showConsent).toBe(true);
+    });
+
+    expect(cloudSyncEnabled("user_B")).toBe(false);
+    expect(cloudSyncEnabled("user_A")).toBe(true);
+  });
+
+  it("LS-2 legacy migration: legacy keys migrate to user A, are cleared, user B is still asked", async () => {
+    localStorage.setItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED, "true");
+    localStorage.setItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ASKED, "true");
+
+    const authSpy = vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
+      user: { uid: "user_A" } as never,
+      profile: null, refreshProfile: async () => {},
+      authState: "authenticated" as never,
+      isAuthenticated: true,
+      isGuest: false,
+      loading: false,
+      isConnected: false,
+    });
+
+    const db = await getLocalDb();
+    await db.put("documents", { id: "doc_A2", guestId: "user_A", title: "Note A2" } as never);
+
+    const { result: checkA } = renderHook(() => useSyncConsentCheck());
+    // Since legacy was already enabled & asked, migration marks user_A as asked and enabled, so modal is not shown
+    await waitFor(() => {
+      expect(checkA.current.showConsent).toBe(false);
+    });
+
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("user_A"))).toBe("true");
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED("user_A"))).toBe("true");
+    expect(localStorage.getItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED)).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ASKED)).toBeNull();
+
+    // Now user B signs in with local docs
+    await db.put("documents", { id: "doc_B2", guestId: "user_B", title: "Note B2" } as never);
+
+    authSpy.mockReturnValue({
+      user: { uid: "user_B" } as never,
+      profile: null, refreshProfile: async () => {},
+      authState: "authenticated" as never,
+      isAuthenticated: true,
+      isGuest: false,
+      loading: false,
+      isConnected: false,
+    });
+
+    const { result: checkB } = renderHook(() => useSyncConsentCheck());
+    await waitFor(() => {
+      expect(checkB.current.showConsent).toBe(true);
+    });
+    expect(cloudSyncEnabled("user_B")).toBe(false);
   });
 });

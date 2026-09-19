@@ -222,7 +222,7 @@ class LocalStoreSyncManager {
 
     // SEC-8: Background upload respects cloudSyncEnabled switch.
     // Manual / backfill actions (forceManual = true) are explicitly exempt.
-    if (!forceManual && !cloudSyncEnabled()) {
+    if (!forceManual && !cloudSyncEnabled(uid)) {
       return result;
     }
 

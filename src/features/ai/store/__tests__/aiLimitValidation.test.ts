@@ -18,15 +18,16 @@ vi.stubGlobal('document', { addEventListener: () => {}, hidden: true });
 vi.stubGlobal('window', {});
 
 import { useAiLimitStore } from '../useAiLimitStore';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 
 describe('AUDIT-M12 local usage validation', () => {
   beforeEach(() => {
-    store._backing.delete('ai_daily_usage');
+    store._backing.delete(STORAGE_KEYS.GUEST_AI_DAILY_USAGE);
   });
 
   it('accepts a valid record', () => {
     const today = new Date().toISOString().slice(0, 10);
-    localStorage.setItem('ai_daily_usage', JSON.stringify({ count: 5, date: today }));
+    localStorage.setItem(STORAGE_KEYS.GUEST_AI_DAILY_USAGE, JSON.stringify({ count: 5, date: today }));
     useAiLimitStore.getState().loadLimit();
     expect(useAiLimitStore.getState().used).toBe(5);
   });
@@ -40,7 +41,7 @@ describe('AUDIT-M12 local usage validation', () => {
       JSON.stringify({ count: 5, date: 'not-a-date' }), // дата не по форме
       '{broken json',
     ]) {
-      localStorage.setItem('ai_daily_usage', bad);
+      localStorage.setItem(STORAGE_KEYS.GUEST_AI_DAILY_USAGE, bad);
       useAiLimitStore.getState().loadLimit();
       expect(useAiLimitStore.getState().used).toBe(0);
     }

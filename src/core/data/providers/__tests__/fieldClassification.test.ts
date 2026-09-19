@@ -139,6 +139,7 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       '_encrypted',
       'deletedAt',
       'createdAt',
+      'updatedAt',
     ]);
 
     it('every field in DOCUMENT_FIELDS is classified and disjoint', () => {

@@ -21,7 +21,7 @@ const mockedUnsynced = vi.mocked(SyncService.getUnsyncedCount);
 describe("useSyncStatus — C7 sync status comparison", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, "true");
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("u1"), "true");
   });
 
   it("reports synced when both pendingCount and unsyncedCount are 0", async () => {
@@ -56,7 +56,7 @@ describe("useSyncStatus — C7 sync status comparison", () => {
 describe("useSyncStatus — AUD-25 event-driven", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, "true");
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("u1"), "true");
   });
 
   it("does not install a polling interval", async () => {

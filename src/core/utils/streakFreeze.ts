@@ -42,11 +42,11 @@ export function getFrozenDates(userId?: string | null): Set<string> {
     let raw = localStorage.getItem(key);
     // Before S-19 the key was not per-user. Adopt the old entry once for the
     // first account that reads, so an existing freeze this month is not lost.
-    if (raw === null && key !== STORAGE_KEYS.GUEST_STREAK_FREEZES) {
-      const legacy = localStorage.getItem(STORAGE_KEYS.GUEST_STREAK_FREEZES);
+    if (raw === null && key !== STORAGE_KEYS.GUEST_STREAK_FREEZES && key !== STORAGE_KEYS.LEGACY_STREAK_FREEZES) {
+      const legacy = localStorage.getItem(STORAGE_KEYS.LEGACY_STREAK_FREEZES);
       if (legacy !== null) {
         localStorage.setItem(key, legacy);
-        localStorage.removeItem(STORAGE_KEYS.GUEST_STREAK_FREEZES);
+        localStorage.removeItem(STORAGE_KEYS.LEGACY_STREAK_FREEZES);
         raw = legacy;
       }
     }
@@ -63,7 +63,7 @@ export function saveFrozenDates(dates: Set<string>, userId?: string | null): voi
     const key = resolveKey(userId);
     localStorage.setItem(key, JSON.stringify([...dates]));
     const uid = resolveUid(userId);
-    if (uid && !uid.startsWith('guest') && cloudSyncEnabled()) {
+    if (uid && !uid.startsWith('guest') && cloudSyncEnabled(uid)) {
       // A locked vault throws ENCRYPT_REQUIRED here; the local copy is already
       // written and the next syncStreakFreezesWithCloud pushes it.
       void writeCloudDates(uid, dates).catch(err => {
@@ -97,7 +97,7 @@ export function wasFreezeUsedThisMonth(userId?: string | null): boolean {
  * propagate to device B, preventing broken streaks and duplicate monthly freezes.
  */
 export async function syncStreakFreezesWithCloud(userId: string, force = false): Promise<Set<string>> {
-  if (!userId || (!force && !cloudSyncEnabled())) return getFrozenDates(userId);
+  if (!userId || (!force && !cloudSyncEnabled(userId))) return getFrozenDates(userId);
   try {
     const cloudDates = (await readCloudDates(userId)) ?? [];
     const localDates = getFrozenDates(userId);

@@ -22,6 +22,8 @@ export function documentFromDb(dbDoc: DocumentDb): Document {
     _locked: dbDoc._locked,
     _decryptionError: dbDoc._decryptionError,
     deletedAt: toDate(dbDoc.deletedAt) ?? null,
+    createdAt: toDate(dbDoc.createdAt) ?? null,
+    updatedAt: toDate(dbDoc.updatedAt) ?? null,
   } as Document;
 }
 

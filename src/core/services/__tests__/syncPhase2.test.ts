@@ -185,7 +185,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
 
   describe('SYNC-4: Buttons report what they actually did', () => {
     it('syncPending returns skippedReason: sync_disabled when auto-sync is off', async () => {
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'false');
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), 'false');
 
       const result = await SyncService.syncPending(userId);
 
@@ -197,7 +197,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
     });
 
     it('syncPending returns drained count when queue tasks succeed', async () => {
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'true');
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), 'true');
       const db = await getLocalDb();
       await db.put('syncQueue', {
         id: 'del_1',
@@ -222,7 +222,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
     });
 
     it('syncPending returns failed count when tasks fail', async () => {
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'true');
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), 'true');
       const db = await getLocalDb();
       await db.put('syncQueue', {
         id: 'del_fail',

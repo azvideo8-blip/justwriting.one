@@ -5,6 +5,7 @@ import type { Session } from '../../../types';
 import { getLocalDb } from '../../storage/localDb';
 import { LocalDocumentService } from '../../services/LocalDocumentService';
 import { LocalVersionService } from '../../services/LocalVersionService';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { subDays } from 'date-fns';
 
 function makeSession(daysAgo: number): Session {
@@ -48,7 +49,7 @@ describe('AG-STAT-1: Statistics & Counter Integrity', () => {
     // Now call consumeStreakFreezes explicitly (profile stats path)
     consumeStreakFreezes(sessions);
     expect(storageSpy).toHaveBeenCalled();
-    expect(localStorage.getItem('jw_streak_freezes')).not.toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_STREAK_FREEZES)).not.toBeNull();
   });
 
   // Близнец calculateStreak. Её тоже зовут из рендера — StreakRibbon и

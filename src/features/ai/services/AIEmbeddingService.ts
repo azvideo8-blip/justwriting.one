@@ -232,7 +232,7 @@ export const AIEmbeddingService = {
 
     const uid = getCurrentUser()?.uid;
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
-    if (uid && cloudSyncEnabled()) {
+    if (uid && cloudSyncEnabled(uid)) {
       try {
         // withUuid везде, а не emb: иначе запись обратно затирает documentUuid,
         // проставленный строкой выше, и привязка по каноничному id теряется

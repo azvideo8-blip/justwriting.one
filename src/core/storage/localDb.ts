@@ -35,6 +35,8 @@ export interface LocalDocument extends DocumentFields<number> {
   // устройства, пишущие одну версию от одного base, но с разными правками,
   // строками не ловятся. undefined = старое поведение (сравнение контента).
   lastSyncedCloudVersion?: number | undefined;
+  // SYNC-CURSOR-3: last seen cloud state timestamp for this specific document
+  lastSeenCloudUpdatedAt?: string | undefined;
   mood?: string | undefined;
   aiProcessed?: boolean | undefined;
   /** «Не показывать ИИ»: заметка исключена из разбора и из любого поиска,
@@ -697,6 +699,27 @@ interface DatabaseWithClosed {
 
 const inFlightMigrations = new Map<string, Promise<void>>();
 
+export const LEGACY_WIPE_STORES = [
+  'aiPortrait',
+  'aiBeliefs',
+  'aiBeliefRejections',
+  'aiChatMemory',
+  'aiProfileFacets',
+  'aiSummaries',
+  'aiEmbeddings',
+  'aiDialogues',
+  'aiDialogueEvents',
+  'aiThemeLedger',
+  'aiTimeline',
+  'aiMonthlyDigest',
+  'aiPersonas',
+  'aiThreads',
+  'lifeStory',
+  'aiCommitments',
+  'aiDomainVectors',
+  'aiInjectionJournal',
+] as const;
+
 export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: string): Promise<void> {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   if (targetDbName === 'justwriting-local') return;
@@ -740,9 +763,10 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
 
       // Если в legacyDb лежат заметки нескольких пользователей, миграция
       // НЕ ДОЛЖНА копировать записи без владельца (aiPortrait со старым id
-      // 'singleton', aiBeliefs, aiBeliefRejections, aiChatMemory, aiThemeLedger,
+      // 'singleton', aiBeliefs, aiBeliefRejections, aiChatMemory, aiProfileFacets,
+      // aiSummaries, aiEmbeddings, aiDialogues, aiDialogueEvents, aiThemeLedger,
       // aiTimeline, aiMonthlyDigest, aiPersonas, aiThreads, lifeStory,
-      // aiCommitments) в базу первого вошедшего: они
+      // aiCommitments, aiDomainVectors, aiInjectionJournal) в базу первого вошедшего: они
       // могут принадлежать другому аккаунту. Копируются только документы
       // и версии текущего пользователя. Это закрывает межпользовательскую
       // утечку между аккаунтами на одном устройстве — ту самую изоляцию,
@@ -760,24 +784,7 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
         // Если в общей базе жили несколько аккаунтов, записи без владельца
         // спорные. Стираем их из legacyDb, чтобы ни первый, ни второй вошедший
         // аккаунт не присвоил чужой психологический портрет.
-        for (const storeName of [
-          'aiPortrait',
-          'aiBeliefs',
-          'aiBeliefRejections',
-          'aiChatMemory',
-          'aiFacets',
-          'aiSummaries',
-          'aiEmbeddings',
-          'aiDialogues',
-          'aiDialogueEvents',
-          'aiThemeLedger',
-          'aiTimeline',
-          'aiMonthlyDigest',
-          'aiPersonas',
-          'aiThreads',
-          'lifeStory',
-          'aiCommitments',
-        ]) {
+        for (const storeName of LEGACY_WIPE_STORES) {
           if (legacyDb.objectStoreNames.contains(storeName as never)) {
             try {
               await legacyDb.clear(storeName as never);
@@ -801,10 +808,11 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
           const tx = targetDb.transaction(storeName as never, 'readwrite');
           const targetStore = tx.objectStore(storeName as never) as unknown as { put(v: unknown): Promise<unknown> };
           for (const record of records) {
-            const rec = record as { guestId?: string; userId?: string };
+            const rec = record as { guestId?: string; userId?: string; ownerId?: string };
             if (rec.guestId && rec.guestId !== targetUid) continue;
             if (rec.userId && rec.userId !== targetUid) continue;
-            if (!rec.guestId && !rec.userId && !claimUnowned) continue;
+            if (rec.ownerId && rec.ownerId !== targetUid) continue;
+            if (!rec.guestId && !rec.userId && !rec.ownerId && !claimUnowned) continue;
             await targetStore.put(record);
           }
           await tx.done;
@@ -843,6 +851,15 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
         try {
           await legacyDb.delete('drafts', targetUid);
         } catch { /* ignore */ }
+      }
+      if (claimUnowned) {
+        for (const storeName of LEGACY_WIPE_STORES) {
+          if (legacyDb.objectStoreNames.contains(storeName as never)) {
+            try {
+              await legacyDb.clear(storeName as never);
+            } catch { /* ignore */ }
+          }
+        }
       }
 
       targetDb.close();

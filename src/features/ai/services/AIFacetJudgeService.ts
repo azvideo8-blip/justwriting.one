@@ -4,6 +4,7 @@ import { AIProfileFacetService } from './AIProfileFacetService';
 import { withFacetLock } from '../../../core/services/facetLock';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import type { CallAiOptions } from '../../../core/ai/callAi';
+import { getCurrentUser } from '../../../core/auth';
 
 export interface SummaryRow {
   documentId: string;
@@ -55,17 +56,47 @@ const EXCERPT_CHARS = 2_000;
 export type JudgeStatus = 'ok' | 'corrected' | 'flagged';
 export interface JudgeLogEntry { label: string; status: JudgeStatus; issues: string[] }
 export interface JudgeLog { at: number; entries: JudgeLogEntry[] }
+
+export function judgeLogKey(uid: string | null | undefined): string {
+  return uid ? `ai_judge_log_${uid}` : 'ai_judge_log_guest';
+}
+
 export const JUDGE_LOG_KEY = 'ai_judge_log';
 
 export const AIFacetJudgeService = {
   /** The last review's log (persisted), for the UI panel. */
   getLog(): JudgeLog | null {
     try {
-      const raw = localStorage.getItem(JUDGE_LOG_KEY);
+      const uid = getCurrentUser()?.uid;
+      const key = judgeLogKey(uid);
+      let raw = localStorage.getItem(key);
+      if (!raw && uid) {
+        const legacy = localStorage.getItem(JUDGE_LOG_KEY);
+        if (legacy) {
+          try {
+            localStorage.setItem(key, legacy);
+            localStorage.removeItem(JUDGE_LOG_KEY);
+          } catch { /* ignore */ }
+          raw = legacy;
+        }
+      } else if (raw) {
+        try {
+          localStorage.removeItem(JUDGE_LOG_KEY);
+        } catch { /* ignore */ }
+      }
       return raw ? (JSON.parse(raw) as JudgeLog) : null;
     } catch {
       return null;
     }
+  },
+
+  clearLog(): void {
+    const uid = getCurrentUser()?.uid;
+    const key = judgeLogKey(uid);
+    try {
+      localStorage.removeItem(key);
+      localStorage.removeItem(JUDGE_LOG_KEY);
+    } catch { /* ignore */ }
   },
 
   async review(opts?: CallAiOptions): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {
@@ -159,7 +190,10 @@ export const AIFacetJudgeService = {
     }
 
     try {
-      localStorage.setItem(JUDGE_LOG_KEY, JSON.stringify({ at: Date.now(), entries: log } satisfies JudgeLog));
+      const uid = getCurrentUser()?.uid;
+      const key = judgeLogKey(uid);
+      localStorage.setItem(key, JSON.stringify({ at: Date.now(), entries: log } satisfies JudgeLog));
+      localStorage.removeItem(JUDGE_LOG_KEY);
     } catch { /* quota — non-critical */ }
     return { judged: verdicts.length, corrected, log };
     });

@@ -79,9 +79,21 @@ describe('стирание при выходе не оставляет данн�
     expect(localStorage.getItem(`ai_user_portrait_${UID}`)).toBeNull();
   });
 
-  it('без uid не стирает ничего — иначе выход гостя вынес бы чужое', () => {
-    localStorage.setItem('ai_portrait_sections', 'разделы');
-    clearAccountScopedStorage(null);
-    expect(localStorage.getItem('ai_portrait_sections')).toBe('разделы');
+  it('LS-6: ключи с суффиксом guest / guest_ стираются при выходе «на чужом компьютере»', () => {
+    localStorage.setItem('unlocked_achievements_guest', '["a1"]');
+    localStorage.setItem('achievement_earned_at_guest', '{"a1": 123}');
+    localStorage.setItem('ai_user_portrait_guest', 'гостевой портрет');
+    localStorage.setItem('ai_taxonomy_guest', 'гостевые темы');
+    localStorage.setItem('ai_judge_log_guest', 'гостевой лог судьи');
+    localStorage.setItem('draft-guest_random123', 'гостевой черновик');
+
+    clearAccountScopedStorage(UID);
+
+    expect(localStorage.getItem('unlocked_achievements_guest')).toBeNull();
+    expect(localStorage.getItem('achievement_earned_at_guest')).toBeNull();
+    expect(localStorage.getItem('ai_user_portrait_guest')).toBeNull();
+    expect(localStorage.getItem('ai_taxonomy_guest')).toBeNull();
+    expect(localStorage.getItem('ai_judge_log_guest')).toBeNull();
+    expect(localStorage.getItem('draft-guest_random123')).toBeNull();
   });
 });

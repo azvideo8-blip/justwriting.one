@@ -24,6 +24,7 @@ import { SyncService } from '../core/services/SyncService';
 import { VAULT_UNLOCKED_EVENT } from '../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../shared/constants/storageKeys';
 import { reportError } from '../shared/errors/reportError';
+import { checkAndSyncCursor } from '../core/sync/changeCursor';
 
 import { initAiDomainEvents } from '../features/ai/subscribeDomainEvents';
 
@@ -97,7 +98,7 @@ export function SyncManager() {
             void SyncService.syncPending(user.uid).catch(e =>
               reportError(e, { action: 'sync_pending_on_vault_unlock' }),
             );
-            if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true') {
+            if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
               void SyncService.downloadAllFromCloud(user.uid).catch(e =>
                 reportError(e, { action: 'download_all_on_vault_unlock' }),
               );
@@ -112,7 +113,7 @@ export function SyncManager() {
 
   // Browser online recovery
   useEffect(() => {
-    if (isBrowserOnline && !prevBrowserOnline.current && user && localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true') {
+    if (isBrowserOnline && !prevBrowserOnline.current && user && localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
       SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
       SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
     }
@@ -123,11 +124,25 @@ export function SyncManager() {
   const initialSyncRanRef = useRef<string | null>(null);
   useEffect(() => {
     if (!user || initialSyncRanRef.current === user.uid) return;
-    if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== 'true') return;
+    if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
     initialSyncRanRef.current = user.uid;
     SyncService.downloadAllFromCloud(user.uid).catch(e =>
       reportError(e, { action: 'download_all_on_auth' }),
     );
+  }, [user]);
+
+  // SYNC-CURSOR-2: check change cursor on visibilitychange (tab regains focus)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) return;
+      if (!user?.uid) return;
+      if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== 'true') return;
+      void checkAndSyncCursor(user.uid).catch(e =>
+        reportError(e, { action: 'check_and_sync_cursor_visibility' }),
+      );
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   }, [user]);
 
   return null;

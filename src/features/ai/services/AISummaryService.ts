@@ -185,7 +185,7 @@ export const AISummaryService = {
 
     const uid = getCurrentUser()?.uid;
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
-    if (uid && cloudSyncEnabled()) {
+    if (uid && cloudSyncEnabled(uid)) {
       await saveSummaryToCloud(uid, withUuid).catch(e => {
         reportError(e, { action: 'ai_summary_cloud_save' });
       });

@@ -26,7 +26,7 @@ describe('SyncManager triggers downloadAllFromCloud', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, 'true');
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('u_sync_test'), 'true');
     mockOnline = false;
   });
 

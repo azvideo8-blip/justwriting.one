@@ -109,7 +109,19 @@ export const LocalDocumentService = {
 
   async updateDocument(
     id: string,
-    data: { totalWords?: number; totalDuration?: number; currentVersion?: number; sessionsCount?: number; lastSyncedCloudVersion?: number }
+    data: {
+      totalWords?: number;
+      totalDuration?: number;
+      currentVersion?: number;
+      sessionsCount?: number;
+      lastSyncedCloudVersion?: number;
+      lastSeenCloudUpdatedAt?: string;
+      title?: string;
+      tags?: string[];
+      labelId?: string | undefined;
+      mood?: string | undefined;
+      excludedFromAI?: boolean | undefined;
+    }
   ): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');
@@ -122,6 +134,12 @@ export const LocalDocumentService = {
       ...(data.currentVersion !== undefined && { currentVersion: data.currentVersion }),
       ...(data.sessionsCount !== undefined && { sessionsCount: data.sessionsCount }),
       ...(data.lastSyncedCloudVersion !== undefined && { lastSyncedCloudVersion: data.lastSyncedCloudVersion }),
+      ...(data.lastSeenCloudUpdatedAt !== undefined && { lastSeenCloudUpdatedAt: data.lastSeenCloudUpdatedAt }),
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.tags !== undefined && { tags: data.tags }),
+      ...(data.labelId !== undefined && { labelId: data.labelId }),
+      ...(data.mood !== undefined && { mood: data.mood }),
+      ...(data.excludedFromAI !== undefined && { excludedFromAI: data.excludedFromAI }),
     });
     await tx.done;
   },

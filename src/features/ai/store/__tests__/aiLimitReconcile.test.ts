@@ -15,6 +15,7 @@ vi.mock('../../../../core/ai/callAi', () => ({
 }));
 
 import { useAiLimitStore } from '../useAiLimitStore';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 
 describe('quota reconcile (AUDIT-part3 3)', () => {
   beforeEach(() => {
@@ -24,7 +25,7 @@ describe('quota reconcile (AUDIT-part3 3)', () => {
   });
 
   it('loadLimit marks the local count as NOT reconciled', () => {
-    store['ai_daily_usage'] = JSON.stringify({ count: 5, date: new Date().toISOString().slice(0, 10) });
+    store[STORAGE_KEYS.GUEST_AI_DAILY_USAGE] = JSON.stringify({ count: 5, date: new Date().toISOString().slice(0, 10) });
     useAiLimitStore.getState().loadLimit();
     expect(useAiLimitStore.getState().used).toBe(5);
     expect(useAiLimitStore.getState().reconciled).toBe(false);
@@ -40,7 +41,7 @@ describe('quota reconcile (AUDIT-part3 3)', () => {
   });
 
   it('server count lower than local wins (restore/second-tab drift)', async () => {
-    store['ai_daily_usage'] = JSON.stringify({ count: 25, date: new Date().toISOString().slice(0, 10) });
+    store[STORAGE_KEYS.GUEST_AI_DAILY_USAGE] = JSON.stringify({ count: 25, date: new Date().toISOString().slice(0, 10) });
     useAiLimitStore.getState().loadLimit();
     expect(useAiLimitStore.getState().remaining).toBe(5);
 
@@ -53,7 +54,7 @@ describe('quota reconcile (AUDIT-part3 3)', () => {
   });
 
   it('on network failure falls back to local and stays unreconciled', async () => {
-    store['ai_daily_usage'] = JSON.stringify({ count: 4, date: new Date().toISOString().slice(0, 10) });
+    store[STORAGE_KEYS.GUEST_AI_DAILY_USAGE] = JSON.stringify({ count: 4, date: new Date().toISOString().slice(0, 10) });
     callAiMock.mockRejectedValue(new Error('NETWORK'));
     await useAiLimitStore.getState().loadLimitFromServer();
     const s = useAiLimitStore.getState();

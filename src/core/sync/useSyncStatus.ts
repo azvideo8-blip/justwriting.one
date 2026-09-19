@@ -3,6 +3,7 @@ import { useOnlineStatus } from '../../shared/hooks/useOnlineStatus';
 
 import { SyncService } from '../services/SyncService';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
+import { cloudSyncEnabled } from './cloudSyncEnabled';
 
 export type SyncStatus =
   | 'synced'
@@ -145,7 +146,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   const [hasUnknown, setHasUnknown] = useState(false);
   const [deadCount, setDeadCount] = useState(0);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
-    () => localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) === 'true'
+    () => (userId ? cloudSyncEnabled(userId) : false)
   );
   const [showPending, setShowPending] = useState(false);
   const graceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -153,14 +154,23 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
   // Listen for auto_sync_enabled changes (from other tabs)
   useEffect(() => {
+    if (!userId) {
+      // Defer to avoid synchronous setState in effect body
+      const t = setTimeout(() => setAutoSyncEnabled(false), 0);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setAutoSyncEnabled(cloudSyncEnabled(userId)), 0);
     const handler = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.AUTO_SYNC_ENABLED) {
-        setAutoSyncEnabled(e.newValue !== 'false');
+      if (e.key === STORAGE_KEYS.AUTO_SYNC_ENABLED(userId) || e.key === STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED) {
+        setAutoSyncEnabled(cloudSyncEnabled(userId));
       }
     };
     window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, []);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('storage', handler);
+    };
+  }, [userId]);
 
   // Subscribe to the shared sync status poll (deduped across hook instances)
   useEffect(() => {

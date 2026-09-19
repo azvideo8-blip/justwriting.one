@@ -17,17 +17,19 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
   const { t } = useLanguage();
 
   const handleEnable = () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, "true");
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED, "true");
     if (userId) {
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), "true");
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(userId), "true");
       void SyncService.syncPending(userId);
     }
     onClose();
   };
 
   const handleKeepOff = () => {
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED, "false");
-    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED, "true");
+    if (userId) {
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), "false");
+      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(userId), "true");
+    }
     onClose();
   };
 
@@ -43,33 +45,27 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
           <div className="w-9 h-9 rounded-xl bg-brand-soft/10 flex items-center justify-center text-brand-soft">
             <Cloud size={20} />
           </div>
-          <h2 id="sync-consent-title" className="text-base font-bold text-text-main">
-            {t("sync_consent_title")}
-          </h2>
+          <h3 id="sync-consent-title" className="text-lg font-semibold text-text-primary">
+            {t('sync_consent_title')}
+          </h3>
         </div>
-
-        <p className="text-sm text-text-main/70 leading-relaxed mb-3">
-          {t("sync_consent_body")}
+        <p className="text-sm text-text-muted mb-6 leading-relaxed">
+          {t('sync_consent_body')}
         </p>
-
-        <p className="text-xs text-text-main/50 mb-6">
-          {t("sync_consent_hint")}
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-2.5">
+        <div className="flex flex-col gap-2">
           <Button
-            variant="ghost"
-            onClick={handleKeepOff}
-            className="flex-1 py-2.5 rounded-xl border border-border-subtle text-text-main/70 text-sm font-medium hover:bg-text-main/5 hover:text-text-main transition-colors text-center justify-center"
+            variant="primary"
+            onClick={handleEnable}
+            className="w-full justify-center py-2.5 text-sm font-medium"
           >
-            {t("sync_consent_keep_off")}
+            {t('sync_consent_enable')}
           </Button>
           <Button
             variant="ghost"
-            onClick={handleEnable}
-            className="flex-1 py-2.5 rounded-xl bg-text-main/10 border border-text-main/15 text-text-main text-sm font-medium hover:bg-text-main/15 transition-colors text-center justify-center"
+            onClick={handleKeepOff}
+            className="w-full justify-center py-2.5 text-sm font-medium text-text-muted hover:text-text-primary"
           >
-            {t("sync_consent_enable")}
+            {t('sync_consent_keep_off')}
           </Button>
         </div>
     </ModalShell>
@@ -77,23 +73,41 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
 }
 
 export function useSyncConsentCheck() {
-  const [showConsent, setShowConsent] = useState(false);
   const { user, isAuthenticated, isGuest, authState } = useAuthStatus();
+  const [showConsent, setShowConsent] = useState(false);
 
   useEffect(() => {
-    if (authState === "loading") return;
+    // Only ask when explicitly authenticated and auth is fully ready
+    if (authState !== 'authenticated' || !isAuthenticated || isGuest || !user) {
+      // Defer to avoid synchronous setState in effect body
+      const t = setTimeout(() => setShowConsent(false), 0);
+      return () => clearTimeout(t);
+    }
 
     let cancelled = false;
     const checkLocalDocs = async () => {
-      if (!isAuthenticated || isGuest || !user) {
-        if (!cancelled) setShowConsent(false);
-        return;
+      // LS-2: Adopt legacy unscoped keys for the first signed-in account that reads them
+      const scopedEnabled = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid));
+      const scopedAsked = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid));
+      if (scopedEnabled === null && scopedAsked === null) {
+        const legacyEnabled = localStorage.getItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED);
+        const legacyAsked = localStorage.getItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ASKED);
+        if (legacyEnabled !== null || legacyAsked !== null) {
+          if (legacyEnabled !== null) {
+            localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid), legacyEnabled);
+            localStorage.removeItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED);
+          }
+          if (legacyAsked !== null) {
+            localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid), legacyAsked);
+            localStorage.removeItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ASKED);
+          }
+        }
       }
 
       // If auto_sync_enabled key is already set or auto_sync_asked is already set, don't ask
       if (
-        localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED) !== null ||
-        localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED) !== null
+        localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== null ||
+        localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid)) !== null
       ) {
         if (!cancelled) setShowConsent(false);
         return;
