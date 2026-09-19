@@ -67,6 +67,13 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
       aiEmbeddings: { documentId: 'doc_unowned', embedding: [0.1, 0.2] },
       aiDialogues: { id: 'diag_1', title: 'Secret dialogue of USER_A' },
       aiDialogueEvents: { dialogueId: 'diag_1', event: 'Secret event of USER_A' },
+      aiThemeLedger: { id: 'theme_1', theme: 'Secret theme of USER_A' },
+      aiTimeline: { documentId: 'doc_timeline', date: '2026-07-01', summary: 'Secret timeline of USER_A' },
+      aiMonthlyDigest: { month: '2026-07', narrative: 'Secret digest of USER_A' },
+      aiPersonas: { id: 'persona_1', name: 'Secret persona of USER_A' },
+      aiThreads: { id: 'thread_1', summary: 'Secret thread of USER_A' },
+      lifeStory: { eventDate: '2026-07-01', text: 'Secret life story of USER_A' },
+      aiCommitments: { id: 'comm_1', text: 'Secret commitment of USER_A' },
     };
 
     const targetStores = [
@@ -79,6 +86,13 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
       'aiEmbeddings',
       'aiDialogues',
       'aiDialogueEvents',
+      'aiThemeLedger',
+      'aiTimeline',
+      'aiMonthlyDigest',
+      'aiPersonas',
+      'aiThreads',
+      'lifeStory',
+      'aiCommitments',
     ] as const;
 
     for (const storeName of targetStores) {
@@ -115,7 +129,7 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
     }
   });
 
-  it('CONSOL-3: migrateLegacyIfNeeded wipes aiBeliefRejections along with other unowned stores when multi-owner detected', async () => {
+  it('CONSOL-3 & LEGACY-1: migrateLegacyIfNeeded wipes aiBeliefRejections and all unowned AI stores when multi-owner detected', async () => {
     const legacy = await getLocalDb('justwriting-local');
     await legacy.put('documents', doc('doc_user_a', USER_A) as never);
     await legacy.put('documents', doc('doc_user_b', USER_B) as never);
@@ -124,21 +138,40 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
     await legacy.put('aiBeliefs', { id: 'belief-1', belief: 'Belief text', evidence: [], firstSeenAt: '2026-01-01', clusterSize: 1, createdAt: 1, updatedAt: 1, judgeVerdict: 'PASSED', unitIds: [] } as never);
     await legacy.put('aiChatMemory', { id: 'mem-1', kind: 'fact', text: 'Memory text', sourceDialogueId: 'dlg-1', createdAt: 1, updatedAt: 1 } as never);
     await legacy.put('aiBeliefRejections', { id: 'rej-1', timestamp: 1, clusterSize: 1, firstSeenAt: '2026-01-01', reason: 'Distortion', kind: 'judge_rejected', rewriteAttempted: false, rejectedTextSnippet: 'Rejected quote', unitIds: [] } as never);
+    await legacy.put('aiThemeLedger', { id: 'theme-1', theme: 'Theme text' } as never);
+    await legacy.put('aiTimeline', { documentId: 'doc-1', date: '2026-07-01' } as never);
+    await legacy.put('aiMonthlyDigest', { month: '2026-07', narrative: 'Digest text' } as never);
+    await legacy.put('aiPersonas', { id: 'persona-1', name: 'Persona' } as never);
+    await legacy.put('aiThreads', { id: 'thread-1', summary: 'Thread' } as never);
+    await legacy.put('lifeStory', { eventDate: '2026-07-01', text: 'Life story' } as never);
+    await legacy.put('aiCommitments', { id: 'comm-1', text: 'Commitment' } as never);
 
     await migrateLegacyIfNeeded(`justwriting-local-${USER_A}`, USER_A);
 
+    const unownedStores = [
+      'aiPortrait',
+      'aiBeliefs',
+      'aiBeliefRejections',
+      'aiChatMemory',
+      'aiThemeLedger',
+      'aiTimeline',
+      'aiMonthlyDigest',
+      'aiPersonas',
+      'aiThreads',
+      'lifeStory',
+      'aiCommitments',
+    ] as const;
+
     // 1. Assert unowned stores are empty in legacy DB afterward
-    expect(await legacy.getAll('aiPortrait')).toHaveLength(0);
-    expect(await legacy.getAll('aiBeliefs')).toHaveLength(0);
-    expect(await legacy.getAll('aiChatMemory')).toHaveLength(0);
-    expect(await legacy.getAll('aiBeliefRejections')).toHaveLength(0);
+    for (const store of unownedStores) {
+      expect(await legacy.getAll(store as never), `legacy ${store} should be wiped`).toHaveLength(0);
+    }
 
     // 2. Assert target per-account DB contains none of them
     const targetDb = await getLocalDb(USER_A);
-    expect(await targetDb.getAll('aiPortrait')).toHaveLength(0);
-    expect(await targetDb.getAll('aiBeliefs')).toHaveLength(0);
-    expect(await targetDb.getAll('aiChatMemory')).toHaveLength(0);
-    expect(await targetDb.getAll('aiBeliefRejections')).toHaveLength(0);
+    for (const store of unownedStores) {
+      expect(await targetDb.getAll(store as never), `target ${store} should be empty`).toHaveLength(0);
+    }
 
     // 3. Target DB only has the calling user's own document
     const targetDocs = await targetDb.getAll('documents');

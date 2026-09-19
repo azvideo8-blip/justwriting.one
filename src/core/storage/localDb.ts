@@ -740,7 +740,9 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
 
       // Если в legacyDb лежат заметки нескольких пользователей, миграция
       // НЕ ДОЛЖНА копировать записи без владельца (aiPortrait со старым id
-      // 'singleton', aiBeliefs, aiBeliefRejections, aiChatMemory) в базу первого вошедшего: они
+      // 'singleton', aiBeliefs, aiBeliefRejections, aiChatMemory, aiThemeLedger,
+      // aiTimeline, aiMonthlyDigest, aiPersonas, aiThreads, lifeStory,
+      // aiCommitments) в базу первого вошедшего: они
       // могут принадлежать другому аккаунту. Копируются только документы
       // и версии текущего пользователя. Это закрывает межпользовательскую
       // утечку между аккаунтами на одном устройстве — ту самую изоляцию,
@@ -758,7 +760,24 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
         // Если в общей базе жили несколько аккаунтов, записи без владельца
         // спорные. Стираем их из legacyDb, чтобы ни первый, ни второй вошедший
         // аккаунт не присвоил чужой психологический портрет.
-        for (const storeName of ['aiPortrait', 'aiBeliefs', 'aiBeliefRejections', 'aiChatMemory', 'aiFacets', 'aiSummaries', 'aiEmbeddings', 'aiDialogues', 'aiDialogueEvents']) {
+        for (const storeName of [
+          'aiPortrait',
+          'aiBeliefs',
+          'aiBeliefRejections',
+          'aiChatMemory',
+          'aiFacets',
+          'aiSummaries',
+          'aiEmbeddings',
+          'aiDialogues',
+          'aiDialogueEvents',
+          'aiThemeLedger',
+          'aiTimeline',
+          'aiMonthlyDigest',
+          'aiPersonas',
+          'aiThreads',
+          'lifeStory',
+          'aiCommitments',
+        ]) {
           if (legacyDb.objectStoreNames.contains(storeName as never)) {
             try {
               await legacyDb.clear(storeName as never);
