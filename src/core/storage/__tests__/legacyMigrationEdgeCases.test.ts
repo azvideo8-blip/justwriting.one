@@ -10,7 +10,7 @@ vi.mock('../../auth', () => ({
   getCurrentUserId: () => USER_A,
 }));
 
-const { getLocalDb } = await import('../localDb');
+const { getLocalDb, migrateLegacyIfNeeded } = await import('../localDb');
 
 function doc(id: string, guestId: string) {
   return {
@@ -50,6 +50,17 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
     const storeSeeds: Record<string, unknown> = {
       aiPortrait: { id: 'singleton', portrait: 'Secret psychological diary of USER_A', updatedAt: 1 },
       aiBeliefs: { id: 'belief_1', content: 'Secret belief of USER_A' },
+      aiBeliefRejections: {
+        id: 'rej_1',
+        timestamp: 100,
+        clusterSize: 1,
+        firstSeenAt: '2026-07-01',
+        reason: 'Distortion',
+        kind: 'judge_rejected',
+        rewriteAttempted: false,
+        rejectedTextSnippet: 'Secret rejected quote of USER_A',
+        unitIds: ['u1'],
+      },
       aiChatMemory: { id: 'mem_1', memory: 'Secret memory of USER_A' },
       aiFacets: { id: 'facet_1', name: 'Secret facet of USER_A' },
       aiSummaries: { documentId: 'doc_unowned', summary: 'Secret summary of USER_A' },
@@ -61,6 +72,7 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
     const targetStores = [
       'aiPortrait',
       'aiBeliefs',
+      'aiBeliefRejections',
       'aiChatMemory',
       'aiFacets',
       'aiSummaries',
@@ -101,5 +113,35 @@ describe('Area 2: Migration under non-happy-path conditions', () => {
         expect(records, `Store ${storeName} should be cleared from legacy DB`).toHaveLength(0);
       }
     }
+  });
+
+  it('CONSOL-3: migrateLegacyIfNeeded wipes aiBeliefRejections along with other unowned stores when multi-owner detected', async () => {
+    const legacy = await getLocalDb('justwriting-local');
+    await legacy.put('documents', doc('doc_user_a', USER_A) as never);
+    await legacy.put('documents', doc('doc_user_b', USER_B) as never);
+
+    await legacy.put('aiPortrait', { id: 'singleton', portrait: 'Portrait text', updatedAt: 1 } as never);
+    await legacy.put('aiBeliefs', { id: 'belief-1', belief: 'Belief text', evidence: [], firstSeenAt: '2026-01-01', clusterSize: 1, createdAt: 1, updatedAt: 1, judgeVerdict: 'PASSED', unitIds: [] } as never);
+    await legacy.put('aiChatMemory', { id: 'mem-1', kind: 'fact', text: 'Memory text', sourceDialogueId: 'dlg-1', createdAt: 1, updatedAt: 1 } as never);
+    await legacy.put('aiBeliefRejections', { id: 'rej-1', timestamp: 1, clusterSize: 1, firstSeenAt: '2026-01-01', reason: 'Distortion', kind: 'judge_rejected', rewriteAttempted: false, rejectedTextSnippet: 'Rejected quote', unitIds: [] } as never);
+
+    await migrateLegacyIfNeeded(`justwriting-local-${USER_A}`, USER_A);
+
+    // 1. Assert unowned stores are empty in legacy DB afterward
+    expect(await legacy.getAll('aiPortrait')).toHaveLength(0);
+    expect(await legacy.getAll('aiBeliefs')).toHaveLength(0);
+    expect(await legacy.getAll('aiChatMemory')).toHaveLength(0);
+    expect(await legacy.getAll('aiBeliefRejections')).toHaveLength(0);
+
+    // 2. Assert target per-account DB contains none of them
+    const targetDb = await getLocalDb(USER_A);
+    expect(await targetDb.getAll('aiPortrait')).toHaveLength(0);
+    expect(await targetDb.getAll('aiBeliefs')).toHaveLength(0);
+    expect(await targetDb.getAll('aiChatMemory')).toHaveLength(0);
+    expect(await targetDb.getAll('aiBeliefRejections')).toHaveLength(0);
+
+    // 3. Target DB only has the calling user's own document
+    const targetDocs = await targetDb.getAll('documents');
+    expect(targetDocs.map(d => d.id)).toEqual(['doc_user_a']);
   });
 });
