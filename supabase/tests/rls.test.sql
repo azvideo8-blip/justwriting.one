@@ -1162,10 +1162,16 @@ BEGIN
   VALUES ('cursor-test-doc-backfill', owner_uid, 'Old Doc', past_time, now())
   ON CONFLICT (uuid) DO UPDATE SET created_at = past_time, updated_at = now();
 
-  -- Run backfill update matching 0028_documents_updated_at.sql
+  -- Run backfill update matching 0028_documents_updated_at.sql. By the time
+  -- this test runs, 0028's own trigger already exists and would overwrite
+  -- this UPDATE's SET clause back to now() (that is its whole job) — disable
+  -- it for this one statement to actually simulate the pre-trigger backfill,
+  -- the same way the real migration's backfill ran before the trigger existed.
+  ALTER TABLE public.documents DISABLE TRIGGER tr_documents_updated_at;
   UPDATE public.documents
      SET updated_at = coalesce(created_at, now())
    WHERE uuid = 'cursor-test-doc-backfill';
+  ALTER TABLE public.documents ENABLE TRIGGER tr_documents_updated_at;
 
   SELECT created_at, updated_at INTO rec
     FROM public.documents WHERE uuid = 'cursor-test-doc-backfill';
