@@ -118,6 +118,12 @@ export const AIConsolidationService = {
       const db = await getLocalDb();
       await db.put('aiBeliefRejections', rejection as unknown as Record<string, unknown>);
 
+      // CONSOL-2: sync rejections so second devices don't re-spend budget re-evaluating rejected clusters.
+      // Unlike aiInjectionJournal (which is local shadow diagnostics that must never make network calls on chat path),
+      // aiBeliefRejections records semantic judge verdicts. Local ring-buffer eviction is safe:
+      // flushPending gracefully handles missing IDB records if eviction races with sync, and server uses upsert.
+      LocalStoreSyncService.scheduleStoreSync('aiBeliefRejections', rejection.id);
+
       // Ring-buffer eviction: cap at 200 records
       const all = await db.getAllFromIndex('aiBeliefRejections', 'by-timestamp');
       if (all.length > 200) {
@@ -188,6 +194,8 @@ export const AIConsolidationService = {
       for (const uId of b.unitIds) consolidatedUnitIds.add(uId);
     }
     for (const r of rejectedBeliefs) {
+      // CONSOL-1: only genuine judge rejections permanently exclude units; evaluation failures (timeouts/provider errors) must be retried on subsequent passes.
+      if (r.kind === 'evaluation_failed') continue;
       if (Array.isArray(r.unitIds)) {
         for (const uId of r.unitIds) consolidatedUnitIds.add(uId);
       }

@@ -18,6 +18,7 @@ export const SUPPORTED_LOCAL_STORES = [
   'aiThemeLedger',
   'aiTimeline',
   'aiBeliefs',
+  'aiBeliefRejections',
   'aiCommitments',
   'aiMonthlyDigest',
   'aiThreads',

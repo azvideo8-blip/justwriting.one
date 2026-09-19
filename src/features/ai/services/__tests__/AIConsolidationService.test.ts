@@ -3,6 +3,7 @@ import { AIConsolidationService, MemoryClusterCandidate } from '../AIConsolidati
 import { AIService } from '../AIService';
 import { AIBackgroundBudget } from '../AIBackgroundBudget';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { LocalStoreSyncService } from '../../../../core/services/LocalStoreSyncService';
 
 vi.mock('../AIService', () => ({
   AIService: {
@@ -21,6 +22,12 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
       const db = await getLocalDb();
       if (db.objectStoreNames.contains('aiBeliefs')) {
         await db.clear('aiBeliefs');
+      }
+      if (db.objectStoreNames.contains('aiBeliefRejections')) {
+        await db.clear('aiBeliefRejections');
+      }
+      if (db.objectStoreNames.contains('aiChatMemory')) {
+        await db.clear('aiChatMemory');
       }
     } catch {
       /* ignore IDB reset error */
@@ -210,5 +217,75 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
     expect(db.objectStoreNames.contains('aiInjectionJournal')).toBe(true);
     expect(db.objectStoreNames.contains('aiThemeLedger')).toBe(true);
     expect(db.objectStoreNames.contains('documents')).toBe(true);
+  });
+
+  it('CONSOL-1: Evaluation failed rejections do NOT exclude memory units from future passes', async () => {
+    const db = await getLocalDb();
+    await db.put('aiBeliefRejections', {
+      id: 'rejection-failed-call',
+      timestamp: Date.now(),
+      clusterSize: 1,
+      firstSeenAt: '2026-07-01',
+      reason: 'Provider timeout',
+      kind: 'evaluation_failed',
+      unitIds: ['unit-x'],
+    } as unknown as Record<string, unknown>);
+
+    await db.put('aiChatMemory', {
+      id: 'unit-x',
+      kind: 'fact',
+      text: 'Важный факт, чей вызов судьи упал по таймауту',
+      sourceDialogueId: 'dlg-x',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const gathered = await AIConsolidationService.gatherMemoryUnits();
+    // unit-x must be present in gathered candidates because evaluation_failed is retryable
+    expect(gathered.find(u => u.id === 'unit-x')).toBeDefined();
+  });
+
+  it('CONSOL-1: Judge rejected rejections DO permanently exclude memory units from future passes', async () => {
+    const db = await getLocalDb();
+    await db.put('aiBeliefRejections', {
+      id: 'rejection-genuine',
+      timestamp: Date.now(),
+      clusterSize: 1,
+      firstSeenAt: '2026-07-01',
+      reason: 'Content rejected by judge',
+      kind: 'judge_rejected',
+      unitIds: ['unit-y'],
+    } as unknown as Record<string, unknown>);
+
+    await db.put('aiChatMemory', {
+      id: 'unit-y',
+      kind: 'fact',
+      text: 'Факт, отвергнутый судьей',
+      sourceDialogueId: 'dlg-y',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const gathered = await AIConsolidationService.gatherMemoryUnits();
+    // unit-y must be absent because judge_rejected is a permanent content-based rejection
+    expect(gathered.find(u => u.id === 'unit-y')).toBeUndefined();
+  });
+
+  it('CONSOL-2: saveRejection schedules store sync with LocalStoreSyncService', async () => {
+    const syncSpy = vi.spyOn(LocalStoreSyncService, 'scheduleStoreSync');
+
+    await AIConsolidationService.saveRejection({
+      id: 'rej-sync-test-1',
+      timestamp: Date.now(),
+      clusterSize: 2,
+      firstSeenAt: '2026-07-01',
+      reason: 'Hallucination',
+      kind: 'judge_rejected',
+      rewriteAttempted: false,
+      rejectedTextSnippet: 'Ошибочное утверждение',
+      unitIds: ['unit-rej-1'],
+    });
+
+    expect(syncSpy).toHaveBeenCalledWith('aiBeliefRejections', 'rej-sync-test-1');
   });
 });

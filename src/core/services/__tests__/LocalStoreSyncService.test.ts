@@ -69,8 +69,8 @@ describe('LocalStoreSyncService', () => {
     }
   });
 
-  it('contains exactly the 13 supported AI stores', () => {
-    expect(SUPPORTED_LOCAL_STORES).toHaveLength(13);
+  it('contains exactly the 14 supported AI stores', () => {
+    expect(SUPPORTED_LOCAL_STORES).toHaveLength(14);
     expect(SUPPORTED_LOCAL_STORES).toContain('aiPortrait');
     expect(SUPPORTED_LOCAL_STORES).toContain('aiProfileFacets');
     expect(SUPPORTED_LOCAL_STORES).toContain('aiDialogues');
@@ -80,6 +80,7 @@ describe('LocalStoreSyncService', () => {
     expect(SUPPORTED_LOCAL_STORES).toContain('aiThemeLedger');
     expect(SUPPORTED_LOCAL_STORES).toContain('aiTimeline');
     expect(SUPPORTED_LOCAL_STORES).toContain('aiBeliefs');
+    expect(SUPPORTED_LOCAL_STORES).toContain('aiBeliefRejections');
     expect(SUPPORTED_LOCAL_STORES).toContain('aiCommitments');
     expect(SUPPORTED_LOCAL_STORES).toContain('aiMonthlyDigest');
     expect(SUPPORTED_LOCAL_STORES).toContain('aiThreads');
