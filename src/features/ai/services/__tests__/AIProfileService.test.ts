@@ -241,5 +241,63 @@ describe('AIProfileService', () => {
       }));
       expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe(expectedMarkdown);
     });
+
+    // Backlog "de-personalised portrait": all five section prompts must carry
+    // the abstraction instruction, not just some of them — a prompt edited in
+    // four of five places and missed in the fifth is exactly the class of bug
+    // this repo keeps finding in review.
+    it('sends the character-not-events abstraction rule in every one of the five section prompts', async () => {
+      mockGetAll
+        .mockResolvedValueOnce([])  // aiProfileFacets
+        .mockResolvedValueOnce([])  // aiChatMemory
+        .mockResolvedValueOnce([])  // documents
+        .mockResolvedValueOnce(dummySummaries); // aiSummaries
+      mockGetAllFromIndex.mockResolvedValue([]);
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'x' });
+
+      await AIProfileService.generate();
+
+      const calls = vi.mocked(AIService.chat).mock.calls;
+      expect(calls).toHaveLength(5);
+      for (const [call] of calls) {
+        expect(call.customSystemPrompt).toContain('Не называй имена людей');
+        expect(call.customSystemPrompt).toContain('устойчивые черты характера');
+      }
+    });
+
+    it('changing a section prompt invalidates its cache even when the underlying input is unchanged', async () => {
+      mockGetAll
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce(dummySummaries);
+      mockGetAllFromIndex.mockResolvedValue([]);
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'fresh text' });
+
+      // A cache entry keyed on the OLD prompt formula (input-only hash) for
+      // the exact input this run will produce.
+      const oldStyleInput = dummySummaries.map((s, i) => {
+        const parts = [`Запись ${i + 1}:`];
+        if (s.tone) parts.push(`  Тон: ${s.tone}`);
+        if (s.themes?.length) parts.push(`  Темы: ${s.themes.join(', ')}`);
+        if (s.insights?.length) s.insights.forEach(ins => parts.push(`  • ${ins}`));
+        return parts.join('\n');
+      }).join('\n\n');
+      const crypto = globalThis.crypto;
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(oldStyleInput));
+      const oldHash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(
+        'ai_portrait_sections_test-user-123',
+        JSON.stringify({ growth: { hash: oldHash, content: 'STALE pre-abstraction-rule content' } })
+      );
+
+      await AIProfileService.generate();
+
+      // Falsify: if the hash still ignored the prompt, this call would be
+      // skipped (cache hit) and the section would stay the stale text.
+      expect(AIService.chat).toHaveBeenCalled();
+      const growthMarkdown = localStorage.getItem('ai_user_portrait_test-user-123');
+      expect(growthMarkdown).not.toContain('STALE pre-abstraction-rule content');
+    });
   });
 });

@@ -228,35 +228,44 @@ export const AIProfileService = {
         if (raw) cache = JSON.parse(raw);
       } catch { /* ignore */ }
 
+      // Backlog "de-personalised portrait" (docs/backlog-ideas-2026-09-11.md),
+      // a first pass at shape 2 — not a second stored version, just a stricter
+      // prompt on the one that leaves the device with every chat message.
+      // `baseInput` below carries names and situations by design (the facet
+      // summariser is instructed to keep them literal, for accurate retrieval
+      // — see summarizeFacet.logic.ts's SYSTEM_PROMPT); this instruction is
+      // what turns that into character traits before it ever reaches Markdown.
+      const abstractionRule = ' Описывай устойчивые черты характера, склонности и способы думать и чувствовать — а не конкретные события и обстоятельства. Не называй имена людей, места, даты, работодателей, диагнозы и прочую конкретику из заметок; встретив такую деталь во входных данных, обобщай её до свойства характера, которое за ней стоит (например, вместо «тяжело переживает развод с Иреной в 2019 году» — «тяжело переживает завершение значимых отношений»).';
+
       const sections = [
         {
           key: 'themes' as const,
           title: 'Темы и интересы',
-          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его главные темы и интересы. НЕ рассуждай вслух — сразу результат в Markdown.',
+          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его главные темы и интересы — как области жизни и характер вовлечённости в них (любопытство, чувство долга, избегание), а не конкретные проекты или обстоятельства.${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
           input: baseInput + styleBlock,
         },
         {
           key: 'emotional_patterns' as const,
           title: 'Эмоциональные паттерны',
-          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его эмоциональные тенденции и паттерны мышления. НЕ рассуждай вслух — сразу результат в Markdown.',
+          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его эмоциональные тенденции и паттерны мышления.${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
           input: baseInput + styleBlock,
         },
         {
           key: 'strengths' as const,
           title: 'Сильные стороны',
-          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его психологические сильные стороны. НЕ рассуждай вслух — сразу результат в Markdown.',
+          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его психологические сильные стороны.${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
           input: baseInput,
         },
         {
           key: 'growth' as const,
           title: 'Зоны роста',
-          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его зоны роста и направления развития. НЕ рассуждай вслух — сразу результат в Markdown.',
+          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его зоны роста и направления развития.${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
           input: baseInput,
         },
         {
           key: 'communication_prefs' as const,
           title: 'Стиль общения',
-          prompt: 'Ты — профессиональный психоаналитик. На основе тем профиля пользователя, метрик стиля письма и предпочтений в общении с ИИ составь описание его стиля общения и предпочтений в коммуникации. НЕ рассуждай вслух — сразу результат в Markdown.',
+          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя, метрик стиля письма и предпочтений в общении с ИИ составь описание его стиля общения и предпочтений в коммуникации.${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
           input: baseInput + styleBlock + (preferences ? `\n\nПредпочтения: ${preferences}` : ''),
         },
       ];
@@ -265,7 +274,11 @@ export const AIProfileService = {
       const generated = new Set<string>();
 
       for (const sec of sections) {
-        const hash = await sha256Hex(sec.input);
+        // Hash the prompt along with the input: the cache otherwise keys only
+        // on `input`, so editing a prompt (like the abstraction rule above)
+        // would silently keep serving sections generated under the old one
+        // to every account whose facets/summaries have not changed since.
+        const hash = await sha256Hex(sec.prompt + sec.input);
         const cached = cache[sec.key];
 
         if (cached && cached.hash === hash && cached.content) {
