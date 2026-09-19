@@ -39,15 +39,29 @@ export function getCurrentUser(): AppUser | null {
 }
 
 export function onAuthStateChange(cb: (u: AppUser | null) => void): () => void {
+  // AUTH-1: dedupe emissions by uid. Supabase emits multiple events per sign-in
+  // (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED). Without this guard, each
+  // creates a new AppUser reference, triggering downstream re-subscriptions.
+  let lastUid: string | null | undefined = undefined;
   const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
-    cb(mapUser(session?.user ?? null));
+    const user = mapUser(session?.user ?? null);
+    const uid = user?.uid ?? null;
+    if (uid === lastUid) return;
+    lastUid = uid;
+    cb(user);
   });
   return () => subscription.unsubscribe();
 }
 
 export function onTokenChange(cb: (u: AppUser | null) => void): () => void {
+  // AUTH-1: same last-emitted-uid guard as onAuthStateChange.
+  let lastUid: string | null | undefined = undefined;
   const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
-    cb(mapUser(session?.user ?? null));
+    const user = mapUser(session?.user ?? null);
+    const uid = user?.uid ?? null;
+    if (uid === lastUid) return;
+    lastUid = uid;
+    cb(user);
   });
   return () => subscription.unsubscribe();
 }
