@@ -74,4 +74,30 @@ describe('chatWithAI: callType не обходит лимиты', () => {
     expect(ctx.refundBulkLimit).toHaveBeenCalledWith('user_1', expect.any(String));
     expect(ctx.refundDailyLimit).not.toHaveBeenCalled();
   });
+
+  it('PROMPT-1: system_task разрешает custom persona, до 12 сообщений и использует короткий системный промпт', async () => {
+    const ctx = ctxSpy();
+    const msgs = Array.from({ length: 10 }, (_, i) => ({ role: 'user' as const, content: `сообщение ${i}` }));
+    await chatWithAILogic(ctx, 'user_1', {
+      personaId: 'custom',
+      callType: 'system_task',
+      customSystemPrompt: 'Сделай краткое резюме.',
+      messages: msgs,
+    });
+
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({
+      system: 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.\n\nСделай краткое резюме.',
+      maxTokens: 2048,
+    }));
+  });
+
+  it('PROMPT-1: обычный internal call (auto_name) получает однострочный системный промпт без гайдов', async () => {
+    const ctx = ctxSpy();
+    await chatWithAILogic(ctx, 'user_1', payload({ callType: 'auto_name' }));
+
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({
+      system: 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.',
+      maxTokens: 256,
+    }));
+  });
 });

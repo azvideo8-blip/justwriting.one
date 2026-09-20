@@ -1,6 +1,7 @@
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { topKMultiWithChunkIndex } from '../vectorSearch';
 import { reportError } from '../../../../shared/errors/reportError';
 import { reportAIDegradation } from '../aiDegradationReporter';
@@ -199,15 +200,14 @@ export async function searchNotes(
   for (const id of filteredTopIds) {
     let card = '(саммари недоступно)';
     try {
+      const doc = await cardsDb.get('documents', id);
+      const title = doc?.title || 'Без названия';
       const summary = await cardsDb.get('aiSummaries', id);
-      if (summary) {
-        const parts = [];
-        if (summary.summary) parts.push(summary.summary);
-        if (summary.tone) parts.push(`Тональность: ${summary.tone}`);
-        if (summary.themes?.length) parts.push(`Темы: ${summary.themes.join(', ')}`);
-        if (summary.insights?.length) parts.push(`Инсайты: ${summary.insights.join('; ')}`);
-        if (summary.extractedFacts?.length) parts.push(`Факты: ${summary.extractedFacts.join('; ')}`);
-        card = parts.join('\n');
+      if (summary?.summary && summary.summary.trim().length >= 80) {
+        card = `${title}\n${summary.summary.trim()}`;
+      } else {
+        const content = await LocalVersionService.getLatestContent(id);
+        card = `${title}\n${(content || '').slice(0, 400)}`;
       }
     } catch { /* keep placeholder */ }
     cards.push({ documentId: id, card });

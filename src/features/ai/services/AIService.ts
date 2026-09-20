@@ -130,7 +130,7 @@ export const AIService = {
     memoryContext?: string | null | undefined;
     responseLength?: 'short' | 'standard' | 'detailed' | undefined;
     reasoning?: boolean | undefined;
-    callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
+    callType?: 'auto_name' | 'follow_up' | 'query_expand' | 'system_task' | undefined;
   }, opts?: CallAiOptions): Promise<AIResult> {
 
     try {

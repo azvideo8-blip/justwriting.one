@@ -233,43 +233,32 @@ export async function searchNotesMulti(
   for (const id of filteredTopIds) {
     let card = '(саммари недоступно)';
     try {
+      const doc = await cardsDb.get('documents', id);
+      const title = doc?.title || 'Без названия';
       const summary = await cardsDb.get('aiSummaries', id);
-      const parts = [];
-      if (summary) {
-        if (summary.summary) parts.push(summary.summary);
-        if (summary.tone) parts.push(`Тональность: ${summary.tone}`);
-        if (summary.themes?.length) parts.push(`Темы: ${summary.themes.join(', ')}`);
-        if (summary.insights?.length) parts.push(`Инсайты: ${summary.insights.join('; ')}`);
-        if (summary.extractedFacts?.length) parts.push(`Факты: ${summary.extractedFacts.join('; ')}`);
-      }
-
-      const chunkIdx = chunkIndexMap.get(id);
-      let excerpt = '';
-      if (chunkIdx !== undefined && chunkIdx >= 0) {
-        try {
-          const emb = await AIEmbeddingService.get(id);
-          const matchedText = emb?.chunkTexts?.[chunkIdx];
-          if (matchedText) {
-            excerpt = matchedText.slice(0, 350);
-          }
-        } catch { /* ignore */ }
-      }
-
-      if (!excerpt) {
-        try {
-          const content = await LocalVersionService.getLatestContent(id);
-          if (content) {
-            excerpt = content.slice(0, 350);
-          }
-        } catch { /* ignore */ }
-      }
-
-      if (excerpt) {
-        parts.push(`Фрагмент: "${excerpt}"`);
-      }
-
-      if (parts.length > 0) {
-        card = parts.join('\n');
+      if (summary?.summary && summary.summary.trim().length >= 80) {
+        card = `${title}\n${summary.summary.trim()}`;
+      } else {
+        let excerpt = '';
+        const chunkIdx = chunkIndexMap.get(id);
+        if (chunkIdx !== undefined && chunkIdx >= 0) {
+          try {
+            const emb = await AIEmbeddingService.get(id);
+            const matchedText = emb?.chunkTexts?.[chunkIdx];
+            if (matchedText) {
+              excerpt = matchedText.slice(0, 400);
+            }
+          } catch { /* ignore */ }
+        }
+        if (!excerpt) {
+          try {
+            const content = await LocalVersionService.getLatestContent(id);
+            if (content) {
+              excerpt = content.slice(0, 400);
+            }
+          } catch { /* ignore */ }
+        }
+        card = `${title}\n${excerpt}`;
       }
     } catch { /* keep placeholder */ }
     cards.push({ documentId: id, card });

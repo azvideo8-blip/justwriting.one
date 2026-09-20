@@ -33,7 +33,7 @@ describe("portrait-in-dialogue preference wiring", () => {
   });
 
   it("sends the portrait when the preference is on (the default)", async () => {
-    const { result } = renderHook(() => useAIChatContext("editor"));
+    const { result } = renderHook(() => useAIChatContext("coach"));
 
     const ctx = await result.current.buildContext({
       text: "Привет",
@@ -52,7 +52,7 @@ describe("portrait-in-dialogue preference wiring", () => {
   it("keeps the portrait out of the reply and the memory assembler when the preference is off", async () => {
     setSendPortraitInDialogue(TEST_UID, false);
 
-    const { result } = renderHook(() => useAIChatContext("editor"));
+    const { result } = renderHook(() => useAIChatContext("coach"));
 
     const ctx = await result.current.buildContext({
       text: "Привет",
@@ -66,5 +66,19 @@ describe("portrait-in-dialogue preference wiring", () => {
     expect(AIMemoryAssembler.assembleMemoryContext).toHaveBeenCalledWith(
       expect.objectContaining({ userPortrait: null })
     );
+  });
+
+  it("PROMPT-3: never sends portrait to editor persona even when preference is on", async () => {
+    const { result } = renderHook(() => useAIChatContext("editor"));
+
+    const ctx = await result.current.buildContext({
+      text: "Привет",
+      attached: null,
+      mood: undefined,
+      messageHistory: [],
+      isFirstTurn: true,
+    });
+
+    expect(ctx.userPortrait).toBeNull();
   });
 });

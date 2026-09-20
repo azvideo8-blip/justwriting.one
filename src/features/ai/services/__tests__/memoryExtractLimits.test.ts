@@ -63,4 +63,47 @@ describe('извлечение памяти укладывается в конт
     expect(Math.max(...sent.messages.map(m => m.content.length)))
       .toBeLessThanOrEqual(MEMORY_EXTRACT_MAX_MESSAGE_CHARS);
   });
+
+  it('ответы ассистента обрезаются до 600 символов', async () => {
+    const hugeAssistant = 'а'.repeat(2000);
+    await AIChatMemoryService.extractFromDialogue('d1', [
+      msg('user', 'первая реплика человека достаточной длины'),
+      msg('assistant', hugeAssistant),
+      msg('user', 'вторая реплика человека достаточной длины'),
+    ]);
+
+    const sent = extractChatMemory.mock.calls[0]![0] as { messages: { role: string; content: string }[] };
+    const assistantMsg = sent.messages.find(m => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg!.content.length).toBe(600);
+  });
+
+  it('использует lastExtractedIdx с нахлёстом в 2 сообщения и обновляет курсор', async () => {
+    const { getLocalDb } = await import('../../../../core/storage/localDb');
+    const db = await getLocalDb();
+    await db.put('aiDialogues', {
+      id: 'd-cursor',
+      title: 'Test',
+      personaId: 'coach',
+      personaName: 'Coach',
+      personaEmoji: '🎯',
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lastExtractedIdx: 6,
+    });
+
+    const messages = Array.from({ length: 12 }, (_, i) =>
+      msg(i % 2 ? 'assistant' : 'user', `реплика ${i} достаточной длины`));
+
+    await AIChatMemoryService.extractFromDialogue('d-cursor', messages);
+
+    const sent = extractChatMemory.mock.calls[0]![0] as { messages: { content: string }[] };
+    // starting from index 4 (6 - 2 overlap) to 11 = 8 messages
+    expect(sent.messages.length).toBe(8);
+    expect(sent.messages[0]!.content).toContain('реплика 4');
+
+    const updated = await db.get('aiDialogues', 'd-cursor');
+    expect(updated?.lastExtractedIdx).toBe(12);
+  });
 });

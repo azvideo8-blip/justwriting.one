@@ -93,7 +93,7 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
 
   try {
     const evidenceText = evidence
-      .map((e, i) => `Фрагмент ${i + 1} [#${sanitizeAiInput(e.id)} · ${sanitizeAiInput(e.date)}]:\n${sanitizeAiInput(e.snippet ?? '')}`)
+      .map((e, i) => `Фрагмент ${i + 1} (${sanitizeAiInput(e.date)}):\n${sanitizeAiInput(e.snippet ?? '')}`)
       .join('\n\n');
 
     const cleanBelief = sanitizeAiInput(belief);

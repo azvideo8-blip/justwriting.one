@@ -93,4 +93,21 @@ describe('L-5: rerankNotesLogic malformed response handling', () => {
       expect.anything(),
     );
   });
+
+  it('returns ordered documentIds when model returns 1-based {"idx":[2,1]}', async () => {
+    const { ctx, refundBulkLimit, recordUsage } = mockAiContext();
+
+    vi.mocked(generate).mockResolvedValueOnce({
+      text: '{"idx":[2,1]}',
+      tokensIn: 70,
+      tokensOut: 12,
+      model: 'deepseek/deepseek-v4-flash',
+    });
+
+    const result = await rerankNotesLogic(ctx, 'user_1', validPayload);
+
+    expect(result).toEqual({ documentIds: ['doc_2', 'doc_1'] });
+    expect(refundBulkLimit).not.toHaveBeenCalled();
+    expect(recordUsage).toHaveBeenCalled();
+  });
 });

@@ -412,7 +412,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   }
   const chargedDay = callRes.day;
 
-  const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning);
+  const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning, parsed.data.callType);
   // AUD-19 & FU-4: в резерв закладываем и вход — длинная заметка стоит токенов так же,
   // как ответ; иначе потолок защищал меньше, чем обещал.
   // Составная квота: allowance = maxOutputTokens + inputEstimate.
@@ -473,10 +473,13 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
 
-  const systemPrompt = buildChatSystemPrompt({
-    ...basePromptParams,
-    reasoning: false,
-  });
+  const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
+  const systemPrompt = isInternalCall
+    ? (customSystemPrompt ? `${INTERNAL_SYSTEM_PROMPT}\n\n${customSystemPrompt}` : INTERNAL_SYSTEM_PROMPT)
+    : buildChatSystemPrompt({
+        ...basePromptParams,
+        reasoning: false,
+      });
 
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, inputEstimate, 'chat');
   const controller = new AbortController();

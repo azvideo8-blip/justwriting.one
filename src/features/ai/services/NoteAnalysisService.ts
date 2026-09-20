@@ -100,16 +100,9 @@ export const NoteAnalysisService = {
     if (!content || content.trim().length === 0) return { ok: false, error: 'NO_CONTENT' };
     if (content.length < MIN_CONTENT_CHARS) return { ok: false, error: 'TOO_SHORT' };
 
-    // Три последние сводки дают модели минимальный контекст «что было рядом» —
-    // без него echo и темы получаются оторванными от остальных заметок.
-    const summaries = await db.getAll('aiSummaries');
-    summaries.sort((a, b) => b.processedAt - a.processedAt);
-    const recentContext = summaries.slice(0, 3).map(s => s.summary || s.tone).filter(Boolean).join('\n');
-
     const res = await AIService.summarize({
       content: content.slice(0, MAX_CONTENT_CHARS),
       ...(doc?.mood !== undefined ? { mood: doc.mood } : {}),
-      ...(recentContext ? { recentContext } : {}),
       ...(doc?.lastSessionAt ? { noteDate: new Date(doc.lastSessionAt).toISOString().slice(0, 10) } : {}),
     });
 

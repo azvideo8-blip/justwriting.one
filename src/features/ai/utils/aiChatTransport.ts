@@ -96,11 +96,13 @@ export function shouldRunFullSearch(text: string, hasAttachment: boolean): boole
 // messages are collapsed to their marker (the full note then travels via
 // documentContent), with a hard slice as the final safety net.
 export const API_MSG_CAP = 9_500;
-export function toApiContent(content: string): string {
-  if (content.length <= API_MSG_CAP) return content;
+export const API_ASSISTANT_OLD_CAP = 1_500;
+
+export function toApiContent(content: string, cap = API_MSG_CAP): string {
+  if (content.length <= cap) return content;
   const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
   if (noteMatch) return noteMatch[0];
-  return content.slice(0, API_MSG_CAP);
+  return content.slice(0, cap);
 }
 
 export function pruneMessages(messages: AIMessage[]): AIMessage[] {
@@ -111,6 +113,28 @@ export function pruneMessages(messages: AIMessage[]): AIMessage[] {
   const rest = chatOnly.slice(-CONTEXT_WINDOW);
   if (first === rest[0]) return rest;
   return [first, ...rest];
+}
+
+/**
+ * PROMPT-2: Cap assistant messages older than the last two to ~1500 chars (head).
+ * User messages remain intact (up to API_MSG_CAP).
+ */
+export function prepareApiMessages(messages: AIMessage[]): AIMessage[] {
+  const pruned = pruneMessages(messages.filter(m => m.type !== 'system'));
+  const assistantIndices: number[] = [];
+  for (let i = 0; i < pruned.length; i++) {
+    if (pruned[i]?.role === 'assistant') {
+      assistantIndices.push(i);
+    }
+  }
+  const lastTwoAssistant = new Set(assistantIndices.slice(-2));
+
+  return pruned.map((m, idx) => {
+    if (m.role === 'assistant' && !lastTwoAssistant.has(idx)) {
+      return { ...m, content: toApiContent(m.content, API_ASSISTANT_OLD_CAP) };
+    }
+    return { ...m, content: toApiContent(m.content, API_MSG_CAP) };
+  });
 }
 
 // AUDIT-part3 2: единая точка разбора кода ошибки из тела ответа. Сервер в

@@ -116,6 +116,7 @@ export interface AIDialogue {
   /** AX-11: Separate reasoning flag (decoupled from length). */
   reasoning?: boolean;
   closingSummary?: string;
+  lastExtractedIdx?: number;
 }
 
 export interface AIDialogueEvent {

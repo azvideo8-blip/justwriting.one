@@ -44,7 +44,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // DUP-1: Unified reservation lifetime
   const callRes = await acquireChatReservation(ctx, uid, isInternalCall, reasoning === true);
 
-  const maxTokens = getMaxTokens(isInternalCall, reasoning);
+  const maxTokens = getMaxTokens(isInternalCall, reasoning, parsed.data.callType);
   // AUD-19 & FU-4: вход тоже резервируется — см. api/chat.ts.
   // Составная квота: allowance = maxTokens + inputEstimate.
   const inputEstimate = estimateInputTokens([
@@ -59,7 +59,10 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   callRes.attachGlobalReservation(reservation, inputEstimate);
 
   // DUP-2: Single shared prompt assembly
-  const systemInstruction = buildChatSystemPrompt(assembleChatPromptParams(parsed.data));
+  const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
+  const systemInstruction = isInternalCall
+    ? (customSystemPrompt ? `${INTERNAL_SYSTEM_PROMPT}\n\n${customSystemPrompt}` : INTERNAL_SYSTEM_PROMPT)
+    : buildChatSystemPrompt(assembleChatPromptParams(parsed.data));
 
   const providerMessages = messages.map(m => ({
     role: m.role,

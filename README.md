@@ -73,7 +73,7 @@ With consent given, text reaches the provider when:
 | Analyse a note | the note's full text | a button, per note or per archive |
 | Chat | your message, the persona, the portrait, retrieved note fragments | you, per message |
 | Semantic search | your query, then note cards for reranking | a search inside chat |
-| Compute vectors | the note's text, in chunks | analysing a note; the one-time pass when indexing consent is granted |
+| Compute vectors | the note's text, in chunks (computed locally via `AI_EMBED_BASE_URL`, does not leave the VPS) | analysing a note; the one-time pass when indexing consent is granted |
 
 Text reaches the provider on an explicit action: the timer that used to
 summarise notes by itself was removed in August 2026. Writing and saving a note
@@ -87,7 +87,7 @@ a press. It was removed in September 2026. Today the only callers of
 
 Models are configurable by environment variable; the defaults are
 `deepseek/deepseek-v4-flash` for chat and `qwen/qwen3-embedding-8b` at 4096
-dimensions for vectors.
+dimensions for vectors (computed locally via `AI_EMBED_BASE_URL`).
 
 **The portrait is injected into every chat turn.** It is a psychological
 summary built from your analyses, and it is part of the system prompt on every

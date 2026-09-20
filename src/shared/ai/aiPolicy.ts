@@ -6,7 +6,7 @@
 // All AI endpoints MUST use these helpers instead of inline checks.
 // This prevents the C1-style bypass where a client flag silently disabled limits.
 
-export type InternalCallType = 'auto_name' | 'follow_up' | 'query_expand';
+export type InternalCallType = 'auto_name' | 'follow_up' | 'query_expand' | 'system_task';
 
 export interface InternalCallRestrictions {
   maxTokens: number;
@@ -45,10 +45,12 @@ export function validateInternalCallRestrictions(params: {
   const isInternal = isInternalCall(params.callType);
   if (!isInternal) return { isInternal: false };
 
+  const isSystemTask = params.callType === 'system_task';
+  const maxMessages = isSystemTask ? 12 : INTERNAL_CALL_RESTRICTIONS.maxMessages;
   const r = INTERNAL_CALL_RESTRICTIONS;
   const err = (msg: string) => ({ code: 'invalid-argument', message: msg });
 
-  if (r.noCustomPersona && params.personaId === 'custom') {
+  if (!isSystemTask && r.noCustomPersona && params.personaId === 'custom') {
     throw err('Custom persona not allowed for internal calls.');
   }
   if (r.noReasoning && params.reasoning === true) {
@@ -60,16 +62,23 @@ export function validateInternalCallRestrictions(params: {
   if (r.noUserPortrait && params.userPortrait) {
     throw err('User portrait not allowed for internal calls.');
   }
-  if (params.messages.length > r.maxMessages) {
-    throw err(`Too many messages for internal call (max ${r.maxMessages}).`);
+  if (params.messages.length > maxMessages) {
+    throw err(`Too many messages for internal call (max ${maxMessages}).`);
   }
 
   return { isInternal: true };
 }
 
 // The max token budget for a given call.
-export function getMaxTokens(isInternal: boolean, reasoning: boolean | null | undefined): number {
-  if (isInternal) return INTERNAL_CALL_RESTRICTIONS.maxTokens;
+export function getMaxTokens(
+  isInternal: boolean,
+  reasoning: boolean | null | undefined,
+  callType?: InternalCallType | null | undefined,
+): number {
+  if (isInternal) {
+    if (callType === 'system_task') return 2048;
+    return INTERNAL_CALL_RESTRICTIONS.maxTokens;
+  }
   return reasoning ? 16384 : 8192;
 }
 

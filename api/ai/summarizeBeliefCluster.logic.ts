@@ -64,7 +64,7 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
 
   try {
     const evidenceText = evidence
-      .map((e, i) => `Фрагмент ${i + 1} [#${sanitizeAiInput(e.id)} · ${sanitizeAiInput(e.date)}]:\n${sanitizeAiInput(e.snippet ?? '')}`)
+      .map((e, i) => `Фрагмент ${i + 1} (${sanitizeAiInput(e.date)}):\n${sanitizeAiInput(e.snippet ?? '')}`)
       .join('\n\n');
 
     const cleanFirstSeen = sanitizeAiInput(firstSeenAt);

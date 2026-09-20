@@ -61,45 +61,69 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
   let tokensIn = 0, tokensOut = 0, usedModel = TAXO_MODEL;
   try {
     let domains: { label: string; seed: string }[] = [];
-    let extraUserInstruction = '';
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const result = await generate({
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: `Дайджест дневника:\n\n${digest}${extraUserInstruction}` }],
-        json: true,
-        maxTokens: 4096,
-        abortMs: 110_000,
-        model: TAXO_MODEL,
-      });
-      tokensIn += result.tokensIn;
-      tokensOut += result.tokensOut;
-      usedModel = result.model;
-      callRes.markProduced(result.text.length);
-      // Токены уже потрачены: возвращать резервацию нельзя, даже если дальше упадём.
-      settled = true;
+    const result = await generate({
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: `Дайджест дневника:\n\n${digest}` }],
+      json: true,
+      maxTokens: 4096,
+      abortMs: 110_000,
+      model: TAXO_MODEL,
+    });
+    tokensIn += result.tokensIn;
+    tokensOut += result.tokensOut;
+    usedModel = result.model;
+    callRes.markProduced(result.text.length);
+    // Токены уже потрачены: возвращать резервацию нельзя, даже если дальше упадём.
+    settled = true;
 
-      let txt = result.text.trim();
-      if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-      let obj: unknown;
-      try { obj = JSON.parse(txt); } catch { obj = JSON.parse(repairTruncatedJson(txt)); }
+    let txt = result.text.trim();
+    if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+    let obj: unknown;
+    try { obj = JSON.parse(txt); } catch { obj = JSON.parse(repairTruncatedJson(txt)); }
 
-      const arr = z.object({ domains: z.array(domainSchema) }).safeParse(obj);
-      if (arr.success && arr.data.domains.length > 0) {
-        const candidateDomains = arr.data.domains.slice(0, 10).map(d => ({
-          label: sanitizeAiResponse(d.label),
-          seed: sanitizeAiResponse(d.seed),
-        })).filter(d => d.label.length > 0 && d.seed.length > 0);
+    const arr = z.object({ domains: z.array(domainSchema) }).safeParse(obj);
+    if (arr.success && arr.data.domains.length > 0) {
+      const candidateDomains = arr.data.domains.slice(0, 10).map(d => ({
+        label: sanitizeAiResponse(d.label),
+        seed: sanitizeAiResponse(d.seed),
+      })).filter(d => d.label.length > 0 && d.seed.length > 0);
 
-        const hasEnglishOnlyLabel = candidateDomains.some(d => !/[а-яё]/i.test(d.label));
-        if (!hasEnglishOnlyLabel) {
-          domains = candidateDomains;
-          break;
-        } else if (attempt === 1) {
-          console.warn('[AI taxonomy] English labels detected on attempt 1, re-requesting...');
-          extraUserInstruction = '\n\nВАЖНО: Пожалуйста, переведи ВСЕ названия сфер (label) на русский язык. Названия сфер должны состоять только из русских слов.';
-          continue;
-        } else {
+      const hasEnglishOnlyLabel = candidateDomains.some(d => !/[а-яё]/i.test(d.label));
+      if (!hasEnglishOnlyLabel) {
+        domains = candidateDomains;
+      } else {
+        console.warn('[AI taxonomy] English labels detected, requesting label translation only...');
+        try {
+          const transResult = await generate({
+            system: 'Ты — переводчик. Переведи список названий жизненных сфер на русский язык. Верни ТОЛЬКО валидный JSON вида {"labels":["Сфера 1","Сфера 2"]}.',
+            messages: [{
+              role: 'user',
+              content: `Переведи названия сфер на русский:\n${JSON.stringify(candidateDomains.map(d => d.label))}`,
+            }],
+            json: true,
+            maxTokens: 512,
+            abortMs: 30_000,
+            model: TAXO_MODEL,
+          });
+          tokensIn += transResult.tokensIn;
+          tokensOut += transResult.tokensOut;
+          callRes.markProduced(transResult.text.length);
+
+          let transTxt = transResult.text.trim();
+          if (transTxt.startsWith('```')) transTxt = transTxt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+          const transObj = JSON.parse(transTxt) as { labels?: string[] };
+          if (Array.isArray(transObj.labels) && transObj.labels.length === candidateDomains.length) {
+            domains = candidateDomains.map((d, i) => ({
+              label: sanitizeAiResponse(transObj.labels![i] || d.label),
+              seed: d.seed,
+            }));
+          }
+        } catch (transErr) {
+          console.warn('[AI taxonomy] label translation failed, falling back:', transErr);
+        }
+
+        if (domains.length === 0) {
           const russianOnly = candidateDomains.filter(d => /[а-яё]/i.test(d.label));
           domains = russianOnly.length > 0 ? russianOnly : candidateDomains;
         }

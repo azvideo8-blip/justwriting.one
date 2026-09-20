@@ -228,6 +228,7 @@ export const AIDialogueService = {
       const { AIService } = await import('./AIService');
       const response = await AIService.chat({
         personaId: 'custom',
+        callType: 'system_task',
         customSystemPrompt: 'Составь 1-2 предложения: о чём был этот диалог и к какому выводу пришли. Только факты, без оценок.',
         messages: last10.map(m => ({ role: m.role, content: m.content })),
       });

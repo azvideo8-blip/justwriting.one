@@ -160,31 +160,35 @@ export const AIMemoryAssembler = {
         const topRecord = sortedRecords[0];
 
         if (topRecord) {
-          competitiveItems.push({
-            id: `comp-first-seen-${topRecord.id}`,
-            category: 'first_seen',
-            band: 'competitive',
-            text: `Эту мысль («${topRecord.theme}») ты впервые записал ${topRecord.firstSeenAt}`,
-            source: 'AIThemeLedgerService',
-            count: topRecord.count,
-            emotionalWeight: topRecord.emotionalWeight,
-            lastReinforcedAt: topRecord.lastReinforcedAt,
-            floorChars: 100,
-          });
-
-          const topEvidence = topRecord.evidence[0];
-          if (topEvidence && topEvidence.sentence) {
+          const queryText = params?.query ?? '';
+          const matchesQuery = !queryText || textJaccardSimilarity(queryText, topRecord.theme) > 0.1;
+          if (matchesQuery) {
             competitiveItems.push({
-              id: `comp-quote-${topRecord.id}`,
-              category: 'quote',
+              id: `comp-first-seen-${topRecord.id}`,
+              category: 'first_seen',
               band: 'competitive',
-              text: `Дословная цитата: «${topEvidence.sentence}»`,
+              text: `Эту мысль («${topRecord.theme}») ты впервые записал ${topRecord.firstSeenAt}`,
               source: 'AIThemeLedgerService',
               count: topRecord.count,
               emotionalWeight: topRecord.emotionalWeight,
               lastReinforcedAt: topRecord.lastReinforcedAt,
               floorChars: 100,
             });
+
+            const topEvidence = topRecord.evidence[0];
+            if (topEvidence && topEvidence.sentence) {
+              competitiveItems.push({
+                id: `comp-quote-${topRecord.id}`,
+                category: 'quote',
+                band: 'competitive',
+                text: `Дословная цитата: «${topEvidence.sentence}»`,
+                source: 'AIThemeLedgerService',
+                count: topRecord.count,
+                emotionalWeight: topRecord.emotionalWeight,
+                lastReinforcedAt: topRecord.lastReinforcedAt,
+                floorChars: 100,
+              });
+            }
           }
         }
       }

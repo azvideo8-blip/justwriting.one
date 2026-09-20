@@ -1,7 +1,6 @@
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { topKMultiWithChunkIndex } from '../../utils/vectorSearch';
-import { relativeDate } from '../../../../core/utils/dateUtils';
 import { reportError } from '../../../../shared/errors/reportError';
 import { formatDateYYYYMMDD } from './corpusStats';
 
@@ -40,11 +39,9 @@ export async function buildLiteRetrievalBlock(deps: LiteRetrievalDeps): Promise<
       const textChunk = emb?.chunkTexts?.[r.chunkIndex] || '';
       if (!textChunk.trim()) continue;
       idx++;
-      const dateLabel = doc.lastSessionAt ? relativeDate(doc.lastSessionAt) : '';
-      const datePart = dateLabel ? ` (${dateLabel})` : '';
       const yyyymmdd = formatDateYYYYMMDD(doc.lastSessionAt);
       injectedDocumentIds.push(r.id);
-      parts.push(`[#${doc.id} · ${yyyymmdd}]\nЗаметка ${idx}${datePart}: "${doc.title || 'Без названия'}"\n${textChunk}`);
+      parts.push(`[#${doc.id} · ${yyyymmdd}]\nЗаметка ${idx}: "${doc.title || 'Без названия'}"\n${textChunk}`);
     }
     if (parts.length === 0) return null;
     return `[Возможно релевантные заметки]\n` + parts.join('\n\n');

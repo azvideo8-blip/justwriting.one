@@ -52,20 +52,15 @@ const SUMMARY_SYSTEM_PROMPT = `Проанализируй личную заме�
 - insights: ключевые мысли или внутренние наблюдения — только то, что реально написано.
 - quotableSentence: одна дословная яркая цитата (предложение) из текста. Верни ДОСЛОВНО как в оригинале.
 - themes: 1–3 основные темы.
-- extractedFacts: только то, что УЖЕ ПРОИЗОШЛО или происходит сейчас. Сохраняй оговорки автора.
+- extractedFacts: конкретные факты — только то, что УЖЕ ПРОИЗОШЛО или происходит сейчас. Сохраняй оговорки автора.
 - commitments: всё, что ещё НЕ произошло: планы, намерения, желания, обязательства, то, что нужно сделать. Если нет — [].
 
-ГРАНИЦА МЕЖДУ extractedFacts И commitments — САМОЕ ВАЖНОЕ В ЭТОЙ ЗАДАЧЕ.
-Признаки того, что событие НЕ произошло: «куплю», «собираюсь», «планирую», «хочу», «буду», «нужно», «надо», «придётся», «наверное», «видимо», «возможно», «думаю, что», «завтра», «потом», «если». При любом из них строка идёт в commitments, а НЕ в extractedFacts.
-Отдельно: намерение, высказанное решительно («точно куплю», «решил купить», «на этот месяц покупаю»), всё равно остаётся намерением, пока в тексте нет сообщения о состоявшемся действии. Решимость — не факт.
-Предложение, поступившее автору («предложили аудит за 10к»), — это факт получения предложения, а НЕ факт покупки или оплаты.
-Примеры:
-«Завтра видимо куплю подписку» → commitments: «планирует купить подписку», extractedFacts: [].
-«Предложили аудит за 10к, но денег пока нет, нужно заработать» → extractedFacts: «получил предложение об аудите за 10 тысяч», commitments: «планирует заработать и заказать аудит».
+ГРАНИЦА МЕЖДУ extractedFacts И commitments:
+Маркеры того, что событие НЕ произошло: «куплю», «собираюсь», «планирую», «хочу», «буду», «нужно», «надо», «придётся», «наверное», «видимо», «возможно», «думаю, что», «завтра», «потом», «если». При любом из них строка идёт в commitments, а НЕ в extractedFacts. Решимость формулировки («точно куплю») не делает намерение фактом.
+Пример: «Завтра видимо куплю подписку» → commitments: «планирует купить подписку», extractedFacts: [].
 Формулируй commitments как намерение («планирует…», «собирается…»), а не как совершённое действие.
 - valence: число от -1 до 1 (эмоциональный тон).
 - arousal: число от 0 до 1 (энергия/возбуждение).
-- echo: одна фраза, связывающая заметку с recentContext. Если связь неочевидна — "".
 - eventDate: дата событий в формате YYYY-MM-DD. Запись написана {noteDate}. «сегодня» → дата написания; «вчера» → −1 день. Если нет указаний — дата написания.
 
 ВАЖНО: опирайся ТОЛЬКО на написанное. Не додумывай деталей.
@@ -111,7 +106,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     throw new AiError('invalid-argument', 'Invalid payload.');
   }
 
-  const { content, mood, recentContext, noteDate } = parsed.data;
+  const { content, mood, noteDate } = parsed.data;
 
   // SEC-4: User prose in personal diary entries (and mood/recentContext) must NOT
   // be filtered with injection regexes. Defense is achieved via prompt isolation markers.
@@ -119,7 +114,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   const callRes = await chargeCall(ctx, uid, 'bulk', 'summarizeDocument');
 
   const sanitizedContent = sanitizeAiInput(content);
-  const sanitizedRecentContext = recentContext ? sanitizeAiInput(recentContext) : null;
 
   const effectiveNoteDate = (noteDate && /^\d{4}-\d{2}-\d{2}$/.test(noteDate.trim()))
     ? noteDate.trim()
@@ -139,9 +133,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   if (safeMood) {
     prompt = `[Настроение документа: ${safeMood}]\n\n${prompt}`;
   }
-  if (sanitizedRecentContext) {
-    prompt = `[recentContext (недавние темы):\n${sanitizedRecentContext}]\n\n${prompt}`;
-  }
 
   const reservation = await ctx.tryReserveGlobalRequest(8192);
   if (!reservation) {
@@ -156,7 +147,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     const result = await generate({
       system: scaledPrompt,
       messages: [{ role: 'user', content: prompt }],
-      json: true,
       maxTokens: 8192,
       abortMs: 110_000,
       model: SUMMARY_MODEL,
@@ -219,7 +209,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   }
 
   const rawSummary = sanitizeAiResponse(parsed_json.summary ?? '');
-  const rawEcho = sanitizeAiResponse(parsed_json.echo ?? '');
   const validatedQuote = validateVerbatimQuote(sanitizedContent, parsed_json.quotableSentence);
 
   return {
@@ -242,7 +231,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     })(),
     valence: typeof parsed_json.valence === 'number' ? parsed_json.valence : undefined,
     arousal: typeof parsed_json.arousal === 'number' ? parsed_json.arousal : undefined,
-    echo: isUsable(rawEcho) ? rawEcho : undefined,
     eventDate: validEventDate,
     promptVersion: 3,
   };

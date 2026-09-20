@@ -1,4 +1,4 @@
-import { getLocalDb, type AIChatMemory, randomUUID } from '../../../core/storage/localDb';
+import { getLocalDb, type AIChatMemory, type AIDialogue, randomUUID } from '../../../core/storage/localDb';
 import { MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS } from '../../../shared/ai/aiPolicy';
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
@@ -21,6 +21,21 @@ export const AIChatMemoryService = {
     if (userMessages.length < 2) return;
 
     try {
+      const db = await getLocalDb();
+      let dialogue: AIDialogue | undefined;
+      try {
+        dialogue = await db.get('aiDialogues', dialogueId);
+      } catch {
+        // non-fatal if dialogue lookup fails in test or detached mode
+      }
+      const lastIdx = dialogue?.lastExtractedIdx ?? 0;
+      const startIdx = Math.max(0, lastIdx - 2);
+
+      const candidateMessages = messages.slice(startIdx);
+      const bounded = candidateMessages.length > MEMORY_EXTRACT_MAX_MESSAGES
+        ? candidateMessages.slice(-MEMORY_EXTRACT_MAX_MESSAGES)
+        : candidateMessages;
+
       // Пределы берутся из общей константы, а не переписываются здесь руками:
       // раньше схема на сервере разрешала 30, срез брал 40, а комментарий
       // обещал 50 — разговор длиннее тридцати реплик отлетал с «Invalid
@@ -28,14 +43,14 @@ export const AIChatMemoryService = {
       //
       // Отбор по role, а не по type: схема проверяет именно role, и сообщение
       // с role:'system' проходило фильтр по type и валило запрос целиком.
-      const recent = messages
+      const recent = bounded
         .filter(m => m.role === 'user' || m.role === 'assistant')
-        .slice(-MEMORY_EXTRACT_MAX_MESSAGES)
         .map(m => ({
           role: m.role,
-          // Длинная вставка в чат превышала лимит на сообщение и тоже валила
-          // весь запрос. Обрезаем здесь: половина памяти лучше, чем никакой.
-          content: m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS),
+          // Ответы ассистента обрезаются до 600 символов, пользовательские до MEMORY_EXTRACT_MAX_MESSAGE_CHARS
+          content: m.role === 'assistant'
+            ? m.content.slice(0, 600)
+            : m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS),
         }));
       if (recent.length === 0) return;
       const result = await AIService.extractChatMemory({ messages: recent });
@@ -48,9 +63,14 @@ export const AIChatMemoryService = {
         });
         return;
       }
-      if (result.memories.length === 0) return;
 
-      const db = await getLocalDb();
+      if (dialogue) {
+        dialogue.lastExtractedIdx = messages.length;
+        await db.put('aiDialogues', dialogue);
+        LocalStoreSyncService.scheduleStoreSync('aiDialogues', dialogue.id);
+      }
+
+      if (result.memories.length === 0) return;
       const now = Date.now();
 
       const existing = await db.getAll('aiChatMemory');

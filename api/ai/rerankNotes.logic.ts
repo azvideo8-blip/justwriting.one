@@ -14,7 +14,7 @@ const inputSchema = z.object({
   maxResults: z.number().int().min(1).max(20).optional(),
 });
 
-const SYSTEM_PROMPT = 'Ты — модуль ранжирования заметок. По запросу пользователя и списку заметок-кандидатов выбери самые релевантные по смыслу и намерению запроса. Верни ТОЛЬКО валидный JSON-объект вида {"ids":["docId1","docId2"]} — массив выбранных documentId по убыванию релевантности, без пояснений.';
+const SYSTEM_PROMPT = 'Ты — модуль ранжирования заметок. По запросу пользователя и списку заметок-кандидатов выбери самые релевантные по смыслу и намерению запроса. Верни ТОЛЬКО валидный JSON-объект вида {"idx":[1,2]} — массив номеров выбранных кандидатов (начиная с 1) по убыванию релевантности, без пояснений.';
 
 export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
@@ -37,7 +37,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
 
   const safeQuery = sanitizeAiInput(query);
   const cardsText = candidates
-    .map((c, i) => `[${i + 1}] docId=${c.documentId}\n${sanitizeAiInput(c.card)}`)
+    .map((c, i) => `[${i + 1}]\n${sanitizeAiInput(c.card)}`)
     .join('\n\n');
 
   // AUD-19 & FU-4: вход (запрос + карточки) тоже уходит в резерв.
@@ -55,7 +55,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
       system: SYSTEM_PROMPT,
       messages: [{
         role: 'user',
-        content: `Запрос пользователя: "${safeQuery}"\n\nКандидаты-заметки:\n${cardsText}\n\nВыбери до ${maxResults} самых релевантных. Верни только {"ids":[...]}.`,
+        content: `Запрос пользователя: "${safeQuery}"\n\nКандидаты-заметки:\n${cardsText}\n\nВыбери до ${maxResults} самых релевантных.`,
       }],
       json: true,
       maxTokens: 512,
@@ -70,15 +70,25 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
       txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
     }
     try {
-      const obj = JSON.parse(txt) as { ids?: unknown };
-      if (Array.isArray(obj.ids)) ids = obj.ids.filter((x): x is string => typeof x === 'string');
+      const obj = JSON.parse(txt) as { idx?: unknown; ids?: unknown };
+      if (Array.isArray(obj.idx)) {
+        for (const item of obj.idx) {
+          const num = typeof item === 'number' ? item : parseInt(String(item), 10);
+          if (!Number.isNaN(num) && num >= 1 && num <= candidates.length) {
+            const cand = candidates[num - 1];
+            if (cand && !ids.includes(cand.documentId)) {
+              ids.push(cand.documentId);
+            }
+          }
+        }
+      } else if (Array.isArray(obj.ids)) {
+        const candidateIds = new Set(candidates.map(c => c.documentId));
+        ids = obj.ids.filter((x): x is string => typeof x === 'string' && candidateIds.has(x));
+      }
     } catch {
       await callRes.settle('failed', { tokensIn: result.tokensIn, tokensOut: result.tokensOut, model: result.model });
       throw new AiError('internal', 'Rerank response was not valid JSON.');
     }
-
-    const candidateIds = new Set(candidates.map(c => c.documentId));
-    ids = ids.filter(id => candidateIds.has(id));
 
     await callRes.settle('done');
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'rerank' }, reservation).catch(e =>

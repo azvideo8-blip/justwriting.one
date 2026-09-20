@@ -10,7 +10,6 @@ import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { relativeDate } from '../../../core/utils/dateUtils';
 import { looksLikeNoteSearch, shouldRunFullSearch } from '../utils/aiChatTransport';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIChatMemoryService } from './AIChatMemoryService';
@@ -137,7 +136,7 @@ export function useAIChatContext(personaId: string): {
     // even a tight budget) and effectivePortrait further down. Gating only at
     // useAIChat's attach site, as the backlog note first sketched, would leave
     // the portrait riding into memoryContext regardless.
-    const userPortrait = getSendPortraitInDialogue(uid) ? rawPortrait : null;
+    const userPortrait = (getSendPortraitInDialogue(uid) && personaId !== 'editor') ? rawPortrait : null;
 
     let customSystemPrompt: string | undefined;
     let effectivePersonaId = personaId;
@@ -421,9 +420,18 @@ export function useAIChatContext(personaId: string): {
 
             if (allNotes.length > 5) {
               try {
-                const candidates = allNotes.map(n => ({
-                  documentId: n.documentId,
-                  card: `${n.title}\n${n.content.slice(0, 400)}`,
+                const candidates = await Promise.all(allNotes.map(async n => {
+                  let cardBody = n.content.slice(0, 400);
+                  try {
+                    const sum = await db.get('aiSummaries', n.documentId);
+                    if (sum?.summary && sum.summary.trim().length >= 80) {
+                      cardBody = sum.summary.trim();
+                    }
+                  } catch { /* use 400-char content fallback */ }
+                  return {
+                    documentId: n.documentId,
+                    card: `${n.title}\n${cardBody}`,
+                  };
                 }));
                 setAIStage('rank');
                 const rr = await AIService.rerank({ query: effectiveQuery, candidates, maxResults: 8 });
@@ -511,11 +519,9 @@ export function useAIChatContext(personaId: string): {
               const noteSummary = await db.get('aiSummaries', n.documentId);
               const summaryPrefix = noteSummary?.summary ? `[Суть: ${noteSummary.summary}]\n` : '';
 
-              const dateLabel = n.lastSessionAt ? relativeDate(n.lastSessionAt) : '';
-              const datePart = dateLabel ? ` (${dateLabel})` : '';
               const yyyymmdd = formatDateYYYYMMDD(n.lastSessionAt);
               injectedDocumentIds.push(n.documentId);
-              parts.push(`[#${n.documentId} · ${yyyymmdd}]\nЗаметка ${noteIdx}${datePart}: "${n.title}"\n${summaryPrefix}${snippet}`);
+              parts.push(`[#${n.documentId} · ${yyyymmdd}]\nЗаметка ${noteIdx}: "${n.title}"\n${summaryPrefix}${snippet}`);
               totalChars += snippet.length + summaryPrefix.length;
             }
             const corpus = await getCorpusStats(db);
@@ -523,8 +529,7 @@ export function useAIChatContext(personaId: string): {
               `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
               `Искал по ВСЕЙ базе: ${corpus.total} заметок, ${corpus.from} — ${corpus.to}. ` +
               `Найдено заметок: ${allNotes.length} (отобрано ${noteIdx} по релевантности). ` +
-              `Это наиболее релевантные заметки по запросу. Если ответа в них нет — так и скажи, не домысливай. ` +
-              `При ссылке на заметку ОБЯЗАТЕЛЬНО используй синтаксис [#id] (например, [#${allNotes[0]?.documentId || 'local_123'}]).\n\n` +
+              `Это наиболее релевантные заметки по запросу. Если ответа в них нет — так и скажи, не домысливай.\n\n` +
               parts.join('\n\n')
             );
             searchContext = (searchContext ?? '') + noteBlock;

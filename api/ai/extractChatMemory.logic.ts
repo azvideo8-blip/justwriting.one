@@ -18,21 +18,19 @@ const inputSchema = z.object({
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
-const SYSTEM_PROMPT = `Extract durable memory units from this conversation. Return JSON array of { kind: 'fact'|'insight'|'commitment'|'preference', text: short description }.
+const SYSTEM_PROMPT = `Извлеки долговременные единицы памяти из диалога. Верни JSON-массив объектов { kind: 'fact'|'insight'|'commitment'|'preference', text: краткое описание }.
 
-LANGUAGE (MOST IMPORTANT RULE): every memory unit's "text" MUST be written in the SAME language the user writes in the conversation below. These instructions are in English, but that MUST NOT make you write the memory in English — if the user writes in Russian, every "text" must be in Russian. Write the memory as if the user wrote it about themselves, in their language. Never translate the user's words into another language.
+КРИТИЧЕСКИ ВАЖНО — ограничение источника: сохраняй ТОЛЬКО то, что ПОЛЬЗОВАТЕЛЬ прямо сообщил или явно подтвердил. НИКОГДА не сохраняй интерпретации, метафоры, гипотезы или формулировки ассистента, если пользователь их не озвучил и не подтвердил. Сомневаешься — не сохраняй.
 
-CRITICAL — source restriction: record ONLY what the USER actually stated or explicitly agreed with. NEVER store the assistant's own interpretations, metaphors, reframes, hypotheses, or wording as if they were the user's facts or insights. If an idea came from the assistant and the user did not voice or confirm it, DO NOT store it. When in doubt, leave it out — a smaller, user-grounded memory is far better than importing the assistant's narrative.
+Фокус:
+- Факты о жизни пользователя, о которых сообщил он сам (работа, отношения, события, привычки)
+- Психологические инсайты и паттерны, которые сформулировал или подтвердил сам пользователь
+- Обязательства и намерения пользователя (планы, цели, решения)
+- Предпочтения в общении: прямая обратная связь о тоне, длине или стиле ответов ассистента
 
-Focus on:
-- Facts about the user's life the USER reported (relationships, work, habits, events)
-- Psychological insights the USER voiced or explicitly endorsed (patterns, realizations) — not the assistant's
-- Commitments or intentions the USER expressed (goals, plans, decisions)
-- Communication preferences: direct feedback the USER gave about the assistant's tone, pacing, style, length, or quality (e.g. 'User dislikes verbose intros', 'User prefers bullet points', 'User wants shorter answers').
+КРИТИЧЕСКИ ВАЖНО — модальность: 'fact' — ТОЛЬКО то, что УЖЕ произошло. Всё, что пользователь планирует, хочет или собирается сделать — это 'commitment', даже при полной решимости. Формулируй намерение как намерение, а не как свершившееся действие.
 
-CRITICAL — modality: 'fact' is ONLY for what already happened. Anything the user intends, plans, wants, or still has to do is 'commitment', even when stated with full resolve ("I'm definitely buying it this month"). Resolve is not a fact. An offer received is a fact of the offer, never a fact of the purchase. Phrase a commitment as an intention, never as a completed action.
-
-Keep each memory unit to 1-2 sentences, phrased in the first person as the user's own words, in the user's language. Return ONLY valid JSON array.`;
+Каждая единица — 1-2 предложения от первого лица, на языке пользователя. Верни ТОЛЬКО валидный JSON-массив.`;
 
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 
@@ -50,7 +48,10 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
   const callRes = await chargeCall(ctx, uid, 'bulk', 'memory');
 
   const conversationText = parsed.data.messages
-    .map(m => `${m.role}: ${sanitizeAiInput(m.content)}`)
+    .map(m => {
+      const content = m.role === 'assistant' ? m.content.slice(0, 600) : m.content;
+      return `${m.role}: ${sanitizeAiInput(content)}`;
+    })
     .join('\n\n');
 
   const reservation = await ctx.tryReserveGlobalRequest(1000);

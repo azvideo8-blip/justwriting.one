@@ -113,11 +113,7 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
   // does NOT — measured against deepseek-v4-flash it produced *more* reasoning than
   // the default (374 tokens vs 61), and `reasoning: {exclude:true}` only hides the
   // tokens while still paying for them.
-  if (activeModel.startsWith('openai/gpt-oss')) {
-    body.reasoning = { effort: 'low' };
-  } else {
-    body.reasoning_effort = 'none';
-  }
+  body.reasoning_effort = 'none';
 
   // Retry transient upstream errors (502/503/504 and network errors like ECONNRESET)
   // with a short backoff while respecting an overall time deadline.

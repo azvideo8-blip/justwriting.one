@@ -67,11 +67,6 @@ export function sanitizeAiResponse(response: string, keepReasoning = false): str
     // цитаты самого человека: authorPhrases, quotableSentence, редактура его
     // текста. Залётный знак в ответе видно и можно игнорировать; пропавшую
     // цитату из собственной заметки человек не видит никогда.
-    // Strip citation artifacts that gpt-oss appends to factual sentences
-    // (e.g. "30 000 рублейreferences" or "степень awarded").
-    cleaned = cleaned.replace(/([а-яёА-ЯЁ\d])(references?|sources?|citations?|awarded)(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/gi, '$1');
-    // Collapse any double-spaces created by the strips above.
-    cleaned = cleaned.replace(/  +/g, ' ').trim();
   }
   return DOMPurify.sanitize(cleaned, {
     ALLOWED_TAGS: keepReasoning ? ['reasoning', 'answer'] : [],

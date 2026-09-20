@@ -20,7 +20,7 @@ import {
   callableChat,
   extractReasoning,
   extractAnswer,
-  pruneMessages,
+  prepareApiMessages,
   toApiContent,
   API_MSG_CAP,
   _streamUnavailableUntil
@@ -347,8 +347,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       const baseMessages = currentDialogue.messages;
       const sourceForApi: AIMessage[] = text.trim() ? [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...baseMessages];
-      const apiMessages = pruneMessages(sourceForApi.filter(m => m.type !== 'system'))
-        .map(m => ({ ...m, content: toApiContent(m.content) }));
+      const apiMessages = prepareApiMessages(sourceForApi);
 
       const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
@@ -385,7 +384,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // Defensive clamps — never exceed the API schema limits (documentContent
       // 50K, userPortrait 100K), or the request 400s before reaching the model.
       if (searchContext && searchContext.length > 49_000) searchContext = searchContext.slice(0, 49_000);
-      const safePortrait = userPortrait && userPortrait.length > 9_500 ? userPortrait.slice(0, 9_500) : userPortrait;
+      const safePortrait = userPortrait && userPortrait.length > 4_000 ? userPortrait.slice(0, 4_000) : userPortrait;
 
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;

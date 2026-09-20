@@ -835,17 +835,11 @@ function MassAnalyzeNotes() {
           const content = versions[0]?.content ?? '';
           if (content.length < 50) continue;
 
-          // Build recentContext
-          const currentSummaries = await db.getAll('aiSummaries');
-          currentSummaries.sort((a, b) => b.processedAt - a.processedAt);
-          const recentContext = currentSummaries.slice(0, 3).map(s => s.summary || s.tone).filter(Boolean).join('\n');
-
           const noteDate = doc.lastSessionAt ? new Date(doc.lastSessionAt).toISOString().slice(0, 10) : undefined;
 
           const result = await AIService.summarize({
             content: content.slice(0, MAX_AI_CONTENT_LENGTH),
             mood: doc.mood,
-            recentContext,
             noteDate,
           });
 
@@ -866,7 +860,6 @@ function MassAnalyzeNotes() {
             if (result.summary.commitments !== undefined) s.commitments = result.summary.commitments;
             if (result.summary.valence !== undefined) s.valence = result.summary.valence;
             if (result.summary.arousal !== undefined) s.arousal = result.summary.arousal;
-            if (result.summary.echo !== undefined) s.echo = result.summary.echo;
             if (result.summary.eventDate !== undefined) s.eventDate = result.summary.eventDate;
             await AISummaryService.save(s);
             AIBackgroundBudget.spend(1);

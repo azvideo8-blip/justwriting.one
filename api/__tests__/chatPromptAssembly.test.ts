@@ -68,7 +68,7 @@ describe('DUP-2: chatPromptAssembly', () => {
 
     // Without reasoning mode: suppresses CoT instructions and asks for direct answer
     expect(promptWithoutReasoning).not.toContain('ФОРМАТ ОТВЕТА (обязательно):');
-    expect(promptWithoutReasoning).toContain('Отвечай сразу и напрямую пользователю.');
+    expect(promptWithoutReasoning).toContain('Отвечай сразу, без хода мысли.');
   });
 
   it('assertNoSystemPromptInjection catches injection attempts in messages and custom prompts', () => {
