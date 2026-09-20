@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.51',
+    date: '2026-09-20',
+    items: [
+      { category: 'improvement', ru: 'Диалоги с ИИ, анализ заметок и поиск по архиву стали заметно экономичнее по токенам — те же возможности, меньше расхода дневного лимита на служебные детали запроса.', en: 'AI dialogue, note analysis and archive search now use noticeably fewer tokens per call — same capabilities, less of your daily quota spent on request plumbing.' },
+    ],
+  },
+  {
     version: '0.8.50',
     date: '2026-09-20',
     items: [
