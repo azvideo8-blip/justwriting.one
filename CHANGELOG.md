@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.50 — 2026-09-20
+
+- **[RU]** Новый аккаунт перед первой сессией письма видит экран выбора цели — сколько слов писать за раз. Настройки можно поменять позже как обычно.
+- **[EN]** A new account sees a goal-picker screen before the first writing session — how many words to aim for. Adjustable later as usual.
+- **[RU]** После установки пароля по ссылке-приглашению email больше не нужно вводить заново на экране входа — он уже там.
+- **[EN]** After setting a password from an invite link, the email no longer needs to be retyped on the sign-in screen — it's already there.
+- **[RU]** Окно согласия при первом входе разбито на понятные разделы, обязательное согласие визуально отделено от необязательного (согласие на ИИ), и в нём теперь явно указано, что голосовой ввод обрабатывается серверами браузера (Google или Apple).
+- **[EN]** The first-run consent screen is now split into clear sections, the required consent is visually separated from the optional one (AI features), and it now explicitly names that voice input is processed by the browser vendor's servers (Google or Apple).
+- **[RU]** Пустой архив предлагает написать первую заметку одной кнопкой.
+- **[EN]** An empty archive offers a one-click "write first note" action.
+- **[RU]** Кнопка журнала активности в сайдбаре и в мобильной навигации теперь видна всегда и меняет цвет по статусу фоновой работы — не только при ошибке.
+- **[EN]** The activity log button in the sidebar and mobile navigation is now always visible and changes colour with background-work status, not just on error.
+
 ## 0.8.49 — 2026-09-19
 
 - **[RU]** Заметки, изменённые на другом устройстве, теперь подтягиваются сами, когда вы возвращаетесь на вкладку — больше не нужно вручную пересохранять, чтобы увидеть свежую версию.

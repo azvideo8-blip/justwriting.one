@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.50',
+    date: '2026-09-20',
+    items: [
+      { category: 'new', ru: 'Новый аккаунт перед первой сессией письма видит экран выбора цели — сколько слов писать за раз. Настройки можно поменять позже как обычно.', en: 'A new account sees a goal-picker screen before the first writing session — how many words to aim for. Adjustable later as usual.' },
+      { category: 'improvement', ru: 'После установки пароля по ссылке-приглашению email больше не нужно вводить заново на экране входа — он уже там.', en: "After setting a password from an invite link, the email no longer needs to be retyped on the sign-in screen — it's already there." },
+      { category: 'improvement', ru: 'Окно согласия при первом входе разбито на понятные разделы, обязательное согласие визуально отделено от необязательного (согласие на ИИ), и в нём теперь явно указано, что голосовой ввод обрабатывается серверами браузера (Google или Apple).', en: "The first-run consent screen is now split into clear sections, the required consent is visually separated from the optional one (AI features), and it now explicitly names that voice input is processed by the browser vendor's servers (Google or Apple)." },
+      { category: 'improvement', ru: 'Пустой архив предлагает написать первую заметку одной кнопкой.', en: 'An empty archive offers a one-click "write first note" action.' },
+      { category: 'improvement', ru: 'Кнопка журнала активности в сайдбаре и в мобильной навигации теперь видна всегда и меняет цвет по статусу фоновой работы — не только при ошибке.', en: 'The activity log button in the sidebar and mobile navigation is now always visible and changes colour with background-work status, not just on error.' },
+    ],
+  },
+  {
     version: '0.8.49',
     date: '2026-09-19',
     items: [
