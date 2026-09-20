@@ -5,13 +5,14 @@ import { AIService } from '../services/AIService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
-// OpenRouter's native output for this model is 4096-dim (no truncation param
-// confirmed available) — different from the old Fireworks-hosted 1024-dim
-// vectors. The (model, dim) mismatch alone marks every existing embedding
-// stale, which is intentional: vectors from different models/dims aren't
-// comparable, so a full re-index is required after this provider switch.
-export const CURRENT_EMBED_MODEL = 'qwen/qwen3-embedding-8b';
-export const CURRENT_EMBED_DIM = 4096;
+// docs/plan-2026-09-19-local-embeddings.md: embeddings moved off RouterAI to a
+// local CPU server (chat is unaffected, still RouterAI) — BAAI/bge-m3 is
+// 1024-dim, different from the old qwen3-embedding-8b's 4096. The (model,
+// dim) mismatch alone marks every existing embedding stale, which is
+// intentional: vectors from different models/dims aren't comparable, so a
+// full re-index is required after this provider switch.
+export const CURRENT_EMBED_MODEL = 'BAAI/bge-m3';
+export const CURRENT_EMBED_DIM = 1024;
 // Embedding pipeline version. v2 = per-chunk vectors; v3 = also stores chunk
 // texts (for chunk-level profile domains). Bumping forces a full re-index.
 export const CURRENT_EMBED_SCHEMA = 3;
