@@ -161,7 +161,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted document for Bob';
@@ -222,7 +221,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted version for Bob';
@@ -311,7 +309,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted summary for Bob';
@@ -344,7 +341,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted embedding for Bob';
@@ -401,7 +397,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: client inserted into ai_usage';
@@ -444,7 +439,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: client inserted into anonymized_telemetry';
@@ -475,7 +469,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: client inserted into connection_test';
@@ -508,7 +501,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted local_store_record for Bob';
@@ -528,7 +520,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Alice inserted version for Bob''s document';
@@ -619,7 +610,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: Charlie inserted profile with role=admin';
@@ -885,8 +875,12 @@ BEGIN
     UPDATE public.users SET ai_consent_version = 0
      WHERE uid = '00000000-0000-0000-0000-000000000001';
     bad := 0;
-  EXCEPTION WHEN check_violation THEN bad := 1;
-  WHEN others THEN bad := 1;
+  EXCEPTION
+    -- users_ai_consent_version_check (0018) raises check_violation (SQLSTATE
+    -- 23514); neither BEFORE UPDATE trigger interferes (stamp_consent touches
+    -- ai_consent_server_at without raising, protect_user_columns checks role/uid/email),
+    -- and WITH CHECK passes (own row).
+    WHEN check_violation THEN bad := 1;
   END;
   IF bad <> 1 THEN
     RAISE EXCEPTION 'FAIL: ai_consent_version=0 accepted, CHECK missing';
@@ -1199,7 +1193,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice inserted draft as another user';
@@ -1310,7 +1303,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice inserted into telemetry_cooldown';
@@ -1345,7 +1337,6 @@ BEGIN
     ok := false;
   EXCEPTION
     WHEN insufficient_privilege THEN ok := true;
-    WHEN check_violation THEN ok := true;
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice inserted into ai_bulk_cooldown';
