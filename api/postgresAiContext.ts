@@ -356,7 +356,7 @@ async function recordUsage(
   uid: string,
   tokensIn: number,
   tokensOut: number,
-  _opts?: { model?: string; fn?: string },
+  opts?: { model?: string; fn?: string },
   reservation?: GlobalReservation | null,
 ): Promise<void> {
   // Дата берётся из того же today(), что и резервирование в
@@ -379,6 +379,11 @@ async function recordUsage(
            '{completionTokens}', to_jsonb(coalesce((public.ai_usage.data->>'completionTokens')::int, 0) + $3::int)),
            '{requests}',         to_jsonb(coalesce((public.ai_usage.data->>'requests')::int, 0)         + 1))`,
       [uid, tokensIn, tokensOut, date],
+    );
+    await client.query(
+      `INSERT INTO public.ai_usage_calls (uid, fn, model, tokens_in, tokens_out)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [uid, opts?.fn ?? 'unknown', opts?.model ?? null, tokensIn, tokensOut],
     );
     // Сверка резерва с фактом: allowance уже лежит в tokens (зарезервирован
     // атомарно), добавляем только дельту. GREATEST защищает от гонки с refund.

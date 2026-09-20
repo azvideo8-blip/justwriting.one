@@ -72,6 +72,9 @@ INSERT INTO public.anonymized_telemetry (id, data) VALUES
   ('telem-seed-001', '{"event": "test"}')
 ON CONFLICT DO NOTHING;
 
+INSERT INTO public.ai_usage_calls (uid, fn, model, tokens_in, tokens_out) VALUES
+  ('00000000-0000-0000-0000-000000000002', 'chat', 'test-model', 100, 20);
+
 INSERT INTO public.applied_migrations (filename) VALUES
   ('0000_seed.sql')
 ON CONFLICT DO NOTHING;
@@ -95,6 +98,9 @@ BEGIN
 
   SELECT count(*) INTO c FROM public.anonymized_telemetry WHERE id = 'telem-seed-001';
   IF c = 0 THEN RAISE EXCEPTION 'seed missing: anonymized_telemetry'; END IF;
+
+  SELECT count(*) INTO c FROM public.ai_usage_calls WHERE uid = '00000000-0000-0000-0000-000000000002' AND fn = 'chat';
+  IF c = 0 THEN RAISE EXCEPTION 'seed missing: ai_usage_calls'; END IF;
 
   SELECT count(*) INTO c FROM public.applied_migrations WHERE filename = '0000_seed.sql';
   IF c = 0 THEN RAISE EXCEPTION 'seed missing: applied_migrations'; END IF;
@@ -442,6 +448,36 @@ BEGIN
   END;
   IF NOT ok THEN
     RAISE EXCEPTION 'FAIL: client inserted into anonymized_telemetry';
+  END IF;
+END $$;
+
+-- ============================================================
+-- ai_usage_calls: client cannot read (admin only), even Bob's own row
+-- ============================================================
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.ai_usage_calls;
+  IF cnt > 0 THEN
+    RAISE EXCEPTION 'FAIL: client read ai_usage_calls (% rows)', cnt;
+  END IF;
+END $$;
+
+-- ============================================================
+-- ai_usage_calls: client cannot insert
+-- ============================================================
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.ai_usage_calls (uid, fn, tokens_in, tokens_out)
+    VALUES ('00000000-0000-0000-0000-000000000001', 'chat', 1, 1);
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: client inserted into ai_usage_calls';
   END IF;
 END $$;
 
@@ -840,6 +876,16 @@ BEGIN
   SELECT count(*) INTO view_count FROM public.admin_users_view;
   IF view_count < 2 THEN
     RAISE EXCEPTION 'FAIL: admin sees only % rows in admin_users_view (expected >= 2)', view_count;
+  END IF;
+END $$;
+
+-- Admin can read ai_usage_calls (per-call token breakdown), unlike a plain user above.
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.ai_usage_calls WHERE fn = 'chat';
+  IF cnt = 0 THEN
+    RAISE EXCEPTION 'FAIL: admin could not read ai_usage_calls';
   END IF;
 END $$;
 RESET role;

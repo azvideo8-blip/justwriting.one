@@ -101,6 +101,32 @@ describe('1.5 atomic global token reserve', () => {
     expect(reconcile!.text).toMatch(/GREATEST\(0, coalesce\(tokens, 0\) - \$3::int \+ \$1::int\)/);
     expect(reconcile!.params).toEqual([22, '2026-08-20', 8192]);
   });
+
+  it('recordUsage logs the per-call fn/model breakdown into ai_usage_calls', async () => {
+    clientResults = [
+      { rows: [] }, // ai_usage upsert
+      { rows: [] }, // ai_usage_calls insert
+    ];
+    poolQueries.length = 0;
+    await postgresAiContext.recordUsage(
+      'u1', 15, 7,
+      { model: 'deepseek/deepseek-v4-flash', fn: 'chat' },
+      null,
+    );
+
+    const perCall = clientQueries.find(q => /ai_usage_calls/.test(q.text));
+    expect(perCall).toBeDefined();
+    expect(perCall!.text).toMatch(/INSERT INTO (public\.)?ai_usage_calls/);
+    expect(perCall!.params).toEqual(['u1', 'chat', 'deepseek/deepseek-v4-flash', 15, 7]);
+  });
+
+  it('recordUsage falls back to fn "unknown" when opts is omitted', async () => {
+    clientResults = [{ rows: [] }, { rows: [] }];
+    await postgresAiContext.recordUsage('u1', 5, 3);
+
+    const perCall = clientQueries.find(q => /ai_usage_calls/.test(q.text));
+    expect(perCall!.params).toEqual(['u1', 'unknown', null, 5, 3]);
+  });
 });
 
 describe('2.19 refunds target the charged day', () => {
