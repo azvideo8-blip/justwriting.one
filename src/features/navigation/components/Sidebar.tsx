@@ -149,6 +149,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
   const openActivityPanel = useActivityLogStore(s => s.setPanelOpen);
   const errorCount = entries.filter(e => e.level === 'error').length;
   const mostRecentTime = entries[0]?.time;
+  const newestLevel = entries[0]?.level;
 
   // Driven by a timer, not by Date.now() during render: read at render time the
   // green state only re-evaluates when something unrelated re-renders the
@@ -275,7 +276,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
           </button>
         )}
 
-        {entries.length > 0 && (() => {
+        {(() => {
           let badgeColor = "text-text-main/60 hover:text-text-main";
           let badgeBg = "hover:bg-surface-elevated";
           let icon = <Activity size={18} className="shrink-0" />;
@@ -283,14 +284,14 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
           let dotColor = "";
           let dotText = "";
 
-          if (errorCount > 0) {
+          if (newestLevel === 'error') {
             badgeColor = "text-accent-danger/80 hover:text-accent-danger";
             badgeBg = "hover:bg-accent-danger/10";
             icon = <AlertCircle size={18} className="shrink-0" />;
             label = `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`;
             dotColor = "bg-accent-danger text-surface-card";
             dotText = errorCount > 9 ? '9+' : String(errorCount);
-          } else if (isRecent) {
+          } else if (newestLevel === 'success' || isRecent) {
             badgeColor = "text-accent-success/80 hover:text-accent-success";
             badgeBg = "hover:bg-accent-success/10";
             icon = <CheckCircle2 size={18} className="shrink-0" />;
@@ -304,6 +305,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
                 dismissRightPanel();
                 openActivityPanel(true);
               }}
+              aria-label="Журнал активности"
               className={cn(
                 "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
                 badgeColor, badgeBg

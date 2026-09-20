@@ -189,7 +189,7 @@ export const commonTranslations: Translations = {
     en: 'Hard reload the page clearing cache (Cmd+Shift+R on Mac or Ctrl+Shift+R / Ctrl+F5 on Windows/Linux). Notes are intact in the local browser database — an outdated cached app version could fail to read them.',
   },
   help_notes_missing_leaf_filters: {
-    ru: 'Проверьте фильтры в разделе «Архив»: сбросьте выбранные теги, метку и дату. Если и там пусто — напишите на support@justwriting.one, указав версию приложения (Настройки → О приложении) и браузер.',
-    en: 'Check the filters in "Archive": clear the selected tags, label and date. If it is still empty, email support@justwriting.one with the app version (Settings → About) and your browser.',
+    ru: 'Проверьте фильтры в разделе «Архив»: сбросьте выбранные теги, метку и дату. Если и там пусто — напишите на support@justwriting.ru, указав версию приложения (Настройки → О приложении) и браузер.',
+    en: 'Check the filters in "Archive": clear the selected tags, label and date. If it is still empty, email support@justwriting.ru with the app version (Settings → About) and your browser.',
   },
 };

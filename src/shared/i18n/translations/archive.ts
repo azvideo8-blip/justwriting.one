@@ -8,6 +8,7 @@ export const archiveTranslations: Translations = {
   archive_grid: { ru: 'Сетка', en: 'Grid' },
   archive_empty_title:    { ru: 'Пока нет записей',          en: 'No entries yet' },
   archive_empty_subtitle: { ru: 'Заверши первую сессию — она появится здесь', en: 'Finish your first session and it will appear here' },
+  archive_empty_action:   { ru: 'Написать первую заметку',   en: 'Write first note' },
   archive_subtitle: { ru: 'Архив свободного письма. Каждая запись — слепок одного дня.', en: 'Archive of free writing. Each entry is a snapshot of one day.' },
   archive_count: { ru: 'записей', en: 'entries' },
   // Счётчик заметок в заголовке группы по дате. Ключ появился в v0.6.9 взамен

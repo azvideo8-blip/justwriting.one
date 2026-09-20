@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { logger } from '../../../shared/errors/logger';
 
@@ -8,13 +7,17 @@ export function reportKeystrokeStats(
   sessionSeconds: number
 ): void {
   const kpmWpmRatio = wpm > 0 ? stats.kpm / wpm : 0;
-  Sentry.withScope((scope) => {
-    scope.setExtra('iki_stats', { ...stats, wpm, kpmWpmRatio, sessionSeconds });
-    if (stats.ikiCv > 1.2 && stats.sampleSize > 30) {
-      scope.setLevel('warning');
-      Sentry.captureMessage('High IKI variance detected — possible editor lag');
-    }
-  });
+  if (stats.ikiCv > 1.2 && stats.sampleSize > 30) {
+    logger.warn('sessionActions', 'High IKI variance detected — possible editor lag', {
+      kpm: stats.kpm,
+      ikiMedian: stats.ikiMedian,
+      ikiCv: stats.ikiCv,
+      sampleSize: stats.sampleSize,
+      wpm,
+      kpmWpmRatio,
+      sessionSeconds,
+    });
+  }
 }
 
 export async function cleanupDraftsAfterSave(

@@ -1,7 +1,7 @@
 // functions/src/ai/chatWithAI.logic.ts
-import { sanitizeAiInput, sanitizeAiResponse, getLangfuse, hashUid } from './pure';
+import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation } from '../../src/shared/ai/aiPolicy.js';
-import { generate, getActiveModel } from './provider';
+import { generate } from './provider';
 import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema } from '../../src/shared/ai/buildChatPrompt.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
@@ -66,11 +66,6 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     content: sanitizeAiInput(m.content),
   }));
 
-  const lf = getLangfuse();
-  const activeModel = await getActiveModel();
-  const trace = lf?.trace({ name: 'chatWithAI', userId: hashUid(uid), metadata: { personaId, messageCount: providerMessages.length } });
-  const generation = trace?.generation({ name: activeModel, model: activeModel });
-
   let gen;
   try {
     gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens, abortMs: 110_000 });
@@ -79,8 +74,6 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     const failure = classifyProviderFailure(e);
     console.error(`[chatWithAI] AI request failed (${failure.reason}):`, e);
     await callRes.settle('failed');
-    generation?.end({ level: 'ERROR' });
-    if (lf) await lf.flushAsync().catch(() => {});
     throw new AiError(failure.code, failure.reason);
   }
 
@@ -90,9 +83,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   callRes.markProduced(gen.text.length);
   await callRes.settle('done');
 
-  generation?.end({ usage: { promptTokens: gen.tokensIn, completionTokens: gen.tokensOut } });
   ctx.recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }, reservation).catch(e => console.error('[AI chat] usage record failed:', e));
-  if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: text };
 }

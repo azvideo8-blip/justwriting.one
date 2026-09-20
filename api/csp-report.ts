@@ -1,4 +1,13 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
+export interface CspRequest extends IncomingMessage {
+  body?: unknown;
+}
+
+export interface CspResponse extends ServerResponse {
+  status(code: number): this;
+  json(body: unknown): this;
+}
 
 // CSP violation report sink (SEC-21). Browsers POST here via the CSP
 // `report-uri` directive when a policy is violated. We log server-side for
@@ -10,7 +19,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // исполняет.
 import { rateLimited, clientIp, originOnly } from './cspLimiter';
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default function handler(req: CspRequest, res: CspResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method Not Allowed' });
     return;

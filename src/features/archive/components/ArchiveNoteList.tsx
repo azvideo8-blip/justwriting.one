@@ -1,4 +1,5 @@
 import { memo, type ComponentPropsWithoutRef, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
 import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 import { format, Locale } from 'date-fns';
@@ -71,6 +72,7 @@ export function ArchiveNoteList({
   t, language, entriesLabel: _entriesLabel, allTags, onClearSearch,
   onAnalyzeNote, onClearAnalysis, loadAiProcessedMap,
 }: ArchiveNoteListProps) {
+  const navigate = useNavigate();
   const reducedMotion = useReducedMotion();
   const { tp } = useLanguage();
   const { showToast } = useToast();
@@ -219,6 +221,10 @@ export function ArchiveNoteList({
         icon={BookOpen}
         title={t('archive_empty_title')}
         description={t('archive_empty_subtitle')}
+        action={{
+          label: t('archive_empty_action'),
+          onClick: () => { void navigate('/'); },
+        }}
       />
     );
   }

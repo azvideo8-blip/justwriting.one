@@ -1,7 +1,7 @@
 // functions/src/ai/editWithAI.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid, MAX_AI_CONTENT_LENGTH } from './pure';
-import { generate, getActiveModel } from './provider';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, MAX_AI_CONTENT_LENGTH } from './pure';
+import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { createCallReservation } from '../../src/shared/ai/aiPolicy.js';
 
@@ -99,18 +99,11 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   }
   callRes.attachGlobalReservation(reservation);
 
-  const lf = getLangfuse();
-  const activeModel = await getActiveModel();
-  const trace = lf?.trace({ name: 'editWithAI', userId: hashUid(uid), metadata: { action } });
-  const generation = trace?.generation({ name: activeModel, model: activeModel });
-
   let result;
   try {
     result = await callModel(sanitizedInput, action, history ?? undefined);
   } catch (e) {
     await callRes.settle('failed');
-    generation?.end({ level: 'ERROR' });
-    if (lf) await lf.flushAsync().catch(() => {});
     throw e;
   }
   const sanitizedOutput = sanitizeAiResponse(result.text);
@@ -118,9 +111,7 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   callRes.markProduced(result.text.length);
   await callRes.settle('done');
 
-  generation?.end({ usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
   ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'edit' }, reservation).catch(e => console.error('[AI] usage record failed:', e));
-  if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   return { result: sanitizedOutput };
 }

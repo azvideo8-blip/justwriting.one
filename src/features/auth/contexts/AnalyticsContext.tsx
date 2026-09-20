@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import * as Sentry from '@sentry/react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
-import { analytics } from '../../../core/analytics/analytics';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -32,24 +30,7 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
-    const isSentryInitialized = Boolean(sentryDsn && typeof sentryDsn === 'string' && sentryDsn.startsWith('https://'));
-
-    if (user != null && isSentryInitialized) {
-      const encoder = new TextEncoder();
-      void crypto.subtle.digest('SHA-256', encoder.encode(user.uid)).then(hashBuffer => {
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashedId = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
-        Sentry.setUser({ id: hashedId });
-      });
-    } else if (user == null && isSentryInitialized) {
-      Sentry.setUser(null);
-    }
-  }, [user]);
-
-  useEffect(() => {
     if (user) {
-      analytics.identify(user.uid);
       try {
         const guestId = localStorage.getItem(STORAGE_KEYS.GUEST_ID);
         const keysToRemove: string[] = [];
@@ -64,7 +45,6 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
         reportError(e, { action: 'cleanupOldSessionKeys', uid: user.uid }, 'warning');
       }
     } else {
-      analytics.reset();
       clearSessionKey();
     }
   }, [user]);

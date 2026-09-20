@@ -32,6 +32,10 @@ function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Prom
 
 const AI_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
+// Ограничение контура обработки (ст. 12 152-ФЗ). Проверено 2026-09-20:
+// эмбеддинги теперь локальные и флага не замечают; включение флага упирается
+// в смену модели на `yandex/*`, так как deepseek/deepseek-v4-flash под ru недоступен.
+// См. docs/audit-2026-09-20-outbound-pii.md (OUT-1).
 export const AI_PROVIDER_COUNTRY = process.env.AI_PROVIDER_COUNTRY ?? '';
 const providerRouting = AI_PROVIDER_COUNTRY ? { country: AI_PROVIDER_COUNTRY } : undefined;
 

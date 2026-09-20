@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { updateUserPassword, onPasswordRecovery, verifyOtpForRecovery } from '../../../core/auth/supabaseAuthProvider';
+import { updateUserPassword, onPasswordRecovery, verifyOtpForRecovery, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 import { reportError } from '../../../shared/errors/reportError';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -24,6 +24,7 @@ export function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkExpired, setLinkExpired] = useState(false);
+  const [email, setEmail] = useState<string | null>(() => searchParams.get('email'));
   // Приглашённый задаёт первый пароль — те же поля, другие слова.
   const isInvite = searchParams.get('type') === 'invite';
 
@@ -31,6 +32,8 @@ export function ResetPasswordPage() {
     const unsub = onPasswordRecovery(() => {
       setRecoveryMode(true);
       setLinkExpired(false);
+      const currentUserEmail = getCurrentUser()?.email;
+      if (currentUserEmail) setEmail(currentUserEmail);
     });
 
     const tokenHash = searchParams.get('token_hash');
@@ -41,6 +44,8 @@ export function ResetPasswordPage() {
         .then(() => {
           setRecoveryMode(true);
           setLinkExpired(false);
+          const currentUserEmail = getCurrentUser()?.email;
+          if (currentUserEmail) setEmail(currentUserEmail);
           window.history.replaceState(null, '', window.location.pathname);
         })
         .catch((err) => {
@@ -66,6 +71,18 @@ export function ResetPasswordPage() {
     }
     setBusy(true);
     try {
+      let recoveredEmail = email ?? getCurrentUser()?.email ?? null;
+      if (!recoveredEmail) {
+        try {
+          const { getSupabase } = await import('../../../core/supabase/client');
+          const { data } = await getSupabase().auth.getUser();
+          recoveredEmail = data.user?.email ?? null;
+        } catch {
+          // ignore
+        }
+      }
+      if (recoveredEmail) setEmail(recoveredEmail);
+
       await updateUserPassword(password);
       // Полусессия от ссылки восстановления затирается: она ограничена сменой
       // пароля, и оставлять человека залогиненным, не вводившим новый пароль,
@@ -145,7 +162,7 @@ export function ResetPasswordPage() {
             <p className="text-sm">{isInvite ? 'Пароль задан. Теперь можно войти.' : 'Пароль изменён. Войдите с новым паролем.'}</p>
             <button
               type="button"
-              onClick={() => { void navigate('/login'); }}
+              onClick={() => { void navigate('/login', email ? { state: { email } } : undefined); }}
               className="rounded-lg px-3 py-2 bg-accent text-white"
             >
               Перейти ко входу

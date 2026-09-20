@@ -62,49 +62,71 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
             <h2 id="privacy-modal-title" className="text-base font-bold text-text-main">Политика конфиденциальности</h2>
           </div>
 
+          <p className="text-xs text-text-main/60 mb-4">
+            justwriting — приватный редактор для свободного письма. Вот как мы обращаемся с вашими данными:
+          </p>
+
           {/* Текст обязан совпадать с тем, что приложение делает на самом деле:
-              это не пояснение, а согласие, которое человек даёт. Прежняя версия
-              обещала Langfuse, PostHog и Sentry — ни одного из них нет, зато
-              умалчивала о том, что запрос к модели может уйти за границу.
+              это не пояснение, а согласие, которое человек даёт.
               Меняется поведение — правится и этот текст, в том же коммите. */}
-          <div className="space-y-3 text-sm text-text-main/70 leading-relaxed">
-            <p>Заметки хранятся на вашем устройстве. Если включена синхронизация, копия уезжает на наш сервер в России — <strong>содержимое, заголовки и теги зашифрованы</strong> ключом, который выводится из вашего пароля и на сервер не попадает. Открытыми остаются только даты, длительность сессий и счётчики слов.</p>
-            <p>Текст заметки уходит поставщику ИИ <strong>только по вашему действию</strong>: когда вы нажимаете разбор у заметки или задаёте вопрос в чате. Сам по себе, в фоне, он не отправляется никогда.</p>
-            <p>Поставщик — RouterAI (Россия). Он не хранит содержимое запросов, но по умолчанию может передать запрос зарубежному сервису, который вычисляет ответ и таких гарантий не даёт. Мы ищем решение; пока честнее сказать прямо.</p>
-            <p>Если в заметке упомянуты другие люди, их слова и обстоятельства уходят вместе с текстом. Отдельной картотеки упомянутых людей приложение не ведёт.</p>
-            <p>Аналитики, счётчиков и отправки ошибок посторонним сервисам нет.</p>
-            <p>Удаление аккаунта удаляет заметки, историю и всё, что было по ним посчитано.</p>
-            <p>Подробнее: <a href="/privacy" className="text-brand-soft underline">Политика конфиденциальности</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>.</p>
+          <div className="space-y-4 text-sm text-text-main/70 leading-relaxed">
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">Как хранятся данные</h3>
+              <p>Заметки хранятся на вашем устройстве. Если включена синхронизация, копия уезжает на наш сервер в России — <strong>содержимое, заголовки и теги зашифрованы</strong> ключом, который выводится из вашего пароля и на сервер не попадает. Открытыми остаются только даты, длительность сессий и счётчики слов.</p>
+              <p>Аналитики, счётчиков и отправки ошибок посторонним сервисам нет.</p>
+              <p>Удаление аккаунта удаляет заметки, историю и всё, что было по ним посчитано.</p>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">Что уходит третьим лицам</h3>
+              <p>Текст заметки уходит поставщику ИИ <strong>только по вашему действию</strong>: когда вы нажимаете разбор у заметки или задаёте вопрос в чате. Сам по себе, в фоне, он не отправляется никогда.</p>
+              <p>Поставщик — RouterAI (Россия). Он не хранит содержимое запросов, но по умолчанию может передать запрос зарубежному сервису, который вычисляет ответ и таких гарантий не даёт. Мы ищем решение; пока честнее сказать прямо.</p>
+              <p>Голосовой ввод (диктовка) использует встроенное распознавание речи браузера: аудиозапись передаётся серверам вендора браузера (Google или Apple) для перевода в текст.</p>
+              <p>Если в заметке упомянуты другие люди, их слова и обстоятельства уходят вместе с текстом. Отдельной картотеки упомянутых людей приложение не ведёт.</p>
+            </div>
+
+            <p className="text-xs pt-1">Подробнее: <a href="/privacy" className="text-brand-soft underline">Политика конфиденциальности</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>.</p>
           </div>
 
-          <label className="flex items-start gap-3 mt-5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={e => setChecked(e.target.checked)}
-              className="mt-0.5 accent-brand-soft"
-            />
-            <span className="text-xs text-text-main/60">
-              Я прочитал и принимаю <a href="/privacy" className="text-brand-soft underline">Политику обработки персональных данных</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>
-            </span>
-          </label>
+          <div className="pt-4 border-t border-border-subtle/50 space-y-3 mt-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={e => setChecked(e.target.checked)}
+                className="mt-0.5 accent-brand-soft shrink-0"
+              />
+              <span className="text-xs text-text-main/70">
+                <span className="font-semibold text-text-main">Обязательно: </span>
+                Я прочитал и принимаю <a href="/privacy" className="text-brand-soft underline">Политику обработки персональных данных</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>
+              </span>
+            </label>
 
-          {/* Отдельная галочка, и это принципиально. Тексты дневника по своей
-              природе относятся к специальным категориям (ст. 10 152-ФЗ), а
-              согласие на них, спрятанное в общее «согласен с политикой», не
-              считается данным. Галочка не обязательна: отказ оставляет письмо и
-              хранение записей, забирая только функции ИИ. */}
-          <label className="flex items-start gap-3 mt-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={aiConsent}
-              onChange={e => setAiConsent(e.target.checked)}
-              className="mt-0.5 accent-brand-soft"
-            />
-            <span className="text-xs text-text-main/60">
-              Я даю <a href="/consent" className="text-brand-soft underline">согласие на обработку специальных категорий персональных данных</a> — сведений о состоянии здоровья, психоэмоциональном состоянии и личной жизни, которые могут содержаться в моих записях, — для работы функций ИИ. Без этого согласия письмо и хранение записей остаются доступными, функции ИИ — нет
-            </span>
-          </label>
+            {/* Отдельная галочка, и это принципиально. Тексты дневника по своей
+                природе относятся к специальным категориям (ст. 10 152-ФЗ), а
+                согласие на них, спрятанное в общее «согласен с политикой», не
+                считается данным. Галочка не обязательна: отказ оставляет письмо и
+                хранение записей, забирая только функции ИИ. */}
+            <div className="p-3 rounded-xl border border-border-subtle bg-surface-base/30 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-text-main">Функции искусственного интеллекта</span>
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-elevated text-text-main/60 border border-border-subtle">
+                  Необязательно
+                </span>
+              </div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aiConsent}
+                  onChange={e => setAiConsent(e.target.checked)}
+                  className="mt-0.5 accent-brand-soft shrink-0"
+                />
+                <span className="text-xs text-text-main/60 leading-relaxed">
+                  Я даю <a href="/consent" className="text-brand-soft underline">согласие на обработку специальных категорий персональных данных</a> — сведений о состоянии здоровья, психоэмоциональном состоянии и личной жизни, которые могут содержаться в моих записях, — для работы функций ИИ. Без этого согласия письмо и хранение записей остаются доступными, функции ИИ — нет
+                </span>
+              </label>
+            </div>
+          </div>
 
           {saveError !== null && (
             <p className="mt-3 text-xs text-accent-danger">{saveError}</p>

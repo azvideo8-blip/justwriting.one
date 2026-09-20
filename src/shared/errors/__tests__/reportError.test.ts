@@ -2,17 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { reportError } from '../reportError';
 import { useActivityLogStore } from '../../activity/useActivityLogStore';
 
-vi.mock('@sentry/react', () => ({
-  withScope: vi.fn((cb) => {
-    const scope = {
-      setLevel: vi.fn(),
-      setExtra: vi.fn(),
-    };
-    cb(scope);
-  }),
-  captureException: vi.fn(),
-}));
-
 describe('reportError PII stripping (SEC-2)', () => {
   beforeEach(() => {
     vi.clearAllMocks();

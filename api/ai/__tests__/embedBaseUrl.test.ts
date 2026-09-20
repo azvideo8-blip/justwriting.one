@@ -51,4 +51,19 @@ describe('embed() base URL', () => {
     const calledUrl = fetchMock.mock.calls[0]![0] as string;
     expect(calledUrl).toBe('https://routerai.ru/api/v1/embeddings');
   });
+
+  it('preserves local AI_EMBED_BASE_URL while passing provider routing when AI_PROVIDER_COUNTRY is set', async () => {
+    process.env.AI_BASE_URL = 'https://routerai.ru/api/v1';
+    process.env.AI_EMBED_BASE_URL = 'http://127.0.0.1:8081/v1';
+    process.env.AI_PROVIDER_COUNTRY = 'ru';
+    const fetchMock = mockFetchOnce();
+
+    const { embed } = await import('../provider');
+    await embed(['привет']);
+
+    const [calledUrl, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledUrl).toBe('http://127.0.0.1:8081/v1/embeddings');
+    const parsed = JSON.parse(init.body as string);
+    expect(parsed.provider).toEqual({ country: 'ru' });
+  });
 });

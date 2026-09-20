@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const { onPasswordRecoveryCb, updateUserPassword, signOutUser, verifyOtpForRecovery } = vi.hoisted(() => {
+const { onPasswordRecoveryCb, updateUserPassword, signOutUser, verifyOtpForRecovery, getCurrentUser, mockNavigate } = vi.hoisted(() => {
   let cb: () => void = () => {};
   return {
     onPasswordRecoveryCb: {
@@ -14,6 +14,8 @@ const { onPasswordRecoveryCb, updateUserPassword, signOutUser, verifyOtpForRecov
     updateUserPassword: vi.fn().mockResolvedValue(undefined),
     signOutUser: vi.fn().mockResolvedValue(undefined),
     verifyOtpForRecovery: vi.fn().mockResolvedValue(undefined),
+    getCurrentUser: vi.fn().mockReturnValue(null),
+    mockNavigate: vi.fn(),
   };
 });
 
@@ -22,7 +24,16 @@ vi.mock('../../../../core/auth/supabaseAuthProvider', () => ({
   signOutUser: (...a: unknown[]) => signOutUser(...(a as [])),
   onPasswordRecovery: (fn: () => void) => { onPasswordRecoveryCb.register(fn); return () => {}; },
   verifyOtpForRecovery: (...a: unknown[]) => verifyOtpForRecovery(...(a as [])),
+  getCurrentUser: (...a: unknown[]) => getCurrentUser(...(a as [])),
 }));
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 import { ResetPasswordPage } from '../ResetPasswordPage';
 
@@ -34,6 +45,8 @@ beforeEach(() => {
   updateUserPassword.mockClear();
   signOutUser.mockClear();
   verifyOtpForRecovery.mockClear();
+  getCurrentUser.mockClear();
+  mockNavigate.mockClear();
   onPasswordRecoveryCb.reset();
 });
 
@@ -102,5 +115,30 @@ describe('1.3 password recovery', () => {
     expect(await screen.findByText('Ссылка уже использована или устарела — запросите новую')).toBeTruthy();
     expect(screen.getByText('Запросить новую ссылку')).toBeTruthy();
     expect(screen.queryByPlaceholderText(/Новый пароль/)).toBeNull();
+  });
+
+  it('passes email in state to /login when navigating after password set (AG-ONBOARD-2)', async () => {
+    getCurrentUser.mockReturnValue({ email: 'invited@example.com' });
+    renderPage(['/reset-password?token_hash=inv123&type=invite']);
+
+    await waitFor(() => {
+      expect(verifyOtpForRecovery).toHaveBeenCalledWith('inv123', 'invite');
+    });
+
+    const pwInputs = await screen.findAllByPlaceholderText(/Новый пароль|Повторите пароль/);
+    fireEvent.change(pwInputs[0]!, { target: { value: 'securepassword123' } });
+    fireEvent.change(pwInputs[1]!, { target: { value: 'securepassword123' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Задать пароль' }));
+
+    await waitFor(() => expect(updateUserPassword).toHaveBeenCalledWith('securepassword123'));
+    expect(screen.getByText('Пароль задан. Теперь можно войти.')).toBeTruthy();
+
+    const loginBtn = screen.getByRole('button', { name: 'Перейти ко входу' });
+    fireEvent.click(loginBtn);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/login', {
+      state: { email: 'invited@example.com' },
+    });
   });
 });

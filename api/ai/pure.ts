@@ -5,9 +5,7 @@
 // (step C4 of docs/migration-plan.md). The remaining duplication with
 // src/shared/ai/ is tracked as AG-AIONE-1.
 
-import { createHash } from 'crypto';
 import DOMPurify from 'isomorphic-dompurify';
-import { Langfuse } from 'langfuse';
 import { sanitizeAiInputShared, MAX_AI_CONTENT_LENGTH } from '../../src/shared/ai/buildChatPrompt.js';
 
 export { MAX_AI_CONTENT_LENGTH };
@@ -21,26 +19,6 @@ export {
   INJECTION_PATTERNS,
   hasInjectionAttempt,
 } from '../../src/shared/ai/injectionPatterns.js';
-
-
-
-let _langfuse: Langfuse | null = null;
-
-export function hashUid(uid: string): string {
-  if (!uid) return 'anonymous';
-  return createHash('sha256').update(uid).digest('hex').slice(0, 16);
-}
-
-export function getLangfuse(): Langfuse | null {
-
-  const secretKey = process.env.LANGFUSE_SECRET_KEY;
-  const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
-  if (!secretKey || !publicKey) return null;
-  if (!_langfuse) {
-    _langfuse = new Langfuse({ secretKey, publicKey, flushAt: 1, fetchRetryCount: 1 });
-  }
-  return _langfuse;
-}
 
 export function sanitizeAiInput(content: string): string {
   return sanitizeAiInputShared(content);

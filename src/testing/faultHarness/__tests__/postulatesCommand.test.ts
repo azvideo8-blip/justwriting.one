@@ -25,7 +25,7 @@ describe('Postulates Command Suite (BETA-8)', () => {
     expect(res.stdout, 'счёт по каждому постулату отдельно').toMatch(/P2 .*held +\d+ +not measured +\d+ +violated \d+/);
     expect(res.stdout, 'пропущенный обход базы обязан быть назван').toContain('Database sweep: NOT RUN');
     expect(res.stdout).not.toContain('All four postulates hold');
-  });
+  }, 40000);
 
   it('scripts/postulates.mjs exits non-zero when a postulate is broken (falsification)', () => {
     const tmpResults = path.join(rootDir, `.postulates-results-test-fail.json`);

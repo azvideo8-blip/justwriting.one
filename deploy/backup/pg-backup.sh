@@ -9,13 +9,14 @@
 # Формат custom (-Fc): сжат, восстанавливается выборочно, переживает смену
 # версии сервера лучше простого текста.
 set -euo pipefail
+umask 077
 
 DEST=/var/backups/justwriting
 KEEP_DAILY=14
 STAMP=$(date +%Y%m%d-%H%M%S)
 FILE="$DEST/justwriting-$STAMP.dump"
 
-mkdir -p "$DEST"
+install -d -m 700 "$DEST"
 
 # pg_dump живёт в контейнере: на хосте клиента нет, а ставить его ради этого
 # значит следить ещё и за совпадением версий.

@@ -46,14 +46,19 @@ vi.mock('../../../app/useAuthStatus', () => ({
   useAuthStatus: () => ({ user: null, authState: 'unauthenticated' }),
 }));
 
+const { mockLocation } = vi.hoisted(() => ({
+  mockLocation: vi.fn().mockReturnValue({ search: '', state: null }),
+}));
+
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
-  useLocation: () => ({ search: '' }),
+  useLocation: () => mockLocation(),
 }));
 
 describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLocation.mockReturnValue({ search: '', state: null });
   });
 
   afterEach(() => {
@@ -173,5 +178,27 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
       window.innerWidth = originalInnerWidth;
       window.innerHeight = originalInnerHeight;
     }
+  });
+
+  it('prefills email from location.state and focuses password input (AG-ONBOARD-2)', () => {
+    mockLocation.mockReturnValue({ search: '', state: { email: 'prefilled@example.com' } });
+    render(<LoginPage />);
+
+    const emailInput = screen.getByPlaceholderText('auth_email_placeholder');
+    expect(emailInput).toHaveValue('prefilled@example.com');
+
+    const passwordInput = screen.getByPlaceholderText('••••••••');
+    expect(passwordInput).toHaveFocus();
+  });
+
+  it('prefills email from search query param and focuses password input', () => {
+    mockLocation.mockReturnValue({ search: '?email=query@example.com', state: null });
+    render(<LoginPage />);
+
+    const emailInput = screen.getByPlaceholderText('auth_email_placeholder');
+    expect(emailInput).toHaveValue('query@example.com');
+
+    const passwordInput = screen.getByPlaceholderText('••••••••');
+    expect(passwordInput).toHaveFocus();
   });
 });

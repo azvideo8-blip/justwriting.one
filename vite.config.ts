@@ -66,8 +66,6 @@ export default defineConfig(() => {
             'vendor-markdown': ['react-markdown', 'rehype-sanitize'],
             'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge'],
             'vendor-ai': ['ai', '@ai-sdk/openai'],
-            'vendor-sentry': ['@sentry/react'],
-            'vendor-analytics': ['posthog-js'],
             'vendor-virtuoso': ['react-virtuoso'],
             // Клиент Supabase — самая тяжёлая часть основного куска, и нужен он
             // не на первом экране: письмо работает без сети и без аккаунта.

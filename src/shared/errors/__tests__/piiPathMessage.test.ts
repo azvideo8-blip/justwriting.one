@@ -11,11 +11,6 @@ vi.mock('../../activity/useActivityLogStore', () => ({
   useActivityLogStore: { getState: () => ({ addError }) },
 }));
 
-vi.mock('@sentry/react', () => ({
-  withScope: vi.fn(),
-  captureException: vi.fn(),
-}));
-
 import { reportError } from '../reportError';
 import { redactMessage, scrubPii } from '../piiScrub';
 import { OperationType } from '../errorTypes';
@@ -41,6 +36,13 @@ describe('AUD-16 path does not reach the log', () => {
     expect(out.path).toBeUndefined();
     expect(out.docPath).toBeUndefined();
     expect(out.operationType).toBe('get');
+  });
+
+  it("scrubs 'tag' and 'newTag' keys (OUT-3)", () => {
+    const out = scrubPii({ action: 'renameTag', tag: 'личный', newTag: 'секрет' });
+    expect(out.tag).toBeUndefined();
+    expect(out.newTag).toBeUndefined();
+    expect(out.action).toBe('renameTag');
   });
 });
 

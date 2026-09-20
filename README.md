@@ -111,9 +111,6 @@ npm run dev          # http://localhost:3000
 VITE_SUPABASE_URL=https://<your-supabase-host>
 VITE_SUPABASE_ANON_KEY=...
 VITE_SITE_URL=https://justwriting.ru   # optional
-VITE_SENTRY_DSN=...                    # optional — error reporting
-VITE_POSTHOG_KEY=...                   # optional — analytics, consent-gated
-VITE_POSTHOG_HOST=...                  # optional
 ```
 
 A build without `VITE_SUPABASE_*` produces a client that loads and then fails

@@ -1,13 +1,10 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {BrowserRouter} from 'react-router-dom';
-import * as Sentry from "@sentry/react";
 import { z } from 'zod';
 import { reportError } from './shared/errors/reportError';
 import { APP_VERSION } from './version';
 import App from './App.tsx';
-import './core/analytics/analytics';
-import { initWebVitals } from './core/analytics/webVitals';
 import './index.css';
 
 // Disable zod's JIT path: it probes `new Function("")`, which our CSP
@@ -17,46 +14,6 @@ z.config({ jitless: true });
 
 document.documentElement.dataset.appVersion = APP_VERSION;
 (window as unknown as { __APP_VERSION__: string }).__APP_VERSION__ = APP_VERSION;
-
-const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
-if (sentryDsn && sentryDsn.startsWith('https://')) {
-  Sentry.init({
-    dsn: sentryDsn,
-    environment: import.meta.env.MODE,
-    enabled: import.meta.env.PROD,
-    integrations: [
-      Sentry.browserTracingIntegration(),
-      // AUDIT-M14: replay стартует после первого paint (idle), не блокирует
-      // startup. maskAllText/blockAllMedia сохранены — scrubbing обязателен.
-    ],
-    tracesSampleRate: 0.5,
-    replaysSessionSampleRate: 0.1,
-    replaysOnErrorSampleRate: 1.0,
-    beforeSend(event) {
-      if (event.request?.data) delete event.request.data;
-      if (event.request?.headers) delete event.request.headers;
-      if (event.request?.cookies) delete event.request.cookies;
-
-      // The context keys are scrubbed by reportError, but the error MESSAGE was
-      // not — and messages are built with template literals, so anything a
-      // caller interpolates leaves the device verbatim. That is a promise this
-      // app makes about the user's notes, so the guarantee cannot rest on every
-      // future caller remembering. Anything in quotes is dropped: it is the
-      // shape user-derived fragments are interpolated in, and no diagnostic
-      // value is lost — the sentence around it still identifies the site.
-      for (const ex of event.exception?.values ?? []) {
-        if (ex.value) ex.value = ex.value.replace(/"[^"]*"|«[^»]*»/g, '"[скрыто]"');
-      }
-      if (event.message) event.message = event.message.replace(/"[^"]*"|«[^»]*»/g, '"[скрыто]"');
-      return event;
-    },
-
-    ignoreErrors: [
-      'ResizeObserver loop',
-      'Network request failed',
-    ],
-  });
-}
 
 const PRELOAD_RELOAD_KEY = 'jw:preload-reload';
 
@@ -83,25 +40,9 @@ window.addEventListener('vite:preloadError', (e) => {
   location.reload();
 });
 
-// AUDIT-M14: replay подключается после загрузки, вне критического пути first paint.
-if (typeof window !== 'undefined') {
-  const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void };
-  if (typeof w.requestIdleCallback === 'function') {
-    w.requestIdleCallback(() => {
-      Sentry.addIntegration(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
-    }, { timeout: 5000 });
-  } else {
-    w.addEventListener('load', () => {
-      Sentry.addIntegration(Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }));
-    });
-  }
-}
-
 window.addEventListener('unhandledrejection', (event) => {
   reportError(event.reason, { source: 'unhandledrejection' });
 });
-
-initWebVitals();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

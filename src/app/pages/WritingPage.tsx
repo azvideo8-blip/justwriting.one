@@ -23,6 +23,9 @@ import { DesktopWritingLayout } from './DesktopWritingLayout';
 import { AIPanel } from '../../features/ai/components/AIPanel';
 import { useTimerStore } from '../../features/writing/store/useTimerStore';
 import { useContentStore } from '../../features/writing/store/useContentStore';
+import { OnboardingGoalScreen } from '../../features/writing/components/OnboardingGoalScreen';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
+import { getLocalDb } from '../../core/storage/localDb';
 
 export type { AnySessionReturn } from '../../features/writing/hooks/useWritingActions';
 
@@ -99,6 +102,54 @@ function WritingPageUI() {
   const setLabelId = session.setLabelId;
 
   const { silenceMode } = useWritingSettings();
+
+  const [prevUserId, setPrevUserId] = React.useState(session.userId);
+  // Default to true (never interrupt) until the doc-count check below proves
+  // this account is genuinely new — the flag was never set for any account
+  // before this screen existed, so "flag absent" alone would show this to
+  // every existing account with a writing history, not just new ones.
+  const [onboardingDone, setOnboardingDone] = React.useState(true);
+
+  if (prevUserId !== session.userId) {
+    setPrevUserId(session.userId);
+    setOnboardingDone(true);
+  }
+
+  React.useEffect(() => {
+    if (localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE(session.userId))) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const db = await getLocalDb(session.userId ?? undefined);
+        const docCount = await db.count('documents');
+        if (cancelled) return;
+        if (docCount > 0) {
+          // Existing account, the flag just never existed until today —
+          // backfill it silently, never show the screen.
+          localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE(session.userId), '1');
+        } else {
+          setOnboardingDone(false);
+        }
+      } catch {
+        // Can't tell either way — default (never interrupt) stands.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session.userId]);
+
+  if (!onboardingDone) {
+    return (
+      <OnboardingGoalScreen
+        userId={session.userId}
+        setWordGoal={(goal) => {
+          useTimerStore.getState().setWordGoal(goal);
+        }}
+        onComplete={() => {
+          setOnboardingDone(true);
+        }}
+      />
+    );
+  }
 
   const mainContent = (() => {
     if (isMobile) {

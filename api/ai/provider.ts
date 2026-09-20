@@ -9,9 +9,11 @@
 // proxy gets provider-neutral AI_* names instead.
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
 // Ограничение контура обработки. Пусто = ограничения нет, запрос может уйти к
-// зарубежному провайдеру модели (ст. 12 152-ФЗ). Проверено 2026-08-18: с
-// `country: 'ru'` доступны только модели Yandex, а эмбеддингов внутри контура
-// нет вовсе — поэтому по умолчанию не шлём. См. api/chat.ts.
+// зарубежному провайдеру модели (ст. 12 152-ФЗ). Проверено 2026-09-20:
+// эмбеддинги теперь локальные и игнорируют флаг (проверено живьём); включение
+// упирается в смену модели на `yandex/*` для всех вызывающих, так как
+// `deepseek/deepseek-v4-flash` под `country: 'ru'` недоступен. См. api/chat.ts и
+// docs/audit-2026-09-20-outbound-pii.md (OUT-1).
 const PROVIDER_ROUTING = process.env.AI_PROVIDER_COUNTRY
   ? { country: process.env.AI_PROVIDER_COUNTRY }
   : undefined;

@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react';
 import { useActivityLogStore } from '../activity/useActivityLogStore';
 import { scrubPii, redactMessage } from './piiScrub';
 
@@ -24,7 +23,7 @@ export function reportError(
       const copy = new Error(redactMessage(error.message));
       copy.name = error.name;
       // Стек несёт первую строку вида «Error: <сообщение>» — если перенести
-      // его как есть, вычеркнутый uuid или адрес почты уезжает в Sentry внутри
+      // его как есть, вычеркнутый uuid или адрес почты уезжает в журнал внутри
       // стека. Прогоняем те же три формы и по стеку.
       if (error.stack) copy.stack = redactMessage(error.stack);
       safeMessage = copy;
@@ -48,17 +47,6 @@ export function reportError(
   if (import.meta.env.DEV) {
     console.error('[reportError]', safeMessage, safeContext);
   }
-
-  const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
-  if (!sentryDsn || !sentryDsn.startsWith('https://')) return;
-
-  Sentry.withScope((scope) => {
-    scope.setLevel(level);
-    Object.entries(safeContext).forEach(([key, value]) => {
-      scope.setExtra(key, value);
-    });
-    Sentry.captureException(safeMessage instanceof Error ? safeMessage : new Error(String(safeMessage)));
-  });
 }
 
 /**
@@ -68,7 +56,7 @@ export function reportError(
  * расширение браузера), внешний скрипт лезет к нашему окну и получает
  * `SecurityError: Blocked a frame ... from accessing a cross-origin frame`.
  * Событие всплывает в наш `window.onerror`, и человек видит значок «1 ошибка»
- * на ровном месте, а в Sentry уходит шум с чужого кода.
+ * на ровном месте, а в журнал уходит шум с чужого кода.
  *
  * Родиться у нас такая ошибка не может: в исходниках нет ни одного обращения к
  * `window.parent`, `window.top` или `frameElement`. Поэтому её отсекаем — узко,

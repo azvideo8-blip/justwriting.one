@@ -21,7 +21,7 @@ KEEP_DAYS=14
 [ -d dist ] || { echo "нет каталога dist — сначала npm run build" >&2; exit 1; }
 
 echo "1/4 · отправляю сборку…"
-rsync -az -e "ssh -o ServerAliveInterval=15" dist/ "$HOST:/tmp/dist-new/"
+rsync -az --exclude='*.map' -e "ssh -o ServerAliveInterval=15" dist/ "$HOST:/tmp/dist-new/"
 
 echo "2/4 · раскладываю (старые куски остаются)…"
 # Без --delete: всё новое перезаписывает одноимённое, старые куски остаются

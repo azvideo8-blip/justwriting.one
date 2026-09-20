@@ -1,7 +1,6 @@
 import { getCurrentUser, getIdToken } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
-import { analytics } from '../../../core/analytics/analytics';
 import { callAi, type CallAiOptions } from '../../../core/ai/callAi';
 import type { AIErrorCode } from '../types/aiErrors';
 
@@ -101,7 +100,6 @@ export const AIService = {
   ): Promise<AIResult> {
     try {
       const data = await withTimeout(callAi<{ result: string }>('editWithAI', { content, action, ...opts }), GEN_TIMEOUT_MS);
-      try { analytics.track('ai_action', { action }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       const code = mapAIError(e);
@@ -137,7 +135,6 @@ export const AIService = {
 
     try {
       const data = await withTimeout(callAi<{ result: string }>('chatWithAI', params, opts), GEN_TIMEOUT_MS);
-      try { analytics.track('ai_chat', { personaId: params.personaId }); } catch { /* non-critical */ }
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       const code = mapAIError(e);
@@ -161,7 +158,6 @@ export const AIService = {
   }): Promise<{ ok: true; summary: AISummaryPayload } | { ok: false; error: string }> {
     try {
       const data = await withTimeout(callAi<AISummaryPayload>('summarizeDocument', params), GEN_TIMEOUT_MS);
-      try { analytics.track('ai_summarize'); } catch { /* non-critical */ }
       return { ok: true, summary: data };
     } catch (e: unknown) {
       const code = mapAIError(e);
@@ -187,7 +183,6 @@ export const AIService = {
 
     try {
       const data = await withTimeout(callAi<{ vectors: number[][]; chunks: string[]; model: string; dim: number }>('embedDocument', params), 60_000);
-      try { analytics.track('ai_embed'); } catch { /* non-critical */ }
       return { ok: true, vectors: data.vectors, chunks: data.chunks ?? [], model: data.model, dim: data.dim };
     } catch (e: unknown) {
       reportError(e, { action: 'embed' }, 'warning');

@@ -135,7 +135,5 @@ GoTrue creates the user and mails `public/email/invite.html` (subject and templa
 | `AI_TIER_TPD` | no | Global daily token cap (default 25,000,000) |
 | `AI_DAILY_SPEND_LIMIT_RUB` | no | Daily spend ceiling in Rubles (e.g. 100) |
 | `AI_RUB_PER_1M_TOKENS` | no | Estimated price per 1M tokens in RUB (default 30) |
-| `SENTRY_DSN` | no | Error tracking |
-| `POSTHOG_API_KEY` | no | Analytics |
 
 

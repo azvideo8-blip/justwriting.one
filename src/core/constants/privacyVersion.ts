@@ -6,4 +6,4 @@
 // Поднимать при изменении текста политики: значение сравнивается с
 // privacyVersion и aiConsentVersion в профиле, и большее число означает, что
 // согласие нужно собрать заново.
-export const PRIVACY_VERSION = 2;
+export const PRIVACY_VERSION = 3;

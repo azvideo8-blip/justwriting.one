@@ -2,52 +2,52 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://justwriting.one/</loc>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/?lang=en"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://justwriting.one/"/>
+    <loc>https://justwriting.ru/</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.ru/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.ru/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://justwriting.ru/"/>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://justwriting.one/about</loc>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/about"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/about?lang=en"/>
+    <loc>https://justwriting.ru/about</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.ru/about"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.ru/about?lang=en"/>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://justwriting.one/changelog</loc>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/changelog"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/changelog?lang=en"/>
+    <loc>https://justwriting.ru/changelog</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.ru/changelog"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.ru/changelog?lang=en"/>
     <changefreq>weekly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://justwriting.one/login</loc>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/login"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/login?lang=en"/>
+    <loc>https://justwriting.ru/login</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.ru/login"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.ru/login?lang=en"/>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://justwriting.one/features</loc>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/features"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/features?lang=en"/>
+    <loc>https://justwriting.ru/features</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.ru/features"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.ru/features?lang=en"/>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://justwriting.one/privacy</loc>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/privacy"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/privacy?lang=en"/>
+    <loc>https://justwriting.ru/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.ru/privacy"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.ru/privacy?lang=en"/>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://justwriting.one/terms</loc>
-    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.one/terms"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.one/terms?lang=en"/>
+    <loc>https://justwriting.ru/terms</loc>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://justwriting.ru/terms"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://justwriting.ru/terms?lang=en"/>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

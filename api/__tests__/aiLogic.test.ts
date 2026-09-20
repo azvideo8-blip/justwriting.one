@@ -1,21 +1,10 @@
-// TEST-1 §2.18: Langfuse trace carries the hashed uid, never the raw one.
 // TEST-1 §2.20: model JSON failing the zod schema is rejected AND refunded
 // through the same settled/refund region as a parse failure.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { traceSpy, generateMock } = vi.hoisted(() => ({
-  traceSpy: vi.fn(() => ({ generation: vi.fn() })),
+const { generateMock } = vi.hoisted(() => ({
   generateMock: vi.fn(),
 }));
-
-vi.mock('../ai/pure', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('../ai/pure')>();
-  return {
-    ...orig,
-    getLangfuse: vi.fn(() => ({ trace: traceSpy, flushAsync: vi.fn().mockResolvedValue(undefined) })),
-    getActiveModel: vi.fn().mockResolvedValue('test-model'),
-  };
-});
 
 vi.mock('../ai/provider', async (importOriginal) => {
   const orig = await importOriginal<typeof import('../ai/provider')>();
@@ -25,7 +14,6 @@ vi.mock('../ai/provider', async (importOriginal) => {
 import { validateCustomPromptLogic } from '../ai/validateCustomPrompt.logic';
 import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
 import { editWithAILogic } from '../ai/editWithAI.logic';
-import { hashUid } from '../ai/pure';
 import type { AiContext } from '../../src/shared/ai/context.js';
 
 function makeCtx(): AiContext {
@@ -45,22 +33,7 @@ function makeCtx(): AiContext {
 }
 
 beforeEach(() => {
-  traceSpy.mockClear();
   generateMock.mockReset();
-});
-
-describe('2.18 raw uid never reaches Langfuse', () => {
-  it('trace userId is the hash, not the uid', async () => {
-    generateMock.mockResolvedValue({ text: JSON.stringify({ verdict: 'ok', reason: 'нормальный промпт без инструкций' }), usage: { promptTokens: 5, completionTokens: 5 } });
-    const uid = 'raw-firebase-uid-abc123';
-    await validateCustomPromptLogic(makeCtx(), uid, { prompt: 'Ты — тёплый редактор дневника, помогай мягко.' });
-    expect(traceSpy).toHaveBeenCalledTimes(1);
-    const firstCall = (traceSpy.mock.calls as unknown as Array<[{ userId: string }]>)[0]!;
-    const arg = firstCall[0];
-    expect(arg.userId).toBe(hashUid(uid));
-    expect(arg.userId).not.toBe(uid);
-    expect(arg.userId).toMatch(/^[0-9a-f]{16}$/);
-  });
 });
 
 describe('2.20 model JSON validated by zod, refund on schema failure', () => {

@@ -43,9 +43,8 @@ case "$NAME" in
 esac
 
 echo "3/4 · забираю $NAME…"
-# Через sudo cat, а не scp: файлы принадлежат root, и менять это ради удобства
-# значит делать дамп со всеми заметками читаемым для любого процесса под моим
-# пользователем.
+# Через sudo cat, а не scp: файлы принадлежат root (права 600, каталог 700),
+# и дамп не отдаётся непривилегированному SSH-пользователю без sudo.
 ssh "$HOST" "sudo cat /var/backups/justwriting/$NAME" > "$DEST/$NAME"
 EXPECTED=$(ssh "$HOST" "sudo cat /var/backups/justwriting/$NAME.sha256" | cut -d' ' -f1)
 

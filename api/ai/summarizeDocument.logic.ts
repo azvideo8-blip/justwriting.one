@@ -1,6 +1,6 @@
 // functions/src/ai/summarizeDocument.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, getLangfuse, hashUid, splitFactsByModality, MAX_AI_CONTENT_LENGTH } from './pure';
+import { sanitizeAiInput, sanitizeAiResponse, splitFactsByModality, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall } from '../../src/shared/ai/aiPolicy.js';
@@ -150,10 +150,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   }
   callRes.attachGlobalReservation(reservation);
 
-  const lf = getLangfuse();
-  const trace = lf?.trace({ name: 'summarizeDocument', userId: hashUid(uid) });
-  const generation = trace?.generation({ name: SUMMARY_MODEL, model: SUMMARY_MODEL });
-
   let text: string;
   let tokensIn = 0, tokensOut = 0, usedModel = SUMMARY_MODEL;
   try {
@@ -172,8 +168,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   } catch (e) {
     console.error('[AI summarize] generation failed:', e);
     await callRes.settle('failed');
-    generation?.end({ level: 'ERROR' });
-    if (lf) await lf.flushAsync().catch(() => {});
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');
@@ -194,8 +188,6 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   } catch {
     await callRes.settle('failed', { tokensIn, tokensOut, model: usedModel });
     console.error('[AI summarize] failed to parse model output, length:', text.length);
-    generation?.end({ level: 'ERROR' });
-    if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
     throw new AiError('unavailable', 'Failed to parse summary.');
   }
 
@@ -203,17 +195,13 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
   if (!validated.success) {
     await callRes.settle('failed', { tokensIn, tokensOut, model: usedModel });
     console.error('[AI summarize] model output failed schema:', validated.error.issues.length, 'issues');
-    generation?.end({ level: 'ERROR' });
-    if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
     throw new AiError('unavailable', 'Model returned malformed summary.');
   }
   const parsed_json: ParsedJson = validated.data;
 
   await callRes.settle('done');
-  generation?.end({ usage: { promptTokens: tokensIn, completionTokens: tokensOut } });
   ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }, reservation)
     .catch(e => console.error('[AI summarize] usage record failed:', e));
-  if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   const cyrRatio = (s: string) => {
     const cyr = (s.match(/[а-яёА-ЯЁ]/g) ?? []).length;

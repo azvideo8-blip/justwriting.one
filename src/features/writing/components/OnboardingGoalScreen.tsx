@@ -3,8 +3,10 @@ import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { Button } from '../../../shared/components/Button';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 interface OnboardingGoalScreenProps {
+  userId?: string | null;
   onComplete: (wordGoal: number) => void;
   setWordGoal: (goal: number) => void;
 }
@@ -15,7 +17,7 @@ const PRESETS = [
   { key: 'serious', words: 750, mins: 15 },
 ] as const;
 
-export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoalScreenProps) {
+export function OnboardingGoalScreen({ userId, onComplete, setWordGoal }: OnboardingGoalScreenProps) {
   const { t } = useLanguage();
   const [selected, setSelected] = useState<number | null>(null);
   const [customWords, setCustomWords] = useState('');
@@ -36,7 +38,7 @@ export function OnboardingGoalScreen({ onComplete, setWordGoal }: OnboardingGoal
   const handleStart = () => {
     const finalGoal = isCustom ? (parseInt(customWords) || 300) : (selected || 300);
     setWordGoal(finalGoal);
-    localStorage.setItem('onboarding_done', '1');
+    localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE(userId), '1');
     onComplete(finalGoal);
   };
 

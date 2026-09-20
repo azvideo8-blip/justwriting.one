@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://justwriting.one/sitemap.xml
+Sitemap: https://justwriting.ru/sitemap.xml

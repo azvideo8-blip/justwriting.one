@@ -1,7 +1,7 @@
 // functions/src/ai/validateCustomPrompt.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, getLangfuse, hashUid } from './pure';
-import { generate, getActiveModel } from './provider';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
+import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { createCallReservation } from '../../src/shared/ai/aiPolicy.js';
 
@@ -50,11 +50,6 @@ export async function validateCustomPromptLogic(ctx: AiContext, uid: string, dat
 
   const sanitizedPrompt = sanitizeAiInput(prompt);
 
-  const lf = getLangfuse();
-  const activeModel = await getActiveModel();
-  const trace = lf?.trace({ name: 'validateCustomPrompt', userId: hashUid(uid) });
-  const generation = trace?.generation({ name: activeModel, model: activeModel });
-
   let text: string;
   try {
     const result = await generate({
@@ -66,16 +61,11 @@ export async function validateCustomPromptLogic(ctx: AiContext, uid: string, dat
     text = result.text.trim();
     callRes.markProduced(text.length);
     await callRes.settle('done');
-    generation?.end({ usage: { promptTokens: result.tokensIn, completionTokens: result.tokensOut } });
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'validate' }, reservation).catch(e => console.error('[AI validate] usage record failed:', e));
-  } catch (e) {
+  } catch {
     await callRes.settle('failed');
-    generation?.end({ output: String(e), level: 'ERROR' });
-    if (lf) await lf.flushAsync().catch(() => {});
     throw new AiError('internal', 'AI validation failed.');
   }
-
-  if (lf) await lf.flushAsync().catch(e => console.error('[Langfuse] flush failed:', e));
 
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);

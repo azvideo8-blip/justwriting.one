@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, X, Trash2, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
 import { useActivityLogStore, ActivityLogItem } from '../shared/activity/useActivityLogStore';
 
-// The trigger lives in the Sidebar (SidebarErrorBadge); this renders only the
+// The triggers live in the desktop Sidebar and mobile BottomNav; this renders only the
 // slide-out panel, driven by the store's panelOpen flag.
 export const ActivityLogBadge: React.FC = () => {
   const entries = useActivityLogStore(s => s.entries);

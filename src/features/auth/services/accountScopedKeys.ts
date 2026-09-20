@@ -60,6 +60,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     // запрос и курсор восстановления эмбеддингов (LS-4)
     `ai_embed_restore_requested_${uid}`,
     `ai_embed_restore_cursor_${uid}`,
+    // экран выбора цели письма (AG-ONBOARD-1)
+    `onboarding_done_${uid}`,
   ];
 }
 
@@ -92,7 +94,6 @@ const DEVICE_SETTINGS_KEYS = new Set<string>([
   'preview_width',
   'ai_sidebar_width',
   'justwriting_sidebar_collapsed',
-  'onboarding_done',
   'focus_swipe_hint_shown',
   'analytics_consent',
   'diagnostics_unlocked',

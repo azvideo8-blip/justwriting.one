@@ -33,7 +33,7 @@ function buildMailto(error: Error, code: string): string {
     `URL: ${window.location.pathname}\n\n` +
     `Message:\n${error.message.slice(0, 200)}\n`
   );
-  return `mailto:support@justwriting.one?subject=${subject}&body=${body}`;
+  return `mailto:support@justwriting.ru?subject=${subject}&body=${body}`;
 }
 
 export class ErrorBoundary extends Component<Props, State> {

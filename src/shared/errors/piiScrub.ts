@@ -16,7 +16,7 @@ const PII_KEYS = new Set([
   'documentId', 'docId', 'docUuid', 'localId', 'versionId', 'sessionId',
   'personaId', 'domainId', 'labelId', 'noteId', 'threadId',
   'title', 'docTitle', 'content', 'text', 'rawContent', 'summary',
-  'tag', 'theme', 'label', 'name', 'query', 'snippet', 'prompt', 'answer', 'message',
+  'tag', 'newTag', 'theme', 'label', 'name', 'query', 'snippet', 'prompt', 'answer', 'message',
   // AUD-16: путь документа строится как users/${userId} — тот же
   // идентификатор, что в uid, но под другим ключом.
   'path', 'docPath', 'docPathFull',

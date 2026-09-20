@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { AlertCircle, AlertTriangle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
 
@@ -64,12 +65,30 @@ export function mapSupabaseAuthError(
 }
 
 export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
+  const location = useLocation();
+  const locationState = location?.state as { email?: string } | null | undefined;
+  const searchParams = new URLSearchParams(location?.search || '');
+  const prefilledEmail = locationState?.email || searchParams.get('email') || '';
+
   const { t } = useLanguage();
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('');
+  const [prevPrefilledEmail, setPrevPrefilledEmail] = useState(prefilledEmail);
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState('');
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  if (prevPrefilledEmail !== prefilledEmail) {
+    setPrevPrefilledEmail(prefilledEmail);
+    setEmail(prefilledEmail);
+  }
+
+  useEffect(() => {
+    if (prefilledEmail) {
+      passwordRef.current?.focus();
+    }
+  }, [prefilledEmail]);
 
   const [generatedRecoveryCode, setGeneratedRecoveryCode] = useState<string | null>(null);
   const pendingRecoveryRef = React.useRef(false);
@@ -204,7 +223,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             <JustWritingLogo size={64} variant="dark" className="mx-auto shadow-[0_0_30px_rgba(165,131,232,0.3)] rounded-2xl" />
           )}
           <h1 className={isModal ? "text-2xl font-bold tracking-tight text-text-main" : "text-5xl font-bold tracking-tight text-text-main"}>
-            {isModal ? t('auth_sign_in') : 'justwriting.one'}
+            {isModal ? t('auth_sign_in') : 'justwriting.ru'}
           </h1>
           {!isModal && (
             <p className="text-lg leading-relaxed text-text-main/60">
@@ -249,6 +268,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-main/60" size={18} />
                 <Input 
+                  ref={passwordRef}
                   type="password"
                   aria-label={t('auth_password')}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}

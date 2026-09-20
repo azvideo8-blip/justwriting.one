@@ -4,19 +4,9 @@
 // редактура. Залётный знак в ответе виден; пропавшая цитата — нет.
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const { traceSpy, generateMock } = vi.hoisted(() => ({
-  traceSpy: vi.fn(() => ({ generation: vi.fn() })),
+const { generateMock } = vi.hoisted(() => ({
   generateMock: vi.fn(),
 }));
-
-vi.mock('../ai/pure', async (importOriginal) => {
-  const orig = await importOriginal<typeof import('../ai/pure')>();
-  return {
-    ...orig,
-    getLangfuse: vi.fn(() => ({ trace: traceSpy, flushAsync: vi.fn().mockResolvedValue(undefined) })),
-    getActiveModel: vi.fn().mockResolvedValue('test-model'),
-  };
-});
 
 vi.mock('../ai/provider', async (importOriginal) => {
   const orig = await importOriginal<typeof import('../ai/provider')>();
@@ -44,7 +34,6 @@ function makeCtx(): AiContext {
 }
 
 beforeEach(() => {
-  traceSpy.mockClear();
   generateMock.mockReset();
 });
 
