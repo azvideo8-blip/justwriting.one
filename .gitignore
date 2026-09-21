@@ -28,6 +28,7 @@ __pycache__/
 # Запросы и разметка — такие же личные данные, как тексты заметок.
 # Скрипты стенда версионируются, их данные — никогда.
 scripts/rerank-bench/*.json
+scripts/embed-bench/*.json
 scripts/ai-bench/*-real.*
 corpus-real.json
 .postulates-results*.json
