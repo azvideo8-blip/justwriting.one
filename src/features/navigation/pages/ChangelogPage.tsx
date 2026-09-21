@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -7,6 +8,7 @@ import { CHANGELOG, type ChangelogCategory } from '../data/changelog';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { Button } from '../../../shared/components/Button';
 import { cn } from '../../../core/utils/utils';
+import { useChangelogSeenStore } from '../../../shared/changelog/useChangelogSeenStore';
 
 const categoryConfig: Record<ChangelogCategory, { label: { ru: string; en: string }; className: string }> = {
   new:           { label: { ru: 'Новое',       en: 'New'          }, className: 'bg-brand-soft/15 text-brand-soft' },
@@ -19,6 +21,10 @@ export function ChangelogPage() {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const lang = language === 'ru' ? 'ru' : 'en';
+
+  useEffect(() => {
+    useChangelogSeenStore.getState().markSeen();
+  }, []);
 
   return (
     <div className="max-w-lg mx-auto py-8 px-4 pb-24">

@@ -11,6 +11,7 @@ import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { APP_VERSION } from '../../../version';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+import { useChangelogSeenStore } from '../../../shared/changelog/useChangelogSeenStore';
 
 /** How long after the newest entry the badge stays green. */
 const RECENT_ACTIVITY_MS = 10_000;
@@ -147,6 +148,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
   
   const entries = useActivityLogStore(s => s.entries);
   const openActivityPanel = useActivityLogStore(s => s.setPanelOpen);
+  const hasUnseenChangelog = useChangelogSeenStore(s => s.hasUnseen);
   const errorCount = entries.filter(e => e.level === 'error').length;
   const warnCount = entries.filter(e => e.level === 'warning').length;
   const mostRecentTime = entries[0]?.time;
@@ -370,9 +372,12 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
           <button
             type="button"
             onClick={() => void navigate('/changelog')}
-            className="hover:text-text-main/60 transition-colors min-h-[44px] flex items-center clickable-target-expansion"
+            className="hover:text-text-main/60 transition-colors min-h-[44px] flex items-center gap-1.5 clickable-target-expansion"
           >
             v{APP_VERSION}
+            {hasUnseenChangelog && (
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-primary shrink-0" aria-hidden="true" />
+            )}
           </button>
         </div>
       </div>

@@ -7,12 +7,14 @@ import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 import { APP_VERSION } from '../../../version';
 import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
+import { useChangelogSeenStore } from '../../../shared/changelog/useChangelogSeenStore';
 
 export function AboutSettingsSection() {
   const { t, language } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { isAdmin } = useAdminStatus();
+  const hasUnseenChangelog = useChangelogSeenStore(s => s.hasUnseen);
   const [diagnosticsUnlocked, setDiagnosticsUnlocked] = useState(
     () => sessionStorage.getItem('diagnostics_unlocked') === 'true'
   );
@@ -71,6 +73,9 @@ export function AboutSettingsSection() {
             <span className="flex items-center gap-2">
               <FileText size={14} className="text-text-main/50" />
               {language === 'ru' ? 'Журнал изменений' : 'Changelog'}
+              {hasUnseenChangelog && (
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-primary shrink-0" aria-hidden="true" />
+              )}
             </span>
             <ExternalLink size={12} className="text-text-main/40" />
           </Button>
