@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.52 — 2026-09-21
+
+- **[RU]** Ошибки ИИ и синхронизации теперь говорят, что случилось на самом деле: минутное ограничение больше не путается с дневным лимитом, реальный сбой сервиса не подписывается как «попробуй ещё раз» там, где это не поможет, а обновление приложения в фоне показывает «обновите страницу» вместо экрана с кодом ошибки.
+- **[EN]** AI and sync errors now say what actually happened: a one-minute rate limit is no longer shown as the daily quota, a genuine service failure isn't labelled "try again" where retrying won't help, and a background app update shows "please reload" instead of a generic crash screen.
+- **[RU]** «Стереть всё с этого компьютера» на чужом устройстве теперь честно сообщает, если очистка не удалась, вместо того чтобы молча оставить часть данных.
+- **[EN]** "Wipe this computer" on a shared device now reports it honestly if the cleanup fails, instead of silently leaving data behind.
+
 ## 0.8.51 — 2026-09-20
 
 - **[RU]** Диалоги с ИИ, анализ заметок и поиск по архиву стали заметно экономичнее по токенам — те же возможности, меньше расхода дневного лимита на служебные детали запроса.

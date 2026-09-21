@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.52',
+    date: '2026-09-21',
+    items: [
+      { category: 'fix', ru: 'Ошибки ИИ и синхронизации теперь говорят, что случилось на самом деле: минутное ограничение больше не путается с дневным лимитом, реальный сбой сервиса не подписывается как «попробуй ещё раз» там, где это не поможет, а обновление приложения в фоне показывает «обновите страницу» вместо экрана с кодом ошибки.', en: 'AI and sync errors now say what actually happened: a one-minute rate limit is no longer shown as the daily quota, a genuine service failure isn\'t labelled "try again" where retrying won\'t help, and a background app update shows "please reload" instead of a generic crash screen.' },
+      { category: 'fix', ru: '«Стереть всё с этого компьютера» на чужом устройстве теперь честно сообщает, если очистка не удалась, вместо того чтобы молча оставить часть данных.', en: '"Wipe this computer" on a shared device now reports it honestly if the cleanup fails, instead of silently leaving data behind.' },
+    ],
+  },
+  {
     version: '0.8.51',
     date: '2026-09-20',
     items: [
