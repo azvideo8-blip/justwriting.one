@@ -12,7 +12,7 @@ production user. A closed beta for 10–20 invited people is being prepared.
 
 | | |
 | :--- | :--- |
-| Version | `0.8.52` (`src/version.ts` is what the UI shows) |
+| Version | `0.8.53` (`src/version.ts` is what the UI shows) |
 | Hosting | single VPS in Russia — nginx, systemd, Docker |
 | Database | self-hosted Supabase (Postgres + GoTrue + PostgREST + Kong) |
 | AI provider | RouterAI, OpenAI-compatible API |
@@ -58,26 +58,36 @@ ids, timestamps, word counts — and why, is listed field by field in
 ## The AI layer, and what leaves the device
 
 This is the part worth reading carefully, because it is the only place where
-text leaves the machine in the clear.
+text leaves the machine in the clear — to a third party, at least. Search
+vectors are the one exception: since September 2026 they are computed on this
+same VPS, not sent anywhere.
 
 Nothing is sent to the AI provider without consent, and consent is split in two:
 
 - **AI consent** — analysis, chat, editing. Without it every AI endpoint refuses.
-- **Indexing consent** — computing search vectors. Separate because indexing is
-  the one path that used to run without a button press.
+- **Indexing consent** — computing search vectors. Kept separate for history's
+  sake (indexing used to run without a button press, and used to leave the
+  device) even though indexing no longer reaches a third party at all.
 
-With consent given, text reaches the provider when:
+With consent given, text reaches the (third-party) AI provider when:
 
 | Action | What is sent | Started by |
 | :--- | :--- | :--- |
 | Analyse a note | the note's full text | a button, per note or per archive |
 | Chat | your message, the persona, the portrait, retrieved note fragments | you, per message |
 | Semantic search | your query, then note cards for reranking | a search inside chat |
-| Compute vectors | the note's text, in chunks (computed locally via `AI_EMBED_BASE_URL`, does not leave the VPS) | analysing a note; the one-time pass when indexing consent is granted |
 
 Text reaches the provider on an explicit action: the timer that used to
 summarise notes by itself was removed in August 2026. Writing and saving a note
 send nothing.
+
+**Search vectors are computed locally, not by the AI provider.** A small
+embedding server (`BAAI/bge-m3`, via Hugging Face's Text Embeddings Inference)
+runs on the VPS itself, reachable only from `api/` on `127.0.0.1` — the note
+text a vector is computed from never leaves the machine. `AI_EMBED_BASE_URL`
+points the server at it; if that variable is ever unset, embeddings silently
+fall back to the same third-party provider chat uses, as a rollback path, not
+a decision that got reverted.
 
 There used to be one narrow exception: a listener on `doc-version-saved` in
 `useAIPageData` called `indexDocument`, so a version saved while the AI page was
@@ -86,8 +96,10 @@ a press. It was removed in September 2026. Today the only callers of
 `indexDocument` are the analyse button and the one-time indexing pass.
 
 Models are configurable by environment variable; the defaults are
-`deepseek/deepseek-v4-flash` for chat and `qwen/qwen3-embedding-8b` at 4096
-dimensions for vectors (computed locally via `AI_EMBED_BASE_URL`).
+`deepseek/deepseek-v4-flash` for chat (RouterAI) and `BAAI/bge-m3` at 1024
+dimensions for vectors (local, see above). `qwen/qwen3-embedding-8b` at 4096
+dimensions was the embedding model before the September 2026 move to local
+compute, and is what the `AI_EMBED_BASE_URL`-unset fallback still points at.
 
 **The portrait is injected into every chat turn.** It is a psychological
 summary built from your analyses, and it is part of the system prompt on every

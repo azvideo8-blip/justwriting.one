@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.53',
+    date: '2026-09-21',
+    items: [
+      { category: 'improvement', ru: 'Поиск по смыслу (векторы заметок) теперь считается прямо на своём сервере, а не сторонним провайдером ИИ — текст заметки для этого больше никуда не уходит.', en: 'Semantic search (note vectors) is now computed on our own server instead of by a third-party AI provider — note text no longer leaves anywhere for this.' },
+      { category: 'improvement', ru: 'Рядом с номером версии появляется точка, когда вышло обновление — пропадает, как только откроешь журнал изменений.', en: 'A dot appears next to the version number when an update is out — it disappears once you open the changelog.' },
+    ],
+  },
+  {
     version: '0.8.52',
     date: '2026-09-21',
     items: [
