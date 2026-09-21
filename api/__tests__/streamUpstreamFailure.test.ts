@@ -35,6 +35,7 @@ vi.mock('ai', async (importOriginal) => {
       // Any error or chunk happens asynchronously across event loop ticks.
       if (mockStreamTextFailImmediately) {
         return {
+          // eslint-disable-next-line require-yield -- deliberately throws before any yield, to model a stream that fails before producing a chunk
           textStream: (async function* () {
             await new Promise((r) => setTimeout(r, 10));
             const err = new Error('OpenRouter 500: Provider overloaded');

@@ -572,6 +572,10 @@ function waitForNextOrAbort<T>(
   });
 }
 
+  // The SDK's type says textStream is always present (AsyncIterableStream<string>,
+  // not optional), but several existing test mocks return a bare
+  // { pipeTextStreamToResponse } shape without it — keep the runtime check.
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- see comment above
   if (result.textStream) {
     const iterator = result.textStream[Symbol.asyncIterator]();
     let firstResult: IteratorResult<string>;

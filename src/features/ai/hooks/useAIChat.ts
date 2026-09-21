@@ -28,7 +28,6 @@ import {
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
-import { assertNever, type AIErrorCode } from '../types/aiErrors';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 export { API_MSG_CAP };
 
