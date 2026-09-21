@@ -17,8 +17,8 @@ export interface AiContext {
     opts?: { model?: string; fn?: string },
     res?: GlobalReservation | null,
   ): Promise<void>;
-  tryReserveGlobalRequest(allowance?: number): Promise<GlobalReservation | null>;
-  refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void>;
+  tryReserveGlobalRequest(allowance?: number): Promise<GlobalReservation | { error: 'unavailable' } | null>;
+  refundGlobalRequest(res: GlobalReservation | { error: 'unavailable' } | null | undefined): Promise<void>;
   /** Returns true if the call is allowed (limit NOT exceeded); false to reject.
    *  `day` is the day the charge landed on — a refund must target it, not the
    *  day the failure happens to fall on (cross-midnight requests). */
@@ -41,9 +41,9 @@ export interface AiContext {
   ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'REASONING_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'>;
   /** Согласие на обработку специальных категорий (AUD-2). Серверный гейт:
    *  клиентский обходится прямым POST /api/chat. */
-  getAiConsent(uid: string): Promise<{ granted: boolean }>;
+  getAiConsent(uid: string): Promise<{ granted: boolean; error?: 'unavailable' }>;
   /** Согласие на векторную индексацию — для embedDocument. */
-  getIndexingConsent(uid: string): Promise<{ granted: boolean }>;
+  getIndexingConsent(uid: string): Promise<{ granted: boolean; error?: 'unavailable' }>;
 }
 
 /** Result of a successful charge: the caller keeps `day` and passes it to the

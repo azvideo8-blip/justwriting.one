@@ -7,6 +7,7 @@ import { withTimeout } from '../../shared/utils/withTimeout';
 import { reportError } from '../../shared/errors/reportError';
 
 export type { StorageState, SaveDocumentData } from './storageTypes';
+export { CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE } from './CloudSyncService';
 
 class LockManager {
   private locks = new Map<string, Promise<void>>();

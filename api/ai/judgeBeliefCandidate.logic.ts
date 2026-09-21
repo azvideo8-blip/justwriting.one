@@ -85,6 +85,10 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
   const callRes = await chargeCall(ctx, uid, charge, 'judgeBeliefCandidate');
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
+  if (reservation && 'error' in reservation) {
+    await callRes.settle('failed');
+    throw new AiError('unavailable', 'Database temporarily unavailable.');
+  }
   if (!reservation) {
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
@@ -152,7 +156,7 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service temporarily unavailable.');
     }
-    console.warn('[judgeBeliefCandidate] soft failure (returning passed=false):', msg);
-    return { passed: false, reason: 'Judge service error or timeout.', correctiveHint: '' };
+    console.warn('[judgeBeliefCandidate] judge failure (throwing unavailable):', msg);
+    throw new AiError('unavailable', 'Judge service error or timeout.');
   }
 }

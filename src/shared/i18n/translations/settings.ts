@@ -56,6 +56,18 @@ export const settingsTranslations: Translations = {
   storage_deleted_local: { ru: 'Локальная копия удалена', en: 'Local copy removed' },
   storage_deleted_cloud: { ru: 'Облачная копия удалена', en: 'Cloud copy removed' },
   storage_uploaded_cloud: { ru: 'Загружено в облако', en: 'Uploaded to cloud' },
+  storage_local_only_notice: {
+    ru: 'Заметка помечена «только на устройстве» — в облако не отправлена',
+    en: 'Note is marked as device-only — not uploaded to cloud',
+  },
+  storage_tombstone_notice: {
+    ru: 'Облачная копия была удалена. Нажмите ещё раз для создания новой',
+    en: 'Cloud copy was deleted. Tap again to create a new cloud copy',
+  },
+  storage_sync_error_activity_log: {
+    ru: 'Ошибка отправки в облако. Подробности в журнале активности',
+    en: 'Failed to upload to cloud. See activity log for details',
+  },
   storage_deleted_completely: { ru: 'Документ удалён', en: 'Document deleted' },
   storage_cloud_guest_hint: { ru: 'Войди, чтобы сохранять в облако', en: 'Sign in to save to cloud' },
   storage_sign_in_for_cloud: { ru: 'Войти для облака', en: 'Sign in for cloud' },

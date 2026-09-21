@@ -209,14 +209,15 @@ export async function streamChat(params: {
   // server) from DAILY_LIMIT (per-user cap). Without this, a GLOBAL_LIMIT 429
   // corrupts the client's daily-limit state (sets remaining=0 permanently).
   if (response.status === 429) {
-    let errorKind = 'DAILY_LIMIT';
+    let errorKind = 'RATE_LIMIT';
     try {
       const body = await response.json();
       const code = extractErrorCode(body);
       if (code === 'GLOBAL_LIMIT') errorKind = 'GLOBAL_LIMIT';
+      if (code === 'DAILY_LIMIT') errorKind = 'DAILY_LIMIT';
       if (code === 'RATE_LIMIT') errorKind = 'RATE_LIMIT';
       if (code === 'REASONING_LIMIT') errorKind = 'REASONING_LIMIT';
-    } catch { /* default to DAILY_LIMIT */ }
+    } catch { /* default to RATE_LIMIT */ }
     throw new Error(errorKind);
   }
   if (response.status === 503) {

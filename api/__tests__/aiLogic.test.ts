@@ -14,6 +14,7 @@ vi.mock('../ai/provider', async (importOriginal) => {
 import { validateCustomPromptLogic } from '../ai/validateCustomPrompt.logic';
 import { summarizeDocumentLogic } from '../ai/summarizeDocument.logic';
 import { editWithAILogic } from '../ai/editWithAI.logic';
+import { judgeBeliefCandidateLogic } from '../ai/judgeBeliefCandidate.logic';
 import type { AiContext } from '../../src/shared/ai/context.js';
 
 function makeCtx(): AiContext {
@@ -146,6 +147,19 @@ describe('DEEP-9: editWithAI and validateCustomPrompt pass chargedDay to refundD
       .rejects.toMatchObject({ code: 'internal' });
 
     expect(ctx.refundDailyLimit).toHaveBeenCalledWith('user_1', '2026-09-06');
+    expect(ctx.refundGlobalRequest).toHaveBeenCalled();
+  });
+
+  it('ERR-7: judgeBeliefCandidateLogic throws unavailable on model failure/timeout', async () => {
+    const ctx = makeCtx();
+    generateMock.mockRejectedValue(new Error('upstream model timeout'));
+
+    await expect(judgeBeliefCandidateLogic(ctx, 'user_1', {
+      belief: 'Пользователь любит бег',
+      evidence: [{ id: 'e1', date: '2026-09-01', snippet: 'Бегал утром' }],
+    })).rejects.toMatchObject({ code: 'unavailable' });
+
+    expect(ctx.refundBulkLimit).toHaveBeenCalled();
     expect(ctx.refundGlobalRequest).toHaveBeenCalled();
   });
 });

@@ -22,13 +22,22 @@ function mapUser(u: User | null): AppUser | null {
 let currentUser: AppUser | null = null;
 let subscribed = false;
 
+import { reportError } from '../../shared/errors/reportError';
+
 // Subscribed on first use, never at import time. A top-level call here builds
 // the Supabase client as a side effect of importing this file, which throws
 // wherever the env is unset and takes every importer down with it.
 function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
-  getSupabase().auth.onAuthStateChange((_event, session) => {
+  getSupabase().auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' && currentUser !== null) {
+      reportError(
+        new Error('SESSION_TERMINATED: auth session signed out unexpectedly'),
+        { action: 'auth_session_signed_out', previousUid: currentUser.uid },
+        'warning',
+      );
+    }
     currentUser = mapUser(session?.user ?? null);
   });
 }
@@ -68,7 +77,11 @@ export function onTokenChange(cb: (u: AppUser | null) => void): () => void {
 
 export async function getIdToken(forceRefresh?: boolean): Promise<string | null> {
   if (forceRefresh) {
-    await getSupabase().auth.refreshSession();
+    const { error } = await getSupabase().auth.refreshSession();
+    if (error) {
+      reportError(error, { action: 'getIdToken_refreshSession' }, 'warning');
+      return null;
+    }
   }
   const { data: { session } } = await getSupabase().auth.getSession();
   return session?.access_token ?? null;

@@ -475,7 +475,8 @@ export const AIConsolidationService = {
         'ai'
       );
       
-      return { belief: null, llmCalls };
+      const serviceFailed = !initialJudgeRes.ok && (initialJudgeRes.error === 'SERVER_ERROR' || initialJudgeRes.error === 'SERVICE_UNAVAILABLE' || initialJudgeRes.error === 'UPSTREAM');
+      return { belief: null, llmCalls, serviceFailed };
     }
 
     const now = Date.now();

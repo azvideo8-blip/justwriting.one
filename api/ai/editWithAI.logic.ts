@@ -93,6 +93,10 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   const callRes = createCallReservation(ctx, uid, 'user', limitResult.day);
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
+  if (reservation && 'error' in reservation) {
+    await callRes.settle('failed');
+    throw new AiError('unavailable', 'Database temporarily unavailable.');
+  }
   if (!reservation) {
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');

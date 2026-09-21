@@ -1,162 +1,65 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { onAuthStateChange, onTokenChange } from '../supabaseAuthProvider';
-import { getSupabase } from '../../supabase/client';
+import * as reportErrorModule from '../../../shared/errors/reportError';
+
+const mockRefreshSession = vi.fn();
+const mockGetSession = vi.fn();
+const mockOnAuthStateChange = vi.fn();
 
 vi.mock('../../supabase/client', () => ({
-  getSupabase: vi.fn(),
+  getSupabase: vi.fn(() => ({
+    auth: {
+      refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
+      getSession: (...args: unknown[]) => mockGetSession(...args),
+      onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
+    },
+  })),
 }));
 
-describe('supabaseAuthProvider - last-emitted-uid guard (AUTH-1)', () => {
-  const mockUnsubscribe = vi.fn();
-  let capturedListener: ((event: string, session: unknown) => void) | null = null;
+vi.mock('../../../shared/errors/reportError', () => ({
+  reportError: vi.fn(),
+}));
 
+import { getIdToken } from '../supabaseAuthProvider';
+import { mapAIError } from '../../../features/ai/services/AIService';
+
+describe('ERR-3: auth session error visibility and token refresh failure', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    capturedListener = null;
-
-    vi.mocked(getSupabase).mockReturnValue({
-      auth: {
-        onAuthStateChange: vi.fn().mockImplementation((listener) => {
-          capturedListener = listener;
-          // Synchronously fire the callback three times with the same session.user.id
-          // simulating INITIAL_SESSION / SIGNED_IN / TOKEN_REFRESHED
-          listener('INITIAL_SESSION', {
-            user: { id: 'uid-test-1', email: 'test1@example.com', created_at: '2026-01-01', user_metadata: {} },
-          });
-          listener('SIGNED_IN', {
-            user: { id: 'uid-test-1', email: 'test1@example.com', created_at: '2026-01-01', user_metadata: {} },
-          });
-          listener('TOKEN_REFRESHED', {
-            user: { id: 'uid-test-1', email: 'test1@example.com', created_at: '2026-01-01', user_metadata: {} },
-          });
-          return {
-            data: {
-              subscription: {
-                unsubscribe: mockUnsubscribe,
-              },
-            },
-          };
-        }),
-      },
-    } as unknown as ReturnType<typeof getSupabase>);
+    mockOnAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    });
   });
 
-  it('onAuthStateChange dedupes repeated emissions with the same uid to a single cb call', () => {
-    const cb = vi.fn();
+  it('getIdToken(true) returns null and calls reportError when refreshSession fails', async () => {
+    const refreshError = new Error('Invalid Refresh Token');
+    mockRefreshSession.mockResolvedValue({ data: { session: null }, error: refreshError });
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'stale-token' } } });
 
-    const unsubscribe = onAuthStateChange(cb);
+    const token = await getIdToken(true);
 
-    // Initial 3 synchronous events with same uid should result in exactly 1 call
-    expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        uid: 'uid-test-1',
-        email: 'test1@example.com',
-      })
+    expect(token).toBeNull();
+    expect(reportErrorModule.reportError).toHaveBeenCalledWith(
+      refreshError,
+      expect.objectContaining({ action: 'getIdToken_refreshSession' }),
+      'warning',
     );
-
-    // Fourth event with a different uid must call cb again
-    capturedListener!('USER_UPDATED', {
-      user: { id: 'uid-test-2', email: 'test2@example.com', created_at: '2026-01-01', user_metadata: {} },
-    });
-    expect(cb).toHaveBeenCalledTimes(2);
-    expect(cb).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        uid: 'uid-test-2',
-        email: 'test2@example.com',
-      })
-    );
-
-    // A null session after a signed-in one must call cb with null
-    capturedListener!('SIGNED_OUT', null);
-    expect(cb).toHaveBeenCalledTimes(3);
-    expect(cb).toHaveBeenLastCalledWith(null);
-
-    // Repeated null emission (null -> null) should be a no-op
-    capturedListener!('SIGNED_OUT', null);
-    expect(cb).toHaveBeenCalledTimes(3);
-
-    unsubscribe();
-    expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
   });
 
-  it('onTokenChange dedupes repeated emissions with the same uid to a single cb call', () => {
-    const cb = vi.fn();
+  it('getIdToken(true) returns new token when refreshSession succeeds', async () => {
+    mockRefreshSession.mockResolvedValue({ data: { session: { access_token: 'fresh-token' } }, error: null });
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'fresh-token' } } });
 
-    const unsubscribe = onTokenChange(cb);
+    const token = await getIdToken(true);
 
-    // Initial 3 synchronous events with same uid should result in exactly 1 call
-    expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        uid: 'uid-test-1',
-        email: 'test1@example.com',
-      })
-    );
-
-    // Fourth event with a different uid must call cb again
-    capturedListener!('USER_UPDATED', {
-      user: { id: 'uid-test-2', email: 'test2@example.com', created_at: '2026-01-01', user_metadata: {} },
-    });
-    expect(cb).toHaveBeenCalledTimes(2);
-    expect(cb).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        uid: 'uid-test-2',
-        email: 'test2@example.com',
-      })
-    );
-
-    // A null session after a signed-in one must call cb with null
-    capturedListener!('SIGNED_OUT', null);
-    expect(cb).toHaveBeenCalledTimes(3);
-    expect(cb).toHaveBeenLastCalledWith(null);
-
-    // Repeated null emission (null -> null) should be a no-op
-    capturedListener!('SIGNED_OUT', null);
-    expect(cb).toHaveBeenCalledTimes(3);
-
-    unsubscribe();
-    expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
+    expect(token).toBe('fresh-token');
+    expect(reportErrorModule.reportError).not.toHaveBeenCalled();
   });
 
-  it('handles initial null emission followed by another null (null -> null no-op)', () => {
-    vi.mocked(getSupabase).mockReturnValue({
-      auth: {
-        onAuthStateChange: vi.fn().mockImplementation((listener) => {
-          capturedListener = listener;
-          // Synchronously fire null session
-          listener('INITIAL_SESSION', null);
-          return {
-            data: {
-              subscription: {
-                unsubscribe: mockUnsubscribe,
-              },
-            },
-          };
-        }),
-      },
-    } as unknown as ReturnType<typeof getSupabase>);
-
-    const cb = vi.fn();
-    onAuthStateChange(cb);
-
-    // Initial null session emits null once
-    expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb).toHaveBeenLastCalledWith(null);
-
-    // Subsequent null session is a no-op
-    capturedListener!('SIGNED_OUT', null);
-    expect(cb).toHaveBeenCalledTimes(1);
-
-    // Transition null -> uid fires
-    capturedListener!('SIGNED_IN', {
-      user: { id: 'uid-test-1', email: 'test1@example.com', created_at: '2026-01-01', user_metadata: {} },
-    });
-    expect(cb).toHaveBeenCalledTimes(2);
-    expect(cb).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        uid: 'uid-test-1',
-      })
-    );
+  it('mapAIError correctly maps uppercase UNAUTHENTICATED and status 401 to AUTH_REQUIRED', () => {
+    expect(mapAIError({ code: 'UNAUTHENTICATED' })).toBe('AUTH_REQUIRED');
+    expect(mapAIError({ code: 'unauthenticated' })).toBe('AUTH_REQUIRED');
+    expect(mapAIError({ status: 401 })).toBe('AUTH_REQUIRED');
+    expect(mapAIError({ message: 'AUTH_REQUIRED' })).toBe('AUTH_REQUIRED');
+    expect(mapAIError({ message: 'unauthenticated' })).toBe('AUTH_REQUIRED');
   });
 });

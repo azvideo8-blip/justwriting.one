@@ -83,7 +83,7 @@ describe('noteRetriever degradation reporting (AI-3)', () => {
     expect(entriesAfterFirst).toHaveLength(1);
     expect(entriesAfterFirst[0]?.message).toContain('Дневной лимит ИИ исчерпан');
     expect(entriesAfterFirst[0]?.count).toBe(1);
-    expect(entriesAfterFirst[0]?.level).toBe('warning');
+    expect(entriesAfterFirst[0]?.level).toBe('error');
 
     // 2. Second search with the same daily limit failure
     const results2 = await searchNotes('карьерные дела', 5);

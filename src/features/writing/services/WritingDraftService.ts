@@ -117,7 +117,16 @@ export const WritingDraftService = {
       })(), 10000),
     ]);
 
+    const localFailed = localResult.status === 'rejected';
+    if (localFailed) {
+      reportError(localResult.reason, { action: 'loadDraft_local_failed', userId });
+    }
     const localDraft: LocalDraft | null = localResult.status === 'fulfilled' ? localResult.value : null;
+
+    const legacyFailed = legacyResult.status === 'rejected';
+    if (legacyFailed) {
+      reportError(legacyResult.reason, { action: 'loadDraft_legacy_failed', userId });
+    }
     const legacyDraft: LocalDraft | null = legacyResult.status === 'fulfilled' ? legacyResult.value : null;
     let cloudDraft: LocalDraft | null = null;
 
@@ -153,7 +162,7 @@ export const WritingDraftService = {
         await WritingDraftService.deleteDraft(userId);
         return null;
       }
-      if (winner === cloudDraft) {
+      if (winner === cloudDraft && !localFailed) {
         await WritingDraftService.saveToLocal(cloudDraft).catch(() => {});
       }
       return winner;
@@ -161,14 +170,14 @@ export const WritingDraftService = {
     const resolved = resolvedLocal || cloudDraft;
     if (resolved) {
       if (deletedAt && (toTimestampMs(resolved.updatedAt) ?? 0) <= deletedAt) {
-        await WritingDraftService.deleteDraft(userId);
+        if (!localFailed) await WritingDraftService.deleteDraft(userId);
         return null;
       }
       if (isDraftExpired(resolved)) {
-        await WritingDraftService.deleteDraft(userId);
+        if (!localFailed) await WritingDraftService.deleteDraft(userId);
         return null;
       }
-      if (resolved === cloudDraft) {
+      if (resolved === cloudDraft && !localFailed) {
         await WritingDraftService.saveToLocal(cloudDraft).catch(() => {});
       }
     }

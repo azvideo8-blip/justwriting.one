@@ -152,4 +152,78 @@ describe('SYNC-D3: StorageIcons download to local', () => {
     expect(screen.getByTestId('mock-unlock-prompt')).toBeInTheDocument();
     expect(screen.queryByText('storage_confirm_download_local')).not.toBeInTheDocument();
   });
+
+  describe('ERR-8: upload feedback differentiation', () => {
+    it('shows neutral info toast when note is LOCAL_ONLY', async () => {
+      vi.mocked(getSessionKey).mockReturnValue({} as any);
+      vi.mocked(StorageService.addCloudCopy).mockResolvedValueOnce('LOCAL_ONLY');
+
+      render(
+        <StorageIcons
+          doc={{
+            localId: 'local_priv_1',
+            hasLocal: true,
+            hasCloud: false,
+          }}
+          userId={userId}
+          onStorageChange={mockOnStorageChange}
+        />
+      );
+
+      const cloudBtn = screen.getByRole('button', { name: 'storage_upload_to_cloud' });
+      fireEvent.click(cloudBtn);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('storage_local_only_notice', 'info');
+      });
+    });
+
+    it('shows neutral info toast when cloud copy was TOMBSTONE', async () => {
+      vi.mocked(getSessionKey).mockReturnValue({} as any);
+      vi.mocked(StorageService.addCloudCopy).mockResolvedValueOnce('TOMBSTONE');
+
+      render(
+        <StorageIcons
+          doc={{
+            localId: 'local_tombstone_1',
+            hasLocal: true,
+            hasCloud: false,
+          }}
+          userId={userId}
+          onStorageChange={mockOnStorageChange}
+        />
+      );
+
+      const cloudBtn = screen.getByRole('button', { name: 'storage_upload_to_cloud' });
+      fireEvent.click(cloudBtn);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('storage_tombstone_notice', 'info');
+      });
+    });
+
+    it('shows activity log error toast when upload throws real error', async () => {
+      vi.mocked(getSessionKey).mockReturnValue({} as any);
+      vi.mocked(StorageService.addCloudCopy).mockRejectedValueOnce(new Error('PG unique constraint'));
+
+      render(
+        <StorageIcons
+          doc={{
+            localId: 'local_err_1',
+            hasLocal: true,
+            hasCloud: false,
+          }}
+          userId={userId}
+          onStorageChange={mockOnStorageChange}
+        />
+      );
+
+      const cloudBtn = screen.getByRole('button', { name: 'storage_upload_to_cloud' });
+      fireEvent.click(cloudBtn);
+
+      await waitFor(() => {
+        expect(mockShowToast).toHaveBeenCalledWith('storage_sync_error_activity_log', 'error');
+      });
+    });
+  });
 });

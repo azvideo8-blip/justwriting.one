@@ -146,6 +146,7 @@ export const writingTranslations: Translations = {
   ai_error_auth: { ru: 'Нужна регистрация', en: 'Sign up required' },
   ai_error_session: { ru: 'Не удалось подтвердить сессию — похоже, пропала связь. Попробуй ещё раз.', en: 'Could not confirm your session — the connection seems to be down. Try again.' },
   ai_error_rate_limit: { ru: 'Слишком много запросов. Подожди минуту.', en: 'Too many requests. Wait a minute.' },
+  ai_error_daily_limit: { ru: 'Дневной лимит достигнут. Попробуй завтра.', en: 'Daily limit reached. Try again tomorrow.' },
   ai_error_too_long: { ru: 'Текст слишком длинный', en: 'Text is too long' },
   ai_error_server: { ru: 'Ошибка сервиса. Попробуй позже.', en: 'Service error. Try again later.' },
   ai_note_analyze: { ru: 'Разобрать заметку через ИИ', en: 'Analyse this note with AI' },

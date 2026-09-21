@@ -50,12 +50,20 @@ async function createVerification(dataKey: CryptoKey): Promise<string> {
   return encryptContent(VERIFICATION_PLAINTEXT, dataKey);
 }
 
+function isWrongKeyOperationError(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && (e as { name?: string }).name === 'OperationError';
+}
+
 async function verifyKey(dataKey: CryptoKey, verification: string): Promise<boolean> {
   try {
     const result = await decryptContent(verification, dataKey);
     return result === VERIFICATION_PLAINTEXT;
-  } catch {
-    return false;
+  } catch (e) {
+    if (isWrongKeyOperationError(e)) {
+      return false;
+    }
+    reportError(e, { action: 'verifyKey' });
+    throw e;
   }
 }
 
@@ -131,17 +139,20 @@ export async function unlockVault(userId: string, password: string): Promise<voi
   const meta = await getEncryptionMeta(userId);
   if (!meta) throw new Error('Encryption not configured');
 
-  const salt = saltFromBase64(meta.salt);
-
   let dataKey: CryptoKey;
   try {
+    const salt = saltFromBase64(meta.salt);
     // Tries the current PBKDF2 count, then the pre-SEC-36 one. Without the
     // fallback a vault wrapped at 300k reports WrongPasswordError for the
     // correct password — the user is locked out of their own notes.
     // AUDIT-L7: известные итерации — одна попытка вместо перебора 600k/300k.
     ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt, undefined, undefined, meta.iterations));
-  } catch {
-    throw new WrongPasswordError();
+  } catch (e) {
+    if (isWrongKeyOperationError(e)) {
+      throw new WrongPasswordError();
+    }
+    reportError(e, { action: 'unlock_key_derivation', userId });
+    throw e;
   }
 
   if (meta.verification) {
@@ -169,12 +180,16 @@ export async function recoverVaultWithCode(
     throw new Error('NO_RECOVERY_CODE');
   }
 
-  const recoverySalt = saltFromBase64(meta.recoverySalt);
   let dataKey: CryptoKey;
   try {
+    const recoverySalt = saltFromBase64(meta.recoverySalt);
     dataKey = await unwrapDataKeyWithRecoveryCode(meta.recoveryWrappedDataKey, recoveryCode, recoverySalt);
-  } catch {
-    throw new WrongRecoveryCodeError();
+  } catch (e) {
+    if (isWrongKeyOperationError(e)) {
+      throw new WrongRecoveryCodeError();
+    }
+    reportError(e, { action: 'recover_key_derivation', userId });
+    throw e;
   }
 
   if (meta.verification) {
@@ -236,11 +251,15 @@ export async function generateRecoveryCodeForExistingVault(userId: string, passw
     if (!password) {
       throw new KeyNotExtractableError();
     }
-    const oldSalt = saltFromBase64(meta.salt);
     try {
+      const oldSalt = saltFromBase64(meta.salt);
       ({ dataKey: keyToWrap } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, oldSalt, undefined, undefined, meta.iterations));
-    } catch {
-      throw new WrongPasswordError();
+    } catch (e) {
+      if (isWrongKeyOperationError(e)) {
+        throw new WrongPasswordError();
+      }
+      reportError(e, { action: 'generateRecoveryCode_unwrap', userId });
+      throw e;
     }
     if (meta.verification) {
       const valid = await verifyKey(keyToWrap, meta.verification);
@@ -274,15 +293,18 @@ export async function changePassword(userId: string, currentPassword: string, ne
   const meta = await getEncryptionMeta(userId);
   if (!meta) throw new Error('Encryption not configured');
 
-  const oldSalt = saltFromBase64(meta.salt);
-
   let dataKey: CryptoKey;
   try {
+    const oldSalt = saltFromBase64(meta.salt);
     // Same fallback as unlockVault: changing the password on a legacy vault
     // must not be blocked by the iteration raise either.
     ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, currentPassword, oldSalt, undefined, undefined, meta.iterations));
-  } catch {
-    throw new WrongPasswordError();
+  } catch (e) {
+    if (isWrongKeyOperationError(e)) {
+      throw new WrongPasswordError();
+    }
+    reportError(e, { action: 'changePassword_unwrap', userId });
+    throw e;
   }
 
   if (meta.verification) {

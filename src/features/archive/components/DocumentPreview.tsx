@@ -23,6 +23,7 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { getLocalDb } from '../../../core/storage/localDb';
 import { getCurrentUser } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
+import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 
 const relatedNotesCache = new Map<string, RelatedNote[]>();
 
@@ -139,19 +140,7 @@ export function DocumentPreview({
           if (updated) setSummary(updated);
         }
       } else {
-        const errMap: Record<string, string> = {
-          NO_CONTENT: t('ai_note_too_short'),
-          TOO_SHORT: t('ai_note_too_short'),
-          EXCLUDED: t('ai_note_excluded'),
-          AI_CONSENT_REQUIRED: t('archive_preview_ai_consent_required'),
-          AUTH_REQUIRED: getCurrentUser() ? t('ai_error_session') : t('ai_error_auth'),
-          DAILY_LIMIT: t('ai_error_rate_limit'),
-          RATE_LIMIT: t('ai_error_rate_limit'),
-          TOO_LONG: t('ai_error_too_long'),
-          SERVER_ERROR: t('ai_error_server'),
-          NETWORK: t('ai_error_offline'),
-        };
-        const errMsg = errMap[res.error || ''] ?? t('ai_error_server');
+        const errMsg = aiErrorToText(res.error, { t, isLoggedIn: !!getCurrentUser() });
         setAnalyzeError(errMsg);
         showToast(errMsg, 'error');
       }

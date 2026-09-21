@@ -82,7 +82,7 @@ describe('useAIChat degradation reporting (AI-3)', () => {
     const entries = useActivityLogStore.getState().entries;
     expect(entries).toHaveLength(1);
     expect(entries[0]?.message).toContain('Дневной лимит ИИ исчерпан');
-    expect(entries[0]?.level).toBe('warning');
+    expect(entries[0]?.level).toBe('error');
   });
 
   it('stores degradedReason: daily_limit in message record in DB without localized text in degradedReason', async () => {

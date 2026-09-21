@@ -4,7 +4,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
-import { Shield, Sparkles, Activity, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shield, Sparkles, Activity, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
@@ -60,7 +60,9 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   const openActivityPanel = useActivityLogStore(s => s.setPanelOpen);
   const newestLevel = entries[0]?.level;
   const isNewestError = newestLevel === 'error';
+  const isNewestWarning = newestLevel === 'warning';
   const errorCount = entries.filter(e => e.level === 'error').length;
+  const warnCount = entries.filter(e => e.level === 'warning').length;
   const mostRecentTime = entries[0]?.time;
 
   const [isRecent, setIsRecent] = useState(false);
@@ -118,21 +120,39 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
           "absolute -top-8 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-md transition-colors",
           isNewestError
             ? "bg-accent-danger/15 border border-accent-danger/30 text-accent-danger"
-            : (newestLevel === 'success' || isRecent)
-              ? "bg-accent-success/15 border border-accent-success/30 text-accent-success"
-              : "bg-surface-card/80 border border-border-subtle text-text-main/60 hover:text-text-main"
+            : isNewestWarning
+              ? "bg-accent-warning/15 border border-accent-warning/30 text-accent-warning"
+              : (newestLevel === 'success' || isRecent)
+                ? "bg-accent-success/15 border border-accent-success/30 text-accent-success"
+                : "bg-surface-card/80 border border-border-subtle text-text-main/60 hover:text-text-main"
         )}
-        title={isNewestError ? `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}` : (newestLevel === 'success' || isRecent) ? 'Активность' : 'Журнал'}
+        title={
+          isNewestError
+            ? `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`
+            : isNewestWarning
+              ? `${warnCount} ${warnCount === 1 ? 'внимание' : 'внимания'}`
+              : (newestLevel === 'success' || isRecent)
+                ? 'Активность'
+                : 'Журнал'
+        }
       >
         {isNewestError ? (
           <AlertCircle size={14} className="shrink-0" />
+        ) : isNewestWarning ? (
+          <AlertTriangle size={14} className="shrink-0" />
         ) : (newestLevel === 'success' || isRecent) ? (
           <CheckCircle2 size={14} className="shrink-0" />
         ) : (
           <Activity size={14} className="shrink-0" />
         )}
         <span>
-          {isNewestError ? `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}` : (newestLevel === 'success' || isRecent) ? 'Активность' : 'Журнал'}
+          {isNewestError
+            ? `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`
+            : isNewestWarning
+              ? `${warnCount} ${warnCount === 1 ? 'внимание' : 'внимания'}`
+              : (newestLevel === 'success' || isRecent)
+                ? 'Активность'
+                : 'Журнал'}
         </span>
       </button>
       {showSyncIndicator && (

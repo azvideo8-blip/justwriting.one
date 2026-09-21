@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../storage/localDb';
 import { SyncService } from '../SyncService';
-import { StorageService } from '../StorageService';
+import { StorageService, CLOUD_COPY_TOMBSTONE } from '../StorageService';
 
 vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }));
 vi.mock('../../data', () => ({
@@ -55,7 +55,7 @@ describe('AUDIT-H3 tombstoned note must not resurrect via auto-upload', () => {
     getDocWithDeleted.mockResolvedValue({ id: 'cloud_del', deletedAt: new Date() });
 
     const cloudId = await StorageService.addCloudCopy(USER, 'local_del');
-    expect(cloudId).toBe('');
+    expect(cloudId).toBe(CLOUD_COPY_TOMBSTONE);
 
     const db = await getLocalDb();
     const doc = await db.get('documents', 'local_del');

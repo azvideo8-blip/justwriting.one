@@ -44,6 +44,10 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
   // Составная квота: allowance = 512 + inputEstimate.
   const inputEstimate = estimateInputTokens([query, cardsText]);
   const reservation = await ctx.tryReserveGlobalRequest(512 + inputEstimate);
+  if (reservation && 'error' in reservation) {
+    await callRes.settle('failed');
+    throw new AiError('unavailable', 'Database temporarily unavailable.');
+  }
   if (!reservation) {
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');

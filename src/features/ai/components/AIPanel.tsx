@@ -9,6 +9,7 @@ import { useAiLimitStore } from '../store/useAiLimitStore';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
 import { getCurrentUser } from '../../../core/auth';
+import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
   { action: 'accents', icon: <Highlighter size={14} />, labelKey: 'ai_action_accents' },
@@ -70,15 +71,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
       setAppliedActions(prev => { const n = new Set(prev); n.delete(action); return n; });
       consumeRequest();
     } else {
-      const errorMap: Record<string, string> = {
-        AUTH_REQUIRED: getCurrentUser() ? t('ai_error_session') : t('ai_error_auth'),
-        DAILY_LIMIT: t('ai_error_rate_limit'),
-        RATE_LIMIT: t('ai_error_rate_limit'),
-        TOO_LONG: t('ai_error_too_long'),
-        SERVER_ERROR: t('ai_error_server'),
-        NETWORK: t('ai_error_offline'),
-      };
-      setError(errorMap[(res as { ok: false; error: string }).error] ?? t('ai_error_server'));
+      setError(aiErrorToText((res as { ok: false; error: string }).error, { t, isLoggedIn: !!getCurrentUser() }));
     }
     setLoading(false);
   }, [content, loading, t, results]);

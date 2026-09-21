@@ -73,6 +73,8 @@ export const ActivityLogBadge: React.FC = () => {
   const getHeaderIcon = () => {
     const errorCount = entries.filter(e => e.level === 'error').length;
     if (errorCount > 0) return <AlertCircle className="w-5 h-5 text-accent-danger" />;
+    const warnCount = entries.filter(e => e.level === 'warning').length;
+    if (warnCount > 0) return <AlertTriangle className="w-5 h-5 text-accent-warning" />;
     return <Info className="w-5 h-5 text-text-muted" />;
   };
 

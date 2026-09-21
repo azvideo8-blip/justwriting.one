@@ -55,6 +55,10 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     .join('\n\n');
 
   const reservation = await ctx.tryReserveGlobalRequest(1000);
+  if (reservation && 'error' in reservation) {
+    await callRes.settle('failed');
+    throw new AiError('unavailable', 'Database temporarily unavailable.');
+  }
   if (!reservation) {
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');

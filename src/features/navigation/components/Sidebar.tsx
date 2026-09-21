@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff, AlertCircle, CheckCircle2, Activity } from 'lucide-react';
+import { PenLine, History, User as UserIcon, LogIn, Settings, Sparkles, Bug, CloudOff, AlertCircle, AlertTriangle, CheckCircle2, Activity } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -148,6 +148,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
   const entries = useActivityLogStore(s => s.entries);
   const openActivityPanel = useActivityLogStore(s => s.setPanelOpen);
   const errorCount = entries.filter(e => e.level === 'error').length;
+  const warnCount = entries.filter(e => e.level === 'warning').length;
   const mostRecentTime = entries[0]?.time;
   const newestLevel = entries[0]?.level;
 
@@ -291,6 +292,13 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
             label = `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`;
             dotColor = "bg-accent-danger text-surface-card";
             dotText = errorCount > 9 ? '9+' : String(errorCount);
+          } else if (newestLevel === 'warning') {
+            badgeColor = "text-accent-warning/80 hover:text-accent-warning";
+            badgeBg = "hover:bg-accent-warning/10";
+            icon = <AlertTriangle size={18} className="shrink-0" />;
+            label = `${warnCount} ${warnCount === 1 ? 'внимание' : 'внимания'}`;
+            dotColor = "bg-accent-warning text-surface-card";
+            dotText = warnCount > 9 ? '9+' : String(warnCount);
           } else if (newestLevel === 'success' || isRecent) {
             badgeColor = "text-accent-success/80 hover:text-accent-success";
             badgeBg = "hover:bg-accent-success/10";

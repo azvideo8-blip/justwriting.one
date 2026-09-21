@@ -23,14 +23,14 @@ export function isDailyLimitError(cause: unknown): boolean {
   if (!cause) return false;
   if (typeof cause === 'string') {
     const lower = cause.toLowerCase();
-    return cause === 'DAILY_LIMIT' || cause === 'RATE_LIMIT' || lower.includes('daily limit') || lower.includes('rate limit');
+    return cause === 'DAILY_LIMIT' || (lower.includes('daily limit') && !lower.includes('rate limit'));
   }
   if (typeof cause === 'object') {
     const c = cause as { code?: string; message?: string; details?: { errorType?: string } };
-    if (c.code === 'DAILY_LIMIT' || c.code === 'RATE_LIMIT') return true;
+    if (c.code === 'DAILY_LIMIT') return true;
     if (c.details?.errorType === 'DAILY_LIMIT') return true;
     const msg = (c.message || '').toLowerCase();
-    return msg.includes('daily limit') || msg.includes('rate limit') || msg.includes('resource-exhausted');
+    return msg.includes('daily limit') && !msg.includes('rate limit');
   }
   return false;
 }
@@ -54,14 +54,14 @@ export function classifyCause(cause: unknown): { category: AIDegradationCategory
   const normCode = code.toLowerCase();
   const normMsg = message.toLowerCase();
 
-  // Transient network / upstream / provider outages
+  // Transient network / upstream / provider outages / rate limits
   if (
-    code === 'NETWORK' || code === 'UPSTREAM' ||
-    normCode.includes('deadline') || normCode.includes('unavailable') || normCode.includes('timeout') ||
-    normMsg.includes('timeout') || normMsg.includes('network') || normMsg.includes('unavailable') ||
+    code === 'NETWORK' || code === 'UPSTREAM' || code === 'RATE_LIMIT' ||
+    normCode.includes('deadline') || normCode.includes('unavailable') || normCode.includes('timeout') || normCode.includes('rate_limit') ||
+    normMsg.includes('timeout') || normMsg.includes('network') || normMsg.includes('unavailable') || normMsg.includes('rate limit') ||
     (typeof navigator !== 'undefined' && navigator.onLine === false)
   ) {
-    return { category: 'transient', code: code !== 'UNKNOWN' ? code : 'NETWORK' };
+    return { category: 'transient', code: code !== 'UNKNOWN' ? code : 'RATE_LIMIT' };
   }
 
   // Misconfiguration / authorization issues
@@ -98,7 +98,7 @@ export function reportAIDegradation(params: AIDegradationParams): void {
   switch (category) {
     case 'daily_limit':
       message = 'Дневной лимит ИИ исчерпан: функции ИИ временно ограничены до завтра (реранжирование, поиск заметок в чате, построение профиля)';
-      level = 'warning';
+      level = 'error';
       break;
     case 'transient':
       message = 'Временный сбой сервиса ИИ: запрос выполнен в базовом режиме (повторите позже)';
@@ -111,7 +111,7 @@ export function reportAIDegradation(params: AIDegradationParams): void {
     case 'server_error':
     default:
       message = 'Сбой сервиса ИИ: запрос выполнен в базовом режиме';
-      level = 'warning';
+      level = 'error';
       break;
   }
 

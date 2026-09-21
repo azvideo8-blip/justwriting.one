@@ -137,22 +137,18 @@ function belongsToAnotherAccount(key: string, uid: string): boolean {
 /** Удаляет все ключи текущего аккаунта из localStorage/sessionStorage. */
 export function clearAccountScopedStorage(uid: string | null | undefined): void {
   if (!uid) return;
-  try {
-    for (const key of accountScopedLocalStorageKeys(uid)) {
-      localStorage.removeItem(key);
-    }
-    for (const key of accountScopedSessionStorageKeys(uid)) {
-      sessionStorage.removeItem(key);
-    }
+  for (const key of accountScopedLocalStorageKeys(uid)) {
+    localStorage.removeItem(key);
+  }
+  for (const key of accountScopedSessionStorageKeys(uid)) {
+    sessionStorage.removeItem(key);
+  }
 
-    // Подметание: всё, что не объявлено настройкой устройства и не принадлежит
-    // другому аккаунту, — данные этого человека.
-    for (const key of Object.keys(localStorage)) {
-      if (DEVICE_SETTINGS_KEYS.has(key)) continue;
-      if (belongsToAnotherAccount(key, uid)) continue;
-      localStorage.removeItem(key);
-    }
-  } catch {
-    /* ignore */
+  // Подметание: всё, что не объявлено настройкой устройства и не принадлежит
+  // другому аккаунту, — данные этого человека.
+  for (const key of Object.keys(localStorage)) {
+    if (DEVICE_SETTINGS_KEYS.has(key)) continue;
+    if (belongsToAnotherAccount(key, uid)) continue;
+    localStorage.removeItem(key);
   }
 }

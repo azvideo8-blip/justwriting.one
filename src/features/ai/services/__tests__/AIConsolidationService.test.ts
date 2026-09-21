@@ -271,6 +271,51 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
     expect(gathered.find(u => u.id === 'unit-y')).toBeUndefined();
   });
 
+  it('ERR-7: Judge service timeout/error results in evaluation_failed and cluster is NOT permanently excluded', async () => {
+    const cluster: MemoryClusterCandidate = {
+      clusterId: 'cluster-timeout-err-7',
+      earliestDate: '2026-03-15',
+      salience: 0.9,
+      units: [
+        { id: 'unit-timeout-z', type: 'chat_memory', text: 'Факт про бег', date: '2026-03-15', salience: 0.9 },
+      ],
+    };
+
+    vi.mocked(AIService.summarizeBeliefCluster).mockResolvedValue({
+      ok: true,
+      belief: 'Пользователь бегает по утрам',
+    });
+
+    // Judge fails with timeout / service error
+    vi.mocked(AIService.judgeBeliefCandidate).mockResolvedValue({
+      ok: false,
+      error: 'SERVICE_UNAVAILABLE',
+    });
+
+    const { belief, serviceFailed } = await AIConsolidationService.consolidateAndJudgeCluster(cluster);
+
+    expect(belief).toBeNull();
+    expect(serviceFailed).toBe(true);
+
+    const rejections = await AIConsolidationService.getAllRejections();
+    const rejection = rejections.find(r => r.unitIds.includes('unit-timeout-z'));
+    expect(rejection).toBeDefined();
+    expect(rejection?.kind).toBe('evaluation_failed');
+
+    const db = await getLocalDb();
+    await db.put('aiChatMemory', {
+      id: 'unit-timeout-z',
+      kind: 'fact',
+      text: 'Факт про бег',
+      sourceDialogueId: 'dlg-z',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const gathered = await AIConsolidationService.gatherMemoryUnits();
+    expect(gathered.find(u => u.id === 'unit-timeout-z')).toBeDefined();
+  });
+
   it('CONSOL-2: saveRejection schedules store sync with LocalStoreSyncService', async () => {
     const syncSpy = vi.spyOn(LocalStoreSyncService, 'scheduleStoreSync');
 

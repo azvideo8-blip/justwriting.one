@@ -130,6 +130,25 @@ describe('WritingDraftService', () => {
             const draft = await WritingDraftService.loadDraft(mockUserId);
       expect(draft).toEqual(expect.objectContaining({ content: 'legacy', title: 'Legacy', userId: mockUserId }));
     });
+
+    it('reports error and does not overwrite local storage if local IDB read fails', async () => {
+      const db = makeLocalDb({
+        get: vi.fn().mockRejectedValue(new Error('IDB read error')),
+        put: vi.fn(),
+      });
+      const cloudDraft = { userId: mockUserId, content: 'cloud text', updatedAt: Date.now(), wordCount: 10 };
+      vi.mocked(DataProvider.getDraft).mockResolvedValue(cloudDraft);
+      vi.mocked(maybeDecrypt).mockResolvedValue(cloudDraft);
+
+      const draft = await WritingDraftService.loadDraft(mockUserId);
+
+      expect(draft).toEqual(cloudDraft);
+      expect(reportError).toHaveBeenCalledWith(
+        expect.any(Error),
+        { action: 'loadDraft_local_failed', userId: mockUserId }
+      );
+      expect(db.put).not.toHaveBeenCalled();
+    });
   });
 
   describe('clearLegacyDraft', () => {

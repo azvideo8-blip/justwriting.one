@@ -36,6 +36,14 @@ function buildMailto(error: Error, code: string): string {
   return `mailto:support@justwriting.ru?subject=${subject}&body=${body}`;
 }
 
+export const CHUNK_LOAD_ERROR_RE = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i;
+
+export function isChunkLoadError(error: unknown): boolean {
+  if (!error) return false;
+  const message = typeof error === 'string' ? error : (error as { message?: string }).message || '';
+  return CHUNK_LOAD_ERROR_RE.test(message);
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -64,15 +72,51 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    reportError(error, { componentStack: errorInfo.componentStack });
+    if (isChunkLoadError(error)) {
+      reportError(error, { componentStack: errorInfo.componentStack, action: 'chunk_load_failed' }, 'warning');
+    } else {
+      reportError(error, { componentStack: errorInfo.componentStack });
+    }
   }
 
   public render() {
     if (this.state.hasError) {
+      const isChunk = isChunkLoadError(this.state.errorMessage);
       const lang = (() => { try { return (localStorage.getItem('app_language') as 'ru' | 'en') || 'ru'; } catch { return 'ru'; } })();
+      const t = (key: string) => translations[key as keyof typeof translations]?.[lang] ?? key;
+
+      if (isChunk) {
+        return (
+          <div key={this.state.errorKey} data-testid="error-boundary-chunk" className="min-h-screen flex items-center justify-center bg-surface-base p-6">
+            <div className="max-w-md w-full bg-surface-card p-8 rounded-3xl border border-border-subtle shadow-xl text-center space-y-6">
+              <div className="w-16 h-16 bg-brand-primary/10 text-brand-primary rounded-full flex items-center justify-center mx-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                  <path d="M16 16h5v5" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-text-main">{t('error_app_updated')}</h2>
+              <p className="text-sm text-text-muted leading-relaxed">
+                {t('error_app_updated_hint')}
+              </p>
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  onClick={this.handleReload}
+                  className="w-full bg-text-main text-surface-base py-3 rounded-xl font-bold hover:scale-[1.02] transition-transform"
+                >
+                  {t('error_reload_page')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       const code = errorCode(this.state.errorMessage || 'unknown');
       const _mailtoLink = this.state.error ? buildMailto(this.state.error, code) : '#';
-      const t = (key: string) => translations[key as keyof typeof translations]?.[lang] ?? key;
       return (
         <div key={this.state.errorKey} data-testid="error-boundary" className="min-h-screen flex items-center justify-center bg-surface-base p-6">
           <div className="max-w-md w-full bg-surface-card p-8 rounded-3xl border border-border-subtle shadow-xl text-center space-y-6">

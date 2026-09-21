@@ -85,11 +85,17 @@ export async function handleAiEndpoint(
       // Индексация гоняет фрагменты заметок через модель эмбеддингов —
       // отдельное согласие, отдельная колонка.
       const indexing = await postgresAiContext.getIndexingConsent(uid);
+      if (indexing.error === 'unavailable') {
+        return { status: 503, body: { error: { code: 'unavailable', message: 'Database temporarily unavailable.' } } };
+      }
       if (!indexing.granted) {
         return { status: 403, body: { error: { code: 'INDEXING_CONSENT_REQUIRED', message: 'Indexing consent required.' } } };
       }
     } else {
       const consent = await postgresAiContext.getAiConsent(uid);
+      if (consent.error === 'unavailable') {
+        return { status: 503, body: { error: { code: 'unavailable', message: 'Database temporarily unavailable.' } } };
+      }
       if (!consent.granted) {
         return { status: 403, body: { error: { code: 'AI_CONSENT_REQUIRED', message: 'AI processing consent required.' } } };
       }

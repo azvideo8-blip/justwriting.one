@@ -52,6 +52,30 @@ describe('streamChat декодирует код ошибки из тела (AUD
     })).rejects.toThrow('GLOBAL_LIMIT');
   });
 
+  it('429 с DAILY_LIMIT распознаётся из тела', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonRes(429, { error: 'DAILY_LIMIT' })));
+    await expect(streamChat({
+      personaId: 'cbt', messages: [{ role: 'user', content: 'привет', type: 'chat' }],
+      onChunk: () => {},
+    })).rejects.toThrow('DAILY_LIMIT');
+  });
+
+  it('429 с RATE_LIMIT распознаётся из тела', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonRes(429, { error: 'RATE_LIMIT' })));
+    await expect(streamChat({
+      personaId: 'cbt', messages: [{ role: 'user', content: 'привет', type: 'chat' }],
+      onChunk: () => {},
+    })).rejects.toThrow('RATE_LIMIT');
+  });
+
+  it('429 без JSON-тела по умолчанию даёт RATE_LIMIT (не обнуляет дневной лимит)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html>429 Too Many Requests</html>', { status: 429 })));
+    await expect(streamChat({
+      personaId: 'cbt', messages: [{ role: 'user', content: 'привет', type: 'chat' }],
+      onChunk: () => {},
+    })).rejects.toThrow('RATE_LIMIT');
+  });
+
   it('503 с {"error":{"code":"SERVICE_UNAVAILABLE"}} → SERVICE_UNAVAILABLE (RC-4)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonRes(503, { error: { code: 'SERVICE_UNAVAILABLE' } })));
     await expect(streamChat({

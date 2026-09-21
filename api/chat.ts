@@ -89,6 +89,8 @@ type OrChunk = {
 
 interface Settlement {
   readonly usageRecorded?: boolean | undefined;
+  readonly upstreamProduced?: boolean | undefined;
+  readonly settled?: boolean | undefined;
   markUpstreamProduced: (chars?: number) => void;
   recordUsage: (tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) => Promise<void>;
   settle: (reason: SettleReason, usage?: CallReservationUsage) => Promise<void>;
@@ -117,6 +119,12 @@ function createSettlement(
   return {
     get usageRecorded() {
       return callRes.usageRecorded;
+    },
+    get upstreamProduced() {
+      return callRes.upstreamProduced;
+    },
+    get settled() {
+      return callRes.settled;
     },
     markUpstreamProduced: (chars = 0) => {
       callRes.markProduced(chars);
@@ -181,6 +189,8 @@ async function streamOpenRouterReasoning(
 
   if (!upstream.ok || !upstream.body) {
     clearTimeout(timeoutId);
+    const errBody = await upstream.text().catch(() => '');
+    console.error('[api/chat] reasoning upstream returned error:', upstream.status, errBody.slice(0, 200));
     await settlement.settle('failed');
     sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider returned an error.');
     return;
@@ -342,6 +352,10 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // AUD-2: согласие проверяется здесь, а не в браузере — клиентский гейт
   // обходится прямым запросом, а именно этим путём и идёт основной чат.
   const consent = await postgresAiContext.getAiConsent(uid);
+  if (consent.error === 'unavailable') {
+    sendError(res, 503, 'SERVICE_UNAVAILABLE', 'Database temporarily unavailable.');
+    return;
+  }
   if (!consent.granted) {
     sendError(res, 403, 'AI_CONSENT_REQUIRED');
     return;
@@ -424,6 +438,11 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     parsed.data.userPortrait, parsed.data.customSystemPrompt,
   ]);
   const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens + inputEstimate);
+  if (reservation && 'error' in reservation) {
+    await callRes.settle('failed');
+    sendError(res, 503, 'SERVICE_UNAVAILABLE', 'Database temporarily unavailable.');
+    return;
+  }
   if (!reservation) {
     await callRes.settle('failed');
     sendError(res, 429, 'GLOBAL_LIMIT');
@@ -491,6 +510,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     void settlement.settle('closed');
   });
 
+  let streamErrorOccurred: unknown = null;
   const result = streamText({
     model: chatModel,
     system: systemPrompt,
@@ -512,10 +532,22 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       });
     },
     onError: async (e) => {
+      streamErrorOccurred = e;
       console.error('[api/chat] streamText failed:', e);
       await settlement.settle('failed');
+      if (!res.headersSent) {
+        sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
+      }
     },
   });
+
+  // If onError already fired before pipeTextStreamToResponse
+  if (streamErrorOccurred || settlement.settled) {
+    if (!res.headersSent) {
+      sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
+    }
+    return;
+  }
 
   try {
     // Обёртка нужна из-за смены сигнатуры между версиями SDK: в ai@6.0.191

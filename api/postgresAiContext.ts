@@ -28,7 +28,7 @@ const EFFECTIVE_TOKEN_LIMIT = DAILY_SPEND_LIMIT_RUB != null && DAILY_SPEND_LIMIT
   ? Math.min(GLOBAL_TOKEN_LIMIT, Math.floor((DAILY_SPEND_LIMIT_RUB / RUB_PER_1M_TOKENS) * 1_000_000))
   : GLOBAL_TOKEN_LIMIT;
 
-async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null> {
+async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservation | null | { error: 'unavailable' }> {
   const date = today();
   try {
     // Резервация токенов атомарна вместе с вызовом: раньше tokens читались
@@ -51,12 +51,13 @@ async function tryReserveGlobalRequest(allowance = 8192): Promise<GlobalReservat
     return { date, shardId: '0', allowance };
   } catch (e) {
     console.error('[postgresAiContext] tryReserveGlobalRequest error', e);
-    return null;
+    return { error: 'unavailable' };
   }
 }
 
-async function refundGlobalRequest(res: GlobalReservation | null | undefined): Promise<void> {
-  if (!res || res.refunded) return;
+async function refundGlobalRequest(res: GlobalReservation | { error: 'unavailable' } | null | undefined): Promise<void> {
+  if (!res || ('error' in res)) return;
+  if (res.refunded) return;
   res.refunded = true;
   try {
     // Резерв снимается вместе с вызовом: иначе каждая неудача навсегда съедает
@@ -65,8 +66,8 @@ async function refundGlobalRequest(res: GlobalReservation | null | undefined): P
     await pool.query(
       `UPDATE public.ai_global_daily
           SET call_count = GREATEST(0, call_count - 1),
-              tokens     = GREATEST(0, coalesce(tokens, 0) - $2::int)
-        WHERE date = $1`,
+               tokens     = GREATEST(0, coalesce(tokens, 0) - $2::int)
+         WHERE date = $1`,
       [res.date, res.allowance],
     );
   } catch (e) {
@@ -88,7 +89,7 @@ const INDEXING_CONSENT_VERSION_REQUIRED = 1;
 // Клиентский гейт в callAi обходится прямым запросом к /api/chat — именно этим
 // путём идёт основной чат. Гарантия «без согласия текст не обрабатывается»
 // может стоять только здесь, где ей не нужны честность браузера.
-async function getAiConsent(uid: string): Promise<{ granted: boolean }> {
+async function getAiConsent(uid: string): Promise<{ granted: boolean; error?: 'unavailable' }> {
   try {
     const { rows } = await pool.query(
       'SELECT ai_consent_at, ai_consent_version FROM public.users WHERE uid = $1',
@@ -101,14 +102,14 @@ async function getAiConsent(uid: string): Promise<{ granted: boolean }> {
     };
   } catch (e) {
     // Ошибка чтения — не «согласия нет»: отказ обработки по сбою БД запер бы
-    // весь чат. Но и пропустить нельзя, поэтому наружу отдаём отказ,
+    // весь чат. Но и пропустить нельзя, поэтому наружу отдаём отказ со статусом unavailable,
     // а причина уходит в журнал.
     console.error('[postgresAiContext] getAiConsent error', e);
-    return { granted: false };
+    return { granted: false, error: 'unavailable' };
   }
 }
 
-async function getIndexingConsent(uid: string): Promise<{ granted: boolean }> {
+async function getIndexingConsent(uid: string): Promise<{ granted: boolean; error?: 'unavailable' }> {
   try {
     const { rows } = await pool.query(
       'SELECT indexing_consent_at, indexing_consent_version FROM public.users WHERE uid = $1',
@@ -121,7 +122,7 @@ async function getIndexingConsent(uid: string): Promise<{ granted: boolean }> {
     };
   } catch (e) {
     console.error('[postgresAiContext] getIndexingConsent error', e);
-    return { granted: false };
+    return { granted: false, error: 'unavailable' };
   }
 }
 

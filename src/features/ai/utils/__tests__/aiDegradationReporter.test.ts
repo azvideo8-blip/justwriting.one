@@ -11,7 +11,7 @@ describe('aiDegradationReporter', () => {
   describe('classifyCause', () => {
     it('identifies daily limit errors', () => {
       expect(isDailyLimitError('DAILY_LIMIT')).toBe(true);
-      expect(isDailyLimitError('RATE_LIMIT')).toBe(true);
+      expect(isDailyLimitError('RATE_LIMIT')).toBe(false);
       expect(isDailyLimitError(new Error('Daily limit reached'))).toBe(true);
       expect(classifyCause('DAILY_LIMIT').category).toBe('daily_limit');
     });
@@ -19,6 +19,7 @@ describe('aiDegradationReporter', () => {
     it('identifies transient network / upstream errors', () => {
       expect(classifyCause('NETWORK').category).toBe('transient');
       expect(classifyCause('UPSTREAM').category).toBe('transient');
+      expect(classifyCause('RATE_LIMIT').category).toBe('transient');
       expect(classifyCause(new Error('functions/unavailable')).category).toBe('transient');
       expect(classifyCause(new Error('Timeout')).category).toBe('transient');
     });
@@ -46,7 +47,7 @@ describe('aiDegradationReporter', () => {
       expect(entries).toHaveLength(1);
       expect(entries[0]?.message).toContain('Дневной лимит ИИ исчерпан');
       expect(entries[0]?.count).toBe(1);
-      expect(entries[0]?.level).toBe('warning');
+      expect(entries[0]?.level).toBe('error');
 
       // Second call from a different feature (e.g. chat_search_embed) with same cause
       reportAIDegradation({

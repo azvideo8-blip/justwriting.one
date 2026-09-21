@@ -34,8 +34,9 @@ vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   WritingSettingsProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+let mockEntries: any[] = [];
 vi.mock('../../../../shared/activity/useActivityLogStore', () => ({
-  useActivityLogStore: () => [],
+  useActivityLogStore: (selector: any) => selector({ entries: mockEntries, setPanelOpen: vi.fn() }),
 }));
 
 describe('Sidebar active navigation item styling (UI-03)', () => {
@@ -64,5 +65,21 @@ describe('Sidebar active navigation item styling (UI-03)', () => {
     expect(inactiveButton).toBeTruthy();
     expect(inactiveButton?.className).toContain('text-text-main/60');
     expect(inactiveButton?.className).not.toContain('text-surface-base');
+  });
+
+  it('illuminates activity log badge with warning style on warning entries (ERR-10)', () => {
+    mockEntries = [
+      { id: '1', level: 'warning', message: 'Rate limit or degradation warning', time: Date.now() },
+    ];
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/']}>
+        <Sidebar isAdmin={false} />
+      </MemoryRouter>
+    );
+
+    const activityBtn = screen.getByRole('button', { name: /Журнал активности/i });
+    expect(activityBtn).toBeInTheDocument();
+    expect(activityBtn.className).toContain('text-accent-warning');
   });
 });

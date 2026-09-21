@@ -17,6 +17,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
 import { getCurrentUser } from '../../../core/auth';
+import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 
 const GridItem = memo<ComponentPropsWithoutRef<'div'>>(
   ({ className, children, style, ...props }) => (
@@ -145,18 +146,7 @@ export function ArchiveNoteList({
         setAiProcessedMap(m => ({ ...m, [session.id]: true }));
         showToast(t('ai_note_analyzed'), 'success');
       } else {
-        const errMap: Record<string, string> = {
-          NO_CONTENT: t('ai_note_too_short'),
-          TOO_SHORT: t('ai_note_too_short'),
-          AI_CONSENT_REQUIRED: t('archive_preview_ai_consent_required'),
-          AUTH_REQUIRED: getCurrentUser() ? t('ai_error_session') : t('ai_error_auth'),
-          DAILY_LIMIT: t('ai_error_rate_limit'),
-          RATE_LIMIT: t('ai_error_rate_limit'),
-          TOO_LONG: t('ai_error_too_long'),
-          SERVER_ERROR: t('ai_error_server'),
-          NETWORK: t('ai_error_offline'),
-        };
-        showToast(errMap[res.error || ''] ?? t('ai_error_server'), 'error');
+        showToast(aiErrorToText(res.error, { t, isLoggedIn: !!getCurrentUser() }), 'error');
       }
     } catch (e) {
       reportError(e, { action: 'archive_analyze_note', documentId: session.id });

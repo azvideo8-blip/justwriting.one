@@ -74,6 +74,24 @@ describe('1.5 atomic global token reserve', () => {
     expect(res).toBeNull();
   });
 
+  it('returns { error: "unavailable" } when pool.query throws', async () => {
+    poolShouldThrow = new Error('connection terminated');
+    const res = await postgresAiContext.tryReserveGlobalRequest(1000);
+    expect(res).toEqual({ error: 'unavailable' });
+  });
+
+  it('getAiConsent returns { granted: false, error: "unavailable" } on pool error', async () => {
+    poolShouldThrow = new Error('pg down');
+    const res = await postgresAiContext.getAiConsent('u1');
+    expect(res).toEqual({ granted: false, error: 'unavailable' });
+  });
+
+  it('getIndexingConsent returns { granted: false, error: "unavailable" } on pool error', async () => {
+    poolShouldThrow = new Error('pg down');
+    const res = await postgresAiContext.getIndexingConsent('u1');
+    expect(res).toEqual({ granted: false, error: 'unavailable' });
+  });
+
   it('refundGlobalRequest releases the reserved allowance together with the call count', async () => {
     await postgresAiContext.refundGlobalRequest({ date: '2026-08-20', shardId: '0', allowance: 1234 });
 

@@ -34,6 +34,9 @@ export interface RelinkResult {
   skippedIds: string[];
 }
 
+export const CLOUD_COPY_LOCAL_ONLY = 'LOCAL_ONLY';
+export const CLOUD_COPY_TOMBSTONE = 'TOMBSTONE';
+
 const CLOUD_SYNC_TIMEOUT = 30_000;
 
 /**
@@ -566,7 +569,7 @@ export const CloudSyncService = {
           'warning',
           'sync',
         );
-        return '';
+        return CLOUD_COPY_LOCAL_ONLY;
       }
 
       if (localDoc.linkedCloudId) {
@@ -579,7 +582,13 @@ export const CloudSyncService = {
             // документ и удаление «воскреснет» под другим id.
             await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone');
             await dropQueueTasksFor(localDocumentId);
-            return '';
+            useActivityLogStore.getState().addActivity(
+              'Облачная копия этой заметки была удалена. Заметка осталась на устройстве; повторное «отправить в облако» создаст новую облачную копию',
+              { action: 'addCloudCopy_tombstone', documentId: localDocumentId },
+              'warning',
+              'sync',
+            );
+            return CLOUD_COPY_TOMBSTONE;
           }
           if (existingDoc._locked) throw new Error('LOCKED: cannot sync to locked cloud document');
           if (existingDoc._decryptionError) throw new Error('DECRYPTION_ERROR: cannot sync to unreadable cloud document');
@@ -844,7 +853,7 @@ export const CloudSyncService = {
                 'warning',
                 'sync',
               );
-              return '';
+              return CLOUD_COPY_TOMBSTONE;
             }
 
             // Повторное нажатие после того предупреждения — осознанный ответ

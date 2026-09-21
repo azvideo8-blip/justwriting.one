@@ -120,21 +120,25 @@ export function MobileStorageActionsSheet({
         if (ok) {
           showToast(t('storage_uploaded_cloud'), 'success');
         } else {
-          showToast(t('error_generic_action'), 'error');
+          showToast(t('storage_sync_error_activity_log'), 'error');
         }
       } else {
         const cloudId = await StorageService.addCloudCopy(userId, doc.localId, true);
-        if (cloudId) {
+        if (cloudId === 'LOCAL_ONLY') {
+          showToast(t('storage_local_only_notice'), 'info');
+        } else if (cloudId === 'TOMBSTONE') {
+          showToast(t('storage_tombstone_notice'), 'info');
+        } else if (cloudId) {
           showToast(t('storage_uploaded_cloud'), 'success');
         } else {
-          showToast(t('error_generic_action'), 'error');
+          showToast(t('storage_sync_error_activity_log'), 'error');
         }
       }
       onStorageChange();
       onClose();
     } catch (e) {
       reportError(e, { action: doc.hasPendingSync ? 'syncDocument' : 'addCloudCopy', userId, localId: doc.localId });
-      showToast(t('error_generic_action'), 'error');
+      showToast(t('storage_sync_error_activity_log'), 'error');
     } finally {
       setLoadingAction(null);
     }

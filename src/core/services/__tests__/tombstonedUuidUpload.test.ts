@@ -43,7 +43,7 @@ vi.mock('../../../shared/activity/useActivityLogStore', () => ({
   useActivityLogStore: { getState: () => ({ addActivity }) },
 }));
 
-const { CloudSyncService } = await import('../CloudSyncService');
+const { CloudSyncService, CLOUD_COPY_TOMBSTONE } = await import('../CloudSyncService');
 const { getLocalDb } = await import('../../storage/localDb');
 
 const USER = 'user_life10';
@@ -77,7 +77,7 @@ describe('LIFE-10: номер занят надгробием', () => {
 
     const cloudId = await CloudSyncService.addCloudCopy(USER, 'local_1');
 
-    expect(cloudId, 'выгрузки не было — и говорить, что была, нельзя').toBe('');
+    expect(cloudId, 'выгрузки не было — и говорить, что была, нельзя').toBe(CLOUD_COPY_TOMBSTONE);
 
     const db = await getLocalDb();
     const doc = await db.get('documents', 'local_1');

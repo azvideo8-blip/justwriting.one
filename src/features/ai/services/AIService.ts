@@ -35,7 +35,7 @@ export interface AISummaryPayload {
   promptVersion?: number;
 }
 
-function mapAIError(e: unknown): AIErrorCode {
+export function mapAIError(e: unknown): AIErrorCode {
   // Коды приходят от нашего HTTP-API без префикса ('resource-exhausted').
   // Префикс `functions/` — наследие Firebase SDK, которого в сборке уже нет;
   // после переезда на VPS ни одна ветка ниже по нему не совпадала, и КАЖДЫЙ
@@ -53,11 +53,15 @@ function mapAIError(e: unknown): AIErrorCode {
   // 'internal' с сообщением ровно 'internal' — это SDK, не наша функция:
   // chatWithAI бросает internal только с причиной (UNKNOWN / BAD_REQUEST /
   // MISCONFIGURED), а judgeFacets не бросает его ни на одном пути.
-  if (code === 'deadline-exceeded') return 'NETWORK';
   if (code === 'internal' && message.trim().toLowerCase() === 'internal') return 'NETWORK';
-  if (message === 'Timeout' || (e as { isTimeout?: boolean }).isTimeout) return 'NETWORK';
+  if (code === 'deadline-exceeded' || message === 'deadline-exceeded' || message === 'Timeout' || (e as { isTimeout?: boolean }).isTimeout) return 'NETWORK';
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'NETWORK';
-  if (code === 'unauthenticated' || message === 'AUTH_REQUIRED') return 'AUTH_REQUIRED';
+  if (
+    code?.toLowerCase() === 'unauthenticated' ||
+    message.toUpperCase() === 'AUTH_REQUIRED' ||
+    message.toLowerCase() === 'unauthenticated' ||
+    status === 401
+  ) return 'AUTH_REQUIRED';
   if (code === 'resource-exhausted' || status === 429) {
     const errData = (e as { details?: { errorType?: string } }).details;
     // Дневной потолок и минутное окно приходят одним кодом и различаются только

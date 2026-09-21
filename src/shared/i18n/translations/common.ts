@@ -53,6 +53,12 @@ export const commonTranslations: Translations = {
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },
   error_retry: { ru: 'Повторить', en: 'Retry' },
+  error_app_updated: { ru: 'Приложение обновилось', en: 'Application was updated' },
+  error_app_updated_hint: {
+    ru: 'Вышла новая версия приложения. Пожалуйста, обновите страницу, чтобы продолжить работу.',
+    en: 'A new version of the application is available. Please reload the page to continue.',
+  },
+  error_reload_page: { ru: 'Обновить страницу', en: 'Reload page' },
 
   unlock_title: { ru: 'Разблокировать шифрование', en: 'Unlock Encryption' },
   unlock_subtitle: {

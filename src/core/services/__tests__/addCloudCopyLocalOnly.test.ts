@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
-import { CloudSyncService } from '../CloudSyncService';
+import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY } from '../CloudSyncService';
 import { DocumentService } from '../DocumentService';
 import { getLocalDb } from '../../storage/localDb';
 
@@ -74,7 +74,7 @@ describe('Area 1: addCloudCopy on localOnly note', () => {
 
     // Expected: note is localOnly, so it must NOT be uploaded to the cloud!
     expect(DocumentService.createDocument).not.toHaveBeenCalled();
-    expect(cloudId).toBe('');
+    expect(cloudId).toBe(CLOUD_COPY_LOCAL_ONLY);
   });
 
   it('purges syncQueue tasks for localOnly note during addCloudCopy', async () => {
@@ -105,5 +105,29 @@ describe('Area 1: addCloudCopy on localOnly note', () => {
 
     const remainingTasks = await db.getAll('syncQueue');
     expect(remainingTasks).toHaveLength(0);
+  });
+
+  it('returns CLOUD_COPY_TOMBSTONE when existing cloud doc is deleted (tombstone)', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', {
+      id: 'local_tombstone_1',
+      uuid: 'uuid_tombstone_1',
+      guestId: USER,
+      title: 'Tombstoned note',
+      currentVersion: 1,
+      totalWords: 10,
+      totalDuration: 5,
+      sessionsCount: 1,
+      tags: [],
+      linkedCloudId: 'cloud_tombstone_1',
+    } as any);
+
+    vi.mocked(DocumentService.getDocumentWithDeleted).mockResolvedValueOnce({
+      id: 'cloud_tombstone_1',
+      deletedAt: new Date().toISOString(),
+    } as any);
+
+    const result = await CloudSyncService.addCloudCopy(USER, 'local_tombstone_1');
+    expect(result).toBe('TOMBSTONE');
   });
 });

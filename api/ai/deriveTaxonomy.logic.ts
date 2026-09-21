@@ -45,6 +45,10 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
   console.warn(`[AI taxonomy] start: digest ${digest.length} chars`);
 
   const reservation = await ctx.tryReserveGlobalRequest(4096);
+  if (reservation && 'error' in reservation) {
+    await callRes.settle('failed');
+    throw new AiError('unavailable', 'Database temporarily unavailable.');
+  }
   if (!reservation) {
     await callRes.settle('failed');
     console.error('[AI taxonomy] global daily cap reached');

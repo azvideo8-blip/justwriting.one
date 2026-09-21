@@ -93,8 +93,9 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
       const { clearAccountScopedStorage } = await import('./accountScopedKeys');
       clearAccountScopedStorage(currentUid);
       sessionStorage.clear();
-    } catch {
-      /* ignore */
+    } catch (e) {
+      wipeFailed = wipeFailed || e;
+      reportError(e, { action: 'signOut_clearAccountScopedStorage' });
     }
 
     // AUD-11: обещание «на этом компьютере ничего не останется» не выполнено.
@@ -112,6 +113,9 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     const { clearDeviceKey } = await import('../../../core/crypto/keyVaultCache');
     await clearDeviceKey(currentUid);
   } catch (e) {
+    if (opts?.clearLocalData) {
+      wipeFailed = wipeFailed || e;
+    }
     reportError(e, { action: 'signOut_clearDeviceKey' });
   }
 

@@ -154,4 +154,53 @@ describe('AUD-2: диспетчер AI-эндпоинтов сверяет со�
     const threwConsent = caught instanceof Error && /AI_CONSENT_REQUIRED/.test(String(caught));
     expect(threwConsent).toBe(false);
   });
+
+  it('ERR-5: getAiConsent error gives 503 SERVICE_UNAVAILABLE in handleChat (not 403 AI_CONSENT_REQUIRED)', async () => {
+    ctx.getAiConsent.mockResolvedValue({ granted: false, error: 'unavailable' });
+    const req = new FakeReq(chatBody());
+    const res = new FakeRes();
+
+    await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    expect(res.statusCode).toBe(503);
+    expect(JSON.parse(res.body).error.code).toBe('SERVICE_UNAVAILABLE');
+  });
+
+  it('ERR-5: tryReserveGlobalRequest unavailable gives 503 SERVICE_UNAVAILABLE in handleChat (not 429 GLOBAL_LIMIT)', async () => {
+    ctx.tryReserveGlobalRequest.mockResolvedValue({ error: 'unavailable' });
+    const req = new FakeReq(chatBody());
+    const res = new FakeRes();
+
+    await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    expect(res.statusCode).toBe(503);
+    expect(JSON.parse(res.body).error.code).toBe('SERVICE_UNAVAILABLE');
+  });
+
+  it('ERR-5: getAiConsent error gives 503 in handleAiEndpoint (not 403)', async () => {
+    ctx.getAiConsent.mockResolvedValue({ granted: false, error: 'unavailable' });
+
+    const out = await handleAiEndpoint('summarizeDocument', 'u1', { data: { content: 'x'.repeat(60) } });
+
+    expect(out.status).toBe(503);
+    expect((out.body as { error: { code: string } }).error.code).toBe('unavailable');
+  });
+
+  it('ERR-5: getIndexingConsent error gives 503 in handleAiEndpoint (not 403)', async () => {
+    ctx.getIndexingConsent.mockResolvedValue({ granted: false, error: 'unavailable' });
+
+    const out = await handleAiEndpoint('embedDocument', 'u1', { data: { content: 'текст' } });
+
+    expect(out.status).toBe(503);
+    expect((out.body as { error: { code: string } }).error.code).toBe('unavailable');
+  });
+
+  it('ERR-5: tryReserveGlobalRequest unavailable gives 503 in handleAiEndpoint (not 429)', async () => {
+    ctx.tryReserveGlobalRequest.mockResolvedValue({ error: 'unavailable' });
+
+    const out = await handleAiEndpoint('summarizeDocument', 'u1', { data: { content: 'x'.repeat(60) } });
+
+    expect(out.status).toBe(503);
+    expect((out.body as { error: { code: string } }).error.code).toBe('unavailable');
+  });
 });

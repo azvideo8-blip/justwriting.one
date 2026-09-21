@@ -80,7 +80,7 @@ export async function clearDeviceKey(userId?: string): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch { /* non-critical */ } finally {
+  } finally {
     db?.close();
   }
 }

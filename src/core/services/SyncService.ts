@@ -4,7 +4,7 @@ import { reportError } from '../../shared/errors/reportError';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
-import { CloudSyncService } from './CloudSyncService';
+import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { isPoisonSyncError, isRevivableOnUnlock } from '../sync/classifySyncError';
 import { syncStreakFreezesWithCloud } from '../utils/streakFreeze';
@@ -302,7 +302,7 @@ export const SyncService = {
         // облачная копия удалена и ссылка уже снята. Обе прибрали за собой;
         // считать их провалом — занизить счётчик и поставить в очередь
         // работу, которой нет. Настоящий сбой приходит исключением.
-        if (r.value) synced++;
+        if (r.value && r.value !== CLOUD_COPY_LOCAL_ONLY && r.value !== CLOUD_COPY_TOMBSTONE) synced++;
       });
 
       // Failed uploads are put into the queue for subsequent retries.
@@ -330,7 +330,7 @@ export const SyncService = {
 
   async syncOne(userId: string, localId: string): Promise<string> {
     const cloudId = await StorageService.addCloudCopy(userId, localId);
-    return cloudId || '';
+    return (cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) ? '' : (cloudId || '');
   },
 
   async syncDocument(userId: string, localId: string, encryptionRequired = true): Promise<boolean> {
@@ -338,7 +338,7 @@ export const SyncService = {
     // addCloudCopy returns '' when a concurrent sync holds the lock (no-op). Don't
     // clear this doc's queue items then — the pending edit would never be retried.
     // Also never delete the lock_cloud_ entry itself.
-    if (!cloudId) return false;
+    if (!cloudId || cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) return false;
     const db = await getLocalDb();
     const queue = await db.getAll('syncQueue');
     const docTasks = queue.filter(p => p.documentId === localId && !p.id.startsWith('lock_cloud_'));
@@ -490,7 +490,7 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
 
     const results = await Promise.allSettled(documentIds.map(localId =>
       limit(() => StorageService.addCloudCopy(userId, localId).then(cloudId => {
-        if (!cloudId) return [];
+        if (!cloudId || cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) return [];
         return (pendingByDoc.get(localId) ?? []).map(p => p.id);
       }))
     ));

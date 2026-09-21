@@ -29,6 +29,7 @@ import { sanitizeFirstSeenDates } from '../utils/dateGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
 import { assertNever, type AIErrorCode } from '../types/aiErrors';
+import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 export { API_MSG_CAP };
 
 interface UseAIChatReturn {
@@ -583,59 +584,18 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       setDialogue(fresh ?? dialogue);
       const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
 
-      const isKnownCode = (m: string): m is AIErrorCode =>
-        ['ABORTED', 'RATE_LIMIT', 'DAILY_LIMIT', 'REASONING_LIMIT', 'GLOBAL_LIMIT', 'AUTH_REQUIRED', 'AI_CONSENT_REQUIRED', 'EMPTY_RESPONSE', 'UPSTREAM', 'TOO_LONG', 'NETWORK', 'MISCONFIGURED', 'SERVER_ERROR', 'SERVICE_UNAVAILABLE'].includes(m);
-
-      if (isKnownCode(rawMsg)) {
-        switch (rawMsg) {
-          case 'ABORTED':
-            // user stopped — no error
-            break;
-          case 'RATE_LIMIT':
-            setError('Слишком частые запросы. Подождите немного перед следующей отправкой.');
-            break;
-          case 'DAILY_LIMIT':
-            setDailyLimitExhausted(false);
-            setError('Дневной лимит достигнут');
-            break;
-          case 'REASONING_LIMIT':
-            setDailyLimitExhausted(true);
-            setError('Лимит рассуждений исчерпан');
-            break;
-          case 'SERVICE_UNAVAILABLE':
-            setError('Сервис временно не может проверить лимит. Попробуйте позже.');
-            break;
-          case 'GLOBAL_LIMIT':
-            setError('Лимит приложения исчерпан — попробуйте позже');
-            break;
-          case 'AUTH_REQUIRED':
-            setError('Требуется регистрация');
-            break;
-          case 'AI_CONSENT_REQUIRED':
-            setError('Для общения с ИИ требуется согласие на обработку данных');
-            break;
-          case 'EMPTY_RESPONSE':
-            setError('ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.');
-            break;
-          case 'UPSTREAM':
-            setError('Модель сейчас не отвечает — это сбой на стороне сервиса ИИ, а не в ваших заметках. Мы уже повторили запрос несколько раз. Попробуйте ещё раз через минуту.');
-            break;
-          case 'TOO_LONG':
-            setError('Запрос слишком длинный');
-            break;
-          case 'NETWORK':
-            setError('Проблема с подключением к сети. Проверьте соединение.');
-            break;
-          case 'MISCONFIGURED':
-          case 'SERVER_ERROR':
-            setError('Произошла ошибка при отправке сообщения');
-            break;
-          default:
-            assertNever(rawMsg);
-        }
-      } else {
-        setError('Произошла ошибка при отправке сообщения');
+      if (rawMsg === 'ABORTED') {
+        // user stopped — no error
+        return null;
       }
+
+      if (rawMsg === 'DAILY_LIMIT') {
+        setDailyLimitExhausted(false);
+      } else if (rawMsg === 'REASONING_LIMIT') {
+        setDailyLimitExhausted(true);
+      }
+
+      setError(aiErrorToText(rawMsg));
       return null;
     } finally {
       sendingRef.current = false;

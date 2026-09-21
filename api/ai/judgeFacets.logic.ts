@@ -65,6 +65,10 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
   ).join('\n\n');
 
   const reservation = await ctx.tryReserveGlobalRequest(8192);
+  if (reservation && 'error' in reservation) {
+    await callRes.settle('failed');
+    throw new AiError('unavailable', 'Database temporarily unavailable.');
+  }
   if (!reservation) {
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');

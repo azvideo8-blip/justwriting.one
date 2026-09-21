@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { onAuthStateChange } from '../../../core/auth';
+import { reportError } from '../../../shared/errors/reportError';
 
 import type { AppUser } from '../../../core/auth/types';
 
@@ -30,10 +31,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       setAuthState(u ? 'authenticated' : 'guest');
     });
-    // Fallback: if Supabase Auth never calls back (network/init failure),
-    // transition from loading to guest after 10s so the app isn't stuck.
+
     const timeout = setTimeout(() => {
-      setAuthState(prev => prev === 'loading' ? 'guest' : prev);
+      setAuthState(prev => {
+        if (prev === 'loading') {
+          reportError(
+            new Error('AUTH_TIMEOUT: Supabase auth state change did not fire within 10s'),
+            { action: 'auth_init_timeout' },
+            'warning',
+          );
+          return 'guest';
+        }
+        return prev;
+      });
     }, 10_000);
     return () => { unsubscribe(); clearTimeout(timeout); };
   }, []);
