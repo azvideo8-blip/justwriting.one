@@ -12,6 +12,12 @@ import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('app_language', 'en');
+    // AG-ONBOARD-1 shows a goal-picker before a genuinely new account's first
+    // session (see WritingPage.tsx). These tests are about persistence, not
+    // onboarding, so pin the guest id and mark it already done — same state
+    // as any real user past their first visit.
+    localStorage.setItem('jw_guest_id', 'guest_e2e-fixed');
+    localStorage.setItem('onboarding_done_guest_e2e-fixed', '1');
   });
 });
 

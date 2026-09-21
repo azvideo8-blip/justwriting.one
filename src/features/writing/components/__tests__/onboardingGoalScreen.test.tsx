@@ -181,4 +181,32 @@ describe('AG-ONBOARD-1: OnboardingGoalScreen & writing page gating', () => {
     });
     expect(screen.queryByText(/сколько хочешь писать/i)).toBeNull();
   });
+
+  it('regression: a fresh account never flashes the editor before the onboarding screen resolves', async () => {
+    // Bug this guards: the doc-count check used to default to "onboarding
+    // done", so the editor rendered immediately and then got yanked out from
+    // under the user once the async check resolved docCount === 0 — visible
+    // as a flash, and the exact cause of e2e/writing.spec.ts flaking after
+    // AG-ONBOARD-1 shipped (the editor textarea briefly existed, then didn't).
+    const userA = { uid: 'user-a', email: 'a@example.com' } as any;
+
+    renderWithProviders(
+      <ToastProvider>
+        <WritingSettingsProvider>
+          <MemoryRouter initialEntries={['/']}>
+            <WritingPage user={userA} profile={null} />
+          </MemoryRouter>
+        </WritingSettingsProvider>
+      </ToastProvider>
+    );
+
+    // Immediately after mount — before the doc-count check has resolved —
+    // neither the writing session UI nor the onboarding screen should be up.
+    expect(screen.queryByPlaceholderText('Название сессии')).toBeNull();
+    expect(screen.queryByText(/300/)).toBeNull();
+
+    await waitFor(() => {
+      expect(screen.getByText(/300/)).toBeInTheDocument();
+    });
+  });
 });

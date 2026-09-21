@@ -103,19 +103,27 @@ function WritingPageUI() {
 
   const { silenceMode } = useWritingSettings();
 
+  const onboardingFlagSet = (uid: string | null | undefined) =>
+    localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE(uid)) ? true : undefined;
+
   const [prevUserId, setPrevUserId] = React.useState(session.userId);
-  // Default to true (never interrupt) until the doc-count check below proves
-  // this account is genuinely new — the flag was never set for any account
-  // before this screen existed, so "flag absent" alone would show this to
-  // every existing account with a writing history, not just new ones.
-  const [onboardingDone, setOnboardingDone] = React.useState(true);
+  // Undefined = still checking (renders nothing rather than flashing the
+  // editor and yanking it away): the flag was never set for any account
+  // before this screen existed, so knowing whether to show it needs an
+  // IndexedDB doc-count check below. Only skip straight to true when the
+  // flag is already on disk — that read is synchronous, so it costs no flash.
+  const [onboardingDone, setOnboardingDone] = React.useState<boolean | undefined>(
+    () => onboardingFlagSet(session.userId),
+  );
 
   if (prevUserId !== session.userId) {
     setPrevUserId(session.userId);
-    setOnboardingDone(true);
+    setOnboardingDone(onboardingFlagSet(session.userId));
   }
 
   React.useEffect(() => {
+    // Already handled synchronously above (initializer / user-switch branch);
+    // this only guards the check below from running when the flag exists.
     if (localStorage.getItem(STORAGE_KEYS.ONBOARDING_DONE(session.userId))) return;
     let cancelled = false;
     void (async () => {
@@ -127,15 +135,21 @@ function WritingPageUI() {
           // Existing account, the flag just never existed until today —
           // backfill it silently, never show the screen.
           localStorage.setItem(STORAGE_KEYS.ONBOARDING_DONE(session.userId), '1');
+          setOnboardingDone(true);
         } else {
           setOnboardingDone(false);
         }
       } catch {
         // Can't tell either way — default (never interrupt) stands.
+        if (!cancelled) setOnboardingDone(true);
       }
     })();
     return () => { cancelled = true; };
   }, [session.userId]);
+
+  if (onboardingDone === undefined) {
+    return null;
+  }
 
   if (!onboardingDone) {
     return (
