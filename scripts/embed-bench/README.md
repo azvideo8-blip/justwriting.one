@@ -1,27 +1,53 @@
 # Стенд для сравнения моделей эмбеддингов
 
-Отчёт: [`docs/local-embeddings-measurement.md`](../../docs/local-embeddings-measurement.md).
+Первый отчёт (20 августа): [`docs/local-embeddings-measurement.md`](../../docs/local-embeddings-measurement.md)
+— **корпус там синтетический** (см. раздел «Чего этот замер не доказывает» в
+самом отчёте), это признано в тексте. Он сравнивал браузерные
+Transformers.js-модели, не тот движок, который сейчас реально стоит в проде.
 
 Не продуктовый код. Ничего отсюда не импортируется приложением.
 
-```bash
-npm install @huggingface/transformers   # во временном каталоге, не в проект
-node run-local.mjs Xenova/multilingual-e5-small prefix
-DTYPE=fp32 node run-local.mjs Xenova/multilingual-e5-small prefix
-node score.mjs
-```
+## Замер на настоящем архиве (актуальный движок — bge-m3 на VPS)
 
-Облачная модель считается на сервере, где лежит ключ:
+**Данные (`corpus.json`, `queries.json`, `out-*.json`) никогда не коммитятся** —
+`scripts/embed-bench/*.json` в `.gitignore`. См. `no-live-data-in-git` в памяти:
+репозиторий был публичным до 2026-08-21, и реальные тексты/запросы из архива —
+такие же личные данные, как сами заметки.
 
-```bash
-scp corpus.json queries.json run-cloud.mjs justwriting:/tmp/
-ssh justwriting 'cd /tmp && sudo -u justwriting env $(sudo grep -E "^(OPENROUTER_API_KEY|AI_BASE_URL|OPENROUTER_EMBED_MODEL)=" /opt/justwriting/api/.env | xargs) node run-cloud.mjs'
-```
+1. **Экспорт корпуса из настоящего архива**: откройте https://justwriting.ru,
+   войдите, откройте консоль браузера, вставьте содержимое
+   `export-real-corpus.browser.js` целиком, выполните `await exportRealCorpus()`.
+   Скачается `corpus.json` — положите в эту папку. Скрипт только читает
+   локальный IndexedDB (уже расшифрован в браузере) и ничего никуда не
+   отправляет.
+2. **Составьте `queries.json` вручную** — 12-15 настоящих запросов (в том
+   числе расплывчатых, «когда мне было тяжело из-за работы», не просто
+   ключевые слова) и `rel: [id, ...]` — какие заметки реально релевантны,
+   ориентируясь по таблице id→заголовок, которую напечатает скрипт экспорта.
+   Составляйте так, чтобы нужная заметка не содержала слов запроса — иначе
+   стенд начнёт мерить совпадение слов, а не смысл.
+3. **Старая (облачная, qwen) модель** — та, которой реально считались
+   имеющиеся векторы:
+   ```bash
+   scp corpus.json queries.json run-cloud.mjs justwriting:/tmp/
+   ssh justwriting 'cd /tmp && sudo -u justwriting env $(sudo grep -E "^(OPENROUTER_API_KEY|AI_BASE_URL)=" /opt/justwriting/api/.env | xargs) OPENROUTER_EMBED_MODEL=qwen/qwen3-embedding-8b node run-cloud.mjs'
+   ```
+   `OPENROUTER_EMBED_MODEL` задан явно — в `.env` эта переменная сейчас указывает
+   на bge-m3 (её переиспользовала выкатка локальных эмбеддингов), брать её как
+   есть даст не тот замер.
+4. **Новая (локальная, bge-m3) модель** — реальный движок в проде:
+   ```bash
+   scp corpus.json queries.json run-local-bge.mjs justwriting:/tmp/
+   ssh justwriting 'cd /tmp && node run-local-bge.mjs'
+   ```
+   Ключ не нужен — эндпоинт (`127.0.0.1:8081`) слушает только локально на VPS.
+5. **Счёт**:
+   ```bash
+   scp justwriting:/tmp/out-cloud-qwen.json justwriting:/tmp/out-local-bge-m3.json .
+   node score.mjs
+   ```
 
-`out-*.json` — сырые выдачи прогонов, по которым посчитана таблица в отчёте.
-Они лежат в репозитории намеренно: отчёт, который нельзя перепроверить, ничем
-не лучше выдуманного.
-
-Правильные ответы в `queries.json` размечены вручную и записи составлены так,
-чтобы нужная заметка не содержала слов запроса. Если будете добавлять запросы,
-держите это правило — иначе стенд начнёт мерить совпадение слов.
+`out-*.json` — сырые выдачи прогонов. Раньше лежали в репозитории «чтобы отчёт
+можно было перепроверить» — но раз это настоящие данные, перепроверяемость
+здесь важнее делать локально: держите их рядом с `corpus.json`/`queries.json`,
+не коммитьте.
