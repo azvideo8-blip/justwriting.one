@@ -4,6 +4,7 @@ import { handleChat } from './chat';
 import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
 import { rateLimited, clientIp, originOnly } from './cspLimiter';
 import { sendError } from './sendError';
+import { pool } from './db';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function json(res: http.ServerResponse, status: number, body: unknown) {
@@ -42,8 +43,38 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /ready — readiness: "dependencies available, send traffic"
+  // POST-5: returns real checks for database connectivity and AI_EMBED_BASE_URL state
   if (method === 'GET' && url === '/ready') {
-    return json(res, 200, { status: 'ready', checks: [] });
+    let dbOk = false;
+    let dbError: string | undefined;
+    if (process.env.DATABASE_URL) {
+      try {
+        await pool.query('SELECT 1');
+        dbOk = true;
+      } catch (err: unknown) {
+        dbError = (err as Error).message;
+      }
+    }
+
+    const embedUrlConfigured = Boolean(process.env.AI_EMBED_BASE_URL);
+    const checks = [
+      {
+        name: 'database',
+        status: !process.env.DATABASE_URL ? 'not_configured' : dbOk ? 'ok' : 'error',
+        ...(dbError ? { error: dbError } : {}),
+      },
+      {
+        name: 'ai_embed_base_url',
+        status: embedUrlConfigured ? 'configured' : 'fallback_default',
+        url: process.env.AI_EMBED_BASE_URL || (process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1'),
+      },
+    ];
+
+    const isReady = !process.env.DATABASE_URL || dbOk;
+    return json(res, isReady ? 200 : 503, {
+      status: isReady ? 'ready' : 'not_ready',
+      checks,
+    });
   }
 
   // POST /api/csp-report — приёмник нарушений политики безопасности (32 KB limit, bounded logging).
@@ -107,5 +138,14 @@ if (process.env.NODE_ENV !== 'test') {
     console.warn(`[justwriting] API listening on ${HOST}:${PORT}`);
   });
 }
+
+// CHOKE-2: Global safety net: log unhandled exceptions and rejections
+// without terminating the process abruptly.
+process.on('uncaughtException', (err) => {
+  console.error('[server] uncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] unhandledRejection', reason);
+});
 
 export default server;

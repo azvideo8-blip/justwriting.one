@@ -16,6 +16,7 @@ import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 import { useLanguage } from '../../../shared/i18n';
 import { SUPPORTED_LOCAL_STORES } from '../../../core/services/LocalStoreSyncService';
+import { withFacetLock } from '../../../core/services/facetLock';
 
 interface AccountAISectionProps {
   userId: string;
@@ -157,7 +158,11 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
         name => name.startsWith('ai') || name === 'lifeStory',
       );
       for (const store of aiStores) {
-        await db.clear(store);
+        if (store === 'aiProfileFacets') {
+          await withFacetLock(() => db.clear(store));
+        } else {
+          await db.clear(store);
+        }
       }
 
       // Reset aiProcessed on local documents

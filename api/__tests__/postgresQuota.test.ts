@@ -18,6 +18,7 @@ let clientResults: Array<{ rows: unknown[] }> = [];
 
 vi.mock('pg', () => {
   class FakePool {
+    on = vi.fn().mockReturnThis();
     query = vi.fn(async (text: string, params?: unknown[]) => {
       poolQueries.push({ text, params: params ?? [] });
       if (poolShouldThrow) throw poolShouldThrow;
@@ -26,6 +27,8 @@ vi.mock('pg', () => {
     connect = vi.fn(async () => {
       if (poolConnectShouldThrow) throw poolConnectShouldThrow;
       return {
+        on: vi.fn().mockReturnThis(),
+        removeListener: vi.fn().mockReturnThis(),
         query: vi.fn(async (text: string, params?: unknown[]) => {
           clientQueries.push({ text, params: params ?? [] });
           if (clientQueryShouldThrow) throw clientQueryShouldThrow;

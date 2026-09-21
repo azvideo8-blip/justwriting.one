@@ -11,7 +11,7 @@ import * as callAiModule from '../../core/ai/callAi';
 import * as authModule from '../../core/auth';
 import * as aiConsentModule from '../../core/ai/aiConsent';
 // Optional vitest spyOn; fallback to manual monkey-patch when running outside vitest
-import { clearSessionKey } from '../../core/crypto/encrypt';
+import { clearSessionKey, encryptContent, generateDataKey } from '../../core/crypto/encrypt';
 
 export interface ArmedFault {
   fault: FaultType;
@@ -26,12 +26,37 @@ export class FaultInterceptor {
   private armedFault: ArmedFault | null = null;
   public currentStep: StepName = 'initial_write';
   public aiCallsIntercepted: { endpoint: string; payload: unknown; consentPresent: boolean }[] = [];
+  public capturedPayloads: Array<{ table: TableName; op: string; payload: unknown }> = [];
   public clockOffsetMs: number = 0;
   public onStep?: ((step: StepName) => void | Promise<void>) | undefined;
   private originalDateNow = Date.now;
 
   constructor(postgres?: InMemoryPostgres) {
     this.postgres = postgres || new InMemoryPostgres();
+  }
+
+  public payloadLeaks(markers: string[]): string[] {
+    const leaks: string[] = [];
+    for (const item of this.capturedPayloads) {
+      const str = JSON.stringify(item.payload);
+      for (const m of markers) {
+        if (str.includes(m)) {
+          leaks.push(`${item.table}:${item.op}`);
+        }
+      }
+    }
+    return leaks;
+  }
+
+  public async corruptSingleCloudVersion(targetVersion: number = 2): Promise<void> {
+    const foreignKey = await generateDataKey();
+    const foreignCiphertext = await encryptContent('CORRUPTED_FOREIGN_CIPHERTEXT', foreignKey);
+    const rows = this.postgres.getRows('versions');
+    const targetRow = rows.find(r => r.version === targetVersion) || rows[0];
+    if (targetRow) {
+      targetRow.content = foreignCiphertext;
+      targetRow._encrypted = true;
+    }
   }
 
   public armFault(fault: FaultType, step: StepName, table?: TableName): void {
@@ -42,8 +67,12 @@ export class FaultInterceptor {
       triggerCount: 1,
       currentCount: 0,
     };
-    if (this.currentStep === step && fault === 'vault_locked') {
-      clearSessionKey();
+    if (this.currentStep === step) {
+      if (fault === 'vault_locked') {
+        clearSessionKey();
+      } else if (fault === 'decrypt_corrupt_single') {
+        void this.corruptSingleCloudVersion();
+      }
     }
   }
 
@@ -58,6 +87,8 @@ export class FaultInterceptor {
         clearSessionKey();
       } else if (this.armedFault.fault === 'clock_backwards') {
         this.clockOffsetMs = -600_000; // Jump 10 minutes into the past
+      } else if (this.armedFault.fault === 'decrypt_corrupt_single') {
+        void this.corruptSingleCloudVersion();
       }
     }
     if (this.onStep) {
@@ -178,6 +209,7 @@ export class FaultInterceptor {
     Date.now = this.originalDateNow;
     this.clockOffsetMs = 0;
     this.aiCallsIntercepted = [];
+    this.capturedPayloads = [];
     this.onStep = undefined;
   }
 
@@ -238,16 +270,19 @@ export class FaultInterceptor {
       insert: (payload: unknown) => {
         op = 'insert';
         opPayload = payload;
+        this.capturedPayloads.push({ table, op: 'insert', payload });
         return builder;
       },
       upsert: (payload: unknown) => {
         op = 'upsert';
         opPayload = payload;
+        this.capturedPayloads.push({ table, op: 'upsert', payload });
         return builder;
       },
       update: (payload: unknown) => {
         op = 'update';
         opPayload = payload;
+        this.capturedPayloads.push({ table, op: 'update', payload });
         return builder;
       },
       delete: () => {
@@ -338,6 +373,9 @@ export class FaultInterceptor {
           }
           if (fault === 'postgres_429') {
             return { data: null, error: { message: 'Too many requests', code: '429' } };
+          }
+          if (fault === 'decrypt_corrupt_single') {
+            await this.corruptSingleCloudVersion();
           }
 
           // 2. Normal execution against InMemoryPostgres

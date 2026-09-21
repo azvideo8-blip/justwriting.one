@@ -50,6 +50,7 @@ export class LifecycleRunner {
     this.interceptor.setStep('initial_write');
     this.interceptor.installMocks();
     this.interceptor.postgres.reset();
+    this.interceptor.capturedPayloads = [];
     await clearAllLocalStores();
     localStorage.clear();
     sessionStorage.clear();
@@ -169,14 +170,26 @@ export class LifecycleRunner {
   public evaluateP2(
     markers: string[],
     expectedInCloud: boolean,
-    notes: string[]
+    notes: string[],
+    checkCapturedPayloads = false
   ): boolean | undefined {
     const vaultOn = getEncryptionEnabled(this.userId);
     const leaks = this.interceptor.postgres.plaintextLeaks(markers);
 
     if (vaultOn) {
       if (leaks.length === 0) {
-        return expectedInCloud ? true : undefined;
+        if (expectedInCloud) return true;
+        // Even if request didn't reach DB (network_pre, 500, 409, 429, abort in seq1),
+        // check whether an outgoing payload was prepared and properly encrypted.
+        if (checkCapturedPayloads && this.interceptor.capturedPayloads.length > 0) {
+          const payloadLeaks = this.interceptor.payloadLeaks(markers);
+          if (payloadLeaks.length > 0) {
+            notes.push('P2 LEAK: marker found in outgoing payload: ' + payloadLeaks.join(', '));
+            return false;
+          }
+          return true; // Outgoing payload was verified encrypted!
+        }
+        return undefined;
       }
       notes.push('P2 LEAK: marker found in ' + leaks.join(', '));
       return false;
@@ -417,7 +430,12 @@ export class LifecycleRunner {
 
     // Evaluate Postulates
     const p1Held = told.status === 'error_thrown' ? true : (device.documentExists && device.latestContent === initialText);
-    const p2Held = this.evaluateP2(['Seq 1 Note', initialText, '😊'], told.status === 'synced_to_cloud', notes);
+    const p2Held = this.evaluateP2(
+      ['Seq 1 Note', initialText, '😊'],
+      (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0,
+      notes,
+      true
+    );
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 
@@ -543,6 +561,121 @@ export class LifecycleRunner {
     });
     const cloudId = await StorageService.addCloudCopy(this.userId, localDocId);
 
+    if (fault === 'decrypt_corrupt_single') {
+      if (!this.vaultEnabled) {
+        return {
+          sequence: 'seq3_cross_device_divergence',
+          fault,
+          step: faultStep,
+          told: { status: 'synced_to_cloud', cloudSynced: false },
+          device: await this.inspectDevice(localDocId),
+          postgres: this.inspectPostgres(''),
+          p1Held: undefined,
+          p2Held: undefined,
+          p3Held: this.evaluateP3(notes),
+          p4Held: undefined,
+          notes: ['Skipped: decrypt_corrupt_single requires vaultEnabled=true'],
+        };
+      }
+
+      // CHOKE-1 audit scenario:
+      // Device A saves and syncs its own v2
+      await StorageService.saveVersion(this.userId, localDocId, {
+        title: 'Divergent Note',
+        content: 'Device A own v2 text',
+        wordCount: 5,
+        duration: 25,
+        wpm: 12,
+        tags: [],
+        sessionStartedAt: new Date(1500),
+      });
+
+      // Cloud v2 is corrupted under a foreign key (causes DecryptionError on read)
+      await this.interceptor.corruptSingleCloudVersion(2);
+
+      // Device B pushes readable v3 to cloud
+      this.interceptor.setStep('device_b_edit');
+      const bContentV3 = (await maybeEncrypt({ content: 'Device B edit v3' }, ['content'], [], true)).content;
+      this.interceptor.postgres.executeInsert('versions', {
+        document_uuid: cloudId,
+        user_id: this.userId,
+        version: 3,
+        content: bContentV3 as string,
+        word_count: 4,
+        duration: 20,
+        saved_at: new Date(2500).toISOString(),
+        session_started_at: new Date(2000).toISOString(),
+        _encrypted: true,
+      });
+      this.interceptor.postgres.executeUpdate(
+        'documents',
+        { current_version: 3 },
+        [{ type: 'eq', column: 'uuid', value: cloudId }]
+      );
+
+      // Device A now makes conflicting edit v3
+      this.interceptor.setStep(faultStep);
+      this.interceptor.armFault(fault, faultStep);
+
+      let told: ToldState = { status: 'error_thrown', cloudSynced: false };
+      try {
+        const saveRes = await StorageService.saveVersion(this.userId, localDocId, {
+          title: 'Divergent Note',
+          content: 'Device A edit v3 conflicting',
+          wordCount: 5,
+          duration: 40,
+          wpm: 12,
+          tags: [],
+          sessionStartedAt: new Date(3000),
+        });
+        told = {
+          status: saveRes.forked ? 'forked_conflict' : saveRes.cloudSynced ? 'synced_to_cloud' : 'saved_local_queued',
+          cloudSynced: saveRes.cloudSynced,
+          forked: saveRes.forked,
+          forkTitle: saveRes.forkTitle,
+        };
+      } catch (e: unknown) {
+        told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
+        notes.push(`Error during saveVersion conflict: ${(e as Error).message}`);
+      }
+
+      const device = await this.inspectDevice(localDocId);
+      const postgres = this.inspectPostgres(cloudId);
+
+      // P1: Every version that existed on the device before conflict resolution
+      // must exist readable in the union of original ∪ fork!
+      const db = await getLocalDb();
+      const allLocalVersions = await db.getAll('versions');
+      const allLocalContents = new Set(allLocalVersions.map(v => v.content));
+      const requiredTexts = ['Base v1 text', 'Device A own v2 text', 'Device A edit v3 conflicting'];
+      const p1Held = requiredTexts.every(t => allLocalContents.has(t));
+      if (!p1Held) {
+        notes.push('P1 VIOLATION (CHOKE-1): pre-conflict local version lost during conflict resolution');
+      }
+
+      const p2Held = this.evaluateP2(
+        ['Divergent Note', 'Base v1 text', 'Device A own v2 text', 'Device B edit v3', 'Device A edit v3 conflicting'],
+        (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0,
+        notes
+      );
+      const p3Held = this.evaluateP3(notes);
+      const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
+
+      return {
+        sequence: 'seq3_cross_device_divergence',
+        fault,
+        step: faultStep,
+        told,
+        device,
+        postgres,
+        p1Held,
+        p2Held,
+        p3Held,
+        p4Held,
+        notes,
+      };
+    }
+
     // Device B receives v1 and pushes v2
     this.interceptor.setStep('device_b_edit');
     const bContent = this.vaultEnabled
@@ -596,7 +729,12 @@ export class LifecycleRunner {
 
     // P1: Did both Device A's text and Device B's text survive without loss?
     // Fork must preserve Device A's text and Device B's text
-    const p1Held = told.forked === true || Boolean(device.latestContent?.includes('Device A edit v2'));
+    const db = await getLocalDb();
+    const allLocalVersions = await db.getAll('versions');
+    const allLocalContents = new Set(allLocalVersions.map(v => v.content));
+    const p1Held = told.forked === true
+      ? (allLocalContents.has('Base v1 text') && allLocalContents.has('Device A edit v2 conflicting'))
+      : Boolean(device.latestContent?.includes('Device A edit v2'));
     const p2Held = this.evaluateP2(['Divergent Note', 'Base v1 text'], (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);

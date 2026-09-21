@@ -6,6 +6,7 @@ import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
 import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
+import { syncStatusOf } from '../sync/syncStatus';
 import { isPoisonSyncError, isRevivableOnUnlock } from '../sync/classifySyncError';
 import { syncStreakFreezesWithCloud } from '../utils/streakFreeze';
 import pLimit from 'p-limit';
@@ -283,9 +284,10 @@ export const SyncService = {
       // a second cloud copy and splits history. Exclude skippedIds from toUpload.
       const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
       const toUpload = localDocs.filter(d => {
-        if (d.localOnly || d._locked || d._decryptionError) return false;
+        const status = syncStatusOf(d);
+        if (status === 'local-only' || status === 'locked' || status === 'unreadable') return false;
         if (skippedSet.has(d.id)) return false;
-        if (!d.linkedCloudId) return true;
+        if (status === 'unlinked-new') return true;
         return (d.currentVersion ?? 0) > (d.lastSyncedCloudVersion ?? 0);
       });
 

@@ -17,6 +17,7 @@ import { logger } from '../../../shared/errors/logger';
 import { decodeCloudSummary } from './AISummaryService';
 import { decodeCloudEmbedding } from './AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+import { withFacetLock } from '../../../core/services/facetLock';
 
 const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
 const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
@@ -312,18 +313,28 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
         // Get local record if exists
         const localRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, baseKey);
 
+        const putRecord = () => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
+
         if (localRecord !== undefined) {
           const localTs = extractRecordTimestamp(localRecord);
           // Conflict rule:
           // If both timestamps exist and cloudTs > localTs: cloud wins.
           // Otherwise: LOCAL WINS, never overwrite!
           if (localTs !== null && cloudTs !== null && cloudTs > localTs) {
-            await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
+            if (store === 'aiProfileFacets') {
+              await withFacetLock(putRecord);
+            } else {
+              await putRecord();
+            }
             result.localStoreRecords++;
           }
         } else {
           // No local record -> put cloud record
-          await (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
+          if (store === 'aiProfileFacets') {
+            await withFacetLock(putRecord);
+          } else {
+            await putRecord();
+          }
           result.localStoreRecords++;
         }
       } catch (err) {

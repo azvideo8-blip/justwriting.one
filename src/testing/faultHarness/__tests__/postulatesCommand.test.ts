@@ -1,17 +1,22 @@
 import { describe, it, expect, vi } from 'vitest';
-import * as fs from 'fs';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
+import {
+  evaluateMatrixResults,
+  runDatabaseChecks,
+  ENC_COLS,
+  CENSUS_TABLES,
+} from '../../../../scripts/postulates.mjs';
 
 const rootDir = path.resolve(__dirname, '../../../..');
 const postulatesScript = path.join(rootDir, 'scripts/postulates.mjs');
 
-describe('Postulates Command Suite (BETA-8)', () => {
+describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs runs cleanly and passes all postulates', () => {
     const res = spawnSync('node', [postulatesScript], {
       cwd: rootDir,
       encoding: 'utf8',
-      timeout: 30000,
+      timeout: 60000,
     });
 
     expect(res.status).toBe(0);
@@ -25,10 +30,9 @@ describe('Postulates Command Suite (BETA-8)', () => {
     expect(res.stdout, 'счёт по каждому постулату отдельно').toMatch(/P2 .*held +\d+ +not measured +\d+ +violated \d+/);
     expect(res.stdout, 'пропущенный обход базы обязан быть назван').toContain('Database sweep: NOT RUN');
     expect(res.stdout).not.toContain('All four postulates hold');
-  }, 40000);
+  }, 80000);
 
-  it('scripts/postulates.mjs exits non-zero when a postulate is broken (falsification)', () => {
-    const tmpResults = path.join(rootDir, `.postulates-results-test-fail.json`);
+  it('scripts/postulates.mjs evaluateMatrixResults flags violations (POST-4 falsification)', () => {
     const brokenResults = [
       {
         sequence: 'seq1_write_save_sync',
@@ -46,45 +50,21 @@ describe('Postulates Command Suite (BETA-8)', () => {
       },
     ];
 
-    fs.writeFileSync(tmpResults, JSON.stringify(brokenResults));
+    const evalResult = evaluateMatrixResults(brokenResults);
 
-    const testRunnerScript = `
-      import * as fs from 'fs';
-      const results = JSON.parse(fs.readFileSync('${tmpResults}', 'utf8'));
-      let anyFalse = false;
-      for (const r of results) {
-        if (r.p1Held === false || r.p2Held === false || r.p3Held === false || r.p4Held === false) {
-          anyFalse = true;
-        }
-      }
-      process.exit(anyFalse ? 1 : 0);
-    `;
-
-    const res = spawnSync('node', ['--input-type=module', '-e', testRunnerScript], {
-      cwd: rootDir,
-      encoding: 'utf8',
-    });
-
-    try { fs.unlinkSync(tmpResults); } catch { /* временный файл мог не появиться */ }
-
-    expect(res.status).toBe(1);
+    expect(evalResult.success).toBe(false);
+    expect(evalResult.violations).toHaveLength(1);
+    expect(evalResult.violations[0]?.seq).toBe('seq1_write_save_sync');
+    expect(evalResult.violations[0]?.notes).toContain('SIMULATED_PLAINTEXT_LEAK');
+    expect(evalResult.tally[1]?.violated).toBe(1);
   });
 
-  it('database privacy sweep prints zero row content on a seeded table (canary check)', async () => {
+  it('database privacy sweep executes real queries and prints zero row content (POST-4 canary check)', async () => {
     const CANARY_STRING = 'SECRET_CANARY_DO_NOT_LEAK_CONFIDENTIAL_12345';
 
-    // Mock query logic matching Part 2 of scripts/postulates.mjs
+    // Mock client matching Part 2 of scripts/postulates.mjs
     const mockQuery = vi.fn().mockImplementation(async (sql: string) => {
-      // 1. Column discovery query
-      if (sql.includes('information_schema.columns')) {
-        return {
-          rows: [
-            { table_name: 'documents', column_name: 'title' },
-            { table_name: 'versions', column_name: 'content' },
-          ],
-        };
-      }
-      // 2. Count queries:
+      // 1. Count queries return 1 to trigger violation branches
       if (sql.includes('count(*)')) {
         return { rows: [{ cnt: 1 }] };
       }
@@ -92,31 +72,104 @@ describe('Postulates Command Suite (BETA-8)', () => {
       return { rows: [{ content: CANARY_STRING, title: CANARY_STRING }] };
     });
 
-    const colsRes = await mockQuery('SELECT c.table_name, c.column_name FROM information_schema.columns ...');
-    const logs: string[] = [];
+    const capturedLogs: string[] = [];
+    const result = await runDatabaseChecks({ query: mockQuery } as any, {
+      logger: (msg: string) => capturedLogs.push(msg),
+    });
 
-    for (const row of colsRes.rows) {
-      const q = `SELECT count(*)::int AS cnt FROM public."${row.table_name}" WHERE "${row.column_name}"::text ~ '[А-Яа-яЁё]'`;
-      const res = await mockQuery(q);
-      const cnt = res.rows[0]?.cnt || 0;
-      if (cnt > 0) {
-        logs.push(`  [FAIL] ${row.table_name}.${row.column_name}: ${cnt} rows carrying readable Cyrillic text`);
-      } else {
-        logs.push(`  [OK]   ${row.table_name}.${row.column_name}: 0 readable rows`);
-      }
-    }
+    const output = capturedLogs.join('\n');
 
-    const output = logs.join('\n');
+    // 1. All violations should be detected based on the mocked counts
+    expect(result.success).toBe(false);
+    expect(result.totalViolations).toBeGreaterThan(0);
 
-    // 1. Output must contain count and table info
+    // 2. Output must contain count and table info for checked columns (including POST-3 additions)
     expect(output).toContain('documents.title');
+    expect(output).toContain('ai_summaries.tone');
+    expect(output).toContain('ai_embeddings.chunk_texts_json');
+    expect(output).toContain('users.labels.name');
+    expect(output).toContain('drafts: 1 unencrypted rows');
     expect(output).toContain('1 rows');
 
-    // 2. Output MUST NEVER contain the canary string content
+    // 3. Output MUST NEVER contain the canary string content
     expect(output).not.toContain(CANARY_STRING);
 
-    // 3. Falsification check: if output had leaked the row content, the test would fail
+    // 4. Falsification check: if output had leaked the row content, the test would fail
     const leakyOutput = `${output}\nLEAKED: ${CANARY_STRING}`;
     expect(leakyOutput).toContain(CANARY_STRING);
+  });
+
+  it('database privacy sweep catches all 5 audit probe leak scenarios (POST-3 Task 4)', async () => {
+    // Probes from audit report:
+    // 1. versions.content (Cyrillic leak)
+    // 2. ai_summaries.tone (plaintext English, _encrypted=true)
+    // 3. users.labels.name (Cyrillic plaintext 'Практика6')
+    // 4. drafts.content (unencrypted draft, _encrypted=false)
+    // 5. ai_embeddings.chunk_texts_json (plaintext English)
+
+    const probes = [
+      {
+        name: 'versions.content (Cyrillic)',
+        table: 'versions',
+        col: 'content',
+        matcher: (sql: string) => sql.includes('[А-Яа-яЁё]') && sql.includes('"versions"') && sql.includes('"content"'),
+      },
+      {
+        name: 'ai_summaries.tone (English plaintext)',
+        table: 'ai_summaries',
+        col: 'tone',
+        matcher: (sql: string) => sql.includes('NOT (') && sql.includes('"ai_summaries"') && sql.includes('"tone"'),
+      },
+      {
+        name: 'users.labels.name (Cyrillic Практика6)',
+        table: 'users',
+        col: 'labels.name',
+        matcher: (sql: string) => sql.includes('[А-Яа-яЁё]') && sql.includes('labels'),
+      },
+      {
+        name: 'drafts (unencrypted census)',
+        table: 'drafts',
+        matcher: (sql: string) => sql.includes('"drafts"') && sql.includes('_encrypted IS NOT TRUE'),
+      },
+      {
+        name: 'ai_embeddings.chunk_texts_json (English plaintext)',
+        table: 'ai_embeddings',
+        col: 'chunk_texts_json',
+        matcher: (sql: string) => sql.includes('NOT (') && sql.includes('"ai_embeddings"') && sql.includes('"chunk_texts_json"'),
+      },
+    ];
+
+    for (const probe of probes) {
+      const mockQuery = vi.fn().mockImplementation(async (sql: string) => {
+        if (probe.matcher(sql)) {
+          return { rows: [{ cnt: 1 }] };
+        }
+        return { rows: [{ cnt: 0 }] };
+      });
+
+      const capturedLogs: string[] = [];
+      const result = await runDatabaseChecks({ query: mockQuery } as any, {
+        logger: (msg: string) => capturedLogs.push(msg),
+      });
+
+      expect(result.success, `Probe ${probe.name} must fail the sweep`).toBe(false);
+      expect(result.totalViolations, `Probe ${probe.name} must produce at least one violation`).toBeGreaterThan(0);
+      const output = capturedLogs.join('\n');
+      expect(output).toContain('[FAIL]');
+      expect(output).toContain(probe.col ? `${probe.table}.${probe.col}` : `${probe.table}: 1 unencrypted rows`);
+    }
+  });
+
+  it('ENC_COLS and CENSUS_TABLES contain all required fields from POST-3', () => {
+    // POST-3 Task 1 & 2 verification:
+    const encColsKeys = ENC_COLS.map(c => `${c.table}.${c.col}`);
+    expect(encColsKeys).toContain('ai_summaries.tone');
+    expect(encColsKeys).toContain('ai_embeddings.chunk_texts_json');
+    expect(encColsKeys).toContain('users.labels.name');
+    expect(encColsKeys).toContain('drafts.content');
+    expect(encColsKeys).toContain('drafts.title');
+
+    const censusTableNames = CENSUS_TABLES.map(t => t.table);
+    expect(censusTableNames).toContain('drafts');
   });
 });

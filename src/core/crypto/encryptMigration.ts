@@ -1,8 +1,28 @@
 import { getSessionKey, encryptContent } from './encrypt';
 import { maybeEncrypt, isKnownMoodEmoji } from './cryptoHelpers';
 import { DataProvider } from '../data';
-
 import { reportError } from '../../shared/errors/reportError';
+import { getLocalDb } from '../storage/localDb';
+
+// CHOKE-4 fix, take 2: `core/` must not import from `features/` (ARCHITECTURE.md,
+// enforced by import/no-restricted-paths) — the first fix routed through
+// AISummaryService/AIEmbeddingService and broke that boundary. The actual bug
+// was the canonical-id guess (`!id.startsWith('local_')`), not which module
+// resolves it; this local lookup is the same one those two modules already do.
+async function resolveCanonicalDocId(documentId: string, documentUuid?: string | undefined): Promise<string | null> {
+  if (documentUuid) return documentUuid;
+  // A row synced down from the cloud already carries the canonical id as
+  // `documentId` — Postgres's `ai_summaries`/`ai_embeddings`.`document_id`
+  // column IS `documents.uuid` (see the RLS policy quoted in
+  // AIEmbeddingService.ts's resolveCanonicalId). Only a locally-created id
+  // (prefixed `local_`) needs resolving through this device's own
+  // `documents` store — a cloud-only row (no local copy on this device) has
+  // no local entry to find, and doesn't need one.
+  if (!documentId.startsWith('local_')) return documentId;
+  const db = await getLocalDb();
+  const doc = await db.get('documents', documentId);
+  return doc?.uuid ?? null;
+}
 
 export interface MigrationProgress {
   total: number;
@@ -288,11 +308,15 @@ async function _encryptAllExistingNotesInner(
       }
 
       try {
+        const canonicalId = await resolveCanonicalDocId((s.documentId || s.id || summaryDocId) as string, s.documentUuid as string | undefined);
+        if (!canonicalId) {
+          throw new Error(`NO_CANONICAL_ID:${s.documentId || s.id || summaryDocId}`);
+        }
         const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'];
         const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'];
-        const encrypted = await maybeEncrypt(s as Record<string, unknown>, STRING_FIELDS, ARRAY_FIELDS, true);
+        const encrypted = await maybeEncrypt({ ...s, documentUuid: canonicalId } as Record<string, unknown>, STRING_FIELDS, ARRAY_FIELDS, true);
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
-        await DataProvider.saveSummary(userId, summaryDocId, clean);
+        await DataProvider.saveSummary(userId, canonicalId, clean);
         checkpoint.add(ck);
         saveCheckpoint(userId, checkpoint);
         progress.encrypted++;
@@ -333,9 +357,18 @@ async function _encryptAllExistingNotesInner(
       }
 
       try {
-        const encrypted = await maybeEncrypt(emb as Record<string, unknown>, ['vectorsJson', 'chunkTextsJson'], [], true);
+        const canonicalId = await resolveCanonicalDocId((emb.documentId || emb.id || embDocId) as string, emb.documentUuid as string | undefined);
+        if (!canonicalId) {
+          throw new Error(`NO_CANONICAL_ID:${emb.documentId || emb.id || embDocId}`);
+        }
+        const encrypted = await maybeEncrypt(
+          { ...emb, documentUuid: canonicalId },
+          ['vectorsJson', 'chunkTextsJson', 'model', 'contentHash'],
+          [],
+          true
+        );
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
-        await DataProvider.saveEmbedding(userId, embDocId, clean);
+        await DataProvider.saveEmbedding(userId, canonicalId, clean);
         checkpoint.add(ck);
         saveCheckpoint(userId, checkpoint);
         progress.encrypted++;

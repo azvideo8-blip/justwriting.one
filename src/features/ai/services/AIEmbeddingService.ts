@@ -133,13 +133,18 @@ export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedd
  * векторов отбились по политике на первом же ручном проходе выгрузки.
  * Одно правило — одна реализация, в той функции, через которую идут все.
  */
-async function resolveCanonicalId(emb: AIDocumentEmbedding): Promise<string | null> {
+export async function resolveCanonicalId(emb: { documentId: string; documentUuid?: string | undefined }): Promise<string | null> {
   if (emb.documentUuid) return emb.documentUuid;
   const db = await getLocalDb();
   const doc = await db.get('documents', emb.documentId);
   if (!doc?.uuid) return null;
   // Найденное запоминается: следующий проход не ищет заново.
-  await db.put('aiEmbeddings', { ...emb, documentUuid: doc.uuid });
+  try {
+    const existing = await db.get('aiEmbeddings', emb.documentId);
+    if (existing) {
+      await db.put('aiEmbeddings', { ...existing, documentUuid: doc.uuid });
+    }
+  } catch { /* ignore */ }
   return doc.uuid;
 }
 

@@ -28,23 +28,92 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 // Helper to format 3-valued boolean
-function formatThreeValued(val) {
+export function formatThreeValued(val) {
   if (val === true) return 'true (held)';
   if (val === false) return 'FALSE';
   return 'not measured';
 }
 
-function entryFlag(table, col, cols) {
+export const ENC_COLS = [
+  { table: 'documents', col: 'title' },
+  { table: 'documents', col: 'mood' },
+  { table: 'versions', col: 'content' },
+  { table: 'versions', col: 'mood' },
+  { table: 'drafts', col: 'title' },
+  { table: 'drafts', col: 'content' },
+  { table: 'ai_summaries', col: 'summary' },
+  { table: 'ai_summaries', col: 'tone' },
+  { table: 'ai_embeddings', col: 'chunk_texts_json' },
+  {
+    table: 'local_store_records',
+    col: 'payload.data',
+    flag: `payload->>'_encrypted' = 'true'`,
+    val: `payload->>'data'`,
+  },
+  {
+    table: 'users',
+    col: 'labels.name',
+    from: `public."users", jsonb_array_elements(CASE WHEN jsonb_typeof(labels) = 'array' THEN labels ELSE '[]'::jsonb END) AS elem`,
+    flag: `elem->>'_encrypted' = 'true'`,
+    val: `elem->>'name'`,
+  },
+];
+
+export const CENSUS_TABLES = [
+  { table: 'documents', unencrypted: '_encrypted IS NOT TRUE' },
+  { table: 'versions', unencrypted: '_encrypted IS NOT TRUE' },
+  { table: 'drafts', unencrypted: '_encrypted IS NOT TRUE' },
+  { table: 'ai_summaries', unencrypted: '_encrypted IS NOT TRUE' },
+  { table: 'ai_embeddings', unencrypted: '_encrypted IS NOT TRUE' },
+  { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true'` },
+];
+
+export function entryFrom(table, col, cols = ENC_COLS) {
+  const e = cols.find(x => x.table === table && x.col === col);
+  return e?.from ?? `public."${table}"`;
+}
+
+export function entryFlag(table, col, cols = ENC_COLS) {
   const e = cols.find(x => x.table === table && x.col === col);
   return e?.flag ?? '_encrypted = true';
 }
 
-function entryVal(table, col, cols) {
+export function entryVal(table, col, cols = ENC_COLS) {
   const e = cols.find(x => x.table === table && x.col === col);
   return e?.val ?? `"${col}"`;
 }
 
-async function runLifecycleMatrix() {
+export function evaluateMatrixResults(results) {
+  let anyFalse = false;
+  const violations = [];
+
+  for (const r of results) {
+    if (r.p1Held === false || r.p2Held === false || r.p3Held === false || r.p4Held === false) {
+      anyFalse = true;
+      violations.push({
+        seq: r.sequence,
+        fault: r.fault,
+        step: r.step,
+        vault: r.vaultEnabled,
+        notes: r.notes || [],
+      });
+    }
+  }
+
+  const tally = ['p1Held', 'p2Held', 'p3Held', 'p4Held'].map(k => {
+    const c = { held: 0, notMeasured: 0, violated: 0 };
+    for (const r of results) {
+      if (r[k] === true) c.held++;
+      else if (r[k] === false) c.violated++;
+      else c.notMeasured++;
+    }
+    return c;
+  });
+
+  return { success: !anyFalse, totalCells: results.length, violations, tally };
+}
+
+export async function runLifecycleMatrix() {
   console.log('================================================================');
   console.log('PART 1: LIFECYCLE MATRIX RUNNER (FAULT-INJECTION HARNESS)');
   console.log('================================================================');
@@ -66,21 +135,19 @@ async function runLifecycleMatrix() {
     }
 
     const results = JSON.parse(fs.readFileSync(tmpOut, 'utf8'));
+    const evalResult = evaluateMatrixResults(results);
 
     // Print summary table
     console.log(
       'Sequence'.padEnd(38) +
       'Vault'.padEnd(8) +
-      'Fault'.padEnd(14) +
+      'Fault'.padEnd(24) +
       'P1'.padEnd(16) +
       'P2'.padEnd(16) +
       'P3'.padEnd(16) +
       'P4'
     );
-    console.log('-'.repeat(120));
-
-    let anyFalse = false;
-    const violations = [];
+    console.log('-'.repeat(128));
 
     for (const r of results) {
       const p1 = formatThreeValued(r.p1Held);
@@ -88,22 +155,10 @@ async function runLifecycleMatrix() {
       const p3 = formatThreeValued(r.p3Held);
       const p4 = formatThreeValued(r.p4Held);
 
-      if (r.p1Held === false || r.p2Held === false || r.p3Held === false || r.p4Held === false) {
-        anyFalse = true;
-        violations.push({
-          seq: r.sequence,
-          fault: r.fault,
-          step: r.step,
-          vault: r.vaultEnabled,
-          notes: r.notes || [],
-        });
-      }
-
-      const seqName = r.sequence.replace(/^seq\d+_/, '');
       const line =
         r.sequence.padEnd(38) +
         (r.vaultEnabled ? 'ON' : 'off').padEnd(8) +
-        r.fault.padEnd(14) +
+        r.fault.padEnd(24) +
         p1.padEnd(16) +
         p2.padEnd(16) +
         p3.padEnd(16) +
@@ -111,11 +166,11 @@ async function runLifecycleMatrix() {
       console.log(line);
     }
 
-    console.log('-'.repeat(120));
+    console.log('-'.repeat(128));
 
-    if (violations.length > 0) {
+    if (evalResult.violations.length > 0) {
       console.log('\n[!] MATRIX VIOLATIONS DETECTED:');
-      for (const v of violations) {
+      for (const v of evalResult.violations) {
         console.log(`  - ${v.seq} (vault: ${v.vault}, fault: ${v.fault}, step: ${v.step})`);
         for (const n of v.notes) {
           console.log(`      * ${n}`);
@@ -125,21 +180,7 @@ async function runLifecycleMatrix() {
       console.log('\n[✓] Matrix completed: all measured postulates held.');
     }
 
-    // Счёт по каждому постулату отдельно. Итог «всё держится» поверх матрицы,
-    // где сорок процентов ячеек не измерены, — то же самое, что зашитый `true`,
-    // только в самом конце и крупным шрифтом. Читатель смотрит на последнюю
-    // строку, а не на шестьдесят шесть предыдущих.
-    const tally = ['p1Held', 'p2Held', 'p3Held', 'p4Held'].map(k => {
-      const c = { held: 0, notMeasured: 0, violated: 0 };
-      for (const r of results) {
-        if (r[k] === true) c.held++;
-        else if (r[k] === false) c.violated++;
-        else c.notMeasured++;
-      }
-      return c;
-    });
-
-    return { success: !anyFalse, totalCells: results.length, violations, tally };
+    return evalResult;
   } finally {
     if (fs.existsSync(tmpOut)) {
       try { fs.unlinkSync(tmpOut); } catch {}
@@ -152,7 +193,137 @@ async function runLifecycleMatrix() {
   }
 }
 
-async function runDatabaseSweep(databaseUrl) {
+export async function runDatabaseChecks(client, { logger = console.log } = {}) {
+  let totalViolations = 0;
+  let skipped = 0;
+  const logs = [];
+  const log = (msg = '') => {
+    logs.push(msg);
+    if (logger) logger(msg);
+  };
+
+  // 1. Cyrillic text sweep across encrypted columns
+  log('\n--- 1. Cyrillic text sweep (detects readable Russian in cloud) ---');
+  log("SQL Query: SELECT count(*) FROM <table> WHERE <val>::text ~ '[А-Яа-яЁё]'");
+  for (const entry of ENC_COLS) {
+    const { table, col } = entry;
+    const from = entryFrom(table, col, ENC_COLS);
+    const val = entryVal(table, col, ENC_COLS);
+    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${val} IS NOT NULL AND ${val}::text <> '' AND ${val}::text ~ '[А-Яа-яЁё]'`;
+    try {
+      const res = await client.query(q);
+      const cnt = res.rows[0]?.cnt || 0;
+      if (cnt > 0) {
+        log(`  [FAIL] ${table}.${col}: ${cnt} rows carrying readable Cyrillic text`);
+        totalViolations += cnt;
+      } else {
+        log(`  [OK]   ${table}.${col}: 0 readable rows`);
+      }
+    } catch (err) {
+      skipped++;
+      log(`  [SKIP] ${table}.${col}: ${err.message}`);
+    }
+  }
+
+  // 2. Base64 shape check in encrypted columns
+  log('\n--- 2. Base64 shape check (verifies ciphertext structure) ---');
+  log("SQL Query: SELECT count(*) FROM <table> WHERE <flag> AND <val> IS NOT NULL AND <val> <> '' AND NOT (<val> ~ '^[A-Za-z0-9+/=]+$' AND length(<val>) % 4 = 0)");
+  for (const entry of ENC_COLS) {
+    const { table, col } = entry;
+    const from = entryFrom(table, col, ENC_COLS);
+    const flag = entryFlag(table, col, ENC_COLS);
+    const val = entryVal(table, col, ENC_COLS);
+    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text <> '' AND NOT (${val}::text ~ '^[A-Za-z0-9+/=]+$' AND length(${val}::text) % 4 = 0)`;
+    try {
+      const res = await client.query(q);
+      const cnt = res.rows[0]?.cnt || 0;
+      if (cnt > 0) {
+        log(`  [FAIL] ${table}.${col}: ${cnt} rows with non-base64 ciphertext`);
+        totalViolations += cnt;
+      } else {
+        log(`  [OK]   ${table}.${col}: 0 non-base64 rows`);
+      }
+    } catch (err) {
+      skipped++;
+      log(`  [SKIP] ${table}.${col}: ${err.message}`);
+    }
+  }
+
+  // 3. Whitespace check (ciphertext never contains spaces)
+  log('\n--- 3. Whitespace check (ciphertext never contains spaces) ---');
+  log("SQL Query: SELECT count(*) FROM <table> WHERE <flag> AND <val> IS NOT NULL AND <val>::text ~ '\\s'");
+  for (const entry of ENC_COLS) {
+    const { table, col } = entry;
+    const from = entryFrom(table, col, ENC_COLS);
+    const flag = entryFlag(table, col, ENC_COLS);
+    const val = entryVal(table, col, ENC_COLS);
+    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text ~ '\\s'`;
+    try {
+      const res = await client.query(q);
+      const cnt = res.rows[0]?.cnt || 0;
+      if (cnt > 0) {
+        log(`  [FAIL] ${table}.${col}: ${cnt} rows containing whitespace`);
+        totalViolations += cnt;
+      } else {
+        log(`  [OK]   ${table}.${col}: 0 rows with whitespace`);
+      }
+    } catch (err) {
+      skipped++;
+      log(`  [SKIP] ${table}.${col}: ${err.message}`);
+    }
+  }
+
+  // 4. _encrypted census
+  log('\n--- 4. _encrypted census (all rows in encrypted tables must have _encrypted = true) ---');
+  log('SQL Query: SELECT count(*) FROM public.%I WHERE <unencrypted>');
+  for (const { table, unencrypted } of CENSUS_TABLES) {
+    const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${unencrypted}`;
+    try {
+      const res = await client.query(q);
+      const cnt = res.rows[0]?.cnt || 0;
+      if (cnt > 0) {
+        // Незашифрованная строка в таблице, которая обязана быть зашифрованной,
+        // — это нарушение постулата 2, а не справка к сведению.
+        log(`  [FAIL] ${table}: ${cnt} unencrypted rows`);
+        totalViolations += cnt;
+      } else {
+        log(`  [OK]   ${table}: 0 unencrypted rows`);
+      }
+    } catch (err) {
+      skipped++;
+      log(`  [SKIP] ${table}: ${err.message}`);
+    }
+  }
+
+  // 5. Инвариант версий (BETA-5). В rls.test.sql он проверяет только опрятность
+  // собственных данных: там не исполняется код приложения. Здесь — живая база,
+  // строки в которой писал продукт, и это единственное место, где расхождение
+  // счётчика с фактом что-то значит. Именно так нашлись те две строки.
+  log('\n--- 5. Version counter invariant (current_version must equal max(version)) ---');
+  log("SQL Query: SELECT count(*) FROM documents d JOIN (SELECT document_uuid, max(version) ...) sub ON d.uuid = sub.document_uuid WHERE d.current_version <> sub.max_v");
+  try {
+    const res = await client.query(`
+      SELECT count(*)::int AS cnt
+        FROM public.documents d
+        JOIN (SELECT document_uuid, max(version) AS max_v FROM public.versions GROUP BY document_uuid) sub
+          ON d.uuid = sub.document_uuid
+       WHERE d.deleted_at IS NULL AND d.current_version <> sub.max_v`);
+    const cnt = res.rows[0]?.cnt || 0;
+    if (cnt > 0) {
+      log(`  [FAIL] documents: ${cnt} rows whose current_version disagrees with their versions`);
+      totalViolations += cnt;
+    } else {
+      log('  [OK]   documents: 0 rows with a lagging version counter');
+    }
+  } catch (err) {
+    skipped++;
+    log(`  [SKIP] documents invariant: ${err.message}`);
+  }
+
+  return { success: totalViolations === 0, checked: true, totalViolations, skipped, logs };
+}
+
+export async function runDatabaseSweep(databaseUrl, options = {}) {
   console.log('\n================================================================');
   console.log('PART 2: DATABASE PRIVACY SWEEP (ZERO ROW CONTENT PRINTED)');
   console.log('================================================================');
@@ -176,159 +347,14 @@ async function runDatabaseSweep(databaseUrl) {
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
 
-  let totalViolations = 0;
-  let skipped = 0;
-
   try {
-    // 1. Cyrillic scan across public text/jsonb columns
-    console.log('\n--- 1. Cyrillic text sweep (detects readable Russian in cloud) ---');
-    const cyrillicQuery = `
-      SELECT c.table_name, c.column_name
-      FROM information_schema.columns c
-      JOIN information_schema.tables t ON t.table_name = c.table_name
-        AND t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
-      WHERE c.table_schema = 'public'
-        AND c.data_type IN ('text', 'character varying', 'jsonb', 'json')
-        AND c.table_name IN ('documents', 'versions', 'drafts', 'ai_summaries', 'ai_embeddings', 'local_store_records')
-      ORDER BY c.table_name, c.column_name;
-    `;
-    console.log('SQL Query: SELECT count(*) FROM public.%I WHERE %I::text ~ \'[А-Яа-яЁё]\'');
-    const colsRes = await client.query(cyrillicQuery);
-
-    for (const row of colsRes.rows) {
-      const q = `SELECT count(*)::int AS cnt FROM public."${row.table_name}" WHERE "${row.column_name}"::text ~ '[А-Яа-яЁё]'`;
-      const res = await client.query(q);
-      const cnt = res.rows[0]?.cnt || 0;
-      if (cnt > 0) {
-        console.log(`  [FAIL] ${row.table_name}.${row.column_name}: ${cnt} rows carrying readable Cyrillic text`);
-        totalViolations += cnt;
-      } else {
-        console.log(`  [OK]   ${row.table_name}.${row.column_name}: 0 readable rows`);
-      }
-    }
-
-    // 2. Base64 shape check in encrypted columns
-    console.log('\n--- 2. Base64 shape check (verifies ciphertext structure) ---');
-    // `flag` и `val` задаются явно там, где признак шифрования и данные лежат не
-    // в колонках, а внутри JSON. Без этого хранилища ИИ — портрет, убеждения,
-    // хроника, обязательства, самая чувствительная часть архива — молча
-    // выпадали из трёх проверок из четырёх по ошибке «нет колонки _encrypted».
-    // `versions.previous_content` убрана: такой колонки нет, то есть это была
-    // проверка, которая не могла сработать никогда.
-    const encCols = [
-      { table: 'documents', col: 'title' },
-      { table: 'documents', col: 'mood' },
-      { table: 'versions', col: 'content' },
-      { table: 'versions', col: 'mood' },
-      { table: 'ai_summaries', col: 'summary' },
-      { table: 'local_store_records', col: 'payload.data',
-        flag: `payload->>'_encrypted' = 'true'`, val: `payload->>'data'` },
-    ];
-
-    console.log('SQL Query: SELECT count(*) FROM public.%I WHERE _encrypted = true AND %I IS NOT NULL AND %I <> \'\' AND NOT (%I ~ \'^[A-Za-z0-9+/=]+$\')');
-    for (const { table, col } of encCols) {
-      const flag = entryFlag(table, col, encCols);
-      const val = entryVal(table, col, encCols);
-      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text <> '' AND NOT (${val}::text ~ '^[A-Za-z0-9+/=]+$')`;
-      try {
-        const res = await client.query(q);
-        const cnt = res.rows[0]?.cnt || 0;
-        if (cnt > 0) {
-          console.log(`  [FAIL] ${table}.${col}: ${cnt} rows with non-base64 ciphertext`);
-          totalViolations += cnt;
-        } else {
-          console.log(`  [OK]   ${table}.${col}: 0 non-base64 rows`);
-        }
-      } catch (err) {
-        // Table or column may not have _encrypted or may not exist
-        skipped++;
-        console.log(`  [SKIP] ${table}.${col}: ${err.message}`);
-      }
-    }
-
-    // 3. No-space check in encrypted columns
-    console.log('\n--- 3. Whitespace check (ciphertext never contains spaces) ---');
-    console.log('SQL Query: SELECT count(*) FROM public.%I WHERE _encrypted = true AND %I IS NOT NULL AND %I::text ~ \'\\s\'');
-    for (const { table, col } of encCols) {
-      const flag = entryFlag(table, col, encCols);
-      const val = entryVal(table, col, encCols);
-      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text ~ '\\s'`;
-      try {
-        const res = await client.query(q);
-        const cnt = res.rows[0]?.cnt || 0;
-        if (cnt > 0) {
-          console.log(`  [FAIL] ${table}.${col}: ${cnt} rows containing whitespace`);
-          totalViolations += cnt;
-        } else {
-          console.log(`  [OK]   ${table}.${col}: 0 rows with whitespace`);
-        }
-      } catch (err) {
-        skipped++;
-        console.log(`  [SKIP] ${table}.${col}: ${err.message}`);
-      }
-    }
-
-    // 4. _encrypted census
-    console.log('\n--- 4. _encrypted census (all rows in encrypted tables must have _encrypted = true) ---');
-    const censusTables = [
-      { table: 'documents', unencrypted: '_encrypted IS NOT TRUE' },
-      { table: 'versions', unencrypted: '_encrypted IS NOT TRUE' },
-      { table: 'ai_summaries', unencrypted: '_encrypted IS NOT TRUE' },
-      { table: 'ai_embeddings', unencrypted: '_encrypted IS NOT TRUE' },
-      { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true'` },
-    ];
-    console.log('SQL Query: SELECT count(*) FROM public.%I WHERE _encrypted IS NOT TRUE');
-    for (const { table, unencrypted } of censusTables) {
-      const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${unencrypted}`;
-      try {
-        const res = await client.query(q);
-        const cnt = res.rows[0]?.cnt || 0;
-        if (cnt > 0) {
-          // Незашифрованная строка в таблице, которая обязана быть зашифрованной,
-          // — это нарушение постулата 2, а не справка к сведению.
-          console.log(`  [FAIL] ${table}: ${cnt} unencrypted rows`);
-          totalViolations += cnt;
-        } else {
-          console.log(`  [OK]   ${table}: 0 unencrypted rows`);
-        }
-      } catch (err) {
-        skipped++;
-        console.log(`  [SKIP] ${table}: ${err.message}`);
-      }
-    }
-
-    // 5. Инвариант версий (BETA-5). В rls.test.sql он проверяет только опрятность
-    // собственных данных: там не исполняется код приложения. Здесь — живая база,
-    // строки в которой писал продукт, и это единственное место, где расхождение
-    // счётчика с фактом что-то значит. Именно так нашлись те две строки.
-    console.log('\n--- 5. Version counter invariant (current_version must equal max(version)) ---');
-    console.log("SQL Query: SELECT count(*) FROM documents d JOIN (SELECT document_uuid, max(version) ...) sub ON d.uuid = sub.document_uuid WHERE d.current_version <> sub.max_v");
-    try {
-      const res = await client.query(`
-        SELECT count(*)::int AS cnt
-          FROM public.documents d
-          JOIN (SELECT document_uuid, max(version) AS max_v FROM public.versions GROUP BY document_uuid) sub
-            ON d.uuid = sub.document_uuid
-         WHERE d.deleted_at IS NULL AND d.current_version <> sub.max_v`);
-      const cnt = res.rows[0]?.cnt || 0;
-      if (cnt > 0) {
-        console.log(`  [FAIL] documents: ${cnt} rows whose current_version disagrees with their versions`);
-        totalViolations += cnt;
-      } else {
-        console.log('  [OK]   documents: 0 rows with a lagging version counter');
-      }
-    } catch (err) {
-      skipped++;
-      console.log(`  [SKIP] documents invariant: ${err.message}`);
-    }
-
-    return { success: totalViolations === 0, checked: true, totalViolations, skipped };
+    return await runDatabaseChecks(client, options);
   } finally {
     await client.end();
   }
 }
 
-async function main() {
+export async function main() {
   const matrixRes = await runLifecycleMatrix();
   const dbRes = await runDatabaseSweep(process.env.DATABASE_URL);
 
@@ -381,7 +407,15 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error('\nFatal error executing postulates script:', err);
-  process.exit(1);
-});
+const isMainModule = Boolean(
+  process.argv[1] &&
+  (path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) ||
+   process.argv[1].endsWith('postulates.mjs'))
+);
+
+if (isMainModule) {
+  main().catch(err => {
+    console.error('\nFatal error executing postulates script:', err);
+    process.exit(1);
+  });
+}

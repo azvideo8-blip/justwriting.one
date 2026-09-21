@@ -26,13 +26,23 @@ const {
   mockGetUserDocuments,
   mockGetVersions,
   mockGetMigrationDrafts,
-  mockExecuteMigrationBatch
+  mockExecuteMigrationBatch,
+  mockSaveSummary,
+  mockSaveEmbedding,
+  mockGetUserSummaries,
+  mockGetUserEmbeddings,
+  mockGetLocalStoreRecords,
 } = vi.hoisted(() => ({
   mockGetDocument: vi.fn(),
   mockGetUserDocuments: vi.fn(),
   mockGetVersions: vi.fn(),
   mockGetMigrationDrafts: vi.fn(),
   mockExecuteMigrationBatch: vi.fn().mockResolvedValue(undefined),
+  mockSaveSummary: vi.fn().mockResolvedValue(undefined),
+  mockSaveEmbedding: vi.fn().mockResolvedValue(undefined),
+  mockGetUserSummaries: vi.fn<() => Promise<any[]>>(async () => []),
+  mockGetUserEmbeddings: vi.fn<() => Promise<any[]>>(async () => []),
+  mockGetLocalStoreRecords: vi.fn<() => Promise<any[]>>(async () => []),
 }));
 
 vi.mock('../../data', () => ({
@@ -42,13 +52,16 @@ vi.mock('../../data', () => ({
     getVersions: mockGetVersions,
     getMigrationDrafts: mockGetMigrationDrafts,
     executeMigrationBatch: mockExecuteMigrationBatch,
-    // Проход шифрует ещё и производные ИИ. Метода, которого нет в подделке,
-    // достаточно, чтобы проход счёл себя упавшим и оставил контрольную точку:
-    // добавляя сюда хранилище, добавь его и в миграцию.
-    getUserSummaries: vi.fn(async () => []),
-    getUserEmbeddings: vi.fn(async () => []),
-    getLocalStoreRecords: vi.fn(async () => []),
+    getUserSummaries: mockGetUserSummaries,
+    getUserEmbeddings: mockGetUserEmbeddings,
+    getLocalStoreRecords: mockGetLocalStoreRecords,
+    saveSummary: mockSaveSummary,
+    saveEmbedding: mockSaveEmbedding,
   },
+}));
+
+vi.mock('../../storage/localDb', () => ({
+  getLocalDb: vi.fn(),
 }));
 
 describe('encryptAllExistingNotes', () => {
@@ -200,6 +213,78 @@ describe('encryptAllExistingNotes', () => {
     const progress = await encryptAllExistingNotes(userId);
     expect(progress.encrypted).toBe(2);
     expect(progress.errors).toBe(0);
+  });
+
+  it('CHOKE-4: resolves canonical document UUID for summaries without documentUuid', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserEmbeddings.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+
+    // Cloud summary has only local documentId and no documentUuid
+    mockGetUserSummaries.mockResolvedValue([
+      {
+        documentId: 'local_doc_summary',
+        summary: 'Secret notes about project',
+        _encrypted: false,
+      },
+    ]);
+
+    const { getLocalDb } = await import('../../storage/localDb');
+    vi.mocked(getLocalDb).mockResolvedValue({
+      get: vi.fn().mockImplementation(async (store: string, id: string) => {
+        if (store === 'documents' && id === 'local_doc_summary') {
+          return { id: 'local_doc_summary', uuid: 'canonical-summary-uuid-999' };
+        }
+        return undefined;
+      }),
+      put: vi.fn().mockResolvedValue(undefined),
+    } as any);
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.errors).toBe(0);
+    expect(progress.encrypted).toBe(1);
+    expect(mockSaveSummary).toHaveBeenCalledWith(
+      userId,
+      'canonical-summary-uuid-999',
+      expect.objectContaining({ _encrypted: true })
+    );
+  });
+
+  it('CHOKE-4: resolves canonical document UUID for embeddings without documentUuid', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserSummaries.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+
+    // Cloud embedding has only local documentId and no documentUuid
+    mockGetUserEmbeddings.mockResolvedValue([
+      {
+        documentId: 'local_doc_emb',
+        vectorsJson: JSON.stringify([[0.1, 0.2]]),
+        _encrypted: false,
+      },
+    ]);
+
+    const { getLocalDb } = await import('../../storage/localDb');
+    vi.mocked(getLocalDb).mockResolvedValue({
+      get: vi.fn().mockImplementation(async (store: string, id: string) => {
+        if (store === 'documents' && id === 'local_doc_emb') {
+          return { id: 'local_doc_emb', uuid: 'canonical-emb-uuid-888' };
+        }
+        return undefined;
+      }),
+      put: vi.fn().mockResolvedValue(undefined),
+    } as any);
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.errors).toBe(0);
+    expect(progress.encrypted).toBe(1);
+    expect(mockSaveEmbedding).toHaveBeenCalledWith(
+      userId,
+      'canonical-emb-uuid-888',
+      expect.objectContaining({ _encrypted: true })
+    );
   });
 });
 

@@ -54,8 +54,9 @@ export async function sendTelemetryLogic(_ctx: unknown, uid: string, data: unkno
   );
   if (rows.length === 0) throw new AiError('resource-exhausted', 'Telemetry rate limit exceeded.');
 
-  // The row carries no uid on purpose: the cooldown above is the only place the
-  // two are associated, and it keeps no payload.
+  // CHOKE-6: The row carries no uid on purpose. The association uid <-> rowId
+  // is permanent and deterministic via telemetryRowId (sha256 of uid + pepper);
+  // telemetry_cooldown above enforces the rate limit on writes without storing the payload.
   const payload = parsed.data;
   const rowId = telemetryRowId(uid);
   await pool.query(
@@ -95,6 +96,10 @@ export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<un
     throw new AiError('resource-exhausted', 'Too many deletion attempts. Try again later.');
   }
   const client = await pool.connect();
+  const onClientError = (err: unknown) => {
+    console.error('[api/account] deleteAccount client error', err);
+  };
+  client.on('error', onClientError);
   try {
     await client.query('begin');
 
@@ -120,10 +125,13 @@ export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<un
     await client.query('commit');
     return { success: true };
   } catch (e) {
-    await client.query('rollback');
+    try {
+      await client.query('rollback');
+    } catch { /* ignore rollback failure */ }
     console.error('[api/account] deleteAccount failed:', e);
     throw new AiError('internal', 'Account deletion failed.');
   } finally {
+    client.removeListener('error', onClientError);
     client.release();
   }
 }

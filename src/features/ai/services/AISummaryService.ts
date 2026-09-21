@@ -34,7 +34,8 @@ export async function saveSummaryToCloud(userId: string, summary: AIDocumentSumm
     // Старые строки писались до появления documentUuid — постоянный номер
     // берём у самой заметки.
     const db = await getLocalDb();
-    const doc = await db.get('documents', summary.documentId);
+    const docId = summary.documentId || (summary as unknown as { id?: string }).id;
+    const doc = docId ? await db.get('documents', docId) : undefined;
     canonicalId = doc?.uuid;
     if (canonicalId) await db.put('aiSummaries', { ...summary, documentUuid: canonicalId });
   }
@@ -42,7 +43,7 @@ export async function saveSummaryToCloud(userId: string, summary: AIDocumentSumm
     // Постоянного номера нет ни у сводки, ни у заметки: выгружать под локальным
     // бессмысленно — база всё равно откажет. Отказ громкий, чтобы проход
     // выгрузки посчитал это неудачей, а не тихо отчитался успехом.
-    throw new Error(`NO_CANONICAL_ID:${summary.documentId}`);
+    throw new Error(`NO_CANONICAL_ID:${summary.documentId || (summary as unknown as { id?: string }).id}`);
   }
 
   const encrypted = await maybeEncrypt(

@@ -39,13 +39,13 @@ describe('API health endpoints', () => {
     expect(typeof res.body.uptime).toBe('number');
   });
 
-  it('/ready reports readiness with an empty list of checks', async () => {
+  it('/ready reports readiness with active checks (POST-5)', async () => {
     const res = await get('/ready');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ready');
-    // Пустой список — это заявление, а не заглушка: проверять пока нечего,
-    // Supabase не подключён. Когда он появится, список перестанет быть пустым
-    // и этот тест придётся переписать — так и задумано.
-    expect(res.body.checks).toEqual([]);
+    expect(Array.isArray(res.body.checks)).toBe(true);
+    const checks = res.body.checks as Array<{ name: string; status: string }>;
+    expect(checks.some(c => c.name === 'database')).toBe(true);
+    expect(checks.some(c => c.name === 'ai_embed_base_url')).toBe(true);
   });
 });

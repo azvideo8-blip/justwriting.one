@@ -97,6 +97,7 @@ export class MatrixRunner {
       { seq: 'seq3_cross_device_divergence', fault: 'none', step: 'device_b_edit' },
       { seq: 'seq3_cross_device_divergence', fault: 'network_pre', step: 'sync_cloud' },
       { seq: 'seq3_cross_device_divergence', fault: 'postgres_500', step: 'sync_cloud' },
+      { seq: 'seq3_cross_device_divergence', fault: 'decrypt_corrupt_single', step: 'sync_cloud' },
 
       // Sequence 4: write → save → sync → delete
       { seq: 'seq4_write_save_sync_delete', fault: 'none', step: 'delete_local' },
@@ -133,7 +134,9 @@ export class MatrixRunner {
     for (const item of scenarios) {
       const vaultOptions = item.seq === 'seq9_enable_encryption_sync_restore'
         ? [false]
-        : [false, true];
+        : item.fault === 'decrypt_corrupt_single'
+          ? [true]
+          : [false, true];
 
       for (const vault of vaultOptions) {
         try {

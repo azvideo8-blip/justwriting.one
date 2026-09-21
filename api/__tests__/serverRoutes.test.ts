@@ -52,4 +52,26 @@ describe('production route smoke (server.ts)', () => {
       await new Promise<void>(resolve => server.close(() => resolve()));
     }
   });
+
+  it('ready endpoint returns status and checks on the production route (POST-5)', async () => {
+    server = (await import('../server')).default;
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()));
+    port = (server.address() as import('node:net').AddressInfo).port;
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/ready`);
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { status: string; checks: Array<{ name: string; status: string; url?: string }> };
+      expect(data.status).toBe('ready');
+      expect(Array.isArray(data.checks)).toBe(true);
+
+      const dbCheck = data.checks.find(c => c.name === 'database');
+      expect(dbCheck).toBeDefined();
+
+      const aiCheck = data.checks.find(c => c.name === 'ai_embed_base_url');
+      expect(aiCheck).toBeDefined();
+      expect(aiCheck?.status).toBe('fallback_default');
+    } finally {
+      await new Promise<void>(resolve => server.close(() => resolve()));
+    }
+  });
 });

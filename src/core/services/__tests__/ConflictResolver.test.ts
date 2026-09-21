@@ -33,6 +33,14 @@ vi.mock('../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 
+vi.mock('../../crypto/cryptoHelpers', async () => {
+  const actual = await vi.importActual<typeof import('../../crypto/cryptoHelpers')>('../../crypto/cryptoHelpers');
+  return {
+    ...actual,
+    maybeDecrypt: vi.fn().mockImplementation(async (data: unknown) => data),
+  };
+});
+
 function mockDb(overrides: Partial<Awaited<ReturnType<typeof getLocalDb>>> = {}) {
   const db = {
     put: vi.fn().mockResolvedValue(undefined),
@@ -110,6 +118,62 @@ describe('ConflictResolver', () => {
       expect.objectContaining({
         documentId: 'forked_doc_123',
         type: 'document',
+      })
+    );
+  });
+
+  it('CHOKE-1: preserves local version in both fork and original when cloud version has DecryptionError', async () => {
+    const { VersionService } = await import('../VersionService');
+    const { maybeDecrypt, DecryptionError } = await import('../../crypto/cryptoHelpers');
+
+    const localVersions = [
+      { id: 'lv_1', version: 1, content: 'Version 1 content', sessionStartedAt: 1000 },
+      { id: 'lv_2', version: 2, content: 'Version 2 local plaintext', sessionStartedAt: 2000 },
+    ];
+    vi.mocked(LocalVersionService.getVersions).mockImplementation(async () => localVersions as any);
+
+    const cloudVersions = [
+      { version: 1, content: 'Version 1 content' },
+      { version: 2, content: 'enc:corrupt_or_unreadable' },
+    ];
+    vi.mocked(VersionService.getVersions).mockResolvedValue(cloudVersions as any);
+
+    vi.mocked(maybeDecrypt).mockImplementation(async (cv: any) => {
+      if (cv.version === 2) {
+        throw new DecryptionError('content');
+      }
+      return cv;
+    });
+
+    const storeDelete = vi.fn();
+    const mockTx = {
+      store: { delete: storeDelete },
+      done: Promise.resolve(),
+    };
+    mockDb({
+      transaction: vi.fn().mockReturnValue(mockTx) as any,
+      get: vi.fn().mockResolvedValue(null) as any,
+    });
+
+    await ConflictResolver.resolveConflict(
+      'user1',
+      'doc_local',
+      'doc_cloud',
+      dummyData,
+      3,
+      { currentVersion: 2 }
+    );
+
+    // 1. In original doc: local version 2 MUST NOT be deleted (comparableOrUnknown says unknown)
+    expect(storeDelete).not.toHaveBeenCalledWith('lv_2');
+
+    // 2. In forked doc: local version 2 MUST be copied to fork because cloud copy is unreadable
+    expect(LocalVersionService.addVersion).toHaveBeenCalledWith(
+      'user1',
+      'forked_doc_123',
+      expect.objectContaining({
+        versionNumber: 2,
+        content: 'Version 2 local plaintext',
       })
     );
   });

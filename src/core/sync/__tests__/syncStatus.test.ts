@@ -35,4 +35,44 @@ describe('syncStatusOf (AUDIT-part2 5.1)', () => {
     const statuses = [doc({ _decryptionError: true }), doc({ _locked: true })].map(syncStatusOf);
     expect(statuses).not.toContain('unlinked-new');
   });
+
+  it('CHOKE-5: syncStatusOf and upload eligibility match across all 16 flag permutations', () => {
+    const bools = [false, true];
+    for (const localOnly of bools) {
+      for (const hasLinkedCloudId of bools) {
+        for (const _locked of bools) {
+          for (const _decryptionError of bools) {
+            const d = doc({
+              localOnly,
+              linkedCloudId: hasLinkedCloudId ? 'cloud-123' : undefined,
+              _locked,
+              _decryptionError,
+              currentVersion: 2,
+              lastSyncedCloudVersion: 1,
+            });
+
+            // Direct flag interpretation (legacy SyncService filter)
+            const directEligible = (() => {
+              if (d.localOnly || d._locked || d._decryptionError) return false;
+              if (!d.linkedCloudId) return true;
+              return (d.currentVersion ?? 0) > (d.lastSyncedCloudVersion ?? 0);
+            })();
+
+            // syncStatusOf interpretation (updated SyncService filter)
+            const status = syncStatusOf(d);
+            const statusEligible = (() => {
+              if (status === 'local-only' || status === 'locked' || status === 'unreadable') return false;
+              if (status === 'unlinked-new') return true;
+              return (d.currentVersion ?? 0) > (d.lastSyncedCloudVersion ?? 0);
+            })();
+
+            expect(
+              statusEligible,
+              `Mismatch for flags: localOnly=${localOnly}, linkedCloudId=${hasLinkedCloudId}, _locked=${_locked}, _decryptionError=${_decryptionError} (status=${status})`
+            ).toBe(directEligible);
+          }
+        }
+      }
+    }
+  });
 });

@@ -160,6 +160,11 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
     return { ok: false, day: today(), reason: 'unavailable' };
   }
 
+  const onClientError = (err: unknown) => {
+    console.error('[postgresAiContext] checkDailyLimit client error', err);
+  };
+  client.on('error', onClientError);
+
   try {
     await client.query('BEGIN');
     const date = today();
@@ -190,6 +195,7 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
     }
     return { ok: false, day: today(), reason: 'unavailable' };
   } finally {
+    client.removeListener('error', onClientError);
     client.release();
   }
 }
@@ -283,6 +289,11 @@ async function checkAndIncrementBulkLimit(
     return { ok: false, day: today(), reason: 'unavailable' };
   }
 
+  const onClientError = (err: unknown) => {
+    console.error('[postgresAiContext] checkAndIncrementBulkLimit client error', err);
+  };
+  client.on('error', onClientError);
+
   try {
     await client.query('BEGIN');
     const date = today();
@@ -310,6 +321,7 @@ async function checkAndIncrementBulkLimit(
     }
     return { ok: false, day: today(), reason: 'unavailable' };
   } finally {
+    client.removeListener('error', onClientError);
     client.release();
   }
 }
@@ -366,6 +378,10 @@ async function recordUsage(
   // дня, чем та, по которой проверяется потолок. Потолок при этом молчал.
   const date = today();
   const client = await pool.connect();
+  const onClientError = (err: unknown) => {
+    console.error('[postgresAiContext] recordUsage client error', err);
+  };
+  client.on('error', onClientError);
   try {
     await client.query('BEGIN');
     await client.query(
@@ -402,6 +418,7 @@ async function recordUsage(
     await client.query('ROLLBACK');
     throw e;
   } finally {
+    client.removeListener('error', onClientError);
     client.release();
   }
 }

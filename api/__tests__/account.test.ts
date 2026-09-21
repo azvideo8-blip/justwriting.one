@@ -7,13 +7,25 @@ const query = vi.fn().mockResolvedValue({ rows: [] });
 const poolQuery = vi.fn().mockResolvedValue({ rows: [{ uid: 'uid_1' }] });
 const release = vi.fn();
 
+const clientOn = vi.fn();
+const clientRemoveListener = vi.fn();
+const poolOn = vi.fn();
+
 vi.mock('pg', () => ({
   Pool: class {
+    on(...args: unknown[]) {
+      return poolOn(...args);
+    }
     query(...args: unknown[]) {
       return poolQuery(...args);
     }
     connect() {
-      return Promise.resolve({ query, release });
+      return Promise.resolve({
+        query,
+        release,
+        on: clientOn,
+        removeListener: clientRemoveListener,
+      });
     }
   },
 }));

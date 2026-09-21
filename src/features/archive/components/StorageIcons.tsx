@@ -167,18 +167,28 @@ export function StorageIcons({
   const handleConfirmDelete = async () => {
     try {
       switch (confirmState.kind) {
-        case 'delete-local-only':
-          await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
-          showToast(t('storage_deleted_completely'), 'success');
+        case 'delete-local-only': {
+          const res = await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
+          if (res?.cloudSynced) {
+            showToast(t('storage_deleted_completely'), 'success');
+          } else {
+            showToast(t('delete_local_only_queued'));
+          }
           break;
+        }
         case 'delete-local':
           await StorageService.removeLocalCopy(doc.localId!);
           showToast(t('storage_deleted_local'), 'success');
           break;
-        case 'delete-cloud-only':
-          await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
-          showToast(t('storage_deleted_completely'), 'success');
+        case 'delete-cloud-only': {
+          const res = await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
+          if (res?.cloudSynced) {
+            showToast(t('storage_deleted_completely'), 'success');
+          } else {
+            showToast(t('delete_local_only_queued'));
+          }
           break;
+        }
         case 'delete-cloud':
           await StorageService.removeCloudCopy(userId, doc.cloudId!);
           if (doc.localId) {
