@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.54',
+    date: '2026-09-21',
+    items: [
+      { category: 'fix', ru: 'При конфликте синхронизации текст с этого устройства теперь не пропадает, даже если облачная версия повреждена и не может быть прочитана.', en: "During a sync conflict, text from this device is no longer lost even when the cloud version can't be decrypted." },
+      { category: 'fix', ru: 'Сообщение «удалено полностью» при удалении заметки теперь появляется, только если облачная копия правда удалена, а не просто поставлена в очередь.', en: 'The "deleted completely" message on note deletion now only appears once the cloud copy is actually gone, not just queued.' },
+      { category: 'improvement', ru: 'Сервер стал устойчивее к обрывам соединения с базой данных — короткий сбой сети больше не должен ронять сервис целиком.', en: 'The server is now more resilient to database connection drops — a brief network blip should no longer take the whole service down.' },
+    ],
+  },
+  {
     version: '0.8.53',
     date: '2026-09-21',
     items: [

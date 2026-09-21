@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.54 — 2026-09-21
+
+- **[RU]** При конфликте синхронизации текст с этого устройства теперь не пропадает, даже если облачная версия повреждена и не может быть прочитана.
+- **[EN]** During a sync conflict, text from this device is no longer lost even when the cloud version can't be decrypted.
+- **[RU]** Сообщение «удалено полностью» при удалении заметки теперь появляется, только если облачная копия правда удалена, а не просто поставлена в очередь.
+- **[EN]** The "deleted completely" message on note deletion now only appears once the cloud copy is actually gone, not just queued.
+- **[RU]** Сервер стал устойчивее к обрывам соединения с базой данных — короткий сбой сети больше не должен ронять сервис целиком.
+- **[EN]** The server is now more resilient to database connection drops — a brief network blip should no longer take the whole service down.
+
 ## 0.8.53 — 2026-09-21
 
 - **[RU]** Поиск по смыслу (векторы заметок) теперь считается прямо на своём сервере, а не сторонним провайдером ИИ — текст заметки для этого больше никуда не уходит.
