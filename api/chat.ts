@@ -85,6 +85,7 @@ type OrDelta = { reasoning_content?: string; reasoning?: string; content?: strin
 type OrChunk = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
   choices?: Array<{ delta?: OrDelta }>;
+  error?: unknown;
 };
 
 interface Settlement {
@@ -254,6 +255,11 @@ async function streamOpenRouterReasoning(
         if (data === '[DONE]') continue;
         let chunk: OrChunk;
         try { chunk = JSON.parse(data) as OrChunk; } catch { continue; }
+        if (chunk.error) {
+          console.error('[api/chat] reasoning upstream returned chunk error:', chunk.error);
+          streamFailed = true;
+          break;
+        }
         if (chunk.usage) {
           tokensIn = chunk.usage.prompt_tokens ?? tokensIn;
           tokensOut = chunk.usage.completion_tokens ?? tokensOut;
@@ -541,25 +547,104 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     },
   });
 
-  // If onError already fired before pipeTextStreamToResponse
-  if (streamErrorOccurred || settlement.settled) {
-    if (!res.headersSent) {
-      sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
-    }
-    return;
+function waitForNextOrAbort<T>(
+  iterator: AsyncIterator<T>,
+  signal: AbortSignal,
+): Promise<IteratorResult<T>> {
+  if (signal.aborted) {
+    return Promise.resolve({ done: true, value: undefined });
   }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      resolve({ done: true, value: undefined });
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    iterator.next().then(
+      (res) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(res);
+      },
+      (err) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
+    );
+  });
+}
 
-  try {
-    // Обёртка нужна из-за смены сигнатуры между версиями SDK: в ai@6.0.191
-    // метод возвращает void, в следующей — промис. Голый await ругает линт
-    // сегодня, а отсутствие await завтра пропустит сбой пайпа мимо этого
-    // catch — то есть слот лимита перестанет возвращаться при обрыве стрима.
-    // Promise.resolve одинаково верна для обеих сигнатур.
-    await Promise.resolve(result.pipeTextStreamToResponse(res));
-  } catch (streamErr) {
-    console.error('[api/chat] pipe failed:', streamErr);
-    await settlement.settle('failed');
-    if (!res.headersSent) sendError(res, 500, 'STREAM_FAILED');
+  if (result.textStream) {
+    const iterator = result.textStream[Symbol.asyncIterator]();
+    let firstResult: IteratorResult<string>;
+    try {
+      firstResult = await waitForNextOrAbort(iterator, controller.signal);
+    } catch (err) {
+      console.error('[api/chat] streamText failed before response started:', err);
+      await settlement.settle('failed');
+      if (!res.headersSent) {
+        sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
+      }
+      return;
+    }
+
+    if (controller.signal.aborted || res.destroyed) {
+      return;
+    }
+
+    if (streamErrorOccurred || settlement.settled) {
+      if (!res.headersSent) {
+        sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
+      }
+      return;
+    }
+
+    if (firstResult.done) {
+      if (!res.headersSent) {
+        res.writeHead(200, {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+        });
+        res.end();
+      }
+      return;
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+    });
+
+    if (firstResult.value && !res.destroyed) {
+      res.write(firstResult.value);
+    }
+
+    try {
+      while (!controller.signal.aborted && !res.destroyed) {
+        const { done, value } = await waitForNextOrAbort(iterator, controller.signal);
+        if (done || controller.signal.aborted || res.destroyed) break;
+        if (value && !res.destroyed) {
+          const canContinue = res.write(value);
+          if (!canContinue && !res.destroyed) {
+            await new Promise<void>((resolve) => {
+              res.once('drain', resolve);
+            });
+          }
+        }
+      }
+    } catch (streamErr) {
+      console.error('[api/chat] stream read failed mid-stream:', streamErr);
+    } finally {
+      if (!res.writableEnded) {
+        res.end();
+      }
+    }
+  } else {
+    try {
+      await Promise.resolve(result.pipeTextStreamToResponse(res));
+    } catch (streamErr) {
+      console.error('[api/chat] pipe failed:', streamErr);
+      await settlement.settle('failed');
+      if (!res.headersSent) sendError(res, 500, 'STREAM_FAILED');
+    }
   }
 }
 

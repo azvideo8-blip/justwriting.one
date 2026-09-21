@@ -21,6 +21,7 @@ function mapUser(u: User | null): AppUser | null {
 // constraint in MIG1 and Supabase restores asynchronously too.
 let currentUser: AppUser | null = null;
 let subscribed = false;
+let isVoluntarySignOut = false;
 
 import { reportError } from '../../shared/errors/reportError';
 
@@ -31,12 +32,15 @@ function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
   getSupabase().auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT' && currentUser !== null) {
-      reportError(
-        new Error('SESSION_TERMINATED: auth session signed out unexpectedly'),
-        { action: 'auth_session_signed_out', previousUid: currentUser.uid },
-        'warning',
-      );
+    if (event === 'SIGNED_OUT') {
+      if (currentUser !== null && !isVoluntarySignOut) {
+        reportError(
+          new Error('SESSION_TERMINATED: auth session signed out unexpectedly'),
+          { action: 'auth_session_signed_out', previousUid: currentUser.uid },
+          'warning',
+        );
+      }
+      isVoluntarySignOut = false;
     }
     currentUser = mapUser(session?.user ?? null);
   });
@@ -110,8 +114,19 @@ export async function signUp(email: string, password: string): Promise<AppUser> 
 }
 
 export async function signOutUser(options?: { scope?: 'global' | 'local' | 'others' }): Promise<void> {
-  const { error } = await getSupabase().auth.signOut(options);
-  if (error) throw error;
+  isVoluntarySignOut = true;
+  try {
+    const { error } = await getSupabase().auth.signOut(options);
+    if (error) throw error;
+  } finally {
+    isVoluntarySignOut = false;
+  }
+}
+
+export function _resetAuthStateForTesting(): void {
+  currentUser = null;
+  subscribed = false;
+  isVoluntarySignOut = false;
 }
 
 export async function sendPasswordResetEmail(email: string): Promise<void> {

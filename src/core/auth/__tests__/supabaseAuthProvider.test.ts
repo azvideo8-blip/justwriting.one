@@ -4,6 +4,7 @@ import * as reportErrorModule from '../../../shared/errors/reportError';
 const mockRefreshSession = vi.fn();
 const mockGetSession = vi.fn();
 const mockOnAuthStateChange = vi.fn();
+const mockSignOut = vi.fn();
 
 vi.mock('../../supabase/client', () => ({
   getSupabase: vi.fn(() => ({
@@ -11,6 +12,7 @@ vi.mock('../../supabase/client', () => ({
       refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
       getSession: (...args: unknown[]) => mockGetSession(...args),
       onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
+      signOut: (...args: unknown[]) => mockSignOut(...args),
     },
   })),
 }));
@@ -19,7 +21,7 @@ vi.mock('../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 
-import { getIdToken } from '../supabaseAuthProvider';
+import { getIdToken, signOutUser, getCurrentUser, _resetAuthStateForTesting } from '../supabaseAuthProvider';
 import { mapAIError } from '../../../features/ai/services/AIService';
 
 describe('ERR-3: auth session error visibility and token refresh failure', () => {
@@ -62,4 +64,54 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
     expect(mapAIError({ message: 'AUTH_REQUIRED' })).toBe('AUTH_REQUIRED');
     expect(mapAIError({ message: 'unauthenticated' })).toBe('AUTH_REQUIRED');
   });
+
+  it('does NOT report error when SIGNED_OUT is triggered voluntarily via signOutUser()', async () => {
+    _resetAuthStateForTesting();
+    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
+      authStateCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+    mockSignOut.mockImplementation(async () => {
+      // Supabase client fires onAuthStateChange during signOut
+      authStateCallback?.('SIGNED_OUT', null);
+      return { error: null };
+    });
+
+    // Initialize subscriber and set current user
+    getCurrentUser();
+    authStateCallback?.('SIGNED_IN', { user: { id: 'u_test_1', email: 'test@example.com' } });
+    expect(getCurrentUser()?.uid).toBe('u_test_1');
+
+    // Voluntary sign out
+    await signOutUser();
+
+    expect(getCurrentUser()).toBeNull();
+    expect(reportErrorModule.reportError).not.toHaveBeenCalled();
+  });
+
+  it('reports error when SIGNED_OUT is triggered unexpectedly (without signOutUser)', async () => {
+    _resetAuthStateForTesting();
+    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
+      authStateCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    // Initialize subscriber and set current user
+    getCurrentUser();
+    authStateCallback?.('SIGNED_IN', { user: { id: 'u_test_2', email: 'test@example.com' } });
+    expect(getCurrentUser()?.uid).toBe('u_test_2');
+
+    // Unexpected sign out (e.g. server token revocation / expired refresh token)
+    authStateCallback?.('SIGNED_OUT', null);
+
+    expect(getCurrentUser()).toBeNull();
+    expect(reportErrorModule.reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('SESSION_TERMINATED') }),
+      expect.objectContaining({ action: 'auth_session_signed_out', previousUid: 'u_test_2' }),
+      'warning',
+    );
+  });
 });
+

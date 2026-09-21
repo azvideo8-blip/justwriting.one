@@ -31,17 +31,27 @@ vi.mock('ai', async (importOriginal) => {
   return {
     ...actual,
     streamText: vi.fn((opts: { onError?: (e: unknown) => Promise<void> }) => {
-      if (mockStreamTextFailImmediately && opts.onError) {
-        // Симулируем немедленный сбой поставщика (401/402/500) до первого чанка
-        void opts.onError(new Error('OpenRouter 500: Provider overloaded'));
+      // Real SDK: streamText returns synchronously!
+      // Any error or chunk happens asynchronously across event loop ticks.
+      if (mockStreamTextFailImmediately) {
+        return {
+          textStream: (async function* () {
+            await new Promise((r) => setTimeout(r, 10));
+            const err = new Error('OpenRouter 500: Provider overloaded');
+            if (opts.onError) {
+              await opts.onError(err);
+            }
+            throw err;
+          })(),
+        };
       }
       return {
-        pipeTextStreamToResponse: vi.fn((res: ServerResponse) => {
-          if (!res.headersSent) {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end();
-          }
-        }),
+        textStream: (async function* () {
+          await new Promise((r) => setTimeout(r, 10));
+          yield 'Привет! ';
+          await new Promise((r) => setTimeout(r, 10));
+          yield 'Как дела?';
+        })(),
       };
     }),
   };
@@ -86,7 +96,7 @@ describe('ERR-1: upstream failure before first chunk returns non-200', () => {
     mockStreamTextFailImmediately = false;
   });
 
-  it('returns 502 UPSTREAM_ERROR when onError triggers before stream piping', async () => {
+  it('returns 502 UPSTREAM_ERROR when async error triggers before first chunk', async () => {
     mockStreamTextFailImmediately = true;
 
     const req = new FakeReq({
@@ -99,5 +109,20 @@ describe('ERR-1: upstream failure before first chunk returns non-200', () => {
 
     expect(res.statusCode).toBe(502);
     expect(res.body).toContain('UPSTREAM_ERROR');
+  });
+
+  it('returns 200 and streams text when upstream responds normally', async () => {
+    mockStreamTextFailImmediately = false;
+
+    const req = new FakeReq({
+      personaId: 'cbt',
+      messages: [{ role: 'user', content: 'Привет' }],
+    });
+    const res = new FakeRes();
+
+    await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe('Привет! Как дела?');
   });
 });

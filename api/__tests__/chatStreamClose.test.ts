@@ -121,6 +121,7 @@ const validBody = {
 
 beforeEach(() => {
   refundDaily.mockClear(); refundBulk.mockClear(); refundGlobal.mockClear(); recordUsage.mockClear();
+  vi.mocked(fetch).mockClear();
   firstByteAt = null;
   streamController = null;
 });
@@ -376,7 +377,7 @@ describe('3.8 stream disconnect', () => {
     const res = new FakeRes();
     const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
 
-    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled(), { timeout: 2000 });
     res.emit('close');
 
     await done;
@@ -403,7 +404,7 @@ describe('3.8 stream disconnect', () => {
     const res = new FakeRes();
     const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
 
-    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    await vi.waitFor(() => expect(streamController).not.toBeNull(), { timeout: 2000 });
     const chunk = JSON.stringify({ choices: [{ index: 0, delta: { content: 'а'.repeat(400) } }] });
     streamController?.enqueue(enc.encode(`data: ${chunk}\n\n`));
     await vi.waitFor(() => expect(res.body.length).toBeGreaterThan(0), { timeout: 2000 });
@@ -442,7 +443,7 @@ describe('3.8 stream disconnect', () => {
     const res = new FakeRes();
     const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
 
-    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    await vi.waitFor(() => expect(streamController).not.toBeNull(), { timeout: 2000 });
     const chunk = JSON.stringify({ choices: [{ index: 0, delta: { content: 'тест' } }] });
     streamController?.enqueue(enc.encode(`data: ${chunk}\n\n`));
     await vi.waitFor(() => expect(res.body.length).toBeGreaterThan(0), { timeout: 2000 });
