@@ -87,6 +87,7 @@ describe('FEAT-5 Archive Trash Service', () => {
 
   it('restoreArchiveSession restores note from trash', async () => {
     const session = makeSession({ id: 's1', trashedAt: Date.now() - 10000 });
+    const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
     const domainEvents: unknown[] = [];
     const unsub = onDomainEvent(e => { domainEvents.push(e); });
 
@@ -95,12 +96,14 @@ describe('FEAT-5 Archive Trash Service', () => {
     expect(result).toEqual({ cloudSynced: true });
     expect(StorageService.restoreDocument).toHaveBeenCalledWith('u1', 's1', undefined);
     expect(domainEvents).toContainEqual({ type: 'note.restored', documentId: 's1' });
+    expect(addActivitySpy).toHaveBeenCalledWith('заметка восстановлена из корзины', undefined, 'info', 'archive');
 
     unsub();
   });
 
   it('deleteArchiveSession permanently deletes note via StorageService.deleteDocument', async () => {
     const session = makeSession({ id: 's1', _isLocal: true, _hasCloudCopy: true, _linkedCloudId: 'c1' });
+    const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
     const domainEvents: unknown[] = [];
     const unsub = onDomainEvent(e => { domainEvents.push(e); });
 
@@ -109,6 +112,7 @@ describe('FEAT-5 Archive Trash Service', () => {
     expect(result).toEqual({ cloudSynced: true });
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('u1', 's1', 'c1');
     expect(domainEvents).toContainEqual({ type: 'note.deleted', documentId: 's1' });
+    expect(addActivitySpy).toHaveBeenCalledWith('заметка удалена навсегда', undefined, 'info', 'archive');
 
     unsub();
   });

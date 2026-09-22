@@ -21,6 +21,7 @@ import { cleanCache, getCached, putCache } from './resultCache';
 import { RRF_K, VECTOR_TOP, KEYWORD_TOP, RRF_FINAL, RERANK_THRESHOLD, RESURFACE_FLOOR } from './types';
 import type { EmbeddingEntry, RetrievedNote } from './types';
 import { searchNotes } from './searchNotes';
+import { isExcludedFromAI } from '../isExcludedFromAI';
 
 /**
  * TICKET-044: Consolidated multi-query search — single embedding + single rerank.
@@ -112,7 +113,7 @@ export async function searchNotesMulti(
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
-      if (doc.excludedFromAI) continue;
+      if (isExcludedFromAI(doc)) continue;
       const ts = doc.lastSessionAt;
       if (!hasTimeFilter) { allowed.add(doc.id); continue; }
       if (ts && (opts?.minTime === undefined || ts >= opts.minTime) && (opts?.maxTime === undefined || ts <= opts.maxTime)) {
@@ -145,7 +146,7 @@ export async function searchNotesMulti(
       const allowed = new Set<string>();
       const docs = await db.getAll('documents');
       for (const doc of docs) {
-        if (doc.excludedFromAI) continue;
+        if (isExcludedFromAI(doc)) continue;
         const ts = doc.lastSessionAt;
         if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
           allowed.add(doc.id);

@@ -91,7 +91,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
                   <h3 className="text-base font-medium text-text-main truncate">
                     {session.title?.trim() ||
                       (session.content ? session.content.split('\n').map(l => l.trim()).find(l => l.length > 0) : undefined) ||
-                      t('session_untitled')}
+                      (!session._isLocal && session._hasCloudCopy ? t('archive_cloud_only_note') : t('session_untitled'))}
                   </h3>
                   <div
                     className={cn(
@@ -108,6 +108,9 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-text-main/50">
+                  {!session._isLocal && session._hasCloudCopy && (
+                    <span className="text-brand-soft font-medium">{t('archive_cloud_only')}</span>
+                  )}
                   {session.wordCount > 0 && (
                     <span>{session.wordCount} {t('archive_stat_words')}</span>
                   )}

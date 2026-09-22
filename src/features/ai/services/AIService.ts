@@ -107,8 +107,7 @@ export const AIService = {
       return { ok: true, text: data.result };
     } catch (e: unknown) {
       const code = mapAIError(e);
-      reportError(e, { action: 'process', aiAction: action, aiError: code },
-        code === 'NETWORK' ? 'warning' : 'error');
+      reportError(e, { action: 'process', aiAction: action, aiError: code }, 'warning');
       return { ok: false, error: code };
     }
   },
@@ -148,8 +147,7 @@ export const AIService = {
           return { ok: true, text: data.result };
         } catch { /* второй отказ — сообщаем честно ниже */ }
       }
-      reportError(e, { action: 'chat', personaId: params.personaId, aiError: code },
-        code === 'NETWORK' ? 'warning' : 'error');
+      reportError(e, { action: 'chat', personaId: params.personaId, aiError: code }, 'warning');
       return { ok: false, error: code };
     }
   },
@@ -165,8 +163,7 @@ export const AIService = {
       return { ok: true, summary: data };
     } catch (e: unknown) {
       const code = mapAIError(e);
-      reportError(e, { action: 'summarize', aiError: code },
-        code === 'NETWORK' ? 'warning' : 'error');
+      reportError(e, { action: 'summarize', aiError: code }, 'warning');
       if (code === 'DAILY_LIMIT') return { ok: false, error: 'DAILY_LIMIT' };
       if (code === 'RATE_LIMIT') return { ok: false, error: 'RATE_LIMIT' };
       return { ok: false, error: code };

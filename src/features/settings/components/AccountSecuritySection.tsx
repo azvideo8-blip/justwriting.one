@@ -90,7 +90,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
         <div className="space-y-4">
           {/* Change Account Password */}
           <div className="p-4 rounded-xl border border-border-subtle space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <div className="text-sm font-medium text-text-main flex items-center gap-2">
                   <Lock size={16} className="text-text-main/60" />
@@ -103,7 +103,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
               {!showChangePassword && (
                 <Button
                   onClick={() => setShowChangePassword(true)}
-                  className="py-1.5 px-3 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors"
+                  className="py-1.5 px-3 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors self-start sm:self-auto shrink-0"
                 >
                   {t('settings_change_password')}
                 </Button>
@@ -171,7 +171,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
 
           {/* Active Sessions / Other Devices */}
           <div className="p-4 rounded-xl border border-border-subtle space-y-3">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-medium text-text-main flex items-center gap-2">
                   <Laptop size={16} className="text-text-main/60" />
@@ -184,7 +184,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
               <Button
                 onClick={() => void handleSignOutOthers()}
                 disabled={signingOutOthers}
-                className="py-1.5 px-3 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors shrink-0"
+                className="py-1.5 px-3 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors self-start sm:self-auto shrink-0"
               >
                 {signingOutOthers ? (
                   <div className="w-4 h-4 border-2 rounded-full animate-spin border-text-main/20 border-t-text-main mx-auto" />

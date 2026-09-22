@@ -29,6 +29,7 @@ import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 export function useAIChatContext(personaId: string): {
   buildContext(params: BuildContextParams): Promise<ChatContextResult>;
@@ -160,7 +161,7 @@ export function useAIChatContext(personaId: string): {
       if (attached.documentId) {
         try {
           const doc = await db.get('documents', attached.documentId);
-          if (doc?.excludedFromAI) {
+          if (isExcludedFromAI(doc)) {
             isAttachedExcluded = true;
           }
         } catch { /* ignore */ }
@@ -406,7 +407,7 @@ export function useAIChatContext(personaId: string): {
 
             for (const docId of [...extraIds, ...nameIds]) {
               const doc = await db.get('documents', docId);
-              if (!doc || doc.excludedFromAI) continue;
+              if (!doc || isExcludedFromAI(doc)) continue;
               const content = await LocalVersionService.getLatestContent(docId);
               if (!content) continue;
               allNotes.push({
@@ -465,7 +466,7 @@ export function useAIChatContext(personaId: string): {
         try {
           if (allNotes.length > 0) {
             const allLocalDocs = await db.getAll('documents');
-            const excludedSet = new Set(allLocalDocs.filter(d => d.excludedFromAI).map(d => d.id));
+            const excludedSet = new Set(allLocalDocs.filter(d => isExcludedFromAI(d)).map(d => d.id));
             if (excludedSet.size > 0) {
               allNotes = allNotes.filter(n => !excludedSet.has(n.documentId));
             }

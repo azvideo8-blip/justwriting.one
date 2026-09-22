@@ -14,6 +14,8 @@ import { EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { emitDomainEvent } from '../../../core/events/domainEvents';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
 interface StorageDoc {
   localId?: string | undefined;
@@ -167,28 +169,18 @@ export function StorageIcons({
   const handleConfirmDelete = async () => {
     try {
       switch (confirmState.kind) {
-        case 'delete-local-only': {
-          const res = await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
-          if (res?.cloudSynced) {
-            showToast(t('storage_deleted_completely'), 'success');
-          } else {
-            showToast(t('delete_local_only_queued'));
-          }
+        case 'delete-local-only':
+        case 'delete-cloud-only': {
+          await StorageService.trashDocument(userId, doc.localId, doc.cloudId);
+          emitDomainEvent({ type: 'note.trashed', documentId: doc.localId || doc.cloudId! });
+          useActivityLogStore.getState().addActivity('заметка удалена в корзину', undefined, 'info', 'archive');
+          showToast(t('archive_trash_moved'), 'success');
           break;
         }
         case 'delete-local':
           await StorageService.removeLocalCopy(doc.localId!);
           showToast(t('storage_deleted_local'), 'success');
           break;
-        case 'delete-cloud-only': {
-          const res = await StorageService.deleteDocument(userId, doc.localId, doc.cloudId);
-          if (res?.cloudSynced) {
-            showToast(t('storage_deleted_completely'), 'success');
-          } else {
-            showToast(t('delete_local_only_queued'));
-          }
-          break;
-        }
         case 'delete-cloud':
           await StorageService.removeCloudCopy(userId, doc.cloudId!);
           if (doc.localId) {

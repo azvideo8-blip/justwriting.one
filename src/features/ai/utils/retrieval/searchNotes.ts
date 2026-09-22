@@ -19,6 +19,7 @@ import {
 import { findLiteralMatches, extractQuotes } from './literalMatches';
 import { RRF_K, VECTOR_TOP, KEYWORD_TOP, RRF_FINAL, RERANK_THRESHOLD, RESURFACE_FLOOR } from './types';
 import type { RetrievedNote, SearchNotesOptions } from './types';
+import { isExcludedFromAI } from '../isExcludedFromAI';
 
 export async function searchNotes(
   query: string,
@@ -33,7 +34,7 @@ export async function searchNotes(
       const allowed = new Set<string>();
       const docs = await db.getAll('documents');
       for (const doc of docs) {
-        if (doc.excludedFromAI) continue;
+        if (isExcludedFromAI(doc)) continue;
         const ts = doc.lastSessionAt;
         if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
           allowed.add(doc.id);
@@ -79,7 +80,7 @@ export async function searchNotes(
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
-      if (doc.excludedFromAI) continue;
+      if (isExcludedFromAI(doc)) continue;
       const ts = doc.lastSessionAt;
       if (!hasTimeFilter) { allowed.add(doc.id); continue; }
       if (ts && (opts?.minTime === undefined || ts >= opts.minTime) && (opts?.maxTime === undefined || ts <= opts.maxTime)) {
@@ -107,7 +108,7 @@ export async function searchNotes(
     const allowed = new Set<string>();
     const docs = await db.getAll('documents');
     for (const doc of docs) {
-      if (doc.excludedFromAI) continue;
+      if (isExcludedFromAI(doc)) continue;
       const ts = doc.lastSessionAt;
       if (ts && (opts.minTime === undefined || ts >= opts.minTime) && (opts.maxTime === undefined || ts <= opts.maxTime)) {
         allowed.add(doc.id);

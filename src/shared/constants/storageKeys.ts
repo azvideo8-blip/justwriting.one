@@ -33,4 +33,6 @@ export const STORAGE_KEYS = {
   DICTATION_NOTICE_SEEN: 'jw_dictation_notice_seen',
   PENDING_RECOVERY_CODE: (uid: string) => `pending_recovery_code_${uid}`,
   VAULT_AUTO_CREATED: (uid: string) => `vault_auto_created_${uid}`,
+  VAULT_AUTO_UNLOCK_FAILED: (uid: string) => `vault_auto_unlock_failed_${uid}`,
 } as const;
+

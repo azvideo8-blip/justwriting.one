@@ -1,8 +1,10 @@
 import React, { Suspense, useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { ProtectedRoute, GuestRoute } from './ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
+import type { AppUser } from '../core/auth/types';
+import type { UserProfile } from '../shared/types/common';
 
 const WritingPage = React.lazy(() => import('./pages/WritingPage').then(m => ({ default: m.WritingPage })));
 const MobileMePage = React.lazy(() => import('./pages/MobileMePage').then(m => ({ default: m.MobileMePage })));
@@ -42,15 +44,44 @@ function ScrollToTop() {
   return null;
 }
 
+// N-3 / F-05: GoTrue редиректит старые ссылки приглашений и сброса пароля (implicit grant)
+// на корень сайта с хэшем `#access_token=...&type=invite`. Перенаправляем на /reset-password
+// с сохранением хэша, чтобы пользователь увидел сообщение об устаревшем формате ссылки.
+function AuthHashRedirect() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const hash = location.hash || (typeof window !== 'undefined' ? window.location.hash : '');
+    if (hash && hash.includes('access_token=') && (hash.includes('type=invite') || hash.includes('type=recovery'))) {
+      if (location.pathname !== '/reset-password') {
+        void navigate({ pathname: '/reset-password', hash }, { replace: true });
+      }
+    }
+  }, [location.pathname, location.hash, navigate]);
+
+  return null;
+}
+
+function RootRoute({ user, profile }: { user: AppUser | null; profile: UserProfile | null }) {
+  const location = useLocation();
+  const hash = location.hash || (typeof window !== 'undefined' ? window.location.hash : '');
+  if (hash && hash.includes('access_token=') && (hash.includes('type=invite') || hash.includes('type=recovery'))) {
+    return <Navigate to={{ pathname: '/reset-password', hash }} replace />;
+  }
+  return <WritingPage user={user} profile={profile} />;
+}
+
 export function AppRoutes() {
   const { user, profile } = useAuthStatus();
 
   return (
     <ErrorBoundary>
     <ScrollToTop />
+    <AuthHashRedirect />
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<ErrorBoundary><WritingPage user={user} profile={profile} /></ErrorBoundary>} />
+        <Route path="/" element={<ErrorBoundary><RootRoute user={user} profile={profile} /></ErrorBoundary>} />
         <Route path="/log" element={<Navigate to="/archive" replace />} />
         <Route path="/me" element={<ErrorBoundary><MobileMePage /></ErrorBoundary>} />
         <Route path="/archive" element={<ErrorBoundary><ArchivePage user={user} profile={profile} /></ErrorBoundary>} />

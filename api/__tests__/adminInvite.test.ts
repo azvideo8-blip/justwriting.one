@@ -64,6 +64,7 @@ describe('Admin Invite & User Status Logic', () => {
     });
 
     it('invites user successfully via GoTrue admin API', async () => {
+      poolQuery.mockResolvedValueOnce({ rows: [] });
       mockInviteUserByEmail.mockResolvedValueOnce({
         data: {
           user: {
@@ -82,10 +83,38 @@ describe('Admin Invite & User Status Logic', () => {
           id: 'new-user-uid',
           email: 'newuser@example.com',
         },
+        reinvited: false,
+      });
+    });
+
+    it('returns reinvited: true when inviting existing unconfirmed user without password', async () => {
+      poolQuery.mockResolvedValueOnce({
+        rows: [{ hasPassword: false, invitedAt: '2026-09-20T10:00:00Z' }],
+      });
+      mockInviteUserByEmail.mockResolvedValueOnce({
+        data: {
+          user: {
+            id: 'reinvited-user-uid',
+            email: 'reinvited@example.com',
+          },
+        },
+        error: null,
+      });
+
+      const res = await inviteUserLogic(mockAdminCtx, 'admin-123', { email: 'reinvited@example.com' });
+
+      expect(mockInviteUserByEmail).toHaveBeenCalledWith('reinvited@example.com');
+      expect(res).toEqual({
+        user: {
+          id: 'reinvited-user-uid',
+          email: 'reinvited@example.com',
+        },
+        reinvited: true,
       });
     });
 
     it('propagates GoTrue error as invalid-argument', async () => {
+      poolQuery.mockResolvedValueOnce({ rows: [] });
       mockInviteUserByEmail.mockResolvedValueOnce({
         data: { user: null },
         error: { message: 'A user with this email address has already been registered' },
@@ -121,6 +150,7 @@ describe('Admin Invite & User Status Logic', () => {
           email: 'invited@example.com',
           invitedAt: '2026-09-20T10:00:00.000Z',
           confirmedAt: null,
+          hasPassword: false,
           createdAt: '2026-09-20T10:00:00.000Z',
           noteCount: 0,
         },
@@ -129,6 +159,7 @@ describe('Admin Invite & User Status Logic', () => {
           email: 'active@example.com',
           invitedAt: '2026-09-10T10:00:00.000Z',
           confirmedAt: '2026-09-10T11:00:00.000Z',
+          hasPassword: true,
           createdAt: '2026-09-10T10:00:00.000Z',
           noteCount: 15,
         },
@@ -137,7 +168,17 @@ describe('Admin Invite & User Status Logic', () => {
           email: 'inactive-confirmed@example.com',
           invitedAt: '2026-09-15T10:00:00.000Z',
           confirmedAt: '2026-09-15T12:00:00.000Z',
+          hasPassword: true,
           createdAt: '2026-09-15T10:00:00.000Z',
+          noteCount: 0,
+        },
+        {
+          uid: 'u-4',
+          email: 'opened-no-password@example.com',
+          invitedAt: '2026-09-16T10:00:00.000Z',
+          confirmedAt: '2026-09-16T11:00:00.000Z',
+          hasPassword: false,
+          createdAt: '2026-09-16T10:00:00.000Z',
           noteCount: 0,
         },
       ];
@@ -174,6 +215,15 @@ describe('Admin Invite & User Status Logic', () => {
           noteCount: 0,
           pending: false,
         },
+        {
+          uid: 'u-4',
+          email: 'opened-no-password@example.com',
+          invitedAt: '2026-09-16T10:00:00.000Z',
+          confirmedAt: '2026-09-16T11:00:00.000Z',
+          createdAt: '2026-09-16T10:00:00.000Z',
+          noteCount: 0,
+          pending: true,
+        },
       ]);
 
       // Verify no sensitive document or portrait fields exist in returned objects
@@ -189,7 +239,9 @@ describe('Admin Invite & User Status Logic', () => {
   describe('handleAiEndpoint routing and consent exemption', () => {
     it('allows inviteUser through dispatcher even if AI consent is not granted', async () => {
       // postgresAiContext is used directly inside handlers.ts, so we mock isAdmin
-      poolQuery.mockResolvedValueOnce({ rows: [{ role: 'admin' }] }); // for isAdmin check
+      poolQuery
+        .mockResolvedValueOnce({ rows: [{ role: 'admin' }] }) // for isAdmin check
+        .mockResolvedValueOnce({ rows: [] }); // for check existing user
 
       mockInviteUserByEmail.mockResolvedValueOnce({
         data: { user: { id: 'u-abc', email: 'test@example.com' } },
@@ -201,6 +253,7 @@ describe('Admin Invite & User Status Logic', () => {
       expect(res.body).toEqual({
         result: {
           user: { id: 'u-abc', email: 'test@example.com' },
+          reinvited: false,
         },
       });
     });

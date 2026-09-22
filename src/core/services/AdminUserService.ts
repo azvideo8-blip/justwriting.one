@@ -76,8 +76,8 @@ export const AdminUserService = {
     }
   },
 
-  async inviteUser(email: string): Promise<{ user: { id?: string | undefined; email?: string | undefined } }> {
-    return callAi<{ user: { id?: string | undefined; email?: string | undefined } }>('inviteUser', { email });
+  async inviteUser(email: string): Promise<{ user: { id?: string | undefined; email?: string | undefined }; reinvited?: boolean }> {
+    return callAi<{ user: { id?: string | undefined; email?: string | undefined }; reinvited?: boolean }>('inviteUser', { email });
   },
 
   async listUsersWithStatus(): Promise<UserStatusItem[]> {

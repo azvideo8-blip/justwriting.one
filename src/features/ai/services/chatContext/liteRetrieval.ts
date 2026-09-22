@@ -3,6 +3,7 @@ import { AIEmbeddingService } from '../AIEmbeddingService';
 import { topKMultiWithChunkIndex } from '../../utils/vectorSearch';
 import { reportError } from '../../../../shared/errors/reportError';
 import { formatDateYYYYMMDD } from './corpusStats';
+import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 
 interface LiteRetrievalDeps {
   turnEmb: number[] | undefined;
@@ -21,7 +22,7 @@ export async function buildLiteRetrievalBlock(deps: LiteRetrievalDeps): Promise<
     const allEmb = await AIEmbeddingService.getAll();
     const docs = await db.getAll('documents');
     const usable = new Set(docs.filter(d => {
-      if (d.excludedFromAI) return false;
+      if (isExcludedFromAI(d)) return false;
       const ts = d.lastSessionAt || d.firstSessionAt;
       if (minTime !== undefined && (!ts || ts < minTime)) return false;
       if (maxTime !== undefined && (!ts || ts > maxTime)) return false;

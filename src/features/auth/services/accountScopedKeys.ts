@@ -75,6 +75,7 @@ export function accountScopedSessionStorageKeys(uid: string): string[] {
     `jw_other_user_dismissed_${uid}`,
     // надгробие удаления черновика сессии (STORAGE_KEYS.DRAFT_DELETED, LS-8)
     `draft-deleted-${uid}`,
+    `vault_auto_unlock_failed_${uid}`,
   ];
 }
 

@@ -47,6 +47,7 @@ export const adminTranslations: Translations = {
   admin_invite_btn: { ru: 'Пригласить', en: 'Invite' },
   admin_invite_sending: { ru: 'Отправка…', en: 'Sending…' },
   admin_invite_success: { ru: 'Приглашение отправлено на {email}', en: 'Invitation sent to {email}' },
+  admin_invite_resend_success: { ru: 'Приглашение отправлено повторно на {email}', en: 'Invitation resent to {email}' },
   admin_invite_error: { ru: 'Не удалось пригласить пользователя: {error}', en: 'Failed to invite user: {error}' },
   admin_reset_password_btn: { ru: 'Сброс пароля', en: 'Reset password' },
   admin_reset_password_success: { ru: 'Ссылка на сброс пароля отправлена на {email}', en: 'Password reset link sent to {email}' },

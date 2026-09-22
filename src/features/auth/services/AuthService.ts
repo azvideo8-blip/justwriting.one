@@ -18,20 +18,28 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
 
   const hasExistingVault = !!(profileData?.encryptionMeta || (profileData?.encryptionSalt && profileData?.encryptedDataKey));
 
+  const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+
   if (hasExistingVault) {
     const unlocked = await unlockVaultFromProfile(profileData!, password, currentUid);
     if (!unlocked) {
+      sessionStorage.setItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(currentUid), '1');
       const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
       if (pendingRaw) {
         try {
           const keys = JSON.parse(pendingRaw);
           await DataProvider.updateProfile(currentUid, keys);
           sessionStorage.removeItem(`pending_keys_${currentUid}`);
-          await unlockVaultFromPendingKeys(keys, password, currentUid);
+          const repairedUnlocked = await unlockVaultFromPendingKeys(keys, password, currentUid);
+          if (repairedUnlocked) {
+            sessionStorage.removeItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(currentUid));
+          }
         } catch (repairErr) {
           reportError(repairErr, { action: 'repairEncryptionKeys' });
         }
       }
+    } else {
+      sessionStorage.removeItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(currentUid));
     }
     return { user };
   } else {
@@ -208,7 +216,8 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
       return true;
     } catch (e) {
       if (e instanceof DOMException && e.name === 'OperationError') {
-        reportError(e, { action: 'unwrapDataKeyFromMeta', userId });
+        // Ожидаемый сценарий при несовпадении введённого пароля аккаунта с паролем сейфа
+        // (например, при смене пароля на другом устройстве). Сейф будет открыт в модальном окне.
         return false;
       }
       throw e;
@@ -224,7 +233,6 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
       return true;
     } catch (e) {
       if (e instanceof DOMException && e.name === 'OperationError') {
-        reportError(e, { action: 'legacyUnwrapDataKey', userId });
         return false;
       }
       throw e;

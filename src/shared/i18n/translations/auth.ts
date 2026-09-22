@@ -54,8 +54,8 @@ export const authTranslations: Translations = {
 
   auth_forgot_password:  { ru: 'Забыли пароль?', en: 'Forgot password?' },
   auth_forgot_title:     { ru: 'Сброс пароля', en: 'Password reset' },
-  auth_forgot_warning:   { ru: 'Сброс пароля удалит доступ ко всем зашифрованным заметкам. Они останутся в системе, но будут нечитаемы. Продолжить?', en: 'Resetting your password will revoke access to all encrypted notes. They will remain in the system but become unreadable. Continue?' },
-  auth_forgot_password_encryption_warning: { ru: 'Внимание: если у тебя есть зашифрованные заметки, после сброса пароля они станут навсегда недоступны. Сброс пароля нельзя отменить.', en: 'Warning: if you have encrypted notes, they will become permanently inaccessible after password reset. This cannot be undone.' },
+  auth_forgot_warning:   { ru: 'Введите email, чтобы получить ссылку для сброса пароля.', en: 'Enter your email to receive a password reset link.' },
+  auth_forgot_password_encryption_warning: { ru: 'Смена пароля аккаунта не меняет пароль шифрования заметок. На этом устройстве доступ сохранится, а на других устройствах вводите прежний пароль или код восстановления шифрования.', en: 'Changing your account password does not change your notes encryption password. Access remains on this device, but on other devices enter your previous password or recovery code.' },
   auth_forgot_confirm_anyway:   { ru: 'Всё равно сбросить пароль', en: 'Reset password anyway' },
   auth_forgot_sent:      { ru: 'Письмо для сброса пароля отправлено на ваш email.', en: 'Password reset email has been sent.' },
   auth_forgot_sent_to:   { ru: 'Письмо отправлено на {email}. Проверьте спам.', en: 'Email sent to {email}. Check your spam folder.' },

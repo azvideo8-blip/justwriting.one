@@ -22,7 +22,7 @@ export async function inviteUserLogic(
   ctx: typeof postgresAiContext,
   uid: string,
   data: unknown,
-): Promise<{ user: { id?: string | undefined; email?: string | undefined } }> {
+): Promise<{ user: { id?: string | undefined; email?: string | undefined }; reinvited?: boolean }> {
   if (!(await ctx.isAdmin(uid))) {
     throw new AiError('permission-denied', 'Admin access required');
   }
@@ -35,6 +35,21 @@ export async function inviteUserLogic(
   const { email } = parsed.data;
 
   try {
+    const existing = await pool.query<{
+      hasPassword: boolean;
+      invitedAt: string | Date | null;
+    }>(
+      `SELECT
+        (encrypted_password IS NOT NULL AND encrypted_password <> '') AS "hasPassword",
+        invited_at AS "invitedAt"
+      FROM auth.users
+      WHERE lower(email) = lower($1)
+      LIMIT 1`,
+      [email],
+    );
+
+    const isReinvite = existing.rows.length > 0 && !existing.rows[0]?.hasPassword;
+
     const supabase = getSupabaseAdmin();
     const { data: resData, error } = await supabase.auth.admin.inviteUserByEmail(email);
 
@@ -47,6 +62,7 @@ export async function inviteUserLogic(
         id: resData.user?.id,
         email: resData.user?.email,
       },
+      reinvited: isReinvite,
     };
   } catch (err: unknown) {
     if (err instanceof AiError) throw err;
@@ -70,6 +86,7 @@ export async function listUsersWithStatusLogic(
       email: string;
       invitedAt: string | Date | null;
       confirmedAt: string | Date | null;
+      hasPassword?: boolean | null;
       createdAt: string | Date | null;
       noteCount: number;
     }>(
@@ -78,26 +95,34 @@ export async function listUsersWithStatusLogic(
          au.email,
          au.invited_at AS "invitedAt",
          COALESCE(au.confirmed_at, au.email_confirmed_at) AS "confirmedAt",
+         (au.encrypted_password IS NOT NULL AND au.encrypted_password <> '') AS "hasPassword",
          au.created_at AS "createdAt",
          COALESCE(d.note_count, 0)::int AS "noteCount"
        FROM auth.users au
        LEFT JOIN (
          SELECT user_id, count(*)::int AS note_count
          FROM public.documents
+         WHERE deleted_at IS NULL AND trashed_at IS NULL
          GROUP BY user_id
        ) d ON d.user_id = au.id
        ORDER BY au.created_at DESC`,
     );
 
-    return rows.map((r) => ({
-      uid: r.uid,
-      email: r.email,
-      invitedAt: r.invitedAt !== null && r.invitedAt !== undefined ? new Date(r.invitedAt).toISOString() : null,
-      confirmedAt: r.confirmedAt !== null && r.confirmedAt !== undefined ? new Date(r.confirmedAt).toISOString() : null,
-      createdAt: r.createdAt !== null && r.createdAt !== undefined ? new Date(r.createdAt).toISOString() : null,
-      noteCount: Number(r.noteCount) || 0,
-      pending: r.invitedAt !== null && r.invitedAt !== undefined && (r.confirmedAt === null || r.confirmedAt === undefined),
-    }));
+    return rows.map((r) => {
+      const hasPassword = r.hasPassword !== undefined
+        ? Boolean(r.hasPassword)
+        : (r.confirmedAt !== null && r.confirmedAt !== undefined);
+
+      return {
+        uid: r.uid,
+        email: r.email,
+        invitedAt: r.invitedAt !== null && r.invitedAt !== undefined ? new Date(r.invitedAt).toISOString() : null,
+        confirmedAt: r.confirmedAt !== null && r.confirmedAt !== undefined ? new Date(r.confirmedAt).toISOString() : null,
+        createdAt: r.createdAt !== null && r.createdAt !== undefined ? new Date(r.createdAt).toISOString() : null,
+        noteCount: Number(r.noteCount) || 0,
+        pending: !hasPassword,
+      };
+    });
   } catch (err: unknown) {
     if (err instanceof AiError) throw err;
     console.error('[listUsersWithStatus] error:', err);

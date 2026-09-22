@@ -68,7 +68,7 @@ export function ArchiveAnalysisButton() {
         showToast(`Разобрано заметок: ${result.analyzed}${tail}. Теперь можно обновить профиль`, 'success');
       }
     } catch (e) {
-      reportError(e, { action: 'archiveAnalysis_run' });
+      reportError(e, { action: 'archiveAnalysis_run' }, 'warning');
       showToast('Разбор не удался', 'error');
     } finally {
       setProgress(null);

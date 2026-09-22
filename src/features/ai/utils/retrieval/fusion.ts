@@ -2,6 +2,7 @@ import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import type { RetrievedNote } from './types';
+import { isExcludedFromAI } from '../isExcludedFromAI';
 
 /** Reciprocal Rank Fusion: combine two ranked lists into one.
  *  TICKET-045: supports keywordWeight to boost exact-term matches. */
@@ -81,7 +82,7 @@ export async function loadNotes(
   const db = await getLocalDb();
   for (const docId of ids) {
     const doc = await db.get('documents', docId);
-    if (!doc || doc.excludedFromAI) continue;
+    if (!doc || isExcludedFromAI(doc)) continue;
     const chunkIdx = chunkIndexMap?.get(docId);
 
     let content = '';

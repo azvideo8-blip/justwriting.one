@@ -54,6 +54,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const [error, setError] = useState<string | null>(null);
   const [rememberDevice, setRememberDeviceChecked] = useState(false);
   const [isAutoCreated, setIsAutoCreated] = useState(false);
+  const [unlockFailed, setUnlockFailed] = useState(false);
   // Код восстановления, который сейф отдал при создании. Пока он здесь, окно
   // с кодом стоит поверх всего, а `onDone` не зовётся: иначе код исчезает
   // молча, и человек остаётся с сейфом, ключ от которого не видел никто.
@@ -67,6 +68,10 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       void (async () => {
         try {
           const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+          const failedOnLogin = sessionStorage.getItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(userId)) === '1';
+          if (failedOnLogin && active) {
+            setUnlockFailed(true);
+          }
           const localFlag = localStorage.getItem(STORAGE_KEYS.VAULT_AUTO_CREATED(userId)) === '1';
           if (localFlag && active) {
             setIsAutoCreated(true);
@@ -140,6 +145,10 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setError(null);
     try {
       await unlockVault(userId, password);
+      try {
+        const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+        sessionStorage.removeItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(userId));
+      } catch { /* ignore */ }
       if (rememberDevice) {
         const key = getSessionKey();
         if (key) { await saveDeviceKey(userId, key); setRememberDevice(true); }
@@ -152,7 +161,8 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       onDone();
     } catch (err) {
       if (err instanceof WrongPasswordError) {
-        setError(t('unlock_wrong_password'));
+        setUnlockFailed(true);
+        setError(isAutoCreated ? t('enc_unlock_wrong_password_hint') : t('unlock_wrong_password'));
       } else {
         reportError(err, { action: 'unlockVault', userId });
         setError(t('unlock_cloud_unreachable'));
@@ -180,6 +190,10 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setError(null);
     try {
       await recoverVaultWithCode(userId, recoveryCode, password);
+      try {
+        const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+        sessionStorage.removeItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(userId));
+      } catch { /* ignore */ }
       await refreshProfile();
       showToast(t('enc_recovery_success'), 'success');
       setPassword('');
@@ -326,7 +340,11 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           </h2>
           <p className="text-sm text-text-main/60 mb-4">
             {isRecovering && t('enc_recovery_subtitle')}
-            {!isRecovering && isUnlock && (isAutoCreated ? t('enc_unlock_subtitle_account_password') : t('enc_unlock_subtitle'))}
+            {!isRecovering && isUnlock && (
+              isAutoCreated
+                ? (unlockFailed ? t('enc_unlock_subtitle_account_password_changed') : t('enc_unlock_subtitle_account_password'))
+                : t('enc_unlock_subtitle')
+            )}
             {isSetup && t('enc_setup_subtitle')}
             {isChange && t('enc_change_subtitle')}
             {isMigrate && t('enc_migrate_subtitle')}
@@ -402,7 +420,9 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 isRecovering
                   ? t('enc_recovery_new_password')
                   : isUnlock
-                  ? (isAutoCreated ? t('enc_account_password_placeholder') : '••••••••')
+                  ? (isAutoCreated
+                      ? (unlockFailed ? t('enc_previous_or_current_password_placeholder') : t('enc_account_password_placeholder'))
+                      : '••••••••')
                   : t('enc_new_password_placeholder')
               }
               aria-label={isUnlock && !isRecovering ? t('unlock_title') : t('enc_new_password_placeholder')}

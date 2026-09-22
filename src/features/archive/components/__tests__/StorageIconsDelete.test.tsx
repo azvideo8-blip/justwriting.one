@@ -10,6 +10,7 @@ vi.mock('../../../../core/services/StorageService', () => ({
     removeLocalCopy: vi.fn(),
     removeCloudCopy: vi.fn(),
     deleteDocument: vi.fn(),
+    trashDocument: vi.fn(),
   },
 }));
 
@@ -66,8 +67,8 @@ describe('POST-2: StorageIcons delete toasts based on cloudSynced', () => {
     vi.clearAllMocks();
   });
 
-  it('shows delete_local_only_queued toast when delete-local-only has cloudSynced = false', async () => {
-    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: false });
+  it('calls trashDocument and shows archive_trash_moved toast for delete-local-only (N-4)', async () => {
+    vi.mocked(StorageService.trashDocument).mockResolvedValueOnce({ cloudSynced: true });
 
     render(
       <StorageIcons
@@ -93,41 +94,13 @@ describe('POST-2: StorageIcons delete toasts based on cloudSynced', () => {
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
-      expect(StorageService.deleteDocument).toHaveBeenCalledWith(userId, 'local_1', undefined);
-      expect(mockShowToast).toHaveBeenCalledWith('delete_local_only_queued');
-      expect(mockShowToast).not.toHaveBeenCalledWith('storage_deleted_completely', 'success');
+      expect(StorageService.trashDocument).toHaveBeenCalledWith(userId, 'local_1', undefined);
+      expect(mockShowToast).toHaveBeenCalledWith('archive_trash_moved', 'success');
     });
   });
 
-  it('shows storage_deleted_completely toast when delete-local-only has cloudSynced = true', async () => {
-    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true });
-
-    render(
-      <StorageIcons
-        doc={{
-          localId: 'local_1',
-          hasLocal: true,
-          hasCloud: false,
-        }}
-        userId={userId}
-        onStorageChange={mockOnStorageChange}
-      />
-    );
-
-    const localBtn = screen.getByRole('button', { name: 'storage_remove_local' });
-    fireEvent.click(localBtn);
-
-    const confirmBtn = screen.getByRole('button', { name: 'storage_delete_confirm' });
-    fireEvent.click(confirmBtn);
-
-    await waitFor(() => {
-      expect(StorageService.deleteDocument).toHaveBeenCalledWith(userId, 'local_1', undefined);
-      expect(mockShowToast).toHaveBeenCalledWith('storage_deleted_completely', 'success');
-    });
-  });
-
-  it('shows delete_local_only_queued toast when delete-cloud-only has cloudSynced = false', async () => {
-    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: false });
+  it('calls trashDocument and shows archive_trash_moved toast for delete-cloud-only (N-4)', async () => {
+    vi.mocked(StorageService.trashDocument).mockResolvedValueOnce({ cloudSynced: false });
 
     render(
       <StorageIcons
@@ -151,9 +124,8 @@ describe('POST-2: StorageIcons delete toasts based on cloudSynced', () => {
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
-      expect(StorageService.deleteDocument).toHaveBeenCalledWith(userId, undefined, 'cloud_1');
-      expect(mockShowToast).toHaveBeenCalledWith('delete_local_only_queued');
-      expect(mockShowToast).not.toHaveBeenCalledWith('storage_deleted_completely', 'success');
+      expect(StorageService.trashDocument).toHaveBeenCalledWith(userId, undefined, 'cloud_1');
+      expect(mockShowToast).toHaveBeenCalledWith('archive_trash_moved', 'success');
     });
   });
 });

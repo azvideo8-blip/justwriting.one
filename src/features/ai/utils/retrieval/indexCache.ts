@@ -4,6 +4,7 @@ import { LocalVersionService } from '../../../../core/services/LocalVersionServi
 import { getCurrentUser } from '../../../../core/auth';
 import { CACHE_TTL_MS } from './types';
 import { searchCache } from './resultCache';
+import { isExcludedFromAI } from '../isExcludedFromAI';
 
 interface MiniSearchCacheEntry {
   instance: MiniSearch;
@@ -38,7 +39,7 @@ export async function refreshMiniSearchDoc(documentId: string, ownerId?: string)
     corpusVersion++;
     const db = await getLocalDb();
     const doc = await db.get('documents', documentId);
-    if (!doc || doc.excludedFromAI) return;
+    if (!doc || isExcludedFromAI(doc)) return;
     const content = await LocalVersionService.getLatestContent(documentId);
     if (!content) return;
     await ms.addAllAsync([{
@@ -93,7 +94,7 @@ export async function getMiniSearch(ownerId?: string): Promise<MiniSearch> {
 
   const entries: { id: string; title: string; content: string }[] = [];
   for (const doc of docs) {
-    if (doc.excludedFromAI) continue;
+    if (isExcludedFromAI(doc)) continue;
     const content = await LocalVersionService.getLatestContent(doc.id);
     if (!content) continue;
     entries.push({

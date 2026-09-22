@@ -6,6 +6,7 @@ import { RESURFACE_FLOOR } from './noteRetriever';
 import { reportError } from '../../../shared/errors/reportError';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { isExcludedFromAI } from './isExcludedFromAI';
 import type { RelatedNote, FindRelatedNotesOptions } from '../../../shared/types/common';
 
 export type { RelatedNote, FindRelatedNotesOptions };
@@ -76,7 +77,7 @@ export async function findRelatedNotes(
   for (const emb of allEmbeddings) {
     if (ignored.has(emb.documentId)) continue;
     const doc = docMap.get(emb.documentId);
-    if (!doc || doc.excludedFromAI) continue;
+    if (!doc || isExcludedFromAI(doc)) continue;
 
     // Age filter
     const ts = doc.lastSessionAt || doc.firstSessionAt || 0;

@@ -10,6 +10,7 @@ import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { Input } from '../../../shared/components/Input';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 interface DocumentPickerModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
     void (async () => {
       try {
         const guestId = getCurrentUser()?.uid ?? getOrCreateGuestId();
-        const allDocs = (await LocalDocumentService.getDocumentsByOwner(guestId)).filter(d => !d.excludedFromAI);
+        const allDocs = (await LocalDocumentService.getDocumentsByOwner(guestId)).filter(d => !isExcludedFromAI(d));
         allDocs.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
         const limit = pLimit(10);
         const entries: DocEntry[] = await Promise.all(

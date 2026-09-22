@@ -29,11 +29,13 @@ export function ResetPasswordPage() {
   const [linkExpired, setLinkExpired] = useState(false);
   const [email, setEmail] = useState<string | null>(() => searchParams.get('email') || (getCurrentUser()?.email ?? null));
   // Приглашённый задаёт первый пароль — те же поля, другие слова.
-  const isInvite = searchParams.get('type') === 'invite';
-  const [legacyInviteHash] = useState(() => {
+  const [isInvite] = useState(() => {
+    return searchParams.get('type') === 'invite' || (typeof window !== 'undefined' && window.location.hash.includes('type=invite'));
+  });
+  const [legacyHash] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
-      return hash.includes('access_token=') && hash.includes('type=invite');
+      return hash.includes('access_token=');
     }
     return false;
   });
@@ -124,7 +126,7 @@ export function ResetPasswordPage() {
       <div className="w-full max-w-sm space-y-4">
         <h1 className="text-xl font-semibold">{isInvite ? 'Задайте пароль' : 'Восстановление пароля'}</h1>
 
-        {legacyInviteHash && !done && (
+        {legacyHash && !done && (
           <div className="space-y-3">
             <p className="text-sm text-accent-warning">
               Ссылка из письма имеет устаревший формат (implicit hash). Запросите новую ссылку или откройте её повторно.
@@ -139,7 +141,7 @@ export function ResetPasswordPage() {
           </div>
         )}
 
-        {!legacyInviteHash && linkExpired && !done && (
+        {!legacyHash && linkExpired && !done && (
           <div className="space-y-3">
             <p className="text-sm text-accent-danger">
               Ссылка уже использована или устарела — запросите новую
@@ -154,21 +156,20 @@ export function ResetPasswordPage() {
           </div>
         )}
 
-        {!recoveryMode && !done && !linkExpired && (
+        {!recoveryMode && !done && !linkExpired && !legacyHash && (
           <p className="text-sm opacity-70">
             Откройте эту страницу по ссылке из письма. Если вы перешли напрямую —
             запросите восстановление пароля на странице входа.
           </p>
         )}
 
-        {recoveryMode && !done && (
+        {recoveryMode && !done && !legacyHash && (
           <form onSubmit={e => { void submit(e); }} className="space-y-3">
             {!isInvite && (
               <div className="p-3 rounded-lg bg-accent-warning/10 border border-accent-warning/30 text-accent-warning text-xs leading-relaxed">
                 <strong>Важно:</strong> смена пароля аккаунта не меняет пароль шифрования заметок.
-                Если вы не сохранили код восстановления шифрования, доступ к облачным заметкам на
-                других устройствах будет потерян. Код восстановления можно было увидеть при
-                первоначальной настройке шифрования или в разделе Настройки → Безопасность.
+                На этом устройстве доступ сохранится, а для входа на других устройствах потребуется прежний пароль
+                или код восстановления шифрования (его можно посмотреть в Настройки → Безопасность).
               </div>
             )}
             <input

@@ -98,6 +98,8 @@ describe('accountScopedKeys inventory test (LS-5 + LS-8)', () => {
       [`pending_keys_${SENTINEL}`]: 'sessionStorage only (AuthService.ts)',
       // draft-deleted- is exclusively stored in sessionStorage (WritingDraftService.ts)
       [`draft-deleted-${SENTINEL}`]: 'sessionStorage only (WritingDraftService.ts)',
+      // vault_auto_unlock_failed_ is exclusively stored in sessionStorage (AuthService.ts)
+      [`vault_auto_unlock_failed_${SENTINEL}`]: 'sessionStorage only (AuthService.ts)',
     };
 
     const missing: string[] = [];

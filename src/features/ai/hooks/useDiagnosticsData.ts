@@ -440,13 +440,24 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
     setInvitingUser(true);
     try {
-      await AdminUserService.inviteUser(trimmed);
-      showToast(t('admin_invite_success', { email: trimmed }), 'success');
+      const res = await AdminUserService.inviteUser(trimmed);
+      if (res?.reinvited) {
+        showToast(t('admin_invite_resend_success', { email: trimmed }), 'success');
+      } else {
+        showToast(t('admin_invite_success', { email: trimmed }), 'success');
+      }
       await fetchData();
       return true;
     } catch (e: unknown) {
-      reportError(e, { action: 'Failed to invite user' });
-      const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
+      const rawMsg = e instanceof Error ? e.message : 'Ошибка сервера';
+      let errMsg = rawMsg;
+      if (/already been registered/i.test(rawMsg)) {
+        errMsg = 'Пользователь с таким email уже зарегистрирован';
+      } else if (/invalid email/i.test(rawMsg)) {
+        errMsg = 'Некорректный email';
+      } else if (/rate limit|too many requests/i.test(rawMsg)) {
+        errMsg = 'Слишком много запросов. Попробуйте позже.';
+      }
       showToast(t('admin_invite_error', { error: errMsg }), 'error');
       return false;
     } finally {
@@ -461,7 +472,6 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       await sendPasswordResetEmail(email);
       showToast(t('admin_reset_password_success', { email }), 'success');
     } catch (e: unknown) {
-      reportError(e, { action: 'Failed to send password reset' });
       const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
       showToast(t('admin_reset_password_error', { error: errMsg }), 'error');
     } finally {

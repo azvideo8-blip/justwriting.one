@@ -154,7 +154,7 @@ export function DocumentPreview({
         );
       }
     } catch (e) {
-      reportError(e, { action: 'documentPreview_analyze', documentId: session.id });
+      reportError(e, { action: 'documentPreview_analyze', documentId: session.id }, 'warning');
       setAnalyzeError(t('ai_error_server'));
       showToast(t('ai_error_server'), 'error');
     } finally {

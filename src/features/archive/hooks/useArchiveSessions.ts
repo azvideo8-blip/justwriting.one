@@ -40,6 +40,29 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
       if (!mountedRef.current) return;
       setSessions(remainingSessions);
       setCloudLoadFailed(result.cloudLoadFailed);
+
+      if (user) {
+        const untitledCloudNotes = remainingSessions.filter(s =>
+          !s._isLocal && s._contentNotLoaded && !s.title?.trim() && !s._locked && !s._decryptionError
+        ).slice(0, 10);
+        if (untitledCloudNotes.length > 0) {
+          void (async () => {
+            for (const item of untitledCloudNotes) {
+              if (!mountedRef.current) break;
+              try {
+                const flags = await loadSessionContent(user.uid, item.id);
+                if (!mountedRef.current) break;
+                if (flags._locked) {
+                  flags._contentNotLoaded = true;
+                }
+                setSessions(prev => prev.map(s => s.id === item.id ? { ...s, ...flags } : s));
+              } catch {
+                // Non-critical background preview hydration
+              }
+            }
+          })();
+        }
+      }
     } catch (err) {
       if (!mountedRef.current) return;
       logger.error('archive', 'Archive load error', { error: String(err) });

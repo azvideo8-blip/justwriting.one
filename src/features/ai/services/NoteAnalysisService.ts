@@ -8,6 +8,7 @@ import { AIEmbeddingService } from './AIEmbeddingService';
 import { indexDocument, indexPending, sha256Hex, type IndexResult } from '../utils/embeddingIndexer';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import type { AIErrorCode } from '../types/aiErrors';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 /**
  * Разбор одной заметки — по явному нажатию, и только по нему.
@@ -94,7 +95,7 @@ export const NoteAnalysisService = {
   async analyze(documentId: string): Promise<AnalyzeResult> {
     const db = await getLocalDb();
     const doc = await db.get('documents', documentId);
-    if (doc?.excludedFromAI) return { ok: false, error: 'EXCLUDED' };
+    if (isExcludedFromAI(doc)) return { ok: false, error: 'EXCLUDED' };
 
     const content = await latestContent(documentId);
     if (!content || content.trim().length === 0) return { ok: false, error: 'NO_CONTENT' };
@@ -176,7 +177,7 @@ export const NoteAnalysisService = {
     };
 
     for (const doc of documents) {
-      if (doc.excludedFromAI) {
+      if (isExcludedFromAI(doc)) {
         survey.excluded++;
         continue;
       }

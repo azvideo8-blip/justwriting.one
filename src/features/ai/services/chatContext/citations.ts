@@ -11,9 +11,9 @@ export function extractCitationIds(content: string): string[] {
   return ids;
 }
 
-export interface CitableDoc {
-  excludedFromAI?: boolean | undefined;
-}
+import { isExcludedFromAI, type ExcludableDoc } from '../../utils/isExcludedFromAI';
+
+export type CitableDoc = ExcludableDoc;
 
 export async function validateCitationIds(
   ids: readonly string[],
@@ -23,7 +23,7 @@ export async function validateCitationIds(
   for (const id of ids) {
     try {
       const cited = await lookup(id);
-      if (cited && !cited.excludedFromAI) valid.push(id);
+      if (cited && !isExcludedFromAI(cited)) valid.push(id);
     } catch { /* ignore */ }
   }
   return valid;

@@ -13,6 +13,7 @@ vi.mock("../../../../shared/errors/reportError", () => ({ reportError: vi.fn() }
 describe("D4.18 Note Retriever Exclusion", () => {
   const NORMAL_ID = "local_normal_note";
   const EXCLUDED_ID = "local_excluded_note";
+  const TRASHED_ID = "local_trashed_note";
 
   beforeEach(async () => {
     vi.restoreAllMocks();
@@ -39,12 +40,20 @@ describe("D4.18 Note Retriever Exclusion", () => {
       excludedFromAI: true,
     } as never);
 
+    await db.put("documents", {
+      id: TRASHED_ID, guestId: "u1", title: "Удалённый рецепт пирога в корзине", currentVersion: 1,
+      totalWords: 20, totalDuration: 0, sessionsCount: 1,
+      firstSessionAt: 3000, lastSessionAt: 3000, tags: [],
+      excludedFromAI: false,
+      trashedAt: Date.now(),
+    } as never);
+
     vi.spyOn(AIService, "rerank").mockResolvedValue({ ok: false, error: "x" } as never);
-    vi.spyOn(LocalVersionService, "getLatestContent").mockImplementation(async (id: string) =>
-      id === NORMAL_ID
-        ? "Обычный рецепт яблочного пирога с корицей."
-        : "Очень личные мысли про пирог и семейные тайны."
-    );
+    vi.spyOn(LocalVersionService, "getLatestContent").mockImplementation(async (id: string) => {
+      if (id === NORMAL_ID) return "Обычный рецепт яблочного пирога с корицей.";
+      if (id === TRASHED_ID) return "Старый пирог в корзине.";
+      return "Очень личные мысли про пирог и семейные тайны.";
+    });
   });
 
   it("searchNotes excludes notes marked as excludedFromAI on keyword match", async () => {
@@ -56,12 +65,14 @@ describe("D4.18 Note Retriever Exclusion", () => {
     const ids = results.map(r => r.documentId);
     expect(ids).toContain(NORMAL_ID);
     expect(ids).not.toContain(EXCLUDED_ID);
+    expect(ids).not.toContain(TRASHED_ID);
   });
 
   it("searchNotes excludes notes marked as excludedFromAI on vector match", async () => {
     vi.spyOn(AIEmbeddingService, "getAll").mockResolvedValue([
       { documentId: NORMAL_ID, vectors: [[1, 0, 0]], contentHash: "h1", processedAt: 1, model: "m", dim: 3 },
       { documentId: EXCLUDED_ID, vectors: [[1, 0, 0]], contentHash: "h2", processedAt: 1, model: "m", dim: 3 },
+      { documentId: TRASHED_ID, vectors: [[1, 0, 0]], contentHash: "h3", processedAt: 1, model: "m", dim: 3 },
     ] as never);
     vi.spyOn(AIService, "embed").mockResolvedValue({ ok: true, vectors: [[1, 0, 0]] } as never);
     vi.spyOn(AIService, "rerank").mockResolvedValue({ ok: false, error: "x" } as never);
@@ -70,12 +81,14 @@ describe("D4.18 Note Retriever Exclusion", () => {
     const ids = results.map(r => r.documentId);
     expect(ids).toContain(NORMAL_ID);
     expect(ids).not.toContain(EXCLUDED_ID);
+    expect(ids).not.toContain(TRASHED_ID);
   });
 
-  it("searchNotesMulti excludes notes marked as excludedFromAI", async () => {
+  it("searchNotesMulti excludes notes marked as excludedFromAI or trashed", async () => {
     vi.spyOn(AIEmbeddingService, "getAll").mockResolvedValue([
       { documentId: NORMAL_ID, vectors: [[1, 0, 0]], contentHash: "h1", processedAt: 1, model: "m", dim: 3 },
       { documentId: EXCLUDED_ID, vectors: [[1, 0, 0]], contentHash: "h2", processedAt: 1, model: "m", dim: 3 },
+      { documentId: TRASHED_ID, vectors: [[1, 0, 0]], contentHash: "h3", processedAt: 1, model: "m", dim: 3 },
     ] as never);
     vi.spyOn(AIService, "embed").mockResolvedValue({ ok: true, vectors: [[1, 0, 0]] } as never);
 
@@ -83,12 +96,14 @@ describe("D4.18 Note Retriever Exclusion", () => {
     const ids = res.notes.map(n => n.documentId);
     expect(ids).toContain(NORMAL_ID);
     expect(ids).not.toContain(EXCLUDED_ID);
+    expect(ids).not.toContain(TRASHED_ID);
   });
 
-  it("findRelatedNotes excludes notes marked as excludedFromAI", async () => {
+  it("findRelatedNotes excludes notes marked as excludedFromAI or trashed", async () => {
     vi.spyOn(AIEmbeddingService, "getAll").mockResolvedValue([
       { documentId: NORMAL_ID, vectors: [[1, 0, 0]], contentHash: "h1", processedAt: 1, model: "m", dim: 3 },
       { documentId: EXCLUDED_ID, vectors: [[1, 0, 0]], contentHash: "h2", processedAt: 1, model: "m", dim: 3 },
+      { documentId: TRASHED_ID, vectors: [[1, 0, 0]], contentHash: "h3", processedAt: 1, model: "m", dim: 3 },
     ] as never);
     vi.spyOn(AIService, "embed").mockResolvedValue({ ok: true, vectors: [[1, 0, 0]] } as never);
 
@@ -96,6 +111,7 @@ describe("D4.18 Note Retriever Exclusion", () => {
     const ids = results.map(r => r.documentId);
     expect(ids).toContain(NORMAL_ID);
     expect(ids).not.toContain(EXCLUDED_ID);
+    expect(ids).not.toContain(TRASHED_ID);
   });
 
   it("invalidateMiniSearchCache immediately updates keyword search results after exclusion toggled", async () => {

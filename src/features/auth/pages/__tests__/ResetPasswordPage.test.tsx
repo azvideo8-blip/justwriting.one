@@ -141,4 +141,18 @@ describe('1.3 password recovery', () => {
       state: { email: 'invited@example.com' },
     });
   });
+
+  it('legacy access_token hash displays legacy warning and hides password form even if signed in', async () => {
+    getCurrentUser.mockReturnValue({ uid: 'signed_in_user_1', email: 'user@example.com' });
+    const originalHash = window.location.hash;
+    window.location.hash = '#access_token=legacy123&type=recovery';
+
+    try {
+      renderPage(['/reset-password#access_token=legacy123&type=recovery']);
+      expect(screen.getByText(/Ссылка из письма имеет устаревший формат/)).toBeTruthy();
+      expect(screen.queryByPlaceholderText(/Новый пароль/)).toBeNull();
+    } finally {
+      window.location.hash = originalHash;
+    }
+  });
 });

@@ -217,6 +217,7 @@ export async function restoreArchiveSession(
   }
   const result = await StorageService.restoreDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.restored', documentId: session.id });
+  useActivityLogStore.getState().addActivity('заметка восстановлена из корзины', undefined, 'info', 'archive');
   return result;
 }
 
@@ -228,7 +229,7 @@ export async function emptyTrash(
   let failCount = 0;
   for (const session of trashedSessions) {
     try {
-      await deleteArchiveSession(session, userId);
+      await deleteArchiveSession(session, userId, { skipActivityLog: true });
       successCount++;
     } catch (e) {
       failCount++;
@@ -241,7 +242,8 @@ export async function emptyTrash(
 
 export async function deleteArchiveSession(
   session: ArchiveSession,
-  userId: string
+  userId: string,
+  opts?: { skipActivityLog?: boolean }
 ): Promise<{ cloudSynced: boolean }> {
   const localId = session._isLocal ? session.id : undefined;
   let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
@@ -256,6 +258,9 @@ export async function deleteArchiveSession(
   }
   const result = await StorageService.deleteDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.deleted', documentId: session.id });
+  if (!opts?.skipActivityLog) {
+    useActivityLogStore.getState().addActivity('заметка удалена навсегда', undefined, 'info', 'archive');
+  }
   return result;
 }
 
@@ -278,7 +283,7 @@ export async function pruneExpiredTrash(
   }
 
   if (expired.length > 0) {
-    await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId)));
+    await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
   }
 
   return { prunedCount: expired.length, remainingSessions };

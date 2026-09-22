@@ -23,14 +23,22 @@ vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
 
+const { unlockVault, WrongPasswordError } = vi.hoisted(() => {
+  class WrongPasswordError extends Error {}
+  return {
+    unlockVault: vi.fn(),
+    WrongPasswordError,
+  };
+});
+
 vi.mock('../../../../core/services/EncryptionService', () => ({
   initializeEncryption: (...args: unknown[]) => initializeEncryption(...args),
   migrateNotesAfterSetup: (...args: unknown[]) => migrateNotesAfterSetup(...args),
-  unlockVault: vi.fn(),
+  unlockVault: (...args: unknown[]) => unlockVault(...args),
   recoverVaultWithCode: vi.fn(),
   changePassword: vi.fn(),
   VaultAlreadyExistsError: class VaultAlreadyExistsError extends Error {},
-  WrongPasswordError: class WrongPasswordError extends Error {},
+  WrongPasswordError,
   WrongRecoveryCodeError: class WrongRecoveryCodeError extends Error {},
 }));
 
@@ -144,3 +152,75 @@ describe('EncryptionPasswordModal, режим создания сейфа', () =
     await waitFor(() => expect(mockRefreshProfile).toHaveBeenCalledTimes(1));
   });
 });
+
+describe('EncryptionPasswordModal, режим разблокировки (R-6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('показывает обычную подсказку для аккаунт-пароля при первом открытии', async () => {
+    localStorage.setItem('vault_auto_created_u1', '1');
+    render(<EncryptionPasswordModal mode="unlock" userId="u1" onDone={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('enc_unlock_subtitle_account_password')).toBeTruthy();
+    });
+    expect(screen.getByPlaceholderText('enc_account_password_placeholder')).toBeTruthy();
+  });
+
+  it('адаптирует подсказку на enc_unlock_subtitle_account_password_changed, если авторазблокировка на логине не удалась', async () => {
+    localStorage.setItem('vault_auto_created_u1', '1');
+    sessionStorage.setItem('vault_auto_unlock_failed_u1', '1');
+    render(<EncryptionPasswordModal mode="unlock" userId="u1" onDone={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('enc_unlock_subtitle_account_password_changed')).toBeTruthy();
+    });
+    expect(screen.getByPlaceholderText('enc_previous_or_current_password_placeholder')).toBeTruthy();
+  });
+
+  it('переключает подсказку на changed и показывает hint при неверном пароле в модалке', async () => {
+    localStorage.setItem('vault_auto_created_u1', '1');
+    unlockVault.mockRejectedValueOnce(new WrongPasswordError('wrong'));
+
+    render(<EncryptionPasswordModal mode="unlock" userId="u1" onDone={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('enc_unlock_subtitle_account_password')).toBeTruthy();
+    });
+
+    const input = screen.getByPlaceholderText('enc_account_password_placeholder');
+    fireEvent.change(input, { target: { value: 'some-new-password' } });
+    fireEvent.click(screen.getByText('enc_unlock_submit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('enc_unlock_wrong_password_hint')).toBeTruthy();
+      expect(screen.getByText('enc_unlock_subtitle_account_password_changed')).toBeTruthy();
+    });
+  });
+
+  it('очищает флаг сбоя после успешной разблокировки', async () => {
+    localStorage.setItem('vault_auto_created_u1', '1');
+    sessionStorage.setItem('vault_auto_unlock_failed_u1', '1');
+    unlockVault.mockResolvedValueOnce(undefined);
+
+    const onDone = vi.fn();
+    render(<EncryptionPasswordModal mode="unlock" userId="u1" onDone={onDone} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('enc_unlock_subtitle_account_password_changed')).toBeTruthy();
+    });
+
+    const input = screen.getByPlaceholderText('enc_previous_or_current_password_placeholder');
+    fireEvent.change(input, { target: { value: 'correct-password' } });
+    fireEvent.click(screen.getByText('enc_unlock_submit'));
+
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalled();
+    });
+    expect(sessionStorage.getItem('vault_auto_unlock_failed_u1')).toBeNull();
+  });
+});
+

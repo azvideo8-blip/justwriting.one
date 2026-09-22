@@ -176,6 +176,11 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           <div className="font-mono text-label-sm text-text-main/60 mt-0.5 hover:text-text-main/60 tabular-nums">
             {timeStr}
           </div>
+          {!session._isLocal && session._hasCloudCopy && (
+            <div className="font-mono text-[10px] text-brand-soft mt-1 leading-tight truncate" title={t('archive_cloud_only')}>
+              {t('archive_cloud_only')}
+            </div>
+          )}
         </div>
         {editingDateTime && (
           <div
@@ -263,6 +268,11 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 <EyeOff size={13} aria-label={t('ai_note_excluded')} />
               </span>
             )}
+            {!session._isLocal && session._hasCloudCopy && (
+              <span className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-soft/10 text-brand-soft shrink-0 border border-brand-soft/20">
+                {t('archive_cloud_only')}
+              </span>
+            )}
             {session._locked ? (
               <span className="inline-flex items-center gap-1.5 text-text-main/70 italic">
                 <Lock size={13} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
@@ -279,7 +289,8 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   const firstContentLine = session.content
                     ? session.content.split('\n').map(l => l.trim()).find(l => l.length > 0)
                     : undefined;
-                  const displayTitle = session.title?.trim() || firstContentLine || t('session_untitled');
+                  const isCloudOnly = !session._isLocal && session._hasCloudCopy;
+                  const displayTitle = session.title?.trim() || firstContentLine || (isCloudOnly ? t('archive_cloud_only_note') : t('session_untitled'));
                   return highlightText(displayTitle, searchQuery ?? '');
                 })()}
               </span>

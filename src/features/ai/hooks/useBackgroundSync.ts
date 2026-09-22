@@ -36,10 +36,20 @@ export function useBackgroundSync(): void {
     if (runningRef.current) return;
     const uid = getCurrentUser()?.uid;
     if (!uid) return;
-    if (!cloudSyncEnabled(uid)) return;
 
     runningRef.current = true;
     try {
+      // R-1: Дренаж очереди задач синхронизации (например, прерванные сохранения
+      // при «Завершить» или явных действиях пользователя) выполняется
+      // независимо от тумблера фонового автосинка через force: true.
+      try {
+        const { SyncService } = await import('../../../core/services/SyncService');
+        await SyncService.syncPending(uid, { force: true });
+      } catch (e) {
+        reportError(e, { action: 'backgroundSync_syncPending' });
+      }
+
+      if (!cloudSyncEnabled(uid)) return;
       // Раз в сутки на аккаунт: вернуть заметки и разбор, которых на
       // устройстве нет. Оба сканирования ниже читают только локальные
       // хранилища, поэтому после очистки они бы сочли, что ничего никогда
@@ -83,7 +93,7 @@ export function useBackgroundSync(): void {
       try {
         const { SyncService } = await import('../../../core/services/SyncService');
         await SyncService.sweepOrphanedDocuments(uid);
-        await SyncService.syncPending(uid);
+        await SyncService.syncPending(uid, { force: true });
       } catch (e) {
         reportError(e, { action: 'backgroundSync_sweepOrphanedDocuments' });
       }

@@ -28,6 +28,10 @@ vi.mock('../../../../core/services/CloudSyncService', () => ({
   CloudSyncService: { restoreMissingDocuments: (...a: unknown[]) => mockRestore(...a) },
 }));
 
+vi.mock('../../../../core/services/SyncService', () => ({
+  SyncService: { syncPending: vi.fn().mockResolvedValue(undefined) },
+}));
+
 vi.mock('../../../../core/services/LocalStoreSyncService', () => ({
   LocalStoreSyncService: {
     retryOversizedRecords: vi.fn(),
