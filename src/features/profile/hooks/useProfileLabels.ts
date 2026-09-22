@@ -1,38 +1,72 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ProfileService } from '../../../core/services/ProfileService';
 import { randomUUID } from '../../../core/storage/localDb';
 import { Label } from '../../../types';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { reportError } from '../../../shared/errors/reportError';
+import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 
 const labelCache = new Map<string, Label[]>();
 const fetchedSet = new Set<string>();
+
+export function clearProfileLabelCache(userId?: string) {
+  if (userId) {
+    labelCache.delete(userId);
+    fetchedSet.delete(userId);
+  } else {
+    labelCache.clear();
+    fetchedSet.clear();
+  }
+}
 
 export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   const cached = labelCache.get(userId);
   const [labels, setLabels] = useState<Label[]>(cached ?? initialLabels);
   const [loading, setLoading] = useState(false);
+  const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
+  const prevVaultUnlockedRef = useRef(isVaultUnlocked);
 
   useEffect(() => {
-    if (initialLabels.length > 0 && !labelCache.has(userId)) {
-      labelCache.set(userId, initialLabels);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by !labelCache.has(userId) to seed initial labels once
-      setLabels(initialLabels);
+    if (initialLabels.length > 0) {
+      const hasRealNames = initialLabels.some(l => l.name.length > 0 && l.name !== '…');
+      const currentHasPlaceholdersOnly = labels.length === 0 || labels.every(l => l.name === '…');
+      if (!labelCache.has(userId) || (hasRealNames && currentHasPlaceholdersOnly)) {
+        labelCache.set(userId, initialLabels);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- guarded by currentHasPlaceholdersOnly and labelCache check to prevent cascading re-renders
+        setLabels(initialLabels);
+      }
     }
-  }, [initialLabels, userId]);
+  }, [initialLabels, userId, labels]);
 
   useEffect(() => {
     if (fetchedSet.has(userId) || !userId || userId.startsWith('guest')) return;
     ProfileService.getProfile(userId).then(result => {
       fetchedSet.add(userId);
       if (!result.error && result.data?.labels) {
-        const labels = result.data.labels;
-        labelCache.set(userId, labels);
-        setLabels(labels);
+        const fetched = result.data.labels;
+        labelCache.set(userId, fetched);
+        setLabels(fetched);
       }
     }).catch(e => { reportError(e, { action: 'profileLabels/fetchProfile' }); });
   }, [userId]);
+
+  // BUG-1: When vault unlocks, clear stale cached '…' placeholders and re-fetch decrypted labels
+  useEffect(() => {
+    if (isVaultUnlocked && !prevVaultUnlockedRef.current && userId && !userId.startsWith('guest')) {
+      labelCache.delete(userId);
+      fetchedSet.delete(userId);
+      ProfileService.getProfile(userId).then(result => {
+        fetchedSet.add(userId);
+        if (!result.error && result.data?.labels) {
+          const fetched = result.data.labels;
+          labelCache.set(userId, fetched);
+          setLabels(fetched);
+        }
+      }).catch(e => { reportError(e, { action: 'profileLabels/fetchProfile_unlock' }); });
+    }
+    prevVaultUnlockedRef.current = isVaultUnlocked;
+  }, [isVaultUnlocked, userId]);
 
   useEffect(() => {
     return () => {

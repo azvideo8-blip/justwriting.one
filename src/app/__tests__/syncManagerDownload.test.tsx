@@ -44,7 +44,7 @@ describe('SyncManager triggers downloadAllFromCloud', () => {
     rerender(<SyncManager />);
 
     expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test');
-    expect(syncPending).toHaveBeenCalledWith('u_sync_test');
+    expect(syncPending).toHaveBeenCalledWith('u_sync_test', { force: true });
   });
 
   it('triggers downloadAllFromCloud on vault unlocked event', async () => {

@@ -11,6 +11,7 @@ const CANONICAL_FIELDS = Object.keys({
   title: 1, currentVersion: 1, totalWords: 1, totalDuration: 1,
   sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1,
   isPublic: 1, tags: 1, labelId: 1, mood: 1, excludedFromAI: 1,
+  trashedAt: 1,
 } satisfies Record<keyof DocumentFields<unknown>, unknown>);
 
 function fullDbDoc(): DocumentDb {
@@ -31,6 +32,7 @@ function fullDbDoc(): DocumentDb {
     labelId: 'label_1',
     mood: 'calm',
     excludedFromAI: true,
+    trashedAt: new Date('2026-08-24T12:00:00Z'),
   } as unknown as DocumentDb;
 }
 

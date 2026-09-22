@@ -275,7 +275,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               </span>
             ) : (
               <span className="truncate">
-                {highlightText(session.title || t('session_untitled'), searchQuery ?? '')}
+                {(() => {
+                  const firstContentLine = session.content
+                    ? session.content.split('\n').map(l => l.trim()).find(l => l.length > 0)
+                    : undefined;
+                  const displayTitle = session.title?.trim() || firstContentLine || t('session_untitled');
+                  return highlightText(displayTitle, searchQuery ?? '');
+                })()}
               </span>
             )}
           </div>

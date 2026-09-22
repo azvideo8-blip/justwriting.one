@@ -89,7 +89,7 @@ export function SettingsPage() {
           </div>
         </nav>
 
-        <div className="min-w-0 flex-1 space-y-12">
+        <div className="min-w-0 flex-1 space-y-12 overflow-x-hidden">
           <header className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-text-main">{t('settings_title')}</h1>
             <p className="text-sm text-text-main/60">{t('settings_page_subtitle')}</p>

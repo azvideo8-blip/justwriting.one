@@ -11,6 +11,7 @@ import { ProfileProvider } from '../features/auth/contexts/ProfileContext';
 import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ReactNode, useEffect, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
 import { SyncConsentModal, useSyncConsentCheck } from '../features/settings/components/SyncConsentModal';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
@@ -47,6 +48,8 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuthStatus();
   const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
   const { showConsent, setShowConsent } = useSyncConsentCheck();
+  const location = useLocation();
+  const isResetPassword = location.pathname.startsWith('/reset-password');
   useBackgroundSync();
 
   useEffect(() => {
@@ -70,10 +73,10 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      {isAuthenticated && showPrivacy && (
+      {isAuthenticated && !isResetPassword && showPrivacy && (
         <PrivacyModal onAccepted={() => setShowPrivacy(false)} />
       )}
-      {isAuthenticated && !showPrivacy && showConsent && user && (
+      {isAuthenticated && !isResetPassword && !showPrivacy && showConsent && user && (
         <SyncConsentModal userId={user.uid} onClose={() => setShowConsent(false)} />
       )}
     </>
@@ -113,9 +116,11 @@ export function SyncManager() {
 
   // Browser online recovery
   useEffect(() => {
-    if (isBrowserOnline && !prevBrowserOnline.current && user && localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
-      SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
-      SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
+    if (isBrowserOnline && !prevBrowserOnline.current && user) {
+      SyncService.syncPending(user.uid, { force: true }).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
+      if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
+        SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
+      }
     }
     prevBrowserOnline.current = isBrowserOnline;
   }, [isBrowserOnline, user]);

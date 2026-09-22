@@ -107,9 +107,11 @@ export function AIChatComposer(props: AIChatComposerProps) {
 
   // UI-07 review: chat and reasoning are separate server buckets. Gate BOTH the
   // input and the send button on the active mode's bucket — the send button was
-  // fixed in review, the textarea was not, so a reasoning user with chat spent
-  // could not type. One predicate, two consumers, so they cannot drift again.
   const outOfQuota = reasoning ? reasoningRem <= 0 : dailyLimitRemaining <= 0;
+  const isReasoningOnly = reasoning && reasoningRem <= 0 && dailyLimitRemaining > 0;
+  const quotaNoticeText = isReasoningOnly
+    ? t('ai_quota_reasoning_exhausted')
+    : t('ai_quota_exhausted');
 
   useEffect(() => {
     const el = inputRef.current;
@@ -165,6 +167,11 @@ export function AIChatComposer(props: AIChatComposerProps) {
               ))}
             </div>
           )}
+          {outOfQuota && (
+            <div className="mb-2 px-3 py-2 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning flex items-center justify-between">
+              <span>{quotaNoticeText}</span>
+            </div>
+          )}
           <div className="flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors min-w-0">
             <div className="relative" ref={attachMenuRef}>
               <IconButton
@@ -205,7 +212,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-              placeholder={t('ai_write_placeholder', { name: personaName.toLowerCase() })}
+              placeholder={outOfQuota ? quotaNoticeText : t('ai_write_placeholder', { name: personaName.toLowerCase() })}
               disabled={isLoading || outOfQuota}
               rows={1}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-base text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"

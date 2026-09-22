@@ -38,5 +38,11 @@ ssh "$HOST" "sudo find /var/www/justwriting/assets -type f -mtime +$KEEP_DAYS -d
 echo "4/4 · проверяю…"
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://justwriting.ru/)
 [ "$code" = "200" ] || { echo "сайт отвечает $code" >&2; exit 1; }
+email_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://justwriting.ru/email/invite.html)
+[ "$email_code" = "200" ] || { echo "шаблон invite.html отвечает $email_code" >&2; exit 1; }
+ssh "$HOST" "AUTH_CONTAINER=\$(sudo docker ps --filter 'name=auth' --format '{{.Names}}' | head -1); \
+             if [ -n \"\$AUTH_CONTAINER\" ]; then \
+               sudo docker exec \"\$AUTH_CONTAINER\" curl -sf -o /dev/null --max-time 10 https://justwriting.ru/email/invite.html || { echo 'ВНИМАНИЕ: auth контейнер не может достучаться до https://justwriting.ru/email/invite.html' >&2; exit 1; }; \
+             fi"
 ver=$(ssh "$HOST" "grep -oE \"v[0-9]+[.][0-9]+[.][0-9]+\" /var/www/justwriting/sw.js | head -1")
 echo "готово: сайт 200, версия $ver"

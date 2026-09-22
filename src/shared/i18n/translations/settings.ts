@@ -4,6 +4,7 @@ export const settingsTranslations: Translations = {
   settings_title: { ru: 'Настройки', en: 'Settings' },
   settings_more_options: { ru: 'Внешний вид, синхронизация, хранилище', en: 'Appearance, sync, storage' },
   settings_open_panel: { ru: 'Открыть', en: 'Open' },
+  settings_open: { ru: 'Открыть настройки', en: 'Open settings' },
   settings_font: { ru: 'Шрифт', en: 'Font' },
   settings_editor_width: { ru: 'Ширина редактора', en: 'Editor width' },
   settings_font_size: { ru: 'Размер шрифта', en: 'Font Size' },

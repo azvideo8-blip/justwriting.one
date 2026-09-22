@@ -138,6 +138,7 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       'excludedFromAI',
       '_encrypted',
       'deletedAt',
+      'trashedAt',
       'createdAt',
       'updatedAt',
     ]);

@@ -18,18 +18,18 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
     selectedTags, setSelectedTags,
     selectedLabels, setSelectedLabels, toggleLabel,
     filteredSessions: filteredByFilters
-  } = useArchiveFilters(sessionsData.sessions);
+  } = useArchiveFilters(sessionsData.activeSessions);
   const {
     searchQuery, setSearchQuery,
     searchedSessions: filteredSessions
   } = useArchiveSearch(filteredByFilters);
 
-  const allTags = useMemo(() => Array.from(new Set(sessionsData.sessions.flatMap(s => s.tags || []))), [sessionsData.sessions]);
+  const allTags = useMemo(() => Array.from(new Set(sessionsData.activeSessions.flatMap(s => s.tags || []))), [sessionsData.activeSessions]);
 
   const { tagCounts, labelCounts } = useMemo(() => {
     const tags: Record<string, number> = {};
     const labels: Record<string, number> = {};
-    for (const s of sessionsData.sessions) {
+    for (const s of sessionsData.activeSessions) {
       if (s.tags) {
         for (const tag of s.tags) {
           tags[tag] = (tags[tag] || 0) + 1;
@@ -40,29 +40,29 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
       }
     }
     return { tagCounts: tags, labelCounts: labels };
-  }, [sessionsData.sessions]);
+  }, [sessionsData.activeSessions]);
 
   const sessionsByDate = useMemo(() => {
     const map: Record<string, number> = {};
-    sessionsData.sessions.forEach(s => {
+    sessionsData.activeSessions.forEach(s => {
       const d = s.sessionStartTime ? new Date(s.sessionStartTime) : (s.createdAt instanceof Date ? s.createdAt : null);
       if (!d) return;
       const key = format(d, 'yyyy-MM-dd');
       map[key] = (map[key] || 0) + 1;
     });
     return map;
-  }, [sessionsData.sessions]);
+  }, [sessionsData.activeSessions]);
 
   const wordsByDate = useMemo(() => {
     const map: Record<string, number> = {};
-    sessionsData.sessions.forEach(s => {
+    sessionsData.activeSessions.forEach(s => {
       const d = s.sessionStartTime ? new Date(s.sessionStartTime) : (s.createdAt instanceof Date ? s.createdAt : null);
       if (!d) return;
       const key = format(d, 'yyyy-MM-dd');
       map[key] = (map[key] || 0) + (s.sessionWordsAdded || s.wordCount || 0);
     });
     return map;
-  }, [sessionsData.sessions]);
+  }, [sessionsData.activeSessions]);
 
   const statsTitle = useMemo(() => {
     if (selectedLabels.length > 0) {

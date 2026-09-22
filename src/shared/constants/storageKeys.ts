@@ -31,4 +31,6 @@ export const STORAGE_KEYS = {
   LEGACY_STREAK_FREEZES: 'jw_streak_freezes',
   MIGRATION_DECLINED: (uid: string) => `jw_migration_declined_${uid}`,
   DICTATION_NOTICE_SEEN: 'jw_dictation_notice_seen',
+  PENDING_RECOVERY_CODE: (uid: string) => `pending_recovery_code_${uid}`,
+  VAULT_AUTO_CREATED: (uid: string) => `vault_auto_created_${uid}`,
 } as const;

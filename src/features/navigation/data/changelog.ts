@@ -14,6 +14,25 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.56',
+    date: '2026-09-22',
+    items: [
+      { category: 'new', ru: 'Добавлена корзина: удалённая заметка хранится 10 дней и её можно восстановить, есть полное удаление и очистка корзины, оба действия видны в журнале.', en: 'Added a trash bin: a deleted note is kept for 10 days and can be restored; permanent deletion and emptying the trash are both logged.' },
+      { category: 'fix', ru: 'В архиве больше не остаются метки с именем «…» — названия подгружаются как надо после разблокировки.', en: 'Labels in the archive no longer get stuck showing "…" — names load correctly after unlocking.' },
+      { category: 'fix', ru: 'Облако слов в архиве теперь обновляется вместе с заметками, а не застывает на старом состоянии.', en: 'The archive word cloud now updates along with your notes instead of staying stale.' },
+      { category: 'fix', ru: 'Календарь в боковой панели архива больше не обрезается по краю; кнопка «Импорт» пока скрыта.', en: 'The calendar in the archive sidebar no longer gets clipped at the edge; the "Import" button is hidden for now.' },
+      { category: 'fix', ru: 'При первой настройке шифрования теперь показывается код восстановления, а окно «Разблокировать шифрование» больше не всплывает без причины на каждом открытии.', en: 'The recovery code is now shown when encryption is first set up, and the "Unlock encryption" prompt no longer appears out of nowhere on every open.' },
+      { category: 'fix', ru: 'Заметка, сохранённая офлайн, теперь действительно долетает до облака, как только связь восстанавливается.', en: 'A note saved offline now actually reaches the cloud once the connection comes back.' },
+      { category: 'fix', ru: 'На телефоне при написании текста теперь используется мобильный вид экрана — кнопка «Стоп» больше не перекрыта.', en: 'Phones now get the mobile writing layout — the "Stop" button is no longer covered.' },
+      { category: 'fix', ru: 'Форма пароля по ссылке-приглашению больше не прячется за экраном согласия; устаревшая или уже использованная ссылка показывает понятное сообщение.', en: 'The password form from an invite link is no longer hidden behind the consent screen; an outdated or already-used link now shows a clear message.' },
+      { category: 'fix', ru: 'Сбой у ИИ-провайдера в чате больше не выглядит как ошибка пользователя и не списывает дневной лимит; при исчерпанном лимите видно, когда он обновится.', en: "An AI provider failure in chat no longer looks like the user's fault and no longer charges the daily quota; when the limit runs out, it now shows when it resets." },
+      { category: 'improvement', ru: 'Тост «нужно согласие на ИИ» теперь ведёт прямо в Настройки, а не просто сообщает о проблеме.', en: 'The "AI consent needed" toast now links straight to Settings instead of just reporting the problem.' },
+      { category: 'fix', ru: 'Смена пароля офлайн показывает «нет соединения», а не «ссылка устарела».', en: 'Changing your password while offline now shows "no connection" instead of "link expired".' },
+      { category: 'improvement', ru: 'Строки в архиве показывают начало текста заметки, а не только дату — заметки без заголовка теперь различимы.', en: "Archive rows now show the start of the note's text, not just the date — untitled notes are distinguishable again." },
+      { category: 'improvement', ru: 'Смена пароля аккаунта теперь предупреждает, что это не меняет пароль шифрования заметок, и где взять код восстановления.', en: "Changing your account password now warns that it doesn't change the notes' encryption password, and where to find the recovery code." },
+    ],
+  },
+  {
     version: '0.8.55',
     date: '2026-09-22',
     items: [

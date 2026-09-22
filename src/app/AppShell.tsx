@@ -20,6 +20,7 @@ const EncryptionPasswordModal = React.lazy(() =>
   import('../features/encryption/components/EncryptionPasswordModal').then(m => ({ default: m.EncryptionPasswordModal })),
 );
 import { useEncryptionSetup } from '../features/encryption/hooks/useEncryptionSetup';
+import { RecoveryCodeGate } from '../features/encryption/components/RecoveryCodeGate';
 import { setupGlobalErrorListeners } from '../shared/errors/reportError';
 import { ActivityLogBadge } from './ActivityLogBadge';
 
@@ -100,6 +101,7 @@ export function AppShell() {
 
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
+      <RecoveryCodeGate />
       <GuestMigrationGate />
       <ConfirmDialogRenderer />
       <ActivityLogBadge />

@@ -58,7 +58,7 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {['calendar_mon', 'calendar_tue', 'calendar_wed', 'calendar_thu', 'calendar_fri', 'calendar_sat', 'calendar_sun'].map((key, i) => (
           <div key={`${key}-${i}`} className="text-label text-text-main/60 uppercase tracking-wider text-center">{t(key)}</div>
         ))}
@@ -93,7 +93,7 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
               onClick={() => onSelectDate(day)}
               title={cellTitle}
               className={cn(
-                "aspect-square rounded-lg flex items-center justify-center text-sm transition-colors relative flex-col gap-0",
+                "aspect-square w-full p-0 min-w-0 rounded-lg flex items-center justify-center text-xs md:text-sm transition-colors relative flex-col gap-0",
                 HEATMAP_BG_CLASSES[heatLevel],
                 heatLevel === 4
                   ? "text-surface-base font-semibold"

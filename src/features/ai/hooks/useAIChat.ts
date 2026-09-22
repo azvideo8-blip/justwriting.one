@@ -432,7 +432,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           // sit in the log looking like something broke.
           reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           const errMsg = e instanceof Error ? e.message : '';
-          if (errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT') {
+          const isUpstream = errMsg === 'UPSTREAM' || errMsg === 'UPSTREAM_ERROR' || errMsg === 'SERVICE_UNAVAILABLE' || errMsg.startsWith('UPSTREAM');
+          if (!isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT') {
             // #77: streaming already consumed a daily limit slot. The callable
             // fallback consumes another. Accepted by design: the residual case
             // after server-side refund-on-disconnect is a mid-stream network
@@ -592,6 +593,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         setDailyLimitExhausted(false);
       } else if (rawMsg === 'REASONING_LIMIT') {
         setDailyLimitExhausted(true);
+      } else if (rawMsg === 'UPSTREAM' || rawMsg === 'UPSTREAM_ERROR' || rawMsg === 'SERVICE_UNAVAILABLE') {
+        void useAiLimitStore.getState().loadLimitFromServer();
       }
 
       setError(aiErrorToText(rawMsg));

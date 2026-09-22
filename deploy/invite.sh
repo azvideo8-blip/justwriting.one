@@ -25,6 +25,22 @@ if [ -z "$SERVICE_ROLE_KEY" ]; then
     exit 1
 fi
 
+# Проверяем доступность шаблона письма с token_hash ДО отправки приглашения
+TEMPLATE_URL="https://justwriting.ru/email/invite.html"
+TEMPLATE_CONTENT=""
+AUTH_CONTAINER=$(docker ps --filter "name=auth" --format "{{.Names}}" 2>/dev/null | head -1 || true)
+if [ -n "$AUTH_CONTAINER" ]; then
+    TEMPLATE_CONTENT=$(docker exec "$AUTH_CONTAINER" curl -sS --max-time 5 "$TEMPLATE_URL" 2>/dev/null || true)
+fi
+if [ -z "$TEMPLATE_CONTENT" ]; then
+    TEMPLATE_CONTENT=$(curl -sS --max-time 5 "$TEMPLATE_URL" 2>/dev/null || true)
+fi
+if ! echo "$TEMPLATE_CONTENT" | grep -q "token_hash"; then
+    echo "ОШИБКА: шаблон $TEMPLATE_URL недоступен или не содержит token_hash!" >&2
+    echo "GoTrue откатится на дефолтный шаблон с implicit access_token, который не поддерживается клиентом." >&2
+    exit 1
+fi
+
 # Через свой же nginx → Kong: тот же путь, что у клиента, никаких внутренних портов.
 HTTP_CODE=$(curl -sS -o /tmp/invite-response.json -w '%{http_code}' \
     -X POST "https://justwriting.ru/auth/v1/invite" \

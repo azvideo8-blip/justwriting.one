@@ -27,6 +27,8 @@ import { useTagEditor } from '../../features/archive/hooks/useTagEditor';
 import { useLabelEditor } from '../../features/archive/hooks/useLabelEditor';
 import { useArchiveGrouping } from '../../features/archive/hooks/useArchiveGrouping';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
+import { rebuildWordCloud } from '../../features/archive/hooks/useArchiveWordCloud';
+import { ArchiveTrashView } from '../../features/archive/components/ArchiveTrashView';
 
 import { NoteAnalysisService } from '../../features/ai/services/NoteAnalysisService';
 import { AISummaryService } from '../../features/ai/services/AISummaryService';
@@ -68,10 +70,15 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
 
   const { labels: profileLabels, addLabel, updateLabel, removeLabel } = useProfileLabels(userId, profile?.labels ?? []);
 
+  const [activeTab, setActiveTab] = useState<'notes' | 'trash'>('notes');
+
   const {
-    loading, error, cloudLoadFailed, fetchSessions, sessions,
-    handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
+    loading, error, cloudLoadFailed, fetchSessions, sessions, trashedSessions,
+    handleTrashSession, handleRestoreSession, handlePermanentDeleteSession, handleEmptyTrash,
+    handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession, openPreview, deleteConfirm, setDeleteConfirm,
+    permanentDeleteConfirm, setPermanentDeleteConfirm,
+    emptyTrashConfirm, setEmptyTrashConfirm,
     allTags, tagCounts, labelCounts, filteredByFilters, filteredSessions, searchQuery, setSearchQuery,
     selectedDate, setSelectedDate, selectedMonth: _selectedMonth, setSelectedMonth,
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
@@ -79,6 +86,16 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     sessionsByDate, wordsByDate, wordCloud, maxCount,
     dateLocale, entriesLabel,
   } = useArchiveData(user, userId, t, language, profileLabels);
+
+  const filteredTrashedSessions = useMemo(() => {
+    if (!searchQuery.trim()) return trashedSessions;
+    const q = searchQuery.toLowerCase();
+    return trashedSessions.filter(s =>
+      (s.title && s.title.toLowerCase().includes(q)) ||
+      (s.content && s.content.toLowerCase().includes(q)) ||
+      (s.tags && s.tags.some(tag => tag.toLowerCase().includes(q)))
+    );
+  }, [trashedSessions, searchQuery]);
 
   const previewContext = useMemo(() => {
     const totalActive = selectedLabels.length + selectedTags.length + (selectedDate ? 1 : 0);
@@ -128,6 +145,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     if (importedCount > 0) {
       showToast(t('archive_import_success', { count: importedCount }), 'success');
       void fetchSessions();
+      void rebuildWordCloud(userId).catch(() => {});
     }
     if (dateWarningCount > 0) {
       showToast(t('archive_import_date_warning', { count: dateWarningCount }), 'error');
@@ -228,77 +246,86 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
           <div className="flex-1 min-w-0 pr-0 lg:pr-8 flex flex-col min-h-0">
             <div className="shrink-0">
             <ArchiveHeader
-              title={t('nav_notes')} count={sortedSessions.length} countLabel={t('archive_count')}
-              subtitle={t('archive_subtitle')}
+              title={activeTab === 'notes' ? t('nav_notes') : t('archive_tab_trash')}
+              count={activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length}
+              countLabel={t('archive_count')}
+              subtitle={activeTab === 'notes' ? t('archive_subtitle') : t('archive_trash_subtitle')}
               searchQuery={searchQuery} searchInputRef={searchInputRef} onSearchChange={setSearchQuery}
-              searchPlaceholder={t('archive_search_placeholder')}
+              searchPlaceholder={activeTab === 'notes' ? t('archive_search_placeholder') : t('archive_trash_search_placeholder')}
               viewMode={viewMode} onViewModeChange={setViewMode}
               listLabel={t('archive_list')} gridLabel={t('archive_grid')}
               sortMode={sortMode} onSortModeChange={setSortMode} sortLabels={sortLabels}
               onFilterClick={() => setIsFilterOpen(true)}
               showFilters={showTagLabelBars}
               onToggleFilters={() => setShowTagLabelBars(v => !v)}
-              toggleFiltersLabel={showTagLabelBars ? t('archive_tags_hide') : t('archive_tags_label')}
-              onImportClick={() => fileInputRef.current?.click()}
+              // Временно скрыто, см. TASK-4
+              // onImportClick={() => fileInputRef.current?.click()}
               importLabel={t('archive_import')}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              notesTabLabel={t('archive_tab_notes')}
+              trashTabLabel={t('archive_tab_trash')}
+              trashCount={trashedSessions.length}
             />
-            {isMobile ? (
-              showTagLabelBars && (allTags.length > 0 || profileLabels.length > 0) && (
-                <div className="bg-surface-card/25 backdrop-blur-md border border-white/[0.04] rounded-2xl px-4 py-1 shadow-md flex flex-col mt-4 [&>div:last-child]:!border-b-0">
-                  <ArchiveTagBar
-                    allTags={allTags}
-                    selectedTags={selectedTags}
-                    tagCounts={tagCounts}
-                    onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                    renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
-                    setRenameTagValue={tagEditor.setRenameTagValue}
-                    onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
-                    onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
-                    onResetTags={() => setSelectedTags([])} showControls={false} t={t}
-                  />
-                  <ArchiveLabelBar
-                    labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
-                    labelCounts={labelCounts}
-                    addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
-                    newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
-                    newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
-                    onAddLabel={labelEditor.handleAddLabel}
-                    editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
-                    editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
-                    editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
-                    onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
-                    showControls={false} t={t}
-                  />
-                </div>
-              )
-            ) : (
-              showTagLabelBars && (
-                <>
-                  <ArchiveTagBar
-                    allTags={allTags}
-                    selectedTags={selectedTags}
-                    tagCounts={tagCounts}
-                    onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
-                    renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
-                    setRenameTagValue={tagEditor.setRenameTagValue}
-                    onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
-                    onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
-                    onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
-                  />
-                  <ArchiveLabelBar
-                    labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
-                    labelCounts={labelCounts}
-                    addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
-                    newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
-                    newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
-                    onAddLabel={labelEditor.handleAddLabel}
-                    editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
-                    editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
-                    editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
-                    onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
-                    showControls={!!user} t={t}
-                  />
-                </>
+            {activeTab === 'notes' && (
+              isMobile ? (
+                showTagLabelBars && (allTags.length > 0 || profileLabels.length > 0) && (
+                  <div className="bg-surface-card/25 backdrop-blur-md border border-white/[0.04] rounded-2xl px-4 py-1 shadow-md flex flex-col mt-4 [&>div:last-child]:!border-b-0">
+                    <ArchiveTagBar
+                      allTags={allTags}
+                      selectedTags={selectedTags}
+                      tagCounts={tagCounts}
+                      onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                      renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
+                      setRenameTagValue={tagEditor.setRenameTagValue}
+                      onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
+                      onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
+                      onResetTags={() => setSelectedTags([])} showControls={false} t={t}
+                    />
+                    <ArchiveLabelBar
+                      labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
+                      labelCounts={labelCounts}
+                      addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
+                      newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
+                      newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
+                      onAddLabel={labelEditor.handleAddLabel}
+                      editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
+                      editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
+                      editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
+                      onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+                      showControls={false} t={t}
+                    />
+                  </div>
+                )
+              ) : (
+                showTagLabelBars && (
+                  <>
+                    <ArchiveTagBar
+                      allTags={allTags}
+                      selectedTags={selectedTags}
+                      tagCounts={tagCounts}
+                      onToggleTag={tag => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                      renamingTag={tagEditor.renamingTag} renameTagValue={tagEditor.renameTagValue}
+                      setRenameTagValue={tagEditor.setRenameTagValue}
+                      onStartRename={(tag) => void tagEditor.startRenameTag(tag)} onRenameSubmit={(tag, newName) => void tagEditor.handleRenameTag(tag, newName)}
+                      onRenameCancel={() => tagEditor.setRenamingTag(null)} onDeleteTag={tagEditor.setTagDeleteConfirm}
+                      onResetTags={() => setSelectedTags([])} showControls={!!user} t={t}
+                    />
+                    <ArchiveLabelBar
+                      labels={profileLabels} selectedLabels={selectedLabels} onToggleLabel={toggleLabel}
+                      labelCounts={labelCounts}
+                      addingLabel={labelEditor.addingLabel} setAddingLabel={labelEditor.setAddingLabel}
+                      newLabelName={labelEditor.newLabelName} setNewLabelName={labelEditor.setNewLabelName}
+                      newLabelColor={labelEditor.newLabelColor} setNewLabelColor={labelEditor.setNewLabelColor}
+                      onAddLabel={labelEditor.handleAddLabel}
+                      editingLabelId={labelEditor.editingLabelId} setEditingLabelId={labelEditor.setEditingLabelId}
+                      editLabelName={labelEditor.editLabelName} setEditLabelName={labelEditor.setEditLabelName}
+                      editLabelColor={labelEditor.editLabelColor} setEditLabelColor={labelEditor.setEditLabelColor}
+                      onUpdateLabel={labelEditor.handleUpdateLabel} onDeleteLabel={labelEditor.setLabelDeleteConfirm}
+                      showControls={!!user} t={t}
+                    />
+                  </>
+                )
               )
             )}
             {cloudLoadFailed && (
@@ -307,24 +334,38 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 <Button onClick={() => void fetchSessions()} className="underline text-accent-danger/70 hover:text-accent-danger">{t('retry')}</Button>
               </div>
             )}
-            {!searchQuery && <OnThisDayCard sessions={filteredByFilters} onOpen={s => void openPreview(s)} />}
+            {activeTab === 'notes' && !searchQuery && <OnThisDayCard sessions={filteredByFilters} onOpen={s => void openPreview(s)} />}
             </div>
-            <div className="mt-4 flex-1 min-h-0 pr-1">
-              <ArchiveNoteList
-                viewMode={viewMode} loading={loading} error={error} filteredSessions={sortedSessions}
-                groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}
-                labels={profileLabels} userId={userId} searchQuery={searchQuery}
-                isGroupedByDate={isGroupedByDate}
-                onOpen={s => void openPreview(s)} onDelete={s => setDeleteConfirm(s)}
-                onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onTitleChange={(s, title) => void handleTitleChange(s, title)}
-                onDateChange={(s, date) => void handleDateChange(s, date)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
-                onStorageChange={() => void fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}
-                allTags={allTags} onClearSearch={() => setSearchQuery('')}
-                onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
-                onClearAnalysis={id => NoteAnalysisService.clear(id)}
-                loadAiProcessedMap={() => AISummaryService.hasAll()}
-              />
-            </div>
+            {activeTab === 'trash' ? (
+              <div className="mt-4 flex-1 min-h-0 pr-1">
+                <ArchiveTrashView
+                  trashedSessions={filteredTrashedSessions}
+                  onRestore={handleRestoreSession}
+                  onDeletePermanently={s => setPermanentDeleteConfirm(s)}
+                  onEmptyTrash={() => setEmptyTrashConfirm(true)}
+                  onOpenPreview={s => void openPreview(s)}
+                  dateLocale={dateLocale}
+                  t={t}
+                />
+              </div>
+            ) : (
+              <div className="mt-4 flex-1 min-h-0 pr-1">
+                <ArchiveNoteList
+                  viewMode={viewMode} loading={loading} error={error} filteredSessions={sortedSessions}
+                  groupedSessions={groupedSessions} sortedDates={sortedDates} dateLocale={dateLocale}
+                  labels={profileLabels} userId={userId} searchQuery={searchQuery}
+                  isGroupedByDate={isGroupedByDate}
+                  onOpen={s => void openPreview(s)} onDelete={s => setDeleteConfirm(s)}
+                  onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onTitleChange={(s, title) => void handleTitleChange(s, title)}
+                  onDateChange={(s, date) => void handleDateChange(s, date)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
+                  onStorageChange={() => void fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}
+                  allTags={allTags} onClearSearch={() => setSearchQuery('')}
+                  onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
+                  onClearAnalysis={id => NoteAnalysisService.clear(id)}
+                  loadAiProcessedMap={() => AISummaryService.hasAll()}
+                />
+              </div>
+            )}
           </div>
           <Suspense fallback={null}>
             <ArchiveSidebar
@@ -356,8 +397,21 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
           </AnimatePresence>
           <ArchiveConfirmModals
             tagEditor={tagEditor} labelEditor={labelEditor} deleteConfirm={deleteConfirm}
-            onDeleteConfirm={async () => { await handleDeleteSession(deleteConfirm!); setDeleteConfirm(null); }}
-            onDeleteCancel={() => setDeleteConfirm(null)} t={t}
+            onDeleteConfirm={async () => { await handleTrashSession(deleteConfirm!); setDeleteConfirm(null); }}
+            onDeleteCancel={() => setDeleteConfirm(null)}
+            permanentDeleteConfirm={permanentDeleteConfirm}
+            onPermanentDeleteConfirm={async () => {
+              if (permanentDeleteConfirm) await handlePermanentDeleteSession(permanentDeleteConfirm);
+              setPermanentDeleteConfirm(null);
+            }}
+            onPermanentDeleteCancel={() => setPermanentDeleteConfirm(null)}
+            emptyTrashConfirm={emptyTrashConfirm}
+            onEmptyTrashConfirm={async () => {
+              await handleEmptyTrash(trashedSessions);
+              setEmptyTrashConfirm(false);
+            }}
+            onEmptyTrashCancel={() => setEmptyTrashConfirm(false)}
+            t={t}
           />
           <AnimatePresence>
             {isFilterOpen && (

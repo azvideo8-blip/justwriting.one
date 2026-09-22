@@ -92,6 +92,7 @@ export async function initializeEncryption(
   userId: string,
   password: string,
   customRecoveryCode?: string,
+  autoCreated?: boolean,
 ): Promise<{ recoveryCode: string }> {
   // Здесь генерируется НОВЫЙ data key, поэтому запись меты поверх существующей
   // навсегда отвязывает уже зашифрованные заметки: старый ключ после этого
@@ -127,10 +128,20 @@ export async function initializeEncryption(
     recoveryWrappedDataKey,
     recoverySalt: saltToBase64(recoverySalt),
     iterations: PBKDF2_ITERATIONS, // AUDIT-L7: фиксируем, чтобы unwrap не перебирал
+    autoCreated,
   });
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
+
+  if (autoCreated) {
+    try {
+      const { saveDeviceKey } = await import('../crypto/keyVaultCache');
+      const { setRememberDevice } = await import('../crypto/useEncryptionStore');
+      await saveDeviceKey(userId, dataKey);
+      setRememberDevice(true);
+    } catch { /* device key storage optional (e.g. private mode) */ }
+  }
 
   return { recoveryCode };
 }

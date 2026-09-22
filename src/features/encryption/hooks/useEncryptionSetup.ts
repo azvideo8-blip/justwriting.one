@@ -17,7 +17,7 @@ export function useEncryptionSetup(): {
   check: () => Promise<void>;
   dismiss: () => void;
 } {
-  const { user, profile } = useAuthStatus();
+  const { user, profile, refreshProfile } = useAuthStatus();
   const [mode, setMode] = useState<EncryptionModalMode>('none');
   const [isLegacy, setIsLegacy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -43,13 +43,28 @@ export function useEncryptionSetup(): {
 
     try {
       const hasNew = await hasEncryptionMeta(user.uid);
+      if (isVaultUnlocked()) {
+        setMode('none');
+        setLoading(false);
+        return;
+      }
       if (hasNew) {
         // "Remember on this device": auto-unlock from the cached key, no prompt.
         const deviceKey = await loadDeviceKey(user.uid);
+        if (isVaultUnlocked()) {
+          setMode('none');
+          setLoading(false);
+          return;
+        }
         if (deviceKey) {
           // Verify the cached key against the stored verification ciphertext
           // to detect stale keys from re-initialization on another device.
           const meta = await getEncryptionMeta(user.uid);
+          if (isVaultUnlocked()) {
+            setMode('none');
+            setLoading(false);
+            return;
+          }
           // V-4: require a NON-EMPTY verification string to auto-unlock.
           // Empty string '' is falsy but getEncryptionMeta returns '' when the
           // field is missing — refuse auto-unlock and fall through to password
@@ -76,6 +91,7 @@ export function useEncryptionSetup(): {
             setRememberDevice(true);
             setEncryptionEnabled(user.uid, true);
             setMode('none');
+            void refreshProfile().catch(() => {});
             try {
               const { SyncService } = await import('../../../core/services/SyncService');
               await SyncService.reviveLockedTasks(user.uid);
@@ -105,7 +121,7 @@ export function useEncryptionSetup(): {
       setMode('none');
     }
     setLoading(false);
-  }, [user, profile]);
+  }, [user, profile, refreshProfile]);
 
   useEffect(() => {
     const uid = user?.uid ?? null;

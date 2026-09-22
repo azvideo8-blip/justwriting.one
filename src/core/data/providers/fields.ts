@@ -6,13 +6,13 @@ export const toIso = (v: unknown) => (typeof v === 'number' ? new Date(v).toISOS
 export const DATE_COLUMNS = new Set([
   'saved_at', 'session_started_at', 'updated_at', 'first_session_at', 'last_session_at',
   'created_at', 'privacy_accepted_at', 'ai_consent_at', 'indexing_consent_at',
-  'deleted_at',
+  'deleted_at', 'trashed_at',
 ]);
 
 export const DATE_FIELDS_CLIENT = new Set([
   'savedAt', 'sessionStartedAt', 'updatedAt', 'firstSessionAt', 'lastSessionAt',
   'createdAt', 'privacyAcceptedAt', 'aiConsentAt', 'indexingConsentAt',
-  'deletedAt',
+  'deletedAt', 'trashedAt',
 ]);
 
 export const USER_FIELDS: Record<string, string> = {
@@ -62,6 +62,7 @@ export const DOCUMENT_FIELDS: Record<string, string> = {
   excludedFromAI: 'excluded_from_ai',
   _encrypted: '_encrypted',
   deletedAt: 'deleted_at',
+  trashedAt: 'trashed_at',
   createdAt: 'created_at',
   updatedAt: 'updated_at',
 };

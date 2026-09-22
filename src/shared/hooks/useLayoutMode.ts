@@ -3,15 +3,20 @@ import { z } from 'zod';
 
 type LayoutMode = 'desktop' | 'mobile';
 
-// Layout mode is MANUAL-ONLY — no auto-detection from viewport width.
-// This was intentionally reverted from auto-detect (5d3d69a "layoutMode manual-only").
-// The v0.7.11 refactor accidentally re-introduced media query auto-switching;
-// this restores the manual-only behaviour.
-// Key bumped to 'layout-mode-v3' so any stuck 'mobile' value from the old key is ignored.
+function getDefaultLayoutMode(): LayoutMode {
+  if (typeof window === 'undefined') return 'desktop';
+  const isMobile =
+    window.innerWidth < 768 ||
+    (window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 1024);
+  return isMobile ? 'mobile' : 'desktop';
+}
+
+// Auto-detects 'mobile' on narrow screens / touch devices by default,
+// while preserving explicit manual toggles in localStorage ('layout-mode-v4').
 export function useLayoutMode() {
   const [layoutMode, setLayoutMode] = useLocalStorage<LayoutMode>(
-    'layout-mode-v3',
-    'desktop',
+    'layout-mode-v4',
+    getDefaultLayoutMode(),
     z.enum(['desktop', 'mobile'])
   );
 

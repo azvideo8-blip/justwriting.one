@@ -252,6 +252,14 @@ export const DocumentService = {
     await DataProvider.updateDocument(userId, documentId, { excludedFromAI });
   },
 
+  async trashDocument(userId: string, documentId: string, trashedAt: Date = new Date()): Promise<void> {
+    await DataProvider.updateDocument(userId, documentId, { trashedAt });
+  },
+
+  async restoreDocument(userId: string, documentId: string): Promise<void> {
+    await DataProvider.updateDocument(userId, documentId, { trashedAt: null });
+  },
+
   async deleteDocument(userId: string, documentId: string): Promise<void> {
     await DataProvider.deleteDocument(userId, documentId);
   },

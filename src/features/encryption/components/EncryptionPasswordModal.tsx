@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Lock, Shield, AlertTriangle, AlertCircle, Loader2, KeyRound, Cloud } from 'lucide-react';
+import { Lock, Shield, AlertTriangle, AlertCircle, Loader2, KeyRound, Cloud, X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
@@ -53,12 +53,35 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rememberDevice, setRememberDeviceChecked] = useState(false);
+  const [isAutoCreated, setIsAutoCreated] = useState(false);
   // Код восстановления, который сейф отдал при создании. Пока он здесь, окно
   // с кодом стоит поверх всего, а `onDone` не зовётся: иначе код исчезает
   // молча, и человек остаётся с сейфом, ключ от которого не видел никто.
   const [createdRecoveryCode, setCreatedRecoveryCode] = useState<string | null>(null);
 
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (mode === 'unlock') {
+      let active = true;
+      void (async () => {
+        try {
+          const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+          const localFlag = localStorage.getItem(STORAGE_KEYS.VAULT_AUTO_CREATED(userId)) === '1';
+          if (localFlag && active) {
+            setIsAutoCreated(true);
+            return;
+          }
+          const { getEncryptionMeta } = await import('../../../core/services/EncryptionMetaService');
+          const meta = await getEncryptionMeta(userId);
+          if (active && meta?.autoCreated) {
+            setIsAutoCreated(true);
+          }
+        } catch { /* ignore */ }
+      })();
+      return () => { active = false; };
+    }
+  }, [mode, userId]);
 
   React.useEffect(() => {
     if (mode !== 'none') {
@@ -123,6 +146,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       } else {
         await clearDeviceKey(userId);
       }
+      await refreshProfile();
       showToast(t('unlock_success'), 'success');
       setPassword('');
       onDone();
@@ -156,6 +180,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     setError(null);
     try {
       await recoverVaultWithCode(userId, recoveryCode, password);
+      await refreshProfile();
       showToast(t('enc_recovery_success'), 'success');
       setPassword('');
       setConfirmPassword('');
@@ -267,8 +292,19 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
       onClose={() => onClose?.()}
       labelId="enc-modal-title"
       z="critical"
-      className="w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+      className="w-full max-w-[400px] bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg relative"
     >
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('close')}
+              className="absolute right-4 top-4 p-2 text-text-main/60 hover:text-text-main transition-colors rounded-lg"
+            >
+              <X size={18} />
+            </button>
+          )}
+
           <div className="w-10 h-10 rounded-2xl bg-brand-soft/10 border border-brand-soft/30 flex items-center justify-center mb-4">
             {isRecovering ? (
               <KeyRound size={18} className="text-brand-soft" />
@@ -290,7 +326,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
           </h2>
           <p className="text-sm text-text-main/60 mb-4">
             {isRecovering && t('enc_recovery_subtitle')}
-            {!isRecovering && isUnlock && t('enc_unlock_subtitle')}
+            {!isRecovering && isUnlock && (isAutoCreated ? t('enc_unlock_subtitle_account_password') : t('enc_unlock_subtitle'))}
             {isSetup && t('enc_setup_subtitle')}
             {isChange && t('enc_change_subtitle')}
             {isMigrate && t('enc_migrate_subtitle')}
@@ -366,7 +402,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 isRecovering
                   ? t('enc_recovery_new_password')
                   : isUnlock
-                  ? '••••••••'
+                  ? (isAutoCreated ? t('enc_account_password_placeholder') : '••••••••')
                   : t('enc_new_password_placeholder')
               }
               aria-label={isUnlock && !isRecovering ? t('unlock_title') : t('enc_new_password_placeholder')}

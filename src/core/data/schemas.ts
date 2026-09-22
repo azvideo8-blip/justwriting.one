@@ -119,6 +119,7 @@ export const documentDbSchema = z.object({
   _locked: z.boolean().optional(),
   _decryptionError: z.boolean().optional(),
   deletedAt: cloudTimestampSchema.optional(),
+  trashedAt: cloudTimestampSchema.optional(),
   createdAt: cloudTimestampSchema.optional(),
   updatedAt: cloudTimestampSchema.optional(),
 });

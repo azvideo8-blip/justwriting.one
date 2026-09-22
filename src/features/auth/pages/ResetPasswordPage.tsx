@@ -17,16 +17,26 @@ const MIN_PASSWORD_LENGTH = 8;
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(() => {
+    const u = getCurrentUser();
+    return Boolean(u && typeof u.uid === 'string' && !u.uid.startsWith('guest'));
+  });
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkExpired, setLinkExpired] = useState(false);
-  const [email, setEmail] = useState<string | null>(() => searchParams.get('email'));
+  const [email, setEmail] = useState<string | null>(() => searchParams.get('email') || (getCurrentUser()?.email ?? null));
   // Приглашённый задаёт первый пароль — те же поля, другие слова.
   const isInvite = searchParams.get('type') === 'invite';
+  const [legacyInviteHash] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      return hash.includes('access_token=') && hash.includes('type=invite');
+    }
+    return false;
+  });
 
   useEffect(() => {
     const unsub = onPasswordRecovery(() => {
@@ -50,7 +60,14 @@ export function ResetPasswordPage() {
         })
         .catch((err) => {
           reportError(err, { action: 'verifyOtpRecovery' });
-          setLinkExpired(true);
+          const activeUser = getCurrentUser();
+          if (activeUser && typeof activeUser.uid === 'string' && !activeUser.uid.startsWith('guest')) {
+            setRecoveryMode(true);
+            setLinkExpired(false);
+            if (activeUser.email) setEmail(activeUser.email);
+          } else {
+            setLinkExpired(true);
+          }
           window.history.replaceState(null, '', window.location.pathname);
         });
     }
@@ -92,7 +109,11 @@ export function ResetPasswordPage() {
       setDone(true);
     } catch (err) {
       reportError(err, { action: 'resetPassword' });
-      setError('Не удалось изменить пароль. Ссылка могла устареть — запросите новую.');
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setError('Нет соединения с сетью. Проверьте подключение и попробуйте снова.');
+      } else {
+        setError('Не удалось изменить пароль. Ссылка могла устареть — запросите новую.');
+      }
     } finally {
       setBusy(false);
     }
@@ -103,7 +124,22 @@ export function ResetPasswordPage() {
       <div className="w-full max-w-sm space-y-4">
         <h1 className="text-xl font-semibold">{isInvite ? 'Задайте пароль' : 'Восстановление пароля'}</h1>
 
-        {linkExpired && !done && (
+        {legacyInviteHash && !done && (
+          <div className="space-y-3">
+            <p className="text-sm text-accent-warning">
+              Ссылка из письма имеет устаревший формат (implicit hash). Запросите новую ссылку или откройте её повторно.
+            </p>
+            <button
+              type="button"
+              onClick={() => { void navigate('/login'); }}
+              className="rounded-lg px-3 py-2 bg-accent text-white text-sm"
+            >
+              Перейти ко входу
+            </button>
+          </div>
+        )}
+
+        {!legacyInviteHash && linkExpired && !done && (
           <div className="space-y-3">
             <p className="text-sm text-accent-danger">
               Ссылка уже использована или устарела — запросите новую
@@ -127,6 +163,14 @@ export function ResetPasswordPage() {
 
         {recoveryMode && !done && (
           <form onSubmit={e => { void submit(e); }} className="space-y-3">
+            {!isInvite && (
+              <div className="p-3 rounded-lg bg-accent-warning/10 border border-accent-warning/30 text-accent-warning text-xs leading-relaxed">
+                <strong>Важно:</strong> смена пароля аккаунта не меняет пароль шифрования заметок.
+                Если вы не сохранили код восстановления шифрования, доступ к облачным заметкам на
+                других устройствах будет потерян. Код восстановления можно было увидеть при
+                первоначальной настройке шифрования или в разделе Настройки → Безопасность.
+              </div>
+            )}
             <input
               type="password"
               value={password}

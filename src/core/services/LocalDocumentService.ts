@@ -377,6 +377,26 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
+  async trashDocument(id: string, trashedAt: number = Date.now()): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, trashedAt });
+    await tx.done;
+  },
+
+  async restoreDocument(id: string): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    const updated = { ...existing };
+    delete updated.trashedAt;
+    await tx.store.put(updated);
+    await tx.done;
+  },
+
   /** Сдвигает день заметки. Начало истории меняется только когда попросят:
    *  firstSessionAt заякоривает стрики и «давность», и молча переписывать его
    *  — значит переписывать прошлое. */

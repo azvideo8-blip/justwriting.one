@@ -160,6 +160,7 @@ export interface DocumentFields<TTime> {
   labelId?: string | undefined;
   mood?: string | undefined;
   excludedFromAI?: boolean | undefined;
+  trashedAt?: TTime | undefined;
 }
 
 export interface Document extends DocumentFields<Date | null> {
@@ -212,6 +213,7 @@ export interface ArchiveSession extends Session {
   _locked?: boolean | undefined;
   _decryptionError?: boolean | undefined;
   _contentError?: boolean | undefined;
+  trashedAt?: number | undefined;
   // Cloud-only note whose text the list view did not fetch. Not the same as an
   // empty note — load it before showing or exporting.
   _contentNotLoaded?: boolean | undefined;

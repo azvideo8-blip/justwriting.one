@@ -14,7 +14,6 @@ import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
-import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -90,9 +89,6 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
     }
   }, [prefilledEmail]);
 
-  const [generatedRecoveryCode, setGeneratedRecoveryCode] = useState<string | null>(null);
-  const pendingRecoveryRef = React.useRef(false);
-
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
@@ -119,7 +115,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         return;
       }
 
-      if (onSuccess && !pendingRecoveryRef.current) {
+      if (onSuccess) {
         onSuccess();
         return;
       }
@@ -150,12 +146,8 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         // V-1: brand-new registration — confirmed no encryption exists yet.
         setEncryptionEnabled(user.uid, false);
       } else {
-        const result = await AuthService.signInWithEmail(email, password);
-        if (result?.recoveryCode) {
-          pendingRecoveryRef.current = true;
-          setGeneratedRecoveryCode(result.recoveryCode);
-          return;
-        }
+        await AuthService.signInWithEmail(email, password);
+        if (onSuccess) onSuccess();
       }
     } catch (err: unknown) {
       reportError(err, { action: 'emailAuth', mode });
@@ -432,17 +424,6 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           </p>
         )}
       </motion.div>
-
-      {generatedRecoveryCode && (
-        <RecoveryCodeDisplayModal
-          recoveryCode={generatedRecoveryCode}
-          onConfirm={() => {
-            pendingRecoveryRef.current = false;
-            setGeneratedRecoveryCode(null);
-            if (onSuccess) onSuccess();
-          }}
-        />
-      )}
     </div>
   );
 }

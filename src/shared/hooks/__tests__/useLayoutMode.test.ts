@@ -27,16 +27,16 @@ describe('useLayoutMode', () => {
     expect(result.current.layoutMode).toBe('mobile');
   });
 
-  it('should persist layoutMode to localStorage under the v3 key', () => {
+  it('should persist layoutMode to localStorage under the v4 key', () => {
     const { result } = renderHook(() => useLayoutMode());
     act(() => {
       result.current.setLayoutMode('mobile');
     });
-    expect(localStorage.getItem('layout-mode-v3')).toBe('"mobile"');
+    expect(localStorage.getItem('layout-mode-v4')).toBe('"mobile"');
   });
 
-  it('should read layoutMode from localStorage v3 key on init', () => {
-    localStorage.setItem('layout-mode-v3', '"mobile"');
+  it('should read layoutMode from localStorage v4 key on init', () => {
+    localStorage.setItem('layout-mode-v4', '"mobile"');
     const { result } = renderHook(() => useLayoutMode());
     expect(result.current.layoutMode).toBe('mobile');
   });
@@ -49,7 +49,7 @@ describe('useLayoutMode', () => {
   });
 
   it('should switch back to desktop when setLayoutMode is called with desktop', () => {
-    localStorage.setItem('layout-mode-v3', '"mobile"');
+    localStorage.setItem('layout-mode-v4', '"mobile"');
     const { result } = renderHook(() => useLayoutMode());
     expect(result.current.layoutMode).toBe('mobile');
     act(() => {

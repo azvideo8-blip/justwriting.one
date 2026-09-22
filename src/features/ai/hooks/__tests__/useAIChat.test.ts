@@ -63,6 +63,23 @@ describe('useAIChat tests (AG-ERR-2 & AG-CHAT-2)', () => {
       expect(result.current.error).toBe('Слишком частые запросы. Подождите немного перед следующей отправкой.');
     });
 
+    it('shows upstream error message when UPSTREAM is thrown and does not fallback to callableChat (F-06)', async () => {
+      const streamSpy = vi.spyOn(transport, 'streamChat').mockRejectedValue(new Error('UPSTREAM'));
+      const callableSpy = vi.spyOn(transport, 'callableChat').mockResolvedValue('Fallback answer');
+
+      const { result } = renderHook(() => useAIChat(null, 'editor'));
+
+      let sendResult: string | null = null;
+      await act(async () => {
+        sendResult = await result.current.sendMessage('Привет');
+      });
+
+      expect(sendResult).toBeNull();
+      expect(streamSpy).toHaveBeenCalled();
+      expect(callableSpy).not.toHaveBeenCalled();
+      expect(result.current.error).toContain('Модель сейчас не отвечает');
+    });
+
     it('falls back to callableChat on retryable server errors', async () => {
       vi.spyOn(transport, 'streamChat').mockRejectedValue(new Error('SERVER_ERROR'));
       const callableSpy = vi.spyOn(transport, 'callableChat').mockResolvedValue('Ответ от фолбека');

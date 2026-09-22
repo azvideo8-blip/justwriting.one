@@ -31,7 +31,7 @@ export function ArchiveSidebar({
   const { t } = useLanguage();
 
   return (
-    <div className="hidden lg:flex w-64 shrink-0 border-l border-border-subtle pl-6 flex-col gap-6 sticky top-0 self-start max-h-screen overflow-y-auto py-6 no-scrollbar">
+    <div className="hidden lg:flex w-64 shrink-0 border-l border-border-subtle pl-6 pr-4 flex-col gap-6 sticky top-0 self-start max-h-screen overflow-y-auto overflow-x-hidden py-6 no-scrollbar">
       <div>
         <ArchiveStats
           sessions={filteredByFilters}

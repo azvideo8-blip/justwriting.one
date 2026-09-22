@@ -9,12 +9,21 @@ interface ArchiveConfirmModalsProps {
   deleteConfirm: ArchiveSession | null;
   onDeleteConfirm: () => Promise<void>;
   onDeleteCancel: () => void;
+  permanentDeleteConfirm?: ArchiveSession | null;
+  onPermanentDeleteConfirm?: () => Promise<void>;
+  onPermanentDeleteCancel?: () => void;
+  emptyTrashConfirm?: boolean;
+  onEmptyTrashConfirm?: () => Promise<void>;
+  onEmptyTrashCancel?: () => void;
   t: (key: string, args?: Record<string, string | number>) => string;
 }
 
 export function ArchiveConfirmModals({
   tagEditor, labelEditor, deleteConfirm,
-  onDeleteConfirm, onDeleteCancel, t,
+  onDeleteConfirm, onDeleteCancel,
+  permanentDeleteConfirm, onPermanentDeleteConfirm, onPermanentDeleteCancel,
+  emptyTrashConfirm, onEmptyTrashConfirm, onEmptyTrashCancel,
+  t,
 }: ArchiveConfirmModalsProps) {
   return (
     <>
@@ -39,11 +48,29 @@ export function ArchiveConfirmModals({
       <ConfirmModal
         isOpen={!!deleteConfirm}
         title={t('archive_delete_confirm')}
-        message={`«${deleteConfirm?.title || t('session_untitled')}»`}
+        message={`${deleteConfirm?.title ? `«${deleteConfirm.title}»\n\n` : ''}${t('session_delete_confirm_desc')}`}
         confirmLabel={t('storage_delete_confirm')}
         cancelLabel={t('common_cancel')}
         onConfirm={() => void onDeleteConfirm()}
         onCancel={onDeleteCancel}
+      />
+      <ConfirmModal
+        isOpen={!!permanentDeleteConfirm}
+        title={t('archive_trash_delete_forever')}
+        message={`${permanentDeleteConfirm?.title ? `«${permanentDeleteConfirm.title}»\n\n` : ''}${t('archive_trash_delete_forever_confirm')}`}
+        confirmLabel={t('storage_delete_confirm')}
+        cancelLabel={t('common_cancel')}
+        onConfirm={() => { void onPermanentDeleteConfirm?.(); }}
+        onCancel={() => onPermanentDeleteCancel?.()}
+      />
+      <ConfirmModal
+        isOpen={!!emptyTrashConfirm}
+        title={t('archive_trash_clear')}
+        message={t('archive_trash_clear_confirm')}
+        confirmLabel={t('storage_delete_confirm')}
+        cancelLabel={t('common_cancel')}
+        onConfirm={() => { void onEmptyTrashConfirm?.(); }}
+        onCancel={() => onEmptyTrashCancel?.()}
       />
     </>
   );

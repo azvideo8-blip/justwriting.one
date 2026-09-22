@@ -99,7 +99,7 @@ describe('AuthService', () => {
     const result = await AuthService.signInWithEmail('test@example.com', 'password123');
     expect(result.user).toEqual(mockUser);
     expect(result.recoveryCode).toBe('K7M4-9XPT-2WQN-BH5R-3JVD-6YFA');
-    expect(mockInitializeEncryption).toHaveBeenCalledWith('new_user_1', 'password123');
+    expect(mockInitializeEncryption).toHaveBeenCalledWith('new_user_1', 'password123', undefined, true);
   });
 
   it('signInWithEmail unlocks existing vault and does not re-initialize', async () => {

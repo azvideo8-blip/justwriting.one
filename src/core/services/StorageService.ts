@@ -1,5 +1,7 @@
 import { getLocalDb } from '../storage/localDb';
 import { LocalStorageService } from './LocalStorageService';
+import { LocalDocumentService } from './LocalDocumentService';
+import { DocumentService } from './DocumentService';
 import { CloudSyncService } from './CloudSyncService';
 import { ProfileUpdater } from './ProfileUpdater';
 import { SaveDocumentData, StorageState } from './storageTypes';
@@ -55,6 +57,73 @@ export const StorageService = {
 
   async removeCloudCopy(userId: string, cloudDocumentId: string, localDocumentId?: string): Promise<void> {
     return CloudSyncService.removeCloudCopy(userId, cloudDocumentId, localDocumentId);
+  },
+
+  async trashDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
+    let targetCloudId = cloudId;
+    if (localId && !targetCloudId) {
+      try {
+        const fresh = await LocalStorageService.getDocument(localId);
+        if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
+      } catch { /* ignore */ }
+    }
+    const now = Date.now();
+    if (localId) {
+      await LocalDocumentService.trashDocument(localId, now);
+    }
+    let cloudSynced = true;
+    if (targetCloudId && !userId.startsWith('guest')) {
+      try {
+        await DocumentService.trashDocument(userId, targetCloudId, new Date(now));
+      } catch (e) {
+        cloudSynced = false;
+        reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });
+        if (localId) {
+          const db = await getLocalDb();
+          await db.put('syncQueue', {
+            id: `doc_${localId}_${Date.now()}`,
+            documentId: localId,
+            type: 'document' as const,
+            createdAt: Date.now(),
+            ownerId: userId,
+          });
+        }
+      }
+    }
+    return { cloudSynced };
+  },
+
+  async restoreDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
+    let targetCloudId = cloudId;
+    if (localId && !targetCloudId) {
+      try {
+        const fresh = await LocalStorageService.getDocument(localId);
+        if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
+      } catch { /* ignore */ }
+    }
+    if (localId) {
+      await LocalDocumentService.restoreDocument(localId);
+    }
+    let cloudSynced = true;
+    if (targetCloudId && !userId.startsWith('guest')) {
+      try {
+        await DocumentService.restoreDocument(userId, targetCloudId);
+      } catch (e) {
+        cloudSynced = false;
+        reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });
+        if (localId) {
+          const db = await getLocalDb();
+          await db.put('syncQueue', {
+            id: `doc_${localId}_${Date.now()}`,
+            documentId: localId,
+            type: 'document' as const,
+            createdAt: Date.now(),
+            ownerId: userId,
+          });
+        }
+      }
+    }
+    return { cloudSynced };
   },
 
   async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {

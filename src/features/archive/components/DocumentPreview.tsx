@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, ArrowRight, Download, ChevronDown, Sparkles, ChevronUp, Loader2, Paperclip, Copy, Lock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
@@ -54,6 +55,7 @@ export function DocumentPreview({
 
   const { t, tp, language } = useLanguage();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const sittingCount = session?.sittings && session.sittings.length > 0 ? session.sittings.length : null;
   const [fetchedVersions, setFetchedVersions] = useState<{ id: string; count: number | null } | null>(null);
   // Сравнение через `?.` совпадало бы и когда обеих величин нет: `null?.id` и
@@ -142,7 +144,14 @@ export function DocumentPreview({
       } else {
         const errMsg = aiErrorToText(res.error, { t, isLoggedIn: !!getCurrentUser() });
         setAnalyzeError(errMsg);
-        showToast(errMsg, 'error');
+        const isConsentRequired = res.error === 'AI_CONSENT_REQUIRED';
+        showToast(
+          errMsg,
+          'error',
+          isConsentRequired
+            ? { label: t('settings_open') || 'Открыть настройки', onClick: () => { void navigate('/settings#security'); } }
+            : undefined,
+        );
       }
     } catch (e) {
       reportError(e, { action: 'documentPreview_analyze', documentId: session.id });

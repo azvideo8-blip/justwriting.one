@@ -2,6 +2,9 @@ import { reportError } from '../../shared/errors/reportError';
 
 export type DomainEvent =
   | { type: 'note.deleted'; documentId: string }
+  | { type: 'note.trashed'; documentId: string }
+  | { type: 'note.restored'; documentId: string }
+  | { type: 'note.saved'; documentId?: string | undefined; userId?: string | undefined }
   | { type: 'note.excludedFromAI'; documentId: string; excluded: boolean }
   | { type: 'account.reset'; userId?: string }
   | { type: 'sync.restoredFromCloud'; userId: string }

@@ -151,4 +151,32 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
     expect(written.labels[0]!.name).not.toBe('Практика6');
     expect((await decryptLabels(written.labels))[0]!.name).toBe('Практика6');
   });
+
+  it('BUG-1: re-fetches and decrypts labels when vault is unlocked after mount', async () => {
+    const { ProfileService } = await import('../../../../core/services/ProfileService');
+    const getProfileSpy = vi.spyOn(ProfileService, 'getProfile');
+
+    // Start with locked vault
+    useEncryptionStore.getState().lockVault();
+
+    const { result } = renderHook(() => useProfileLabels(userId, [{ id: 'l1', name: '…', color: '#D04545' }]));
+
+    // Wait for the initial mount fetch to complete while the vault is locked
+    await waitFor(() => {
+      expect(getProfileSpy).toHaveBeenCalledTimes(1);
+    });
+    // Labels must still be placeholders because vault was locked during first fetch
+    expect(result.current.labels[0]!.name).toBe('…');
+
+    // Now unlock the vault
+    await act(async () => {
+      useEncryptionStore.getState().setKey(sessionKey);
+    });
+
+    // Verify that unlock triggered a SECOND fetch (the unlock effect) and decrypted the label
+    await waitFor(() => {
+      expect(getProfileSpy).toHaveBeenCalledTimes(2);
+      expect(result.current.labels[0]!.name).toBe('Практика6');
+    });
+  });
 });

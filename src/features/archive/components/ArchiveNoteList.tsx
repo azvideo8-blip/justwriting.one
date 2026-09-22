@@ -146,7 +146,14 @@ export function ArchiveNoteList({
         setAiProcessedMap(m => ({ ...m, [session.id]: true }));
         showToast(t('ai_note_analyzed'), 'success');
       } else {
-        showToast(aiErrorToText(res.error, { t, isLoggedIn: !!getCurrentUser() }), 'error');
+        const isConsentRequired = res.error === 'AI_CONSENT_REQUIRED';
+        showToast(
+          aiErrorToText(res.error, { t, isLoggedIn: !!getCurrentUser() }),
+          'error',
+          isConsentRequired
+            ? { label: t('settings_open') || 'Открыть настройки', onClick: () => { void navigate('/settings#security'); } }
+            : undefined,
+        );
       }
     } catch (e) {
       reportError(e, { action: 'archive_analyze_note', documentId: session.id });

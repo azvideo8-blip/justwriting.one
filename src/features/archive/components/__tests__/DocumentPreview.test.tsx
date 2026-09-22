@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { renderWithProviders } from '../../../../test/utils/render';
 import { ToastProvider } from '../../../../shared/components/Toast';
 import { DocumentPreview } from '../DocumentPreview';
@@ -26,16 +27,18 @@ const mockSession: ArchiveSession = {
 
 function renderPreview(session: ArchiveSession | null) {
   return renderWithProviders(
-    <ToastProvider>
-      <DocumentPreview
-        session={session}
-        onClose={vi.fn()}
-        onContinue={vi.fn()}
-        onAnalyzeNote={mockAnalyze}
-        fetchSummary={mockFetchSummary}
-        fetchRelatedNotes={mockFetchRelatedNotes}
-      />
-    </ToastProvider>
+    <MemoryRouter>
+      <ToastProvider>
+        <DocumentPreview
+          session={session}
+          onClose={vi.fn()}
+          onContinue={vi.fn()}
+          onAnalyzeNote={mockAnalyze}
+          fetchSummary={mockFetchSummary}
+          fetchRelatedNotes={mockFetchRelatedNotes}
+        />
+      </ToastProvider>
+    </MemoryRouter>
   );
 }
 
@@ -158,14 +161,16 @@ describe('DocumentPreview — AI Analysis button states', () => {
   it('renders breadcrumb with context and calls onClose when clicking breadcrumb root (UI-04)', async () => {
     const mockClose = vi.fn();
     renderWithProviders(
-      <ToastProvider>
-        <DocumentPreview
-          session={mockSession}
-          onClose={mockClose}
-          onContinue={vi.fn()}
-          context="Работа"
-        />
-      </ToastProvider>
+      <MemoryRouter>
+        <ToastProvider>
+          <DocumentPreview
+            session={mockSession}
+            onClose={mockClose}
+            onContinue={vi.fn()}
+            context="Работа"
+          />
+        </ToastProvider>
+      </MemoryRouter>
     );
 
     const breadcrumbRoot = screen.getByRole('button', { name: /Архив|Archive/i });

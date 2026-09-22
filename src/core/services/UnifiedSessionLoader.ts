@@ -27,6 +27,7 @@ interface LoadedSession extends Session {
   // note that is perfectly intact in the cloud.
   _contentNotLoaded?: boolean | undefined;
   _hasPendingSync?: boolean | undefined;
+  trashedAt?: number | undefined;
 }
 
 interface LoadResult {
@@ -146,6 +147,7 @@ export async function loadAllSessions(
         _sessionsCount: doc.sessionsCount,
         _firstSessionAt: doc.firstSessionAt,
         excludedFromAI: doc.excludedFromAI ?? false,
+        trashedAt: doc.trashedAt,
         ...( _contentError ? { _contentError: true } : {}),
         ...(_contentNotLoaded ? { _contentNotLoaded: true } : {}),
       });
@@ -189,6 +191,7 @@ export async function loadAllSessions(
             _firstSessionAt: toDate(cloudDoc.firstSessionAt)?.getTime(),
             _contentNotLoaded: true,
             excludedFromAI: cloudDoc.excludedFromAI ?? false,
+            trashedAt: cloudDoc.trashedAt ? (toDate(cloudDoc.trashedAt)?.getTime() ?? undefined) : undefined,
             ...(cloudDoc._locked ? { _locked: true } : {}),
             ...(cloudDoc._decryptionError ? { _decryptionError: true } : {}),
           };

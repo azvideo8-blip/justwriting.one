@@ -3,8 +3,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 
-const getAllFromIndex = vi.fn(async () => []);
-const getAll = vi.fn(async () => []);
+const getAllFromIndex = vi.fn(async (_store?: string, _index?: string, _val?: string): Promise<unknown[]> => []);
+const getAll = vi.fn(async (_store?: string): Promise<unknown[]> => []);
 
 vi.mock('../../../../core/auth/supabaseAuthProvider', () => ({
   getCurrentUser: () => ({ uid: 'u_owner' }),
@@ -34,8 +34,58 @@ describe('2.1 word-cloud owner scoping', () => {
     expect(getAll).not.toHaveBeenCalledWith('documents');
   });
 
-  it('rebuildWordCloud caches per owner', async () => {
+  it('rebuildWordCloud caches per owner with timestamp', async () => {
     await rebuildWordCloud('u_owner');
     expect(localStorage.getItem('cached_word_cloud_v2:u_owner')).not.toBeNull();
+    const ts = localStorage.getItem('cached_word_cloud_v2:u_owner:timestamp');
+    expect(ts).not.toBeNull();
+    expect(Number(ts)).toBeGreaterThan(0);
+  });
+
+  it('rebuilds if cache is older than 24 hours', async () => {
+    // Populate cache with an old timestamp (25 hours ago)
+    const oldTimestamp = Date.now() - 25 * 60 * 60 * 1000;
+    localStorage.setItem('cached_word_cloud_v2:u_owner', JSON.stringify([{ word: 'старое', count: 5 }]));
+    localStorage.setItem('cached_word_cloud_v2:u_owner:timestamp', String(oldTimestamp));
+
+    renderHook(() => useArchiveWordCloud());
+
+    await waitFor(() => {
+      expect(getAllFromIndex).toHaveBeenCalledWith('documents', 'by-guest', 'u_owner');
+    });
+  });
+
+  it('does not rebuild if cache is fresh (< 24 hours)', async () => {
+    const freshTimestamp = Date.now() - 1 * 60 * 60 * 1000;
+    localStorage.setItem('cached_word_cloud_v2:u_owner', JSON.stringify([{ word: 'свежее', count: 5 }]));
+    localStorage.setItem('cached_word_cloud_v2:u_owner:timestamp', String(freshTimestamp));
+
+    renderHook(() => useArchiveWordCloud());
+
+    // Should not trigger rebuild
+    expect(getAllFromIndex).not.toHaveBeenCalled();
+  });
+
+  it('ignores trashed documents when building cloud', async () => {
+    getAllFromIndex.mockImplementation(async (store?: string) => {
+      if (store === 'documents') {
+        return [
+          { id: 'd1', trashedAt: Date.now() }, // in trash
+          { id: 'd2' }, // active
+        ] as unknown as never;
+      }
+      if (store === 'versions') {
+        return [
+          { id: 'v1', version: 1, content: 'активное слово слово' },
+        ] as unknown as never;
+      }
+      return [] as never;
+    });
+
+    await rebuildWordCloud('u_owner');
+
+    // Should only query versions for d2, not d1
+    expect(getAllFromIndex).not.toHaveBeenCalledWith('versions', 'by-document', 'd1');
+    expect(getAllFromIndex).toHaveBeenCalledWith('versions', 'by-document', 'd2');
   });
 });

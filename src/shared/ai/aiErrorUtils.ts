@@ -44,6 +44,7 @@ export function aiErrorToText(code: string | undefined | null, opts?: AiErrorToT
     case 'EMPTY_RESPONSE':
       return 'ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.';
     case 'UPSTREAM':
+    case 'UPSTREAM_ERROR':
       return 'Модель сейчас не отвечает — это сбой на стороне сервиса ИИ, а не в ваших заметках. Мы уже повторили запрос несколько раз. Попробуйте ещё раз через минуту.';
     case 'TOO_LONG':
       return t ? t('ai_error_too_long') : 'Запрос слишком длинный';

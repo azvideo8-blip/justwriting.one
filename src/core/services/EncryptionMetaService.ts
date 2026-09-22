@@ -10,6 +10,8 @@ export interface EncryptionMeta {
   recoverySalt?: string | undefined;
   /** AUDIT-L7: PBKDF2-итерации при wrap; отсутствует у старых сейфов. */
   iterations?: number | undefined;
+  /** Сейф создан автоматически от пароля аккаунта при первом входе */
+  autoCreated?: boolean | undefined;
 }
 
 const ENCRYPTION_META_VERSION = 2;
@@ -33,6 +35,9 @@ export async function saveEncryptionMeta(uid: string, meta: EncryptionMeta): Pro
   if (meta.iterations !== undefined) {
     encryptionMeta.iterations = meta.iterations;
   }
+  if (meta.autoCreated !== undefined) {
+    encryptionMeta.autoCreated = meta.autoCreated;
+  }
   await DataProvider.saveEncryptionMeta(uid, {
     encryptionMeta: encryptionMeta as unknown as EncryptionMeta,
   });
@@ -54,6 +59,7 @@ export async function getEncryptionMeta(uid: string): Promise<EncryptionMeta | n
   const iterations = typeof meta.iterations === 'number' && Number.isFinite(meta.iterations) && meta.iterations > 0
     ? meta.iterations
     : undefined;
+  const autoCreated = meta.autoCreated === true;
   return {
     salt,
     version,
@@ -62,6 +68,7 @@ export async function getEncryptionMeta(uid: string): Promise<EncryptionMeta | n
     recoveryWrappedDataKey,
     recoverySalt,
     iterations,
+    autoCreated,
   };
 }
 

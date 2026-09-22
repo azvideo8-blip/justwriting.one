@@ -2,7 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { loadAllSessions, loadSessionContent } from '../../../core/services/UnifiedSessionLoader';
 import { ArchiveSession } from '../types';
-import { updateArchiveField, deleteArchiveSession } from '../services/archiveCrud';
+import {
+  updateArchiveField,
+  deleteArchiveSession,
+  trashArchiveSession,
+  restoreArchiveSession,
+  emptyTrash,
+  pruneExpiredTrash,
+} from '../services/archiveCrud';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { logger } from '../../../shared/errors/logger';
 import { useToast } from '../../../shared/components/Toast';
@@ -15,6 +22,8 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   const [cloudLoadFailed, setCloudLoadFailed] = useState(false);
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<ArchiveSession | null>(null);
+  const [permanentDeleteConfirm, setPermanentDeleteConfirm] = useState<ArchiveSession | null>(null);
+  const [emptyTrashConfirm, setEmptyTrashConfirm] = useState<boolean>(false);
   const mountedRef = useRef(true);
   const isVaultUnlocked = useEncryptionStore(s => s.isVaultUnlocked);
   const prevVaultUnlockedRef = useRef(isVaultUnlocked);
@@ -27,7 +36,9 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     try {
       const result = await loadAllSessions(userId, user, { withContent: true });
       if (!mountedRef.current) return;
-      setSessions(result.sessions as ArchiveSession[]);
+      const { remainingSessions } = await pruneExpiredTrash(result.sessions as ArchiveSession[], userId);
+      if (!mountedRef.current) return;
+      setSessions(remainingSessions);
       setCloudLoadFailed(result.cloudLoadFailed);
     } catch (err) {
       if (!mountedRef.current) return;
@@ -72,7 +83,34 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
     setPreviewSession(prev => prev && prev.id === id ? { ...prev, ...patch } : prev);
   };
 
-  const handleDeleteSession = async (s: ArchiveSession) => {
+  const handleTrashSession = async (s: ArchiveSession) => {
+    try {
+      const now = Date.now();
+      await trashArchiveSession(s, userId);
+      setSessions(prev => prev.map(x => x.id === s.id ? { ...x, trashedAt: now } : x));
+      if (previewSession?.id === s.id) setPreviewSession(null);
+      showToast(t('session_deleted'), 'success');
+      void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
+    } catch (e) {
+      logger.error('archive', 'Failed to trash session', { error: String(e) });
+      showToast(t('error_delete_failed'), 'error');
+    }
+  };
+
+  const handleRestoreSession = async (s: ArchiveSession) => {
+    try {
+      await restoreArchiveSession(s, userId);
+      setSessions(prev => prev.map(x => x.id === s.id ? { ...x, trashedAt: undefined } : x));
+      if (previewSession?.id === s.id) setPreviewSession(null);
+      showToast(t('archive_trash_restored'), 'success');
+      void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
+    } catch (e) {
+      logger.error('archive', 'Failed to restore session', { error: String(e) });
+      showToast(t('error_generic_action'), 'error');
+    }
+  };
+
+  const handlePermanentDeleteSession = async (s: ArchiveSession) => {
     try {
       const res = await deleteArchiveSession(s, userId);
       setSessions(prev => prev.filter(x => x.id !== s.id));
@@ -84,10 +122,24 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
       }
       void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {
-      logger.error('archive', 'Failed to delete session', { error: String(e) });
+      logger.error('archive', 'Failed to delete session permanently', { error: String(e) });
       showToast(t('error_delete_failed'), 'error');
     }
   };
+
+  const handleEmptyTrash = async (trashed: ArchiveSession[]) => {
+    try {
+      await emptyTrash(trashed, userId);
+      setSessions(prev => prev.filter(x => !x.trashedAt));
+      showToast(t('archive_trash_cleared'), 'success');
+      void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
+    } catch (e) {
+      logger.error('archive', 'Failed to empty trash', { error: String(e) });
+      showToast(t('error_delete_failed'), 'error');
+    }
+  };
+
+  const handleDeleteSession = handleTrashSession;
 
   const handleFieldUpdate = async (
     session: ArchiveSession,
@@ -127,10 +179,16 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   const handleLabelChange = (session: ArchiveSession, labelId: string | undefined) =>
     handleFieldUpdate(session, 'labelId', labelId);
 
+  const activeSessions = sessions.filter(s => !s.trashedAt);
+  const trashedSessions = sessions.filter(s => !!s.trashedAt);
+
   return {
-    sessions, loading, error, cloudLoadFailed, fetchSessions,
-    handleDeleteSession, handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
+    sessions, activeSessions, trashedSessions, loading, error, cloudLoadFailed, fetchSessions,
+    handleDeleteSession, handleTrashSession, handleRestoreSession, handlePermanentDeleteSession, handleEmptyTrash,
+    handleTagsChange, handleTitleChange, handleDateChange, handleLabelChange,
     previewSession, setPreviewSession, openPreview,
     deleteConfirm, setDeleteConfirm,
+    permanentDeleteConfirm, setPermanentDeleteConfirm,
+    emptyTrashConfirm, setEmptyTrashConfirm,
   };
 }

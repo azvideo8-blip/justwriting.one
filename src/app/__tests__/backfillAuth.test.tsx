@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ReactNode } from 'react';
 
 vi.mock('@/features/auth/hooks/useAuthStatus', () => ({
@@ -58,7 +59,7 @@ describe('backfillDocumentUuids — auth user id', () => {
   });
 
   it('runs backfill with uid once user authenticates, not guestId', async () => {
-    render(<AppProviders><div /></AppProviders>);
+    render(<MemoryRouter><AppProviders><div /></AppProviders></MemoryRouter>);
 
     // On mount, user is null → backfill should not yet be called with a uid.
     await act(async () => {});
@@ -74,7 +75,7 @@ describe('backfillDocumentUuids — auth user id', () => {
       authState: 'authenticated',
     });
 
-    render(<AppProviders><div /></AppProviders>);
+    render(<MemoryRouter><AppProviders><div /></AppProviders></MemoryRouter>);
 
     await waitFor(() => {
       expect(mockBackfill).toHaveBeenCalledWith('auth-user-1');

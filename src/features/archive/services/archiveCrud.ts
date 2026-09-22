@@ -7,6 +7,7 @@ import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { ArchiveSession } from '../types';
 import { reportError } from '../../../shared/errors/reportError';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 
 type ArchiveField = 'tags' | 'title' | 'date' | 'labelId';
 type ArchiveFieldValue = string[] | string | Date | undefined;
@@ -184,6 +185,60 @@ async function _applyLocalFieldEdit(
   }
 }
 
+export async function trashArchiveSession(
+  session: ArchiveSession,
+  userId: string
+): Promise<{ cloudSynced: boolean }> {
+  const localId = session._isLocal ? session.id : undefined;
+  let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
+  if (localId && !cloudId) {
+    try {
+      const fresh = await LocalDocumentService.getDocument(localId);
+      if (fresh?.linkedCloudId) cloudId = fresh.linkedCloudId;
+    } catch { /* fall back to the snapshot */ }
+  }
+  const result = await StorageService.trashDocument(userId, localId, cloudId);
+  emitDomainEvent({ type: 'note.trashed', documentId: session.id });
+  useActivityLogStore.getState().addActivity('заметка удалена в корзину', undefined, 'info', 'archive');
+  return result;
+}
+
+export async function restoreArchiveSession(
+  session: ArchiveSession,
+  userId: string
+): Promise<{ cloudSynced: boolean }> {
+  const localId = session._isLocal ? session.id : undefined;
+  let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
+  if (localId && !cloudId) {
+    try {
+      const fresh = await LocalDocumentService.getDocument(localId);
+      if (fresh?.linkedCloudId) cloudId = fresh.linkedCloudId;
+    } catch { /* fall back to the snapshot */ }
+  }
+  const result = await StorageService.restoreDocument(userId, localId, cloudId);
+  emitDomainEvent({ type: 'note.restored', documentId: session.id });
+  return result;
+}
+
+export async function emptyTrash(
+  trashedSessions: ArchiveSession[],
+  userId: string
+): Promise<{ successCount: number; failCount: number }> {
+  let successCount = 0;
+  let failCount = 0;
+  for (const session of trashedSessions) {
+    try {
+      await deleteArchiveSession(session, userId);
+      successCount++;
+    } catch (e) {
+      failCount++;
+      reportError(e, { action: 'emptyTrash_single', sessionId: session.id });
+    }
+  }
+  useActivityLogStore.getState().addActivity(`корзина очищена (${successCount})`, undefined, 'info', 'archive');
+  return { successCount, failCount };
+}
+
 export async function deleteArchiveSession(
   session: ArchiveSession,
   userId: string
@@ -202,4 +257,29 @@ export async function deleteArchiveSession(
   const result = await StorageService.deleteDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.deleted', documentId: session.id });
   return result;
+}
+
+export const TRASH_EXPIRATION_MS = 10 * 24 * 60 * 60 * 1000;
+
+export async function pruneExpiredTrash(
+  sessions: ArchiveSession[],
+  userId: string,
+  now: number = Date.now()
+): Promise<{ prunedCount: number; remainingSessions: ArchiveSession[] }> {
+  const expired: ArchiveSession[] = [];
+  const remainingSessions: ArchiveSession[] = [];
+
+  for (const s of sessions) {
+    if (s.trashedAt && (now - s.trashedAt > TRASH_EXPIRATION_MS)) {
+      expired.push(s);
+    } else {
+      remainingSessions.push(s);
+    }
+  }
+
+  if (expired.length > 0) {
+    await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId)));
+  }
+
+  return { prunedCount: expired.length, remainingSessions };
 }

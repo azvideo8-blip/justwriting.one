@@ -23,6 +23,7 @@ import { cleanupDraftsAfterSave, reportKeystrokeStats } from '../utils/sessionAc
 import { SetupMode } from '../components/WritingSetup';
 import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
+import { emitDomainEvent } from '../../../core/events/domainEvents';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 
@@ -210,6 +211,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       await refreshDocuments();
       await refreshLifeLog();
+      emitDomainEvent({ type: 'note.saved', documentId: docIdToSync ?? undefined, userId });
 
       return { docId: docIdToSync ?? null, cloudSynced };
     } catch (e) {

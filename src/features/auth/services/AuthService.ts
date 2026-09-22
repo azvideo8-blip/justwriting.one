@@ -39,7 +39,13 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
     // Create vault automatically from the sign-in password and issue recovery code!
     try {
       const { initializeEncryption } = await import('../../../core/services/EncryptionService');
-      const { recoveryCode } = await initializeEncryption(currentUid, password);
+      const { recoveryCode } = await initializeEncryption(currentUid, password, undefined, true);
+      try {
+        const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+        localStorage.setItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(currentUid), recoveryCode);
+        localStorage.setItem(STORAGE_KEYS.VAULT_AUTO_CREATED(currentUid), '1');
+        window.dispatchEvent(new CustomEvent('pending_recovery_code_updated'));
+      } catch { /* private mode */ }
       return { user, recoveryCode };
     } catch (e) {
       // Вход не роняем. Неудача здесь — это чаще всего сеть, а запертая дверь

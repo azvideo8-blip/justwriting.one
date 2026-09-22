@@ -55,6 +55,7 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `contact_doors_cache_${uid}`,
     // кэш облака слов архива (LS-5)
     `cached_word_cloud_v2:${uid}`,
+    `cached_word_cloud_v2:${uid}:timestamp`,
     // курсор изменений синхронизации (LS-5)
     `change_cursor_last_seen_${uid}`,
     // запрос и курсор восстановления эмбеддингов (LS-4)
@@ -62,6 +63,9 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_embed_restore_cursor_${uid}`,
     // экран выбора цели письма (AG-ONBOARD-1)
     `onboarding_done_${uid}`,
+    // ожидающий подтверждения код восстановления и признак авто-создания сейфа (F-01)
+    `pending_recovery_code_${uid}`,
+    `vault_auto_created_${uid}`,
   ];
 }
 

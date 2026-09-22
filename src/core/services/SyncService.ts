@@ -241,9 +241,11 @@ export const SyncService = {
     return summary.unsyncedCount;
   },
 
-  async syncPending(userId: string): Promise<SyncPendingResult> {
+  async syncPending(userId: string, opts?: { force?: boolean }): Promise<SyncPendingResult> {
     // SEC-8: Автосинк выключен по умолчанию: молчание = согласия нет.
-    if (!cloudSyncEnabled(userId)) {
+    // Однако явные задачи пользователя из очереди (дренаж при возврате сети
+    // или при сохранении) выполняются с opts?.force.
+    if (!opts?.force && !cloudSyncEnabled(userId)) {
       return { drained: 0, failed: 0, skippedReason: 'sync_disabled' };
     }
     if (_syncInProgress.get(userId)) {

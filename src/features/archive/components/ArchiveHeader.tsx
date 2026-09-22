@@ -1,5 +1,5 @@
 import { type RefObject, useState, useEffect, useRef } from 'react';
-import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal, Tag, Upload } from 'lucide-react';
+import { Search, LayoutGrid, LayoutList, ArrowUpDown, SlidersHorizontal, Tag, Upload, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
@@ -32,6 +32,11 @@ interface ArchiveHeaderProps {
   toggleFiltersLabel?: string;
   onImportClick?: () => void;
   importLabel?: string;
+  activeTab?: 'notes' | 'trash';
+  onTabChange?: (tab: 'notes' | 'trash') => void;
+  notesTabLabel?: string;
+  trashTabLabel?: string;
+  trashCount?: number;
 }
 
 export function ArchiveHeader({
@@ -45,6 +50,11 @@ export function ArchiveHeader({
   toggleFiltersLabel = 'Тэги',
   onImportClick,
   importLabel = 'Импорт',
+  activeTab = 'notes',
+  onTabChange,
+  notesTabLabel,
+  trashTabLabel,
+  trashCount,
 }: ArchiveHeaderProps) {
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -60,13 +70,57 @@ export function ArchiveHeader({
 
   return (
     <div className="py-6 pb-[18px] border-b border-[var(--color-border-subtle)]">
-      <div className="flex items-baseline gap-3 mb-1">
-        <h1 className="text-3xl font-medium tracking-tight text-text-main">
-          {title}
-        </h1>
-        <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest">
-          {count} {countLabel}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-3xl font-medium tracking-tight text-text-main">
+            {title}
+          </h1>
+          <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest">
+            {count} {countLabel}
+          </span>
+        </div>
+        {onTabChange && (
+          <div className="flex bg-text-main/[0.04] border border-border-subtle rounded-lg p-0.5">
+            <Button
+              onClick={() => onTabChange('notes')}
+              className={cn(
+                "relative px-3 py-1 rounded-md text-sm font-medium transition-colors z-10",
+                activeTab === 'notes' ? "text-text-main" : "text-text-main/60 hover:text-text-main"
+              )}
+            >
+              {activeTab === 'notes' && (
+                <motion.div
+                  layoutId="archive-tab-pill"
+                  className="absolute inset-0 bg-text-main/20 rounded-md"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10">{notesTabLabel || 'Заметки'}</span>
+            </Button>
+            <Button
+              onClick={() => onTabChange('trash')}
+              className={cn(
+                "relative px-3 py-1 rounded-md text-sm font-medium transition-colors z-10 flex items-center gap-1.5",
+                activeTab === 'trash' ? "text-text-main" : "text-text-main/60 hover:text-text-main"
+              )}
+            >
+              {activeTab === 'trash' && (
+                <motion.div
+                  layoutId="archive-tab-pill"
+                  className="absolute inset-0 bg-text-main/20 rounded-md"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <Trash2 size={13} aria-hidden="true" />
+                <span>{trashTabLabel || 'Корзина'}</span>
+                {trashCount !== undefined && trashCount > 0 && (
+                  <span className="font-mono text-xs opacity-75">({trashCount})</span>
+                )}
+              </span>
+            </Button>
+          </div>
+        )}
       </div>
       <p className="text-sm text-text-main/60 mb-5">
         {subtitle}

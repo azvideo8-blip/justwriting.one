@@ -188,7 +188,7 @@ export function DesktopWritingLayout() {
           </div>
         </div>
 
-        <div className="col-start-2 row-start-3 overflow-hidden">
+        <div className="col-start-2 row-start-3 overflow-hidden relative z-10">
           <BottomStats
             compact={isCompact}
             onPlay={handlePlay}

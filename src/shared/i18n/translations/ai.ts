@@ -27,6 +27,14 @@ export const aiTranslations: Translations = {
   ai_quota_chat: { ru: 'чат', en: 'chat' },
   ai_quota_reasoning: { ru: 'рассуждения', en: 'reasoning' },
   ai_quota_reset_in: { ru: 'сброс через {hours} ч', en: 'resets in {hours} h' },
+  ai_quota_exhausted: {
+    ru: 'Дневной лимит сообщений исчерпан. Он обновится в полночь UTC.',
+    en: 'Daily message limit reached. It will reset at midnight UTC.',
+  },
+  ai_quota_reasoning_exhausted: {
+    ru: 'Дневной лимит рассуждений исчерпан. Выключите режим рассуждений, чтобы продолжить обычный чат.',
+    en: 'Daily reasoning limit reached. Turn off reasoning mode to continue chatting.',
+  },
   ai_description_prompt: { ru: 'Описание и промпт', en: 'Description and prompt' },
   ai_unarchive: { ru: 'Восстановить', en: 'Restore' },
   ai_memory_title: { ru: 'Память ИИ', en: 'AI memory' },
