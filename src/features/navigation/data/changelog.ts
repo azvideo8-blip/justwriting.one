@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.55',
+    date: '2026-09-22',
+    items: [
+      { category: 'fix', ru: 'Донастроили вчерашнее исправление конфликтов синхронизации — ещё один редкий случай, где текст мог тихо разойтись между устройством и облаком, теперь тоже обрабатывается верно.', en: 'Tightened yesterday\'s sync-conflict fix — one more rare case where text could silently diverge between device and cloud is now handled correctly too.' },
+    ],
+  },
+  {
     version: '0.8.54',
     date: '2026-09-21',
     items: [
