@@ -1,9 +1,9 @@
 import { getCurrentUser, getIdToken } from '../auth';
 import { getAiConsent, isProfileLoaded } from './aiConsent';
 
-// Эти два не про обработку записей: удаление аккаунта — право субъекта, и
-// ставить его в зависимость от согласия было бы прямо противозаконно.
-const CONSENT_EXEMPT = new Set(['deleteAccount', 'sendTelemetry']);
+// Эти действия не про обработку записей: удаление аккаунта — право субъекта,
+// телеметрия и администрирование пользователей не требуют согласия на анализ заметок.
+const CONSENT_EXEMPT = new Set(['deleteAccount', 'sendTelemetry', 'inviteUser', 'listUsersWithStatus']);
 
 export interface CallAiOptions {
   charge?: 'user' | 'bulk';

@@ -17,6 +17,7 @@ import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
 import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
 import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
 import { sendTelemetryLogic, deleteAccountLogic } from './account';
+import { inviteUserLogic, listUsersWithStatusLogic } from './admin/admin.logic';
 
 type LogicFn = (
   ctx: typeof postgresAiContext,
@@ -43,6 +44,8 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   // auth gate — so they live behind the same dispatcher.
   sendTelemetry: sendTelemetryLogic,
   deleteAccount: deleteAccountLogic,
+  inviteUser: inviteUserLogic,
+  listUsersWithStatus: listUsersWithStatusLogic,
 };
 
 const CODE_TO_HTTP: Record<string, number> = {
@@ -79,8 +82,8 @@ export async function handleAiEndpoint(
 
   // AUD-2: серверный гейт согласия. Клиентский (callAi) остаётся как
   // вежливость, но гарантией быть не может. Исключения — те же, что и там:
-  // удаление аккаунта и телеметрия не про обработку записей.
-  if (endpoint !== 'deleteAccount' && endpoint !== 'sendTelemetry') {
+  // удаление аккаунта, телеметрия и администрирование пользователей не про обработку записей.
+  if (endpoint !== 'deleteAccount' && endpoint !== 'sendTelemetry' && endpoint !== 'inviteUser' && endpoint !== 'listUsersWithStatus') {
     if (endpoint === 'embedDocument') {
       // Индексация гоняет фрагменты заметок через модель эмбеддингов —
       // отдельное согласие, отдельная колонка.

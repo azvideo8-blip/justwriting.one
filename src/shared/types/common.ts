@@ -70,6 +70,13 @@ export interface UserProfile {
   _encrypted?: boolean | undefined;
 }
 
+export interface AdminUserItem extends UserProfile {
+  pending?: boolean | undefined;
+  noteCount?: number | undefined;
+  invitedAt?: string | null | undefined;
+  confirmedAt?: string | null | undefined;
+}
+
 export type AchievementTier = 'common' | 'rare' | 'legendary';
 
 export interface Achievement {

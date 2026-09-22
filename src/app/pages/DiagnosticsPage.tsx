@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Download, X, RotateCcw, Bug,
-  RefreshCw, Loader2, Upload, ChevronDown, ChevronRight, Sparkles
+  RefreshCw, Loader2, Upload, ChevronDown, ChevronRight, Sparkles, UserPlus
 } from 'lucide-react';
 import { useDailyLimit } from '../../features/ai/hooks/useDailyLimit';
 import { cn } from '../../core/utils/utils';
@@ -138,11 +138,17 @@ export function DiagnosticsPage() {
     handleImportAllFromCloud,
     handleSyncAllToCloud,
     handleRequestEmbeddingRestore,
+    invitingUser,
+    sendingResetEmail,
+    handleInviteUser,
+    handleSendPasswordReset,
     handleResetCounter,
     handleResetUserLimit,
     handleClearMemory,
     handleCollapseVersions,
   } = useDiagnosticsData(profile, authLoading, activeTab);
+
+  const [inviteEmail, setInviteEmail] = useState('');
 
   const handleDownloadDiagnostics = async () => {
     try {
@@ -363,15 +369,68 @@ export function DiagnosticsPage() {
 
         {/* Tab 3: Users */}
         {activeTab === 'users' && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-text-main mb-3">{t('admin_users_registered')}</h3>
-            {loadingData ? (
-              <div className="flex justify-center py-10"><LoadingSpinner size={8} /></div>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-border-subtle">
-                <AdminUsersTable users={users} onResetLimit={(uid, name) => void handleResetUserLimit(uid, name)} resettingUid={resettingUid} />
-              </div>
-            )}
+          <div className="space-y-6">
+            <div className="p-4 rounded-2xl border border-border-subtle bg-surface-base/50 space-y-3">
+              <h3 className="text-sm font-semibold text-text-main flex items-center gap-2">
+                <UserPlus size={16} className="text-brand-soft" />
+                {t('admin_invite_title')}
+              </h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!inviteEmail.trim() || invitingUser) return;
+                  void (async () => {
+                    const ok = await handleInviteUser(inviteEmail);
+                    if (ok) setInviteEmail('');
+                  })();
+                }}
+                className="flex items-center gap-3 max-w-md"
+              >
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder={t('admin_invite_placeholder')}
+                  disabled={invitingUser}
+                  className="flex-1 px-3.5 py-2 rounded-xl text-xs bg-surface-elevated border border-border-subtle text-text-main placeholder:text-text-main/40 focus:outline-none focus:border-brand-soft transition-colors disabled:opacity-50"
+                  required
+                />
+                <Button
+                  type="submit"
+                  disabled={invitingUser || !inviteEmail.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-soft text-text-on-brand text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
+                >
+                  {invitingUser ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      {t('admin_invite_sending')}
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={13} />
+                      {t('admin_invite_btn')}
+                    </>
+                  )}
+                </Button>
+              </form>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-text-main">{t('admin_users_registered')}</h3>
+              {loadingData ? (
+                <div className="flex justify-center py-10"><LoadingSpinner size={8} /></div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-border-subtle">
+                  <AdminUsersTable
+                    users={users}
+                    onResetLimit={(uid, name) => void handleResetUserLimit(uid, name)}
+                    resettingUid={resettingUid}
+                    onSendPasswordReset={(email) => void handleSendPasswordReset(email)}
+                    sendingResetEmail={sendingResetEmail}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
 

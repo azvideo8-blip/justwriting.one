@@ -11,8 +11,8 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { useLanguage } from '../../../shared/i18n';
-import { UserProfile } from '../../../types';
-import { getCurrentUser } from '../../../core/auth';
+import { UserProfile, AdminUserItem } from '../../../types';
+import { getCurrentUser, sendPasswordResetEmail } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 
@@ -63,7 +63,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const { t } = useLanguage();
 
   const [loadingData, setLoadingData] = useState(true);
-  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [users, setUsers] = useState<AdminUserItem[]>([]);
 
   const [bulkImporting, setBulkImporting] = useState(false);
   const [bulkSyncing, setBulkSyncing] = useState(false);
@@ -87,6 +87,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [diagnosticsKey, setDiagnosticsKey] = useState(0);
   const [resettingUid, setResettingUid] = useState<string | null>(null);
   const [manualResetUid, setManualResetUid] = useState('');
+  const [invitingUser, setInvitingUser] = useState(false);
+  const [sendingResetEmail, setSendingResetEmail] = useState<string | null>(null);
 
   const fetchAIUsage = useCallback(async () => {
     setAiUsageLoading(true);
@@ -430,9 +432,50 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
   };
 
+  const handleInviteUser = async (email: string): Promise<boolean> => {
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes('@')) {
+      showToast(t('admin_invite_error', { error: 'Некорректный email' }), 'error');
+      return false;
+    }
+    setInvitingUser(true);
+    try {
+      await AdminUserService.inviteUser(trimmed);
+      showToast(t('admin_invite_success', { email: trimmed }), 'success');
+      await fetchData();
+      return true;
+    } catch (e: unknown) {
+      reportError(e, { action: 'Failed to invite user' });
+      const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
+      showToast(t('admin_invite_error', { error: errMsg }), 'error');
+      return false;
+    } finally {
+      setInvitingUser(false);
+    }
+  };
+
+  const handleSendPasswordReset = async (email: string) => {
+    if (!email) return;
+    setSendingResetEmail(email);
+    try {
+      await sendPasswordResetEmail(email);
+      showToast(t('admin_reset_password_success', { email }), 'success');
+    } catch (e: unknown) {
+      reportError(e, { action: 'Failed to send password reset' });
+      const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
+      showToast(t('admin_reset_password_error', { error: errMsg }), 'error');
+    } finally {
+      setSendingResetEmail(null);
+    }
+  };
+
   return {
     loadingData,
     users,
+    invitingUser,
+    sendingResetEmail,
+    handleInviteUser,
+    handleSendPasswordReset,
     bulkImporting,
     bulkSyncing,
     aiUsage,

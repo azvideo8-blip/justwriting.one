@@ -36,6 +36,21 @@ export const adminTranslations: Translations = {
 
   // Users tab
   admin_users_registered: { ru: 'Зарегистрированные пользователи', en: 'Registered users' },
+  admin_col_status: { ru: 'Статус', en: 'Status' },
+  admin_col_activity: { ru: 'Активность', en: 'Activity' },
+  admin_status_invited: { ru: 'Приглашён', en: 'Invited' },
+  admin_status_registered: { ru: 'Зарегистрирован', en: 'Registered' },
+  admin_activity_active: { ru: 'Активен', en: 'Active' },
+  admin_activity_inactive: { ru: 'Неактивен', en: 'Inactive' },
+  admin_invite_title: { ru: 'Пригласить пользователя', en: 'Invite user' },
+  admin_invite_placeholder: { ru: 'email@example.com', en: 'email@example.com' },
+  admin_invite_btn: { ru: 'Пригласить', en: 'Invite' },
+  admin_invite_sending: { ru: 'Отправка…', en: 'Sending…' },
+  admin_invite_success: { ru: 'Приглашение отправлено на {email}', en: 'Invitation sent to {email}' },
+  admin_invite_error: { ru: 'Не удалось пригласить пользователя: {error}', en: 'Failed to invite user: {error}' },
+  admin_reset_password_btn: { ru: 'Сброс пароля', en: 'Reset password' },
+  admin_reset_password_success: { ru: 'Ссылка на сброс пароля отправлена на {email}', en: 'Password reset link sent to {email}' },
+  admin_reset_password_error: { ru: 'Не удалось отправить ссылку: {error}', en: 'Failed to send reset link: {error}' },
 
   // AI stats tab
   admin_ai_stats_title: { ru: 'Статистика AI', en: 'AI Stats' },
