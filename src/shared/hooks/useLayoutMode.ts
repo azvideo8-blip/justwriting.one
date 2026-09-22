@@ -4,6 +4,11 @@ import { z } from 'zod';
 type LayoutMode = 'desktop' | 'mobile';
 
 function getDefaultLayoutMode(): LayoutMode {
+  // Temporarily disabled by request (2026-09-22): mobile layout isn't
+  // beta-ready, testers are being pointed at desktop only. Auto-detection
+  // logic kept below, ready to re-enable — just restore the body.
+  return 'desktop';
+  // eslint-disable-next-line no-unreachable -- dead by design, see comment above
   if (typeof window === 'undefined') return 'desktop';
   const isMobile =
     window.innerWidth < 768 ||
