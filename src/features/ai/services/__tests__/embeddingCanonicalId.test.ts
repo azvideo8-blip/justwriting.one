@@ -29,6 +29,7 @@ vi.mock('../../../../core/data', () => ({
 
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { reportError } from '../../../../shared/errors/reportError';
 
 const CANON = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
@@ -127,5 +128,74 @@ describe('saveEmbeddingToCloud сам достаёт канонический н
 
     await expect(saveEmbeddingToCloud('u1', rawEmbedding as never)).rejects.toThrow(/NO_CANONICAL_ID/);
     expect(saveEmbedding).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * 2026-09-22, продолжение того же класса: documentUuid у записи ЕСТЬ
+ * (проставляется в save() сразу, локально), но сам документ ещё не долетел
+ * до облака — там та же RLS-политика (`exists(select 1 from documents ...)`)
+ * отказывает по факту запроса, а не по отсутствию uuid заранее. Раньше это
+ * било в reportError на каждый проход ("new row violates row-level security
+ * policy for table \"ai_embeddings\"", код 42501) — тот самый спам из
+ * журнала прод-инцидента. Правильный ответ ровно как у "запись без
+ * документа" выше: тихо пропустить, не хоронить, отставание само рассосётся,
+ * когда сам документ синхронизируется.
+ */
+describe('RLS-отказ по ещё-не-облачному документу не логируется и не хоронит запись', () => {
+  const rlsError = { code: '42501', message: 'new row violates row-level security policy for table "ai_embeddings"' };
+
+  beforeEach(async () => {
+    saveEmbedding.mockClear();
+    vi.mocked(reportError).mockClear();
+    const db = await getLocalDb();
+    for (const store of ['documents', 'aiEmbeddings'] as const) {
+      for (const r of await db.getAll(store)) {
+        await db.delete(store, (r as { id?: string; documentId?: string }).id
+          ?? (r as { documentId: string }).documentId);
+      }
+    }
+  });
+
+  it('syncPendingToCloud: не логирует и не помечает cloudSkipped', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', {
+      id: 'local_note_2', uuid: CANON, guestId: 'u1', title: 'Заметка',
+      currentVersion: 1, totalWords: 5, totalDuration: 0, sessionsCount: 1,
+      firstSessionAt: 1, lastSessionAt: 1, tags: [],
+    } as never);
+    await db.put('aiEmbeddings', {
+      documentId: 'local_note_2', documentUuid: CANON, vectors: [[0.1]], chunkTexts: ['т'],
+      model: 'm', dim: 1, contentHash: 'h', processedAt: 1, schemaV: 1,
+    } as never);
+    saveEmbedding.mockRejectedValueOnce(rlsError);
+
+    const result = await AIEmbeddingService.syncPendingToCloud();
+
+    expect(reportError).not.toHaveBeenCalled();
+    expect(result.synced).toBe(0);
+    const rec = await db.get('aiEmbeddings', 'local_note_2');
+    expect((rec as { cloudSkipped?: boolean; cloudSyncedAt?: number } | undefined)?.cloudSkipped).toBeFalsy();
+    expect((rec as { cloudSyncedAt?: number } | undefined)?.cloudSyncedAt).toBeFalsy();
+  });
+
+  it('save(): не логирует, запись остаётся pending для последующей выгрузки', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', {
+      id: 'local_note_3', uuid: CANON, guestId: 'u1', title: 'Заметка',
+      currentVersion: 1, totalWords: 5, totalDuration: 0, sessionsCount: 1,
+      firstSessionAt: 1, lastSessionAt: 1, tags: [],
+    } as never);
+    saveEmbedding.mockRejectedValueOnce(rlsError);
+
+    await AIEmbeddingService.save({
+      documentId: 'local_note_3', vectors: [[0.1]], chunkTexts: ['т'],
+      model: 'm', dim: 1, contentHash: 'h', processedAt: 1, schemaV: 1,
+    } as never);
+
+    expect(reportError).not.toHaveBeenCalled();
+    const rec = await db.get('aiEmbeddings', 'local_note_3');
+    expect((rec as { cloudSkipped?: boolean; cloudSyncedAt?: number } | undefined)?.cloudSkipped).toBeFalsy();
+    expect((rec as { cloudSyncedAt?: number } | undefined)?.cloudSyncedAt).toBeFalsy();
   });
 });

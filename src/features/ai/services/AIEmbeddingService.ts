@@ -66,6 +66,18 @@ export function isOversizedError(msg: string): boolean {
   return /exceeds the maximum allowed size|exceeds.*1,?048,?576|invalid-argument.*size|document.*too large/i.test(msg);
 }
 
+/** RLS insert policy on ai_embeddings requires the parent document to already
+ *  exist in the cloud. A local `documentUuid` doesn't guarantee that — it's
+ *  set the moment the note is created locally, long before (or instead of)
+ *  the document itself reaching the server. Same "not ready yet" case as the
+ *  missing-uuid branch above, just caught after the request instead of
+ *  before it. */
+function isRlsDocumentNotReadyError(e: unknown): boolean {
+  const code = (e as { code?: string } | null)?.code;
+  const msg = e instanceof Error ? e.message : String(e);
+  return code === '42501' || /row-level security policy/i.test(msg);
+}
+
 /**
  * The storage quota is measured in write UNITS, which scale with
  * document size — not in documents. At 4096 dimensions a full-precision float
@@ -255,6 +267,9 @@ export const AIEmbeddingService = {
         if (isOversizedError(msg)) {
           await db.put('aiEmbeddings', { ...withUuid, cloudSkipped: true });
           markCloudFresh(withUuid.documentId);
+        } else if (isRlsDocumentNotReadyError(e)) {
+          // Документ ещё не долетел до облака — запись остаётся pending без
+          // отметки и без лога, syncPendingToCloud подхватит её позже.
         } else if (!msg.includes('ENCRYPT_REQUIRED')) {
           reportError(e, { action: 'ai_embedding_cloud_save' });
         }
@@ -331,6 +346,12 @@ export const AIEmbeddingService = {
           markCloudFresh(emb.documentId);
         } else if (msg.includes('ENCRYPT_REQUIRED')) {
           return { synced, pending: pending.length, locked: true };
+        } else if (isRlsDocumentNotReadyError(e)) {
+          // Тот же случай, что и пропуск выше по отсутствию documentUuid —
+          // просто пойман после запроса, а не до: сервер ещё не видит
+          // документ. Не логируем и не помечаем — само перестанет повторяться,
+          // как только сам документ долетит до облака.
+          continue;
         } else {
           reportError(e, { action: 'ai_embedding_cloud_sync', docId: emb.documentId });
         }
