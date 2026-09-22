@@ -37,20 +37,19 @@ export async function cleanupDraftsAfterSave(
       logger.warn('sessionActions', 'Failed to delete draft', { error: String(delErr) });
     }
     if (docIdToSync) {
+      const { SyncService } = await import('../../../core/services/SyncService');
       try {
-        const { SyncService } = await import('../../../core/services/SyncService');
+        await SyncService.addToQueue(docIdToSync);
+      } catch (queueErr) {
+        logger.error('sessionActions', 'Failed to add to syncQueue before sync', {
+          error: String(queueErr),
+        });
+      }
+      try {
         const cloudId = await SyncService.syncOne(userId, docIdToSync);
         cloudSynced = Boolean(cloudId);
       } catch (e) {
-        logger.warn('sessionActions', 'Cloud sync failed', { error: String(e) });
-        try {
-          const { SyncService } = await import('../../../core/services/SyncService');
-          await SyncService.addToQueue(docIdToSync);
-        } catch (queueErr) {
-          logger.error('sessionActions', 'Failed to add failed sync to syncQueue', {
-            error: String(queueErr),
-          });
-        }
+        logger.warn('sessionActions', 'Cloud sync failed, task remains in syncQueue', { error: String(e) });
       }
     }
   }

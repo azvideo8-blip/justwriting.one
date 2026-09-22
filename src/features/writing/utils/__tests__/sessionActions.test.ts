@@ -30,8 +30,8 @@ describe('cleanupDraftsAfterSave', () => {
     await cleanupDraftsAfterSave('user123', false, 'doc456');
 
     expect(WritingDraftService.deleteDraft).toHaveBeenCalledWith('user123');
+    expect(SyncService.addToQueue).toHaveBeenCalledWith('doc456');
     expect(SyncService.syncOne).toHaveBeenCalledWith('user123', 'doc456');
-    expect(SyncService.addToQueue).not.toHaveBeenCalled();
   });
 
   it('deletes draft but does not perform sync if docIdToSync is null', async () => {

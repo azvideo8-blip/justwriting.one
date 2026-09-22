@@ -99,7 +99,7 @@ export const SyncService = {
     const db = await getLocalDb();
     const tx = db.transaction('syncQueue', 'readwrite');
     const all = await tx.store.getAll();
-    const matching = all.filter(t => t.documentId === documentId || t.id === `sync_${documentId}`);
+    const matching = all.filter(t => (t.documentId === documentId || t.id === `sync_${documentId}`) && !t.id.startsWith('lock_cloud_'));
     for (const item of matching) {
       await tx.store.delete(item.id);
     }
@@ -334,7 +334,53 @@ export const SyncService = {
 
   async syncOne(userId: string, localId: string): Promise<string> {
     const cloudId = await StorageService.addCloudCopy(userId, localId);
-    return (cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) ? '' : (cloudId || '');
+    const result = (cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) ? '' : (cloudId || '');
+    if (result) {
+      await this.removeQueueTasksForDocument(localId);
+    }
+    return result;
+  },
+
+  async sweepOrphanedDocuments(userId: string, olderThanMs = 5 * 60 * 1000): Promise<{ enqueued: number }> {
+    if (!userId || userId.startsWith('guest')) return { enqueued: 0 };
+    if (!cloudSyncEnabled(userId)) return { enqueued: 0 };
+
+    const db = await getLocalDb();
+    const queue = await db.getAll('syncQueue');
+    const queuedDocIds = new Set(queue.map(q => q.documentId).filter(Boolean));
+
+    const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
+    const now = Date.now();
+    const cutoff = now - olderThanMs;
+
+    const orphans = localDocs.filter(d => {
+      if (d.localOnly || d.unlinkedByTombstone || d._locked || d._decryptionError) return false;
+      if (queuedDocIds.has(d.id)) return false;
+
+      const noteTime = d.lastSessionAt || d.firstSessionAt || 0;
+      if (noteTime <= 0 || noteTime >= cutoff) return false;
+
+      const status = syncStatusOf(d);
+      if (status === 'unlinked-new') return true;
+      if (d.linkedCloudId && d.lastSyncedCloudVersion !== undefined && (d.currentVersion ?? 0) > d.lastSyncedCloudVersion) {
+        return true;
+      }
+      return false;
+    });
+
+    if (orphans.length === 0) return { enqueued: 0 };
+
+    let enqueued = 0;
+    for (const doc of orphans) {
+      try {
+        await this.addToQueue(doc.id);
+        enqueued++;
+      } catch (e) {
+        reportError(e, { action: 'sweepOrphanedDocuments_enqueue', documentId: doc.id });
+      }
+    }
+
+    return { enqueued };
   },
 
   async syncDocument(userId: string, localId: string, encryptionRequired = true): Promise<boolean> {

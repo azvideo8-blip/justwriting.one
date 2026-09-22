@@ -78,6 +78,16 @@ export function useBackgroundSync(): void {
         reportError(e, { action: 'backgroundSync_reattachAnalysis' });
       }
 
+      // Защитный обход: найти и поставить в очередь заметки, оставшиеся без облачной копии
+      // и очереди (например, созданные в оффлайне или при сбое процесса).
+      try {
+        const { SyncService } = await import('../../../core/services/SyncService');
+        await SyncService.sweepOrphanedDocuments(uid);
+        await SyncService.syncPending(uid);
+      } catch (e) {
+        reportError(e, { action: 'backgroundSync_sweepOrphanedDocuments' });
+      }
+
       // Дописать в облако векторы, посчитанные при запертом хранилище.
       // Обращений к ИИ здесь нет — только выгрузка уже посчитанного.
       await AIEmbeddingService.syncPendingToCloud();

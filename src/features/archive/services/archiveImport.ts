@@ -95,9 +95,13 @@ export async function importNoteFile(
 
   if (isSignedIn) {
     const { SyncService } = await import('../../../core/services/SyncService');
-    SyncService.syncOne(userId, localId).catch((syncErr) => {
-      console.warn('Import: cloud sync failed, queuing for retry', syncErr);
-      void SyncService.addToQueue(localId);
+    try {
+      await SyncService.addToQueue(localId);
+    } catch (queueErr) {
+      console.error('Import: failed to enqueue sync task', queueErr);
+    }
+    void SyncService.syncOne(userId, localId).catch((syncErr) => {
+      console.warn('Import: cloud sync failed, task remains in syncQueue', syncErr);
     });
   }
 

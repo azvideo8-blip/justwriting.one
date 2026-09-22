@@ -77,6 +77,7 @@ describe('importNoteFile', () => {
 
     expect(result.success).toBe(true);
     expect(saveNewMock).toHaveBeenCalledWith('user-1', expect.objectContaining({ title: 'note', content: 'some content' }));
+    expect(addToQueueMock).toHaveBeenCalledWith('local-1');
     expect(syncOneMock).toHaveBeenCalledWith('user-1', 'local-1');
   });
 
