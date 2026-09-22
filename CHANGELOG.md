@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.8.57 — 2026-09-22
+
+- **[RU]** Заметка, сохранённая офлайн или прерванная сбоем сети, теперь точно доходит до облака в фоне — без ожидания следующего визита.
+- **[EN]** A note saved offline or interrupted by a network drop now actually reaches the cloud in the background — no need to wait for the next visit.
+- **[RU]** Заметка в корзине больше не всплывает в разборе ИИ и в подсказках чата — как в архиве, так и на других устройствах.
+- **[EN]** A note in the trash no longer surfaces in AI analysis or chat suggestions.
+- **[RU]** Удаление единственной копии заметки (только на устройстве или только в облаке) теперь тоже отправляет её в корзину на 10 дней, а не стирает сразу.
+- **[EN]** Deleting a note's only copy (device-only or cloud-only) now also sends it to the 10-day trash instead of erasing it immediately.
+- **[RU]** Устаревшая ссылка из письма (приглашение или восстановление пароля) показывает понятное сообщение вместо пустого экрана.
+- **[EN]** An outdated link from an email (invite or password reset) now shows a clear message instead of a blank screen.
+- **[RU]** Повторное приглашение человека, который ещё не задал пароль, честно говорит «отправлено повторно», а не выглядит как первое приглашение.
+- **[EN]** Re-inviting someone who hasn't set a password yet now says "resent", instead of looking like a first invite.
+- **[RU]** После смены пароля аккаунта на другом устройстве окно разблокировки подсказывает ввести прежний пароль или код восстановления, а не нынешний.
+- **[EN]** After an account password change, the unlock prompt on another device now points at the previous password or recovery code, not the current one.
+- **[RU]** Поиск по архиву без результатов больше не показывает лишние фигурные скобки вокруг запроса.
+- **[EN]** An empty archive search no longer shows stray curly braces around the query.
+- **[RU]** Журнал активности теперь фиксирует восстановление заметки из корзины и удаление отдельной заметки навсегда.
+- **[EN]** The activity journal now logs restoring a note from trash and permanently deleting a single note.
+- **[RU]** Мобильный вид временно отключён — пока все видят десктопный интерфейс, мобильная версия дорабатывается отдельно.
+- **[EN]** Mobile layout is temporarily disabled — everyone sees the desktop interface for now while the mobile version is reworked separately.
+
 ## 0.8.56 — 2026-09-22
 
 - **[RU]** Добавлена корзина: удалённая заметка хранится 10 дней и её можно восстановить, есть полное удаление и очистка корзины, оба действия видны в журнале.

@@ -14,6 +14,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.8.57',
+    date: '2026-09-22',
+    items: [
+      { category: 'fix', ru: 'Заметка, сохранённая офлайн или прерванная сбоем сети, теперь точно доходит до облака в фоне — без ожидания следующего визита.', en: 'A note saved offline or interrupted by a network drop now actually reaches the cloud in the background — no need to wait for the next visit.' },
+      { category: 'fix', ru: 'Заметка в корзине больше не всплывает в разборе ИИ и в подсказках чата.', en: 'A note in the trash no longer surfaces in AI analysis or chat suggestions.' },
+      { category: 'improvement', ru: 'Удаление единственной копии заметки (только на устройстве или только в облаке) теперь тоже отправляет её в корзину на 10 дней, а не стирает сразу.', en: "Deleting a note's only copy (device-only or cloud-only) now also sends it to the 10-day trash instead of erasing it immediately." },
+      { category: 'fix', ru: 'Устаревшая ссылка из письма (приглашение или восстановление пароля) показывает понятное сообщение вместо пустого экрана.', en: 'An outdated link from an email (invite or password reset) now shows a clear message instead of a blank screen.' },
+      { category: 'improvement', ru: 'Повторное приглашение человека, который ещё не задал пароль, честно говорит «отправлено повторно».', en: 'Re-inviting someone who hasn\'t set a password yet now says "resent".' },
+      { category: 'fix', ru: 'После смены пароля аккаунта на другом устройстве окно разблокировки подсказывает ввести прежний пароль или код восстановления, а не нынешний.', en: "After an account password change, the unlock prompt on another device now points at the previous password or recovery code, not the current one." },
+      { category: 'fix', ru: 'Поиск по архиву без результатов больше не показывает лишние фигурные скобки вокруг запроса.', en: 'An empty archive search no longer shows stray curly braces around the query.' },
+      { category: 'improvement', ru: 'Журнал активности теперь фиксирует восстановление заметки из корзины и удаление отдельной заметки навсегда.', en: 'The activity journal now logs restoring a note from trash and permanently deleting a single note.' },
+      { category: 'improvement', ru: 'Мобильный вид временно отключён — пока все видят десктопный интерфейс, мобильная версия дорабатывается отдельно.', en: 'Mobile layout is temporarily disabled — everyone sees the desktop interface for now while the mobile version is reworked separately.' },
+    ],
+  },
+  {
     version: '0.8.56',
     date: '2026-09-22',
     items: [
