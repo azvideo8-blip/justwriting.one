@@ -19,7 +19,12 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Свой раннер прямо на проде: только этот workflow — ручной
+    # (workflow_dispatch), запускается человеком по требованию, а не
+    # автоматически на каждый push. CI (автоматический, на каждый push/PR/
+    # dependabot) остаётся на github-хостинге — вешать его туда же означало
+    # бы непредсказуемую конкуренцию за память с живой базой.
+    runs-on: [self-hosted, justwriting-vps]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
