@@ -177,4 +177,55 @@ describe('ConflictResolver', () => {
       })
     );
   });
+
+  it('NARROW-1: deletes local version from original document when version is absent from cloud', async () => {
+    const { VersionService } = await import('../VersionService');
+
+    const localVersions = [
+      { id: 'lv_1', version: 1, content: 'Version 1 content', sessionStartedAt: 1000 },
+      { id: 'lv_2', version: 2, content: 'Version 2 content', sessionStartedAt: 2000 },
+      { id: 'lv_3', version: 3, content: 'Version 3 local content only', sessionStartedAt: 3000 },
+    ];
+    vi.mocked(LocalVersionService.getVersions).mockImplementation(async () => localVersions as any);
+
+    // Cloud has only versions 1 and 2, but cloudDoc.currentVersion is 3
+    const cloudVersions = [
+      { version: 1, content: 'Version 1 content' },
+      { version: 2, content: 'Version 2 content' },
+    ];
+    vi.mocked(VersionService.getVersions).mockResolvedValue(cloudVersions as any);
+
+    const storeDelete = vi.fn();
+    const mockTx = {
+      store: { delete: storeDelete },
+      done: Promise.resolve(),
+    };
+    mockDb({
+      transaction: vi.fn().mockReturnValue(mockTx) as any,
+      get: vi.fn().mockResolvedValue(null) as any,
+    });
+
+    await ConflictResolver.resolveConflict(
+      'user1',
+      'doc_local',
+      'doc_cloud',
+      dummyData,
+      3,
+      { currentVersion: 3 }
+    );
+
+    // Pass 1 copies lv_3 to fork
+    expect(LocalVersionService.addVersion).toHaveBeenCalledWith(
+      'user1',
+      'forked_doc_123',
+      expect.objectContaining({
+        versionNumber: 3,
+        content: 'Version 3 local content only',
+      })
+    );
+
+    // Pass 2: In original doc, lv_3 MUST be deleted because it does not exist in cloud
+    expect(storeDelete).toHaveBeenCalledWith('lv_3');
+  });
 });
+

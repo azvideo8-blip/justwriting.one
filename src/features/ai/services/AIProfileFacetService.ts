@@ -4,10 +4,10 @@ import { AIProfileFacetBuilder, type FacetBuildProgress, type FacetBuildResult }
 import { AIProfileFacetSummarizer } from './AIProfileFacetSummarizer';
 
 import type { CallAiOptions } from '../../../core/ai/callAi';
-import { withFacetLock } from '../../../core/services/facetLock';
+import { withFacetLock, writeFacetStore } from '../../../core/services/facetLock';
 
 // Ре-экспорт: часть кода импортирует лок отсюда исторически.
-export { withFacetLock };
+export { withFacetLock, writeFacetStore };
 
 
 export const AIProfileFacetService = {
@@ -19,8 +19,9 @@ export const AIProfileFacetService = {
   },
 
   async clear(): Promise<void> {
-    const db = await getLocalDb();
-    await db.clear('aiProfileFacets');
+    await writeFacetStore(async (store) => {
+      await store.clear();
+    });
   },
 
   async build(onProgress?: (p: FacetBuildProgress) => void): Promise<FacetBuildResult> {

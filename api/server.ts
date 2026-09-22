@@ -139,13 +139,23 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-// CHOKE-2: Global safety net: log unhandled exceptions and rejections
-// without terminating the process abruptly.
-process.on('uncaughtException', (err) => {
-  console.error('[server] uncaughtException', err);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('[server] unhandledRejection', reason);
-});
+// CHOKE-2 / NARROW-3: Global safety net: log unhandled exceptions and rejections
+// and terminate the process (process.exit(1)) so systemd (Restart=on-failure) can
+// restart the service cleanly.
+//
+// Осознанный компромисс: страховка от полностью неожиданных ошибок должна
+// оставаться «упасть и перезапуститься», а не «жить дальше в неизвестном состоянии»
+// (продолжение работы после uncaughtException в повреждённой памяти недопустимо).
+// Логирование обеспечивает видимость перед падением.
+if (process.env.NODE_ENV !== 'test') {
+  process.on('uncaughtException', (err) => {
+    console.error('[server] uncaughtException', err);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('[server] unhandledRejection', reason);
+    process.exit(1);
+  });
+}
 
 export default server;

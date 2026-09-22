@@ -286,6 +286,74 @@ describe('encryptAllExistingNotes', () => {
       expect.objectContaining({ _encrypted: true })
     );
   });
+
+  it('NARROW-4: resolves already-canonical document UUID for cloud summaries without local DB lookup (real LIFE-3)', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserEmbeddings.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+
+    // Cloud summary has a canonical UUID as documentId (no local_ prefix) and no documentUuid
+    mockGetUserSummaries.mockResolvedValue([
+      {
+        documentId: 'canonical-cloud-summary-uuid-111',
+        summary: 'Cloud summary text without local copy',
+        _encrypted: false,
+      },
+    ]);
+
+    const mockDbGet = vi.fn();
+    const { getLocalDb } = await import('../../storage/localDb');
+    vi.mocked(getLocalDb).mockResolvedValue({
+      get: mockDbGet,
+      put: vi.fn().mockResolvedValue(undefined),
+    } as any);
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.errors).toBe(0);
+    expect(progress.encrypted).toBe(1);
+    // Crucial check: db.get must NOT be called for a canonical document ID
+    expect(mockDbGet).not.toHaveBeenCalled();
+    expect(mockSaveSummary).toHaveBeenCalledWith(
+      userId,
+      'canonical-cloud-summary-uuid-111',
+      expect.objectContaining({ _encrypted: true })
+    );
+  });
+
+  it('NARROW-4: resolves already-canonical document UUID for cloud embeddings without local DB lookup (real LIFE-3)', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserSummaries.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+
+    // Cloud embedding has a canonical UUID as documentId (no local_ prefix) and no documentUuid
+    mockGetUserEmbeddings.mockResolvedValue([
+      {
+        documentId: 'canonical-cloud-emb-uuid-222',
+        vectorsJson: JSON.stringify([[0.5, 0.6]]),
+        _encrypted: false,
+      },
+    ]);
+
+    const mockDbGet = vi.fn();
+    const { getLocalDb } = await import('../../storage/localDb');
+    vi.mocked(getLocalDb).mockResolvedValue({
+      get: mockDbGet,
+      put: vi.fn().mockResolvedValue(undefined),
+    } as any);
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.errors).toBe(0);
+    expect(progress.encrypted).toBe(1);
+    // Crucial check: db.get must NOT be called for a canonical document ID
+    expect(mockDbGet).not.toHaveBeenCalled();
+    expect(mockSaveEmbedding).toHaveBeenCalledWith(
+      userId,
+      'canonical-cloud-emb-uuid-222',
+      expect.objectContaining({ _encrypted: true })
+    );
+  });
 });
 
 describe('encryptSingleDocument', () => {

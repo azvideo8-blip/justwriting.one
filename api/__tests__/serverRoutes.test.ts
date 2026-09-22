@@ -74,4 +74,28 @@ describe('production route smoke (server.ts)', () => {
       await new Promise<void>(resolve => server.close(() => resolve()));
     }
   });
+
+  it('NARROW-3: uncaughtException logs and exits with code 1 for systemd restart', async () => {
+    const { execSync } = await import('node:child_process');
+    try {
+      execSync(
+        `node --import tsx -e "
+          process.env.NODE_ENV = 'production';
+          process.env.PORT = '3098';
+          process.env.SUPABASE_JWT_ISS = 'https://example.com/auth/v1';
+          import('./api/server.ts').then(() => {
+            setTimeout(() => { throw new Error('narrow-3-test-error'); }, 10);
+          });
+        "`,
+        { cwd: process.cwd(), stdio: 'pipe' }
+      );
+      expect.fail('process should have exited with code 1');
+    } catch (e: any) {
+      expect(e.status).toBe(1);
+      const stderr = e.stderr?.toString() ?? '';
+      expect(stderr).toContain('[server] uncaughtException');
+      expect(stderr).toContain('narrow-3-test-error');
+    }
+  });
 });
+

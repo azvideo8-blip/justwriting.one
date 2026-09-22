@@ -4,11 +4,19 @@ import { DataProvider } from '../data';
 import { reportError } from '../../shared/errors/reportError';
 import { getLocalDb } from '../storage/localDb';
 
-// CHOKE-4 fix, take 2: `core/` must not import from `features/` (ARCHITECTURE.md,
-// enforced by import/no-restricted-paths) — the first fix routed through
-// AISummaryService/AIEmbeddingService and broke that boundary. The actual bug
-// was the canonical-id guess (`!id.startsWith('local_')`), not which module
-// resolves it; this local lookup is the same one those two modules already do.
+// NARROW-4 / CHOKE-4: `core/` must not import from `features/` (ARCHITECTURE.md,
+// enforced by import/no-restricted-paths).
+//
+// NOTE: This resolver INTENTIONALLY differs from `AISummaryService`'s inline search.
+// They operate on completely different input domains:
+// - `AISummaryService.saveSummaryToCloud` processes locally-created rows that may
+//   lack canonical UUIDs, so it must check the local `documents` store.
+// - `encryptMigration.ts` processes cloud-synced rows. Under Postgres RLS
+//   (`0002_rls.sql`, `with check (... d.uuid = document_id ...)`), `document_id`
+//   in cloud `ai_summaries`/`ai_embeddings` IS ALWAYS `documents.uuid` (already canonical).
+//   Therefore, any non-`local_` documentId is trusted directly without a local DB lookup
+//   (a cloud row may not even have a local copy on this device).
+// DO NOT "unify" these two resolvers without accounting for the RLS invariant!
 async function resolveCanonicalDocId(documentId: string, documentUuid?: string | undefined): Promise<string | null> {
   if (documentUuid) return documentUuid;
   // A row synced down from the cloud already carries the canonical id as

@@ -1,5 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
-import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry } from '../../../core/storage/localDb';
+import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { sha256Hex } from '../utils/embeddingIndexer';
@@ -17,7 +17,7 @@ import { logger } from '../../../shared/errors/logger';
 import { decodeCloudSummary } from './AISummaryService';
 import { decodeCloudEmbedding } from './AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
-import { withFacetLock } from '../../../core/services/facetLock';
+import { writeFacetStore } from '../../../core/services/facetLock';
 
 const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
 const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
@@ -322,7 +322,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
           // Otherwise: LOCAL WINS, never overwrite!
           if (localTs !== null && cloudTs !== null && cloudTs > localTs) {
             if (store === 'aiProfileFacets') {
-              await withFacetLock(putRecord);
+              await writeFacetStore(s => s.put(parsedData as AIProfileFacet));
             } else {
               await putRecord();
             }
@@ -331,7 +331,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
         } else {
           // No local record -> put cloud record
           if (store === 'aiProfileFacets') {
-            await withFacetLock(putRecord);
+            await writeFacetStore(s => s.put(parsedData as AIProfileFacet));
           } else {
             await putRecord();
           }

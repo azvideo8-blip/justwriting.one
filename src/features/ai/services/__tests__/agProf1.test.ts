@@ -8,6 +8,7 @@ import { AIConsolidationService } from '../AIConsolidationService';
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { AIService } from '../AIService';
 import { AITimelineService } from '../AITimelineService';
+import { writeFacetStore } from '../../../../core/services/facetLock';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
@@ -125,7 +126,7 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
     const docId = 'doc_cascade_test';
 
     // 1. Facet with docId and other note
-    await db.put('aiProfileFacets', {
+    await writeFacetStore(s => s.put({
       id: 'f1',
       label: 'Творчество',
       centroid: [0.1, 0.2],
@@ -134,7 +135,7 @@ describe('AG-PROF-1: Portrait Integrity & Service Guards', () => {
       noteCount: 2,
       dirty: false,
       updatedAt: 1000,
-    } as never);
+    } as never));
 
     // 2. Belief with docId evidence
     await db.put('aiBeliefs', {

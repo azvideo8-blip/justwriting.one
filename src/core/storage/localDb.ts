@@ -301,7 +301,7 @@ export interface ThemeRecord {
   supersededBy?: string;               // Stage 3 reconcile field
 }
 
-interface JustWritingDB extends DBSchema {
+export interface JustWritingDB extends DBSchema {
 
   documents: {
     key: string;

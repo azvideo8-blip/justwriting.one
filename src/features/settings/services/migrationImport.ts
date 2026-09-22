@@ -5,12 +5,14 @@ import {
   type LocalDraft,
   type AIDocumentSummary,
   type AIDocumentEmbedding,
+  type AIProfileFacet,
 } from "../../../core/storage/localDb";
 import { emitDomainEvent } from "../../../core/events/domainEvents";
 import { type MigrationManifest } from "./migrationExport";
 import { SyncService } from "../../../core/services/SyncService";
 import { getSessionKey } from "../../../core/crypto/encrypt";
 import { toTimestampMs } from "../../../core/utils/dateUtils";
+import { writeFacetStore } from "../../../core/services/facetLock";
 
 export interface MigrationImportResult {
   success: boolean;
@@ -582,7 +584,11 @@ export async function importMigrationManifest(
         reason: `${rec.store} record already exists`,
       });
     } else {
-      await db.put(rec.store as never, rec.payload);
+      if (rec.store === "aiProfileFacets") {
+        await writeFacetStore(s => s.put(rec.payload as AIProfileFacet));
+      } else {
+        await db.put(rec.store as never, rec.payload);
+      }
       imported.verbatim[rec.store] = (imported.verbatim[rec.store] || 0) + 1;
     }
   }

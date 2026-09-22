@@ -16,7 +16,7 @@ import { Section } from './SettingsHelpers';
 import { Button } from '../../../shared/components/Button';
 import { useLanguage } from '../../../shared/i18n';
 import { SUPPORTED_LOCAL_STORES } from '../../../core/services/LocalStoreSyncService';
-import { withFacetLock } from '../../../core/services/facetLock';
+import { writeFacetStore } from '../../../core/services/facetLock';
 
 interface AccountAISectionProps {
   userId: string;
@@ -159,7 +159,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       );
       for (const store of aiStores) {
         if (store === 'aiProfileFacets') {
-          await withFacetLock(() => db.clear(store));
+          await writeFacetStore(s => s.clear());
         } else {
           await db.clear(store);
         }

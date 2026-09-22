@@ -4,7 +4,7 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
-import { withFacetLock } from '../../../core/services/facetLock';
+import { writeFacetStore } from '../../../core/services/facetLock';
 
 function formatDateYYYYMMDD(timestamp: number): string {
   const date = new Date(timestamp);
@@ -15,11 +15,10 @@ function formatDateYYYYMMDD(timestamp: number): string {
 }
 
 async function removeDialogueFromFacets(dialogueId: string): Promise<void> {
-  await withFacetLock(async () => {
+  await writeFacetStore(async (store) => {
     try {
-      const db = await getLocalDb();
-      const facets = await db.getAll('aiProfileFacets');
-      const tx = db.transaction('aiProfileFacets', 'readwrite');
+      const facets = await store.getAll();
+      const tx = store.transaction();
       for (const f of facets) {
         if (f.dialogueIds && f.dialogueIds.includes(dialogueId)) {
           f.dialogueIds = f.dialogueIds.filter(id => id !== dialogueId);

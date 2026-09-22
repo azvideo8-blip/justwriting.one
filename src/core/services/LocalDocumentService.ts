@@ -1,6 +1,6 @@
 import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
-import { withFacetLock } from './facetLock';
+import { writeFacetStore } from './facetLock';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
 import { DataProvider } from '../data';
 import { getCurrentUser } from '../auth';
@@ -289,10 +289,10 @@ export const LocalDocumentService = {
 
       // 7. Clean aiProfileFacets and invalidate portrait if modified
       let facetsChanged = false;
-      await withFacetLock(async () => {
+      await writeFacetStore(async (store) => {
         try {
-          const facets = await db.getAll('aiProfileFacets');
-          const tx = db.transaction('aiProfileFacets', 'readwrite');
+          const facets = await store.getAll();
+          const tx = store.transaction();
           for (const f of facets) {
             if (f.noteIds.includes(documentId)) {
               facetsChanged = true;

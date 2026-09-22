@@ -142,8 +142,14 @@ export const ConflictResolver = {
       const tx = db.transaction('versions', 'readwrite');
       for (const lv of localVersions) {
         const cv = cloudVerMap.get(lv.version);
+        if (!cv) {
+          // NARROW-1: В облаке такой версии нет вообще — она никогда не синкалась,
+          // Pass 1 уже положил её в форк. В оригинале ей делать нечего.
+          await tx.store.delete(lv.id);
+          continue;
+        }
         const comparison = comparableOrUnknown(
-          cv ? { content: cv.content, _decryptionError: cv._decryptionError } : undefined,
+          { content: cv.content, _decryptionError: cv._decryptionError },
           { content: lv.content },
         );
         if (comparison.comparable && !comparison.same) {

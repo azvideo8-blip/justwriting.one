@@ -7,7 +7,7 @@ import { AITaxonomyService } from './AITaxonomyService';
 import { tuneThresholds } from '../utils/thresholdTuner';
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
-import { withFacetLock } from '../../../core/services/facetLock';
+import { writeFacetStore } from '../../../core/services/facetLock';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 const MIN_FACET_NOTES = 2;
@@ -92,7 +92,7 @@ function fallbackFromTexts(texts: string[]): { label: string; summary: string } 
 
 export const AIProfileFacetBuilder = {
   async build(onProgress?: (p: FacetBuildProgress) => void): Promise<FacetBuildResult> {
-    return withFacetLock(async () => {
+    return writeFacetStore(async (facetStore) => {
       const db = await getLocalDb();
 
       const dialogueInFacetsEnabled = localStorage.getItem('ff_dialogues_in_facets') === 'true';
@@ -342,7 +342,7 @@ export const AIProfileFacetBuilder = {
 
       const newFacets = facets;
       const newIds = new Set(newFacets.map(f => f.id));
-      const tx = db.transaction('aiProfileFacets', 'readwrite');
+      const tx = facetStore.transaction();
       for (const f of newFacets) {
         await tx.store.put(f);
         LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
@@ -360,7 +360,7 @@ export const AIProfileFacetBuilder = {
   },
 
   async incrementalUpdate(noteId: string): Promise<{ updated: number }> {
-    return withFacetLock(async () => {
+    return writeFacetStore(async (facetStore) => {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
       if (facets.length === 0) return { updated: 0 };
@@ -416,7 +416,7 @@ export const AIProfileFacetBuilder = {
         if (dirty.has(f.id)) {
           if (ts < f.firstAt || !f.firstAt) f.firstAt = ts;
           if (ts > f.lastAt) f.lastAt = ts;
-          await db.put('aiProfileFacets', f);
+          await facetStore.put(f);
           LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
         }
       }

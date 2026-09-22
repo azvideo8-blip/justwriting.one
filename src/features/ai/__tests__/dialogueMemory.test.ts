@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
+import { writeFacetStore } from '../../../core/services/facetLock';
 
 vi.mock('../services/AIService', () => ({
   AIService: {
@@ -17,7 +18,7 @@ describe('Dialogue Memory Purge (RING-0)', () => {
     await db.clear('aiDialogues');
     await db.clear('aiDialogueEvents');
     await db.clear('aiChatMemory');
-    await db.clear('aiProfileFacets');
+    await writeFacetStore(s => s.clear());
   });
 
   it('removes derived memories and dialogue events but preserves manual ones on delete', async () => {
@@ -73,7 +74,7 @@ describe('Dialogue Memory Purge (RING-0)', () => {
     });
 
     // Add dialogue to a profile facet dialogueIds
-    await db.put('aiProfileFacets', {
+    await writeFacetStore(s => s.put({
       id: 'facet_test',
       label: 'Test Facet',
       summary: 'Summary',
@@ -85,7 +86,7 @@ describe('Dialogue Memory Purge (RING-0)', () => {
       lastAt: 0,
       updatedAt: Date.now(),
       buildId: 'test',
-    });
+    }));
 
     // Verify they exist before delete
     expect(await db.get('aiDialogues', dialogue.id)).toBeDefined();

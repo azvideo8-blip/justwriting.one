@@ -1,7 +1,7 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIService } from './AIService';
 import { AIProfileFacetService } from './AIProfileFacetService';
-import { withFacetLock } from '../../../core/services/facetLock';
+import { writeFacetStore } from '../../../core/services/facetLock';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import type { CallAiOptions } from '../../../core/ai/callAi';
 import { getCurrentUser } from '../../../core/auth';
@@ -100,7 +100,7 @@ export const AIFacetJudgeService = {
   },
 
   async review(opts?: CallAiOptions): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {
-    return withFacetLock(async () => {
+    return writeFacetStore(async (facetStore) => {
     const facets = await AIProfileFacetService.getAll();
     if (facets.length === 0) return { judged: 0, corrected: 0, log: [] };
 
@@ -180,7 +180,7 @@ export const AIFacetJudgeService = {
       if (passed) {
         facet.summary = re.summary;
         facet.updatedAt = Date.now();
-        await db.put('aiProfileFacets', facet);
+        await facetStore.put(facet);
         corrected++;
         log.push({ label, status: 'corrected', issues: v.issues });
       } else {

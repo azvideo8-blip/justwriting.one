@@ -1,7 +1,7 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { AIService } from './AIService';
-import { withFacetLock } from '../../../core/services/facetLock';
+import { writeFacetStore } from '../../../core/services/facetLock';
 import type { FacetBuildProgress } from './AIProfileFacetBuilder';
 import { AIBackgroundBudget } from './AIBackgroundBudget';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
@@ -15,7 +15,7 @@ const LLM_DELAY_MS = 200;
 
 export const AIProfileFacetSummarizer = {
   async resummarizeDirty(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ count: number }> {
-    return withFacetLock(async () => {
+    return writeFacetStore(async (facetStore) => {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
       const dirty = facets.filter(f => f.dirty);
@@ -60,7 +60,7 @@ export const AIProfileFacetSummarizer = {
 
         f.dirty = !resummarized;
         f.updatedAt = Date.now();
-        await db.put('aiProfileFacets', f);
+        await facetStore.put(f);
         LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }
@@ -70,7 +70,7 @@ export const AIProfileFacetSummarizer = {
   },
 
   async summarizePending(onProgress?: (p: FacetBuildProgress) => void, opts?: CallAiOptions): Promise<{ done: number }> {
-    return withFacetLock(async () => {
+    return writeFacetStore(async (facetStore) => {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
       const pending = facets.filter(f => f.pendingSummary === true);
@@ -120,7 +120,7 @@ export const AIProfileFacetSummarizer = {
         }
         delete f._excerptSeed;
         f.updatedAt = Date.now();
-        await db.put('aiProfileFacets', f);
+        await facetStore.put(f);
         LocalStoreSyncService.scheduleStoreSync('aiProfileFacets', f.id);
         await new Promise(r => setTimeout(r, LLM_DELAY_MS));
       }

@@ -132,4 +132,64 @@ describe('CHOKE-3: withFacetLock serialization with AIRestoreService and clear',
 
     expect(clearCalls).toEqual(['aiProfileFacets']);
   });
+
+  it('writeFacetStore serializes writes behind existing lock and provides writer methods', async () => {
+    const { writeFacetStore } = await import('../../../../core/services/facetLock');
+
+    let releaseLock!: () => void;
+    const lockDeferred = new Promise<void>((resolve) => {
+      releaseLock = resolve;
+    });
+
+    const executionOrder: string[] = [];
+
+    const inFlightOp = withFacetLock(async () => {
+      executionOrder.push('in_flight_start');
+      await lockDeferred;
+      executionOrder.push('in_flight_end');
+    });
+
+    const writePromise = writeFacetStore(async (store) => {
+      executionOrder.push('write_start');
+      await store.put({ id: 'facet_new', label: 'Art', noteIds: [] } as any);
+      await store.clear();
+      executionOrder.push('write_end');
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(putCalls.length).toBe(0);
+    expect(clearCalls.length).toBe(0);
+
+    releaseLock();
+    await inFlightOp;
+    await writePromise;
+
+    expect(executionOrder).toEqual(['in_flight_start', 'in_flight_end', 'write_start', 'write_end']);
+    expect(putCalls).toEqual([{ store: 'aiProfileFacets', value: { id: 'facet_new', label: 'Art', noteIds: [] } }]);
+    expect(clearCalls).toEqual(['aiProfileFacets']);
+  });
+
+  it('NARROW-2 guard: no raw db.put or db.clear on aiProfileFacets outside facetLock.ts', async () => {
+    const { execSync } = await import('node:child_process');
+    const rootDir = process.cwd();
+
+    let output = '';
+    try {
+      output = execSync('git grep -E "db\\.(put|clear)\\([^)]*aiProfileFacets" src/', {
+        cwd: rootDir,
+        encoding: 'utf8',
+      }).trim();
+    } catch (e: any) {
+      output = e.stdout?.toString()?.trim() ?? '';
+    }
+
+    const lines = output ? output.split('\n') : [];
+    // Only src/core/services/facetLock.ts is permitted to contain these direct calls
+    const violations = lines.filter(line => 
+      !line.startsWith('src/core/services/facetLock.ts:') &&
+      !line.includes('facetLockConcurrency.test.ts')
+    );
+    expect(violations).toEqual([]);
+  });
 });
+
