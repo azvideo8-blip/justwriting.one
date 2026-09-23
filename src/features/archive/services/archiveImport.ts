@@ -89,6 +89,10 @@ export async function importNoteFile(
     duration: 0,
     wpm: 0,
     sessionStartedAt,
+    // D-4: дата из шапки файла (или lastModified) — это дата самой заметки.
+    // Без неё saveNew поставил бы сегодняшний день, и весь импортированный
+    // архив разложился бы по «сегодня» в списке, календаре и «в этот день».
+    documentDate: sessionStartedAt,
     tags: parsed.tags,
     mood: parsed.mood,
   });

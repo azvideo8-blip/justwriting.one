@@ -58,7 +58,7 @@ describe('L-5: rerankNotesLogic malformed response handling', () => {
     ).rejects.toThrow('Rerank response was not valid JSON.');
 
     // Slot is refunded for failed call
-    expect(refundBulkLimit).toHaveBeenCalledWith('user_1', '2026-09-08');
+    expect(refundBulkLimit).toHaveBeenCalledWith('user_1', '2026-09-08', 'bulk');
     // Because upstream output was produced, idle full refund is NOT called,
     // but usage is reconciled to record actual consumed tokens
     expect(refundGlobalRequest).not.toHaveBeenCalled();

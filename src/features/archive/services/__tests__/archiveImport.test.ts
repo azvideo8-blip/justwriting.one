@@ -118,6 +118,8 @@ describe('importNoteFile', () => {
     expect(savedPayload.sessionStartedAt.getFullYear()).toBe(2026);
     expect(savedPayload.sessionStartedAt.getMonth()).toBe(8); // September is 8 (0-indexed)
     expect(savedPayload.sessionStartedAt.getDate()).toBe(5);
+    // D-4: дата файла должна доходить до самого документа, а не только до версии.
+    expect(savedPayload.documentDate).toEqual(savedPayload.sessionStartedAt);
   });
 
   it('L-1: file with genuinely unreadable date imports and reports dateUnreadable', async () => {

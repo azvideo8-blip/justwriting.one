@@ -1,5 +1,39 @@
 import { create } from 'zustand';
 import { TimerStatus, SessionType } from './types';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { getCurrentUser } from '../../../core/auth';
+import { getOrCreateGuestId } from '../../../core/storage/localDb';
+
+export function getSavedWordGoal(uid?: string | null): number {
+  if (typeof localStorage === 'undefined') return 1000;
+  try {
+    const userUid = uid ?? getCurrentUser()?.uid ?? getOrCreateGuestId();
+    const key = STORAGE_KEYS.WORD_GOAL(userUid);
+    const val = localStorage.getItem(key);
+    if (val) {
+      const parsed = parseInt(val, 10);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return 1000;
+}
+
+export function saveWordGoal(goal: number, uid?: string | null): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const userUid = uid ?? getCurrentUser()?.uid ?? getOrCreateGuestId();
+    const key = STORAGE_KEYS.WORD_GOAL(userUid);
+    if (goal > 0) {
+      localStorage.setItem(key, String(goal));
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore
+  }
+}
 
 export interface TimerStateData {
   status: TimerStatus;
@@ -10,6 +44,10 @@ export interface TimerStateData {
   sessionStartEpochMs: number | null;
   sessionStartAccMs: number;
   timerDuration: number;
+  /** D-10: задана ли цель по времени явно (GoalPopup / setTimerDuration), а не
+   *  унаследована от дефолтных 30 минут. Только явная цель срабатывает в
+   *  свободной сессии; AG-TIMER-1 не трогает: finish-by её не учитывает. */
+  timeGoalExplicit: boolean;
   wordGoal: number;
   targetTime: string | null;
   timeGoalReached: boolean;
@@ -47,7 +85,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   seconds: 0, sessionStartSeconds: 0,
   _startWallMs: null, _accumulatedMs: 0,
   sessionStartEpochMs: null, sessionStartAccMs: 0,
-  timerDuration: 30 * 60, targetTime: null, wordGoal: 1000,
+  timerDuration: 30 * 60, targetTime: null, wordGoal: getSavedWordGoal(),
+  timeGoalExplicit: false,
   timeGoalReached: false, wordGoalReached: false, overtimeSeconds: 0,
   accumulatedDuration: 0,
   totalPauseSeconds: 0, _pauseWallStart: null,
@@ -111,9 +150,16 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     let wordGoalReached = s.wordGoalReached;
     let overtimeSeconds = s.overtimeSeconds;
 
+    const timerGoalMet = s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration;
+    // D-10: на десктопе сессия всегда 'free', поэтому явная цель по времени
+    // (выбранная в нижней панели) должна давать тот же сигнал, что цель по
+    // словам. Дефолтные 30 минут без явного выбора не срабатывают.
+    const freeGoalMet = s.sessionType === 'free' && s.timeGoalExplicit
+      && s.timerDuration > 0 && sessionSeconds >= s.timerDuration;
+
     if (newSeconds !== s.seconds ||
-      s.timeGoalReached !== (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration)) {
-      if (s.sessionType === 'timer' && s.timerDuration > 0 && sessionSeconds >= s.timerDuration) {
+      s.timeGoalReached !== (timerGoalMet || freeGoalMet)) {
+      if (timerGoalMet || freeGoalMet) {
         timeGoalReached = true;
       }
       // AG-TIMER-1: A session honours only the goal of its own type.
@@ -146,10 +192,13 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   setTimerDuration: (timerDuration) => set((state) => {
+    // D-10: любой вызов из панели/попапа — явный выбор цели; 0 означает «снять».
+    const timeGoalExplicit = timerDuration > 0;
     if (state.status !== 'idle' && state.timeGoalReached) {
       const sessionSec = state.getSessionSeconds();
       return {
         timerDuration,
+        timeGoalExplicit,
         timeGoalReached: false,
         overtimeSeconds: 0,
         accumulatedDuration: state.accumulatedDuration + sessionSec,
@@ -158,21 +207,24 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         sessionStartEpochMs: Date.now(),
       };
     }
-    return { timerDuration };
+    return { timerDuration, timeGoalExplicit };
   }),
 
-  setWordGoal: (wordGoal, wordCount) => set((state) => {
-    if (state.status !== 'idle' && state.wordGoalReached) {
-      return {
-        wordGoal,
-        wordGoalReached: false,
-        // Пропущенный аргумент значит «сохранить базлайн», а не «обнулить»:
-        // прежний дефолт делал каждую забывчивую цель мгновенно достигнутой.
-        sessionStartWords: wordCount ?? state.sessionStartWords,
-      };
-    }
-    return { wordGoal };
-  }),
+  setWordGoal: (wordGoal, wordCount) => {
+    saveWordGoal(wordGoal);
+    set((state) => {
+      if (state.status !== 'idle' && state.wordGoalReached) {
+        return {
+          wordGoal,
+          wordGoalReached: false,
+          // Пропущенный аргумент значит «сохранить базлайн», а не «обнулить»:
+          // прежний дефолт делал каждую забывчивую цель мгновенно достигнутой.
+          sessionStartWords: wordCount ?? state.sessionStartWords,
+        };
+      }
+      return { wordGoal };
+    });
+  },
 
   setTargetTime: (targetTime) => set({ targetTime }),
   setTimeGoalReached: (timeGoalReached) => set({ timeGoalReached }),

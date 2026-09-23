@@ -257,8 +257,11 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
             title={t(
               syncStatus.status === 'offline' ? 'sync_paused_no_network'
                 : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
+                : syncStatus.status === 'unsynced' ? 'sync_paused_unsynced'
                 : 'sync_paused_pending',
-              syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) } : undefined
+              syncStatus.status === 'unsynced' ? { count: String(syncStatus.unsyncedCount) }
+                : syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) }
+                : undefined
             )}
           >
             <CloudOff size={18} className="shrink-0 animate-pulse" />
@@ -269,8 +272,11 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
               {t(
                 syncStatus.status === 'offline' ? 'sync_paused_no_network'
                   : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
+                  : syncStatus.status === 'unsynced' ? 'sync_paused_unsynced'
                   : 'sync_paused_pending',
-                syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) } : undefined
+                syncStatus.status === 'unsynced' ? { count: String(syncStatus.unsyncedCount) }
+                  : syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) }
+                  : undefined
               )}
             </span>
             {!expanded && (

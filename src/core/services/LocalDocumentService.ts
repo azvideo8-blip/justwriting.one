@@ -472,6 +472,23 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
+  /**
+   * D-5: явное «Загрузить на облако» по заметке, которую пользователь ранее сам
+   * снял с облака («Удалить облачную копию»), — это сменившийся выбор, а не обход
+   * прошлого. Снимает пометку только у заметки без `unlinkedByTombstone`: у той,
+   * чью облачную копию удалили, связь с могилкой должна остаться, иначе
+   * повторная загрузка «воскресит» удаление под новым id.
+   * Автоматические проходы (sweep, re-link, фоновая синхронизация) этот метод не
+   * вызывают и пометку уважают по-прежнему.
+   */
+  async clearLocalOnlyForUpload(id: string): Promise<boolean> {
+    const db = await getLocalDb();
+    const existing = await db.get('documents', id);
+    if (!existing || !existing.localOnly || existing.unlinkedByTombstone) return false;
+    await db.put('documents', { ...existing, localOnly: false });
+    return true;
+  },
+
   async updateLabelId(id: string, labelId: string | undefined): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');

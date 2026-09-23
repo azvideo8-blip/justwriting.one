@@ -149,7 +149,7 @@ describe('DocumentPreview — AI Analysis button states', () => {
     const exportTrigger = screen.getByTitle(/Экспортировать|Export/);
     fireEvent.click(exportTrigger);
 
-    const txtOption = await screen.findByText('TXT');
+    const txtOption = await screen.findByText(/\(\.txt\)/);
     fireEvent.click(txtOption);
 
     await waitFor(() => {

@@ -1,5 +1,6 @@
 import { getCurrentUser, getIdToken } from '../auth';
 import { getAiConsent, isProfileLoaded } from './aiConsent';
+import { hasIndexingConsent } from './indexingConsent';
 
 // Эти действия не про обработку записей: удаление аккаунта — право субъекта,
 // телеметрия и администрирование пользователей не требуют согласия на анализ заметок.
@@ -7,6 +8,28 @@ const CONSENT_EXEMPT = new Set(['deleteAccount', 'sendTelemetry', 'inviteUser', 
 
 export interface CallAiOptions {
   charge?: 'user' | 'bulk';
+}
+
+export type QuotaHeadersListener = (headers: Headers) => void;
+const quotaListeners = new Set<QuotaHeadersListener>();
+
+export function onAiQuotaHeaders(listener: QuotaHeadersListener): () => void {
+  quotaListeners.add(listener);
+  return () => {
+    quotaListeners.delete(listener);
+  };
+}
+
+function notifyQuotaHeaders(headers?: Headers | null): void {
+  if (headers && typeof headers.has === 'function' && headers.has('x-ai-quota-used')) {
+    quotaListeners.forEach(listener => {
+      try {
+        listener(headers);
+      } catch {
+        // ignore listener errors
+      }
+    });
+  }
 }
 
 export async function callAi<T>(
@@ -19,8 +42,13 @@ export async function callAi<T>(
 
   if (!CONSENT_EXEMPT.has(name)) {
     const user = getCurrentUser();
-    if (user && isProfileLoaded(user.uid) && !getAiConsent(user.uid)) {
-      throw Object.assign(new Error('AI_CONSENT_REQUIRED'), { code: 'AI_CONSENT_REQUIRED' });
+    if (user && isProfileLoaded(user.uid)) {
+      if (!getAiConsent(user.uid)) {
+        throw Object.assign(new Error('AI_CONSENT_REQUIRED'), { code: 'AI_CONSENT_REQUIRED' });
+      }
+      if (name === 'embedDocument' && !hasIndexingConsent(user.uid)) {
+        throw Object.assign(new Error('INDEXING_CONSENT_REQUIRED'), { code: 'INDEXING_CONSENT_REQUIRED' });
+      }
     }
   }
 
@@ -31,6 +59,8 @@ export async function callAi<T>(
       data: opts.charge === 'user' && data && typeof data === 'object' ? { ...data, charge: 'user' } : data,
     }),
   });
+
+  notifyQuotaHeaders(res.headers);
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {

@@ -48,7 +48,7 @@ describe('chatWithAI: callType не обходит лимиты', () => {
   it('внутренний вызов списывает bulk-счётчик, а не проходит мимо', async () => {
     const ctx = ctxSpy();
     await chatWithAILogic(ctx, 'user_1', payload({ callType: 'auto_name' }));
-    expect(ctx.checkAndIncrementBulkLimit).toHaveBeenCalledWith('user_1', 'chat');
+    expect(ctx.checkAndIncrementBulkLimit).toHaveBeenCalledWith('user_1', 'chat', 'internal_chat');
     expect(ctx.checkAndIncrementLimit).not.toHaveBeenCalled();
   });
 
@@ -71,7 +71,7 @@ describe('chatWithAI: callType не обходит лимиты', () => {
     const ctx = ctxSpy();
     ctx.tryReserveGlobalRequest.mockResolvedValue(null);
     await expect(chatWithAILogic(ctx, 'user_1', payload({ callType: 'auto_name' }))).rejects.toThrow();
-    expect(ctx.refundBulkLimit).toHaveBeenCalledWith('user_1', expect.any(String));
+    expect(ctx.refundBulkLimit).toHaveBeenCalledWith('user_1', expect.any(String), 'internal_chat');
     expect(ctx.refundDailyLimit).not.toHaveBeenCalled();
   });
 

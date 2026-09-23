@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { WritingDraftService } from '../WritingDraftService';
 import { setEncryptionEnabled, setProfileLoaded } from '../../../../core/crypto/cryptoHelpers';
 import { generateDataKey, setSessionKey, clearSessionKey } from '../../../../core/crypto/encrypt';
@@ -9,6 +10,7 @@ describe('LIFE-2: Draft tags encryption & field classification', () => {
   const userId = 'user_draft_test';
 
   beforeEach(() => {
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_draft_test'), 'true'); // D-22: эти тесты проверяют облачную запись
     vi.restoreAllMocks();
   });
 

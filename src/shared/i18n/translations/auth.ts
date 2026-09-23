@@ -12,6 +12,7 @@ export const authTranslations: Translations = {
   auth_error_network: { ru: 'Ошибка сети при попытке входа. Проверь соединение и попробуй снова.', en: 'Network error during sign-in. Check your connection and try again.' },
   auth_error_internal: { ru: 'Внутренняя ошибка сервиса входа. Попробуй позже.', en: 'Internal sign-in service error. Please try again later.' },
   auth_error_rate_limited: { ru: 'Слишком много попыток. Пожалуйста, подождите минуту перед следующей попыткой.', en: 'Too many attempts. Please wait a minute before trying again.' },
+  auth_error_invalid_email: { ru: 'Некорректный email.', en: 'Invalid email address.' },
   auth_subtitle: { ru: 'Минималистичное пространство для писателей.', en: 'A minimalist space for writers.' },
   auth_password: { ru: 'Пароль', en: 'Password' },
   auth_sign_in: { ru: 'Войти', en: 'Sign In' },

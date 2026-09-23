@@ -3,6 +3,7 @@
 // Uses the tables created in supabase/migrations/0004_ai_counters.sql and 0005_ai_global_daily_tokens.sql.
 
 import type { AiContext, GlobalReservation, LimitVerdict } from '../src/shared/ai/context.js';
+import { AI_CONSENT_VERSION_REQUIRED } from '../src/shared/ai/consentVersion.js';
 import { DAILY_LIMIT } from './ai/pure';
 
 import { pool } from './db';
@@ -79,10 +80,11 @@ async function refundGlobalRequest(res: GlobalReservation | { error: 'unavailabl
 const PER_USER_LIMIT = parseInt(process.env.AI_DAILY_LIMIT ?? String(DAILY_LIMIT), 10);
 const ADMIN_DAILY_LIMIT = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '20', 10);
 
-// Версии согласий. Должны совпадать с PRIVACY_VERSION (src/core/constants)
-// и INDEXING_CONSENT_VERSION (src/core/ai/indexingConsent): сервер сверяет
-// колонку версии, чтобы устаревшее согласие не считалось данным.
-const AI_CONSENT_VERSION_REQUIRED = 2;
+// Версии согласий. AI_CONSENT_VERSION_REQUIRED — общая с клиентом константа
+// (src/shared/ai/consentVersion.ts): сервер сверяет колонку версии, и собственное
+// число здесь означает расхождение, при котором человек либо получает отказ, уже
+// дав согласие, либо работает с ИИ на устаревшем тексте, который клиент
+// согласием не считает (D-6).
 const INDEXING_CONSENT_VERSION_REQUIRED = 1;
 
 // ── Согласие на обработку (AUD-2) ────────────────────────────────────────────
@@ -228,6 +230,7 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; reasonin
 
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
 const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
+const INTERNAL_CHAT_DAILY_LIMIT = parseInt(process.env.AI_INTERNAL_CHAT_DAILY_LIMIT ?? '200', 10);
 // AUD-18: суточный потолок без лимита во времени позволяет вычерпать весь
 // день за минуту. Ключ — (uid, endpoint): rerank, embed и chat троттлятся
 // независимо.
@@ -244,6 +247,7 @@ const BULK_MAX_PER_WINDOW = parseInt(process.env.AI_BULK_MAX_PER_WINDOW ?? '20',
 async function checkAndIncrementBulkLimit(
   uid: string,
   endpoint: string = 'bulk',
+  kind?: string,
 ): Promise<LimitVerdict | 'RATE_LIMIT'> {
   // Окно и счётчик двигаются одним стейтментом: если окно истекло — оно
   // начинается заново со счётчиком 1, иначе счётчик растёт внутри текущего.
@@ -297,15 +301,17 @@ async function checkAndIncrementBulkLimit(
   try {
     await client.query('BEGIN');
     const date = today();
+    const resolvedKind = kind ?? (endpoint === 'chat' ? 'internal_chat' : 'bulk');
+    const limit = resolvedKind === 'internal_chat' ? INTERNAL_CHAT_DAILY_LIMIT : BULK_LIMIT;
     const res = await client.query(
       `INSERT INTO public.ai_daily_limit (uid, day, kind, call_count)
-       VALUES ($1, $2, 'bulk', 1)
+       VALUES ($1, $2, $3, 1)
        ON CONFLICT (uid, day, kind) DO UPDATE SET call_count = public.ai_daily_limit.call_count + 1
        RETURNING call_count`,
-      [uid, date],
+      [uid, date, resolvedKind],
     );
     const count = Number(res.rows[0]?.call_count ?? 1);
-    if (count > BULK_LIMIT) {
+    if (count > limit) {
       await client.query('ROLLBACK');
       return { ok: false, day: date, reason: 'limit_exceeded' };
     }
@@ -326,12 +332,19 @@ async function checkAndIncrementBulkLimit(
   }
 }
 
-async function refundBulkLimit(uid: string, chargedDay: string): Promise<void> {
+async function refundBulkLimit(uid: string, chargedDay: string, kind: string = 'bulk'): Promise<void> {
   try {
-    await pool.query(
-      `UPDATE public.ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'bulk'`,
-      [uid, chargedDay],
-    );
+    if (kind === 'bulk') {
+      await pool.query(
+        `UPDATE public.ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = 'bulk'`,
+        [uid, chargedDay],
+      );
+    } else {
+      await pool.query(
+        `UPDATE public.ai_daily_limit SET call_count = GREATEST(0, call_count - 1) WHERE uid = $1 AND day = $2 AND kind = $3`,
+        [uid, chargedDay, kind],
+      );
+    }
   } catch (e) {
     console.error('[postgresAiContext] refundBulkLimit error', e);
   }
@@ -339,10 +352,18 @@ async function refundBulkLimit(uid: string, chargedDay: string): Promise<void> {
 
 const COOLDOWN_MS = 10000;
 
+async function resetCooldown(uid: string): Promise<void> {
+  try {
+    await pool.query('DELETE FROM public.ai_cooldown WHERE uid = $1', [uid]);
+  } catch (e) {
+    console.error('[postgresAiContext] resetCooldown error', e);
+  }
+}
+
 async function checkAndIncrementLimit(
   uid: string,
   reasoning?: boolean,
-): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'REASONING_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'> {
+): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'REASONING_LIMIT' | 'RATE_LIMIT' | { error: 'RATE_LIMIT'; retryAfterSec: number } | 'UNAVAILABLE' | 'UNAUTHORIZED'> {
   try {
     const { rows } = await pool.query(
       `INSERT INTO public.ai_cooldown (uid, updated_at) VALUES ($1, now())
@@ -351,7 +372,19 @@ async function checkAndIncrementLimit(
        RETURNING uid`,
       [uid, String(COOLDOWN_MS)],
     );
-    if (rows.length === 0) return 'RATE_LIMIT';
+    if (rows.length === 0) {
+      try {
+        const rem = await pool.query(
+          `SELECT GREATEST(1, CEIL(EXTRACT(EPOCH FROM (updated_at + ($2 || ' milliseconds')::interval - now()))))::int AS rem_sec
+           FROM public.ai_cooldown WHERE uid = $1`,
+          [uid, String(COOLDOWN_MS)],
+        );
+        const retryAfterSec = Number(rem.rows[0]?.rem_sec ?? 10);
+        return { error: 'RATE_LIMIT', retryAfterSec };
+      } catch {
+        return 'RATE_LIMIT';
+      }
+    }
   } catch (e: unknown) {
     if (pgCode(e) === '23503') return 'UNAUTHORIZED';
     console.error('[postgresAiContext] checkAndIncrementLimit cooldown error', e);
@@ -437,4 +470,5 @@ export const postgresAiContext: AiContext = {
   checkAndIncrementBulkLimit,
   refundBulkLimit,
   checkAndIncrementLimit,
+  resetCooldown,
 };

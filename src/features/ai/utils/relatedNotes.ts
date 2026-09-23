@@ -15,6 +15,11 @@ export async function findRelatedNotes(
   seed: { text?: string; docId?: string },
   opts?: FindRelatedNotesOptions,
 ): Promise<RelatedNote[]> {
+  const uid = getCurrentUser()?.uid;
+  if (!hasIndexingConsent(uid)) {
+    return [];
+  }
+
   let queryVec: number[] | undefined;
 
   if (seed.docId) {
@@ -38,10 +43,6 @@ export async function findRelatedNotes(
       queryVec = acc;
     }
   } else if (seed.text) {
-    const uid = getCurrentUser()?.uid;
-    if (!hasIndexingConsent(uid)) {
-      return [];
-    }
     const embedResult = await AIService.embed({ content: seed.text });
     if (!embedResult.ok || !embedResult.vectors?.length) {
       if (!embedResult.ok) {

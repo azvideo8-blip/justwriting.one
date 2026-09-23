@@ -25,6 +25,7 @@ import { Button } from '../../shared/components/Button';
 import { IconButton } from '../../shared/components/IconButton';
 import { useToast } from '../../shared/components/Toast';
 import { AIService } from '../../features/ai/services/AIService';
+import { isDayLimitError } from '../../features/ai/types/aiErrors';
 import { AISummaryService } from '../../features/ai/services/AISummaryService';
 import { getLocalDb, type AIDocumentSummary } from '../../core/storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
@@ -925,7 +926,7 @@ function MassAnalyzeNotes() {
             window.dispatchEvent(new Event('archive-refresh'));
           } else {
             setProgress(p => ({ ...p, failed: p.failed + 1 }));
-            if (result.error === 'DAILY_LIMIT' || result.error === 'RATE_LIMIT') {
+            if (isDayLimitError(result.error) || result.error === 'RATE_LIMIT') {
               showToast('Превышен лимит запросов к ИИ', 'error');
               break;
             }

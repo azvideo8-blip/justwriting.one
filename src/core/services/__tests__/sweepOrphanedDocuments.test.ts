@@ -235,6 +235,7 @@ describe('SyncService.syncOne cleans up queue task upon success', () => {
 
     vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('cloud_synced_999');
 
+    localStorage.setItem(`auto_sync_enabled_${USER}`, 'true'); // D-22: syncOne отправляет только при включённой синхронизации
     const cloudId = await SyncService.syncOne(USER, 'local_to_sync');
     expect(cloudId).toBe('cloud_synced_999');
 

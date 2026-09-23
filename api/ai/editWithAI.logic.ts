@@ -87,6 +87,9 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   if (limitResult === 'REASONING_LIMIT') {
     throw new AiError('resource-exhausted', 'Reasoning limit reached.');
   }
+  if (typeof limitResult === 'object' && 'error' in limitResult) {
+    throw new AiError('resource-exhausted', `Too many requests. Please wait ${limitResult.retryAfterSec} seconds.`);
+  }
   if (limitResult === 'RATE_LIMIT') {
     throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
   }

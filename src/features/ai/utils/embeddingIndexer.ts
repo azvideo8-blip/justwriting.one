@@ -4,6 +4,8 @@ import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { AIService } from '../services/AIService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { isDayLimitError } from '../types/aiErrors';
+import { isExcludedFromAI } from './isExcludedFromAI';
 
 // docs/plan-2026-09-19-local-embeddings.md: embeddings moved off RouterAI to a
 // local CPU server (chat is unaffected, still RouterAI) — BAAI/bge-m3 is
@@ -38,6 +40,7 @@ export async function findStaleDocuments(): Promise<string[]> {
 
   const stale: string[] = [];
   for (const doc of documents) {
+    if (isExcludedFromAI(doc)) continue;
     if (!isFresh(embMap.get(doc.id))) {
       stale.push(doc.id);
     }
@@ -51,6 +54,13 @@ export async function indexDocument(documentId: string, force = false): Promise<
     return 'skip';
   }
 
+  const db = await getLocalDb();
+
+  const doc = await db.get('documents', documentId);
+  if (isExcludedFromAI(doc)) {
+    return 'skip';
+  }
+
   const content = await LocalVersionService.getLatestContent(documentId);
   if (!content || content.trim().length === 0) return 'skip';
 
@@ -59,7 +69,6 @@ export async function indexDocument(documentId: string, force = false): Promise<
   // cloud read can throw (permissions before rules deploy, or LOCKED decrypt
   // when E2E is locked) and would break the whole batch. findStaleDocuments
   // already works off the local store. `force` re-embeds even if fresh.
-  const db = await getLocalDb();
   const existing = await db.get('aiEmbeddings', documentId);
   if (!force && existing && existing.contentHash === hash && isFresh(existing)) {
     return 'skip';
@@ -82,7 +91,7 @@ export async function indexDocument(documentId: string, force = false): Promise<
 
   const result = await AIService.embed({ content });
   if (!result.ok) {
-    if (result.error === 'DAILY_LIMIT') return 'daily';
+    if (isDayLimitError(result.error)) return 'daily';
     if (result.error === 'RATE_LIMIT') return 'rate';
     if (result.error === 'TOO_LONG' || result.error === 'INVALID_ARGUMENT') {
       await AIEmbeddingService.save({
@@ -129,13 +138,17 @@ export interface IndexCoverage {
 export async function getIndexCoverage(): Promise<IndexCoverage> {
   const db = await getLocalDb();
   const documents = await db.getAll('documents');
+  // Only notes the AI may see are indexable, so they are the only ones counted
+  // in the denominator — otherwise hidden/trashed notes keep coverage below 100%
+  // forever. A stale vector left on such a note isn't counted as indexed either.
+  const indexable = new Set(documents.filter(d => !isExcludedFromAI(d)).map(d => d.id));
   const embeddings = await AIEmbeddingService.getAll();
-  const current = embeddings.filter(isFresh);
+  const current = embeddings.filter(e => isFresh(e) && indexable.has(e.documentId));
   const lastProcessedAt = current.length > 0 ? Math.max(...current.map(e => e.processedAt)) : null;
   const stale = await findStaleDocuments();
   const unsynced = embeddings.filter(e => !e.cloudSyncedAt && !e.cloudSkipped).length;
   return {
-    totalDocs: documents.length,
+    totalDocs: indexable.size,
     indexed: current.length,
     stale: stale.length,
     unsynced,

@@ -30,6 +30,7 @@ describe('useAIChat degradation reporting (AI-3)', () => {
 
   beforeEach(async () => {
     vi.restoreAllMocks();
+    localStorage.clear();
     resetAIDegradationSession();
     useActivityLogStore.getState().clearLog();
     setIndexingConsent('guest', 'granted');
@@ -127,6 +128,7 @@ describe('useAIChat degradation reporting (AI-3)', () => {
     const initialCount = entries[0]!.count;
 
     // Second message in the same session with daily limit
+    localStorage.removeItem('jw_ai_cooldown_until');
     await act(async () => {
       await result.current.sendMessage('Ещё один вопрос про планы');
     });

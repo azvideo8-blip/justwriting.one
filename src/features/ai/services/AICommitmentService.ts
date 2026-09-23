@@ -3,6 +3,8 @@ import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 
 export const AICommitmentService = {
@@ -13,19 +15,28 @@ export const AICommitmentService = {
       const now = Date.now();
       const existing = await db.getAll('aiCommitments');
       const openCommitments = existing.filter(c => c.status === 'open');
+      const uid = getCurrentUser()?.uid;
+      const canEmbed = uid ? hasIndexingConsent(uid) : false;
 
       for (const text of commitments) {
         if (!text.trim()) continue;
         const trimmed = text.trim();
 
-        // Get embedding for duplicate checking
-        const embResult = await AIService.embed({ content: trimmed });
-        const vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
+        // Get embedding for duplicate checking only if indexing consent is granted
+        const embResult = canEmbed ? await AIService.embed({ content: trimmed }) : null;
+        const vector = embResult?.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
 
         let isDuplicate = false;
         if (vector) {
           for (const open of openCommitments) {
             if (open.vector && cosineSimilarity(vector, open.vector) > 0.9) {
+              isDuplicate = true;
+              break;
+            }
+          }
+        } else {
+          for (const open of openCommitments) {
+            if (open.text.trim().toLowerCase() === trimmed.toLowerCase()) {
               isDuplicate = true;
               break;
             }

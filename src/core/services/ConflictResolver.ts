@@ -16,9 +16,13 @@ export const ConflictResolver = {
   ): Promise<{ forked: boolean; forkTitle?: string }> {
     // AUDIT-MH3: дата без времени делала одноимённые форки одного дня
     // неразличимыми; превью контента помогает узнать свою заметку.
+    const lang = typeof localStorage !== 'undefined' && localStorage.getItem('app_language') === 'en' ? 'en' : 'ru';
     const hhmm = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const preview = (data.content || '').slice(0, 30).replace(/\s+/g, ' ').trim();
-    const conflictTitle = `${data.title || 'Untitled'} (Conflict ${new Date().toLocaleDateString()} ${hhmm}: ${preview}…)`;
+    const conflictWord = lang === 'ru' ? 'конфликт' : 'conflict';
+    const untitledWord = lang === 'ru' ? 'Без названия' : 'Untitled';
+    const dateStr = new Date().toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US');
+    const conflictTitle = `${data.title || untitledWord} (${conflictWord}, ${dateStr} ${hhmm}: ${preview}…)`;
     const forkedDocId = await LocalStorageService.createDocument(userId, {
       title: conflictTitle,
       tags: data.tags,

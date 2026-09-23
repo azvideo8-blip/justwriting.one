@@ -15,6 +15,6 @@ export type SyncStatus =
 export function syncStatusOf(doc: LocalDocument): SyncStatus {
   if (doc._decryptionError) return 'unreadable';
   if (doc._locked) return 'locked';
-  if (doc.localOnly) return 'local-only';
+  if (doc.localOnly || doc.isTooLargeForSync) return 'local-only';
   return doc.linkedCloudId ? 'linked' : 'unlinked-new';
 }

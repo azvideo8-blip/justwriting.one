@@ -83,6 +83,22 @@ describe('DUP-7 / WT-3: Confirmation dialogs i18n convergence and audit detector
     }
   });
 
+  // D-7: окно включало рассуждения цифрами, которых нет: «5 (вместо 10)», хотя
+  // обычный лимит чата — 30, а рассуждения — отдельный счётчик. Число теперь
+  // подставляется из useAiLimitStore.reasoningLimit параметром {limit}.
+  it('reasoning-mode confirm states the limit via {limit}, not hardcoded numbers (D-7)', () => {
+    const entry = aiTranslations.ai_reasoning_mode_confirm_message;
+    expect(entry).toBeDefined();
+    for (const lang of ['ru', 'en'] as const) {
+      const text = entry![lang];
+      expect(text).toContain('{limit}');
+      // Ни одной цифры в самом тексте — источник числа только store.
+      expect(text).not.toMatch(/\d/);
+      // Прежняя формулировка утверждала, что рассуждения заменяют обычный лимит.
+      expect(text).not.toMatch(/вместо|instead of/i);
+    }
+  });
+
   it('findHardcodedDialogs finds Russian text in confirmDialog, alertDialog, and promptDialog', () => {
     const snippetWithCyrillic = `
       const ok = await confirmDialog({

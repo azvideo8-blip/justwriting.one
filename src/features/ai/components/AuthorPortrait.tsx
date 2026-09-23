@@ -6,6 +6,7 @@ import { AIProfileService } from '../services/AIProfileService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
+import { isDayLimitError } from '../types/aiErrors';
 
 interface AuthorPortraitProps {
   readOnly?: boolean;
@@ -55,7 +56,7 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
         setSummariesCount(summaries.length);
       } else if (result.error === 'NOT_ENOUGH_DATA') {
         showToast('Нужно минимум 3 проанализированных заметки', 'error');
-      } else if (result.error === 'DAILY_LIMIT') {
+      } else if (isDayLimitError(result.error)) {
         showToast('Достигнут дневной лимит ИИ — сбросьте счётчик и попробуйте снова', 'error');
       } else {
         showToast(`Не удалось создать портрет: ${result.error}`, 'error');

@@ -9,6 +9,7 @@ import { StorageIcons } from './StorageIcons';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { highlightText, getSearchContext } from '../../../shared/utils/highlightText';
+import { isBlankTitle } from '../../../shared/utils/titleUtils';
 import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 import { AnimatePresence } from 'motion/react';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -273,6 +274,14 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 {t('archive_cloud_only')}
               </span>
             )}
+            {session._isTooLargeForSync && (
+              <span
+                className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-warning/10 text-accent-warning shrink-0 border border-accent-warning/20"
+                title={t('storage_too_large_cloud')}
+              >
+                {t('archive_local_only_too_large')}
+              </span>
+            )}
             {session._locked ? (
               <span className="inline-flex items-center gap-1.5 text-text-main/70 italic">
                 <Lock size={13} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
@@ -286,11 +295,14 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             ) : (
               <span className="truncate">
                 {(() => {
+                  const rawTitle = session.title?.trim();
+                  const cleanTitle = !isBlankTitle(rawTitle) ? rawTitle : undefined;
                   const firstContentLine = session.content
-                    ? session.content.split('\n').map(l => l.trim()).find(l => l.length > 0)
-                    : undefined;
+                    ?.split('\n')
+                    .map(l => l.trim())
+                    .find(l => !isBlankTitle(l));
                   const isCloudOnly = !session._isLocal && session._hasCloudCopy;
-                  const displayTitle = session.title?.trim() || firstContentLine || (isCloudOnly ? t('archive_cloud_only_note') : t('session_untitled'));
+                  const displayTitle = cleanTitle || firstContentLine || (isCloudOnly ? t('archive_cloud_only_note') : t('session_untitled'));
                   return highlightText(displayTitle, searchQuery ?? '');
                 })()}
               </span>
@@ -418,6 +430,8 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 hasLocal: !!session._isLocal,
                 hasCloud: !!session._hasCloudCopy,
                 hasPendingSync: !!session._hasPendingSync,
+                isTooLargeForSync: !!session._isTooLargeForSync,
+                localOnly: !!session._localOnly,
               }}
               userId={userId}
               {...(onAIExclusionClick ? { exclusion: { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick } } : {})}

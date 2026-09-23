@@ -18,11 +18,14 @@ vi.mock('../../../../app/useLoginModal', () => ({
   }),
 }));
 
+let mockSyncStatus: any = {
+  status: 'synced',
+  pendingCount: 0,
+  unsyncedCount: 0,
+};
+
 vi.mock('../../../../core/sync/useSyncStatus', () => ({
-  useSyncStatus: () => ({
-    status: 'synced',
-    pendingCount: 0,
-  }),
+  useSyncStatus: () => mockSyncStatus,
 }));
 
 vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
@@ -81,5 +84,24 @@ describe('Sidebar active navigation item styling (UI-03)', () => {
     const activityBtn = screen.getByRole('button', { name: /Журнал активности/i });
     expect(activityBtn).toBeInTheDocument();
     expect(activityBtn.className).toContain('text-accent-warning');
+  });
+
+  it('renders sync indicator with count for unsynced status (D-13)', () => {
+    mockSyncStatus = {
+      status: 'unsynced',
+      pendingCount: 0,
+      unsyncedCount: 5,
+    };
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/']}>
+        <Sidebar isAdmin={false} />
+      </MemoryRouter>
+    );
+
+    const syncButton = screen.getByTitle('Не синхронизировано заметок: 5');
+    expect(syncButton).toBeInTheDocument();
+    expect(syncButton.textContent).toContain('Не синхронизировано заметок: 5');
+    expect(syncButton.textContent).not.toContain('{count}');
   });
 });

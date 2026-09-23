@@ -274,8 +274,11 @@ export function createCallReservation(
           } else {
             await ctx.refundDailyLimit(uid, day);
           }
+          if (reason === 'failed' && !upstreamProduced && typeof ctx.resetCooldown === 'function') {
+            await ctx.resetCooldown(uid);
+          }
         } else {
-          await ctx.refundBulkLimit(uid, day);
+          await ctx.refundBulkLimit(uid, day, kind ?? 'bulk');
         }
       }
       if (!upstreamProduced && currentGlobal) {
@@ -366,7 +369,7 @@ export async function acquireChatReservation(
   reasoning?: boolean,
 ): Promise<CallReservation> {
   if (isInternalCall) {
-    const verdict = await ctx.checkAndIncrementBulkLimit(uid, 'chat');
+    const verdict = await ctx.checkAndIncrementBulkLimit(uid, 'chat', 'internal_chat');
     if (verdict === 'RATE_LIMIT') {
       throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
     }
@@ -379,7 +382,7 @@ export async function acquireChatReservation(
       }
       throw new AiError('resource-exhausted', 'Daily limit reached.');
     }
-    return createCallReservation(ctx, uid, 'bulk', verdict.day);
+    return createCallReservation(ctx, uid, 'bulk', verdict.day, null, undefined, 'internal_chat');
   } else {
     const limitResult = await ctx.checkAndIncrementLimit(uid, reasoning === true);
     if (limitResult === 'UNAVAILABLE') {
@@ -393,6 +396,11 @@ export async function acquireChatReservation(
     }
     if (limitResult === 'REASONING_LIMIT') {
       throw new AiError('resource-exhausted', 'Reasoning limit reached.');
+    }
+    if (typeof limitResult === 'object' && 'error' in limitResult) {
+      const retryAfterSec = limitResult.retryAfterSec;
+      const msg = retryAfterSec ? `Too many requests. Please wait ${retryAfterSec} seconds.` : 'Too many requests. Please wait a few seconds.';
+      throw new AiError('resource-exhausted', msg, retryAfterSec);
     }
     if (limitResult === 'RATE_LIMIT') {
       throw new AiError('resource-exhausted', 'Too many requests. Please wait a few seconds.');
@@ -424,7 +432,7 @@ export async function refundCall(
       }
       return;
     }
-    await ctx.refundBulkLimit(resOrUid.uid, resOrUid.day);
+    await ctx.refundBulkLimit(resOrUid.uid, resOrUid.day, resOrUid.kind ?? 'bulk');
     return;
   }
   const uid = resOrUid;
@@ -434,6 +442,9 @@ export async function refundCall(
   }
   if (charge === 'user') {
     await ctx.refundDailyLimit(uid, chargedDay);
+    if (typeof ctx.resetCooldown === 'function') {
+      await ctx.resetCooldown(uid);
+    }
     return;
   }
   await ctx.refundBulkLimit(uid, chargedDay);

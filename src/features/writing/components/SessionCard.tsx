@@ -196,8 +196,16 @@ export const SessionCard = React.memo(function SessionCard({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
-              <span className="text-label-sm md:text-xs font-bold uppercase tracking-widest text-text-main/60">
+              <span className="text-label-sm md:text-xs font-bold uppercase tracking-widest text-text-main/60 flex items-center gap-2">
                 {sessionTime.getTime() > 0 ? format(sessionTime, 'd MMM yyyy • HH:mm') : ''}
+                {session._isTooLargeForSync && (
+                  <span
+                    className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-warning/10 text-accent-warning shrink-0 border border-accent-warning/20"
+                    title={t('storage_too_large_cloud')}
+                  >
+                    {t('archive_local_only_too_large')}
+                  </span>
+                )}
               </span>
             </div>
           </div>
@@ -215,11 +223,11 @@ export const SessionCard = React.memo(function SessionCard({
                     className={session._isLocal ? "text-text-main/60" : "text-text-main/60"} 
                   />
                 </span>
-                <span title={session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
+                <span title={session._isTooLargeForSync ? (t('storage_too_large_cloud') || 'Только локально: слишком большая для облака (лимит ≈ 700 000 символов)') : session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
                   <Cloud 
                     size={13} 
-                    className={session._hasPendingSync ? "text-accent-warning animate-pulse" : session._hasCloudCopy ? "text-accent-info" : "text-text-main/60"}
-                    style={session._hasPendingSync ? { filter: 'drop-shadow(0 0 5px rgb(245 158 11 / 0.6))' } : undefined}
+                    className={session._isTooLargeForSync ? "text-text-main/40" : session._hasPendingSync ? "text-accent-warning animate-pulse" : session._hasCloudCopy ? "text-accent-info" : "text-text-main/60"}
+                    style={session._hasPendingSync && !session._isTooLargeForSync ? { filter: 'drop-shadow(0 0 5px rgb(245 158 11 / 0.6))' } : undefined}
                   />
                 </span>
               </span>

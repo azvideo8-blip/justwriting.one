@@ -10,12 +10,12 @@ interface ToastAction {
 interface ToastItem {
   id: number;
   message: string;
-  type: 'success' | 'error' | 'info';
+  type: 'success' | 'error' | 'info' | 'warning';
   action?: ToastAction;
 }
 
 interface ToastContextType {
-  showToast: (message: string, type?: 'success' | 'error' | 'info', action?: ToastAction) => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning', action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -25,7 +25,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const nextIdRef = React.useRef(0);
   const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success', action?: ToastAction) => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success', action?: ToastAction) => {
     const id = ++nextIdRef.current;
     setToasts(prev => [...prev, action ? { id, message, type, action } : { id, message, type }]);
     const timer = setTimeout(() => {
@@ -63,6 +63,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 "px-4 py-3 rounded-2xl text-sm font-medium backdrop-blur-xl border shadow-lg pointer-events-auto flex items-center gap-3",
                 toast.type === 'error'
                   ? "bg-accent-danger/10 border-accent-danger/30 text-accent-danger"
+                  : toast.type === 'warning'
+                  ? "bg-accent-warning/10 border-accent-warning/30 text-accent-warning"
                   : toast.type === 'info'
                   ? "bg-accent-info/10 border-accent-info/30 text-accent-info"
                   : "bg-accent-success/10 border-accent-success/30 text-accent-success"

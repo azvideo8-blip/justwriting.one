@@ -24,6 +24,9 @@ import { SetupMode } from '../components/WritingSetup';
 import { reportError } from '../../../shared/errors/reportError';
 import { logger } from '../../../shared/errors/logger';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
+import { isBlankTitle } from '../../../shared/utils/titleUtils';
+import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
+import { isVersionContentTooLarge } from '../../../core/services/VersionService';
 
 export type AnySessionReturn = GuestSessionReturn | CloudSessionReturn;
 
@@ -164,8 +167,9 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       const sessionNewWords = Math.max(0, contentState.wordCount - contentState.initialWordCount);
 
+      const rawTitle = (data.title || contentState.title || '').trim();
       const saveData = {
-        title: data.title || contentState.title || '',
+        title: isBlankTitle(rawTitle) ? '' : rawTitle,
         content: contentState.content,
         wordCount: sessionNewWords,
         documentWordCount: contentState.wordCount,
@@ -180,6 +184,9 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         sessionStartedAt: new Date(metaState.sessionStartTime ?? Date.now()),
         mood: data.mood,
       };
+
+      const isEncrypted = !isGuest && Boolean(getEncryptionEnabled(userId));
+      const isTooLarge = isVersionContentTooLarge(contentState.content, isEncrypted);
 
       const existingDocId = metaState.savedDocumentId;
 
@@ -198,9 +205,13 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
       const docIdToSync = useSessionMetaStore.getState().savedDocumentId;
 
-      const cleanupRes = await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
-      if (!existingDocId && !isGuest) {
-        cloudSynced = cleanupRes.cloudSynced;
+      if (!isTooLarge) {
+        const cleanupRes = await cleanupDraftsAfterSave(userId, isGuest, docIdToSync);
+        if (!existingDocId && !isGuest) {
+          cloudSynced = cleanupRes.cloudSynced;
+        }
+      } else {
+        await cleanupDraftsAfterSave(userId, isGuest, null);
       }
 
       // Reset AFTER cleanup succeeds (so content survives a cleanup failure), but
@@ -213,7 +224,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       await refreshLifeLog();
       emitDomainEvent({ type: 'note.saved', documentId: docIdToSync ?? undefined, userId });
 
-      return { docId: docIdToSync ?? null, cloudSynced };
+      return { docId: docIdToSync ?? null, cloudSynced, isTooLarge };
     } catch (e) {
       reportError(e, { action: 'writingActions/save' });
       throw e;
@@ -238,8 +249,12 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
 
   const handleNew = React.useCallback(async () => {
     const { wordCount } = useContentStore.getState();
-    const { status } = useTimerStore.getState();
-    if (wordCount > 0 && status !== 'idle') {
+    // D-3: раньше подтверждение зависело ещё и от статуса сессии, поэтому
+    // «Новая заметка» на idle — продолженная заметка, восстановленный черновик —
+    // стирала текст и удаляла черновик молча. Надёжного признака «текст не
+    // менялся после сохранения» в сторе нет (undo-стек заполняется не на каждый
+    // символ), поэтому спрашиваем при любом непустом редакторе.
+    if (wordCount > 0) {
       flow.setShowCancelConfirm(true);
       return;
     }

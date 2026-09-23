@@ -27,7 +27,7 @@ export async function searchNotes(
   opts?: SearchNotesOptions,
 ): Promise<RetrievedNote[]> {
   const uid = getCurrentUser()?.uid ?? 'guest';
-  if (!opts?.queryVector && !hasIndexingConsent(uid)) {
+  if (!hasIndexingConsent(uid)) {
     let keywordMatches = await keywordSearch(query, maxResults, uid);
     const db = await getLocalDb();
     if (opts?.minTime !== undefined || opts?.maxTime !== undefined) {

@@ -12,7 +12,7 @@ import { useWritingSettings } from '../../../core/settings/WritingSettingsContex
 import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
-import { useSpeechInput } from '../../../shared/hooks/useSpeechInput';
+import { useGuardedSpeechInput } from '../hooks/useGuardedSpeechInput';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -44,7 +44,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
     }))
   );
 
-  const { isListening, startListening, stopListening, hasSupport } = useSpeechInput({
+  const { isListening, toggleListening, hasSupport } = useGuardedSpeechInput({
     onTranscript: (text) => {
       const cur = useContentStore.getState().content;
       useContentStore.getState().setContent(cur ? cur.trimEnd() + ' ' + text : text);
@@ -273,7 +273,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         <div className="flex items-center gap-1 bg-text-main/[0.04] rounded-xl px-1 py-0.5">
         {hasSupport && (
           <IconButton
-            onClick={isListening ? stopListening : startListening}
+            onClick={() => { void toggleListening(); }}
             aria-label={isListening ? t('voice_stop') : t('voice_start')}
             className={cn(
               "w-8 h-8 flex items-center justify-center transition-colors shrink-0 rounded-lg",

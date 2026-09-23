@@ -25,6 +25,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { getCurrentUser } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
+import { isBlankTitle } from '../../../shared/utils/titleUtils';
 
 const relatedNotesCache = new Map<string, RelatedNote[]>();
 
@@ -353,10 +354,10 @@ export function DocumentPreview({
   };
 
   const exportFormats = [
-    { label: 'TXT', action: () => runExport(() => exportAsTxt(session, exportStrings)) },
-    { label: 'Markdown (.md)', action: () => runExport(() => exportAsMd(session, exportStrings)) },
-    { label: 'PDF', action: () => runExport(() => exportAsPdf(session, exportStrings)) },
-    { label: 'DOCX — Word', action: () => runExport(() => exportAsDocx(session, exportStrings)) },
+    { label: t('export_txt'), action: () => runExport(() => exportAsTxt(session, exportStrings)) },
+    { label: t('export_md'), action: () => runExport(() => exportAsMd(session, exportStrings)) },
+    { label: t('export_pdf'), action: () => runExport(() => exportAsPdf(session, exportStrings)) },
+    { label: t('export_docx'), action: () => runExport(() => exportAsDocx(session, exportStrings)) },
   ];
 
   const handleCreateLabel = () => {
@@ -437,7 +438,7 @@ export function DocumentPreview({
                 <span className="italic text-accent-danger/80">{t('archive_decryption_error')}</span>
               </>
             ) : (
-              session.title || t('session_untitled')
+              (!isBlankTitle(session.title) ? session.title : undefined) || t('session_untitled')
             )}
           </h2>
           <div className="font-mono text-label-sm text-text-main/60 uppercase tracking-wider">

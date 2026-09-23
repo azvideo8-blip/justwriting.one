@@ -29,6 +29,7 @@ vi.mock('../../../../core/services/LocalVersionService', () => ({
 
 vi.mock('../../../../core/services/VersionService', () => ({
   VersionService: { getLatestVersion: vi.fn().mockResolvedValue(null) },
+  isVersionContentTooLarge: vi.fn().mockReturnValue(false),
 }));
 
 import { loadAllSessions } from '../../../../core/services/UnifiedSessionLoader';

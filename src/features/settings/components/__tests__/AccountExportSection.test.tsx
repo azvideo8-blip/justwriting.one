@@ -62,7 +62,8 @@ describe('AccountExportSection — migration export & import', () => {
     mockProfile = null;
   });
 
-  it('clicking migration export button calls exportMigrationManifest', async () => {
+  it('clicking migration export button calls exportMigrationManifest and saves with justwriting-backup filename (D-21)', async () => {
+    const { downloadBlob } = await import('../../../../shared/utils/downloadBlob');
     mockedExport.mockResolvedValue(makeManifest([]));
     renderWithProviders(<AccountExportSection userId="u1" />);
 
@@ -71,6 +72,10 @@ describe('AccountExportSection — migration export & import', () => {
 
     await waitFor(() => {
       expect(mockedExport).toHaveBeenCalledTimes(1);
+      expect(downloadBlob).toHaveBeenCalledWith(
+        expect.any(Blob),
+        expect.stringMatching(/^justwriting-backup-\d{4}-\d{2}-\d{2}\.json$/)
+      );
     });
   });
 

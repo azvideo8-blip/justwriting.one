@@ -73,7 +73,7 @@ describe('DUP-1: reservationLifetime', () => {
     const res = createCallReservation(ctx, 'user_bulk', 'bulk', '2026-09-07', mockGlobalRes);
     await res.settle('failed');
 
-    expect(refundBulkMock).toHaveBeenCalledWith('user_bulk', '2026-09-07');
+    expect(refundBulkMock).toHaveBeenCalledWith('user_bulk', '2026-09-07', 'bulk');
     expect(refundDailyMock).not.toHaveBeenCalled();
     expect(refundGlobalMock).toHaveBeenCalledWith(mockGlobalRes);
   });

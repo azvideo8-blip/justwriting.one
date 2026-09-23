@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { StorageIcons } from '../StorageIcons';
 import { StorageService } from '../../../../core/services/StorageService';
+import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { getSessionKey } from '../../../../core/crypto/encrypt';
 
 vi.mock('../../../../core/services/StorageService', () => ({
@@ -17,6 +18,7 @@ vi.mock('../../../../core/services/StorageService', () => ({
 vi.mock('../../../../core/services/LocalDocumentService', () => ({
   LocalDocumentService: {
     unlinkFromCloud: vi.fn(),
+    clearLocalOnlyForUpload: vi.fn(),
   },
 }));
 
@@ -151,6 +153,61 @@ describe('SYNC-D3: StorageIcons download to local', () => {
 
     expect(screen.getByTestId('mock-unlock-prompt')).toBeInTheDocument();
     expect(screen.queryByText('storage_confirm_download_local')).not.toBeInTheDocument();
+  });
+
+  // D-5: заметка после «Удалить облачную копию» числилась localOnly, и upload
+  // молча отказывал. Клик по «Загрузить на облако» — сменившийся выбор
+  // пользователя: он должен снять пометку и отправить заметку.
+  it('clicking upload on a localOnly note lifts the mark and uploads', async () => {
+    vi.mocked(getSessionKey).mockReturnValue({} as any);
+    vi.mocked(StorageService.addCloudCopy).mockResolvedValueOnce('cloud_back_1');
+
+    render(
+      <StorageIcons
+        doc={{
+          localId: 'local_relink_1',
+          hasLocal: true,
+          hasCloud: false,
+          localOnly: true,
+        }}
+        userId={userId}
+        onStorageChange={mockOnStorageChange}
+      />
+    );
+
+    const cloudBtn = screen.getByRole('button', { name: 'storage_upload_to_cloud' });
+    fireEvent.click(cloudBtn);
+
+    await waitFor(() => {
+      expect(LocalDocumentService.clearLocalOnlyForUpload).toHaveBeenCalledWith('local_relink_1');
+      expect(StorageService.addCloudCopy).toHaveBeenCalledWith(userId, 'local_relink_1', true);
+      expect(mockShowToast).toHaveBeenCalledWith('storage_uploaded_cloud', 'success');
+    });
+  });
+
+  it('does not lift the mark for a note that is not localOnly', async () => {
+    vi.mocked(getSessionKey).mockReturnValue({} as any);
+    vi.mocked(StorageService.addCloudCopy).mockResolvedValueOnce('cloud_new_1');
+
+    render(
+      <StorageIcons
+        doc={{
+          localId: 'local_plain_1',
+          hasLocal: true,
+          hasCloud: false,
+        }}
+        userId={userId}
+        onStorageChange={mockOnStorageChange}
+      />
+    );
+
+    const cloudBtn = screen.getByRole('button', { name: 'storage_upload_to_cloud' });
+    fireEvent.click(cloudBtn);
+
+    await waitFor(() => {
+      expect(StorageService.addCloudCopy).toHaveBeenCalled();
+    });
+    expect(LocalDocumentService.clearLocalOnlyForUpload).not.toHaveBeenCalled();
   });
 
   describe('ERR-8: upload feedback differentiation', () => {

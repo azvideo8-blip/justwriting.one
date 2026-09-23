@@ -5,6 +5,7 @@ import { writeFacetStore } from '../../../core/services/facetLock';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import type { CallAiOptions } from '../../../core/ai/callAi';
 import { getCurrentUser } from '../../../core/auth';
+import { isDayLimitError } from '../types/aiErrors';
 
 export interface SummaryRow {
   documentId: string;
@@ -146,7 +147,7 @@ export const AIFacetJudgeService = {
     for (const c of chunks) {
       const r = await AIService.judgeFacets({ facets: c }, ...(opts ? [opts] : []));
       results.push(r);
-      if (!r.ok && (r.error === 'SERVER_ERROR' || r.error === 'RATE_LIMIT' || r.error === 'DAILY_LIMIT' || r.error === 'NETWORK' || r.error === 'UPSTREAM')) break;
+      if (!r.ok && (r.error === 'SERVER_ERROR' || r.error === 'RATE_LIMIT' || isDayLimitError(r.error) || r.error === 'NETWORK' || r.error === 'UPSTREAM')) break;
     }
     const verdicts = results.flatMap(r => (r.ok ? r.verdicts : []));
     if (verdicts.length === 0 && results.every(r => !r.ok)) {

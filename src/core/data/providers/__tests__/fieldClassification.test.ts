@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import {
   USER_FIELDS,
   DOCUMENT_FIELDS,
@@ -25,6 +26,7 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
   const userId = 'user_guard1_test';
 
   beforeEach(() => {
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_guard1_test'), 'true'); // D-22: эти тесты проверяют облачную запись
     vi.restoreAllMocks();
   });
 

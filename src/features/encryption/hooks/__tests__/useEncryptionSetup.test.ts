@@ -84,4 +84,34 @@ describe('useEncryptionSetup', () => {
     act(() => { result.current.dismiss(); });
     expect(result.current.mode).toBe('none');
   });
+
+  /**
+   * D-2: кнопка «Разблокировать» в предпросмотре запертой заметки и «Продолжить»
+   * в тосте «Заметка заперта» шлют window-событие 'open-vault-unlock'. Слушателей
+   * не было ни одного, поэтому кнопка не делала ничего. AppShell рендерит
+   * EncryptionPasswordModal при любом mode !== 'none' (см. AppShell.tsx), модалка
+   * mode='unlock' покрыта её собственными тестами.
+   */
+  it('opens the unlock prompt on the open-vault-unlock event while locked', async () => {
+    hasEncryptionMeta.mockRejectedValue(new Error('meta read failed'));
+
+    const { result } = renderHook(() => useEncryptionSetup());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.mode).toBe('none');
+
+    act(() => { window.dispatchEvent(new CustomEvent('open-vault-unlock')); });
+    expect(result.current.mode).toBe('unlock');
+  });
+
+  it('ignores open-vault-unlock when the vault is already unlocked', async () => {
+    isVaultUnlocked.mockReturnValue(true);
+    hasEncryptionMeta.mockResolvedValue(true);
+
+    const { result } = renderHook(() => useEncryptionSetup());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.mode).toBe('none');
+
+    act(() => { window.dispatchEvent(new CustomEvent('open-vault-unlock')); });
+    expect(result.current.mode).toBe('none');
+  });
 });

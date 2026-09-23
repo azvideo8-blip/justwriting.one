@@ -120,7 +120,7 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
       const manifest = await exportMigrationManifest();
       const verbatimTotal = Object.values(manifest.counters.verbatim).reduce((a, b) => a + b, 0);
       const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-      downloadBlob(blob, `justwriting-export-${new Date().toISOString().slice(0, 10)}.json`);
+      downloadBlob(blob, `justwriting-backup-${new Date().toISOString().slice(0, 10)}.json`);
       setMigrationResult({
         documents: manifest.counters.documents,
         versions: manifest.counters.versions,

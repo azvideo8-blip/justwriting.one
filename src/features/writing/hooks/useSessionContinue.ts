@@ -52,6 +52,8 @@ export function useSessionContinue({
         });
         useSessionMetaStore.setState({
           savedDocumentId: session.id,
+          loadedContent: content || '',
+          loadedTitle: session.title || '',
         });
         setTags(session.tags || []);
         setSetupMode('selection');
@@ -71,6 +73,8 @@ export function useSessionContinue({
       });
       useSessionMetaStore.setState({
         savedDocumentId: session.id,
+        loadedContent: content || '',
+        loadedTitle: doc.title || '',
       });
       setTags(doc.tags);
       setSetupMode('selection');
@@ -126,6 +130,8 @@ export function useSessionContinue({
     });
     useSessionMetaStore.setState({
       savedDocumentId,
+      loadedContent: sessionContent,
+      loadedTitle: session.title || '',
     });
     setTags(session.tags || []);
     setSetupMode('selection');

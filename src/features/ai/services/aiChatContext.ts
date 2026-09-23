@@ -16,6 +16,7 @@ import { AIChatMemoryService } from './AIChatMemoryService';
 import { AIMemoryAssembler, extractDocumentIdsFromText } from './AIMemoryAssembler';
 import { MemoryFlagsService } from './memoryFlags';
 import { setAIStage } from '../store/useAIStageStore';
+import { useAiLimitStore } from '../store/useAiLimitStore';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { getSendPortraitInDialogue } from '../../../core/ai/portraitDialoguePreference';
@@ -354,14 +355,7 @@ export function useAIChatContext(personaId: string): {
               if (searchQuery === text && turnEmb !== undefined) {
                 queryEmb = turnEmb;
               } else {
-                const queryEmbResult = await embedOnce(searchQuery);
-                queryEmb = queryEmbResult;
-                if (queryEmb === undefined && searchQuery === text) {
-                  // turnEmb не считался: реплика пустая или консента не было.
-                  const retry = await AIService.embed({ content: searchQuery });
-                  if (retry.ok) queryEmb = retry.vectors[0];
-                  else if (isDailyLimitError(retry.error)) degradedDueToDailyLimit = true;
-                }
+                queryEmb = await embedOnce(searchQuery);
               }
             }
 
@@ -419,7 +413,9 @@ export function useAIChatContext(personaId: string): {
               });
             }
 
-            if (allNotes.length > 5) {
+            const hasChatQuota = useAiLimitStore.getState().remaining > 0;
+            const cooldownActive = Number(localStorage.getItem('jw_ai_cooldown_until') || '0') > Date.now();
+            if (allNotes.length > 5 && hasChatQuota && !cooldownActive) {
               try {
                 const candidates = await Promise.all(allNotes.map(async n => {
                   let cardBody = n.content.slice(0, 400);

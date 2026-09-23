@@ -7,6 +7,16 @@ import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
 
 export { MAX_VERSION_CONTENT_CHARS };
 
+export function estimateVersionDocSize(content: string, isEncrypted: boolean, alreadyEncrypted = false): number {
+  if (!isEncrypted) return content.length;
+  if (alreadyEncrypted) return content.length;
+  return Math.ceil((new TextEncoder().encode(content).length + 28) * 4 / 3);
+}
+
+export function isVersionContentTooLarge(content: string, isEncrypted: boolean, alreadyEncrypted = false): boolean {
+  return estimateVersionDocSize(content, isEncrypted, alreadyEncrypted) > MAX_VERSION_CONTENT_CHARS;
+}
+
 export const VersionService = {
 
   async addVersion(
@@ -36,9 +46,7 @@ export const VersionService = {
     // the number. The old estimate (bytes x 1.35 + previousContent + 10 KB) was
     // the Firestore 1 MiB document budget and measured neither.
     const isEncrypted = Boolean(data._encrypted || getEncryptionEnabled(userId));
-    const estimatedDocSize = isEncrypted
-      ? (data._encrypted ? data.content.length : Math.ceil((new TextEncoder().encode(data.content).length + 28) * 4 / 3))
-      : data.content.length;
+    const estimatedDocSize = estimateVersionDocSize(data.content, isEncrypted, Boolean(data._encrypted));
     if (estimatedDocSize > MAX_VERSION_CONTENT_CHARS) {
       throw new Error(`Document too large for cloud sync (${(estimatedDocSize / 1024).toFixed(0)}KB estimated). Consider splitting into multiple documents.`);
     }

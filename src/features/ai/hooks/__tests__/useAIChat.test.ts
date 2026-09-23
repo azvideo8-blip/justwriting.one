@@ -35,6 +35,7 @@ vi.mock('../../services/aiChatContext', () => ({
 describe('useAIChat tests (AG-ERR-2 & AG-CHAT-2)', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    localStorage.clear();
     transport._resetStreamUnavailable();
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true, writable: true });
     useAiLimitStore.setState({ remaining: 10, limit: 10, used: 0, resetsAt: new Date(Date.now() + 100000), loaded: true, isAdmin: false });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { renderWithProviders } from '../../../../test/utils/render';
@@ -9,19 +9,27 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
+const mockShowToast = vi.fn();
 vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({
-    showToast: vi.fn(),
+    showToast: mockShowToast,
   }),
 }));
 
-vi.mock('../../auth/hooks/useAdminStatus', () => ({
+let mockIsAdmin = false;
+vi.mock('../../../auth/hooks/useAdminStatus', () => ({
   useAdminStatus: () => ({
-    isAdmin: false,
+    isAdmin: mockIsAdmin,
   }),
 }));
 
-describe('AboutSettingsSection (UI-12)', () => {
+describe('AboutSettingsSection (UI-12 & D-16)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    mockIsAdmin = false;
+  });
+
   it('navigates to /help when Help button is clicked', () => {
     renderWithProviders(<AboutSettingsSection />);
 
@@ -30,5 +38,41 @@ describe('AboutSettingsSection (UI-12)', () => {
 
     fireEvent.click(helpBtn);
     expect(mockNavigate).toHaveBeenCalledWith('/help');
+  });
+
+  it('does not unlock diagnostics or show toast on 5 taps if user is not admin (D-16)', () => {
+    mockIsAdmin = false;
+    renderWithProviders(<AboutSettingsSection />);
+
+    const versionBtn = screen.getByRole('button', { name: /^Версия/i });
+    for (let i = 0; i < 5; i++) {
+      fireEvent.click(versionBtn);
+    }
+
+    expect(mockShowToast).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('diagnostics_unlocked')).toBeNull();
+    expect(screen.queryByRole('button', { name: /диагностик/i })).toBeNull();
+  });
+
+  it('does not show diagnostics button to non-admin even if diagnostics_unlocked was previously set (D-16)', () => {
+    mockIsAdmin = false;
+    sessionStorage.setItem('diagnostics_unlocked', 'true');
+    renderWithProviders(<AboutSettingsSection />);
+
+    expect(screen.queryByRole('button', { name: /диагностик/i })).toBeNull();
+  });
+
+  it('unlocks diagnostics button and shows toast on 5 taps when user is admin (D-16)', () => {
+    mockIsAdmin = true;
+    renderWithProviders(<AboutSettingsSection />);
+
+    const versionBtn = screen.getByRole('button', { name: /^Версия/i });
+    for (let i = 0; i < 5; i++) {
+      fireEvent.click(versionBtn);
+    }
+
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem('diagnostics_unlocked')).toBe('true');
+    expect(screen.getByRole('button', { name: /диагностик/i })).toBeInTheDocument();
   });
 });

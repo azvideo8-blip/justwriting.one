@@ -4,6 +4,13 @@ import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
+
+function isPristineContinuedSession(content: string, title: string): boolean {
+  const meta = useSessionMetaStore.getState();
+  if (!meta.savedDocumentId || meta.loadedContent === null) return false;
+  return content === meta.loadedContent && (meta.loadedTitle ?? '') === title;
+}
 
 export function useDraftAutosave(
   user: AppUser | null,
@@ -33,6 +40,8 @@ export function useDraftAutosave(
     if (!user) return;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return;
+    // D-24: do not save draft for continued notes with no edits
+    if (isPristineContinuedSession(current.content, current.title)) return;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: false });
@@ -48,6 +57,8 @@ export function useDraftAutosave(
     if (!user) return;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return;
+    // D-24: do not save draft for continued notes with no edits
+    if (isPristineContinuedSession(current.content, current.title)) return;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: true });
@@ -61,6 +72,8 @@ export function useDraftAutosave(
     if (!user) return;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return;
+    // D-24: do not save draft for continued notes with no edits
+    if (isPristineContinuedSession(current.content, current.title)) return;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: true });
@@ -102,7 +115,8 @@ export function useDraftAutosave(
 
   // Debounce: save LOCALLY shortly after the user stops typing to avoid cloud write-quota exhaustion.
   useEffect(() => {
-    if (user && (draftData.content.trim() || draftData.title.trim())) {
+    const isPristine = isPristineContinuedSession(draftData.content, draftData.title);
+    if (user && !isPristine && (draftData.content.trim() || draftData.title.trim())) {
       const debounceDelay = layoutMode === 'mobile' ? 5000 : 500;
       const timeout = setTimeout(() => void wrappedAutosaveLocal(), debounceDelay);
       return () => clearTimeout(timeout);
@@ -112,7 +126,8 @@ export function useDraftAutosave(
   // Interval safety net: save to cloud (remote) every 30s even if the user types continuously.
   // Boolean dep on purpose: keyed on the text itself the interval would restart
   // on every keystroke and the "safety net" would never fire while typing.
-  const hasDraftText = Boolean(draftData.content.trim() || draftData.title.trim());
+  const isPristine = isPristineContinuedSession(draftData.content, draftData.title);
+  const hasDraftText = !isPristine && Boolean(draftData.content.trim() || draftData.title.trim());
   useEffect(() => {
     if (!user || remotePermanentError) return;
     if (!hasDraftText) return;

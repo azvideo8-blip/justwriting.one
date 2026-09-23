@@ -7,7 +7,7 @@ import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from
 import { getSendPortraitInDialogue, setSendPortraitInDialogue } from '../../../core/ai/portraitDialoguePreference';
 import { Toggle } from '../../../shared/components/Toggle';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
-import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { PRIVACY_VERSION, AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getLocalDb } from '../../../core/storage/localDb';
@@ -43,7 +43,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
   const hasConsent = Boolean(
     profile?.aiConsentAt != null &&
     typeof profile?.aiConsentVersion === 'number' &&
-    profile.aiConsentVersion >= PRIVACY_VERSION
+    profile.aiConsentVersion >= AI_CONSENT_VERSION_REQUIRED
   );
 
   const indexingConsentState = getIndexingConsent(userId);

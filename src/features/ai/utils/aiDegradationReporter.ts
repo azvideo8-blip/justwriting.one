@@ -23,21 +23,22 @@ export function isDailyLimitError(cause: unknown): boolean {
   if (!cause) return false;
   if (typeof cause === 'string') {
     const lower = cause.toLowerCase();
-    return cause === 'DAILY_LIMIT' || (lower.includes('daily limit') && !lower.includes('rate limit'));
+    return cause === 'DAILY_LIMIT' || cause === 'BULK_LIMIT' || ((lower.includes('daily limit') || lower.includes('bulk operations limit')) && !lower.includes('rate limit'));
   }
   if (typeof cause === 'object') {
     const c = cause as { code?: string; message?: string; details?: { errorType?: string } };
-    if (c.code === 'DAILY_LIMIT') return true;
-    if (c.details?.errorType === 'DAILY_LIMIT') return true;
+    if (c.code === 'DAILY_LIMIT' || c.code === 'BULK_LIMIT') return true;
+    if (c.details?.errorType === 'DAILY_LIMIT' || c.details?.errorType === 'BULK_LIMIT') return true;
     const msg = (c.message || '').toLowerCase();
-    return msg.includes('daily limit') && !msg.includes('rate limit');
+    return (msg.includes('daily limit') || msg.includes('bulk operations limit')) && !msg.includes('rate limit');
   }
   return false;
 }
 
 export function classifyCause(cause: unknown): { category: AIDegradationCategory; code: string } {
   if (isDailyLimitError(cause)) {
-    return { category: 'daily_limit', code: 'DAILY_LIMIT' };
+    const isBulk = cause === 'BULK_LIMIT' || (typeof cause === 'object' && cause !== null && ((cause as { code?: string }).code === 'BULK_LIMIT' || (cause as { details?: { errorType?: string } }).details?.errorType === 'BULK_LIMIT'));
+    return { category: 'daily_limit', code: isBulk ? 'BULK_LIMIT' : 'DAILY_LIMIT' };
   }
 
   let code = 'UNKNOWN';

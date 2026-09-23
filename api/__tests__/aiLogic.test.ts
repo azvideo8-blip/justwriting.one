@@ -79,7 +79,7 @@ describe('2.20 model JSON validated by zod, refund on schema failure', () => {
       .rejects.toMatchObject({ code: 'unavailable' });
     // S-11: The user's bulk limit is refunded so they are not charged, but tokens were burned,
     // so global reservation is reconciled (recorded in usage) rather than refunded.
-    expect(ctx.refundBulkLimit).toHaveBeenCalledWith('u1', '2026-08-22');
+    expect(ctx.refundBulkLimit).toHaveBeenCalledWith('u1', '2026-08-22', 'bulk');
     expect(ctx.refundGlobalRequest).not.toHaveBeenCalled();
     expect(ctx.recordUsage).toHaveBeenCalledWith(
       'u1',

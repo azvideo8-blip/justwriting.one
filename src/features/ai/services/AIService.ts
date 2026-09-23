@@ -46,6 +46,11 @@ export function mapAIError(e: unknown): AIErrorCode {
   const status = (e as { status?: number }).status;
   const message = (e as { message?: string }).message ?? '';
   if (code === 'AI_CONSENT_REQUIRED' || message === 'AI_CONSENT_REQUIRED') return 'AI_CONSENT_REQUIRED';
+  if (
+    code === 'INDEXING_CONSENT_REQUIRED' ||
+    message === 'INDEXING_CONSENT_REQUIRED' ||
+    message.includes('Indexing consent required')
+  ) return 'INDEXING_CONSENT_REQUIRED';
   // Связь оборвалась, а не сервис сломался. Раньше всё это попадало в
   // SERVER_ERROR и писалось в журнал уровнем error, так что день с отвалившимся
   // прокси выглядел как день с поломанным приложением.
@@ -69,6 +74,7 @@ export function mapAIError(e: unknown): AIErrorCode {
     // operations limit reached.», — и точная подстрока 'daily limit' второе из
     // них не ловила: исчерпанный фоновый лимит читался как «подождите минуту»,
     // то есть предлагал повторять до утра.
+    if (errData?.errorType === 'BULK_LIMIT' || message.toLowerCase().includes('bulk')) return 'BULK_LIMIT';
     if (errData?.errorType === 'DAILY_LIMIT' || message.toLowerCase().includes('daily')) return 'DAILY_LIMIT';
     return 'RATE_LIMIT';
   }
@@ -186,8 +192,10 @@ export const AIService = {
       const data = await withTimeout(callAi<{ vectors: number[][]; chunks: string[]; model: string; dim: number }>('embedDocument', params), 60_000);
       return { ok: true, vectors: data.vectors, chunks: data.chunks ?? [], model: data.model, dim: data.dim };
     } catch (e: unknown) {
-      reportError(e, { action: 'embed' }, 'warning');
       const errType = mapAIError(e);
+      if (errType !== 'INDEXING_CONSENT_REQUIRED' && (e as { code?: string })?.code !== 'INDEXING_CONSENT_REQUIRED') {
+        reportError(e, { action: 'embed' }, 'warning');
+      }
       if (errType === 'DAILY_LIMIT') return { ok: false, error: 'DAILY_LIMIT' };
       if (errType === 'RATE_LIMIT') return { ok: false, error: 'RATE_LIMIT' };
       return { ok: false, error: errType };

@@ -9,6 +9,7 @@ import {
   recoverVaultWithCode,
 } from '../../../core/services/EncryptionService';
 import { reportError } from '../../../shared/errors/reportError';
+import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { ModalShell } from '../../../shared/components/ModalShell';
@@ -79,8 +80,8 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
       setError(t('auth_error_fields_required'));
       return;
     }
-    if (newPassword.length < 8) {
-      setError(t('enc_password_min_length', { min: 8 }));
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (newPassword !== confirmNewPassword) {

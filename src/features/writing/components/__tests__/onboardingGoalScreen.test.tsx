@@ -33,8 +33,9 @@ vi.mock('../../../../core/sync/useSyncStatus', () => ({
 }));
 
 vi.mock('../../../../core/crypto/useEncryptionStore', () => ({
-  useEncryptionStore: () => ({
-    isUnlocked: true,
+  useEncryptionStore: Object.assign(() => ({ isUnlocked: true }), {
+    // D-14: голосовой ввод спрашивает у стора, включён ли сейф.
+    getState: () => ({ getEncryptionEnabled: () => false }),
   }),
   VAULT_UNLOCKED_EVENT: 'vault_unlocked',
 }));

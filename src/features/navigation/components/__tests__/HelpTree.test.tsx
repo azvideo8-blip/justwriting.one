@@ -86,7 +86,7 @@ describe('HelpTree (UI-12)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Нет' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Проверьте фильтры в разделе «Архив»/i)).toBeInTheDocument();
+      expect(screen.getByText(/Проверьте фильтры в меню «Заметки»/i)).toBeInTheDocument();
     });
 
     // "Сначала" button resets back to step 1

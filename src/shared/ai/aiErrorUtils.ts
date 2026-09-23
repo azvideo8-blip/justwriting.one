@@ -15,11 +15,18 @@ export function aiErrorToText(code: string | undefined | null, opts?: AiErrorToT
     return t ? t('ai_error_server') : 'Произошла ошибка при отправке сообщения';
   }
 
+  if (code.startsWith('RATE_LIMIT:')) {
+    const sec = code.slice('RATE_LIMIT:'.length);
+    return `Слишком частые запросы. Подождите ${sec} сек. перед следующей отправкой.`;
+  }
+
   switch (code) {
     case 'RATE_LIMIT':
       return t
         ? t('ai_error_rate_limit')
         : 'Слишком частые запросы. Подождите немного перед следующей отправкой.';
+    case 'BULK_LIMIT':
+      return 'Фоновый лимит ИИ на сегодня исчерпан (разбор, поиск по смыслу) — чат по-прежнему работает';
     case 'DAILY_LIMIT':
       return t
         ? (t('ai_error_daily_limit') || 'Дневной лимит достигнут')
@@ -41,6 +48,10 @@ export function aiErrorToText(code: string | undefined | null, opts?: AiErrorToT
       return t
         ? (t('archive_preview_ai_consent_required') || 'Для общения с ИИ требуется согласие на обработку данных')
         : 'Для общения с ИИ требуется согласие на обработку данных';
+    case 'INDEXING_CONSENT_REQUIRED':
+      return t
+        ? (t('ai_indexing_consent_required') || 'Для поиска по смыслу требуется согласие на индексацию')
+        : 'Для поиска по смыслу требуется согласие на индексацию';
     case 'EMPTY_RESPONSE':
       return 'ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.';
     case 'UPSTREAM':

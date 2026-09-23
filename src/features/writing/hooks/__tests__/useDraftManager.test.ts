@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { renderHook, act } from '@testing-library/react';
 import { useDraftManager } from '../useDraftManager';
 import { useTimerStore } from '../../store/useTimerStore';
@@ -19,6 +20,7 @@ describe('useDraftManager', () => {
   const mockOnSaveDraft = vi.fn();
 
   beforeEach(() => {
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_manager_123'), 'true'); // D-22: эти тесты проверяют облачную запись
     vi.clearAllMocks();
     vi.useFakeTimers();
     useTimerStore.setState({ status: 'writing' });

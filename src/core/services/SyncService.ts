@@ -9,6 +9,7 @@ import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { syncStatusOf } from '../sync/syncStatus';
 import { isPoisonSyncError, isRevivableOnUnlock } from '../sync/classifySyncError';
 import { syncStreakFreezesWithCloud } from '../utils/streakFreeze';
+import { announceQueueChange, addToSyncQueue } from './syncQueueOps';
 import pLimit from 'p-limit';
 
 const _syncInProgress = new Map<string, boolean>();
@@ -46,16 +47,6 @@ async function markAttempt(taskId: string, patch: { attempts: number; dead: bool
   await db.put('syncQueue', { ...item, attempts: patch.attempts, dead: patch.dead, lastError: patch.lastError });
 }
 
-// AUD-25: индикатор синка больше не опрашивает IndexedDB каждые 10 секунд —
-// слой синка сам объявляет об изменениях очереди, и подписчики перечитывают
-// счётчики только тогда, когда что-то действительно изменилось.
-function announceQueueChange(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.dispatchEvent(new CustomEvent('sync-queue-changed'));
-  } catch { /* non-critical */ }
-}
-
 export interface SyncUnsyncedSummary {
   unsyncedCount: number;
   behindCount: number;
@@ -72,28 +63,7 @@ export interface SyncPendingResult {
 }
 
 export const SyncService = {
-  async addToQueue(documentId: string): Promise<void> {
-    const db = await getLocalDb();
-    // The queue task inherits the note's owner. A task with no owner could be
-    // drained under whichever account happens to be signed in next.
-    const doc = await db.get('documents', documentId);
-    const tx = db.transaction('syncQueue', 'readwrite');
-    const taskId = `sync_${documentId}`;
-    const existing = await tx.store.get(taskId);
-    const cutoff = Date.now() - 60_000;
-    // Overwrite or update task; avoid rapid re-queueing of recent tasks unless failed/dead
-    if (!existing || existing.createdAt < cutoff || existing.dead) {
-      await tx.store.put({
-        id: taskId,
-        documentId,
-        type: 'document' as const,
-        createdAt: Date.now(),
-        ownerId: doc?.guestId,
-      });
-    }
-    await tx.done;
-    announceQueueChange();
-  },
+  addToQueue: addToSyncQueue,
 
   async removeQueueTasksForDocument(documentId: string): Promise<void> {
     const db = await getLocalDb();
@@ -207,7 +177,7 @@ export const SyncService = {
     }
 
     for (const d of localDocs) {
-      if (d.localOnly) {
+      if (d.localOnly || d.isTooLargeForSync) {
         deviceOnlyCount++;
         continue;
       }
@@ -333,6 +303,7 @@ export const SyncService = {
   },
 
   async syncOne(userId: string, localId: string): Promise<string> {
+    if (!cloudSyncEnabled(userId)) return '';
     const cloudId = await StorageService.addCloudCopy(userId, localId);
     const result = (cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) ? '' : (cloudId || '');
     if (result) {
@@ -354,7 +325,7 @@ export const SyncService = {
     const cutoff = now - olderThanMs;
 
     const orphans = localDocs.filter(d => {
-      if (d.localOnly || d.unlinkedByTombstone || d._locked || d._decryptionError) return false;
+      if (d.localOnly || d.unlinkedByTombstone || d._locked || d._decryptionError || d.isTooLargeForSync) return false;
       if (queuedDocIds.has(d.id)) return false;
 
       const noteTime = d.lastSessionAt || d.firstSessionAt || 0;

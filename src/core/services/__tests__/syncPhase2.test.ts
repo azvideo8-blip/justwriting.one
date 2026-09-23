@@ -13,6 +13,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), 'true'); // D-22: по умолчанию тесты проверяют облачную запись
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'versions', 'syncQueue', 'profile'], 'readwrite');
     await Promise.all([

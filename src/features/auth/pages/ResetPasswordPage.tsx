@@ -2,8 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { updateUserPassword, onPasswordRecovery, verifyOtpForRecovery, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 import { reportError } from '../../../shared/errors/reportError';
-
-const MIN_PASSWORD_LENGTH = 8;
+import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 
 /**
  * /reset-password — цель ссылки из письма о восстановлении.

@@ -7,7 +7,7 @@ import { postgresAiContext } from './postgresAiContext';
 import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema } from '../src/shared/ai/buildChatPrompt.js';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
-import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
+import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 
 // AUDIT-part3 2: все ответы ошибок ушли через sendError (единая форма
 // {error:{code,message}}); локальный json-хелпер удалён как неиспользуемый.
@@ -71,6 +71,17 @@ const ruOnlyFetch: typeof fetch = async (input, init) => {
 
 async function getActiveModel(): Promise<string> {
   return ACTIVE_CHAT_MODEL;
+}
+
+async function attachQuotaHeaders(res: ServerResponse, uid: string): Promise<void> {
+  try {
+    const quota = await postgresAiContext.getDailyLimitCount(uid);
+    const isAdmin = await postgresAiContext.isAdmin(uid);
+    res.setHeader('X-AI-Quota-Used', String(quota.used));
+    res.setHeader('X-AI-Quota-Limit', String(isAdmin ? ADMIN_DAILY_LIMIT : DAILY_LIMIT));
+    res.setHeader('X-AI-Reasoning-Used', String(quota.reasoningUsed ?? 0));
+    res.setHeader('X-AI-Reasoning-Limit', process.env.AI_REASONING_DAILY_LIMIT || '5');
+  } catch { /* non-critical */ }
 }
 
 async function getChatModel() {
@@ -407,8 +418,13 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     callRes = await acquireChatReservation(postgresAiContext, uid, isInternalCall, parsed.data.reasoning ?? undefined);
   } catch (err) {
     if (err instanceof AiError) {
+      await attachQuotaHeaders(res, uid);
       if (err.code === 'resource-exhausted') {
         if (err.message.includes('Too many requests')) {
+          const retryAfterSec = (err as unknown as { retryAfterSec?: number }).retryAfterSec;
+          if (retryAfterSec) {
+            res.setHeader('Retry-After', String(retryAfterSec));
+          }
           sendError(res, 429, 'RATE_LIMIT');
           return;
         }
@@ -430,6 +446,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     }
     throw err;
   }
+  await attachQuotaHeaders(res, uid);
   const chargedDay = callRes.day;
 
   const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning, parsed.data.callType);

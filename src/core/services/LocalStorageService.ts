@@ -4,6 +4,8 @@ import { getLocalDb, randomUUID, LocalDocument } from '../storage/localDb';
 import { computeWordDelta } from './DiffService';
 import { reportError } from '../../shared/errors/reportError';
 import { SaveDocumentData } from './storageTypes';
+import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { isVersionContentTooLarge } from './VersionService';
 
 export const LocalStorageService = {
   async saveNew(userId: string, data: SaveDocumentData & { _locked?: boolean | undefined; _decryptionError?: boolean | undefined }): Promise<{ localId: string }> {
@@ -14,10 +16,18 @@ export const LocalStorageService = {
     const localId = `local_${randomUUID()}`;
     const versionId = `ver_${randomUUID()}`;
     const now = Date.now();
+    // D-4: импорт старого дневника несёт дату в самом файле. Список заметок,
+    // календарь, стрик и «в этот день» считаются по firstSessionAt/lastSessionAt
+    // документа (см. UnifiedSessionLoader) и по savedAt версии, поэтому заметка
+    // обязана получить дату файла, а не момент импорта. Сохранение сессии
+    // documentDate не передаёт — там дата заметки равна моменту записи.
+    const datedAt = data.documentDate ? data.documentDate.getTime() : now;
     const diff = computeWordDelta('', data.content);
     const totalWords = data.documentWordCount ?? data.wordCount;
+    const isEncrypted = Boolean(getEncryptionEnabled(userId));
+    const isTooLarge = isVersionContentTooLarge(data.content, isEncrypted);
 
-    const docObj = {
+    const docObj: LocalDocument = {
       id: localId,
       uuid: randomUUID(),
       guestId: userId,
@@ -26,11 +36,12 @@ export const LocalStorageService = {
       totalWords,
       totalDuration: data.duration,
       sessionsCount: 1,
-      firstSessionAt: now,
-      lastSessionAt: now,
+      firstSessionAt: datedAt,
+      lastSessionAt: datedAt,
       tags: data.tags ?? [],
       labelId: data.labelId ?? undefined,
       mood: data.mood,
+      ...(isTooLarge ? { isTooLargeForSync: true } : {}),
     };
     const verObj = {
       id: versionId,
@@ -46,7 +57,7 @@ export const LocalStorageService = {
       goalWords: data.goalWords,
       goalTime: data.goalTime,
       goalReached: data.goalReached ?? false,
-      savedAt: now,
+      savedAt: datedAt,
       sessionStartedAt: data.sessionStartedAt.getTime(),
       mood: data.mood,
     };
@@ -121,6 +132,9 @@ export const LocalStorageService = {
         mood: data.mood,
       });
 
+      const isEncrypted = Boolean(getEncryptionEnabled(existing.guestId));
+      const isTooLarge = isVersionContentTooLarge(data.content, isEncrypted);
+
       await docStore.put({
         ...existing,
         // Metadata edited during the session travels in the same payload as the
@@ -136,6 +150,7 @@ export const LocalStorageService = {
         sessionsCount: (existing.sessionsCount || 0) + 1,
         lastSessionAt: now,
         mood: data.mood,
+        isTooLargeForSync: isTooLarge ? true : undefined,
       });
 
       await tx.done;

@@ -1,6 +1,7 @@
 import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
+import { useAiLimitStore } from '../store/useAiLimitStore';
 
 export let _streamUnavailableUntil = 0;
 export function _resetStreamUnavailable(): void {
@@ -198,6 +199,9 @@ export async function streamChat(params: {
     signal: params.signal ?? null,
   });
 
+  if (typeof response.headers.has === 'function' && response.headers.has('x-ai-quota-used')) {
+    useAiLimitStore.getState().syncFromHeaders(response.headers);
+  }
 
   if (response.status === 404) {
     _streamUnavailableUntil = Date.now() + 60_000;
@@ -210,14 +214,22 @@ export async function streamChat(params: {
   // corrupts the client's daily-limit state (sets remaining=0 permanently).
   if (response.status === 429) {
     let errorKind = 'RATE_LIMIT';
+    const retryAfter = response.headers.get('Retry-After');
+    const retrySec = retryAfter ? parseInt(retryAfter, 10) : NaN;
     try {
       const body = await response.json();
       const code = extractErrorCode(body);
       if (code === 'GLOBAL_LIMIT') errorKind = 'GLOBAL_LIMIT';
       if (code === 'DAILY_LIMIT') errorKind = 'DAILY_LIMIT';
-      if (code === 'RATE_LIMIT') errorKind = 'RATE_LIMIT';
+      if (code === 'RATE_LIMIT') {
+        errorKind = !isNaN(retrySec) && retrySec > 0 ? `RATE_LIMIT:${retrySec}` : 'RATE_LIMIT';
+      }
       if (code === 'REASONING_LIMIT') errorKind = 'REASONING_LIMIT';
-    } catch { /* default to RATE_LIMIT */ }
+    } catch {
+      if (!isNaN(retrySec) && retrySec > 0) {
+        errorKind = `RATE_LIMIT:${retrySec}`;
+      }
+    }
     throw new Error(errorKind);
   }
   if (response.status === 503) {

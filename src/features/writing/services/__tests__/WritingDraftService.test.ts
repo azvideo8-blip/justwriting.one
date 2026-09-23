@@ -55,6 +55,10 @@ describe('WritingDraftService', () => {
     vi.mocked(DataProvider.getDraft).mockResolvedValue(null);
     vi.mocked(DataProvider.deleteDraft).mockResolvedValue(undefined);
     localStorage.clear();
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_123'), 'true'); // D-22: эти тесты проверяют облачную запись
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_unchanged'), 'true'); // D-22: эти тесты проверяют облачную запись
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_retyped'), 'true'); // D-22: эти тесты проверяют облачную запись
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_gen_test'), 'true'); // D-22: эти тесты проверяют облачную запись
     sessionStorage.clear();
   });
 

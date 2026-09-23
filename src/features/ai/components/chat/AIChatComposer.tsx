@@ -212,7 +212,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-              placeholder={outOfQuota ? quotaNoticeText : t('ai_write_placeholder', { name: personaName.toLowerCase() })}
+              placeholder={outOfQuota ? quotaNoticeText : t('ai_write_placeholder', { name: personaName })}
               disabled={isLoading || outOfQuota}
               rows={1}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-base text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"

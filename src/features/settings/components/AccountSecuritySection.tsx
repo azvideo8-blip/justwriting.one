@@ -10,6 +10,7 @@ import { Section } from './SettingsHelpers';
 import { AccountVaultSection } from './AccountVaultSection';
 import { AccountAISection } from './AccountAISection';
 import { Button } from '../../../shared/components/Button';
+import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { Input } from '../../../shared/components/Input';
 
 interface AccountSecuritySectionProps {
@@ -39,7 +40,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
   }, []);
 
   const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || newPassword.length < 6) {
+    if (!currentPassword || !newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
       setPasswordError(t('auth_error_weak_password'));
       return;
     }

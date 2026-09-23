@@ -452,7 +452,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (value) {
       const ok = await confirmDialog({
         title: t('ai_reasoning_mode_confirm_title'),
-        message: t('ai_reasoning_mode_confirm_message'),
+        // D-7: число берётся из того же лимита, который действительно действует
+        // (сервер отдаёт свой в заголовке ответа), иначе окно врёт про квоту.
+        message: t('ai_reasoning_mode_confirm_message', {
+          limit: useAiLimitStore.getState().reasoningLimit,
+        }),
         confirmLabel: t('ai_reasoning_mode_confirm_label'),
         destructive: false,
       });

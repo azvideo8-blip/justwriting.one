@@ -160,6 +160,24 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
     expect(reportError).toHaveBeenCalledWith(error, { action: 'sendPasswordReset' });
   });
 
+  it('displays auth_error_invalid_email on validation_failed / 400 error (F-4)', async () => {
+    const error = { code: 'validation_failed', status: 400, message: 'Unable to validate email address: invalid format' };
+    vi.mocked(AuthService.sendPasswordReset).mockRejectedValueOnce(error);
+
+    await openForgotPasswordModal();
+
+    const emailInputs = screen.getAllByPlaceholderText('auth_email_placeholder');
+    const modalEmailInput = emailInputs[emailInputs.length - 1]!;
+    fireEvent.change(modalEmailInput, { target: { value: 'bad@domain' } });
+
+    const form = modalEmailInput.closest('form')!;
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(screen.getByText('auth_error_invalid_email')).toBeInTheDocument();
+    });
+  });
+
   it('does not use w-screen and stays within 390px mobile viewport bounds (S-14)', () => {
     const originalInnerWidth = window.innerWidth;
     const originalInnerHeight = window.innerHeight;

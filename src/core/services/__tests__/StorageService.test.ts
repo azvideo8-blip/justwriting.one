@@ -20,6 +20,9 @@ vi.mock('../VersionService', () => ({
     getVersions: vi.fn().mockRejectedValue(new Error('unavailable')),
     addVersion: vi.fn().mockRejectedValue(new Error('unavailable')),
   },
+  isVersionContentTooLarge: vi.fn((content: string) => content.length > 700_000),
+  estimateVersionDocSize: vi.fn((content: string) => content.length),
+  MAX_VERSION_CONTENT_CHARS: 700_000,
 }));
 
 vi.mock('../ConflictResolver', () => ({
@@ -137,5 +140,25 @@ describe('StorageService.saveVersion — cloud resilience', () => {
     await expect(
       StorageService.saveVersion(userId, 'nonexistent_doc', makeSaveData())
     ).rejects.toThrow('Document not found');
+  });
+
+  it('F-2: returns isTooLarge: true and does not sync or queue when content exceeds threshold', async () => {
+    const docId = 'doc_too_large';
+    await seedDocument(docId, 'cloud_large');
+
+    const hugeData = makeSaveData({ content: 'a'.repeat(700_001) });
+    const result = await StorageService.saveVersion(userId, docId, hugeData);
+
+    expect(result).toEqual({ forked: false, cloudSynced: false, reason: 'TOO_LARGE', isTooLarge: true });
+
+    // Local document should have isTooLargeForSync set
+    const db = await getLocalDb();
+    const doc = await db.get('documents', docId);
+    expect(doc!.isTooLargeForSync).toBe(true);
+
+    // syncQueue must NOT contain this document
+    const queue = await db.getAll('syncQueue');
+    const queued = queue.filter(item => item.documentId === docId);
+    expect(queued.length).toBe(0);
   });
 });

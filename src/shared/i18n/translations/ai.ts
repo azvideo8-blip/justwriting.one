@@ -18,7 +18,7 @@ export const aiTranslations: Translations = {
   ai_attach: { ru: 'Прикрепить', en: 'Attach' },
   ai_attach_note: { ru: 'Прикрепить заметку', en: 'Attach note' },
   ai_upload_file: { ru: 'Загрузить файл', en: 'Upload file' },
-  ai_write_placeholder: { ru: 'Напишите {name}…', en: 'Write to {name}…' },
+  ai_write_placeholder: { ru: 'Сообщение для: {name}…', en: 'Message for {name}…' },
   ai_send: { ru: 'Отправить', en: 'Send' },
   ai_processing: { ru: 'Обработка…', en: 'Processing…' },
   ai_delete_message: { ru: 'Удалить сообщение', en: 'Delete message' },
@@ -50,7 +50,10 @@ export const aiTranslations: Translations = {
   ai_persona_delete_confirm_title: { ru: 'Удалить персону?', en: 'Delete persona?' },
   ai_persona_delete_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },
   ai_reasoning_mode_confirm_title: { ru: 'Режим рассуждений', en: 'Reasoning Mode' },
-  ai_reasoning_mode_confirm_message: { ru: 'Дневной лимит запросов в режиме рассуждений ограничен 5 (вместо 10). Включить?', en: 'Daily request limit in reasoning mode is capped at 5 (instead of 10). Enable?' },
+  // D-7: число приходит из лимита ({limit}), а не из текста. Раньше здесь было
+  // «ограничен 5 (вместо 10)» — про запас: обычный лимит чата не 10, а 30, и
+  // рассуждения его не заменяют, у них свой счётчик.
+  ai_reasoning_mode_confirm_message: { ru: 'Запросы в режиме рассуждений считаются отдельным дневным лимитом: {limit} в день. Обычный лимит чата при этом не расходуется. Включить?', en: 'Reasoning requests have their own daily limit: {limit} per day. Your regular chat limit is not used up. Enable?' },
   ai_reasoning_mode_confirm_label: { ru: 'Включить', en: 'Enable' },
   ai_delete_message_confirm_title: { ru: 'Удалить сообщение?', en: 'Delete message?' },
   ai_delete_message_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },

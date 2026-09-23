@@ -47,7 +47,7 @@ export function AdminUsersTable({
 
           return (
             <tr key={u.uid} className="border-b last:border-0 border-border-subtle">
-              <td className="px-6 py-4 text-sm font-medium text-text-main">{u.email || '—'}</td>
+              <td className="px-6 py-4 text-sm font-medium text-text-main break-all max-w-xs">{u.email || '—'}</td>
               <td className="px-6 py-4 text-sm font-mono text-text-main/60">{u.uid}</td>
               <td className="px-6 py-4">
                 <span

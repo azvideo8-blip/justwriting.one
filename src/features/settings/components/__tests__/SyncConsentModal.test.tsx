@@ -147,7 +147,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
     });
   });
 
-  it("useSyncConsentCheck: does NOT show consent modal if local docs count is 0", async () => {
+  it("useSyncConsentCheck: DOES show consent modal for new account even if local docs count is 0 (D-22)", async () => {
     vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
       user: { uid: "user_456" } as never,
       profile: null, refreshProfile: async () => {},
@@ -161,7 +161,7 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
     const { result } = renderHook(() => useSyncConsentCheck());
 
     await waitFor(() => {
-      expect(result.current.showConsent).toBe(false);
+      expect(result.current.showConsent).toBe(true);
     });
   });
 

@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLayoutMode } from '../useLayoutMode';
+import { useLayoutKeyboardShortcut } from '../../../app/useLayoutKeyboardShortcut';
 
-// Layout mode is MANUAL-ONLY — no auto-detection from viewport or media queries.
-// These tests verify the manual behaviour after the revert from auto-detection.
-describe('useLayoutMode', () => {
+describe('D-15: useLayoutMode and mobile layout disabled enforcement', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -19,42 +18,40 @@ describe('useLayoutMode', () => {
     expect(typeof result.current.setLayoutMode).toBe('function');
   });
 
-  it('should switch to mobile when setLayoutMode is called', () => {
+  it('should preserve mobile in localStorage but enforce desktop in layoutMode (D-15)', () => {
     const { result } = renderHook(() => useLayoutMode());
     act(() => {
       result.current.setLayoutMode('mobile');
     });
-    expect(result.current.layoutMode).toBe('mobile');
+    // Stored in localStorage for when mobile is eventually re-enabled
+    expect(localStorage.getItem('layout-mode-v4')).toBe('"mobile"');
+    // But returns desktop while mobile layout is disabled
+    expect(result.current.layoutMode).toBe('desktop');
   });
 
-  it('should persist layoutMode to localStorage under the v4 key', () => {
+  it('should ignore stored mobile in localStorage without deleting it (D-15)', () => {
+    localStorage.setItem('layout-mode-v4', '"mobile"');
     const { result } = renderHook(() => useLayoutMode());
-    act(() => {
-      result.current.setLayoutMode('mobile');
-    });
+    expect(result.current.layoutMode).toBe('desktop');
     expect(localStorage.getItem('layout-mode-v4')).toBe('"mobile"');
   });
 
-  it('should read layoutMode from localStorage v4 key on init', () => {
-    localStorage.setItem('layout-mode-v4', '"mobile"');
-    const { result } = renderHook(() => useLayoutMode());
-    expect(result.current.layoutMode).toBe('mobile');
-  });
-
   it('should ignore stale layout-mode key from pre-v3 (defaults to desktop)', () => {
-    // Simulate a user stuck in mobile from the old auto-detection key
     localStorage.setItem('layout-mode', '"mobile"');
     const { result } = renderHook(() => useLayoutMode());
     expect(result.current.layoutMode).toBe('desktop');
   });
 
-  it('should switch back to desktop when setLayoutMode is called with desktop', () => {
-    localStorage.setItem('layout-mode-v4', '"mobile"');
-    const { result } = renderHook(() => useLayoutMode());
-    expect(result.current.layoutMode).toBe('mobile');
-    act(() => {
-      result.current.setLayoutMode('desktop');
+  it('useLayoutKeyboardShortcut should be a no-op while mobile is disabled (D-15)', () => {
+    renderHook(() => useLayoutKeyboardShortcut());
+    const ev = new KeyboardEvent('keydown', {
+      code: 'KeyM',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
     });
-    expect(result.current.layoutMode).toBe('desktop');
+    window.dispatchEvent(ev);
+
+    expect(localStorage.getItem('layout-mode-v4')).toBeNull();
   });
 });

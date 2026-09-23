@@ -99,7 +99,7 @@ describe('AUDIT-M1 injection reject refunds the right pool', () => {
     expect(res.statusCode).toBe(400);
     // Ветка internal: bulk-слот возвращается, daily не задет.
     expect(refundBulk).toHaveBeenCalledTimes(1);
-    expect(refundBulk).toHaveBeenCalledWith('u_inj', '2026-08-20');
+    expect(refundBulk).toHaveBeenCalledWith('u_inj', '2026-08-20', 'internal_chat');
     expect(refundDaily).not.toHaveBeenCalled();
     expect(refundGlobal).toHaveBeenCalledTimes(1);
   });

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { callAi } from '../../../core/ai/callAi';
+import { callAi, onAiQuotaHeaders } from '../../../core/ai/callAi';
 import { getCurrentUser } from '../../../core/auth';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
@@ -88,6 +88,7 @@ interface AiLimitState {
   isAdmin: boolean;
   loadLimit: () => void;
   loadLimitFromServer: () => Promise<void>;
+  syncFromHeaders: (headers: Headers | Record<string, string | undefined>) => void;
   useRequest: (reasoning?: boolean) => void;
   setLimit: (newLimit: number) => void;
   setAdmin: (admin: boolean) => void;
@@ -183,6 +184,50 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
     }
   },
 
+  syncFromHeaders(headers: Headers | Record<string, string | undefined>) {
+    const getHeader = (name: string): string | null => {
+      if (typeof (headers as Headers).get === 'function') {
+        return (headers as Headers).get(name) ?? (headers as Headers).get(name.toLowerCase());
+      }
+      const r = headers as Record<string, string | undefined>;
+      return r[name] ?? r[name.toLowerCase()] ?? null;
+    };
+
+    const usedHeader = getHeader('x-ai-quota-used');
+    if (usedHeader === null || usedHeader === undefined) return;
+    const used = parseInt(usedHeader, 10);
+    if (isNaN(used)) return;
+
+    const limitHeader = getHeader('x-ai-quota-limit');
+    const limit = limitHeader ? parseInt(limitHeader, 10) : get().limit;
+
+    const reasoningUsedHeader = getHeader('x-ai-reasoning-used');
+    const reasoningUsed = reasoningUsedHeader ? parseInt(reasoningUsedHeader, 10) : get().reasoningUsed;
+
+    const reasoningLimitHeader = getHeader('x-ai-reasoning-limit');
+    const reasoningLimit = reasoningLimitHeader ? parseInt(reasoningLimitHeader, 10) : get().reasoningLimit;
+
+    const key = resolveKey();
+    const today = getUtcDateStr();
+    localStorage.setItem(key, JSON.stringify({ count: used, reasoningCount: reasoningUsed, date: today }));
+
+    const resolvedLimit = Number.isFinite(limit) && limit > 0 ? limit : get().limit;
+    const resolvedReasoningLimit = Number.isFinite(reasoningLimit) && reasoningLimit > 0 ? reasoningLimit : get().reasoningLimit;
+
+    set({
+      used,
+      limit: resolvedLimit,
+      baseLimit: resolvedLimit,
+      remaining: Math.max(0, resolvedLimit - used),
+      reasoningUsed,
+      reasoningLimit: resolvedReasoningLimit,
+      reasoningRemaining: Math.max(0, resolvedReasoningLimit - reasoningUsed),
+      resetsAt: getMidnightUtc(),
+      loaded: true,
+      reconciled: true,
+    });
+  },
+
   useRequest(reasoning?: boolean) {
     const today = getUtcDateStr();
     const { count: localCount, reasoningCount: localReasoningCount, date: localDate } = readLocalUsage();
@@ -226,4 +271,9 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) useAiLimitStore.getState().loadLimit();
   });
+  if (typeof onAiQuotaHeaders === 'function') {
+    onAiQuotaHeaders(headers => {
+      useAiLimitStore.getState().syncFromHeaders(headers);
+    });
+  }
 }

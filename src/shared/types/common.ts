@@ -131,6 +131,9 @@ export interface Session extends SessionCore {
   _aiProcessedAt?: number | string | null | undefined;
   _aiResultText?: string | undefined;
   excludedFromAI?: boolean | undefined;
+  _isTooLargeForSync?: boolean | undefined;
+  /** D-5: заметка помечена «только на устройстве» по выбору пользователя. */
+  _localOnly?: boolean | undefined;
 }
 
 export interface SessionPayload extends SessionCore {

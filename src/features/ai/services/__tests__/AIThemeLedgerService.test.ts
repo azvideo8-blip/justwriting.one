@@ -6,6 +6,9 @@ const { mockEmbed } = vi.hoisted(() => ({
   mockEmbed: vi.fn(),
 }));
 
+// D-25: темы векторизуются только с согласием на поиск по смыслу.
+vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'ledger_user' }) }));
+vi.mock('../../../../core/ai/indexingConsent', () => ({ hasIndexingConsent: () => true }));
 vi.mock('../AIService', () => ({
   AIService: {
     embed: mockEmbed,

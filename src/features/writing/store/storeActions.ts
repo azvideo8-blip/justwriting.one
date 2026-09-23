@@ -40,8 +40,18 @@ const TIMER_DEFAULTS: {
   initialDuration: 0, sessionType: 'free',
 };
 
-const META_DEFAULTS: { activeSessionId: null; savedDocumentId: null; sessionStartTime: number | null } = {
-  activeSessionId: null, savedDocumentId: null, sessionStartTime: null,
+const META_DEFAULTS: {
+  activeSessionId: null;
+  savedDocumentId: null;
+  sessionStartTime: number | null;
+  loadedContent: null;
+  loadedTitle: null;
+} = {
+  activeSessionId: null,
+  savedDocumentId: null,
+  sessionStartTime: null,
+  loadedContent: null,
+  loadedTitle: null,
 };
 
 function resetSession() {
@@ -98,6 +108,7 @@ export function loadDraftIntoStore(draft: {
     accumulatedDuration: draft.accumulatedDuration ?? 0,
     // Reset timer config so stale goals don't fire on restored draft
     timerDuration: 0,
+    timeGoalExplicit: false,
     wordGoal: 0,
     sessionType: 'free',
     targetTime: null,
@@ -131,7 +142,7 @@ export function setSessionConfig(config: Record<string, unknown>) {
     'timerDuration', 'wordGoal', 'targetTime', 'timeGoalReached', 'wordGoalReached',
     'overtimeSeconds', 'accumulatedDuration', 'totalPauseSeconds', '_pauseWallStart',
     'sessionType', 'initialDuration']);
-  const metaKeys = new Set<keyof SessionMetaStateData>(['activeSessionId', 'savedDocumentId', 'sessionStartTime']);
+  const metaKeys = new Set<keyof SessionMetaStateData>(['activeSessionId', 'savedDocumentId', 'sessionStartTime', 'loadedContent', 'loadedTitle']);
 
   if (import.meta.env.DEV) {
     const allKnown = new Set<string>([...contentKeys, ...timerKeys, ...metaKeys]);

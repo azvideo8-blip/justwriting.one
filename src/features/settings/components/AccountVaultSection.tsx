@@ -9,6 +9,7 @@ import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
+import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
@@ -75,8 +76,8 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
 
   const handleInitializeEncryption = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vaultPassword || vaultPassword.length < 8) {
-      setVaultError(t('enc_password_min_length', { min: 8 }));
+    if (!vaultPassword || vaultPassword.length < MIN_PASSWORD_LENGTH) {
+      setVaultError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (vaultPassword !== confirmVaultPassword) {

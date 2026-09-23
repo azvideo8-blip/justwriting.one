@@ -33,4 +33,14 @@ describe('aiErrorToText', () => {
     expect(loggedIn).toContain('сессию');
     expect(guest).toContain('регистрация');
   });
+
+  it('formats RATE_LIMIT with remaining seconds (F-8)', () => {
+    const formatted = aiErrorToText('RATE_LIMIT:6');
+    expect(formatted).toBe('Слишком частые запросы. Подождите 6 сек. перед следующей отправкой.');
+  });
+
+  it('formats BULK_LIMIT with truthful explanation (F-1)', () => {
+    const formatted = aiErrorToText('BULK_LIMIT');
+    expect(formatted).toBe('Фоновый лимит ИИ на сегодня исчерпан (разбор, поиск по смыслу) — чат по-прежнему работает');
+  });
 });

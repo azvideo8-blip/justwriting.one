@@ -1,5 +1,6 @@
 // Must be first — patches globalThis.indexedDB before any idb import
 import 'fake-indexeddb/auto';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -42,11 +43,13 @@ vi.mock('../../../core/services/DocumentService', () => ({
 
 vi.mock('../../../core/services/VersionService', () => ({
   VersionService: MockVersionService,
+  isVersionContentTooLarge: vi.fn(() => false),
 }));
 
 vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeEncrypt: vi.fn(async (doc: Record<string, unknown>) => ({ ...doc, _encrypted: false })),
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
+  getEncryptionEnabled: vi.fn(() => false),
   DecryptionError: class DecryptionError extends Error {},
 }));
 
@@ -73,6 +76,7 @@ const BASE_DATA = {
 };
 
 beforeEach(async () => {
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(GUEST), 'true'); // D-22: эти тесты проверяют облачную запись
   resetDbInstance();
   cloudDocs.clear();
   cloudVersions.clear();
@@ -493,7 +497,7 @@ describe('StorageService.saveVersion — cloud conflict fork', () => {
 
     // A forked document should have been created
     const allDocs = await LocalDocumentService.getDocumentsByOwner(GUEST);
-    const forked = allDocs.find(d => d.title.includes('Conflict'));
+    const forked = allDocs.find(d => /\((конфликт|conflict), /.test(d.title));
     expect(forked).toBeDefined();
     expect(forked!.totalWords).toBe(8);
   });

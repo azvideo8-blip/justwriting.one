@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { AlertCircle, AlertTriangle, Mail, Lock, UserPlus, LogIn, X, ShieldAlert } from 'lucide-react';
 
 import { onAuthStateChange } from '../../../core/auth';
+import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { AuthService } from '../services/AuthService';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
@@ -129,7 +130,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
       setError(t('auth_error_fields_required'));
       return;
     }
-    if (mode === 'register' && password.length < 8) {
+    if (mode === 'register' && password.length < MIN_PASSWORD_LENGTH) {
       setError(t('auth_error_weak_password') ?? 'Password must be at least 8 characters.');
       return;
     }
@@ -185,6 +186,12 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
         fe.code === 'too_many_requests'
       ) {
         setForgotError(t('auth_error_rate_limited'));
+      } else if (
+        fe.code === 'validation_failed' ||
+        fe.status === 400 ||
+        (err instanceof Error && /invalid format|validate email|invalid email/i.test(err.message))
+      ) {
+        setForgotError(t('auth_error_invalid_email'));
       } else {
         setForgotError(t('auth_error_generic'));
       }
@@ -379,13 +386,19 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   </div>
                 </div>
               ) : (
-                <>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleSendPasswordReset();
+                  }}
+                >
                   {forgotError && (
                     <div className="p-3 rounded-lg bg-accent-danger/10 border border-accent-danger/20 text-accent-danger text-xs mb-3">{forgotError}</div>
                   )}
                   <div className="space-y-2 text-left mb-3">
                     <Input
                       type="email"
+                      required
                       aria-label={t('auth_email')}
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
@@ -399,20 +412,21 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => void handleSendPasswordReset()}
+                      type="submit"
                       disabled={forgotLoading || !forgotEmail}
                       className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 hover:brightness-110 transition-colors bg-[var(--brand-primary)]"
                     >
                       {forgotLoading ? <div className="w-4 h-4 border-2 rounded-full animate-spin border-white/20 border-t-white mx-auto" /> : t('auth_forgot_confirm_anyway')}
                     </Button>
                     <Button
+                      type="button"
                       onClick={() => setShowForgotPassword(false)}
                       className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main/60 transition-colors"
                     >
                       {t('writing_cancel')}
                     </Button>
                   </div>
-                </>
+                </form>
               )}
             </motion.div>
           </motion.div>

@@ -39,12 +39,12 @@ export function useBackgroundSync(): void {
 
     runningRef.current = true;
     try {
-      // R-1: Дренаж очереди задач синхронизации (например, прерванные сохранения
-      // при «Завершить» или явных действиях пользователя) выполняется
-      // независимо от тумблера фонового автосинка через force: true.
+      // D-22: Автоматический дренаж очереди синхронизации уважает переключатель
+      // автосинхронизации (без force: true). При выключенной синхронизации в облако
+      // ничего не уходит.
       try {
         const { SyncService } = await import('../../../core/services/SyncService');
-        await SyncService.syncPending(uid, { force: true });
+        await SyncService.syncPending(uid);
       } catch (e) {
         reportError(e, { action: 'backgroundSync_syncPending' });
       }
@@ -93,7 +93,7 @@ export function useBackgroundSync(): void {
       try {
         const { SyncService } = await import('../../../core/services/SyncService');
         await SyncService.sweepOrphanedDocuments(uid);
-        await SyncService.syncPending(uid, { force: true });
+        await SyncService.syncPending(uid);
       } catch (e) {
         reportError(e, { action: 'backgroundSync_sweepOrphanedDocuments' });
       }

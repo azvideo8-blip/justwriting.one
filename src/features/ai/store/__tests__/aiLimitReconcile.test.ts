@@ -12,6 +12,7 @@ vi.stubGlobal('localStorage', {
 const callAiMock = vi.fn();
 vi.mock('../../../../core/ai/callAi', () => ({
   callAi: (...a: unknown[]) => callAiMock(...a),
+  onAiQuotaHeaders: vi.fn(() => vi.fn()),
 }));
 
 import { useAiLimitStore } from '../useAiLimitStore';
@@ -99,5 +100,24 @@ describe('AUDIT-part3: серверный лимит побеждает клие
     await useAiLimitStore.getState().loadLimitFromServer();
 
     expect(useAiLimitStore.getState().limit).toBeGreaterThan(0);
+  });
+
+  it('syncFromHeaders updates used, remaining and marks store reconciled (F-6)', () => {
+    const headers = new Headers({
+      'x-ai-quota-used': '12',
+      'x-ai-quota-limit': '30',
+      'x-ai-reasoning-used': '2',
+      'x-ai-reasoning-limit': '5',
+    });
+
+    useAiLimitStore.getState().syncFromHeaders(headers);
+
+    const s = useAiLimitStore.getState();
+    expect(s.used).toBe(12);
+    expect(s.limit).toBe(30);
+    expect(s.remaining).toBe(18);
+    expect(s.reasoningUsed).toBe(2);
+    expect(s.reasoningRemaining).toBe(3);
+    expect(s.reconciled).toBe(true);
   });
 });

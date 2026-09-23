@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Info, FileText, Bug, ExternalLink, HelpCircle } from 'lucide-react';
+import { Info, FileText, Bug, ExternalLink, HelpCircle, BookOpen } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
@@ -29,6 +29,7 @@ export function AboutSettingsSection() {
   }, []);
 
   const handleVersionTap = () => {
+    if (!isAdmin) return;
     tapCountRef.current += 1;
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
     tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 3000);
@@ -40,7 +41,7 @@ export function AboutSettingsSection() {
     }
   };
 
-  const showDiagnostics = isAdmin || diagnosticsUnlocked;
+  const showDiagnostics = isAdmin && diagnosticsUnlocked;
 
   return (
     <Section>
@@ -101,6 +102,18 @@ export function AboutSettingsSection() {
             </span>
             <ExternalLink size={12} className="text-text-main/40" />
           </Button>
+
+          {/* Руководство — статические страницы в public/docs, не маршрут приложения. */}
+          <a
+            href="/docs/index.html"
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <BookOpen size={14} className="text-text-main/50" />
+              {language === 'ru' ? 'Руководство пользователя' : 'User guide (Russian)'}
+            </span>
+            <ExternalLink size={12} className="text-text-main/40" />
+          </a>
 
           <a
             href="/privacy"

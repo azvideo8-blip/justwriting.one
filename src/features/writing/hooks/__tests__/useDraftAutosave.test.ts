@@ -3,6 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useDraftAutosave } from '../useDraftAutosave';
 import { useTimerStore } from '../../store/useTimerStore';
 import { useContentStore } from '../../store/useContentStore';
+import { useSessionMetaStore } from '../../store/useSessionMetaStore';
 import { persistDraft } from '../../utils/draftPersistence';
 import type { AppUser } from '../../../../core/auth/types';
 
@@ -29,6 +30,7 @@ describe('useDraftAutosave', () => {
     vi.useFakeTimers();
     useTimerStore.setState({ status: 'writing' });
     useContentStore.setState({ content: '', title: '', wordCount: 0 });
+    useSessionMetaStore.getState().resetSessionMetadata();
     localStorage.clear();
   });
 
@@ -310,5 +312,85 @@ describe('useDraftAutosave', () => {
     }
 
     expect(remoteSaves).toBeGreaterThanOrEqual(1);
+  });
+
+  describe('D-24: Pristine continued note draft suppression', () => {
+    it('does not save draft when continuing note without edits', async () => {
+      vi.mocked(persistDraft).mockResolvedValue({ localOk: true, remoteOk: true });
+
+      useSessionMetaStore.setState({
+        savedDocumentId: 'doc_existing_123',
+        loadedContent: 'Original loaded note body',
+        loadedTitle: 'Original Note Title',
+      });
+
+      const pristineData = {
+        title: 'Original Note Title',
+        content: 'Original loaded note body',
+        pinnedThoughts: [],
+        seconds: 0,
+        wpm: 0,
+        wordCount: 4,
+        status: 'writing' as const,
+        activeSessionId: null,
+      };
+
+      renderHook(() => useDraftAutosave(mockUser, pristineData));
+
+      // Advance past debounce (500ms) and past remote interval (30s)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(35_000);
+      });
+
+      expect(persistDraft).not.toHaveBeenCalled();
+    });
+
+    it('saves draft once text or title differs from loaded version', async () => {
+      vi.mocked(persistDraft).mockResolvedValue({ localOk: true, remoteOk: true });
+
+      useSessionMetaStore.setState({
+        savedDocumentId: 'doc_existing_123',
+        loadedContent: 'Original loaded note body',
+        loadedTitle: 'Original Note Title',
+      });
+
+      const pristineData = {
+        title: 'Original Note Title',
+        content: 'Original loaded note body',
+        pinnedThoughts: [],
+        seconds: 0,
+        wpm: 0,
+        wordCount: 4,
+        status: 'writing' as const,
+        activeSessionId: null,
+      };
+
+      const { rerender } = renderHook(
+        ({ data }) => useDraftAutosave(mockUser, data),
+        { initialProps: { data: pristineData } }
+      );
+
+      // Verify no save initially
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+      expect(persistDraft).not.toHaveBeenCalled();
+
+      // User types one character
+      const editedData = {
+        ...pristineData,
+        content: 'Original loaded note body!',
+      };
+      rerender({ data: editedData });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      expect(persistDraft).toHaveBeenCalledWith(
+        expect.objectContaining({ content: 'Original loaded note body!' }),
+        { remote: false }
+      );
+    });
   });
 });

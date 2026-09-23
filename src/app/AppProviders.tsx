@@ -117,7 +117,7 @@ export function SyncManager() {
   // Browser online recovery
   useEffect(() => {
     if (isBrowserOnline && !prevBrowserOnline.current && user) {
-      SyncService.syncPending(user.uid, { force: true }).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
+      SyncService.syncPending(user.uid).catch(e => reportError(e, { action: 'sync_manager_online_recovery' }));
       if (localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) === 'true') {
         SyncService.downloadAllFromCloud(user.uid).catch(e => reportError(e, { action: 'download_all_online_recovery' }));
       }

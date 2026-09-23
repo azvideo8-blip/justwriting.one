@@ -5,6 +5,8 @@ import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 
 export const THEME_MATCH_THRESHOLD = 0.82;
@@ -158,6 +160,8 @@ export const AIThemeLedgerService = {
       const existingForCache = await db.getAll('aiThemeLedger');
       const vectorByNorm = new Map<string, number[] | null>();
       const resolved: { cleanedTheme: string; themeVector: number[] | null; sentence: string }[] = [];
+      const uid = getCurrentUser()?.uid;
+      const canEmbed = uid ? hasIndexingConsent(uid) : false;
       for (const rawTheme of themes) {
         const cleanedTheme = rawTheme.trim();
         if (cleanedTheme === '') continue;
@@ -169,7 +173,7 @@ export const AIThemeLedgerService = {
           );
           if (cached !== undefined) {
             vec = cached.themeVector;
-          } else {
+          } else if (canEmbed) {
             vec = null;
             try {
               const embRes = await AIService.embed({ content: cleanedTheme });
@@ -193,6 +197,8 @@ export const AIThemeLedgerService = {
               });
             }
           }
+          // Без согласия на поиск по смыслу тему не векторизуем — вектор пустой.
+          vec ??= null;
           vectorByNorm.set(normalizedTheme, vec);
         }
         resolved.push({ cleanedTheme, themeVector: vec, sentence: extractVerbatimSentence(effectiveContent, cleanedTheme, quotableSentence) });

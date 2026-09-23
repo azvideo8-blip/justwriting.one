@@ -44,6 +44,7 @@ export interface LocalDocument extends DocumentFields<number> {
   excludedFromAI?: boolean | undefined;
   _locked?: boolean | undefined;
   _decryptionError?: boolean | undefined;
+  isTooLargeForSync?: boolean | undefined;
 }
 
 export interface LocalVersion {

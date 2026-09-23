@@ -74,6 +74,33 @@ export const commonTranslations: Translations = {
     ru: 'Сохранено на этом устройстве — в облако отправится позже',
     en: 'Saved on this device — not in the cloud yet',
   },
+  save_local_device_only: {
+    ru: 'Заметка сохранена на этом устройстве',
+    en: 'Note saved on this device',
+  },
+  sync_paused_no_network: { ru: 'Синхронизация приостановлена (нет сети)', en: 'Sync paused (no network)' },
+  sync_paused_cloud_unavailable: { ru: 'Синхронизация приостановлена (облако недоступно)', en: 'Sync paused (cloud unavailable)' },
+  sync_paused_pending: { ru: '{count} заметок ждут отправки', en: '{count} notes pending sync' },
+  sync_paused_unsynced: { ru: 'Не синхронизировано заметок: {count}', en: 'Unsynced documents: {count}' },
+  archive_filters: { ru: 'Фильтры', en: 'Filters' },
+  connection_restored: { ru: 'Соединение восстановлено', en: 'Connection restored' },
+  connection_restored_compact: { ru: 'В сети', en: 'Online' },
+  save_too_large_cloud_warning: {
+    ru: 'Заметка сохранена только на этом устройстве: слишком большая для облака (лимит ≈ 700 000 символов). Разбейте её на части',
+    en: 'Note saved on this device only: too large for cloud (limit ≈ 700,000 characters). Consider splitting it into parts',
+  },
+  storage_too_large_cloud: {
+    ru: 'Только локально: слишком большая для облака (лимит ≈ 700 000 символов)',
+    en: 'Local only: too large for cloud (limit ≈ 700,000 characters)',
+  },
+  archive_local_only_too_large: {
+    ru: 'только локально',
+    en: 'local only',
+  },
+  editor_paste_large_warning: {
+    ru: 'Вставляемый текст очень большой (лимит облака ≈ 700 000 символов). Рекомендуется разбить его на части.',
+    en: 'Pasted text is very large (cloud limit ≈ 700,000 characters). Consider splitting it into parts.',
+  },
   session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },
   delete_local_only_queued: {
     ru: 'Удалено на этом устройстве — из облака удалится позже',
@@ -170,6 +197,8 @@ export const commonTranslations: Translations = {
   help_title: { ru: 'Помощь', en: 'Help' },
   help_subtitle: { ru: 'Интерактивная диагностика и частые вопросы', en: 'Interactive troubleshooting and FAQ' },
   help_section_notes_missing: { ru: 'Заметки не видны?', en: 'Notes not visible?' },
+  help_guide_link: { ru: 'Руководство пользователя', en: 'User guide (Russian)' },
+  help_guide_desc: { ru: 'Как писать, работать с заметками, ИИ, облаком и шифрованием', en: 'Writing, notes, AI, cloud and encryption, step by step' },
   help_step_indicator: { ru: 'Шаг {step} из {total}', en: 'Step {step} of {total}' },
   help_solution_title: { ru: 'Что делать', en: 'Recommended action' },
   help_btn_back: { ru: 'Назад', en: 'Back' },
@@ -182,7 +211,10 @@ export const commonTranslations: Translations = {
   help_notes_missing_a1_no: { ru: 'Нет / не уверен', en: 'No / not sure' },
 
   help_notes_missing_q1: { ru: 'Вы вошли в тот же аккаунт, что и раньше?', en: 'Are you signed into the same account as before?' },
-  help_notes_missing_q1_hint: { ru: 'Внизу страницы Настроек указан текущий адрес e-mail.', en: 'The current e-mail address is shown at the bottom of Settings.' },
+  help_notes_missing_q1_hint: {
+    ru: 'Вверху страницы Настроек (раздел «Аккаунт») указан текущий адрес e-mail.',
+    en: 'The current e-mail address is shown at the top of Settings (Account section).',
+  },
   help_notes_missing_leaf_account: {
     ru: 'Выйдите из аккаунта и войдите под тем адресом, на котором создавались заметки. Если вы писали без входа (гостевой режим), заметки сохранены в этом же браузере — они станут доступны сразу после выхода из учётной записи.',
     en: 'Sign out and log in with the address where the notes were created. If you wrote without signing in (guest mode), notes are stored in this same browser — they will become visible immediately after signing out.',
@@ -190,8 +222,8 @@ export const commonTranslations: Translations = {
 
   help_notes_missing_q2: { ru: 'Это тот же браузер и то же устройство?', en: 'Is this the same browser and device?' },
   help_notes_missing_leaf_device: {
-    ru: 'Заметки синхронизируются между устройствами, если включено «Облако» в Настройки → Синхронизация. Если сейф зашифрован — введите пароль от сейфа на новом устройстве, чтобы расшифровать копии.',
-    en: 'Notes sync across devices if "Cloud" is enabled in Settings → Sync. If your vault is encrypted, enter your vault password on the new device to decrypt cloud copies.',
+    ru: 'Заметки синхронизируются между устройствами, если включена «Автосинхронизация с облаком» в Настройки → Синхронизация. Если сейф зашифрован — введите пароль от сейфа на новом устройстве, чтобы расшифровать копии.',
+    en: 'Notes sync across devices if "Cloud auto-sync" is enabled in Settings → Sync. If your vault is encrypted, enter your vault password on the new device to decrypt cloud copies.',
   },
 
   help_notes_missing_q3: { ru: 'Приложение обновлялось или было открыто давно?', en: 'Has the app been updated or opened a long time ago?' },
@@ -200,7 +232,7 @@ export const commonTranslations: Translations = {
     en: 'Hard reload the page clearing cache (Cmd+Shift+R on Mac or Ctrl+Shift+R / Ctrl+F5 on Windows/Linux). Notes are intact in the local browser database — an outdated cached app version could fail to read them.',
   },
   help_notes_missing_leaf_filters: {
-    ru: 'Проверьте фильтры в разделе «Архив»: сбросьте выбранные теги, метку и дату. Если и там пусто — напишите на support@justwriting.ru, указав версию приложения (Настройки → О приложении) и браузер.',
-    en: 'Check the filters in "Archive": clear the selected tags, label and date. If it is still empty, email support@justwriting.ru with the app version (Settings → About) and your browser.',
+    ru: 'Проверьте фильтры в меню «Заметки»: сбросьте выбранные теги, метку и дату. Если и там пусто — напишите на support@justwriting.ru, указав версию приложения (Настройки → О приложении) и браузер.',
+    en: 'Check the filters in the "Notes" menu: clear the selected tags, label and date. If it is still empty, email support@justwriting.ru with the app version (Settings → About) and your browser.',
   },
 };

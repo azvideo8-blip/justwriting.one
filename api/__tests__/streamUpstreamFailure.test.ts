@@ -9,6 +9,7 @@ vi.mock('../postgresAiContext', () => ({
     refundDailyLimit: vi.fn().mockResolvedValue(undefined),
     refundBulkLimit: vi.fn().mockResolvedValue(undefined),
     refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
+    resetCooldown: vi.fn().mockResolvedValue(undefined),
     recordUsage: vi.fn().mockResolvedValue(undefined),
     tryReserveGlobalRequest: vi.fn().mockResolvedValue({ date: '2026-08-20', shardId: '0', allowance: 8192 }),
     getDailyLimitCount: vi.fn(),
@@ -110,6 +111,8 @@ describe('ERR-1: upstream failure before first chunk returns non-200', () => {
 
     expect(res.statusCode).toBe(502);
     expect(res.body).toContain('UPSTREAM_ERROR');
+    const { postgresAiContext } = await import('../postgresAiContext');
+    expect(postgresAiContext.resetCooldown).toHaveBeenCalledWith('u_err1');
   });
 
   it('returns 200 and streams text when upstream responds normally', async () => {

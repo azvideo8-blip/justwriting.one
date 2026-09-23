@@ -5,6 +5,7 @@ import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
+import { useLanguage } from '../../../shared/i18n';
 
 export type SortMode = 'newest' | 'oldest' | 'longest' | 'shortest' | 'title_az' | 'title_za';
 
@@ -47,7 +48,7 @@ export function ArchiveHeader({
   onFilterClick,
   showFilters,
   onToggleFilters,
-  toggleFiltersLabel = 'Тэги',
+  toggleFiltersLabel = 'Теги',
   onImportClick,
   importLabel = 'Импорт',
   activeTab = 'notes',
@@ -56,6 +57,7 @@ export function ArchiveHeader({
   trashTabLabel,
   trashCount,
 }: ArchiveHeaderProps) {
+  const { t } = useLanguage();
   const [sortOpen, setSortOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
@@ -235,7 +237,7 @@ export function ArchiveHeader({
           <IconButton
             onClick={onFilterClick}
             className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/60 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
-            label="Filters"
+            label={t('archive_filters') || 'Фильтры'}
             icon={<SlidersHorizontal size={14} aria-hidden="true" />}
           />
         )}

@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
 
 export interface DraftData {
@@ -45,9 +46,18 @@ export function useDraftManager(
   }, [getDraftData, options.onSaveDraft]);
 
   const doAutosave = useCallback(async () => {
+    const data = getDraftDataRef.current();
+    const meta = useSessionMetaStore.getState();
+    if (
+      meta.savedDocumentId &&
+      meta.loadedContent !== null &&
+      data.content === meta.loadedContent &&
+      (meta.loadedTitle ?? '') === (data.title ?? '')
+    ) {
+      return;
+    }
     await wrapSave(
       async () => {
-        const data = getDraftDataRef.current();
         await onSaveDraftRef.current(data);
       },
       'draftManager/autosave'
@@ -64,6 +74,8 @@ export function useDraftManager(
 
   useEffect(() => {
     const isTimerActive = timerStatus === 'writing' || timerStatus === 'paused';
+    // D-24: нетронутую продолженную заметку отсекает сам doAutosave — здесь
+    // проверять её нельзя: для этого пришлось бы зависеть от текста.
     if (!isTimerActive && !hasContent) return;
 
     // S-8: 3s initial timer persists session row on timer start if content is empty; 30s interval saves periodically.
@@ -82,7 +94,14 @@ export function useDraftManager(
   // Cloud write quotas, which do not apply to guests.
   useEffect(() => {
     // S-8: Save within 1s of content changing, regardless of timer status.
-    if (!hasContent) return;
+    const meta = useSessionMetaStore.getState();
+    const isPristine = Boolean(
+      meta.savedDocumentId &&
+      meta.loadedContent !== null &&
+      content === meta.loadedContent &&
+      (meta.loadedTitle ?? '') === title
+    );
+    if (!hasContent || isPristine) return;
     const timeout = setTimeout(() => void doAutosave(), 1_000);
     return () => clearTimeout(timeout);
   }, [content, title, hasContent, doAutosave]);

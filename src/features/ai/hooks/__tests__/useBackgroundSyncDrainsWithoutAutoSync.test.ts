@@ -29,7 +29,7 @@ vi.mock('../../../../core/services/CloudSyncService', () => ({
   },
 }));
 
-describe('R-1 useBackgroundSync drains queue when cloudSyncEnabled is false', () => {
+describe('D-22 useBackgroundSync calls syncPending without force when cloudSyncEnabled is false', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -40,11 +40,11 @@ describe('R-1 useBackgroundSync drains queue when cloudSyncEnabled is false', ()
     vi.useRealTimers();
   });
 
-  it('calls syncPending with { force: true } even when cloudSyncEnabled is false, without running cloud restore', async () => {
+  it('calls syncPending without { force: true }, respecting auto-sync toggle, without running cloud restore', async () => {
     renderHook(() => useBackgroundSync());
     await vi.advanceTimersByTimeAsync(5_100);
 
-    expect(mockSyncPending).toHaveBeenCalledWith('u_no_autosync_1', { force: true });
+    expect(mockSyncPending).toHaveBeenCalledWith('u_no_autosync_1');
     expect(mockRestore).not.toHaveBeenCalled();
   });
 });

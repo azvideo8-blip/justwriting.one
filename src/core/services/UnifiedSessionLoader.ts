@@ -3,8 +3,8 @@ import { Session, Document } from '../../types';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
 import { LocalVersionService } from './LocalVersionService';
-import { VersionService } from './VersionService';
-import { maybeDecrypt, DecryptionError } from '../crypto/cryptoHelpers';
+import { VersionService, isVersionContentTooLarge } from './VersionService';
+import { maybeDecrypt, DecryptionError, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { toDate } from '../utils/dateUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { getLocalDb } from '../storage/localDb';
@@ -123,6 +123,11 @@ export async function loadAllSessions(
         }
       } catch (contentErr) { reportError(contentErr, { action: 'loadAllSessions_localContent', documentId: doc.id }); _contentError = true; }
       const createdAt = toDate(doc.lastSessionAt) ?? new Date();
+      const isEncrypted = Boolean(getEncryptionEnabled(doc.guestId));
+      const isTooLarge = Boolean(
+        doc.isTooLargeForSync ||
+        (withContent && content && isVersionContentTooLarge(content, isEncrypted))
+      );
       allSessions.push({
         id: doc.id,
         userId: doc.guestId,
@@ -141,7 +146,11 @@ export async function loadAllSessions(
         _isLocal: true,
         _linkedCloudId: doc.linkedCloudId || undefined,
         _hasCloudCopy: !!doc.linkedCloudId,
-        _hasPendingSync: pendingDocIds.has(doc.id),
+        _hasPendingSync: isTooLarge ? false : pendingDocIds.has(doc.id),
+        _isTooLargeForSync: isTooLarge ? true : undefined,
+        // D-5: по «только на устройстве» иконка облака обязана предлагать
+        // загрузку, а не молча отказывать.
+        _localOnly: doc.localOnly === true && !doc.unlinkedByTombstone ? true : undefined,
         _totalWords: doc.totalWords,
         _totalDuration: doc.totalDuration,
         _sessionsCount: doc.sessionsCount,

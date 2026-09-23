@@ -5,7 +5,7 @@ import { pool } from '../db';
 import { getSupabaseAdmin } from './supabaseAdmin';
 
 const inviteSchema = z.object({
-  email: z.string().trim().toLowerCase().pipe(z.string().email()),
+  email: z.string().trim().toLowerCase().pipe(z.string().email().max(254)),
 });
 
 export interface UserStatusItem {

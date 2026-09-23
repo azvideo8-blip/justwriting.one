@@ -23,6 +23,9 @@ interface StorageDoc {
   hasLocal: boolean;
   hasCloud: boolean;
   hasPendingSync?: boolean | undefined;
+  isTooLargeForSync?: boolean | undefined;
+  /** D-5: «только на устройстве» по явному выбору — загрузка снимает пометку. */
+  localOnly?: boolean | undefined;
 }
 
 /** Разбор заметки ИИ: третья кнопка в ряду, рядом с устройством и облаком.
@@ -92,6 +95,10 @@ export function StorageIcons({
 
   const handleCloudClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (doc.isTooLargeForSync) {
+      showToast(t('storage_too_large_cloud'), 'warning');
+      return;
+    }
     if (doc.hasCloud && !doc.hasPendingSync) {
       setConfirmState(doc.hasCloud && !doc.hasLocal ? { kind: 'delete-cloud-only' } : { kind: 'delete-cloud' });
       return;
@@ -138,6 +145,12 @@ export function StorageIcons({
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
     setUploading(true);
     try {
+      // D-5: до этого клика заметка числилась «только на устройстве», и
+      // addCloudCopy законно отказывал. Нажатие «Загрузить на облако» — сменившийся
+      // выбор пользователя, поэтому снимаем пометку здесь и только здесь.
+      if (doc.localOnly) {
+        await LocalDocumentService.clearLocalOnlyForUpload(doc.localId);
+      }
       if (doc.hasPendingSync) {
         const ok = await SyncService.syncDocument(userId, doc.localId, true);
         if (ok) {
@@ -240,18 +253,21 @@ export function StorageIcons({
     }
   })();
 
-  const canUpload = !doc.hasCloud && !!doc.localId && !!userId && !userId.startsWith('guest_');
-  const isUnsynced = doc.hasPendingSync;
+  const isTooLarge = doc.isTooLargeForSync;
+  const canUpload = !doc.hasCloud && !isTooLarge && !!doc.localId && !!userId && !userId.startsWith('guest_');
+  const isUnsynced = doc.hasPendingSync && !isTooLarge;
 
-  const cloudTitle = uploading
-    ? (t('common_loading') || 'Loading...')
-    : isUnsynced
-      ? (t('storage_sync_pending') || 'Pending changes (click to sync)')
-      : doc.hasCloud
-        ? t('storage_remove_cloud')
-        : canUpload
-          ? t('storage_upload_to_cloud')
-          : t('storage_no_cloud');
+  const cloudTitle = isTooLarge
+    ? t('storage_too_large_cloud')
+    : uploading
+      ? (t('common_loading') || 'Loading...')
+      : isUnsynced
+        ? (t('storage_sync_pending') || 'Pending changes (click to sync)')
+        : doc.hasCloud
+          ? t('storage_remove_cloud')
+          : canUpload
+            ? t('storage_upload_to_cloud')
+            : t('storage_no_cloud');
 
   return (
     <div className="flex items-center gap-1.5 shrink-0">
@@ -292,10 +308,11 @@ export function StorageIcons({
         className={cn(
           "w-6 h-6 rounded-lg",
           uploading && "animate-pulse text-accent-info",
-          !uploading && isUnsynced && "text-accent-warning hover:text-accent-warning hover:bg-accent-warning/10 cursor-pointer",
-          !uploading && !isUnsynced && doc.hasCloud && "text-accent-info hover:text-accent-danger hover:bg-accent-danger/10",
-          !uploading && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/60 hover:text-accent-info hover:bg-accent-info/10 cursor-pointer",
-          !uploading && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/60 cursor-default"
+          !uploading && isTooLarge && "text-text-main/40 hover:text-accent-warning hover:bg-accent-warning/10 cursor-pointer",
+          !uploading && !isTooLarge && isUnsynced && "text-accent-warning hover:text-accent-warning hover:bg-accent-warning/10 cursor-pointer",
+          !uploading && !isTooLarge && !isUnsynced && doc.hasCloud && "text-accent-info hover:text-accent-danger hover:bg-accent-danger/10",
+          !uploading && !isTooLarge && !isUnsynced && !doc.hasCloud && canUpload && "text-text-main/60 hover:text-accent-info hover:bg-accent-info/10 cursor-pointer",
+          !uploading && !isTooLarge && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/60 cursor-default"
         )}
       />
 

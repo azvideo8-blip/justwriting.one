@@ -6,6 +6,7 @@ import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { indexDocument, indexPending, CURRENT_EMBED_MODEL, CURRENT_EMBED_DIM, CURRENT_EMBED_SCHEMA } from '../utils/embeddingIndexer';
 import { searchNotes } from '../utils/noteRetriever';
 import { findRelatedNotes } from '../utils/relatedNotes';
+import { AICommitmentService } from '../services/AICommitmentService';
 import {
   getIndexingConsent,
   setIndexingConsent,
@@ -15,6 +16,10 @@ import {
 const USER = 'user_d427_test';
 
 vi.mock('../../../core/auth', () => ({
+  getCurrentUser: () => ({ uid: USER }),
+}));
+
+vi.mock('../../auth/services/AuthService', () => ({
   getCurrentUser: () => ({ uid: USER }),
 }));
 
@@ -134,4 +139,44 @@ describe('D4.27 — Indexing Consent Contract', () => {
     expect(stored).toBeDefined();
     expect(stored?.model).toBe(CURRENT_EMBED_MODEL);
   });
+
+  it('7. When embed fails with BULK_LIMIT, indexDocument returns "daily" and indexPending stops with stopped: "daily"', async () => {
+    setIndexingConsent(USER, 'granted');
+    embedSpy.mockResolvedValue({ ok: false, error: 'BULK_LIMIT' });
+
+    const res = await indexDocument('doc_1');
+    expect(res).toBe('daily');
+
+    const pendingRes = await indexPending();
+    expect(pendingRes.stopped).toBe('daily');
+  });
+
+  it('8. D-25: AICommitmentService.upsertCommitments does NOT call AIService.embed when indexing consent is not granted', async () => {
+    setIndexingConsent(USER, 'unanswered');
+    expect(hasIndexingConsent(USER)).toBe(false);
+
+    await AICommitmentService.upsertCommitments('doc_1', ['Купить молоко', 'Сделать зарядку'], '2026-09-23');
+
+    expect(embedSpy).not.toHaveBeenCalled();
+
+    const db = await getLocalDb();
+    const commitments = await db.getAll('aiCommitments');
+    expect(commitments.length).toBe(2);
+    expect(commitments[0]?.vector).toBeUndefined();
+
+    // Deduplication by exact text still works without vector
+    await AICommitmentService.upsertCommitments('doc_1', ['Купить молоко'], '2026-09-23');
+    const updated = await db.getAll('aiCommitments');
+    expect(updated.length).toBe(2);
+  });
+
+  it('9. D-25: findRelatedNotes with docId returns [] without indexing consent', async () => {
+    setIndexingConsent(USER, 'unanswered');
+    expect(hasIndexingConsent(USER)).toBe(false);
+
+    const related = await findRelatedNotes({ docId: 'doc_1' });
+    expect(related).toEqual([]);
+    expect(embedSpy).not.toHaveBeenCalled();
+  });
 });
+

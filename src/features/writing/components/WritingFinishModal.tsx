@@ -23,6 +23,7 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { getCurrentUser } from '../../../core/auth';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
 const STOP_WORDS = new Set([
   'это','что','как','так','все','они','она','он','мы','вы','я','его','её','их',
@@ -156,14 +157,14 @@ async function computeLocalEcho(content: string, docId: string): Promise<string>
 
 interface WritingFinishModalProps {
   isOpen: boolean;
-  tags: string[];
-  setTags: (tags: string[]) => void;
+  tags?: string[];
+  setTags?: (tags: string[]) => void;
   labelId?: string | undefined;
-  setLabelId: (labelId?: string) => void;
-  labels: Label[];
-  onSave: (data: SaveData) => Promise<string | null | { docId: string | null; cloudSynced: boolean }>;
+  setLabelId?: (labelId?: string) => void;
+  labels?: Label[];
+  onSave: (data: SaveData) => Promise<string | null | { docId: string | null; cloudSynced: boolean; isTooLarge?: boolean }>;
   onCancel: () => void;
-  onSkipSave: () => void;
+  onSkipSave?: () => void;
   streakDays?: number | undefined;
   sessionGroups?: { date: Date; sessions: unknown[] }[] | undefined;
   savedDocumentId?: string | null | undefined;
@@ -171,14 +172,14 @@ interface WritingFinishModalProps {
 
 export function WritingFinishModal({
   isOpen,
-  tags,
-  setTags,
+  tags = [],
+  setTags = () => {},
   labelId,
-  setLabelId,
-  labels,
+  setLabelId = () => {},
+  labels = [],
   onSave,
   onCancel,
-  onSkipSave,
+  onSkipSave = () => {},
   streakDays = 0,
   sessionGroups = [],
   savedDocumentId,
@@ -227,6 +228,7 @@ export function WritingFinishModal({
   const [echoText, setEchoText] = useState('');
   const savedDocIdRef = useRef<string | null>(null);
   const savedCloudSyncedRef = useRef<boolean>(true);
+  const savedIsTooLargeRef = useRef<boolean>(false);
 
   // Echo ("Связь мыслей") is computed locally from the draft when we reach the
   // mood step, and only shown when there is a genuine semantic match with past
@@ -371,17 +373,32 @@ export function WritingFinishModal({
         const saveRes = await onSave({ ...saveDataState, mood: selectedMood });
         const docId = typeof saveRes === 'object' && saveRes !== null ? saveRes.docId : saveRes;
         const cloudSynced = typeof saveRes === 'object' && saveRes !== null ? saveRes.cloudSynced : true;
+        const isTooLarge = typeof saveRes === 'object' && saveRes !== null && 'isTooLarge' in saveRes ? Boolean(saveRes.isTooLarge) : false;
         savedDocIdRef.current = docId ?? null;
         savedCloudSyncedRef.current = cloudSynced;
+        savedIsTooLargeRef.current = isTooLarge;
       },
       {
         errorMessage: t('error_save_failed'),
         onSuccess: () => {
           const docId = savedDocIdRef.current;
           const cloudSynced = savedCloudSyncedRef.current;
+          const isTooLarge = savedIsTooLargeRef.current;
+          const currentUid = getCurrentUser()?.uid ?? getOrCreateGuestId();
           onCancel();
           if (cloudSynced) {
             showToast(t('save_success'), 'success');
+          } else if (isTooLarge) {
+            showToast(
+              t('save_too_large_cloud_warning') ||
+              'Заметка сохранена только на этом устройстве: слишком большая для облака (лимит ≈ 700 000 символов). Разбейте её на части',
+              'warning'
+            );
+          } else if (currentUid.startsWith('guest_') || !cloudSyncEnabled(currentUid)) {
+            // D-12 / D-22: у гостя облака нет вовсе, а при выключенной
+            // автосинхронизации в облако не уходит ничего — обещать
+            // «отправится позже» нельзя.
+            showToast(t('save_local_device_only'));
           } else {
             showToast(t('save_local_only_queued'));
           }

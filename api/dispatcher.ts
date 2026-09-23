@@ -2,11 +2,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { requireSession, passwordRecentlyVerified } from './auth';
 import { handleAiEndpoint } from './handlers';
 import { sendError } from './sendError';
-import { MAX_REQUEST_BODY_BYTES } from './ai/pure';
+import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
+import { postgresAiContext } from './postgresAiContext';
 
 /** Simple JSON responder utility */
-function json(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+function json(res: ServerResponse, status: number, body: unknown, extraHeaders?: Record<string, string>) {
+  res.writeHead(status, { 'Content-Type': 'application/json', ...extraHeaders });
   res.end(JSON.stringify(body));
 }
 
@@ -78,7 +79,18 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     }
 
     const { status, body } = await handleAiEndpoint(endpoint, session.uid, payload);
-    json(res, status, body);
+    let quotaHeaders: Record<string, string> | undefined;
+    try {
+      const quota = await postgresAiContext.getDailyLimitCount(session.uid);
+      const isAdmin = await postgresAiContext.isAdmin(session.uid);
+      quotaHeaders = {
+        'X-AI-Quota-Used': String(quota.used),
+        'X-AI-Quota-Limit': String(isAdmin ? ADMIN_DAILY_LIMIT : DAILY_LIMIT),
+        'X-AI-Reasoning-Used': String(quota.reasoningUsed ?? 0),
+        'X-AI-Reasoning-Limit': process.env.AI_REASONING_DAILY_LIMIT || '5',
+      };
+    } catch { /* non-critical */ }
+    json(res, status, body, quotaHeaders);
   } catch (err: unknown) {
     console.error('[dispatcher error]', err);
     sendError(res, 500, 'INTERNAL');

@@ -1,9 +1,8 @@
-// Версия текста политики и согласий. Константа, а не часть модуля с модалкой:
-// её читают ProfileContext и настройки, и когда она жила в PrivacyModal.tsx,
-// контекст профиля импортировал React-компонент ради одного числа. Это
-// замыкало цикл ProfileContext → PrivacyModal → useAuthStatus → ProfileContext.
+// Переэкспорт: определение переехало в src/shared/ai/consentVersion.ts, чтобы его
+// видел и api-слой (api/postgresAiContext.ts). Путь отсюда уже импортируют
+// ProfileContext, PrivacyModal и настройки — менять его в коде смысла нет.
 //
-// Поднимать при изменении текста политики: значение сравнивается с
-// privacyVersion и aiConsentVersion в профиле, и большее число означает, что
-// согласие нужно собрать заново.
-export const PRIVACY_VERSION = 3;
+// Раньше константа жила здесь, и сервер держал собственное число: PRIVACY_VERSION
+// подняли до 3, а сервер остался на 2 — из-за чего Настройки враньём показывали
+// «Согласие не предоставлено» человеку с работающим ИИ (D-6).
+export { PRIVACY_VERSION, AI_CONSENT_VERSION_REQUIRED } from '../../shared/ai/consentVersion';

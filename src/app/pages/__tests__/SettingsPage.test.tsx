@@ -29,8 +29,9 @@ vi.mock('../../../app/useAuthStatus', () => ({
   }),
 }));
 
+let mockIsAdmin = false;
 vi.mock('../../../features/auth/hooks/useAdminStatus', () => ({
-  useAdminStatus: () => ({ isAdmin: false, loading: false }),
+  useAdminStatus: () => ({ isAdmin: mockIsAdmin, loading: false }),
 }));
 
 vi.mock('../../../app/AuthService', () => ({
@@ -54,6 +55,7 @@ vi.mock('../../../core/services/EncryptionService', () => ({
 
 describe('SettingsPage', () => {
   beforeEach(() => {
+    mockIsAdmin = false;
     vi.clearAllMocks();
     sessionStorage.clear();
     mockIsAuthenticated = true;
@@ -86,6 +88,8 @@ describe('SettingsPage', () => {
   });
 
   it('triggers diagnostics easter egg after 5 taps on version', async () => {
+    // D-16: режим диагностики — только для администратора.
+    mockIsAdmin = true;
     renderWithProviders(
       <MemoryRouter>
         <ThemeProvider>

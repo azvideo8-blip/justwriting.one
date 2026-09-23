@@ -44,7 +44,9 @@ describe('SyncManager triggers downloadAllFromCloud', () => {
     rerender(<SyncManager />);
 
     expect(downloadAllFromCloud).toHaveBeenCalledWith('u_sync_test');
-    expect(syncPending).toHaveBeenCalledWith('u_sync_test', { force: true });
+    // D-22: автоматический проход не форсирует отправку — при выключенной
+    // синхронизации в облако не уходит ничего; решает сам syncPending.
+    expect(syncPending).toHaveBeenCalledWith('u_sync_test');
   });
 
   it('triggers downloadAllFromCloud on vault unlocked event', async () => {

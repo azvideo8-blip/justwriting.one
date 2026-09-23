@@ -56,7 +56,9 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
 
     const { remaining, useRequest: consumeRequest } = useAiLimitStore.getState();
     if (remaining <= 0) {
-      setError(t('ai_error_rate_limit'));
+      // D-8: это дневной лимит, а не частота запросов: «подожди минуту» здесь
+      // советовало бесполезное действие.
+      setError(t('ai_error_daily_limit'));
       return;
     }
 

@@ -6,6 +6,7 @@ import { maybeEncrypt, maybeDecrypt, isProfileLoaded } from '../../../core/crypt
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 const DRAFT_CLOUD_FIELDS: Record<string, boolean> = {
   // Признак шифрования обязан уезжать вместе с данными. Без него колонка в
   // облаке хранит шифротекст, а читающая сторона считает его открытым текстом:
@@ -221,6 +222,7 @@ export const WritingDraftService = {
   // случился на самом деле.
   saveDraftToCloud: async (draft: LocalDraft, generation?: number): Promise<boolean> => {
     if (!draft.userId) return false;
+    if (!cloudSyncEnabled(draft.userId)) return false;
     if (!isProfileLoaded(draft.userId)) {
       return false;
     }

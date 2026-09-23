@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { callAi } from '../callAi';
 import { setAiConsent, useAiConsentStore } from '../aiConsent';
 import { setProfileLoaded } from '../../crypto/cryptoHelpers';
+import { setIndexingConsent } from '../indexingConsent';
 import * as auth from '../../auth';
 
 vi.mock('../../auth', () => ({
@@ -116,6 +117,8 @@ describe('callAi consent gating (Ticket 2 / 152-ФЗ)', () => {
       // Start user turn with charge: 'user'
       const userTurn = callAi('userTurn', { prompt: 'user text' }, { charge: 'user' });
 
+      // D-25: embedDocument уходит только с согласием на поиск по смыслу.
+      setIndexingConsent('user-123', 'granted');
       // Start concurrent background call with default/no charge
       const bgTurn = callAi('embedDocument', { content: 'bg text' });
 

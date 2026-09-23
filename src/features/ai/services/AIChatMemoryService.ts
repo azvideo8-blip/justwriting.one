@@ -5,6 +5,8 @@ import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 
 type MemoryKind = 'fact' | 'insight' | 'commitment' | 'preference';
@@ -74,22 +76,27 @@ export const AIChatMemoryService = {
       const now = Date.now();
 
       const existing = await db.getAll('aiChatMemory');
+      const uid = getCurrentUser()?.uid;
+      const canEmbed = uid ? hasIndexingConsent(uid) : false;
 
       for (const mem of result.memories) {
         // CHATFIX-3 fix: embed each memory separately. A single combined
         // embedding made all items share one vector, breaking per-memory
         // retrieval and dedup. Extraction is throttled to every 3rd turn, so
         // these few small embeds are cheap (and limit-exempt).
-        const embResult = await AIService.embed({ content: mem.text });
-        if (!embResult.ok) {
-          reportAIDegradation({
-            feature: 'chat_memory_embed',
-            cause: embResult.error,
-            action: 'Построение вектора для воспоминания',
-            impact: 'Воспоминание сохранено без вектора',
-          });
+        let vector: number[] | undefined;
+        if (canEmbed) {
+          const embResult = await AIService.embed({ content: mem.text });
+          if (!embResult.ok) {
+            reportAIDegradation({
+              feature: 'chat_memory_embed',
+              cause: embResult.error,
+              action: 'Построение вектора для воспоминания',
+              impact: 'Воспоминание сохранено без вектора',
+            });
+          }
+          vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
         }
-        const vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
 
         let isDuplicate = false;
         if (vector) {
@@ -138,8 +145,10 @@ export const AIChatMemoryService = {
       const db = await getLocalDb();
       const now = Date.now();
       const trimmed = text.trim();
-      const embResult = await AIService.embed({ content: text });
-      const vector = embResult.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
+      const uid = getCurrentUser()?.uid;
+      const canEmbed = uid ? hasIndexingConsent(uid) : false;
+      const embResult = canEmbed ? await AIService.embed({ content: text }) : null;
+      const vector = embResult?.ok && embResult.vectors[0] ? embResult.vectors[0] : undefined;
 
       const existing = await db.getAll('aiChatMemory');
 

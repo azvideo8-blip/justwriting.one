@@ -8,6 +8,7 @@ vi.mock('../../../../core/auth', () => ({
 
 vi.mock('../../../../core/ai/callAi', () => ({
   callAi: vi.fn(),
+  onAiQuotaHeaders: vi.fn(() => vi.fn()),
 }));
 
 import { useAiLimitStore } from '../useAiLimitStore';

@@ -32,13 +32,15 @@ export interface AiContext {
   /** Bulk (background) limit — separate from the chat daily limit.
    *  AUD-18: also enforces a per-interval cooldown keyed (uid, endpoint);
    *  returns 'RATE_LIMIT' when the interval has not elapsed. */
-  checkAndIncrementBulkLimit(uid: string, endpoint?: string): Promise<LimitVerdict | 'RATE_LIMIT'>;
-  refundBulkLimit(uid: string, chargedDay: string): Promise<void>;
+  checkAndIncrementBulkLimit(uid: string, endpoint?: string, kind?: string): Promise<LimitVerdict | 'RATE_LIMIT'>;
+  refundBulkLimit(uid: string, chargedDay: string, kind?: string): Promise<void>;
   /** Combined chat limit + cooldown check; increments on success. */
   checkAndIncrementLimit(
     uid: string,
     reasoning?: boolean,
-  ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'REASONING_LIMIT' | 'RATE_LIMIT' | 'UNAVAILABLE' | 'UNAUTHORIZED'>;
+  ): Promise<{ ok: true; day: string } | 'DAILY_LIMIT' | 'REASONING_LIMIT' | 'RATE_LIMIT' | { error: 'RATE_LIMIT'; retryAfterSec: number } | 'UNAVAILABLE' | 'UNAUTHORIZED'>;
+  /** Reset 10-second chat cooldown after upstream provider failure (F-8). */
+  resetCooldown?(uid: string): Promise<void>;
   /** Согласие на обработку специальных категорий (AUD-2). Серверный гейт:
    *  клиентский обходится прямым POST /api/chat. */
   getAiConsent(uid: string): Promise<{ granted: boolean; error?: 'unavailable' }>;
@@ -57,11 +59,17 @@ export interface LimitVerdict {
 
 /** Error thrown by .logic.ts files in place of HttpsError. */
 export class AiError extends Error {
+  public readonly retryAfterSec?: number | undefined;
+
   constructor(
     public readonly code: string,
     message: string,
+    retryAfterSec?: number,
   ) {
     super(message);
     this.name = 'AiError';
+    if (retryAfterSec !== undefined) {
+      this.retryAfterSec = retryAfterSec;
+    }
   }
 }

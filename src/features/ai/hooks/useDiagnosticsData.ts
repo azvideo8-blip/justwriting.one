@@ -18,6 +18,7 @@ import { useAdminStatus } from '../../auth/hooks/useAdminStatus';
 
 import { requestEmbeddingRestore } from '../services/AIRestoreService';
 import { callAi } from '../../../core/ai/callAi';
+import { isDayLimitError } from '../types/aiErrors';
 
 export type Tab = 'stats' | 'sync' | 'db' | 'users' | 'ai_usage' | 'ai_profile' | 'queue' | 'memory_assembler' | 'beliefs';
 
@@ -314,7 +315,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
         showToast('Психологический портрет обновлён', 'success');
       } else if (result.error === 'NOT_ENOUGH_DATA') {
         showToast('Нужно минимум 3 проанализированных заметки', 'error');
-      } else if (result.error === 'DAILY_LIMIT') {
+      } else if (isDayLimitError(result.error)) {
         showToast('Достигнут дневной лимит ИИ — сбросьте счётчик и попробуйте снова', 'error');
       } else {
         showToast(`Не удалось создать портрет: ${result.error}`, 'error');

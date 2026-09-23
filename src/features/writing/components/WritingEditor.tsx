@@ -86,7 +86,7 @@ export const WritingEditor = React.memo(function WritingEditor({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (streamMode) {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+      if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || e.code === 'KeyY' || e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
         e.preventDefault();
         return;
       }
@@ -101,14 +101,14 @@ export const WritingEditor = React.memo(function WritingEditor({
           setTimeout(() => { blockToastShownRef.current = false; }, 5000);
         }
       }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'c' || e.key === 'v')) {
+      if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyX' || e.code === 'KeyC' || e.code === 'KeyV' || e.key === 'x' || e.key === 'c' || e.key === 'v')) {
         e.preventDefault();
       }
       return;
     }
 
     if ((e.ctrlKey || e.metaKey) && !isPaused) {
-      if (e.key === 'z' || e.key === 'Z') {
+      if (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z') {
         e.preventDefault();
         const res = e.shiftKey ? useContentStore.getState().redo() : useContentStore.getState().undo();
         if (res && textareaRef.current) {
@@ -120,7 +120,7 @@ export const WritingEditor = React.memo(function WritingEditor({
         }
         return;
       }
-      if (e.key === 'y' || e.key === 'Y') {
+      if (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y') {
         e.preventDefault();
         const res = useContentStore.getState().redo();
         if (res && textareaRef.current) {
@@ -144,7 +144,17 @@ export const WritingEditor = React.memo(function WritingEditor({
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
-    if (streamMode) e.preventDefault();
+    if (streamMode) {
+      e.preventDefault();
+      return;
+    }
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (text.length > 700_000) {
+      showToast(
+        t('editor_paste_large_warning') || 'Вставляемый текст очень большой (лимит облака ≈ 700 000 символов). Рекомендуется разбить его на части.',
+        'warning'
+      );
+    }
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

@@ -3,6 +3,7 @@ import { toDate } from '../utils/dateUtils';
 import { escapeHtml } from '../../shared/utils/exportUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { serializeNoteMarkdown } from './noteFormat';
+import { isBlankTitle } from '../../shared/utils/titleUtils';
 
 export type { ExportStrings };
 
@@ -33,8 +34,9 @@ function getLocale(): string {
 
 function buildHeader(session: ArchiveSession, s: ExportStrings): string {
   const date = toDate(session.createdAt) ?? new Date();
+  const title = (!isBlankTitle(session.title) ? session.title!.trim() : undefined) || s.untitled;
   return [
-    session.title || s.untitled,
+    title,
     date.toLocaleDateString(getLocale(), { day: 'numeric', month: 'long', year: 'numeric' }),
     `${session.wordCount} ${s.words} · ${Math.round((session.duration || 0) / 60)} ${s.time}`,
     session.tags?.length ? session.tags.map(t => '#' + t).join(' ') : '',
@@ -42,7 +44,8 @@ function buildHeader(session: ArchiveSession, s: ExportStrings): string {
 }
 
 export function getFilenameBase(session: ArchiveSession, s: ExportStrings): string {
-  return (session.title || s.untitledFilename)
+  const title = (!isBlankTitle(session.title) ? session.title!.trim() : undefined) || s.untitledFilename;
+  return title
     .replace(/[^\w\sа-яёА-ЯЁ-]/gi, '')
     .trim()
     .slice(0, 50) || s.untitledFilename;
@@ -55,7 +58,7 @@ function getFilename(session: ArchiveSession, ext: string, s: ExportStrings): st
 export function buildMarkdownContent(session: ArchiveSession, s: ExportStrings): string {
   const date = toDate(session.createdAt) ?? new Date();
   return serializeNoteMarkdown({
-    title: session.title || s.untitled,
+    title: (!isBlankTitle(session.title) ? session.title!.trim() : undefined) || s.untitled,
     date: date.toISOString(),
     tags: session.tags,
     mood: session.mood,
@@ -225,15 +228,19 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   } else {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const blobUrl = URL.createObjectURL(blob);
-    const win = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    const win = window.open(blobUrl, '_blank');
 
-    if (!win) {
+    if (win) {
+      try {
+        win.opener = null;
+      } catch {
+        /* cross-origin guard */
+      }
+      win.focus();
+    } else {
       console.warn('Popup blocked — falling back to html download');
       void downloadBlob(html, 'text/html;charset=utf-8', getFilename(session, 'html', s));
-      URL.revokeObjectURL(blobUrl);
-      return;
     }
-    win.focus();
     setTimeout(() => {
       URL.revokeObjectURL(blobUrl);
     }, 60000);

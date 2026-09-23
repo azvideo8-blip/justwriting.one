@@ -3,6 +3,8 @@ import type { AIDialogue } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { getCurrentUser } from '../../../core/auth';
+import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 
@@ -241,7 +243,8 @@ export const AIDialogueService = {
         // between IDB ops auto-closes the transaction (TransactionInactiveError
         // on the next put). Do all async non-IDB work first.
         let vector: number[] | undefined;
-        if (localStorage.getItem('ff_dialogues_in_facets') === 'true') {
+        const uid = getCurrentUser()?.uid;
+        if (localStorage.getItem('ff_dialogues_in_facets') === 'true' && hasIndexingConsent(uid)) {
           try {
             const embResult = await AIService.embed({ content: text });
             if (embResult.ok && embResult.vectors[0]) {

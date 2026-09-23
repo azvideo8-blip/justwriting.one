@@ -28,6 +28,7 @@ interface MobileNoteActionsSheetProps {
     _linkedCloudId?: string | undefined;
     _hasCloudCopy?: boolean | undefined;
     _hasPendingSync?: boolean | undefined;
+    _isTooLargeForSync?: boolean | undefined;
   };
   userId: string;
   labels?: Label[] | undefined;
@@ -81,6 +82,10 @@ export function MobileNoteActionsSheet({
   };
 
   const handleUploadOrSync = async () => {
+    if (session._isTooLargeForSync) {
+      showToast(t('storage_too_large_cloud'), 'warning');
+      return;
+    }
     if (!doc.localId || !userId || userId.startsWith('guest_')) return;
     if (!getSessionKey()) {
       if (hasEncryption) {
@@ -229,7 +234,14 @@ export function MobileNoteActionsSheet({
                 </Button>
               )}
 
-              {(canUpload || doc.hasPendingSync) && (
+              {session._isTooLargeForSync && (
+                <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-accent-warning/90 bg-accent-warning/10 border border-accent-warning/20 text-left">
+                  <Cloud size={18} className="text-accent-warning shrink-0" />
+                  <span>{t('storage_too_large_cloud')}</span>
+                </div>
+              )}
+
+              {!session._isTooLargeForSync && (canUpload || doc.hasPendingSync) && (
                 <Button
                   onClick={() => void handleUploadOrSync()}
                   disabled={!!loadingAction}

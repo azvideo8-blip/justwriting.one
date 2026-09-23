@@ -5,7 +5,6 @@ import { ModalShell } from "../../../shared/components/ModalShell";
 import { useLanguage } from "../../../shared/i18n";
 import { useAuthStatus } from "../../../features/auth/hooks/useAuthStatus";
 import { STORAGE_KEYS } from "../../../shared/constants/storageKeys";
-import { getLocalDb } from "../../../core/storage/localDb";
 import { SyncService } from "../../../core/services/SyncService";
 
 interface SyncConsentModalProps {
@@ -113,17 +112,9 @@ export function useSyncConsentCheck() {
         return;
       }
 
-      try {
-        const db = await getLocalDb();
-        const docCount = await db.count("documents");
-        if (cancelled) return;
-        if (docCount > 0) {
-          setShowConsent(true);
-        } else {
-          setShowConsent(false);
-        }
-      } catch {
-        if (!cancelled) setShowConsent(false);
+      // D-22: Показывать каждому аккаунту при первом входе, даже если заметок ещё нет.
+      if (!cancelled) {
+        setShowConsent(true);
       }
     };
 

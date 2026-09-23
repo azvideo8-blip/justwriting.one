@@ -19,6 +19,8 @@ describe('syncStatusOf (AUDIT-part2 5.1)', () => {
     [{ linkedCloudId: '' }, 'unlinked-new'],
     [{ localOnly: true }, 'local-only'],
     [{ linkedCloudId: 'cloud_1', localOnly: true }, 'local-only'],
+    [{ isTooLargeForSync: true }, 'local-only'],
+    [{ linkedCloudId: 'cloud_1', isTooLargeForSync: true }, 'local-only'],
     [{ _locked: true, linkedCloudId: 'cloud_1' }, 'locked'],
     [{ _decryptionError: true, linkedCloudId: 'cloud_1' }, 'unreadable'],
     // Порядок значим: нерасшифровываемый документ не «unlinked-new», даже

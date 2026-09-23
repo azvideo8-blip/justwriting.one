@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, type RefObject } from 'react'
 import type { AppUser } from '../../../core/auth/types';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
+import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
@@ -181,7 +182,14 @@ export function useSyncUnloadSave(
     const handleBeforeUnload = () => {
       const contentState = useContentStore.getState();
       const timerState_ = useTimerStore.getState();
-      if (user && (contentState.content.trim() || contentState.title.trim())) {
+      const meta = useSessionMetaStore.getState();
+      const isPristine = Boolean(
+        meta.savedDocumentId &&
+        meta.loadedContent !== null &&
+        contentState.content === meta.loadedContent &&
+        (meta.loadedTitle ?? '') === contentState.title
+      );
+      if (user && !isPristine && (contentState.content.trim() || contentState.title.trim())) {
         try {
           // Гостевой фолбэк обязан попадать в ключ, который реально читается
           // при возврате (GuestDraftService → STORAGE_KEYS.GUEST_DRAFT).

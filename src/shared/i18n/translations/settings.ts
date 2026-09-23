@@ -124,7 +124,7 @@ export const settingsTranslations: Translations = {
   settings_encrypt_budget_stop:{ ru: 'Дневной лимит записей исчерпан — зашифровано не всё. Продолжится завтра с того же места.', en: 'Daily write limit reached — not everything was encrypted. It will resume tomorrow where it stopped.' },
   settings_encryption_not_set: { ru: 'Шифрование не настроено', en: 'Encryption not configured' },
   settings_encryption_not_set_desc: { ru: 'Твои заметки хранятся в облаке в открытом виде. Настрой шифрование, чтобы защитить их сквозным шифрованием (E2EE).', en: 'Your notes are stored in the cloud in plain text. Configure encryption to protect them with end-to-end encryption (E2EE).' },
-  settings_initialize_password: { ru: 'Пароль шифрования (минимум 6 символов)', en: 'Encryption password (min 6 chars)' },
+  settings_initialize_password: { ru: 'Пароль шифрования (минимум 8 символов)', en: 'Encryption password (min 8 chars)' },
   settings_initialize_confirm: { ru: 'Подтверди пароль', en: 'Confirm password' },
   settings_initialize_submit: { ru: 'Включить шифрование', en: 'Enable Encryption' },
   settings_encryption_locked: { ru: 'Шифрование заблокировано', en: 'Encryption Locked' },

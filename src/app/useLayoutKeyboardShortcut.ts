@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useLayoutMode } from '../shared/hooks/useLayoutMode';
+import { useLayoutMode, MOBILE_LAYOUT_ENABLED } from '../shared/hooks/useLayoutMode';
 
 // Cmd+M (Mac) / Ctrl+M (Win/Linux) toggles desktop ↔ mobile layout.
 // Note: Cmd+M on macOS minimises the window by default; the app needs to be
@@ -12,6 +12,9 @@ export function useLayoutKeyboardShortcut() {
   useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
 
   useEffect(() => {
+    // D-15: While mobile layout is disabled, shortcut is a no-op
+    if (!MOBILE_LAYOUT_ENABLED) return;
+
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;

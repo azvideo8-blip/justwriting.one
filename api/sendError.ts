@@ -9,7 +9,8 @@ export function sendError(
   status: number,
   code: string,
   message?: string,
+  extraHeaders?: Record<string, string>,
 ): void {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders });
   res.end(JSON.stringify({ error: { code, message: message ?? code } }));
 }

@@ -227,6 +227,21 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     const isLegacyReasoning = storedLength === 'reasoning' as unknown as 'short' | 'standard' | 'detailed';
     const effectiveReasoning = dialogue?.reasoning ?? reasoning ?? isLegacyReasoning;
 
+    const cooldownUntil = Number(localStorage.getItem('jw_ai_cooldown_until') || '0');
+    if (cooldownUntil > Date.now()) {
+      const remainingSec = Math.ceil((cooldownUntil - Date.now()) / 1000);
+      sendingRef.current = false;
+      setError(`Слишком частые запросы. Подождите ${remainingSec} сек. перед следующей отправкой.`);
+      return null;
+    }
+
+    const inflightUntil = Number(localStorage.getItem('jw_ai_inflight') || '0');
+    if (inflightUntil > Date.now()) {
+      sendingRef.current = false;
+      setError('Слишком частые запросы. Подождите немного перед следующей отправкой.');
+      return null;
+    }
+
     const { remaining, reasoningRemaining } = useAiLimitStore.getState();
     const isExhausted = effectiveReasoning ? reasoningRemaining <= 0 : remaining <= 0;
     if (isExhausted) {
@@ -238,6 +253,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       setError(effectiveReasoning ? 'Лимит рассуждений исчерпан' : 'Дневной лимит достигнут');
       return null;
     }
+
+    try {
+      localStorage.setItem('jw_ai_inflight', String(Date.now() + 15_000));
+    } catch { /* ignore */ }
 
     setIsLoading(true);
     setStreamingMessage(null); setStreamingReasoning(null);
@@ -433,7 +452,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           const errMsg = e instanceof Error ? e.message : '';
           const isUpstream = errMsg === 'UPSTREAM' || errMsg === 'UPSTREAM_ERROR' || errMsg === 'SERVICE_UNAVAILABLE' || errMsg.startsWith('UPSTREAM');
-          if (!isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT') {
+          if (!isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT' && !errMsg.startsWith('RATE_LIMIT:')) {
             // #77: streaming already consumed a daily limit slot. The callable
             // fallback consumes another. Accepted by design: the residual case
             // after server-side refund-on-disconnect is a mid-stream network
@@ -490,6 +509,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
 
       incrementDailyUsage(effectiveReasoning);
+      try {
+        localStorage.setItem('jw_ai_cooldown_until', String(Date.now() + 10_000));
+      } catch { /* ignore */ }
 
       const wasNew = !dialogueId;
 
@@ -585,6 +607,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
 
       if (rawMsg === 'ABORTED') {
+        try { localStorage.removeItem('jw_ai_cooldown_until'); } catch { /* ignore */ }
         // user stopped — no error
         return null;
       }
@@ -594,12 +617,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       } else if (rawMsg === 'REASONING_LIMIT') {
         setDailyLimitExhausted(true);
       } else if (rawMsg === 'UPSTREAM' || rawMsg === 'UPSTREAM_ERROR' || rawMsg === 'SERVICE_UNAVAILABLE') {
+        try { localStorage.removeItem('jw_ai_cooldown_until'); } catch { /* ignore */ }
         void useAiLimitStore.getState().loadLimitFromServer();
       }
 
       setError(aiErrorToText(rawMsg));
       return null;
     } finally {
+      try { localStorage.removeItem('jw_ai_inflight'); } catch { /* ignore */ }
       sendingRef.current = false;
       setIsLoading(false);
       setAIStage(null);

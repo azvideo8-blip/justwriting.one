@@ -72,7 +72,7 @@ export async function searchNotesMulti(
       return { notes: results, failed: false };
     }
 
-    if (!opts?.queryVector && !hasIndexingConsent(uid)) {
+    if (!hasIndexingConsent(uid)) {
       const combinedQuery = queries.join(' ');
       const results = await searchNotes(combinedQuery, maxResults, opts);
       putCache(cacheKey, results);

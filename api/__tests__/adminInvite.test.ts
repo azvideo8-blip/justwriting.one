@@ -63,6 +63,18 @@ describe('Admin Invite & User Status Logic', () => {
       expect(mockInviteUserByEmail).not.toHaveBeenCalled();
     });
 
+    it('rejects email address longer than 254 chars with invalid-argument', async () => {
+      const longEmail = `${'a'.repeat(245)}@example.com`; // 257 chars
+      await expect(
+        inviteUserLogic(mockAdminCtx, 'admin-123', { email: longEmail }),
+      ).rejects.toThrowError(
+        expect.objectContaining({
+          code: 'invalid-argument',
+        }),
+      );
+      expect(mockInviteUserByEmail).not.toHaveBeenCalled();
+    });
+
     it('invites user successfully via GoTrue admin API', async () => {
       poolQuery.mockResolvedValueOnce({ rows: [] });
       mockInviteUserByEmail.mockResolvedValueOnce({

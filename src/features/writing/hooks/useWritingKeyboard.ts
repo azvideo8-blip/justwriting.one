@@ -12,10 +12,7 @@ interface UseWritingKeyboardParams {
 export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRef, handleFinishRef, toggleShortcutsRef }: UseWritingKeyboardParams) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const inEditor = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT';
-
-      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+      if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyP' || e.key.toLowerCase() === 'p')) {
         if (sessionStatus === 'writing' || sessionStatus === 'paused') {
           e.preventDefault();
           if (sessionStatus === 'writing') {
@@ -25,10 +22,13 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
           }
         }
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        if (!inEditor) {
-          e.preventDefault();
-        }
+      if ((e.metaKey || e.ctrlKey) && (e.code === 'KeyS' || e.key.toLowerCase() === 's')) {
+        // D-9: «Сохранить» из «Горячих клавиш». Раньше здесь был только
+        // preventDefault вне редактора, а в редакторе — браузерное «Сохранить
+        // страницу». Кнопка «Сохранить» в шапке делает onFinishClick: пауза
+        // сессии и окно завершения; клавиша — ровно то же самое.
+        e.preventDefault();
+        handleFinishRef.current?.();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         if (sessionStatus === 'writing' || sessionStatus === 'paused') {
@@ -36,7 +36,7 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
           handleFinishRef.current?.();
         }
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+      if ((e.metaKey || e.ctrlKey) && (e.code === 'Slash' || e.key === '/')) {
         e.preventDefault();
         toggleShortcutsRef.current?.();
       }

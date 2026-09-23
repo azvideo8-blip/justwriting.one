@@ -66,6 +66,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     // ожидающий подтверждения код восстановления и признак авто-создания сейфа (F-01)
     `pending_recovery_code_${uid}`,
     `vault_auto_created_${uid}`,
+    // сохранённая цель по словам (D-19)
+    `word_goal_${uid}`,
   ];
 }
 

@@ -7,6 +7,10 @@ import { ProfileUpdater } from './ProfileUpdater';
 import { SaveDocumentData, StorageState } from './storageTypes';
 import { withTimeout } from '../../shared/utils/withTimeout';
 import { reportError } from '../../shared/errors/reportError';
+import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { isVersionContentTooLarge } from './VersionService';
+import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
+import { addToSyncQueue } from './syncQueueOps';
 
 export type { StorageState, SaveDocumentData } from './storageTypes';
 export { CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE } from './CloudSyncService';
@@ -171,6 +175,7 @@ export type SaveVersionResult = {
   forkTitle?: string | undefined;
   cloudSynced: boolean;
   reason?: string | undefined;
+  isTooLarge?: boolean | undefined;
 };
 
 async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
@@ -200,7 +205,17 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
     now
   );
 
+  const isEncrypted = Boolean(getEncryptionEnabled(userId));
+  const isTooLarge = isVersionContentTooLarge(data.content, isEncrypted);
+  if (isTooLarge) {
+    return { forked: false, cloudSynced: false, reason: 'TOO_LARGE', isTooLarge: true };
+  }
+
   if (existing.linkedCloudId) {
+    if (!cloudSyncEnabled(userId)) {
+      await addToSyncQueue(documentId);
+      return { forked: false, cloudSynced: false };
+    }
     const result = await CloudSyncService.syncVersionToCloud(
       userId,
       documentId,

@@ -47,7 +47,7 @@ describe('AUDIT-MH3 fork contents and title', () => {
     const db = await getLocalDb();
     const docs = (await db.getAll('documents')).filter(d => d.id !== 'local_orig');
     expect(docs).toHaveLength(1);
-    expect(docs[0]!.title).toMatch(/Conflict .*\d{1,2}:\d{2}/);
+    expect(docs[0]!.title).toMatch(/\((конфликт|conflict), .*\d{1,2}:\d{2}/);
     expect(docs[0]!.title).toContain('Листопад кружит');
   });
 

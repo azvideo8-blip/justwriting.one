@@ -42,7 +42,7 @@ describe('разбор кодов отказа в формате VPS-служб�
       wireError('resource-exhausted', 'Daily bulk operations limit reached.', 429),
     );
 
-    expect(await AIService.embed({ content: 'текст' })).toEqual({ ok: false, error: 'DAILY_LIMIT' });
+    expect(await AIService.embed({ content: 'текст' })).toEqual({ ok: false, error: 'BULK_LIMIT' });
   });
 
   it('исчерпанный дневной лимит человека читается как дневной', async () => {
@@ -84,7 +84,7 @@ describe('разбор кодов отказа в формате VPS-служб�
     mockCallAi.mockRejectedValue(
       wireError('resource-exhausted', 'Daily bulk operations limit reached.', 429),
     );
-    expect(await AIService.summarize({ content: 'текст' })).toEqual({ ok: false, error: 'DAILY_LIMIT' });
+    expect(await AIService.summarize({ content: 'текст' })).toEqual({ ok: false, error: 'BULK_LIMIT' });
   });
 
   it('RC-4: 503 с SERVICE_UNAVAILABLE читается как SERVICE_UNAVAILABLE', async () => {

@@ -5,6 +5,8 @@ import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { useSyncStatus } from '../../../core/sync/useSyncStatus';
+import { useAuthStatus } from '../../../app/useAuthStatus';
 
 interface ConnectionStatusBannerProps {
   showZen?: boolean;
@@ -12,7 +14,9 @@ interface ConnectionStatusBannerProps {
 
 export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps) {
   const { t } = useLanguage();
+  const { user, isGuest } = useAuthStatus();
   const isOnline = useOnlineStatus();
+  const syncStatus = useSyncStatus(isGuest ? null : (user?.uid ?? null));
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode !== 'desktop';
   const prevOnlineRef = useRef(isOnline);
@@ -33,6 +37,11 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
     }
     prevOnlineRef.current = isOnline;
   }, [isOnline]);
+
+  const isSynced = syncStatus.status === 'synced';
+  const reconnectedText = isSynced
+    ? (isMobile ? t('synced_compact') : t('offline_synced'))
+    : (isMobile ? t('connection_restored_compact') : t('connection_restored'));
 
   // Show offline indicator even in zen mode — users need to know sync is down
   if (showZen && isOnline) return null;
@@ -74,7 +83,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           )}
         >
           <Check size={16} className="shrink-0" />
-          <span>{isMobile ? t('synced_compact') : t('offline_synced')}</span>
+          <span>{reconnectedText}</span>
         </motion.div>
       )}
     </AnimatePresence>

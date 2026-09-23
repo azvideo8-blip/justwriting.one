@@ -6,7 +6,7 @@ import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cry
 import { decryptLabels, migrateUnencryptedLabels, repairDoubleEncryptedLabels } from '../../../core/crypto/labelEncryption';
 import { ProfileService } from '../../../core/services/ProfileService';
 import { setAiConsent } from '../../../core/ai/aiConsent';
-import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuth } from './AuthContext';
 
@@ -96,7 +96,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                 if (parsed.data.aiConsentAt !== undefined) {
                   const hasConsent = parsed.data.aiConsentAt !== null &&
                     typeof parsed.data.aiConsentVersion === 'number' &&
-                    parsed.data.aiConsentVersion >= PRIVACY_VERSION;
+                    parsed.data.aiConsentVersion >= AI_CONSENT_VERSION_REQUIRED;
                   setAiConsent(user.uid, hasConsent);
                 }
 
@@ -129,7 +129,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               const hasConsent = existingProfile.aiConsentAt !== null &&
                 existingProfile.aiConsentAt !== undefined &&
                 typeof existingProfile.aiConsentVersion === 'number' &&
-                existingProfile.aiConsentVersion >= PRIVACY_VERSION;
+                existingProfile.aiConsentVersion >= AI_CONSENT_VERSION_REQUIRED;
               setAiConsent(user.uid, hasConsent);
               return;
             }

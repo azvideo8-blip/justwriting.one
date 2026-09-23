@@ -7,7 +7,7 @@ import { AISummaryService } from './AISummaryService';
 import { AIEmbeddingService } from './AIEmbeddingService';
 import { indexDocument, indexPending, sha256Hex, type IndexResult } from '../utils/embeddingIndexer';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
-import type { AIErrorCode } from '../types/aiErrors';
+import { isDayLimitError, type AIErrorCode } from '../types/aiErrors';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 /**
@@ -268,7 +268,7 @@ export const NoteAnalysisService = {
         }
         if (res.indexed !== 'ok' && res.indexed !== 'skip') result.missingVectors++;
         rateWaits = 0;
-      } else if (res.error === 'DAILY_LIMIT') {
+      } else if (isDayLimitError(res.error)) {
         result.stopped = 'daily';
         break;
       } else if (res.error === 'GLOBAL_LIMIT') {

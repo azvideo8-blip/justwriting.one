@@ -115,7 +115,7 @@ export function WritingSessionProvider({
 
   useEffect(() => {
     if (isBrowserOnline && !isGuest) {
-      SyncService.syncPending(userId, { force: true }).catch(e => reportError(e, { action: 'sync_pending' }));
+      SyncService.syncPending(userId).catch(e => reportError(e, { action: 'sync_pending' }));
     }
   }, [isBrowserOnline, isGuest, userId]);
 

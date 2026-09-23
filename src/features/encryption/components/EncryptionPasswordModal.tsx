@@ -3,6 +3,7 @@ import { Lock, Shield, AlertTriangle, AlertCircle, Loader2, KeyRound, Cloud, X }
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
+import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -33,7 +34,7 @@ interface EncryptionPasswordModalProps {
   onClose?: () => void;
 }
 
-const MIN_PASSWORD_LENGTH = 8;
+
 
 export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose }: EncryptionPasswordModalProps) {
   const { t } = useLanguage();

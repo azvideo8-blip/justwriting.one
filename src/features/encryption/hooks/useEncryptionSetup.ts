@@ -150,5 +150,18 @@ export function useEncryptionSetup(): {
   // used to lock the whole app behind an irreversible action.
   const dismiss = useCallback(() => setMode('none'), []);
 
+  // D-2: «Разблокировать» в предпросмотре запертой заметки и «Продолжить» в
+  // тосте «Заметка заперта» шлют это событие. Пока модалка живёт здесь,
+  // слушатель — тоже здесь, иначе окно пришлось бы дублировать.
+  useEffect(() => {
+    if (!user) return;
+    const onOpenUnlock = () => {
+      if (isVaultUnlocked()) return;
+      setMode('unlock');
+    };
+    window.addEventListener('open-vault-unlock', onOpenUnlock);
+    return () => window.removeEventListener('open-vault-unlock', onOpenUnlock);
+  }, [user]);
+
   return { mode, isLegacy, loading, check, dismiss };
 }

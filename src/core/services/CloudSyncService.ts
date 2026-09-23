@@ -2,6 +2,7 @@ import { DocumentService } from './DocumentService';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
 import { syncStatusOf } from '../sync/syncStatus';
+import { isPoisonSyncError } from '../sync/classifySyncError';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, type LocalDocument } from '../storage/localDb';
@@ -1260,17 +1261,19 @@ export const CloudSyncService = {
       return { forked: false, cloudSynced: true };
     } catch (e) {
       reportError(e, { action: 'syncVersionToCloud', documentId, linkedCloudId });
-      try {
-        const syncDb = await getLocalDb();
-        await syncDb.put('syncQueue', {
-          id: `sync_${documentId}`,
-          documentId,
-          type: 'document' as const,
-          createdAt: Date.now(),
-          ownerId: userId,
-        });
-      } catch (queueErr) {
-        reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
+      if (!isPoisonSyncError(e)) {
+        try {
+          const syncDb = await getLocalDb();
+          await syncDb.put('syncQueue', {
+            id: `sync_${documentId}`,
+            documentId,
+            type: 'document' as const,
+            createdAt: Date.now(),
+            ownerId: userId,
+          });
+        } catch (queueErr) {
+          reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
+        }
       }
       return { forked: false, cloudSynced: false };
     }

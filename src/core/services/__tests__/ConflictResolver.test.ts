@@ -80,7 +80,7 @@ describe('ConflictResolver', () => {
     expect(result.forked).toBe(true);
     expect(result.forkTitle).toBeDefined();
     expect(LocalStorageService.createDocument).toHaveBeenCalledWith('user1', expect.objectContaining({
-      title: expect.stringContaining('Conflict'),
+      title: expect.stringContaining('(конфликт,'),
       tags: ['fiction'],
       labelId: 'label1',
     }));
@@ -94,6 +94,24 @@ describe('ConflictResolver', () => {
       totalDuration: 300,
       currentVersion: 1,
     }));
+  });
+
+  it('creates a forked document with English conflict title when language is en (D-18)', async () => {
+    localStorage.setItem('app_language', 'en');
+    try {
+      mockDb();
+      const result = await ConflictResolver.resolveConflict(
+        'user1',
+        'doc_local',
+        'doc_cloud',
+        dummyData,
+        5,
+        { currentVersion: 3 }
+      );
+      expect(result.forkTitle).toContain('(conflict,');
+    } finally {
+      localStorage.removeItem('app_language');
+    }
   });
 
   it('reports a warning about the conflict', async () => {

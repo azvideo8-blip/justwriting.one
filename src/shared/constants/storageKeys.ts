@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   ONBOARDING_DONE: (uid?: string | null) => (uid ? `onboarding_done_${uid}` : 'onboarding_done_guest'),
   ENC_ENABLED: (userId: string) => `enc_enabled_${userId}`,
   UNLOCKED_ACHIEVEMENTS: (uid: string) => `unlocked_achievements_${uid}`,
+  WORD_GOAL: (uid: string) => `word_goal_${uid}`,
   LOCAL_SESSION: (ts: number, uuid: string) => `local_session_${ts}_${uuid}`,
   LOCAL_SESSION_PREFIX: 'local_session_',
   PREVIEW_WIDTH: 'preview_width',
