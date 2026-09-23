@@ -8,7 +8,7 @@ import { hasEncryptionMeta, getEncryptionMeta } from '../../../core/services/Enc
 import { hasLegacyEncryption } from '../../../core/services/LegacyKeyMigration';
 import { reportError } from '../../../shared/errors/reportError';
 
-export type EncryptionModalMode = 'none' | 'setup' | 'unlock' | 'migrate' | 'change';
+export type EncryptionModalMode = 'none' | 'setup' | 'unlock' | 'migrate';
 
 export function useEncryptionSetup(): {
   mode: EncryptionModalMode;
@@ -108,7 +108,9 @@ export function useEncryptionSetup(): {
       } else if (legacy) {
         setMode('migrate');
       } else {
-        setMode('none');
+        // EA-16: сейфа нет (автосоздание при входе не удалось) — без него в
+        // облако ничего не уходит, поэтому предлагаем создать его сразу.
+        setMode('setup');
       }
     } catch (e) {
       // We could not read encryptionMeta, so we do NOT know whether this vault

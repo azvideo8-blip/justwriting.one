@@ -1,4 +1,5 @@
 import { getSupabase } from '../supabase/client';
+import { deriveAuthSecret } from './authSecret';
 import type { AppUser } from './types';
 import { User } from '@supabase/supabase-js';
 
@@ -91,8 +92,29 @@ export async function getIdToken(forceRefresh?: boolean): Promise<string | null>
   return session?.access_token ?? null;
 }
 
+// EA-15: на сервер уходит только секрет, выведенный из пароля (authSecret.ts),
+// сам пароль браузер не покидает. Аккаунты, созданные до этого, хранят на
+// сервере исходный пароль: если секрет не подошёл, пробуем исходный и, если он
+// верен, сразу меняем его на секрет — со следующего входа запасной путь не нужен.
+function isInvalidCredentials(error: { code?: string | undefined; message?: string | undefined }): boolean {
+  return error.code === 'invalid_credentials' || /invalid login credentials/i.test(error.message ?? '');
+}
+
+async function signInWithSecret(email: string, password: string) {
+  const auth = getSupabase().auth;
+  const secret = await deriveAuthSecret(password, email);
+  const first = await auth.signInWithPassword({ email, password: secret });
+  if (!first.error || !isInvalidCredentials(first.error)) return first;
+  // ponytail: запасной путь для аккаунтов до EA-15; убрать, когда все мигрируют.
+  const legacy = await auth.signInWithPassword({ email, password });
+  if (legacy.error) return first;
+  const { error: upErr } = await auth.updateUser({ password: secret });
+  if (upErr) reportError(upErr, { action: 'authSecret_migrate' }, 'warning');
+  return legacy;
+}
+
 export async function signIn(email: string, password: string): Promise<AppUser> {
-  const { data, error } = await getSupabase().auth.signInWithPassword({ email, password });
+  const { data, error } = await signInWithSecret(email, password);
   if (error) throw error;
   return mapUser(data.user)!;
 }
@@ -101,14 +123,14 @@ export async function signIn(email: string, password: string): Promise<AppUser> 
 // недостаточно — одолженный разблокированный ноутбук не должен уметь стирать
 // архив. Проверка идёт на сервер аутентификации, не в локальное состояние.
 export async function reauthenticate(email: string, password: string): Promise<void> {
-  const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+  const { error } = await signInWithSecret(email, password);
   if (error) {
     throw new Error('REAUTH_FAILED');
   }
 }
 
 export async function signUp(email: string, password: string): Promise<AppUser> {
-  const { data, error } = await getSupabase().auth.signUp({ email, password });
+  const { data, error } = await getSupabase().auth.signUp({ email, password: await deriveAuthSecret(password, email) });
   if (error) throw error;
   return mapUser(data.user)!;
 }
@@ -160,6 +182,9 @@ export async function verifyOtpForRecovery(token_hash: string, type: 'recovery' 
 }
 
 export async function updateUserPassword(password: string): Promise<void> {
-  const { error } = await getSupabase().auth.updateUser({ password });
+  const auth = getSupabase().auth;
+  const { data: { user } } = await auth.getUser();
+  if (!user?.email) throw new Error('No signed-in user to set a password for');
+  const { error } = await auth.updateUser({ password: await deriveAuthSecret(password, user.email) });
   if (error) throw error;
 }

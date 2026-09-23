@@ -24,6 +24,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
       reasoning: reasoning ?? undefined,
       documentContent: documentContent ?? undefined,
       userPortrait: userPortrait ?? undefined,
+      customSystemPrompt,
       messages,
     });
     isInternalCall = result.isInternal;

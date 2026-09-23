@@ -130,13 +130,20 @@ export async function checkAndSyncCursor(
     return CloudSyncService.reconcileLinkedDocuments(uid);
   });
 
-  // Call both passes. A failed pass will throw and prevent advancing the stored cursor.
-  await Promise.all([
+  // EA-4: проходы сообщают о сбоях возвращаемым значением ({ failed, locked }),
+  // а не исключением. Курсор двигаем, только если оба прошли чисто: иначе
+  // пропущенные заметки (или всё, при запертом сейфе) остались бы за курсором
+  // и не подтянулись до следующего изменения в облаке.
+  const results = await Promise.all([
     downloadAll(userId),
     reconcileLinked(userId),
   ]);
+  const incomplete = results.some(r => {
+    const x = r as { failed?: number; locked?: boolean } | null | undefined;
+    return Boolean(x?.locked) || (x?.failed ?? 0) > 0;
+  });
 
-  if (serverCursor) {
+  if (serverCursor && !incomplete) {
     setStoredCursor(userId, serverCursor);
   }
 

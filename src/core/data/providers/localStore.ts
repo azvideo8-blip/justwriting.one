@@ -34,7 +34,7 @@ export async function getLocalStoreRecord(userId: string, store: string, key: st
   };
 }
 
-export async function getLocalStoreRecords(userId: string, store?: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>> {
+export async function getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>> {
   const allRows = await pageAll((from, to) => {
     let q = getSupabase()
       .from('local_store_records')
@@ -42,6 +42,11 @@ export async function getLocalStoreRecords(userId: string, store?: string): Prom
       .eq('user_id', userId);
     if (store) {
       q = q.eq('store', store);
+    }
+    // Инкрементальный забор: updatedAt лежит в payload открытым числом в мс
+    // (13 цифр), поэтому текстовое сравнение совпадает с числовым.
+    if (sinceMs !== undefined) {
+      q = q.gt('payload->>updatedAt', String(Math.floor(sinceMs)));
     }
     return q
       .order('key', { ascending: true })

@@ -40,6 +40,7 @@ export function validateInternalCallRestrictions(params: {
   reasoning?: boolean | null | undefined;
   documentContent?: string | null | undefined;
   userPortrait?: string | null | undefined;
+  customSystemPrompt?: string | null | undefined;
   messages: unknown[];
 }): { isInternal: boolean } {
   const isInternal = isInternalCall(params.callType);
@@ -64,6 +65,12 @@ export function validateInternalCallRestrictions(params: {
   }
   if (params.messages.length > maxMessages) {
     throw err(`Too many messages for internal call (max ${maxMessages}).`);
+  }
+  // EA-1: служебный вызов идёт мимо дневного лимита чата. Свой системный
+  // промпт у него — только из белого списка (system_task), у остальных — никакого,
+  // иначе это бесплатная модель общего назначения с промптом клиента.
+  if (isSystemTask ? !isAllowedSystemTaskPrompt(params.customSystemPrompt) : Boolean(params.customSystemPrompt)) {
+    throw err('System prompt not allowed for this internal call.');
   }
 
   return { isInternal: true };
@@ -111,6 +118,7 @@ export function estimateInputTokens(parts: Array<string | null | undefined>): nu
 import type { AiContext, GlobalReservation } from './context.js';
 import { AiError } from './context.js';
 import { hasInjectionAttempt } from './injectionPatterns.js';
+import { isAllowedSystemTaskPrompt } from './systemTaskPrompts.js';
 
 // AUDIT-MH8: Shared injection policy across streaming and non-streaming chat endpoints.
 // Hard-rejects only apply to direct instructions (messages, customSystemPrompt).

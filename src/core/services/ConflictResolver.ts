@@ -56,6 +56,10 @@ export const ConflictResolver = {
       mood?: string | undefined;
     };
     let decryptedCloudVersions: DecryptedCloudVersion[] = [];
+    // EA-3: исход обоих шагов — Pass 2 удаляет версии из оригинала и имеет на это
+    // право, только если облако прочитано и все расходящиеся версии уже в форке.
+    let cloudFetched = false;
+    let forkCopied = false;
     try {
       const { VersionService } = await import('./VersionService');
       const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
@@ -91,6 +95,7 @@ export const ConflictResolver = {
           mood: typeof plain.mood === 'string' ? plain.mood : (cv.mood ?? undefined),
         });
       }
+      cloudFetched = true;
     } catch (fetchErr) {
       reportError(fetchErr, { action: 'resolveConflict_fetchCloudVersions', linkedCloudId });
     }
@@ -101,11 +106,14 @@ export const ConflictResolver = {
     // НЕ считается «уже в облаке» — её локальный plaintext копируется в форк!
     try {
       const localVersions = await LocalVersionService.getVersions(documentId);
-      const readableCloudVerNums = new Set(
-        decryptedCloudVersions.filter(v => !v._decryptionError).map(v => v.version)
+      const readableCloudContent = new Map(
+        decryptedCloudVersions.filter(v => !v._decryptionError).map(v => [v.version, v.content])
       );
       for (const v of localVersions) {
-        if (readableCloudVerNums.has(v.version)) continue;          // уже есть в облаке в читаемом виде
+        // EA-3: пропускаем только версию, которая лежит в облаке с тем же текстом.
+        // Тот же номер с другим текстом — офлайн-правка; Pass 2 удалит её из
+        // оригинала, поэтому она обязана попасть в форк.
+        if (readableCloudContent.get(v.version) === v.content) continue;
         if (v.content === data.content) continue;           // уже положена как versionNumber: 1
         await LocalVersionService.addVersion(userId, forkedDocId, {
           content: v.content,
@@ -122,6 +130,7 @@ export const ConflictResolver = {
           mood: v.mood,
         });
       }
+      forkCopied = true;
     } catch (copyErr) {
       reportError(copyErr, { action: 'resolveConflict_copyUnsynced', documentId });
     }
@@ -132,8 +141,12 @@ export const ConflictResolver = {
       mood: data.mood,
     });
 
-    // Bring the ORIGINAL local document in line with the cloud so it doesn't stay stuck in conflict
-    try {
+    // Bring the ORIGINAL local document in line with the cloud so it doesn't stay stuck in conflict.
+    // EA-3: без прочитанного облака или неполного форка оригинал не трогаем —
+    // конфликт разрешится при следующей попытке, версии останутся на месте.
+    if (!cloudFetched || !forkCopied) {
+      reportError(new Error('Conflict fork incomplete: original left untouched'), { action: 'resolveConflict_skipReconcile', documentId, cloudFetched, forkCopied }, 'warning');
+    } else try {
       const { comparableOrUnknown } = await import('../sync/comparableOrUnknown');
       const cloudVerMap = new Map(decryptedCloudVersions.map(v => [v.version, v]));
       const localVersions = await LocalVersionService.getVersions(documentId);

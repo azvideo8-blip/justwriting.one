@@ -1,4 +1,5 @@
 import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser, reauthenticate, type AppUser } from '../../../core/auth';
+import { setPendingLoginPassword, clearPendingLoginPassword } from '../../../core/crypto/pendingLoginPassword';
 import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
@@ -24,6 +25,9 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
     const unlocked = await unlockVaultFromProfile(profileData!, password, currentUid);
     if (!unlocked) {
       sessionStorage.setItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(currentUid), '1');
+      // D-28: сейф на другом пароле (вход сбросили по почте). Ручная разблокировка
+      // прежним паролем перешифрует сейф этим — см. pendingLoginPassword.ts.
+      setPendingLoginPassword(currentUid, password);
       const pendingRaw = sessionStorage.getItem(`pending_keys_${currentUid}`);
       if (pendingRaw) {
         try {
@@ -33,6 +37,7 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
           const repairedUnlocked = await unlockVaultFromPendingKeys(keys, password, currentUid);
           if (repairedUnlocked) {
             sessionStorage.removeItem(STORAGE_KEYS.VAULT_AUTO_UNLOCK_FAILED(currentUid));
+            clearPendingLoginPassword(currentUid);
           }
         } catch (repairErr) {
           reportError(repairErr, { action: 'repairEncryptionKeys' });
@@ -78,6 +83,7 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
  * are cleared, guarded by unsynced data protection unless `force` is true.
  */
 async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAccountDeletion?: boolean }) {
+  clearPendingLoginPassword();
   const currentUid = getCurrentUser()?.uid;
   let wipeFailed: unknown = null;
 

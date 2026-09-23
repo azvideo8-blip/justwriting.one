@@ -56,7 +56,7 @@ export const authTranslations: Translations = {
   auth_forgot_password:  { ru: 'Забыли пароль?', en: 'Forgot password?' },
   auth_forgot_title:     { ru: 'Сброс пароля', en: 'Password reset' },
   auth_forgot_warning:   { ru: 'Введите email, чтобы получить ссылку для сброса пароля.', en: 'Enter your email to receive a password reset link.' },
-  auth_forgot_password_encryption_warning: { ru: 'Смена пароля аккаунта не меняет пароль шифрования заметок. На этом устройстве доступ сохранится, а на других устройствах вводите прежний пароль или код восстановления шифрования.', en: 'Changing your account password does not change your notes encryption password. Access remains on this device, but on other devices enter your previous password or recovery code.' },
+  auth_forgot_password_encryption_warning: { ru: 'Заметки зашифрованы вашим паролем. После сброса при входе с новым паролем приложение один раз попросит прежний пароль или код восстановления, чтобы перенести шифрование на новый пароль. Без них зашифрованные заметки не открыть.', en: 'Your notes are encrypted with your password. After the reset, when you sign in with the new password the app will ask once for the previous password or recovery code to move the encryption to the new password. Without them encrypted notes cannot be opened.' },
   auth_forgot_confirm_anyway:   { ru: 'Всё равно сбросить пароль', en: 'Reset password anyway' },
   auth_forgot_sent:      { ru: 'Письмо для сброса пароля отправлено на ваш email.', en: 'Password reset email has been sent.' },
   auth_forgot_sent_to:   { ru: 'Письмо отправлено на {email}. Проверьте спам.', en: 'Email sent to {email}. Check your spam folder.' },

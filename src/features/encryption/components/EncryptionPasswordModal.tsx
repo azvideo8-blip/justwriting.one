@@ -7,6 +7,7 @@ import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { Button } from '../../../shared/components/Button';
 import { Input } from '../../../shared/components/Input';
 import { useAuthStatus } from '../../../app/useAuthStatus';
+import { getCurrentUser, reauthenticate } from '../../../core/auth';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import {
@@ -15,7 +16,6 @@ import {
   VaultAlreadyExistsError,
   unlockVault,
   recoverVaultWithCode,
-  changePassword,
   WrongPasswordError,
   WrongRecoveryCodeError,
 } from '../../../core/services/EncryptionService';
@@ -112,6 +112,17 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     }
     setupInFlightRef.current = true;
     setLoading(true);
+    // D-28: один пароль — сейф создаётся только из пароля от аккаунта.
+    try {
+      const email = getCurrentUser()?.email;
+      if (!email) throw new Error('REAUTH_FAILED');
+      await reauthenticate(email, password);
+    } catch {
+      setError(t('enc_setup_wrong_account_password'));
+      setLoading(false);
+      setupInFlightRef.current = false;
+      return;
+    }
     try {
       const { recoveryCode: created } = await initializeEncryption(userId, password);
       await refreshProfile();
@@ -213,40 +224,6 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
     }
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentPassword) {
-      setError(t('auth_error_fields_required'));
-      return;
-    }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(t('enc_password_min_length', { min: MIN_PASSWORD_LENGTH }));
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError(t('enc_passwords_dont_match'));
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      await changePassword(userId, currentPassword, password);
-      showToast(t('enc_password_changed'), 'success');
-      setCurrentPassword('');
-      setPassword('');
-      setConfirmPassword('');
-      onDone();
-    } catch (err) {
-      if (err instanceof WrongPasswordError) {
-        setError(t('unlock_wrong_password'));
-      } else {
-        reportError(err, { action: 'changeEncryptionPassword', userId });
-        setError(t('error_generic_action'));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleMigrate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,7 +275,6 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
 
   const isSetup = mode === 'setup';
   const isUnlock = mode === 'unlock';
-  const isChange = mode === 'change';
   const isMigrate = mode === 'migrate';
 
   return (
@@ -336,7 +312,6 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
             {isRecovering && t('enc_recovery_title')}
             {!isRecovering && isUnlock && t('enc_unlock_title')}
             {isSetup && t('enc_setup_title')}
-            {isChange && t('enc_change_title')}
             {isMigrate && t('enc_migrate_title')}
           </h2>
           <p className="text-sm text-text-main/60 mb-4">
@@ -347,7 +322,6 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 : t('enc_unlock_subtitle')
             )}
             {isSetup && t('enc_setup_subtitle')}
-            {isChange && t('enc_change_subtitle')}
             {isMigrate && t('enc_migrate_subtitle')}
           </p>
 
@@ -378,7 +352,6 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               if (isRecovering) void handleRecover(e);
               else if (isUnlock) void handleUnlock(e);
               else if (isSetup) void handleSetup(e);
-              else if (isChange) void handleChangePassword(e);
               else void handleMigrate(e);
             }}
             className="space-y-3"
@@ -399,7 +372,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               />
             )}
 
-            {!isRecovering && (isChange || isMigrate) && (
+            {!isRecovering && isMigrate && (
               <Input
                 type="password"
                 value={currentPassword}
@@ -408,7 +381,7 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
                 aria-label={isMigrate ? t('enc_migrate_current_password') : t('enc_current_password')}
                 className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-brand-soft/40 placeholder:text-text-main/40"
                 required
-                autoFocus={isChange || isMigrate}
+                autoFocus={isMigrate}
               />
             )}
 
@@ -480,7 +453,6 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
               {isRecovering && t('enc_recovery_submit')}
               {!isRecovering && isUnlock && t('enc_unlock_submit')}
               {isSetup && t('enc_setup_submit')}
-              {isChange && t('enc_change_submit')}
               {isMigrate && t('enc_migrate_submit')}
             </Button>
 
@@ -521,32 +493,5 @@ export function EncryptionPasswordModal({ mode, userId, context, onDone, onClose
             </p>
           )}
         </ModalShell>
-  );
-}
-
-export function ChangeEncryptionPasswordButton({ userId }: { userId: string }) {
-  const [open, setOpen] = useState(false);
-  const { t } = useLanguage();
-  const { profile } = useAuthStatus();
-
-  if (!(profile?.encryptionMeta || profile?.encryptionSalt)) return null;
-
-  return (
-    <>
-      <Button
-        onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border-subtle text-sm text-text-main/60 hover:text-text-main transition-colors text-left"
-      >
-        <KeyRound size={16} className="text-text-main/60" />
-        {t('enc_change_password_btn')}
-      </Button>
-      {open && (
-        <EncryptionPasswordModal
-          mode="change"
-          userId={userId}
-          onDone={() => setOpen(false)}
-        />
-      )}
-    </>
   );
 }

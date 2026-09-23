@@ -83,6 +83,46 @@ export function splitStringIntoChunks(str: string, maxBytesPerChunk = PAGE_SPLIT
   return chunks;
 }
 
+// EA-5: облачное удаление производных ИИ (разбор, векторы и т.п. удалённой
+// заметки) нельзя вывести заново из IndexedDB — локальная запись уже удалена.
+// Держать его только в памяти значило терять при закрытии вкладки (а при
+// выключенной синхронизации — всю сессию), и ежедневное восстановление
+// возвращало удалённое. Поэтому ожидающие удаления лежат на диске до успеха.
+const PENDING_DELETES_LS_KEY = 'ai_sync_pending_deletes';
+
+interface PersistedDelete { uid: string; store: string; key: string }
+
+function readPersistedDeletes(): PersistedDelete[] {
+  try {
+    const raw = localStorage.getItem(PENDING_DELETES_LS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePersistedDeletes(list: PersistedDelete[]): void {
+  try { localStorage.setItem(PENDING_DELETES_LS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+}
+
+function persistDelete(uid: string, store: string, key: string): void {
+  const list = readPersistedDeletes();
+  if (!list.some(d => d.uid === uid && d.store === store && d.key === key)) {
+    list.push({ uid, store, key });
+    writePersistedDeletes(list);
+  }
+}
+
+function forgetPersistedDelete(uid: string, store: string, key: string): void {
+  writePersistedDeletes(readPersistedDeletes().filter(d => !(d.uid === uid && d.store === store && d.key === key)));
+}
+
+/** Ключи `store:key`, облачное удаление которых ещё не дошло — восстановлению их не трогать. */
+export function getPendingStoreDeleteKeys(uid: string): Set<string> {
+  return new Set(readPersistedDeletes().filter(d => d.uid === uid).map(d => `${d.store}:${d.key}`));
+}
+
 const OVERSIZED_LS_KEY = 'ai_sync_oversized_records';
 const DEBOUNCE_DELAY_MS = 1500;
 
@@ -194,6 +234,8 @@ class LocalStoreSyncManager {
 
   public scheduleStoreDelete(store: SupportedLocalStoreName, key: string): void {
     const itemKey = `${store}:${key}`;
+    const uid = getCurrentUser()?.uid;
+    if (uid) persistDelete(uid, store, key);
     this.pending.set(itemKey, { store, key, isDelete: true });
     this.resetTimer();
   }
@@ -232,134 +274,150 @@ class LocalStoreSyncManager {
       return result;
     }
 
+    // Удаления, пережившие закрытие вкладки, возвращаются в очередь.
+    for (const d of readPersistedDeletes()) {
+      if (d.uid !== uid || !SUPPORTED_LOCAL_STORES.includes(d.store as SupportedLocalStoreName)) continue;
+      const k = `${d.store}:${d.key}`;
+      if (!this.pending.has(k)) this.pending.set(k, { store: d.store as SupportedLocalStoreName, key: d.key, isDelete: true });
+    }
+
     if (this.pending.size === 0) return result;
     if (this.isSyncing) return result;
 
     this.isSyncing = true;
     const items = Array.from(this.pending.values());
     this.pending.clear();
-
-    const db = await getLocalDb();
-
-    for (const item of items) {
-      const itemKey = `${item.store}:${item.key}`;
+    try {
+      let db: Awaited<ReturnType<typeof getLocalDb>>;
       try {
-        if (item.isDelete) {
-          await DataProvider.deleteLocalStoreRecord(uid, item.store, item.key);
-          removeOversizedRecord(item.store, item.key);
-          result.synced++;
-          continue;
-        }
+        db = await getLocalDb();
+      } catch (e) {
+        // Пачку не теряем: вернуть в очередь и попробовать в следующий проход.
+        for (const it of items) this.pending.set(`${it.store}:${it.key}`, it);
+        throw e;
+      }
 
-        // Get record from IDB
-        const rawRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(item.store, item.key);
-        if (rawRecord === undefined) {
-          // If record does not exist locally anymore, skip or delete from cloud
-          continue;
-        }
-
-        // Belt-and-braces: refuse to upload records belonging to another user
-        if (rawRecord && typeof rawRecord === 'object') {
-          const owner = (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).userId
-            ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).ownerId
-            ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).guestId;
-          if (owner && owner !== uid) {
+      for (const item of items) {
+        const itemKey = `${item.store}:${item.key}`;
+        try {
+          if (item.isDelete) {
+            await DataProvider.deleteLocalStoreRecord(uid, item.store, item.key);
+            forgetPersistedDelete(uid, item.store, item.key);
+            removeOversizedRecord(item.store, item.key);
+            result.synced++;
             continue;
           }
-        }
 
-        const jsonString = JSON.stringify(rawRecord);
-        const recordBytes = new TextEncoder().encode(jsonString).length;
-
-        if (recordBytes > MAX_LOCAL_RECORD_BYTES) {
-          setOversizedRecord(item.store, item.key, recordBytes);
-          result.skippedOversized++;
-          logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
-          useActivityLogStore.getState().addActivity(
-            `Запись ${item.store}/${item.key} (${Math.round(recordBytes / 1024)} КБ) превышает лимит размера 10 МБ и остаётся только на устройстве`,
-            { action: 'localStoreSync_oversized', store: item.store, key: item.key, bytes: recordBytes },
-            'warning',
-            'sync'
-          );
-          continue;
-        }
-
-        removeOversizedRecord(item.store, item.key);
-
-        const recordTs = extractRecordTimestamp(rawRecord) ?? Date.now();
-
-        if (recordBytes <= PAGE_SPLIT_THRESHOLD_BYTES) {
-          // Single-row record upload
-          const encrypted = await maybeEncrypt(
-            {
-              data: jsonString,
-              updatedAt: recordTs,
-            },
-            ['data'],
-            [],
-            uid,
-          );
-
-          await DataProvider.saveLocalStoreRecord(
-            uid,
-            item.store,
-            item.key,
-            encrypted,
-          );
-          if (DataProvider.deleteLocalStorePagedRecords) {
-            await DataProvider.deleteLocalStorePagedRecords(uid, item.store, item.key);
+          // Get record from IDB
+          const rawRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(item.store, item.key);
+          if (rawRecord === undefined) {
+            // If record does not exist locally anymore, skip or delete from cloud
+            continue;
           }
-        } else {
-          // SYNC-4: Multi-page split upload
-          const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
-          const totalPages = chunks.length;
 
-          for (let i = 0; i < totalPages; i++) {
-            const pageKey = `${item.key}#${i}`;
+          // Belt-and-braces: refuse to upload records belonging to another user
+          if (rawRecord && typeof rawRecord === 'object') {
+            const owner = (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).userId
+              ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).ownerId
+              ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).guestId;
+            if (owner && owner !== uid) {
+              continue;
+            }
+          }
+
+          const jsonString = JSON.stringify(rawRecord);
+          const recordBytes = new TextEncoder().encode(jsonString).length;
+
+          if (recordBytes > MAX_LOCAL_RECORD_BYTES) {
+            setOversizedRecord(item.store, item.key, recordBytes);
+            result.skippedOversized++;
+            logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
+            useActivityLogStore.getState().addActivity(
+              `Запись ${item.store}/${item.key} (${Math.round(recordBytes / 1024)} КБ) превышает лимит размера 10 МБ и остаётся только на устройстве`,
+              { action: 'localStoreSync_oversized', store: item.store, key: item.key, bytes: recordBytes },
+              'warning',
+              'sync'
+            );
+            continue;
+          }
+
+          removeOversizedRecord(item.store, item.key);
+
+          const recordTs = extractRecordTimestamp(rawRecord) ?? Date.now();
+
+          if (recordBytes <= PAGE_SPLIT_THRESHOLD_BYTES) {
+            // Single-row record upload
             const encrypted = await maybeEncrypt(
               {
-                data: chunks[i],
+                data: jsonString,
                 updatedAt: recordTs,
-                page: i,
-                totalPages,
               },
               ['data'],
               [],
               uid,
             );
+
             await DataProvider.saveLocalStoreRecord(
               uid,
               item.store,
-              pageKey,
+              item.key,
               encrypted,
             );
+            if (DataProvider.deleteLocalStorePagedRecords) {
+              await DataProvider.deleteLocalStorePagedRecords(uid, item.store, item.key);
+            }
+          } else {
+            // SYNC-4: Multi-page split upload
+            const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
+            const totalPages = chunks.length;
+
+            for (let i = 0; i < totalPages; i++) {
+              const pageKey = `${item.key}#${i}`;
+              const encrypted = await maybeEncrypt(
+                {
+                  data: chunks[i],
+                  updatedAt: recordTs,
+                  page: i,
+                  totalPages,
+                },
+                ['data'],
+                [],
+                uid,
+              );
+              await DataProvider.saveLocalStoreRecord(
+                uid,
+                item.store,
+                pageKey,
+                encrypted,
+              );
+            }
+            // Clean up stale unpaged record row if previously stored unpaged
+            if (DataProvider.deleteLocalStoreExactRecord) {
+              await DataProvider.deleteLocalStoreExactRecord(uid, item.store, item.key);
+            }
           }
-          // Clean up stale unpaged record row if previously stored unpaged
-          if (DataProvider.deleteLocalStoreExactRecord) {
-            await DataProvider.deleteLocalStoreExactRecord(uid, item.store, item.key);
-          }
-        }
-        result.synced++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('ENCRYPT_REQUIRED') || msg.includes('LOCKED')) {
-          result.skippedLocked = true;
-          // Re-queue item to retry after vault unlock
-          this.pending.set(itemKey, item);
-        } else {
-          result.failed++;
-          reportError(err, { action: 'LocalStoreSyncService_item', store: item.store, key: item.key });
-          // If this was a delete, it cannot be reconstructed from IDB because it
-          // was already deleted locally before scheduleStoreDelete was called.
-          // Re-queue it so network/server errors do not drop the delete permanently.
-          if (item.isDelete) {
+          result.synced++;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('ENCRYPT_REQUIRED') || msg.includes('LOCKED')) {
+            result.skippedLocked = true;
+            // Re-queue item to retry after vault unlock
             this.pending.set(itemKey, item);
+          } else {
+            result.failed++;
+            reportError(err, { action: 'LocalStoreSyncService_item', store: item.store, key: item.key });
+            // If this was a delete, it cannot be reconstructed from IDB because it
+            // was already deleted locally before scheduleStoreDelete was called.
+            // Re-queue it so network/server errors do not drop the delete permanently.
+            if (item.isDelete) {
+              this.pending.set(itemKey, item);
+            }
           }
         }
       }
+    } finally {
+      this.isSyncing = false;
     }
-
-    this.isSyncing = false;
     return result;
   }
 

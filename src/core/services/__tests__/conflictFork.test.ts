@@ -63,7 +63,7 @@ describe('AUDIT-MH3 fork contents and title', () => {
     });
     const { VersionService } = await import('../VersionService');
     vi.mocked(VersionService.getVersions).mockResolvedValue([
-      { version: 1 }, { version: 2 }, { version: 3 },
+      { version: 1 }, { version: 2 }, { version: 3, content: 'cloud three' }, // EA-3: тот же текст — не копируется
     ] as never);
 
     const localAddSpy = vi.spyOn(LocalVersionService, 'addVersion');

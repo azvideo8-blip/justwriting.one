@@ -55,3 +55,9 @@ global.cancelAnimationFrame = vi.fn((id: number) => {
 global.performance = {
   now: () => Date.now(),
 } as Performance;
+
+// EA-16: в проде вошедший пользователь без сейфа ничего не пишет в облако.
+// Существующие тесты синхронизации моделируют такого пользователя намеренно
+// (ось «сейф выключен» стенда постулатов), поэтому здесь запрет выключен;
+// его проверяет src/core/crypto/__tests__/vaultRequiredForAccounts.test.ts.
+(globalThis as { __jwVaultOptionalForTests?: boolean }).__jwVaultOptionalForTests = true;

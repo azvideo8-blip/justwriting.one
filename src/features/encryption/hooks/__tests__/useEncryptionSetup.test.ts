@@ -5,9 +5,10 @@ const mockUser = { uid: 'user-a' };
 // A profile that still carries the legacy fields — i.e. hasLegacyEncryption()
 // is true, which is what used to be enough to demand migration.
 const legacyProfile = { encryptionSalt: 'salt', encryptedDataKey: 'wrapped' };
+let currentProfile: unknown = legacyProfile;
 
 vi.mock('../../../../app/useAuthStatus', () => ({
-  useAuthStatus: () => ({ user: mockUser, profile: legacyProfile }),
+  useAuthStatus: () => ({ user: mockUser, profile: currentProfile }),
 }));
 
 const isVaultUnlocked = vi.fn(() => false);
@@ -48,6 +49,7 @@ describe('useEncryptionSetup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     isVaultUnlocked.mockReturnValue(false);
+    currentProfile = legacyProfile;
   });
 
   /**
@@ -56,6 +58,18 @@ describe('useEncryptionSetup', () => {
    * outage presented an irreversible key re-wrap to a user whose vault was
    * fine, in a modal with no exit.
    */
+  // EA-16: сейфа нет вовсе (автосоздание при входе не удалось) — без него в
+  // облако ничего не уходит, поэтому приложение сразу предлагает его создать.
+  it('offers vault setup when the account has no vault at all', async () => {
+    currentProfile = null; // мок hasLegacyEncryption: пустой профиль = старого сейфа нет
+    hasEncryptionMeta.mockResolvedValue(false);
+
+    const { result } = renderHook(() => useEncryptionSetup());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.mode).toBe('setup');
+  });
+
   it('does not demand migration when the encryptionMeta read fails', async () => {
     hasEncryptionMeta.mockRejectedValue(new Error('resource-exhausted'));
 

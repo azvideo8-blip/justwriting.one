@@ -56,11 +56,13 @@ vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() })
 const summaryDocs: Array<{ id: string; data: () => unknown }> = [];
 const embeddingDocs: Array<{ id: string; data: () => unknown }> = [];
 const localStoreRecordsDocs: Array<{ store: string; key: string; payload: Record<string, unknown>; checksum?: string }> = [];
+const providerCalls: Array<[string, unknown[]]> = [];
 
 vi.mock('../../../../core/data', () => ({
   DataProvider: {
-    getUserSummaries: async () => summaryDocs.map(d => ({ id: d.id, ...(d.data() as any) })),
+    getUserSummaries: async (...a: unknown[]) => { providerCalls.push(['summaries', a]); return summaryDocs.map(d => ({ id: d.id, ...(d.data() as any) })); },
     getUserEmbeddingsPaginated: async (_uid: string, limit: number, cursor?: string) => {
+      providerCalls.push(['embeddings', [_uid]]);
       const all = embeddingDocs;
       const start = cursor ? all.findIndex(d => d.id === cursor) + 1 : 0;
       const slice = all.slice(start, start + limit);
@@ -69,7 +71,7 @@ vi.mock('../../../../core/data', () => ({
         nextCursorId: slice.length === limit ? slice[slice.length - 1]?.id ?? null : null,
       };
     },
-    getLocalStoreRecords: async () => localStoreRecordsDocs,
+    getLocalStoreRecords: async (...a: unknown[]) => { providerCalls.push(['localStore', a]); return localStoreRecordsDocs; },
   },
 }));
 
@@ -122,6 +124,17 @@ describe('restoreAIDataFromCloud', () => {
     // whole free day. These cases exercise the restore itself, so they opt in.
     requestEmbeddingRestore('user_1');
     requestEmbeddingRestore('user-a');
+  });
+
+  // Разбор с компьютера доезжал до ноутбука только на следующий день: полный
+  // забор шёл раз в сутки. Инкрементальный — каждый фоновый проход.
+  it('incremental pull asks the cloud only for changes since the cursor and skips vectors', async () => {
+    providerCalls.length = 0;
+    requestEmbeddingRestore('user_1');
+    await restoreAIDataFromCloud('user_1', { sinceMs: 1_790_000_000_000 });
+    expect(providerCalls).toContainEqual(['summaries', ['user_1', 1_790_000_000_000]]);
+    expect(providerCalls).toContainEqual(['localStore', ['user_1', undefined, 1_790_000_000_000]]);
+    expect(providerCalls.some(([k]) => k === 'embeddings')).toBe(false);
   });
 
   it('restores local_store_records (aiPortrait, aiDialogues, lifeStory) when missing locally', async () => {

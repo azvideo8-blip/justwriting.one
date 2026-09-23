@@ -25,6 +25,14 @@ export interface VersionEncryptPayload {
   [key: string]: unknown;
 }
 
+// EA-16: запрет включён всегда, кроме тестов, которые явно выставляют
+// globalThis.__jwVaultOptionalForTests (общая настройка тестов: стенд
+// fault-injection и тесты ядра синхронизации моделируют вошедшего без сейфа).
+// Сам запрет проверяет vaultRequiredForAccounts.test.ts.
+function vaultRequiredForAccounts(): boolean {
+  return !(globalThis as { __jwVaultOptionalForTests?: boolean }).__jwVaultOptionalForTests;
+}
+
 export async function maybeEncrypt(
   doc: Record<string, unknown>,
   fields: string[],
@@ -43,6 +51,14 @@ export async function maybeEncrypt(
       }
     }
     const enabled = getEncryptionEnabled(userIdOrRequired);
+    // EA-16: у вошедшего пользователя облачная запись содержимого без сейфа
+    // невозможна. Раньше при сбое автосоздания сейфа (AuthService глотает
+    // ошибку, чтобы не ронять вход) документ уходил в облако открытым текстом.
+    // Запись остаётся локальной и в очереди, приложение предлагает создать сейф.
+    const isAccount = Boolean(userIdOrRequired) && !userIdOrRequired.startsWith('guest_') && userIdOrRequired !== 'guest';
+    if (vaultRequiredForAccounts() && isAccount && !enabled) {
+      throw new Error('ENCRYPT_REQUIRED: vault not set up');
+    }
     required = enabled;
     shouldEncrypt = enabled;
   }

@@ -1,4 +1,5 @@
 import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
+import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { AIChatMemoryService } from './AIChatMemoryService';
@@ -230,7 +231,7 @@ export const AIDialogueService = {
       const response = await AIService.chat({
         personaId: 'custom',
         callType: 'system_task',
-        customSystemPrompt: 'Составь 1-2 предложения: о чём был этот диалог и к какому выводу пришли. Только факты, без оценок.',
+        customSystemPrompt: SYSTEM_TASK_PROMPTS.dialogueSummary,
         messages: last10.map(m => ({ role: m.role, content: m.content })),
       });
 

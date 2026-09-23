@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { chatWithAILogic } from '../ai/chatWithAI.logic';
 import { generate } from '../ai/provider';
 import type { AiContext } from '../../src/shared/ai/context.js';
+import { SYSTEM_TASK_PROMPTS } from '../../src/shared/ai/systemTaskPrompts.js';
 
 vi.mock('../ai/provider', () => ({
   generate: vi.fn(),
@@ -81,12 +82,12 @@ describe('chatWithAI: callType не обходит лимиты', () => {
     await chatWithAILogic(ctx, 'user_1', {
       personaId: 'custom',
       callType: 'system_task',
-      customSystemPrompt: 'Сделай краткое резюме.',
+      customSystemPrompt: SYSTEM_TASK_PROMPTS.dialogueSummary, // EA-1: только из белого списка
       messages: msgs,
     });
 
     expect(generate).toHaveBeenCalledWith(expect.objectContaining({
-      system: 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.\n\nСделай краткое резюме.',
+      system: `Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.\n\n${SYSTEM_TASK_PROMPTS.dialogueSummary}`,
       maxTokens: 2048,
     }));
   });

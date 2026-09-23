@@ -11,7 +11,8 @@ import { type MigrationProgress } from '../../../core/crypto/encryptMigration';
 import { Section } from './SettingsHelpers';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { ChangeEncryptionPasswordButton, EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
+import { EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
+import { getCurrentUser, reauthenticate } from '../../../core/auth';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import { ConfirmModal } from '../../../shared/components/ConfirmModal';
 import { Button } from '../../../shared/components/Button';
@@ -86,6 +87,17 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     }
     setVaultLoading(true);
     setVaultError(null);
+
+    // D-28: один пароль — сейф создаётся только из пароля от аккаунта.
+    const email = getCurrentUser()?.email;
+    try {
+      if (!email) throw new Error('REAUTH_FAILED');
+      await reauthenticate(email, vaultPassword);
+    } catch {
+      setVaultError(t('enc_setup_wrong_account_password'));
+      setVaultLoading(false);
+      return;
+    }
 
     try {
       const { recoveryCode } = await EncryptionService.initializeEncryption(userId, vaultPassword);
@@ -379,7 +391,6 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             </div>
           )}
 
-          <ChangeEncryptionPasswordButton userId={userId} />
 
           {!migrationRunning && !migrationDone ? (
           <Button

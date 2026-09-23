@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { EncryptionPasswordModal } from '../EncryptionPasswordModal';
 
+// D-28: сейф создаётся только из пароля от аккаунта — проверка идёт повторным входом.
+const reauthenticate = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../../core/auth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../core/auth')>()),
+  getCurrentUser: () => ({ uid: 'user-1', email: 'user@example.com' }),
+  reauthenticate: (...a: unknown[]) => reauthenticate(...a),
+}));
+
 vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (k: string) => k }),
 }));
@@ -95,6 +103,21 @@ describe('EncryptionPasswordModal, режим создания сейфа', () =
   // TEST-1 §1.6: два клика в одном кадре — initializeEncryption ровно один
   // раз. Второй проход в противном случае перезаписал бы мету сейфа и
   // осиротил показанный код восстановления.
+  it('D-28: не создаёт сейф из пароля, который не подходит к аккаунту', async () => {
+    reauthenticate.mockRejectedValueOnce(new Error('REAUTH_FAILED'));
+    render(<EncryptionPasswordModal mode="setup" userId="u1" onDone={vi.fn()} />);
+
+    const fields = screen.getAllByPlaceholderText(/enc_new_password_placeholder|enc_confirm_password/);
+    for (const field of fields) fireEvent.change(field, { target: { value: 'not-my-account-pw' } });
+    await act(async () => {
+      screen.getByText('enc_setup_submit').closest('button')!.click();
+    });
+
+    expect(await screen.findByText('enc_setup_wrong_account_password')).toBeTruthy();
+    expect(reauthenticate).toHaveBeenCalledWith('user@example.com', 'not-my-account-pw');
+    expect(initializeEncryption).not.toHaveBeenCalled();
+  });
+
   it('двойной сабмит создания вызывает initializeEncryption один раз', async () => {
     let resolveInit: (v: { recoveryCode: string }) => void = () => {};
     initializeEncryption.mockImplementation(() => new Promise<{ recoveryCode: string }>(res => { resolveInit = res; }));

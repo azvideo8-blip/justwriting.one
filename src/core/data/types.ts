@@ -49,7 +49,7 @@ export interface IDataProvider {
   // --- AI Summary Operations ---
   getSummary(userId: string, documentId: string): Promise<ProviderRecord | null>;
   saveSummary(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
-  getUserSummaries(userId: string): Promise<ProviderRecord[]>;
+  getUserSummaries(userId: string, sinceMs?: number): Promise<ProviderRecord[]>;
   deleteSummary(userId: string, documentId: string): Promise<void>;
   deleteAllSummaries(userId: string): Promise<void>;
 
@@ -78,7 +78,7 @@ export interface IDataProvider {
   // --- Local Store Records Operations ---
   saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void>;
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
-  getLocalStoreRecords(userId: string, store?: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
+  getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStorePagedRecords?(userId: string, store: string, key: string): Promise<void>;

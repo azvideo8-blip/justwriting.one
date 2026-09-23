@@ -40,14 +40,14 @@ export async function deleteAllSummaries(userId: string): Promise<void> {
   if (error != null) throw error;
 }
 
-export async function getUserSummaries(userId: string): Promise<ProviderRecord[]> {
-  const allRows = await pageAll((from, to) =>
-    getSupabase()
+export async function getUserSummaries(userId: string, sinceMs?: number): Promise<ProviderRecord[]> {
+  const allRows = await pageAll((from, to) => {
+    let q = getSupabase()
       .from('ai_summaries')
       .select('*')
-      .eq('user_id', userId)
-      .order('document_id', { ascending: true })
-      .range(from, to),
-  );
+      .eq('user_id', userId);
+    if (sinceMs !== undefined) q = q.gt('processed_at', Math.floor(sinceMs));
+    return q.order('document_id', { ascending: true }).range(from, to);
+  });
   return allRows.map(row => fromDb(AI_SUMMARY_REV, row as Record<string, unknown>));
 }

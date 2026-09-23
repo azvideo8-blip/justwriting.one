@@ -1,4 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
+import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
 import { AIService } from './AIService';
 import { getCurrentUser } from '../../../core/auth';
 import { DataProvider } from '../../../core/data';
@@ -235,37 +236,36 @@ export const AIProfileService = {
       // summariser is instructed to keep them literal, for accurate retrieval
       // — see summarizeFacet.logic.ts's SYSTEM_PROMPT); this instruction is
       // what turns that into character traits before it ever reaches Markdown.
-      const abstractionRule = ' Описывай устойчивые черты характера, склонности и способы думать и чувствовать — а не конкретные события и обстоятельства. Не называй имена людей, места, даты, работодателей, диагнозы и прочую конкретику из заметок; встретив такую деталь во входных данных, обобщай её до свойства характера, которое за ней стоит (например, вместо «тяжело переживает развод с Иреной в 2019 году» — «тяжело переживает завершение значимых отношений»).';
 
       const sections = [
         {
           key: 'themes' as const,
           title: 'Темы и интересы',
-          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его главные темы и интересы (3-5 предложений, без заголовков и списков) — как области жизни и характер вовлечённости в них (любопытство, чувство долга, избегание), а не конкретные проекты или обстоятельства.${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
+          prompt: SYSTEM_TASK_PROMPTS.profileThemes,
           input: baseInput + styleBlock,
         },
         {
           key: 'emotional_patterns' as const,
           title: 'Эмоциональные паттерны',
-          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его эмоциональные тенденции и паттерны мышления (3-5 предложений, без заголовков и списков).${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
+          prompt: SYSTEM_TASK_PROMPTS.profileEmotionalPatterns,
           input: baseInput + styleBlock,
         },
         {
           key: 'strengths' as const,
           title: 'Сильные стороны',
-          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его психологические сильные стороны (3-5 предложений, без заголовков и списков).${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
+          prompt: SYSTEM_TASK_PROMPTS.profileStrengths,
           input: baseInput,
         },
         {
           key: 'growth' as const,
           title: 'Зоны роста',
-          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя опиши его зоны роста и направления развития (3-5 предложений, без заголовков и списков).${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
+          prompt: SYSTEM_TASK_PROMPTS.profileGrowth,
           input: baseInput,
         },
         {
           key: 'communication_prefs' as const,
           title: 'Стиль общения',
-          prompt: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя, метрик стиля письма и предпочтений в общении с ИИ составь описание его стиля общения и предпочтений в коммуникации (3-5 предложений, без заголовков и списков).${abstractionRule} НЕ рассуждай вслух — сразу результат в Markdown.`,
+          prompt: SYSTEM_TASK_PROMPTS.profileCommunication,
           input: baseInput + styleBlock + (preferences ? `\n\nПредпочтения: ${preferences}` : ''),
         },
       ];

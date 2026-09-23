@@ -10,6 +10,7 @@ import {
   SUPPORTED_LOCAL_STORES,
   SupportedLocalStoreName,
   MAX_LOCAL_RECORD_BYTES,
+  getPendingStoreDeleteKeys,
 } from '../../../core/services/LocalStoreSyncService';
 
 import { reportError } from '../../../shared/errors/reportError';
@@ -90,7 +91,13 @@ export interface AIRestoreResult {
  * Read-only against the cloud, and it never overwrites a local record that is
  * already there: a restore must not clobber work newer than the cloud copy.
  */
-export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreResult> {
+/**
+ * `sinceMs` — инкрементальный забор: только то, что изменилось на других
+ * устройствах после этой отметки (регулярный фоновый проход). Без него —
+ * полное восстановление (раз в день, после очистки устройства).
+ */
+export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: number }): Promise<AIRestoreResult> {
+  const sinceMs = opts?.sinceMs;
   const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false };
   if (!userId) return result;
 
@@ -107,7 +114,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
   try {
-    const docs = await DataProvider.getUserSummaries(userId);
+    const docs = await DataProvider.getUserSummaries(userId, sinceMs);
     for (const d of docs) {
       if (existingSummaries.has(d.id as string)) continue;
       try {
@@ -123,7 +130,7 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
 
   // --- Restore local_store_records (allowlisted AI stores) ---
   try {
-    const cloudRecords = await DataProvider.getLocalStoreRecords(userId);
+    const cloudRecords = await DataProvider.getLocalStoreRecords(userId, undefined, sinceMs);
 
     // Group cloud records by (store, baseKey)
     interface CloudGroupItem {
@@ -163,7 +170,10 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
       });
     }
 
+    // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
+    const pendingDeletes = getPendingStoreDeleteKeys(userId);
     for (const { store, baseKey, items } of grouped.values()) {
+      if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
       try {
         let fullJson: string;
         let cloudTs: number | null = null;
@@ -346,7 +356,8 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
     reportError(e, { action: 'restoreAIData_local_store_records', userId });
   }
 
-  try {
+  // Векторы — только при полном восстановлении: инкрементальный проход их не трогает.
+  if (sinceMs === undefined) try {
     // Records already in the cloud must not be queued for upload. Anything
     // whose content hash the cloud already holds is present there under SOME
     // key — re-attach re-keys locally and the hash finds it again after a wipe,
@@ -422,7 +433,9 @@ export async function restoreAIDataFromCloud(userId: string): Promise<AIRestoreR
       parts.push(`ошибок: ${result.failed}`);
     }
     useActivityLogStore.getState().addActivity(
-      `Анализ восстановлен из облака (${parts.join(', ')})`,
+      sinceMs !== undefined
+        ? `Получено с других устройств (${parts.join(', ')})`
+        : `Анализ восстановлен из облака (${parts.join(', ')})`,
       { action: 'restoreAIDataFromCloud', ...result },
       result.oversized || result.failed ? 'warning' : 'info',
       'ai'

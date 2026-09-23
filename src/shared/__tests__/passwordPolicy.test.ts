@@ -50,9 +50,11 @@ describe('password length policy (D-11)', () => {
     expect(offenders, `подсказки про «минимум 6» больше нет: ${offenders.join(', ')}`).toEqual([]);
   });
 
-  it('vault hint says eight characters in both languages', () => {
-    const ru = readFileSync(join(ROOT, 'shared/i18n/translations/settings.ts'), 'utf8');
-    const line = ru.split('\n').find(l => l.includes('settings_initialize_password'));
+  // D-28: поле создания сейфа — это пароль от аккаунта; правило длины живёт
+  // в подсказке нового пароля (восстановление по коду).
+  it('new-password hint says eight characters in both languages', () => {
+    const ru = readFileSync(join(ROOT, 'shared/i18n/translations/common.ts'), 'utf8');
+    const line = ru.split('\n').find(l => l.includes('enc_new_password_placeholder'));
     expect(line).toContain('8');
     expect(line).not.toMatch(/6/);
   });

@@ -26,6 +26,8 @@ import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
 const IDLE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 120_000;
+const PULL_CLOCK_SKEW_MS = 30 * 60_000;
+const PULL_FIRST_WINDOW_MS = 24 * 60 * 60_000;
 
 export function useBackgroundSync(): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -82,6 +84,21 @@ export function useBackgroundSync(): void {
       // Каждый проход, а не однократно: заметки приезжают из облака по одной,
       // и приехавшая позже всё ещё должна найти свой разбор. Дёшево, когда
       // осиротевшего ничего нет — выходит до всякого хеширования.
+      // Разбор и диалоги, сделанные на другом устройстве, забираем каждый проход,
+      // а не раз в день: раньше разбор с компьютера доезжал до ноутбука только
+      // на следующие сутки. Берём изменённое после прошлого забора с запасом на
+      // расхождение часов устройств (updatedAt — по часам устройства-источника);
+      // повторно забранное безвредно — восстановление идемпотентно.
+      try {
+        const pullKey = `ai_pull_since_${uid}`;
+        const startedAt = Date.now();
+        const last = Number(localStorage.getItem(pullKey)) || startedAt - PULL_FIRST_WINDOW_MS;
+        const pulled = await restoreAIDataFromCloud(uid, { sinceMs: last - PULL_CLOCK_SKEW_MS });
+        if (!pulled.skippedLocked) localStorage.setItem(pullKey, String(startedAt));
+      } catch (e) {
+        reportError(e, { action: 'backgroundSync_pullAIData' });
+      }
+
       try {
         await reattachOrphanedAnalysis();
       } catch (e) {

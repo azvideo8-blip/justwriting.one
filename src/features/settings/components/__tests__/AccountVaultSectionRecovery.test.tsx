@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AccountVaultSection } from '../AccountVaultSection';
 
+// D-28: сейф создаётся только из пароля от аккаунта — проверка идёт повторным входом.
+const reauthenticate = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../../core/auth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../core/auth')>()),
+  getCurrentUser: () => ({ uid: 'user-1', email: 'user@example.com' }),
+  reauthenticate: (...a: unknown[]) => reauthenticate(...a),
+}));
+
 vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (k: string) => k }),
 }));
@@ -48,7 +56,6 @@ vi.mock('../../../../core/crypto/encrypt', () => ({
 vi.mock('../../../../core/crypto/keyVaultCache', () => ({ clearDeviceKey: vi.fn() }));
 
 vi.mock('../../../../app/EncryptionPasswordModal', () => ({
-  ChangeEncryptionPasswordButton: () => null,
   EncryptionPasswordModal: () => null,
 }));
 

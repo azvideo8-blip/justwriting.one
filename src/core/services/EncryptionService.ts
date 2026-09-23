@@ -1,3 +1,4 @@
+import { takePendingLoginPassword, clearPendingLoginPassword } from '../crypto/pendingLoginPassword';
 import {
   deriveMasterKey,
   generateDataKey,
@@ -173,12 +174,28 @@ export async function unlockVault(userId: string, password: string): Promise<voi
 
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
+
+  // D-28: сейф открыли не тем паролем, которым вошли (пароль входа сбросили по
+  // почте) — перешифровываем сейф паролем входа, и пароли снова одинаковые.
+  const loginPassword = takePendingLoginPassword(userId);
+  if (loginPassword && loginPassword !== password) {
+    try {
+      await rewrapVaultPassword(userId, password, loginPassword);
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(VAULT_PASSWORD_CONVERGED_EVENT));
+    } catch (e) {
+      // Сейф уже открыт — неудача сведения не повод его закрывать; попробуем при следующем входе.
+      reportError(e, { action: 'unlockVault_convergePassword', userId }, 'warning');
+    }
+  }
+
   try {
     const { SyncService } = await import('./SyncService');
     await SyncService.reviveLockedTasks(userId);
     void SyncService.syncPending(userId);
   } catch { /* non-critical */ }
 }
+
+export const VAULT_PASSWORD_CONVERGED_EVENT = 'vault-password-converged';
 
 export async function recoverVaultWithCode(
   userId: string,
@@ -234,6 +251,8 @@ export async function recoverVaultWithCode(
     void SyncService.syncPending(userId);
   } catch { /* non-critical */ }
 
+  // Восстановление ставит новый пароль и на сейф, и на вход — они снова одинаковые.
+  clearPendingLoginPassword(userId);
   if (getCurrentUser()) {
     try {
       await updateUserPassword(newPassword);
@@ -301,6 +320,23 @@ export function lockVault(_userId: string): void {
 }
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+  await rewrapVaultPassword(userId, currentPassword, newPassword);
+  clearPendingLoginPassword(userId);
+
+  if (getCurrentUser()) {
+    try {
+      await updateUserPassword(newPassword);
+    } catch (e) {
+      reportError(e, { action: 'changePassword_updateUserPassword', userId });
+    }
+  }
+}
+
+/**
+ * Перешифровать ключ сейфа новым паролем, не трогая пароль входа. Ключ данных
+ * не меняется, поэтому заметки перешифровывать не нужно.
+ */
+async function rewrapVaultPassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
   const meta = await getEncryptionMeta(userId);
   if (!meta) throw new Error('Encryption not configured');
 
@@ -339,14 +375,6 @@ export async function changePassword(userId: string, currentPassword: string, ne
   });
 
   setSessionKey(dataKey);
-
-  if (getCurrentUser()) {
-    try {
-      await updateUserPassword(newPassword);
-    } catch (e) {
-      reportError(e, { action: 'changePassword_updateUserPassword', userId });
-    }
-  }
 }
 
 /**

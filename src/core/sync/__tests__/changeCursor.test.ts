@@ -155,6 +155,22 @@ describe('SYNC-CURSOR-2: changeCursor', () => {
       expect(getStoredCursor(userId)).toBe(ts);
     });
 
+    // EA-4: проходы сообщают о сбоях значением, а не исключением.
+    it.each([
+      ['locked vault', { downloaded: 0, skipped: 0, failed: 0, locked: true }, { reconciled: 0, skipped: 0, failed: 0 }],
+      ['a failed download', { downloaded: 3, skipped: 0, failed: 1 }, { reconciled: 0, skipped: 0, failed: 0 }],
+      ['a failed reconcile', { downloaded: 0, skipped: 0, failed: 0 }, { reconciled: 0, skipped: 0, failed: 2 }],
+    ])('does not advance the cursor after %s', async (_name, down, rec) => {
+      const oldTs = '2026-09-19T10:00:00.000Z';
+      setStoredCursor(userId, oldTs);
+      await checkAndSyncCursor(userId, {
+        downloadAll: vi.fn().mockResolvedValue(down),
+        reconcileLinked: vi.fn().mockResolvedValue(rec),
+        fetchServerCursorFn: vi.fn().mockResolvedValue('2026-09-19T14:00:00.000Z'),
+      });
+      expect(getStoredCursor(userId)).toBe(oldTs);
+    });
+
     it('Server value ahead — both are called, and cursor advances only after they resolve', async () => {
       const oldTs = '2026-09-19T10:00:00.000Z';
       const newTs = '2026-09-19T14:00:00.000Z';

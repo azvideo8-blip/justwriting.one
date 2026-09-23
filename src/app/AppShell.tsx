@@ -7,6 +7,8 @@ import { useLanguage } from '../shared/i18n';
 import { cn } from '../core/utils/utils';
 import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useSyncStatus } from '../core/sync/useSyncStatus';
+import { useToast } from '../shared/components/Toast';
+import { VAULT_PASSWORD_CONVERGED_EVENT } from '../core/services/EncryptionService';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -54,6 +56,14 @@ export function AppShell() {
   useEffect(() => {
     setupGlobalErrorListeners();
   }, []);
+
+  // D-28: после сброса пароля по почте сейф перешифрован паролем входа.
+  const { showToast } = useToast();
+  useEffect(() => {
+    const onConverged = () => showToast(t('enc_password_converged'), 'success');
+    window.addEventListener(VAULT_PASSWORD_CONVERGED_EVENT, onConverged);
+    return () => window.removeEventListener(VAULT_PASSWORD_CONVERGED_EVENT, onConverged);
+  }, [showToast, t]);
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';

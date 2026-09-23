@@ -1,1 +1,1 @@
-export { EncryptionPasswordModal, ChangeEncryptionPasswordButton } from '../features/encryption/components/EncryptionPasswordModal';
+export { EncryptionPasswordModal } from '../features/encryption/components/EncryptionPasswordModal';

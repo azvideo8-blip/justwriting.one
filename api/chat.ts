@@ -405,6 +405,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       reasoning: parsed.data.reasoning,
       documentContent: parsed.data.documentContent,
       userPortrait: parsed.data.userPortrait,
+      customSystemPrompt: parsed.data.customSystemPrompt,
       messages: parsed.data.messages,
     });
     isInternalCall = policyResult.isInternal;
