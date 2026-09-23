@@ -11,8 +11,13 @@ const MAX_PER_WINDOW = 10;
 const hits = new Map<string, number[]>();
 
 export function clientIp(req: { headers: Record<string, unknown>; socket?: { remoteAddress?: string | undefined } }): string {
+  // EA-12: первый адрес X-Forwarded-For задаёт клиент — подделать его и обойти
+  // лимит можно одним заголовком. nginx ставит X-Real-IP = $remote_addr и
+  // дописывает реальный адрес в конец X-Forwarded-For.
+  const real = req.headers['x-real-ip'];
+  if (typeof real === 'string' && real.length > 0) return real.trim();
   const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',')[0]!.trim();
+  if (typeof fwd === 'string' && fwd.length > 0) return fwd.split(',').pop()!.trim();
   return req.socket?.remoteAddress ?? 'unknown';
 }
 

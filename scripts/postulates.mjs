@@ -86,6 +86,9 @@ export function entryVal(table, col, cols = ENC_COLS) {
 export function evaluateMatrixResults(results) {
   let anyFalse = false;
   const violations = [];
+  // EA-7: ячейка, которая упала и ничего не вернула, — не «не нарушено».
+  const brokenCells = results.filter(r => !r || typeof r !== 'object').length;
+  results = results.filter(r => r && typeof r === 'object');
 
   for (const r of results) {
     if (r.p1Held === false || r.p2Held === false || r.p3Held === false || r.p4Held === false) {
@@ -110,7 +113,11 @@ export function evaluateMatrixResults(results) {
     return c;
   });
 
-  return { success: !anyFalse, totalCells: results.length, violations, tally };
+  // EA-7: зелёный вердикт без единого измерения — не зелёный. Пустая матрица,
+  // сломанные ячейки или постулат, который не удалось проверить ни разу, — провал.
+  const unmeasured = tally.map((c, i) => (c.held + c.violated === 0 ? i + 1 : null)).filter(Boolean);
+  const incomplete = results.length === 0 || brokenCells > 0 || unmeasured.length > 0;
+  return { success: !anyFalse && !incomplete, totalCells: results.length, brokenCells, unmeasured, violations, tally };
 }
 
 export async function runLifecycleMatrix() {
@@ -356,7 +363,13 @@ export async function runDatabaseSweep(databaseUrl, options = {}) {
 
 export async function main() {
   const matrixRes = await runLifecycleMatrix();
-  const dbRes = await runDatabaseSweep(process.env.DATABASE_URL);
+  // EA-7: --require-db — пропущенный обход базы или пропущенная в нём проверка
+  // считаются провалом, а не «не запускали».
+  const requireDb = process.argv.includes('--require-db');
+  const dbResRaw = await runDatabaseSweep(process.env.DATABASE_URL);
+  const dbRes = requireDb && (!dbResRaw.checked || dbResRaw.skipped > 0)
+    ? { ...dbResRaw, success: false, totalViolations: dbResRaw.totalViolations ?? 0 }
+    : dbResRaw;
 
   console.log('\n================================================================');
   console.log('VERDICT');
@@ -398,10 +411,14 @@ export async function main() {
   } else {
     console.log('RESULT: FAILED');
     if (!matrixRes.success) {
-      console.log(`  - Part 1 (Matrix runner) failed: ${matrixRes.violations.length} violation(s) found`);
+      console.log(`  - Part 1 (Matrix runner) failed: ${matrixRes.violations.length} violation(s), ${matrixRes.brokenCells} broken cell(s)` +
+        (matrixRes.unmeasured.length ? `, never measured: P${matrixRes.unmeasured.join(', P')}` : '') +
+        (matrixRes.totalCells === 0 ? ', empty matrix' : ''));
     }
     if (!dbRes.success) {
-      console.log(`  - Part 2 (Database sweep) failed: ${dbRes.totalViolations} violation(s) found`);
+      console.log(!dbRes.checked
+        ? '  - Part 2 (Database sweep) required (--require-db) but NOT RUN — set DATABASE_URL'
+        : `  - Part 2 (Database sweep) failed: ${dbRes.totalViolations} violation(s), ${dbRes.skipped ?? 0} skipped check(s)`);
     }
     process.exit(1);
   }

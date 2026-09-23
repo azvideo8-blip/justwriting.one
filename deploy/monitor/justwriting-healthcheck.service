@@ -4,6 +4,8 @@ After=docker.service
 
 [Service]
 Type=oneshot
+# MONITOR_ALERT_TO=<адрес для тревог> — в /etc/justwriting/monitor.env (не в репозитории)
+EnvironmentFile=-/etc/justwriting/monitor.env
 ExecStart=/opt/justwriting/monitor/healthcheck.py
 StandardOutput=journal
 StandardError=journal

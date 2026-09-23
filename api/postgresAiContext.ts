@@ -4,7 +4,8 @@
 
 import type { AiContext, GlobalReservation, LimitVerdict } from '../src/shared/ai/context.js';
 import { AI_CONSENT_VERSION_REQUIRED } from '../src/shared/ai/consentVersion.js';
-import { DAILY_LIMIT } from './ai/pure';
+// EA-10: ADMIN_DAILY_LIMIT — одно число с заголовками квоты, иначе админ видел x/60, а упирался в 20.
+import { DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 
 import { pool } from './db';
 
@@ -78,7 +79,6 @@ async function refundGlobalRequest(res: GlobalReservation | { error: 'unavailabl
 
 // ── Per-user daily limit ─────────────────────────────────────────────────────
 const PER_USER_LIMIT = parseInt(process.env.AI_DAILY_LIMIT ?? String(DAILY_LIMIT), 10);
-const ADMIN_DAILY_LIMIT = parseInt(process.env.AI_ADMIN_DAILY_LIMIT ?? '20', 10);
 
 // Версии согласий. AI_CONSENT_VERSION_REQUIRED — общая с клиентом константа
 // (src/shared/ai/consentVersion.ts): сервер сверяет колонку версии, и собственное

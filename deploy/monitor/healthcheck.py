@@ -14,7 +14,11 @@ from pathlib import Path
 
 STATE = Path('/var/lib/justwriting-monitor/state.json')
 REPEAT_AFTER = 12 * 3600
-TO = 'owner@example.invalid'
+# EA-2: адрес получателя — из окружения (EnvironmentFile в unit), не из репозитория.
+TO = os.environ.get('MONITOR_ALERT_TO', '')
+if not TO:
+    print('MONITOR_ALERT_TO не задан — некому слать тревоги', file=sys.stderr)
+    sys.exit(2)
 
 def sh(cmd):
     return subprocess.run(cmd, shell=True, capture_output=True, text=True).stdout.strip()

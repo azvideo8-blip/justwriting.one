@@ -220,6 +220,12 @@ async function prerenderWithPlaywright(originalHtml: string, spaHtml: string): P
           // networkidle timeout is non-fatal
         }
         await p.waitForTimeout(1000);
+        // EA-8: '#root > *' удовлетворяет и экран «Что-то пошло не так» — такую
+        // страницу нельзя записывать в dist как SEO-версию (/privacy, /terms…).
+        // Отсутствие браузера по-прежнему не фатально, а отрисованная ошибка — да.
+        if (await p.$('[data-testid^="error-boundary"]')) {
+          throw new Error(`prerender: ${page.path} rendered the error boundary instead of the page`);
+        }
         const html = await p.content();
         writePage(page, html);
         console.log(`  prerender: ${page.path} (Playwright)`);

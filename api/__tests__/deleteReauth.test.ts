@@ -31,8 +31,9 @@ describe('AUD-20 server-side re-auth gate', () => {
     )).toBe(false);
   });
 
-  it('does not lock deletion out when the token carries no amr claim', () => {
-    // Сборка GoTrue без claim'а: судить нечем, клиентская проверка остаётся.
-    expect(passwordRecentlyVerified(session({}))).toBe(true);
+  it('refuses deletion when the token carries no amr claim (EA-12)', () => {
+    // Удаление необратимо: «не знаю, когда вводили пароль» означает «нет».
+    // GoTrue (v2.189, v2.196) выдаёт amr всегда.
+    expect(passwordRecentlyVerified(session({}))).toBe(false);
   });
 });

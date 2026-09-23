@@ -75,7 +75,8 @@ export async function handleAiEndpoint(
   uid: string,
   payload: unknown,
 ): Promise<EndpointResult> {
-  const logicFn = LOGIC_MAP[endpoint];
+  // EA-12: только собственные ключи — иначе /api/toString находил Function.prototype.toString.
+  const logicFn = Object.hasOwn(LOGIC_MAP, endpoint) ? LOGIC_MAP[endpoint] : undefined;
   if (!logicFn) {
     return { status: 404, body: { error: `AI endpoint '${endpoint}' not found.` } };
   }

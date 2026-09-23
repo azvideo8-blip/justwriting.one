@@ -74,12 +74,15 @@ jobs:
 
       - name: Ключ доступа
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
+          # EA-11: раннер живёт на проде — ключ во временном каталоге прогона,
+          # а не в ~/.ssh пользователя, и удаляется в конце при любом исходе.
+          umask 077
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > "$RUNNER_TEMP/deploy_key"
           # Отпечаток хоста заранее, а не TOFU: иначе первый же перехват
           # соединения останется незамеченным.
-          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > "$RUNNER_TEMP/known_hosts"
+          echo "DEPLOY_SSH=ssh -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
+          echo "DEPLOY_SCP=scp -i $RUNNER_TEMP/deploy_key -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
 
       - name: Сборка клиента
         if: inputs.what != 'api'
@@ -114,33 +117,37 @@ jobs:
       - name: Выкатка клиента
         if: inputs.what != 'api'
         run: |
-          rsync -az --delete -e "ssh -i ~/.ssh/id_ed25519" dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/dist-new/
+          # EA-11: свой каталог (mktemp, 0700), а не общий предсказуемый /tmp/dist-new.
+          REMOTE_DIR=$($DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mktemp -d /tmp/jw-dist.XXXXXX')
+          rsync -az --delete -e "$DEPLOY_SSH" dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/
           # Без --delete: страница, открытая до выкатки, продолжает подгружать
           # куски своего бандла. Удаление ломает приложение у того, кто в этот
           # момент пишет. Имена кусков содержат хэш, поэтому старые и новые не
           # мешают друг другу; лишнее подчищается по возрасту.
           # Перед копированием сохраняем index.html и sw.js для полного отката.
-          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
             if [ -f /var/www/justwriting/index.html ]; then
               sudo cp /var/www/justwriting/index.html /var/www/justwriting/index.html.prev;
             fi &&
             if [ -f /var/www/justwriting/sw.js ]; then
               sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev;
             fi &&
-            sudo rsync -a /tmp/dist-new/ /var/www/justwriting/ &&
+            sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/ &&
             sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || true;
             sudo chown -R www-data:www-data /var/www/justwriting;
-            sudo find /var/www/justwriting/assets -type f -mtime +14 -delete'
+            sudo find /var/www/justwriting/assets -type f -mtime +14 -delete;
+            rm -rf "$REMOTE_DIR"
+          REMOTE
 
       - name: Сборка и выкатка службы
         if: inputs.what != 'client'
         run: |
           npx esbuild api/server.ts --bundle --platform=node --format=esm \
-            --target=node20 --packages=external --outfile=/tmp/server.mjs
+            --target=node20 --packages=external --outfile="$RUNNER_TEMP/server.mjs"
           # Firebase в бандле означает, что служба не поднимется: на сервере
           # этого пакета нет и быть не должно. Дешевле поймать здесь.
-          if grep -q firebase /tmp/server.mjs; then
+          if grep -q firebase "$RUNNER_TEMP/server.mjs"; then
             echo "в бандле есть firebase — выкатка остановлена" >&2
             exit 1
           fi
@@ -150,7 +157,7 @@ jobs:
           # а в package.json службы её не было. Сверяем до выкатки.
           node -e '
             const fs = require("fs");
-            const bundle = fs.readFileSync("/tmp/server.mjs", "utf8");
+            const bundle = fs.readFileSync(process.env.RUNNER_TEMP + "/server.mjs", "utf8");
             const declared = new Set(Object.keys(
               JSON.parse(fs.readFileSync("deploy/api-package.json", "utf8")).dependencies
             ));
@@ -166,20 +173,24 @@ jobs:
             }
             console.log("все внешние импорты бандла объявлены");
           '
-          scp -i ~/.ssh/id_ed25519 /tmp/server.mjs \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/server.mjs
-          scp -i ~/.ssh/id_ed25519 deploy/api-package.json \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/api-package.json
-          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          # EA-11: свой каталог (mktemp, 0700), а не общие /tmp/server.mjs и /tmp/api-package.json.
+          REMOTE_DIR=$($DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mktemp -d /tmp/jw-api.XXXXXX')
+          $DEPLOY_SCP "$RUNNER_TEMP/server.mjs" \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/server.mjs
+          $DEPLOY_SCP deploy/api-package.json \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package.json
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
             sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev &&
-            sudo cp /tmp/api-package.json /opt/justwriting/api/package.json &&
+            sudo cp "$REMOTE_DIR"/api-package.json /opt/justwriting/api/package.json &&
             sudo chown justwriting:justwriting /opt/justwriting/api/package.json &&
             sudo -u justwriting env npm_config_cache=/opt/justwriting/api/.npm-cache \
               npm install --prefix /opt/justwriting/api --omit=dev --no-audit --no-fund &&
-            sudo cp /tmp/server.mjs /opt/justwriting/api/server.mjs &&
+            sudo cp "$REMOTE_DIR"/server.mjs /opt/justwriting/api/server.mjs &&
             sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
+            rm -rf "$REMOTE_DIR" &&
             sudo systemctl restart justwriting && sleep 5 &&
-            systemctl is-active --quiet justwriting'
+            systemctl is-active --quiet justwriting
+          REMOTE
 
       - name: Проверка после выкатки
         env:
@@ -192,7 +203,7 @@ jobs:
       - name: Откат службы при сбое
         if: failure() && inputs.what != 'client'
         run: |
-          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             if [ -f /opt/justwriting/api/server.mjs.prev ]; then
               sudo cp /opt/justwriting/api/server.mjs.prev /opt/justwriting/api/server.mjs &&
               sudo systemctl restart justwriting && echo "откат службы выполнен"
@@ -204,7 +215,7 @@ jobs:
       - name: Откат клиента при сбое
         if: failure() && inputs.what != 'api'
         run: |
-          ssh -i ~/.ssh/id_ed25519 ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             if [ -f /var/www/justwriting/index.html.prev ]; then
               sudo cp /var/www/justwriting/index.html.prev /var/www/justwriting/index.html;
             fi &&
@@ -213,3 +224,7 @@ jobs:
             fi &&
             sudo chown www-data:www-data /var/www/justwriting/index.html /var/www/justwriting/sw.js 2>/dev/null || true;
             echo "откат клиента выполнен: восстановлены index.html.prev и sw.js.prev"'
+
+      - name: Убрать ключ доступа
+        if: always()
+        run: rm -f "$RUNNER_TEMP/deploy_key" "$RUNNER_TEMP/known_hosts" "$RUNNER_TEMP/server.mjs"

@@ -14,10 +14,9 @@ const JWT_ISSUER = process.env.SUPABASE_JWT_ISS;
 // AUDIT-L4: явный флаг вместо эвристики по NODE_ENV/DATABASE_URL. Но флаг
 // РЕШАЕТ, а не ВКЛЮЧАЕТ: если его нет, остаётся прежняя эвристика.
 //
-// Чистое `REQUIRE_JWT_ISSUER === 'true'` сняло бы проверку на боевом сервере
-// прямо сейчас — там в окружении службы нет ни этой переменной, ни
-// NODE_ENV=production, и стартовый предохранитель просто перестал бы срабатывать.
-// Правка, задуманная против дрейфа конфига, сама стала бы этим дрейфом.
+// На боевом сервере служба задаёт NODE_ENV=production (deploy/justwriting.service),
+// так что эвристика включает проверку; флаг нужен, чтобы решение не зависело
+// от того, откуда процесс получил окружение.
 // Явное 'false' по-прежнему позволяет отключить проверку сознательно.
 const REQUIRE_ISSUER_FLAG = process.env.REQUIRE_JWT_ISSUER;
 const looksLikeDeployment = process.env.NODE_ENV === 'production'
@@ -85,14 +84,14 @@ export async function verifyJwt(token: string, secret: string): Promise<Session 
  * токен: там записано, каким методом и КОГДА человек аутентифицировался,
  * и обновление токена по refresh-токену эту отметку не двигает.
  *
- * Если `amr` в токене нет (старая или иначе собранная сборка GoTrue), гейт
- * пропускает: сломать удаление аккаунта всем ради проверки, которой может не
- * быть данных, хуже, чем оставить здесь клиентскую защиту. Отсутствие claim'а
- * подделать нельзя — токен подписан.
+ * Если `amr` в токене нет — отказ (EA-12): GoTrue (проверено на v2.189 и
+ * v2.196) выдаёт его всегда, а удаление аккаунта необратимо — «не знаю» здесь
+ * должно означать «нет». Клиент перед удалением заново входит паролем, так что
+ * свежая отметка в токене есть.
  */
 export function passwordRecentlyVerified(session: Session, maxAgeSec = 300): boolean {
   const amr = session.claims.amr;
-  if (!Array.isArray(amr) || amr.length === 0) return true; // claim не выдаётся — судить нечем
+  if (!Array.isArray(amr) || amr.length === 0) return false;
   const now = Math.floor(Date.now() / 1000);
   return amr.some((entry) => {
     if (!entry || typeof entry !== 'object') return false;

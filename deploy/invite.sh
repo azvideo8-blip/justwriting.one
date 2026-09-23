@@ -17,6 +17,10 @@ case "$EMAIL" in
     *@*.*) ;;
     *) echo "использование: invite.sh <email>" >&2; exit 1 ;;
 esac
+# EA-12: адрес подставляется в JSON — кавычки, обратные слэши и пробелы не пускаем.
+if ! [[ "$EMAIL" =~ ^[^[:space:]\"\\]+@[^[:space:]\"\\]+$ ]]; then
+    echo "некорректный адрес: $EMAIL" >&2; exit 1
+fi
 
 ENV_FILE=/opt/justwriting/supabase/.env
 SERVICE_ROLE_KEY=$(grep -E '^SERVICE_ROLE_KEY=' "$ENV_FILE" | cut -d= -f2- | tr -d '"')
@@ -42,18 +46,23 @@ if ! echo "$TEMPLATE_CONTENT" | grep -q "token_hash"; then
 fi
 
 # Через свой же nginx → Kong: тот же путь, что у клиента, никаких внутренних портов.
-HTTP_CODE=$(curl -sS -o /tmp/invite-response.json -w '%{http_code}' \
+# EA-12: ответ — во временный файл только для нас (не общий /tmp/invite-response.json),
+# ключ — в конфиге curl со stdin, а не в аргументах (их видно в ps любому пользователю).
+RESPONSE=$(mktemp)
+trap 'rm -f "$RESPONSE"' EXIT
+HTTP_CODE=$(curl -sS -o "$RESPONSE" -w '%{http_code}' --config - \
     -X POST "https://justwriting.ru/auth/v1/invite" \
-    -H "apikey: $SERVICE_ROLE_KEY" \
-    -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
     -H "Content-Type: application/json" \
-    -d "{\"email\":\"$EMAIL\"}")
+    -d "{\"email\":\"$EMAIL\"}" <<CURLCFG
+header = "apikey: $SERVICE_ROLE_KEY"
+header = "Authorization: Bearer $SERVICE_ROLE_KEY"
+CURLCFG
+)
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo "приглашение отправлено: $EMAIL"
 else
     # В теле нет секретов — только сообщение GoTrue (например, «уже зарегистрирован»).
-    echo "GoTrue ответил $HTTP_CODE: $(cat /tmp/invite-response.json)" >&2
+    echo "GoTrue ответил $HTTP_CODE: $(cat "$RESPONSE")" >&2
     exit 1
 fi
-rm -f /tmp/invite-response.json

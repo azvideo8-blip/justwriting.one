@@ -32,6 +32,17 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(res.stdout).not.toContain('All four postulates hold');
   }, 80000);
 
+  // EA-7: «NO VIOLATIONS» без единого измерения — не зелёный вердикт.
+  it('evaluateMatrixResults fails an empty, broken or never-measured matrix', () => {
+    expect(evaluateMatrixResults([]).success).toBe(false);
+    const allHeld = { sequence: 's', fault: 'none', step: 'x', vaultEnabled: true, p1Held: true, p2Held: true, p3Held: true, p4Held: true };
+    expect(evaluateMatrixResults([allHeld]).success).toBe(true);
+    expect(evaluateMatrixResults([allHeld, undefined]).success).toBe(false);
+    const p2Never = { ...allHeld, p2Held: undefined };
+    expect(evaluateMatrixResults([p2Never]).success).toBe(false);
+    expect(evaluateMatrixResults([p2Never]).unmeasured).toEqual([2]);
+  });
+
   it('scripts/postulates.mjs evaluateMatrixResults flags violations (POST-4 falsification)', () => {
     const brokenResults = [
       {

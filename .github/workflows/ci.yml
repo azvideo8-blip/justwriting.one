@@ -35,6 +35,10 @@ jobs:
     - name: Raw overlay gate (AUDIT-part2 3.1, AG-GATE-1)
       run: bash scripts/raw-overlay-check.sh
     - run: npm run test:ci
+    # EA-8: браузер ставится ДО сборки — иначе пререндер внутри build молча
+    # пропускался, и бюджет размера мерил не ту сборку, что уезжает на сервер.
+    - name: Install Playwright
+      run: npx playwright install chromium
     - run: npm run build
     - name: Bundle size report
       run: |
@@ -97,10 +101,8 @@ jobs:
         echo "index gzip (largest chunk): $biggest_gz"
         [ "$biggest_gz" -gt "$MAX_INDEX_GZ" ] && { echo "::error::largest index chunk gzip $biggest_gz > $MAX_INDEX_GZ"; fail=1; }
         exit $fail
-    - name: Install Playwright
-      run: npx playwright install chromium
     - name: E2E Tests
-      run: npm run build && npx playwright test --project=chromium
+      run: npx playwright test --project=chromium
   # Сравнение размера бандла живёт отдельно от гейтов корректности намеренно.
   # Раньше оно стояло в середине job build и переключало checkout на main
   # (git checkout <ref> -- . перезаписывает индекс, поэтому git checkout -- .
