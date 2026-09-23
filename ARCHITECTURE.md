@@ -30,12 +30,13 @@ synchronised to Postgres afterwards.
 - `src/core/` — infrastructure shared across features: Supabase client, crypto,
   IndexedDB schema, data provider, errors, sync, theme.
 - `src/features/` — domain modules: `admin`, `ai`, `archive`, `auth`,
-  `calendar`, `encryption`, `export`, `navigation`, `profile`, `settings`,
-  `sync`, `writing`.
+  `encryption`, `navigation`, `profile`, `settings`, `writing`.
 - `src/shared/` — stateless UI, design system, pure utilities, prompt sources.
 - `api/` — the server: `server.ts` (routing), `dispatcher.ts` + `handlers.ts`
   (the non-streaming AI endpoints), `chat.ts` (streaming chat), `auth.ts` (JWT
-  verification), `account.ts` (deletion and telemetry), `ai/` (the AI logic).
+  verification), `account.ts` (deletion and telemetry), `postgresAiContext.ts`
+  (consent checks and AI limits in Postgres), `admin/` (invites, user list),
+  `ai/` (the AI logic).
 - `supabase/` — migrations, RLS policies, and the SQL test suite.
 
 The contents of `src/core/services/` are deliberately not listed here. A
@@ -73,58 +74,30 @@ flowchart TD
 
 ## Layer boundaries
 
-Four rules, enforced by `import/no-restricted-paths` in `eslint.config.js`:
+Enforced by `import/no-restricted-paths` in `eslint.config.js`:
 
-| Rule | Enforced | Violations |
-|---|---|---|
-| `shared` must not import `core` or `features` | yes | 2, each an explicit opt-out |
-| `core` must not import `features` | yes | 5, each an explicit opt-out |
-| `features/auth` must not import other features | yes | 0 |
-| `features/calendar` must not import other features | yes | 0 |
+| Rule | Opt-outs |
+|---|---|
+| `shared` must not import `core` or `features` | 0 |
+| `core` must not import `features` | 0 |
+| a feature must not import another feature, except `features/auth` | 0 |
+| `features/auth` must not import any other feature | 0 |
+
+`features/auth` is the one sanctioned exception: the session provider every
+feature consumes. Imports from the composition layer (`src/app/*`) into
+features are not violations: wiring the app together is that layer's job.
+There is no `eslint-disable` for this rule anywhere in `src/`.
 
 The rule is switched off for test files, so a test reaching across a boundary is
-not a violation and will not show up in these counts.
+not a violation.
 
-### Cross-feature imports are held by a ratchet
+`scripts/cross-feature-check.sh` runs in CI as a second guard and fails above
+the count in `scripts/cross-feature-baseline.txt`, which is 0.
 
-Cross-feature imports inside `src/features/` (~48 across ~35 files as of
-2026-08-26) cannot grow: `scripts/cross-feature-check.sh` fails CI above the
-count in `scripts/cross-feature-baseline.txt`. The per-feature
-`import/no-restricted-paths` zones are written in `eslint.config.js` but stay
-disabled until the count reaches zero; the sanctioned exception will be
-`features/auth` — the session domain provider every feature legitimately
-consumes. Imports from the composition layer (`src/app/*`) into features are
-not violations: wiring the app together is that layer's job.
-
-Detection note (AUDIT-part3 9): the first ratchet version counted only
-`../features/x`-shaped imports and missed the dominant class — sibling
-features reached via `../../<feature>/`. v2 enumerates feature directories and
-matches any sibling import; the baseline was re-measured with it.
-
-### The seven bridges
-
-`src/core/services/` holds five one-line re-export shims pointing back into
-`features/` — `AIService`, `AISummaryService`, `AIEmbeddingService`,
-`ProfileServiceRef`, `UnifiedSessionLoader` — and `src/shared/components/` holds
-two more, `Calendar` and `StorageIcons`. Each carries an explicit
-
-```ts
-// eslint-disable-next-line import/no-restricted-paths -- re-export bridge for cross-feature access
-```
-
-They are the mechanism by which one feature reaches another's service without
-importing it directly, so they implement the rule rather than break it. The
-dependency direction is inverted all the same: `core` re-exports code it does
-not own. If one of these grows past a re-export, that is the signal to move the
-implementation down into `core` instead.
-
-### Known gap
-
-`import/no-cycle` is configured as an error and **does not fire** — the
-`eslint-import-resolver-typescript` package is absent, so every rule that needs
-module resolution is inert while the path-string rules above keep working.
-There are five real cycles today, all inside a single feature. Tracked as
-`LINT-1` in `TASKS.md`. Do not read a green lint run as "no cycles".
+`import/no-cycle` is an error. It needs module resolution, so
+`eslint.config.js` configures `import/parsers` for `.ts`/`.tsx` and
+`eslint-import-resolver-typescript`; without them the rule was inert
+(`LINT-1` in `TASKS.md`, closed).
 
 ---
 
@@ -153,17 +126,42 @@ run, and CI runs it in its own job.
 
 ### Sync
 
-1. Writes land in IndexedDB first.
-2. `syncVersionToCloud` pushes versions up.
-3. Offline writes go to `syncQueue` and drain on reconnect.
-4. If the cloud version is at or ahead of the local one, the local document is
-   forked into a copy titled `… (Conflict <date>)`.
+Cloud sync is off until the person turns it on: `cloudSyncEnabled()`
+(`src/core/sync/cloudSyncEnabled.ts`) reads `auto_sync_enabled_<uid>`, and
+silence means no. Explicit buttons ("send all notes to the cloud") run
+regardless of the toggle. With the vault locked, both directions skip and
+report `locked`.
 
-> **This flow only goes up.** A document already linked to a cloud copy is never
-> read back down — `downloadAllFromCloud` skips linked documents and no other
-> path refreshes them. Four data-loss symptoms follow from that single fact, and
-> they are one bug, not four: see `docs/ag-sync5-upload-only-sync-ticket.md`.
-> Treat the description above as the current behaviour, not as the design.
+Up:
+
+1. Writes land in IndexedDB first; the upload is a task in `syncQueue`.
+2. `SyncService.syncPending` drains the queue — on vault unlock, on reconnect,
+   and on every `useBackgroundSync` pass (on idle after start, every 120 s, on
+   return to the tab). Without `force` it respects the toggle.
+3. The same pass enqueues notes that have neither a cloud copy nor a task
+   (`sweepOrphanedDocuments`) and flushes the AI stores
+   (`LocalStoreSyncService`) and vectors.
+
+Down:
+
+4. `downloadAllFromCloud` fetches cloud notes this device does not have (not
+   linked, uuid unknown) — at sign-in, on reconnect, on vault unlock.
+5. `reconcileLinkedDocuments` refreshes linked notes whose cloud copy is newer.
+   No pending local edit and not open in the editor: silent fast-forward.
+   Otherwise the cloud version is added to the note's history and the screen
+   is left alone. Both 4 and 5 run from `checkAndSyncCursor`
+   (`src/core/sync/changeCursor.ts`) when the tab regains focus and the
+   server's change cursor is ahead; the cursor moves only if both passes
+   finished clean.
+6. Once a day per account the background pass restores notes and analyses
+   missing from the device (`restoreMissingDocuments`,
+   `restoreAIDataFromCloud`); analyses and dialogues changed on another device
+   are pulled on every pass.
+
+Conflicts: when an upload finds the cloud copy has moved,
+`ConflictResolver.resolveConflict` forks the local note into a copy titled
+`<title> (conflict, <date> <time>: <preview>…)` — one fork per document, see
+the map above.
 
 ---
 
@@ -195,9 +193,11 @@ pinned, audience and issuer checked).
 - `POST /api/<name>` — the dispatcher, covering `chatWithAI`, `editWithAI`,
   `summarizeDocument`, `summarizeFacet`, `judgeFacets`, `judgeBeliefCandidate`,
   `summarizeBeliefCluster`, `rerankNotes`, `embedDocument`, `extractChatMemory`,
-  `deriveTaxonomy`, `validateCustomPrompt`, `getAIUsageStats`, `deleteAccount`,
-  `sendTelemetry`.
-- `POST /api/csp-report`, `GET /health`.
+  `deriveTaxonomy`, `validateCustomPrompt`, `getAIUsageStats`, `getAiQuota`,
+  `deleteAccount`, `sendTelemetry`, and the admin-only `inviteUser`,
+  `listUsersWithStatus`.
+- `POST /api/csp-report`, `GET /health`, `GET /ready` (database and
+  embedding-server config).
 
 Every AI call passes three gates: a per-user daily limit, a cooldown between
 calls, and a global daily cap on requests and tokens. Internal calls (`callType`)
@@ -228,6 +228,6 @@ replacement yet (`D2` in `docs/migration-plan.md`).
   (`prompts`, `buildChatPrompt`, `injectionPatterns`, `aiPolicy`, `context`);
   both the client and the VPS service import it. The former duplicates in
   `api/ai/` and `functions/src/shared/` are gone (C4 + AG-AIONE-1).
-  `api/ai/pure.ts` keeps only the genuinely server-only wrappers
-  (Langfuse, isomorphic-dompurify, node-crypto hashUid) on top of the shared
-  core.
+  `api/ai/pure.ts` keeps only the genuinely server-only parts
+  (isomorphic-dompurify output sanitisation, the limit constants) on top of
+  the shared core.

@@ -17,12 +17,12 @@ production user. A closed beta for 10–20 invited people is being prepared.
 | Database | self-hosted Supabase (Postgres + GoTrue + PostgREST + Kong) |
 | AI provider | RouterAI, OpenAI-compatible API |
 | Client | React 19 · TypeScript · Vite · Tailwind v4 · Zustand |
-| Tests | Vitest — 274 files, 1672 tests |
+| Tests | Vitest (`npm run test:ci`), SQL RLS tests, Playwright e2e |
 | Node | 22 (CI and the API service) |
 
-There is no Firebase, no Firestore and no Cloud Functions: that stack was
-replaced in August 2026. `vercel.json` is a leftover from the same era and no
-longer governs anything — the live headers come from nginx.
+There is no Firebase, no Firestore, no Cloud Functions and no Vercel: that stack
+was replaced in August 2026. The live headers come from nginx
+(`deploy/nginx.conf`).
 
 ---
 
@@ -95,11 +95,12 @@ open — a conflict fork from a background sync, in practice — could index wit
 a press. It was removed in September 2026. Today the only callers of
 `indexDocument` are the analyse button and the one-time indexing pass.
 
-Models are configurable by environment variable; the defaults are
-`deepseek/deepseek-v4-flash` for chat (RouterAI) and `BAAI/bge-m3` at 1024
-dimensions for vectors (local, see above). `qwen/qwen3-embedding-8b` at 4096
-dimensions was the embedding model before the September 2026 move to local
-compute, and is what the `AI_EMBED_BASE_URL`-unset fallback still points at.
+Models are configurable by environment variable. Chat defaults to
+`deepseek/deepseek-v4-flash` (`OPENROUTER_MODEL`, RouterAI). The embedding
+model is whatever `OPENROUTER_EMBED_MODEL` names; the code default is
+`qwen/qwen3-embedding-8b` (4096 dimensions), the model used before the
+September 2026 move to local compute. The local server runs `BAAI/bge-m3`
+(1024 dimensions).
 
 **The portrait is injected into every chat turn.** It is a psychological
 summary built from your analyses, and it is part of the system prompt on every
@@ -129,6 +130,10 @@ A build without `VITE_SUPABASE_*` produces a client that loads and then fails
 every request. This has happened in production: a green deploy and a dead app
 look identical if only the server is checked. The post-deploy smoke check exists
 because of it.
+
+In dev, Vite proxies `/api` to `http://127.0.0.1:3111` (`VITE_DEV_API_TARGET`
+overrides it). Running the API and a local backend: see
+[INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md).
 
 ### Scripts
 
@@ -170,7 +175,7 @@ down with it.
 
 ```
 src/core/        storage, crypto, sync, data providers, auth — knows no features
-src/features/    ai, archive, auth, navigation, profile, settings, writing
+src/features/    admin, ai, archive, auth, encryption, navigation, profile, settings, writing
 src/shared/      i18n, components, utilities shared by everything
 src/app/         pages and composition — where features are allowed to meet
 api/             the Node service: AI endpoints, limits, CSP reports
@@ -209,8 +214,3 @@ The honest residual limit:
 - **Two guests on one device share a database** (`BETA-7`). Two people using the app without signing in
   on the same device share `justwriting-local`. Partitioning without accounts relies on separate browser profiles
   or private browsing.
-
-One cosmetic mismatch worth knowing: `index.html` still declares
-`https://justwriting.one/` as the canonical URL, and that domain does not
-resolve. Left alone deliberately — changing a canonical URL is an SEO decision,
-not a cleanup.

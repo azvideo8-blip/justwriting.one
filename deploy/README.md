@@ -9,11 +9,13 @@
 | `supabase-compose.override.yml` | `/opt/justwriting/supabase/docker-compose.override.yml` — порты только на 127.0.0.1, русские письма GoTrue |
 | `invite.sh` | `/opt/justwriting/deploy/invite.sh` — пригласить тестера (регистрация в UI выключена) |
 | `justwriting.service` | `/etc/systemd/system/justwriting.service` |
-| `.env.example` | Copy to `/opt/justwriting/.env`, fill in values |
+| `api-package.json` | `/opt/justwriting/api/package.json` — внешние зависимости бандла службы; выкатка ставит их `npm install` |
+| `.env.example` | Copy to `/opt/justwriting/api/.env` (`EnvironmentFile` in `justwriting.service`), fill in values |
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22
+- Docker (self-hosted Supabase in `/opt/justwriting/supabase`)
 - nginx
 - certbot (for TLS)
 - A non-root `justwriting` user
@@ -23,24 +25,25 @@
 ```bash
 # 1. Create user and app directory
 sudo useradd -r -s /usr/sbin/nologin justwriting
-sudo mkdir -p /opt/justwriting/data
-sudo chown justwriting:justwriting /opt/justwriting/data
+sudo mkdir -p /opt/justwriting/api
+sudo chown justwriting:justwriting /opt/justwriting/api
 
-# 2. Copy build output
+# 2. Copy build output (npm run build)
 sudo cp -r dist/* /var/www/justwriting/
 
-# 3. Copy API code
-# Поскольку код написан на TypeScript (api/server.ts), его нужно скомпилировать.
-# Здесь предполагается, что сборка бэкенда производится локально или в CI.
-# Например: npx tsc api/server.ts
-sudo cp api/server.js /opt/justwriting/
-sudo npm --prefix /opt/justwriting install express firebase-admin
+# 3. API: one esbuild bundle, dependencies external (same as the deploy workflow)
+npx esbuild api/server.ts --bundle --platform=node --format=esm \
+  --target=node20 --packages=external --outfile=/tmp/server.mjs
+sudo cp /tmp/server.mjs /opt/justwriting/api/server.mjs
+sudo cp deploy/api-package.json /opt/justwriting/api/package.json
+sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs /opt/justwriting/api/package.json
+sudo -u justwriting npm install --prefix /opt/justwriting/api --omit=dev
 
 # 4. Environment
-sudo cp deploy/.env.example /opt/justwriting/.env
-sudo chown justwriting:justwriting /opt/justwriting/.env
-sudo chmod 600 /opt/justwriting/.env
-# Edit /opt/justwriting/.env with actual values
+sudo cp deploy/.env.example /opt/justwriting/api/.env
+sudo chown justwriting:justwriting /opt/justwriting/api/.env
+sudo chmod 600 /opt/justwriting/api/.env
+# Edit /opt/justwriting/api/.env with actual values
 
 # 5. nginx
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/justwriting
@@ -64,7 +67,7 @@ sudo systemctl start justwriting
 # Process alive
 curl -f http://localhost:3000/health
 
-# Server ready (проверяет только то, что процесс поднялся, т.к. зависимость от Firestore убрана до подключения Supabase)
+# Server ready: 503, если задан DATABASE_URL и база не отвечает; показывает, куда уходят эмбеддинги
 curl -f http://localhost:3000/ready
 
 # nginx serving the SPA
@@ -77,9 +80,7 @@ curl -sD - https://yourdomain.com/sw.js | grep -i cache-control
 curl -I https://yourdomain.com/assets/index.js.map  # → 404
 ```
 
-## API Limitations
-
-`/api/chat` в данный момент возвращает 501 Not Implemented. Это нормальное поведение. Настоящая реализация появится позже, когда будет куда ходить, поэтому не ожидайте работающего чата из коробки на данном этапе.
+Обычная выкатка — не эти шаги, а ручной запуск workflow `Выкатка на сервер` (`.github/workflows/deploy.yml`): сборка, выкладка, перезапуск службы, `scripts/post-deploy-smoke.ts`, откат при сбое.
 
 ## Rate Limiting & Auth Protection
 
@@ -124,16 +125,32 @@ GoTrue creates the user and mails `public/email/invite.html` (subject and templa
 
 ## Environment variables
 
+Read by the API service (`api/`). Defaults are from the code.
+
 | Name | Required | Description |
 |------|----------|-------------|
-| `PORT` | no | API listen port, default 3000 |
+| `PORT` | no | API listen port, default 3000; binds to `127.0.0.1` only |
 | `SUPABASE_JWT_SECRET` | yes | JWT secret for verifying auth tokens |
-| `DATABASE_URL` | yes | Postgres connection string |
+| `SUPABASE_JWT_ISS` | yes (prod) | Must equal GoTrue's `GOTRUE_JWT_ISSUER`; the service refuses to start without it in production |
+| `REQUIRE_JWT_ISSUER` | no | `true`/`false` forces the issuer check on/off; unset = on under `NODE_ENV=production` or with `DATABASE_URL` |
+| `DATABASE_URL` | yes | Postgres connection string (via Supavisor, tenant-qualified user) |
+| `SUPABASE_URL` | no | GoTrue admin API base for invites, default `https://justwriting.ru` |
+| `SUPABASE_SERVICE_ROLE_KEY` | for invites | Service role key (`SERVICE_ROLE_KEY` also accepted) |
+| `TELEMETRY_ID_PEPPER` | for telemetry | Secret salt for telemetry row keys; without it `sendTelemetry` fails |
 | `OPENROUTER_API_KEY` | yes | AI provider key (RouterAI) |
 | `AI_BASE_URL` | no | Provider base URL, default `https://routerai.ru/api/v1` |
+| `AI_EMBED_BASE_URL` | no | Separate embeddings server (the local one); unset = embeddings go to `AI_BASE_URL` |
+| `OPENROUTER_MODEL` | no | Chat model, default `deepseek/deepseek-v4-flash` |
+| `OPENROUTER_EMBED_MODEL` | no | Embedding model, default `qwen/qwen3-embedding-8b`; changing it invalidates stored vectors |
+| `AI_SUMMARY_MODEL`, `AI_FACET_MODEL` | no | Models for analysis / profile tasks, default `deepseek/deepseek-v4-flash` |
+| `AI_PROVIDER_COUNTRY` | no | Provider routing restriction (`country`); unset = none |
+| `AI_DAILY_LIMIT` | no | Per-user daily chat calls, default 30 |
+| `AI_ADMIN_DAILY_LIMIT` | no | Same for `role = 'admin'`, default 60 |
+| `AI_REASONING_DAILY_LIMIT` | no | Reasoning calls per user per day, default 5 |
+| `AI_BULK_DAILY_LIMIT` | no | Background calls per user per day, default 50 |
+| `AI_INTERNAL_CHAT_DAILY_LIMIT` | no | Internal chat-helper calls per user per day, default 200 |
+| `AI_BULK_WINDOW_MS`, `AI_BULK_MAX_PER_WINDOW` | no | Sliding window per endpoint, default 20 calls per 60000 ms |
 | `AI_TIER_RPD` | no | Global daily request cap (default 10,000) |
 | `AI_TIER_TPD` | no | Global daily token cap (default 25,000,000) |
-| `AI_DAILY_SPEND_LIMIT_RUB` | no | Daily spend ceiling in Rubles (e.g. 100) |
+| `AI_DAILY_SPEND_LIMIT_RUB` | no | Daily spend ceiling in Rubles (e.g. 100); unset = token cap only |
 | `AI_RUB_PER_1M_TOKENS` | no | Estimated price per 1M tokens in RUB (default 30) |
-
-

@@ -102,6 +102,18 @@ re-encrypting the archive.
 8. **"Remember on device"** caches non-extractable keys in IndexedDB. They
    cannot be read by script, but any script running in this origin can ask the
    browser to decrypt with them. Anyone opting in is shown this trade-off.
+9. **One password, and the server never sees it** (0.9.0). The account password
+   also unlocks the vault, so GoTrue receives only
+   `hex(PBKDF2-SHA256(password, "justwriting-auth|" + lower(trim(email)), 600 000))`
+   (`src/core/auth/authSecret.ts`). The vault salt is random per user, so this
+   value cannot unwrap the data key. Accounts created before 0.9.0 still have
+   the raw password on GoTrue: the first sign-in tries the derived value, falls
+   back to the raw one and replaces it with the derived value. Remove that
+   fallback once every account has signed in.
+10. Without a vault a signed-in account sends no content to the cloud
+    (`maybeEncrypt` throws `ENCRYPT_REQUIRED`). After an e-mail password reset
+    the vault stays on the old password until one manual unlock with it, which
+    re-wraps the vault with the new login password.
 
 ---
 
@@ -203,31 +215,36 @@ the content is data and never instructions.
 
 Served by nginx over TLS: HSTS with preload, `X-Frame-Options: DENY`,
 `X-Content-Type-Options: nosniff`, `Referrer-Policy:
-strict-origin-when-cross-origin`, a Permissions-Policy disabling camera,
-microphone and geolocation, COOP/CORP, `frame-ancestors: none`,
+strict-origin-when-cross-origin`, a Permissions-Policy disabling camera and
+geolocation and limiting the microphone to the site itself (voice input),
+COOP/CORP, `frame-ancestors: none`,
 `object-src: none`, and a Content-Security-Policy. CSP violations are reported to
-the API service, which rate-limits reports per origin.
-
-`vercel.json` still exists in the repository and is **not** the source of these
-headers; it is a leftover from the previous hosting.
+the API service, which rate-limits reports per client IP and logs the
+reported URLs without their query string.
 
 ---
 
 ## Analytics and error reporting
 
-- **PostHog** — opt-in only. Every tracking call checks consent first;
-  `person_profiles: 'identified_only'`.
-- **Sentry and the in-app activity log** — `maskAllText`, `blockAllMedia`, the
-  user identified by uid alone. `reportError` strips personal keys before
-  anything is stored: identifiers (`userId`, `uid`, `email`, `documentId`,
-  `docId`, `localId`, `versionId`, `sessionId`, `personaId`, `labelId`,
-  `noteId`, `threadId`, …) and anything the person wrote (`title`, `content`,
-  `text`, `summary`, `tag`, `theme`, `label`, `name`, `query`, `snippet`,
-  `prompt`, `answer`, `message`). Redaction matches exact key names, so the list
-  deliberately covers families — `docId` beside `documentId` is the same thing
-  under another name.
-- **Langfuse** — AI request observability: tokens, model, usage. No note content
-  and no model output.
+There is no third-party analytics, error-reporting or AI-observability service.
+
+- **Errors** go to the in-app activity log on the device (`localStorage`, the
+  last 50 entries), and nowhere else unless the person copies the log.
+  `reportError` strips personal keys before anything is stored
+  (`src/shared/errors/piiScrub.ts`, one list shared with the activity log):
+  identifiers (`userId`, `uid`, `email`, `documentId`, `docId`, `localId`,
+  `versionId`, `sessionId`, `personaId`, `labelId`, `noteId`, `threadId`, …)
+  and anything the person wrote (`title`, `content`, `text`, `summary`, `tag`,
+  `theme`, `label`, `name`, `query`, `snippet`, `prompt`, `answer`,
+  `message`). Redaction matches exact key names, so the list deliberately
+  covers families — `docId` beside `documentId` is the same thing under another
+  name. Message text is also scrubbed by shape: uuids, email addresses and long
+  base64 runs.
+- **Telemetry** — `sendTelemetry`, at most once per 14 days, sent when a
+  signed-in person opens the AI page: theme, a note-count bucket, average note
+  length rounded to 50 words, the share of reasoning dialogues. No consent
+  prompt gates it. The row carries no uid: its key is `sha256(uid:pepper)`
+  (`TELEMETRY_ID_PEPPER`), and the server accepts one send per 24 hours.
 
 ---
 

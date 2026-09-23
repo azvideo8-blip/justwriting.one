@@ -8,17 +8,15 @@ test.describe('Login Page', () => {
   });
 
   test('shows error for invalid credentials', async ({ page }) => {
-    // Needs a real Firebase Auth round-trip. Under App Check enforcement the
-    // headless CI request has no valid App Check token, so the response is
-    // non-deterministic and no error surfaces in time. Runs locally, skipped in CI.
+    // Needs a real auth round-trip (GoTrue behind VITE_SUPABASE_URL). CI starts
+    // only the Vite dev server, so nothing answers. Runs locally, skipped in CI.
     test.skip(!!process.env.CI, 'real auth backend is not running in CI (see L-15)');
     await page.goto('/login');
     await page.fill('input[type="email"]', 'invalid@example.com');
     await page.fill('input[type="password"]', 'wrongpassword');
     await page.click('button[type="submit"]');
-    // Assert an error is surfaced (role=alert), not a specific message: the exact
-    // Firebase error code varies by environment (App Check enforcement in CI can
-    // change auth/invalid-credential into a generic error).
+    // Assert an error is surfaced (role=alert), not a specific message: the
+    // wording depends on what the auth server returns in that environment.
     await expect(page.locator('[role="alert"]')).toBeVisible();
   });
 

@@ -1,104 +1,78 @@
-# Инструкция по установке justwriting.one на сторонний сервер
+# Установка justwriting
 
-Эта инструкция написана для полного новичка. Мы разберем, как запустить этот проект «с нуля» на реальном сервере.
+Из чего состоит:
 
-## 1. Выбор сервера и базы данных
+- **клиент** — React + Vite, PWA; всё пишется сначала в IndexedDB на устройстве;
+- **Supabase, развёрнутый у себя** — Postgres, GoTrue (вход), PostgREST, Kong
+  перед ними, Supavisor (пул подключений) — в Docker;
+- **служба `api/`** — небольшой Node-сервер: ИИ-эндпоинты, лимиты, согласия,
+  удаление аккаунта, приём CSP-отчётов.
 
-### Сервер (Хостинг)
-Для современного веб-приложения на React (как это) есть два пути:
+Firebase, Vercel и Gemini из проекта удалены; инструкции про них больше не
+действуют.
 
-1.  **Простой путь (PaaS)**: **Vercel** или **Netlify**.
-    *   *Плюсы*: Бесплатно для личных проектов, установка в 3 клика, автоматическое обновление при изменении кода.
-    *   *Минусы*: Меньше контроля над сервером.
-2.  **Путь профи (VPS)**: **DigitalOcean**, **Hetzner**, **Vultr** или **Reg.ru**.
-    *   *Плюсы*: Полный контроль, можно ставить что угодно.
-    *   *Минусы*: Платно (от $5/мес), нужно уметь работать с терминалом (Linux).
-
-**Рекомендация для новичка**: Начните с **Vercel**. Это самый быстрый и бесплатный способ увидеть свой сайт в интернете.
-
-### База данных
-В этом проекте используется **Firebase** (от Google).
-*   Вам **не нужно** покупать отдельный сервер под базу данных.
-*   Firebase — это «облачная» база. Она бесплатна до определенного объема данных (которого вам хватит надолго).
+Нужно: Node 22 (на нём CI и служба), Docker; для миграций — `psql` или
+`docker compose`.
 
 ---
 
-## 2. Подготовка Firebase (Ваш бэкенд)
+## 1. Клиент
 
-1.  Зайдите на [Firebase Console](https://console.firebase.google.com/).
-2.  Нажмите **Add project** и создайте проект (например, `my-justwriting`).
-3.  В меню слева выберите **Authentication** -> **Sign-in method** и включите:
-    *   **Email/Password** (для входа по почте).
-    *   **Google** (для быстрого входа).
-4.  В меню слева выберите **Firestore Database** -> **Create database**.
-    *   Выберите регион (ближе к вам).
-    *   Начните в **test mode** (позже нужно будет настроить правила безопасности).
-5.  На главной странице проекта нажмите на иконку **</>** (Web), чтобы зарегистрировать приложение.
-6.  Вы получите объект `firebaseConfig` с ключами (apiKey, authDomain и т.д.). **Сохраните их!**
+```bash
+npm install
+npm run dev          # http://localhost:3000
+```
 
----
+`.env.local`:
 
-## 3. Получение ключа AI (Gemini)
+```env
+VITE_SUPABASE_URL=<адрес Kong из сборки Supabase>
+VITE_SUPABASE_ANON_KEY=<ANON_KEY из .env Supabase>
+VITE_SITE_URL=https://justwriting.ru   # необязательно
+```
 
-1.  Зайдите на [Google AI Studio](https://aistudio.google.com/).
-2.  Нажмите **Get API key**.
-3.  Создайте новый ключ. **Сохраните его!**
+Без `VITE_SUPABASE_*` клиент загрузится, но любое обращение к облаку упадёт с
+«Supabase is not configured».
 
----
+## 2. Supabase
 
-## 4. Установка на Vercel (Самый простой способ)
+Docker-сборки Supabase в репозитории нет: берётся официальная self-hosted
+сборка Supabase (на сервере она лежит в `/opt/justwriting/supabase`). Из
+репозитория к ней относятся:
 
-1.  Загрузите код проекта на свой **GitHub**.
-2.  Зайдите на [Vercel.com](https://vercel.com/) и войдите через GitHub.
-3.  Нажмите **Add New** -> **Project**.
-4.  Выберите ваш репозиторий с кодом.
-5.  **ВАЖНО!** В разделе **Environment Variables** добавьте все ключи из вашего `firebase-applet-config.json` и ключ Gemini:
-    *   `VITE_FIREBASE_API_KEY`
-    *   `VITE_FIREBASE_AUTH_DOMAIN`
-    *   `VITE_FIREBASE_PROJECT_ID`
-    *   `VITE_FIREBASE_STORAGE_BUCKET`
-    *   `VITE_FIREBASE_MESSAGING_SENDER_ID`
-    *   `VITE_FIREBASE_APP_ID`
-    *   `GEMINI_API_KEY` (ваш ключ от Google AI Studio)
-6.  Нажмите **Deploy**. Через минуту ваш сайт будет доступен по ссылке вида `your-project.vercel.app`.
+- `deploy/supabase-compose.override.yml` — порты только на `127.0.0.1` и
+  русские письма GoTrue (кладётся рядом как `docker-compose.override.yml`);
+- `supabase/migrations/` — схема и RLS. Применить:
 
----
+  ```bash
+  DATABASE_URL=postgres://... bash supabase/scripts/migrate.sh
+  bash supabase/scripts/migrate.sh --status
+  ```
 
-## 5. Установка на свой VPS (Linux сервер)
+Проверка RLS на голом Postgres — `supabase/README.md`.
 
-Если вы все же выбрали свой сервер (например, Ubuntu):
+## 3. Служба `api/`
 
-1.  **Установите Node.js**:
-    ```bash
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    ```
-2.  **Клонируйте проект**:
-    ```bash
-    git clone [ссылка_на_ваш_репозиторий]
-    cd [папка_проекта]
-    ```
-3.  **Установите зависимости**:
-    ```bash
-    npm install
-    ```
-4.  **Создайте файл `.env`** в корне папки и впишите туда все ключи (как в пункте 4).
-5.  **Соберите проект**:
-    ```bash
-    npm run build
-    ```
-6.  **Запустите сервер**:
-    Для раздачи статических файлов на своем сервере лучше всего использовать **Nginx**.
-    *   Установите Nginx: `sudo apt install nginx`
-    *   Скопируйте содержимое папки `dist` (появится после `npm run build`) в `/var/www/html`.
+Служба не читает `.env` сама — переменные задаются окружением. Слушает только
+`127.0.0.1`, порт из `PORT` (по умолчанию 3000, но его занимает Vite).
+Dev-прокси Vite ведёт `/api` на `127.0.0.1:3111`, поэтому локально:
 
----
+```bash
+PORT=3111 \
+DATABASE_URL=postgres://... \
+SUPABASE_JWT_SECRET=<JWT_SECRET из .env Supabase> \
+SUPABASE_JWT_ISS=<GOTRUE_JWT_ISSUER контейнера auth> \
+OPENROUTER_API_KEY=<ключ RouterAI> \
+npx tsx api/server.ts
+```
 
-## Спецификации сервера (минимум)
-Для работы этого приложения (так как основная нагрузка идет в браузере пользователя):
-*   **Процессор**: 1 ядро (vCPU).
-*   **Оперативная память**: 1 ГБ RAM (можно даже 512 МБ).
-*   **Диск**: 10 ГБ SSD.
-*   **ОС**: Ubuntu 22.04 LTS (рекомендуется).
+С заданным `DATABASE_URL` служба без `SUPABASE_JWT_ISS` не стартует
+(`api/auth.ts`). Полный список переменных с пояснениями —
+`deploy/.env.example`.
+`curl http://127.0.0.1:3111/ready` показывает, доступна ли база и куда уходят
+эмбеддинги.
 
-**Итог**: Для новичка идеальная связка — **Vercel + Firebase**. Это бесплатно, надежно и не требует знаний системного администрирования.
+## 4. Сервер
+
+Выкатка на VPS (nginx, systemd, сборка службы через esbuild) — в
+`deploy/README.md`.
