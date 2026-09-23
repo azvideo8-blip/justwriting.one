@@ -55,8 +55,6 @@ describe('useBaseWritingSession', () => {
   it('returns idle state initially', () => {
     const { result } = renderHook(() => useBaseWritingSession());
     expect(result.current.status).toBe('idle');
-    expect(result.current.wordCount).toBe(0);
-    expect(result.current.seconds).toBe(0);
   });
 
   it('start() sets status to writing and records sessionStartTime', () => {
@@ -120,15 +118,18 @@ describe('useBaseWritingSession', () => {
     expect(result.current.status).toBe('idle');
   });
 
-  it('wordCount increment via store action updates wordCount', () => {
+  // EA-9: объект сессии уходит в контекст экрана письма. Если он меняется на
+  // каждое нажатие и тик таймера, перерисовывается весь экран.
+  it('keeps the same session object while text, word count and timer change', () => {
     const { result } = renderHook(() => useBaseWritingSession());
-    expect(result.current.wordCount).toBe(0);
-
+    const before = result.current;
     act(() => {
-      useContentStore.getState().setInitialWordCount(5);
-      useContentStore.setState({ wordCount: 10 });
+      useContentStore.setState({ content: 'новый текст', wordCount: 2, wpm: 40 });
+      useTimerStore.setState({ seconds: 17 });
     });
+    expect(result.current).toBe(before);
 
-    expect(result.current.wordCount).toBe(10);
+    act(() => { useContentStore.setState({ title: 'Заголовок' }); });
+    expect(result.current).not.toBe(before);
   });
 });

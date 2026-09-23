@@ -15,9 +15,15 @@ import { WritingSetup } from '../../features/writing/components/WritingSetup';
 import { LifeLogPanel } from '../../features/writing/components/LifeLogPanel';
 import { BottomStats } from '../../features/writing/components/BottomStats';
 import { ConnectionStatusBanner } from '../../features/writing/components/ConnectionStatusBanner';
+// Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
+// каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
+function LiveAIPanelContent() {
+  const content = useContentStore(s => s.content);
+  const setContent = useContentStore(s => s.setContent);
+  return <AIPanelContent content={content} onApplyContent={setContent} />;
+}
+
 export function DesktopWritingLayout() {
-  const currentContent = useContentStore(s => s.content);
-  const currentSetContent = useContentStore(s => s.setContent);
   const { t } = useLanguage();
   const editorColRef = React.useRef<HTMLDivElement>(null);
   const [isCompact, setIsCompact] = React.useState(false);
@@ -209,7 +215,7 @@ export function DesktopWritingLayout() {
               onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
               inGrid={true}
               streakDays={streakDays}
-              renderAiContent={() => <AIPanelContent content={currentContent} onApplyContent={currentSetContent} />}
+              renderAiContent={() => <LiveAIPanelContent />}
               renderSettingsContent={() => <SettingsPanelContent userId={session.userId} />}
             />
           </div>
@@ -228,7 +234,7 @@ export function DesktopWritingLayout() {
             onTogglePin={() => setLifeLogPinned(!lifeLogPinned)}
             inGrid={false}
             streakDays={streakDays}
-            renderAiContent={() => <AIPanelContent content={currentContent} onApplyContent={currentSetContent} />}
+            renderAiContent={() => <LiveAIPanelContent />}
             renderSettingsContent={() => <SettingsPanelContent userId={session.userId} />}
           />
         )}

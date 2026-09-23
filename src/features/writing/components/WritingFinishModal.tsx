@@ -172,7 +172,19 @@ interface WritingFinishModalProps {
   savedDocumentId?: string | null | undefined;
 }
 
-export function WritingFinishModal({
+// Закрытое окно не монтирует тело: иначе оно подписано на текст, таймер и
+// счётчики и крутит анимацию цифр на каждой секунде и каждом слове — лишние
+// перерисовки экрана письма (EA-9). Черновик заголовка живёт здесь, чтобы, как
+// и раньше, переживать «Отмену» и повторное открытие.
+export function WritingFinishModal(props: WritingFinishModalProps) {
+  const [editTitle, setEditTitle] = useState('');
+  if (!props.isOpen) return null;
+  return <WritingFinishModalBody {...props} editTitle={editTitle} setEditTitle={setEditTitle} />;
+}
+
+function WritingFinishModalBody({
+  editTitle,
+  setEditTitle,
   isOpen,
   tags = [],
   setTags = () => {},
@@ -185,7 +197,7 @@ export function WritingFinishModal({
   streakDays = 0,
   sessionGroups = [],
   savedDocumentId,
-}: WritingFinishModalProps) {
+}: WritingFinishModalProps & { editTitle: string; setEditTitle: (v: string) => void }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -280,7 +292,6 @@ export function WritingFinishModal({
     }
   }, [isOpen, goalReached]);
 
-  const [editTitle, setEditTitle] = useState('');
   const titleInputValue = editTitle || title || '';
 
   const fallbackPopularWords = React.useMemo(() => {

@@ -24,7 +24,6 @@ export function useSessionFlow(
   sessionType: SessionType,
   setSessionType: (type: SessionType) => void,
   targetTime: string | null,
-  seconds: number,
   timeGoalReached: boolean,
   wordGoalReached: boolean
 ): UseSessionFlowReturn {

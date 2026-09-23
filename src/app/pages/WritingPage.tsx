@@ -36,18 +36,20 @@ interface WritingViewProps {
 
 function AuthenticatedWritingPage({ user, profile }: { user: AppUser; profile: UserProfile | null }) {
   const session = useCloudWritingSession(user, profile);
+  const ui = React.useMemo(() => <WritingPageUI />, []);
   return (
     <WritingSessionProvider session={session} profile={profile} user={user}>
-      <WritingPageUI />
+      {ui}
     </WritingSessionProvider>
   );
 }
 
 function GuestWritingPage() {
   const session = useGuestWritingSession();
+  const ui = React.useMemo(() => <WritingPageUI />, []);
   return (
     <WritingSessionProvider session={session} profile={null} user={null}>
-      <WritingPageUI />
+      {ui}
     </WritingSessionProvider>
   );
 }
@@ -59,7 +61,9 @@ function WritingPageContent({ user, profile }: WritingViewProps) {
   return <GuestWritingPage />;
 }
 
-function WritingPageUI() {
+// memo: WritingPageUI без пропсов, всё берёт из контекста. Без memo он
+// перерисовывался вместе с хуком сессии на каждое нажатие (EA-9).
+const WritingPageUI = React.memo(function WritingPageUI() {
   const {
     session,
     profile,
@@ -256,7 +260,7 @@ function WritingPageUI() {
       )}
     </>
   );
-}
+});
 
 export function WritingPage({ user, profile }: WritingViewProps) {
   return (

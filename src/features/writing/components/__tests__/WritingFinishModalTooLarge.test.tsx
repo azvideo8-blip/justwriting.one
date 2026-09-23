@@ -129,4 +129,19 @@ describe('F-2: WritingFinishModal toast on too large note save', () => {
       expect(onCancel).toHaveBeenCalled();
     });
   });
+
+  // EA-9: закрытое окно не монтирует тело (оно было подписано на текст и таймер
+  // и крутило анимацию цифр на каждой секунде), но черновик заголовка, как и
+  // раньше, переживает «Отмену» и повторное открытие.
+  it('renders nothing while closed and keeps the typed title across close and reopen', () => {
+    const props = { onCancel: vi.fn(), onSave: vi.fn() };
+    const { rerender, container } = render(<WritingFinishModal isOpen={true} {...props} />);
+    fireEvent.change(screen.getByPlaceholderText('editor_title_placeholder'), { target: { value: 'Мой заголовок' } });
+
+    rerender(<WritingFinishModal isOpen={false} {...props} />);
+    expect(container).toBeEmptyDOMElement();
+
+    rerender(<WritingFinishModal isOpen={true} {...props} />);
+    expect(screen.getByPlaceholderText('editor_title_placeholder')).toHaveValue('Мой заголовок');
+  });
 });

@@ -1,9 +1,13 @@
+import { useMemo } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { UserProfile } from '../../../types';
 import { useBaseWritingSession, BaseSessionReturn } from './useBaseWritingSession';
 import { useSessionPersistence } from './useSessionPersistence';
 import { useDraftSession } from './useDraftSession';
 import type { DraftSaveStatus } from './useDraftCore';
+import { useWpm } from './useWpm';
+import { useContentStore } from '../store/useContentStore';
+import { useTimerStore } from '../store/useTimerStore';
 
 export interface CloudSessionReturn extends BaseSessionReturn {
   userId: string;
@@ -29,13 +33,19 @@ export interface CloudSessionReturn extends BaseSessionReturn {
 export function useCloudWritingSession(user: AppUser, profile: UserProfile | null): CloudSessionReturn {
   const base = useBaseWritingSession();
   const draft = useDraftSession(user.uid, false);
+  // Автосохранению нужны текст и счётчики на каждое нажатие — подписка здесь
+  // перерисовывает только этот хук, а не весь экран (объект сессии их не несёт).
+  const content = useContentStore(s => s.content);
+  const wordCount = useContentStore(s => s.wordCount);
+  const seconds = useTimerStore(s => s.seconds);
+  const { wpm } = useWpm();
 
   const persistence = useSessionPersistence(
     user,
     profile,
     {
       title: base.title,
-      content: base.content,
+      content,
       pinnedThoughts: base.pinnedThoughts,
       tags: base.tags,
       sessionType: base.sessionType,
@@ -45,9 +55,9 @@ export function useCloudWritingSession(user: AppUser, profile: UserProfile | nul
       sessionStartTime: base.sessionStartTime,
     },
     {
-      seconds: base.seconds,
-      wpm: base.wpm,
-      wordCount: base.wordCount,
+      seconds,
+      wpm,
+      wordCount,
       status: base.status,
       timeGoalReached: base.timeGoalReached,
       wordGoalReached: base.wordGoalReached,
@@ -66,18 +76,14 @@ export function useCloudWritingSession(user: AppUser, profile: UserProfile | nul
     }
   );
 
-  return {
+  const { hasDraft, setHasDraft, handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft } = draft;
+  const { saveStatus, lastSavedAt, isOnline } = persistence;
+  return useMemo(() => ({
     ...base,
     userId: user.uid,
     isGuest: false as const,
-    hasDraft: draft.hasDraft,
-    setHasDraft: draft.setHasDraft,
-    saveStatus: persistence.saveStatus,
-    lastSavedAt: persistence.lastSavedAt,
-    isOnline: persistence.isOnline,
-    handleCancel: draft.handleCancel,
-    autoLoadDraftIfEmpty: draft.autoLoadDraftIfEmpty,
-    restoreDraft: draft.restoreDraft,
-    discardDraft: draft.discardDraft,
-  };
+    hasDraft, setHasDraft, saveStatus, lastSavedAt, isOnline,
+    handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft,
+  }), [base, user.uid, hasDraft, setHasDraft, saveStatus, lastSavedAt, isOnline,
+    handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft]);
 }

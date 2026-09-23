@@ -76,7 +76,9 @@ export function useWritingSessionContext() {
   return ctx;
 }
 
-export function WritingSessionProvider({
+// memo: страница сессии перерисовывается на каждое нажатие (её хуки держат
+// автосохранение). Когда объект сессии и дети те же, провайдеру делать нечего (EA-9).
+export const WritingSessionProvider = React.memo(function WritingSessionProvider({
   session,
   profile,
   user,
@@ -127,7 +129,6 @@ export function WritingSessionProvider({
     session.sessionType,
     session.setSessionType,
     targetTime,
-    session.seconds,
     timeGoalReached,
     wordGoalReached
   );
@@ -277,4 +278,4 @@ export function WritingSessionProvider({
       {children}
     </WritingSessionContext.Provider>
   );
-}
+});

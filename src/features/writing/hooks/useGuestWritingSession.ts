@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useWpm } from './useWpm';
 import { useBaseWritingSession } from './useBaseWritingSession';
 import { getOrCreateGuestId } from '../../../core/storage/localDb';
 import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
@@ -36,6 +37,11 @@ export interface GuestSessionReturn extends ReturnType<typeof useBaseWritingSess
 
 export function useGuestWritingSession(): GuestSessionReturn {
   const base = useBaseWritingSession();
+  // См. useCloudWritingSession: горячие значения — только для черновика.
+  const content = useContentStore(s => s.content);
+  const wordCount = useContentStore(s => s.wordCount);
+  const seconds = useTimerStore(s => s.seconds);
+  const { wpm } = useWpm();
   const guestId = getOrCreateGuestId();
   const draft = useDraftSession(guestId, true);
   const isOnline = useOnlineStatus();
@@ -46,12 +52,12 @@ export function useGuestWritingSession(): GuestSessionReturn {
 
   useEffect(() => {
     draftDataRef.current = {
-      content: base.content,
+      content,
       title: base.title,
       pinnedThoughts: base.pinnedThoughts,
-      seconds: base.seconds,
-      wpm: base.wpm,
-      wordCount: base.wordCount,
+      seconds,
+      wpm,
+      wordCount,
       initialWordCount: useContentStore.getState().initialWordCount,
       sessionStartTime: useSessionMetaStore.getState().sessionStartTime ?? undefined,
       activeSessionId: useSessionMetaStore.getState().activeSessionId ?? undefined,
@@ -61,7 +67,7 @@ export function useGuestWritingSession(): GuestSessionReturn {
       accumulatedDuration: useTimerStore.getState().accumulatedDuration,
       totalPauseSeconds: useTimerStore.getState().totalPauseSeconds,
     };
-  }, [base.content, base.title, base.pinnedThoughts, base.seconds, base.wpm, base.wordCount, base.tags, base.labelId]);
+  }, [content, base.title, base.pinnedThoughts, seconds, wpm, wordCount, base.tags, base.labelId]);
 
   const getDraftData = useCallback(() => draftDataRef.current, []);
 
@@ -91,19 +97,14 @@ export function useGuestWritingSession(): GuestSessionReturn {
     void autoLoadDraftIfEmpty();
   }, [autoLoadDraftIfEmpty]);
 
-  return {
+  const { hasDraft, setHasDraft, handleCancel, restoreDraft, discardDraft } = draft;
+  const { saveStatus, saveErrorKind, lastSavedAt } = draftManager;
+  return useMemo(() => ({
     ...base,
     userId: guestId,
     isGuest: true as const,
-    hasDraft: draft.hasDraft,
-    setHasDraft: draft.setHasDraft,
-    saveStatus: draftManager.saveStatus,
-    saveErrorKind: draftManager.saveErrorKind,
-    lastSavedAt: draftManager.lastSavedAt,
-    isOnline,
-    handleCancel: draft.handleCancel,
-    autoLoadDraftIfEmpty: draft.autoLoadDraftIfEmpty,
-    restoreDraft: draft.restoreDraft,
-    discardDraft: draft.discardDraft,
-  };
+    hasDraft, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
+    handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft,
+  }), [base, guestId, hasDraft, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
+    handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft]);
 }

@@ -1,24 +1,23 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { TimerStatus, SessionType } from '../store/types';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { resetAndClear, resetSession, resetAllSessionMetadata } from '../store/storeActions';
-import { useWpm } from './useWpm';
 
+// EA-9: здесь нет текста, числа слов, секунд и скорости — они меняются на
+// каждое нажатие и тик таймера. Объект сессии уходит в контекст экрана письма,
+// и любое его изменение перерисовывало весь экран. Листовые компоненты и
+// автосохранение подписываются на сторы сами.
 export interface BaseSessionReturn {
   status: TimerStatus;
   sessionType: SessionType;
   timerDuration: number;
   wordGoal: number;
   targetTime: string | null;
-  content: string;
   title: string;
   pinnedThoughts: string[];
-  seconds: number;
-  wpm: number;
-  wordCount: number;
   tags: string[];
   labelId: string | undefined;
   timeGoalReached: boolean;
@@ -48,17 +47,18 @@ export interface BaseSessionReturn {
   setWordGoalReached: (reached: boolean) => void;
 }
 
+// Один и тот же пустой массив: новый [] на каждый вызов ломал бы мемоизацию.
+const EMPTY: string[] = [];
+
 export function useBaseWritingSession(): BaseSessionReturn {
   const {
-    title, content, pinnedThoughts, tags, labelId, wordCount, initialWordCount,
+    title, pinnedThoughts, tags, labelId, initialWordCount,
     setContent, setTitle, setPinnedThoughts, setTags, setLabelId, setInitialWordCount,
   } = useContentStore(useShallow(s => ({
     title: s.title,
-    content: s.content,
-    pinnedThoughts: Array.isArray(s.pinnedThoughts) ? s.pinnedThoughts : [],
-    tags: Array.isArray(s.tags) ? s.tags : [],
+    pinnedThoughts: Array.isArray(s.pinnedThoughts) ? s.pinnedThoughts : EMPTY,
+    tags: Array.isArray(s.tags) ? s.tags : EMPTY,
     labelId: s.labelId,
-    wordCount: s.wordCount,
     initialWordCount: s.initialWordCount,
     setContent: s.setContent,
     setTitle: s.setTitle,
@@ -68,15 +68,12 @@ export function useBaseWritingSession(): BaseSessionReturn {
     setInitialWordCount: s.setInitialWordCount,
   })));
 
-  const { wpm } = useWpm();
-
   const {
-    sessionType, initialDuration, seconds, status, timeGoalReached, wordGoalReached, wordGoal, timerDuration, targetTime,
+    sessionType, initialDuration, status, timeGoalReached, wordGoalReached, wordGoal, timerDuration, targetTime,
     setStatus, setSessionType, setTimerDuration, setWordGoal, setTargetTime, setInitialDuration, setTimeGoalReached, setWordGoalReached, setSessionStart,
   } = useTimerStore(useShallow(s => ({
     sessionType: s.sessionType,
     initialDuration: s.initialDuration,
-    seconds: s.seconds,
     status: s.status,
     timeGoalReached: s.timeGoalReached,
     wordGoalReached: s.wordGoalReached,
@@ -138,9 +135,9 @@ export function useBaseWritingSession(): BaseSessionReturn {
     };
   }, [status]);
 
-  return {
+  return useMemo(() => ({
     status, sessionType, timerDuration, wordGoal, targetTime,
-    content, title, pinnedThoughts, seconds, wpm, wordCount,
+    title, pinnedThoughts,
     tags, labelId,
     timeGoalReached, wordGoalReached, initialWordCount, initialDuration,
     activeSessionId, sessionStartTime,
@@ -152,5 +149,14 @@ export function useBaseWritingSession(): BaseSessionReturn {
     setActiveSessionId,
     resetAndClear, resetSession, resetSessionMetadata: resetAllSessionMetadata,
     setTimeGoalReached, setWordGoalReached,
-  };
+  }), [
+    status, sessionType, timerDuration, wordGoal, targetTime,
+    title, pinnedThoughts, tags, labelId,
+    timeGoalReached, wordGoalReached, initialWordCount, initialDuration,
+    activeSessionId, sessionStartTime, handleStart,
+    setStatus, setSessionType, setTimerDuration, setWordGoal, setTargetTime,
+    setContent, setTitle, setPinnedThoughts, setTags, setLabelId,
+    setInitialWordCount, setInitialDuration, setActiveSessionId,
+    setTimeGoalReached, setWordGoalReached,
+  ]);
 }
