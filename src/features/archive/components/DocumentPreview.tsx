@@ -104,11 +104,16 @@ export function DocumentPreview({
       });
       return;
     }
-    void fetchSummary(session.id).then(s => {
+    const id = session.id;
+    const load = () => void fetchSummary(id).then(s => {
       if (active) setSummary(s ?? null);
     });
+    load();
+    // Разбор, сделанный на другом устройстве, приезжает фоновым проходом.
+    window.addEventListener('ai-data-pulled', load);
     return () => {
       active = false;
+      window.removeEventListener('ai-data-pulled', load);
     };
   }, [session?.id, fetchSummary]);
 

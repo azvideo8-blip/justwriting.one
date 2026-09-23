@@ -186,6 +186,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     })();
   }, [linkedDocId]);
 
+  // Диалоги с другого устройства приезжают фоновым проходом — перечитать список.
+  useEffect(() => {
+    const reload = () => { void loadDialogues(); };
+    window.addEventListener('ai-data-pulled', reload);
+    return () => window.removeEventListener('ai-data-pulled', reload);
+  }, [loadDialogues]);
+
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;

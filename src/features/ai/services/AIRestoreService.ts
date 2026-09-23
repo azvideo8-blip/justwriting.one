@@ -88,8 +88,8 @@ export interface AIRestoreResult {
  * indexer deliberately never reads the cloud in its loop, so it would have
  * re-embedded every note from scratch instead.
  *
- * Read-only against the cloud, and it never overwrites a local record that is
- * already there: a restore must not clobber work newer than the cloud copy.
+ * Read-only against the cloud. A local record is replaced only by a strictly
+ * newer cloud copy: a restore must not clobber work newer than the cloud copy.
  */
 /**
  * `sinceMs` — инкрементальный забор: только то, что изменилось на других
@@ -110,18 +110,41 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
   const db = await getLocalDb();
 
-  const existingSummaries = new Set((await db.getAllKeys('aiSummaries')).map(String));
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
   try {
     const docs = await DataProvider.getUserSummaries(userId, sinceMs);
-    for (const d of docs) {
-      if (existingSummaries.has(d.id as string)) continue;
-      try {
-        await db.put('aiSummaries', await decodeCloudSummary(d, d.id as string));
-        result.summaries++;
-      } catch {
-        result.failed++;
+    if (docs.length > 0) {
+      const localSummaries = new Map((await db.getAll('aiSummaries')).map(s => [s.documentId, s] as const));
+      const localDocByUuid = new Map<string, { id: string; lastSessionAt?: number | undefined }>();
+      for (const doc of await db.getAll('documents')) if (doc.uuid) localDocByUuid.set(doc.uuid, doc);
+
+      for (const d of docs) {
+        const cloudKey = d.id as string;
+        try {
+          const decoded = await decodeCloudSummary(d, cloudKey);
+          const uuid = decoded.documentUuid ?? cloudKey;
+          const localDoc = localDocByUuid.get(uuid);
+          const existing = (localDoc && localSummaries.get(localDoc.id))
+            ?? localSummaries.get(decoded.documentId) ?? localSummaries.get(cloudKey);
+          // Разбор, сделанный заново на другом устройстве, новее здешнего.
+          // Раньше любой локальный разбор блокировал облачный навсегда: повторный
+          // разбор с компьютера так и не доезжал до ноутбука. Без отметки
+          // времени облачная копия не считается новее.
+          const cloudTs = typeof d.processedAt === 'number' ? decoded.processedAt : 0;
+          if (existing && (existing.processedAt ?? 0) >= cloudTs) continue;
+          if (localDoc) {
+            const adopted: AIDocumentSummary = { ...decoded, documentId: localDoc.id, documentUuid: uuid };
+            await db.put('aiSummaries', adopted);
+            if (cloudKey !== localDoc.id && localSummaries.has(cloudKey)) await db.delete('aiSummaries', cloudKey);
+            await rebuildTimelineEntry(db, localDoc, adopted);
+          } else {
+            await db.put('aiSummaries', decoded); // заметка ещё не приехала — привяжет reattachOrphanedAnalysis
+          }
+          result.summaries++;
+        } catch {
+          result.failed++;
+        }
       }
     }
   } catch (e) {
@@ -440,6 +463,12 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       result.oversized || result.failed ? 'warning' : 'info',
       'ai'
     );
+  }
+  // Открытые экраны (список диалогов, открытый диалог, разбор в превью заметки)
+  // читают базу один раз при открытии — без сигнала пришедшее не видно до перехода.
+  if ((result.summaries || result.localStoreRecords) && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('ai-data-pulled'));
+    window.dispatchEvent(new Event('dialogue-updated'));
   }
   return result;
 }

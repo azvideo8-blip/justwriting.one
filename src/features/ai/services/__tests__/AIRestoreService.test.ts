@@ -137,6 +137,26 @@ describe('restoreAIDataFromCloud', () => {
     expect(providerCalls.some(([k]) => k === 'embeddings')).toBe(false);
   });
 
+  // Повторный разбор заметки на компьютере не доезжал до ноутбука: любой
+  // локальный разбор блокировал облачный навсегда, без сравнения времени.
+  it('replaces an older local analysis with a newer cloud one, and keeps a newer local one', async () => {
+    localStore.documents.set('local_n', { id: 'local_n', uuid: 'uuid-n', lastSessionAt: 1000 });
+    localStore.aiSummaries.set('local_n', { documentId: 'local_n', documentUuid: 'uuid-n', tone: 'old', processedAt: 100 });
+    decodeCloudSummary.mockImplementation(async (d: Record<string, unknown>, id: string) => ({
+      documentId: id, documentUuid: 'uuid-n', tone: d.tone, processedAt: d.processedAt,
+    }));
+    summaryDocs.push({ id: 'uuid-n', data: () => ({ tone: 'new', processedAt: 200 }) });
+
+    await restoreAIDataFromCloud('user_1', { sinceMs: 0 });
+    expect(localStore.aiSummaries.get('local_n')).toMatchObject({ tone: 'new', processedAt: 200 });
+    expect(localStore.aiSummaries.has('uuid-n')).toBe(false);
+
+    summaryDocs.length = 0;
+    summaryDocs.push({ id: 'uuid-n', data: () => ({ tone: 'stale', processedAt: 150 }) });
+    await restoreAIDataFromCloud('user_1', { sinceMs: 0 });
+    expect(localStore.aiSummaries.get('local_n')).toMatchObject({ tone: 'new' });
+  });
+
   it('restores local_store_records (aiPortrait, aiDialogues, lifeStory) when missing locally', async () => {
     localStoreRecordsDocs.push({
       store: 'aiPortrait',
@@ -411,7 +431,6 @@ describe('restoreAIDataFromCloud', () => {
 
     expect(res.summaries).toBe(0);
     expect(localStore.aiSummaries.get('doc-1')).toEqual({ documentId: 'doc-1', tone: 'LOCAL' });
-    expect(decodeCloudSummary).not.toHaveBeenCalled();
   });
 
   // Every decrypt would throw with the vault locked. Restoring then would burn
