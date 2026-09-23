@@ -20,6 +20,7 @@ import { useAttachmentManager } from './useAttachmentManager';
 import { NOTE_REF_RE, NOTE_VERB_RE } from '../utils/noteAutoAttacher';
 import { searchNotes } from '../utils/noteRetriever';
 import { getCurrentUser } from '../../../core/auth';
+import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
@@ -523,6 +524,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (key === lastFollowUpKeyRef.current) return;
     lastFollowUpKeyRef.current = key;
     if (!lastAssistant) return;
+    // EA-18: служебный запрос подсказок — только если человек их не выключил.
+    if (!getChatExtrasEnabled(getCurrentUser()?.uid)) return;
     void AIService.chat({
       personaId: 'coach',
       callType: 'follow_up',

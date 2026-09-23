@@ -70,6 +70,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `word_goal_${uid}`,
     // отметка инкрементального забора данных ИИ с других устройств
     `ai_pull_since_${uid}`,
+    // выключатель подсказок и памяти ИИ (EA-18)
+    `ai_chat_extras_${uid}`,
   ];
 }
 

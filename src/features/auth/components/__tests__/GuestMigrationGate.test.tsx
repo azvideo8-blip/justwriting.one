@@ -5,6 +5,8 @@ import React from 'react';
 import { GuestMigrationGate } from '../GuestMigrationGate';
 import { getLocalDb, getOrCreateGuestId } from '../../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
+import { SyncService } from '../../../../core/services/SyncService';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 
 let mockAuth = {
   user: null as { uid: string; email?: string } | null,
@@ -89,5 +91,27 @@ describe('GuestMigrationGate', () => {
 
     // Success toast shown:
     expect(mockShowToast).toHaveBeenCalled();
+  });
+
+  // EA-17: перенос в аккаунт — локальный; с выключенной синхронизацией
+  // в облако не уходит ничего.
+  it.each([
+    ['off', false, 0],
+    ['on', true, 1],
+  ])('uploads migrated notes only when sync is %s', async (_label, syncOn, calls) => {
+    vi.mocked(SyncService.syncAllUnlinked).mockClear();
+    if (syncOn) localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED('user_sync_gate'), 'true');
+    await LocalDocumentService.createDocument(getOrCreateGuestId(), { title: 'Guest' });
+
+    const { rerender } = render(<GuestMigrationGate />);
+    mockAuth = { user: { uid: 'user_sync_gate' }, isGuest: false };
+    rerender(<GuestMigrationGate />);
+    fireEvent.click(await screen.findByText('Перенести в аккаунт'));
+
+    await waitFor(async () => {
+      expect(await LocalDocumentService.getDocumentsByOwner('user_sync_gate')).toHaveLength(1);
+      expect(screen.queryByText('Перенести в аккаунт')).toBeNull();
+    });
+    expect(SyncService.syncAllUnlinked).toHaveBeenCalledTimes(calls);
   });
 });

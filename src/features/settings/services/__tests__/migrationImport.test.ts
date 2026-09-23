@@ -3,6 +3,7 @@ import "fake-indexeddb/auto";
 import { getLocalDb, resetDbInstance, type LocalDocument, type AIDocumentSummary } from "../../../../core/storage/localDb";
 import { type MigrationManifest } from "../migrationExport";
 import { importMigrationManifest } from "../migrationImport";
+import { STORAGE_KEYS } from "../../../../shared/constants/storageKeys";
 
 async function sha256Hex(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
@@ -701,6 +702,7 @@ describe("C1 migrationImport", () => {
       skipped: [],
     };
 
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("u_test"), "true");
     const res = await importMigrationManifest(manifest, "u_test");
     expect(res.success).toBe(true);
     expect(res.imported.documents).toBe(1);
@@ -711,6 +713,15 @@ describe("C1 migrationImport", () => {
     const db = await getLocalDb();
     const queue = await db.getAll("syncQueue");
     expect(queue.some(item => item.documentId === "doc_locked_1")).toBe(true);
+
+    // Синхронизация выключена — импорт в облако не отправляет и в очередь не ставит.
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("u_off"), "false");
+    const offManifest = structuredClone(manifest);
+    offManifest.documents[0]!.localId = "doc_off_1";
+    offManifest.documents[0]!.uuid = "uuid-off-1";
+    const off = await importMigrationManifest(offManifest, "u_off");
+    expect(off.upload?.status).toBe("sync_off");
+    expect((await db.getAll("syncQueue")).length).toBe(queue.length);
   });
 
   // 1.4: дословный раздел выгрузки писал любое хранилище, какое найдётся в базе.

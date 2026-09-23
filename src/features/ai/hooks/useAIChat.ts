@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { getCurrentUser } from '../../../core/auth';
+import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
@@ -554,7 +556,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
       // CHATFIX-3: Extract memory every 3rd turn, not every turn
       context.incrementMessageCount();
-      if (context.getMessageCount() % 3 === 0) {
+      // EA-18: извлечение памяти — служебный запрос, выключается в настройках.
+      if (context.getMessageCount() % 3 === 0 && getChatExtrasEnabled(getCurrentUser()?.uid)) {
         // Strip attachment bodies — memory extraction goes to an AI endpoint with
         // the same per-message cap, and raw note text shouldn't be stored anyway.
         const memMessages = allMessages.map(m => ({ ...m, content: toApiContent(m.content) }));

@@ -18,8 +18,9 @@ vi.mock('../../../../core/crypto/encrypt', () => ({
   decryptContent: vi.fn(),
 }));
 
+let storeUnlocked = false;
 vi.mock('../../../../core/crypto/useEncryptionStore', () => ({
-  useEncryptionStore: (sel: (s: unknown) => unknown) => sel({ isVaultUnlocked: false }),
+  useEncryptionStore: (sel: (s: unknown) => unknown) => sel({ isVaultUnlocked: storeUnlocked }),
   setRememberDevice: vi.fn(),
 }));
 
@@ -49,7 +50,21 @@ describe('useEncryptionSetup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     isVaultUnlocked.mockReturnValue(false);
+    storeUnlocked = false;
     currentProfile = legacyProfile;
+  });
+
+  // Вход открывает сейф паролем уже после события смены пользователя: check()
+  // успевал выбрать «unlock», и окно висело над открытым сейфом.
+  it('closes the unlock prompt once sign-in unlocks the vault', async () => {
+    hasEncryptionMeta.mockResolvedValue(true);
+    const { result, rerender } = renderHook(() => useEncryptionSetup());
+    await waitFor(() => expect(result.current.mode).toBe('unlock'));
+
+    isVaultUnlocked.mockReturnValue(true);
+    storeUnlocked = true;
+    rerender();
+    expect(result.current.mode).toBe('none');
   });
 
   /**

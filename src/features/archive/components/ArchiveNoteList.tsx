@@ -95,7 +95,6 @@ export function ArchiveNoteList({
     try {
       const user = getCurrentUser();
       await toggleAIExclusion(session, newExcluded, user, userId);
-      session.excludedFromAI = newExcluded;
       if (newExcluded) {
         setAiProcessedMap(m => ({ ...m, [session.id]: false }));
       }

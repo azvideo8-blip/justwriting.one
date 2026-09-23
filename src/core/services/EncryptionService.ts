@@ -327,7 +327,11 @@ export async function changePassword(userId: string, currentPassword: string, ne
     try {
       await updateUserPassword(newPassword);
     } catch (e) {
+      // Пароль входа не сменился — возвращаем сейф на прежний, иначе человек
+      // видит «готово», а вход и заметки остаются на разных паролях.
       reportError(e, { action: 'changePassword_updateUserPassword', userId });
+      await rewrapVaultPassword(userId, newPassword, currentPassword);
+      throw e;
     }
   }
 }

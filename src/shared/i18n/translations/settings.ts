@@ -123,7 +123,7 @@ export const settingsTranslations: Translations = {
   settings_encrypt_errors:     { ru: 'Ошибок: {count}', en: 'Errors: {count}' },
   settings_encrypt_budget_stop:{ ru: 'Дневной лимит записей исчерпан — зашифровано не всё. Продолжится завтра с того же места.', en: 'Daily write limit reached — not everything was encrypted. It will resume tomorrow where it stopped.' },
   settings_encryption_not_set: { ru: 'Шифрование не настроено', en: 'Encryption not configured' },
-  settings_encryption_not_set_desc: { ru: 'Твои заметки хранятся в облаке в открытом виде. Настрой шифрование, чтобы защитить их сквозным шифрованием (E2EE).', en: 'Your notes are stored in the cloud in plain text. Configure encryption to protect them with end-to-end encryption (E2EE).' },
+  settings_encryption_not_set_desc: { ru: 'Шифрование не настроено — пока его нет, заметки не отправляются в облако. Настройте его паролем от аккаунта.', en: 'Encryption is not set up — until it is, notes are not uploaded to the cloud. Set it up with your account password.' },
   settings_initialize_password: { ru: 'Пароль от аккаунта', en: 'Account password' },
   settings_initialize_confirm: { ru: 'Подтверди пароль', en: 'Confirm password' },
   settings_initialize_submit: { ru: 'Включить шифрование', en: 'Enable Encryption' },
@@ -191,6 +191,10 @@ export const settingsTranslations: Translations = {
   settings_migration_import_upload_done: {
     ru: 'Загружено в облако: {uploaded} заметок (в очереди: {queued})',
     en: 'Uploaded to cloud: {uploaded} documents (queued: {queued})',
+  },
+  settings_migration_import_upload_sync_off: {
+    ru: 'Синхронизация выключена: {count} заметок сохранены только на этом устройстве',
+    en: 'Sync is off: {count} documents saved on this device only',
   },
   settings_migration_import_upload_locked: {
     ru: 'Сейф заперт: {queued} заметок сохранены локально и поставлены в очередь выгрузки',

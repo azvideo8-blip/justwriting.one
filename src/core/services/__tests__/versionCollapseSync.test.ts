@@ -213,7 +213,9 @@ describe('DEEP-6: version collapse in diagnostics persists across sync', () => {
     expect(count).toBe(3); // 2 from doc1 + 0 from doc2 + 1 from doc3
   });
 
-  it('collapseToLatest deletes locally and returns cloudError when cloud delete rejects', async () => {
+  // EA-13: при сбое облака устройство не трогаем — иначе следующая загрузка
+  // скачала бы «удалённые» версии обратно.
+  it('collapseToLatest leaves local versions alone and returns cloudError when cloud delete rejects', async () => {
     const docId = await LocalDocumentService.createDocument(USER, { title: 'Fail cloud doc', tags: [] });
     for (let i = 1; i <= 2; i++) {
       await LocalVersionService.addVersion(USER, docId, {
@@ -235,15 +237,11 @@ describe('DEEP-6: version collapse in diagnostics persists across sync', () => {
     vi.spyOn(DataProvider, 'deleteVersionsBatch').mockRejectedValueOnce(error);
 
     const result = await LocalVersionService.collapseToLatest(docId, USER);
-    // Local deletion still succeeded
-    expect(result.removedCount).toBe(1);
-    expect(result.deletedVersionNumbers).toEqual([1]);
-    // Cloud error is captured and returned rather than swallowed
+    expect(result.removedCount).toBe(0);
     expect(result.cloudError).toBe(error);
 
-    // Local DB now has only 1 version remaining
+    // Both versions are still on the device
     const local = await LocalVersionService.getVersions(docId);
-    expect(local.length).toBe(1);
-    expect(local[0]!.version).toBe(2);
+    expect(local.map(v => v.version).sort()).toEqual([1, 2]);
   });
 });

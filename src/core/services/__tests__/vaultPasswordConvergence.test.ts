@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { saveEncryptionMeta, saltToBase64, generateSalt, VERIFICATION_PLAINTEXT } from '../EncryptionMetaService';
-import { unlockVault, lockVault, WrongPasswordError } from '../EncryptionService';
+import { unlockVault, lockVault, changePassword, WrongPasswordError } from '../EncryptionService';
+import { updateUserPassword } from '../../auth';
 import { generateDataKey, deriveMasterKey, wrapDataKey, encryptContent } from '../../crypto/encrypt';
 import { DataProvider } from '../../data';
 import { setProfileLoaded, setEncryptionEnabled } from '../../crypto/cryptoHelpers';
@@ -57,6 +58,13 @@ describe('vault password convergence after an e-mail reset (D-28)', () => {
 
   it('leaves the vault alone when there is no pending login password', async () => {
     await unlockVault(USER, OLD);
+    lockVault(USER);
+    await expect(unlockVault(USER, OLD)).resolves.toBeUndefined();
+  });
+
+  it('puts the vault back on the old password when the login password change fails', async () => {
+    vi.mocked(updateUserPassword).mockRejectedValueOnce(new Error('network'));
+    await expect(changePassword(USER, OLD, NEW)).rejects.toThrow('network');
     lockVault(USER);
     await expect(unlockVault(USER, OLD)).resolves.toBeUndefined();
   });

@@ -22,29 +22,26 @@ const limit = pLimit(5);
 // broadcast-канал vault оживляет задачи (isRevivableOnUnlock), когда сейф открыт.
 const MAX_ATTEMPTS = 10;
 
-async function bumpAttempts(
-  taskId: string,
-  reason: unknown,
-  mutate: (id: string, patch: { attempts: number; dead: boolean; lastError?: string }) => Promise<void>,
-): Promise<void> {
+// EA-12: чтение и запись счётчика — в одной readwrite-транзакции. Раньше это
+// были две разные: два параллельных сбоя видели одно n и оба писали n+1
+// (карантин откладывался), а задача, удалённая другой вкладкой, записывалась обратно.
+async function bumpAttempts(taskId: string, reason: unknown): Promise<void> {
   const db = await getLocalDb();
-  const item = await db.get('syncQueue', taskId);
-  if (!item || item.dead) return;
+  const tx = db.transaction('syncQueue', 'readwrite');
+  const item = await tx.store.get(taskId);
+  if (!item || item.dead) {
+    await tx.done;
+    return;
+  }
   const attempts = (item.attempts ?? 0) + 1;
   const reasonStr = String(reason);
   const dead = isPoisonSyncError(reason) || attempts >= MAX_ATTEMPTS;
-  await mutate(taskId, { attempts, dead, lastError: reasonStr });
+  await tx.store.put({ ...item, attempts, dead, lastError: reasonStr });
+  await tx.done;
   if (dead) {
     reportError(new Error('Sync task quarantined'), { taskId, attempts, reason: reasonStr }, 'warning');
     announceQueueChange();
   }
-}
-
-async function markAttempt(taskId: string, patch: { attempts: number; dead: boolean; lastError?: string }): Promise<void> {
-  const db = await getLocalDb();
-  const item = await db.get('syncQueue', taskId);
-  if (!item) return;
-  await db.put('syncQueue', { ...item, attempts: patch.attempts, dead: patch.dead, lastError: patch.lastError });
 }
 
 export interface SyncUnsyncedSummary {
@@ -213,8 +210,9 @@ export const SyncService = {
 
   async syncPending(userId: string, opts?: { force?: boolean }): Promise<SyncPendingResult> {
     // SEC-8: Автосинк выключен по умолчанию: молчание = согласия нет.
-    // Однако явные задачи пользователя из очереди (дренаж при возврате сети
-    // или при сохранении) выполняются с opts?.force.
+    // opts.force обходит тумблер только для явного действия человека; фоновый
+    // дренаж (возврат сети, сохранение) его не передаёт — при выключенной
+    // синхронизации очередь не уходит.
     if (!opts?.force && !cloudSyncEnabled(userId)) {
       return { drained: 0, failed: 0, skippedReason: 'sync_disabled' };
     }
@@ -433,7 +431,7 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
   const docTasks = pending.filter(p => p.type === 'document' || p.type === 'version');
   const pendingBumps: Promise<void>[] = [];
   const bump = (taskId: string, reason: unknown) => {
-    pendingBumps.push(bumpAttempts(taskId, reason, markAttempt));
+    pendingBumps.push(bumpAttempts(taskId, reason));
   };
 
   const syncedIds: string[] = [];

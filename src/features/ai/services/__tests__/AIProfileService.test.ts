@@ -27,6 +27,9 @@ const {
   };
 });
 
+// EA-17: облачная запись портрета — только при включённой синхронизации.
+let mockSyncOn = true;
+vi.mock('../../../../core/sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => mockSyncOn }));
 vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: async () => ({
     get: mockGet,
@@ -90,6 +93,17 @@ describe('AIProfileService', () => {
         'test-user-123',
       );
       expect(mockSetDoc).toHaveBeenCalled();
+    });
+
+    it('EA-17: keeps the portrait on the device when sync is off', async () => {
+      mockSyncOn = false;
+      try {
+        await AIProfileService.savePortrait('test-portrait-md');
+        expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe('test-portrait-md');
+        expect(mockSetDoc).not.toHaveBeenCalled();
+      } finally {
+        mockSyncOn = true;
+      }
     });
 
     it('saves to localStorage and completes successfully even if encryption fails with ENCRYPT_REQUIRED', async () => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../shared/utils/cn';
 
@@ -43,8 +43,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // EA-12: стабильное значение контекста — иначе каждый тост перерисовывал всех потребителей.
+  const toastValue = useMemo(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={toastValue}>
       {children}
       <div 
         className="fixed bottom-24 right-4 z-[var(--z-skip)] flex flex-col gap-2 pointer-events-none"

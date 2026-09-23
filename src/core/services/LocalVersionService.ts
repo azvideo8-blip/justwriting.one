@@ -70,14 +70,12 @@ export const LocalVersionService = {
     if (all.length <= 1) return { removedCount: 0, deletedVersionNumbers: [] };
     all.sort((a, b) => a.version - b.version);
     const keep = all[all.length - 1];
-    const tx = db.transaction('versions', 'readwrite');
     const toDelete = all.filter(v => keep && v.id !== keep.id);
     const deletedVersionNumbers = toDelete.map(v => v.version);
-    await Promise.all(toDelete.map(v => tx.store.delete(v.id)));
-    await tx.done;
 
-    let cloudError: unknown | undefined;
-    if (userId && deletedVersionNumbers.length > 0) {
+    // EA-13: сначала облако, потом устройство. В обратном порядке сбой облака
+    // оставлял там старые версии, и следующая загрузка скачивала их обратно.
+    if (userId) {
       try {
         const doc = await db.get('documents', documentId);
         if (doc?.linkedCloudId) {
@@ -85,11 +83,14 @@ export const LocalVersionService = {
         }
       } catch (cloudErr) {
         reportError(cloudErr, { action: 'collapseToLatest_cloud', documentId });
-        cloudError = cloudErr;
+        return { removedCount: 0, deletedVersionNumbers: [], cloudError: cloudErr };
       }
     }
 
-    return { removedCount: toDelete.length, deletedVersionNumbers, ...(cloudError ? { cloudError } : {}) };
+    const tx = db.transaction('versions', 'readwrite');
+    await Promise.all(toDelete.map(v => tx.store.delete(v.id)));
+    await tx.done;
+    return { removedCount: toDelete.length, deletedVersionNumbers };
   },
 
   async getLatestContent(documentId: string): Promise<string> {

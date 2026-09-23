@@ -397,6 +397,13 @@ export function AccountExportSection({ userId }: AccountExportSectionProps) {
                           })}
                         </div>
                       )}
+                      {importResult.upload.status === 'sync_off' && (
+                        <div className="text-text-main/70">
+                          {t('settings_migration_import_upload_sync_off', {
+                            count: String(importResult.imported.documents),
+                          })}
+                        </div>
+                      )}
                       {importResult.upload.status === 'vault_locked' && (
                         <div className="text-accent-warning">
                           {t('settings_migration_import_upload_locked', {

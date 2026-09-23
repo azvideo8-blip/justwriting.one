@@ -10,6 +10,7 @@ import {
 import { emitDomainEvent } from "../../../core/events/domainEvents";
 import { type MigrationManifest } from "./migrationExport";
 import { SyncService } from "../../../core/services/SyncService";
+import { cloudSyncEnabled } from "../../../core/sync/cloudSyncEnabled";
 import { getSessionKey } from "../../../core/crypto/encrypt";
 import { toTimestampMs } from "../../../core/utils/dateUtils";
 import { writeFacetStore } from "../../../core/services/facetLock";
@@ -44,7 +45,7 @@ export interface MigrationImportResult {
     danglingLabels?: number;
   };
   upload?: {
-    status: "completed" | "vault_locked" | "skipped_no_notes" | "failed";
+    status: "completed" | "vault_locked" | "sync_off" | "skipped_no_notes" | "failed";
     attempted: number;
     uploaded: number;
     queued: number;
@@ -604,7 +605,10 @@ export async function importMigrationManifest(
   // decision: if the vault is locked, we do not attempt cloud upload, but immediately queue
   // all imported notes into syncQueue so they upload when the vault is unlocked.
   let upload: MigrationImportResult["upload"] = undefined;
-  if (importedDocIds.length > 0) {
+  if (importedDocIds.length > 0 && !cloudSyncEnabled(targetUserId)) {
+    // Синхронизация выключена — в облако не уходит ничего, в том числе импорт.
+    upload = { status: "sync_off", attempted: 0, uploaded: 0, queued: 0 };
+  } else if (importedDocIds.length > 0) {
     const hasKey = !!getSessionKey();
     if (!hasKey) {
       for (const docId of importedDocIds) {

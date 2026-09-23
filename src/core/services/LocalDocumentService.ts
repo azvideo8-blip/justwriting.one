@@ -556,7 +556,11 @@ export const LocalDocumentService = {
     const db = await getLocalDb();
     const docs = await LocalDocumentService.getDocumentsByOwner(guestId);
 
+    // EA-6: пересчитываем только счётчики. Голый put без остальных полей
+    // стирал метки профиля (их пишет импорт архива) при каждом удалении заметки.
+    const existing = await db.get('profile', guestId);
     await db.put('profile', {
+      ...existing,
       guestId,
       totalWords: docs.reduce((s, d) => s + d.totalWords, 0),
       sessionsCount: docs.reduce((s, d) => s + d.sessionsCount, 0),

@@ -129,8 +129,10 @@ async function computeLocalEcho(content: string, docId: string): Promise<string>
     const { cosineSimilarity } = await import('../../../shared/utils/vectorMath');
     let bestEntry = null;
     let bestScore = -1;
+    // EA-12: один проход по векторам вместо запроса на каждую запись истории.
+    const embByDoc = new Map((await db.getAll('aiEmbeddings')).map(e => [e.documentId, e]));
     for (const entry of historical) {
-      const histEmb = await db.get('aiEmbeddings', entry.documentId);
+      const histEmb = embByDoc.get(entry.documentId);
       const histVector = histEmb?.vectors?.[0];
       if (histVector) {
         const score = cosineSimilarity(vector, histVector);

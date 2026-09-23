@@ -1,4 +1,5 @@
 import { HardDrive } from 'lucide-react';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { ModalShell } from '../../../shared/components/ModalShell';
@@ -23,7 +24,9 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
   const handleMigrate = async () => {
     try {
       const count = await migrateDocuments(userId);
-      if (count > 0) {
+      // EA-17: перенос в аккаунт — локальный; в облако заметки уходят, только
+      // если синхронизация включена (иначе — кнопкой «Отправить все заметки в облако»).
+      if (count > 0 && cloudSyncEnabled(userId)) {
         try {
           const { synced, failed } = await SyncService.syncAllUnlinked(userId);
           if (synced > 0) onCloudSynced?.(synced);

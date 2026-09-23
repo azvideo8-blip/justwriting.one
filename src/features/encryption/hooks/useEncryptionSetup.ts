@@ -165,5 +165,9 @@ export function useEncryptionSetup(): {
     return () => window.removeEventListener('open-vault-unlock', onOpenUnlock);
   }, [user]);
 
-  return { mode, isLegacy, loading, check, dismiss };
+  // Вход открывает сейф паролем уже после события смены пользователя: check()
+  // успевает решить «unlock», и окно висело над открытым сейфом.
+  const effectiveMode = mode === 'unlock' && isVaultUnlockedVal ? 'none' : mode;
+
+  return { mode: effectiveMode, isLegacy, loading, check, dismiss };
 }

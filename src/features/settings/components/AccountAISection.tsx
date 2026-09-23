@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Sparkles, CheckCircle2, XCircle, Trash2, Search, Database, UserRound } from 'lucide-react';
+import { Sparkles, CheckCircle2, XCircle, Trash2, Search, Database, UserRound, Lightbulb } from 'lucide-react';
 import { useProfile } from '../../auth/contexts/ProfileContext';
 import { DataProvider } from '../../../core/data';
 import { setAiConsent } from '../../../core/ai/aiConsent';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { getSendPortraitInDialogue, setSendPortraitInDialogue } from '../../../core/ai/portraitDialoguePreference';
+import { getChatExtrasEnabled, setChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { Toggle } from '../../../shared/components/Toggle';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { PRIVACY_VERSION, AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
@@ -34,6 +35,11 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
   // Local preference, not server state: no network call, cannot fail, so no
   // loading/error state — the store update and the render are one click.
   const [sendPortrait, setSendPortraitState] = useState(() => getSendPortraitInDialogue(userId));
+  const [chatExtras, setChatExtrasState] = useState(() => getChatExtrasEnabled(userId));
+  const handleToggleChatExtras = (next: boolean) => {
+    setChatExtrasEnabled(userId, next);
+    setChatExtrasState(next);
+  };
 
   const handleTogglePortrait = (next: boolean) => {
     setSendPortraitInDialogue(userId, next);
@@ -318,6 +324,30 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             вместе с каждым сообщением в чате, чтобы ответы были точнее. Здесь
             можно отключить это для диалога, не трогая сам портрет и разбор
             заметок — они продолжат работать как прежде.
+          </p>
+        </div>
+
+        {/* EA-18: служебные запросы после сообщения в чате */}
+        <div className="p-4 rounded-xl border border-border-subtle space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Lightbulb size={16} className="text-brand-soft" />
+              <span className="text-sm font-medium text-text-main">
+                Память ИИ и подсказки
+              </span>
+            </div>
+            <Toggle
+              checked={chatExtras}
+              onChange={handleToggleChatExtras}
+              ariaLabel="Память ИИ и подсказки"
+            />
+          </div>
+          <p className="text-xs text-text-main/60 leading-relaxed">
+            После ответа в чате приложение само делает служебные запросы с тем же
+            разговором: предлагает варианты следующего сообщения и раз в несколько
+            сообщений сохраняет факты в «Память ИИ». Выключите — и после ответа
+            ничего дополнительно не отправляется (название диалога по-прежнему
+            придумывается один раз).
           </p>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
 import { AIService } from './AIService';
 import { getCurrentUser } from '../../../core/auth';
@@ -93,7 +94,8 @@ export const AIProfileService = {
     }
 
     const uid = getCurrentUser()?.uid;
-    if (uid) {
+    // EA-17: при выключенной синхронизации портрет остаётся на устройстве.
+    if (uid && cloudSyncEnabled(uid)) {
       try {
         const encrypted = await maybeEncrypt(
           { aiPortrait: portraitMarkdown },
