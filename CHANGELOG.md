@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.9.0 — 2026-09-23
+
+- **[RU]** Полное руководство пользователя: 9 страниц со скриншотами по адресу /docs — как писать, работать с заметками, разбором ИИ, облаком и паролями. Ссылки — в «Помощи» и в «Настройки → О приложении».
+- **[EN]** A full user guide: 9 illustrated pages at /docs — writing, notes, AI analysis, cloud and passwords. Linked from Help and Settings → About.
+- **[RU]** Один пароль: пароль входа открывает и заметки. «Сменить пароль» меняет оба сразу, отдельной кнопки для пароля шифрования больше нет. После сброса пароля по почте приложение один раз попросит прежний пароль, и дальше снова один пароль.
+- **[EN]** One password: your sign-in password also opens your notes. "Change password" changes both at once; the separate encryption password button is gone. After an e-mail reset the app asks for the previous password once, then it is one password again.
+- **[RU]** Сервер больше не получает ваш пароль: при входе браузер отправляет производный от него ключ. Старые аккаунты переходят на это сами при следующем входе.
+- **[EN]** The server no longer receives your password: the browser sends a key derived from it. Existing accounts switch over on their next sign-in.
+- **[RU]** Выключенная синхронизация теперь значит «в облако не уходит ничего»: ни заметки и черновики, ни разбор ИИ, ни перенос гостевых заметок, ни импорт архива. Кнопки ручной отправки работают как прежде.
+- **[EN]** Sync off now means nothing goes to the cloud: no notes or drafts, no AI analysis, no guest-note transfer, no archive import. The manual upload buttons still work.
+- **[RU]** Разборы и чаты, сделанные на другом устройстве, приезжают за несколько минут, а не раз в сутки.
+- **[EN]** AI analyses and chats made on another device now arrive within minutes instead of once a day.
+- **[RU]** Настройка «Память ИИ и подсказки»: можно выключить служебные запросы после ответа в чате (подсказки следующего сообщения и сохранение фактов в память).
+- **[EN]** New "AI memory and suggestions" setting: turn off the service requests made after a chat reply (next-message suggestions and saving facts to memory).
+- **[RU]** Если сейф при входе не удалось создать, заметки больше не уходят в облако без шифрования — приложение сразу предлагает создать сейф.
+- **[EN]** If the vault could not be created at sign-in, notes no longer go to the cloud unencrypted — the app offers to create the vault right away.
+- **[RU]** Окно «Разблокировать шифрование» больше не всплывает сразу после входа, когда сейф уже открыт.
+- **[EN]** The "Unlock encryption" prompt no longer pops up right after sign-in when the vault is already open.
+- **[RU]** Конфликт правок на двух устройствах больше не может потерять локальные версии заметки.
+- **[EN]** An edit conflict between two devices can no longer lose local versions of a note.
+- **[RU]** Черновик снова сохраняется каждые 30 секунд во время набора; ложное «Найден несохранённый черновик» после «Продолжить писать» без правок убрано.
+- **[EN]** The draft is saved every 30 seconds while typing again; the false "Unsaved draft found" after "Continue writing" with no edits is gone.
+- **[RU]** Ctrl/⌘+S сохраняет заметку, горячие клавиши работают на русской раскладке, экспорт в PDF больше не пишет про заблокированное окно.
+- **[EN]** Ctrl/⌘+S saves the note, shortcuts work on the Russian layout, PDF export no longer reports a blocked pop-up.
+- **[RU]** Метки, пришедшие из импорта архива, больше не пропадают после удаления заметки.
+- **[EN]** Labels from an archive import no longer disappear after a note is deleted.
+- **[RU]** Много исправлений текстов и подписей по итогам сверки интерфейса с руководством.
+- **[EN]** Many copy and label fixes found while checking the interface against the guide.
+
 ## 0.8.57 — 2026-09-22
 
 - **[RU]** Заметка, сохранённая офлайн или прерванная сбоем сети, теперь точно доходит до облака в фоне — без ожидания следующего визита.
