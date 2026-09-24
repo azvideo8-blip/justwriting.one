@@ -479,4 +479,30 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
 
     expect(reconcileResult).toEqual({ reconciled: 0, skipped: 1, failed: 0 });
   });
+  it('R3-5: trashing on another device moves the linked note to the trash here, restoring takes it back out', async () => {
+    const db = await getLocalDb();
+    const baseDoc = {
+      id: localDocId, guestId: userId, title: 'T', currentVersion: 1, totalWords: 1, totalDuration: 1,
+      sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [], linkedCloudId: cloudDocId,
+      lastSyncedCloudVersion: 1, lastSeenCloudUpdatedAt: '2026-09-19T10:00:00.000Z',
+    };
+    await db.put('documents', baseDoc);
+    const cloudVersions = [{ id: 'cv_1', version: 1, content: 'x', wordCount: 1, duration: 1, wpm: 1 }] as any[];
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions);
+    const trashedAt = new Date('2026-09-19T11:00:00.000Z');
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValueOnce([{
+      id: cloudDocId, title: 'T', currentVersion: 1, tags: [], trashedAt,
+      updatedAt: new Date('2026-09-19T11:00:00.000Z'),
+    } as any]);
+
+    await SyncService.reconcileLinkedDocuments(userId);
+    expect((await db.get('documents', localDocId))?.trashedAt).toBe(trashedAt.getTime());
+
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValueOnce([{
+      id: cloudDocId, title: 'T', currentVersion: 1, tags: [], trashedAt: null,
+      updatedAt: new Date('2026-09-19T12:00:00.000Z'),
+    } as any]);
+    await SyncService.reconcileLinkedDocuments(userId);
+    expect((await db.get('documents', localDocId))?.trashedAt).toBeUndefined();
+  });
 });

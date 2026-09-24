@@ -349,6 +349,9 @@ export const CloudSyncService = {
                 lastSyncedCloudVersion: cloudDoc.currentVersion,
                 lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
                 excludedFromAI: cloudDoc.excludedFromAI ?? localDoc.excludedFromAI,
+                // R3-5: корзина на другом устройстве (и восстановление из неё) —
+                // облако новее, значит его состояние корзины и есть последнее.
+                trashedAt: toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime() ?? null,
               });
 
               reconciled++;

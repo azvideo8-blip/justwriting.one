@@ -121,14 +121,19 @@ export const LocalDocumentService = {
       labelId?: string | undefined;
       mood?: string | undefined;
       excludedFromAI?: boolean | undefined;
+      /** R3-5: число — в корзине с этого момента; null — не в корзине. */
+      trashedAt?: number | null;
     }
   ): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
+    const base = { ...existing };
+    if (data.trashedAt === null) delete base.trashedAt;
+    else if (data.trashedAt !== undefined) base.trashedAt = data.trashedAt;
     await tx.store.put({
-      ...existing,
+      ...base,
       ...(data.totalWords !== undefined && { totalWords: data.totalWords }),
       ...(data.totalDuration !== undefined && { totalDuration: data.totalDuration }),
       ...(data.currentVersion !== undefined && { currentVersion: data.currentVersion }),
