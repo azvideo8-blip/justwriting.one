@@ -85,6 +85,16 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 
 Обычная выкатка — не эти шаги, а ручной запуск workflow `Выкатка на сервер` (`.github/workflows/deploy.yml`): сборка, выкладка, перезапуск службы, `scripts/post-deploy-smoke.ts`, откат при сбое.
 
+## Внешняя проверка сайта (на ноутбуке)
+
+`monitor/ru.justwriting.sitecheck.plist` — шаблон: launchd не раскрывает `~`, поэтому пути
+подставляются при установке (чекаут — в `~/justwriting`):
+
+```bash
+sed "s#__HOME__#$HOME#g" deploy/monitor/ru.justwriting.sitecheck.plist > ~/Library/LaunchAgents/ru.justwriting.sitecheck.plist
+launchctl load ~/Library/LaunchAgents/ru.justwriting.sitecheck.plist
+```
+
 ## Rate Limiting & Auth Protection
 
 1. **Nginx Layer (`deploy/nginx.conf`)**:

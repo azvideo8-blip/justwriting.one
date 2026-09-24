@@ -6,11 +6,11 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>~/justwriting/deploy/monitor/site-check.sh</string>
+    <string>__HOME__/justwriting/deploy/monitor/site-check.sh</string>
   </array>
   <key>StartInterval</key><integer>1800</integer>
   <key>RunAtLoad</key><true/>
-  <key>StandardOutPath</key><string>~/Library/Logs/justwriting-sitecheck.log</string>
-  <key>StandardErrorPath</key><string>~/Library/Logs/justwriting-sitecheck.log</string>
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/justwriting-sitecheck.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/justwriting-sitecheck.log</string>
 </dict>
 </plist>
