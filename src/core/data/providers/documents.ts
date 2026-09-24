@@ -12,29 +12,12 @@ export async function createDocument(userId: string, data: ProviderRecord): Prom
   const payload = toDb(DOCUMENT_FIELDS, { ...data, uuid: docId, userId });
   delete payload.id;
   const supabase = getSupabase();
-  let { error } = await supabase
+  // R3-7: при 23505 на номере надгробия НЕ удаляем его и не вставляем заново —
+  // это молча воскрешало заметку, удалённую на другом устройстве. Ошибка уходит
+  // наверх, где ветка LIFE-10 (CloudSyncService) предупреждает человека.
+  const { error } = await supabase
     .from('documents')
     .insert(payload);
-
-  if (error != null && (error as { code?: string }).code === '23505') {
-    const { data: tombstone } = await supabase
-      .from('documents')
-      .select('uuid, deleted_at')
-      .eq('user_id', userId)
-      .eq('uuid', docId)
-      .maybeSingle();
-    if (tombstone?.deleted_at != null) {
-      await supabase
-        .from('documents')
-        .delete()
-        .eq('user_id', userId)
-        .eq('uuid', docId);
-      const retry = await supabase
-        .from('documents')
-        .insert(payload);
-      error = retry.error;
-    }
-  }
 
   if (error != null) throw error;
   return docId;
