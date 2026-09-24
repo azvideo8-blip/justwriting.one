@@ -5,6 +5,7 @@
 | File | Destination |
 |------|-------------|
 | `nginx.conf` | `/etc/nginx/sites-available/justwriting` → symlink to `sites-enabled` |
+| `snippets/security-headers.conf` | `/etc/nginx/snippets/security-headers.conf` — общие защитные заголовки (HSTS, nosniff, DENY и др.) |
 | `www-killswitch/sw.js` | `/var/www/www-killswitch/sw.js` — служебный работник-выключатель для `www.` (nginx отдаёт его вместо 301, иначе старая сборка из кэша живёт вечно) |
 | `supabase-compose.override.yml` | `/opt/justwriting/supabase/docker-compose.override.yml` — порты только на 127.0.0.1, русские письма GoTrue |
 | `invite.sh` | `/opt/justwriting/deploy/invite.sh` — пригласить тестера (регистрация в UI выключена) |
@@ -46,6 +47,8 @@ sudo chmod 600 /opt/justwriting/api/.env
 # Edit /opt/justwriting/api/.env with actual values
 
 # 5. nginx
+sudo mkdir -p /etc/nginx/snippets
+sudo cp deploy/snippets/security-headers.conf /etc/nginx/snippets/
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/justwriting
 sudo ln -sf /etc/nginx/sites-available/justwriting /etc/nginx/sites-enabled/
 sudo nginx -t
