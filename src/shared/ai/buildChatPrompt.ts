@@ -17,22 +17,27 @@ export interface ChatPromptParams {
   memoryContext?: string | null | undefined;
 }
 
+// Режим рассуждений: deepseek думает по-английски или по-китайски, если не
+// сказать иначе (f93616ce). Нужно и потоковому пути, и запасному — одним текстом.
+export const REASONING_LANGUAGE_RULE = 'ВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.';
+export const REASONING_LANGUAGE_NUDGE = '(Думай по-русски и ответь по-русски.)';
+
+/** Системный промпт и сообщения для запроса с включённым рассуждением. */
+export function withReasoningLanguage<M extends { role: string; content: string }>(system: string, messages: M[]): { system: string; messages: M[] } {
+  return {
+    system: `${system}\n\n${REASONING_LANGUAGE_RULE}`,
+    messages: messages.map((m, i) =>
+      i === messages.length - 1 && m.role === 'user' ? { ...m, content: `${m.content}\n\n${REASONING_LANGUAGE_NUDGE}` } : m,
+    ),
+  };
+}
+
 export function buildChatSystemPrompt(params: ChatPromptParams): string {
   const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood, memoryContext } = params;
 
-  // AX-11: Reasoning is now a separate boolean flag, decoupled from length.
-  // The reasoning prefix instructs the model to output two sections.
-  let reasoningPrefix = '';
-  if (reasoning) {
-    reasoningPrefix = `ФОРМАТ ОТВЕТА (обязательно):
-Твой ответ состоит из двух разделов, разделённых заголовком.
-Первый раздел начни со строки: ХОД МЫСЛИ:
-За ней напиши свой анализ — ход рассуждений, выбор подхода, промежуточные выводы.
-Затем напиши строку: ОТВЕТ:
-За ней напиши итоговый ответ пользователю.
-Это не шаблон — это требование к формату вывода.\n\n`;
-  }
-
+  // `reasoning` = the request runs with provider-side reasoning on. The model
+  // is never asked to write its reasoning into the answer: callers read it from
+  // the reasoning channel and add the ХОД МЫСЛИ:/ОТВЕТ: headers themselves.
   const hasSearch = Boolean(documentContent && (documentContent.includes('Результаты поиска') || documentContent.includes('[#')));
   const notesGuard = hasSearch ? `${NOTES_GUARD_BASE}\n\n${NOTES_SEARCH_GUARD}` : NOTES_GUARD_BASE;
 
@@ -76,8 +81,7 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
     base = `${base}\nDATA_CONTEXT_END`;
   }
 
-  // Reasoning prefix goes FIRST, before everything else
-  return reasoningPrefix + base;
+  return base;
 }
 
 

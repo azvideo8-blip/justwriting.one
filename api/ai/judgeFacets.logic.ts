@@ -79,7 +79,6 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
     const result = await generate({
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: facetsText }],
-      json: true,
       maxTokens: 8192,
       abortMs: 100_000,
       model: JUDGE_MODEL,

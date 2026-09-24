@@ -69,7 +69,6 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     const result = await generate({
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: conversationText }],
-      json: false,
       maxTokens: 1000,
       model: FACET_MODEL,
       abortMs: 50_000,

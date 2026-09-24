@@ -3,6 +3,7 @@ import { chatWithAILogic } from '../ai/chatWithAI.logic';
 import { generate } from '../ai/provider';
 import type { AiContext } from '../../src/shared/ai/context.js';
 import { SYSTEM_TASK_PROMPTS } from '../../src/shared/ai/systemTaskPrompts.js';
+import { REASONING_LANGUAGE_RULE } from '../../src/shared/ai/buildChatPrompt.js';
 
 vi.mock('../ai/provider', () => ({
   generate: vi.fn(),
@@ -100,5 +101,32 @@ describe('chatWithAI: callType не обходит лимиты', () => {
       system: 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.',
       maxTokens: 256,
     }));
+  });
+});
+
+// Запасной (непотоковый) путь режима рассуждений: раньше выключал встроенное
+// рассуждение модели и просил писать «ХОД МЫСЛИ» прямо в ответе, а потоковый
+// путь делал наоборот. Теперь оба включают рассуждение у провайдера и
+// одинаково оформляют ответ.
+describe('chatWithAI: режим рассуждений в запасном пути', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('включает рассуждение у провайдера, держит правило о языке и оформляет ответ как поток', async () => {
+    vi.mocked(generate).mockResolvedValue({ text: 'Ответ.', reasoning: 'Размышляю.', tokensIn: 10, tokensOut: 10, model: 'test-model' });
+    const res = await chatWithAILogic(ctxSpy(), 'user_1', payload({ reasoning: true }));
+    const call = vi.mocked(generate).mock.calls[0]![0];
+    expect(call.reasoningEffort).toBe('low');
+    expect(call.system).toContain(REASONING_LANGUAGE_RULE);
+    expect(call.system).not.toContain('ХОД МЫСЛИ');
+    expect(call.system).not.toContain('без хода мысли');
+    expect(JSON.stringify(res)).toContain('ХОД МЫСЛИ:\\nРазмышляю.\\n\\nОТВЕТ:\\nОтвет.');
+  });
+
+  it('без режима рассуждений рассуждение выключено', async () => {
+    vi.mocked(generate).mockResolvedValue({ text: 'Ответ.', tokensIn: 10, tokensOut: 10, model: 'test-model' });
+    await chatWithAILogic(ctxSpy(), 'user_1', payload());
+    const call = vi.mocked(generate).mock.calls[0]![0];
+    expect(call.reasoningEffort).toBeUndefined();
+    expect(call.system).not.toContain(REASONING_LANGUAGE_RULE);
   });
 });

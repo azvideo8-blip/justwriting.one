@@ -2,7 +2,7 @@
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation } from '../../src/shared/ai/aiPolicy.js';
 import { generate } from './provider';
-import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema } from '../../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage } from '../../src/shared/ai/buildChatPrompt.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = chatInputSchema;
@@ -74,9 +74,21 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     content: sanitizeAiInput(m.content),
   }));
 
+  // Режим рассуждений — то же правило о языке, что в потоковом пути (api/chat.ts).
+  const request = reasoning === true
+    ? withReasoningLanguage(systemInstruction, providerMessages)
+    : { system: systemInstruction, messages: providerMessages };
+
   let gen;
   try {
-    gen = await generate({ system: systemInstruction, messages: providerMessages, maxTokens, abortMs: 110_000 });
+    gen = await generate({
+      system: request.system,
+      messages: request.messages,
+      maxTokens,
+      abortMs: 110_000,
+      // Same effort as CHAT_REASONING_EFFORT in api/chat.ts (streaming path).
+      reasoningEffort: reasoning === true ? 'low' : undefined,
+    });
   } catch (e) {
     const { classifyProviderFailure } = await import('./pure');
     const failure = classifyProviderFailure(e);
@@ -86,7 +98,9 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   }
 
   const isReasoningMode = reasoning === true;
-  const text = sanitizeAiResponse(gen.text, isReasoningMode);
+  // Same headers the streaming path writes, so the client parser is unchanged.
+  const raw = isReasoningMode && gen.reasoning ? `ХОД МЫСЛИ:\n${gen.reasoning}\n\nОТВЕТ:\n${gen.text}` : gen.text;
+  const text = sanitizeAiResponse(raw, isReasoningMode);
 
   callRes.markProduced(gen.text.length);
   await callRes.settle('done');

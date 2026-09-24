@@ -106,7 +106,6 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
     const result = await generate({
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userContent }],
-      json: true,
       maxTokens: 4096,
       abortMs: 100_000,
       model: JUDGE_MODEL,

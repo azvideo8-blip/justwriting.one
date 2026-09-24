@@ -4,7 +4,7 @@ import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
-import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema } from '../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage } from '../src/shared/ai/buildChatPrompt.js';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
@@ -497,21 +497,14 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   const basePromptParams = assembleChatPromptParams(parsed.data);
 
   if (reasoning) {
-    // AG-MEM-1: OpenRouter reasoning uses native provider-side CoT via
-    // `reasoning: { effort: CHAT_REASONING_EFFORT }` (line 167) rather than
-    // in-band prompt-based CoT sections. We pass reasoning: false here so that
-    // buildChatSystemPrompt suppresses in-band <reasoning> blocks, preventing
-    // duplicate "ХОД МЫСЛИ:" headers and conflicts with the native reasoning stream.
+    // AG-MEM-1: reasoning is provider-side (`reasoning: { effort: CHAT_REASONING_EFFORT }`
+    // in streamOpenRouterReasoning). reasoning: true keeps the «без хода мысли»
+    // line out of this prompt — that line is for the reasoning-off path only.
     const baseReasoningSystem = buildChatSystemPrompt({
       ...basePromptParams,
-      reasoning: false,
+      reasoning: true,
     });
-    const reasoningSystem = `${baseReasoningSystem}\n\nВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.`;
-    const reasoningMessages = providerMessages.map((m, i) =>
-      i === providerMessages.length - 1 && m.role === 'user'
-        ? { ...m, content: `${m.content}\n\n(Думай по-русски и ответь по-русски.)` }
-        : m,
-    );
+    const { system: reasoningSystem, messages: reasoningMessages } = withReasoningLanguage(baseReasoningSystem, providerMessages);
     await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation, chargedDay, inputEstimate);
     return;
   }

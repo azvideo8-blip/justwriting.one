@@ -83,7 +83,6 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
     const result = await generate({
       system: systemWithContext,
       messages: [{ role: 'user', content: userContent }],
-      json: false,
       maxTokens: 2048,
       model: BELIEF_MODEL,
       abortMs: 110_000,

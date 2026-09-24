@@ -69,7 +69,6 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
     const result = await generate({
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: `Дайджест дневника:\n\n${digest}` }],
-      json: true,
       maxTokens: 4096,
       abortMs: 110_000,
       model: TAXO_MODEL,
@@ -105,7 +104,6 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
               role: 'user',
               content: `Переведи названия сфер на русский:\n${JSON.stringify(candidateDomains.map(d => d.label))}`,
             }],
-            json: true,
             maxTokens: 512,
             abortMs: 30_000,
             model: TAXO_MODEL,

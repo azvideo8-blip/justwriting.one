@@ -37,12 +37,13 @@ export interface ProviderMessage {
 export interface GenerateParams {
   system?: string | undefined;
   messages: ProviderMessage[];
-  json?: boolean;
   maxTokens?: number;
   abortMs?: number;
   /** Override the OpenRouter model for this call (e.g. an obedient non-reasoning
    *  model for structured tasks). Defaults to the active chat model. */
   model?: string | undefined;
+  /** Turn provider-side reasoning on (chat reasoning mode). Omitted = none. */
+  reasoningEffort?: 'low' | 'medium' | 'high' | undefined;
 }
 
 export interface GenerateResult {
@@ -51,6 +52,8 @@ export interface GenerateResult {
   tokensOut: number;
   /** The model string actually used for this request (e.g. for recordUsage). */
   model: string;
+  /** Provider-side reasoning text, when reasoningEffort was set. */
+  reasoning?: string;
 }
 
 export function isTransientError(err: unknown, didTimeout = false): boolean {
@@ -113,7 +116,9 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
   // does NOT — measured against deepseek-v4-flash it produced *more* reasoning than
   // the default (374 tokens vs 61), and `reasoning: {exclude:true}` only hides the
   // tokens while still paying for them.
-  body.reasoning_effort = 'none';
+  // Chat reasoning mode opts back in with the same shape api/chat.ts streams with.
+  if (params.reasoningEffort) body.reasoning = { effort: params.reasoningEffort };
+  else body.reasoning_effort = 'none';
 
   // Retry transient upstream errors (502/503/504 and network errors like ECONNRESET)
   // with a short backoff while respecting an overall time deadline.
@@ -202,13 +207,16 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
     res.json().finally(() => clearTimeout(jsonTimerId!)),
     jsonTimeout,
   ])) as {
-    choices?: { message?: { content?: string } }[];
+    choices?: { message?: { content?: string; reasoning_content?: string; reasoning?: string } }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
 
-  const text = data.choices?.[0]?.message?.content ?? '';
+  const message = data.choices?.[0]?.message;
+  const text = message?.content ?? '';
+  const reasoning = message?.reasoning_content ?? message?.reasoning;
   return {
     text,
+    ...(reasoning ? { reasoning } : {}),
     tokensIn: data.usage?.prompt_tokens ?? 0,
     tokensOut: data.usage?.completion_tokens ?? 0,
     model: activeModel,

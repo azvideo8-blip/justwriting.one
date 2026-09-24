@@ -127,6 +127,22 @@ beforeEach(() => {
 });
 
 describe('3.8 stream disconnect', () => {
+  // Потоковый режим рассуждений включает рассуждение у провайдера — промпт не
+  // должен одновременно велеть «отвечай сразу, без хода мысли».
+  it('reasoning-запрос не просит модель не думать и держит правило о языке', async () => {
+    sseBody = holdOpen();
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+    await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+    res.emit('close');
+    await done;
+    const body = String((vi.mocked(fetch).mock.calls[0]![1] as { body?: unknown }).body);
+    expect(body).toContain('"effort"');
+    expect(body).not.toContain('без хода мысли');
+    expect(body).toContain('ТОЛЬКО на русском языке');
+  });
+
   it('refunds once when the client leaves before any byte was streamed', async () => {
     // Upstream never finishes on its own; the abort signal closes the pipe.
     sseBody = holdOpen();

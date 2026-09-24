@@ -54,7 +54,7 @@ describe('DUP-2: chatPromptAssembly', () => {
     expect(systemPrompt).toContain('Пользователь любит утренний бег и кофе');
   });
 
-  it('reasoning flag toggles format prefix and direct answer instructions', () => {
+  it('reasoning flag only toggles the direct-answer instruction', () => {
     const parsed = chatInputSchema.parse(fullPayload);
     const paramsWithReasoning = assembleChatPromptParams({ ...parsed, reasoning: true });
     const paramsWithoutReasoning = assembleChatPromptParams({ ...parsed, reasoning: false });
@@ -62,12 +62,11 @@ describe('DUP-2: chatPromptAssembly', () => {
     const promptWithReasoning = buildChatSystemPrompt(paramsWithReasoning);
     const promptWithoutReasoning = buildChatSystemPrompt(paramsWithoutReasoning);
 
-    // In reasoning mode: instructs model to output two sections with reasoning prefix
-    expect(promptWithReasoning).toContain('ФОРМАТ ОТВЕТА (обязательно):');
-    expect(promptWithReasoning).toContain('Первый раздел начни со строки: ХОД МЫСЛИ:');
+    // Reasoning runs provider-side: the prompt neither asks for an in-band
+    // ХОД МЫСЛИ section nor tells the model not to think.
+    expect(promptWithReasoning).not.toContain('ХОД МЫСЛИ');
+    expect(promptWithReasoning).not.toContain('без хода мысли');
 
-    // Without reasoning mode: suppresses CoT instructions and asks for direct answer
-    expect(promptWithoutReasoning).not.toContain('ФОРМАТ ОТВЕТА (обязательно):');
     expect(promptWithoutReasoning).toContain('Отвечай сразу, без хода мысли.');
   });
 

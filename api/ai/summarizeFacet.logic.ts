@@ -71,7 +71,6 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     const result = await generate({
       system: systemWithCorrection,
       messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n${notesText}` }],
-      json: false,
       maxTokens: 2048,
       model: FACET_MODEL,
       abortMs: 110_000,

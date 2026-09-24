@@ -61,7 +61,6 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
         role: 'user',
         content: `Запрос пользователя: "${safeQuery}"\n\nКандидаты-заметки:\n${cardsText}\n\nВыбери до ${maxResults} самых релевантных.`,
       }],
-      json: true,
       maxTokens: 512,
       abortMs: 50_000,
     });
