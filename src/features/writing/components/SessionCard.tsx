@@ -223,7 +223,7 @@ export const SessionCard = React.memo(function SessionCard({
                     className={session._isLocal ? "text-text-main/60" : "text-text-main/60"} 
                   />
                 </span>
-                <span title={session._isTooLargeForSync ? (t('storage_too_large_cloud') || 'Только локально: слишком большая для облака (лимит ≈ 700 000 символов)') : session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
+                <span title={session._isTooLargeForSync ? t('storage_too_large_cloud') : session._hasPendingSync ? t('storage_sync_pending') : session._hasCloudCopy ? t('storage_cloud') : t('storage_no_cloud')}>
                   <Cloud 
                     size={13} 
                     className={session._isTooLargeForSync ? "text-text-main/40" : session._hasPendingSync ? "text-accent-warning animate-pulse" : session._hasCloudCopy ? "text-accent-info" : "text-text-main/60"}

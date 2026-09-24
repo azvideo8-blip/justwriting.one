@@ -55,7 +55,7 @@ export function FinishModalStats({
           onClick={() => setStatsExpanded(!statsExpanded)}
           className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 font-semibold text-sm"
         >
-          <span>{t('finish_wpm_chart') || 'Session Stats'}</span>
+          <span>{t('finish_wpm_chart')}</span>
           {statsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </Button>
 

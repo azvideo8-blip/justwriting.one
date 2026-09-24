@@ -151,7 +151,7 @@ export const WritingEditor = React.memo(function WritingEditor({
     const text = e.clipboardData?.getData('text/plain') || '';
     if (text.length > 700_000) {
       showToast(
-        t('editor_paste_large_warning') || 'Вставляемый текст очень большой (лимит облака ≈ 700 000 символов). Рекомендуется разбить его на части.',
+        t('editor_paste_large_warning'),
         'warning'
       );
     }

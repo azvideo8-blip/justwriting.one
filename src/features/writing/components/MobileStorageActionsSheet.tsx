@@ -79,7 +79,7 @@ export function MobileStorageActionsSheet({
     triggerVibration();
     try {
       await StorageService.addLocalCopy(userId, doc.cloudId);
-      showToast(t('storage_downloaded_local') || 'Загружено на устройство', 'success');
+      showToast(t('storage_downloaded_local'), 'success');
       onStorageChange();
       onClose();
     } catch (e) {
@@ -216,7 +216,7 @@ export function MobileStorageActionsSheet({
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
           <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
-            {t('storage_title') || 'Управление хранилищем'}
+            {t('storage_title')}
           </span>
           <IconButton
             icon={<X size={18} />}
@@ -229,21 +229,21 @@ export function MobileStorageActionsSheet({
         {/* Details Summary */}
         <div className="px-6 py-4 bg-white/[0.01] border-y border-white/[0.04]">
           <div className="text-base font-bold text-text-main truncate mb-1">
-            {session.title || t('common_untitled') || 'Без названия'}
+            {session.title || t('common_untitled')}
           </div>
           <div className="flex items-center gap-4 text-xs text-text-main/60">
             <div className="flex items-center gap-1">
               <HardDrive size={12} className={doc.hasLocal ? "text-brand-primary" : "text-text-main/60"} />
-              <span>{doc.hasLocal ? (t('storage_local') || 'Локально') : (t('storage_no_local') || 'Нет на устройстве')}</span>
+              <span>{doc.hasLocal ? t('storage_local') : t('storage_no_local')}</span>
             </div>
             <div className="flex items-center gap-1">
               <Cloud size={12} className={doc.hasCloud ? (doc.hasPendingSync ? "text-accent-warning" : "text-accent-info") : "text-text-main/60"} />
               <span>
                 {doc.hasPendingSync
-                  ? (t('storage_sync_pending') || 'Ожидает синхронизации')
+                  ? t('storage_sync_pending')
                   : doc.hasCloud
-                  ? (t('storage_cloud') || 'В облаке')
-                  : (t('storage_no_cloud') || 'Нет в облаке')}
+                  ? t('storage_cloud')
+                  : t('storage_no_cloud')}
               </span>
             </div>
           </div>
@@ -265,12 +265,12 @@ export function MobileStorageActionsSheet({
               ) : doc.hasPendingSync ? (
                 <>
                   <RefreshCw size={18} />
-                  <span>{t('storage_sync_pending') || 'Синхронизировать изменения'}</span>
+                  <span>{t('storage_sync_pending')}</span>
                 </>
               ) : (
                 <>
                   <Upload size={18} />
-                  <span>{t('storage_upload_to_cloud') || 'Загрузить в облако'}</span>
+                  <span>{t('storage_upload_to_cloud')}</span>
                 </>
               )}
             </Button>
@@ -290,7 +290,7 @@ export function MobileStorageActionsSheet({
               ) : (
                 <>
                   <HardDrive size={18} />
-                  <span>{t('storage_download_to_local') || 'Скачать на это устройство'}</span>
+                  <span>{t('storage_download_to_local')}</span>
                 </>
               )}
             </Button>
@@ -310,7 +310,7 @@ export function MobileStorageActionsSheet({
               ) : (
                 <>
                   <HardDrive size={18} />
-                  <span>{t('storage_remove_local') || 'Удалить локальную копию'}</span>
+                  <span>{t('storage_remove_local')}</span>
                 </>
               )}
             </Button>
@@ -330,7 +330,7 @@ export function MobileStorageActionsSheet({
               ) : (
                 <>
                   <Cloud size={18} />
-                  <span>{t('storage_remove_cloud') || 'Удалить из облака'}</span>
+                  <span>{t('storage_remove_cloud')}</span>
                 </>
               )}
             </Button>
@@ -350,7 +350,7 @@ export function MobileStorageActionsSheet({
               ) : (
                 <>
                   <Trash2 size={18} />
-                  <span>{t('storage_delete_completely') || 'Удалить полностью'}</span>
+                  <span>{t('storage_delete_completely')}</span>
                 </>
               )}
             </Button>
@@ -364,7 +364,7 @@ export function MobileStorageActionsSheet({
               onClick={onClose}
               className="w-full min-h-[48px] py-3 rounded-2xl font-semibold text-sm bg-white/[0.04] text-text-main/60 text-center active:scale-[0.98]"
             >
-              {t('common_cancel') || 'Отмена'}
+              {t('common_cancel')}
             </Button>
           </div>
         </div>

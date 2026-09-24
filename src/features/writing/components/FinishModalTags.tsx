@@ -58,7 +58,7 @@ export function FinishModalTags({
             onClick={() => setFormExpanded(!formExpanded)}
             className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 font-semibold text-sm"
           >
-            <span>{t('finish_title_label') || 'Title & Label'}</span>
+            <span>{t('finish_title_label')}</span>
             {formExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </Button>
 
@@ -113,7 +113,7 @@ export function FinishModalTags({
             onClick={() => setTagsExpanded(!tagsExpanded)}
             className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 font-semibold text-sm"
           >
-            <span>{t('finish_tags') || 'Tags'}</span>
+            <span>{t('finish_tags')}</span>
             {tagsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </Button>
 

@@ -59,7 +59,7 @@ export function useDocuments(userId: string, isGuest?: boolean) {
       } catch (err) {
         if (!cancelled) {
           reportError(err, { action: 'fetchDocuments', userId });
-          setError(t('archive_load_error') || 'Error loading documents');
+          setError(t('archive_load_error'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -91,7 +91,7 @@ export function useDocuments(userId: string, isGuest?: boolean) {
       }
     } catch (err) {
       reportError(err, { action: 'fetchDocuments', userId });
-      setError(t('archive_load_error') || 'Error loading documents');
+      setError(t('archive_load_error'));
     } finally {
       setLoading(false);
     }

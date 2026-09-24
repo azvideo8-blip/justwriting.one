@@ -67,4 +67,8 @@ export const aiTranslations: Translations = {
   ai_feedback_prompt_title: { ru: 'Что не так с ответом?', en: 'What was wrong with the answer?' },
   ai_feedback_prompt_message: { ru: 'короче / теплее / конкретнее / не выдумывай — или свой вариант', en: 'shorter / warmer / more specific / do not hallucinate — or your own' },
   ai_feedback_prompt_placeholder: { ru: 'Причина', en: 'Reason' },
+  ai_indexing_consent_required: {
+    ru: 'Для поиска по смыслу требуется согласие на индексацию',
+    en: 'Semantic search requires consent for indexing',
+  },
 };

@@ -260,9 +260,9 @@ export function StorageIcons({
   const cloudTitle = isTooLarge
     ? t('storage_too_large_cloud')
     : uploading
-      ? (t('common_loading') || 'Loading...')
+      ? t('common_loading')
       : isUnsynced
-        ? (t('storage_sync_pending') || 'Pending changes (click to sync)')
+        ? t('storage_sync_pending')
         : doc.hasCloud
           ? t('storage_remove_cloud')
           : canUpload
@@ -275,11 +275,11 @@ export function StorageIcons({
         icon={downloading ? <Loader2 size={14} className="animate-spin" /> : <HardDrive size={14} />}
         label={
           downloading
-            ? (t('storage_downloading') || 'Загрузка…')
+            ? t('storage_downloading')
             : doc.hasLocal
               ? t('storage_remove_local')
               : doc.hasCloud
-                ? (t('storage_download_to_local') || 'Скачать на это устройство')
+                ? t('storage_download_to_local')
                 : t('storage_no_local')
         }
         onClick={handleLocalClick}
@@ -391,7 +391,7 @@ export function StorageIcons({
                   {confirmState.kind === 'exclude-ai'
                     ? t('ai_note_exclude')
                     : confirmState.kind === 'download-local'
-                      ? (t('storage_download_confirm') || 'Скачать')
+                      ? t('storage_download_confirm')
                       : t('storage_delete_confirm')}
                 </Button>
                 <Button

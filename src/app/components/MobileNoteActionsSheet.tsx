@@ -176,9 +176,9 @@ export function MobileNoteActionsSheet({
 
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
-          <h3 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions') || 'Действия с заметкой'}</h3>
+          <h3 id="note-actions-sheet-title" className="sr-only">{t('archive_note_actions')}</h3>
           <span className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
-            {t('archive_note_actions') || 'Действия с заметкой'}
+            {t('archive_note_actions')}
           </span>
           <IconButton
             onClick={onClose}
@@ -213,7 +213,7 @@ export function MobileNoteActionsSheet({
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
               >
                 <ExternalLink size={18} className="text-text-main/60" />
-                <span>{t('archive_preview') || 'Открыть превью'}</span>
+                <span>{t('archive_preview')}</span>
               </Button>
 
               <Button
@@ -221,7 +221,7 @@ export function MobileNoteActionsSheet({
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
               >
                 <Pencil size={18} className="text-text-main/60" />
-                <span>{t('archive_rename_title') || 'Переименовать'}</span>
+                <span>{t('archive_rename_title')}</span>
               </Button>
 
               {(labels && labels.length > 0 || session.labelId) && (
@@ -230,7 +230,7 @@ export function MobileNoteActionsSheet({
                   className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
                 >
                   <Tag size={18} className="text-text-main/60" />
-                  <span>{t('archive_assign_label') || 'Назначить ярлык'}</span>
+                  <span>{t('archive_assign_label')}</span>
                 </Button>
               )}
 
@@ -252,12 +252,12 @@ export function MobileNoteActionsSheet({
                   ) : doc.hasPendingSync ? (
                     <>
                       <RefreshCw size={18} />
-                      <span>{t('storage_sync_pending') || 'Синхронизировать изменения'}</span>
+                      <span>{t('storage_sync_pending')}</span>
                     </>
                   ) : (
                     <>
                       <Cloud size={18} />
-                      <span>{t('storage_upload_to_cloud') || 'Загрузить в облако'}</span>
+                      <span>{t('storage_upload_to_cloud')}</span>
                     </>
                   )}
                 </Button>
@@ -309,7 +309,7 @@ export function MobileNoteActionsSheet({
                   ) : (
                     <>
                       <HardDrive size={18} className="text-text-main/60" />
-                      <span>{t('storage_remove_local') || 'Удалить локальную копию'}</span>
+                      <span>{t('storage_remove_local')}</span>
                     </>
                   )}
                 </Button>
@@ -326,7 +326,7 @@ export function MobileNoteActionsSheet({
                   ) : (
                     <>
                       <Cloud size={18} className="text-text-main/60" />
-                      <span>{t('storage_remove_cloud') || 'Удалить из облака'}</span>
+                      <span>{t('storage_remove_cloud')}</span>
                     </>
                   )}
                 </Button>
@@ -337,7 +337,7 @@ export function MobileNoteActionsSheet({
                 className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-accent-danger bg-accent-danger/10 border border-accent-danger/20 active:bg-accent-danger/20 transition-colors text-left"
               >
                 <Trash2 size={18} />
-                <span>{t('archive_delete') || 'Удалить полностью'}</span>
+                <span>{t('archive_delete')}</span>
               </Button>
 
             </>
@@ -347,7 +347,7 @@ export function MobileNoteActionsSheet({
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-text-main/60 uppercase tracking-wider">{t('archive_assign_label')}</span>
                 <Button onClick={() => setShowLabelsSelector(false)} className="text-xs text-brand-soft hover:underline">
-                  {t('writing_back') || 'Назад'}
+                  {t('writing_back')}
                 </Button>
               </div>
               <div className="grid grid-cols-1 gap-2">

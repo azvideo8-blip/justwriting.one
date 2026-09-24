@@ -98,7 +98,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       reportError(err, { action: 'writingActions/continueDocument' });
       const errStr = String(err);
       if (errStr.includes('LOCKED')) {
-        showToast(t('archive_note_locked') || 'Заметка заблокирована', 'error');
+        showToast(t('archive_note_locked'), 'error');
         window.dispatchEvent(new CustomEvent('open-vault-unlock'));
       } else if (!navigator.onLine) {
         // Без `|| '...'`: t() при отсутствии ключа возвращает сам ключ, а не

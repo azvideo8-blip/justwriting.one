@@ -43,4 +43,10 @@ describe('aiErrorToText', () => {
     const formatted = aiErrorToText('BULK_LIMIT');
     expect(formatted).toBe('Фоновый лимит ИИ на сегодня исчерпан (разбор, поиск по смыслу) — чат по-прежнему работает');
   });
+
+  it('AU-2: formats INDEXING_CONSENT_REQUIRED using t', () => {
+    const fakeT = (k: string) => (k === 'ai_indexing_consent_required' ? 'Для поиска по смыслу требуется согласие на индексацию' : k);
+    expect(aiErrorToText('INDEXING_CONSENT_REQUIRED', { t: fakeT })).toBe('Для поиска по смыслу требуется согласие на индексацию');
+    expect(aiErrorToText('INDEXING_CONSENT_REQUIRED')).toBe('Для поиска по смыслу требуется согласие на индексацию');
+  });
 });

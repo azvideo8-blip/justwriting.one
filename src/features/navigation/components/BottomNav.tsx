@@ -82,7 +82,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
     { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <ArchiveIcon /> },
     { id: 'ai' as const, path: '/ai',          label: 'AI',                    icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> },
     { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
-    ...(isAdmin ? [{ id: 'diagnostics' as const, path: '/diagnostics', label: t('admin_tab_diagnostics') || 'Диагностика', icon: <Shield size={22} strokeWidth={1.6} aria-hidden="true" /> } as const] : []),
+    ...(isAdmin ? [{ id: 'diagnostics' as const, path: '/diagnostics', label: t('admin_tab_diagnostics'), icon: <Shield size={22} strokeWidth={1.6} aria-hidden="true" /> } as const] : []),
   ];
 
   type Tab = typeof tabs[number];

@@ -353,7 +353,7 @@ export function LifeLogPanel({
                 )}
                 {cloudUnknown && (
                   <div className="px-4 py-8 text-center text-sm">
-                    <span className="text-accent-danger font-medium">{t('sync_cloud_unknown') || 'Облако недоступно'}</span>
+                    <span className="text-accent-danger font-medium">{t('sync_cloud_unknown')}</span>
                   </div>
                 )}
               </div>

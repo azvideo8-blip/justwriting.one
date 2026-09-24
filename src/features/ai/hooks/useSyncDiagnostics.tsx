@@ -126,7 +126,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
 
         itemsMap.set(localDoc.id, {
           id: localDoc.id,
-          title: localDoc.title || t('common_untitled') || 'Untitled',
+          title: localDoc.title || t('common_untitled'),
           localId: localDoc.id,
           cloudId: localDoc.linkedCloudId || undefined,
           hasLocal: true,
@@ -148,7 +148,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         if (!isLinked) {
           itemsMap.set(cloudDoc.id, {
             id: cloudDoc.id,
-            title: cloudDoc.title || t('common_untitled') || 'Untitled',
+            title: cloudDoc.title || t('common_untitled'),
             cloudId: cloudDoc.id,
             hasLocal: false,
             hasCloud: true,
@@ -171,7 +171,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       await loadAIStatus();
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Error fetching diagnostics' });
-      showToast(t('error_generic_action') || 'Error fetching status', 'error');
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setLoading(false);
     }
@@ -199,14 +199,14 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         ok = !!(await StorageService.addCloudCopy(userId, item.localId, hasEncryption));
       }
       if (ok) {
-        showToast(t('storage_uploaded_cloud') || 'Sync completed', 'success');
+        showToast(t('storage_uploaded_cloud'), 'success');
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'synced', hasCloud: true, cloudId: item.localId, inQueue: false } : i));
       } else {
-        showToast(t('error_generic_action') || 'Sync failed', 'error');
+        showToast(t('error_generic_action'), 'error');
       }
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Sync failed' });
-      showToast(t('error_generic_action') || 'Sync failed', 'error');
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setSyncingId(null);
     }
@@ -221,7 +221,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, hasLocal: true, status: 'synced', localId: item.cloudId } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Download failed' });
-      showToast(t('error_generic_action') || 'Download failed', 'error');
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setSyncingId(null);
     }
@@ -241,7 +241,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'local_only', cloudId: undefined, hasCloud: false } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Unlink failed' });
-      showToast(t('error_generic_action') || 'Unlink failed', 'error');
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setSyncingId(null);
     }
@@ -287,7 +287,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, inQueue: false, queueItemId: undefined, status: i.hasCloud ? (i.localVersion !== i.cloudVersion ? 'mismatch' : 'synced') : 'local_only' } : i));
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Clear queue item failed' });
-      showToast(t('error_generic_action') || 'Clear queue item failed', 'error');
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setSyncingId(null);
     }
@@ -309,7 +309,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       await fetchData();
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Sync queue failed' });
-      showToast(t('error_generic_action') || 'Sync failed', 'error');
+      showToast(t('error_generic_action'), 'error');
     } finally {
       setLoading(false);
     }

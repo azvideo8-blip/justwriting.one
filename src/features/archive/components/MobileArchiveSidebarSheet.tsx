@@ -61,7 +61,7 @@ export function MobileArchiveSidebarSheet({
         <div className="flex justify-between items-center px-6 pb-3">
           <div className="flex items-center gap-2 text-sm font-bold text-text-main/60 uppercase tracking-widest">
             <SlidersHorizontal size={16} />
-            <span id="archive-sidebar-sheet-title">{t('archive_stats_title') || 'Фильтры'}</span>
+            <span id="archive-sidebar-sheet-title">{t('archive_stats_title')}</span>
           </div>
           <IconButton
             onClick={onClose}
@@ -158,7 +158,7 @@ export function MobileArchiveSidebarSheet({
               onClick={onClose}
               className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors bg-[var(--brand-primary)]"
             >
-              {t('common_close') || 'Закрыть'}
+              {t('common_close')}
             </Button>
           </div>
         </div>

@@ -150,7 +150,7 @@ export function ArchiveNoteList({
           aiErrorToText(res.error, { t, isLoggedIn: !!getCurrentUser() }),
           'error',
           isConsentRequired
-            ? { label: t('settings_open') || 'Открыть настройки', onClick: () => { void navigate('/settings#security'); } }
+            ? { label: t('settings_open'), onClick: () => { void navigate('/settings#security'); } }
             : undefined,
         );
       }

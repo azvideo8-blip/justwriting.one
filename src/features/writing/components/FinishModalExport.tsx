@@ -38,7 +38,7 @@ export function FinishModalExport({
           onClick={() => setExportExpanded(!exportExpanded)}
           className="w-full px-4 py-3 flex items-center justify-between bg-surface-base/20 hover:bg-surface-base/30 font-semibold text-sm"
         >
-          <span>{t('session_export') || 'Export'}</span>
+          <span>{t('session_export')}</span>
           {exportExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </Button>
 

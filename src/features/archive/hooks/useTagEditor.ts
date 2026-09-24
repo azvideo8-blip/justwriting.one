@@ -29,10 +29,10 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
       }
       await Promise.all(promises);
       await fetchSessions();
-      showToast(t('tag_renamed') || 'Tag renamed', 'success');
+      showToast(t('tag_renamed'), 'success');
     } catch (err) {
       reportError(err, { action: 'renameTag', tag, newTag: trimmed });
-      showToast(t('error_tag_rename_failed') || 'Failed to rename tag', 'error');
+      showToast(t('error_tag_rename_failed'), 'error');
     } finally {
       setRenamingTag(null);
     }
@@ -50,10 +50,10 @@ export function useTagEditor(userId: string, fetchSessions: () => Promise<void>)
       }
       await Promise.all(promises);
       await fetchSessions();
-      showToast(t('tag_deleted') || 'Tag deleted', 'success');
+      showToast(t('tag_deleted'), 'success');
     } catch (err) {
       reportError(err, { action: 'deleteTag', tag: tagDeleteConfirm });
-      showToast(t('error_tag_delete_failed') || 'Failed to delete tag', 'error');
+      showToast(t('error_tag_delete_failed'), 'error');
     } finally {
       setTagDeleteConfirm(null);
     }

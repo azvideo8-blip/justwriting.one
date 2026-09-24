@@ -155,7 +155,7 @@ export function DocumentPreview({
           errMsg,
           'error',
           isConsentRequired
-            ? { label: t('settings_open') || 'Открыть настройки', onClick: () => { void navigate('/settings#security'); } }
+            ? { label: t('settings_open'), onClick: () => { void navigate('/settings#security'); } }
             : undefined,
         );
       }
@@ -684,7 +684,7 @@ export function DocumentPreview({
         ) : session._contentNotLoaded ? (
           <div className="flex flex-col items-center justify-center text-center p-8 my-auto text-text-main/60">
             <Loader2 size={24} className="animate-spin mb-2" />
-            <p className="text-xs">{t('common_loading') || 'Загрузка…'}</p>
+            <p className="text-xs">{t('common_loading')}</p>
           </div>
         ) : (
           <p className="text-[15px] text-text-main/80 leading-[1.8] whitespace-pre-wrap text-pretty">

@@ -86,7 +86,7 @@ export function ArchiveLabelBar({
           <div key={label.id} className="group/label relative flex items-center">
             <Button
               onClick={() => onToggleLabel(label.id)}
-              title={label.name === '…' ? (t('archive_labels_vault_locked') || 'Сейф заперт. Откройте сейф для доступа к названиям меток') : undefined}
+              title={label.name === '…' ? t('archive_labels_vault_locked') : undefined}
               className={cn(
                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border",
                 active ? "border-transparent text-white" : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main/70"

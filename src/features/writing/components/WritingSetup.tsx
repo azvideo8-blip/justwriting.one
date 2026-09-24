@@ -249,7 +249,7 @@ export function WritingSetup({
                           <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{t('writing_time')}</div>
                           {finishByError && (
                             <div className="text-xs text-accent-danger mt-2 font-medium">
-                              {t('error_target_time_in_past') || 'Выберите время в будущем'}
+                              {t('error_target_time_in_past')}
                             </div>
                           )}
                         </div>

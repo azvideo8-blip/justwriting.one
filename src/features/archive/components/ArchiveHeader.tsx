@@ -237,7 +237,7 @@ export function ArchiveHeader({
           <IconButton
             onClick={onFilterClick}
             className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/60 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
-            label={t('archive_filters') || 'Фильтры'}
+            label={t('archive_filters')}
             icon={<SlidersHorizontal size={14} aria-hidden="true" />}
           />
         )}

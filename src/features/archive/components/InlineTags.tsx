@@ -56,7 +56,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
           <IconButton
             onClick={e => removeTag(e, tag)}
             className="w-auto h-auto rounded text-text-main/60 hover:text-accent-danger transition-colors opacity-100 md:opacity-0 md:group-hover/tag:opacity-100 -mr-0.5 p-1.5 md:p-0.5 flex items-center justify-center touch-manipulation"
-            label={t('archive_tag_remove') || 'Удалить тег'}
+            label={t('archive_tag_remove')}
             icon={<X className="w-2.5 h-2.5 md:w-2 md:h-2" />}
           />
         </span>

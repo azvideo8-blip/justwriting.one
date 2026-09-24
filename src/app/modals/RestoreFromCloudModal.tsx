@@ -459,7 +459,7 @@ export function RestoreFromCloudModal({
 
             <div className="pt-2 flex justify-end">
               <Button onClick={onClose} className="px-4 py-2 text-xs font-semibold bg-surface-base border border-border-subtle text-text-main hover:bg-surface-card">
-                {t('common_done') || 'Готово'}
+                {t('common_done')}
               </Button>
             </div>
           </div>

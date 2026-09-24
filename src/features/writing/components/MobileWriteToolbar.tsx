@@ -152,7 +152,7 @@ export function MobileWriteToolbar({
     >
       {streamMode && (
         <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[var(--accent-danger)] text-[var(--bg-base)] text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-[0.05em] pointer-events-none shadow-[0_2px_4px_color-mix(in_srgb,var(--accent-danger)_20%,transparent)]">
-          {t('stream_mode_label') || 'Stream Mode'}
+          {t('stream_mode_label')}
         </div>
       )}
       <div className="flex-1 flex gap-0">
@@ -300,7 +300,7 @@ export function MobileWriteToolbar({
         {onNew && isIdle && (
           <IconButton
             onClick={onNew}
-            label={t('topbar_new') || "Новая заметка"}
+            label={t('topbar_new')}
             className="w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent text-[var(--text-muted)] flex items-center justify-center cursor-pointer ml-1"
             icon={
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -328,10 +328,10 @@ export function MobileWriteToolbar({
               </div>
               <div className="text-center space-y-2">
                 <h3 className="text-lg font-bold text-text-main">
-                  {t('stream_mode_exit_confirm') || 'Exit Stream Mode?'}
+                  {t('stream_mode_exit_confirm')}
                 </h3>
                 <p className="text-sm text-text-main/60">
-                  {t('stream_mode_exit_desc') || 'Вы вернетесь к обычному режиму написания.'}
+                  {t('stream_mode_exit_desc')}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -341,7 +341,7 @@ export function MobileWriteToolbar({
                   onClick={() => setShowExitConfirm(false)}
                   className="flex-1 py-3.5 rounded-2xl border border-border-subtle text-text-main font-bold text-sm min-h-[44px]"
                 >
-                  {t('writing_cancel') || 'Cancel'}
+                  {t('writing_cancel')}
                 </Button>
                 <Button
                   variant="danger"
@@ -352,7 +352,7 @@ export function MobileWriteToolbar({
                   }}
                   className="flex-1 py-3.5 rounded-2xl font-bold text-sm text-white min-h-[44px]"
                 >
-                  {t('storage_delete_confirm') || 'Exit'}
+                  {t('storage_delete_confirm')}
                 </Button>
               </div>
             </motion.div>

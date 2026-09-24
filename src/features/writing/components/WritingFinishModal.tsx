@@ -403,8 +403,7 @@ function WritingFinishModalBody({
             showToast(t('save_success'), 'success');
           } else if (isTooLarge) {
             showToast(
-              t('save_too_large_cloud_warning') ||
-              'Заметка сохранена только на этом устройстве: слишком большая для облака (лимит ≈ 700 000 символов). Разбейте её на части',
+              t('save_too_large_cloud_warning'),
               'warning'
             );
           } else if (currentUid.startsWith('guest_') || !cloudSyncEnabled(currentUid)) {

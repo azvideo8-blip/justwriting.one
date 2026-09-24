@@ -328,7 +328,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             <IconButton
               onClick={e => { e.stopPropagation(); setActionsSheetOpen(true); }}
               className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/60 hover:bg-text-main/5 active:bg-text-main/10"
-              label={t('archive_note_actions') || 'Actions'}
+              label={t('archive_note_actions')}
               icon={<MoreVertical size={18} aria-hidden="true" />}
             />
             <AnimatePresence>

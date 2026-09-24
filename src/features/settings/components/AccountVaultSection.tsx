@@ -107,7 +107,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
       } else if (mig.encrypted > 0) {
         showToast(t('settings_encrypt_done', { count: mig.encrypted }), 'success');
       } else {
-        showToast(t('unlock_success') || 'Encryption set up successfully', 'success');
+        showToast(t('unlock_success'), 'success');
       }
       setVaultPassword('');
       setConfirmVaultPassword('');
@@ -181,7 +181,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
     // Explicit lock cancels "remember on this device" so it won't auto-unlock on reload.
     setRememberDevice(false);
     void clearDeviceKey(userId);
-    showToast(t('settings_lock_vault') || 'Vault locked', 'success');
+    showToast(t('settings_lock_vault'), 'success');
   };
 
   const handleEncryptAll = async () => {
@@ -299,7 +299,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               type="password"
               value={vaultPassword}
               onChange={(e) => setVaultPassword(e.target.value)}
-              placeholder={t('auth_password') || 'Password'}
+              placeholder={t('auth_password')}
               className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
               required
             />
@@ -465,7 +465,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
                 autoFocus
                 value={recoveryPromptPassword}
                 onChange={e => setRecoveryPromptPassword(e.target.value)}
-                placeholder={t('auth_password') || 'Password'}
+                placeholder={t('auth_password')}
                 className="px-4 py-3 outline-none bg-surface-base/5 border border-border-subtle text-text-main text-sm focus:ring-2 focus:ring-[var(--brand-soft)]/40 placeholder:text-text-main/40"
                 required
               />

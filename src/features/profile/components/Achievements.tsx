@@ -250,16 +250,16 @@ export function Achievements({ stats, sessions }: AchievementsProps) {
 
   const getAchievementDescription = (ach: Achievement, t: (key: string) => string) => {
     if (ach.id.startsWith('streak_')) {
-      return `${ach.threshold} ${t('profile_streak') || 'days in a row'}`;
+      return `${ach.threshold} ${t('profile_streak')}`;
     }
     if (ach.id.startsWith('words_')) {
-      return `${ach.threshold.toLocaleString()} ${t('profile_words') || 'words'}`;
+      return `${ach.threshold.toLocaleString()} ${t('profile_words')}`;
     }
     if (ach.id.startsWith('notes_')) {
-      return `${ach.threshold} ${t('me_stat_sessions') || 'sessions'}`;
+      return `${ach.threshold} ${t('me_stat_sessions')}`;
     }
     if (ach.id.startsWith('duration_')) {
-      return `${ach.threshold} ${t('unit_min') || 'min'}`;
+      return `${ach.threshold} ${t('unit_min')}`;
     }
     return '';
   };

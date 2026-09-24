@@ -74,7 +74,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
         {/* Header */}
         <div className="flex justify-between items-center px-6 pb-3">
           <span id="goal-sheet-title" className="text-sm font-bold text-text-main/60 uppercase tracking-widest">
-            {t('settings_goals') || 'Цели'}
+            {t('settings_goals')}
           </span>
           <IconButton
             onClick={onClose}
@@ -89,7 +89,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-text-main/80 font-semibold text-sm">
               <Target size={18} className="text-accent-danger" />
-              <span>{t('writing_mode_words') || 'Цель по словам'}</span>
+              <span>{t('writing_mode_words')}</span>
             </div>
 
             {/* Presets Grid */}
@@ -105,7 +105,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
                   )}
                 >
-                  {words === 0 ? t('archive_stats_reset') || 'Без цели' : `${words} сл.`}
+                  {words === 0 ? t('archive_stats_reset') : `${words} сл.`}
                 </Button>
               ))}
             </div>
@@ -116,7 +116,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 type="number"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder={t('writing_words') || 'Количество слов'}
+                placeholder={t('writing_words')}
                 value={customWords}
                 onChange={(e) => setCustomWords(e.target.value)}
                 onBlur={handleApplyCustomWords}
@@ -127,7 +127,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 <IconButton
                   onClick={handleApplyCustomWords}
                   className="w-7 h-7 rounded-lg bg-accent-danger/10 text-accent-danger flex items-center justify-center border-none cursor-pointer"
-                  label={t('apply') || 'Apply'}
+                  label={t('apply')}
                   icon={<Check size={14} />}
                 />
               )}
@@ -138,7 +138,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-text-main/80 font-semibold text-sm">
               <Timer size={18} className="text-accent-info" />
-              <span>{t('writing_mode_timer') || 'Цель по времени'}</span>
+              <span>{t('writing_mode_timer')}</span>
             </div>
 
             {/* Presets Grid */}
@@ -154,7 +154,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
                   )}
                 >
-                  {mins === 0 ? t('archive_stats_reset') || 'Без цели' : `${mins} мин.`}
+                  {mins === 0 ? t('archive_stats_reset') : `${mins} мин.`}
                 </Button>
               ))}
             </div>
@@ -165,7 +165,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 type="number"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder={t('writing_minutes') || 'Минут'}
+                placeholder={t('writing_minutes')}
                 value={customMins}
                 onChange={(e) => setCustomMins(e.target.value)}
                 onBlur={handleApplyCustomMins}
@@ -176,7 +176,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 <IconButton
                   onClick={handleApplyCustomMins}
                   className="w-7 h-7 rounded-lg bg-accent-info/10 text-accent-info flex items-center justify-center border-none cursor-pointer"
-                  label={t('apply') || 'Apply'}
+                  label={t('apply')}
                   icon={<Check size={14} />}
                 />
               )}
@@ -189,7 +189,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
               onClick={onClose}
               className="w-full py-3.5 rounded-2xl font-bold text-sm text-surface-base border-none cursor-pointer text-center active:scale-[0.98] transition-colors bg-[var(--brand-primary)]"
             >
-              {t('save_success') || 'Готово'}
+              {t('save_success')}
             </Button>
           </div>
         </div>

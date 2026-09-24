@@ -76,7 +76,7 @@ export function MeWritingSection() {
         onClick={() => openSettings('editor')}
         className="mt-5 w-full py-3 rounded-xl border border-white/[0.07] bg-white/[0.03] text-white/80 text-sm font-medium text-center"
       >
-        {t('settings_all_editor_settings') || 'Все настройки редактора →'}
+        {t('settings_all_editor_settings')}
       </Button>
     </div>
   );

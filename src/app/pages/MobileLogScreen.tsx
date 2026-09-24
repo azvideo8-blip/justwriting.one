@@ -165,7 +165,7 @@ export function MobileLogScreen({ userId, isGuest, onContinue, labels }: MobileL
             <div className="text-2xl mb-1">✦</div>
             <div className="text-sm text-[var(--color-text-muted,var(--text-muted))] text-center">
               {cloudUnknown 
-                ? <span className="text-accent-danger font-medium">{t('sync_cloud_unknown') || 'Облако недоступно'}</span>
+                ? <span className="text-accent-danger font-medium">{t('sync_cloud_unknown')}</span>
                 : query ? t('log_no_results') : t('log_empty')}
             </div>
           </div>
