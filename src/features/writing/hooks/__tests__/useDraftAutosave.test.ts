@@ -127,6 +127,26 @@ describe('useDraftAutosave', () => {
     });
 
     expect(result.current.saveStatus).toBe('error');
+    expect(result.current.saveErrorKind).toBe('unknown');
+  });
+
+  it('reports quota errorKind on QuotaExceededError save failure', async () => {
+    const quotaError = new DOMException('Quota exceeded', 'QuotaExceededError');
+    vi.mocked(persistDraft).mockRejectedValue(quotaError);
+
+    const { result, rerender } = renderHook(
+      ({ data }) => useDraftAutosave(mockUser, data),
+      { initialProps: { data: initialData } }
+    );
+
+    rerender({ data: { ...initialData, content: 'trigger save' } });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(510);
+    });
+
+    expect(result.current.saveStatus).toBe('error');
+    expect(result.current.saveErrorKind).toBe('quota');
   });
 
   it('reports warning and error status on quota exceeded error', async () => {

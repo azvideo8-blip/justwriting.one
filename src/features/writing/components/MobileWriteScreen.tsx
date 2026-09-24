@@ -23,12 +23,13 @@ interface MobileWriteScreenProps {
   onStop: () => void;
   onNew?: () => void;
   saveStatus?: string;
+  saveErrorKind?: 'quota' | 'unknown' | null;
   keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
   renderAiPanel?: (open: boolean, onClose: () => void) => React.ReactNode;
 }
 
 export function MobileWriteScreen({
-  onPlay, onPause, onStop, onNew, saveStatus, keystrokeTrackerRef, renderAiPanel
+  onPlay, onPause, onStop, onNew, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel
 }: MobileWriteScreenProps) {
   const { t } = useLanguage();
   const { content, setContent, title, setTitle, wordCount, wpm } = useContentStore(
@@ -263,7 +264,8 @@ export function MobileWriteScreen({
             <div className="text-[10px] font-mono text-[var(--text-subtle)] tracking-[0.06em] uppercase min-w-[60px] text-right tabular-nums">
               {saveStatus === 'saving' ? t('save_status_saving') :
                saveStatus === 'saved'  ? t('save_status_saved')  :
-               saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> : ''}
+               saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
+               saveStatus === 'error' ? <span className="text-[var(--accent-danger)]">{saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}</span> : ''}
             </div>
           </motion.div>
         )}

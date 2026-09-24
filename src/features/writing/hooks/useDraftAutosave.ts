@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
-import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus } from './useDraftCore';
+import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
@@ -28,7 +28,7 @@ export function useDraftAutosave(
   }
 ) {
   const userId = user?.uid ?? null;
-  const { saveStatus, lastSavedAt, remotePermanentError, wrapSave } = useDraftCore({ userId });
+  const { saveStatus, saveErrorKind, lastSavedAt, remotePermanentError, wrapSave } = useDraftCore({ userId });
   const draftDataRef = useRef(draftData);
   const { layoutMode } = useLayoutMode();
 
@@ -135,5 +135,5 @@ export function useDraftAutosave(
     return () => clearInterval(interval);
   }, [user, wrappedAutosaveRemote, hasDraftText, remotePermanentError]);
 
-  return { saveStatus: saveStatus as DraftSaveStatus, lastSavedAt };
+  return { saveStatus: saveStatus as DraftSaveStatus, saveErrorKind: saveErrorKind as DraftErrorKind, lastSavedAt };
 }

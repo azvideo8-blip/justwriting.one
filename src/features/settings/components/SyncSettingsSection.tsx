@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle, CloudDownload, AlertTriangle, Trash2 } from 'lucide-react';
+import { LogIn, Upload, Loader2, Cloud, CheckCircle2, AlertCircle, CloudDownload, AlertTriangle, Trash2, HardDrive } from 'lucide-react';
+import { getStoragePersistenceStatus, requestPersistentStorage, type StoragePersistenceStatus } from '../../../core/storage/storagePersistence';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
@@ -56,6 +57,29 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
     }, 0);
     return () => clearTimeout(t);
   }, [userId]);
+
+  const [storageStatus, setStorageStatus] = useState<StoragePersistenceStatus | null>(null);
+  const [requestingPersist, setRequestingPersist] = useState(false);
+
+  useEffect(() => {
+    void getStoragePersistenceStatus().then(setStorageStatus);
+  }, []);
+
+  const handleRequestPersist = async () => {
+    setRequestingPersist(true);
+    try {
+      const persisted = await requestPersistentStorage();
+      const updated = await getStoragePersistenceStatus();
+      setStorageStatus(updated);
+      if (persisted) {
+        showToast(t('settings_storage_persist_success'), 'success');
+      } else {
+        showToast(t('settings_storage_persist_rejected'), 'info');
+      }
+    } finally {
+      setRequestingPersist(false);
+    }
+  };
 
   const oversizedCount = getOversizedRecordCount();
   const [retryingQuarantined, setRetryingQuarantined] = useState(false);
@@ -399,6 +423,52 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 {t('storage_sign_in_for_cloud')}
               </Button>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Local storage persistence & estimate */}
+      <div className="p-4 rounded-xl border border-border-subtle space-y-3" data-testid="local-storage-card">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <span className="text-sm font-medium text-text-main flex items-center gap-2">
+              <HardDrive size={16} className="text-text-main/60" />
+              {t('settings_storage_title')}
+            </span>
+            <p className="text-xs text-text-main/60">
+              {storageStatus?.persisted
+                ? t('settings_storage_persisted')
+                : t('settings_storage_not_persisted')}
+            </p>
+          </div>
+          {storageStatus && !storageStatus.persisted && (
+            <Button
+              onClick={() => void handleRequestPersist()}
+              disabled={requestingPersist}
+              className="px-3 py-1.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors"
+            >
+              {t('settings_storage_request_btn')}
+            </Button>
+          )}
+        </div>
+
+        {storageStatus?.estimate && (
+          <div className="text-xs text-text-main/60 flex items-center gap-2">
+            <span>
+              {t('settings_storage_usage', {
+                usage: storageStatus.estimate.usageFormatted,
+                quota: storageStatus.estimate.quotaFormatted,
+              })}
+            </span>
+          </div>
+        )}
+
+        {storageStatus && !storageStatus.persisted && (!isAuthenticated || !autoSync) && (
+          <div className="p-3 rounded-lg border border-accent-warning/30 bg-accent-warning/10 text-xs text-accent-warning flex items-start gap-2.5">
+            <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              {t('settings_storage_warning_unprotected')}
+            </p>
           </div>
         )}
       </div>

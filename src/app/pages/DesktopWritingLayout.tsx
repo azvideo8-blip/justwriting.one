@@ -136,6 +136,7 @@ export function DesktopWritingLayout() {
             onPause={handlePause}
             onStop={handleStop}
             saveStatus={session.saveStatus}
+            saveErrorKind={session.saveErrorKind}
           />
         </div>
 

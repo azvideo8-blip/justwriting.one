@@ -38,6 +38,8 @@ export const writingTranslations: Translations = {
   editor_saving: { ru: 'Сохранение...', en: 'Saving...' },
   editor_saved: { ru: 'Сохранено', en: 'Saved' },
   editor_cloud_stale: { ru: 'Только локально', en: 'Local only' },
+  editor_error_quota: { ru: 'Недостаточно места на устройстве', en: 'Not enough device storage' },
+  editor_error_save: { ru: 'Ошибка сохранения', en: 'Save error' },
 
   header_sessionTime:  { ru: 'Время сессии',     en: 'Session time' },
   header_sessionWords: { ru: 'Слов в сессии',    en: 'Session words' },

@@ -7,7 +7,7 @@ import { useContentStore } from '../../store/useContentStore';
 import type { AppUser } from '../../../../core/auth/types';
 
 vi.mock('../useDraftAutosave', () => ({
-  useDraftAutosave: () => ({ saveStatus: 'idle', lastSavedAt: null }),
+  useDraftAutosave: () => ({ saveStatus: 'idle', saveErrorKind: null, lastSavedAt: null }),
 }));
 
 vi.mock('../../../../shared/hooks/useOnlineStatus', () => ({

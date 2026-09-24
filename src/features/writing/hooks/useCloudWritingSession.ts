@@ -15,6 +15,7 @@ export interface CloudSessionReturn extends BaseSessionReturn {
   hasDraft: boolean;
   setHasDraft: (v: boolean) => void;
   saveStatus: DraftSaveStatus;
+  saveErrorKind: 'quota' | 'unknown' | null;
   lastSavedAt: number | null;
   isOnline: boolean;
   handleCancel: () => Promise<void>;
@@ -77,13 +78,13 @@ export function useCloudWritingSession(user: AppUser, profile: UserProfile | nul
   );
 
   const { hasDraft, setHasDraft, handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft } = draft;
-  const { saveStatus, lastSavedAt, isOnline } = persistence;
+  const { saveStatus, saveErrorKind, lastSavedAt, isOnline } = persistence;
   return useMemo(() => ({
     ...base,
     userId: user.uid,
     isGuest: false as const,
-    hasDraft, setHasDraft, saveStatus, lastSavedAt, isOnline,
+    hasDraft, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
     handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft,
-  }), [base, user.uid, hasDraft, setHasDraft, saveStatus, lastSavedAt, isOnline,
+  }), [base, user.uid, hasDraft, setHasDraft, saveStatus, saveErrorKind, lastSavedAt, isOnline,
     handleCancel, autoLoadDraftIfEmpty, restoreDraft, discardDraft]);
 }

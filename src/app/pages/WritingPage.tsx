@@ -193,6 +193,7 @@ const WritingPageUI = React.memo(function WritingPageUI() {
           onStop={() => void onFinishClick()}
           onNew={() => void handleNew()}
           saveStatus={session.saveStatus}
+          saveErrorKind={session.saveErrorKind}
           keystrokeTrackerRef={keystrokeTrackerRef}
           renderAiPanel={(open, onClose) => <AIPanel open={open} onClose={onClose} />}
         />

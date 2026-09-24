@@ -56,7 +56,7 @@ export function useSessionPersistence(
 ) {
   const isOnline = useOnlineStatus();
   const userId = user?.uid ?? '';
-  const { saveStatus, lastSavedAt } = useDraftAutosave(user, {
+  const { saveStatus, saveErrorKind, lastSavedAt } = useDraftAutosave(user, {
     title: sessionState.title,
     content: sessionState.content,
     pinnedThoughts: sessionState.pinnedThoughts,
@@ -140,6 +140,7 @@ export function useSessionPersistence(
 
   return {
     saveStatus,
+    saveErrorKind,
     lastSavedAt,
     isOnline,
     handleCancel,

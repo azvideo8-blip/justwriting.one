@@ -6,6 +6,7 @@ import { reportError } from '../../shared/errors/reportError';
 import { SaveDocumentData } from './storageTypes';
 import { getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { isVersionContentTooLarge } from './VersionService';
+import { requestPersistentStorageOnce } from '../storage/storagePersistence';
 
 export const LocalStorageService = {
   async saveNew(userId: string, data: SaveDocumentData & { _locked?: boolean | undefined; _decryptionError?: boolean | undefined }): Promise<{ localId: string }> {
@@ -70,6 +71,8 @@ export const LocalStorageService = {
     await tx.objectStore('documents').put(docObj);
     await tx.objectStore('versions').put(verObj);
     await tx.done;
+
+    void requestPersistentStorageOnce().catch(() => {});
 
     // Profile totals are an aggregate: recomputed after the fact, never a reason
     // to hold the note's own write open.

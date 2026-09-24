@@ -37,6 +37,15 @@ export const settingsTranslations: Translations = {
   settings_sync_derived_failed: { ru: 'Не удалось отправить: {failed}', en: 'Failed to upload: {failed}' },
   settings_sync_derived_locked: { ru: 'Сейф заблокирован. Разблокируйте шифрование для синхронизации', en: 'Vault is locked. Unlock encryption to sync' },
 
+  settings_storage_title:               { ru: 'Хранилище на устройстве', en: 'On-device storage' },
+  settings_storage_persisted:           { ru: 'Постоянное хранение активно (защищено от автоочистки)', en: 'Persistent storage active (protected from auto-cleanup)' },
+  settings_storage_not_persisted:       { ru: 'Обычное хранение (браузер может очистить данные при нехватке места)', en: 'Standard storage (browser may clear data when low on space)' },
+  settings_storage_request_btn:         { ru: 'Защитить от очистки', en: 'Protect from cleanup' },
+  settings_storage_usage:               { ru: 'Занято: {usage} из {quota}', en: 'Used: {usage} of {quota}' },
+  settings_storage_persist_success:     { ru: 'Постоянное хранение успешно включено', en: 'Persistent storage successfully enabled' },
+  settings_storage_persist_rejected:    { ru: 'Браузер отклонил запрос на постоянное хранение', en: 'Browser declined persistent storage request' },
+  settings_storage_warning_unprotected: { ru: 'Хранилище не защищено от очистки браузером (например, в Safari при редких визитах), а облачная синхронизация выключена. Рекомендуем включить синхронизацию или регулярно делать выгрузку архива.', en: 'Storage is not protected from browser auto-cleanup (e.g. in Safari after inactivity), and cloud sync is disabled. We recommend enabling sync or making regular backups.' },
+
   storage_title: { ru: 'Управление хранилищем', en: 'Storage Management' },
   storage_delete_completely: { ru: 'Удалить полностью', en: 'Delete completely' },
   storage_cloud: { ru: 'Облако', en: 'Cloud' },
