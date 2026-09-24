@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import "fake-indexeddb/auto";
 import { getLocalDb, resetDbInstance, type LocalDocument, type AIDocumentSummary } from "../../../../core/storage/localDb";
-import { type MigrationManifest } from "../migrationExport";
+import { type MigrationManifest, exportMigrationManifest } from "../migrationExport";
 import { importMigrationManifest } from "../migrationImport";
 import { STORAGE_KEYS } from "../../../../shared/constants/storageKeys";
 
@@ -268,7 +268,7 @@ describe("C1 migrationImport", () => {
     expect(res.droppedOnPurpose.unknownStores["nonExistentLegacyStore_xyz"]).toBe(1);
   });
 
-  it("Acceptance 7: linkedCloudId is absent from imported documents", async () => {
+  it("Acceptance 7 / DA-9: linkedCloudId is preserved on imported documents", async () => {
     const manifest: MigrationManifest = {
       version: 1,
       exportedAt: new Date().toISOString(),
@@ -303,7 +303,7 @@ describe("C1 migrationImport", () => {
     const db = await getLocalDb();
     const doc = (await db.get("documents", "d1")) as LocalDocument;
     expect(doc).toBeDefined();
-    expect(doc.linkedCloudId).toBeUndefined();
+    expect(doc.linkedCloudId).toBe("firestore_doc_id_999");
   });
 
   it("Additional Acceptance: each stored record in aiSummaries, aiEmbeddings and aiTimeline resolves to an existing document in IndexedDB", async () => {
@@ -995,6 +995,68 @@ describe("C1 migrationImport", () => {
       todayStart.setHours(0, 0, 0, 0);
       expect(ver?.sessionStartedAt).toBeLessThan(todayStart.getTime());
       expect(ver?.sessionStartedAt).toBe(pastVersionDate);
+    });
+
+    it("DA-9: preserves privacy and sync fields (excludedFromAI, localOnly, unlinkedByTombstone, lastSyncedCloudVersion, lastSeenCloudUpdatedAt, linkedCloudId) across export and import", async () => {
+      const db = await getLocalDb();
+      const doc: LocalDocument = {
+        id: "doc_da9",
+        uuid: "uuid_da9",
+        guestId: "u_orig",
+        title: "Private Local Note",
+        currentVersion: 1,
+        totalWords: 10,
+        totalDuration: 60,
+        sessionsCount: 1,
+        firstSessionAt: 1000,
+        lastSessionAt: 1000,
+        tags: ["tag1"],
+        excludedFromAI: true,
+        localOnly: true,
+        unlinkedByTombstone: true,
+        lastSyncedCloudVersion: 3,
+        lastSeenCloudUpdatedAt: "2026-09-24T10:00:00.000Z",
+        linkedCloudId: "cloud_doc_1",
+      };
+      await db.put("documents", doc);
+      await db.put("versions", {
+        id: "ver_da9",
+        documentId: "doc_da9",
+        version: 1,
+        content: "Hello world",
+        wordCount: 10,
+        wordsAdded: 10,
+        charsAdded: 11,
+        duration: 60,
+        wpm: 10,
+        savedAt: 1000,
+        sessionStartedAt: 1000,
+      });
+
+      const manifest = await exportMigrationManifest();
+      expect(manifest.documents[0]?.excludedFromAI).toBe(true);
+      expect(manifest.documents[0]?.localOnly).toBe(true);
+
+      // Clear db for clean import
+      resetDbInstance();
+      await new Promise<void>((resolve, reject) => {
+        const req = indexedDB.deleteDatabase("justwriting-local");
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+
+      const res = await importMigrationManifest(manifest, "u_target");
+      expect(res.success).toBe(true);
+
+      const newDb = await getLocalDb();
+      const importedDoc = await newDb.get("documents", "doc_da9");
+      expect(importedDoc).toBeDefined();
+      expect(importedDoc?.excludedFromAI).toBe(true);
+      expect(importedDoc?.localOnly).toBe(true);
+      expect(importedDoc?.unlinkedByTombstone).toBe(true);
+      expect(importedDoc?.lastSyncedCloudVersion).toBe(3);
+      expect(importedDoc?.lastSeenCloudUpdatedAt).toBe("2026-09-24T10:00:00.000Z");
+      expect(importedDoc?.linkedCloudId).toBe("cloud_doc_1");
     });
   });
 });

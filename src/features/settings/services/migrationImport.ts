@@ -302,6 +302,12 @@ export async function importMigrationManifest(
       tags: doc.tags ?? [],
       labelId: finalLabelId,
       mood: doc.mood,
+      linkedCloudId: doc.linkedCloudId,
+      excludedFromAI: doc.excludedFromAI,
+      localOnly: doc.localOnly,
+      unlinkedByTombstone: doc.unlinkedByTombstone,
+      lastSyncedCloudVersion: doc.lastSyncedCloudVersion,
+      lastSeenCloudUpdatedAt: doc.lastSeenCloudUpdatedAt,
     };
 
     await db.put("documents", localDoc);

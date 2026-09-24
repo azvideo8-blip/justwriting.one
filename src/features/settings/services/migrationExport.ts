@@ -81,6 +81,11 @@ export interface MigrationDocument {
   tags: string[];
   labelId?: string | undefined;
   mood?: string | undefined;
+  excludedFromAI?: boolean | undefined;
+  localOnly?: boolean | undefined;
+  unlinkedByTombstone?: boolean | undefined;
+  lastSyncedCloudVersion?: number | undefined;
+  lastSeenCloudUpdatedAt?: string | undefined;
   versions: MigrationVersion[];
 }
 
@@ -172,6 +177,11 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
             tags: d.tags,
             labelId: d.labelId,
             mood: d.mood,
+            excludedFromAI: d.excludedFromAI,
+            localOnly: d.localOnly,
+            unlinkedByTombstone: d.unlinkedByTombstone,
+            lastSyncedCloudVersion: d.lastSyncedCloudVersion,
+            lastSeenCloudUpdatedAt: d.lastSeenCloudUpdatedAt,
             versions: migVersions,
           });
         } catch (e) {
