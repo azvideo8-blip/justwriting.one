@@ -1101,7 +1101,15 @@ BEGIN
   VALUES (test_uid, 'chat', now(), 1)
   ON CONFLICT (uid, endpoint) DO UPDATE SET calls = 1;
 
+  -- R3-14 (0032): AI records go with their owner.
+  INSERT INTO public.local_store_records (user_id, store, key, payload)
+  VALUES (test_uid, 'aiDialogues', 'd1', '{}'::jsonb);
+
   DELETE FROM public.users WHERE uid = test_uid;
+
+  IF EXISTS (SELECT 1 FROM public.local_store_records WHERE user_id = test_uid) THEN
+    RAISE EXCEPTION 'FAIL: local_store_records survived user deletion';
+  END IF;
 
   SELECT count(*) INTO remaining_cooldown
     FROM public.ai_bulk_cooldown
@@ -1423,6 +1431,21 @@ BEGIN
   GET DIAGNOSTICS affected = ROW_COUNT;
   IF affected > 0 THEN
     RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice deleted Bob''s profile (% rows)', affected;
+  END IF;
+END $$;
+
+-- R3-14 (0032): an AI record over 2 MiB is refused by the database.
+DO $$
+DECLARE refused boolean := false;
+BEGIN
+  BEGIN
+    INSERT INTO public.local_store_records (user_id, store, key, payload)
+    VALUES ('00000000-0000-0000-0000-000000000001', 'aiDialogues', 'huge',
+            jsonb_build_object('data', (SELECT string_agg(md5(i::text), '') FROM generate_series(1, 100000) i)));
+  EXCEPTION WHEN check_violation THEN refused := true;
+  END;
+  IF NOT refused THEN
+    RAISE EXCEPTION 'FAIL: 3 MB local_store_records payload accepted';
   END IF;
 END $$;
 
