@@ -378,6 +378,12 @@ describe('encryptSingleDocument', () => {
     expect(result.errors).toBe(0);
   });
 
+  it('R3-13: encrypts the version mood like the bulk path does', async () => {
+    mockGetVersions.mockResolvedValue([{ id: 'ver1', content: 'hello', mood: '😊', _encrypted: false }]);
+    await encryptSingleDocument(userId, 'doc1');
+    expect(maybeEncryptSpy).toHaveBeenCalledWith(expect.objectContaining({ id: 'ver1' }), ['content', 'mood'], [], true);
+  });
+
   it('skips already encrypted versions', async () => {
     const versionDocs = [
       { id: 'ver1', content: 'encrypted_val', _encrypted: true },

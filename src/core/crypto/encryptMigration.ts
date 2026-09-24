@@ -504,7 +504,8 @@ export async function encryptSingleDocument(
           result.processed++;
           continue;
         }
-        const encrypted = await maybeEncrypt(v as Record<string, unknown>, ['content'], [], true);
+        // R3-13: как в массовом пути — настроение версии тоже шифруется.
+        const encrypted = await maybeEncrypt(v as Record<string, unknown>, ['content', 'mood'], [], true);
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, val]) => val !== undefined)) as Record<string, unknown>;
         pending.push({
           type: 'version', userId, documentId, versionId, data: clean, checkKey: `v_${documentId}_${versionId}`

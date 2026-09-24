@@ -805,6 +805,9 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
       // и версии текущего пользователя. Это закрывает межпользовательскую
       // утечку между аккаунтами на одном устройстве — ту самую изоляцию,
       // ради которой базу и разделяли.
+      // R3-13: ИИ-записи в этом случае локально теряются сознательно — они
+      // возвращаются из облака (local_store_records) при следующей синхронизации;
+      // случай бывает только у тех, кто пришёл до разделения баз.
       const ownersInLegacy = new Set(docs.map(d => d.guestId).filter(Boolean));
       const multiOwnerMarker = 'jw_legacy_has_multi_owners';
       let hadMultipleOwners = false;
