@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.2 — 2026-09-24
+
+- **[RU]** Перенос архива больше не теряет отметки «не показывать ИИ» и «только на этом устройстве», закреплённые мысли, теги и метку черновика, а импорт либо проходит целиком, либо не меняет ничего.
+- **[EN]** Moving the archive no longer loses the "hide from AI" and "this device only" flags, pinned thoughts, tags or the draft label, and an import either completes in full or changes nothing.
+- **[RU]** «Сегодня написано N слов» считает только сегодняшнее, а окно завершения при продолжении старой заметки показывает время и скорость этой сессии.
+- **[EN]** "Words written today" counts only today, and the finish window shows this session's time and speed when you continue an old note.
+- **[RU]** Приложение просит браузер не удалять локальный архив при нехватке места и предупреждает, если место кончилось.
+- **[EN]** The app asks the browser not to evict the local archive when space runs low, and warns you when storage is full.
+- **[RU]** Если в другой вкладке приложение обновилось, эта вкладка прямо говорит обновить страницу, а не перестаёт сохранять молча.
+- **[EN]** When the app updates in another tab, this tab tells you to reload instead of silently stopping to save.
+- **[RU]** Обычные фразы в заметке больше не ломают разбор граней и убеждений; длинные заметки ищутся по всему тексту, а не по первой половине.
+- **[EN]** Ordinary phrases in a note no longer break the facet and belief analysis; long notes are searchable in full, not just their first half.
+- **[RU]** Оборванный на середине ответ ИИ помечается как оборванный.
+- **[EN]** An AI reply cut off midway is now marked as cut off.
+- **[RU]** Правка названия, тегов или метки, не дошедшая до облака, отправляется при следующей синхронизации; неудавшаяся отправка разбора или чата тоже повторяется.
+- **[EN]** A title, tag or label edit that failed to reach the cloud is sent on the next sync; a failed upload of an analysis or chat is retried too.
+- **[RU]** Заметка, удалённая на другом устройстве, больше не возвращается молча под прежним номером, а заметка из корзины остаётся в корзине на другом устройстве.
+- **[EN]** A note deleted on another device no longer comes back silently, and a note in the trash stays in the trash on your other devices.
+- **[RU]** Удаление заметки во время её первой отправки в облако больше не оставляет облачную копию, которая потом возвращалась.
+- **[EN]** Deleting a note during its first upload no longer leaves a cloud copy that later came back.
+- **[RU]** При первом входе можно отказаться запоминать ключ шифрования на этом устройстве — для чужого или общего компьютера.
+- **[EN]** On first sign-in you can choose not to remember the encryption key on this device — for a shared or someone else's computer.
+- **[RU]** Приватность: код восстановления больше не хранится в браузере после закрытия вкладки, «стереть всё» чистит и общую базу браузера, отпечаток текста в разборе и настроение версий шифруются.
+- **[EN]** Privacy: the recovery code no longer stays in the browser after the tab closes, "erase everything" also clears the shared browser database, and the analysis text fingerprint and version moods are encrypted.
+
 ## 0.9.1 — 2026-09-24
 
 - **[RU]** Экран письма стал легче: при наборе и тиканье таймера больше не перерисовывается всё окно целиком, поэтому текст не подтормаживает на длинных заметках.

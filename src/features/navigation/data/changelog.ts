@@ -14,6 +14,23 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.2',
+    date: '2026-09-24',
+    items: [
+      { category: 'fix', ru: 'Перенос архива больше не теряет отметки «не показывать ИИ» и «только на этом устройстве», закреплённые мысли, теги и метку черновика, а импорт либо проходит целиком, либо не меняет ничего.', en: 'Moving the archive no longer loses the "hide from AI" and "this device only" flags, pinned thoughts, tags or the draft label, and an import either completes in full or changes nothing.' },
+      { category: 'fix', ru: '«Сегодня написано N слов» считает только сегодняшнее, а окно завершения при продолжении старой заметки показывает время и скорость этой сессии.', en: '"Words written today" counts only today, and the finish window shows this session\'s time and speed when you continue an old note.' },
+      { category: 'improvement', ru: 'Приложение просит браузер не удалять локальный архив при нехватке места и предупреждает, если место кончилось.', en: 'The app asks the browser not to evict the local archive when space runs low, and warns you when storage is full.' },
+      { category: 'fix', ru: 'Если в другой вкладке приложение обновилось, эта вкладка прямо говорит обновить страницу, а не перестаёт сохранять молча.', en: 'When the app updates in another tab, this tab tells you to reload instead of silently stopping to save.' },
+      { category: 'fix', ru: 'Обычные фразы в заметке больше не ломают разбор граней и убеждений; длинные заметки ищутся по всему тексту, а не по первой половине.', en: 'Ordinary phrases in a note no longer break the facet and belief analysis; long notes are searchable in full, not just their first half.' },
+      { category: 'fix', ru: 'Оборванный на середине ответ ИИ помечается как оборванный.', en: 'An AI reply cut off midway is now marked as cut off.' },
+      { category: 'fix', ru: 'Правка названия, тегов или метки, не дошедшая до облака, отправляется при следующей синхронизации; неудавшаяся отправка разбора или чата тоже повторяется.', en: 'A title, tag or label edit that failed to reach the cloud is sent on the next sync; a failed upload of an analysis or chat is retried too.' },
+      { category: 'fix', ru: 'Заметка, удалённая на другом устройстве, больше не возвращается молча под прежним номером, а заметка из корзины остаётся в корзине на другом устройстве.', en: 'A note deleted on another device no longer comes back silently, and a note in the trash stays in the trash on your other devices.' },
+      { category: 'fix', ru: 'Удаление заметки во время её первой отправки в облако больше не оставляет облачную копию, которая потом возвращалась.', en: 'Deleting a note during its first upload no longer leaves a cloud copy that later came back.' },
+      { category: 'improvement', ru: 'При первом входе можно отказаться запоминать ключ шифрования на этом устройстве — для чужого или общего компьютера.', en: "On first sign-in you can choose not to remember the encryption key on this device — for a shared or someone else's computer." },
+      { category: 'improvement', ru: 'Приватность: код восстановления больше не хранится в браузере после закрытия вкладки, «стереть всё» чистит и общую базу браузера, отпечаток текста в разборе и настроение версий шифруются.', en: 'Privacy: the recovery code no longer stays in the browser after the tab closes, "erase everything" also clears the shared browser database, and the analysis text fingerprint and version moods are encrypted.' },
+    ],
+  },
+  {
     version: '0.9.1',
     date: '2026-09-24',
     items: [
