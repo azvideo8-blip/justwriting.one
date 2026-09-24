@@ -812,6 +812,7 @@ export function DiagnosticsPage() {
 }
 
 import { AIBackgroundBudget } from '../../features/ai/services/AIBackgroundBudget';
+import { localDayKey } from '../../core/utils/dateUtils';
 
 // UXFIX-3: Mass AI analysis of all unanalyzed notes
 function MassAnalyzeNotes() {
@@ -895,7 +896,7 @@ function MassAnalyzeNotes() {
           const content = versions[0]?.content ?? '';
           if (content.length < 50) continue;
 
-          const noteDate = doc.lastSessionAt ? new Date(doc.lastSessionAt).toISOString().slice(0, 10) : undefined;
+          const noteDate = doc.lastSessionAt ? localDayKey(new Date(doc.lastSessionAt)) : undefined;
 
           const result = await AIService.summarize({
             content: content.slice(0, MAX_AI_CONTENT_LENGTH),

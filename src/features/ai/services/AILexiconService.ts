@@ -1,5 +1,6 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { hasEnoughSignal, SIGNAL_THRESHOLDS } from './signalGate';
+import { localMonthKey } from '../../../core/utils/dateUtils';
 
 export interface VoiceTerm {
   word: string;
@@ -87,7 +88,7 @@ export const AILexiconService = {
       const rawDate = summary.eventDate ?? summary.processedAt;
       const month = typeof rawDate === 'string'
         ? rawDate.slice(0, 7)
-        : new Date(rawDate).toISOString().slice(0, 7);
+        : localMonthKey(new Date(rawDate));
 
       // Prefer authorPhrases if available; fall back to frequentWords for pre-v2 summaries
       const wordsToProcess = (Array.isArray(summary.authorPhrases) && summary.authorPhrases.length > 0)

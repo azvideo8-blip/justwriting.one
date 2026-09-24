@@ -1,8 +1,20 @@
-import { parse } from 'date-fns';
+import { parse, format } from 'date-fns';
 import { ru } from 'date-fns/locale/ru';
 import { enUS } from 'date-fns/locale/en-US';
 
 type DateFnsLocale = import('date-fns/locale').Locale;
+
+/** R4-5: день заметки по местному времени (YYYY-MM-DD). `toISOString().slice(0, 10)`
+ *  даёт день по UTC — запись в 00:30 по Москве попадала во «вчера», тогда как
+ *  стрик и архив считают день по-местному. Серверные дневные лимиты — по UTC,
+ *  там этот ключ не нужен. */
+export function localDayKey(d: Date | number = new Date()): string {
+  return format(d, 'yyyy-MM-dd');
+}
+
+export function localMonthKey(d: Date | number = new Date()): string {
+  return format(d, 'yyyy-MM');
+}
 
 export function getDateLocale(lang: string): DateFnsLocale {
   return lang === 'ru' ? ru : enUS;

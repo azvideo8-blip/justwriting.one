@@ -14,9 +14,10 @@ describe('B3 signalGate', () => {
 
     it('deduplicates dates in the same calendar month', () => {
       const dates = [
-        '2026-07-01T10:00:00Z',
-        '2026-07-15T12:00:00Z',
-        '2026-07-31T23:59:59Z',
+        // R4-5: месяц — по местному времени, поэтому время без Z.
+        '2026-07-01T10:00:00',
+        '2026-07-15T12:00:00',
+        '2026-07-31T23:59:59',
       ];
       expect(calculateUniqueMonths(dates)).toBe(1);
     });

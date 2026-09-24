@@ -7,6 +7,7 @@ import { AIService } from './AIService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import type { CallAiOptions } from '../../../core/ai/callAi';
+import { localDayKey } from '../../../core/utils/dateUtils';
 
 
 /**
@@ -229,7 +230,7 @@ export const AIConsolidationService = {
       for (const mem of chatMemories as AIChatMemory[]) {
         if (consolidatedUnitIds.has(mem.id)) continue;
         const ts = mem.updatedAt ?? now;
-        const date = new Date(ts).toISOString().slice(0, 10);
+        const date = localDayKey(new Date(ts));
         units.push({
           id: mem.id,
           type: 'chat_memory',
@@ -243,7 +244,7 @@ export const AIConsolidationService = {
       const timelineDocs = await db.getAll('aiTimeline');
       for (const t of timelineDocs as Array<{ documentId: string; date?: string; facts?: string[] }>) {
         if (!t.facts) continue;
-        const date = t.date ?? new Date().toISOString().slice(0, 10);
+        const date = t.date ?? localDayKey();
         const vec = embeddingsMap.get(t.documentId);
         for (let i = 0; i < t.facts.length; i++) {
           const factId = `timeline-${t.documentId}-${i}`;
@@ -273,7 +274,7 @@ export const AIConsolidationService = {
         // firstSeenAt, the one date the whole feature is built on.
         // eventDate is what the note is *about* (LIFE-1) and wins when present.
         const ts = s.processedAt ?? now;
-        const date = s.eventDate ?? new Date(ts).toISOString().slice(0, 10);
+        const date = s.eventDate ?? localDayKey(new Date(ts));
         const vec = embeddingsMap.get(s.documentId);
         units.push({
           id: sumId,
@@ -357,7 +358,7 @@ export const AIConsolidationService = {
 
     const candidates: MemoryClusterCandidate[] = rawClusters.map((cluster, idx) => {
       const dates = cluster.map(u => u.date).sort();
-      const earliestDate = dates[0] ?? new Date().toISOString().slice(0, 10);
+      const earliestDate = dates[0] ?? localDayKey();
       const totalSalience = cluster.reduce((sum, u) => sum + u.salience, 0);
 
       return {

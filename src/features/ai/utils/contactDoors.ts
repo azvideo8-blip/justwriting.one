@@ -1,3 +1,4 @@
+import { localMonthKey } from '../../../core/utils/dateUtils';
 export interface DoorsResult {
   thinking: number;
   feeling: number;
@@ -209,7 +210,7 @@ export function aggregateDoors(
   const byMonth = new Map<string, { t: number; f: number; b: number; n: number }>();
   for (const { doors: d, ts } of perNote) {
     if (d.lowData) continue;
-    const monthKey = new Date(ts).toISOString().slice(0, 7);
+    const monthKey = localMonthKey(new Date(ts));
     const existing = byMonth.get(monthKey) ?? { t: 0, f: 0, b: 0, n: 0 };
     existing.t += d.thinking;
     existing.f += d.feeling;

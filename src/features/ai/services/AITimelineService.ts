@@ -1,4 +1,5 @@
 import { getLocalDb, type AITimelineEntry } from '../../../core/storage/localDb';
+import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 
 export const AITimelineService = {
   async getByMonth(month: string): Promise<AITimelineEntry[]> {
@@ -38,8 +39,8 @@ export const AITimelineService = {
       if (doc?.lastSessionAt) {
         const d = new Date(doc.lastSessionAt);
         if (isNaN(d.getTime())) continue;
-        const date = d.toISOString().slice(0, 10);
-        const month = d.toISOString().slice(0, 7);
+        const date = localDayKey(d);
+        const month = localMonthKey(d);
 
         const timelineEntry: AITimelineEntry = {
           documentId: summary.documentId,

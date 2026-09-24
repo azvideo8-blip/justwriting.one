@@ -9,6 +9,7 @@ import { indexDocument, indexPending, sha256Hex, type IndexResult } from '../uti
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import { isDayLimitError, type AIErrorCode } from '../types/aiErrors';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { localDayKey } from '../../../core/utils/dateUtils';
 
 /**
  * Разбор одной заметки — по явному нажатию, и только по нему.
@@ -104,7 +105,7 @@ export const NoteAnalysisService = {
     const res = await AIService.summarize({
       content: content.slice(0, MAX_CONTENT_CHARS),
       ...(doc?.mood !== undefined ? { mood: doc.mood } : {}),
-      ...(doc?.lastSessionAt ? { noteDate: new Date(doc.lastSessionAt).toISOString().slice(0, 10) } : {}),
+      ...(doc?.lastSessionAt ? { noteDate: localDayKey(new Date(doc.lastSessionAt)) } : {}),
     });
 
     if (!res.ok) return { ok: false, error: res.error as AIErrorCode };

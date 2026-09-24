@@ -1,4 +1,5 @@
 import type { AITimelineEntry } from '../../../core/storage/localDb';
+import { localDayKey } from '../../../core/utils/dateUtils';
 
 export interface Contradiction {
   theme: string;
@@ -14,7 +15,7 @@ export function detectContradictions(timeline: AITimelineEntry[]): Contradiction
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString().slice(0, 10);
+  const sevenDaysAgoStr = localDayKey(sevenDaysAgo);
 
   let recent = sorted.filter(e => e.date >= sevenDaysAgoStr);
   let baseline = sorted.filter(e => e.date < sevenDaysAgoStr);

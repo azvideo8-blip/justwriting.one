@@ -19,6 +19,7 @@ import { decodeCloudSummary } from './AISummaryService';
 import { decodeCloudEmbedding } from './AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { writeFacetStore } from '../../../core/services/facetLock';
+import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 
 const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
 const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
@@ -637,12 +638,12 @@ async function rebuildTimelineEntry(
   if (!doc.lastSessionAt) return;
   const d = new Date(doc.lastSessionAt);
   if (isNaN(d.getTime())) return;
-  const dateStr = d.toISOString().slice(0, 10);
+  const dateStr = localDayKey(d);
 
   const entry: AITimelineEntry = {
     documentId: doc.id,
     date: dateStr,
-    month: d.toISOString().slice(0, 7),
+    month: localMonthKey(d),
     facts: summary.extractedFacts ?? [],
     tone: summary.tone,
     themes: summary.themes ?? [],

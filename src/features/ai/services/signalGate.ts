@@ -1,3 +1,4 @@
+import { localMonthKey } from '../../../core/utils/dateUtils';
 export interface SignalThreshold {
   minCount: number;
   minUniqueMonths: number;
@@ -26,7 +27,7 @@ export function calculateUniqueMonths(dates: (string | number | Date | null | un
 
     const dateObj = typeof d === 'object' && d instanceof Date ? d : new Date(d);
     if (isNaN(dateObj.getTime())) continue;
-    const yyyyMm = dateObj.toISOString().slice(0, 7); // "YYYY-MM"
+    const yyyyMm = localMonthKey(dateObj); // "YYYY-MM"
     months.add(yyyyMm);
   }
   return months.size;

@@ -7,6 +7,7 @@ import { useActivityLogStore } from '../../../shared/activity/useActivityLogStor
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { localDayKey } from '../../../core/utils/dateUtils';
 
 
 export const THEME_MATCH_THRESHOLD = 0.82;
@@ -320,7 +321,7 @@ export const AIThemeLedgerService = {
           const summary = await db.get('aiSummaries', docId);
           if (summary && (summary.themes?.length ?? 0) > 0) {
             const themes = summary.themes;
-            const eventDate = summary.eventDate ?? new Date(summary.processedAt).toISOString().slice(0, 10);
+            const eventDate = summary.eventDate ?? localDayKey(new Date(summary.processedAt));
             await this.touchThemes({
               documentId: docId,
               themes,

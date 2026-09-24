@@ -1,5 +1,6 @@
 import { getLocalDb, type LifeStoryEntry, type AITimelineEntry } from '../../../core/storage/localDb';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { localDayKey } from '../../../core/utils/dateUtils';
 
 export const LifeStoryService = {
   async getAll(): Promise<LifeStoryEntry[]> {
@@ -29,9 +30,9 @@ export const LifeStoryService = {
   getDefaultEventDate(writingDateStr: string): string {
     const d = new Date(writingDateStr);
     if (isNaN(d.getTime())) {
-      return new Date().toISOString().slice(0, 10);
+      return localDayKey();
     }
-    return d.toISOString().slice(0, 10);
+    return localDayKey(d);
   },
 
   // Automatically create/update a lifeStory entry from a timeline entry

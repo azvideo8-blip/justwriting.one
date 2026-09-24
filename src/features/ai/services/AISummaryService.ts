@@ -6,6 +6,7 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
+import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 
 // summary стоит первым не случайно: это пересказ заметки своими словами —
 // «автор размышляет о разводе и долгах» — то есть её суть в сжатом виде. Он не
@@ -141,8 +142,8 @@ export const AISummaryService = {
     if (doc?.lastSessionAt) {
       const d = new Date(doc.lastSessionAt);
       if (!isNaN(d.getTime())) {
-        const dateStr = d.toISOString().slice(0, 10);
-        const monthStr = d.toISOString().slice(0, 7);
+        const dateStr = localDayKey(d);
+        const monthStr = localMonthKey(d);
 
         // Save to Timeline
         const timelineEntry: AITimelineEntry = {

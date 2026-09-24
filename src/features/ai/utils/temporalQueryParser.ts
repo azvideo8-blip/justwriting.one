@@ -1,3 +1,4 @@
+import { localDayKey } from '../../../core/utils/dateUtils';
 export interface TemporalQuery {
   type: 'month' | 'dateRange' | 'recent' | 'person' | 'none';
   month?: string | undefined;        // YYYY-MM if type=month
@@ -103,8 +104,8 @@ export function parseTemporalQuery(text: string): TemporalQuery {
     fromDate.setDate(toDate.getDate() - 7);
     return {
       type: 'dateRange',
-      from: fromDate.toISOString().slice(0, 10),
-      to: toDate.toISOString().slice(0, 10),
+      from: localDayKey(fromDate),
+      to: localDayKey(toDate),
       rawText
     };
   }
@@ -129,7 +130,7 @@ export function parseTemporalQuery(text: string): TemporalQuery {
     return {
       type: 'dateRange',
       from: `${year}-01-01`,
-      to: toDate.toISOString().slice(0, 10),
+      to: localDayKey(toDate),
       rawText
     };
   }
@@ -153,8 +154,8 @@ export function parseTemporalQuery(text: string): TemporalQuery {
     fromDate.setFullYear(fromDate.getFullYear() - 1);
     return {
       type: 'dateRange',
-      from: fromDate.toISOString().slice(0, 10),
-      to: toDate.toISOString().slice(0, 10),
+      from: localDayKey(fromDate),
+      to: localDayKey(toDate),
       rawText
     };
   }
