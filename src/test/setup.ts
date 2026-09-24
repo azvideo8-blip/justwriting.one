@@ -52,9 +52,9 @@ global.cancelAnimationFrame = vi.fn((id: number) => {
   clearTimeout(id);
 });
 
-global.performance = {
-  now: () => Date.now(),
-} as Performance;
+if (typeof performance !== 'undefined') {
+  vi.spyOn(performance, 'now').mockImplementation(() => Date.now());
+}
 
 // EA-16: в проде вошедший пользователь без сейфа ничего не пишет в облако.
 // Существующие тесты синхронизации моделируют такого пользователя намеренно

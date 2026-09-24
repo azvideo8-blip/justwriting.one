@@ -3,9 +3,9 @@ import { encryptAllExistingNotes, encryptSingleDocument } from '../encryptMigrat
 import * as encryptModule from '../encrypt';
 import * as cryptoHelpers from '../cryptoHelpers';
 
-vi.spyOn(encryptModule, 'getSessionKey').mockImplementation(() => ({} as CryptoKey));
+const getSessionKeySpy = vi.spyOn(encryptModule, 'getSessionKey').mockImplementation(() => ({} as CryptoKey));
 
-vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockImplementation(async (doc, fields, arrayFields) => {
+const maybeEncryptSpy = vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockImplementation(async (doc, fields, arrayFields) => {
   const result = { ...doc };
   fields.forEach(f => {
     if (typeof result[f] === 'string') {
@@ -416,5 +416,81 @@ describe('encryptSingleDocument', () => {
     expect(result.processed).toBe(1);
     expect(result.encrypted).toBe(1);
     expect(result.errors).toBe(0);
+  });
+});
+
+describe('real maybeEncrypt integration (DA-7)', () => {
+  const flag = globalThis as { __jwVaultOptionalForTests?: boolean | undefined };
+  let savedFlag: boolean | undefined;
+
+  beforeEach(() => {
+    savedFlag = flag.__jwVaultOptionalForTests;
+    maybeEncryptSpy.mockRestore();
+    getSessionKeySpy.mockRestore();
+  });
+
+  afterEach(() => {
+    flag.__jwVaultOptionalForTests = savedFlag;
+    encryptModule.clearSessionKey();
+    getSessionKeySpy.mockImplementation(() => ({} as CryptoKey));
+    maybeEncryptSpy.mockImplementation(async (doc, fields, arrayFields) => {
+      const result = { ...doc };
+      fields.forEach(f => {
+        if (typeof result[f] === 'string') {
+          result[f] = 'encrypted_' + result[f];
+        }
+      });
+      arrayFields.forEach(f => {
+        if (Array.isArray(result[f])) {
+          result[f] = 'encrypted_arr_' + JSON.stringify(result[f]);
+        }
+      });
+      result._encrypted = true;
+      return result;
+    });
+  });
+
+  it('encrypts data when vault is set up and unlocked', async () => {
+    const testUserId = 'real_user_with_vault';
+    cryptoHelpers.setProfileLoaded(testUserId, true);
+    cryptoHelpers.setEncryptionEnabled(testUserId, true);
+
+    const realKey = await encryptModule.generateDataKey();
+    encryptModule.setSessionKey(realKey);
+
+    const doc = { title: 'Sensitive Title', mood: '😊', tags: ['work', 'ideas'] };
+    const encrypted = await cryptoHelpers.maybeEncrypt(doc, ['title', 'mood'], ['tags'], testUserId);
+
+    expect(encrypted._encrypted).toBe(true);
+    expect(encrypted.title).not.toBe('Sensitive Title');
+    expect(typeof encrypted.title).toBe('string');
+
+    const decryptedTitle = await encryptModule.decryptContent(encrypted.title as string, realKey);
+    expect(decryptedTitle).toBe('Sensitive Title');
+
+    const decryptedTags = await encryptModule.decryptContent(encrypted.tags as string, realKey);
+    expect(JSON.parse(decryptedTags)).toEqual(['work', 'ideas']);
+  });
+
+  it('throws ENCRYPT_REQUIRED: vault not set up when account has no vault in prod mode', async () => {
+    flag.__jwVaultOptionalForTests = false;
+    const testUserId = 'real_user_no_vault';
+    cryptoHelpers.setProfileLoaded(testUserId, true);
+    cryptoHelpers.setEncryptionEnabled(testUserId, false);
+
+    await expect(
+      cryptoHelpers.maybeEncrypt({ title: 'Unprotected' }, ['title'], [], testUserId)
+    ).rejects.toThrow('ENCRYPT_REQUIRED: vault not set up');
+  });
+
+  it('throws ENCRYPT_REQUIRED: session key not available when required but key is missing', async () => {
+    const testUserId = 'real_user_locked_vault';
+    cryptoHelpers.setProfileLoaded(testUserId, true);
+    cryptoHelpers.setEncryptionEnabled(testUserId, true);
+    encryptModule.clearSessionKey();
+
+    await expect(
+      cryptoHelpers.maybeEncrypt({ title: 'Locked' }, ['title'], [], testUserId)
+    ).rejects.toThrow('ENCRYPT_REQUIRED: session key not available');
   });
 });

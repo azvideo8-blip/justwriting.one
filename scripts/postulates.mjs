@@ -172,7 +172,7 @@ export async function runLifecycleMatrix() {
 
   const tmpOut = path.join(rootDir, `.postulates-results-${Date.now()}.json`);
   try {
-    execSync(`npx vitest run src/testing/faultHarness/postulatesCli.test.ts --silent`, {
+    execSync(`npx vitest run -c vitest.runner.config.ts --silent`, {
       cwd: rootDir,
       env: {
         ...process.env,

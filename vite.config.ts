@@ -90,7 +90,7 @@ export default defineConfig(() => {
         'e2e/**',
       ],
       coverage: {
-        provider: 'istanbul',
+        provider: 'istanbul' as const,
         reporter: ['text', 'html', 'lcov'],
         include: ['src/**/*.{ts,tsx}'],
         exclude: [
