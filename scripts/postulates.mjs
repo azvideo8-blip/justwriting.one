@@ -59,13 +59,57 @@ export const ENC_COLS = [
   },
 ];
 
+// AU-5: Известные синтетические фикстуры из supabase/tests/rls.test.sql.
+// Обход базы в «постулатах» проверяет только живые данные пользователей.
+// Тестовые фикстуры для проверок RLS (незашифрованные строки bob-doc-001,
+// alice-tombstone-doc, rpc-counter-doc, quota-normal) исключаются из проверок,
+// чтобы аудит приватности не падал на стендовой/тестовой базе данных.
+export const TEST_FIXTURE_DOC_UUIDS = [
+  'bob-doc-001',
+  'alice-tombstone-doc',
+  'rpc-counter-doc',
+  'quota-normal',
+  'quota-oversize',
+];
+
+export const TEST_FIXTURE_USER_IDS = [
+  '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000002',
+  '00000000-0000-0000-0000-000000000003',
+  '00000000-0000-0000-0000-000000000099',
+];
+
+const DOC_UUID_SQL = TEST_FIXTURE_DOC_UUIDS.map(id => `'${id}'`).join(', ');
+const USER_ID_SQL = TEST_FIXTURE_USER_IDS.map(id => `'${id}'`).join(', ');
+
+export function getFixtureFilter(table, prefix = '') {
+  const p = prefix ? `${prefix}.` : '';
+  switch (table) {
+    case 'documents':
+      return `${p}uuid NOT IN (${DOC_UUID_SQL}) AND ${p}user_id NOT IN (${USER_ID_SQL})`;
+    case 'versions':
+      return `${p}document_uuid NOT IN (${DOC_UUID_SQL}) AND ${p}user_id NOT IN (${USER_ID_SQL})`;
+    case 'drafts':
+      return `${p}user_id NOT IN (${USER_ID_SQL})`;
+    case 'ai_summaries':
+    case 'ai_embeddings':
+      return `${p}document_id NOT IN (${DOC_UUID_SQL}) AND ${p}user_id NOT IN (${USER_ID_SQL})`;
+    case 'local_store_records':
+      return `${p}user_id NOT IN (${USER_ID_SQL})`;
+    case 'users':
+      return `public."users".uid NOT IN (${USER_ID_SQL})`;
+    default:
+      return '';
+  }
+}
+
 export const CENSUS_TABLES = [
-  { table: 'documents', unencrypted: '_encrypted IS NOT TRUE' },
-  { table: 'versions', unencrypted: '_encrypted IS NOT TRUE' },
-  { table: 'drafts', unencrypted: '_encrypted IS NOT TRUE' },
-  { table: 'ai_summaries', unencrypted: '_encrypted IS NOT TRUE' },
-  { table: 'ai_embeddings', unencrypted: '_encrypted IS NOT TRUE' },
-  { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true'` },
+  { table: 'documents', unencrypted: `_encrypted IS NOT TRUE AND uuid NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
+  { table: 'versions', unencrypted: `_encrypted IS NOT TRUE AND document_uuid NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
+  { table: 'drafts', unencrypted: `_encrypted IS NOT TRUE AND user_id NOT IN (${USER_ID_SQL})` },
+  { table: 'ai_summaries', unencrypted: `_encrypted IS NOT TRUE AND document_id NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
+  { table: 'ai_embeddings', unencrypted: `_encrypted IS NOT TRUE AND document_id NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
+  { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true' AND user_id NOT IN (${USER_ID_SQL})` },
 ];
 
 export function entryFrom(table, col, cols = ENC_COLS) {
@@ -216,7 +260,9 @@ export async function runDatabaseChecks(client, { logger = console.log } = {}) {
     const { table, col } = entry;
     const from = entryFrom(table, col, ENC_COLS);
     const val = entryVal(table, col, ENC_COLS);
-    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${val} IS NOT NULL AND ${val}::text <> '' AND ${val}::text ~ '[А-Яа-яЁё]'`;
+    const fixtureCond = getFixtureFilter(table);
+    const whereCond = fixtureCond ? `${fixtureCond} AND ` : '';
+    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${whereCond}${val} IS NOT NULL AND ${val}::text <> '' AND ${val}::text ~ '[А-Яа-яЁё]'`;
     try {
       const res = await client.query(q);
       const cnt = res.rows[0]?.cnt || 0;
@@ -240,7 +286,9 @@ export async function runDatabaseChecks(client, { logger = console.log } = {}) {
     const from = entryFrom(table, col, ENC_COLS);
     const flag = entryFlag(table, col, ENC_COLS);
     const val = entryVal(table, col, ENC_COLS);
-    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text <> '' AND NOT (${val}::text ~ '^[A-Za-z0-9+/=]+$' AND length(${val}::text) % 4 = 0)`;
+    const fixtureCond = getFixtureFilter(table);
+    const whereCond = fixtureCond ? `${fixtureCond} AND ` : '';
+    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${whereCond}${flag} AND ${val} IS NOT NULL AND ${val}::text <> '' AND NOT (${val}::text ~ '^[A-Za-z0-9+/=]+$' AND length(${val}::text) % 4 = 0)`;
     try {
       const res = await client.query(q);
       const cnt = res.rows[0]?.cnt || 0;
@@ -264,7 +312,9 @@ export async function runDatabaseChecks(client, { logger = console.log } = {}) {
     const from = entryFrom(table, col, ENC_COLS);
     const flag = entryFlag(table, col, ENC_COLS);
     const val = entryVal(table, col, ENC_COLS);
-    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${flag} AND ${val} IS NOT NULL AND ${val}::text ~ '\\s'`;
+    const fixtureCond = getFixtureFilter(table);
+    const whereCond = fixtureCond ? `${fixtureCond} AND ` : '';
+    const q = `SELECT count(*)::int AS cnt FROM ${from} WHERE ${whereCond}${flag} AND ${val} IS NOT NULL AND ${val}::text ~ '\\s'`;
     try {
       const res = await client.query(q);
       const cnt = res.rows[0]?.cnt || 0;
@@ -314,7 +364,7 @@ export async function runDatabaseChecks(client, { logger = console.log } = {}) {
         FROM public.documents d
         JOIN (SELECT document_uuid, max(version) AS max_v FROM public.versions GROUP BY document_uuid) sub
           ON d.uuid = sub.document_uuid
-       WHERE d.deleted_at IS NULL AND d.current_version <> sub.max_v`);
+       WHERE d.uuid NOT IN (${DOC_UUID_SQL}) AND d.deleted_at IS NULL AND d.current_version <> sub.max_v`);
     const cnt = res.rows[0]?.cnt || 0;
     if (cnt > 0) {
       log(`  [FAIL] documents: ${cnt} rows whose current_version disagrees with their versions`);
