@@ -430,12 +430,19 @@ export const CloudSyncService = {
 
         // S-1: Accept canonical uuid from the cloud doc inside the try block
         // so that a unique constraint collision cleans up the localId properly.
-        if (cloudDoc.uuid) {
+        // R3-5: заметка в корзине приезжает в корзину — раньше пометка терялась,
+        // и на втором устройстве заметка становилась обычной (и снова шла в ИИ).
+        const cloudTrashedAt = toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime();
+        if (cloudDoc.uuid || cloudTrashedAt) {
           const db = await getLocalDb();
           const tx = db.transaction('documents', 'readwrite');
           const localDoc = await tx.store.get(localId);
           if (localDoc) {
-            await tx.store.put({ ...localDoc, uuid: cloudDoc.uuid });
+            await tx.store.put({
+              ...localDoc,
+              ...(cloudDoc.uuid ? { uuid: cloudDoc.uuid } : {}),
+              ...(cloudTrashedAt ? { trashedAt: cloudTrashedAt } : {}),
+            });
           }
           await tx.done;
         }
