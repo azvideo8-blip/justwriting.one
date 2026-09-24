@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import MiniSearch from '~/justwriting/node_modules/minisearch/dist/es/index.js';
+import MiniSearch from 'minisearch';
 
 const RRF_K = 60, KEYWORD_TOP = 40, RRF_FINAL = 15, RERANK_THRESHOLD = 0.88, RESURFACE_FLOOR = 0.35;
 
