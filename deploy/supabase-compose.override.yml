@@ -33,3 +33,12 @@ services:
       GOTRUE_MAILER_TEMPLATES_INVITE: "https://justwriting.ru/email/invite.html"
       GOTRUE_DISABLE_SIGNUP: "true"
       GOTRUE_RATE_LIMIT_HEADER: "X-Real-IP"
+
+  # Без этого Kong подменяет X-Real-IP своим видом адреса — адресом nginx, и
+  # лимиты GoTrue (GOTRUE_RATE_LIMIT_HEADER выше) снова общие на всех. Kong
+  # слушает только 127.0.0.1 (KONG_HTTP_PORT в .env), до него дотягивается лишь
+  # nginx, поэтому доверять пришедшему X-Real-IP можно от любого адреса.
+  kong:
+    environment:
+      KONG_TRUSTED_IPS: "0.0.0.0/0,::/0"
+      KONG_REAL_IP_HEADER: "X-Real-IP"

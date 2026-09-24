@@ -72,7 +72,9 @@ if code != '200':
     problems.append(f'Сайт отвечает {code} вместо 200.')
 
 # ── регистрация закрыта (DA-17) ─────────────────────────────────────────────
-auth_settings = sh('curl -s --max-time 15 https://justwriting.ru/auth/v1/settings')
+# Напрямую в GoTrue: снаружи /auth/v1/settings без apikey отвечает Kong'ом
+# «No API key found», и проверка поднимала бы ложную тревогу каждый час.
+auth_settings = sh('docker exec supabase-auth wget -qO- http://localhost:9999/settings')
 try:
     auth_data = json.loads(auth_settings)
     if auth_data.get('disable_signup') is not True:
