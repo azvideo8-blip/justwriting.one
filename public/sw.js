@@ -4,12 +4,14 @@ const CACHE = `jw-${CACHE_VERSION}`;
 const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
+  // DA-19: addAll — всё или ничего: один сбойный запрос ронял установку, и новый
+  // воркер так и не вставал. Оболочка — лишь запасной вариант офлайн (навигация
+  // идёт в сеть первой), поэтому кладём её по возможности.
   event.waitUntil(
-    caches.open(CACHE).then((cache) =>
-      cache.addAll(['/', '/index.html'])
-    )
+    caches.open(CACHE)
+      .then((cache) => Promise.allSettled(['/', '/index.html'].map((u) => cache.add(u))))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

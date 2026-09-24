@@ -14,7 +14,9 @@ export function getSupabaseAdmin(): SupabaseClient {
     throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://justwriting.ru';
+  // DA-20: без запасного VITE_SUPABASE_URL — это переменная сборки клиента; подмена
+  // её при сборке увела бы сервисный ключ на чужой адрес.
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://justwriting.ru';
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {

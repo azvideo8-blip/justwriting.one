@@ -125,7 +125,8 @@ describe('Admin Invite & User Status Logic', () => {
       });
     });
 
-    it('propagates GoTrue error as invalid-argument', async () => {
+    // DA-20: текст GoTrue наружу не уходит — только общий.
+    it('maps a GoTrue error to a generic invalid-argument', async () => {
       poolQuery.mockResolvedValueOnce({ rows: [] });
       mockInviteUserByEmail.mockResolvedValueOnce({
         data: { user: null },
@@ -135,11 +136,17 @@ describe('Admin Invite & User Status Logic', () => {
       await expect(
         inviteUserLogic(mockAdminCtx, 'admin-123', { email: 'existing@example.com' }),
       ).rejects.toThrowError(
-        expect.objectContaining({
-          code: 'invalid-argument',
-          message: 'A user with this email address has already been registered',
-        }),
+        expect.objectContaining({ code: 'invalid-argument', message: 'Не удалось отправить приглашение.' }),
       );
+    });
+
+    // DA-20: у кого пароль уже есть, тому ссылку на смену пароля не шлём.
+    it('refuses to re-invite a member who already has a password', async () => {
+      poolQuery.mockResolvedValueOnce({ rows: [{ hasPassword: true, invitedAt: null }] });
+      await expect(
+        inviteUserLogic(mockAdminCtx, 'admin-123', { email: 'member@example.com' }),
+      ).rejects.toThrowError(expect.objectContaining({ code: 'invalid-argument' }));
+      expect(mockInviteUserByEmail).not.toHaveBeenCalled();
     });
   });
 

@@ -48,13 +48,20 @@ export async function inviteUserLogic(
       [email],
     );
 
-    const isReinvite = existing.rows.length > 0 && !existing.rows[0]?.hasPassword;
+    // DA-20: у кого пароль уже есть, тому приглашение — это письмо со ссылкой на
+    // смену пароля. С украденным админ-токеном так захватывается любой аккаунт.
+    if (existing.rows[0]?.hasPassword) {
+      throw new AiError('invalid-argument', 'Этот человек уже зарегистрирован — приглашение не нужно.');
+    }
+    const isReinvite = existing.rows.length > 0;
 
     const supabase = getSupabaseAdmin();
     const { data: resData, error } = await supabase.auth.admin.inviteUserByEmail(email);
 
     if (error) {
-      throw new AiError('invalid-argument', error.message);
+      // Текст GoTrue не отдаём наружу (адреса, схема) — только в журнал службы.
+      console.error('[admin] inviteUserByEmail failed:', error.message);
+      throw new AiError('invalid-argument', 'Не удалось отправить приглашение.');
     }
 
     return {
@@ -66,8 +73,8 @@ export async function inviteUserLogic(
     };
   } catch (err: unknown) {
     if (err instanceof AiError) throw err;
-    const msg = err instanceof Error ? err.message : 'Failed to invite user';
-    throw new AiError('internal', msg);
+    console.error('[admin] invite failed:', err instanceof Error ? err.message : err);
+    throw new AiError('internal', 'Не удалось отправить приглашение.');
   }
 }
 

@@ -24,6 +24,10 @@ const looksLikeDeployment = process.env.NODE_ENV === 'production'
 const isProd = REQUIRE_ISSUER_FLAG === 'true' ? true
   : REQUIRE_ISSUER_FLAG === 'false' ? false
   : looksLikeDeployment;
+if (REQUIRE_ISSUER_FLAG === 'false' && looksLikeDeployment) {
+  // DA-20: осознанное отключение — но не молчаливое.
+  console.warn('[auth] REQUIRE_JWT_ISSUER=false on a deployment: JWT issuer is NOT checked.');
+}
 if (isProd && !JWT_ISSUER) {
   throw new Error(
     'SUPABASE_JWT_ISS is required in production: without it any token signed ' +
