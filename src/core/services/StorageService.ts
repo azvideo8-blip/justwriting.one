@@ -1,3 +1,4 @@
+import { withDocumentLock } from '../sync/withDocumentLock';
 import { getLocalDb } from '../storage/localDb';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalDocumentService } from './LocalDocumentService';
@@ -37,6 +38,37 @@ class LockManager {
 }
 
 const _lockManager = new LockManager();
+
+async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
+  let targetCloudId = cloudId;
+  if (localId && !targetCloudId) {
+    try {
+      const fresh = await LocalStorageService.getDocument(localId);
+      if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
+    } catch { /* ignore */ }
+  }
+  if (localId) {
+    await LocalStorageService.deleteDocument(localId);
+  }
+  let cloudSynced = true;
+  if (targetCloudId) {
+    try {
+      await CloudSyncService.removeCloudCopy(userId, targetCloudId);
+    } catch (e) {
+      cloudSynced = false;
+      reportError(e, { action: 'deleteDocument_cloudDelete', documentId: targetCloudId });
+      const db = await getLocalDb();
+      await db.put('syncQueue', {
+        id: `delete_${targetCloudId}_${Date.now()}`,
+        documentId: targetCloudId,
+        type: 'delete' as const,
+        createdAt: Date.now(),
+        ownerId: userId,
+      });
+    }
+  }
+  return { cloudSynced };
+}
 
 export const StorageService = {
   async saveNew(userId: string, data: SaveDocumentData): Promise<{ localId: string }> {
@@ -131,34 +163,20 @@ export const StorageService = {
   },
 
   async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
-    let targetCloudId = cloudId;
-    if (localId && !targetCloudId) {
-      try {
-        const fresh = await LocalStorageService.getDocument(localId);
-        if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
-      } catch { /* ignore */ }
+    if (!localId) return deleteDocumentUnlocked(userId, localId, cloudId);
+    // R3-10: если дренаж как раз выгружает эту заметку впервые, облачный ряд
+    // появится уже после удаления локальной — и downloadAllFromCloud её вернёт.
+    // Ждём, пока выгрузка отпустит заметку, и удаляем под тем же замком.
+    // ponytail: ждём до ~10 с, дальше удаляем как раньше, без замка.
+    for (let i = 0; i < 20; i++) {
+      const res = await withDocumentLock(localId, () => deleteDocumentUnlocked(userId, localId, cloudId), {
+        queueOnHeld: false,
+        onLockHeld: () => null,
+      });
+      if (res) return res;
+      await new Promise(r => setTimeout(r, 500));
     }
-    if (localId) {
-      await LocalStorageService.deleteDocument(localId);
-    }
-    let cloudSynced = true;
-    if (targetCloudId) {
-      try {
-        await CloudSyncService.removeCloudCopy(userId, targetCloudId);
-      } catch (e) {
-        cloudSynced = false;
-        reportError(e, { action: 'deleteDocument_cloudDelete', documentId: targetCloudId });
-        const db = await getLocalDb();
-        await db.put('syncQueue', {
-          id: `delete_${targetCloudId}_${Date.now()}`,
-          documentId: targetCloudId,
-          type: 'delete' as const,
-          createdAt: Date.now(),
-          ownerId: userId,
-        });
-      }
-    }
-    return { cloudSynced };
+    return deleteDocumentUnlocked(userId, localId, cloudId);
   },
 
   async getStorageState(userId: string, localId?: string, cloudId?: string): Promise<StorageState> {
