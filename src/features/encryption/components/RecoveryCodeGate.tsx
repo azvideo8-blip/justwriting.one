@@ -10,8 +10,16 @@ export function RecoveryCodeGate() {
   // No lazy initializer needed: the function is cheap and runs synchronously.
   const readPendingCode = useCallback(() => {
     if (!user || isGuest) return null;
+    const key = STORAGE_KEYS.PENDING_RECOVERY_CODE(user.uid);
     try {
-      return localStorage.getItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(user.uid)) || null;
+      // R3-2: старые версии клали код в localStorage бессрочно — переносим в
+      // sessionStorage и стираем оттуда.
+      const legacy = localStorage.getItem(key);
+      if (legacy) {
+        sessionStorage.setItem(key, legacy);
+        localStorage.removeItem(key);
+      }
+      return sessionStorage.getItem(key) || null;
     } catch {
       return null;
     }
@@ -38,6 +46,7 @@ export function RecoveryCodeGate() {
   const handleConfirm = useCallback(() => {
     if (user) {
       try {
+        sessionStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(user.uid));
         localStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(user.uid));
       } catch {
         /* ignore */

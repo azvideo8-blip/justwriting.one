@@ -55,7 +55,9 @@ async function signInWithEmail(email: string, password: string): Promise<{ user:
       const { recoveryCode } = await initializeEncryption(currentUid, password, undefined, true);
       try {
         const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
-        localStorage.setItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(currentUid), recoveryCode);
+        // R3-2: sessionStorage — переживает перезагрузку вкладки, но не её закрытие и
+        // не выход. В localStorage код жил бессрочно рядом с паролем.
+        sessionStorage.setItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(currentUid), recoveryCode);
         localStorage.setItem(STORAGE_KEYS.VAULT_AUTO_CREATED(currentUid), '1');
         window.dispatchEvent(new CustomEvent('pending_recovery_code_updated'));
       } catch { /* private mode */ }
@@ -124,6 +126,9 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
   } else {
     try {
       sessionStorage.clear();
+      // R3-2: код восстановления старых версий лежал в localStorage — при выходе убираем.
+      const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+      if (currentUid) localStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(currentUid));
     } catch {
       /* ignore */
     }
