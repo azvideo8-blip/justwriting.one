@@ -50,7 +50,9 @@ if down:
     problems.append('Контейнеры не в порядке: ' + ', '.join(down))
 
 # ── свежесть резервной копии ────────────────────────────────────────────────
-dumps = sorted(Path('/var/backups/justwriting').glob('*.dump'), key=lambda p: p.stat().st_mtime, reverse=True)
+# R3-11: копия — только .dump с парной .sha256 (её пишут после проверки дампа).
+dumps = sorted((p for p in Path('/var/backups/justwriting').glob('*.dump') if Path(f'{p}.sha256').exists()),
+               key=lambda p: p.stat().st_mtime, reverse=True)
 if not dumps:
     problems.append('Резервных копий нет вовсе.')
 else:

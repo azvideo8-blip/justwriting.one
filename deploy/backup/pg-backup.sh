@@ -18,26 +18,32 @@ FILE="$DEST/justwriting-$STAMP.dump"
 
 install -d -m 700 "$DEST"
 
+# R3-11: дамп пишется во временный файл и получает имя .dump только после
+# проверки — иначе оборванный pg_dump (set -e) оставлял «свежую» копию, которую
+# монитор считал годной. Оглавление — во временный файл с непредсказуемым именем.
+TMP="$FILE.partial"
+TOC=$(mktemp)
+trap 'rm -f "$TMP" "$TOC"' EXIT
+
 # pg_dump живёт в контейнере: на хосте клиента нет, а ставить его ради этого
 # значит следить ещё и за совпадением версий.
-docker exec supabase-db pg_dump -U postgres -d postgres -Fc --no-owner > "$FILE"
+docker exec supabase-db pg_dump -U postgres -d postgres -Fc --no-owner > "$TMP"
 
 # Дамп, который никто не открывал, — не копия, а надежда. Проверяем, что файл
 # читается штатным инструментом и содержит ожидаемые таблицы.
-if ! docker exec -i supabase-db pg_restore --list < "$FILE" > /tmp/backup-toc.txt 2>/dev/null; then
+if ! docker exec -i supabase-db pg_restore --list < "$TMP" > "$TOC" 2>/dev/null; then
     echo "ОШИБКА: дамп $FILE не читается pg_restore" >&2
-    rm -f "$FILE"
     exit 1
 fi
 
 for t in users documents versions; do
-    if ! grep -q "TABLE DATA public $t" /tmp/backup-toc.txt; then
+    if ! grep -q "TABLE DATA public $t" "$TOC"; then
         echo "ОШИБКА: в дампе нет данных таблицы $t" >&2
-        rm -f "$FILE"
         exit 1
     fi
 done
 
+mv "$TMP" "$FILE"
 sha256sum "$FILE" > "$FILE.sha256"
 SIZE=$(du -h "$FILE" | cut -f1)
 
