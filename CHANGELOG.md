@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.9.3 — 2026-09-24
+
+- **[RU]** Заметка, отправленная в корзину или восстановленная из неё на одном устройстве, теперь так же оказывается в корзине или возвращается на другом.
+- **[EN]** A note moved to the trash or restored on one device now does the same on your other devices.
+- **[RU]** Восстановление из резервной копии больше не оживляет заметки из корзины.
+- **[EN]** Restoring a backup no longer brings trashed notes back to life.
+- **[RU]** Если при конфликте правок создаётся копия заметки, в ней теперь верные итоги слов и времени, а счётчики профиля не сбиваются.
+- **[EN]** When an edit conflict creates a copy of a note, the copy now has the right word and time totals, and profile counters stay correct.
+- **[RU]** День заметки для разборов ИИ, таймлайна и истории жизни теперь считается по вашему времени, а не по Гринвичу: запись после полуночи больше не попадает во «вчера».
+- **[EN]** A note's day in AI analysis, the timeline and the life story now follows your local time rather than UTC: writing after midnight no longer lands on "yesterday".
+- **[RU]** Кнопка «Заблокировать» закрывает сейф во всех открытых вкладках, а не только в текущей.
+- **[EN]** The Lock button now closes the vault in every open tab, not just the current one.
+- **[RU]** Приватность: темы и названия сфер из дневника больше не попадают в журнал активности; одноразовые ссылки из писем не записываются в журнал сервера; отметку времени согласия ставит только сервер.
+- **[EN]** Privacy: themes and domain names from your diary no longer end up in the activity log; one-time links from e-mails are not written to the server log; only the server records when consent was given.
+- **[RU]** Переименование и удаление тега работают и на архивах больше тысячи заметок, а сбой больше не выдаётся за успех.
+- **[EN]** Renaming and deleting a tag now work on archives over a thousand notes, and a failure is no longer reported as success.
+- **[RU]** Импорт заметок из файлов считает слова так же, как всё приложение.
+- **[EN]** Importing notes from files counts words the same way as the rest of the app.
+
 ## 0.9.2 — 2026-09-24
 
 - **[RU]** Перенос архива больше не теряет отметки «не показывать ИИ» и «только на этом устройстве», закреплённые мысли, теги и метку черновика, а импорт либо проходит целиком, либо не меняет ничего.

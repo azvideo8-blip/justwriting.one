@@ -14,6 +14,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.3',
+    date: '2026-09-24',
+    items: [
+      { category: 'fix', ru: 'Заметка, отправленная в корзину или восстановленная из неё на одном устройстве, теперь так же оказывается в корзине или возвращается на другом.', en: 'A note moved to the trash or restored on one device now does the same on your other devices.' },
+      { category: 'fix', ru: 'Восстановление из резервной копии больше не оживляет заметки из корзины.', en: 'Restoring a backup no longer brings trashed notes back to life.' },
+      { category: 'fix', ru: 'Если при конфликте правок создаётся копия заметки, в ней теперь верные итоги слов и времени, а счётчики профиля не сбиваются.', en: 'When an edit conflict creates a copy of a note, the copy now has the right word and time totals, and profile counters stay correct.' },
+      { category: 'fix', ru: 'День заметки для разборов ИИ, таймлайна и истории жизни теперь считается по вашему времени, а не по Гринвичу: запись после полуночи больше не попадает во «вчера».', en: 'A note\'s day in AI analysis, the timeline and the life story now follows your local time rather than UTC: writing after midnight no longer lands on "yesterday".' },
+      { category: 'improvement', ru: 'Кнопка «Заблокировать» закрывает сейф во всех открытых вкладках, а не только в текущей.', en: 'The Lock button now closes the vault in every open tab, not just the current one.' },
+      { category: 'improvement', ru: 'Приватность: темы и названия сфер из дневника больше не попадают в журнал активности; одноразовые ссылки из писем не записываются в журнал сервера; отметку времени согласия ставит только сервер.', en: 'Privacy: themes and domain names from your diary no longer end up in the activity log; one-time links from e-mails are not written to the server log; only the server records when consent was given.' },
+      { category: 'fix', ru: 'Переименование и удаление тега работают и на архивах больше тысячи заметок, а сбой больше не выдаётся за успех.', en: 'Renaming and deleting a tag now work on archives over a thousand notes, and a failure is no longer reported as success.' },
+      { category: 'fix', ru: 'Импорт заметок из файлов считает слова так же, как всё приложение.', en: 'Importing notes from files counts words the same way as the rest of the app.' },
+    ],
+  },
+  {
     version: '0.9.2',
     date: '2026-09-24',
     items: [
