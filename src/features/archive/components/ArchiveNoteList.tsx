@@ -64,6 +64,8 @@ const gridComponents = { Item: GridItem };
 // AUDIT-L9: предел для негруппированного полного рендера.
 const GROUPED_VIEW_LIMIT = 1000;
 
+const SKELETON_KEYS = ['skeleton-1', 'skeleton-2', 'skeleton-3', 'skeleton-4', 'skeleton-5'] as const;
+
 export function ArchiveNoteList({
   viewMode, loading, error, filteredSessions,
   groupedSessions, sortedDates, dateLocale,
@@ -165,9 +167,9 @@ export function ArchiveNoteList({
   if (loading) {
     return (
       <div className="space-y-1 mt-2">
-        {Array.from({ length: 5 }).map((_, i) => (
+        {SKELETON_KEYS.map((skeletonKey, i) => (
           <div
-            key={i}
+            key={skeletonKey}
             className={cn(
               "flex items-center gap-4 px-4 py-3 rounded-xl",
               !reducedMotion && "animate-pulse"

@@ -131,6 +131,12 @@ every request. This has happened in production: a green deploy and a dead app
 look identical if only the server is checked. The post-deploy smoke check exists
 because of it.
 
+> **Important:** E2E tests (`npx playwright test`) and prerender (`npm run build`)
+> require `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (any values, even dummy
+> ones like `VITE_SUPABASE_URL=http://localhost:54321` and `VITE_SUPABASE_ANON_KEY=dummy`).
+> Without them, client initialization throws immediately on startup and 19 of 22 E2E
+> tests fail.
+
 In dev, Vite proxies `/api` to `http://127.0.0.1:3111` (`VITE_DEV_API_TARGET`
 overrides it). Running the API and a local backend: see
 [INSTALLATION_GUIDE.md](INSTALLATION_GUIDE.md).

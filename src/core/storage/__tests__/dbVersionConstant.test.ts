@@ -11,8 +11,9 @@ describe('AU-4: IndexedDB версия в localDb.ts', () => {
   it('константа совпадает с последней веткой oldVersion < N в upgradeJustWritingDB', () => {
     const src = readFileSync(join(process.cwd(), 'src/core/storage/localDb.ts'), 'utf-8');
     const matches = [...src.matchAll(/if\s*\(\s*oldVersion\s*<\s*([A-Za-z0-9_]+)\s*\)/g)];
-    expect(matches.length).toBeGreaterThan(0);
-    const lastBranch = matches[matches.length - 1][1];
+    const lastMatch = matches[matches.length - 1];
+    expect(lastMatch).toBeDefined();
+    const lastBranch = lastMatch![1];
     if (lastBranch === 'DB_VERSION') {
       expect(lastBranch).toBe('DB_VERSION');
     } else {
@@ -25,7 +26,7 @@ describe('AU-4: IndexedDB версия в localDb.ts', () => {
     const openDbCalls = [...src.matchAll(/openDB(?:<[^>]+>)?\s*\([^,]+,\s*([^,)]+)/g)];
     expect(openDbCalls.length).toBeGreaterThanOrEqual(3);
     for (const m of openDbCalls) {
-      expect(m[1].trim()).toBe('DB_VERSION');
+      expect(m[1]?.trim()).toBe('DB_VERSION');
     }
   });
 });

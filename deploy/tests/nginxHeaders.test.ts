@@ -37,8 +37,8 @@ describe('AU-3: HSTS и защитные заголовки в nginx', () => {
     const missingInclude: string[] = [];
 
     while ((match = locationRegex.exec(nginxConf)) !== null) {
-      const locPath = match[1].trim();
-      const body = match[2];
+      const locPath = match[1]?.trim() ?? '';
+      const body = match[2] ?? '';
       // Пропускаем killswitch в редиректном www-блоке
       if (locPath.includes('sw.js') && body.includes('www-killswitch')) continue;
 

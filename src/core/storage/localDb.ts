@@ -110,7 +110,7 @@ export interface AIDialogue {
   personaName: string;
   personaEmoji: string;
   documentId?: string | undefined;
-  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined; searchRequest?: string | undefined; degradedReason?: string | undefined }[];
+  messages: { id?: string | undefined; role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined; searchRequest?: string | undefined; degradedReason?: string | undefined }[];
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;

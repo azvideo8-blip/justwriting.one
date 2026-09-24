@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useMemo, useCallback, ReactNode } from 'react';
 
 interface LoginModalContextType {
   loginModalOpen: boolean;
@@ -15,12 +15,17 @@ const LoginModalContext = createContext<LoginModalContextType>({
 export function LoginModalProvider({ children }: { children: ReactNode }) {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
 
+  const openLoginModal = useCallback(() => setLoginModalOpen(true), []);
+  const closeLoginModal = useCallback(() => setLoginModalOpen(false), []);
+
+  const value = useMemo(() => ({
+    loginModalOpen,
+    openLoginModal,
+    closeLoginModal,
+  }), [loginModalOpen, openLoginModal, closeLoginModal]);
+
   return (
-    <LoginModalContext.Provider value={{
-      loginModalOpen,
-      openLoginModal: () => setLoginModalOpen(true),
-      closeLoginModal: () => setLoginModalOpen(false),
-    }}>
+    <LoginModalContext.Provider value={value}>
       {children}
     </LoginModalContext.Provider>
   );

@@ -52,6 +52,19 @@ export interface AIChatMessagesProps {
   setCitationPreviewSession: (session: ArchiveSession) => void;
 }
 
+const messageKeyMap = new WeakMap<object, string>();
+let messageKeyCounter = 0;
+
+export function getChatMessageKey(msg: ChatMessage, index: number): string {
+  if (msg.id) return msg.id;
+  let key = messageKeyMap.get(msg);
+  if (!key) {
+    key = `msg-${index}-${msg.role}-${(msg.content ?? '').slice(0, 24)}-${++messageKeyCounter}`;
+    messageKeyMap.set(msg, key);
+  }
+  return key;
+}
+
 export function AIChatMessages(props: AIChatMessagesProps) {
   const {
     displayMessages,
@@ -145,10 +158,11 @@ export function AIChatMessages(props: AIChatMessagesProps) {
             const isAttachedFile = msg.role === 'user' && ATTACHED_FILE_RE.test(msg.content);
             const isSystemMessage = msg.type === 'system';
             const isAttachment = isAttachedNote || isAttachedSummary || isAttachedFile;
+            const messageKey = getChatMessageKey(msg, i);
 
             if (isSystemMessage) {
               return (
-                <div key={i} className="flex justify-center">
+                <div key={messageKey} className="flex justify-center">
                   <div className="px-4 py-1.5 rounded-full bg-surface-card border border-border-subtle text-[11px] text-text-main/60 font-mono">
                     {msg.content}
                   </div>
@@ -159,7 +173,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
             if (msg.role === 'assistant') {
               return (
                 <AssistantTurn
-                  key={i}
+                  key={messageKey}
                   name={convPersonaName}
                   color={convVisual.color}
                   mono={convVisual.mono}
@@ -234,12 +248,12 @@ export function AIChatMessages(props: AIChatMessagesProps) {
               });
 
               return (
-                <div key={i} className="flex flex-col items-end gap-1.5">
+                <div key={messageKey} className="flex flex-col items-end gap-1.5">
                   <div className="max-w-[78%] flex flex-col items-end gap-1.5">
                     {notes.map((note, ni) => (
                       note.body
-                        ? <AttachedNoteCard key={ni} content={`[Прикреплена заметка: "${note.title}"]\n\n${note.body}`} />
-                        : <span key={ni} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
+                        ? <AttachedNoteCard key={`${note.title}-${ni}`} content={`[Прикреплена заметка: "${note.title}"]\n\n${note.body}`} />
+                        : <span key={`${note.title}-${ni}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
                             <Paperclip size={12} className="text-brand-soft shrink-0" />
                             <span className="truncate">{note.title}</span>
                           </span>
@@ -257,7 +271,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
 
             if (isAttachment) {
               return (
-                <div key={i} className="flex flex-col items-end gap-1.5">
+                <div key={messageKey} className="flex flex-col items-end gap-1.5">
                   <div className="max-w-[78%] flex flex-col items-end gap-1.5">
                     {isAttachedSummary
                       ? <AttachedSummaryCard content={msg.content} />
@@ -269,7 +283,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
             }
 
             return (
-              <div key={i} className="flex flex-col items-end gap-1.5">
+              <div key={messageKey} className="flex flex-col items-end gap-1.5">
                 <div className="max-w-[78%] px-4 py-3 rounded-2xl rounded-br-md bg-gradient-to-b from-brand-primary/25 to-brand-primary/15 border border-brand-primary/30 text-text-main text-[14.5px] leading-relaxed">
                   {msg.content}
                 </div>

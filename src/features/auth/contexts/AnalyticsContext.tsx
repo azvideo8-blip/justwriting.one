@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import { clearSessionKey } from '../../../core/crypto/encrypt';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { reportError } from '../../../shared/errors/reportError';
@@ -49,8 +49,10 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  const value = useMemo(() => ({ isConnected }), [isConnected]);
+
   return (
-    <AnalyticsContext.Provider value={{ isConnected }}>
+    <AnalyticsContext.Provider value={value}>
       {children}
     </AnalyticsContext.Provider>
   );

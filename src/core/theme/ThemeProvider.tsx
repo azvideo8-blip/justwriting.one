@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { z } from 'zod';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
@@ -81,8 +81,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.classList.add(THEMES[resolvedThemeId].cssClass);
   }, [resolvedThemeId]);
 
+  const contextValue = useMemo(() => ({
+    themeId,
+    setThemeId,
+    themes: THEMES,
+    resolvedThemeId,
+  }), [themeId, setThemeId, resolvedThemeId]);
+
   return (
-    <ThemeContext.Provider value={{ themeId, setThemeId, themes: THEMES, resolvedThemeId }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
