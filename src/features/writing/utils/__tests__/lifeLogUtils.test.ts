@@ -239,4 +239,30 @@ describe('computeDailySummary', () => {
     const result = computeDailySummary([], startOfToday);
     expect(result).toEqual({ totalWords: 0, totalMinutes: 0 });
   });
+
+  it('DA-4: note with 5000 words started in past with one today version of +20 words counts only 20 today', () => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayTs = startOfToday.getTime() - 86400000;
+    const docs: LifeLogDocument[] = [
+      {
+        title: 'Long Novel',
+        totalWords: 5020,
+        totalDuration: 7380,
+        currentVersion: 2,
+        sessionsCount: 2,
+        firstSessionAt: yesterdayTs,
+        lastSessionAt: now.getTime(),
+        tags: [],
+        storage: { local: true, cloud: false },
+        versions: [
+          { wordsAdded: 5000, duration: 7200, savedAt: yesterdayTs },
+          { wordsAdded: 20, duration: 180, savedAt: now.getTime() },
+        ],
+      },
+    ];
+    const result = computeDailySummary(docs, startOfToday);
+    expect(result.totalWords).toBe(20);
+    expect(result.totalMinutes).toBe(3);
+  });
 });

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { LocalVersionService } from '../../../core/services/LocalVersionService';
+import { VersionService } from '../../../core/services/VersionService';
 import { Document } from '../../../types';
 import { useLanguage } from '../../../shared/i18n';
 import { useStartOfToday } from '../../../shared/hooks/useStartOfToday';
@@ -47,31 +49,65 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
         didFail = true;
       }
 
-      if (isGuest) {
-        if (!mountedRef.current) return;
-        setCloudUnknown(didFail);
-        setDocuments([]);
-        setUnifiedDocuments(localDocs.map(d => localDocToLifeLog(d, false)));
-      } else {
-        let cloudDocs: Document[] = [];
+      let cloudDocs: Document[] = [];
+      if (!isGuest) {
         try {
           cloudDocs = await DocumentService.getUserDocuments(userId);
         } catch (e) {
           reportError(e, { action: 'lifeLog/fetchCloudDocs' });
           didFail = true;
         }
-
-        if (!mountedRef.current) return;
-        setCloudUnknown(didFail);
-        setDocuments(cloudDocs);
-        setUnifiedDocuments(mergeUnifiedDocuments(localDocs, cloudDocs));
       }
+
+      if (!mountedRef.current) return;
+      setCloudUnknown(didFail);
+      setDocuments(cloudDocs);
+
+      const rawUnified = isGuest
+        ? localDocs.map(d => localDocToLifeLog(d, false))
+        : mergeUnifiedDocuments(localDocs, cloudDocs);
+
+      const startTs = startOfToday.getTime();
+      const unifiedWithVersions = await Promise.all(
+        rawUnified.map(async doc => {
+          if (doc.lastSessionAt < startTs) return doc;
+          try {
+            if (doc.localId) {
+              const vers = await LocalVersionService.getVersions(doc.localId);
+              return {
+                ...doc,
+                versions: vers.map(v => ({
+                  wordsAdded: v.wordsAdded ?? v.wordCount,
+                  duration: v.duration,
+                  savedAt: v.savedAt,
+                })),
+              };
+            } else if (doc.cloudId && !isGuest) {
+              const vers = await VersionService.getVersions(userId, doc.cloudId);
+              return {
+                ...doc,
+                versions: vers.map(v => ({
+                  wordsAdded: v.wordsAdded ?? v.wordCount,
+                  duration: v.duration,
+                  savedAt: v.savedAt ? new Date(v.savedAt).getTime() : 0,
+                })),
+              };
+            }
+          } catch {
+            // fallback gracefully without versions
+          }
+          return doc;
+        })
+      );
+
+      if (!mountedRef.current) return;
+      setUnifiedDocuments(unifiedWithVersions);
     } catch (e) {
       reportError(e, { action: 'lifeLog/fetchSessions' });
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [userId, isGuest]);
+  }, [userId, isGuest, startOfToday]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch from local and cloud stores on mount/user change

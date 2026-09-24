@@ -1,5 +1,11 @@
 import { Session } from '../../../shared/types/common';
 
+export interface LifeLogVersion {
+  wordsAdded: number;
+  duration: number;
+  savedAt: number;
+}
+
 export interface LifeLogDocument {
   localId?: string | undefined;
   cloudId?: string | undefined;
@@ -14,6 +20,7 @@ export interface LifeLogDocument {
   labelId?: string | undefined;
   storage: { local: boolean; cloud: boolean };
   mood?: string | undefined;
+  versions?: LifeLogVersion[] | undefined;
 }
 
 export interface DailySummary {

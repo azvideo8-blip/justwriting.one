@@ -137,9 +137,25 @@ export function computeDailySummary(
   unifiedDocuments: LifeLogDocument[],
   startOfToday: Date
 ): { totalWords: number; totalMinutes: number } {
-  const todayDocs = unifiedDocuments.filter(d => d.lastSessionAt >= startOfToday.getTime());
+  let totalWords = 0;
+  let totalDuration = 0;
+  const startTs = startOfToday.getTime();
+
+  for (const d of unifiedDocuments) {
+    if (d.versions && d.versions.length > 0) {
+      const todayVersions = d.versions.filter(v => v.savedAt >= startTs);
+      for (const v of todayVersions) {
+        totalWords += (v.wordsAdded ?? 0);
+        totalDuration += (v.duration ?? 0);
+      }
+    } else if (d.lastSessionAt >= startTs) {
+      totalWords += d.totalWords;
+      totalDuration += d.totalDuration;
+    }
+  }
+
   return {
-    totalWords: todayDocs.reduce((sum, d) => sum + d.totalWords, 0),
-    totalMinutes: Math.round(todayDocs.reduce((sum, d) => sum + d.totalDuration, 0) / 60),
+    totalWords,
+    totalMinutes: Math.round(totalDuration / 60),
   };
 }
