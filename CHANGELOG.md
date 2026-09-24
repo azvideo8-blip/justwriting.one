@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.1 — 2026-09-24
+
+- **[RU]** Экран письма стал легче: при наборе и тиканье таймера больше не перерисовывается всё окно целиком, поэтому текст не подтормаживает на длинных заметках.
+- **[EN]** The writing screen is lighter: typing and the timer tick no longer re-render the whole window, so long notes no longer lag while you type.
+- **[RU]** Разбор заметки, сделанный заново на другом устройстве, теперь заменяет старый, а новые разборы и диалоги появляются на открытом экране без перезагрузки.
+- **[EN]** A note analysis redone on another device now replaces the old one, and new analyses and dialogues show up on an open screen without reloading.
+- **[RU]** Руководство пользователя открывается прямо в приложении, в его шрифтах и оформлении. Ссылка есть на странице «О приложении», в «Помощи» и в настройках.
+- **[EN]** The user guide now opens right inside the app, in its fonts and style. It is linked from the About page, Help and Settings.
+- **[RU]** Кратковременная потеря связи (например, когда ноутбук просыпается) больше не показывается в журнале как ошибка — это предупреждение, данные дозагрузятся сами.
+- **[EN]** A brief loss of connection (for example, while a laptop wakes up) no longer shows as an error in the journal — it is a warning, and the data catches up on its own.
+- **[RU]** Приложение загружается быстрее: редко нужные части подгружаются только когда понадобятся.
+- **[EN]** The app starts faster: rarely needed parts load only when they are needed.
+
 ## 0.9.0 — 2026-09-23
 
 - **[RU]** Полное руководство пользователя: 9 страниц со скриншотами по адресу /docs — как писать, работать с заметками, разбором ИИ, облаком и паролями. Ссылки — в «Помощи» и в «Настройки → О приложении».

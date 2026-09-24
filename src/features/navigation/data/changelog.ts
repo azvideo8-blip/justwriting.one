@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.1',
+    date: '2026-09-24',
+    items: [
+      { category: 'improvement', ru: 'Экран письма стал легче: при наборе и тиканье таймера больше не перерисовывается всё окно целиком, поэтому текст не подтормаживает на длинных заметках.', en: 'The writing screen is lighter: typing and the timer tick no longer re-render the whole window, so long notes no longer lag while you type.' },
+      { category: 'fix', ru: 'Разбор заметки, сделанный заново на другом устройстве, теперь заменяет старый, а новые разборы и диалоги появляются на открытом экране без перезагрузки.', en: 'A note analysis redone on another device now replaces the old one, and new analyses and dialogues show up on an open screen without reloading.' },
+      { category: 'new', ru: 'Руководство пользователя открывается прямо в приложении, в его шрифтах и оформлении. Ссылка есть на странице «О приложении», в «Помощи» и в настройках.', en: 'The user guide now opens right inside the app, in its fonts and style. It is linked from the About page, Help and Settings.' },
+      { category: 'improvement', ru: 'Кратковременная потеря связи (например, когда ноутбук просыпается) больше не показывается в журнале как ошибка — это предупреждение, данные дозагрузятся сами.', en: 'A brief loss of connection (for example, while a laptop wakes up) no longer shows as an error in the journal — it is a warning, and the data catches up on its own.' },
+      { category: 'improvement', ru: 'Приложение загружается быстрее: редко нужные части подгружаются только когда понадобятся.', en: 'The app starts faster: rarely needed parts load only when they are needed.' },
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-09-23',
     items: [
