@@ -18,9 +18,22 @@ function pgCode(e: unknown): string | undefined {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+export function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') {
+    return fallback;
+  }
+  const trimmed = raw.trim();
+  const num = Number(trimmed);
+  if (!/^\d+$/.test(trimmed) || num <= 0 || !Number.isSafeInteger(num)) {
+    throw new Error(`Invalid environment variable ${name}="${raw}": must be a positive integer.`);
+  }
+  return num;
+}
+
 // ── Global daily cap & Spend ceiling in Rubles ───────────────────────────────
-const GLOBAL_DAILY_LIMIT = parseInt(process.env.AI_TIER_RPD ?? '10000', 10);
-const GLOBAL_TOKEN_LIMIT = parseInt(process.env.AI_TIER_TPD ?? '25000000', 10);
+const GLOBAL_DAILY_LIMIT = envInt('AI_TIER_RPD', 10000);
+const GLOBAL_TOKEN_LIMIT = envInt('AI_TIER_TPD', 25000000);
 
 // Hard spend ceiling in Rubles per day (e.g. AI_DAILY_SPEND_LIMIT_RUB=100)
 // Defaults to unlimited/token-capped if not set.
@@ -78,7 +91,7 @@ async function refundGlobalRequest(res: GlobalReservation | { error: 'unavailabl
 }
 
 // ── Per-user daily limit ─────────────────────────────────────────────────────
-const PER_USER_LIMIT = parseInt(process.env.AI_DAILY_LIMIT ?? String(DAILY_LIMIT), 10);
+const PER_USER_LIMIT = envInt('AI_DAILY_LIMIT', DAILY_LIMIT);
 
 // Версии согласий. AI_CONSENT_VERSION_REQUIRED — общая с клиентом константа
 // (src/shared/ai/consentVersion.ts): сервер сверяет колонку версии, и собственное
@@ -143,7 +156,7 @@ async function getUserDailyLimit(uid: string): Promise<number> {
   return PER_USER_LIMIT;
 }
 
-const REASONING_DAILY_LIMIT = parseInt(process.env.AI_REASONING_DAILY_LIMIT ?? '5', 10);
+const REASONING_DAILY_LIMIT = envInt('AI_REASONING_DAILY_LIMIT', 5);
 
 // ST-4: ADMIN_DAILY_LIMIT applies to chat; reasoning stays 5 for everyone unless the owner says otherwise
 async function getUserReasoningLimit(_uid: string): Promise<number> {
@@ -229,8 +242,8 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; reasonin
 }
 
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
-const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
-const INTERNAL_CHAT_DAILY_LIMIT = parseInt(process.env.AI_INTERNAL_CHAT_DAILY_LIMIT ?? '60', 10);
+const BULK_LIMIT = envInt('AI_BULK_DAILY_LIMIT', 50);
+const INTERNAL_CHAT_DAILY_LIMIT = envInt('AI_INTERNAL_CHAT_DAILY_LIMIT', 60);
 // AUD-18: суточный потолок без лимита во времени позволяет вычерпать весь
 // день за минуту. Ключ — (uid, endpoint): rerank, embed и chat троттлятся
 // независимо.
@@ -241,8 +254,8 @@ const INTERNAL_CHAT_DAILY_LIMIT = parseInt(process.env.AI_INTERNAL_CHAT_DAILY_LI
 // 1/мин остановили бы индексацию на одной заметке в минуту, а второй поиск за
 // ту же минуту откатился бы на keyword-only. Ровно это уже случалось
 // 2026-06-16 с 10-секундным кулдауном на embedDocument.
-const BULK_WINDOW_MS = parseInt(process.env.AI_BULK_WINDOW_MS ?? '60000', 10);
-const BULK_MAX_PER_WINDOW = parseInt(process.env.AI_BULK_MAX_PER_WINDOW ?? '20', 10);
+const BULK_WINDOW_MS = envInt('AI_BULK_WINDOW_MS', 60000);
+const BULK_MAX_PER_WINDOW = envInt('AI_BULK_MAX_PER_WINDOW', 20);
 
 async function checkAndIncrementBulkLimit(
   uid: string,
