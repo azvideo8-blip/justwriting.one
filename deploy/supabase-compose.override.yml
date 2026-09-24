@@ -31,3 +31,5 @@ services:
       GOTRUE_MAILER_TEMPLATES_CONFIRMATION: "https://justwriting.ru/email/confirm.html"
       GOTRUE_MAILER_TEMPLATES_RECOVERY: "https://justwriting.ru/email/recovery.html"
       GOTRUE_MAILER_TEMPLATES_INVITE: "https://justwriting.ru/email/invite.html"
+      GOTRUE_DISABLE_SIGNUP: "true"
+      GOTRUE_RATE_LIMIT_HEADER: "X-Real-IP"

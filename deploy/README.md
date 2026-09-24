@@ -93,10 +93,11 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
    - `/rest/`, `/realtime/`, `/storage/`: not subject to strict auth throttling so regular note synchronization operates smoothly.
 
 2. **Supabase / GoTrue Layer (`/opt/justwriting/supabase/.env`)**:
+   - `GOTRUE_DISABLE_SIGNUP=true` (registration closed, invites only)
    - `GOTRUE_RATE_LIMIT_EMAIL_SENT=30` (30 emails/hr)
    - `GOTRUE_RATE_LIMIT_VERIFY=30` (30 verifications/hr)
    - `GOTRUE_RATE_LIMIT_TOKEN_REFRESH=30` (30 refresh/hr)
-   - `GOTRUE_RATE_LIMIT_HEADER=X-Forwarded-For`
+   - `GOTRUE_RATE_LIMIT_HEADER=X-Real-IP` (enforces rate limits per client IP via nginx X-Real-IP, cannot be forged unlike client X-Forwarded-For)
    - *Note*: GoTrue rate limits protect email sending and token endpoint abuse, but do NOT protect against password brute-forcing; password brute-force protection is enforced by Nginx `limit_req` on `/auth/`.
 
 3. **MFA (TOTP) for Admin**:

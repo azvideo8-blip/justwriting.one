@@ -71,6 +71,15 @@ code = sh('curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://justwrit
 if code != '200':
     problems.append(f'Сайт отвечает {code} вместо 200.')
 
+# ── регистрация закрыта (DA-17) ─────────────────────────────────────────────
+auth_settings = sh('curl -s --max-time 15 https://justwriting.ru/auth/v1/settings')
+try:
+    auth_data = json.loads(auth_settings)
+    if auth_data.get('disable_signup') is not True:
+        problems.append('Регистрация открыта: /auth/v1/settings вернул disable_signup: false.')
+except Exception as e:
+    problems.append(f'Не удалось проверить /auth/v1/settings: {e}')
+
 # ── отправка ────────────────────────────────────────────────────────────────
 if not problems:
     sys.exit(0)
