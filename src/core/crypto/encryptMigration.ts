@@ -308,7 +308,10 @@ async function _encryptAllExistingNotesInner(
 
       const summaryDocId = (s.documentUuid || s.documentId || s.id) as string;
       const ck = `summary_${summaryDocId}`;
-      if (checkpoint.has(ck) || s._encrypted) {
+      // N4-2: до R3-4 хеш текста уходил открытым и у зашифрованных строк —
+      // такие строки дошифровываем, не трогая остальные поля.
+      const legacyPlainHash = s._encrypted === true && typeof s.contentHash === 'string' && /^[0-9a-f]{64}$/.test(s.contentHash);
+      if (checkpoint.has(ck) || (s._encrypted && !legacyPlainHash)) {
         checkpoint.add(ck);
         progress.processed++;
         report();
@@ -320,10 +323,17 @@ async function _encryptAllExistingNotesInner(
         if (!canonicalId) {
           throw new Error(`NO_CANONICAL_ID:${s.documentId || s.id || summaryDocId}`);
         }
-        const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'];
-        const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'];
-        const encrypted = await maybeEncrypt({ ...s, documentUuid: canonicalId } as Record<string, unknown>, STRING_FIELDS, ARRAY_FIELDS, true);
-        const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
+        let clean: Record<string, unknown>;
+        if (legacyPlainHash) {
+          const encHash = await encryptContent(s.contentHash as string, getSessionKey()!);
+          clean = { ...s, documentUuid: canonicalId, contentHash: encHash };
+        } else {
+          // R3-4/N4-2: contentHash — в том же списке, что у AISummaryService.
+          const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence', 'contentHash'];
+          const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'];
+          const encrypted = await maybeEncrypt({ ...s, documentUuid: canonicalId } as Record<string, unknown>, STRING_FIELDS, ARRAY_FIELDS, true);
+          clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
+        }
         await DataProvider.saveSummary(userId, canonicalId, clean);
         checkpoint.add(ck);
         saveCheckpoint(userId, checkpoint);

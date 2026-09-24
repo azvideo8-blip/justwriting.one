@@ -251,6 +251,27 @@ describe('encryptAllExistingNotes', () => {
     );
   });
 
+  it('N4-2: an encrypted summary with a legacy plaintext content hash gets the hash encrypted', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserEmbeddings.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+    const hex = 'a'.repeat(64);
+    mockGetUserSummaries.mockResolvedValue([
+      { documentId: 'canonical-uuid-n42', documentUuid: 'canonical-uuid-n42', summary: 'CIPHERTEXT', contentHash: hex, _encrypted: true },
+      { documentId: 'canonical-uuid-done', documentUuid: 'canonical-uuid-done', summary: 'CIPHERTEXT', contentHash: 'ENCRYPTEDHASHbase64==', _encrypted: true },
+    ]);
+    const encSpy = vi.spyOn(encryptModule, 'encryptContent').mockResolvedValue('ENC_HASH');
+
+    const progress = await encryptAllExistingNotes(userId);
+    expect(progress.errors).toBe(0);
+    expect(mockSaveSummary).toHaveBeenCalledTimes(1);
+    expect(mockSaveSummary).toHaveBeenCalledWith(userId, 'canonical-uuid-n42',
+      expect.objectContaining({ contentHash: 'ENC_HASH', summary: 'CIPHERTEXT' }));
+    expect(encSpy).toHaveBeenCalledWith(hex, expect.anything());
+    encSpy.mockRestore();
+  });
+
   it('CHOKE-4: resolves canonical document UUID for embeddings without documentUuid', async () => {
     mockGetUserDocuments.mockResolvedValue([]);
     mockGetMigrationDrafts.mockResolvedValue([]);
