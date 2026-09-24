@@ -1,0 +1,3 @@
+# R4-10: LF everywhere, whatever core.autocrlf says — the gates parse lines
+# with regexes and cut, and a CRLF checkout on Windows turned them red.
+* text=auto eol=lf

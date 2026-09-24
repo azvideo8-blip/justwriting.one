@@ -21,8 +21,11 @@ offenders=""
 while IFS= read -r match_line; do
   [ -z "$match_line" ] && continue
 
-  file=$(echo "$match_line" | cut -d: -f1)
-  lineno=$(echo "$match_line" | cut -d: -f2)
+  # R4-10: путь — всё до первого «:цифра», а не cut -d: -f1: на Windows путь
+  # начинается с «C:», и cut отдавал только букву диска.
+  file="${match_line%%:[0-9]*}"
+  lineno="${match_line#"$file":}"
+  lineno="${lineno%%:*}"
 
   rel_file="${file#$TARGET_DIR/}"
   rel_file="${rel_file#/}"

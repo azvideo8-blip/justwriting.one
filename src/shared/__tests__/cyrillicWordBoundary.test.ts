@@ -32,7 +32,7 @@ function sourceFiles(dir: string, acc: string[] = []): string[] {
 
 /** Strips line comments so a Russian note beside a Latin-only regex is not flagged. */
 function stripComments(line: string): string {
-  return line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//g, '');
+  return line.replace(/\/\/[^\r\n]*\r?$/, '').replace(/\/\*.*?\*\//g, '');
 }
 
 describe('no regex relies on \\b next to Cyrillic', () => {
