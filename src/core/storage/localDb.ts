@@ -639,6 +639,27 @@ export function resetDbInstance(name?: string): void {
   }
 }
 
+/**
+ * R3-3: перенос гостевых заметок в аккаунт перепривязывает их к uid и в общей базе
+ * браузера (`justwriting-local`), а стирание чистило только базу аккаунта —
+ * дневник оставался в соседней базе. Убираем из общей всё, что принадлежит uid.
+ */
+async function purgeAccountFromSharedDb(uid: string): Promise<void> {
+  const shared = await getLocalDb('justwriting-local');
+  const docs = await shared.getAllFromIndex('documents', 'by-guest', uid);
+  const tx = shared.transaction(['documents', 'versions', 'drafts'], 'readwrite');
+  for (const doc of docs) void tx.objectStore('documents').delete(doc.id);
+  // Версии — по владельцу, а не по заметке: одноразовая миграция общей базы
+  // (migrateLegacyIfNeeded) убирает заметки, но не их версии.
+  let cursor = await tx.objectStore('versions').openCursor();
+  while (cursor) {
+    if (cursor.value.guestId === uid) void cursor.delete();
+    cursor = await cursor.continue();
+  }
+  void tx.objectStore('drafts').delete(uid);
+  await tx.done;
+}
+
 export async function clearAllLocalStores(customUid?: string): Promise<void> {
   const effectiveUid = customUid ?? getCurrentUser()?.uid;
   const dbName = getLocalDbName(customUid);
@@ -661,6 +682,9 @@ export async function clearAllLocalStores(customUid?: string): Promise<void> {
         }
       }
       await tx.done;
+    }
+    if (effectiveUid && dbName !== 'justwriting-local') {
+      await purgeAccountFromSharedDb(effectiveUid);
     }
   } catch (e) {
     console.warn('[localDb] Failed to clear all object stores:', e);
