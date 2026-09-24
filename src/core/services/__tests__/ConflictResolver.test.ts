@@ -100,6 +100,16 @@ describe('ConflictResolver', () => {
     }));
   });
 
+  it('R4-2: the fork totals are the whole note, not this session delta', async () => {
+    mockDb();
+    await ConflictResolver.resolveConflict('user1', 'doc_local', 'doc_cloud',
+      { ...dummyData, wordCount: 12, duration: 60, documentWordCount: 900, documentDuration: 5400 }, 5, { currentVersion: 3 });
+    expect(LocalStorageService.updateAfterSession).toHaveBeenCalledWith('forked_doc_123', expect.objectContaining({
+      totalWords: 900,
+      totalDuration: 5400,
+    }));
+  });
+
   it('creates a forked document with English conflict title when language is en (D-18)', async () => {
     localStorage.setItem('app_language', 'en');
     try {

@@ -135,9 +135,11 @@ export const ConflictResolver = {
     } catch (copyErr) {
       reportError(copyErr, { action: 'resolveConflict_copyUnsynced', documentId });
     }
+    // R4-2: wordCount/duration — дельта этой сессии; итог заметки лежит в
+    // documentWordCount/documentDuration (как во всех остальных путях записи).
     await LocalStorageService.updateAfterSession(forkedDocId, {
-      totalWords: data.wordCount,
-      totalDuration: data.duration,
+      totalWords: data.documentWordCount ?? data.wordCount,
+      totalDuration: data.documentDuration ?? data.duration,
       currentVersion: 1,
       mood: data.mood,
     });
@@ -197,8 +199,8 @@ export const ConflictResolver = {
       }
       const maxCloudVersion = Math.max(cloudDoc.currentVersion, ...decryptedCloudVersions.map(v => v.version), 0);
       await LocalStorageService.updateAfterSession(documentId, {
-        totalWords: cloudDoc.totalWords ?? data.wordCount,
-        totalDuration: cloudDoc.totalDuration ?? data.duration,
+        totalWords: cloudDoc.totalWords ?? data.documentWordCount ?? data.wordCount,
+        totalDuration: cloudDoc.totalDuration ?? data.documentDuration ?? data.duration,
         currentVersion: maxCloudVersion,
         mood: data.mood,
       });
