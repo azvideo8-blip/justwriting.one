@@ -159,8 +159,8 @@ export const AIProfileFacetBuilder = {
           reportAIDegradation({
             feature: 'facet_seed_embed',
             cause: res.error,
-            action: `Построение вектора для домена ${d.label}`,
-            impact: `Вектор для домена ${d.label} не построен`,
+            action: 'Построение вектора для домена',
+            impact: 'Вектор для домена не построен',
           });
         }
       }

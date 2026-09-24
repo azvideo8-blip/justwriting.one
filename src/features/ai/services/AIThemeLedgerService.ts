@@ -183,8 +183,8 @@ export const AIThemeLedgerService = {
                 reportAIDegradation({
                   feature: 'theme_ledger_embed',
                   cause: embRes.error,
-                  action: `Векторизация темы "${cleanedTheme}"`,
-                  impact: `Тема "${cleanedTheme}" не векторизована`,
+                  action: 'Векторизация темы',
+                  impact: 'Тема не векторизована',
                 });
               }
             } catch (e) {
@@ -192,8 +192,8 @@ export const AIThemeLedgerService = {
               reportAIDegradation({
                 feature: 'theme_ledger_embed',
                 cause: e,
-                action: `Векторизация темы "${cleanedTheme}"`,
-                impact: `Тема "${cleanedTheme}" не векторизована`,
+                action: 'Векторизация темы',
+                impact: 'Тема не векторизована',
               });
             }
           }

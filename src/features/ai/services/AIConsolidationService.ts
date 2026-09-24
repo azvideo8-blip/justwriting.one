@@ -470,7 +470,7 @@ export const AIConsolidationService = {
       
       useActivityLogStore.getState().addActivity(
         'Убеждение отклонено (судья не пропустил)',
-        { action: 'belief_rejected', clusterSize: cluster.units.length, reason: finalReason },
+        { action: 'belief_rejected', clusterSize: cluster.units.length },
         'warning',
         'ai'
       );
