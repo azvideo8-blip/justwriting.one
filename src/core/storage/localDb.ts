@@ -3,6 +3,8 @@ import { reportError } from '../../shared/errors/reportError';
 import type { DocumentFields } from '../../shared/types/common';
 import { getCurrentUser } from '../auth';
 
+export const DB_VERSION = 21;
+
 // AUDIT-part2 4.2: скалярные поля наследуются от канонического DocumentFields
 // (shared/types) — расхождение локальной и облачной форм ловит компилятор.
 export interface LocalDocument extends DocumentFields<number> {
@@ -592,7 +594,7 @@ async function upgradeJustWritingDB(
       });
     }
   }
-  if (oldVersion < 21) {
+  if (oldVersion < DB_VERSION) {
     // D4.18: absent excludedFromAI means false — no data migration needed.
   }
 }
@@ -745,7 +747,7 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
         return;
       }
 
-      const legacyDb = await openDB<JustWritingDB>('justwriting-local', 21, {
+      const legacyDb = await openDB<JustWritingDB>('justwriting-local', DB_VERSION, {
         upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
       });
 
@@ -797,7 +799,7 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
 
       const claimUnowned = ownersInLegacy.size <= 1 && !hadMultipleOwners;
 
-      const targetDb = await openDB<JustWritingDB>(targetDbName, 21, {
+      const targetDb = await openDB<JustWritingDB>(targetDbName, DB_VERSION, {
         upgrade: (db, oldV, newV, tx) => { void upgradeJustWritingDB(db, oldV, newV, tx as unknown as UpgradeTx); },
       });
 
@@ -912,7 +914,7 @@ export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustW
     await migrateLegacyIfNeeded(dbName, effectiveUid);
   }
 
-  const openPromise = openDB<JustWritingDB>(dbName, 21, {
+  const openPromise = openDB<JustWritingDB>(dbName, DB_VERSION, {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     upgrade: upgradeJustWritingDB,
     blocked() {
