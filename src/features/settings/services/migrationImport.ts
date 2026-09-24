@@ -317,6 +317,7 @@ export async function importMigrationManifest(
       linkedCloudId: doc.linkedCloudId,
       excludedFromAI: doc.excludedFromAI,
       localOnly: doc.localOnly,
+      trashedAt: doc.trashedAt,
       unlinkedByTombstone: doc.unlinkedByTombstone,
       lastSyncedCloudVersion: doc.lastSyncedCloudVersion,
       lastSeenCloudUpdatedAt: doc.lastSeenCloudUpdatedAt,

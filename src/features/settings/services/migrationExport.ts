@@ -83,6 +83,8 @@ export interface MigrationDocument {
   mood?: string | undefined;
   excludedFromAI?: boolean | undefined;
   localOnly?: boolean | undefined;
+  /** R4-1: заметка в корзине. Без поля восстановленная из бэкапа удалённая заметка оживала. */
+  trashedAt?: number | undefined;
   unlinkedByTombstone?: boolean | undefined;
   lastSyncedCloudVersion?: number | undefined;
   lastSeenCloudUpdatedAt?: string | undefined;
@@ -183,6 +185,7 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
             mood: d.mood,
             excludedFromAI: d.excludedFromAI,
             localOnly: d.localOnly,
+            trashedAt: d.trashedAt,
             unlinkedByTombstone: d.unlinkedByTombstone,
             lastSyncedCloudVersion: d.lastSyncedCloudVersion,
             lastSeenCloudUpdatedAt: d.lastSeenCloudUpdatedAt,

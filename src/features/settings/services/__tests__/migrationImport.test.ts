@@ -1013,6 +1013,7 @@ describe("C1 migrationImport", () => {
         tags: ["tag1"],
         excludedFromAI: true,
         localOnly: true,
+        trashedAt: 5000,
         unlinkedByTombstone: true,
         lastSyncedCloudVersion: 3,
         lastSeenCloudUpdatedAt: "2026-09-24T10:00:00.000Z",
@@ -1054,6 +1055,8 @@ describe("C1 migrationImport", () => {
       expect(importedDoc).toBeDefined();
       expect(importedDoc?.excludedFromAI).toBe(true);
       expect(importedDoc?.localOnly).toBe(true);
+      // R4-1: заметка из корзины остаётся в корзине, а не оживает для ИИ и облака.
+      expect(importedDoc?.trashedAt).toBe(5000);
       expect(importedDoc?.unlinkedByTombstone).toBe(true);
       expect(importedDoc?.lastSyncedCloudVersion).toBe(3);
       expect(importedDoc?.lastSeenCloudUpdatedAt).toBe("2026-09-24T10:00:00.000Z");
