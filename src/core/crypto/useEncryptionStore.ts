@@ -124,6 +124,12 @@ export function setupEncryptionStoreListeners() {
         if (event.data?.type === 'VAULT_UNLOCKED') {
           window.dispatchEvent(new CustomEvent(VAULT_UNLOCKED_EVENT));
         }
+        // R4-6: ручная блокировка в одной вкладке блокирует и остальные.
+        // Обычный VAULT_LOCKED сюда не относится: его шлёт и закрытие вкладки,
+        // и авто-блокировка по простою — они не должны гасить соседей.
+        if (event.data?.type === VAULT_LOCK_ALL && useEncryptionStore.getState().isVaultUnlocked) {
+          useEncryptionStore.getState().lockVault();
+        }
       };
       channel.addEventListener('message', onMsg);
       registeredListeners.push({
@@ -149,6 +155,17 @@ export function cleanupEncryptionStoreListeners() {
 }
 
 const VAULT_STATE_CHANNEL = 'jw_vault_state';
+const VAULT_LOCK_ALL = 'VAULT_LOCK_ALL';
+
+/** R4-6: человек нажал «Заблокировать» — просим закрыть сейф все вкладки. */
+export function broadcastManualLock(): void {
+  try {
+    if (typeof BroadcastChannel === 'undefined') return;
+    const channel = new BroadcastChannel(VAULT_STATE_CHANNEL);
+    channel.postMessage({ type: VAULT_LOCK_ALL, timestamp: Date.now() });
+    channel.close();
+  } catch { /* ignore */ }
+}
 const VAULT_UNLOCKED_LS_KEY = 'jw_vault_unlocked_time';
 let crossTabHeartbeat: ReturnType<typeof setInterval> | null = null;
 

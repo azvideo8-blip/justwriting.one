@@ -18,6 +18,7 @@ import {
   unwrapDataKeyWithRecoveryCode,
 } from '../crypto/recoveryCode';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { broadcastManualLock } from '../crypto/useEncryptionStore';
 import {
   saveEncryptionMeta,
   getEncryptionMeta,
@@ -317,6 +318,7 @@ export async function generateRecoveryCodeForExistingVault(userId: string, passw
 
 export function lockVault(_userId: string): void {
   clearSessionKey();
+  broadcastManualLock();
 }
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
