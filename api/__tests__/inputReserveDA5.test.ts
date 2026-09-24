@@ -58,4 +58,13 @@ describe('DA-5: Global budget reservation accounts for input tokens', () => {
     expect(tryReserveGlobalRequest).toHaveBeenLastCalledWith(512 + longEstimate);
     expect(longEstimate).toBeGreaterThan(5000);
   });
+
+  // DA-15: хвост заметки длиннее 50 000 знаков раньше выпадал из индекса.
+  it('indexes the tail of a note longer than 50 000 characters', async () => {
+    const { ctx } = mockAiContext();
+    const long = 'Обычный текст дня. '.repeat(3500) + 'ХВОСТОВАЯ_МЕТКА';
+    expect(long.length).toBeGreaterThan(60_000);
+    const res = await embedDocumentLogic(ctx, 'user_1', { content: long }) as { chunks: string[] };
+    expect(res.chunks.some(c => c.includes('ХВОСТОВАЯ_МЕТКА'))).toBe(true);
+  });
 });

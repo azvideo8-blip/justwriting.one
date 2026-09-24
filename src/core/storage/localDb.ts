@@ -887,11 +887,16 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
 
 /** Полноэкранное сообщение поверх приложения: база недоступна, и делать это
  *  должен человек — закрыть вкладки или перезагрузить. Клик перезагружает. */
-function showDbOverlay(text: string): void {
+function showDbOverlay(text: string, reason: 'blocked' | 'outdated' = 'outdated'): void {
   if (typeof document === 'undefined' || document.body === null) return;
-  if (document.getElementById('db-upgrade-blocked-overlay')) return;
+  const current = document.getElementById('db-upgrade-blocked-overlay');
+  if (current) {
+    if (current.dataset.reason === reason) return;
+    current.remove();
+  }
   const el = document.createElement('div');
   el.id = 'db-upgrade-blocked-overlay';
+  el.dataset.reason = reason;
   el.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);color:#fff;font:16px system-ui;text-align:center;padding:24px;cursor:pointer;';
   el.textContent = text;
   el.addEventListener('click', () => { try { location.reload(); } catch { /* ignore */ } });
@@ -922,10 +927,13 @@ export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustW
     upgrade: upgradeJustWritingDB,
     blocked() {
       console.warn('[localDb] Database upgrade blocked — close other tabs and reload.');
-      showDbOverlay('Закройте другие вкладки justwriting и обновите страницу — база данных ожидает обновления.');
+      showDbOverlay('Закройте другие вкладки justwriting и обновите страницу — база данных ожидает обновления.', 'blocked');
     },
     blocking() {
       console.warn('[localDb] Another tab is trying to upgrade — closing this connection.');
+      // DA-14: раньше вкладка закрывала базу молча, и следующая запись падала
+      // общей ошибкой. Говорим сразу: текст на экране, а сохранённое — в базе.
+      showDbOverlay('Приложение обновилось в другой вкладке. Обновите страницу — сохранённое на месте.');
       const inst = dbInstances.get(dbName);
       if (inst) {
         try { inst.close(); } catch { /* ignore */ }
@@ -945,6 +953,11 @@ export async function getLocalDb(customUid?: string): Promise<IDBPDatabase<JustW
     }
     dbInstances.set(dbName, db);
     dbOpenPromises.delete(dbName);
+    // Другие вкладки закрылись — база открылась: оверлей «ожидает обновления» больше не нужен.
+    if (typeof document !== 'undefined') {
+      const overlay = document.getElementById('db-upgrade-blocked-overlay');
+      if (overlay?.dataset.reason === 'blocked') overlay.remove();
+    }
     db.addEventListener('close', () => {
       dbInstances.delete(dbName);
       dbOpenPromises.delete(dbName);

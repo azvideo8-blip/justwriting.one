@@ -1,6 +1,6 @@
 // functions/src/ai/embedDocument.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput } from './pure';
+import { sanitizeAiInput, MAX_AI_CONTENT_LENGTH } from './pure';
 import { embed } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
@@ -30,6 +30,17 @@ function chunkText(text: string): string[] {
   return chunks.filter(c => c.length > 0);
 }
 
+// DA-15: sanitizeAiInput обрезает до MAX_AI_CONTENT_LENGTH (50 000) — для чата это
+// потолок разумного, а для индексации хвост длинной заметки просто выпадал из
+// поиска. Чистим окнами той же длины и индексируем весь текст (до MAX_CHUNKS).
+export function sanitizeWholeText(text: string): string {
+  const parts: string[] = [];
+  for (let i = 0; i < text.length; i += MAX_AI_CONTENT_LENGTH) {
+    parts.push(sanitizeAiInput(text.slice(i, i + MAX_AI_CONTENT_LENGTH)));
+  }
+  return parts.join('');
+}
+
 export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
   if (!parsed.success) {
@@ -43,7 +54,7 @@ export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unkn
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
   const callRes = await chargeCall(ctx, uid, charge, 'embed');
 
-  const sanitized = sanitizeAiInput(content);
+  const sanitized = sanitizeWholeText(content);
   const inputEstimate = estimateInputTokens([sanitized]);
 
   const reservation = await ctx.tryReserveGlobalRequest(512 + inputEstimate);

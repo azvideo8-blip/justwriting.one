@@ -38,4 +38,19 @@ describe('база новее, чем знает этот бандл', () => {
     expect(overlay).not.toBeNull();
     expect(overlay!.textContent).toContain('Обновите страницу');
   });
+
+  // DA-14: соседняя вкладка поднимает схему — эта закрывает базу и сразу
+  // говорит об этом, а не падает на следующей записи общей ошибкой.
+  it('при обновлении схемы в другой вкладке сразу показывает оверлей', async () => {
+    const { getLocalDb } = await import('../localDb');
+    await getLocalDb();
+    expect(document.getElementById('db-upgrade-blocked-overlay')).toBeNull();
+
+    const newer = await openDB(DB_NAME, 99);
+    newer.close();
+
+    const overlay = document.getElementById('db-upgrade-blocked-overlay');
+    expect(overlay).not.toBeNull();
+    expect(overlay!.textContent).toContain('обновилось в другой вкладке');
+  });
 });
