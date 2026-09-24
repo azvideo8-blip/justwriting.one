@@ -130,7 +130,13 @@ interface PendingSyncItem {
   store: SupportedLocalStoreName;
   key: string;
   isDelete?: boolean;
+  /** R3-8: сколько раз обновление уже не доехало (только для upsert). */
+  attempts?: number;
 }
+
+// R3-8: неудавшееся обновление повторяем в следующих проходах, но не вечно —
+// запись, которую сервер отвергает всегда, не должна крутиться бесконечно.
+const MAX_UPSERT_ATTEMPTS = 5;
 
 interface OversizedRecordInfo {
   store: string;
@@ -411,6 +417,10 @@ class LocalStoreSyncManager {
             // Re-queue it so network/server errors do not drop the delete permanently.
             if (item.isDelete) {
               this.pending.set(itemKey, item);
+            } else if ((item.attempts ?? 0) + 1 < MAX_UPSERT_ATTEMPTS && !this.pending.has(itemKey)) {
+              // R3-8: обновление читается из IDB заново, так что повтор отправит
+              // свежую версию; новое изменение за время прохода не перетираем.
+              this.pending.set(itemKey, { ...item, attempts: (item.attempts ?? 0) + 1 });
             }
           }
         }
