@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import "fake-indexeddb/auto";
 import { getLocalDb, resetDbInstance, type LocalDocument, type AIDocumentSummary } from "../../../../core/storage/localDb";
 import { type MigrationManifest, exportMigrationManifest } from "../migrationExport";
@@ -1022,6 +1022,7 @@ describe("C1 migrationImport", () => {
       await db.put("versions", {
         id: "ver_da9",
         documentId: "doc_da9",
+        guestId: "u_orig",
         version: 1,
         content: "Hello world",
         wordCount: 10,
@@ -1057,6 +1058,89 @@ describe("C1 migrationImport", () => {
       expect(importedDoc?.lastSyncedCloudVersion).toBe(3);
       expect(importedDoc?.lastSeenCloudUpdatedAt).toBe("2026-09-24T10:00:00.000Z");
       expect(importedDoc?.linkedCloudId).toBe("cloud_doc_1");
+    });
+
+    it("DA-10: transaction rollback on error leaves nothing in database", async () => {
+      const content1 = "Content 1";
+      const content2 = "Content 2";
+      const manifest: MigrationManifest = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        documents: [
+          {
+            localId: "doc_fail_atomicity",
+            uuid: "uuid-fail-atomicity-1",
+            title: "Atomic Note",
+            currentVersion: 2,
+            tags: [],
+            firstSessionAt: 1000,
+            lastSessionAt: 2000,
+            totalWords: 20,
+            totalDuration: 120,
+            sessionsCount: 2,
+            versions: [
+              {
+                id: "v_atom_1",
+                version: 1,
+                content: content1,
+                wordCount: 10,
+                wordsAdded: 10,
+                charsAdded: 20,
+                duration: 60,
+                wpm: 10,
+                savedAt: 1000,
+                sessionStartedAt: 1000,
+              },
+              {
+                id: "v_atom_2",
+                version: 2,
+                content: content2,
+                wordCount: 20,
+                wordsAdded: 10,
+                charsAdded: 20,
+                duration: 60,
+                wpm: 10,
+                savedAt: 2000,
+                sessionStartedAt: 2000,
+              },
+            ],
+          },
+        ],
+        drafts: [],
+        aiSummaries: [],
+        aiEmbeddings: [],
+        verbatim: [],
+        counters: { documents: 1, versions: 2, drafts: 0, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+        checksums: {
+          v_atom_1: await sha256Hex(content1),
+          v_atom_2: await sha256Hex(content2),
+        },
+        skipped: [],
+      };
+
+      const db = await getLocalDb();
+      let versionPuts = 0;
+      const originalPut = IDBObjectStore.prototype.put;
+      const putSpy = vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(function (this: IDBObjectStore, value: any, key?: any) {
+        if (this.name === "versions") {
+          versionPuts++;
+          if (versionPuts === 2) {
+            throw new Error("Simulated disk error on second version");
+          }
+        }
+        return originalPut.call(this, value, key);
+      });
+
+      try {
+        await expect(importMigrationManifest(manifest, "u_target")).rejects.toThrow("Simulated disk error on second version");
+
+        const storedDoc = await db.get("documents", "doc_fail_atomicity");
+        expect(storedDoc).toBeUndefined();
+        const storedVer1 = await db.get("versions", "v_atom_1");
+        expect(storedVer1).toBeUndefined();
+      } finally {
+        putSpy.mockRestore();
+      }
     });
   });
 });

@@ -1,3 +1,4 @@
+import type { StoreNames } from "idb";
 import {
   getLocalDb,
   type LocalDocument,
@@ -5,7 +6,7 @@ import {
   type LocalDraft,
   type AIDocumentSummary,
   type AIDocumentEmbedding,
-  type AIProfileFacet,
+  type JustWritingDB,
 } from "../../../core/storage/localDb";
 import { emitDomainEvent } from "../../../core/events/domainEvents";
 import { type MigrationManifest } from "./migrationExport";
@@ -13,7 +14,6 @@ import { SyncService } from "../../../core/services/SyncService";
 import { cloudSyncEnabled } from "../../../core/sync/cloudSyncEnabled";
 import { getSessionKey } from "../../../core/crypto/encrypt";
 import { toTimestampMs } from "../../../core/utils/dateUtils";
-import { writeFacetStore } from "../../../core/services/facetLock";
 
 export interface MigrationImportResult {
   success: boolean;
@@ -161,6 +161,18 @@ export async function importMigrationManifest(
   const docIdMap = new Map<string, string>();
   const importedDocIds: string[] = [];
 
+  interface PendingWriteOp {
+    store: string;
+    payload: unknown;
+  }
+  const pendingWrites: PendingWriteOp[] = [];
+  const storesToWrite = new Set<string>();
+
+  function queueWrite(store: string, payload: unknown) {
+    pendingWrites.push({ store, payload });
+    storesToWrite.add(store);
+  }
+
   // ── 0. Labels (E-4) ──────────────────────────────────────────────────────
   const validLabelIds = new Set<string>();
   let existingProfile: Record<string, unknown> | undefined;
@@ -228,7 +240,7 @@ export async function importMigrationManifest(
         imported.labels = (imported.labels || 0) + 1;
       }
     }
-    await db.put("profile", {
+    queueWrite("profile", {
       totalWords: 0,
       sessionsCount: 0,
       totalDuration: 0,
@@ -310,7 +322,7 @@ export async function importMigrationManifest(
       lastSeenCloudUpdatedAt: doc.lastSeenCloudUpdatedAt,
     };
 
-    await db.put("documents", localDoc);
+    queueWrite("documents", localDoc);
     existingDocsById.set(targetId, localDoc);
     existingDocsByUuid.set(doc.uuid, localDoc);
     imported.documents++;
@@ -388,7 +400,7 @@ export async function importMigrationManifest(
         mood: ver.mood,
       };
 
-      await db.put("versions", localVer);
+      queueWrite("versions", localVer);
       existingVerIds.add(ver.id);
       imported.versions++;
     }
@@ -426,7 +438,7 @@ export async function importMigrationManifest(
     }
     cleanSummary.documentId = targetDocId;
 
-    await db.put("aiSummaries", cleanSummary as AIDocumentSummary);
+    queueWrite("aiSummaries", cleanSummary as AIDocumentSummary);
     existingSummaryDocIds.add(targetDocId);
     imported.aiSummaries++;
   }
@@ -456,7 +468,7 @@ export async function importMigrationManifest(
     }
 
     const cleanEmbedding = { ...embedding, documentId: targetDocId };
-    await db.put("aiEmbeddings", cleanEmbedding);
+    queueWrite("aiEmbeddings", cleanEmbedding);
     existingEmbeddingDocIds.add(targetDocId);
     imported.aiEmbeddings++;
   }
@@ -475,7 +487,7 @@ export async function importMigrationManifest(
       continue;
     }
 
-    await db.put("drafts", {
+    queueWrite("drafts", {
       userId: targetDraftUserId,
       title: draft.title ?? "",
       content: draft.content ?? "",
@@ -496,6 +508,22 @@ export async function importMigrationManifest(
     "documents", "versions", "drafts", "profile", "syncQueue", "pending_sessions",
   ]);
   const incomingVerbatim = Array.isArray(manifest.verbatim) ? manifest.verbatim : [];
+
+  const existingVerbatimKeys = new Map<string, Set<IDBValidKey>>();
+  for (const rec of incomingVerbatim) {
+    if (
+      !VERBATIM_DENYLIST.has(rec.store) &&
+      rec.store !== "aiPeopleIndex" &&
+      rec.store !== "syncQueue" &&
+      rec.store !== "pending_sessions" &&
+      db.objectStoreNames.contains(rec.store as never) &&
+      !existingVerbatimKeys.has(rec.store)
+    ) {
+      const keys = await db.getAllKeys(rec.store as never);
+      existingVerbatimKeys.set(rec.store, new Set(keys));
+    }
+  }
+
   for (const rec of incomingVerbatim) {
     if (rec.store === "aiPeopleIndex") {
       droppedOnPurpose.peopleIndexRecords++;
@@ -533,8 +561,8 @@ export async function importMigrationManifest(
         continue;
       }
 
-      const existingTimeline = await db.get("aiTimeline", targetDocId);
-      if (existingTimeline !== undefined) {
+      const timelineKeys = existingVerbatimKeys.get("aiTimeline");
+      if (timelineKeys && timelineKeys.has(targetDocId)) {
         skipped.verbatim["aiTimeline"] =
           (skipped.verbatim["aiTimeline"] || 0) + 1;
         skipped.details.push({
@@ -549,7 +577,8 @@ export async function importMigrationManifest(
         ...(rec.payload as Record<string, unknown>),
         documentId: targetDocId,
       };
-      await db.put("aiTimeline", updatedPayload as never);
+      queueWrite("aiTimeline", updatedPayload);
+      timelineKeys?.add(targetDocId);
       imported.verbatim["aiTimeline"] =
         (imported.verbatim["aiTimeline"] || 0) + 1;
       continue;
@@ -565,8 +594,8 @@ export async function importMigrationManifest(
         payload = { ...payload, documentId: docIdMap.get(payload.documentId) };
       }
 
-      const existing = await db.get("aiDialogues", rec.key);
-      if (existing !== undefined) {
+      const dialogueKeys = existingVerbatimKeys.get("aiDialogues");
+      if (dialogueKeys && dialogueKeys.has(rec.key)) {
         skipped.verbatim["aiDialogues"] =
           (skipped.verbatim["aiDialogues"] || 0) + 1;
         skipped.details.push({
@@ -575,15 +604,16 @@ export async function importMigrationManifest(
           reason: "dialogue already exists",
         });
       } else {
-        await db.put("aiDialogues", payload as never);
+        queueWrite("aiDialogues", payload);
+        dialogueKeys?.add(rec.key);
         imported.verbatim["aiDialogues"] =
           (imported.verbatim["aiDialogues"] || 0) + 1;
       }
       continue;
     }
 
-    const existing = await db.get(rec.store as never, rec.key);
-    if (existing !== undefined) {
+    const storeKeys = existingVerbatimKeys.get(rec.store);
+    if (storeKeys && storeKeys.has(rec.key)) {
       skipped.verbatim[rec.store] = (skipped.verbatim[rec.store] || 0) + 1;
       skipped.details.push({
         store: rec.store,
@@ -591,12 +621,29 @@ export async function importMigrationManifest(
         reason: `${rec.store} record already exists`,
       });
     } else {
-      if (rec.store === "aiProfileFacets") {
-        await writeFacetStore(s => s.put(rec.payload as AIProfileFacet));
-      } else {
-        await db.put(rec.store as never, rec.payload);
-      }
+      queueWrite(rec.store, rec.payload);
+      storeKeys?.add(rec.key);
       imported.verbatim[rec.store] = (imported.verbatim[rec.store] || 0) + 1;
+    }
+  }
+
+  // ── 6.5 Atomic Commit ──────────────────────────────────────────────────
+  if (storesToWrite.size > 0) {
+    const storeNames = Array.from(storesToWrite) as StoreNames<JustWritingDB>[];
+    const tx = db.transaction(storeNames, "readwrite");
+    try {
+      for (const op of pendingWrites) {
+        void tx.objectStore(op.store as StoreNames<JustWritingDB>).put(op.payload as never).catch(() => {});
+      }
+      await tx.done;
+    } catch (e) {
+      try {
+        tx.abort();
+      } catch {
+        // transaction may already be aborted
+      }
+      await tx.done.catch(() => {});
+      throw e;
     }
   }
 
