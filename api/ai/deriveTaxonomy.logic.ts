@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({ digest: z.string().min(20).max(60_000) });
 
@@ -44,7 +44,8 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
   const digest = sanitizeAiInput(parsed.data.digest);
   console.warn(`[AI taxonomy] start: digest ${digest.length} chars`);
 
-  const reservation = await ctx.tryReserveGlobalRequest(4096);
+  const inputEstimate = estimateInputTokens([SYSTEM_PROMPT, digest]);
+  const reservation = await ctx.tryReserveGlobalRequest(4096 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -54,7 +55,7 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
     console.error('[AI taxonomy] global daily cap reached');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   let settled = false;
   // Цикл ниже может сходить в модель дважды, а глобальная резервация одна.

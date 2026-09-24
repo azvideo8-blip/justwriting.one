@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -60,7 +60,8 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
     `ФАСЕТ ${i + 1} [id=${sanitizeAiInput(f.facetId)}] «${sanitizeAiInput(f.label)}»\nОПИСАНИЕ: ${sanitizeAiInput(f.summary)}\nФАКТЫ: ${sanitizeAiInput(f.evidence)}`,
   ).join('\n\n');
 
-  const reservation = await ctx.tryReserveGlobalRequest(8192);
+  const inputEstimate = estimateInputTokens([SYSTEM_PROMPT, facetsText]);
+  const reservation = await ctx.tryReserveGlobalRequest(8192 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -69,7 +70,7 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   try {
     const result = await generate({

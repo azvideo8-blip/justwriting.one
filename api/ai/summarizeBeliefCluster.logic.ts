@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const BELIEF_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -47,7 +47,21 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
   const callRes = await chargeCall(ctx, uid, charge, 'summarizeBeliefCluster');
 
-  const reservation = await ctx.tryReserveGlobalRequest(2048);
+  const evidenceText = evidence
+    .map((e, i) => `Фрагмент ${i + 1} (${sanitizeAiInput(e.date)}):\n${sanitizeAiInput(e.snippet ?? '')}`)
+    .join('\n\n');
+
+  const cleanFirstSeen = sanitizeAiInput(firstSeenAt);
+  const cleanCorrection = correctionHint ? sanitizeAiInput(correctionHint) : '';
+
+  const systemWithContext = cleanCorrection
+    ? `${SYSTEM_PROMPT}\n\nВНИМАНИЕ (исправление ошибок прошлых попыток): ${cleanCorrection}`
+    : SYSTEM_PROMPT;
+
+  const userContent = `Первое упоминание от: ${cleanFirstSeen}\n\nФакты из памяти:\n[USER_NOTES_START]\n${evidenceText}\n[USER_NOTES_END]`;
+
+  const inputEstimate = estimateInputTokens([systemWithContext, userContent]);
+  const reservation = await ctx.tryReserveGlobalRequest(2048 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -56,22 +70,9 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   try {
-    const evidenceText = evidence
-      .map((e, i) => `Фрагмент ${i + 1} (${sanitizeAiInput(e.date)}):\n${sanitizeAiInput(e.snippet ?? '')}`)
-      .join('\n\n');
-
-    const cleanFirstSeen = sanitizeAiInput(firstSeenAt);
-    const cleanCorrection = correctionHint ? sanitizeAiInput(correctionHint) : '';
-
-    const systemWithContext = cleanCorrection
-      ? `${SYSTEM_PROMPT}\n\nВНИМАНИЕ (исправление ошибок прошлых попыток): ${cleanCorrection}`
-      : SYSTEM_PROMPT;
-
-    const userContent = `Первое упоминание от: ${cleanFirstSeen}\n\nФакты из памяти:\n[USER_NOTES_START]\n${evidenceText}\n[USER_NOTES_END]`;
-
     const result = await generate({
       system: systemWithContext,
       messages: [{ role: 'user', content: userContent }],

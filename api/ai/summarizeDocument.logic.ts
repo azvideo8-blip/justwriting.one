@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, splitFactsByModality, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 // ── Helpers (kept in sync with summarizeDocument.ts) ─────────────────────────
 
@@ -134,7 +134,8 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     prompt = `[Настроение документа: ${safeMood}]\n\n${prompt}`;
   }
 
-  const reservation = await ctx.tryReserveGlobalRequest(8192);
+  const inputEstimate = estimateInputTokens([scaledPrompt, prompt]);
+  const reservation = await ctx.tryReserveGlobalRequest(8192 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -143,7 +144,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   let text: string;
   let tokensIn = 0, tokensOut = 0, usedModel = SUMMARY_MODEL;

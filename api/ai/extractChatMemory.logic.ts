@@ -4,7 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis } 
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
-import { chargeCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS, INTERNAL_CALL_MAX_INPUT_CHARS } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS, INTERNAL_CALL_MAX_INPUT_CHARS, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   messages: z.array(z.object({
@@ -52,7 +52,8 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     })
     .join('\n\n');
 
-  const reservation = await ctx.tryReserveGlobalRequest(1000);
+  const inputEstimate = estimateInputTokens([SYSTEM_PROMPT, conversationText]);
+  const reservation = await ctx.tryReserveGlobalRequest(1000 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -61,7 +62,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   try {
     const result = await generate({

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -76,7 +76,15 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
   const charge = parseCharge((data as { charge?: unknown } | null)?.charge);
   const callRes = await chargeCall(ctx, uid, charge, 'judgeBeliefCandidate');
 
-  const reservation = await ctx.tryReserveGlobalRequest(4096);
+  const evidenceText = evidence
+    .map((e, i) => `Фрагмент ${i + 1} (${sanitizeAiInput(e.date)}):\n${sanitizeAiInput(e.snippet ?? '')}`)
+    .join('\n\n');
+
+  const cleanBelief = sanitizeAiInput(belief);
+  const userContent = `[DATA_START]\nПРОВЕРЯЕМОЕ УБЕЖДЕНИЕ:\n${cleanBelief}\n\nФАКТЫ ИЗ ПАМЯТИ:\n${evidenceText}\n[DATA_END]`;
+
+  const inputEstimate = estimateInputTokens([SYSTEM_PROMPT, userContent]);
+  const reservation = await ctx.tryReserveGlobalRequest(4096 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -85,16 +93,9 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   try {
-    const evidenceText = evidence
-      .map((e, i) => `Фрагмент ${i + 1} (${sanitizeAiInput(e.date)}):\n${sanitizeAiInput(e.snippet ?? '')}`)
-      .join('\n\n');
-
-    const cleanBelief = sanitizeAiInput(belief);
-    const userContent = `[DATA_START]\nПРОВЕРЯЕМОЕ УБЕЖДЕНИЕ:\n${cleanBelief}\n\nФАКТЫ ИЗ ПАМЯТИ:\n${evidenceText}\n[DATA_END]`;
-
     const result = await generate({
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userContent }],

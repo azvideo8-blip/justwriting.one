@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, MAX_AI_CONTENT_LENGTH } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { createCallReservation } from '../../src/shared/ai/aiPolicy.js';
+import { createCallReservation, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const actionSchema = z.enum(['accents', 'ideas', 'summarize', 'continue', 'gratitude', 'achievements']);
 
@@ -83,7 +83,13 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   }
   const callRes = createCallReservation(ctx, uid, 'user', limitResult.day);
 
-  const reservation = await ctx.tryReserveGlobalRequest(4096);
+  const inputParts = [
+    buildSystemInstruction(action),
+    sanitizedInput,
+    ...(history ?? []).map(m => m.content),
+  ];
+  const inputEstimate = estimateInputTokens(inputParts);
+  const reservation = await ctx.tryReserveGlobalRequest(4096 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -92,7 +98,7 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   let result;
   try {

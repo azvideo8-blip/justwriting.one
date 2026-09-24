@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -52,7 +52,10 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     ? `${system}\nДополнительный контекст: ${correction}`
     : system;
 
-  const reservation = await ctx.tryReserveGlobalRequest(2048);
+  const userContent = `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n[USER_NOTES_START]\n${notesText}\n[USER_NOTES_END]`;
+  const inputEstimate = estimateInputTokens([systemWithCorrection, userContent]);
+
+  const reservation = await ctx.tryReserveGlobalRequest(2048 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -61,12 +64,12 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   try {
     const result = await generate({
       system: systemWithCorrection,
-      messages: [{ role: 'user', content: `Фрагменты заметок${focus ? ` (тема «${focus}»)` : ''}:\n\n[USER_NOTES_START]\n${notesText}\n[USER_NOTES_END]` }],
+      messages: [{ role: 'user', content: userContent }],
       maxTokens: 2048,
       model: FACET_MODEL,
       abortMs: 110_000,

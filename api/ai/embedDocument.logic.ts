@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sanitizeAiInput } from './pure';
 import { embed } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
-import { chargeCall, parseCharge } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   content: z.string().min(1).max(200_000),
@@ -44,8 +44,9 @@ export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unkn
   const callRes = await chargeCall(ctx, uid, charge, 'embed');
 
   const sanitized = sanitizeAiInput(content);
+  const inputEstimate = estimateInputTokens([sanitized]);
 
-  const reservation = await ctx.tryReserveGlobalRequest(512);
+  const reservation = await ctx.tryReserveGlobalRequest(512 + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -54,7 +55,7 @@ export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unkn
     await callRes.settle('failed');
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
-  callRes.attachGlobalReservation(reservation);
+  callRes.attachGlobalReservation(reservation, inputEstimate);
 
   try {
     const chunks = chunkText(sanitized);
