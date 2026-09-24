@@ -1238,7 +1238,7 @@ export const CloudSyncService = {
 
       await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
         totalWords: data.documentWordCount ?? data.wordCount,
-        totalDuration: data.duration,
+        totalDuration: data.documentDuration ?? data.duration,
         currentVersion: newVersion,
         mood: data.mood,
       });

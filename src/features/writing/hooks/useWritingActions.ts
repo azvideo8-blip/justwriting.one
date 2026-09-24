@@ -85,6 +85,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         wordCount: doc.totalWords,
         savedDocumentId: localId,
         accumulatedDuration: doc.totalDuration,
+        initialDuration: doc.totalDuration,
       });
 
       // Reset goals so no false "goal reached" toast fires when loading a large doc
@@ -162,8 +163,9 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
       const contentState = useContentStore.getState();
       const timerState = useTimerStore.getState();
       const metaState = useSessionMetaStore.getState();
-      const sessionSeconds = timerState.accumulatedDuration +
+      const totalSeconds = timerState.accumulatedDuration +
         Math.max(0, timerState.getSessionSeconds());
+      const sessionSeconds = Math.max(0, totalSeconds - timerState.initialDuration);
 
       const sessionNewWords = Math.max(0, contentState.wordCount - contentState.initialWordCount);
 
@@ -174,6 +176,7 @@ export function useWritingActions({ session, flow }: UseWritingActionsParams) {
         wordCount: sessionNewWords,
         documentWordCount: contentState.wordCount,
         duration: sessionSeconds,
+        documentDuration: totalSeconds,
         wpm: contentState.wpm,
         isPublic: false,
         tags: data.tags,

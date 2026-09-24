@@ -9,6 +9,7 @@ export interface SaveDocumentData {
   wordCount: number;
   documentWordCount?: number | undefined;
   duration: number;
+  documentDuration?: number | undefined;
   wpm: number;
   tags: string[];
   labelId?: string | undefined;

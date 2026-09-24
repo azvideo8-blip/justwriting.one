@@ -214,15 +214,17 @@ function WritingFinishModalBody({
     setTitle: s.setTitle,
     wpmHistory: s.wpmHistory,
   })));
-  const { seconds, sessionStartSeconds, accumulatedDuration, totalPauseSeconds, wordGoalReached, timeGoalReached } = useTimerStore(useShallow(s => ({
+  const { seconds, sessionStartSeconds, accumulatedDuration, initialDuration, totalPauseSeconds, wordGoalReached, timeGoalReached } = useTimerStore(useShallow(s => ({
     seconds: s.seconds,
     sessionStartSeconds: s.sessionStartSeconds,
     accumulatedDuration: s.accumulatedDuration,
+    initialDuration: s.initialDuration,
     totalPauseSeconds: s.totalPauseSeconds,
     wordGoalReached: s.wordGoalReached,
     timeGoalReached: s.timeGoalReached,
   })));
-  const sessionSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
+  const totalAccumulatedSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
+  const sessionSeconds = Math.max(0, totalAccumulatedSeconds - initialDuration);
   const totalElapsedSeconds = sessionSeconds + totalPauseSeconds;
 
   const sessionWords = Math.max(0, wordCount - initialWordCount);
@@ -542,6 +544,7 @@ function WritingFinishModalBody({
                 statsExpanded={statsExpanded}
                 setStatsExpanded={setStatsExpanded}
                 totalWords={wordCount}
+                totalDuration={totalAccumulatedSeconds}
               />
               <FinishModalTags
                 tags={tags}
@@ -631,6 +634,7 @@ function WritingFinishModalBody({
             statsExpanded={statsExpanded}
             setStatsExpanded={setStatsExpanded}
             totalWords={wordCount}
+            totalDuration={totalAccumulatedSeconds}
           />
 
           <FinishModalTags

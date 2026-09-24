@@ -148,7 +148,7 @@ export const LocalStorageService = {
         tags: data.tags ?? existing.tags,
         labelId: data.labelId ?? existing.labelId,
         totalWords,
-        totalDuration: data.duration,
+        totalDuration: data.documentDuration ?? (existing.totalDuration ? existing.totalDuration + data.duration : data.duration),
         currentVersion: newVersion,
         sessionsCount: (existing.sessionsCount || 0) + 1,
         lastSessionAt: now,

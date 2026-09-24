@@ -67,6 +67,7 @@ export const writingTranslations: Translations = {
   finish_streak_days: { ru: 'дней подряд', en: 'days in a row' },
   finish_streak_zero: { ru: 'Начни сегодня!', en: 'Start today!' },
   finish_total_words: { ru: 'всего: {n}', en: 'total: {n}' },
+  finish_total_time: { ru: 'всего: {t}', en: 'total: {t}' },
   finish_discard: { ru: 'Удалить', en: 'Discard' },
   finish_tags: { ru: 'Теги', en: 'Tags' },
   finish_title_label: { ru: 'Название', en: 'Title' },

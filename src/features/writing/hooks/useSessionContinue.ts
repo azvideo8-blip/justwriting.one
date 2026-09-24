@@ -49,6 +49,7 @@ export function useSessionContinue({
         useTimerStore.setState({
           seconds: 0,
           accumulatedDuration: session.duration || 0,
+          initialDuration: session.duration || 0,
         });
         useSessionMetaStore.setState({
           savedDocumentId: session.id,
@@ -70,6 +71,7 @@ export function useSessionContinue({
       useTimerStore.setState({
         seconds: 0,
         accumulatedDuration: doc.totalDuration || 0,
+        initialDuration: doc.totalDuration || 0,
       });
       useSessionMetaStore.setState({
         savedDocumentId: session.id,
@@ -127,6 +129,7 @@ export function useSessionContinue({
     useTimerStore.setState({
       seconds: 0,
       accumulatedDuration: session.duration || 0,
+      initialDuration: session.duration || 0,
     });
     useSessionMetaStore.setState({
       savedDocumentId,

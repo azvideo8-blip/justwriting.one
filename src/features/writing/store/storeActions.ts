@@ -88,6 +88,7 @@ export { resetSession, resetSession as resetAndClear };
 export function loadDraftIntoStore(draft: {
   content: string; title: string; wordCount: number;
   savedDocumentId?: string | undefined; accumulatedDuration?: number | undefined;
+  initialDuration?: number | undefined;
 }) {
   useContentStore.setState({
     content: draft.content,
@@ -112,7 +113,7 @@ export function loadDraftIntoStore(draft: {
     wordGoal: 0,
     sessionType: 'free',
     targetTime: null,
-    initialDuration: 0,
+    initialDuration: draft.initialDuration ?? (draft.savedDocumentId ? (draft.accumulatedDuration ?? 0) : 0),
     totalPauseSeconds: 0,
     seconds: 0,
     sessionStartSeconds: 0,
