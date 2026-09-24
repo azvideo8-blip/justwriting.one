@@ -17,6 +17,7 @@ const DiagnosticsPage = React.lazy(() => import('./pages/DiagnosticsPage').then(
 const RerankBenchPage = React.lazy(() => import('../features/ai/pages/RerankBenchPage').then(m => ({ default: m.RerankBenchPage })));
 const AboutPage = React.lazy(() => import('../features/navigation/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const HelpPage = React.lazy(() => import('../features/navigation/pages/HelpPage').then(m => ({ default: m.HelpPage })));
+const GuidePage = React.lazy(() => import('../features/navigation/pages/GuidePage').then(m => ({ default: m.GuidePage })));
 const ChangelogPage = React.lazy(() => import('../features/navigation/pages/ChangelogPage').then(m => ({ default: m.ChangelogPage })));
 const LandingPage = React.lazy(() => import('../features/navigation/pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const PrivacyPolicyPage = React.lazy(() => import('../features/navigation/pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
@@ -96,6 +97,8 @@ export function AppRoutes() {
         <Route path="/settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/help" element={<HelpPage />} />
+        <Route path="/guide" element={<GuidePage />} />
+        <Route path="/guide/:page" element={<GuidePage />} />
         <Route path="/changelog" element={<ChangelogPage />} />
         <Route path="/features" element={<LandingPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />

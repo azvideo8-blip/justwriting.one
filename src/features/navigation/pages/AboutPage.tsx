@@ -49,11 +49,10 @@ export function AboutPage() {
         </div>
 
         <div className="bg-surface-card/50 border border-border-subtle rounded-2xl p-5 space-y-3">
-          {/* Статические страницы в public/docs — обычная ссылка, не маршрут приложения. */}
-          <a href="/docs/index.html" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
+          <Link to="/guide" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
             <BookOpen size={16} className="text-text-main/60 shrink-0" />
             {t('help_guide_link')}
-          </a>
+          </Link>
           <Link to="/privacy" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
             <Shield size={16} className="text-text-main/60 shrink-0" />
             {isRu ? 'Политика конфиденциальности' : 'Privacy Policy'}

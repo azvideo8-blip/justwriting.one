@@ -103,17 +103,16 @@ export function AboutSettingsSection() {
             <ExternalLink size={12} className="text-text-main/40" />
           </Button>
 
-          {/* Руководство — статические страницы в public/docs, не маршрут приложения. */}
-          <a
-            href="/docs/index.html"
-            className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors"
+          <Button
+            onClick={() => void navigate('/guide')}
+            className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors text-left"
           >
             <span className="flex items-center gap-2">
               <BookOpen size={14} className="text-text-main/50" />
               {language === 'ru' ? 'Руководство пользователя' : 'User guide (Russian)'}
             </span>
             <ExternalLink size={12} className="text-text-main/40" />
-          </a>
+          </Button>
 
           <a
             href="/privacy"

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowLeft, HelpCircle, BookOpen } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { Button } from '../../../shared/components/Button';
@@ -40,9 +40,8 @@ export function HelpPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Статические страницы в public/docs — обычная ссылка, не маршрут приложения. */}
-        <a
-          href="/docs/index.html"
+        <Link
+          to="/guide"
           className="flex items-center gap-3 p-4 rounded-2xl bg-surface-card border border-border-subtle hover:border-text-main/30 transition-colors"
         >
           <BookOpen size={18} className="text-text-main/70 shrink-0" />
@@ -50,7 +49,7 @@ export function HelpPage() {
             <span className="block text-sm font-semibold text-text-main">{t('help_guide_link')}</span>
             <span className="block text-xs text-text-main/60">{t('help_guide_desc')}</span>
           </span>
-        </a>
+        </Link>
         <div>
           <h2 className="text-sm font-semibold text-text-main/80 uppercase tracking-wider mb-3">
             {t('help_section_notes_missing')}
