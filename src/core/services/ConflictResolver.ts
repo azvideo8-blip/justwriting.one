@@ -1,4 +1,5 @@
 import { LocalStorageService } from './LocalStorageService';
+import { requeueDocumentTask } from '../sync/requeueDocumentTask';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb } from '../storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
@@ -219,14 +220,7 @@ export const ConflictResolver = {
     }
 
     reportError(new Error('Sync conflict: document forked'), { action: 'syncVersionToCloud_conflict', documentId, linkedCloudId, cloudVersion: cloudDoc.currentVersion, localVersion: newVersion }, 'warning');
-    const syncDb = await getLocalDb();
-    await syncDb.put('syncQueue', {
-      id: `sync_${forkedDocId}`,
-      documentId: forkedDocId,
-      type: 'document' as const,
-      createdAt: Date.now(),
-      ownerId: userId,
-    });
+    await requeueDocumentTask(forkedDocId, userId);
     return { forked: true, forkTitle: conflictTitle };
   },
 };

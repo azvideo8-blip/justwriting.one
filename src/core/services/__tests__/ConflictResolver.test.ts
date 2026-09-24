@@ -29,6 +29,10 @@ vi.mock('../../storage/localDb', () => ({
   getLocalDb: vi.fn(),
 }));
 
+vi.mock('../../sync/requeueDocumentTask', () => ({
+  requeueDocumentTask: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
@@ -129,15 +133,10 @@ describe('ConflictResolver', () => {
   });
 
   it('adds a syncQueue entry for the forked document', async () => {
-    const db = mockDb();
+    mockDb();
+    const { requeueDocumentTask } = await import('../../sync/requeueDocumentTask');
     await ConflictResolver.resolveConflict('user1', 'doc_local', 'doc_cloud', dummyData, 5, { currentVersion: 3 });
-    expect(db.put).toHaveBeenCalledWith(
-      'syncQueue',
-      expect.objectContaining({
-        documentId: 'forked_doc_123',
-        type: 'document',
-      })
-    );
+    expect(requeueDocumentTask).toHaveBeenCalledWith('forked_doc_123', 'user1');
   });
 
   it('CHOKE-1: preserves local version in both fork and original when cloud version has DecryptionError', async () => {

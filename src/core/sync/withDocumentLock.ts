@@ -1,4 +1,5 @@
 import { getLocalDb, randomUUID } from '../storage/localDb';
+import { requeueDocumentTask } from './requeueDocumentTask';
 import { reportError } from '../../shared/errors/reportError';
 
 export const LOCK_TTL_MS = 30_000;
@@ -35,14 +36,7 @@ export async function withDocumentLock<T>(
       await lockTx.done;
       if (options?.queueOnHeld !== false) {
         try {
-          const queueDb = await getLocalDb();
-          await queueDb.put('syncQueue', {
-            id: `sync_${documentId}`,
-            documentId,
-            type: 'document' as const,
-            createdAt: Date.now(),
-            ...(options?.ownerId ? { ownerId: options.ownerId } : {}),
-          });
+          await requeueDocumentTask(documentId, options?.ownerId);
         } catch (queueErr) {
           reportError(queueErr, { action: 'withDocumentLock_queueTask', documentId });
         }

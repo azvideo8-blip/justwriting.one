@@ -1,4 +1,5 @@
 import { DocumentService } from './DocumentService';
+import { requeueDocumentTask } from '../sync/requeueDocumentTask';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
 import { syncStatusOf } from '../sync/syncStatus';
@@ -682,14 +683,7 @@ export const CloudSyncService = {
             }
           }
           if (hasUnreadableVersion) {
-            const syncDb = await getLocalDb();
-            await syncDb.put('syncQueue', {
-              id: `sync_${localDocumentId}`,
-              documentId: localDocumentId,
-              type: 'document' as const,
-              createdAt: Date.now(),
-              ownerId: userId,
-            });
+            await requeueDocumentTask(localDocumentId, userId);
             useActivityLogStore.getState().addActivity(
               'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
               { action: 'addCloudCopy_unreadableCloudVersion', documentId: localDocumentId, cloudId },
@@ -1036,14 +1030,7 @@ export const CloudSyncService = {
     prevContent: string
   ): Promise<{ forked: boolean; forkTitle?: string | undefined; cloudSynced: boolean; reason?: string }> {
     if (!navigator.onLine) {
-      const syncDb = await getLocalDb();
-      await syncDb.put('syncQueue', {
-        id: `sync_${documentId}`,
-        documentId,
-        type: 'document' as const,
-        createdAt: Date.now(),
-        ownerId: userId,
-      });
+      await requeueDocumentTask(documentId, userId);
       return { forked: false, cloudSynced: false };
     }
 
@@ -1066,14 +1053,7 @@ export const CloudSyncService = {
         return { forked: false, cloudSynced: false };
       }
       if (!cloudDoc) {
-        const syncDb = await getLocalDb();
-        await syncDb.put('syncQueue', {
-          id: `sync_${documentId}`,
-          documentId,
-          type: 'document' as const,
-          createdAt: Date.now(),
-          ownerId: userId,
-        });
+        await requeueDocumentTask(documentId, userId);
         return { forked: false, cloudSynced: false };
       }
 
@@ -1130,14 +1110,7 @@ export const CloudSyncService = {
           // AG-CORRUPT-3: Shared predicate. An unreadable side is unknown, not different. Leave queued for retry.
           const comp = comparableOrUnknown(cloudHead, { content: data.content });
           if (!comp.comparable) {
-            const syncDb = await getLocalDb();
-            await syncDb.put('syncQueue', {
-              id: `sync_${documentId}`,
-              documentId,
-              type: 'document' as const,
-              createdAt: Date.now(),
-              ownerId: userId,
-            });
+            await requeueDocumentTask(documentId, userId);
             useActivityLogStore.getState().addActivity(
               'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
               { action: 'syncVersionToCloud_unreadableCloudHead', documentId, version: maxCloudVersion },
@@ -1282,14 +1255,7 @@ export const CloudSyncService = {
       reportError(e, { action: 'syncVersionToCloud', documentId, linkedCloudId });
       if (!isPoisonSyncError(e)) {
         try {
-          const syncDb = await getLocalDb();
-          await syncDb.put('syncQueue', {
-            id: `sync_${documentId}`,
-            documentId,
-            type: 'document' as const,
-            createdAt: Date.now(),
-            ownerId: userId,
-          });
+          await requeueDocumentTask(documentId, userId);
         } catch (queueErr) {
           reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
         }
@@ -1404,14 +1370,7 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
         // могла остаться пустой, как и было у осиротевших. Ставим задачу в
         // очередь, иначе заметка числится связанной и не выгружается никогда.
         try {
-          const syncDb = await getLocalDb();
-          await syncDb.put('syncQueue', {
-            id: `sync_${local.id}`,
-            documentId: local.id,
-            type: 'document' as const,
-            createdAt: Date.now(),
-            ownerId: local.guestId,
-          });
+          await requeueDocumentTask(local.id, local.guestId);
         } catch (queueErr) {
           reportError(queueErr, { action: 'relinkByUuid_queueSync', documentId: local.id });
         }

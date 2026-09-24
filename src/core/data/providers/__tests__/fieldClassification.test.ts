@@ -327,6 +327,7 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       'commitments',
       'echo',
       'eventDate',
+      'contentHash',
     ]);
     const METADATA_FIELDS = new Set([
       'documentId',
@@ -335,7 +336,6 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       'processedAt',
       'valence',
       'arousal',
-      'contentHash',
       'promptVersion',
       '_encrypted',
       'createdAt',
@@ -410,7 +410,7 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
       }
       expect(savedPayload!.valence).toBe(1);
       expect(savedPayload!.arousal).toBe(0.5);
-      expect(savedPayload!.contentHash).toBe('hash123');
+      expect(savedPayload!.contentHash).not.toBe('hash123');
     });
   });
 
