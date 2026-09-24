@@ -1316,9 +1316,11 @@ export class LifecycleRunner {
       if (faultStep === 'delete_account' && fault === 'network_pre') {
         throw new TypeError('Failed to fetch (deleteAccount server call failed)');
       }
-      // Server deletes cloud rows
-      this.interceptor.postgres.executeDelete('documents', [{ type: 'eq', column: 'user_id', value: this.userId }]);
-      this.interceptor.postgres.executeDelete('versions', [{ type: 'eq', column: 'user_id', value: this.userId }]);
+      // Server deletes cloud rows (api/account.ts: local_store_records, then
+      // public.users with ON DELETE CASCADE into every user-keyed table).
+      for (const t of ['documents', 'versions', 'drafts', 'ai_summaries', 'ai_embeddings', 'local_store_records'] as const) {
+        this.interceptor.postgres.executeDelete(t, [{ type: 'eq', column: 'user_id', value: this.userId }]);
+      }
 
       // Local erasure
       await clearAllLocalStores();
@@ -1338,7 +1340,7 @@ export class LifecycleRunner {
 
     const leftoverTables: string[] = [];
     if (told.status === 'deleted') {
-      for (const t of ['documents', 'versions', 'ai_summaries', 'ai_embeddings'] as const) {
+      for (const t of ['documents', 'versions', 'drafts', 'ai_summaries', 'ai_embeddings', 'local_store_records'] as const) {
         const rows = this.interceptor.postgres.getRows(t).filter(r => r.user_id === this.userId);
         if (rows.length > 0) leftoverTables.push(t);
       }
@@ -1347,7 +1349,23 @@ export class LifecycleRunner {
       notes.push('P2 VIOLATION: leftover user rows found in ' + leftoverTables.join(', '));
     }
 
-    const p1Held = undefined; // Postulate 1 exemption: account and its notes were explicitly deleted by user
+    // Next-steps №8: P1 here was always «not measured», so P4 never could be.
+    // - Deletion failed: nothing may be lost — the note is still on the device
+    //   with its text, and the cloud copy is untouched.
+    // - Deletion succeeded: the person asked for exactly this loss. P1 holds iff
+    //   the loss is complete and nothing else was lost: the device keeps none of
+    //   this account's notes (a half-erased device is the failure here).
+    let p1Held: boolean | undefined;
+    if (told.status === 'deleted') {
+      const db = await getLocalDb();
+      const leftLocal = (await db.getAll('documents')).filter(d => d.guestId === this.userId).length
+        + (await db.getAll('versions')).filter(v => v.guestId === this.userId).length;
+      if (leftLocal > 0) notes.push(`P1/P4: ${leftLocal} local rows of the deleted account left on the device`);
+      p1Held = leftLocal === 0;
+    } else {
+      p1Held = device.documentExists && device.latestContent === 'Text to be deleted with account' && postgres.documentExists;
+      if (!p1Held) notes.push('P1 VIOLATION: a failed account deletion lost the local note or its cloud copy');
+    }
     let p2Held: boolean | undefined;
     if (vaultOn) {
       if (p2Before === false || leaksAfter.length > 0 || leftoverTables.length > 0) {
