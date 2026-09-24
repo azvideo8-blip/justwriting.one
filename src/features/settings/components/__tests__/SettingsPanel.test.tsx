@@ -6,7 +6,7 @@ import { ThemeProvider } from '../../../../core/theme/ThemeProvider';
 import { WritingSettingsProvider } from '../../../../core/settings/WritingSettingsContext';
 
 describe('SettingsPanel (Editor Panel)', () => {
-  it('renders single editor panel without tablist', () => {
+  it('renders single editor panel without tablist', async () => {
     const onClose = vi.fn();
     renderWithProviders(
       <ThemeProvider>
@@ -24,7 +24,8 @@ describe('SettingsPanel (Editor Panel)', () => {
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
 
     // Editor controls should be present
-    expect(screen.getByText(/Шрифт|Font/)).toBeInTheDocument();
+    // Вкладка грузится лениво (бюджет стартового куска).
+    expect(await screen.findByText(/Шрифт|Font/, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText(/Дизайн|Design|Theme/)).toBeInTheDocument();
     expect(screen.getByText(/Язык|Language/)).toBeInTheDocument();
 

@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { getCurrentUser } from '../../../core/auth';
 import { reportError } from '../../../shared/errors/reportError';
-import { restoreAIDataFromCloud, reattachOrphanedAnalysis } from '../services/AIRestoreService';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
@@ -52,6 +51,9 @@ export function useBackgroundSync(): void {
       }
 
       if (!cloudSyncEnabled(uid)) return;
+      // Лениво: сервис восстановления нужен только при включённой синхронизации,
+      // а не на старте (бюджет стартового куска).
+      const { restoreAIDataFromCloud, reattachOrphanedAnalysis } = await import('../services/AIRestoreService');
       // Раз в сутки на аккаунт: вернуть заметки и разбор, которых на
       // устройстве нет. Оба сканирования ниже читают только локальные
       // хранилища, поэтому после очистки они бы сочли, что ничего никогда

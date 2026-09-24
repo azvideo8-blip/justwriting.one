@@ -10,9 +10,11 @@ import { AuthProvider } from '../features/auth/contexts/AuthContext';
 import { ProfileProvider } from '../features/auth/contexts/ProfileContext';
 import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
-import { ReactNode, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, lazy, Suspense, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { PrivacyModal, usePrivacyCheck } from '../features/auth/components/PrivacyModal';
+import { usePrivacyCheck } from '../features/auth/components/usePrivacyCheck';
+// Окно политики нужно редко — грузится лениво, проверка выше остаётся в стартовом куске.
+const PrivacyModal = lazy(() => import('../features/auth/components/PrivacyModal').then(m => ({ default: m.PrivacyModal })));
 import { SyncConsentModal, useSyncConsentCheck } from '../features/settings/components/SyncConsentModal';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { getOrCreateGuestId } from '../core/storage/localDb';
@@ -74,7 +76,9 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
     <>
       {children}
       {isAuthenticated && !isResetPassword && showPrivacy && (
-        <PrivacyModal onAccepted={() => setShowPrivacy(false)} />
+        <Suspense fallback={null}>
+          <PrivacyModal onAccepted={() => setShowPrivacy(false)} />
+        </Suspense>
       )}
       {isAuthenticated && !isResetPassword && !showPrivacy && showConsent && user && (
         <SyncConsentModal userId={user.uid} onClose={() => setShowConsent(false)} />

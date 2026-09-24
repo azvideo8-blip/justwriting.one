@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { usePrivacyCheck, PRIVACY_VERSION } from '../components/PrivacyModal';
+import { usePrivacyCheck } from '../components/usePrivacyCheck';
+import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 
 // Mock the data facade, not a provider. The hook reads
 // DataProvider.getProfile(); mocking the old firestoreClient left the real

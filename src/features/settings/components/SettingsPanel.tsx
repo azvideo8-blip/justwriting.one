@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
-import { EditorTab } from './EditorTab';
+// Вкладка настроек редактора нужна только когда панель открыта (бюджет бандла).
+const EditorTab = lazy(() => import('./EditorTab').then(m => ({ default: m.EditorTab })));
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
 import { APP_VERSION } from '../../../version';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -19,7 +20,7 @@ export function SettingsPanelContent({ userId: _userId, onRefreshLifeLog: _onRef
   return (
     <div className="flex flex-col h-full w-full">
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-28 space-y-4">
-        <EditorTab />
+        <Suspense fallback={null}><EditorTab /></Suspense>
 
         <div className="pt-6 text-center">
           <span className="text-xs text-text-main/40 select-none">

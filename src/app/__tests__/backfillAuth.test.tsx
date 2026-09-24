@@ -16,6 +16,9 @@ vi.mock('@/features/auth/hooks/useAuthStatus', () => ({
 
 vi.mock('@/features/auth/components/PrivacyModal', () => ({
   PrivacyModal: () => null,
+}));
+
+vi.mock('@/features/auth/components/usePrivacyCheck', () => ({
   usePrivacyCheck: () => ({ showPrivacy: false, setShowPrivacy: vi.fn() }),
 }));
 
