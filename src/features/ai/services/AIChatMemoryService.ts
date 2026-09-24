@@ -1,5 +1,5 @@
 import { getLocalDb, type AIChatMemory, type AIDialogue, randomUUID } from '../../../core/storage/localDb';
-import { MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS } from '../../../shared/ai/aiPolicy';
+import { MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS, INTERNAL_CALL_MAX_INPUT_CHARS } from '../../../shared/ai/aiPolicy';
 import { AIService } from './AIService';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { reportError } from '../../../shared/errors/reportError';
@@ -55,7 +55,26 @@ export const AIChatMemoryService = {
             : m.content.slice(0, MEMORY_EXTRACT_MAX_MESSAGE_CHARS),
         }));
       if (recent.length === 0) return;
-      const result = await AIService.extractChatMemory({ messages: recent });
+
+      // DA-2: ограничить суммарный вход памяти до INTERNAL_CALL_MAX_INPUT_CHARS (4000)
+      let totalChars = 0;
+      const cappedRecent: typeof recent = [];
+      for (let i = recent.length - 1; i >= 0; i--) {
+        const msg = recent[i]!;
+        if (totalChars + msg.content.length <= INTERNAL_CALL_MAX_INPUT_CHARS) {
+          cappedRecent.unshift(msg);
+          totalChars += msg.content.length;
+        } else {
+          const remaining = INTERNAL_CALL_MAX_INPUT_CHARS - totalChars;
+          if (remaining > 50) {
+            cappedRecent.unshift({ ...msg, content: msg.content.slice(0, remaining) });
+          }
+          break;
+        }
+      }
+      if (cappedRecent.length === 0) return;
+
+      const result = await AIService.extractChatMemory({ messages: cappedRecent });
       if (!result.ok) {
         reportAIDegradation({
           feature: 'chat_memory_extract',

@@ -151,7 +151,7 @@ Read by the API service (`api/`). Defaults are from the code.
 | `AI_ADMIN_DAILY_LIMIT` | no | Same for `role = 'admin'`, default 60 |
 | `AI_REASONING_DAILY_LIMIT` | no | Reasoning calls per user per day, default 5 |
 | `AI_BULK_DAILY_LIMIT` | no | Background calls per user per day, default 50 |
-| `AI_INTERNAL_CHAT_DAILY_LIMIT` | no | Internal chat-helper calls per user per day, default 200 |
+| `AI_INTERNAL_CHAT_DAILY_LIMIT` | no | Internal chat-helper calls per user per day, default 60 |
 | `AI_BULK_WINDOW_MS`, `AI_BULK_MAX_PER_WINDOW` | no | Sliding window per endpoint, default 20 calls per 60000 ms |
 | `AI_TIER_RPD` | no | Global daily request cap (default 10,000) |
 | `AI_TIER_TPD` | no | Global daily token cap (default 25,000,000) |

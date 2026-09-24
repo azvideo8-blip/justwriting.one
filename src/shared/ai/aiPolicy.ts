@@ -28,6 +28,8 @@ export const INTERNAL_CALL_RESTRICTIONS: InternalCallRestrictions = {
   noUserPortrait: true,
 };
 
+export const INTERNAL_CALL_MAX_INPUT_CHARS = 4000;
+
 export function isInternalCall(callType: InternalCallType | null | undefined): boolean {
   return callType !== undefined && callType !== null;
 }
@@ -71,6 +73,16 @@ export function validateInternalCallRestrictions(params: {
   // иначе это бесплатная модель общего назначения с промптом клиента.
   if (isSystemTask ? !isAllowedSystemTaskPrompt(params.customSystemPrompt) : Boolean(params.customSystemPrompt)) {
     throw err('System prompt not allowed for this internal call.');
+  }
+
+  // DA-2: ограничить размер входа внутренних вызовов суммарно ≤ 4000 символов
+  if (!isSystemTask) {
+    const totalChars = (params.messages as Array<{ content?: unknown }>).reduce((sum, m) => {
+      return sum + (typeof m?.content === 'string' ? m.content.length : 0);
+    }, 0);
+    if (totalChars > INTERNAL_CALL_MAX_INPUT_CHARS) {
+      throw err(`Total input length exceeds ${INTERNAL_CALL_MAX_INPUT_CHARS} characters for internal call.`);
+    }
   }
 
   return { isInternal: true };

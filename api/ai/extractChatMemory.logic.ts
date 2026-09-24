@@ -1,18 +1,18 @@
 // functions/src/ai/extractChatMemory.logic.ts
 import { z } from 'zod';
-import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis, MAX_AI_CONTENT_LENGTH } from './pure';
+import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
-import { chargeCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS } from '../../src/shared/ai/aiPolicy.js';
+import { chargeCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS, INTERNAL_CALL_MAX_INPUT_CHARS } from '../../src/shared/ai/aiPolicy.js';
 
 const inputSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string().max(MEMORY_EXTRACT_MAX_MESSAGE_CHARS),
   })).min(1).max(MEMORY_EXTRACT_MAX_MESSAGES).refine(
-    msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= MAX_AI_CONTENT_LENGTH,
-    'Total messages content exceeds 50K characters',
+    msgs => msgs.reduce((sum, m) => sum + m.content.length, 0) <= INTERNAL_CALL_MAX_INPUT_CHARS,
+    `Total messages content exceeds ${INTERNAL_CALL_MAX_INPUT_CHARS} characters`,
   ),
 });
 

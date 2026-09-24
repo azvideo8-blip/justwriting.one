@@ -230,7 +230,7 @@ async function getDailyLimitCount(uid: string): Promise<{ used: number; reasonin
 
 // ── Bulk limit (reuse per-user table with a separate kind) ────────────────────
 const BULK_LIMIT = parseInt(process.env.AI_BULK_DAILY_LIMIT ?? '50', 10);
-const INTERNAL_CHAT_DAILY_LIMIT = parseInt(process.env.AI_INTERNAL_CHAT_DAILY_LIMIT ?? '200', 10);
+const INTERNAL_CHAT_DAILY_LIMIT = parseInt(process.env.AI_INTERNAL_CHAT_DAILY_LIMIT ?? '60', 10);
 // AUD-18: суточный потолок без лимита во времени позволяет вычерпать весь
 // день за минуту. Ключ — (uid, endpoint): rerank, embed и chat троттлятся
 // независимо.
