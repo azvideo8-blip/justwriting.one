@@ -3,6 +3,9 @@ import { reportError } from '../../shared/errors/reportError';
 import type { DocumentFields } from '../../shared/types/common';
 import { getCurrentUser } from '../auth';
 
+// Версия схемы IndexedDB для всех openDB. Поднимается вместе с новой веткой
+// миграции в upgradeJustWritingDB. Сами ветки остаются числами: ветка N должна
+// срабатывать только для баз ниже N, а не заново при каждом подъёме версии.
 export const DB_VERSION = 21;
 
 // AUDIT-part2 4.2: скалярные поля наследуются от канонического DocumentFields
@@ -110,7 +113,7 @@ export interface AIDialogue {
   personaName: string;
   personaEmoji: string;
   documentId?: string | undefined;
-  messages: { id?: string | undefined; role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined; searchRequest?: string | undefined; degradedReason?: string | undefined }[];
+  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined; searchRequest?: string | undefined; degradedReason?: string | undefined }[];
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;
@@ -594,7 +597,7 @@ async function upgradeJustWritingDB(
       });
     }
   }
-  if (oldVersion < DB_VERSION) {
+  if (oldVersion < 21) {
     // D4.18: absent excludedFromAI means false — no data migration needed.
   }
 }

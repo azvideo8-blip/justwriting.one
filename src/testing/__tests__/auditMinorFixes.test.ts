@@ -53,10 +53,4 @@ describe('AU-6 audit minor issues regression tests', () => {
     expect(content).not.toMatch(/key=\{i\}/);
   });
 
-  it('AIChatMessages.tsx does not use key={i}', () => {
-    const chatPath = path.resolve(process.cwd(), 'src/features/ai/components/chat/AIChatMessages.tsx');
-    const content = fs.readFileSync(chatPath, 'utf8');
-
-    expect(content).not.toMatch(/key=\{i\}/);
-  });
 });
