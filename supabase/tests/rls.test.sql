@@ -914,6 +914,22 @@ BEGIN
   END IF;
 END $$;
 
+-- R4-3 (0031): a lone forge of the stamp, with consent fields unchanged,
+-- must not stick.
+DO $$
+DECLARE before_ts timestamptz; after_ts timestamptz;
+BEGIN
+  SELECT ai_consent_server_at INTO before_ts FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  UPDATE public.users SET ai_consent_server_at = '2000-01-01'::timestamptz
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  SELECT ai_consent_server_at INTO after_ts FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  IF after_ts IS DISTINCT FROM before_ts THEN
+    RAISE EXCEPTION 'FAIL: lone UPDATE forged ai_consent_server_at (% -> %)', before_ts, after_ts;
+  END IF;
+END $$;
+
 DO $$
 DECLARE bad int;
 BEGIN
