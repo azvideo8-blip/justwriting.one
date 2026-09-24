@@ -6,6 +6,10 @@ export function setEncryptionEnabled(userId: string, enabled: boolean): void {
   useEncryptionStore.getState().setEncryptionEnabled(userId, enabled);
 }
 
+function vaultOnForAnyone(): boolean {
+  return Object.values(useEncryptionStore.getState().encryptionEnabled).some(Boolean);
+}
+
 export function getEncryptionEnabled(userId: string): boolean {
   return useEncryptionStore.getState().getEncryptionEnabled(userId);
 }
@@ -121,6 +125,19 @@ export async function maybeDecrypt(
 
   if (isEncrypted && !key) {
     throw new Error('LOCKED: session key not available');
+  }
+
+  // N1-1: при включённом сейфе клиент сам открытым текстом в облако не пишет
+  // (maybeEncrypt требует ключ). Значит строка «не зашифровано» с текстом —
+  // не наша: сервер (или кто-то между) подсунул её, и без этой проверки она
+  // становилась заметкой, записью памяти ИИ или сводкой как настоящая. AES-GCM
+  // подделать нельзя — поэтому такие строки читаются как нечитаемые.
+  if (!isEncrypted && vaultOnForAnyone()) {
+    const carriesText = [...stringFields, ...arrayFields].some(f => {
+      const v = doc[f];
+      return (typeof v === 'string' && v.length > 0) || (Array.isArray(v) && v.length > 0);
+    });
+    if (carriesText) throw new DecryptionError('_encrypted', new Error('PLAINTEXT_UNDER_VAULT'));
   }
 
   const result: Record<string, unknown> = deepClone(doc);

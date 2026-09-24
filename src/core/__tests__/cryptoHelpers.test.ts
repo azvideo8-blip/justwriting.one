@@ -9,6 +9,7 @@ import {
   DecryptionError,
 } from '../crypto/cryptoHelpers';
 import { getSessionKey, encryptContent } from '../crypto/encrypt';
+import { useEncryptionStore } from '../crypto/useEncryptionStore';
 
 vi.mock('../crypto/encrypt', () => {
   return {
@@ -21,6 +22,8 @@ vi.mock('../crypto/encrypt', () => {
 describe('cryptoHelpers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Флаги сейфа из прошлых тестов не должны включать «строгий» режим N1-1.
+    useEncryptionStore.setState({ encryptionEnabled: {} });
   });
 
   it('handles getEncryptionEnabled / setEncryptionEnabled caching', () => {
@@ -88,6 +91,13 @@ describe('cryptoHelpers', () => {
     const res = await maybeDecrypt(doc, ['content'], ['pinnedThoughts']);
     expect(res.content).toBe('hello');
     expect(res.pinnedThoughts).toEqual([]);
+  });
+
+  it('N1-1: with the vault on, a plaintext row carrying text is refused, not read', async () => {
+    setEncryptionEnabled('user-enc', true);
+    await expect(maybeDecrypt({ content: 'forged', _encrypted: false }, ['content'], [])).rejects.toBeInstanceOf(DecryptionError);
+    // Строка без текста (только id/цвет, например) читается.
+    await expect(maybeDecrypt({ id: 'l1', color: 'red' }, ['name'], [])).resolves.toMatchObject({ id: 'l1' });
   });
 
   it('maybeDecrypt decrypts string fields when _encrypted and key present', async () => {
