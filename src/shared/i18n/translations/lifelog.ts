@@ -44,9 +44,6 @@ export const lifelogTranslations: Translations = {
   log_no_results:    { ru: 'Ничего не найдено',    en: 'No results' },
   log_empty:         { ru: 'Пока нет записей',     en: 'No entries yet' },
 
-  chart_time: { ru: 'Время:', en: 'Time:' },
-  chart_words: { ru: 'Слова:', en: 'Words:' },
-
 
   pull_to_refresh: { ru: 'Потяни для обновления', en: 'Pull to refresh' },
   sync_cloud_unknown: { ru: 'Облако недоступно', en: 'Cloud unavailable' },

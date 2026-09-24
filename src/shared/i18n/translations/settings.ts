@@ -219,7 +219,6 @@ export const settingsTranslations: Translations = {
     en: 'Unsynced documents: {count}',
   },
   settings_all_editor_settings: { ru: 'Все настройки редактора →', en: 'All editor settings →' },
-  settings_encryption_management: { ru: 'Настройки шифрования и аккаунта →', en: 'Encryption & Account settings →' },
   settings_typewriter: { ru: 'Пишущая машинка', en: 'Typewriter scrolling' },
   settings_typewriter_desc: { ru: 'Каретка всегда по центру экрана', en: 'Keeps the caret line vertically centered' },
   settings_focus_mode: { ru: 'Фокус-режим', en: 'Focus mode' },
@@ -235,10 +234,6 @@ export const settingsTranslations: Translations = {
   },
   sync_consent_enable: { ru: 'Включить синхронизацию', en: 'Turn sync on' },
   sync_consent_keep_off: { ru: 'Оставить выключенной', en: 'Leave it off' },
-  sync_consent_hint: {
-    ru: 'Этот выбор всегда можно изменить в Настройках.',
-    en: 'You can always change this choice in Settings.',
-  },
   settings_delete_account_title: { ru: 'Удаление аккаунта', en: 'Delete account' },
   settings_delete_account_desc: {
     ru: 'При удалении аккаунта безвозвратно стираются все ваши заметки, черновики, история, данные шифрования и учётная запись в облаке. Локальные данные на этом устройстве также будут очищены. Восстановить данные будет невозможно.',

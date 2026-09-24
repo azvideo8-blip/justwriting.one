@@ -152,7 +152,6 @@ export const commonTranslations: Translations = {
   enc_migrate_submit: { ru: 'Мигрировать', en: 'Migrate' },
   enc_migrate_hint: { ru: 'Введи пароль от аккаунта (текущий) и новый пароль шифрования', en: 'Enter your account password (current) and a new encryption password' },
   enc_migrate_current_password: { ru: 'Пароль от аккаунта', en: 'Account password' },
-  enc_migrate_success: { ru: 'Миграция завершена. Шифрование теперь использует отдельный пароль.', en: 'Migration complete. Encryption now uses a separate password.' },
   enc_migrate_wrong_password: { ru: 'Неверный пароль аккаунта', en: 'Wrong account password' },
 
   enc_recovery_code_title: { ru: 'Код восстановления', en: 'Recovery Code' },

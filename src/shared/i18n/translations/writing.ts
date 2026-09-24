@@ -170,7 +170,6 @@ export const writingTranslations: Translations = {
   ai_persona_desc_editor: { ru: 'Опытный редактор улучшает ясность, структуру и поток текста, сохраняя твой авторский голос.', en: 'An experienced editor improves clarity, structure, and flow while preserving your voice.' },
   ai_persona_desc_coach: { ru: 'Коуч помогает найти скрытую цель, переосмыслить ограничивающие убеждения и сформулировать конкретный следующий шаг.', en: 'A coach helps uncover hidden goals, reframe limiting beliefs, and define a concrete next step.' },
 
-  sync_conflict_forked: { ru: 'Конфликт синхронизации: локальная версия сохранена как копия', en: 'Sync conflict: local version saved as a separate copy' },
   sync_version_saved_as_copy: {
     ru: 'В облаке уже была более новая версия. Ваша сохранена отдельно: «{title}»',
     en: 'A newer version was already in the cloud. Yours was saved separately as “{title}”',

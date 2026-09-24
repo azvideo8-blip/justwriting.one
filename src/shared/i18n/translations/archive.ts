@@ -29,7 +29,6 @@ export const archiveTranslations: Translations = {
   archive_copied_button: { ru: 'Скопировано', en: 'Copied' },
   archive_copied_toast: { ru: 'Скопировано в буфер', en: 'Copied to clipboard' },
   archive_tags_label: { ru: 'Теги/Метки', en: 'Tags/Labels' },
-  archive_tags_hide: { ru: 'скрыть', en: 'hide' },
   archive_tags_reset: { ru: 'сбросить', en: 'reset' },
   archive_continue_writing: { ru: 'Продолжить писать', en: 'Continue writing' },
   archive_export: { ru: 'Экспортировать', en: 'Export' },

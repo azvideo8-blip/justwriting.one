@@ -37,6 +37,7 @@ jobs:
     - run: node scripts/prod-audit.mjs  # gate on shipped (prod) deps; fails on any high/critical advisory except the documented N/A exceptions in the script
     - run: npm run typecheck
     - run: npm run lint
+    - run: npm run i18n:audit
     - name: Cross-feature ratchet (AUDIT-part3 9, v2 detection)
       run: bash scripts/cross-feature-check.sh
     - name: Raw overlay gate (AUDIT-part2 3.1, AG-GATE-1)

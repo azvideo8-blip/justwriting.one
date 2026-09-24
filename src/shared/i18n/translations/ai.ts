@@ -22,8 +22,6 @@ export const aiTranslations: Translations = {
   ai_send: { ru: 'Отправить', en: 'Send' },
   ai_processing: { ru: 'Обработка…', en: 'Processing…' },
   ai_delete_message: { ru: 'Удалить сообщение', en: 'Delete message' },
-  ai_remaining_today: { ru: 'осталось', en: 'remaining' },
-  ai_today: { ru: 'сегодня', en: 'today' },
   ai_quota_chat: { ru: 'чат', en: 'chat' },
   ai_quota_reasoning: { ru: 'рассуждения', en: 'reasoning' },
   ai_quota_reset_in: { ru: 'сброс через {hours} ч', en: 'resets in {hours} h' },

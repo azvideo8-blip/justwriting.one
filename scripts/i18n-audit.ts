@@ -2,6 +2,68 @@ import { readFileSync, readdirSync } from 'fs';
 import { globSync } from 'glob';
 import { fileURLToPath } from 'url';
 
+export function stripComments(code: string): string {
+  let result = '';
+  let inString: string | null = null;
+  let isEscaped = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < code.length; i++) {
+    const ch = code[i];
+    const next = code[i + 1];
+
+    if (inLineComment) {
+      if (ch === '\n') {
+        inLineComment = false;
+        result += ch;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (ch === '*' && next === '/') {
+        inBlockComment = false;
+        i++; // skip '/'
+      }
+      continue;
+    }
+
+    if (inString) {
+      result += ch;
+      if (isEscaped) {
+        isEscaped = false;
+      } else if (ch === '\\') {
+        isEscaped = true;
+      } else if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      inString = ch;
+      result += ch;
+      continue;
+    }
+
+    result += ch;
+  }
+  return result;
+}
+
 export function findHardcodedDialogs(src: string, file: string = ''): { file: string; match: string }[] {
   const hardcodedConfirmDialogs: { file: string; match: string }[] = [];
   const dialogPattern = /\b(confirmDialog|alertDialog|promptDialog)\s*\(/g;
@@ -14,9 +76,29 @@ export function findHardcodedDialogs(src: string, file: string = ''): { file: st
     let i = startIndex;
     let inString: string | null = null;
     let isEscaped = false;
+    let inLineComment = false;
+    let inBlockComment = false;
 
     while (i < src.length && depth > 0) {
       const ch = src[i];
+      const next = src[i + 1];
+
+      if (inLineComment) {
+        if (ch === '\n') inLineComment = false;
+        i++;
+        continue;
+      }
+
+      if (inBlockComment) {
+        if (ch === '*' && next === '/') {
+          inBlockComment = false;
+          i += 2;
+          continue;
+        }
+        i++;
+        continue;
+      }
+
       if (inString) {
         if (isEscaped) {
           isEscaped = false;
@@ -26,7 +108,15 @@ export function findHardcodedDialogs(src: string, file: string = ''): { file: st
           inString = null;
         }
       } else {
-        if (ch === "'" || ch === '"' || ch === '`') {
+        if (ch === '/' && next === '/') {
+          inLineComment = true;
+          i += 2;
+          continue;
+        } else if (ch === '/' && next === '*') {
+          inBlockComment = true;
+          i += 2;
+          continue;
+        } else if (ch === "'" || ch === '"' || ch === '`') {
           inString = ch;
         } else if (ch === '(') {
           depth++;
@@ -38,10 +128,11 @@ export function findHardcodedDialogs(src: string, file: string = ''): { file: st
     }
 
     const callContent = src.slice(startIndex, i - 1);
-    if (/[\u0400-\u04FF]/.test(callContent)) {
+    const cleanedContent = stripComments(callContent);
+    if (/[\u0400-\u04FF]/.test(cleanedContent)) {
       hardcodedConfirmDialogs.push({
         file,
-        match: `${fnName}(${callContent.replace(/\s+/g, ' ').trim().slice(0, 100)})`,
+        match: `${fnName}(${cleanedContent.replace(/\s+/g, ' ').trim().slice(0, 100)})`,
       });
     }
   }
@@ -80,6 +171,18 @@ export function runAudit() {
     for (const m of tMatches) {
       const key = m[1];
       if (key) usedKeys.add(key);
+    }
+    const tpMatches = [...src.matchAll(/\btp\(\s*['"]([a-z][a-zA-Z_0-9]*)['"]/g)];
+    for (const m of tpMatches) {
+      const key = m[1];
+      if (key) {
+        for (const sfx of ['_one', '_few', '_many']) {
+          usedKeys.add(`${key}${sfx}`);
+        }
+        if (definedKeys.has(`${key}_other`)) {
+          usedKeys.add(`${key}_other`);
+        }
+      }
     }
     const arrayMatches = [...src.matchAll(/['"]([a-z][a-zA-Z_0-9]+)['"]/g)];
     for (const m of arrayMatches) {
@@ -124,7 +227,7 @@ export function runAudit() {
   console.log(`Total used: ${usedKeys.size}`);
   console.log(`Missing: ${missing.length}, Unused: ${unused.length}, Incomplete: ${missingLocale.length}, Hardcoded Dialogs: ${hardcodedConfirmDialogs.length}`);
 
-  if (missing.length > 0 || missingLocale.length > 0 || hardcodedConfirmDialogs.length > 0) {
+  if (missing.length > 0 || missingLocale.length > 0 || hardcodedConfirmDialogs.length > 0 || unused.length > 0) {
     process.exit(1);
   }
 }

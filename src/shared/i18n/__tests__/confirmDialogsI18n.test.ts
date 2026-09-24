@@ -154,4 +154,19 @@ describe('DUP-7 / WT-3: Confirmation dialogs i18n convergence and audit detector
     expect(results).toHaveLength(1);
     expect(results[0]?.match).toContain('мир');
   });
+
+  it('findHardcodedDialogs ignores Cyrillic text in single-line and multi-line comments', () => {
+    const commentSnippet = `
+      await confirmDialog({
+        title: t('ai_reasoning_mode_confirm_title'),
+        // D-7: число берётся из того же лимита, который действительно действует
+        /* многострочный комментарий на русском:
+           проверка лимита */
+        message: t('ai_reasoning_mode_confirm_message'),
+      });
+    `;
+
+    const results = findHardcodedDialogs(commentSnippet, 'test.ts');
+    expect(results).toHaveLength(0);
+  });
 });

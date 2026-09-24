@@ -123,6 +123,5 @@ export const profileTranslations: Translations = {
   account_local_title: { ru: 'Локальный аккаунт',  en: 'Local Account' },
   me_account_status:   { ru: 'Статус аккаунта',    en: 'Account Status' },
   me_guest_desc:       { ru: 'Локальный гостевой режим. Войдите, чтобы синхронизировать данные.', en: 'Local guest mode. Sign in to sync your data across devices.' },
-  me_account_email:  { ru: 'Email',                en: 'Email' },
   me_sign_out:       { ru: 'Выйти',                en: 'Sign out' },
 };
