@@ -1161,15 +1161,23 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   // Postulate 1 Measurement and Exemption Verification (GUARD-8)
   // =========================================================================
   describe('Postulate 1 Measurement and Exemption Verification (GUARD-8)', () => {
-    it('Sequences 4, 5, and 10 report p1Held as undefined due to user deletion exemption', async () => {
+    it('Sequences 4 and 5 report p1Held as undefined due to user deletion exemption', async () => {
       const res4 = await runner.runSeq4_WriteSaveSyncDelete('none', 'delete_local');
       expect(res4.p1Held).toBeUndefined();
 
       const res5 = await runner.runSeq5_DeleteBeforeSync('none', 'delete_local');
       expect(res5.p1Held).toBeUndefined();
+    });
 
-      const res10 = await runner.runSeq10_DeleteAccount('none', 'delete_account');
-      expect(res10.p1Held).toBeUndefined();
+    // Next-steps №8: удаление аккаунта больше не «не измерено» — P1 держится,
+    // когда удалено ровно то, о чём просили, и когда неудачное удаление не
+    // потеряло ничего.
+    it('Sequence 10 measures P1 for account deletion, both success and failure', async () => {
+      const ok = await runner.runSeq10_DeleteAccount('none', 'delete_account');
+      expect(ok.p1Held).toBe(true);
+      const failed = await runner.runSeq10_DeleteAccount('network_pre', 'delete_account');
+      expect(failed.p1Held).toBe(true);
+      expect(failed.device.documentExists).toBe(true);
     });
 
     it('Sequence 9 fails P1 (p1Held === false) when encryptAllExistingNotes throws or cannot restore', async () => {

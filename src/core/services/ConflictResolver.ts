@@ -1,3 +1,4 @@
+import { toDate } from '../utils/dateUtils';
 import { LocalStorageService } from './LocalStorageService';
 import { requeueDocumentTask } from '../sync/requeueDocumentTask';
 import { LocalVersionService } from './LocalVersionService';
@@ -12,7 +13,7 @@ export const ConflictResolver = {
     linkedCloudId: string,
     data: SaveDocumentData,
     newVersion: number,
-    cloudDoc: { currentVersion: number; totalWords?: number; totalDuration?: number },
+    cloudDoc: { currentVersion: number; totalWords?: number; totalDuration?: number; trashedAt?: unknown },
     originalFirstSessionAt?: number
   ): Promise<{ forked: boolean; forkTitle?: string }> {
     // AUDIT-MH3: дата без времени делала одноимённые форки одного дня
@@ -31,17 +32,6 @@ export const ConflictResolver = {
       firstSessionAt: originalFirstSessionAt ?? data.sessionStartedAt.getTime(),
       lastSessionAt: Date.now(),
     });
-    await LocalVersionService.addVersion(userId, forkedDocId, {
-      content: data.content,
-      previousContent: '',
-      wordCount: data.wordCount,
-      duration: data.duration,
-      wpm: data.wpm,
-      versionNumber: 1,
-      sessionStartedAt: data.sessionStartedAt,
-      mood: data.mood,
-    });
-
     // Decrypt cloud versions upfront so that:
     // 1) Pass 1 knows which cloud versions are actually readable (so unreadable versions aren't skipped from the fork).
     // 2) Pass 2 can reconcile original versions safely without deleting unreadable versions.
@@ -61,6 +51,7 @@ export const ConflictResolver = {
     // право, только если облако прочитано и все расходящиеся версии уже в форке.
     let cloudFetched = false;
     let forkCopied = false;
+    let forkVersion = 0;
     try {
       const { VersionService } = await import('./VersionService');
       const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
@@ -110,19 +101,22 @@ export const ConflictResolver = {
       const readableCloudContent = new Map(
         decryptedCloudVersions.filter(v => !v._decryptionError).map(v => [v.version, v.content])
       );
-      for (const v of localVersions) {
-        // EA-3: пропускаем только версию, которая лежит в облаке с тем же текстом.
-        // Тот же номер с другим текстом — офлайн-правка; Pass 2 удалит её из
-        // оригинала, поэтому она обязана попасть в форк.
-        if (readableCloudContent.get(v.version) === v.content) continue;
-        if (v.content === data.content) continue;           // уже положена как versionNumber: 1
+      // N2-6: форк нумеруется заново, 1..k по порядку исходных номеров. Раньше
+      // правка была v1, а копии сохраняли свои старые номера (3, 4…) при
+      // currentVersion = 1: следующее сохранение брало занятый номер — два текста
+      // под одним номером, один из них в облако не попадал. Правка, которой ещё
+      // нет среди локальных версий (конфликт при сохранении), ложится последней.
+      const toCopy = localVersions
+        .filter(v => readableCloudContent.get(v.version) !== v.content) // EA-3: в облаке с тем же текстом — не копируем
+        .sort((a, b) => a.version - b.version);
+      for (const v of toCopy) {
         await LocalVersionService.addVersion(userId, forkedDocId, {
           content: v.content,
           previousContent: '',
           wordCount: v.wordCount,
           duration: v.duration,
           wpm: v.wpm,
-          versionNumber: v.version,
+          versionNumber: ++forkVersion,
           goalWords: v.goalWords,
           goalTime: v.goalTime,
           goalReached: v.goalReached,
@@ -131,16 +125,45 @@ export const ConflictResolver = {
           mood: v.mood,
         });
       }
+      if (!toCopy.some(v => v.content === data.content)) {
+        await LocalVersionService.addVersion(userId, forkedDocId, {
+          content: data.content,
+          previousContent: '',
+          wordCount: data.wordCount,
+          duration: data.duration,
+          wpm: data.wpm,
+          versionNumber: ++forkVersion,
+          sessionStartedAt: data.sessionStartedAt,
+          mood: data.mood,
+        });
+      }
       forkCopied = true;
     } catch (copyErr) {
       reportError(copyErr, { action: 'resolveConflict_copyUnsynced', documentId });
+      // Текущая правка — главное, что должно оказаться в форке: кладём её и при
+      // неудачном копировании старых версий (оригинал в этом случае не трогается).
+      const inFork = await LocalVersionService.getVersions(forkedDocId).catch(() => []);
+      forkVersion = Math.max(0, ...inFork.map(v => v.version));
+      if (!inFork.some(v => v.content === data.content)) {
+        try {
+          await LocalVersionService.addVersion(userId, forkedDocId, {
+            content: data.content, previousContent: '', wordCount: data.wordCount, duration: data.duration,
+            wpm: data.wpm, versionNumber: forkVersion + 1, sessionStartedAt: data.sessionStartedAt, mood: data.mood,
+          });
+          forkVersion++;
+        } catch (headErr) {
+          reportError(headErr, { action: 'resolveConflict_forkHead', documentId });
+        }
+      }
     }
+    // Последняя версия форка — текущая правка (N2-6).
+    const forkHead = Math.max(1, forkVersion);
     // R4-2: wordCount/duration — дельта этой сессии; итог заметки лежит в
     // documentWordCount/documentDuration (как во всех остальных путях записи).
     await LocalStorageService.updateAfterSession(forkedDocId, {
       totalWords: data.documentWordCount ?? data.wordCount,
       totalDuration: data.documentDuration ?? data.duration,
-      currentVersion: 1,
+      currentVersion: forkHead,
       mood: data.mood,
     });
 
@@ -209,7 +232,11 @@ export const ConflictResolver = {
         const updatedOrig = await LocalStorageService.getDocument(documentId);
         if (updatedOrig) {
           const udb = await getLocalDb();
-          await udb.put('documents', { ...updatedOrig, lastSyncedCloudVersion: maxCloudVersion });
+          // N2-7: оригинал приводится к облаку целиком — и корзина тоже. Иначе
+          // заметка, удалённая в корзину на другом устройстве, здесь оставалась
+          // живой: сверка после этого уже не видит облако «новее».
+          const cloudTrashedMs = toDate(cloudDoc.trashedAt)?.getTime();
+          await udb.put('documents', { ...updatedOrig, lastSyncedCloudVersion: maxCloudVersion, ...(cloudTrashedMs ? { trashedAt: cloudTrashedMs } : {}) });
         }
       } catch { /* ignore */ }
     } catch (reconcileErr) {

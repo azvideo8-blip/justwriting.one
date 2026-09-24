@@ -73,13 +73,11 @@ describe('AUDIT-MH3 fork contents and title', () => {
       6, { currentVersion: 3 }, 1000,
     );
 
-    // Версия 3 уже в облаке — не копируется; 5 и 6 — копируются с сохранением номеров.
-    const numbers = [addVersionSpy.mock.calls, localAddSpy.mock.calls]
-      .flatMap(calls => calls.map((c: unknown[]) => (c[2] as { versionNumber?: number })?.versionNumber));
-    expect(numbers).toContain(1);   // основная правка коллизии
-    expect(numbers).toContain(5);   // несинхронизированная версия скопирована
-    // v6 === контент коллизии — уже лежит в форке как версия 1, дубликата нет.
-    expect(numbers.filter(n => n === 6)).toHaveLength(0);
-    expect(numbers).not.toContain(3); // облачная версия не копируется
+    // Версия 3 уже в облаке — не копируется. N2-6: форк нумеруется заново —
+    // несинхронизированная 5 ложится первой, правка коллизии (== v6) — последней.
+    const forkWrites = localAddSpy.mock.calls
+      .filter((c: unknown[]) => c[1] !== 'local_orig')
+      .map((c: unknown[]) => `${(c[2] as { versionNumber: number }).versionNumber}:${(c[2] as { content: string }).content}`);
+    expect(forkWrites).toEqual(['1:unsynced five', '2:unsynced six']);
   });
 });

@@ -91,6 +91,16 @@ export class InMemoryPostgres {
     return `${table}_${next}`;
   }
 
+  // Prod: documents.updated_at defaults to now() and the tr_documents_updated_at
+  // trigger (0028) overwrites it on every UPDATE. Without it here, a second
+  // device's edit never looked newer to the first — the harness hid real sync.
+  // Monotonic so two writes in one millisecond still order.
+  private lastStamp = 0;
+  private stamp(): string {
+    this.lastStamp = Math.max(Date.now(), this.lastStamp + 1);
+    return new Date(this.lastStamp).toISOString();
+  }
+
   public executeInsert(
     table: TableName,
     payload: PostgresRow | PostgresRow[]
@@ -103,6 +113,7 @@ export class InMemoryPostgres {
       const row = { ...item };
       if (!row.id) row.id = this.nextId(table);
       if (!row.created_at) row.created_at = new Date().toISOString();
+      if (table === 'documents' && !row.updated_at) row.updated_at = this.stamp();
 
       // Check unique constraints:
       // 1. documents: unique (uuid, user_id) or uuid
@@ -182,9 +193,10 @@ export class InMemoryPostgres {
       }
 
       if (matchIndex >= 0) {
-        current[matchIndex] = { ...current[matchIndex], ...row };
+        current[matchIndex] = { ...current[matchIndex], ...row, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
         upserted.push(current[matchIndex]!);
       } else {
+        if (table === 'documents' && !row.updated_at) row.updated_at = this.stamp();
         current.push(row);
         upserted.push(row);
       }
@@ -204,7 +216,7 @@ export class InMemoryPostgres {
 
     for (let i = 0; i < current.length; i++) {
       if (this.matchesFilters(current[i]!, filters)) {
-        current[i] = { ...current[i], ...payload };
+        current[i] = { ...current[i], ...payload, ...(table === 'documents' ? { updated_at: this.stamp() } : {}) };
         updated.push(current[i]!);
       }
     }

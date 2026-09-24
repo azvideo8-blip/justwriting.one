@@ -19,6 +19,7 @@ export const DocumentService = {
       totalWords?: number | undefined;
       totalDuration?: number | undefined;
       sessionsCount?: number | undefined;
+      trashedAt?: Date | undefined;
       _locked?: boolean | undefined;
       _decryptionError?: boolean | undefined;
     }
@@ -38,6 +39,9 @@ export const DocumentService = {
       labelId: data.labelId ?? null,
       mood: data.mood ?? null,
       excludedFromAI: data.excludedFromAI ?? false,
+      // N2-3: заметку, отправленную в корзину до первой выгрузки, облако
+      // получает сразу в корзине — иначе другие устройства видели её живой.
+      ...(data.trashedAt ? { trashedAt: data.trashedAt } : {}),
     };
     if (data.uuid) rawPayload.uuid = data.uuid;
 
@@ -244,7 +248,7 @@ export const DocumentService = {
   async updateMetadata(
     userId: string,
     documentId: string,
-    meta: { title: string; tags: string[]; labelId?: string | undefined; excludedFromAI?: boolean | undefined; lastSessionAt?: number | undefined },
+    meta: { title: string; tags: string[]; labelId?: string | undefined; excludedFromAI?: boolean | undefined; lastSessionAt?: number | undefined; trashedAt?: number | null | undefined },
   ): Promise<void> {
     const encrypted = await maybeEncrypt({ title: meta.title, tags: meta.tags }, ['title'], ['tags'], userId);
     await DataProvider.updateDocument(userId, documentId, {
@@ -252,6 +256,8 @@ export const DocumentService = {
       labelId: meta.labelId ?? null,
       excludedFromAI: meta.excludedFromAI === true,
       ...(meta.lastSessionAt !== undefined ? { lastSessionAt: meta.lastSessionAt } : {}),
+      // N2-1: корзина, изменённая без связи, доезжает тем же досылом.
+      ...(meta.trashedAt !== undefined ? { trashedAt: meta.trashedAt === null ? null : new Date(meta.trashedAt) } : {}),
     });
   },
 

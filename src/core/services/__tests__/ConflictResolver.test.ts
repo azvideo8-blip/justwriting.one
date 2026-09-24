@@ -199,7 +199,7 @@ describe('ConflictResolver', () => {
       'user1',
       'forked_doc_123',
       expect.objectContaining({
-        versionNumber: 2,
+        versionNumber: 1, // N2-6: форк нумеруется заново с 1
         content: 'Version 2 local plaintext',
       })
     );
@@ -246,8 +246,7 @@ describe('ConflictResolver', () => {
       'user1',
       'forked_doc_123',
       expect.objectContaining({
-        versionNumber: 3,
-        content: 'Version 3 local content only',
+        content: 'Version 3 local content only', // N2-6: номер в форке — свой, по порядку
       })
     );
 

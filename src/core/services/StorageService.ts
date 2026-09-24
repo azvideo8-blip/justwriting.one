@@ -115,6 +115,9 @@ export const StorageService = {
         cloudSynced = false;
         reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });
         if (localId) {
+          // N2-1: задача 'document' без флага досылала только версии — корзина,
+          // изменённая без связи, до облака не доходила никогда.
+          await LocalDocumentService.setMetadataDirty(localId, true);
           const db = await getLocalDb();
           await db.put('syncQueue', {
             id: `doc_${localId}_${Date.now()}`,
@@ -148,6 +151,9 @@ export const StorageService = {
         cloudSynced = false;
         reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });
         if (localId) {
+          // N2-1: задача 'document' без флага досылала только версии — корзина,
+          // изменённая без связи, до облака не доходила никогда.
+          await LocalDocumentService.setMetadataDirty(localId, true);
           const db = await getLocalDb();
           await db.put('syncQueue', {
             id: `doc_${localId}_${Date.now()}`,

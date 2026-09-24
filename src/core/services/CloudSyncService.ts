@@ -696,6 +696,13 @@ export const CloudSyncService = {
             throw new Error('SYNC_UNRESOLVED: unreadable cloud version cannot be compared');
           }
           if (collisions.length > 0) {
+            // N2-8: версии после первой коллизии построены на локальной ветке, а не
+            // на облачной. В оригинал их не выгружаем — они уходят в форк вместе с
+            // коллизией; иначе облачная история перемешивала две ветки.
+            const firstCollision = Math.min(...collisions.map(v => v.version));
+            for (let i = missing.length - 1; i >= 0; i--) {
+              if (missing[i]!.version > firstCollision) missing.splice(i, 1);
+            }
             const last = collisions[collisions.length - 1]!;
             await ConflictResolver.resolveConflict(
               userId,
@@ -717,6 +724,14 @@ export const CloudSyncService = {
               localDoc.firstSessionAt ? new Date(localDoc.firstSessionAt).getTime() : undefined
             );
           }
+          // N2-9: после форка оригинал приведён к облаку (счётчики, номер версии) —
+          // метаданные ниже берём у него, а не у снимка до форка: иначе в облако
+          // уходил currentVersion ветки, которая ушла в форк (cv4 при трёх
+          // версиях), и следующая правка другого устройства не двигала облако
+          // «вперёд» — её никто больше не видел.
+          const metaDoc = collisions.length > 0
+            ? (await LocalStorageService.getDocument(localDocumentId)) ?? localDoc
+            : localDoc;
           missing.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
           for (const ver of missing) {
             const idx = localVersions.findIndex(v => v.id === ver.id);
@@ -781,20 +796,32 @@ export const CloudSyncService = {
               labelId: localDoc.labelId,
               excludedFromAI: localDoc.excludedFromAI,
               lastSessionAt: localDoc.lastSessionAt,
+              trashedAt: localDoc.trashedAt ?? null,
             }));
             await LocalDocumentService.setMetadataDirty(localDocumentId, false);
+          } else if (missing.length > 0 && !localDoc.trashedAt && (existingDoc as { trashedAt?: unknown }).trashedAt) {
+            // N2-2: заметку положили в корзину на другом устройстве, а здесь в неё
+            // дописали. Свежий текст важнее корзины: возвращаем заметку, иначе
+            // устройства расходятся — здесь она живая, там в корзине.
+            await withTimeout(DocumentService.restoreDocument(userId, cloudId));
+            useActivityLogStore.getState().addActivity(
+              'Заметка была в корзине на другом устройстве — после вашей правки она восстановлена',
+              { action: 'addCloudCopy_restoredFromTrash', documentId: localDocumentId },
+              'info',
+              'sync',
+            );
           }
-          if (localDoc.currentVersion >= existingDoc.currentVersion) {
+          if (metaDoc.currentVersion >= existingDoc.currentVersion) {
             await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
-              totalWords: localDoc.totalWords,
-              totalDuration: localDoc.totalDuration,
-              currentVersion: localDoc.currentVersion,
-              sessionsCount: localDoc.sessionsCount,
-              lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
-              mood: localDoc.mood,
+              totalWords: metaDoc.totalWords,
+              totalDuration: metaDoc.totalDuration,
+              currentVersion: metaDoc.currentVersion,
+              sessionsCount: metaDoc.sessionsCount,
+              lastSessionAt: metaDoc.lastSessionAt ? new Date(metaDoc.lastSessionAt) : undefined,
+              mood: metaDoc.mood,
             }));
           }
-          const syncdVer = Math.max(localDoc.currentVersion, existingDoc.currentVersion);
+          const syncdVer = Math.max(metaDoc.currentVersion, existingDoc.currentVersion);
           try {
             const db = await getLocalDb();
             const cur = await db.get('documents', localDocumentId);
@@ -820,6 +847,7 @@ export const CloudSyncService = {
         // терялось при первой же выгрузке и не возвращалось никогда.
         mood: localDoc.mood,
         excludedFromAI: localDoc.excludedFromAI,
+        trashedAt: localDoc.trashedAt ? new Date(localDoc.trashedAt) : undefined,
         currentVersion: localDoc.currentVersion ?? (versions.length > 0 ? versions.length : 1),
         totalWords: localDoc.totalWords,
         totalDuration: localDoc.totalDuration,
@@ -1237,6 +1265,21 @@ export const CloudSyncService = {
         currentVersion: newVersion,
         mood: data.mood,
       });
+
+      // N2-2 (тот же случай на пути сохранения): в заметку, которую другое
+      // устройство положило в корзину, здесь только что дописали — возвращаем.
+      if ((cloudDoc as { trashedAt?: unknown }).trashedAt) {
+        const here = await LocalStorageService.getDocument(documentId);
+        if (!here?.trashedAt) {
+          await DocumentService.restoreDocument(userId, linkedCloudId);
+          useActivityLogStore.getState().addActivity(
+            'Заметка была в корзине на другом устройстве — после вашей правки она восстановлена',
+            { action: 'syncVersionToCloud_restoredFromTrash', documentId },
+            'info',
+            'sync',
+          );
+        }
+      }
 
       // AUDIT-MH1: успешный push фиксирует base для следующего конфликта-чекa.
       try {
