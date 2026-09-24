@@ -512,4 +512,32 @@ describe('3.8 stream disconnect', () => {
     const closeListenerCount = (chatSrc.match(/res\.on\('close',\s*\(\)/g) || []).length;
     expect(closeListenerCount).toBe(2);
   });
+
+  it('DA-1: settle on close catching DB failure does not produce unhandledRejection', async () => {
+    refundDaily.mockRejectedValueOnce(new Error('DB disconnect on refund'));
+    const unhandledRejections: unknown[] = [];
+    const onUnhandled = (err: unknown) => {
+      unhandledRejections.push(err);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      sseBody = holdOpen();
+      const req = new FakeReq(validBody);
+      const res = new FakeRes();
+      const done = handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+      await vi.waitFor(() => expect(res.headersSent).toBe(true), { timeout: 2000 });
+      res.emit('close');
+      await done;
+      // Allow any microtasks to settle
+      await new Promise((r) => setTimeout(r, 50));
+      expect(unhandledRejections).toHaveLength(0);
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[chat] settle on close', expect.any(Error));
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+      consoleErrorSpy.mockRestore();
+    }
+  });
 });
+

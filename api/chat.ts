@@ -240,7 +240,7 @@ async function streamOpenRouterReasoning(
 
   res.on('close', () => {
     controller.abort();
-    void settlement.settle('closed');
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
   });
 
   let streamFailed = false;
@@ -524,7 +524,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // который никто не прочитает) и возвращаем слот.
   res.on('close', () => {
     controller.abort();
-    void settlement.settle('closed');
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
   });
 
   let streamErrorOccurred: unknown = null;
