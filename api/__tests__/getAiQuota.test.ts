@@ -16,6 +16,7 @@ vi.mock('../../src/shared/ai/context.js', () => ({
 vi.mock('../ai/pure', () => ({
   DAILY_LIMIT: 30,
   ADMIN_DAILY_LIMIT: 60,
+  REASONING_DAILY_LIMIT: 5,
 }));
 
 import { getAiQuotaLogic } from '../ai/getAiQuota.logic';

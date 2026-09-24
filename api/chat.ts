@@ -57,6 +57,11 @@ const providerRouting = AI_PROVIDER_COUNTRY ? { country: AI_PROVIDER_COUNTRY } :
  */
 export const CHAT_REASONING_EFFORT = 'low';
 
+// DA-18: поставщик оборвал ответ посреди потока. Статус уже 200, заголовки ушли —
+// единственный честный способ сказать об этом — дописать строку в сам ответ.
+// Без неё человек видел обрезанный текст как законченный.
+export const STREAM_BROKEN_NOTE = '\n\n— Ответ оборвался: поставщик ИИ прервал его на середине. Попробуйте ещё раз.';
+
 const ruOnlyFetch: typeof fetch = async (input, init) => {
   if (typeof init?.body === 'string') {
     try {
@@ -335,6 +340,8 @@ async function streamOpenRouterReasoning(
     write(contentAccum);
   }
 
+  if (streamFailed && sawUpstreamChunk) write(STREAM_BROKEN_NOTE);
+
   // AUDIT-L3: settle() with measured tokens handles single usage recording and reconciliation.
   await settlement.settle(streamFailed ? 'failed' : 'done', { tokensIn, tokensOut, model });
 
@@ -519,10 +526,15 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, inputEstimate, 'chat');
   const controller = new AbortController();
+  // DA-18: свой срок и у этого пути (у рассуждений — 120 с выше); раньше спасал
+  // только proxy_read_timeout nginx.
+  let timedOut = false;
+  const deadlineId = setTimeout(() => { timedOut = true; controller.abort(); }, 150_000);
 
   // Уход клиента: обрываем запрос к поставщику (иначе он досчитывает ответ,
   // который никто не прочитает) и возвращаем слот.
   res.on('close', () => {
+    clearTimeout(deadlineId);
     controller.abort();
     void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
   });
@@ -639,15 +651,20 @@ function waitForNextOrAbort<T>(
         if (value && !res.destroyed) {
           const canContinue = res.write(value);
           if (!canContinue && !res.destroyed) {
+            // Клиент ушёл, не дочитав, — 'drain' не придёт никогда; ждём и 'close'.
             await new Promise<void>((resolve) => {
               res.once('drain', resolve);
+              res.once('close', resolve);
             });
           }
         }
       }
     } catch (streamErr) {
       console.error('[api/chat] stream read failed mid-stream:', streamErr);
+      if (!res.destroyed && !controller.signal.aborted) res.write(STREAM_BROKEN_NOTE);
     } finally {
+      clearTimeout(deadlineId);
+      if (timedOut && !res.destroyed && !res.writableEnded) res.write(STREAM_BROKEN_NOTE);
       if (!res.writableEnded) {
         res.end();
       }

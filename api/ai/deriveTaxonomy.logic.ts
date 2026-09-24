@@ -142,7 +142,8 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
 
     return { domains };
   } catch (e) {
-    await callRes.settle('failed');
+    // Токены уже потрачены — отдаём settle реальный расход, а не оценку по символам.
+    await callRes.settle('failed', settled ? { tokensIn, tokensOut, model: usedModel } : undefined);
     const msg = String((e as { message?: string })?.message ?? e);
     if (!(e instanceof AiError)) console.error('[AI taxonomy] failed:', msg);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
@@ -152,7 +153,9 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
     throw new AiError('internal', 'Taxonomy derivation failed.');
   } finally {
     if (settled) {
-      ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'taxonomy' }, reservation).catch(() => {});
+      // DA-18: через callRes — у него защёлка usageRecorded; прямой ctx.recordUsage
+      // писал расход второй раз, если settle('failed') уже его записал.
+      callRes.recordUsage(tokensIn, tokensOut, { model: usedModel, fn: 'taxonomy' }).catch(() => {});
     }
   }
 }

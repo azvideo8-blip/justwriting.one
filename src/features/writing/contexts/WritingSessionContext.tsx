@@ -3,6 +3,7 @@ import type { AppUser } from '../../../core/auth/types';
 import { UserProfile, Session } from '../../../types';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTimerStore } from '../store/useTimerStore';
+import { useContentStore } from '../store/useContentStore';
 
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
@@ -195,7 +196,10 @@ export const WritingSessionProvider = React.memo(function WritingSessionProvider
     const hasSessionToday = lifeLogGroups.some(g =>
       new Date(g.date).toDateString() === todayStr
     );
-    return hasSessionToday ? streakDays : streakDays + 1;
+    // DA-16: «+1» — только если сессию есть что сохранять: пустая сессия
+    // серию не продлевает, и обещать её в окне завершения нельзя.
+    const hasContent = useContentStore.getState().content.trim().length > 0;
+    return hasSessionToday || !hasContent ? streakDays : streakDays + 1;
   }, [streakDays, lifeLogGroups, isFinishModalOpen]);
 
   const onFinishClick = React.useCallback(() => {

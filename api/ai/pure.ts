@@ -112,6 +112,10 @@ function envInt(name: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+// Дневной лимит режима рассуждений — тот же, что применяет postgresAiContext.
+// DA-18: getAiQuota показывал зашитые 5, даже если сервер считал по env.
+export const REASONING_DAILY_LIMIT = envInt('AI_REASONING_DAILY_LIMIT', 5);
+
 // Project-wide daily request/token budget guard for the OpenRouter chat model.
 // Override via env. Keep these numbers in sync with the mirror in api/chat.ts.
 export const TIER_LIMITS = {

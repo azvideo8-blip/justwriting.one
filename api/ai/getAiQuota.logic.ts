@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './pure';
+import { DAILY_LIMIT, ADMIN_DAILY_LIMIT, REASONING_DAILY_LIMIT } from './pure';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 // AUDIT-part3 3: источник истины по дневной квоте для САМОГО пользователя.
@@ -21,7 +21,7 @@ export async function getAiQuotaLogic(ctx: AiContext, uid: string, data: unknown
     used,
     limit: isAdmin ? ADMIN_DAILY_LIMIT : DAILY_LIMIT,
     reasoningUsed: reasoningUsed ?? 0,
-    reasoningLimit: 5,
+    reasoningLimit: REASONING_DAILY_LIMIT,
     date: new Date().toISOString().slice(0, 10),
   };
 }

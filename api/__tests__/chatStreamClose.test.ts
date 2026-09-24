@@ -53,7 +53,7 @@ vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: { signal?: AbortSignal
   return new Response(sseBody, { status: 200 });
 }));
 
-import { handleChat } from '../chat';
+import { handleChat, STREAM_BROKEN_NOTE } from '../chat';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 class FakeReq extends EventEmitter {
@@ -127,6 +127,19 @@ beforeEach(() => {
 });
 
 describe('3.8 stream disconnect', () => {
+  // DA-18: поставщик оборвал ответ посреди потока — человек должен это увидеть,
+  // а не принять обрезанный текст за законченный.
+  it('mid-stream upstream error appends a visible note to the answer', async () => {
+    const content = JSON.stringify({ choices: [{ index: 0, delta: { content: 'Начало ответа' } }] });
+    const err = JSON.stringify({ error: { message: 'upstream died' } });
+    sseBody = sse([`data: ${content}\n\n`, `data: ${err}\n\n`]);
+    const req = new FakeReq(validBody);
+    const res = new FakeRes();
+    await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+    expect(res.body).toContain('Начало ответа');
+    expect(res.body.endsWith(STREAM_BROKEN_NOTE)).toBe(true);
+  });
+
   // Потоковый режим рассуждений включает рассуждение у провайдера — промпт не
   // должен одновременно велеть «отвечай сразу, без хода мысли».
   it('reasoning-запрос не просит модель не думать и держит правило о языке', async () => {
