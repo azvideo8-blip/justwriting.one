@@ -3,11 +3,21 @@ import { scrubPii, redactMessage } from './piiScrub';
 
 type ErrorContext = Record<string, string | number | boolean | null | undefined>;
 
+// Браузер не достучался до сервера: ноутбук просыпается, пропал Wi-Fi. Это не
+// поломка — фоновые проходы повторяют запрос сами, — поэтому в журнал такое
+// идёт предупреждением, а не красной ошибкой. Тексты Chrome / Safari / Firefox.
+const NETWORK_FAILURE_RE = /^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource)/;
+
+export function isNetworkFailure(error: unknown): boolean {
+  return error instanceof TypeError && NETWORK_FAILURE_RE.test(error.message);
+}
+
 export function reportError(
   error: unknown,
   context: ErrorContext = {},
   level: 'error' | 'warning' = 'error'
 ): void {
+  if (isNetworkFailure(error)) level = 'warning';
   // Список PII-ключей общий с журналом активности (piiScrub.ts): фильтр,
   // стоящий здесь, не должен обходиться прямыми вызовами addActivity.
   const safeContext: ErrorContext = scrubPii(context);

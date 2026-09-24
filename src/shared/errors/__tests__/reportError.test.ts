@@ -44,4 +44,15 @@ describe('reportError PII stripping (SEC-2)', () => {
     expect(entry.context?.titleLength).toBe(14);
     expect(entry.context?.action).toBe('export_to_pdf');
   });
+
+  // Ноутбук проснулся без сети — фоновые запросы падают с «Failed to fetch» и
+  // повторяются сами. Красная «ОШИБКА» в журнале пугала на ровном месте.
+  it('logs a browser network failure as a warning, other errors stay errors', () => {
+    reportError(new TypeError('Failed to fetch'), { action: 'restoreAIData_summaries' });
+    reportError(new TypeError('Load failed'), { action: 'restoreAIData_summaries' });
+    reportError(new TypeError("Cannot read properties of undefined (reading 'x')"), { action: 'bug' });
+    const levels = useActivityLogStore.getState().entries.map(e => e.level);
+    expect(levels.filter(l => l === 'warning')).toHaveLength(2);
+    expect(levels.filter(l => l === 'error')).toHaveLength(1);
+  });
 });
