@@ -17,6 +17,10 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+# R4-8: выкатке достаточно читать репозиторий.
+permissions:
+  contents: read
+
 jobs:
   deploy:
     # Свой раннер прямо на проде: только этот workflow — ручной
@@ -25,6 +29,8 @@ jobs:
     # dependabot) остаётся на github-хостинге — вешать его туда же означало
     # бы непредсказуемую конкуренцию за память с живой базой.
     runs-on: [self-hosted, justwriting-vps]
+    # R4-8: зависшая выкатка не держит очередь (cancel-in-progress: false) вечно.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -117,6 +123,9 @@ jobs:
       - name: Выкатка клиента
         if: inputs.what != 'api'
         run: |
+          # R4-8: карты исходников (sourcesContent) на сервер не едут вовсе — раньше
+          # их прятала от посетителей одна строка nginx.
+          find dist -name '*.map' -delete
           # EA-11: свой каталог (mktemp, 0700), а не общий предсказуемый /tmp/dist-new.
           REMOTE_DIR=$($DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mktemp -d /tmp/jw-dist.XXXXXX')
           rsync -az --delete -e "$DEPLOY_SSH" dist/ \
