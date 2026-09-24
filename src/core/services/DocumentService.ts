@@ -181,15 +181,11 @@ export const DocumentService = {
   },
 
   async getCloudVersionDiscrepancyCount(userId: string): Promise<number> {
-    try {
-      if (typeof DataProvider.getCloudVersionDiscrepancyCount === 'function') {
-        return await DataProvider.getCloudVersionDiscrepancyCount(userId);
-      }
-      return 0;
-    } catch (e) {
-      reportError(e, { action: 'getCloudVersionDiscrepancyCount', userId }, 'warning');
-      return 0;
+    // R4-7: ошибку не глотаем — диагностика показывает «облако не прочитано».
+    if (typeof DataProvider.getCloudVersionDiscrepancyCount === 'function') {
+      return DataProvider.getCloudVersionDiscrepancyCount(userId);
     }
+    return 0;
   },
 
   async updateDocumentAfterSession(

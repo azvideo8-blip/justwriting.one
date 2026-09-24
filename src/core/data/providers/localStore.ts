@@ -48,7 +48,11 @@ export async function getLocalStoreRecords(userId: string, store?: string, since
     if (sinceMs !== undefined) {
       q = q.gt('payload->>updatedAt', String(Math.floor(sinceMs)));
     }
+    // R4-7: ключ уникален только внутри store (PK — user_id, store, key); без
+    // store в сортировке одинаковые ключи разных сторов переставлялись между
+    // страницами, и пагинация теряла или дублировала строки.
     return q
+      .order('store', { ascending: true })
       .order('key', { ascending: true })
       .range(from, to);
   });

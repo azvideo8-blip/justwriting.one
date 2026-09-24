@@ -88,7 +88,12 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
           reportError(e, { action: '[SyncDiagnostics] Queue fetch failed' });
           return [];
         }),
-        DocumentService.getCloudVersionDiscrepancyCount(userId).catch(() => 0),
+        DocumentService.getCloudVersionDiscrepancyCount(userId).catch(e => {
+          // R4-7: не «0 расхождений», а «облако не прочитано».
+          reportError(e, { action: '[SyncDiagnostics] Version discrepancy check failed' });
+          cloudReadFailed = true;
+          return 0;
+        }),
       ]);
 
       setCloudUnavailable(cloudReadFailed);

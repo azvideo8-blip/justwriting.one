@@ -69,7 +69,7 @@ describe('2.15 tag operations surface per-document failures', () => {
 
   function wireSelectRows(rows: unknown[], updateResults: Array<{ error: unknown }>) {
     builder.select.mockImplementationOnce(() => ({
-      eq: () => ({ is: async () => ({ data: rows, error: null }) }),
+      eq: () => ({ is: () => ({ order: () => ({ range: async () => ({ data: rows, error: null }) }) }) }),
     }) as never);
     let call = 0;
     builder.update.mockImplementation(() => {
@@ -89,6 +89,13 @@ describe('2.15 tag operations surface per-document failures', () => {
     wireSelectRows(docs, [{ error: { message: 'network' } }, { error: null }]);
     await expect(SupabaseDataProvider.removeTagFromAllDocs('u1', 'old'))
       .rejects.toThrow('TAG_OP_PARTIAL:1');
+  });
+
+  it('R4-7: a failed read is an error, not a silent success', async () => {
+    builder.select.mockImplementationOnce(() => ({
+      eq: () => ({ is: () => ({ order: () => ({ range: async () => ({ data: null, error: { message: 'timeout' } }) }) }) }),
+    }) as never);
+    await expect(SupabaseDataProvider.removeTagFromAllDocs('u1', 'old')).rejects.toMatchObject({ message: 'timeout' });
   });
 
   it('all-good updates resolve silently', async () => {

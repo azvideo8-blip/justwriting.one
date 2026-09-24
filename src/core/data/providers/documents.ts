@@ -176,13 +176,20 @@ export async function clearLabelFromAllDocs(userId: string, labelId: string): Pr
   if (error != null) throw error;
 }
 
-export async function renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
-  const { data, error } = await getSupabase()
+async function readAllDocTags(userId: string): Promise<{ uuid: string | null; tags: unknown; _encrypted: boolean | null }[]> {
+  return pageAll<{ uuid: string | null; tags: unknown; _encrypted: boolean | null }>((from, to) => getSupabase()
     .from('documents')
     .select('uuid, tags, _encrypted')
     .eq('user_id', userId)
-    .is('deleted_at', null);
-  if (error != null || data == null || data.length === 0) return;
+    .is('deleted_at', null)
+    .order('uuid', { ascending: true })
+    .range(from, to));
+}
+
+export async function renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
+  // R4-7: постранично и с честной ошибкой — раньше обрывалось на 1000 заметках,
+  // а сбой чтения молча считался успехом.
+  const data = await readAllDocTags(userId);
   const failedUuids: string[] = [];
 
   for (const doc of data) {
@@ -222,12 +229,9 @@ export async function renameTagInAllDocs(userId: string, oldTag: string, newTag:
 }
 
 export async function removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
-  const { data, error } = await getSupabase()
-    .from('documents')
-    .select('uuid, tags, _encrypted')
-    .eq('user_id', userId)
-    .is('deleted_at', null);
-  if (error != null || data == null || data.length === 0) return;
+  // R4-7: постранично и с честной ошибкой — раньше обрывалось на 1000 заметках,
+  // а сбой чтения молча считался успехом.
+  const data = await readAllDocTags(userId);
   const failedUuids: string[] = [];
 
   for (const doc of data) {
@@ -311,18 +315,15 @@ export async function getCloudVersionDiscrepancyCount(userId: string): Promise<n
     return counts;
   };
 
-  try {
-    const [docs, versionCounts] = await Promise.all([fetchDocs(), fetchVersionCounts()]);
-    let discrepancies = 0;
-    for (const doc of docs) {
-      const current = doc.current_version;
-      const actual = versionCounts.get(doc.uuid) ?? 0;
-      if (current !== actual && actual > 0) {
-        discrepancies++;
-      }
+  // R4-7: ошибка чтения — не «расхождений нет»; её видит диагностика.
+  const [docs, versionCounts] = await Promise.all([fetchDocs(), fetchVersionCounts()]);
+  let discrepancies = 0;
+  for (const doc of docs) {
+    const current = doc.current_version;
+    const actual = versionCounts.get(doc.uuid) ?? 0;
+    if (current !== actual && actual > 0) {
+      discrepancies++;
     }
-    return discrepancies;
-  } catch {
-    return 0;
   }
+  return discrepancies;
 }

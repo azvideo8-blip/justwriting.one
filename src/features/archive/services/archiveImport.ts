@@ -1,4 +1,5 @@
 import { parseNoteMarkdown } from '../../../core/services/noteFormat';
+import { countWords } from '../../../shared/utils/countWords';
 
 export interface ParsedImportFile {
   title: string;
@@ -12,7 +13,7 @@ export interface ParsedImportFile {
 export function parseImportFile(fileName: string, rawContent: string): ParsedImportFile {
   const fallbackTitle = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
   const parsed = parseNoteMarkdown(rawContent, fallbackTitle);
-  const wordCount = parsed.content.trim().split(/\s+/).filter(Boolean).length;
+  const wordCount = countWords(parsed.content);
   return {
     title: parsed.title,
     content: parsed.content,
