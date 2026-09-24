@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
+import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 
 export function RecoveryCodeGate() {
   const { user, isGuest } = useAuthStatus();
@@ -43,7 +45,13 @@ export function RecoveryCodeGate() {
   // storage events change (externalTick forces a re-render).
   const pendingCode = externalTick >= 0 ? readPendingCode() : null;
 
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback(({ rememberDevice }: { rememberDevice: boolean }) => {
+    if (user && !rememberDevice) {
+      // R3-9: сейф, созданный при входе, сам запоминает ключ на устройстве —
+      // на чужом компьютере человек снимает галочку, и ключ забывается.
+      setRememberDevice(false);
+      void clearDeviceKey(user.uid).catch(() => {});
+    }
     if (user) {
       try {
         sessionStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(user.uid));
@@ -63,6 +71,7 @@ export function RecoveryCodeGate() {
     <RecoveryCodeDisplayModal
       recoveryCode={pendingCode}
       onConfirm={handleConfirm}
+      askRememberDevice
     />
   );
 }

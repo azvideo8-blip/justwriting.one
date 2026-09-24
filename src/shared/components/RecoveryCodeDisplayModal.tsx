@@ -8,12 +8,15 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface RecoveryCodeDisplayModalProps {
   recoveryCode: string;
-  onConfirm: () => void;
+  onConfirm: (opts: { rememberDevice: boolean }) => void;
+  /** R3-9: показать выбор «запомнить на этом устройстве» (сейф, созданный при входе). */
+  askRememberDevice?: boolean;
 }
 
 export function RecoveryCodeDisplayModal({
   recoveryCode,
   onConfirm,
+  askRememberDevice = false,
 }: RecoveryCodeDisplayModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -22,6 +25,7 @@ export function RecoveryCodeDisplayModal({
 
   const [copied, setCopied] = useState(false);
   const [savedConfirmed, setSavedConfirmed] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(true);
 
   useFocusTrap(modalRef, true);
 
@@ -133,10 +137,24 @@ export function RecoveryCodeDisplayModal({
               </span>
             </label>
 
+            {askRememberDevice && (
+              <label className="flex items-start gap-3 cursor-pointer text-left select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberDevice}
+                  onChange={e => setRememberDevice(e.target.checked)}
+                  className="mt-0.5 accent-[var(--brand-primary)] shrink-0 w-4 h-4"
+                />
+                <span className="text-xs text-text-main/80 font-medium leading-relaxed">
+                  {t('enc_recovery_remember_device')}
+                </span>
+              </label>
+            )}
+
             <Button
               type="button"
               disabled={!savedConfirmed}
-              onClick={onConfirm}
+              onClick={() => onConfirm({ rememberDevice })}
               className="w-full py-3 rounded-xl font-bold hover:brightness-110 active:scale-[0.98] transition-colors disabled:opacity-50 text-white bg-[var(--brand-primary)] text-sm"
             >
               {t('enc_recovery_code_continue_btn')}

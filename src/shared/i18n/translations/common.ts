@@ -165,6 +165,7 @@ export const commonTranslations: Translations = {
   enc_recovery_file_downloaded: { ru: 'Файл с кодом сохранён', en: 'Recovery code file saved' },
   enc_recovery_file_header: { ru: 'JUSTWRITING — КОД ВОССТАНОВЛЕНИЯ ШИФРОВАНИЯ\nСохраните этот файл в надёжном месте. Этот код позволяет восстановить доступ к зашифрованным заметкам в случае утери пароля.', en: 'JUSTWRITING — ENCRYPTION RECOVERY CODE\nSave this file in a safe place. This code restores access to your encrypted notes if you forget your password.' },
   enc_recovery_file_footer: { ru: 'Никому не передавайте этот код. Без пароля и без этого кода восстановить зашифрованные записи невозможно.', en: 'Never share this code. Without your password and without this code, restoring encrypted entries is impossible.' },
+  enc_recovery_remember_device: { ru: 'Это мой компьютер — не спрашивать здесь пароль шифрования. Снимите галочку, если устройство чужое или общее', en: 'This is my computer — don\'t ask for the encryption password here. Untick on a shared or someone else\'s device' },
   enc_recovery_code_confirm_checkbox: { ru: 'Я сохранил(а) код восстановления в надёжном месте', en: 'I have saved the recovery code in a safe place' },
   enc_recovery_code_continue_btn: { ru: 'Продолжить', en: 'Continue' },
   enc_recovery_code_present_title: { ru: 'Код восстановления создан', en: 'Recovery code created' },
