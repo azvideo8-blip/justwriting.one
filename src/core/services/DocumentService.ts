@@ -244,6 +244,21 @@ export const DocumentService = {
     });
   },
 
+  /** R3-1: повтор неудавшейся правки метаданных — всё одним запросом. */
+  async updateMetadata(
+    userId: string,
+    documentId: string,
+    meta: { title: string; tags: string[]; labelId?: string | undefined; excludedFromAI?: boolean | undefined; lastSessionAt?: number | undefined },
+  ): Promise<void> {
+    const encrypted = await maybeEncrypt({ title: meta.title, tags: meta.tags }, ['title'], ['tags'], userId);
+    await DataProvider.updateDocument(userId, documentId, {
+      ...encrypted,
+      labelId: meta.labelId ?? null,
+      excludedFromAI: meta.excludedFromAI === true,
+      ...(meta.lastSessionAt !== undefined ? { lastSessionAt: meta.lastSessionAt } : {}),
+    });
+  },
+
   async updateLabelId(userId: string, documentId: string, labelId: string | undefined): Promise<void> {
     await DataProvider.updateDocument(userId, documentId, { labelId: labelId ?? null });
   },

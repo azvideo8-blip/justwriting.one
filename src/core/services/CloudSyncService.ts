@@ -768,6 +768,18 @@ export const CloudSyncService = {
           // Don't roll cloud metadata backward when the cloud copy is ahead of
           // this (behind) device — otherwise currentVersion regresses and a later
           // save can reuse a version number, overwriting a version via setDoc(`v${n}`).
+          // R3-1: неудавшаяся правка метаданных — дослать целиком. Счётчики ниже их
+          // не несут, а задачу из очереди дренаж снимает при любом cloudId.
+          if (localDoc.metadataDirty) {
+            await withTimeout(DocumentService.updateMetadata(userId, cloudId, {
+              title: localDoc.title,
+              tags: localDoc.tags ?? [],
+              labelId: localDoc.labelId,
+              excludedFromAI: localDoc.excludedFromAI,
+              lastSessionAt: localDoc.lastSessionAt,
+            }));
+            await LocalDocumentService.setMetadataDirty(localDocumentId, false);
+          }
           if (localDoc.currentVersion >= existingDoc.currentVersion) {
             await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
               totalWords: localDoc.totalWords,

@@ -498,6 +498,16 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
+  /** R3-1: метаданные этой заметки нужно дослать в облако (см. metadataDirty). */
+  async setMetadataDirty(id: string, dirty: boolean): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    await tx.store.put({ ...existing, metadataDirty: dirty || undefined });
+    await tx.done;
+  },
+
   async updateExcludedFromAI(id: string, excludedFromAI: boolean): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('documents', 'readwrite');

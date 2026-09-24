@@ -50,6 +50,9 @@ export interface LocalDocument extends DocumentFields<number> {
   _locked?: boolean | undefined;
   _decryptionError?: boolean | undefined;
   isTooLargeForSync?: boolean | undefined;
+  /** R3-1: правка названия/тегов/метки/даты/«не показывать ИИ» не дошла до облака.
+   *  Дренаж по этому флагу отправляет метаданные целиком и снимает флаг. */
+  metadataDirty?: boolean | undefined;
 }
 
 export interface LocalVersion {
