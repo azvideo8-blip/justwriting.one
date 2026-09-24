@@ -1,8 +1,6 @@
-// SECURITY: Shared injection pattern list — imported by both api/chat.ts
-// (Vercel Edge) and functions/src/shared/aiUtils.ts (Cloud Functions).
-// Do NOT add patterns locally in either file — update this file only.
-// (functions/src/shared/aiUtils.ts keeps an independent copy for now, kept in
-// sync manually — see the comment there.)
+// SECURITY: the one injection pattern list — re-exported to api/ (api/ai/pure.ts)
+// and to the client (src/features/ai/shared/). Do NOT add patterns anywhere
+// else. (The old functions/ copy was deleted with Firebase.)
 
 // Patterns written for Latin-script phrases. Checked against a homoglyph-
 // folded copy of the input (see foldLatinHomoglyphs below) so that visually
