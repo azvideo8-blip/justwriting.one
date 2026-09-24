@@ -12,7 +12,9 @@ import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 // входил в список и уезжал в облако открытым текстом, пока всё остальное
 // шифровалось. Добавляя сюда поле, проверь, что оно не окажется единственным
 // читаемым среди зашифрованных соседей.
-const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'] as const;
+// contentHash (R3-4): SHA-256 полного текста заметки. Открытым он даёт серверу
+// проверку догадки «совпадает ли текст» и связку одинаковых заметок.
+const STRING_FIELDS = ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence', 'contentHash'] as const;
 const ARRAY_FIELDS = ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'] as const;
 const STRING_FIELDS_LIST: string[] = [...STRING_FIELDS];
 const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];

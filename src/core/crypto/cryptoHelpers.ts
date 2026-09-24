@@ -135,6 +135,11 @@ export async function maybeDecrypt(
           // Keep raw emoji instead of locking out older versions.
           continue;
         }
+        if (field === 'contentHash' && /^[0-9a-f]{64}$/.test(val)) {
+          // R3-4: до 0.9.2 хеш сводки уходил в облако открытым — такие строки
+          // читаем как есть; при следующем сохранении сводки он зашифруется.
+          continue;
+        }
         reportError(e, { action: 'maybeDecrypt_stringField', field });
         throw new DecryptionError(field, e);
       }

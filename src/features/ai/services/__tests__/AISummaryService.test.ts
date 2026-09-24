@@ -115,7 +115,7 @@ describe('AISummaryService', () => {
       expect(mockPut).toHaveBeenCalledWith('aiSummaries', { ...dummySummary, documentUuid: 'uuid-123' });
       expect(mockMaybeEncrypt).toHaveBeenCalledWith(
         expect.objectContaining({ documentId: 'doc-123' }),
-        ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence'],
+        ['summary', 'tone', 'echo', 'eventDate', 'quotableSentence', 'contentHash'], // R3-4
         ['frequentWords', 'authorPhrases', 'insights', 'themes', 'extractedFacts', 'commitments'],
         'test-user-123',
       );
