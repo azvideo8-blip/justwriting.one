@@ -15,4 +15,10 @@ describe('countWords', () => {
     const text = 'word '.repeat(10000);
     expect(countWords(text)).toBe(10000);
   });
+
+  // DA-21: автозамена ставит типографский апостроф — это всё ещё одно слово.
+  it('counts a word with a typographic apostrophe once', () => {
+    expect(countWords('don\u2019t')).toBe(1);
+    expect(countWords('l\u2019\u00e9t\u00e9')).toBe(1);
+  });
 });

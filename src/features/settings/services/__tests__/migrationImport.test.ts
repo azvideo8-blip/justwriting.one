@@ -1143,5 +1143,18 @@ describe("C1 migrationImport", () => {
       }
     });
   });
-});
 
+  // DA-21: закреплённые мысли, теги и метка черновика переживают перенос.
+  it("keeps draft pinnedThoughts, tags and labelId", async () => {
+    const manifest = {
+      version: 1, exportedAt: new Date().toISOString(), documents: [], aiSummaries: [], aiEmbeddings: [], verbatim: [],
+      drafts: [{ userId: "u_draft", title: "Черновик", content: "Текст", updatedAt: 1000, pinnedThoughts: ["мысль"], tags: ["тег"], labelId: "l1" }],
+      counters: { documents: 0, versions: 0, drafts: 1, aiSummaries: 0, aiEmbeddings: 0, verbatim: {} },
+      checksums: {}, skipped: [],
+    } as unknown as MigrationManifest;
+    await importMigrationManifest(manifest, "u_draft");
+    const db = await getLocalDb();
+    const draft = await db.get("drafts", "u_draft");
+    expect(draft).toMatchObject({ pinnedThoughts: ["мысль"], tags: ["тег"], labelId: "l1" });
+  });
+});

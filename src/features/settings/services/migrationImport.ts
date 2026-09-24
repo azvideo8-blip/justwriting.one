@@ -495,6 +495,9 @@ export async function importMigrationManifest(
       wpm: 0,
       wordCount: (draft.content ?? "").split(/\s+/).filter(Boolean).length,
       updatedAt: resolveDate(draft.updatedAt, [manifestExportDate]),
+      ...(Array.isArray(draft.pinnedThoughts) ? { pinnedThoughts: draft.pinnedThoughts.filter(t => typeof t === "string") } : {}),
+      ...(Array.isArray(draft.tags) ? { tags: draft.tags.filter(t => typeof t === "string") } : {}),
+      ...(typeof draft.labelId === "string" ? { labelId: draft.labelId } : {}),
     });
     existingDraftUserIds.add(targetDraftUserId);
     imported.drafts++;

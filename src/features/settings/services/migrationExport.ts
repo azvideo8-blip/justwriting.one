@@ -111,6 +111,10 @@ export interface MigrationDraft {
   title?: string;
   content: string;
   updatedAt: number;
+  // DA-21: раньше при переносе черновик терял закреплённые мысли, теги и метку.
+  pinnedThoughts?: string[] | undefined;
+  tags?: string[] | undefined;
+  labelId?: string | undefined;
 }
 
 async function sha256Hex(text: string): Promise<string> {
@@ -204,6 +208,9 @@ export async function exportMigrationManifest(): Promise<MigrationManifest> {
             title: d.title,
             content: d.content,
             updatedAt: d.updatedAt,
+            pinnedThoughts: d.pinnedThoughts,
+            tags: d.tags,
+            labelId: d.labelId,
           });
         } catch (e) {
           skipped.push({ store: 'drafts', id: (raw as LocalDraft).userId, reason: String(e) });

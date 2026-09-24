@@ -27,6 +27,13 @@ export function parseLocalizedDate(v: unknown): Date | null {
   if (!trimmed) return null;
 
   // 1. Check if native Date parses standard ISO-8601 strings
+  // Только дата (YYYY-MM-DD) — это день по местному времени, а new Date() читает её
+  // как полночь UTC: к западу от Гринвича выходил предыдущий день (DA-21).
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnly) {
+    const local = new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+    if (!isNaN(local.getTime())) return local;
+  }
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
     const iso = new Date(trimmed);
     if (!isNaN(iso.getTime())) return iso;
