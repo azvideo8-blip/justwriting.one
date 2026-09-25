@@ -930,6 +930,24 @@ BEGIN
   END IF;
 END $$;
 
+-- TB-15: свидетель согласия — серверная отметка, а не клиентское поле. Человек
+-- может записать себе ai_consent_at задним числом (это его строка), но отметка
+-- при этом получает момент записи, а не подставленную дату.
+DO $$
+DECLARE stamped timestamptz; claimed timestamptz;
+BEGIN
+  UPDATE public.users SET ai_consent_at = '2000-01-01'::timestamptz
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  SELECT ai_consent_server_at, ai_consent_at INTO stamped, claimed FROM public.users
+   WHERE uid = '00000000-0000-0000-0000-000000000001';
+  IF claimed <> '2000-01-01'::timestamptz THEN
+    RAISE EXCEPTION 'FAIL: setup — backdated ai_consent_at did not land (%)', claimed;
+  END IF;
+  IF stamped IS NULL OR stamped < now() - interval '1 minute' THEN
+    RAISE EXCEPTION 'FAIL: backdated ai_consent_at moved the server witness (%)', stamped;
+  END IF;
+END $$;
+
 DO $$
 DECLARE bad int;
 BEGIN
