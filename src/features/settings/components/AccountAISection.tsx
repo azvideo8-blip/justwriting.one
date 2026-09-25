@@ -18,6 +18,7 @@ import { Button } from '../../../shared/components/Button';
 import { useLanguage } from '../../../shared/i18n';
 import { SUPPORTED_LOCAL_STORES } from '../../../core/services/LocalStoreSyncService';
 import { writeFacetStore } from '../../../core/services/facetLock';
+import { clearAiDerivedLocalCaches } from '../../auth/services/accountScopedKeys';
 
 interface AccountAISectionProps {
   userId: string;
@@ -170,6 +171,9 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
           await db.clear(store);
         }
       }
+
+      // N-2: кэш портрета и тем в localStorage — иначе портрет возвращался.
+      clearAiDerivedLocalCaches(userId);
 
       // Reset aiProcessed on local documents
       const allDocs = await db.getAll('documents');

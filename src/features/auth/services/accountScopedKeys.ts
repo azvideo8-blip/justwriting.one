@@ -161,3 +161,20 @@ export function clearAccountScopedStorage(uid: string | null | undefined): void 
     localStorage.removeItem(key);
   }
 }
+
+/**
+ * N-2: производные ИИ, закэшированные в localStorage (портрет, его разделы,
+ * темы, журнал судьи). «Удалить все данные ИИ» чистило сервер и IndexedDB, а
+ * портрет при пустой базе читался из этого кэша и возвращался в подсказки.
+ */
+export function clearAiDerivedLocalCaches(uid: string): void {
+  for (const key of [
+    `ai_user_portrait_${uid}`,
+    `ai_portrait_sections_${uid}`,
+    `ai_taxonomy_${uid}`,
+    `ai_judge_log_${uid}`,
+    'ai_user_portrait',
+  ]) {
+    try { localStorage.removeItem(key); } catch { /* private mode */ }
+  }
+}
