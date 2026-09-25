@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9.6 — 2026-09-25
+
+- **[RU]** «PDF / печать» снова работает — и на экране письма, и при выгрузке архива.
+- **[EN]** "PDF / print" works again, both on the writing screen and in the archive export.
+- **[RU]** Если скрыть заметку от ИИ или удалить её, из памяти ИИ уходит и всё, что из неё извлечено: хронология, планы, темы, история жизни и убеждения, — и в чат это больше не попадает.
+- **[EN]** Hiding a note from the AI or deleting it now also removes everything drawn from it — timeline, plans, themes, life story and beliefs — and none of it reaches the chat any more.
+- **[RU]** «Удалить все данные ИИ» стирает и сохранённый портрет, и он больше не возвращается в подсказки чата.
+- **[EN]** "Delete all AI data" now also clears the saved portrait, so it no longer comes back in chat hints.
+- **[RU]** Удаление аккаунта теперь удаляет и обезличенную статистику.
+- **[EN]** Deleting your account now also deletes its anonymised statistics.
+- **[RU]** Приложение с экрана «Домой» на iPhone больше не стоит белым, пока загружается.
+- **[EN]** The home-screen app on iPhone no longer shows a white screen while it loads.
+- **[RU]** Дата в ссылке на заметку в чате — по вашему местному времени.
+- **[EN]** The date on a note link in the chat now uses your local time.
+- **[RU]** Синхронизация: время изменения новой заметки ставит сервер, а счётчик сессий не пишется в удалённую заметку.
+- **[EN]** Sync: the server now stamps when a new note was changed, and the session counter no longer writes to a deleted note.
+
 ## 0.9.5 — 2026-09-25
 
 - **[RU]** Приглашение открывает короткий мастер: приветствие, согласие с политикой, пароль и выбор — хранить ли заметки в облаке. После него сразу редактор, без окон поверх.

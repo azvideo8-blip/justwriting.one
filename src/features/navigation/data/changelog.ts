@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.6',
+    date: '2026-09-25',
+    items: [
+      { category: 'fix', ru: '«PDF / печать» снова работает — и на экране письма, и при выгрузке архива.', en: '"PDF / print" works again, both on the writing screen and in the archive export.' },
+      { category: 'fix', ru: 'Если скрыть заметку от ИИ или удалить её, из памяти ИИ уходит и всё, что из неё извлечено: хронология, планы, темы, история жизни и убеждения, — и в чат это больше не попадает.', en: 'Hiding a note from the AI or deleting it now also removes everything drawn from it — timeline, plans, themes, life story and beliefs — and none of it reaches the chat any more.' },
+      { category: 'fix', ru: '«Удалить все данные ИИ» стирает и сохранённый портрет, и он больше не возвращается в подсказки чата.', en: '"Delete all AI data" now also clears the saved portrait, so it no longer comes back in chat hints.' },
+      { category: 'improvement', ru: 'Удаление аккаунта теперь удаляет и обезличенную статистику.', en: 'Deleting your account now also deletes its anonymised statistics.' },
+      { category: 'fix', ru: 'Приложение с экрана «Домой» на iPhone больше не стоит белым, пока загружается.', en: 'The home-screen app on iPhone no longer shows a white screen while it loads.' },
+      { category: 'fix', ru: 'Дата в ссылке на заметку в чате — по вашему местному времени.', en: 'The date on a note link in the chat now uses your local time.' },
+      { category: 'improvement', ru: 'Синхронизация: время изменения новой заметки ставит сервер, а счётчик сессий не пишется в удалённую заметку.', en: 'Sync: the server now stamps when a new note was changed, and the session counter no longer writes to a deleted note.' },
+    ],
+  },
+  {
     version: '0.9.5',
     date: '2026-09-25',
     items: [
