@@ -1128,17 +1128,18 @@ END $$;
 
 -- 1. Owner updates document title: updated_at advances, created_at does not.
 -- Also verifies client-supplied updated_at cannot override database now().
+-- The seed is its own statement (own transaction): since 0033 the server stamps
+-- updated_at on INSERT too, and now() is constant within one transaction.
+INSERT INTO public.documents (uuid, user_id, title, created_at)
+VALUES ('cursor-test-doc-1', '00000000-0000-0000-0000-000000000001', 'Original Title', now() - interval '1 hour')
+ON CONFLICT (uuid) DO UPDATE SET title = 'Original Title', created_at = now() - interval '1 hour';
 DO $$
 DECLARE
-  owner_uid uuid := '00000000-0000-0000-0000-000000000001';
   initial_created timestamptz;
   initial_updated timestamptz;
   new_updated timestamptz;
   new_created timestamptz;
 BEGIN
-  INSERT INTO public.documents (uuid, user_id, title, created_at, updated_at)
-  VALUES ('cursor-test-doc-1', owner_uid, 'Original Title', now() - interval '1 hour', now() - interval '1 hour')
-  ON CONFLICT (uuid) DO UPDATE SET title = 'Original Title', created_at = now() - interval '1 hour', updated_at = now() - interval '1 hour';
 
   SELECT created_at, updated_at INTO initial_created, initial_updated
     FROM public.documents WHERE uuid = 'cursor-test-doc-1';
@@ -1448,6 +1449,40 @@ BEGIN
     RAISE EXCEPTION 'FAIL: 3 MB local_store_records payload accepted';
   END IF;
 END $$;
+
+-- N-7 (0033): a client-supplied updated_at on INSERT does not stick — the
+-- server stamps it, so no device can push the change cursor into the future.
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+INSERT INTO public.documents (uuid, user_id, title, updated_at)
+VALUES ('n7-future-doc', '00000000-0000-0000-0000-000000000001', 'N7', '2100-01-01'::timestamptz);
+DO $$
+DECLARE u timestamptz;
+BEGIN
+  SELECT updated_at INTO u FROM public.documents WHERE uuid = 'n7-future-doc';
+  IF u > now() + interval '1 minute' THEN
+    RAISE EXCEPTION 'FAIL: client-supplied updated_at on insert stuck (%)', u;
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
+
+-- N-9 (0033): the sessions RPC does not write into a tombstone.
+UPDATE public.documents SET deleted_at = now() WHERE uuid = 'rpc-counter-doc';
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+DO $$
+DECLARE c1 int; c2 int;
+BEGIN
+  SELECT sessions_count INTO c1 FROM public.documents WHERE uuid = 'rpc-counter-doc';
+  PERFORM public.increment_document_sessions('rpc-counter-doc', 1);
+  SELECT sessions_count INTO c2 FROM public.documents WHERE uuid = 'rpc-counter-doc';
+  IF c2 IS DISTINCT FROM c1 THEN
+    RAISE EXCEPTION 'FAIL: sessions RPC wrote into a tombstone (% -> %)', c1, c2;
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
 
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
