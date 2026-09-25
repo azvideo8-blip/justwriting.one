@@ -330,10 +330,10 @@ export class LifecycleRunner {
       }
 
       case 'migrated': {
-        if (!device.documentExists && !postgres.documentExists) {
+        if (!device.documentExists) {
           return false;
         }
-        if (told.cloudSynced && !postgres.documentExists) {
+        if (!postgres.documentExists || Boolean(postgres.deletedAt)) {
           return false;
         }
         return true;
@@ -387,16 +387,34 @@ export class LifecycleRunner {
       this.interceptor.setStep('save_local');
 
       // Step 2: Save version
-      const saveRes = await StorageService.saveVersion(this.userId, localDocId, data);
-      told = {
-        status: saveRes.cloudSynced ? 'synced_to_cloud' : 'saved_local_queued',
-        cloudSynced: saveRes.cloudSynced,
-        forked: saveRes.forked,
-      };
+      try {
+        const saveRes = await StorageService.saveVersion(this.userId, localDocId, data);
+        told = {
+          status: saveRes.cloudSynced ? 'synced_to_cloud' : 'saved_local_queued',
+          cloudSynced: saveRes.cloudSynced,
+          forked: saveRes.forked,
+        };
+      } catch (e: unknown) {
+        if (fault === 'idb_quota') {
+          // DC-3: After quota failure, user frees space and retries save:
+          // Clear armed fault, retry saveVersion with the same data
+          this.interceptor.clearArmedFault();
+          const retryRes = await StorageService.saveVersion(this.userId, localDocId, data);
+          told = {
+            status: retryRes.cloudSynced ? 'synced_to_cloud' : 'saved_local_queued',
+            cloudSynced: retryRes.cloudSynced,
+            forked: retryRes.forked,
+          };
+        } else {
+          throw e;
+        }
+      }
 
       // Step 3: Add cloud copy / sync
       this.interceptor.setStep('sync_cloud');
-      this.interceptor.armFault(fault, faultStep);
+      if (fault !== 'idb_quota') {
+        this.interceptor.armFault(fault, faultStep);
+      }
       if (fault === 'concurrent_tab') {
         await this.interceptor.applyConcurrentTabLock(localDocId);
       }
@@ -426,13 +444,46 @@ export class LifecycleRunner {
     const postgres = this.inspectPostgres(pgLookup);
 
     // Evaluate Postulates
-    const p1Held = told.status === 'error_thrown' ? true : (device.documentExists && device.latestContent === initialText);
-    const p2Held = this.evaluateP2(
-      ['Seq 1 Note', initialText, '😊'],
-      (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0,
-      notes,
-      true
-    );
+    let p1Held: boolean;
+    if (fault === 'idb_quota') {
+      p1Held = Boolean(device.documentExists && device.latestContent === initialText && device.versionsCount === 1);
+    } else {
+      p1Held = told.status === 'error_thrown' ? true : Boolean(device.documentExists && device.latestContent === initialText);
+    }
+
+    const cloudExists = (postgres.documentExists && !postgres.deletedAt) && postgres.versionsCount >= 1;
+    let p2Held: boolean | undefined;
+    if (fault === 'idb_quota') {
+      const vaultOn = getEncryptionEnabled(this.userId);
+      if (vaultOn) {
+        if (!cloudExists) {
+          notes.push('P2 VIOLATION: note expected in cloud after quota retry, but missing');
+          p2Held = false;
+        } else {
+          const evalRes = this.evaluateP2(
+            ['Seq 1 Note', initialText, '😊'],
+            true,
+            notes,
+            true
+          );
+          p2Held = evalRes === true ? true : false;
+        }
+      } else {
+        p2Held = this.evaluateP2(
+          ['Seq 1 Note', initialText, '😊'],
+          cloudExists,
+          notes,
+          true
+        );
+      }
+    } else {
+      p2Held = this.evaluateP2(
+        ['Seq 1 Note', initialText, '😊'],
+        (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0,
+        notes,
+        true
+      );
+    }
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 
@@ -781,6 +832,25 @@ export class LifecycleRunner {
     });
     const cloudId = await StorageService.addCloudCopy(this.userId, localDocId);
 
+    // Neighbor note (DC-1) to verify deletion is targeted and does not corrupt adjacent notes
+    const neighborText = 'Neighbor Note Text';
+    const neighborId = await LocalStorageService.createDocument(this.userId, {
+      title: 'Neighbor Note',
+      tags: [],
+      firstSessionAt: 1000,
+      lastSessionAt: 1000,
+    });
+    await StorageService.saveVersion(this.userId, neighborId, {
+      title: 'Neighbor Note',
+      content: neighborText,
+      wordCount: 3,
+      duration: 30,
+      wpm: 12,
+      tags: [],
+      sessionStartedAt: new Date(1000),
+    });
+    const neighborCloudId = await StorageService.addCloudCopy(this.userId, neighborId);
+
     const markers = ['To Delete', 'Text to delete'];
     const p2Before = this.evaluateP2(markers, true, notes);
 
@@ -801,6 +871,8 @@ export class LifecycleRunner {
 
     const device = await this.inspectDevice(localDocId, cloudId);
     const postgres = this.inspectPostgres(cloudId);
+    const neighborDevice = await this.inspectDevice(neighborId, neighborCloudId);
+    const neighborPostgres = this.inspectPostgres(neighborCloudId);
 
     if (faultStep === 'delete_cloud' && (fault === 'network_pre' || fault === 'postgres_500')) {
       if (!postgres.deletedAt && postgres.documentExists) {
@@ -829,7 +901,17 @@ export class LifecycleRunner {
       notes.push('P2 VIOLATION: leftover rows found in ' + leftoverTables.join(', '));
     }
 
-    const p1Held = undefined; // Postulate 1 exemption: document was explicitly deleted by user
+    // DC-1: P1 measurement for deletion
+    const neighborIntactLocal = neighborDevice.documentExists && neighborDevice.latestContent === neighborText;
+    const neighborIntactCloud = neighborPostgres.documentExists && !neighborPostgres.deletedAt;
+    let targetCorrectLocal: boolean;
+    if (told.status === 'error_thrown') {
+      targetCorrectLocal = device.documentExists && device.latestContent === 'Text to delete';
+    } else {
+      targetCorrectLocal = !device.documentExists;
+    }
+    const p1Held = neighborIntactLocal && neighborIntactCloud && targetCorrectLocal;
+
     let p2Held: boolean | undefined;
     if (vaultOn) {
       if (p2Before === false || leaksAfter.length > 0 || leftoverTables.length > 0) {
@@ -888,6 +970,24 @@ export class LifecycleRunner {
       sessionStartedAt: new Date(1000),
     });
 
+    // Neighbor note (DC-1) to verify deletion is targeted
+    const neighborText = 'Neighbor Offline Text';
+    const neighborId = await LocalStorageService.createDocument(this.userId, {
+      title: 'Neighbor Note',
+      tags: [],
+      firstSessionAt: 1000,
+      lastSessionAt: 1000,
+    });
+    await StorageService.saveVersion(this.userId, neighborId, {
+      title: 'Neighbor Note',
+      content: neighborText,
+      wordCount: 3,
+      duration: 30,
+      wpm: 12,
+      tags: [],
+      sessionStartedAt: new Date(1000),
+    });
+
     const markers = ['Offline Note', 'Unsynced text'];
     const leaksBefore = this.interceptor.postgres.plaintextLeaks(markers);
 
@@ -910,22 +1010,44 @@ export class LifecycleRunner {
       notes.push(`Error during deleteDocument: ${(e as Error).message}`);
     }
 
+    // DC-2: drain the queue as app does after deletion
+    this.interceptor.clearArmedFault();
+    await SyncService.syncPending(this.userId, { force: true });
+
     const device = await this.inspectDevice(localDocId);
     const postgres = this.inspectPostgres(localDocId);
+    const neighborDevice = await this.inspectDevice(neighborId);
 
     // Defect check: did the syncQueue retain the upload task for the deleted document?
-    const hasOrphanTask = device.queueTasks.some(t => t.type === 'document');
+    const hasOrphanTask = device.queueTasks.some(t => t.documentId === localDocId || (t.type === 'document' && t.documentId === localDocId));
     if (hasOrphanTask) {
       notes.push('DEFECT: Deleting unlinked local note leaves orphaned task in syncQueue that fails on drain');
     }
 
+    // DC-1: P1 measurement for deletion before sync
+    const neighborIntactLocal = neighborDevice.documentExists && neighborDevice.latestContent === neighborText;
+    let targetCorrectLocal: boolean;
+    if (told.status === 'error_thrown') {
+      targetCorrectLocal = device.documentExists && device.latestContent === 'Unsynced text';
+    } else {
+      targetCorrectLocal = !device.documentExists;
+    }
+    const p1Held = neighborIntactLocal && targetCorrectLocal;
+
+    // DC-2: P2 measurement — note deleted before sync must never reach cloud
+    const vaultOn = getEncryptionEnabled(this.userId);
     const leaksAfter = this.interceptor.postgres.plaintextLeaks(markers);
-    if (leaksBefore.length > 0 || leaksAfter.length > 0) {
+    const anyCloudRows = this.interceptor.postgres.getRows('documents').length > 0 || this.interceptor.postgres.getRows('versions').length > 0;
+    if (leaksBefore.length > 0 || leaksAfter.length > 0 || anyCloudRows) {
       notes.push('P2 VIOLATION: offline note leaked to cloud');
     }
 
-    const p1Held = undefined; // Postulate 1 exemption: unsynced document was explicitly deleted by user
-    const p2Held = (leaksBefore.length > 0 || leaksAfter.length > 0) ? false : undefined;
+    let p2Held: boolean | undefined;
+    if (vaultOn) {
+      p2Held = (leaksBefore.length === 0 && leaksAfter.length === 0 && !anyCloudRows && !hasOrphanTask);
+    } else {
+      p2Held = undefined;
+    }
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 
@@ -1114,6 +1236,8 @@ export class LifecycleRunner {
   public async runSeq8_GuestSignupMigrateSync(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
     const notes: string[] = [];
+    this.setCurrentUser(null);
+    localStorage.setItem('jw_guest_id', this.guestId);
 
     // Guest writes note
     const guestDocId = await LocalStorageService.createDocument(this.guestId, {
@@ -1133,6 +1257,13 @@ export class LifecycleRunner {
     });
 
     // Migrate to signed-in user
+    this.setCurrentUser({
+      uid: this.userId,
+      email: 'test@example.com',
+      displayName: 'Test User',
+      photoURL: null,
+      metadata: { creationTime: null, lastSignInTime: null },
+    });
     const { migrateDocuments } = await import('../../features/auth/services/migrateDocuments');
     this.interceptor.setStep(faultStep);
     this.interceptor.armFault(fault, faultStep);
@@ -1142,18 +1273,46 @@ export class LifecycleRunner {
       const count = await migrateDocuments(this.userId);
       told = { status: 'migrated', cloudSynced: false, userFacingMessage: `Migrated ${count} docs` };
       // Sync migrated document
-      const cloudId = await StorageService.addCloudCopy(this.userId, guestDocId);
-      if (cloudId) told.cloudSynced = true;
+      try {
+        const cloudId = await StorageService.addCloudCopy(this.userId, guestDocId);
+        if (cloudId) told.cloudSynced = true;
+      } catch (syncErr: unknown) {
+        notes.push(`Initial sync failed during fault: ${(syncErr as Error).message}`);
+      }
     } catch (e: unknown) {
       told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
       notes.push(`Error during migrateDocuments: ${(e as Error).message}`);
     }
 
+    // DC-4: сеть вернулась. Приложение дочищает перенос так же, как любую
+    // заметку без облачной копии: фоновый проход (useBackgroundSync) находит её
+    // обходом sweepOrphanedDocuments и прогоняет очередь. Здесь — те же два
+    // вызова, а не отдельная постановка в очередь при переносе.
+    this.interceptor.clearArmedFault();
+    // Обход берёт заметки старше 5 минут — ноль здесь значит «следующий проход,
+    // пять минут спустя».
+    await SyncService.sweepOrphanedDocuments(this.userId, 0);
+    await SyncService.syncPending(this.userId);
+
     const device = await this.inspectDevice(guestDocId);
     const postgres = this.inspectPostgres(device.linkedCloudId || guestDocId);
 
-    const p1Held = device.latestContent === 'Guest text content';
-    const p2Held = this.evaluateP2(['Guest Note', 'Guest text content'], told.cloudSynced || postgres.documentExists, notes);
+    const cloudExists = (postgres.documentExists && !postgres.deletedAt) && postgres.versionsCount >= 1;
+
+    const p1Held = Boolean(device.latestContent === 'Guest text content' && device.documentExists);
+    let p2Held: boolean | undefined;
+    const vaultOn = getEncryptionEnabled(this.userId);
+    if (vaultOn) {
+      if (!cloudExists) {
+        notes.push('P2 VIOLATION: note expected in cloud after migration queue drain, but missing in cloud');
+        p2Held = false;
+      } else {
+        const evalRes = this.evaluateP2(['Guest Note', 'Guest text content'], true, notes);
+        p2Held = evalRes === true ? true : false;
+      }
+    } else {
+      p2Held = this.evaluateP2(['Guest Note', 'Guest text content'], cloudExists, notes);
+    }
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
 

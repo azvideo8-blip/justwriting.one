@@ -15,10 +15,10 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs runs cleanly and passes all postulates', () => {
     // N-3: этот тест про матрицу без базы; живой обход базы — отдельный запуск
     // с DATABASE_URL, поэтому переменную окружения сюда не пропускаем.
-    // Число только уменьшается. Факт: 24 применимые не измеренные ячейки (P1 12, P2 4, P4 8);
+    // Число только уменьшается. Факт: 0 применимых не измеренных ячеек;
     // P2/P4 без сейфа неприменимы и не считаются.
     const { DATABASE_URL: _db, ...env } = process.env;
-    const res = spawnSync('node', [postulatesScript, '--max-unmeasured', '24'], {
+    const res = spawnSync('node', [postulatesScript, '--max-unmeasured', '0'], {
       cwd: rootDir,
       encoding: 'utf8',
       timeout: 60000,
@@ -41,26 +41,15 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs --max-unmeasured ratchet works (TB-11)', () => {
     const { DATABASE_URL: _db, ...env } = process.env;
 
-    // 1. --max-unmeasured 0 fails with exit 1 and lists unmeasured cells
-    const res0 = spawnSync('node', [postulatesScript, '--max-unmeasured', '0'], {
-      cwd: rootDir,
-      encoding: 'utf8',
-      timeout: 60000,
-      env,
-    });
-    expect(res0.status).toBe(1);
-    expect(res0.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED');
-    expect(res0.stdout).toContain('List of unmeasured cells:');
-
-    // 2. --max-unmeasured 23 (1 less than fact 24) fails with exit 1
-    const res99 = spawnSync('node', [postulatesScript, '--max-unmeasured', '23'], {
+    // 1. --max-unmeasured -1 (1 less than fact 0) fails with exit 1
+    const res99 = spawnSync('node', [postulatesScript, '--max-unmeasured', '-1'], {
       cwd: rootDir,
       encoding: 'utf8',
       timeout: 60000,
       env,
     });
     expect(res99.status).toBe(1);
-    expect(res99.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED: 24 > 23');
+    expect(res99.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED: 0 > -1');
 
     // 3. evaluateMatrixResults directly unit test
     const cell1 = {

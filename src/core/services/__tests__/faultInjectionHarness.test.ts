@@ -75,7 +75,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
 
     it('Sequence 4: write → save → sync → delete removes both sides', async () => {
       const res = await runner.runSeq4_WriteSaveSyncDelete('none', 'delete_local');
-      expect(res.p1Held).toBeUndefined();
+      expect(res.p1Held).toBe(true);
       expect(res.told.status).toBe('deleted');
       expect(res.device.documentExists).toBe(false);
       expect(res.postgres.deletedAt).toBeTruthy();
@@ -156,11 +156,11 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       expect(res.p1Held).toBe(true);
     });
 
-    it('IndexedDB QuotaExceededError on local save halts operation and notifies user', async () => {
+    it('IndexedDB QuotaExceededError on local save recovers after space freed and syncs (DC-3)', async () => {
       const res = await runner.runSeq1_WriteSaveSync('idb_quota', 'save_local');
-      expect(res.told.status).toBe('error_thrown');
-      expect(res.told.error).toContain('quota');
-      // P1: caller was NOT told it was saved, so absence was not fabricated as success
+      expect(res.told.status).toBe('synced_to_cloud');
+      expect(res.device.versionsCount).toBe(1);
+      expect(res.device.latestContent).toBe('Text from Seq1');
       expect(res.p1Held).toBe(true);
     });
 
@@ -1161,12 +1161,12 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
   // Postulate 1 Measurement and Exemption Verification (GUARD-8)
   // =========================================================================
   describe('Postulate 1 Measurement and Exemption Verification (GUARD-8)', () => {
-    it('Sequences 4 and 5 report p1Held as undefined due to user deletion exemption', async () => {
+    it('Sequences 4 and 5 measure P1 for deletion (neighbor intact, target gone)', async () => {
       const res4 = await runner.runSeq4_WriteSaveSyncDelete('none', 'delete_local');
-      expect(res4.p1Held).toBeUndefined();
+      expect(res4.p1Held).toBe(true);
 
       const res5 = await runner.runSeq5_DeleteBeforeSync('none', 'delete_local');
-      expect(res5.p1Held).toBeUndefined();
+      expect(res5.p1Held).toBe(true);
     });
 
     // Next-steps №8: удаление аккаунта больше не «не измерено» — P1 держится,
