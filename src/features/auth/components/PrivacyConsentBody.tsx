@@ -33,7 +33,7 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
       <div className="space-y-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">Что уходит третьим лицам</h3>
         <p>Текст уходит поставщику ИИ <strong>только когда вы пользуетесь ИИ</strong>: нажимаете разбор у заметки, отправляете сообщение в чате или просите ИИ-помощника. Вместе с ответом в чате приложение делает несколько служебных запросов с тем же разговором — придумывает название диалога, предлагает подсказки и сохраняет факты в «Память ИИ» (подсказки и память можно выключить в настройках). Без ваших действий тексты не отправляются.</p>
-        <p>Поставщик — RouterAI (Россия). Он не хранит содержимое запросов, но по умолчанию может передать запрос зарубежному сервису, который вычисляет ответ и таких гарантий не даёт. Мы ищем решение; пока честнее сказать прямо.</p>
+        <p>Поставщик — RouterAI (Россия). Он не хранит содержимое запросов, но по умолчанию может передать запрос зарубежному сервису, который вычисляет ответ и таких гарантий не даёт.</p>
         <p>Голосовой ввод (диктовка) использует встроенное распознавание речи браузера: аудиозапись передаётся серверам вендора браузера (Google или Apple) для перевода в текст.</p>
         <p>Если в заметке упомянуты другие люди, их слова и обстоятельства уходят вместе с текстом. Отдельной картотеки упомянутых людей приложение не ведёт.</p>
       </div>
@@ -60,25 +60,18 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
           согласие на них, спрятанное в общее «согласен с политикой», не
           считается данным. Галочка не обязательна: отказ оставляет письмо и
           хранение записей, забирая только функции ИИ. */}
-      <div className="p-3 rounded-xl border border-border-subtle bg-surface-base/30 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-text-main">Функции искусственного интеллекта</span>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-elevated text-text-main/60 border border-border-subtle">
-            Необязательно
-          </span>
-        </div>
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={aiConsent}
-            onChange={e => onAiConsent(e.target.checked)}
-            className="mt-0.5 accent-brand-soft shrink-0"
-          />
-          <span className="text-xs text-text-main/60 leading-relaxed">
-            Я даю <a href="/consent" className="text-brand-soft underline">согласие на обработку специальных категорий персональных данных</a> — сведений о состоянии здоровья, психоэмоциональном состоянии и личной жизни, которые могут содержаться в моих записях, — для работы функций ИИ. Без этого согласия письмо и хранение записей остаются доступными, функции ИИ — нет
-          </span>
-        </label>
-      </div>
+      <label className="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={aiConsent}
+          onChange={e => onAiConsent(e.target.checked)}
+          className="mt-0.5 accent-brand-soft shrink-0"
+        />
+        <span className="text-xs text-text-main/70">
+          <span className="font-semibold text-text-main">Необязательно, для функций ИИ: </span>
+          Я даю <a href="/consent" className="text-brand-soft underline">согласие на обработку специальных категорий персональных данных</a> — сведений о состоянии здоровья, психоэмоциональном состоянии и личной жизни, которые могут содержаться в моих записях, — для работы функций ИИ. Без этого согласия письмо и хранение записей остаются доступными, функции ИИ — нет
+        </span>
+      </label>
     </div>
     </>
   );

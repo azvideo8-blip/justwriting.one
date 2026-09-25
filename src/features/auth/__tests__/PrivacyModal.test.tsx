@@ -36,12 +36,11 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
     expect(screen.getByRole('heading', { name: 'Что уходит третьим лицам' })).toBeInTheDocument();
   });
 
-  it('renders distinct required terms checkbox and optional AI consent card', () => {
+  it('renders distinct required terms checkbox and optional AI consent checkbox', () => {
     render(<PrivacyModal onAccepted={vi.fn()} />);
 
     expect(screen.getByText(/Обязательно:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Функции искусственного интеллекта/i)).toBeInTheDocument();
-    expect(screen.getByText('Необязательно')).toBeInTheDocument();
+    expect(screen.getByText(/Необязательно, для функций ИИ:/i)).toBeInTheDocument();
 
     const submitBtn = screen.getByRole('button', { name: 'Продолжить' });
     expect(submitBtn).toBeDisabled();
