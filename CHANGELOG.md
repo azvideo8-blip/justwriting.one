@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.8 — 2026-09-25
+
+- **[RU]** Заметка, которую сервер подтвердил, но потерял, снова уходит в облако, а не считается синхронизированной навсегда.
+- **[EN]** A note the server acknowledged but then lost is uploaded again instead of counting as synced forever.
+- **[RU]** Безопасность: приложение берёт из облака только строки своего аккаунта, даже если сервер по ошибке отдал чужие.
+- **[EN]** Security: the app takes only its own account’s rows from the cloud, even if the server hands over someone else’s by mistake.
+
 ## 0.9.7 — 2026-09-25
 
 - **[RU]** После мастера приглашения больше не всплывают второй раз окно политики и вопрос о синхронизации — мастер уже спросил об этом.

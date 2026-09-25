@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.8',
+    date: '2026-09-25',
+    items: [
+      { category: 'fix', ru: 'Заметка, которую сервер подтвердил, но потерял, снова уходит в облако, а не считается синхронизированной навсегда.', en: 'A note the server acknowledged but then lost is uploaded again instead of counting as synced forever.' },
+      { category: 'improvement', ru: 'Безопасность: приложение берёт из облака только строки своего аккаунта, даже если сервер по ошибке отдал чужие.', en: 'Security: the app takes only its own account’s rows from the cloud, even if the server hands over someone else’s by mistake.' },
+    ],
+  },
+  {
     version: '0.9.7',
     date: '2026-09-25',
     items: [
