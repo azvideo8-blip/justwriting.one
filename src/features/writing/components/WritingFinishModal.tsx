@@ -172,6 +172,41 @@ interface WritingFinishModalProps {
   savedDocumentId?: string | null | undefined;
 }
 
+export interface SessionFinishStatsInput {
+  accumulatedDuration: number;
+  seconds: number;
+  sessionStartSeconds: number;
+  initialDuration: number;
+  wordCount: number;
+  initialWordCount: number;
+  totalPauseSeconds?: number;
+}
+
+export interface SessionFinishStats {
+  totalAccumulatedSeconds: number;
+  sessionSeconds: number;
+  totalElapsedSeconds: number;
+  sessionWords: number;
+  avgWpm: number;
+}
+
+export function calculateSessionFinishStats(input: SessionFinishStatsInput): SessionFinishStats {
+  const totalAccumulatedSeconds = input.accumulatedDuration + Math.max(0, input.seconds - input.sessionStartSeconds);
+  const sessionSeconds = Math.max(0, totalAccumulatedSeconds - input.initialDuration);
+  const totalElapsedSeconds = sessionSeconds + (input.totalPauseSeconds ?? 0);
+  const sessionWords = Math.max(0, input.wordCount - input.initialWordCount);
+  const avgWpm = sessionSeconds > 0
+    ? Math.round((sessionWords / sessionSeconds) * 60)
+    : 0;
+  return {
+    totalAccumulatedSeconds,
+    sessionSeconds,
+    totalElapsedSeconds,
+    sessionWords,
+    avgWpm,
+  };
+}
+
 // Закрытое окно не монтирует тело: иначе оно подписано на текст, таймер и
 // счётчики и крутит анимацию цифр на каждой секунде и каждом слове — лишние
 // перерисовки экрана письма (EA-9). Черновик заголовка живёт здесь, чтобы, как
@@ -223,14 +258,21 @@ function WritingFinishModalBody({
     wordGoalReached: s.wordGoalReached,
     timeGoalReached: s.timeGoalReached,
   })));
-  const totalAccumulatedSeconds = accumulatedDuration + Math.max(0, seconds - sessionStartSeconds);
-  const sessionSeconds = Math.max(0, totalAccumulatedSeconds - initialDuration);
-  const totalElapsedSeconds = sessionSeconds + totalPauseSeconds;
-
-  const sessionWords = Math.max(0, wordCount - initialWordCount);
-  const avgWpm = sessionSeconds > 0
-    ? Math.round((sessionWords / sessionSeconds) * 60)
-    : 0;
+  const {
+    totalAccumulatedSeconds,
+    sessionSeconds,
+    totalElapsedSeconds,
+    sessionWords,
+    avgWpm,
+  } = calculateSessionFinishStats({
+    accumulatedDuration,
+    seconds,
+    sessionStartSeconds,
+    initialDuration,
+    wordCount,
+    initialWordCount,
+    totalPauseSeconds,
+  });
   const readingMinutes = readingTimeMinutes(wordCount || sessionWords);
 
   const animWords = useCountUp(sessionWords);

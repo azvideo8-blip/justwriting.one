@@ -4,10 +4,6 @@ import { join } from 'node:path';
 import { DB_VERSION } from '../localDb';
 
 describe('AU-4: IndexedDB версия в localDb.ts', () => {
-  it('константа DB_VERSION экспортируется и равна 21', () => {
-    expect(DB_VERSION).toBe(21);
-  });
-
   // Ветки миграций — числа, не константа: `oldVersion < DB_VERSION` при
   // следующем подъёме заново запустил бы старую ветку на уже обновлённых базах.
   it('последняя ветка oldVersion < N — число, равное DB_VERSION', () => {

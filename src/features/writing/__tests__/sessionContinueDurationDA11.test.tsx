@@ -5,6 +5,7 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { loadDraftIntoStore } from '../store/storeActions';
 import { FinishModalStats } from '../components/FinishModalStats';
+import { calculateSessionFinishStats } from '../components/WritingFinishModal';
 
 vi.mock('../components/WpmChart', () => ({
   WpmChart: () => <div data-testid="wpm-chart" />,
@@ -60,12 +61,20 @@ describe('DA-11: Window completion: time and wpm when continuing old note', () =
     const timer = useTimerStore.getState();
     const content = useContentStore.getState();
 
-    const totalAccumulatedSeconds = timer.accumulatedDuration + Math.max(0, timer.seconds - timer.sessionStartSeconds);
-    const sessionSeconds = Math.max(0, totalAccumulatedSeconds - timer.initialDuration);
-    const sessionWords = Math.max(0, content.wordCount - content.initialWordCount);
-    const avgWpm = sessionSeconds > 0
-      ? Math.round((sessionWords / sessionSeconds) * 60)
-      : 0;
+    const {
+      totalAccumulatedSeconds,
+      sessionSeconds,
+      sessionWords,
+      avgWpm,
+    } = calculateSessionFinishStats({
+      accumulatedDuration: timer.accumulatedDuration,
+      seconds: timer.seconds,
+      sessionStartSeconds: timer.sessionStartSeconds,
+      initialDuration: timer.initialDuration,
+      wordCount: content.wordCount,
+      initialWordCount: content.initialWordCount,
+      totalPauseSeconds: timer.totalPauseSeconds,
+    });
 
     expect(totalAccumulatedSeconds).toBe(7380);
     expect(sessionSeconds).toBe(180);

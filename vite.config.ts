@@ -92,13 +92,14 @@ export default defineConfig(() => {
       coverage: {
         provider: 'istanbul' as const,
         reporter: ['text', 'html', 'lcov'],
-        include: ['src/**/*.{ts,tsx}'],
+        include: ['src/**/*.{ts,tsx}', 'api/**/*.ts'],
         exclude: [
           'src/**/*.test.{ts,tsx}',
           'src/**/*.d.ts',
           'src/test/**',
           'src/types/**',
           'src/**/index.ts',
+          'api/**/__tests__/**',
         ],
         // Храповик, а не цель. Значения — фактический уровень на 0.7.68, округлённый
         // вниз: задача порога здесь не поднять покрытие, а не дать ему упасть.
@@ -115,6 +116,7 @@ export default defineConfig(() => {
           'src/core/crypto/**': { statements: 70, branches: 58, functions: 65, lines: 74 },
           'src/core/services/**': { statements: 63, branches: 54, functions: 60, lines: 66 },
           'src/features/auth/services/**': { statements: 53, branches: 46, functions: 55, lines: 54 },
+          'api/**': { statements: 66, branches: 55, functions: 67, lines: 69 },
         },
       },
     },
