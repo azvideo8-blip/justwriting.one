@@ -133,10 +133,11 @@ describe('ExportService', () => {
 
       expect(appendChildSpy).toHaveBeenCalled();
       expect(createdIframe).not.toBeNull();
-      expect(createdIframe.getAttribute('sandbox')).toBe('allow-scripts allow-modals');
+      expect(createdIframe.getAttribute('sandbox')).toBe('allow-same-origin allow-modals');
       expect(createdIframe.srcdoc).toContain('My PDF Document');
       expect(createdIframe.srcdoc).toContain('This is content to print');
-      expect(createdIframe.srcdoc).toContain('window.print()');
+      // N-16: инлайн-скрипт режет CSP — печать зовёт родительская страница.
+      expect(createdIframe.srcdoc).not.toContain('<script');
 
       // Clean up: afterprint is a Window event — it fires on the iframe's
       // contentWindow (listener attached in the load handler), not on the

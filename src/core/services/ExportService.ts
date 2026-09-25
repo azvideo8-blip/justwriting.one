@@ -75,12 +75,6 @@ export class ExportService {
         <body>
           <h1>${safeTitle}</h1>
           <pre>${escapeHtml(content)}</pre>
-          <script>
-            window.onload = function() {
-              window.focus();
-              window.print();
-            };
-          </script>
         </body>
         </html>
       `;
@@ -92,7 +86,11 @@ export class ExportService {
       iframe.style.width = '0';
       iframe.style.height = '0';
       iframe.style.border = 'none';
-      iframe.setAttribute('sandbox', 'allow-scripts allow-modals');
+      // N-16: скрипты внутри не нужны и не работают (srcdoc наследует CSP страницы,
+      // script-src 'self'), а без allow-same-origin страница не может сама позвать
+      // print() у iframe — печать не запускалась вовсе. allow-same-origin без
+      // allow-scripts безопасен: исполнять в документе нечего.
+      iframe.setAttribute('sandbox', 'allow-same-origin allow-modals');
       iframe.srcdoc = printContent;
       document.body.appendChild(iframe);
 

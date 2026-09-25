@@ -33,9 +33,12 @@ describe('D-27: exportAsPdf window.open popup behavior', () => {
   });
 
   it('opens window without "noopener" in features and sets opener = null manually without downloading fallback html', () => {
+    const listeners: Record<string, () => void> = {};
     const mockWindow = {
       focus: vi.fn(),
+      print: vi.fn(),
       opener: 'not-null',
+      addEventListener: vi.fn((type: string, cb: () => void) => { listeners[type] = cb; }),
     };
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(mockWindow as unknown as Window);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -50,6 +53,10 @@ describe('D-27: exportAsPdf window.open popup behavior', () => {
 
     // Fallback html download must NOT trigger an anchor click
     expect(clickSpy).not.toHaveBeenCalled();
+
+    // N-16: печать запускается открывшей страницей после загрузки, без инлайн-скрипта (его режет CSP).
+    listeners.load?.();
+    expect(mockWindow.print).toHaveBeenCalled();
   });
 
   it('falls back to downloading html if window.open returns null (blocked popup)', () => {

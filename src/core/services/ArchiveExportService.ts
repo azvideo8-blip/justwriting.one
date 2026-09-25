@@ -188,14 +188,6 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
   <hr class="divider">
   <div class="content">${escapeHtml(session.content || '')}</div>
   ${session.tags?.length ? `<div class="tags">${session.tags.map(t => '#' + escapeHtml(t)).join(' ')}</div>` : ''}
-  <script>
-    if (window.location.protocol === 'blob:') {
-      window.onload = function() {
-        window.focus();
-        window.print();
-      };
-    }
-  </script>
 </body>
 </html>`;
 
@@ -231,6 +223,9 @@ export function exportAsPdf(session: ArchiveSession, s: ExportStrings): void {
     const win = window.open(blobUrl, '_blank');
 
     if (win) {
+      // N-16: печать зовём отсюда. Встроенный <script> в blob-документе не
+      // выполнялся: blob наследует CSP страницы (script-src 'self').
+      win.addEventListener('load', () => { win.focus(); win.print(); }, { once: true });
       try {
         win.opener = null;
       } catch {
