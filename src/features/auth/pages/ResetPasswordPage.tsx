@@ -32,6 +32,11 @@ export function ResetPasswordPage() {
   const [isInvite] = useState(() => {
     return searchParams.get('type') === 'invite' || (typeof window !== 'undefined' && window.location.hash.includes('type=invite'));
   });
+  // Ссылка-приглашение открыта, когда в браузере уже выполнен вход: сессия в
+  // браузере одна, и переход по ссылке выкинул бы из текущего аккаунта молча.
+  // Сначала спрашиваем. undefined — ещё не проверили, null — входа не было.
+  const [switchFrom, setSwitchFrom] = useState<string | null | undefined>(isInvite ? undefined : null);
+  const [switchConfirmed, setSwitchConfirmed] = useState(false);
   const [legacyHash] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
@@ -52,11 +57,26 @@ export function ResetPasswordPage() {
     const type = searchParams.get('type');
 
     if (tokenHash && (type === 'recovery' || type === 'invite')) {
+      if (type === 'invite' && !switchConfirmed) {
+        void (async () => {
+          try {
+            const { getSupabase } = await import('../../../core/supabase/client');
+            const { data } = await getSupabase().auth.getSession();
+            const signedIn = data.session?.user ?? null;
+            setSwitchFrom(signedIn ? (signedIn.email ?? 'другой аккаунт') : null);
+            if (!signedIn) setSwitchConfirmed(true);
+          } catch {
+            setSwitchFrom(null);
+            setSwitchConfirmed(true);
+          }
+        })();
+        return unsub;
+      }
       verifyOtpForRecovery(tokenHash, type)
-        .then(() => {
+        .then((linkEmail) => {
           setRecoveryMode(true);
           setLinkExpired(false);
-          const currentUserEmail = getCurrentUser()?.email;
+          const currentUserEmail = linkEmail ?? getCurrentUser()?.email;
           if (currentUserEmail) setEmail(currentUserEmail);
           window.history.replaceState(null, '', window.location.pathname);
         })
@@ -75,7 +95,7 @@ export function ResetPasswordPage() {
     }
 
     return unsub;
-  }, [searchParams]);
+  }, [searchParams, switchConfirmed]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -120,6 +140,32 @@ export function ResetPasswordPage() {
       setBusy(false);
     }
   };
+
+  if (isInvite && searchParams.get('token_hash') && !switchConfirmed) {
+    if (switchFrom === undefined) return <div className="min-h-screen bg-surface-base" />;
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-surface-base">
+        <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl border bg-surface-card border-border-subtle shadow-xl space-y-5" data-testid="invite-switch-account">
+          <h1 className="text-xl font-bold text-text-main">Сейчас выполнен вход в другой аккаунт</h1>
+          <p className="text-sm leading-relaxed text-text-main/70">
+            В этом браузере открыт аккаунт <strong className="text-text-main">{switchFrom}</strong>. Приглашение
+            создаёт новый аккаунт, и из этого придётся выйти — во всех вкладках. Ваши заметки и черновик
+            останутся в нём, войти обратно можно в любой момент.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => { void navigate('/', { replace: true }); }}
+              className="w-full py-3 rounded-xl text-sm font-medium border border-border-subtle text-text-main/80 hover:text-text-main hover:bg-text-main/5 transition-colors">
+              Остаться
+            </button>
+            <button type="button" onClick={() => setSwitchConfirmed(true)}
+              className="w-full py-3 rounded-xl font-bold text-sm text-surface-base bg-brand-soft hover:brightness-110 transition-colors">
+              Продолжить
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ON-2: приглашённый проходит мастер (приветствие → политика → пароль →
   // синхронизация); голая форма ниже — для сброса пароля.

@@ -28,6 +28,11 @@ vi.mock('../../../../core/auth/supabaseAuthProvider', () => ({
   getCurrentUser: (...a: unknown[]) => getCurrentUser(...(a as [])),
 }));
 
+const { getSession } = vi.hoisted(() => ({ getSession: vi.fn().mockResolvedValue({ data: { session: null } }) }));
+vi.mock('../../../../core/supabase/client', () => ({
+  getSupabase: () => ({ auth: { getSession: (...a: unknown[]) => getSession(...(a as [])) } }),
+}));
+
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
@@ -130,5 +135,29 @@ describe('1.3 password recovery', () => {
     } finally {
       window.location.hash = originalHash;
     }
+  });
+});
+
+// Ссылка-приглашение поверх уже открытого аккаунта: сессия в браузере одна, и
+// переход молча выкидывал человека из его аккаунта (а его черновик уезжал в новый).
+describe('invite link while another account is signed in', () => {
+  it('asks first, verifies nothing until the person agrees', async () => {
+    getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
+    renderPage(['/reset-password?token_hash=abc&type=invite']);
+
+    expect(await screen.findByTestId('invite-switch-account')).toBeInTheDocument();
+    expect(screen.getByText('owner@example.com')).toBeInTheDocument();
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Продолжить'));
+    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalledWith('abc', 'invite'));
+  });
+
+  it('«Остаться» leaves the link unused and returns to the app', async () => {
+    getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
+    renderPage(['/reset-password?token_hash=abc&type=invite']);
+    fireEvent.click(await screen.findByText('Остаться'));
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
   });
 });
