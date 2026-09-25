@@ -1,0 +1,99 @@
+name: Testability Gates (Mutations, Proofs, Live DB)
+
+# TB-04: Ворота проверяемости. Запускаются только по требованию (workflow_dispatch)
+# или при пуше тега релиза (v*). Не используют schedule, чтобы не расходовать платные минуты.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: Testability & Mutations Gates
+    runs-on: [self-hosted, justwriting-vps]
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: 1. Mutation suite (--check)
+        run: bash scripts/test-audit-mutations.sh --check
+
+      - name: 2. Audit proofs
+        run: bash scripts/audit-proofs.sh
+
+      - name: 3. Live database checks (Canary, Postulates, Account Deletion)
+        run: |
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "::error::Docker is not available on this runner. Live database checks require Docker."
+            exit 1
+          fi
+
+          echo "Starting Postgres 16 container..."
+          CONTAINER_NAME="jw-gate-postgres-${GITHUB_RUN_ID:-local}"
+          docker run --name "$CONTAINER_NAME" -d -p 5439:5432 -e POSTGRES_PASSWORD=postgres postgres:16
+
+          cleanup() {
+            echo "Cleaning up Postgres container..."
+            docker rm -f "$CONTAINER_NAME" || true
+          }
+          trap cleanup EXIT
+
+          echo "Waiting for Postgres to become ready..."
+          # По TCP: временный сервер initdb слушает только сокет и потом перезапускается.
+          until docker exec "$CONTAINER_NAME" pg_isready -h 127.0.0.1 -U postgres; do
+            sleep 1
+          done
+
+          echo "Applying migrations and RLS test fixtures..."
+          docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/_auth_setup.sql
+          for f in supabase/migrations/*.sql; do
+            docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < "$f"
+          done
+          docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/rls.test.sql
+
+          export DATABASE_URL="postgres://postgres:postgres@localhost:5439/postgres"
+
+          echo "TB-02/TB-03 Step A: Injecting canary..."
+          docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/postulates_canary.sql
+
+          echo "Running postulates with canary (MUST fail exit 1)..."
+          set +e
+          CANARY_OUTPUT=$(node scripts/postulates.mjs --require-db 2>&1)
+          CANARY_RC=$?
+          set -e
+
+          if [ $CANARY_RC -eq 0 ]; then
+            echo "::error::Postulates passed when canary was present! It must fail on unencrypted Cyrillic text."
+            exit 1
+          fi
+
+          if ! echo "$CANARY_OUTPUT" | grep -q "documents"; then
+            echo "::error::Postulates failed but did not name the canary table (documents)."
+            echo "$CANARY_OUTPUT"
+            exit 1
+          fi
+          echo "Canary caught successfully: exit code $CANARY_RC, documents table named."
+
+          echo "TB-02/TB-03 Step B: Removing canary..."
+          docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 -c "DELETE FROM public.documents WHERE user_id = 'c0000000-0000-0000-0000-000000000001'; DELETE FROM auth.users WHERE id = 'c0000000-0000-0000-0000-000000000001';"
+
+          echo "Running postulates without canary (MUST exit 0)..."
+          node scripts/postulates.mjs --require-db
+
+          echo "TB-08 Part B: Running live DB deleteAccount test..."
+          JW_THROWAWAY_DB=1 npx vitest run api/__tests__/deleteAccount.db.test.ts

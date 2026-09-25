@@ -5,9 +5,30 @@
 set -u
 cd "$(dirname "$0")/.."
 
-OUT=docs/TEST1-protocol.md
-: > "$OUT"
-log() { echo "$*" | tee -a "$OUT"; }
+CHECK_MODE=0
+for arg in "$@"; do
+  if [ "$arg" = "--check" ]; then
+    CHECK_MODE=1
+  fi
+done
+
+failures=0
+
+if [ "$CHECK_MODE" = "1" ]; then
+  OUT="${GITHUB_STEP_SUMMARY:-/dev/null}"
+else
+  OUT=docs/TEST1-protocol.md
+fi
+if [ "$OUT" != "/dev/null" ]; then
+  : > "$OUT"
+fi
+log() {
+  if [ "$OUT" != "/dev/null" ]; then
+    echo "$*" | tee -a "$OUT"
+  else
+    echo "$*"
+  fi
+}
 
 run_vitest() { npx vitest run "$1" ${2:+-t "$2"} 2>&1 | grep -E "Tests " | tail -1; }
 
@@ -18,15 +39,27 @@ expect_fail() { # file test-name-filter mutation-label
   # уходило в else. То есть проверка, написанная чтобы ловить тесты, которые
   # проходят при снятой защите, сама проходила при любом исходе.
   local res; res=$(run_vitest "$1" "$2")
-  if [ -z "$res" ]; then log "❌ $3 — фильтр не выбрал ни одного теста"; return; fi
-  if echo "$res" | grep -qE "[1-9][0-9]* failed"; then log "✅ $3 — RED as required ($res)";
-  else log "❌ $3 — тест НЕ упал: он не покрывает эту правку ($res)"; fi
+  if [ -z "$res" ]; then
+    log "❌ $3 — фильтр не выбрал ни одного теста"
+    failures=$((failures + 1))
+    return
+  fi
+  if echo "$res" | grep -qE "[1-9][0-9]* failed"; then
+    log "✅ $3 — RED as required ($res)"
+  else
+    log "❌ $3 — тест НЕ упал: он не покрывает эту правку ($res)"
+    failures=$((failures + 1))
+  fi
 }
 
 expect_pass() { # file test-name-filter mutation-label
   local res; res=$(run_vitest "$1" "$2")
-  if echo "$res" | grep -qE "[1-9][0-9]* failed"; then log "❌ $3 — still failing after restore ($res)";
-  else log "✅ $3 — GREEN after restore ($res)"; fi
+  if echo "$res" | grep -qE "[1-9][0-9]* failed"; then
+    log "❌ $3 — still failing after restore ($res)"
+    failures=$((failures + 1))
+  else
+    log "✅ $3 — GREEN after restore ($res)"
+  fi
 }
 
 # Мутация обязана изменить файл. Скрипты мутаций — это str.replace по точной
@@ -36,6 +69,7 @@ expect_pass() { # file test-name-filter mutation-label
 assert_mutated() { # file label
   if git diff --quiet -- "$1"; then
     log "❌ $2 — МУТАЦИЯ ПУСТАЯ: файл не изменился, проверка ничего не значит"
+    failures=$((failures + 1))
     return 1
   fi
   return 0
@@ -59,6 +93,13 @@ log ""
 
 apply_mutation() { # label file patchfile testfile testfilter
   local label="$1" file="$2" patch="$3" tf="$4" filt="$5"
+  # restore = git checkout: на файле с незакоммиченной правкой она бы её стёрла,
+  # а assert_mutated принял бы чужую правку за мутацию.
+  if ! git diff --quiet -- "$file"; then
+    log "❌ $label — $file с незакоммиченными правками, мутацию не запускаю"
+    failures=$((failures + 1))
+    return
+  fi
   mutate "$file" "$patch"
   if ! assert_mutated "$file" "$label"; then restore "$file"; return; fi
   expect_fail "$tf" "$filt" "$label (guard removed)"
@@ -72,16 +113,13 @@ mkdir -p scripts/mutations docs
 cat > scripts/mutations/m15.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("tokens     = coalesce(ai_global_daily.tokens, 0) + $3::int\n","")
+s=s.replace("         tokens     = coalesce(public.ai_global_daily.tokens, 0) + $3::int\n","")
 open(p,'w').write(s)
 EOF
 cat > scripts/mutations/m219.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""    // Refund целится в день СПИСАНИЯ. Раньше здесь был today() на момент
-    // неудачи: запрос, списавший квоту в 23:58 и упавший после полуночи,
-    // возвращал единицу в пустую строку — юзер терял её навсегда.
-    const date = chargedDay ?? today();""","""    const date = today();""")
+s=s.replace("[uid, chargedDay, kind],", "[uid, today(), kind],")
 open(p,'w').write(s)
 EOF
 apply_mutation "1.5 reserve tokens in-statement" api/postgresAiContext.ts m15.py \
@@ -93,22 +131,15 @@ cat > scripts/mutations/m38.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
 s=s.replace("""  res.on('close', () => {
-    clientGone = true;
     controller.abort();
+    void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
   });""","")
 open(p,'w').write(s)
 EOF
 apply_mutation "3.8 close-handler refund" api/chat.ts m38.py \
   api/__tests__/chatStreamClose.test.ts "refunds once"
 
-cat > scripts/mutations/m218.py <<'EOF'
-import sys
-p=sys.argv[1]; s=open(p).read()
-s=s.replace("userId: hashUid(uid) });","userId: uid });")
-open(p,'w').write(s)
-EOF
-apply_mutation "2.18 langfuse hashUid" api/ai/validateCustomPrompt.logic.ts m218.py \
-  api/__tests__/aiLogic.test.ts "trace userId"
+# 2.18 langfuse hashUid — obsolete, Langfuse dropped in EA-11
 
 cat > scripts/mutations/m220.py <<'EOF'
 import sys
@@ -128,21 +159,21 @@ p=sys.argv[1]; s=open(p).read()
 s=s.replace(".eq('version', parseVersionNumber(versionId));",".eq('version', parseInt(versionId, 10));")
 open(p,'w').write(s)
 EOF
-apply_mutation "2.9 parseVersionNumber" src/core/data/supabaseDataProvider.ts m29.py \
+apply_mutation "2.9 parseVersionNumber" src/core/data/providers/versions.ts m29.py \
   src/core/data/__tests__/auditCleanup.test.ts 'updateVersion filters'
 
 cat > scripts/mutations/m215.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""        if (updateError != null) {
-          failedUuids.push(doc.uuid ?? '');
-          reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
-        }""","""        if (updateError != null) {
-          reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
-        }""")
+s=s.replace("""      if (updateError != null) {
+        failedUuids.push(doc.uuid ?? '');
+        reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
+      }""","""      if (updateError != null) {
+        reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
+      }""")
 open(p,'w').write(s)
 EOF
-apply_mutation "2.15 tag partial throw" src/core/data/supabaseDataProvider.ts m215.py \
+apply_mutation "2.15 tag partial throw" src/core/data/providers/documents.ts m215.py \
   src/core/data/__tests__/auditCleanup.test.ts 'renameTag throws'
 
 cat > scripts/mutations/m213.py <<'EOF'
@@ -164,29 +195,8 @@ s=s.replace("""    .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0
     .filter(stem => stem.length >= 3);""")
 open(p,'w').write(s)
 EOF
-cat > scripts/mutations/m24.py <<'EOF'
-import sys
-p=sys.argv[1]; s=open(p).read()
-s=s.replace("""    .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
-    .filter(stem => stem.length >= 3);""","""    .map(e => e.slice(0, -1))
-    .filter(stem => stem.length >= 3);""")
-open(p,'w').write(s)
-EOF
-# restore via targeted reverse patch: git checkout would wipe unrelated
-# uncommitted work in this file (exports added for these very tests).
-cat > scripts/mutations/r24.py <<'EOF'
-import sys
-p=sys.argv[1]; s=open(p).read()
-s=s.replace("""    .map(e => e.slice(0, -1))
-    .filter(stem => stem.length >= 3);""","""    .flatMap(e => [e.slice(0, -1), ...(e.length >= 6 ? [e.slice(0, -2)] : [])])
-    .filter(stem => stem.length >= 3);""")
-open(p,'w').write(s)
-EOF
-mutate src/features/ai/utils/noteRetriever.ts m24.py
-assert_mutated src/features/ai/utils/noteRetriever.ts "2.4 stemmer adaptive stems" || true
-expect_fail "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'two-letter stem' "2.4 stemmer adaptive stems (guard removed)"
-python3 scripts/mutations/r24.py src/features/ai/utils/noteRetriever.ts
-expect_pass "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'two-letter stem' "2.4 stemmer adaptive stems (restored)"
+apply_mutation "2.4 stemmer adaptive stems" src/features/ai/utils/retrieval/literalMatches.ts m24.py \
+  src/features/ai/utils/__tests__/noteRetriever.literal.test.ts 'two-letter stem'
 
 cat > scripts/mutations/m25.py <<'EOF'
 import sys
@@ -198,31 +208,8 @@ s=s.replace("""export function vectorScore01(raw: number): number {
 }""")
 open(p,'w').write(s)
 EOF
-cat > scripts/mutations/m25.py <<'EOF'
-import sys
-p=sys.argv[1]; s=open(p).read()
-s=s.replace("""export function vectorScore01(raw: number): number {
-  return Math.min(1, Math.max(0, raw) * 20);
-}""","""export function vectorScore01(raw: number): number {
-  return Math.max(0, raw);
-}""")
-open(p,'w').write(s)
-EOF
-cat > scripts/mutations/r25.py <<'EOF'
-import sys
-p=sys.argv[1]; s=open(p).read()
-s=s.replace("""export function vectorScore01(raw: number): number {
-  return Math.max(0, raw);
-}""","""export function vectorScore01(raw: number): number {
-  return Math.min(1, Math.max(0, raw) * 20);
-}""")
-open(p,'w').write(s)
-EOF
-mutate src/features/ai/utils/noteRetriever.ts m25.py
-assert_mutated src/features/ai/utils/noteRetriever.ts "2.5 RRF normalisation" || true
-expect_fail "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'typical RRF ceiling' "2.5 RRF normalisation (guard removed)"
-python3 scripts/mutations/r25.py src/features/ai/utils/noteRetriever.ts
-expect_pass "src/features/ai/utils/__tests__/noteRetriever.literal.test.ts" 'typical RRF ceiling' "2.5 RRF normalisation (restored)"
+apply_mutation "2.5 RRF normalisation" src/features/ai/utils/retrieval/fusion.ts m25.py \
+  src/features/ai/utils/__tests__/noteRetriever.literal.test.ts 'typical RRF ceiling'
 
 # ---------- client ----------
 cat > scripts/mutations/m12.py <<'EOF'
@@ -237,8 +224,8 @@ apply_mutation "1.2 PKCE flowType" src/core/supabase/client.ts m12.py \
 cat > scripts/mutations/m13.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("  useEffect(() => onPasswordRecovery(() => setRecoveryMode(true)), []);",
-            "  useEffect(() => onPasswordRecovery(() => {}), []);")
+s=s.replace("""    const unsub = onPasswordRecovery(() => {
+      setRecoveryMode(true);""","""    const unsub = onPasswordRecovery(() => {""")
 open(p,'w').write(s)
 EOF
 apply_mutation "1.3 recovery detection" src/features/auth/pages/ResetPasswordPage.tsx m13.py \
@@ -287,7 +274,7 @@ apply_mutation "2.7 guest unload key" src/features/writing/hooks/useDraftCore.ts
 cat > scripts/mutations/m28.py <<'EOF'
 import sys
 p=sys.argv[1]; s=open(p).read()
-s=s.replace("""      draftPuts.push(draftStore.delete('guest_draft'));
+s=s.replace("""      await guestDb.delete('drafts', 'guest_draft');
       try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }""","")
 open(p,'w').write(s)
 EOF
@@ -306,12 +293,39 @@ apply_mutation "2.12 heatmap delta" src/features/profile/components/Heatmap.tsx 
 
 log ""
 log "## Non-vitest proofs"
-bash scripts/audit-proofs.sh >> "$OUT" 2>&1 || true
+bash scripts/audit-proofs.sh >> "$OUT" 2>&1
+proofs_rc=$?
+if [ $proofs_rc -ne 0 ]; then
+  failures=$((failures + 1))
+  log "❌ audit-proofs.sh failed with exit code $proofs_rc"
+else
+  log "✅ audit-proofs.sh passed"
+fi
 log "See audit-proofs output above."
 
 log ""
 log "## Final gates"
-log "- typecheck: $(npm run typecheck >/dev/null 2>&1 && echo OK || echo FAIL)"
-log "- lint:changed: $(npm run lint:changed >/dev/null 2>&1 && echo OK || echo FAIL)"
+typecheck_rc=0
+npm run typecheck >/dev/null 2>&1 || typecheck_rc=$?
+if [ $typecheck_rc -ne 0 ]; then
+  log "- typecheck: FAIL"
+  failures=$((failures + 1))
+else
+  log "- typecheck: OK"
+fi
+
+lint_rc=0
+npm run lint:changed >/dev/null 2>&1 || lint_rc=$?
+if [ $lint_rc -ne 0 ]; then
+  log "- lint:changed: FAIL"
+  failures=$((failures + 1))
+else
+  log "- lint:changed: OK"
+fi
+
 log "- RLS suite: see docker command in docs/audit-cleanup-plan.md (requires Docker)"
 echo "Protocol written to $OUT"
+
+if [ "$CHECK_MODE" = "1" ]; then
+  [ $failures -eq 0 ]
+fi
