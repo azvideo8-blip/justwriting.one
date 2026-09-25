@@ -1,3 +1,4 @@
+import { ownRows, ownRow } from './pageAll';
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
 import {
@@ -11,7 +12,7 @@ export async function getDraft(userId: string): Promise<ProviderRecord | null> {
     .eq('user_id', userId)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId)) return null;
   return fromDb(DRAFT_REV, data);
 }
 
@@ -47,7 +48,7 @@ export async function getMigrationDrafts(userId: string): Promise<{ id: string; 
     .select('*')
     .eq('user_id', userId);
   if (error != null) throw error;
-  return (data ?? []).map(d => ({ id: d.user_id as string, data: fromDb(DRAFT_REV, d) }));
+  return ownRows(data ?? [], userId).map(d => ({ id: d.user_id as string, data: fromDb(DRAFT_REV, d) }));
 }
 
 export async function executeMigrationBatch(ops: {

@@ -1,3 +1,5 @@
+import { reportError } from '../../../shared/errors/reportError';
+
 export const PAGE_SIZE = 1000;
 
 export interface PageQueryResult<T> {
@@ -30,4 +32,27 @@ export async function pageAll<T>(
     from += pageSize;
   }
   return allRows;
+}
+
+/**
+ * TB-14: каждый запрос фильтрует по владельцу, но это просьба к серверу, а не
+ * гарантия. Сломанный RLS или подменённый ответ отдаст чужие строки, и без
+ * сейфа чужой открытый текст лёг бы в заметки этого человека. Чужие строки
+ * списка отбрасываются. Одиночная чужая строка — ошибка чтения, а не «строки
+ * нет»: «нет» дальше читалось бы как «удалено».
+ */
+export function ownRows<T>(rows: T[], userId: string, col = 'user_id'): T[] {
+  const own = rows.filter(r => (r as Record<string, unknown>)[col] === userId);
+  if (own.length !== rows.length) {
+    reportError(new Error('FOREIGN_ROWS: the server returned rows of another account'),
+      { action: 'foreignRowsDropped', dropped: rows.length - own.length }, 'warning');
+  }
+  return own;
+}
+
+export function ownRow<T>(row: T | null, userId: string, col = 'user_id'): T | null {
+  if (row != null && (row as Record<string, unknown>)[col] !== userId) {
+    throw new Error('FOREIGN_ROW: the server returned a row of another account');
+  }
+  return row;
 }

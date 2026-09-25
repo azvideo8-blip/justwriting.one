@@ -40,10 +40,11 @@ function makeMockClient() {
       return terminal === 'maybeSingle' ? { data: s, error: null } : { data: [s], error: null };
     }
     if (table === 'ai_embeddings') {
-      return { data: [row({ document_id: 'doc_1', user_id: 'u1', vectors_json: '[1]', dim: 2 })], error: null };
+      const e = row({ document_id: 'doc_1', user_id: 'u1', vectors_json: '[1]', dim: 2 });
+      return terminal === 'maybeSingle' ? { data: e, error: null } : { data: [e], error: null };
     }
     if (table === 'local_store_records') {
-      const r = row({ store: 'aiDialogues', key: 'k#p1', payload: { a: 1 }, checksum: 'cs' });
+      const r = row({ user_id: 'u1', store: 'aiDialogues', key: 'k#p1', payload: { a: 1 }, checksum: 'cs' });
       return terminal === 'maybeSingle' ? { data: r, error: null } : { data: [r], error: null };
     }
     return { data: [], error: null };

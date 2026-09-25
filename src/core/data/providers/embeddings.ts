@@ -1,7 +1,7 @@
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
 import { AI_EMBEDDING_FIELDS, AI_EMBEDDING_REV, toDb, fromDb } from './fields';
-import { pageAll } from './pageAll';
+import { pageAll, ownRows, ownRow } from './pageAll';
 
 export async function getEmbedding(userId: string, documentId: string): Promise<ProviderRecord | null> {
   const { data, error } = await getSupabase()
@@ -11,7 +11,7 @@ export async function getEmbedding(userId: string, documentId: string): Promise<
     .eq('document_id', documentId)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId)) return null;
   return fromDb(AI_EMBEDDING_REV, data);
 }
 
@@ -55,7 +55,7 @@ export async function getUserEmbeddingsPaginated(userId: string, limitCount: num
   const { data, error } = await q;
   if (error != null) throw error;
   
-  const items = (data ?? []).map(row => fromDb(AI_EMBEDDING_REV, row));
+  const items = ownRows(data ?? [], userId).map(row => fromDb(AI_EMBEDDING_REV, row));
   const nextCursorId = data != null && data.length > 0 ? data[data.length - 1].document_id as string : undefined;
   return { items, ...(nextCursorId ? { nextCursorId } : {}), readCount: data?.length || 0 };
 }
@@ -74,7 +74,7 @@ export async function getEmbeddingsPage(userId: string, limitCount: number, star
   
   const { data, error } = await q;
   if (error != null) throw error;
-  return (data ?? []).map(row => fromDb(AI_EMBEDDING_REV, row));
+  return ownRows(data ?? [], userId).map(row => fromDb(AI_EMBEDDING_REV, row));
 }
 
 export async function getUserEmbeddings(userId: string): Promise<ProviderRecord[]> {
@@ -86,6 +86,6 @@ export async function getUserEmbeddings(userId: string): Promise<ProviderRecord[
       .order('document_id', { ascending: true })
       .range(from, to),
   );
-  return allRows.map(row => fromDb(AI_EMBEDDING_REV, row as Record<string, unknown>));
+  return ownRows(allRows, userId).map(row => fromDb(AI_EMBEDDING_REV, row as Record<string, unknown>));
 }
 

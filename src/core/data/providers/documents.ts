@@ -5,7 +5,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import {
   DOCUMENT_FIELDS, DOCUMENT_REV, toDb, fromDb,
 } from './fields';
-import { pageAll } from './pageAll';
+import { pageAll, ownRows, ownRow } from './pageAll';
 
 export async function createDocument(userId: string, data: ProviderRecord): Promise<string> {
   const docId = (data.uuid || data.id || crypto.randomUUID()) as string;
@@ -32,7 +32,7 @@ export async function getDocument(userId: string, documentId: string): Promise<P
     .is('deleted_at', null)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId)) return null;
   return fromDb(DOCUMENT_REV, data);
 }
 
@@ -44,7 +44,7 @@ export async function getDocumentWithDeleted(userId: string, documentId: string)
     .eq('uuid', documentId)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId)) return null;
   return fromDb(DOCUMENT_REV, data);
 }
 
@@ -58,7 +58,7 @@ export async function getUserDocuments(userId: string): Promise<ProviderRecord[]
       .order('uuid', { ascending: true })
       .range(from, to),
   );
-  return allRows.map(row => fromDb(DOCUMENT_REV, row as Record<string, unknown>));
+  return ownRows(allRows, userId).map(row => fromDb(DOCUMENT_REV, row as Record<string, unknown>));
 }
 
 export async function updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void> {

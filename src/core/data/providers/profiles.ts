@@ -1,3 +1,4 @@
+import { ownRow } from './pageAll';
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
 import {
@@ -11,7 +12,7 @@ export async function getProfile(userId: string): Promise<ProviderRecord | null>
     .eq('uid', userId)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId, 'uid')) return null;
   return fromDb(USER_REV, data);
 }
 

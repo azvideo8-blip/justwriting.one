@@ -87,11 +87,13 @@ describe('AG-RESTORE-2: Bulk read methods pagination beyond 1000 rows', () => {
 
   it('getLocalStoreRecords pages through multiple batches', async () => {
     const page1 = Array.from({ length: 1000 }, (_, i) => ({
+      user_id: 'user_1',
       store: 'aiDialogues',
       key: `dialogue_${i}`,
       payload: { id: `dialogue_${i}` },
     }));
     const page2 = Array.from({ length: 10 }, (_, i) => ({
+      user_id: 'user_1',
       store: 'aiDialogues',
       key: `dialogue_${1000 + i}`,
       payload: { id: `dialogue_${1000 + i}` },
@@ -118,11 +120,13 @@ describe('AG-RESTORE-2: Bulk read methods pagination beyond 1000 rows', () => {
   it('getVersions pages through multiple batches', async () => {
     const page1 = Array.from({ length: 1000 }, (_, i) => ({
       document_uuid: 'doc_1',
+      user_id: 'user_1',
       version: i + 1,
       content: `v${i + 1}`,
     }));
     const page2 = Array.from({ length: 5 }, (_, i) => ({
       document_uuid: 'doc_1',
+      user_id: 'user_1',
       version: 1000 + i + 1,
       content: `v${1000 + i + 1}`,
     }));

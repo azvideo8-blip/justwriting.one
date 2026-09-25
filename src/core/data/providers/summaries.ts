@@ -1,7 +1,7 @@
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
 import { AI_SUMMARY_FIELDS, AI_SUMMARY_REV, toDb, fromDb } from './fields';
-import { pageAll } from './pageAll';
+import { pageAll, ownRows, ownRow } from './pageAll';
 
 export async function getSummary(userId: string, documentId: string): Promise<ProviderRecord | null> {
   const { data, error } = await getSupabase()
@@ -11,7 +11,7 @@ export async function getSummary(userId: string, documentId: string): Promise<Pr
     .eq('document_id', documentId)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId)) return null;
   return fromDb(AI_SUMMARY_REV, data);
 }
 
@@ -49,5 +49,5 @@ export async function getUserSummaries(userId: string, sinceMs?: number): Promis
     if (sinceMs !== undefined) q = q.gt('processed_at', Math.floor(sinceMs));
     return q.order('document_id', { ascending: true }).range(from, to);
   });
-  return allRows.map(row => fromDb(AI_SUMMARY_REV, row as Record<string, unknown>));
+  return ownRows(allRows, userId).map(row => fromDb(AI_SUMMARY_REV, row as Record<string, unknown>));
 }

@@ -3,7 +3,7 @@ import { ProviderRecord } from '../types';
 import {
   VERSION_FIELDS, VERSION_REV, toDb, fromDb, parseVersionNumber,
 } from './fields';
-import { pageAll } from './pageAll';
+import { pageAll, ownRows, ownRow } from './pageAll';
 
 export async function addVersion(userId: string, documentId: string, _versionId: string, data: ProviderRecord): Promise<void> {
   const payload = toDb(VERSION_FIELDS, { ...data, userId, documentId });
@@ -24,7 +24,7 @@ export async function getVersions(userId: string, documentId: string): Promise<P
       .order('version', { ascending: true })
       .range(from, to),
   );
-  return allRows.map(row => fromDb(VERSION_REV, row as Record<string, unknown>));
+  return ownRows(allRows, userId).map(row => fromDb(VERSION_REV, row as Record<string, unknown>));
 }
 
 export async function getAllVersionsForUser(userId: string): Promise<ProviderRecord[]> {
@@ -36,7 +36,7 @@ export async function getAllVersionsForUser(userId: string): Promise<ProviderRec
       .order('id', { ascending: true })
       .range(from, to),
   );
-  return allRows.map(row => fromDb(VERSION_REV, row as Record<string, unknown>));
+  return ownRows(allRows, userId).map(row => fromDb(VERSION_REV, row as Record<string, unknown>));
 }
 
 export async function getLatestVersion(userId: string, documentId: string): Promise<ProviderRecord | null> {
@@ -49,7 +49,7 @@ export async function getLatestVersion(userId: string, documentId: string): Prom
     .limit(1)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId)) return null;
   return fromDb(VERSION_REV, data);
 }
 

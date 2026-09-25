@@ -733,12 +733,11 @@
   },
   "getEmbedding": {
     "result": {
-      "0": {
-        "document_id": "doc_1",
-        "user_id": "u1",
-        "vectors_json": "[1]",
-        "dim": 2
-      }
+      "documentId": "doc_1",
+      "userId": "u1",
+      "vectorsJson": "[1]",
+      "dim": 2,
+      "id": "doc_1"
     },
     "calls": [
       {

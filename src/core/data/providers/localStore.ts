@@ -1,7 +1,7 @@
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
 import { likePrefix } from './fields';
-import { pageAll } from './pageAll';
+import { pageAll, ownRows, ownRow } from './pageAll';
 
 export async function saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void> {
   const { error } = await getSupabase()
@@ -25,7 +25,7 @@ export async function getLocalStoreRecord(userId: string, store: string, key: st
     .eq('key', key)
     .maybeSingle();
   if (error != null) throw error;
-  if (!data) return null;
+  if (!ownRow(data, userId)) return null;
   return {
     store: data.store as string,
     key: data.key as string,
@@ -56,7 +56,7 @@ export async function getLocalStoreRecords(userId: string, store?: string, since
       .order('key', { ascending: true })
       .range(from, to);
   });
-  return (allRows as Record<string, unknown>[]).map(row => {
+  return ownRows(allRows as Record<string, unknown>[], userId).map(row => {
     const rec: { store: string; key: string; payload: ProviderRecord; checksum?: string } = {
       store: row.store as string,
       key: row.key as string,

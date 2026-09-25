@@ -120,6 +120,19 @@ export const CloudSyncService = {
         LocalStorageService.getDocumentsByOwner(userId),
       ]);
 
+      // TB-14: связанная заметка, которой нет среди живых строк облака, либо
+      // удалена там (надгробие), либо сервер её потерял, хотя подтвердил. Раньше
+      // её просто не замечали — устройство вечно считало её синхронизированной.
+      // Разбирается addCloudCopy: надгробие → отвязка с предупреждением, пропажа →
+      // выгрузка заново под тем же номером. Список облака прочитан целиком
+      // (иначе мы бы сюда не дошли), так что «нет в списке» — не сбой чтения.
+      const cloudIds = new Set(cloudDocs.map(d => d.id));
+      for (const d of localDocs) {
+        if (d.linkedCloudId && d.localOnly !== true && !cloudIds.has(d.linkedCloudId)) {
+          await requeueDocumentTask(d.id, userId);
+        }
+      }
+
       const linkedCloudMap = new Map(localDocs.filter(d => d.linkedCloudId).map(d => [d.linkedCloudId!, d]));
       const localUuidSet = new Set(localDocs.map(d => d.uuid).filter(Boolean));
       // S-2: The uuid check is the second line of defence. It does not cover documents
