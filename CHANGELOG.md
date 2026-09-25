@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.9 — 2026-09-25
+
+- **[RU]** Черновик остаётся в своём аккаунте: если аккаунт сменился при открытом редакторе, текст сохраняется прежнему владельцу, а не попадает черновиком в новый аккаунт.
+- **[EN]** A draft stays with its account: if the account changes while the editor is open, the text is saved for its owner instead of ending up as the new account’s draft.
+- **[RU]** Ссылка-приглашение, открытая при уже выполненном входе, сначала спрашивает, выходить ли из текущего аккаунта.
+- **[EN]** An invite link opened while you are signed in now asks before signing you out of the current account.
+
 ## 0.9.8 — 2026-09-25
 
 - **[RU]** Заметка, которую сервер подтвердил, но потерял, снова уходит в облако, а не считается синхронизированной навсегда.

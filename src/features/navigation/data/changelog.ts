@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.9',
+    date: '2026-09-25',
+    items: [
+      { category: 'fix', ru: 'Черновик остаётся в своём аккаунте: если аккаунт сменился при открытом редакторе, текст сохраняется прежнему владельцу, а не попадает черновиком в новый аккаунт.', en: 'A draft stays with its account: if the account changes while the editor is open, the text is saved for its owner instead of ending up as the new account’s draft.' },
+      { category: 'improvement', ru: 'Ссылка-приглашение, открытая при уже выполненном входе, сначала спрашивает, выходить ли из текущего аккаунта.', en: 'An invite link opened while you are signed in now asks before signing you out of the current account.' },
+    ],
+  },
+  {
     version: '0.9.8',
     date: '2026-09-25',
     items: [
