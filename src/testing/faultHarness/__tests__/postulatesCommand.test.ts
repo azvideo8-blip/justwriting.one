@@ -13,10 +13,14 @@ const postulatesScript = path.join(rootDir, 'scripts/postulates.mjs');
 
 describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs runs cleanly and passes all postulates', () => {
+    // N-3: этот тест про матрицу без базы; живой обход базы — отдельный запуск
+    // с DATABASE_URL, поэтому переменную окружения сюда не пропускаем.
+    const { DATABASE_URL: _db, ...env } = process.env;
     const res = spawnSync('node', [postulatesScript], {
       cwd: rootDir,
       encoding: 'utf8',
       timeout: 60000,
+      env,
     });
 
     expect(res.status).toBe(0);

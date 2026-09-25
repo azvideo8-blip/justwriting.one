@@ -16,10 +16,8 @@ create table if not exists public.local_store_records (
 alter table public.local_store_records enable row level security;
 
 -- RLS: owner-only CRUD, no admin exception.
--- user_id is text to match auth.uid()::text and the public.users.uid column type.
--- In real Supabase, auth.uid() returns uuid and implicit casting handles the
--- comparison with text columns.  Here we keep text for consistency with the
--- rest of the public schema.
+-- user_id is uuid, compared directly with auth.uid() (N-20: an earlier comment
+-- here wrongly said text).
 create policy "local_store_records_select_own"
   on public.local_store_records for select
   using (auth.uid() = user_id);
