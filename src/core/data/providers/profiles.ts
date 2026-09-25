@@ -39,12 +39,10 @@ export function subscribeToProfile(userId: string, onUpdate: (data: ProviderReco
     onUpdate(data ? fromDb(USER_REV, data as ProviderRecord) : null);
   })();
 
-  const channel = getSupabase().channel(`profile:${userId}`)
-    .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'users', filter: `uid=eq.${userId}` },
-        p => onUpdate(fromDb(USER_REV, p.new as ProviderRecord)))
-    .subscribe();
-  return () => { cancelled = true; void getSupabase().removeChannel(channel); };
+  // N-11: подписки на изменения строки нет. Публикация supabase_realtime на
+  // сервере пуста (проверено 2026-09-25), поэтому канал держал вебсокет впустую;
+  // а включать её для users нельзя не глядя — там сейф и портрет.
+  return () => { cancelled = true; };
 }
 
 export async function getUsers(limitCount: number): Promise<ProviderRecord[]> {

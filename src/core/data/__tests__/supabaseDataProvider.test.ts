@@ -434,35 +434,9 @@ describe('SupabaseDataProvider', () => {
       expect(mockQueryBuilder.eq).toHaveBeenCalledWith('uid', 'user-1');
     });
 
-    it('subscribeToProfile parses realtime payload with fromDb', () => {
-      let callback: ((payload: { new: Record<string, unknown> }) => void) | undefined;
-      mockChannel.mockReturnValueOnce({
-        on: vi.fn().mockImplementation((_event, _opts, cb) => {
-          callback = cb;
-          return { subscribe: vi.fn() };
-        }),
-      });
-
-      const onUpdate = vi.fn();
-      SupabaseDataProvider.subscribeToProfile('user-1', onUpdate);
-
-      expect(callback).toBeDefined();
-      callback!({
-        new: {
-          uid: 'user-1',
-          nickname: 'New Nickname',
-          encryption_meta: { salt: 's', version: 1, wrappedDataKey: 'w', verification: 'v' },
-          total_word_count: 100,
-        },
-      });
-
-      expect(onUpdate).toHaveBeenCalledWith({
-        id: 'user-1',
-        uid: 'user-1',
-        nickname: 'New Nickname',
-        encryptionMeta: { salt: 's', version: 1, wrappedDataKey: 'w', verification: 'v' },
-        totalWordCount: 100,
-      });
+    it('subscribeToProfile opens no realtime channel (N-11: the publication is empty)', () => {
+      SupabaseDataProvider.subscribeToProfile('user-1', vi.fn());
+      expect(mockChannel).not.toHaveBeenCalled();
     });
   });
 
