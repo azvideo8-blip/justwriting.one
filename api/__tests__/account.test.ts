@@ -53,6 +53,18 @@ describe('deleteAccountLogic', () => {
     expect(release).toHaveBeenCalled();
   });
 
+  it('N-5: deletes the account\'s telemetry row too', async () => {
+    const orig = process.env.TELEMETRY_ID_PEPPER;
+    process.env.TELEMETRY_ID_PEPPER = 'pepper-n5';
+    try {
+      await deleteAccountLogic(null, 'uid_n5');
+      const del = query.mock.calls.find(c => String(c[0]).startsWith('delete from public.anonymized_telemetry'));
+      expect(del?.[1]).toEqual([telemetryRowId('uid_n5')]);
+    } finally {
+      if (orig !== undefined) process.env.TELEMETRY_ID_PEPPER = orig; else delete process.env.TELEMETRY_ID_PEPPER;
+    }
+  });
+
   it('rolls back and reports failure instead of leaving a half-deleted account', async () => {
     query.mockImplementation((sql: string) =>
       sql.startsWith('delete from auth.users')

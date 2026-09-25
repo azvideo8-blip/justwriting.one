@@ -108,6 +108,13 @@ export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<un
     // so a database restored from an older dump is still cleaned.
     await client.query('delete from public.local_store_records where user_id = $1', [uid]);
 
+    // N-5: телеметрия обезличена (ключ — хеш uid с солью), но связь с аккаунтом у
+    // неё есть, и при удалении аккаунта она уходит вместе с ним. Без соли строк
+    // телеметрии не бывает — тогда и удалять нечего.
+    if (process.env.TELEMETRY_ID_PEPPER) {
+      await client.query('delete from public.anonymized_telemetry where id = $1', [telemetryRowId(uid)]);
+    }
+
     // The remaining tables reference public.users(uid) with ON DELETE CASCADE,
     // so one delete takes documents, versions, drafts, summaries, embeddings,
     // limits and the telemetry cooldown with it.
