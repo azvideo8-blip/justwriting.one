@@ -83,10 +83,10 @@ export class FaultInterceptor {
     if (this.originalIdbPut) return;
     this.originalIdbPut = IDBObjectStore.prototype.put;
     this.originalIdbAdd = IDBObjectStore.prototype.add;
-    const self = this;
+    const record = () => this.recordFaultFired();
 
     IDBObjectStore.prototype.put = function (_value?: unknown, _key?: unknown) {
-      self.recordFaultFired();
+      record();
       const quotaErr = new DOMException('The quota has been exceeded.', 'QuotaExceededError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = quotaErr;
@@ -99,7 +99,7 @@ export class FaultInterceptor {
     };
 
     IDBObjectStore.prototype.add = function (_value?: unknown, _key?: unknown) {
-      self.recordFaultFired();
+      record();
       const quotaErr = new DOMException('The quota has been exceeded.', 'QuotaExceededError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = quotaErr;
@@ -130,10 +130,10 @@ export class FaultInterceptor {
     if (this.originalIdbAutoclosePut) return;
     this.originalIdbAutoclosePut = IDBObjectStore.prototype.put;
     this.originalIdbAutocloseAdd = IDBObjectStore.prototype.add;
-    const self = this;
+    const record = () => this.recordFaultFired();
 
     IDBObjectStore.prototype.put = function (_value?: unknown, _key?: unknown) {
-      self.recordFaultFired();
+      record();
       const inactiveErr = new DOMException('The transaction is not active.', 'TransactionInactiveError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = inactiveErr;
@@ -146,7 +146,7 @@ export class FaultInterceptor {
     };
 
     IDBObjectStore.prototype.add = function (_value?: unknown, _key?: unknown) {
-      self.recordFaultFired();
+      record();
       const inactiveErr = new DOMException('The transaction is not active.', 'TransactionInactiveError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = inactiveErr;
@@ -290,21 +290,22 @@ export class FaultInterceptor {
 
     // 2b. Intercept IDBObjectStore.get to detect when withDocumentLock encounters concurrent_tab lock
     if (!this.originalIdbGet) {
-      this.originalIdbGet = IDBObjectStore.prototype.get;
-      const self = this;
+      const originalGet = IDBObjectStore.prototype.get;
+      this.originalIdbGet = originalGet;
+      const lockArmedNow = () => this.armedFault?.fault === 'concurrent_tab' && this.currentStep === this.armedFault.step;
+      const recordLock = () => this.recordFaultFired();
       IDBObjectStore.prototype.get = function (key: unknown) {
-        const req = self.originalIdbGet!.apply(this, [key as IDBValidKey]);
+        const req = originalGet.apply(this, [key as IDBValidKey]);
         req.addEventListener('success', () => {
           if (
-            self.armedFault?.fault === 'concurrent_tab' &&
-            self.currentStep === self.armedFault.step &&
+            lockArmedNow() &&
             req.result &&
             typeof req.result === 'object' &&
             'ownerToken' in req.result &&
             typeof (req.result as { ownerToken?: unknown }).ownerToken === 'string' &&
             ((req.result as { ownerToken: string }).ownerToken.startsWith('concurrent_tab_owner_'))
           ) {
-            self.recordFaultFired();
+            recordLock();
           }
         });
         return req;
