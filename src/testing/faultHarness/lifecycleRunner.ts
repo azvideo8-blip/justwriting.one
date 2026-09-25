@@ -354,6 +354,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq1_WriteSaveSync(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     this.interceptor.armFault(fault, faultStep);
     const notes: string[] = [];
     let told: ToldState = { status: 'error_thrown', cloudSynced: false };
@@ -499,6 +500,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 
@@ -507,6 +509,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq2_WriteSaveEditSaveSync(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
     let told: ToldState = { status: 'error_thrown', cloudSynced: false };
 
@@ -587,6 +590,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 
@@ -595,6 +599,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq3_CrossDeviceDivergence(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
 
     // Device A creates note and syncs v1
@@ -629,6 +634,7 @@ export class LifecycleRunner {
           p3Held: this.evaluateP3(notes),
           p4Held: undefined,
           notes: ['Skipped: decrypt_corrupt_single requires vaultEnabled=true'],
+          faultFired: this.interceptor.getFaultFiredCount(),
         };
       }
 
@@ -727,6 +733,7 @@ export class LifecycleRunner {
         p3Held,
         p4Held,
         notes,
+        faultFired: this.interceptor.getFaultFiredCount(),
       };
     }
 
@@ -805,6 +812,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 
@@ -813,6 +821,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq4_WriteSaveSyncDelete(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
 
     const localDocId = await LocalStorageService.createDocument(this.userId, {
@@ -943,6 +952,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 
@@ -951,6 +961,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq5_DeleteBeforeSync(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
 
     // Save offline
@@ -1063,6 +1074,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
       defectFound: hasOrphanTask ? 'SYNC-DEFECT: orphan syncQueue task after local note deletion' : undefined,
     };
   }
@@ -1072,6 +1084,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq6_TombstoneEditRecovery(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
 
     // Device A creates note
@@ -1148,6 +1161,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 
@@ -1156,6 +1170,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq7_SignOutEraseRestore(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
 
     // Create note in cloud
@@ -1227,6 +1242,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 
@@ -1235,6 +1251,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq8_GuestSignupMigrateSync(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
     this.setCurrentUser(null);
     localStorage.setItem('jw_guest_id', this.guestId);
@@ -1328,6 +1345,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 
@@ -1336,6 +1354,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq9_EnableEncryptionSyncRestore(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
 
     // Existing plaintext note in cloud
@@ -1437,6 +1456,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
       defectFound: p2Held === false ? 'P2-DEFECT: unencrypted AI derivatives remain plaintext after vault setup' : undefined,
     };
   }
@@ -1446,6 +1466,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq10_DeleteAccount(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.resetFaultFired();
     const notes: string[] = [];
 
     // Setup user note locally and in cloud
@@ -1554,6 +1575,7 @@ export class LifecycleRunner {
       p3Held,
       p4Held,
       notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
 }

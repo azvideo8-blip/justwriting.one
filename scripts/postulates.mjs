@@ -108,6 +108,28 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
   const brokenCells = results.filter(r => !r || typeof r !== 'object').length;
   results = results.filter(r => r && typeof r === 'object');
 
+  // GT-2: ячейка с fault !== 'none', у которой faultFired === 0 — ловушка
+  // никогда не сработала, значит постулат проверен на пустом месте.
+  const faultNeverFiredCells = results.filter(
+    r => r.fault !== 'none' && (r.faultFired === 0 || r.faultFired === undefined)
+  );
+  if (faultNeverFiredCells.length > 0) {
+    for (const r of faultNeverFiredCells) {
+      violations.push({
+        seq: r.sequence,
+        fault: r.fault,
+        step: r.step,
+        vault: r.vaultEnabled,
+        notes: [`fault never fired (faultFired=${r.faultFired ?? 'undefined'})`, ...(r.notes || [])],
+      });
+    }
+  }
+  const totalBrokenCells = brokenCells + faultNeverFiredCells.length;
+  results = results.filter(
+    r => r.fault === 'none' || (r.faultFired !== undefined && r.faultFired > 0)
+  );
+
+
   const darkCells = [];
   for (const r of results) {
     if (r.p1Held === false || r.p2Held === false || r.p3Held === false || r.p4Held === false) {
@@ -153,11 +175,12 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
   // EA-7: зелёный вердикт без единого измерения — не зелёный. Пустая матрица,
   // сломанные ячейки или постулат, который не удалось проверить ни разу, — провал.
   const unmeasured = tally.map((c, i) => (c.held + c.violated === 0 ? i + 1 : null)).filter(Boolean);
-  const incomplete = results.length === 0 || brokenCells > 0 || unmeasured.length > 0;
+  const incomplete = results.length === 0 || totalBrokenCells > 0 || unmeasured.length > 0;
   return {
     success: !anyFalse && !incomplete && !unmeasuredExceeded,
     totalCells: results.length,
-    brokenCells,
+    brokenCells: totalBrokenCells,
+    faultNeverFired: faultNeverFiredCells.length,
     unmeasured,
     violations,
     tally,

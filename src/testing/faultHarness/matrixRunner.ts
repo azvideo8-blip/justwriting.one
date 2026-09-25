@@ -161,6 +161,7 @@ export class MatrixRunner {
             p3Held: undefined,
             p4Held: undefined,
             notes: [`Unhandled error during runCell: ${(err as Error).message}`],
+            faultFired: 0,
           });
         }
       }

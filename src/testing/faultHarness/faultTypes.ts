@@ -108,4 +108,5 @@ export interface MatrixCellResult {
   p4Held: boolean | undefined;
   notes: string[];
   defectFound?: string | undefined;
+  faultFired: number;
 }

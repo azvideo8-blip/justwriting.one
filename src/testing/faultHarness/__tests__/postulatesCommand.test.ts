@@ -93,6 +93,42 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(evaluateMatrixResults([p2Never]).unmeasured).toEqual([2]);
   });
 
+  // GT-2: ячейка с fault !== 'none' и faultFired === 0 → провал («fault never fired»).
+  it('evaluateMatrixResults fails when fault cell has faultFired=0', () => {
+    const allHeld = { sequence: 's', fault: 'none', step: 'x', vaultEnabled: true, p1Held: true, p2Held: true, p3Held: true, p4Held: true };
+    const faultCellFired = {
+      sequence: 'seq1_write_save_sync',
+      fault: 'network_pre',
+      step: 'cloud_sync',
+      vaultEnabled: false,
+      p1Held: true,
+      p2Held: undefined,
+      p3Held: true,
+      p4Held: undefined,
+      faultFired: 1,
+      notes: [],
+    };
+    const faultCellNotFired = { ...faultCellFired, fault: 'idb_quota', faultFired: 0 };
+    const faultCellUndefined = { ...faultCellFired, fault: 'clock_backwards', faultFired: undefined as unknown as number };
+
+    // Cell with faultFired=1 → treated normally (may still pass)
+    const okResult = evaluateMatrixResults([allHeld, faultCellFired]);
+    expect(okResult.faultNeverFired).toBe(0);
+
+    // Cell with faultFired=0 → brokenCells++, success=false, violations includes "fault never fired"
+    const failResult = evaluateMatrixResults([allHeld, faultCellNotFired]);
+    expect(failResult.success).toBe(false);
+    expect(failResult.faultNeverFired).toBe(1);
+    expect(failResult.brokenCells).toBe(1);
+    const noteTexts = failResult.violations.flatMap(v => v.notes);
+    expect(noteTexts.some(n => n.includes('fault never fired'))).toBe(true);
+
+    // Cell with faultFired=undefined → same as 0
+    const undefinedResult = evaluateMatrixResults([allHeld, faultCellUndefined]);
+    expect(undefinedResult.success).toBe(false);
+    expect(undefinedResult.faultNeverFired).toBe(1);
+  });
+
   it('scripts/postulates.mjs evaluateMatrixResults flags violations (POST-4 falsification)', () => {
     const brokenResults = [
       {

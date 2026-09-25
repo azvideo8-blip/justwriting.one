@@ -31,12 +31,28 @@ export interface QueryOrder {
   ascending: boolean;
 }
 
+const TABLE_COLUMNS: Record<TableName, readonly string[]> = {
+  documents: ['id', 'uuid', 'user_id', 'title', 'content', 'created_at', 'updated_at', 'deleted_at'],
+  versions: ['id', 'document_uuid', 'user_id', 'version', 'content', 'created_at'],
+  drafts: ['id', 'user_id', 'content', 'created_at', 'updated_at'],
+  users: ['id', 'uid', 'email', 'encryption_meta', 'created_at'],
+  ai_summaries: ['id', 'document_id', 'user_id', 'summary', 'created_at'],
+  ai_embeddings: ['id', 'document_id', 'user_id', 'dim', 'created_at'],
+  local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'created_at', 'updated_at'],
+};
+
 export class InMemoryPostgres {
   public tables: Map<TableName, PostgresRow[]> = new Map();
   private sequences: Map<string, number> = new Map();
 
   constructor() {
     this.reset();
+  }
+
+  public getTableNamesWithColumn(column: string): TableName[] {
+    return (Object.keys(TABLE_COLUMNS) as TableName[]).filter(table =>
+      TABLE_COLUMNS[table].includes(column)
+    );
   }
 
   public reset(): void {

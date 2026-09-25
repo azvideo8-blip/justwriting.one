@@ -31,9 +31,25 @@ export class FaultInterceptor {
   public clockOffsetMs: number = 0;
   public onStep?: ((step: StepName) => void | Promise<void>) | undefined;
   private originalDateNow = Date.now;
+  public faultFiredCount: number = 0;
+  private clockBackwardsFired: boolean = false;
+  private originalIdbGet: typeof IDBObjectStore.prototype.get | null = null;
 
   constructor(postgres?: InMemoryPostgres) {
     this.postgres = postgres || new InMemoryPostgres();
+  }
+
+  public recordFaultFired(): void {
+    this.faultFiredCount++;
+  }
+
+  public getFaultFiredCount(): number {
+    return this.faultFiredCount;
+  }
+
+  public resetFaultFired(): void {
+    this.faultFiredCount = 0;
+    this.clockBackwardsFired = false;
   }
 
   public payloadLeaks(markers: string[]): string[] {
@@ -67,8 +83,10 @@ export class FaultInterceptor {
     if (this.originalIdbPut) return;
     this.originalIdbPut = IDBObjectStore.prototype.put;
     this.originalIdbAdd = IDBObjectStore.prototype.add;
+    const self = this;
 
     IDBObjectStore.prototype.put = function (_value?: unknown, _key?: unknown) {
+      self.recordFaultFired();
       const quotaErr = new DOMException('The quota has been exceeded.', 'QuotaExceededError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = quotaErr;
@@ -81,6 +99,7 @@ export class FaultInterceptor {
     };
 
     IDBObjectStore.prototype.add = function (_value?: unknown, _key?: unknown) {
+      self.recordFaultFired();
       const quotaErr = new DOMException('The quota has been exceeded.', 'QuotaExceededError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = quotaErr;
@@ -111,8 +130,10 @@ export class FaultInterceptor {
     if (this.originalIdbAutoclosePut) return;
     this.originalIdbAutoclosePut = IDBObjectStore.prototype.put;
     this.originalIdbAutocloseAdd = IDBObjectStore.prototype.add;
+    const self = this;
 
     IDBObjectStore.prototype.put = function (_value?: unknown, _key?: unknown) {
+      self.recordFaultFired();
       const inactiveErr = new DOMException('The transaction is not active.', 'TransactionInactiveError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = inactiveErr;
@@ -125,6 +146,7 @@ export class FaultInterceptor {
     };
 
     IDBObjectStore.prototype.add = function (_value?: unknown, _key?: unknown) {
+      self.recordFaultFired();
       const inactiveErr = new DOMException('The transaction is not active.', 'TransactionInactiveError');
       const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
       tx.error = inactiveErr;
@@ -170,6 +192,7 @@ export class FaultInterceptor {
     if (this.currentStep === step) {
       if (fault === 'vault_locked') {
         clearSessionKey();
+        this.recordFaultFired();
       } else if (fault === 'clock_backwards') {
         this.clockOffsetMs = -600_000;
       } else if (fault === 'decrypt_corrupt_single') {
@@ -187,6 +210,7 @@ export class FaultInterceptor {
     this.restoreIdbQuotaPatch();
     this.restoreIdbAutoclosePatch();
     this.clockOffsetMs = 0;
+    this.clockBackwardsFired = false;
   }
 
   public setStep(step: StepName): void {
@@ -194,6 +218,7 @@ export class FaultInterceptor {
     if (this.armedFault && this.armedFault.step === step) {
       if (this.armedFault.fault === 'vault_locked') {
         clearSessionKey();
+        this.recordFaultFired();
       } else if (this.armedFault.fault === 'clock_backwards') {
         this.clockOffsetMs = -600_000; // Jump 10 minutes into the past
       } else if (this.armedFault.fault === 'decrypt_corrupt_single') {
@@ -250,8 +275,41 @@ export class FaultInterceptor {
 
     // 2. Mock Date.now for clock jump tests
     Date.now = () => {
+      if (
+        this.clockOffsetMs !== 0 &&
+        this.armedFault?.fault === 'clock_backwards' &&
+        this.armedFault.step === this.currentStep
+      ) {
+        if (!this.clockBackwardsFired) {
+          this.clockBackwardsFired = true;
+          this.recordFaultFired();
+        }
+      }
       return this.originalDateNow() + this.clockOffsetMs;
     };
+
+    // 2b. Intercept IDBObjectStore.get to detect when withDocumentLock encounters concurrent_tab lock
+    if (!this.originalIdbGet) {
+      this.originalIdbGet = IDBObjectStore.prototype.get;
+      const self = this;
+      IDBObjectStore.prototype.get = function (key: unknown) {
+        const req = self.originalIdbGet!.apply(this, [key as IDBValidKey]);
+        req.addEventListener('success', () => {
+          if (
+            self.armedFault?.fault === 'concurrent_tab' &&
+            self.currentStep === self.armedFault.step &&
+            req.result &&
+            typeof req.result === 'object' &&
+            'ownerToken' in req.result &&
+            typeof (req.result as { ownerToken?: unknown }).ownerToken === 'string' &&
+            ((req.result as { ownerToken: string }).ownerToken.startsWith('concurrent_tab_owner_'))
+          ) {
+            self.recordFaultFired();
+          }
+        });
+        return req;
+      };
+    }
 
     // 3. Spy on callAi to detect unsolicited AI calls and handle deleteAccount
     this.aiCallsIntercepted = [];
@@ -286,7 +344,7 @@ export class FaultInterceptor {
           // public.users with ON DELETE CASCADE into every user-keyed table).
           // NOTE: The server-side cascade is modeled here in InMemoryPostgres for the client matrix;
           // the real Postgres deletion logic is verified end-to-end in api/__tests__/deleteAccount.db.test.ts (TB-08 Part B).
-          for (const t of ['documents', 'versions', 'drafts', 'ai_summaries', 'ai_embeddings', 'local_store_records'] as const) {
+          for (const t of this.postgres.getTableNamesWithColumn('user_id')) {
             this.postgres.executeDelete(t, [{ type: 'eq', column: 'user_id', value: u.uid }]);
           }
         }
@@ -352,6 +410,11 @@ export class FaultInterceptor {
 
   public uninstallMocks(): void {
     this.restoreIdbQuotaPatch();
+    this.restoreIdbAutoclosePatch();
+    if (this.originalIdbGet) {
+      IDBObjectStore.prototype.get = this.originalIdbGet;
+      this.originalIdbGet = null;
+    }
     const globalVi = (globalThis as unknown as { vi?: { restoreAllMocks: () => void } }).vi;
     if (globalVi) {
       globalVi.restoreAllMocks();
@@ -361,6 +424,8 @@ export class FaultInterceptor {
 
     Date.now = this.originalDateNow;
     this.clockOffsetMs = 0;
+    this.clockBackwardsFired = false;
+    this.faultFiredCount = 0;
     this.aiCallsIntercepted = [];
     this.capturedPayloads = [];
     this.onStep = undefined;
@@ -371,6 +436,7 @@ export class FaultInterceptor {
     if (this.armedFault.step !== this.currentStep) return null;
     if (this.armedFault.table && table && this.armedFault.table !== table) return null;
 
+    this.recordFaultFired();
     this.armedFault.currentCount = (this.armedFault.currentCount || 0) + 1;
     return this.armedFault.fault;
   }
