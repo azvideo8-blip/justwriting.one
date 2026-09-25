@@ -7,18 +7,9 @@ test.describe('Login Page', () => {
     await expect(page.locator('input[type="password"]')).toBeVisible();
   });
 
-  test('shows error for invalid credentials', async ({ page }) => {
-    // Needs a real auth round-trip (GoTrue behind VITE_SUPABASE_URL). CI starts
-    // only the Vite dev server, so nothing answers. Runs locally, skipped in CI.
-    test.skip(!!process.env.CI, 'real auth backend is not running in CI (see L-15)');
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'invalid@example.com');
-    await page.fill('input[type="password"]', 'wrongpassword');
-    await page.click('button[type="submit"]');
-    // Assert an error is surfaced (role=alert), not a specific message: the
-    // wording depends on what the auth server returns in that environment.
-    await expect(page.locator('[role="alert"]')).toBeVisible();
-  });
+  // «Неверный пароль → ошибка» и настоящий вход проверяются после каждой
+  // выкатки на боевом сервере (scripts/post-deploy-login.ts, TB-17): здесь,
+  // на dev-сервере без GoTrue, эта проверка могла только пропускаться.
 
   test('does not overflow horizontally on mobile viewport (390x844) (S-14)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
