@@ -7,8 +7,13 @@ export function reportKeystrokeStats(
   sessionSeconds: number
 ): void {
   const kpmWpmRatio = wpm > 0 ? stats.kpm / wpm : 0;
+  // Разброс интервалов между нажатиями отличает задержку редактора от пауз
+  // человека («подумал, написал фразу») никак: у живого письма он больше 1.2
+  // почти всегда. Как предупреждение в журнал он шёл ложной тревогой на каждую
+  // сессию, поэтому только в консоль разработчика. Настоящая задержка — это
+  // время от нажатия до отрисовки, а не ритм.
   if (stats.ikiCv > 1.2 && stats.sampleSize > 30) {
-    logger.warn('sessionActions', 'High IKI variance detected — possible editor lag', {
+    logger.info('sessionActions', 'High IKI variance (typing rhythm, not a fault)', {
       kpm: stats.kpm,
       ikiMedian: stats.ikiMedian,
       ikiCv: stats.ikiCv,
