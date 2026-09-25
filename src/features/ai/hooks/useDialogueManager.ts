@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { AIDialogueService } from '../services/AIDialogueService';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { useLanguage } from '../../../shared/i18n';
+import { localDayKey } from '../../../core/utils/dateUtils';
 
 interface DialogueManagerParams {
   confirmDialog: (options: { title: string; message: string }) => Promise<boolean>;
@@ -61,7 +62,7 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
     const activeDialogue = dialogues.find(d => d.id === activeDialogueId) || archivedDialogues.find(d => d.id === activeDialogueId);
     const rawTitle = activeDialogue?.title || 'dialogue';
     const safeTitle = rawTitle.replace(/[/\\?%*:|"<>]/g, '-').trim() || 'dialogue';
-    const dateStr = new Date().toISOString().split('T')[0];
+    const dateStr = localDayKey();
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

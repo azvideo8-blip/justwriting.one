@@ -26,6 +26,7 @@ import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from
 import { indexPending } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch } from '../utils/aiChatTransport';
 import { useLanguage } from '../../../shared/i18n';
+import { localDayKey } from '../../../core/utils/dateUtils';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -308,7 +309,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       const firstLocalDocId = attaches.find(a => a.documentId.startsWith('local_'))?.documentId;
 
       const formatRefTag = (a: { documentId: string; lastSessionAt?: number | undefined; title: string; content: string }) => {
-        const yyyymmdd = a.lastSessionAt ? new Date(a.lastSessionAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+        const yyyymmdd = localDayKey(a.lastSessionAt ?? Date.now()); // N-17: день по местному времени, как везде
         return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${a.title}"]\n${a.content}`;
       };
 
