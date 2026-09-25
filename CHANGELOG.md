@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.7 — 2026-09-25
+
+- **[RU]** После мастера приглашения больше не всплывают второй раз окно политики и вопрос о синхронизации — мастер уже спросил об этом.
+- **[EN]** After the invite wizard, the privacy window and the cloud-sync question no longer pop up a second time — the wizard has already asked.
+- **[RU]** Включённая синхронизация сразу видна: статус больше не пишет «автоотправка выключена» рядом с включённым переключателем.
+- **[EN]** Turning cloud sync on shows at once: the status no longer says "auto-upload is off" next to a switched-on toggle.
+- **[RU]** Согласие на функции ИИ — обычная галочка под обязательной, без отдельной карточки.
+- **[EN]** The AI consent is now a plain checkbox under the required one, without a separate card.
+- **[RU]** Если в соседней вкладке вошли под другим аккаунтом, фоновая вкладка перезагружается, а не продолжает работать за прежний аккаунт.
+- **[EN]** If another tab signs in to a different account, a background tab reloads instead of carrying on as the previous account.
+
 ## 0.9.6 — 2026-09-25
 
 - **[RU]** «PDF / печать» снова работает — и на экране письма, и при выгрузке архива.
