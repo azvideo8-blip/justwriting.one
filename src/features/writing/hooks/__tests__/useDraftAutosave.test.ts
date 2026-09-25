@@ -413,4 +413,31 @@ describe('useDraftAutosave', () => {
       );
     });
   });
+
+  // Аккаунт сменился под открытым редактором (ссылка-приглашение поверх своей
+  // сессии): текст прежнего аккаунта уходил черновиком нового — и в его облако.
+  it('an account switch keeps the text with its owner and never saves it as the new account', async () => {
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, remoteOk: true });
+    const ownerA = { uid: 'owner-A' } as AppUser;
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3 });
+    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
+
+    const { rerender } = renderHook(
+      ({ user, data }) => useDraftAutosave(user, data),
+      { initialProps: { user: ownerA, data: aData } },
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    vi.mocked(persistDraft).mockClear();
+
+    rerender({ user: inviteeB, data: aData }); // сессия уже B, в сторе ещё текст A
+    const c = useContentStore.getState();
+    rerender({ user: inviteeB, data: { ...aData, content: c.content, title: c.title } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+
+    const calls = vi.mocked(persistDraft).mock.calls.map(([d, o]) => ({ ...(d as { userId: string; content: string }), ...o }));
+    expect(calls.filter(d => d.userId === 'invitee-B' && d.content.includes('Личный текст A'))).toEqual([]);
+    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-A', content: 'Личный текст A', remote: false }));
+    expect(useContentStore.getState().content).toBe('');
+  });
 });

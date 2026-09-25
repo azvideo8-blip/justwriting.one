@@ -5,6 +5,8 @@ import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatu
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
+import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
+import { reportError } from '../../../shared/errors/reportError';
 
 function isPristineContinuedSession(content: string, title: string): boolean {
   const meta = useSessionMetaStore.getState();
@@ -36,8 +38,29 @@ export function useDraftAutosave(
     draftDataRef.current = draftData;
   }, [draftData]);
 
+  // Чей текст сейчас в редакторе. Аккаунт сменился прямо под открытым
+  // редактором (ссылка-приглашение поверх своей сессии, вход под другим в
+  // соседней вкладке) — текст принадлежит прежнему. Сохраняем его ему, в его
+  // локальную базу, и очищаем редактор. Без этого первое же автосохранение
+  // записывало чужой текст черновиком нового аккаунта — и в его облако.
+  // Выход (→ null) только очищает: при выходе с очисткой устройства запись
+  // в базу вернула бы стёртое. Гость → аккаунт — это перенос, его делает миграция.
+  const ownerRef = useRef<string | null>(userId);
+  useEffect(() => {
+    const prev = ownerRef.current;
+    ownerRef.current = userId;
+    if (!prev || prev === userId || prev.startsWith('guest')) return;
+    const current = draftDataRef.current;
+    if (userId && (current.content.trim() || current.title.trim())) {
+      void persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { remote: false })
+        .catch(e => reportError(e, { action: 'draftAutosave_saveForPreviousOwner' }));
+    }
+    resetAndClear();
+    resetAllSessionMetadata();
+  }, [userId]);
+
   const doAutosaveLocal = useCallback(async () => {
-    if (!user) return;
+    if (!user || ownerRef.current !== user.uid) return;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return;
     // D-24: do not save draft for continued notes with no edits
@@ -54,7 +77,7 @@ export function useDraftAutosave(
   }, [user]);
 
   const doAutosaveRemote = useCallback(async () => {
-    if (!user) return;
+    if (!user || ownerRef.current !== user.uid) return;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return;
     // D-24: do not save draft for continued notes with no edits
@@ -69,7 +92,7 @@ export function useDraftAutosave(
   }, [user]);
 
   const doForceSave = useCallback(async () => {
-    if (!user) return;
+    if (!user || ownerRef.current !== user.uid) return;
     const current = draftDataRef.current;
     if (!current.content.trim() && !current.title.trim()) return;
     // D-24: do not save draft for continued notes with no edits
