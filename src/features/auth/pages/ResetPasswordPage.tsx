@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { updateUserPassword, onPasswordRecovery, verifyOtpForRecovery, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 import { reportError } from '../../../shared/errors/reportError';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
+import { InviteWizard } from '../components/InviteWizard';
 
 /**
  * /reset-password — цель ссылки из письма о восстановлении.
@@ -120,6 +121,12 @@ export function ResetPasswordPage() {
     }
   };
 
+  // ON-2: приглашённый проходит мастер (приветствие → политика → пароль →
+  // синхронизация); голая форма ниже — для сброса пароля.
+  if (isInvite && recoveryMode && !linkExpired && !legacyHash) {
+    return <InviteWizard email={email} />;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-4">
@@ -164,15 +171,13 @@ export function ResetPasswordPage() {
 
         {recoveryMode && !done && !legacyHash && (
           <form onSubmit={e => { void submit(e); }} className="space-y-3">
-            {!isInvite && (
-              <div className="p-3 rounded-lg bg-accent-warning/10 border border-accent-warning/30 text-accent-warning text-xs leading-relaxed">
-                {/* D-23/D-28: код восстановления показывается один раз — в настройках его нет. */}
-                <strong>Важно:</strong> заметки зашифрованы прежним паролем. После входа с новым паролем
-                приложение один раз попросит прежний пароль или код восстановления, который вы сохранили при
-                первом входе, — и дальше у вас снова будет один пароль. Без прежнего пароля и кода
-                зашифрованные заметки не открыть.
-              </div>
-            )}
+            <div className="p-3 rounded-lg bg-accent-warning/10 border border-accent-warning/30 text-accent-warning text-xs leading-relaxed">
+              {/* D-23/D-28: код восстановления показывается один раз — в настройках его нет. */}
+              <strong>Важно:</strong> заметки зашифрованы прежним паролем. После входа с новым паролем
+              приложение один раз попросит прежний пароль или код восстановления, который вы сохранили при
+              первом входе, — и дальше у вас снова будет один пароль. Без прежнего пароля и кода
+              зашифрованные заметки не открыть.
+            </div>
             <input
               type="password"
               value={password}
@@ -198,14 +203,14 @@ export function ResetPasswordPage() {
               disabled={busy || password.length < MIN_PASSWORD_LENGTH}
               className="w-full rounded-lg px-3 py-2 bg-accent text-white disabled:opacity-50"
             >
-              {busy ? 'Сохраняю…' : isInvite ? 'Задать пароль' : 'Сменить пароль'}
+              {busy ? 'Сохраняю…' : 'Сменить пароль'}
             </button>
           </form>
         )}
 
         {done && (
           <div className="space-y-3">
-            <p className="text-sm">{isInvite ? 'Пароль задан. Теперь можно войти.' : 'Пароль изменён. Войдите с новым паролем.'}</p>
+            <p className="text-sm">Пароль изменён. Войдите с новым паролем.</p>
             <button
               type="button"
               onClick={() => { void navigate('/login', email ? { state: { email } } : undefined); }}

@@ -167,7 +167,9 @@ export function useEncryptionSetup(): {
 
   // Вход открывает сейф паролем уже после события смены пользователя: check()
   // успевает решить «unlock», и окно висело над открытым сейфом.
-  const effectiveMode = mode === 'unlock' && isVaultUnlockedVal ? 'none' : mode;
+  // ON-1: то же с «создайте сейф» — мастер приглашения создаёт и открывает сейф
+  // при входе, а проверка успела решить «сейфа нет» ещё по сессии из ссылки.
+  const effectiveMode = (mode === 'unlock' || mode === 'setup') && isVaultUnlockedVal ? 'none' : mode;
 
   return { mode: effectiveMode, isLegacy, loading, check, dismiss };
 }

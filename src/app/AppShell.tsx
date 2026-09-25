@@ -39,6 +39,9 @@ import { GuestMigrationGate } from '../features/auth/components/GuestMigrationGa
 
 export function AppShell() {
   const location = useLocation();
+  // ON-1: мастер приглашения сам создаёт сейф и показывает код восстановления —
+  // окна сейфа и кода поверх него не нужны.
+  const isResetPassword = location.pathname.startsWith('/reset-password');
   const { t } = useLanguage();
   const { user, isGuest } = useAuthStatus();
   const { isAdmin } = useAdminStatus();
@@ -87,18 +90,22 @@ export function AppShell() {
       </a>
       <ThemeBackground silenceMode={silenceMode} />
 
-      <>
-        {layoutMode === 'desktop' ? (
-          <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
-        ) : (
-          !showZen && <BottomNav isAdmin={isAdmin} />
-        )}
-        <ConnectionStatusBanner showZen={showZen} />
-      </>
+      {/* Мастер приглашения и сброс пароля — без навигации: до конца шагов
+          приложения для человека ещё нет, а боковая панель сжимала экран. */}
+      {!isResetPassword && (
+        <>
+          {layoutMode === 'desktop' ? (
+            <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
+          ) : (
+            !showZen && <BottomNav isAdmin={isAdmin} />
+          )}
+          <ConnectionStatusBanner showZen={showZen} />
+        </>
+      )}
 
       <main id="main-content" tabIndex={-1} className={cn(
         "w-full relative z-10",
-        isChatPageDesktop
+        isResetPassword ? "min-h-screen" : isChatPageDesktop
           ? "h-screen overflow-hidden pl-16"
           : cn(
               "min-h-screen pt-8",
@@ -111,11 +118,11 @@ export function AppShell() {
 
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
-      <RecoveryCodeGate />
+      {!isResetPassword && <RecoveryCodeGate />}
       <GuestMigrationGate />
       <ConfirmDialogRenderer />
       <ActivityLogBadge />
-      {encryptionMode !== 'none' && user && (
+      {encryptionMode !== 'none' && user && !isResetPassword && (
         <Suspense fallback={null}>
           <EncryptionPasswordModal
             mode={encryptionMode}
