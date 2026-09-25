@@ -6,7 +6,7 @@ This file provides guidance to AI coding agents (Claude Code, Cursor, Copilot, A
 
 ## Repository Overview
 
-A collection of skills for Claude.ai and Claude Code for senior software engineers. Skills are packaged instructions and scripts that extend Claude and your coding agents capabilities.
+Редактор justwriting: React/Vite local-first клиент + свой Supabase + Node API в api/.
 
 ## OpenCode Integration
 

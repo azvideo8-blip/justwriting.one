@@ -102,6 +102,7 @@ describe('Key Vault Extractability and Recovery Code (AG-REC-1)', () => {
     }
   });
 
+  // Медленный по делу: полный цикл PBKDF2 (600 000 итераций) для мастер-ключа и восстановления хранилища (до ~4.7 с под нагрузкой).
   it('generateRecoveryCodeForExistingVault with password successfully generates recovery code and keeps session key non-extractable', async () => {
     // Setup vault metadata
     const extractableKey = await generateDataKey();
@@ -142,5 +143,5 @@ describe('Key Vault Extractability and Recovery Code (AG-REC-1)', () => {
 
     // Vault should be unlocked now
     expect(getSessionKey()).not.toBeNull();
-  });
+  }, 15_000);
 });

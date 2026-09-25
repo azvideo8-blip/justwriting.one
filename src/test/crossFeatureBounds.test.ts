@@ -4,10 +4,11 @@ import fs from 'fs';
 import path from 'path';
 
 describe('AG-BOUNDS-1 — Cross-feature boundary reduction', () => {
+  // Медленный по делу: запускает bash-скрипт анализа границ фичей в дочернем процессе execSync (до ~3.5 с на Windows).
   it('passes cross-feature ratchet check at zero (0)', () => {
     const output = execSync('bash scripts/cross-feature-check.sh', { encoding: 'utf8' });
     expect(output).toContain('cross-feature imports: 0 (baseline: 0)');
-  });
+  }, 15_000);
 
   it('ensures whole-screen composition MobileMePage and MobileMeScreen are located in src/app/pages', () => {
     expect(fs.existsSync(path.resolve('src/app/pages/MobileMePage.tsx'))).toBe(true);

@@ -6,6 +6,7 @@ import { ThemeProvider } from '../../../../core/theme/ThemeProvider';
 import { WritingSettingsProvider } from '../../../../core/settings/WritingSettingsContext';
 
 describe('SettingsPanel (Editor Panel)', () => {
+  // Медленный по делу: ленивая загрузка вкладки настроек через dynamic import (lazy chunk) и ожидание отрисовки (до ~3.6 с под нагрузкой).
   it('renders single editor panel without tablist', async () => {
     const onClose = vi.fn();
     renderWithProviders(
@@ -25,7 +26,7 @@ describe('SettingsPanel (Editor Panel)', () => {
 
     // Editor controls should be present
     // Вкладка грузится лениво (бюджет стартового куска).
-    expect(await screen.findByText(/Шрифт|Font/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Шрифт|Font/, {}, { timeout: 10000 })).toBeInTheDocument();
     expect(screen.getByText(/Дизайн|Design|Theme/)).toBeInTheDocument();
     expect(screen.getByText(/Язык|Language/)).toBeInTheDocument();
 
@@ -33,5 +34,5 @@ describe('SettingsPanel (Editor Panel)', () => {
     const closeBtn = screen.getByRole('button', { name: /Закрыть|Close/i });
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalled();
-  });
+  }, 15_000);
 });

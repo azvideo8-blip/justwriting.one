@@ -117,6 +117,7 @@ export default defineConfig(() => {
           'src/core/services/**': { statements: 63, branches: 54, functions: 60, lines: 66 },
           'src/features/auth/services/**': { statements: 53, branches: 46, functions: 55, lines: 54 },
           'api/**': { statements: 66, branches: 55, functions: 67, lines: 69 },
+          'api/ai/**': { statements: 57, branches: 45, functions: 54, lines: 61 },
         },
       },
     },

@@ -9,6 +9,52 @@
 # способ — pg_restore --clean --if-exists от supabase_admin (см. RESTORE.md).
 set -euo pipefail
 
+compare_drill_counts() {
+  local dump_counts="$1"
+  local prod_counts="$2"
+
+  local labels=("auth.users" "public.users" "documents" "versions" "local_store_records" "vaults")
+
+  IFS='|' read -r d_auth d_users d_docs d_vers d_ai d_vault <<< "$dump_counts"
+  IFS='|' read -r p_auth p_users p_docs p_vers p_ai p_vault <<< "$prod_counts"
+
+  local d_arr=("$d_auth" "$d_users" "$d_docs" "$d_vers" "$d_ai" "$d_vault")
+  local p_arr=("$p_auth" "$p_users" "$p_docs" "$p_vers" "$p_ai" "$p_vault")
+
+  # Проверка формата (числовые значения)
+  for ((i=0; i<6; i++)); do
+    if ! [[ "${d_arr[i]}" =~ ^[0-9]+$ ]] || ! [[ "${p_arr[i]}" =~ ^[0-9]+$ ]]; then
+      echo "ERROR: нечисловые значения счётчиков (${labels[i]}: dump='${d_arr[i]}', prod='${p_arr[i]}')" >&2
+      return 1
+    fi
+  done
+
+  # 1. В дампе 0 пользователей или 0 документов
+  if [ "$d_auth" -eq 0 ] || [ "$d_users" -eq 0 ] || [ "$d_docs" -eq 0 ]; then
+    echo "ERROR: в дампе 0 пользователей или 0 документов (auth.users=$d_auth, users=$d_users, documents=$d_docs)" >&2
+    return 1
+  fi
+
+  # 2. Хоть одно число в дампе больше, чем на проде (дамп не может опережать прод)
+  for ((i=0; i<6; i++)); do
+    local d="${d_arr[i]}"
+    local p="${p_arr[i]}"
+    local lbl="${labels[i]}"
+    if [ "$d" -gt "$p" ]; then
+      echo "ERROR: число в дампе ($d) больше чем на проде ($p) для $lbl (дамп не может опережать прод)" >&2
+      return 1
+    fi
+  done
+
+  echo "OK: сверка дампа и прода успешна (дамп не пуст, дамп <= прод во всех категориях)"
+  return 0
+}
+
+if [ "${1:-}" = "--compare" ]; then
+  compare_drill_counts "$2" "$3"
+  exit $?
+fi
+
 IMAGE=$(docker inspect supabase-db --format '{{.Config.Image}}')
 DUMP=$(ls -t /var/backups/justwriting/*.dump | head -1)
 NAME=jw-restore-drill
@@ -28,3 +74,9 @@ Q="select (select count(*) from auth.users)||' auth.users, '||(select count(*) f
 echo "дамп:  $(docker exec -e PGPASSWORD=drill "$NAME" psql -U supabase_admin -h localhost -d postgres -At -c "$Q")"
 echo "прод:  $(docker exec supabase-db psql -U postgres -At -c "$Q")"
 echo "(прод может быть впереди на то, что записано после дампа)"
+
+Q_RAW="select (select count(*) from auth.users)||'|'||(select count(*) from public.users)||'|'||(select count(*) from public.documents)||'|'||(select count(*) from public.versions)||'|'||(select count(*) from public.local_store_records)||'|'||(select count(*) from public.users where encryption_meta is not null)"
+dump_raw=$(docker exec -e PGPASSWORD=drill "$NAME" psql -U supabase_admin -h localhost -d postgres -At -c "$Q_RAW")
+prod_raw=$(docker exec supabase-db psql -U postgres -At -c "$Q_RAW")
+
+compare_drill_counts "$dump_raw" "$prod_raw"
