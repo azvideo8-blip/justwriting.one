@@ -129,6 +129,32 @@ describe('AG-GATE-1 — Raw Overlay Gate (scripts/raw-overlay-check.sh)', () => 
     expect(output).toContain('Raw overlay check: 0 unmanaged raw overlays found (OK)');
   });
 
+  it('TB-05 / GT-3: normalizes Windows C:\\ paths and matches baseline', () => {
+    const scriptsDir = path.join(tmpDir, 'scripts');
+    fs.mkdirSync(scriptsDir, { recursive: true });
+
+    fs.writeFileSync(path.join(scriptsDir, 'raw-overlay-baseline.txt'), `
+      # Baseline
+      src/features/dummy/LegacyModalToMigrate.tsx
+    `);
+
+    // Моделируем вывод grep на Windows: пути начинаются с C:\\, обратные слэши
+    const windowsTarget = 'C:\\Users\\runner\\project';
+    const mockGrepOutput = 'C:\\Users\\runner\\project\\src\\features\\dummy\\LegacyModalToMigrate.tsx:3: <div className="fixed inset-0 bg-black/50">Legacy modal</div>';
+
+    const output = execSync(
+      `bash "${scriptPath}" "${windowsTarget}" "${path.join(scriptsDir, 'raw-overlay-baseline.txt')}"`,
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          RAW_OVERLAY_TEST_MATCHES: mockGrepOutput,
+        },
+      }
+    );
+    expect(output).toContain('Raw overlay check: 0 unmanaged raw overlays found (OK)');
+  });
+
   it('passes cleanly on current codebase', () => {
     const repoRoot = path.resolve(__dirname, '../..');
     const output = execSync(`bash "${scriptPath}" "${repoRoot}"`, { encoding: 'utf8' });

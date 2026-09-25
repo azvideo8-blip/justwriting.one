@@ -59,8 +59,45 @@ done
 
 echo ""
 echo "### 3.11 api tests run from the api/ directory"
-( cd api && npx vitest run 2>&1 | grep -E "Tests " | tail -1 | sed 's/^/  api-dir: /' )
-( npx vitest run api 2>&1 | grep -E "Tests " | tail -1 | sed 's/^/  root:    /' )
+# Из корня 'npx vitest run api' матчил по подстроке 'api' файлы путей,
+# включая src/features/ai/utils/__tests__/prepareApiMessages.test.ts (3 теста).
+# Поэтому фильтр из корня — строго 'api/' (39 файлов, 239 тестов), делая наборы
+# тестов между прогоном из каталога api/ и прогоном из корня идентичными.
+
+api_dir_out=$( ( cd api && npx vitest run ) 2>&1 )
+api_dir_rc=$?
+api_dir_summary=$(echo "$api_dir_out" | grep -E "Tests " | tail -1)
+
+root_out=$(npx vitest run 'api/' 2>&1)
+root_rc=$?
+root_summary=$(echo "$root_out" | grep -E "Tests " | tail -1)
+
+echo "  api-dir: ${api_dir_summary:-NO_TESTS_LINE}"
+echo "  root:    ${root_summary:-NO_TESTS_LINE}"
+
+if [ $api_dir_rc -ne 0 ]; then
+  fail "api-dir vitest exited with code $api_dir_rc"
+fi
+if [ -z "$api_dir_summary" ]; then
+  fail "api-dir missing 'Tests ' line"
+elif echo "$api_dir_summary" | grep -qE '[1-9][0-9]* failed'; then
+  fail "api-dir has failed tests: $api_dir_summary"
+fi
+
+if [ $root_rc -ne 0 ]; then
+  fail "root vitest exited with code $root_rc"
+fi
+if [ -z "$root_summary" ]; then
+  fail "root missing 'Tests ' line"
+elif echo "$root_summary" | grep -qE '[1-9][0-9]* failed'; then
+  fail "root has failed tests: $root_summary"
+fi
+
+api_dir_total=$(echo "$api_dir_summary" | grep -oE '\([0-9]+\)' | tr -d '()' || true)
+root_total=$(echo "$root_summary" | grep -oE '\([0-9]+\)' | tr -d '()' || true)
+if [ -n "$api_dir_total" ] && [ -n "$root_total" ] && [ "$api_dir_total" -ne "$root_total" ]; then
+  fail "test count mismatch: api-dir has $api_dir_total, root has $root_total"
+fi
 
 echo ""
 echo "### 0.1 bench JSONs untracked"

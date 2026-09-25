@@ -58,8 +58,10 @@ describe('AUD-21 the VPS route shares the limiter', () => {
     __resetCspLimiterForTests();
 
     const { readFileSync } = await import('node:fs');
-    const { resolve } = await import('node:path');
-    const serverSource = readFileSync(resolve(process.cwd(), 'api/server.ts'), 'utf-8');
+    const { resolve, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const serverPath = resolve(dirname(fileURLToPath(import.meta.url)), '../server.ts');
+    const serverSource = readFileSync(serverPath, 'utf-8');
     // Боевой маршрут обязан звать общий лимитер, а не иметь свою копию.
     expect(serverSource).toContain("from './cspLimiter'");
     expect(serverSource).toMatch(/csp-report[\s\S]{0,400}rateLimited\(clientIp/);

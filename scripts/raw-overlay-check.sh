@@ -14,7 +14,11 @@ if [ -f "$BASELINE_FILE" ]; then
   active_baseline=$(grep -v '^#' "$BASELINE_FILE" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -v '^$' || true)
 fi
 
-raw_matches=$(grep -rn "fixed inset-0" "$TARGET_DIR/src/features" "$TARGET_DIR/src/app" --include='*.tsx' 2>/dev/null || true)
+if [ -n "${RAW_OVERLAY_TEST_MATCHES:-}" ]; then
+  raw_matches="$RAW_OVERLAY_TEST_MATCHES"
+else
+  raw_matches=$(grep -rn "fixed inset-0" "$TARGET_DIR/src/features" "$TARGET_DIR/src/app" --include='*.tsx' 2>/dev/null || true)
+fi
 
 offenders=""
 
@@ -27,7 +31,13 @@ while IFS= read -r match_line; do
   lineno="${match_line#"$file":}"
   lineno="${lineno%%:*}"
 
-  rel_file="${file#$TARGET_DIR/}"
+  # TB-05 / GT-3: нормализация пути перед сравнением с baseline:
+  # на Windows обратные слэши заменяются на прямые, а префикс TARGET_DIR снимается
+  norm_target="${TARGET_DIR//\\//}"
+  norm_target="${norm_target%/}"
+  norm_file="${file//\\//}"
+
+  rel_file="${norm_file#"$norm_target"/}"
   rel_file="${rel_file#/}"
 
   # Check if covered by baseline (by file or file:line)
@@ -41,7 +51,7 @@ while IFS= read -r match_line; do
   start_line=$((lineno > 8 ? lineno - 8 : 1))
   end_line=$((lineno + 2))
 
-  if sed -n "${start_line},${end_line}p" "$file" | grep -q "not-a-modal"; then
+  if [ -f "$file" ] && sed -n "${start_line},${end_line}p" "$file" 2>/dev/null | grep -q "not-a-modal"; then
     continue
   fi
 

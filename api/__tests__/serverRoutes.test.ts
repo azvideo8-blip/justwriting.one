@@ -76,18 +76,27 @@ describe('production route smoke (server.ts)', () => {
   });
 
   it('NARROW-3: uncaughtException logs and exits with code 1 for systemd restart', async () => {
-    const { execSync } = await import('node:child_process');
+    const { execFileSync } = await import('node:child_process');
+    const { resolve, dirname } = await import('node:path');
+    const { fileURLToPath, pathToFileURL } = await import('node:url');
+    const apiDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+    const serverPath = resolve(apiDir, 'server.ts');
+    const serverUrl = pathToFileURL(serverPath).href;
+
+    const script = [
+      "process.env.NODE_ENV = 'production';",
+      "process.env.PORT = '3098';",
+      "process.env.SUPABASE_JWT_ISS = 'https://example.com/auth/v1';",
+      `import(${JSON.stringify(serverUrl)}).then(() => {`,
+      "  setTimeout(() => { throw new Error('narrow-3-test-error'); }, 10);",
+      "});",
+    ].join('\n');
+
     try {
-      execSync(
-        `node --import tsx -e "
-          process.env.NODE_ENV = 'production';
-          process.env.PORT = '3098';
-          process.env.SUPABASE_JWT_ISS = 'https://example.com/auth/v1';
-          import('./api/server.ts').then(() => {
-            setTimeout(() => { throw new Error('narrow-3-test-error'); }, 10);
-          });
-        "`,
-        { cwd: process.cwd(), stdio: 'pipe' }
+      execFileSync(
+        process.execPath,
+        ['--import', 'tsx', '-e', script],
+        { cwd: apiDir, stdio: 'pipe' }
       );
       expect.fail('process should have exited with code 1');
     } catch (e: any) {
