@@ -14,6 +14,18 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.4',
+    date: '2026-09-25',
+    items: [
+      { category: 'fix', ru: 'Корзина и восстановление из неё, сделанные без связи, теперь доходят до облака и других устройств.', en: 'Moving a note to the trash or restoring it while offline now reaches the cloud and your other devices.' },
+      { category: 'fix', ru: 'Если заметку положили в корзину на одном устройстве, а на другом в неё дописали, свежая правка возвращает заметку из корзины на обоих устройствах, а журнал сообщает об этом.', en: 'If a note was trashed on one device and edited on another, the new edit brings it back from the trash on both devices, and the journal says so.' },
+      { category: 'fix', ru: 'Копия, которая создаётся при конфликте правок на двух устройствах, больше не путает версии: в облако уходят все тексты, последней показывается последняя правка, а история оригинала не смешивается с копией.', en: "The copy made during an edit conflict between two devices no longer mixes up versions: every text reaches the cloud, the latest edit shows as latest, and the original's history is not mixed with the copy." },
+      { category: 'fix', ru: 'Правка с другого устройства после конфликта больше не теряется из виду.', en: 'An edit from another device after a conflict no longer goes unseen.' },
+      { category: 'improvement', ru: 'Безопасность: при включённом шифровании приложение не принимает из облака незашифрованные записи — подложить заметку или запись памяти ИИ нельзя.', en: 'Security: with encryption on, the app no longer accepts unencrypted records from the cloud, so a note or AI memory entry cannot be planted.' },
+      { category: 'improvement', ru: '«Зашифровать все заметки» теперь дошифровывает и отпечаток текста в старых разборах.', en: '"Encrypt all notes" now also encrypts the text fingerprint in older analyses.' },
+    ],
+  },
+  {
     version: '0.9.3',
     date: '2026-09-24',
     items: [

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.4 — 2026-09-25
+
+- **[RU]** Корзина и восстановление из неё, сделанные без связи, теперь доходят до облака и других устройств.
+- **[EN]** Moving a note to the trash or restoring it while offline now reaches the cloud and your other devices.
+- **[RU]** Если заметку положили в корзину на одном устройстве, а на другом в неё дописали, свежая правка возвращает заметку из корзины на обоих устройствах, а журнал сообщает об этом.
+- **[EN]** If a note was trashed on one device and edited on another, the new edit brings it back from the trash on both devices, and the journal says so.
+- **[RU]** Копия, которая создаётся при конфликте правок на двух устройствах, больше не путает версии: в облако уходят все тексты, последней показывается последняя правка, а история оригинала не смешивается с копией.
+- **[EN]** The copy made during an edit conflict between two devices no longer mixes up versions: every text reaches the cloud, the latest edit shows as latest, and the original's history is not mixed with the copy.
+- **[RU]** Правка с другого устройства после конфликта больше не теряется из виду.
+- **[EN]** An edit from another device after a conflict no longer goes unseen.
+- **[RU]** Безопасность: при включённом шифровании приложение не принимает из облака незашифрованные записи — подложить заметку или запись памяти ИИ нельзя.
+- **[EN]** Security: with encryption on, the app no longer accepts unencrypted records from the cloud, so a note or AI memory entry cannot be planted.
+- **[RU]** «Зашифровать все заметки» теперь дошифровывает и отпечаток текста в старых разборах.
+- **[EN]** "Encrypt all notes" now also encrypts the text fingerprint in older analyses.
+
 ## 0.9.3 — 2026-09-24
 
 - **[RU]** Заметка, отправленная в корзину или восстановленная из неё на одном устройстве, теперь так же оказывается в корзине или возвращается на другом.
