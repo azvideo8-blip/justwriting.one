@@ -354,6 +354,7 @@ export class LifecycleRunner {
   // =========================================================================
   public async runSeq1_WriteSaveSync(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
     await this.setup();
+    this.interceptor.armFault(fault, faultStep);
     const notes: string[] = [];
     let told: ToldState = { status: 'error_thrown', cloudSynced: false };
 
@@ -363,10 +364,6 @@ export class LifecycleRunner {
 
     let localDocId = '';
     try {
-      if (faultStep === 'initial_write' && fault === 'idb_quota') {
-        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-      }
-
       // Step 1: Save new note
       localDocId = await LocalStorageService.createDocument(this.userId, {
         title: 'Seq 1 Note',
@@ -388,9 +385,6 @@ export class LifecycleRunner {
       };
 
       this.interceptor.setStep('save_local');
-      if (faultStep === 'save_local' && fault === 'idb_quota') {
-        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-      }
 
       // Step 2: Save version
       const saveRes = await StorageService.saveVersion(this.userId, localDocId, data);
@@ -403,6 +397,9 @@ export class LifecycleRunner {
       // Step 3: Add cloud copy / sync
       this.interceptor.setStep('sync_cloud');
       this.interceptor.armFault(fault, faultStep);
+      if (fault === 'concurrent_tab') {
+        await this.interceptor.applyConcurrentTabLock(localDocId);
+      }
 
       try {
         const cloudId = await StorageService.addCloudCopy(this.userId, localDocId);
@@ -487,6 +484,9 @@ export class LifecycleRunner {
     const v2Text = 'Version 2 updated text';
     this.interceptor.setStep(faultStep);
     this.interceptor.armFault(fault, faultStep);
+    if (fault === 'concurrent_tab') {
+      await this.interceptor.applyConcurrentTabLock(localDocId);
+    }
 
     try {
       const saveRes = await StorageService.saveVersion(this.userId, localDocId, {
@@ -516,7 +516,10 @@ export class LifecycleRunner {
     const postgres = this.inspectPostgres(cloudId || localDocId);
 
     // Did P1 hold? Was version 2 text preserved on device?
-    const p1Held = told.status === 'error_thrown' ? true : (device.latestContent === v2Text);
+    // For idb_tx_autoclose the v2 write aborted so v1 must exist; for all other faults (including concurrent_tab) v2 was saved locally.
+    const p1Held = (told.status === 'error_thrown' && fault === 'idb_tx_autoclose')
+      ? device.documentExists
+      : (device.latestContent === v2Text);
     const p2Held = this.evaluateP2(['Seq 2 Note', 'Version 1 text', v2Text], (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0, notes);
     const p3Held = this.evaluateP3(notes);
     const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
@@ -1313,17 +1316,12 @@ export class LifecycleRunner {
 
     let told: ToldState = { status: 'deleted', cloudSynced: true };
     try {
-      if (faultStep === 'delete_account' && fault === 'network_pre') {
-        throw new TypeError('Failed to fetch (deleteAccount server call failed)');
-      }
-      // Server deletes cloud rows (api/account.ts: local_store_records, then
-      // public.users with ON DELETE CASCADE into every user-keyed table).
-      for (const t of ['documents', 'versions', 'drafts', 'ai_summaries', 'ai_embeddings', 'local_store_records'] as const) {
-        this.interceptor.postgres.executeDelete(t, [{ type: 'eq', column: 'user_id', value: this.userId }]);
-      }
-
-      // Local erasure
-      await clearAllLocalStores();
+      // TB-08 Part A: Call real AuthService.deleteAccount(password).
+      // Note: reauthenticate and callAi('deleteAccount') are intercepted by the harness.
+      // Server-side cascade in Postgres is modeled in InMemoryPostgres (Part A);
+      // real Postgres deletion is tested in api/__tests__/deleteAccount.db.test.ts (Part B).
+      const { AuthService } = await import('../../features/auth/services/AuthService');
+      await AuthService.deleteAccount('test-password');
     } catch (e: unknown) {
       told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
       notes.push(`Error during deleteAccount: ${(e as Error).message}`);

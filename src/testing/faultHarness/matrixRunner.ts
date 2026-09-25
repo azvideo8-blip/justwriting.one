@@ -78,6 +78,7 @@ export class MatrixRunner {
       // Sequence 1: write → save → sync
       { seq: 'seq1_write_save_sync', fault: 'none', step: 'sync_cloud' },
       { seq: 'seq1_write_save_sync', fault: 'network_pre', step: 'sync_cloud' },
+      { seq: 'seq1_write_save_sync', fault: 'network_mid', step: 'sync_cloud' },
       { seq: 'seq1_write_save_sync', fault: 'network_post', step: 'sync_cloud' },
       { seq: 'seq1_write_save_sync', fault: 'postgres_500', step: 'sync_cloud' },
       { seq: 'seq1_write_save_sync', fault: 'postgres_409', step: 'sync_cloud' },
@@ -88,10 +89,14 @@ export class MatrixRunner {
       // Sequence 2: write → save → edit → save → sync
       { seq: 'seq2_write_save_edit_save_sync', fault: 'none', step: 'sync_second' },
       { seq: 'seq2_write_save_edit_save_sync', fault: 'network_pre', step: 'sync_second' },
+      { seq: 'seq2_write_save_edit_save_sync', fault: 'network_mid', step: 'sync_second' },
       { seq: 'seq2_write_save_edit_save_sync', fault: 'network_post', step: 'sync_second' },
       { seq: 'seq2_write_save_edit_save_sync', fault: 'postgres_500', step: 'sync_second' },
       { seq: 'seq2_write_save_edit_save_sync', fault: 'postgres_429', step: 'sync_second' },
       { seq: 'seq2_write_save_edit_save_sync', fault: 'abort', step: 'sync_second' },
+      { seq: 'seq2_write_save_edit_save_sync', fault: 'clock_backwards', step: 'sync_second' },
+      { seq: 'seq2_write_save_edit_save_sync', fault: 'idb_tx_autoclose', step: 'save_second' },
+      { seq: 'seq2_write_save_edit_save_sync', fault: 'concurrent_tab', step: 'sync_second' },
 
       // Sequence 3: cross-device divergence
       { seq: 'seq3_cross_device_divergence', fault: 'none', step: 'device_b_edit' },

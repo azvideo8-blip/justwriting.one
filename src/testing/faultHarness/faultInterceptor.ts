@@ -10,8 +10,9 @@ import * as supabaseClientModule from '../../core/supabase/client';
 import * as callAiModule from '../../core/ai/callAi';
 import * as authModule from '../../core/auth';
 import * as aiConsentModule from '../../core/ai/aiConsent';
-// Optional vitest spyOn; fallback to manual monkey-patch when running outside vitest
 import { clearSessionKey, encryptContent, generateDataKey } from '../../core/crypto/encrypt';
+import { getLocalDb } from '../../core/storage/localDb';
+import { IDBObjectStore } from 'fake-indexeddb';
 
 export interface ArmedFault {
   fault: FaultType;
@@ -59,6 +60,105 @@ export class FaultInterceptor {
     }
   }
 
+  private originalIdbPut: typeof IDBObjectStore.prototype.put | null = null;
+  private originalIdbAdd: typeof IDBObjectStore.prototype.add | null = null;
+
+  public applyIdbQuotaPatch(): void {
+    if (this.originalIdbPut) return;
+    this.originalIdbPut = IDBObjectStore.prototype.put;
+    this.originalIdbAdd = IDBObjectStore.prototype.add;
+
+    IDBObjectStore.prototype.put = function (_value?: unknown, _key?: unknown) {
+      const quotaErr = new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
+      tx.error = quotaErr;
+      return tx._execRequestAsync({
+        operation: () => {
+          throw quotaErr;
+        },
+        source: this,
+      }) as unknown as IDBRequest<IDBValidKey>;
+    };
+
+    IDBObjectStore.prototype.add = function (_value?: unknown, _key?: unknown) {
+      const quotaErr = new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
+      tx.error = quotaErr;
+      return tx._execRequestAsync({
+        operation: () => {
+          throw quotaErr;
+        },
+        source: this,
+      }) as unknown as IDBRequest<IDBValidKey>;
+    };
+  }
+
+  public restoreIdbQuotaPatch(): void {
+    if (this.originalIdbPut) {
+      IDBObjectStore.prototype.put = this.originalIdbPut;
+      this.originalIdbPut = null;
+    }
+    if (this.originalIdbAdd) {
+      IDBObjectStore.prototype.add = this.originalIdbAdd;
+      this.originalIdbAdd = null;
+    }
+  }
+
+  private originalIdbAutoclosePut: typeof IDBObjectStore.prototype.put | null = null;
+  private originalIdbAutocloseAdd: typeof IDBObjectStore.prototype.add | null = null;
+
+  public applyIdbAutoclosePatch(): void {
+    if (this.originalIdbAutoclosePut) return;
+    this.originalIdbAutoclosePut = IDBObjectStore.prototype.put;
+    this.originalIdbAutocloseAdd = IDBObjectStore.prototype.add;
+
+    IDBObjectStore.prototype.put = function (_value?: unknown, _key?: unknown) {
+      const inactiveErr = new DOMException('The transaction is not active.', 'TransactionInactiveError');
+      const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
+      tx.error = inactiveErr;
+      return tx._execRequestAsync({
+        operation: () => {
+          throw inactiveErr;
+        },
+        source: this,
+      }) as unknown as IDBRequest<IDBValidKey>;
+    };
+
+    IDBObjectStore.prototype.add = function (_value?: unknown, _key?: unknown) {
+      const inactiveErr = new DOMException('The transaction is not active.', 'TransactionInactiveError');
+      const tx = this.transaction as unknown as { error?: DOMException; _execRequestAsync: (arg: unknown) => unknown };
+      tx.error = inactiveErr;
+      return tx._execRequestAsync({
+        operation: () => {
+          throw inactiveErr;
+        },
+        source: this,
+      }) as unknown as IDBRequest<IDBValidKey>;
+    };
+  }
+
+  public restoreIdbAutoclosePatch(): void {
+    if (this.originalIdbAutoclosePut) {
+      IDBObjectStore.prototype.put = this.originalIdbAutoclosePut;
+      this.originalIdbAutoclosePut = null;
+    }
+    if (this.originalIdbAutocloseAdd) {
+      IDBObjectStore.prototype.add = this.originalIdbAutocloseAdd;
+      this.originalIdbAutocloseAdd = null;
+    }
+  }
+
+  public async applyConcurrentTabLock(documentId: string): Promise<void> {
+    const db = await getLocalDb();
+    await db.put('syncQueue', {
+      id: `lock_cloud_${documentId}`,
+      documentId,
+      type: 'document' as const,
+      createdAt: Date.now(),
+      ownerToken: 'concurrent_tab_owner_' + Math.random().toString(36).slice(2),
+    });
+  }
+
   public armFault(fault: FaultType, step: StepName, table?: TableName): void {
     this.armedFault = {
       fault,
@@ -70,14 +170,23 @@ export class FaultInterceptor {
     if (this.currentStep === step) {
       if (fault === 'vault_locked') {
         clearSessionKey();
+      } else if (fault === 'clock_backwards') {
+        this.clockOffsetMs = -600_000;
       } else if (fault === 'decrypt_corrupt_single') {
         void this.corruptSingleCloudVersion();
+      } else if (fault === 'idb_quota') {
+        this.applyIdbQuotaPatch();
+      } else if (fault === 'idb_tx_autoclose') {
+        this.applyIdbAutoclosePatch();
       }
     }
   }
 
   public clearArmedFault(): void {
     this.armedFault = null;
+    this.restoreIdbQuotaPatch();
+    this.restoreIdbAutoclosePatch();
+    this.clockOffsetMs = 0;
   }
 
   public setStep(step: StepName): void {
@@ -89,6 +198,20 @@ export class FaultInterceptor {
         this.clockOffsetMs = -600_000; // Jump 10 minutes into the past
       } else if (this.armedFault.fault === 'decrypt_corrupt_single') {
         void this.corruptSingleCloudVersion();
+      } else if (this.armedFault.fault === 'idb_quota') {
+        this.applyIdbQuotaPatch();
+      } else if (this.armedFault.fault === 'idb_tx_autoclose') {
+        this.applyIdbAutoclosePatch();
+      }
+    } else {
+      if (this.originalIdbPut) {
+        this.restoreIdbQuotaPatch();
+      }
+      if (this.originalIdbAutoclosePut) {
+        this.restoreIdbAutoclosePatch();
+      }
+      if (this.armedFault?.fault !== 'clock_backwards') {
+        this.clockOffsetMs = 0;
       }
     }
     if (this.onStep) {
@@ -130,26 +253,55 @@ export class FaultInterceptor {
       return this.originalDateNow() + this.clockOffsetMs;
     };
 
-    // 3. Spy on callAi to detect unsolicited AI calls
+    // 3. Spy on callAi to detect unsolicited AI calls and handle deleteAccount
     this.aiCallsIntercepted = [];
     const mockCallAi = async (name: string, data: unknown) => {
       let consent = false;
-      try {
-        const u = authModule.getCurrentUser();
-        if (u) {
+      const u = authModule.getCurrentUser();
+      if (u) {
+        try {
           consent = aiConsentModule.getAiConsent(u.uid);
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
-      this.aiCallsIntercepted.push({
-        endpoint: name,
-        payload: data,
-        consentPresent: consent,
-      });
+      if (!['deleteAccount', 'sendTelemetry', 'inviteUser', 'listUsersWithStatus'].includes(name)) {
+        this.aiCallsIntercepted.push({
+          endpoint: name,
+          payload: data,
+          consentPresent: consent,
+        });
+      }
+
+      if (name === 'deleteAccount') {
+        const fault = this.shouldTriggerFault();
+        if (fault === 'network_pre') {
+          throw new TypeError('Failed to fetch (deleteAccount server call failed)');
+        }
+        if (fault === 'postgres_500') {
+          throw new Error('500 Internal Server Error');
+        }
+        if (u) {
+          // Server deletes cloud rows (api/account.ts: local_store_records, then
+          // public.users with ON DELETE CASCADE into every user-keyed table).
+          // NOTE: The server-side cascade is modeled here in InMemoryPostgres for the client matrix;
+          // the real Postgres deletion logic is verified end-to-end in api/__tests__/deleteAccount.db.test.ts (TB-08 Part B).
+          for (const t of ['documents', 'versions', 'drafts', 'ai_summaries', 'ai_embeddings', 'local_store_records'] as const) {
+            this.postgres.executeDelete(t, [{ type: 'eq', column: 'user_id', value: u.uid }]);
+          }
+        }
+        return { success: true } as never;
+      }
+
       return { success: true } as never;
     };
     this.spy(callAiModule, 'callAi', mockCallAi);
+
+    // 3b. Spy on reauthenticate for deleteAccount (TB-08 Part A)
+    this.spy(authModule, 'reauthenticate', async () => {
+      // Reauthentication succeeds with 200; account deletion network faults are injected in delete_account step.
+      return;
+    });
 
     // 4. Spy on fetch to detect streaming chat endpoint (/api/chat) (GUARD-7).
     // The product maintains two AI doors by design:
@@ -199,6 +351,7 @@ export class FaultInterceptor {
   }
 
   public uninstallMocks(): void {
+    this.restoreIdbQuotaPatch();
     const globalVi = (globalThis as unknown as { vi?: { restoreAllMocks: () => void } }).vi;
     if (globalVi) {
       globalVi.restoreAllMocks();
@@ -246,6 +399,7 @@ export class FaultInterceptor {
         refreshSession: () => Promise.resolve({ data: { session: null }, error: null }),
         signInWithPassword: () => Promise.resolve({ data: { user: null }, error: null }),
         signUp: () => Promise.resolve({ data: { user: null }, error: null }),
+        signOut: () => Promise.resolve({ error: null }),
       },
     };
   }
@@ -353,9 +507,6 @@ export class FaultInterceptor {
           if (fault === 'network_pre') {
             throw new TypeError('Failed to fetch (offline before request)');
           }
-          if (fault === 'network_mid') {
-            throw new Error('Connection aborted by peer (mid-request)');
-          }
           if (fault === 'abort') {
             throw new DOMException('The user aborted a request.', 'AbortError');
           }
@@ -406,10 +557,13 @@ export class FaultInterceptor {
             }
           }
 
-          // 3. Phantom Write (network_post):
+          // 3. Phantom Write (network_post & network_mid):
           // Write succeeded in Postgres, BUT network drops before client gets ACK!
           if (fault === 'network_post') {
             throw new TypeError('Failed to fetch (write committed, ACK dropped by network)');
+          }
+          if (fault === 'network_mid') {
+            throw new Error('Connection aborted by peer (mid-request: write committed to cloud, stream broken)');
           }
 
           return result;

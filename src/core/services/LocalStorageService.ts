@@ -158,6 +158,7 @@ export const LocalStorageService = {
 
       await tx.done;
     } catch (localErr) {
+      await tx.done.catch(() => {});
       if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
         reportError(localErr, { action: 'saveVersionToLocal', documentId, quotaExceeded: true }, 'warning');
         return { ok: false };
