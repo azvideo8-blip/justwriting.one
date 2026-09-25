@@ -91,12 +91,6 @@ export const writingTranslations: Translations = {
   mood_disgust: { ru: 'Отвращение', en: 'Disgust' },
   mood_interest: { ru: 'Интерес', en: 'Interest' },
 
-  onboarding_goal_title: { ru: 'Сколько хочешь писать?', en: 'How much do you want to write?' },
-  onboarding_goal_easy: { ru: 'Лёгкий старт', en: 'Easy start' },
-  onboarding_goal_normal: { ru: 'Обычный', en: 'Regular' },
-  onboarding_goal_serious: { ru: 'Серьёзно', en: 'Serious' },
-  onboarding_goal_custom: { ru: 'Свой', en: 'Custom' },
-  onboarding_goal_cta: { ru: 'Начать', en: "Let's go" },
 
   writing_mode_prompts: { ru: 'С подсказкой', en: 'With a prompt' },
   writing_prompts_cta: { ru: 'Не знаешь, о чём писать?', en: "Not sure what to write about?" },

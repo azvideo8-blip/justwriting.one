@@ -6,7 +6,6 @@ export const STORAGE_KEYS = {
   APP_LANGUAGE: 'app_language',
   APP_THEME: 'app-theme',
   FOCUS_SWIPE_HINT_SHOWN: 'focus_swipe_hint_shown',
-  ONBOARDING_DONE: (uid?: string | null) => (uid ? `onboarding_done_${uid}` : 'onboarding_done_guest'),
   ENC_ENABLED: (userId: string) => `enc_enabled_${userId}`,
   UNLOCKED_ACHIEVEMENTS: (uid: string) => `unlocked_achievements_${uid}`,
   WORD_GOAL: (uid: string) => `word_goal_${uid}`,

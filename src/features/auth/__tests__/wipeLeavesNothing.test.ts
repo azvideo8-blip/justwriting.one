@@ -64,11 +64,11 @@ describe('стирание при выходе не оставляет данн�
     localStorage.setItem(`draft-${OTHER}`, 'чужой черновик');
     localStorage.setItem(`ai_user_portrait_${OTHER}`, 'чужой портрет');
     localStorage.setItem(`privacy_accepted_${OTHER}`, '1');
-    localStorage.setItem(`onboarding_done_${OTHER}`, '1');
+    localStorage.setItem(`word_goal_${OTHER}`, '1');
 
     localStorage.setItem(`enc_enabled_${UID}`, '1');
     localStorage.setItem(`ai_user_portrait_${UID}`, 'свой портрет');
-    localStorage.setItem(`onboarding_done_${UID}`, '1');
+    localStorage.setItem(`word_goal_${UID}`, '1');
 
     clearAccountScopedStorage(UID);
 
@@ -76,11 +76,11 @@ describe('стирание при выходе не оставляет данн�
     expect(localStorage.getItem(`draft-${OTHER}`)).toBe('чужой черновик');
     expect(localStorage.getItem(`ai_user_portrait_${OTHER}`)).toBe('чужой портрет');
     expect(localStorage.getItem(`privacy_accepted_${OTHER}`)).toBe('1');
-    expect(localStorage.getItem(`onboarding_done_${OTHER}`)).toBe('1');
+    expect(localStorage.getItem(`word_goal_${OTHER}`)).toBe('1');
 
     expect(localStorage.getItem(`enc_enabled_${UID}`)).toBeNull();
     expect(localStorage.getItem(`ai_user_portrait_${UID}`)).toBeNull();
-    expect(localStorage.getItem(`onboarding_done_${UID}`)).toBeNull();
+    expect(localStorage.getItem(`word_goal_${UID}`)).toBeNull();
   });
 
   it('LS-6: ключи с суффиксом guest / guest_ стираются при выходе «на чужом компьютере»', () => {
@@ -90,7 +90,7 @@ describe('стирание при выходе не оставляет данн�
     localStorage.setItem('ai_taxonomy_guest', 'гостевые темы');
     localStorage.setItem('ai_judge_log_guest', 'гостевой лог судьи');
     localStorage.setItem('draft-guest_random123', 'гостевой черновик');
-    localStorage.setItem('onboarding_done_guest', '1');
+    localStorage.setItem('word_goal_guest', '1');
 
     clearAccountScopedStorage(UID);
 
@@ -100,6 +100,6 @@ describe('стирание при выходе не оставляет данн�
     expect(localStorage.getItem('ai_taxonomy_guest')).toBeNull();
     expect(localStorage.getItem('ai_judge_log_guest')).toBeNull();
     expect(localStorage.getItem('draft-guest_random123')).toBeNull();
-    expect(localStorage.getItem('onboarding_done_guest')).toBeNull();
+    expect(localStorage.getItem('word_goal_guest')).toBeNull();
   });
 });

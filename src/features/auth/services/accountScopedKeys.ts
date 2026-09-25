@@ -61,8 +61,6 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     // запрос и курсор восстановления эмбеддингов (LS-4)
     `ai_embed_restore_requested_${uid}`,
     `ai_embed_restore_cursor_${uid}`,
-    // экран выбора цели письма (AG-ONBOARD-1)
-    `onboarding_done_${uid}`,
     // ожидающий подтверждения код восстановления и признак авто-создания сейфа (F-01)
     `pending_recovery_code_${uid}`,
     `vault_auto_created_${uid}`,
