@@ -93,4 +93,31 @@ describe('usePrivacyCheck waits for the restored session', () => {
 
     expect(result.current.showPrivacy).toBe(false);
   });
+
+  // Мастер приглашения: ссылка из письма уже дала сессию, но согласие берёт
+  // мастер. Решение «показать окно» принималось по ссылке и не пересматривалось
+  // после мастера — человек видел политику второй раз подряд.
+  it('does not decide while the invite wizard is open, and reads its consent afterwards', async () => {
+    authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
+    const { result, rerender } = renderHook(({ suspended }) => usePrivacyCheck(suspended), {
+      initialProps: { suspended: true },
+    });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.showPrivacy).toBe(false);
+
+    localStorage.setItem('privacy_accepted_u1', String(PRIVACY_VERSION)); // мастер записал согласие
+    rerender({ suspended: false });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.showPrivacy).toBe(false);
+  });
+
+  it('still asks after /reset-password when nobody took consent there', async () => {
+    authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
+    const { result, rerender } = renderHook(({ suspended }) => usePrivacyCheck(suspended), {
+      initialProps: { suspended: true },
+    });
+    await act(async () => { await Promise.resolve(); });
+    rerender({ suspended: false });
+    await waitFor(() => expect(result.current.showPrivacy).toBe(true));
+  });
 });

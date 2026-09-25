@@ -6,7 +6,7 @@ import { STORAGE_KEYS } from "../../../../shared/constants/storageKeys";
 import { SyncService } from "../../../../core/services/SyncService";
 import { getLocalDb } from "../../../../core/storage/localDb";
 import * as authStatusModule from "../../../../features/auth/hooks/useAuthStatus";
-import { cloudSyncEnabled } from "../../../../core/sync/cloudSyncEnabled";
+import { cloudSyncEnabled, setCloudSyncEnabled } from "../../../../core/sync/cloudSyncEnabled";
 
 vi.mock("../../../../shared/i18n", () => ({
   useLanguage: () => ({
@@ -260,5 +260,29 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
       expect(checkB.current.showConsent).toBe(true);
     });
     expect(cloudSyncEnabled("user_B")).toBe(false);
+  });
+
+  // Тот же случай для вопроса о синхронизации: мастер ответил на него на шаге 3,
+  // окно после мастера всплывать не должно.
+  it("useSyncConsentCheck: stays quiet during the invite wizard and honours its answer afterwards", async () => {
+    vi.spyOn(authStatusModule, "useAuthStatus").mockReturnValue({
+      user: { uid: "user_wiz" } as never,
+      profile: null, refreshProfile: async () => {},
+      authState: "authenticated" as never,
+      isAuthenticated: true,
+      isGuest: false,
+      loading: false,
+      isConnected: false,
+    });
+    const { result, rerender } = renderHook(({ suspended }) => useSyncConsentCheck(suspended), {
+      initialProps: { suspended: true },
+    });
+    await new Promise(r => setTimeout(r, 20));
+    expect(result.current.showConsent).toBe(false);
+
+    setCloudSyncEnabled("user_wiz", false); // «Не сейчас» на шаге 3
+    rerender({ suspended: false });
+    await new Promise(r => setTimeout(r, 20));
+    expect(result.current.showConsent).toBe(false);
   });
 });

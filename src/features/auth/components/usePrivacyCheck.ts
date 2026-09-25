@@ -5,7 +5,10 @@ import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 
 // Отдельно от PrivacyModal: проверка нужна при каждом запуске, а само окно —
 // редко. Так окно грузится лениво и не лежит в стартовом куске.
-export function usePrivacyCheck() {
+// suspended: пока открыт мастер приглашения (он берёт согласие сам). Когда он
+// закрылся, проверка перезапускается и видит уже записанное согласие — раньше
+// она решала «показать» ещё по ссылке из письма и показывала окно после мастера.
+export function usePrivacyCheck(suspended = false) {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const { user, authState } = useAuthStatus();
 
@@ -17,7 +20,7 @@ export function usePrivacyCheck() {
     let cancelled = false;
 
     const check = async () => {
-      if (!user) {
+      if (!user || suspended) {
         setShowPrivacy(false);
         return;
       }
@@ -47,7 +50,7 @@ export function usePrivacyCheck() {
     };
     void check();
     return () => { cancelled = true; };
-  }, [user, authState]);
+  }, [user, authState, suspended]);
 
   return { showPrivacy, setShowPrivacy };
 }

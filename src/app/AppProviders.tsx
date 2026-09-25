@@ -48,10 +48,10 @@ function AuthAwareSettingsProvider({ children }: { children: ReactNode }) {
 
 function PrivacyGuard({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuthStatus();
-  const { showPrivacy, setShowPrivacy } = usePrivacyCheck();
-  const { showConsent, setShowConsent } = useSyncConsentCheck();
   const location = useLocation();
   const isResetPassword = location.pathname.startsWith('/reset-password');
+  const { showPrivacy, setShowPrivacy } = usePrivacyCheck(isResetPassword);
+  const { showConsent, setShowConsent } = useSyncConsentCheck(isResetPassword);
   useBackgroundSync();
 
   useEffect(() => {

@@ -6,6 +6,7 @@ import { useLanguage } from "../../../shared/i18n";
 import { useAuthStatus } from "../../../features/auth/hooks/useAuthStatus";
 import { STORAGE_KEYS } from "../../../shared/constants/storageKeys";
 import { SyncService } from "../../../core/services/SyncService";
+import { setCloudSyncEnabled } from "../../../core/sync/cloudSyncEnabled";
 
 interface SyncConsentModalProps {
   onClose: () => void;
@@ -17,8 +18,7 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
 
   const handleEnable = () => {
     if (userId) {
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), "true");
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(userId), "true");
+      setCloudSyncEnabled(userId, true);
       void SyncService.syncPending(userId);
     }
     onClose();
@@ -26,8 +26,7 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
 
   const handleKeepOff = () => {
     if (userId) {
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), "false");
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(userId), "true");
+      setCloudSyncEnabled(userId, false);
     }
     onClose();
   };
@@ -71,13 +70,16 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
   );
 }
 
-export function useSyncConsentCheck() {
+/** suspended: пока открыт мастер приглашения, вопрос задаёт он сам. Проверка
+ * перезапускается, когда мастер закрылся, и читает уже записанный им ответ —
+ * иначе окно всплывало по решению, принятому до мастера. */
+export function useSyncConsentCheck(suspended = false) {
   const { user, isAuthenticated, isGuest, authState } = useAuthStatus();
   const [showConsent, setShowConsent] = useState(false);
 
   useEffect(() => {
     // Only ask when explicitly authenticated and auth is fully ready
-    if (authState !== 'authenticated' || !isAuthenticated || isGuest || !user) {
+    if (suspended || authState !== 'authenticated' || !isAuthenticated || isGuest || !user) {
       // Defer to avoid synchronous setState in effect body
       const t = setTimeout(() => setShowConsent(false), 0);
       return () => clearTimeout(t);
@@ -120,7 +122,7 @@ export function useSyncConsentCheck() {
 
     void checkLocalDocs();
     return () => { cancelled = true; };
-  }, [user, isAuthenticated, isGuest, authState]);
+  }, [user, isAuthenticated, isGuest, authState, suspended]);
 
   return { showConsent, setShowConsent };
 }
