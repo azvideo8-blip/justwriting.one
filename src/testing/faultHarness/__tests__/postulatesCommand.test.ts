@@ -15,9 +15,10 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs runs cleanly and passes all postulates', () => {
     // N-3: этот тест про матрицу без базы; живой обход базы — отдельный запуск
     // с DATABASE_URL, поэтому переменную окружения сюда не пропускаем.
-    // число только уменьшается: текущий факт 100 не измеренных ячеек (P1: 12, P2: 42, P3: 0, P4: 46)
+    // Число только уменьшается. Факт: 24 применимые не измеренные ячейки (P1 12, P2 4, P4 8);
+    // P2/P4 без сейфа неприменимы и не считаются.
     const { DATABASE_URL: _db, ...env } = process.env;
-    const res = spawnSync('node', [postulatesScript, '--max-unmeasured', '100'], {
+    const res = spawnSync('node', [postulatesScript, '--max-unmeasured', '24'], {
       cwd: rootDir,
       encoding: 'utf8',
       timeout: 60000,
@@ -51,15 +52,15 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(res0.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED');
     expect(res0.stdout).toContain('List of unmeasured cells:');
 
-    // 2. --max-unmeasured 99 (1 less than fact 100) fails with exit 1
-    const res99 = spawnSync('node', [postulatesScript, '--max-unmeasured', '99'], {
+    // 2. --max-unmeasured 23 (1 less than fact 24) fails with exit 1
+    const res99 = spawnSync('node', [postulatesScript, '--max-unmeasured', '23'], {
       cwd: rootDir,
       encoding: 'utf8',
       timeout: 60000,
       env,
     });
     expect(res99.status).toBe(1);
-    expect(res99.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED: 100 > 99');
+    expect(res99.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED: 24 > 23');
 
     // 3. evaluateMatrixResults directly unit test
     const cell1 = {
@@ -85,6 +86,11 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(evaluateMatrixResults([cell1, cell2], 2).success).toBe(true);
     expect(evaluateMatrixResults([cell1, cell2], 1).success).toBe(false);
     expect(evaluateMatrixResults([cell1, cell2], 1).unmeasuredExceeded).toBe(true);
+
+    // Без сейфа P2 и P4 неприменимы — это не тёмные ячейки; P1 без замера — тёмная.
+    const vaultOff = { ...cell2, vaultEnabled: false };
+    expect(evaluateMatrixResults([cell1, vaultOff], 0).totalUnmeasured).toBe(0);
+    expect(evaluateMatrixResults([cell1, { ...vaultOff, p1Held: undefined }], 0).totalUnmeasured).toBe(1);
   }, 120000);
 
   // EA-7: «NO VIOLATIONS» без единого измерения — не зелёный вердикт.

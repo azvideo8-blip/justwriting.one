@@ -121,11 +121,11 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
       });
     }
 
-    const missing = [];
-    if (r.p1Held === undefined) missing.push('P1');
-    if (r.p2Held === undefined) missing.push('P2');
-    if (r.p3Held === undefined) missing.push('P3');
-    if (r.p4Held === undefined) missing.push('P4');
+    // Храповик считает только применимые ячейки: без сейфа P2 («уходит
+    // зашифрованным») неприменим по определению, а с ним и P4, который из P2
+    // собран. Иначе ~3/4 счёта — шум, и храповик стережёт не дыры, а его.
+    const applies = { P1: true, P2: !!r.vaultEnabled, P3: true, P4: !!r.vaultEnabled };
+    const missing = ['P1', 'P2', 'P3', 'P4'].filter(p => applies[p] && r[`p${p[1]}Held`] === undefined);
     if (missing.length > 0) {
       darkCells.push({
         seq: r.sequence,
@@ -147,7 +147,7 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
     return c;
   });
 
-  const totalUnmeasured = tally.reduce((sum, c) => sum + c.notMeasured, 0);
+  const totalUnmeasured = darkCells.reduce((sum, d) => sum + d.missing.length, 0);
   const unmeasuredExceeded = maxUnmeasured !== null && totalUnmeasured > maxUnmeasured;
 
   // EA-7: зелёный вердикт без единого измерения — не зелёный. Пустая матрица,
