@@ -5,6 +5,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 
 export const AICommitmentService = {
@@ -74,14 +75,16 @@ export const AICommitmentService = {
     try {
       const db = await getLocalDb();
       const allCommitments = await db.getAll('aiCommitments');
-      const openCommitments = allCommitments.filter(c => c.status === 'open');
+      const documents = await db.getAll('documents');
+      // N-4: планы из заметок, исключённых из ИИ или лежащих в корзине, в чат не идут.
+      const hidden = new Set(documents.filter(isExcludedFromAI).flatMap(d => [d.id, d.uuid].filter((x): x is string => !!x)));
+      const openCommitments = allCommitments.filter(c => c.status === 'open' && !hidden.has(c.documentId));
       if (openCommitments.length === 0) return [];
 
       // Векторы всех заметок здесь не нужны целиком: совпадение ищется только
       // по документам, созданным ПОСЛЕ обязательства. Собираем нужные id и
       // читаем их эмбеддинги поштучно (AUD-8: полный getAll десериализовал
       // весь стор векторов на каждый ход чата).
-      const documents = await db.getAll('documents');
       const earliestNeeded = Math.min(
         ...openCommitments.filter(c => c.vector).map(c => c.createdAt),
       );

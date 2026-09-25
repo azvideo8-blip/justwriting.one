@@ -90,6 +90,68 @@ async function latestContent(documentId: string): Promise<string | null> {
   return versions[0]?.content ?? null;
 }
 
+/**
+ * N-4: у разбора есть производные дальше сводки и вектора — таймлайн, планы,
+ * доказательства тем, «история жизни», доказательства убеждений. В них лежат
+ * дословные предложения заметки, и они уходят в подсказки чата. Исключение
+ * заметки из ИИ (или её удаление) раньше оставляло их жить — и в облаке тоже.
+ * Сводный текст месяца (aiMonthlyDigest) хирургически не вычистить: он
+ * пересобирается при следующем разборе месяца.
+ */
+async function purgeNoteDerivatives(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const idSet = new Set(ids);
+  const mine = (unitId: string) => ids.some(id => unitId === `summary-${id}` || unitId.startsWith(`timeline-${id}-`));
+  const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
+  const db = await getLocalDb();
+  try {
+    for (const id of ids) {
+      if (await db.get('aiTimeline', id)) {
+        await db.delete('aiTimeline', id);
+        LocalStoreSyncService.scheduleStoreDelete('aiTimeline', id);
+      }
+    }
+    for (const c of await db.getAll('aiCommitments')) {
+      if (idSet.has(c.documentId)) {
+        await db.delete('aiCommitments', c.id);
+        LocalStoreSyncService.scheduleStoreDelete('aiCommitments', c.id);
+      }
+    }
+    for (const t of await db.getAll('aiThemeLedger')) {
+      const evidence = t.evidence.filter(e => !idSet.has(e.noteId));
+      if (evidence.length === t.evidence.length) continue;
+      if (evidence.length === 0) {
+        await db.delete('aiThemeLedger', t.id);
+        LocalStoreSyncService.scheduleStoreDelete('aiThemeLedger', t.id);
+      } else {
+        await db.put('aiThemeLedger', { ...t, evidence });
+        LocalStoreSyncService.scheduleStoreSync('aiThemeLedger', t.id);
+      }
+    }
+    for (const entry of await db.getAll('lifeStory')) {
+      if (entry.sourceDocumentIds.some(id => idSet.has(id))) {
+        // Текст записи пересказывает заметку — удаляем запись целиком.
+        await db.delete('lifeStory', entry.eventDate);
+        LocalStoreSyncService.scheduleStoreDelete('lifeStory', entry.eventDate);
+      }
+    }
+    for (const raw of await db.getAll('aiBeliefs')) {
+      const b = raw as { id: string; evidence?: Array<{ id: string }>; unitIds?: string[] };
+      const evidence = (b.evidence ?? []).filter(e => !mine(e.id));
+      if (evidence.length === (b.evidence ?? []).length) continue;
+      if (evidence.length === 0) {
+        await db.delete('aiBeliefs', b.id);
+        LocalStoreSyncService.scheduleStoreDelete('aiBeliefs', b.id);
+      } else {
+        await db.put('aiBeliefs', { ...raw, evidence, unitIds: (b.unitIds ?? []).filter(u => !mine(u)) });
+        LocalStoreSyncService.scheduleStoreSync('aiBeliefs', b.id);
+      }
+    }
+  } catch (e) {
+    reportError(e, { action: 'noteAnalysis_purgeDerivatives' });
+  }
+}
+
 export const NoteAnalysisService = {
   /** Сводка + вектор для одной заметки. Портрет, грани и дайджесты не трогает:
    *  они пересчитываются отдельно и по отдельному действию. */
@@ -320,6 +382,7 @@ export const NoteAnalysisService = {
       const { aiProcessed: _dropped, ...rest } = doc;
       await db.put('documents', rest);
     }
+    await purgeNoteDerivatives([...new Set([documentId, doc?.uuid].filter((x): x is string => !!x))]);
 
     // Облачные копии: «удалить разбор» без этого оставляло бы сводку и вектор
     // лежать в базе, то есть ничего по сути не удаляло.

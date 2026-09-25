@@ -4,6 +4,7 @@ import { AIMonthlyDigestService } from '../AIMonthlyDigestService';
 import { AITimelineService } from '../AITimelineService';
 import { relativeDate } from '../../../../core/utils/dateUtils';
 import { reportError } from '../../../../shared/errors/reportError';
+import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 
 interface BuildProactiveBlockParams {
   personaId: string;
@@ -19,7 +20,8 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
     const recentDigests = await AIMonthlyDigestService.getRecent(2);
     const db = await getLocalDb();
     const docs = await db.getAllFromIndex('documents', 'by-lastSession');
-    const sortedDocs = [...docs].sort((a, b) => (b.lastSessionAt ?? 0) - (a.lastSessionAt ?? 0));
+    // N-4: исключённые из ИИ и лежащие в корзине заметки сюда не попадают.
+    const sortedDocs = docs.filter(d => !isExcludedFromAI(d)).sort((a, b) => (b.lastSessionAt ?? 0) - (a.lastSessionAt ?? 0));
 
     const recentDocSummaries: string[] = [];
     for (const doc of sortedDocs.slice(0, 3)) {
@@ -115,7 +117,8 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
 
   try {
     const db = await getLocalDb();
-    const timeline = await db.getAll('aiTimeline');
+    const hidden = new Set((await db.getAll('documents')).filter(isExcludedFromAI).flatMap(d => [d.id, d.uuid].filter((x): x is string => !!x)));
+    const timeline = (await db.getAll('aiTimeline')).filter(t => !hidden.has(t.documentId));
 
     // Trends
     const { computeTrends, formatTrendsBlock } = await import('../../utils/contextTrends');
