@@ -33,6 +33,17 @@ function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
   getSupabase().auth.onAuthStateChange((event, session) => {
+    // Аккаунт сменили в другой вкладке (ссылка-приглашение из письма открылась
+    // рядом, вход под другим человеком): сессия общая, а эта вкладка держит в
+    // памяти прежнего человека — его очередь, ключ, фоновые задачи — и шлёт их
+    // уже с чужой сессией (база отвечает 403 по RLS). Скрытую вкладку просто
+    // перезагружаем; видимая — та, где человек сам входит и выходит.
+    const nextUid = session?.user?.id ?? null;
+    if (currentUser !== null && nextUid !== currentUser.uid
+        && typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      window.location.reload();
+      return;
+    }
     if (event === 'SIGNED_OUT') {
       if (currentUser !== null && !isVoluntarySignOut) {
         reportError(

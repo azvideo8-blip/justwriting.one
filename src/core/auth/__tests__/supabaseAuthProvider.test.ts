@@ -113,5 +113,56 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
       'warning',
     );
   });
-});
 
+  it('a hidden tab reloads when another tab switches the account, instead of carrying on as the old user', () => {
+    _resetAuthStateForTesting();
+    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
+      authStateCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+    const reload = vi.fn();
+    const origLocation = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...origLocation, reload } });
+    const vis = vi.spyOn(document, 'visibilityState', 'get');
+    try {
+      getCurrentUser();
+      authStateCallback?.('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
+
+      vis.mockReturnValue('visible');
+      authStateCallback?.('TOKEN_REFRESHED', { user: { id: 'owner', email: 'a@example.com' } });
+      expect(reload).not.toHaveBeenCalled();
+
+      vis.mockReturnValue('hidden');
+      authStateCallback?.('SIGNED_IN', { user: { id: 'invitee', email: 'b@example.com' } });
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(reportErrorModule.reportError).not.toHaveBeenCalled();
+    } finally {
+      vis.mockRestore();
+      Object.defineProperty(window, 'location', { configurable: true, value: origLocation });
+    }
+  });
+
+  it('the visible tab switching accounts itself does not reload', () => {
+    _resetAuthStateForTesting();
+    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
+      authStateCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+    const reload = vi.fn();
+    const origLocation = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...origLocation, reload } });
+    const vis = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    try {
+      getCurrentUser();
+      authStateCallback?.('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
+      authStateCallback?.('SIGNED_IN', { user: { id: 'invitee', email: 'b@example.com' } });
+      expect(reload).not.toHaveBeenCalled();
+      expect(getCurrentUser()?.uid).toBe('invitee');
+    } finally {
+      vis.mockRestore();
+      Object.defineProperty(window, 'location', { configurable: true, value: origLocation });
+    }
+  });
+});
