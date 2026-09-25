@@ -10,6 +10,7 @@ import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { SyncService } from '../../../core/services/SyncService';
+import { setCloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -228,7 +229,8 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
     const newVal = !autoSync;
     setAutoSync(newVal);
     if (userId) {
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), String(newVal));
+      setCloudSyncEnabled(userId, newVal);
+      if (newVal) void SyncService.syncPending(userId);
     }
   };
 

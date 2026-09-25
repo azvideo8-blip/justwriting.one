@@ -3,6 +3,7 @@ import { useAuthStatus } from '../../features/auth/hooks/useAuthStatus';
 import { CloudSyncService } from '../../core/services/CloudSyncService';
 import { emitDomainEvent } from '../../core/events/domainEvents';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
+import { setCloudSyncEnabled } from '../../core/sync/cloudSyncEnabled';
 import { useLanguage } from '../../shared/i18n';
 import { ModalWrapper } from '../../shared/components/ModalWrapper';
 import { Button } from '../../shared/components/Button';
@@ -207,8 +208,7 @@ export function RestoreFromCloudModal({
 
   const handleEnableAutoSync = () => {
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid), 'true');
-      localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid), 'true');
+      setCloudSyncEnabled(user.uid, true);
     }
     setAutoSyncPromptAnswered(true);
   };

@@ -31,3 +31,17 @@ export function cloudSyncEnabled(uid?: string | null): boolean {
     return false;
   }
 }
+
+/** Событие этой вкладки: `storage` приходит только в другие вкладки, и без
+ * него индикатор синхронизации держал старое «выключено» после включения. */
+export const CLOUD_SYNC_CHANGED = 'jw:cloud-sync-changed';
+
+/** Единственный писатель выбора «синхронизировать с облаком». Ответ на вопрос
+ * засчитывается заодно — где бы человек ни выбрал, второй раз не спрашиваем. */
+export function setCloudSyncEnabled(uid: string, on: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(uid), String(on));
+    localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(uid), 'true');
+  } catch { /* private mode */ }
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(CLOUD_SYNC_CHANGED, { detail: uid }));
+}

@@ -3,7 +3,7 @@ import { useOnlineStatus } from '../../shared/hooks/useOnlineStatus';
 
 import { SyncService } from '../services/SyncService';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
-import { cloudSyncEnabled } from './cloudSyncEnabled';
+import { cloudSyncEnabled, CLOUD_SYNC_CHANGED } from './cloudSyncEnabled';
 
 export type SyncStatus =
   | 'synced'
@@ -165,10 +165,13 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
         setAutoSyncEnabled(cloudSyncEnabled(userId));
       }
     };
+    const sameTab = () => setAutoSyncEnabled(cloudSyncEnabled(userId));
     window.addEventListener('storage', handler);
+    window.addEventListener(CLOUD_SYNC_CHANGED, sameTab);
     return () => {
       clearTimeout(t);
       window.removeEventListener('storage', handler);
+      window.removeEventListener(CLOUD_SYNC_CHANGED, sameTab);
     };
   }, [userId]);
 

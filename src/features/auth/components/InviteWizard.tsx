@@ -6,6 +6,7 @@ import { AuthService } from '../services/AuthService';
 import { PrivacyConsentBody, savePrivacyConsent } from './PrivacyConsentBody';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { setCloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { reportError } from '../../../shared/errors/reportError';
 
@@ -66,9 +67,8 @@ export function InviteWizard({ email }: { email: string | null }) {
 
   const finish = (syncOn: boolean) => {
     if (uid) {
+      setCloudSyncEnabled(uid, syncOn);
       try {
-        localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(uid), syncOn ? 'true' : 'false');
-        localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(uid), 'true');
         // Код показан здесь (или сознательно не показан) — отдельное окно с ним
         // после мастера не нужно. Новый код можно выпустить в настройках.
         sessionStorage.removeItem(STORAGE_KEYS.PENDING_RECOVERY_CODE(uid));

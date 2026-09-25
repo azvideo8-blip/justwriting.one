@@ -84,4 +84,18 @@ describe('состояние синхронизации не выдаёт нез
 
     await waitFor(() => expect(result.current.status).toBe('cloud_unavailable'));
   });
+
+  // Тумблер в настройках пишет в localStorage той же вкладки, а `storage` туда
+  // не приходит: тумблер стоял «вкл», а статус говорил «автоотправка выключена».
+  it('включение синхронизации в этой же вкладке сразу видно статусу', async () => {
+    const { setCloudSyncEnabled } = await import('../cloudSyncEnabled');
+    getUnsyncedCount.mockResolvedValue(0);
+    const { result } = renderHook(() => useSyncStatus('user-1'));
+    await waitFor(() => expect(result.current.status).toBe('sync_off'));
+
+    setCloudSyncEnabled('user-1', true);
+
+    await waitFor(() => expect(result.current.autoSyncEnabled).toBe(true));
+    expect(result.current.status).not.toBe('sync_off');
+  });
 });
