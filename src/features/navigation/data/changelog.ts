@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.5',
+    date: '2026-09-25',
+    items: [
+      { category: 'new', ru: 'Приглашение открывает короткий мастер: приветствие, согласие с политикой, пароль и выбор — хранить ли заметки в облаке. После него сразу редактор, без окон поверх.', en: 'An invite link now opens a short wizard: welcome, privacy consent, password and whether to keep notes in the cloud. Then straight to the editor, with nothing popping up on top.' },
+      { category: 'improvement', ru: 'Стартовое окно «Сколько хочешь писать?» убрано — оно больше не мелькает при открытии приложения.', en: 'The "How much do you want to write?" start screen is gone, so it no longer flashes when the app opens.' },
+    ],
+  },
+  {
     version: '0.9.4',
     date: '2026-09-25',
     items: [

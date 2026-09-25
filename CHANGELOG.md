@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.5 — 2026-09-25
+
+- **[RU]** Приглашение открывает короткий мастер: приветствие, согласие с политикой, пароль и выбор — хранить ли заметки в облаке. После него сразу редактор, без окон поверх.
+- **[EN]** An invite link now opens a short wizard: welcome, privacy consent, password and whether to keep notes in the cloud. Then straight to the editor, with nothing popping up on top.
+- **[RU]** Стартовое окно «Сколько хочешь писать?» убрано — оно больше не мелькает при открытии приложения.
+- **[EN]** The "How much do you want to write?" start screen is gone, so it no longer flashes when the app opens.
+
 ## 0.9.4 — 2026-09-25
 
 - **[RU]** Корзина и восстановление из неё, сделанные без связи, теперь доходят до облака и других устройств.
