@@ -59,57 +59,27 @@ export const ENC_COLS = [
   },
 ];
 
-// AU-5: Известные синтетические фикстуры из supabase/tests/rls.test.sql.
-// Обход базы в «постулатах» проверяет только живые данные пользователей.
-// Тестовые фикстуры для проверок RLS (незашифрованные строки bob-doc-001,
-// alice-tombstone-doc, rpc-counter-doc, quota-normal) исключаются из проверок,
-// чтобы аудит приватности не падал на стендовой/тестовой базе данных.
-export const TEST_FIXTURE_DOC_UUIDS = [
-  'bob-doc-001',
-  'alice-tombstone-doc',
-  'rpc-counter-doc',
-  'quota-normal',
-  'quota-oversize',
-];
-
-export const TEST_FIXTURE_USER_IDS = [
-  '00000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000002',
-  '00000000-0000-0000-0000-000000000003',
-  '00000000-0000-0000-0000-000000000099',
-];
-
-const DOC_UUID_SQL = TEST_FIXTURE_DOC_UUIDS.map(id => `'${id}'`).join(', ');
-const USER_ID_SQL = TEST_FIXTURE_USER_IDS.map(id => `'${id}'`).join(', ');
+// TB-03: Все стендовые фикстуры supabase/tests/rls.test.sql принадлежат
+// зарезервированным uid (00000000-0000-0000-0000-0000000000NN).
+// Обход базы в постулатах проверяет только живые данные пользователей и
+// исключает все тестовые фикстуры по единому правилу префикса uid.
+export const RESERVED_FIXTURE_UID_PREFIX = '00000000-0000-0000-0000-0000000000';
 
 export function getFixtureFilter(table, prefix = '') {
   const p = prefix ? `${prefix}.` : '';
-  switch (table) {
-    case 'documents':
-      return `${p}uuid NOT IN (${DOC_UUID_SQL}) AND ${p}user_id NOT IN (${USER_ID_SQL})`;
-    case 'versions':
-      return `${p}document_uuid NOT IN (${DOC_UUID_SQL}) AND ${p}user_id NOT IN (${USER_ID_SQL})`;
-    case 'drafts':
-      return `${p}user_id NOT IN (${USER_ID_SQL})`;
-    case 'ai_summaries':
-    case 'ai_embeddings':
-      return `${p}document_id NOT IN (${DOC_UUID_SQL}) AND ${p}user_id NOT IN (${USER_ID_SQL})`;
-    case 'local_store_records':
-      return `${p}user_id NOT IN (${USER_ID_SQL})`;
-    case 'users':
-      return `public."users".uid NOT IN (${USER_ID_SQL})`;
-    default:
-      return '';
+  if (table === 'users') {
+    return `public."users".uid::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'`;
   }
+  return `${p}user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'`;
 }
 
 export const CENSUS_TABLES = [
-  { table: 'documents', unencrypted: `_encrypted IS NOT TRUE AND uuid NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
-  { table: 'versions', unencrypted: `_encrypted IS NOT TRUE AND document_uuid NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
-  { table: 'drafts', unencrypted: `_encrypted IS NOT TRUE AND user_id NOT IN (${USER_ID_SQL})` },
-  { table: 'ai_summaries', unencrypted: `_encrypted IS NOT TRUE AND document_id NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
-  { table: 'ai_embeddings', unencrypted: `_encrypted IS NOT TRUE AND document_id NOT IN (${DOC_UUID_SQL}) AND user_id NOT IN (${USER_ID_SQL})` },
-  { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true' AND user_id NOT IN (${USER_ID_SQL})` },
+  { table: 'documents', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
+  { table: 'versions', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
+  { table: 'drafts', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
+  { table: 'ai_summaries', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
+  { table: 'ai_embeddings', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
+  { table: 'local_store_records', unencrypted: `payload->>'_encrypted' IS DISTINCT FROM 'true' AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
 ];
 
 export function entryFrom(table, col, cols = ENC_COLS) {
@@ -127,13 +97,18 @@ export function entryVal(table, col, cols = ENC_COLS) {
   return e?.val ?? `"${col}"`;
 }
 
-export function evaluateMatrixResults(results) {
+/**
+ * @param {Array<any>} results
+ * @param {number | null} [maxUnmeasured=null]
+ */
+export function evaluateMatrixResults(results, maxUnmeasured = null) {
   let anyFalse = false;
   const violations = [];
   // EA-7: ячейка, которая упала и ничего не вернула, — не «не нарушено».
   const brokenCells = results.filter(r => !r || typeof r !== 'object').length;
   results = results.filter(r => r && typeof r === 'object');
 
+  const darkCells = [];
   for (const r of results) {
     if (r.p1Held === false || r.p2Held === false || r.p3Held === false || r.p4Held === false) {
       anyFalse = true;
@@ -143,6 +118,21 @@ export function evaluateMatrixResults(results) {
         step: r.step,
         vault: r.vaultEnabled,
         notes: r.notes || [],
+      });
+    }
+
+    const missing = [];
+    if (r.p1Held === undefined) missing.push('P1');
+    if (r.p2Held === undefined) missing.push('P2');
+    if (r.p3Held === undefined) missing.push('P3');
+    if (r.p4Held === undefined) missing.push('P4');
+    if (missing.length > 0) {
+      darkCells.push({
+        seq: r.sequence,
+        fault: r.fault,
+        step: r.step,
+        vault: r.vaultEnabled,
+        missing,
       });
     }
   }
@@ -157,14 +147,31 @@ export function evaluateMatrixResults(results) {
     return c;
   });
 
+  const totalUnmeasured = tally.reduce((sum, c) => sum + c.notMeasured, 0);
+  const unmeasuredExceeded = maxUnmeasured !== null && totalUnmeasured > maxUnmeasured;
+
   // EA-7: зелёный вердикт без единого измерения — не зелёный. Пустая матрица,
   // сломанные ячейки или постулат, который не удалось проверить ни разу, — провал.
   const unmeasured = tally.map((c, i) => (c.held + c.violated === 0 ? i + 1 : null)).filter(Boolean);
   const incomplete = results.length === 0 || brokenCells > 0 || unmeasured.length > 0;
-  return { success: !anyFalse && !incomplete, totalCells: results.length, brokenCells, unmeasured, violations, tally };
+  return {
+    success: !anyFalse && !incomplete && !unmeasuredExceeded,
+    totalCells: results.length,
+    brokenCells,
+    unmeasured,
+    violations,
+    tally,
+    totalUnmeasured,
+    unmeasuredExceeded,
+    darkCells,
+    maxUnmeasured,
+  };
 }
 
-export async function runLifecycleMatrix() {
+/**
+ * @param {number | null} [maxUnmeasured=null]
+ */
+export async function runLifecycleMatrix(maxUnmeasured = null) {
   console.log('================================================================');
   console.log('PART 1: LIFECYCLE MATRIX RUNNER (FAULT-INJECTION HARNESS)');
   console.log('================================================================');
@@ -186,7 +193,7 @@ export async function runLifecycleMatrix() {
     }
 
     const results = JSON.parse(fs.readFileSync(tmpOut, 'utf8'));
-    const evalResult = evaluateMatrixResults(results);
+    const evalResult = evaluateMatrixResults(results, maxUnmeasured);
 
     // Print summary table
     console.log(
@@ -229,6 +236,14 @@ export async function runLifecycleMatrix() {
       }
     } else {
       console.log('\n[✓] Matrix completed: all measured postulates held.');
+    }
+
+    if (evalResult.unmeasuredExceeded) {
+      console.log(`\n[!] UNMEASURED CELLS LIMIT EXCEEDED: ${evalResult.totalUnmeasured} > ${evalResult.maxUnmeasured}`);
+      console.log('List of unmeasured cells:');
+      for (const d of evalResult.darkCells) {
+        console.log(`  - ${d.seq} (vault: ${d.vault ? 'ON' : 'off'}, fault: ${d.fault}, step: ${d.step}): not measured ${d.missing.join(', ')}`);
+      }
     }
 
     return evalResult;
@@ -364,7 +379,7 @@ export async function runDatabaseChecks(client, { logger = console.log } = {}) {
         FROM public.documents d
         JOIN (SELECT document_uuid, max(version) AS max_v FROM public.versions GROUP BY document_uuid) sub
           ON d.uuid = sub.document_uuid
-       WHERE d.uuid NOT IN (${DOC_UUID_SQL}) AND d.deleted_at IS NULL AND d.current_version <> sub.max_v`);
+       WHERE d.user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%' AND d.deleted_at IS NULL AND d.current_version <> sub.max_v`);
     const cnt = res.rows[0]?.cnt || 0;
     if (cnt > 0) {
       log(`  [FAIL] documents: ${cnt} rows whose current_version disagrees with their versions`);
@@ -412,7 +427,20 @@ export async function runDatabaseSweep(databaseUrl, options = {}) {
 }
 
 export async function main() {
-  const matrixRes = await runLifecycleMatrix();
+  const maxUnmeasuredArg = process.argv.find(a => a.startsWith('--max-unmeasured'));
+  let maxUnmeasured = null;
+  if (maxUnmeasuredArg) {
+    if (maxUnmeasuredArg.includes('=')) {
+      maxUnmeasured = parseInt(maxUnmeasuredArg.split('=')[1], 10);
+    } else {
+      const idx = process.argv.indexOf(maxUnmeasuredArg);
+      if (idx !== -1 && process.argv[idx + 1] !== undefined) {
+        maxUnmeasured = parseInt(process.argv[idx + 1], 10);
+      }
+    }
+  }
+
+  const matrixRes = await runLifecycleMatrix(maxUnmeasured);
   // EA-7: --require-db — пропущенный обход базы или пропущенная в нём проверка
   // считаются провалом, а не «не запускали».
   const requireDb = process.argv.includes('--require-db');
@@ -463,6 +491,7 @@ export async function main() {
     if (!matrixRes.success) {
       console.log(`  - Part 1 (Matrix runner) failed: ${matrixRes.violations.length} violation(s), ${matrixRes.brokenCells} broken cell(s)` +
         (matrixRes.unmeasured.length ? `, never measured: P${matrixRes.unmeasured.join(', P')}` : '') +
+        (matrixRes.unmeasuredExceeded ? `, unmeasured limit exceeded: ${matrixRes.totalUnmeasured} > ${matrixRes.maxUnmeasured}` : '') +
         (matrixRes.totalCells === 0 ? ', empty matrix' : ''));
     }
     if (!dbRes.success) {

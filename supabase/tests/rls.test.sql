@@ -812,9 +812,9 @@ RESET role;
 -- Provision the admin server-side. Claims GUC is set BEFORE touching users:
 -- an empty-string GUC breaks auth.uid() json parsing.
 SET role = 'postgres';
-SET request.jwt.claims = '{"sub":"99999999-9999-9999-9999-999999999999","role":"authenticated"}';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated"}';
 INSERT INTO public.users (uid, email, nickname, role)
-VALUES ('99999999-9999-9999-9999-999999999999', 'admin@suite.local', 'Suite Admin', 'admin')
+VALUES ('00000000-0000-0000-0000-000000000004', 'admin@suite.local', 'Suite Admin', 'admin')
 ON CONFLICT (uid) DO UPDATE SET role = 'admin';
 RESET role;
 
@@ -853,7 +853,7 @@ RESET request.jwt.claims;
 -- DEEP-5: Admin JWT can ONLY see own row in public.users, preventing exposure of
 -- other users' private unencrypted ai_portrait.
 SET role = 'authenticated';
-SET request.jwt.claims = '{"sub":"99999999-9999-9999-9999-999999999999","role":"authenticated"}';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated"}';
 DO $$
 DECLARE
   visible_for_admin int;

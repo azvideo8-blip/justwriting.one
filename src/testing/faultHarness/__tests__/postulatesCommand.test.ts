@@ -15,8 +15,9 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs runs cleanly and passes all postulates', () => {
     // N-3: этот тест про матрицу без базы; живой обход базы — отдельный запуск
     // с DATABASE_URL, поэтому переменную окружения сюда не пропускаем.
+    // число только уменьшается: текущий факт 100 не измеренных ячеек (P1: 12, P2: 42, P3: 0, P4: 46)
     const { DATABASE_URL: _db, ...env } = process.env;
-    const res = spawnSync('node', [postulatesScript], {
+    const res = spawnSync('node', [postulatesScript, '--max-unmeasured', '100'], {
       cwd: rootDir,
       encoding: 'utf8',
       timeout: 60000,
@@ -35,6 +36,56 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(res.stdout, 'пропущенный обход базы обязан быть назван').toContain('Database sweep: NOT RUN');
     expect(res.stdout).not.toContain('All four postulates hold');
   }, 80000);
+
+  it('scripts/postulates.mjs --max-unmeasured ratchet works (TB-11)', () => {
+    const { DATABASE_URL: _db, ...env } = process.env;
+
+    // 1. --max-unmeasured 0 fails with exit 1 and lists unmeasured cells
+    const res0 = spawnSync('node', [postulatesScript, '--max-unmeasured', '0'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+      timeout: 60000,
+      env,
+    });
+    expect(res0.status).toBe(1);
+    expect(res0.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED');
+    expect(res0.stdout).toContain('List of unmeasured cells:');
+
+    // 2. --max-unmeasured 99 (1 less than fact 100) fails with exit 1
+    const res99 = spawnSync('node', [postulatesScript, '--max-unmeasured', '99'], {
+      cwd: rootDir,
+      encoding: 'utf8',
+      timeout: 60000,
+      env,
+    });
+    expect(res99.status).toBe(1);
+    expect(res99.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED: 100 > 99');
+
+    // 3. evaluateMatrixResults directly unit test
+    const cell1 = {
+      sequence: 's1',
+      fault: 'none',
+      step: 'x',
+      vaultEnabled: true,
+      p1Held: true,
+      p2Held: true,
+      p3Held: true,
+      p4Held: true,
+    };
+    const cell2 = {
+      sequence: 's2',
+      fault: 'none',
+      step: 'x',
+      vaultEnabled: true,
+      p1Held: true,
+      p2Held: undefined,
+      p3Held: true,
+      p4Held: undefined,
+    }; // 2 unmeasured total across the run
+    expect(evaluateMatrixResults([cell1, cell2], 2).success).toBe(true);
+    expect(evaluateMatrixResults([cell1, cell2], 1).success).toBe(false);
+    expect(evaluateMatrixResults([cell1, cell2], 1).unmeasuredExceeded).toBe(true);
+  }, 120000);
 
   // EA-7: «NO VIOLATIONS» без единого измерения — не зелёный вердикт.
   it('evaluateMatrixResults fails an empty, broken or never-measured matrix', () => {
