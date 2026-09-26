@@ -51,8 +51,10 @@ describe('reportError PII stripping (SEC-2)', () => {
     reportError(new TypeError('Failed to fetch'), { action: 'restoreAIData_summaries' });
     reportError(new TypeError('Load failed'), { action: 'restoreAIData_summaries' });
     reportError(new TypeError("Cannot read properties of undefined (reading 'x')"), { action: 'bug' });
-    const levels = useActivityLogStore.getState().entries.map(e => e.level);
-    expect(levels.filter(l => l === 'warning')).toHaveLength(2);
-    expect(levels.filter(l => l === 'error')).toHaveLength(1);
+    // Два сетевых сбоя одного действия — одно описание, одна запись «×2».
+    const entries = useActivityLogStore.getState().entries;
+    const count = (lvl: string) => entries.filter(e => e.level === lvl).reduce((n, e) => n + e.count, 0);
+    expect(count('warning')).toBe(2);
+    expect(count('error')).toBe(1);
   });
 });

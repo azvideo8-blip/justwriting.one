@@ -1,5 +1,6 @@
 import { useActivityLogStore } from '../activity/useActivityLogStore';
 import { scrubPii, redactMessage } from './piiScrub';
+import { describeError } from './describeError';
 
 type ErrorContext = Record<string, string | number | boolean | null | undefined>;
 
@@ -49,7 +50,22 @@ export function reportError(
         : typeof safeContext.action === 'string'
           ? safeContext.action
           : undefined;
-    useActivityLogStore.getState().addError(safeMessage, safeContext, level, source);
+    // Журнал читает человек — описание по-русски; исходный английский текст
+    // остаётся разработчику в контексте (`raw`).
+    const rawText = safeMessage instanceof Error ? safeMessage.message : typeof safeMessage === 'string' ? safeMessage : '';
+    const ru = rawText ? describeError(rawText, safeContext) : null;
+    if (ru) {
+      let described: unknown = ru;
+      if (safeMessage instanceof Error) {
+        const e = new Error(ru);
+        e.name = safeMessage.name;
+        if (safeMessage.stack) e.stack = safeMessage.stack;
+        described = e;
+      }
+      useActivityLogStore.getState().addError(described, { ...safeContext, raw: rawText }, level, source);
+    } else {
+      useActivityLogStore.getState().addError(safeMessage, safeContext, level, source);
+    }
   } catch {
     // Avoid error log store failure interrupting reportError
   }

@@ -53,7 +53,8 @@ describe('AUD-17 message-shape redaction', () => {
 
   it('redacts uuid, email and base64 blob inside the message', () => {
     reportError(`Failed to load user ${UUID} for test@example.com`, {});
-    const stored = String(addError.mock.calls[0]![0]);
+    // Описание — по-русски; английский исходник — в контексте, и он тоже вычищен.
+    const stored = String((addError.mock.calls[0]![1] as { raw?: string }).raw);
     expect(stored).toContain('<uuid>');
     expect(stored).toContain('<email>');
     expect(stored).not.toContain(UUID);

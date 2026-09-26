@@ -100,6 +100,9 @@ export function FinishModalTags({
                       </Button>
                     ))}
                   </div>
+                  {labels.some(l => l.name === '…') && (
+                    <div className="text-xs text-text-main/60">{t('archive_labels_vault_locked')}</div>
+                  )}
                 </div>
               )}
             </div>
@@ -212,6 +215,9 @@ export function FinishModalTags({
               </Button>
             ))}
           </div>
+          {labels.some(l => l.name === '…') && (
+            <div className="text-xs text-text-main/60">{t('archive_labels_vault_locked')}</div>
+          )}
         </div>
       )}
 
