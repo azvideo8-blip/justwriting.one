@@ -66,6 +66,7 @@ describe('DEEP-7: PBKDF2 iteration count preservation across reads and password 
     expect(meta?.wrappedDataKey).toBe('fakeWrappedKey');
   });
 
+  // Медленный по делу: настоящий PBKDF2 (~3 с в покое) — под нагрузкой 5 с не хватает.
   it('unlockVault with custom iterations derives the key at that iteration count', async () => {
     // 1000 iterations for test execution speed
     const testIterations = 1000;
@@ -89,7 +90,7 @@ describe('DEEP-7: PBKDF2 iteration count preservation across reads and password 
 
     const sessionKey = getSessionKey();
     expect(sessionKey).not.toBeNull();
-  });
+  }, 15_000);
 
   it('changePassword preserves existing custom iteration count in newly saved metadata', async () => {
     const customIterations = 2000;

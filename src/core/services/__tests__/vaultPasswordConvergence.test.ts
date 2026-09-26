@@ -46,6 +46,7 @@ describe('vault password convergence after an e-mail reset (D-28)', () => {
     });
   });
 
+  // Медленный по делу: настоящий PBKDF2 (~3 с в покое) — под нагрузкой 5 с не хватает.
   it('re-wraps the vault with the login password after unlocking with the old one', async () => {
     setPendingLoginPassword(USER, NEW);
     await unlockVault(USER, OLD);
@@ -54,7 +55,7 @@ describe('vault password convergence after an e-mail reset (D-28)', () => {
     await expect(unlockVault(USER, NEW)).resolves.toBeUndefined();
     lockVault(USER);
     await expect(unlockVault(USER, OLD)).rejects.toBeInstanceOf(WrongPasswordError);
-  });
+  }, 15_000);
 
   it('leaves the vault alone when there is no pending login password', async () => {
     await unlockVault(USER, OLD);
