@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { ConnectionStatusBanner } from '../ConnectionStatusBanner';
+import { useEncryptionStore } from '../../../../core/crypto/useEncryptionStore';
 
 let mockIsOnline = false;
 vi.mock('../../../../shared/hooks/useOnlineStatus', () => ({
@@ -16,8 +17,9 @@ vi.mock('../../../../core/sync/useSyncStatus', () => ({
   useSyncStatus: () => mockSyncStatus,
 }));
 
+let mockAuth: { user: { uid: string } | null; isGuest: boolean } = { user: { uid: 'user_1' }, isGuest: false };
 vi.mock('../../../../app/useAuthStatus', () => ({
-  useAuthStatus: () => ({ user: { uid: 'user_1' }, isGuest: false }),
+  useAuthStatus: () => mockAuth,
 }));
 
 let mockServerUnreachable = false;
@@ -94,3 +96,46 @@ describe('D-20: ConnectionStatusBanner reconnect messaging', () => {
     mockServerUnreachable = false;
   });
 });
+
+// F-1: сейф включён и заперт — постоянная плашка вместо потока красного в журнале.
+describe('F-1: locked vault banner', () => {
+  beforeEach(() => {
+    mockIsOnline = true;
+    mockServerUnreachable = false;
+    mockAuth = { user: { uid: 'user_1' }, isGuest: false };
+    useEncryptionStore.setState({ isVaultUnlocked: false, encryptionEnabled: { user_1: true } });
+  });
+
+  it('shows the banner with an unlock button when the vault is on and locked', () => {
+    const listener = vi.fn();
+    window.addEventListener('open-vault-unlock', listener);
+    render(<ConnectionStatusBanner />);
+
+    const banner = screen.getByRole('status');
+    expect(banner).toHaveTextContent('vault_locked_banner');
+    screen.getByRole('button', { name: 'vault_locked_open' }).click();
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener('open-vault-unlock', listener);
+  });
+
+  it('hides once the vault is unlocked', () => {
+    const { rerender } = render(<ConnectionStatusBanner />);
+    expect(screen.queryByText('vault_locked_banner')).not.toBeNull();
+    useEncryptionStore.setState({ isVaultUnlocked: true });
+    rerender(<ConnectionStatusBanner />);
+    expect(screen.queryByText('vault_locked_banner')).toBeNull();
+  });
+
+  it('is absent for a guest and for an account without a vault', () => {
+    mockAuth = { user: { uid: 'guest_1' }, isGuest: true };
+    const { unmount } = render(<ConnectionStatusBanner />);
+    expect(screen.queryByText('vault_locked_banner')).toBeNull();
+    unmount();
+
+    mockAuth = { user: { uid: 'user_2' }, isGuest: false };
+    useEncryptionStore.setState({ encryptionEnabled: { user_2: false } });
+    render(<ConnectionStatusBanner />);
+    expect(screen.queryByText('vault_locked_banner')).toBeNull();
+  });
+});
+

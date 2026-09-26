@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **[RU]** Запертый сейф — видимое состояние: пока сейф включён и заперт, наверху висит плашка «Сейф заперт — синхронизация на паузе» с кнопкой «Открыть сейф». Отложенное ждёт ключа без попыток и карантина, в журнал идёт справкой, а не ошибкой, и после открытия сейфа уходит само.
+- **[EN]** A locked vault is a visible state: while the vault is on and locked, a banner "Vault is locked — sync is paused" with an "Open vault" button stays at the top. Pending work waits for the key without retries or quarantine, is logged as info rather than an error, and leaves on its own once the vault is opened.
+
 ## 0.9.12 — 2026-09-26
 
 - **[RU]** Смена аккаунта во вкладке — выход, вход под другим, ссылка из письма, то же в соседней вкладке — перезагружает страницу: новый человек начинает с чистой памяти, и ничего от прежнего аккаунта на экран и в его данные не попадает. Текст из редактора перед этим сохраняется прежнему владельцу.

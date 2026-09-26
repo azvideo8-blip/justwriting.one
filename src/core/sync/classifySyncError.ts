@@ -17,6 +17,10 @@
  * | 22P02                    | true   | false               | permanent            |
  * | SYNC_UNRESOLVED          | false  | true                | transient            |
  *
+ * F-1: blocked-until-unlock stays poison only while the vault is OPEN (a
+ * deterministic failure). While the vault is locked, `bumpAttempts` treats the
+ * same error as an expected pause: no attempt counted, no quarantine.
+ *
  * NOTE: The server returns some of these as `{ code: '...' }` (or `{ error: { code: '...' } }`)
  * and some in `error.message`. Matching against both `error.code` and `error.message` (as well
  * as stringified errors) is load-bearing.

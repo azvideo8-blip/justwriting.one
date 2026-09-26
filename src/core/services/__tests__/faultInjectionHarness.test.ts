@@ -469,7 +469,7 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       expect((ls?.payload as { _encrypted?: boolean })?._encrypted).toBe(true);
     });
 
-    it('Locking vault between save and sync quarantines task without data loss (SYNC-5)', async () => {
+    it('Locking vault between save and sync pauses the task without quarantine or data loss (SYNC-5 / F-1)', async () => {
       const dataKey = await generateDataKey();
       setSessionKey(dataKey);
       setEncryptionEnabled(runner.userId, true);
@@ -494,30 +494,22 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
       // Lock vault before sync
       clearSessionKey();
 
-      // Attempt sync while vault is locked
-      await SyncService.syncPending(runner.userId);
+      // F-1: заперт сейф — задача ждёт ключа, а не карантинится за одну попытку.
+      const lockedRes = await SyncService.syncPending(runner.userId);
+      expect(lockedRes.skippedReason).toBe('vault_locked');
       const db = await getLocalDb();
       const queue = await db.getAll('syncQueue');
       const task = queue.find(q => q.documentId === localDocId);
       expect(task).toBeDefined();
-      expect(task?.lastError).toContain('ENCRYPT_REQUIRED');
-      expect(task?.attempts).toBe(1);
-      expect(task?.dead).toBe(true);
+      expect(task?.dead ?? false).toBe(false);
+      expect(task?.attempts ?? 0).toBe(0);
 
-      // Pending queue considers this task quarantined (dead), so pending count is 0
-      const pendingCountWhileLocked = await SyncService.getPendingCount(runner.userId);
-      expect(pendingCountWhileLocked).toBe(0);
+      // Задача по-прежнему ждёт — она видна как pending, не как карантин.
+      expect(await SyncService.getPendingCount(runner.userId)).toBe(1);
 
-      // Now unlock vault and revive locked tasks
+      // Открыли сейф — оживлять нечего, уходит сама.
       setSessionKey(dataKey);
-      const revived = await SyncService.reviveLockedTasks(runner.userId);
-      expect(revived).toBe(1);
-
-      const taskAfterRevive = await db.get('syncQueue', task!.id);
-      expect(taskAfterRevive?.dead).toBe(false);
-      expect(taskAfterRevive?.attempts).toBe(0);
-
-      // Next sync succeeds without losing text
+      await SyncService.reviveLockedTasks(runner.userId);
       const postUnlockRes = await SyncService.syncPending(runner.userId);
       expect(postUnlockRes.drained).toBe(1);
 

@@ -14,6 +14,11 @@ export function getEncryptionEnabled(userId: string): boolean {
   return useEncryptionStore.getState().getEncryptionEnabled(userId);
 }
 
+/** F-1: сейф у аккаунта включён, а ключа во вкладке нет — шифровать нечем. */
+export function isVaultLocked(userId: string): boolean {
+  return getEncryptionEnabled(userId) && !getSessionKey();
+}
+
 export interface VersionEncryptPayload {
   content: string;
   previousContent: string;

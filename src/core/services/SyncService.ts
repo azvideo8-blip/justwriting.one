@@ -7,7 +7,8 @@ import { DocumentService } from './DocumentService';
 import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { syncStatusOf } from '../sync/syncStatus';
-import { isPoisonSyncError, isRevivableOnUnlock } from '../sync/classifySyncError';
+import { isPoisonSyncError, isRevivableOnUnlock, classifySyncError } from '../sync/classifySyncError';
+import { isVaultLocked } from '../crypto/cryptoHelpers';
 import { syncStreakFreezesWithCloud } from '../utils/streakFreeze';
 import { announceQueueChange, addToSyncQueue } from './syncQueueOps';
 import pLimit from 'p-limit';
@@ -33,8 +34,16 @@ async function bumpAttempts(taskId: string, reason: unknown, ownerId?: string): 
     await tx.done;
     return;
   }
-  const attempts = (item.attempts ?? 0) + 1;
   const reasonStr = String(reason);
+  // F-1: пока сейф заперт, «нужен ключ» — ожидаемое состояние, не поломка:
+  // счётчик не растёт, карантина нет, откроют сейф — задача уйдёт сама.
+  // Та же ошибка при открытом сейфе детерминирована и карантинится как раньше.
+  if (ownerId && classifySyncError(reason) === 'blocked-until-unlock' && isVaultLocked(ownerId)) {
+    await tx.store.put({ ...item, lastError: reasonStr });
+    await tx.done;
+    return;
+  }
+  const attempts = (item.attempts ?? 0) + 1;
   const dead = isPoisonSyncError(reason) || attempts >= MAX_ATTEMPTS;
   await tx.store.put({ ...item, attempts, dead, lastError: reasonStr });
   await tx.done;
@@ -56,7 +65,7 @@ export interface SyncUnsyncedSummary {
 export interface SyncPendingResult {
   drained: number;
   failed: number;
-  skippedReason?: 'sync_disabled' | 'in_progress' | undefined;
+  skippedReason?: 'sync_disabled' | 'in_progress' | 'vault_locked' | undefined;
 }
 
 export const SyncService = {
@@ -399,7 +408,7 @@ export const SyncService = {
 
 };
 
-async function _drainPendingQueue(userId: string): Promise<{ drained: number; failed: number }> {
+async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
   const db = await getLocalDb(userId);
   const queue = await db.getAll('syncQueue');
 
@@ -426,9 +435,15 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
 
   if (pending.length === 0) return { drained: 0, failed: 0 };
 
+  // F-1: заперт сейф — выгружать нечем. Документы и портрет ждут ключа без
+  // попыток и без красного в журнале; удаления не шифруются и уходят.
+  const vaultLocked = isVaultLocked(userId);
   const deleteTasks = pending.filter(p => p.type === 'delete');
-  const portraitTasks = pending.filter(p => p.type === 'portrait');
-  const docTasks = pending.filter(p => p.type === 'document' || p.type === 'version');
+  const portraitTasks = vaultLocked ? [] : pending.filter(p => p.type === 'portrait');
+  const docTasks = vaultLocked ? [] : pending.filter(p => p.type === 'document' || p.type === 'version');
+  if (vaultLocked && pending.length > deleteTasks.length) {
+    logger.info('drainPendingQueue', 'Sync paused: vault is locked', { waiting: pending.length - deleteTasks.length });
+  }
   const pendingBumps: Promise<void>[] = [];
   // N-52: сбой записи счётчика попыток не должен уронить весь проход — иначе
   // уже выгруженные задачи не уберутся из очереди и уйдут в облако ещё раз.
@@ -536,7 +551,11 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
 
   if (pendingBumps.length > 0) await Promise.all(pendingBumps);
 
-  return { drained: syncedIds.length, failed: pendingBumps.length };
+  return {
+    drained: syncedIds.length,
+    failed: pendingBumps.length,
+    ...(vaultLocked && pending.length > deleteTasks.length ? { skippedReason: 'vault_locked' as const } : {}),
+  };
 }
 
 async function _clearQueueItems(ids: string[], ownerId?: string): Promise<void> {

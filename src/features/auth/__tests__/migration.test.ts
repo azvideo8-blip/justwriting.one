@@ -68,6 +68,7 @@ vi.mock('../../../core/services/VersionService', () => ({
 vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeEncrypt: vi.fn(async (doc: Record<string, unknown>) => ({ ...doc, _encrypted: false })),
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
+  isVaultLocked: () => false,
 }));
 
 // Removed firestore mock
