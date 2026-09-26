@@ -168,7 +168,7 @@ export function ProfileRefreshButton() {
               <Button
                 onClick={() => void start()}
                 disabled={notEnough}
-                className="flex-1 py-2 rounded-xl bg-brand-soft text-white text-sm font-semibold hover:bg-brand-soft-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 py-2 rounded-xl bg-brand-soft text-surface-base text-sm font-semibold hover:bg-brand-soft-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Обновить
               </Button>

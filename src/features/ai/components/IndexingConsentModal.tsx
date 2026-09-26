@@ -98,7 +98,7 @@ export function IndexingConsentModal({ isOpen, onConsent, onRefuse }: IndexingCo
           </Button>
           <Button
             onClick={onConsent}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-brand-soft text-white text-xs font-medium hover:bg-brand-soft-hover transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            className="flex-1 py-2.5 px-4 rounded-xl bg-brand-soft text-surface-base text-xs font-medium hover:bg-brand-soft-hover transition-colors flex items-center justify-center gap-1.5 shadow-sm"
           >
             <Sparkles size={13} />
             Включить поиск по смыслу

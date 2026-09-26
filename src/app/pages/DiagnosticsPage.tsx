@@ -399,7 +399,7 @@ export function DiagnosticsPage() {
                 <Button
                   type="submit"
                   disabled={invitingUser || !inviteEmail.trim()}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-soft text-text-on-brand text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-soft text-surface-base text-xs font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
                 >
                   {invitingUser ? (
                     <>

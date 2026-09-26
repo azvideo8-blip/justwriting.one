@@ -132,6 +132,11 @@
   /* ─── NOTION (Теплый алебастр — японский бумажный минимализм) ─── */
   .theme-notion {
     color-scheme: light;
+    /* N-55: фиалковый бренда на светлом фоне давал 2.8:1 — надписи на
+       основных кнопках не читались. #6D4BC4 держит ≥4.5:1 на всех светлых
+       поверхностях темы (проверяет themeContrast.test.ts). */
+    --brand-soft: #6D4BC4;
+    --color-brand-soft: #6D4BC4;
     --bg-base: #FAF8F5;
     --bg-surface: #F0EDE6;
     --bg-elevated: #E5E1D7;

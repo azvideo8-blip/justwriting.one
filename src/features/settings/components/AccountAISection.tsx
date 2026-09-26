@@ -235,7 +235,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
               <Button
                 onClick={() => void handleGrantConsent()}
                 disabled={loading}
-                className="py-2 px-3 rounded-xl bg-brand-soft text-white text-xs font-medium hover:bg-brand-soft-hover transition-colors"
+                className="py-2 px-3 rounded-xl bg-brand-soft text-surface-base text-xs font-medium hover:bg-brand-soft-hover transition-colors"
               >
                 Предоставить согласие
               </Button>
@@ -299,7 +299,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
               <Button
                 onClick={() => void handleGrantIndexingConsent()}
                 disabled={indexingLoading}
-                className="py-2 px-3 rounded-xl bg-brand-soft text-white text-xs font-medium hover:bg-brand-soft-hover transition-colors"
+                className="py-2 px-3 rounded-xl bg-brand-soft text-surface-base text-xs font-medium hover:bg-brand-soft-hover transition-colors"
               >
                 Включить поиск по смыслу
               </Button>

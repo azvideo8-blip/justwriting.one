@@ -236,7 +236,7 @@ export function RerankBenchPage() {
           <Button
             onClick={() => void run()}
             disabled={running}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-soft text-white text-sm font-medium disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-soft text-surface-base text-sm font-medium disabled:opacity-50"
           >
             {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
             {running ? t('admin_bench_running_q', { count: progress }) : t('admin_bench_run')}

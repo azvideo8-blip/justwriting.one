@@ -210,10 +210,10 @@ export function ConfirmDialogRenderer() {
             type="button"
             onClick={handleConfirm}
             className={isAlert
-              ? "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-brand-soft text-white hover:bg-brand-soft/90"
+              ? "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-brand-soft text-surface-base hover:bg-brand-soft/90"
               : destructive
                 ? "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-accent-danger text-white hover:bg-accent-danger/90"
-                : "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-brand-soft text-white hover:bg-brand-soft/90"}
+                : "flex-1 px-4 py-3 text-sm font-bold rounded-xl bg-brand-soft text-surface-base hover:bg-brand-soft/90"}
           >
             {isAlert
               ? (okLabel || 'OK')

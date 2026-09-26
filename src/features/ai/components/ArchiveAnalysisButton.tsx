@@ -179,7 +179,7 @@ export function ArchiveAnalysisButton() {
             {!nothingToDo && (
               <Button
                 onClick={() => void start()}
-                className="flex-1 py-2 rounded-xl bg-brand-soft text-white text-sm font-semibold hover:bg-brand-soft-hover transition-colors"
+                className="flex-1 py-2 rounded-xl bg-brand-soft text-surface-base text-sm font-semibold hover:bg-brand-soft-hover transition-colors"
               >
                 Разобрать
               </Button>
