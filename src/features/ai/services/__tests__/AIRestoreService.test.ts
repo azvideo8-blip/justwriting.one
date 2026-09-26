@@ -695,7 +695,8 @@ describe('reattachOrphanedAnalysis', () => {
       .mockResolvedValueOnce({ items: [], readCount: 0 });
     requestEmbeddingRestore('user-n39');
     await restoreAIDataFromCloud('user-n39');
-    expect(spy).toHaveBeenCalledTimes(2);
+    // Вторая страница запрошена — значит, первая, прореженная фильтром, конец не объявила.
+    expect(spy.mock.calls.some(([, , cursor]) => cursor === 'e9')).toBe(true);
     spy.mockRestore();
   });
 });
