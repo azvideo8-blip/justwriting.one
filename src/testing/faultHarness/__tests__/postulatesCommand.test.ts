@@ -80,6 +80,12 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     const vaultOff = { ...cell2, vaultEnabled: false };
     expect(evaluateMatrixResults([cell1, vaultOff], 0).totalUnmeasured).toBe(0);
     expect(evaluateMatrixResults([cell1, { ...vaultOff, p1Held: undefined }], 0).totalUnmeasured).toBe(1);
+
+    // N-40: seq9 включает сейф сама — после удачного включения её P2/P4 применимы,
+    // хоть ячейка и помечена «без сейфа». При сбое включения — неприменимы.
+    const seq9 = { ...cell2, sequence: 'seq9_enable_encryption_sync_restore', vaultEnabled: false, faultFired: 1, told: { status: 'restored' } };
+    expect(evaluateMatrixResults([cell1, seq9], 0).totalUnmeasured).toBe(2);
+    expect(evaluateMatrixResults([cell1, { ...seq9, told: { status: 'error_thrown' } }], 0).totalUnmeasured).toBe(0);
   }, 120000);
 
   // EA-7: «NO VIOLATIONS» без единого измерения — не зелёный вердикт.

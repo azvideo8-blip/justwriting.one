@@ -93,7 +93,7 @@ jobs:
           docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 -c "DELETE FROM public.documents WHERE user_id = 'c0000000-0000-0000-0000-000000000001'; DELETE FROM auth.users WHERE id = 'c0000000-0000-0000-0000-000000000001';"
 
           echo "Running postulates without canary (MUST exit 0)..."
-          node scripts/postulates.mjs --require-db
+          node scripts/postulates.mjs --require-db --max-unmeasured 0
 
           echo "TB-08 Part B: Running live DB deleteAccount test..."
           JW_THROWAWAY_DB=1 npx vitest run api/__tests__/deleteAccount.db.test.ts

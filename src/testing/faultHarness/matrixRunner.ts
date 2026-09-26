@@ -137,6 +137,8 @@ export class MatrixRunner {
     ];
 
     for (const item of scenarios) {
+      // seq9 — это включение сейфа: запуск «с сейфом» не имеет смысла. Её P2/P4
+      // храповик считает применимыми после удачного включения (postulates.mjs).
       const vaultOptions = item.seq === 'seq9_enable_encryption_sync_restore'
         ? [false]
         : item.fault === 'decrypt_corrupt_single'

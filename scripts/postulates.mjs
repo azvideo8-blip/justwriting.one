@@ -146,7 +146,11 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
     // Храповик считает только применимые ячейки: без сейфа P2 («уходит
     // зашифрованным») неприменим по определению, а с ним и P4, который из P2
     // собран. Иначе ~3/4 счёта — шум, и храповик стережёт не дыры, а его.
-    const applies = { P1: true, P2: !!r.vaultEnabled, P3: true, P4: !!r.vaultEnabled };
+    // seq9 начинает без сейфа и включает его сам: после удачного включения P2/P4
+    // применимы, хотя ячейка помечена «vault off». Без этого их потерю храповик
+    // не заметил бы — применимость решала бы разметка матрицы, а не смысл (N-40).
+    const vaultBecameOn = String(r.sequence).startsWith('seq9_') && r.told?.status !== 'error_thrown';
+    const applies = { P1: true, P2: !!r.vaultEnabled || vaultBecameOn, P3: true, P4: !!r.vaultEnabled || vaultBecameOn };
     const missing = ['P1', 'P2', 'P3', 'P4'].filter(p => applies[p] && r[`p${p[1]}Held`] === undefined);
     if (missing.length > 0) {
       darkCells.push({
