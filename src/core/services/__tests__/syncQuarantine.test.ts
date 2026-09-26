@@ -175,4 +175,29 @@ describe('AUDIT-H4 sync queue quarantine', () => {
     await SyncService.syncPending(USER);
     expect(await getTasks()).toHaveLength(0);
   });
+
+  // N-52: сбой записи счётчика попыток у одной задачи не должен оставить в
+  // очереди уже выгруженную другую — иначе её выгрузят в облако ещё раз.
+  it('a failing attempt-counter write does not keep an uploaded task in the queue', async () => {
+    await seedDoc('doc_ok');
+    await seedDoc('doc_bad');
+    await queueTask('doc_ok');
+    await queueTask('doc_bad');
+    vi.spyOn(StorageService, 'addCloudCopy').mockImplementation(async (_u, id) => {
+      if (id === 'doc_bad') throw new Error('network');
+      return 'cloud_ok';
+    });
+    const origPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
+      if (value && typeof value === 'object' && 'lastError' in (value as object)) throw new DOMException('quota', 'QuotaExceededError');
+      return origPut.call(this, value, key);
+    };
+    try {
+      await SyncService.syncPending(USER).catch(() => undefined);
+    } finally {
+      IDBObjectStore.prototype.put = origPut;
+    }
+    const left = (await getTasks()).map(t => t.documentId);
+    expect(left).not.toContain('doc_ok');
+  });
 });

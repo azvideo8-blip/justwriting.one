@@ -430,8 +430,10 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
   const portraitTasks = pending.filter(p => p.type === 'portrait');
   const docTasks = pending.filter(p => p.type === 'document' || p.type === 'version');
   const pendingBumps: Promise<void>[] = [];
+  // N-52: сбой записи счётчика попыток не должен уронить весь проход — иначе
+  // уже выгруженные задачи не уберутся из очереди и уйдут в облако ещё раз.
   const bump = (taskId: string, reason: unknown) => {
-    pendingBumps.push(bumpAttempts(taskId, reason));
+    pendingBumps.push(bumpAttempts(taskId, reason).catch(e => reportError(e, { action: 'drainPendingQueue_bumpAttempts', taskId })));
   };
 
   const syncedIds: string[] = [];
@@ -526,12 +528,13 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
     }
   }
 
-  if (pendingBumps.length > 0) await Promise.all(pendingBumps);
-
+  // Сначала зафиксировать выгруженное, потом дождаться штрафов неудачным.
   if (syncedIds.length > 0) {
     await _clearQueueItems(syncedIds);
     announceQueueChange();
   }
+
+  if (pendingBumps.length > 0) await Promise.all(pendingBumps);
 
   return { drained: syncedIds.length, failed: pendingBumps.length };
 }
