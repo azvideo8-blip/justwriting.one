@@ -18,7 +18,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
     localStorage.clear();
     setProfileLoaded(userId, true);
     setEncryptionEnabled(userId, false);
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     await Promise.all([
       tx.objectStore('documents').clear(),
@@ -37,7 +37,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       title: 'Note to be deleted',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_tombstone_1');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_tombstone_1', userId);
 
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_tombstone_1',
@@ -73,10 +73,10 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
     expect(result).toEqual({ forked: false, cloudSynced: false });
     expect(addVersionSpy).not.toHaveBeenCalled();
 
-    const localDoc = await LocalStorageService.getDocument(docId);
+    const localDoc = await LocalStorageService.getDocument(docId, userId);
     expect(localDoc?.linkedCloudId).toBeFalsy();
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queued = await db.get('syncQueue', `sync_${docId}`);
     expect(queued).toBeUndefined();
   });
@@ -86,7 +86,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       title: 'Collaborative note',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collab_1');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collab_1', userId);
 
     await LocalVersionService.addVersion(userId, docId, {
       content: 'Base version 1',
@@ -139,7 +139,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       })
     );
 
-    const localVersions = await LocalVersionService.getVersions(docId);
+    const localVersions = await LocalVersionService.getVersions(docId, userId);
     expect(localVersions.some(v => v.version === 2)).toBe(true);
   });
 
@@ -148,7 +148,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       title: 'Collaborative note divergent',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collab_divergent');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collab_divergent', userId);
 
     await LocalVersionService.addVersion(userId, docId, {
       content: 'Base version 1',
@@ -198,7 +198,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       title: 'Branching note',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_conflict_1');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_conflict_1', userId);
 
     await LocalVersionService.addVersion(userId, docId, {
       content: 'Original base',
@@ -234,10 +234,10 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
 
     expect(result.forked).toBe(true);
 
-    const origVersions = await LocalVersionService.getVersions(docId);
+    const origVersions = await LocalVersionService.getVersions(docId, userId);
     expect(origVersions.some(v => v.version === 2 && v.content === 'Cloud edited text on v2')).toBe(true);
 
-    const origDoc = await LocalStorageService.getDocument(docId);
+    const origDoc = await LocalStorageService.getDocument(docId, userId);
     expect(origDoc?.currentVersion).toBe(2);
   });
 
@@ -246,7 +246,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       title: 'Local Note',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_divergent_1');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_divergent_1', userId);
 
     await LocalVersionService.addVersion(userId, docId, {
       content: 'Local text at v1',
@@ -280,7 +280,7 @@ describe('AG-SYNC-5: Cloud Sync bidirectional reconciliation & tombstones', () =
       title: 'Collision test',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collide_1');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_collide_1', userId);
 
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_collide_1',

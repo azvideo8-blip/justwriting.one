@@ -6,7 +6,7 @@ import { LocalStorageService } from '../../../core/services/LocalStorageService'
 const USER = 'user_import_date';
 
 async function clear() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const store of ['documents', 'versions'] as const) {
     for (const rec of await db.getAll(store)) await db.delete(store, (rec as { id: string }).id);
   }
@@ -25,7 +25,7 @@ describe('saveNew honours documentDate (D-4)', () => {
       tags: [], sessionStartedAt: fileDate, documentDate: fileDate,
     });
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', localId);
     const version = (await db.getAll('versions'))[0];
 
@@ -43,7 +43,7 @@ describe('saveNew honours documentDate (D-4)', () => {
     });
     const after = Date.now();
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', localId);
     const version = (await db.getAll('versions'))[0];
 

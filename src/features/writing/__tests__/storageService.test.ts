@@ -565,7 +565,7 @@ describe('StorageService.saveNew — profile update', () => {
 // text; writing only the counters silently discarded it on reload.
 describe('saveVersionToLocal keeps metadata', () => {
   it('persists a title, tags and label changed during the session', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb('user_meta');
     const { localId } = await LocalStorageService.saveNew('user_meta', {
       title: 'Старый', content: 'раз', wordCount: 1, duration: 0, wpm: 0,
       tags: ['старый'], sessionStartedAt: new Date(1000),
@@ -583,7 +583,7 @@ describe('saveVersionToLocal keeps metadata', () => {
   });
 
   it('does not wipe an existing title when the payload has none', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb('user_meta2');
     const { localId } = await LocalStorageService.saveNew('user_meta2', {
       title: 'Держится', content: 'раз', wordCount: 1, duration: 0, wpm: 0,
       tags: [], sessionStartedAt: new Date(1000),

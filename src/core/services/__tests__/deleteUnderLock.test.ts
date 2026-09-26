@@ -15,7 +15,7 @@ import { CloudSyncService } from '../CloudSyncService';
 // удаления локальной записи, никто его не удалял, и заметка возвращалась.
 describe('R3-10: delete waits for an in-flight upload of the same note', () => {
   it('deletes the cloud row the upload just created', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     await db.put('syncQueue', { id: 'lock_cloud_loc1', documentId: 'loc1', type: 'document', createdAt: Date.now(), ownerToken: 'drain' });
     setTimeout(() => {
       doc.linkedCloudId = 'cloud1';

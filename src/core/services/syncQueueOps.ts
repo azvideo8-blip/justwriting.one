@@ -7,8 +7,8 @@ export function announceQueueChange(): void {
   } catch { /* non-critical */ }
 }
 
-export async function addToSyncQueue(documentId: string): Promise<void> {
-  const db = await getLocalDb();
+export async function addToSyncQueue(documentId: string, ownerId?: string): Promise<void> {
+  const db = await getLocalDb(ownerId);
   // The queue task inherits the note's owner. A task with no owner could be
   // drained under whichever account happens to be signed in next.
   const doc = await db.get('documents', documentId);

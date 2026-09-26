@@ -10,7 +10,7 @@ import { getLocalDb } from '../storage/localDb';
  * сохраняет свою историю; новая создаётся как раньше.
  */
 export async function requeueDocumentTask(documentId: string, ownerId?: string | null): Promise<void> {
-  const db = await getLocalDb();
+  const db = await getLocalDb(ownerId ?? undefined);
   const tx = db.transaction('syncQueue', 'readwrite');
   const id = `sync_${documentId}`;
   const existing = await tx.store.get(id);

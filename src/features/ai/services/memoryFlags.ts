@@ -1,3 +1,5 @@
+import { reportError } from '../../../shared/errors/reportError';
+
 export interface MemoryFeatureFlags {
   /** If true, W2 memory assembler runs in shadow mode logging to injectionJournal without affecting prod output. */
   ff_memory_assembler_shadow: boolean;
@@ -66,8 +68,9 @@ function saveStoredFlags(flags: MemoryFeatureFlags): void {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(flags));
     }
-  } catch {
-    /* ignore storage write failures */
+  } catch (e) {
+    // Это выбор человека: не сохранился — должно быть видно.
+    reportError(e, { action: 'saveStoredFlags' }, 'warning');
   }
 }
 

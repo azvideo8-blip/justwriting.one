@@ -36,7 +36,7 @@ export async function saveSummaryToCloud(userId: string, summary: AIDocumentSumm
   if (!canonicalId) {
     // Старые строки писались до появления documentUuid — постоянный номер
     // берём у самой заметки.
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const docId = summary.documentId || (summary as unknown as { id?: string }).id;
     const doc = docId ? await db.get('documents', docId) : undefined;
     canonicalId = doc?.uuid;

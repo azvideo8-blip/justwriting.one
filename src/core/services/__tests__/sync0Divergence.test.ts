@@ -87,7 +87,7 @@ beforeEach(async () => {
   setProfileLoaded(USER, true);
   setEncryptionEnabled(USER, false);
 
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
   await tx.objectStore('documents').clear();
   await tx.objectStore('versions').clear();
@@ -134,7 +134,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
     });
 
     // 3. Device B has Note X locally at v1, and edited it to "Text from Device B"
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const localDocId = 'local_doc_b';
     await db.put('documents', {
       id: localDocId,
@@ -206,19 +206,19 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
     const forkDoc = allDocs.find(d => d.id !== localDocId)!;
     expect(forkDoc).toBeDefined();
 
-    const forkVersions = await LocalVersionService.getVersions(forkDoc.id);
+    const forkVersions = await LocalVersionService.getVersions(forkDoc.id, USER);
     expect(forkVersions).toHaveLength(1);
     expect(forkVersions[0]!.content).toBe('Text from Device B');
 
     // C. Condition 3: Assert the original document yields the head and aligns with the cloud
-    const origVersions = await LocalVersionService.getVersions(localDocId);
+    const origVersions = await LocalVersionService.getVersions(localDocId, USER);
     expect(origVersions).toHaveLength(2);
     expect(origVersions[0]!.version).toBe(1);
     expect(origVersions[0]!.content).toBe('Initial text');
     expect(origVersions[1]!.version).toBe(2);
     expect(origVersions[1]!.content).toBe('Text from Device A'); // Reconciled with cloud head!
 
-    const updatedOrigDoc = await LocalStorageService.getDocument(localDocId);
+    const updatedOrigDoc = await LocalStorageService.getDocument(localDocId, USER);
     expect(updatedOrigDoc?.currentVersion).toBe(2);
 
     // D. Assert cloud was not silently overwritten
@@ -245,7 +245,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
       { id: 'cver_2', documentId: CLOUD_ID, version: 2, content: 'Text from Device A', wordCount: 5, duration: 20, wpm: 15 },
     ]);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const localDocId = 'local_doc_ff';
     await db.put('documents', {
       id: localDocId,
@@ -310,7 +310,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
       { id: 'cver_1', documentId: CLOUD_ID, version: 1, content: 'Day 1 text', wordCount: 5, duration: 20, wpm: 15 },
     ]);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const docId = 'local_single_user';
     await db.put('documents', {
       id: docId,
@@ -413,7 +413,7 @@ describe('SYNC-0: Cross-device divergence and fast-forward invariants', () => {
       { id: 'cver_2', documentId: CLOUD_ID, version: 2, content: 'Text at v2', wordCount: 5, duration: 20, wpm: 20 },
     ]);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const docId = 'local_doc_replay';
     await db.put('documents', {
       id: docId,

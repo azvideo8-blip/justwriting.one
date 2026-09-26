@@ -8,7 +8,7 @@ import * as cloudSyncModule from '../../sync/cloudSyncEnabled';
 const USER = 'user_sweep_test';
 
 async function clearDb() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const rec of await db.getAll('documents')) await db.delete('documents', (rec as { id: string }).id);
   for (const rec of await db.getAll('syncQueue')) await db.delete('syncQueue', (rec as { id: string }).id);
 }
@@ -21,7 +21,7 @@ describe('SyncService.sweepOrphanedDocuments', () => {
   });
 
   it('enqueues unlinked-new document older than olderThanMs', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
     await db.put('documents', {
       id: 'local_orphan_1',
@@ -47,7 +47,7 @@ describe('SyncService.sweepOrphanedDocuments', () => {
   });
 
   it('skips fresh documents created recently (< olderThanMs)', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const oneMinuteAgo = Date.now() - 1 * 60 * 1000;
     await db.put('documents', {
       id: 'local_fresh_1',
@@ -71,7 +71,7 @@ describe('SyncService.sweepOrphanedDocuments', () => {
   });
 
   it('skips documents that are already present in syncQueue', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
     await db.put('documents', {
       id: 'local_already_queued',
@@ -100,7 +100,7 @@ describe('SyncService.sweepOrphanedDocuments', () => {
   });
 
   it('skips localOnly, unlinkedByTombstone, and locked documents', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
     await db.put('documents', {
       id: 'local_only_doc',
@@ -151,7 +151,7 @@ describe('SyncService.sweepOrphanedDocuments', () => {
   it('returns 0 when cloudSyncEnabled is false', async () => {
     vi.spyOn(cloudSyncModule, 'cloudSyncEnabled').mockReturnValue(false);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
     await db.put('documents', {
       id: 'local_orphan_no_consent',
@@ -177,7 +177,7 @@ describe('SyncService.sweepOrphanedDocuments', () => {
   });
 
   it('enqueues linked document that is behind cloud version', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
     await db.put('documents', {
       id: 'local_behind_doc',
@@ -210,7 +210,7 @@ describe('SyncService.syncOne cleans up queue task upon success', () => {
   });
 
   it('removes queue task for document when syncOne succeeds', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', {
       id: 'local_to_sync',
       guestId: USER,

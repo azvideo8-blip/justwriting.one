@@ -65,7 +65,7 @@ export const AITaxonomyService = {
     try {
       localStorage.setItem(key, JSON.stringify(payload));
       localStorage.removeItem(TAXONOMY_LS_KEY);
-    } catch { /* quota — non-critical */ }
+    } catch { /* намеренно: кэш таксономии, пересчитается */ }
   },
 
   clear(): void {
@@ -74,7 +74,7 @@ export const AITaxonomyService = {
     try {
       localStorage.removeItem(key);
       localStorage.removeItem(TAXONOMY_LS_KEY);
-    } catch { /* ignore */ }
+    } catch { /* намеренно: хранилище недоступно — и кэша в нём нет */ }
   },
 
   // The single seam build() reads. Stored taxonomy if present, else the

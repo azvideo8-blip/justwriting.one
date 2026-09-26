@@ -27,7 +27,7 @@ describe('AG-CORRUPT-1 & AG-CORRUPT-2: Encryption sync integrity', () => {
     );
     setSessionKey(mockKey);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     await Promise.all([
       tx.objectStore('documents').clear(),
@@ -89,7 +89,7 @@ describe('AG-CORRUPT-1 & AG-CORRUPT-2: Encryption sync integrity', () => {
     });
 
     const cloudDocId = 'cloud_doc_enc_1';
-    await LocalStorageService.updateLinkedCloudId(localId, cloudDocId);
+    await LocalStorageService.updateLinkedCloudId(localId, cloudDocId, userId);
 
     // 2. Encrypt the same content as stored in cloud
     const encrypted = await maybeEncrypt({ content: plaintext }, ['content'], [], userId);

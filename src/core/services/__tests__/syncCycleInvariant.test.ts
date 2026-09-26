@@ -29,7 +29,7 @@ describe('Sync cycle invariant (AUDIT-5.2)', () => {
     localStorage.clear();
     setProfileLoaded(userId, true);
     setEncryptionEnabled(userId, false);
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     await Promise.all([
       tx.objectStore('documents').clear(),
@@ -127,9 +127,9 @@ describe('Sync cycle invariant (AUDIT-5.2)', () => {
     expect(versions[1]!.content).toBe('first session text second session');
 
     // Локальная копия слинкована, очередь пуста.
-    const linked = await LocalDocumentService.getDocument(localId);
+    const linked = await LocalDocumentService.getDocument(localId, userId);
     expect(linked?.linkedCloudId).toBe(cloudDoc!['id']);
-    expect(await SyncService.getPendingCount()).toBe(0);
+    expect(await SyncService.getPendingCount(userId)).toBe(0);
   });
 
   it('second sync of a linked note does not create a second cloud document', async () => {
@@ -151,7 +151,7 @@ describe('Sync cycle invariant (AUDIT-5.2)', () => {
     expect(cloudDocs.size).toBe(1);
 
     // Повторный проход по уже слинкованной заметке ничего не создаёт.
-    await LocalDocumentService.updateDocument(localId, { totalWords: 2 });
+    await LocalDocumentService.updateDocument(localId, { totalWords: 2 }, userId);
     const second = await SyncService.syncAllUnlinked(userId);
     expect(second.synced).toBe(0);
     expect(conflictCalls).toBe(0);

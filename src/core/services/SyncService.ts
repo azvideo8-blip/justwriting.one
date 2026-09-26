@@ -25,8 +25,8 @@ const MAX_ATTEMPTS = 10;
 // EA-12: чтение и запись счётчика — в одной readwrite-транзакции. Раньше это
 // были две разные: два параллельных сбоя видели одно n и оба писали n+1
 // (карантин откладывался), а задача, удалённая другой вкладкой, записывалась обратно.
-async function bumpAttempts(taskId: string, reason: unknown): Promise<void> {
-  const db = await getLocalDb();
+async function bumpAttempts(taskId: string, reason: unknown, ownerId?: string): Promise<void> {
+  const db = await getLocalDb(ownerId);
   const tx = db.transaction('syncQueue', 'readwrite');
   const item = await tx.store.get(taskId);
   if (!item || item.dead) {
@@ -62,8 +62,8 @@ export interface SyncPendingResult {
 export const SyncService = {
   addToQueue: addToSyncQueue,
 
-  async removeQueueTasksForDocument(documentId: string): Promise<void> {
-    const db = await getLocalDb();
+  async removeQueueTasksForDocument(documentId: string, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('syncQueue', 'readwrite');
     const all = await tx.store.getAll();
     const matching = all.filter(t => (t.documentId === documentId || t.id === `sync_${documentId}`) && !t.id.startsWith('lock_cloud_'));
@@ -75,7 +75,7 @@ export const SyncService = {
   },
 
   async reviveLockedTasks(userId?: string): Promise<number> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queue = await db.getAll('syncQueue');
     const toRevive = queue.filter(item =>
       Boolean(item.dead) &&
@@ -93,7 +93,7 @@ export const SyncService = {
   },
 
   async retryQuarantinedTasks(userId?: string): Promise<number> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queue = await db.getAll('syncQueue');
     const toRevive = queue.filter(item =>
       Boolean(item.dead) &&
@@ -110,7 +110,7 @@ export const SyncService = {
   },
 
   async getPendingCount(userId?: string): Promise<number> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const all = await db.getAll('syncQueue');
     return all.filter(i =>
       !i.id.startsWith('lock_cloud_') &&
@@ -120,7 +120,7 @@ export const SyncService = {
   },
 
   async getDeadCount(userId?: string): Promise<number> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const all = await db.getAll('syncQueue');
     return all.filter(i =>
       !i.id.startsWith('lock_cloud_') &&
@@ -130,7 +130,7 @@ export const SyncService = {
   },
 
   async getPendingDeletionsCount(userId?: string): Promise<number> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const all = await db.getAll('syncQueue');
     return all.filter(i =>
       !i.id.startsWith('lock_cloud_') &&
@@ -158,7 +158,7 @@ export const SyncService = {
       } else {
         try {
           const cloudDocVersions = await DocumentService.getCloudDocumentVersions(userId);
-          const db = await getLocalDb();
+          const db = await getLocalDb(userId);
           const tx = db.transaction('documents', 'readwrite');
           for (const d of unresolvedDocs) {
             const cloudVer = cloudDocVersions.get(d.linkedCloudId!) ?? 0;
@@ -280,7 +280,7 @@ export const SyncService = {
       // Failed uploads are put into the queue for subsequent retries.
       for (const id of failedIds) {
         try {
-          await SyncService.addToQueue(id);
+          await SyncService.addToQueue(id, userId);
         } catch (e) {
           reportError(e, { action: 'syncAllUnlinked_queueFailed', documentId: id });
         }
@@ -305,7 +305,7 @@ export const SyncService = {
     const cloudId = await StorageService.addCloudCopy(userId, localId);
     const result = (cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) ? '' : (cloudId || '');
     if (result) {
-      await this.removeQueueTasksForDocument(localId);
+      await this.removeQueueTasksForDocument(localId, userId);
     }
     return result;
   },
@@ -314,7 +314,7 @@ export const SyncService = {
     if (!userId || userId.startsWith('guest')) return { enqueued: 0 };
     if (!cloudSyncEnabled(userId)) return { enqueued: 0 };
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queue = await db.getAll('syncQueue');
     const queuedDocIds = new Set(queue.map(q => q.documentId).filter(Boolean));
 
@@ -342,7 +342,7 @@ export const SyncService = {
     let enqueued = 0;
     for (const doc of orphans) {
       try {
-        await this.addToQueue(doc.id);
+        await this.addToQueue(doc.id, userId);
         enqueued++;
       } catch (e) {
         reportError(e, { action: 'sweepOrphanedDocuments_enqueue', documentId: doc.id });
@@ -358,7 +358,7 @@ export const SyncService = {
     // clear this doc's queue items then — the pending edit would never be retried.
     // Also never delete the lock_cloud_ entry itself.
     if (!cloudId || cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) return false;
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queue = await db.getAll('syncQueue');
     const docTasks = queue.filter(p => p.documentId === localId && !p.id.startsWith('lock_cloud_'));
     if (docTasks.length > 0) {
@@ -400,7 +400,7 @@ export const SyncService = {
 };
 
 async function _drainPendingQueue(userId: string): Promise<{ drained: number; failed: number }> {
-  const db = await getLocalDb();
+  const db = await getLocalDb(userId);
   const queue = await db.getAll('syncQueue');
 
   // A task belongs to the account that created it. Draining someone else's —
@@ -433,7 +433,7 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
   // N-52: сбой записи счётчика попыток не должен уронить весь проход — иначе
   // уже выгруженные задачи не уберутся из очереди и уйдут в облако ещё раз.
   const bump = (taskId: string, reason: unknown) => {
-    pendingBumps.push(bumpAttempts(taskId, reason).catch(e => reportError(e, { action: 'drainPendingQueue_bumpAttempts', taskId })));
+    pendingBumps.push(bumpAttempts(taskId, reason, userId).catch(e => reportError(e, { action: 'drainPendingQueue_bumpAttempts', taskId })));
   };
 
   const syncedIds: string[] = [];
@@ -497,7 +497,7 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
       skippedSet = new Set(relinkRes?.skippedIds ?? []);
     } catch (e) {
       logger.error('drainPendingQueue', 'Skipping uploads: could not verify cloud links', { reason: String(e) });
-      if (syncedIds.length > 0) await _clearQueueItems(syncedIds);
+      if (syncedIds.length > 0) await _clearQueueItems(syncedIds, userId);
       return { drained: syncedIds.length, failed: docTasks.length };
     }
 
@@ -530,7 +530,7 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
 
   // Сначала зафиксировать выгруженное, потом дождаться штрафов неудачным.
   if (syncedIds.length > 0) {
-    await _clearQueueItems(syncedIds);
+    await _clearQueueItems(syncedIds, userId);
     announceQueueChange();
   }
 
@@ -539,8 +539,8 @@ async function _drainPendingQueue(userId: string): Promise<{ drained: number; fa
   return { drained: syncedIds.length, failed: pendingBumps.length };
 }
 
-async function _clearQueueItems(ids: string[]): Promise<void> {
-  const db = await getLocalDb();
+async function _clearQueueItems(ids: string[], ownerId?: string): Promise<void> {
+  const db = await getLocalDb(ownerId);
   const tx = db.transaction('syncQueue', 'readwrite');
   await Promise.all(ids.map(id => tx.store.delete(id)));
   await tx.done;

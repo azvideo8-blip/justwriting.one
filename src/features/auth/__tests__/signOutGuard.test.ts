@@ -6,7 +6,7 @@ import { countUnsyncedLocalData } from '../services/unsyncedLocalData';
 const USER = 'user_1';
 
 async function reset() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const store of ['documents', 'syncQueue', 'drafts'] as const) {
     const all = await db.getAll(store);
     for (const rec of all) {
@@ -33,14 +33,14 @@ describe('countUnsyncedLocalData', () => {
   beforeEach(reset);
 
   it('counts nothing when every note has a cloud copy', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', note('local_a', { linkedCloudId: 'cloud_a' }) as never);
 
     expect(await countUnsyncedLocalData(USER)).toMatchObject({ total: 0 });
   });
 
   it('counts a note that exists only on this device', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', note('local_b') as never);
 
     const out = await countUnsyncedLocalData(USER);
@@ -49,14 +49,14 @@ describe('countUnsyncedLocalData', () => {
   });
 
   it('counts a deliberately local-only note too — a wipe destroys it just the same', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', note('local_c', { localOnly: true }) as never);
 
     expect((await countUnsyncedLocalData(USER)).localOnly).toBe(1);
   });
 
   it('counts queued edits but not the concurrency lock', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('syncQueue', { id: 'sync_1', documentId: 'local_a', type: 'document', createdAt: 1 } as never);
     await db.put('syncQueue', { id: 'lock_cloud_local_a', documentId: 'local_a', type: 'document', createdAt: 1 } as never);
 
@@ -64,7 +64,7 @@ describe('countUnsyncedLocalData', () => {
   });
 
   it('counts an unfinished draft, and ignores an empty one', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('drafts', { userId: USER, title: '', content: 'начатая мысль', seconds: 0, wpm: 0, wordCount: 2, updatedAt: 1 } as never);
     expect((await countUnsyncedLocalData(USER)).drafts).toBe(1);
 
@@ -73,7 +73,7 @@ describe('countUnsyncedLocalData', () => {
   });
 
   it('ignores another account\'s notes', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', note('local_d', { guestId: 'someone_else' }) as never);
 
     expect((await countUnsyncedLocalData(USER)).total).toBe(0);
@@ -87,7 +87,7 @@ describe('signOut', () => {
   });
 
   it('keeps local data by default without calling clearAllLocalStores', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', note('local_default') as never);
 
     const cleared = vi.fn();
@@ -116,7 +116,7 @@ describe('signOut', () => {
   });
 
   it('refuses to wipe the device when clearLocalData is true and unsynced data exists', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', note('local_e') as never);
 
     const cleared = vi.fn();
@@ -140,7 +140,7 @@ describe('signOut', () => {
 
   // A1: force sign-out proceeds even with unsynced data
   it('force sign-out clears data even when unsynced data exists', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', note('local_f') as never);
 
     const cleared = vi.fn();

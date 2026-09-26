@@ -551,6 +551,14 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
         createdAt: Date.now(),
         ownerId: userB,
       });
+      // Своя очередь B живёт в его базе; задача выше — чужая запись в базе A.
+      await (await getLocalDb(userB)).put('syncQueue', {
+        id: 'task_user_b',
+        documentId: 'doc_b',
+        type: 'document',
+        createdAt: Date.now(),
+        ownerId: userB,
+      });
 
       // 1. Pending count for user A only sees user A's tasks
       const countA = await SyncService.getPendingCount(userA);

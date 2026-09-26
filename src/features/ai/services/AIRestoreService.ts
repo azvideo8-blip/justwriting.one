@@ -49,7 +49,7 @@ function clearEmbeddingRestoreRequest(userId: string): void {
     localStorage.removeItem(LEGACY_EMBED_RESTORE_CURSOR);
     localStorage.removeItem(`${EMBED_RESTORE_FLAG_PREFIX}${userId}`);
     localStorage.removeItem(`${EMBED_RESTORE_CURSOR_PREFIX}${userId}`);
-  } catch { /* ignore */ }
+  } catch { /* намеренно: хранилище недоступно — и флага в нём нет */ }
 }
 
 /** Where the last run stopped, so a budget-limited restore resumes tomorrow
@@ -109,7 +109,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     return result;
   }
 
-  const db = await getLocalDb();
+  const db = await getLocalDb(userId);
 
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 

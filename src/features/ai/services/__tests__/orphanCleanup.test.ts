@@ -31,7 +31,7 @@ const LOCAL_AND_CLOUD = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const GHOST = 'ffffffff-9999-4888-8777-666666666666';
 
 async function seed() {
-  const db = await getLocalDb();
+  const db = await getLocalDb('user-1');
   for (const store of ['documents', 'aiSummaries', 'aiEmbeddings'] as const) {
     for (const r of await db.getAll(store)) {
       await db.delete(store, (r as { id?: string; documentId?: string }).id
@@ -93,7 +93,7 @@ describe('уборка производных без заметки', () => {
 
     expect(removed).toEqual({ summaries: 1, embeddings: 1 });
 
-    const db = await getLocalDb();
+    const db = await getLocalDb('user-1');
     const left = (await db.getAll('aiSummaries')).map(r => r.documentId).sort();
     expect(left).toEqual(['local_1', CLOUD_ONLY].sort());
   });
@@ -104,7 +104,7 @@ describe('уборка производных без заметки', () => {
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
     expect(removed).toEqual({ summaries: 0, embeddings: 0 });
-    const db = await getLocalDb();
+    const db = await getLocalDb('user-1');
     expect(await db.count('aiSummaries')).toBe(3);
   });
 
@@ -121,7 +121,7 @@ describe('уборка производных без заметки', () => {
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
     expect(removed).toEqual({ summaries: 0, embeddings: 0 });
-    const db = await getLocalDb();
+    const db = await getLocalDb('user-1');
     expect(await db.count('aiSummaries')).toBe(3);
     spy.mockRestore();
   });

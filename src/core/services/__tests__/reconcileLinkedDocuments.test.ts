@@ -22,7 +22,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     vi.spyOn(encryptModule, 'getSessionKey').mockReturnValue({} as CryptoKey);
     registerActiveEditorDocIdGetter(() => null);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.clear('documents');
     await db.clear('versions');
     await db.clear('syncQueue');
@@ -33,7 +33,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
   });
 
   it('Cloud ahead, no pending edit, note not open in editor: fast-forwards silently', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('documents', {
       id: localDocId,
       guestId: userId,
@@ -123,14 +123,14 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     expect(updatedDoc?.lastSeenCloudUpdatedAt).toBe('2026-09-19T12:00:00.000Z');
 
     // Assert version 2 was added to local version history
-    const allVersions = await LocalVersionService.getVersions(localDocId);
+    const allVersions = await LocalVersionService.getVersions(localDocId, userId);
     expect(allVersions).toHaveLength(2);
     expect(allVersions[1]?.version).toBe(2);
     expect(allVersions[1]?.content).toBe('Brand new text from phone');
   });
 
   it('Cloud ahead, pending edit exists: editor content unchanged, new version written to history, one activity log entry, no repeat', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('documents', {
       id: localDocId,
       guestId: userId,
@@ -227,7 +227,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     );
 
     // An additional entry was added to that note's existing version history
-    const versionsAfter1 = await LocalVersionService.getVersions(localDocId);
+    const versionsAfter1 = await LocalVersionService.getVersions(localDocId, userId);
     expect(versionsAfter1).toHaveLength(2);
     expect(versionsAfter1[1]?.content).toBe('Conflicting edit written on phone');
 
@@ -239,7 +239,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
   });
 
   it('Note open in the editor with no sync-queue entry yet: fast-forward does NOT fire', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('documents', {
       id: localDocId,
       guestId: userId,
@@ -315,7 +315,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     expect(docAfter?.title).toBe('Current Note In Editor');
 
     // But the remote change was saved to version history so it is not lost
-    const versionsAfter = await LocalVersionService.getVersions(localDocId);
+    const versionsAfter = await LocalVersionService.getVersions(localDocId, userId);
     expect(versionsAfter).toHaveLength(2);
     expect(versionsAfter[1]?.content).toBe('Remote changes from tablet');
   });
@@ -323,7 +323,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
   it('Falsification check: removing active editor check would clobber on-screen document', async () => {
     // If getActiveDocumentId returned null (simulating removing the active-editor check),
     // and queue had no entry, the code would take the fast-forward path and clobber currentVersion
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('documents', {
       id: localDocId,
       guestId: userId,
@@ -373,7 +373,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
   });
 
   it('Two overlapping triggers: single-flight guard means only one reconciliation pass runs', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('documents', {
       id: localDocId,
       guestId: userId,
@@ -414,7 +414,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
   });
 
   it('syncVersionToCloud and reconcileLinkedDocuments contend for the same document lock (FOLLOWUP-2)', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('documents', {
       id: localDocId,
       guestId: userId,
@@ -480,7 +480,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     expect(reconcileResult).toEqual({ reconciled: 0, skipped: 1, failed: 0 });
   });
   it('R3-5: trashing on another device moves the linked note to the trash here, restoring takes it back out', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const baseDoc = {
       id: localDocId, guestId: userId, title: 'T', currentVersion: 1, totalWords: 1, totalDuration: 1,
       sessionsCount: 1, firstSessionAt: 1000, lastSessionAt: 1000, tags: [], linkedCloudId: cloudDocId,

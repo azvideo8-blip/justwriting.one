@@ -19,7 +19,7 @@ export interface WordCloudEntry {
 // by-guest-индекс — единый ключ скоупа для гостя и юзера.
 export async function rebuildWordCloud(ownerId: string): Promise<void> {
   const { getLocalDb } = await import('../../../core/storage/localDb');
-  const db = await getLocalDb();
+  const db = await getLocalDb(ownerId);
 
   const allDocs = await db.getAllFromIndex('documents', 'by-guest', ownerId);
   const docs = allDocs.filter(d => !d.trashedAt);

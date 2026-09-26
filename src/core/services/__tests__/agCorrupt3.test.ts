@@ -18,7 +18,7 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
     localStorage.clear();
     setProfileLoaded(userId, true);
     setEncryptionEnabled(userId, false);
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     await Promise.all([
       tx.objectStore('documents').clear(),
@@ -37,7 +37,7 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
       title: 'Local Note',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_corrupt_1');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_corrupt_1', userId);
 
     await LocalVersionService.addVersion(userId, docId, {
       content: 'Readable local prose',
@@ -85,7 +85,7 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
     expect(resolveConflictSpy).not.toHaveBeenCalled();
 
     // Assert document was queued for retry in syncQueue
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queued = await db.get('syncQueue', `sync_${docId}`);
     expect(queued).toBeDefined();
     expect(queued?.documentId).toBe(docId);
@@ -96,7 +96,7 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
       title: 'Local Locked Note',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_corrupt_2');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_corrupt_2', userId);
 
     await LocalVersionService.addVersion(userId, docId, {
       content: 'enc:local_cipher',
@@ -138,7 +138,7 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
     await expect(CloudSyncService.addCloudCopy(userId, docId)).rejects.toThrow('SYNC_UNRESOLVED');
 
     expect(resolveConflictSpy).not.toHaveBeenCalled();
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queued = await db.get('syncQueue', `sync_${docId}`);
     expect(queued).toBeDefined();
   });
@@ -148,7 +148,7 @@ describe('AG-CORRUPT-3: addCloudCopy ciphertext comparison guard', () => {
       title: 'Diverged Note',
       tags: [],
     });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_diverged_1');
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_diverged_1', userId);
 
     await LocalVersionService.addVersion(userId, docId, {
       content: 'Local text variant A',

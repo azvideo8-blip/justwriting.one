@@ -18,15 +18,15 @@ describe('R3-1: a failed metadata edit reaches the cloud on the retry', () => {
     vi.restoreAllMocks();
     setProfileLoaded(userId, true);
     setEncryptionEnabled(userId, false);
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     for (const s of ['documents', 'versions', 'syncQueue'] as const) await db.clear(s);
   });
 
   it('pushes title, tags, label and excludedFromAI, then clears the flag', async () => {
     const docId = await LocalStorageService.createDocument(userId, { title: 'Новое название', tags: ['тег'] });
-    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_1');
-    await LocalDocumentService.updateExcludedFromAI(docId, true);
-    await LocalDocumentService.setMetadataDirty(docId, true);
+    await LocalStorageService.updateLinkedCloudId(docId, 'cloud_1', userId);
+    await LocalDocumentService.updateExcludedFromAI(docId, true, userId);
+    await LocalDocumentService.setMetadataDirty(docId, true, userId);
 
     vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({
       id: 'cloud_1', title: 'Старое', tags: [], currentVersion: 5, totalWords: 0, totalDuration: 0,
@@ -41,6 +41,6 @@ describe('R3-1: a failed metadata edit reaches the cloud on the retry', () => {
     expect(meta).toHaveBeenCalledWith(userId, 'cloud_1', expect.objectContaining({
       title: 'Новое название', tags: ['тег'], excludedFromAI: true,
     }));
-    expect((await LocalStorageService.getDocument(docId))?.metadataDirty).toBeFalsy();
+    expect((await LocalStorageService.getDocument(docId, userId))?.metadataDirty).toBeFalsy();
   });
 });

@@ -77,7 +77,7 @@ describe('importNoteFile', () => {
 
     expect(result.success).toBe(true);
     expect(saveNewMock).toHaveBeenCalledWith('user-1', expect.objectContaining({ title: 'note', content: 'some content' }));
-    expect(addToQueueMock).toHaveBeenCalledWith('local-1');
+    expect(addToQueueMock).toHaveBeenCalledWith('local-1', 'user-1');
     expect(syncOneMock).toHaveBeenCalledWith('user-1', 'local-1');
   });
 
@@ -88,7 +88,7 @@ describe('importNoteFile', () => {
 
     // syncOne is fire-and-forget; flush microtasks so its rejection handler runs.
     await new Promise(resolve => setTimeout(resolve, 0));
-    expect(addToQueueMock).toHaveBeenCalledWith('local-1');
+    expect(addToQueueMock).toHaveBeenCalledWith('local-1', 'user-1');
   });
 
   it('does not attempt cloud sync for guests', async () => {

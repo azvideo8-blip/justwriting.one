@@ -18,7 +18,7 @@ import { getLocalDb } from '../../storage/localDb';
 const USER = 'user_fork';
 
 async function seedOriginal() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   await db.put('documents', {
     id: 'local_orig', guestId: USER, title: 'Заметка про осень', currentVersion: 3,
     totalWords: 10, totalDuration: 0, sessionsCount: 1,
@@ -28,7 +28,7 @@ async function seedOriginal() {
 
 beforeEach(async () => {
   vi.restoreAllMocks();
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const rec of await db.getAll('documents')) await db.delete('documents', (rec as { id: string }).id);
   for (const rec of await db.getAll('versions')) await db.delete('versions', (rec as { id: string }).id);
   for (const rec of await db.getAll('syncQueue')) await db.delete('syncQueue', (rec as { id: string }).id);
@@ -44,7 +44,7 @@ describe('AUDIT-MH3 fork contents and title', () => {
       4, { currentVersion: 3 }, 1000,
     );
     // Заголовок форка пишется через createDocument — проверяем локальную базу.
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const docs = (await db.getAll('documents')).filter(d => d.id !== 'local_orig');
     expect(docs).toHaveLength(1);
     expect(docs[0]!.title).toMatch(/\((конфликт|conflict), .*\d{1,2}:\d{2}/);

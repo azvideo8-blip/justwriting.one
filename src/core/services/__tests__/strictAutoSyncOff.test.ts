@@ -19,11 +19,13 @@ describe('D-22: Strict Auto-Sync Off Guarantee', () => {
     localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(USER_NO_SYNC), 'false');
     localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(USER_WITH_SYNC), 'true');
 
-    const db = await getLocalDb();
-    const allDocs = await db.getAll('documents');
-    for (const d of allDocs) await db.delete('documents', d.id);
-    const allQueue = await db.getAll('syncQueue');
-    for (const q of allQueue) await db.delete('syncQueue', q.id);
+    for (const uid of [USER_NO_SYNC, USER_WITH_SYNC]) {
+      const db = await getLocalDb(uid);
+      const allDocs = await db.getAll('documents');
+      for (const d of allDocs) await db.delete('documents', d.id);
+      const allQueue = await db.getAll('syncQueue');
+      for (const q of allQueue) await db.delete('syncQueue', q.id);
+    }
   });
 
   describe('SyncService.syncOne', () => {
@@ -46,7 +48,7 @@ describe('D-22: Strict Auto-Sync Off Guarantee', () => {
 
       expect(result).toBe('cloud_id_999');
       expect(addCloudCopySpy).toHaveBeenCalledWith(USER_WITH_SYNC, 'local_doc_2');
-      expect(removeQueueSpy).toHaveBeenCalledWith('local_doc_2');
+      expect(removeQueueSpy).toHaveBeenCalledWith('local_doc_2', USER_WITH_SYNC);
     });
   });
 
@@ -66,7 +68,7 @@ describe('D-22: Strict Auto-Sync Off Guarantee', () => {
         lastSyncedCloudVersion: 1,
         totalDuration: 60,
       };
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER_NO_SYNC);
       await db.put('documents', localDoc as never);
 
       const res = await StorageService.saveVersion(USER_NO_SYNC, 'doc_existing_1', {
@@ -102,7 +104,7 @@ describe('D-22: Strict Auto-Sync Off Guarantee', () => {
         lastSyncedCloudVersion: 1,
         totalDuration: 60,
       };
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER_WITH_SYNC);
       await db.put('documents', localDoc as never);
 
       const res = await StorageService.saveVersion(USER_WITH_SYNC, 'doc_existing_2', {
@@ -146,7 +148,7 @@ describe('D-22: Strict Auto-Sync Off Guarantee', () => {
     });
 
     it('allows explicit user manual sync with force: true even when auto-sync is disabled', async () => {
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER_NO_SYNC);
       await db.put('syncQueue', {
         id: 'sync_local_doc_force',
         documentId: 'local_doc_force',

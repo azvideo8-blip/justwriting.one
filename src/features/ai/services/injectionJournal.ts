@@ -1,4 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
+import { reportError } from '../../../shared/errors/reportError';
 
 export interface EvaluatedCandidateRecord {
   id: string;
@@ -84,8 +85,8 @@ async function persistEntryToDb(entry: JournalEntry): Promise<void> {
       }
       await tx.done;
     }
-  } catch {
-    /* Non-blocking write fallback */
+  } catch (e) {
+    reportError(e, { action: 'injectionJournal_persist' }, 'warning');
   }
 }
 
@@ -132,8 +133,8 @@ export const InjectionJournal = {
       try {
         const db = await getLocalDb();
         await db.clear('aiInjectionJournal');
-      } catch {
-        /* ignore */
+      } catch (e) {
+        reportError(e, { action: 'injectionJournal_clear' }, 'warning');
       }
     })();
   },

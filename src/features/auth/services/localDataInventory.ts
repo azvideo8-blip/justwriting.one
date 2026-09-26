@@ -21,7 +21,7 @@ export interface LocalDataInventory {
 }
 
 export async function countLocalDataInventory(userId?: string): Promise<LocalDataInventory> {
-  const db = await getLocalDb();
+  const db = await getLocalDb(userId);
 
   let notesCount = 0;
   let versionsCount = 0;

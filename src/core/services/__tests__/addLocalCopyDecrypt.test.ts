@@ -62,7 +62,7 @@ describe('addLocalCopy — a failed decrypt never becomes local text', () => {
 
     await expect(CloudSyncService.addLocalCopy('user_1', 'cloud_1')).rejects.toThrow(/DECRYPT_FAILED_LATEST/);
     // The half-built local note must not stay behind showing older text as current.
-    expect(removePartial).toHaveBeenCalledWith('local_new');
+    expect(removePartial).toHaveBeenCalledWith('local_new', 'user_1');
   });
 
   it('treats a non-string payload as corrupt rather than falling back to the raw field', async () => {

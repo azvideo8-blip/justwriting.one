@@ -33,7 +33,7 @@ vi.mock('../VersionService', () => ({
 const USER = 'user_tombstone';
 
 async function seedLinked() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   await db.put('documents', {
     id: 'local_del', guestId: USER, title: 'Удалённая синтетическая', currentVersion: 1,
     totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1,
@@ -42,7 +42,7 @@ async function seedLinked() {
 }
 
 beforeEach(async () => {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const rec of await db.getAll('documents')) await db.delete('documents', (rec as { id: string }).id);
   for (const rec of await db.getAll('syncQueue')) await db.delete('syncQueue', (rec as { id: string }).id);
   vi.restoreAllMocks();
@@ -57,7 +57,7 @@ describe('AUDIT-H3 tombstoned note must not resurrect via auto-upload', () => {
     const cloudId = await StorageService.addCloudCopy(USER, 'local_del');
     expect(cloudId).toBe(CLOUD_COPY_TOMBSTONE);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', 'local_del');
     expect(doc!.localOnly).toBe(true);   // ← без этого syncAllUnlinked воскресит заметку
     expect(doc!.linkedCloudId).toBe('');
@@ -66,7 +66,7 @@ describe('AUDIT-H3 tombstoned note must not resurrect via auto-upload', () => {
   it('mutation guard: plain unlink WITHOUT localOnly would be re-uploaded (documents the bug)', async () => {
     await seedLinked();
     // Воспроизводим СТАРОЕ поведение вручную: unlink без localOnly...
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', { ...(await db.get('documents', 'local_del'))!, linkedCloudId: '' });
     void getDocWithDeleted;
 
@@ -82,7 +82,7 @@ describe('AUDIT-H3 tombstoned note must not resurrect via auto-upload', () => {
 
   it('after the fix, a localOnly note is never auto-uploaded', async () => {
     await seedLinked();
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', { ...(await db.get('documents', 'local_del'))!, linkedCloudId: '', localOnly: true });
 
     const spy = vi.spyOn(StorageService, 'addCloudCopy').mockResolvedValue('cloud_new');
@@ -100,7 +100,7 @@ describe('AUDIT-H3 tombstoned note must not resurrect via auto-upload', () => {
     const syncData = { title: 'Doc', content: 'new content', tags: [], wordCount: 2, duration: 10, wpm: 20, sessionStartedAt: new Date() };
     await CloudSyncService.syncVersionToCloud(USER, 'local_del', 'cloud_del', syncData, 2, 'prev content');
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', 'local_del');
     expect(doc!.localOnly).toBe(true);
     expect(doc!.linkedCloudId).toBe('');

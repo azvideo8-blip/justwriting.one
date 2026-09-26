@@ -20,7 +20,7 @@ async function newNote(tag: string) {
 
 describe('clearLocalOnlyForUpload (D-5)', () => {
   beforeEach(async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     for (const store of ['documents', 'versions'] as const) {
       for (const rec of await db.getAll(store)) await db.delete(store, (rec as { id: string }).id);
     }
@@ -28,34 +28,34 @@ describe('clearLocalOnlyForUpload (D-5)', () => {
 
   it('lifts the mark after a deliberate unlink, so the note can go back to the cloud', async () => {
     const id = await newNote('a');
-    await LocalDocumentService.unlinkFromCloud(id, 'user_choice');
-    expect((await LocalStorageService.getDocument(id))?.localOnly).toBe(true);
+    await LocalDocumentService.unlinkFromCloud(id, 'user_choice', USER);
+    expect((await LocalStorageService.getDocument(id, USER))?.localOnly).toBe(true);
     // Пока пометка стоит — фоновые проходы заметку не отправляют.
-    expect(syncStatusOf((await LocalStorageService.getDocument(id))!)).toBe('local-only');
+    expect(syncStatusOf((await LocalStorageService.getDocument(id, USER))!)).toBe('local-only');
 
-    expect(await LocalDocumentService.clearLocalOnlyForUpload(id)).toBe(true);
+    expect(await LocalDocumentService.clearLocalOnlyForUpload(id, USER)).toBe(true);
 
-    const doc = await LocalStorageService.getDocument(id);
+    const doc = await LocalStorageService.getDocument(id, USER);
     expect(doc?.localOnly).toBe(false);
     expect(syncStatusOf(doc!)).not.toBe('local-only');
   });
 
   it('keeps the tombstone mark: re-uploading such a note would resurrect a cloud deletion', async () => {
     const id = await newNote('b');
-    await LocalDocumentService.unlinkFromCloud(id, 'tombstone');
+    await LocalDocumentService.unlinkFromCloud(id, 'tombstone', USER);
 
-    expect(await LocalDocumentService.clearLocalOnlyForUpload(id)).toBe(false);
+    expect(await LocalDocumentService.clearLocalOnlyForUpload(id, USER)).toBe(false);
 
-    const doc = await LocalStorageService.getDocument(id);
+    const doc = await LocalStorageService.getDocument(id, USER);
     expect(doc?.localOnly).toBe(true);
     expect(doc?.unlinkedByTombstone).toBe(true);
   });
 
   it('is a no-op for a note that was never marked, and for a missing one', async () => {
     const id = await newNote('c');
-    expect(await LocalDocumentService.clearLocalOnlyForUpload(id)).toBe(false);
-    expect((await LocalStorageService.getDocument(id))?.localOnly).toBeFalsy();
+    expect(await LocalDocumentService.clearLocalOnlyForUpload(id, USER)).toBe(false);
+    expect((await LocalStorageService.getDocument(id, USER))?.localOnly).toBeFalsy();
 
-    expect(await LocalDocumentService.clearLocalOnlyForUpload('local_missing')).toBe(false);
+    expect(await LocalDocumentService.clearLocalOnlyForUpload('local_missing', USER)).toBe(false);
   });
 });

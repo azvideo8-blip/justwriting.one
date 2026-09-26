@@ -13,7 +13,7 @@ vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }))
 const USER = 'user_quarantine';
 
 async function seedDoc(id: string) {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   await db.put('documents', {
     id, guestId: USER, title: 'n', currentVersion: 1, totalWords: 1,
     totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1,
@@ -22,7 +22,7 @@ async function seedDoc(id: string) {
 }
 
 async function queueTask(documentId: string) {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   await db.put('syncQueue', {
     id: `sync_${documentId}_${Date.now()}`,
     documentId,
@@ -33,12 +33,12 @@ async function queueTask(documentId: string) {
 }
 
 async function getTasks() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   return (await db.getAll('syncQueue')).filter(i => i.id.startsWith('sync_'));
 }
 
 beforeEach(async () => {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const rec of await db.getAll('documents')) await db.delete('documents', (rec as { id: string }).id);
   for (const rec of await db.getAll('syncQueue')) await db.delete('syncQueue', (rec as { id: string }).id);
   vi.restoreAllMocks();
@@ -134,7 +134,7 @@ describe('AUDIT-H4 sync queue quarantine', () => {
   it('quarantined task can be revived via retryQuarantinedTasks and reviveLockedTasks and drains afterwards (AG-QUAR-1)', async () => {
     await seedDoc('doc_revive');
     await queueTask('doc_revive');
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const tasks = await getTasks();
     const taskId = tasks[0]!.id;
 

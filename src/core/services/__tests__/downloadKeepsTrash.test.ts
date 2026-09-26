@@ -15,7 +15,7 @@ describe('R3-5: a trashed cloud note arrives in the trash', () => {
     vi.restoreAllMocks();
     setProfileLoaded(userId, true);
     setEncryptionEnabled(userId, false);
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     for (const s of ['documents', 'versions'] as const) await db.clear(s);
   });
 
@@ -30,7 +30,7 @@ describe('R3-5: a trashed cloud note arrives in the trash', () => {
     ] as never);
 
     const localId = await CloudSyncService.addLocalCopy(userId, 'cloud_t');
-    const doc = await LocalStorageService.getDocument(localId);
+    const doc = await LocalStorageService.getDocument(localId, userId);
     expect(doc?.trashedAt).toBe(trashedAt.getTime());
   });
 });

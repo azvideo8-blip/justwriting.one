@@ -8,6 +8,7 @@ import { useActivityLogStore } from '../../../shared/activity/useActivityLogStor
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import type { CallAiOptions } from '../../../core/ai/callAi';
 import { localDayKey } from '../../../core/utils/dateUtils';
+import { reportError } from '../../../shared/errors/reportError';
 
 
 /**
@@ -106,8 +107,8 @@ export const AIConsolidationService = {
       const db = await getLocalDb();
       await db.put('aiBeliefs', belief as unknown as Record<string, unknown>);
       LocalStoreSyncService.scheduleStoreSync('aiBeliefs', belief.id);
-    } catch {
-      /* ignore storage failure */
+    } catch (e) {
+      reportError(e, { action: 'saveBelief', id: belief.id }, 'warning');
     }
   },
 
@@ -138,8 +139,8 @@ export const AIConsolidationService = {
         }
         await tx.done;
       }
-    } catch {
-      /* ignore IDB rejection log errors */
+    } catch (e) {
+      reportError(e, { action: 'saveRejection' }, 'warning');
     }
   },
 
@@ -160,8 +161,8 @@ export const AIConsolidationService = {
     try {
       const db = await getLocalDb();
       await db.clear('aiBeliefRejections');
-    } catch {
-      /* ignore clear error */
+    } catch (e) {
+      reportError(e, { action: 'clearRejections' }, 'warning');
     }
   },
 

@@ -26,7 +26,9 @@ export async function withDocumentLock<T>(
   const lockKey = `lock_cloud_${documentId}`;
   const lockOwnerToken = randomUUID();
 
-  const db = await getLocalDb();
+  // Замок лежит в базе владельца заметки: сменись аккаунт посреди работы,
+  // getLocalDb() без владельца открыл бы базу нового человека.
+  const db = await getLocalDb(options?.ownerId);
   const lockTx = db.transaction('syncQueue', 'readwrite');
   const existing = await lockTx.store.get(lockKey);
 
@@ -62,7 +64,7 @@ export async function withDocumentLock<T>(
     ? setInterval(() => {
         void (async () => {
           try {
-            const hdb = await getLocalDb();
+            const hdb = await getLocalDb(options?.ownerId);
             const htx = hdb.transaction('syncQueue', 'readwrite');
             const cur = await htx.store.get(lockKey);
             if (cur && cur.ownerToken === lockOwnerToken) {
@@ -83,7 +85,7 @@ export async function withDocumentLock<T>(
       clearInterval(lockHeartbeat);
     }
     try {
-      const cleanupDb = await getLocalDb();
+      const cleanupDb = await getLocalDb(options?.ownerId);
       const cleanupTx = cleanupDb.transaction('syncQueue', 'readwrite');
       const cur = await cleanupTx.store.get(lockKey);
       if (cur && cur.ownerToken === lockOwnerToken) {

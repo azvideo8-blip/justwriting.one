@@ -68,7 +68,7 @@ describe('SYNC-D4: getSessionContent safe access', () => {
 
     const res = await getSessionContent(session, userId);
     expect(res).toEqual({ ok: true, content: 'Local text recovered' });
-    expect(LocalVersionService.getLatestContent).toHaveBeenCalledWith('s_local');
+    expect(LocalVersionService.getLatestContent).toHaveBeenCalledWith('s_local', userId);
   });
 
   it('fetches cloud version when _contentNotLoaded and not local', async () => {

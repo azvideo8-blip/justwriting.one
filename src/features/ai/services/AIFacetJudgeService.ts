@@ -97,7 +97,7 @@ export const AIFacetJudgeService = {
     try {
       localStorage.removeItem(key);
       localStorage.removeItem(JUDGE_LOG_KEY);
-    } catch { /* ignore */ }
+    } catch { /* намеренно: хранилище недоступно — и журнала в нём нет */ }
   },
 
   async review(opts?: CallAiOptions): Promise<{ judged: number; corrected: number; log: JudgeLogEntry[] }> {

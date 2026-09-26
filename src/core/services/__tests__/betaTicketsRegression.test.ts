@@ -39,7 +39,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   useEncryptionStore.getState().setProfileLoaded(USER, true);
   useEncryptionStore.getState().setEncryptionEnabled(USER, false);
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   const stores = ['documents', 'versions', 'syncQueue', 'profile'] as const;
   for (const store of stores) {
     const tx = db.transaction(store, 'readwrite');
@@ -53,7 +53,7 @@ describe('BETA-2: Honest deletion feedback and queue tracking (LIFE-9)', () => {
     const localId = 'local_del_1';
     const cloudId = 'cloud_del_1';
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', {
       id: localId,
       guestId: USER,
@@ -87,7 +87,7 @@ describe('BETA-2: Honest deletion feedback and queue tracking (LIFE-9)', () => {
     const localId = 'local_del_2';
     const cloudId = 'cloud_del_2';
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', {
       id: localId,
       guestId: USER,
@@ -114,7 +114,7 @@ describe('BETA-3: Version deltas on upload (AG-CORRUPT-1)', () => {
     const docId = 'doc_delta_test';
     const cloudId = 'cloud_delta_test';
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', {
       id: docId,
       guestId: USER,
@@ -188,7 +188,7 @@ describe('BETA-4: Reconciliation between ciphertext and plaintext (AG-CORRUPT-2)
     const docId = 'doc_corrupt_1';
     const cloudId = 'cloud_corrupt_1';
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', {
       id: docId,
       guestId: USER,
@@ -259,7 +259,7 @@ describe('BETA-4: Reconciliation between ciphertext and plaintext (AG-CORRUPT-2)
     const docId = 'doc_corrupt_2';
     const cloudId = 'cloud_corrupt_2';
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', {
       id: docId,
       guestId: USER,
@@ -315,7 +315,7 @@ describe('BETA-5: Invariant current_version = max(version) (SYNC-10)', () => {
   it('passes localDoc.currentVersion to DocumentService.createDocument on initial upload', async () => {
     const docId = 'doc_cv_test';
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.put('documents', {
       id: docId,
       guestId: USER,

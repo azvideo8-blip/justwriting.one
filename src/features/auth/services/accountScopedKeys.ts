@@ -177,6 +177,6 @@ export function clearAiDerivedLocalCaches(uid: string): void {
     `ai_judge_log_${uid}`,
     'ai_user_portrait',
   ]) {
-    try { localStorage.removeItem(key); } catch { /* private mode */ }
+    try { localStorage.removeItem(key); } catch { /* намеренно: приватный режим — ключа и нет */ }
   }
 }

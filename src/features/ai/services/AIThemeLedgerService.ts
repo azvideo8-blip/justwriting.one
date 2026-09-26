@@ -43,7 +43,7 @@ export function clearPendingThemeTouches(documentIds: string[]): void {
     const remaining = getPendingThemeTouches().filter(id => !documentIds.includes(id));
     localStorage.setItem(PENDING_THEME_TOUCHES_KEY, JSON.stringify(remaining));
   } catch {
-    /* ignore storage failure */
+    /* намеренно: заметки просто пройдут разбор тем ещё раз */
   }
 }
 

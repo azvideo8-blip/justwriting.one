@@ -15,11 +15,14 @@ describe("C1 migrationImport", () => {
   beforeEach(async () => {
     resetDbInstance();
     localStorage.clear();
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.deleteDatabase("justwriting-local");
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    // Импорт пишет в базу целевого аккаунта — чистим и её.
+    for (const name of ["justwriting-local", ...["u1", "u_arch", "u_bench", "u_draft", "u_off", "u_target", "u_test", "u_test_1"].map(u => `justwriting-local-${u}`)]) {
+      await new Promise<void>((resolve, reject) => {
+        const req = indexedDB.deleteDatabase(name);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
   });
 
   it("Acceptance 3: drops aiPeopleIndex verbatim and strips mentionedPeople from aiSummaries (asserting on stored IDB records)", async () => {
@@ -100,7 +103,7 @@ describe("C1 migrationImport", () => {
     expect(res.droppedOnPurpose.peopleIndexRecords).toBe(1);
     expect(res.droppedOnPurpose.summariesWithMentionedPeople).toBe(1);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb("u_test_1");
 
     // 1. Assert aiPeopleIndex does NOT exist or has no records
     expect(db.objectStoreNames.contains("aiPeopleIndex" as never)).toBe(false);
@@ -165,7 +168,7 @@ describe("C1 migrationImport", () => {
     expect(res2.imported.versions).toBe(0);
     expect(res2.skipped.versions).toBe(1);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb("u1");
     const allDocs = await db.getAll("documents");
     const allVers = await db.getAll("versions");
 
@@ -237,7 +240,7 @@ describe("C1 migrationImport", () => {
     expect(res.skipped.versions).toBe(1);
     expect(res.skipped.details.some(d => d.id === "v_bad" && d.reason.includes("checksum mismatch"))).toBe(true);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb("u1");
     const storedVersions = await db.getAll("versions");
     expect(storedVersions).toHaveLength(1);
     expect(storedVersions[0]!.id).toBe("v_good");
@@ -300,7 +303,7 @@ describe("C1 migrationImport", () => {
     const res = await importMigrationManifest(manifest, "u1");
     expect(res.success).toBe(true);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb("u1");
     const doc = (await db.get("documents", "d1")) as LocalDocument;
     expect(doc).toBeDefined();
     expect(doc.linkedCloudId).toBe("firestore_doc_id_999");
@@ -402,7 +405,7 @@ describe("C1 migrationImport", () => {
     const res = await importMigrationManifest(manifest, "u1");
     expect(res.success).toBe(true);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb("u1");
 
     // Iterate through all records in aiSummaries and ensure document exists
     const allSummaries = await db.getAll("aiSummaries");
@@ -433,7 +436,7 @@ describe("C1 migrationImport", () => {
   });
 
   it("ID Collision: renames document and rewrites all dependent records in one pass", async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb("u1");
     // Put an existing note with id "d_colliding" and uuid "uuid-existing"
     await db.put("documents", {
       id: "d_colliding",
@@ -652,7 +655,7 @@ describe("C1 migrationImport", () => {
     );
 
     // Verify summary is attached to this exact note
-    const freshDb = await getLocalDb();
+    const freshDb = await getLocalDb("u_arch");
     const restoredSummary = await freshDb.get("aiSummaries", "doc_archive_1");
     expect(restoredSummary).toBeDefined();
     expect(restoredSummary?.summary).toBe(
@@ -710,7 +713,7 @@ describe("C1 migrationImport", () => {
     expect(res.upload?.status).toBe("vault_locked");
     expect(res.upload?.queued).toBe(1);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb("u_test");
     const queue = await db.getAll("syncQueue");
     expect(queue.some(item => item.documentId === "doc_locked_1")).toBe(true);
 
@@ -757,7 +760,7 @@ describe("C1 migrationImport", () => {
     const res = await importMigrationManifest(manifest, "u_bench");
     expect(res.droppedOnPurpose.verbatimDenied.documents).toBe(1);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb("u_bench");
     expect(await db.get("documents", "doc_forged")).toBeUndefined();
   });
 
@@ -790,7 +793,7 @@ describe("C1 migrationImport", () => {
     } as unknown as MigrationManifest;
 
     await importMigrationManifest(manifest, "u_bench");
-    const db = await getLocalDb();
+    const db = await getLocalDb("u_bench");
     expect(await db.get("versions", "ver_nochecksum")).toBeUndefined();
     expect(await db.get("versions", "ver_ok")).toBeDefined();
   });
@@ -822,7 +825,7 @@ describe("C1 migrationImport", () => {
       expect(res.skipped.labels).toBe(1);
       expect(res.droppedOnPurpose.verbatimDenied.profile).toBe(1);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb("u_target");
       const profile = await db.get("profile", "u_target");
       expect(profile).toBeDefined();
       expect(profile?.labels).toEqual([
@@ -875,7 +878,7 @@ describe("C1 migrationImport", () => {
       expect(res.imported.documents).toBe(2);
       expect(res.droppedOnPurpose.danglingLabels).toBe(1);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb("u_target");
       const docValid = await db.get("documents", "doc_with_label");
       expect(docValid?.labelId).toBe("lbl_valid");
 
@@ -928,7 +931,7 @@ describe("C1 migrationImport", () => {
       expect(res.imported.documents).toBe(1);
       expect(res.imported.versions).toBe(1);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb("u_target");
       const doc = await db.get("documents", "doc_date_str");
       expect(doc?.firstSessionAt).toBe(new Date("2026-09-05T10:00:00.000Z").getTime());
 
@@ -988,7 +991,7 @@ describe("C1 migrationImport", () => {
       expect(res.imported.documents).toBe(1);
       expect(res.imported.versions).toBe(1);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb("u_target");
       const ver = await db.get("versions", "v_unreadable_date");
       expect(ver).toBeDefined();
       const todayStart = new Date();
@@ -1050,7 +1053,7 @@ describe("C1 migrationImport", () => {
       const res = await importMigrationManifest(manifest, "u_target");
       expect(res.success).toBe(true);
 
-      const newDb = await getLocalDb();
+      const newDb = await getLocalDb("u_target");
       const importedDoc = await newDb.get("documents", "doc_da9");
       expect(importedDoc).toBeDefined();
       expect(importedDoc?.excludedFromAI).toBe(true);
@@ -1156,7 +1159,7 @@ describe("C1 migrationImport", () => {
       checksums: {}, skipped: [],
     } as unknown as MigrationManifest;
     await importMigrationManifest(manifest, "u_draft");
-    const db = await getLocalDb();
+    const db = await getLocalDb("u_draft");
     const draft = await db.get("drafts", "u_draft");
     expect(draft).toMatchObject({ pinnedThoughts: ["мысль"], tags: ["тег"], labelId: "l1" });
   });

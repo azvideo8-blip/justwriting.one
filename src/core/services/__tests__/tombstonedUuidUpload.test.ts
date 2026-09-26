@@ -52,7 +52,7 @@ const BURIED = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const DUPLICATE = Object.assign(new Error('duplicate key value violates unique constraint "documents_uuid_key"'), { code: '23505' });
 
 async function seed(over: Record<string, unknown> = {}) {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const r of await db.getAll('documents')) await db.delete('documents', (r as { id: string }).id);
   for (const r of await db.getAll('syncQueue')) await db.delete('syncQueue', (r as { id: string }).id);
   await db.put('documents', {
@@ -79,7 +79,7 @@ describe('LIFE-10: номер занят надгробием', () => {
 
     expect(cloudId, 'выгрузки не было — и говорить, что была, нельзя').toBe(CLOUD_COPY_TOMBSTONE);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', 'local_1');
     expect(doc!.unlinkedByTombstone, 'удаление записано как факт').toBe(true);
     expect(doc!.localOnly, 'автопроход не должен подхватывать эту заметку').toBe(true);
@@ -94,7 +94,7 @@ describe('LIFE-10: номер занят надгробием', () => {
 
     await CloudSyncService.addCloudCopy(USER, 'local_1');
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', 'local_1');
     expect(doc!.title).toBe('Практика — день 7');
     expect(doc!.totalWords).toBe(1526);
@@ -110,7 +110,7 @@ describe('LIFE-10: номер занят надгробием', () => {
 
     expect(cloudId).toBe('cloud_new');
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', 'local_1');
     expect(doc!.uuid, 'номер сменился').not.toBe(BURIED);
     expect(doc!.uuid).toMatch(/^[0-9a-f-]{36}$/);

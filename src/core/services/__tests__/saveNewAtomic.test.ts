@@ -6,7 +6,7 @@ import { LocalStorageService } from '../LocalStorageService';
 const USER = 'user_atomic';
 
 async function clear() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const store of ['documents', 'versions'] as const) {
     for (const rec of await db.getAll(store)) await db.delete(store, (rec as { id: string }).id);
   }
@@ -23,7 +23,7 @@ describe('saveNew is atomic', () => {
       tags: ['тег'], sessionStartedAt: new Date(1000),
     } as never);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const doc = await db.get('documents', localId);
     const versions = await db.getAllFromIndex('versions', 'by-document', localId);
 
@@ -38,7 +38,7 @@ describe('saveNew is atomic', () => {
   });
 
   it('leaves nothing behind when the write fails', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const before = (await db.getAll('documents')).length;
 
     await expect(

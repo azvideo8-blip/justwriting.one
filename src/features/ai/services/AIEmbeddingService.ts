@@ -41,7 +41,7 @@ function loadFreshLedger(): Record<string, number> {
 }
 
 function saveFreshLedger(ledger: Record<string, number>): void {
-  try { localStorage.setItem(CLOUD_FRESH_LS_KEY, JSON.stringify(ledger)); } catch { /* ignore */ }
+  try { localStorage.setItem(CLOUD_FRESH_LS_KEY, JSON.stringify(ledger)); } catch { /* намеренно: без отметки облако просто проверится ещё раз */ }
 }
 
 /** Помечает запись выгруженной (или пропущенной по размеру) в реестре. */

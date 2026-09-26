@@ -14,7 +14,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
   beforeEach(async () => {
     localStorage.clear();
     localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), 'true'); // D-22: по умолчанию тесты проверяют облачную запись
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue', 'profile'], 'readwrite');
     await Promise.all([
       tx.objectStore('documents').clear(),
@@ -38,8 +38,8 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
 
       // Local doc has 1 version, linked to cloud_doc_1, lastSyncedCloudVersion is undefined
       const docId = await LocalDocumentService.createDocument(userId, { title: 'Local Note with v1' });
-      await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_doc_1');
-      await LocalDocumentService.updateDocument(docId, { currentVersion: 1 });
+      await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_doc_1', userId);
+      await LocalDocumentService.updateDocument(docId, { currentVersion: 1 }, userId);
 
       const summary = await SyncService.getUnsyncedSummary(userId);
 
@@ -49,7 +49,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
       expect(summary.hasUnknown).toBe(false);
 
       // Verify that the local doc was backfilled with lastSyncedCloudVersion: 0 in IndexedDB
-      const updatedLocal = await LocalDocumentService.getDocument(docId);
+      const updatedLocal = await LocalDocumentService.getDocument(docId, userId);
       expect(updatedLocal?.lastSyncedCloudVersion).toBe(0);
     });
 
@@ -65,12 +65,12 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
       const cloudSpy = vi.spyOn(DocumentService, 'getCloudDocumentVersions').mockResolvedValue(cloudMap);
 
       const d1Id = await LocalDocumentService.createDocument(userId, { title: 'Doc 1' });
-      await LocalDocumentService.updateLinkedCloudId(d1Id, 'cloud_1');
-      await LocalDocumentService.updateDocument(d1Id, { currentVersion: 2 });
+      await LocalDocumentService.updateLinkedCloudId(d1Id, 'cloud_1', userId);
+      await LocalDocumentService.updateDocument(d1Id, { currentVersion: 2 }, userId);
 
       const d2Id = await LocalDocumentService.createDocument(userId, { title: 'Doc 2' });
-      await LocalDocumentService.updateLinkedCloudId(d2Id, 'cloud_2');
-      await LocalDocumentService.updateDocument(d2Id, { currentVersion: 3 });
+      await LocalDocumentService.updateLinkedCloudId(d2Id, 'cloud_2', userId);
+      await LocalDocumentService.updateDocument(d2Id, { currentVersion: 3 }, userId);
 
       await LocalDocumentService.createDocument(userId, { title: 'Doc 3' });
       // d3 has no linkedCloudId
@@ -97,8 +97,8 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
       vi.spyOn(DocumentService, 'getCloudDocumentVersions').mockRejectedValue(new Error('Network error'));
 
       const d1Id = await LocalDocumentService.createDocument(userId, { title: 'Doc 1' });
-      await LocalDocumentService.updateLinkedCloudId(d1Id, 'cloud_1');
-      await LocalDocumentService.updateDocument(d1Id, { currentVersion: 1 });
+      await LocalDocumentService.updateLinkedCloudId(d1Id, 'cloud_1', userId);
+      await LocalDocumentService.updateDocument(d1Id, { currentVersion: 1 }, userId);
       // lastSyncedCloudVersion is undefined
 
       const summary = await SyncService.getUnsyncedSummary(userId);
@@ -109,7 +109,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
       vi.spyOn(DocumentService, 'getCloudDocumentVersions').mockResolvedValue(new Map());
 
       const docId = await LocalDocumentService.createDocument(userId, { title: 'Private Local Note' });
-      const db = await getLocalDb();
+      const db = await getLocalDb(userId);
       const doc = await db.get('documents', docId);
       await db.put('documents', { ...doc!, localOnly: true });
 
@@ -124,7 +124,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
   describe('SYNC-2: Save path returns whether cloud copy succeeded', () => {
     it('saveVersion returns cloudSynced: true when cloud upload succeeds', async () => {
       const docId = await LocalDocumentService.createDocument(userId, { title: 'Note' });
-      await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_doc_ok');
+      await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_doc_ok', userId);
 
       vi.spyOn(CloudSyncService, 'syncVersionToCloud').mockResolvedValue({
         forked: false,
@@ -147,7 +147,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
 
     it('saveVersion returns cloudSynced: false and queues sync when cloud upload fails', async () => {
       const docId = await LocalDocumentService.createDocument(userId, { title: 'Note' });
-      await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_doc_err');
+      await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_doc_err', userId);
 
       vi.spyOn(CloudSyncService, 'syncVersionToCloud').mockResolvedValue({
         forked: false,
@@ -199,7 +199,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
 
     it('syncPending returns drained count when queue tasks succeed', async () => {
       localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), 'true');
-      const db = await getLocalDb();
+      const db = await getLocalDb(userId);
       await db.put('syncQueue', {
         id: 'del_1',
         documentId: 'doc_to_delete',
@@ -224,7 +224,7 @@ describe('Phase 2 Sync Fix Tickets: SYNC-1, SYNC-2, SYNC-4', () => {
 
     it('syncPending returns failed count when tasks fail', async () => {
       localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId), 'true');
-      const db = await getLocalDb();
+      const db = await getLocalDb(userId);
       await db.put('syncQueue', {
         id: 'del_fail',
         documentId: 'doc_fail',

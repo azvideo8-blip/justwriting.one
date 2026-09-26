@@ -8,7 +8,7 @@ const ME = 'user_me';
 const SOMEONE_ELSE = 'user_other';
 
 async function clearQueue() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(ME);
   for (const rec of await db.getAll('syncQueue')) await db.delete('syncQueue', (rec as { id: string }).id);
   localStorage.setItem('auto_sync_enabled', 'true');
 }
@@ -20,7 +20,7 @@ describe('sync queue respects the owner', () => {
   beforeEach(clearQueue);
 
   it('does not run a task belonging to another account', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ME);
     await db.put('syncQueue', {
       id: 'delete_theirs', documentId: 'cloud_theirs', type: 'delete',
       createdAt: Date.now(), ownerId: SOMEONE_ELSE,
@@ -35,7 +35,7 @@ describe('sync queue respects the owner', () => {
   });
 
   it('runs a task stamped with this account', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ME);
     await db.put('syncQueue', {
       id: 'delete_mine', documentId: 'cloud_mine', type: 'delete',
       createdAt: Date.now(), ownerId: ME,
@@ -48,13 +48,13 @@ describe('sync queue respects the owner', () => {
   });
 
   it('stamps the note\'s owner when queueing', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ME);
     await db.put('documents', {
       id: 'local_owned', guestId: ME, title: 'n', currentVersion: 1, totalWords: 1,
       totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
     } as never);
 
-    await SyncService.addToQueue('local_owned');
+    await SyncService.addToQueue('local_owned', ME);
 
     const queued = (await db.getAll('syncQueue')).find(i => i.documentId === 'local_owned');
     expect(queued?.ownerId).toBe(ME);

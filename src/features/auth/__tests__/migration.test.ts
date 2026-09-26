@@ -115,12 +115,15 @@ async function resetIdb(): Promise<void> {
   resetDbInstance();
 
   // 2. Delete the physical database so the schema is rebuilt from scratch
-  await new Promise<void>((resolve) => {
-    const req = indexedDB.deleteDatabase('justwriting-local');
-    req.onsuccess = () => resolve();
-    req.onerror   = () => resolve();
-    req.onblocked = () => resolve();
-  });
+  // Синхронизация пишет в базу аккаунта (getLocalDb(userId)) — её тоже.
+  for (const name of ['justwriting-local', `justwriting-local-${USER_ID}`]) {
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase(name);
+      req.onsuccess = () => resolve();
+      req.onerror   = () => resolve();
+      req.onblocked = () => resolve();
+    });
+  }
 }
 
 interface SeedDoc {
@@ -391,7 +394,7 @@ describe('GROUP B — Error/interruption scenarios', () => {
     if (!docId) throw new Error('Seeding failed');
 
     // Simulate a lock already in syncQueue for this doc
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER_ID);
     await db.put('syncQueue', {
       id: `lock_cloud_${docId}`,
       documentId: docId,
@@ -452,7 +455,7 @@ describe('GROUP C — Concurrent scenarios', () => {
     if (!docId) throw new Error('Seeding failed');
 
     // Pre-set linked cloud ID
-    await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_already_linked_xyz');
+    await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_already_linked_xyz', USER_ID);
     cloudDocs.set('cloud_already_linked_xyz', { id: 'cloud_already_linked_xyz', currentVersion: 1 });
 
     const result = await SyncService.syncAllUnlinked(USER_ID);
@@ -507,7 +510,7 @@ describe('GROUP D — Idempotency', () => {
     });
 
     // Set linked cloud id on local doc
-    await LocalDocumentService.updateLinkedCloudId(docId, existingCloudId);
+    await LocalDocumentService.updateLinkedCloudId(docId, existingCloudId, USER_ID);
 
     // MockDocumentService.getDocument returns the pre-existing doc
     MockDocumentService.getDocument.mockResolvedValueOnce(cloudDocs.get(existingCloudId) ?? null);
@@ -539,7 +542,7 @@ describe('GROUP D — Idempotency', () => {
     await migrateDocuments(GUEST_ID, USER_ID);
 
     // Corrupt the sessionStartedAt field of the bad doc's version
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER_ID);
     const allVersions = await db.getAll('versions');
     const badVersions = allVersions.filter(v => v.documentId === badDocId);
     for (const ver of badVersions) {

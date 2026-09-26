@@ -5,7 +5,7 @@ import { LocalStorageService } from '../LocalStorageService';
 import { LocalDocumentService } from '../LocalDocumentService';
 
 async function clear() {
-  const db = await getLocalDb();
+  const db = await getLocalDb('u1');
   for (const rec of await db.getAll('documents')) await db.delete('documents', (rec as { id: string }).id);
 }
 
@@ -21,7 +21,7 @@ describe('a note gets a canonical uuid', () => {
       tags: [], sessionStartedAt: new Date(1000),
     } as never);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     expect((await db.get('documents', localId))!.uuid).toMatch(/^[0-9a-f-]{36}$/i);
   });
 
@@ -35,7 +35,7 @@ describe('a note gets a canonical uuid', () => {
       tags: [], sessionStartedAt: new Date(2000),
     } as never);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     const ua = (await db.get('documents', a.localId))!.uuid;
     const ub = (await db.get('documents', b.localId))!.uuid;
     // Тот самый случай, на котором ломалась сшивка по содержимому.
@@ -43,7 +43,7 @@ describe('a note gets a canonical uuid', () => {
   });
 
   it('backfills notes created before the field existed, and only those', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     await db.put('documents', {
       id: 'local_old', guestId: 'u1', title: 'n', currentVersion: 1, totalWords: 1,
       totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],

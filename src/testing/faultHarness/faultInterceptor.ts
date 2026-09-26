@@ -30,6 +30,12 @@ export class FaultInterceptor {
   public capturedPayloads: Array<{ table: TableName; op: string; payload: unknown }> = [];
   public clockOffsetMs: number = 0;
   public onStep?: ((step: StepName) => void | Promise<void>) | undefined;
+  // Вызывается после каждого запроса к базе, до того как ответ вернулся в код:
+  // запрос выполнен с сессией прежнего человека, а ответ приходит уже к новому.
+  public onRequest?: ((table: TableName) => void | Promise<void>) | undefined;
+  // Как RLS на проде: запрос видит и пишет только строки того, чья сейчас сессия.
+  // Выключено по умолчанию — остальные сценарии пишут строки руками.
+  public rls = false;
   private originalDateNow = Date.now;
   public faultFiredCount: number = 0;
   private clockBackwardsFired: boolean = false;
@@ -603,6 +609,21 @@ export class FaultInterceptor {
             await this.corruptSingleCloudVersion();
           }
 
+          if (this.rls) {
+            const ownerCol = table === 'users' ? 'uid' : this.postgres.getTableNamesWithColumn('user_id').includes(table) ? 'user_id' : null;
+            if (ownerCol) {
+              const sessionUid = authModule.getCurrentUser()?.uid ?? null;
+              if (op === 'insert' || op === 'upsert') {
+                const rows = (Array.isArray(opPayload) ? opPayload : [opPayload]) as Record<string, unknown>[];
+                if (rows.some(r => r[ownerCol] !== sessionUid)) {
+                  return { data: null, error: { message: `new row violates row-level security policy for table "${table}"`, code: '42501' } };
+                }
+              } else {
+                filters.push({ type: 'eq', column: ownerCol, value: sessionUid });
+              }
+            }
+          }
+
           // 2. Normal execution against InMemoryPostgres
           let result: { data: unknown; error: unknown } = { data: null, error: null };
           switch (op) {
@@ -630,6 +651,8 @@ export class FaultInterceptor {
               break;
             }
           }
+
+          if (this.onRequest) await this.onRequest(table);
 
           // 3. Phantom Write (network_post & network_mid):
           // Write succeeded in Postgres, BUT network drops before client gets ACK!

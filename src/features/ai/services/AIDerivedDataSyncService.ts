@@ -47,7 +47,7 @@ export const AIDerivedDataSyncService = {
       return { synced: 0, failed: 0, orphaned: 0, skippedLocked: true };
     }
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const summaries = await db.getAll('aiSummaries');
     let synced = 0;
     let failed = 0;
@@ -92,7 +92,7 @@ export const AIDerivedDataSyncService = {
       return { synced: 0, failed: 0, orphaned: 0, skippedLocked: true };
     }
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const embeddings = await db.getAll('aiEmbeddings');
     let synced = 0;
     let failed = 0;
@@ -233,7 +233,7 @@ export const AIDerivedDataSyncService = {
       return empty;
     }
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const documents = await db.getAll('documents');
     const known = new Set<string>(cloudUuids);
     for (const doc of documents) {
@@ -262,14 +262,14 @@ export const AIDerivedDataSyncService = {
     const survey = await AIDerivedDataSyncService.findOrphanedDerivatives(userId);
     if (!survey.cloudChecked) return { summaries: 0, embeddings: 0 };
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     let summaries = 0;
     let embeddings = 0;
     for (const id of survey.summaries) {
-      try { await db.delete('aiSummaries', id); summaries++; } catch { /* ignore */ }
+      try { await db.delete('aiSummaries', id); summaries++; } catch { /* намеренно: считаем только удалённое; остаток найдёт следующий проход */ }
     }
     for (const id of survey.embeddings) {
-      try { await db.delete('aiEmbeddings', id); embeddings++; } catch { /* ignore */ }
+      try { await db.delete('aiEmbeddings', id); embeddings++; } catch { /* намеренно: как выше */ }
     }
     return { summaries, embeddings };
   },

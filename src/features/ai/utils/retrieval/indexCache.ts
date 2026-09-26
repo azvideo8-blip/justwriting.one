@@ -37,7 +37,7 @@ export async function refreshMiniSearchDoc(documentId: string, ownerId?: string)
   try {
     if (ms.has(documentId)) ms.discard(documentId);
     corpusVersion++;
-    const db = await getLocalDb();
+    const db = await getLocalDb(ownerId);
     const doc = await db.get('documents', documentId);
     if (!doc || isExcludedFromAI(doc)) return;
     const content = await LocalVersionService.getLatestContent(documentId);

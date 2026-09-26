@@ -12,7 +12,7 @@ export const ProfileUpdater = {
     now: number
   ): Promise<void> {
     try {
-      const profileDb = await getLocalDb();
+      const profileDb = await getLocalDb(guestId);
       const profileTx = profileDb.transaction(['profile'], 'readwrite');
       const profStore = profileTx.objectStore('profile');
       const profile = await profStore.get(guestId);

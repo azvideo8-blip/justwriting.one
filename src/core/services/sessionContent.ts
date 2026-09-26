@@ -44,7 +44,7 @@ export async function getSessionContent(
   // Unfetched local note: fetch from local versions
   if (session._isLocal) {
     try {
-      const content = await LocalVersionService.getLatestContent(session.id);
+      const content = await LocalVersionService.getLatestContent(session.id, userId);
       if (content === null && (session.wordCount || 0) > 0) {
         return { ok: false, reason: 'error' };
       }

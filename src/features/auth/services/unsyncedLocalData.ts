@@ -48,7 +48,7 @@ export async function countUnsyncedLocalData(userId: string | undefined): Promis
   const empty: UnsyncedLocalData = { localOnly: 0, pending: 0, drafts: 0, total: 0 };
   if (!userId) return empty;
 
-  const db = await getLocalDb();
+  const db = await getLocalDb(userId);
 
   const docs = await db.getAll('documents');
   // `localOnly` notes are deliberately kept off the cloud — which makes them the

@@ -34,7 +34,7 @@ vi.mock('../ConflictResolver', () => ({
 const userId = 'test_storage_user';
 
 async function seedDocument(docId: string, linkedCloudId?: string) {
-  const db = await getLocalDb();
+  const db = await getLocalDb(userId);
   await db.put('documents', {
     id: docId,
     guestId: userId,
@@ -76,7 +76,7 @@ const makeSaveData = (overrides?: Partial<{ content: string; wordCount: number; 
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  const db = await getLocalDb();
+  const db = await getLocalDb(userId);
   const tx = db.transaction(['documents', 'versions', 'syncQueue', 'profile'], 'readwrite');
   await Promise.all([
     tx.objectStore('documents').clear(),
@@ -99,7 +99,7 @@ describe('StorageService.saveVersion — cloud resilience', () => {
     expect(result).toEqual({ forked: false, cloudSynced: false });
 
     // Verify local save succeeded — version bumped
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const doc = await db.get('documents', docId);
     expect(doc).toBeTruthy();
     expect(doc!.currentVersion).toBe(2);
@@ -113,7 +113,7 @@ describe('StorageService.saveVersion — cloud resilience', () => {
 
     expect(result).toEqual({ forked: false, cloudSynced: false });
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const doc = await db.get('documents', docId);
     expect(doc!.currentVersion).toBe(2);
   });
@@ -125,7 +125,7 @@ describe('StorageService.saveVersion — cloud resilience', () => {
     await StorageService.saveVersion(userId, docId, makeSaveData());
 
     // syncVersionToCloud should have queued the document for later retry
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queue = await db.getAll('syncQueue');
     const queued = queue.filter(item => item.documentId === docId);
     expect(queued.length).toBeGreaterThanOrEqual(1);
@@ -152,7 +152,7 @@ describe('StorageService.saveVersion — cloud resilience', () => {
     expect(result).toEqual({ forked: false, cloudSynced: false, reason: 'TOO_LARGE', isTooLarge: true });
 
     // Local document should have isTooLargeForSync set
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const doc = await db.get('documents', docId);
     expect(doc!.isTooLargeForSync).toBe(true);
 

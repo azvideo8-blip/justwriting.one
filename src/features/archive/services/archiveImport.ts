@@ -101,7 +101,7 @@ export async function importNoteFile(
   if (isSignedIn) {
     const { SyncService } = await import('../../../core/services/SyncService');
     try {
-      await SyncService.addToQueue(localId);
+      await SyncService.addToQueue(localId, userId);
     } catch (queueErr) {
       console.error('Import: failed to enqueue sync task', queueErr);
     }

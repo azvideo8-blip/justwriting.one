@@ -103,7 +103,9 @@ function readPersistedDeletes(): PersistedDelete[] {
 }
 
 function writePersistedDeletes(list: PersistedDelete[]): void {
-  try { localStorage.setItem(PENDING_DELETES_LS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+  // Не записалось — после перезагрузки удаление в облаке забудется, и разбор
+  // останется там. Молчать об этом нельзя.
+  try { localStorage.setItem(PENDING_DELETES_LS_KEY, JSON.stringify(list)); } catch (e) { reportError(e, { action: 'writePersistedDeletes' }, 'warning'); }
 }
 
 function persistDelete(uid: string, store: string, key: string): void {
@@ -206,7 +208,7 @@ function removeOversizedRecord(store: string, key: string): void {
   try {
     const current = getOversizedRecords().filter(r => !(r.store === store && r.key === key));
     localStorage.setItem(OVERSIZED_LS_KEY, JSON.stringify(current));
-  } catch { /* ignore */ }
+  } catch { /* намеренно: лишняя пометка «слишком большой» ничего не теряет */ }
 }
 
 class LocalStoreSyncManager {
@@ -444,7 +446,7 @@ class LocalStoreSyncManager {
       return result;
     }
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
 
     for (const store of SUPPORTED_LOCAL_STORES) {
       if (!db.objectStoreNames.contains(store)) continue;

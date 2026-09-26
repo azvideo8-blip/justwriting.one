@@ -48,9 +48,9 @@ const CLOUD_SYNC_TIMEOUT = 30_000;
  * задача с именем `sync_<id>`. Раньше оно жило тремя копиями в этом файле, и
  * копии успели разойтись — одна из них знала только про documentId.
  */
-async function dropQueueTasksFor(localDocumentId: string): Promise<void> {
+async function dropQueueTasksFor(localDocumentId: string, ownerId?: string): Promise<void> {
   try {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('syncQueue', 'readwrite');
     const all = await tx.store.getAll();
     for (const t of all) {
@@ -59,7 +59,7 @@ async function dropQueueTasksFor(localDocumentId: string): Promise<void> {
       }
     }
     await tx.done;
-  } catch { /* очередь переживёт лишнюю задачу; потеря заметки — нет */ }
+  } catch { /* намеренно: очередь переживёт лишнюю задачу; потеря заметки — нет */ }
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
@@ -207,7 +207,7 @@ export const CloudSyncService = {
     const run = async () => {
       const pendingDocIds = new Set<string>();
       try {
-        const db = await getLocalDb();
+        const db = await getLocalDb(userId);
         const queue = await db.getAll('syncQueue');
         for (const item of queue) {
           if (item.documentId && !item.id.startsWith('lock_cloud_')) {
@@ -276,7 +276,7 @@ export const CloudSyncService = {
               }
 
               if (plainContent !== null) {
-                const localVersions = await LocalVersionService.getVersions(localDoc.id);
+                const localVersions = await LocalVersionService.getVersions(localDoc.id, userId);
                 const nextVersionNo = Math.max(...localVersions.map(v => v.version), 0) + 1;
 
                 await LocalVersionService.addVersion(userId, localDoc.id, {
@@ -301,7 +301,7 @@ export const CloudSyncService = {
                   'sync',
                 );
 
-                const db = await getLocalDb();
+                const db = await getLocalDb(userId);
                 const cur = await db.get('documents', localDoc.id);
                 if (cur) {
                   await db.put('documents', {
@@ -312,7 +312,7 @@ export const CloudSyncService = {
                 reconciled++;
               }
             } else {
-              const localVersions = await LocalVersionService.getVersions(localDoc.id);
+              const localVersions = await LocalVersionService.getVersions(localDoc.id, userId);
               const localVerSet = new Set(localVersions.map(v => v.version));
 
               const sortedCloudVersions = [...cloudVersions].sort((a, b) => a.version - b.version);
@@ -365,11 +365,11 @@ export const CloudSyncService = {
                 // R3-5: корзина на другом устройстве (и восстановление из неё) —
                 // облако новее, значит его состояние корзины и есть последнее.
                 trashedAt: toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime() ?? null,
-              });
+              }, userId);
 
               reconciled++;
             }
-          }, { queueOnHeld: false });
+          }, { queueOnHeld: false, ownerId: userId });
         } catch (err) {
           const msg = String((err as { message?: string })?.message || err);
           if (msg.startsWith('LOCK_HELD') || msg.includes('LOCK_HELD')) {
@@ -451,7 +451,7 @@ export const CloudSyncService = {
         // и на втором устройстве заметка становилась обычной (и снова шла в ИИ).
         const cloudTrashedAt = toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime();
         if (cloudDoc.uuid || cloudTrashedAt) {
-          const db = await getLocalDb();
+          const db = await getLocalDb(userId);
           const tx = db.transaction('documents', 'readwrite');
           const localDoc = await tx.store.get(localId);
           if (localDoc) {
@@ -543,9 +543,9 @@ export const CloudSyncService = {
           sessionsCount: cloudDoc.sessionsCount ?? 1,
           lastSyncedCloudVersion: cloudDoc.currentVersion,
           lastSeenCloudUpdatedAt: cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).toISOString() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).toISOString() : new Date().toISOString()),
-        });
+        }, userId);
 
-        await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId);
+        await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId, userId);
         
         useActivityLogStore.getState().addActivity(
           'Заметка загружена из облака',
@@ -558,7 +558,7 @@ export const CloudSyncService = {
       } catch (e) {
         reportError(e, { action: 'addLocalCopy', cloudDocumentId });
         if (localId) {
-          try { await LocalStorageService.deleteDocument(localId); } catch (cleanupErr) {
+          try { await LocalStorageService.deleteDocument(localId, userId); } catch (cleanupErr) {
             reportError(cleanupErr, { action: 'addLocalCopy_cleanup', localId });
           }
         }
@@ -568,7 +568,7 @@ export const CloudSyncService = {
     // enqueue `sync_<cloudId>` as a document task, and the drain would then try
     // to addCloudCopy a local document that does not exist (ten failed attempts,
     // then quarantine). A second downloader simply fails with LOCK_HELD.
-    }, { queueOnHeld: false });
+    }, { queueOnHeld: false, ownerId: userId });
   },
 
   async addCloudCopy(userId: string, localDocumentId: string, _encryptionRequired = true): Promise<string> {
@@ -579,13 +579,13 @@ export const CloudSyncService = {
     return withDocumentLock(
       localDocumentId,
       async () => {
-        const localDoc = await LocalStorageService.getDocument(localDocumentId);
+        const localDoc = await LocalStorageService.getDocument(localDocumentId, userId);
       if (!localDoc) throw new Error('Local document not found');
       if (localDoc._locked || localDoc._decryptionError) {
         throw new Error('LOCKED: cannot add cloud copy of locked document');
       }
       if (localDoc.localOnly && !localDoc.unlinkedByTombstone) {
-        await dropQueueTasksFor(localDocumentId);
+        await dropQueueTasksFor(localDocumentId, userId);
         // Кнопка, которая ничего не делает и молчит, читается как поломка.
         // Отказ здесь законный, но человек должен узнать причину.
         useActivityLogStore.getState().addActivity(
@@ -605,8 +605,8 @@ export const CloudSyncService = {
             // AUDIT-H3: заметка удалена в облаке. Unlink с флагом localOnly:
             // иначе следующий syncAllUnlinked зальёт её как НОВЫЙ облачный
             // документ и удаление «воскреснет» под другим id.
-            await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone');
-            await dropQueueTasksFor(localDocumentId);
+            await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone', userId);
+            await dropQueueTasksFor(localDocumentId, userId);
             useActivityLogStore.getState().addActivity(
               'Облачная копия этой заметки была удалена. Заметка осталась на устройстве; повторное «отправить в облако» создаст новую облачную копию',
               { action: 'addCloudCopy_tombstone', documentId: localDocumentId },
@@ -620,7 +620,7 @@ export const CloudSyncService = {
           // Already linked: pull missing cloud versions down, push any LOCAL versions missing from the cloud
           const cloudId = localDoc.linkedCloudId;
           const [localVersions, cloudVersions] = await Promise.all([
-            LocalVersionService.getVersions(localDocumentId),
+            LocalVersionService.getVersions(localDocumentId, userId),
             withTimeout(VersionService.getVersions(userId, cloudId)),
           ]);
           const decryptedCloudVersions = await Promise.all(cloudVersions.map(async (cv) => {
@@ -743,7 +743,7 @@ export const CloudSyncService = {
           // версиях), и следующая правка другого устройства не двигала облако
           // «вперёд» — её никто больше не видел.
           const metaDoc = collisions.length > 0
-            ? (await LocalStorageService.getDocument(localDocumentId)) ?? localDoc
+            ? (await LocalStorageService.getDocument(localDocumentId, userId)) ?? localDoc
             : localDoc;
           missing.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
           for (const ver of missing) {
@@ -811,7 +811,7 @@ export const CloudSyncService = {
               lastSessionAt: localDoc.lastSessionAt,
               trashedAt: localDoc.trashedAt ?? null,
             }));
-            await LocalDocumentService.setMetadataDirty(localDocumentId, false);
+            await LocalDocumentService.setMetadataDirty(localDocumentId, false, userId);
           } else if (missing.length > 0 && !localDoc.trashedAt && (existingDoc as { trashedAt?: unknown }).trashedAt) {
             // N2-2: заметку положили в корзину на другом устройстве, а здесь в неё
             // дописали. Свежий текст важнее корзины: возвращаем заметку, иначе
@@ -836,16 +836,16 @@ export const CloudSyncService = {
           }
           const syncdVer = Math.max(metaDoc.currentVersion, existingDoc.currentVersion);
           try {
-            const db = await getLocalDb();
+            const db = await getLocalDb(userId);
             const cur = await db.get('documents', localDocumentId);
             if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: syncdVer, lastSeenCloudUpdatedAt: new Date().toISOString() });
           } catch { /* ignore */ }
           return cloudId;
         }
-        await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
+        await LocalStorageService.updateLinkedCloudId(localDocumentId, '', userId);
       }
 
-      const versions = await LocalVersionService.getVersions(localDocumentId);
+      const versions = await LocalVersionService.getVersions(localDocumentId, userId);
 
       let cloudId: string | null = null;
 
@@ -886,7 +886,7 @@ export const CloudSyncService = {
           const existing = await DocumentService.findByUuid(userId, localDocUuid);
           if (existing) {
             cloudId = existing.uuid || existing.id;
-            await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
+            await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId, userId);
           } else {
             // LIFE-10: живой строки с этим номером нет, а ограничение
             // documents_uuid_key всё равно сработало — значит номер держит
@@ -903,8 +903,8 @@ export const CloudSyncService = {
               // номером, значило бы отменить чужое решение молча. Записываем
               // удаление так же, как его записывает обычный проход, и говорим
               // человеку, что заметка осталась здесь.
-              await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone');
-              await dropQueueTasksFor(localDocumentId);
+              await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone', userId);
+              await dropQueueTasksFor(localDocumentId, userId);
               useActivityLogStore.getState().addActivity(
                 'Облачная копия этой заметки была удалена. Заметка осталась на устройстве; повторное «отправить в облако» создаст новую облачную копию',
                 { action: 'addCloudCopy_tombstonedUuid', documentId: localDocumentId, uuid: localDocUuid },
@@ -920,12 +920,12 @@ export const CloudSyncService = {
             // копия получает новый — и это смена личности заметки, о которой
             // надо сказать вслух, а не выполнить тихо.
             const freshUuid = crypto.randomUUID();
-            await LocalDocumentService.updateDocumentUuid(localDocumentId, freshUuid);
+            await LocalDocumentService.updateDocumentUuid(localDocumentId, freshUuid, userId);
             cloudId = await withTimeout(DocumentService.createDocument(userId, {
               ...createPayload,
               uuid: freshUuid,
             }));
-            await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
+            await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId, userId);
             useActivityLogStore.getState().addActivity(
               'Создана новая облачная копия: прежний номер заметки занят удалённой строкой',
               { action: 'addCloudCopy_newIdentity', documentId: localDocumentId, previousUuid: localDocUuid, uuid: freshUuid },
@@ -1003,7 +1003,7 @@ export const CloudSyncService = {
         // ветке докачает недостающие версии (pull/push missing там уже есть).
         if (cloudId) {
           reportError(e, { action: 'addCloudCopy_partial', cloudId }, 'warning');
-          try { await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId); }
+          try { await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId, userId); }
           catch { /* существующий post-hoc dedup ниже разберётся */ }
         }
         throw e;
@@ -1013,7 +1013,7 @@ export const CloudSyncService = {
       // A concurrent tab (whose lock may have appeared to expire during a long
       // upload) could have created+linked a cloud doc meanwhile. If so, discard
       // our duplicate and adopt the winner rather than orphaning a cloud document.
-      const freshLocal = await LocalStorageService.getDocument(localDocumentId);
+      const freshLocal = await LocalStorageService.getDocument(localDocumentId, userId);
       if (freshLocal?.linkedCloudId && freshLocal.linkedCloudId !== cloudId) {
         try { await DocumentService.deleteDocument(userId, cloudId); }
         catch (cleanupErr) { reportError(cleanupErr, { action: 'addCloudCopy_dupCleanup', cloudId }); }
@@ -1021,10 +1021,10 @@ export const CloudSyncService = {
       }
       // The link is set even when the upload is incomplete: the cloud document
       // exists, and a retry that did not know about it would create a second one.
-      await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId);
-      await LocalStorageService.migrateDocumentOwner(localDocumentId, userId);
+      await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId, userId);
+      await LocalStorageService.migrateDocumentOwner(localDocumentId, userId, userId);
       try {
-        const db = await getLocalDb();
+        const db = await getLocalDb(userId);
         const cur = await db.get('documents', localDocumentId);
         if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: cur.currentVersion, lastSeenCloudUpdatedAt: new Date().toISOString() });
       } catch (e) {
@@ -1055,7 +1055,7 @@ export const CloudSyncService = {
     // шло с непрочитанным результатом и ничего не добавляло (N-53).
     await DocumentService.deleteDocument(userId, cloudDocumentId);
     if (localDocumentId) {
-      await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
+      await LocalStorageService.updateLinkedCloudId(localDocumentId, '', userId);
     }
   },
 
@@ -1090,8 +1090,8 @@ export const CloudSyncService = {
       }
       if (cloudDoc?.deletedAt) {
         // Document was soft-deleted in the cloud (tombstone). Clean up local link and syncQueue.
-        await LocalStorageService.unlinkFromCloud(documentId, 'tombstone');
-        await dropQueueTasksFor(documentId);
+        await LocalStorageService.unlinkFromCloud(documentId, 'tombstone', userId);
+        await dropQueueTasksFor(documentId, userId);
         return { forked: false, cloudSynced: false };
       }
       if (!cloudDoc) {
@@ -1118,7 +1118,7 @@ export const CloudSyncService = {
           return { ...cv, _decryptionError: true };
         }
       }));
-      const localVersions = await LocalVersionService.getVersions(documentId);
+      const localVersions = await LocalVersionService.getVersions(documentId, userId);
       const cloudVerMap = new Map(decryptedCloudVersions.map(v => [v.version, v]));
       const localVerNums = new Set(localVersions.map(v => v.version));
 
@@ -1144,7 +1144,7 @@ export const CloudSyncService = {
       const maxCloudVersion = Math.max(cloudDoc.currentVersion, newestCloudVersion);
 
       if (maxCloudVersion >= newVersion) {
-        const localDoc = await LocalStorageService.getDocument(documentId);
+        const localDoc = await LocalStorageService.getDocument(documentId, userId);
         const cloudHead = cloudVerMap.get(maxCloudVersion);
         const cloudHeadContent = cloudHead?.content;
 
@@ -1280,7 +1280,7 @@ export const CloudSyncService = {
       // N2-2 (тот же случай на пути сохранения): в заметку, которую другое
       // устройство положило в корзину, здесь только что дописали — возвращаем.
       if ((cloudDoc as { trashedAt?: unknown }).trashedAt) {
-        const here = await LocalStorageService.getDocument(documentId);
+        const here = await LocalStorageService.getDocument(documentId, userId);
         if (!here?.trashedAt) {
           await DocumentService.restoreDocument(userId, linkedCloudId);
           useActivityLogStore.getState().addActivity(
@@ -1294,9 +1294,9 @@ export const CloudSyncService = {
 
       // AUDIT-MH1: успешный push фиксирует base для следующего конфликта-чекa.
       try {
-        const localDoc = await LocalStorageService.getDocument(documentId);
+        const localDoc = await LocalStorageService.getDocument(documentId, userId);
         if (localDoc) {
-          const db = await getLocalDb();
+          const db = await getLocalDb(userId);
           await db.put('documents', { ...localDoc, lastSyncedCloudVersion: newVersion });
         }
       } catch { /* некритично: без поля сработает legacy-сравнение контента */ }
@@ -1336,7 +1336,7 @@ export const CloudSyncService = {
     // может быть пуст в момент, когда очередь синхронизации доходит до задачи:
     // именно поэтому колонка users.ai_portrait стояла пустой при живом
     // портрете на устройстве.
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const stored = await db.get('aiPortrait', 'singleton');
     const portraitMarkdown = stored?.portrait;
     if (!portraitMarkdown) return;
@@ -1416,7 +1416,7 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
     await withDocumentLock(
       local.id,
       async () => {
-        await LocalStorageService.updateLinkedCloudId(local.id, match.id);
+        await LocalStorageService.updateLinkedCloudId(local.id, match.id, local.guestId);
         local.linkedCloudId = match.id;
         delete local.localOnly;
         takenCloudIds.add(match.id);
@@ -1433,6 +1433,8 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
         }
       },
       {
+        // Замок — в базе владельца заметки, а не того, кто вошёл сейчас.
+        ownerId: local.guestId,
         queueOnHeld: false,
         onLockHeld: () => {
           // L-2: Document currently locked by active writer or sync drain.
@@ -1491,11 +1493,13 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
     await withDocumentLock(
       local.id,
       async () => {
-        await LocalStorageService.updateLinkedCloudId(local.id, cloudDoc.id);
+        await LocalStorageService.updateLinkedCloudId(local.id, cloudDoc.id, local.guestId);
         local.linkedCloudId = cloudDoc.id;
         relinked++;
       },
       {
+        // Замок — в базе владельца заметки, а не того, кто вошёл сейчас.
+        ownerId: local.guestId,
         queueOnHeld: false,
         onLockHeld: () => {
           // L-2: Document locked; record skipped id to avoid duplicate upload

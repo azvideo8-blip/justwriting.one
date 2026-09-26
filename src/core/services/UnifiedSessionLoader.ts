@@ -50,7 +50,7 @@ export async function loadAllSessions(
 
   const pendingDocIds = new Set<string>();
   try {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const queue = await db.getAll('syncQueue');
     for (const item of queue) {
       if (item.documentId && !item.id.startsWith('lock_cloud_')) {
@@ -80,7 +80,7 @@ export async function loadAllSessions(
     // E-7: Batch-read sittings for all local docs in one cursor scan
     let sittingsMap: Map<string, import('../../types').SessionSitting[]> | undefined;
     try {
-      sittingsMap = await LocalVersionService.getAllDocumentSittings();
+      sittingsMap = await LocalVersionService.getAllDocumentSittings(userId);
     } catch (err) {
       reportError(err, { action: 'loadAllSessions_getAllDocumentSittings' });
     }
@@ -99,22 +99,22 @@ export async function loadAllSessions(
         sessionWordsAdded = docSittings[docSittings.length - 1]?.wordsAdded;
       } else if (!sittingsMap) {
         try {
-          const fallbackDocSittings = await LocalVersionService.getDocumentSittings(doc.id);
+          const fallbackDocSittings = await LocalVersionService.getDocumentSittings(doc.id, userId);
           if (fallbackDocSittings.length > 0) {
             sittings = fallbackDocSittings;
             sessionWordsAdded = fallbackDocSittings[fallbackDocSittings.length - 1]?.wordsAdded;
           } else {
-            const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id);
+            const latestMeta = await LocalVersionService.getLatestVersionMeta(doc.id, userId);
             sessionWordsAdded = latestMeta?.wordsAdded;
           }
         } catch {
           sittings = undefined;
-          sessionWordsAdded = (await LocalVersionService.getLatestVersionMeta(doc.id).catch(() => null))?.wordsAdded;
+          sessionWordsAdded = (await LocalVersionService.getLatestVersionMeta(doc.id, userId).catch(() => null))?.wordsAdded;
         }
       }
       try {
         if (withContent) {
-          content = await LocalVersionService.getLatestContent(doc.id);
+          content = await LocalVersionService.getLatestContent(doc.id, userId);
         } else {
           // «Не читали» — не «не смогли прочитать»: _contentError означает
           // потерю (AUD-5), поэтому при пропуске ставим только флаг
@@ -267,7 +267,7 @@ export async function hydrateSessionContent<T extends LoadedSession>(sessions: T
     // пропущен — а облачный путь ниже искал бы по локальному id.
     if (session._isLocal) {
       try {
-        const content = await LocalVersionService.getLatestContent(session.id);
+        const content = await LocalVersionService.getLatestContent(session.id, userId);
         return { ...session, content, _contentNotLoaded: false };
       } catch (e) {
         reportError(e, { action: 'hydrateSessionContent_local', documentId: session.id });

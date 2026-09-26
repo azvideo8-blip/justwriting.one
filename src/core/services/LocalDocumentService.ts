@@ -36,7 +36,7 @@ export const LocalDocumentService = {
     if (data._locked || data._decryptionError) {
       throw new Error('LOCKED: cannot save locked document to local storage');
     }
-    const db = await getLocalDb();
+    const db = await getLocalDb(guestId);
     const id = `local_${randomUUID()}`;
     const now = Date.now();
 
@@ -63,22 +63,23 @@ export const LocalDocumentService = {
     return id;
   },
 
-  async getDocument(id: string): Promise<LocalDocument | undefined> {
-    const db = await getLocalDb();
+  async getDocument(id: string, ownerId?: string): Promise<LocalDocument | undefined> {
+    const db = await getLocalDb(ownerId);
     return db.get('documents', id) ?? undefined;
   },
 
   async getDocumentsByOwner(ownerId: string): Promise<LocalDocument[]> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ownerId);
     const all = await db.getAllFromIndex('documents', 'by-guest', ownerId);
     return all.sort((a, b) => b.lastSessionAt - a.lastSessionAt);
   },
 
   async updateAfterSession(
     id: string,
-    data: { totalWords: number; totalDuration: number; currentVersion: number; mood?: string | undefined }
+    data: { totalWords: number; totalDuration: number; currentVersion: number; mood?: string | undefined },
+    ownerId?: string
   ): Promise<void> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction(['documents', 'profile'], 'readwrite');
     const existing = await tx.objectStore('documents').get(id);
     if (!existing) { await tx.done; return; }
@@ -126,9 +127,10 @@ export const LocalDocumentService = {
       excludedFromAI?: boolean | undefined;
       /** R3-5: число — в корзине с этого момента; null — не в корзине. */
       trashedAt?: number | null;
-    }
+    },
+    ownerId?: string
   ): Promise<void> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -154,8 +156,8 @@ export const LocalDocumentService = {
 
   /** true — заметка и все её производные удалены; false — заметка удалена, а
    *  часть разборов ИИ (локально или в облаке) нет (N-51). */
-  async deleteDocument(id: string): Promise<boolean> {
-    const db = await getLocalDb();
+  async deleteDocument(id: string, ownerId?: string): Promise<boolean> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     const verStore = tx.objectStore('versions');
     const docStore = tx.objectStore('documents');
@@ -186,7 +188,7 @@ export const LocalDocumentService = {
     // выше её удалили. Уборка производных не может достать uuid сама — она
     // прочитает undefined и пойдёт удалять облачные строки по локальному
     // номеру, которого в облаке нет. Ровно эта ошибка тут и была.
-    return LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid);
+    return LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid, ownerId);
   },
 
   /**
@@ -194,12 +196,12 @@ export const LocalDocumentService = {
    *   Обязателен, когда заметки в хранилище уже нет: облачные строки сводки и
    *   вектора ключуются им, и по локальному номеру не удалится ничего.
    */
-  async cascadeDeleteAIDerivatives(documentId: string, canonicalUuid?: string): Promise<boolean> {
+  async cascadeDeleteAIDerivatives(documentId: string, canonicalUuid?: string, ownerId?: string): Promise<boolean> {
     // N-51: каждый сбой считается — удаление производных сообщает, прошло ли оно.
     let failed = 0;
     const fail = () => { failed++; };
     try {
-      const db = await getLocalDb();
+      const db = await getLocalDb(ownerId);
 
       const doc = canonicalUuid ? undefined : await db.get('documents', documentId).catch(() => undefined);
       const canonicalId = canonicalUuid ?? doc?.uuid;
@@ -374,8 +376,8 @@ export const LocalDocumentService = {
   },
 
 
-  async updateTags(id: string, tags: string[]): Promise<void> {
-    const db = await getLocalDb();
+  async updateTags(id: string, tags: string[], ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -383,8 +385,8 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async updateTitle(id: string, title: string): Promise<void> {
-    const db = await getLocalDb();
+  async updateTitle(id: string, title: string, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -392,8 +394,8 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async trashDocument(id: string, trashedAt: number = Date.now()): Promise<void> {
-    const db = await getLocalDb();
+  async trashDocument(id: string, trashedAt: number = Date.now(), ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -401,8 +403,8 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async restoreDocument(id: string): Promise<void> {
-    const db = await getLocalDb();
+  async restoreDocument(id: string, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -418,8 +420,9 @@ export const LocalDocumentService = {
   async updateDate(
     id: string,
     dates: { lastSessionAt: number; firstSessionAt?: number },
+    ownerId?: string,
   ): Promise<void> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction(['documents', 'versions'], 'readwrite');
     const existing = await tx.objectStore('documents').get(id);
     if (!existing) { await tx.done; return; }
@@ -449,8 +452,8 @@ export const LocalDocumentService = {
    * рвёт; облачных производных у похороненного номера не осталось — их сносит
    * удаление, до того как поставит надгробие.
    */
-  async updateDocumentUuid(id: string, uuid: string): Promise<void> {
-    const db = await getLocalDb();
+  async updateDocumentUuid(id: string, uuid: string, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -458,8 +461,8 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async updateLinkedCloudId(id: string, cloudId: string): Promise<void> {
-    const db = await getLocalDb();
+  async updateLinkedCloudId(id: string, cloudId: string, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -473,8 +476,8 @@ export const LocalDocumentService = {
 
   // Deliberate unlink: drops the link AND records that it was intentional, so
   // the re-link pass leaves this note alone.
-  async unlinkFromCloud(id: string, reason?: 'user_choice' | 'tombstone'): Promise<void> {
-    const db = await getLocalDb();
+  async unlinkFromCloud(id: string, reason?: 'user_choice' | 'tombstone', ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -496,16 +499,16 @@ export const LocalDocumentService = {
    * Автоматические проходы (sweep, re-link, фоновая синхронизация) этот метод не
    * вызывают и пометку уважают по-прежнему.
    */
-  async clearLocalOnlyForUpload(id: string): Promise<boolean> {
-    const db = await getLocalDb();
+  async clearLocalOnlyForUpload(id: string, ownerId?: string): Promise<boolean> {
+    const db = await getLocalDb(ownerId);
     const existing = await db.get('documents', id);
     if (!existing || !existing.localOnly || existing.unlinkedByTombstone) return false;
     await db.put('documents', { ...existing, localOnly: false });
     return true;
   },
 
-  async updateLabelId(id: string, labelId: string | undefined): Promise<void> {
-    const db = await getLocalDb();
+  async updateLabelId(id: string, labelId: string | undefined, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -514,8 +517,8 @@ export const LocalDocumentService = {
   },
 
   /** R3-1: метаданные этой заметки нужно дослать в облако (см. metadataDirty). */
-  async setMetadataDirty(id: string, dirty: boolean): Promise<void> {
-    const db = await getLocalDb();
+  async setMetadataDirty(id: string, dirty: boolean, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -523,8 +526,8 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async updateExcludedFromAI(id: string, excludedFromAI: boolean): Promise<void> {
-    const db = await getLocalDb();
+  async updateExcludedFromAI(id: string, excludedFromAI: boolean, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('documents', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
@@ -532,8 +535,8 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async migrateDocumentOwner(documentId: string, newOwnerId: string): Promise<void> {
-    const db = await getLocalDb();
+  async migrateDocumentOwner(documentId: string, newOwnerId: string, ownerId?: string): Promise<void> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction(['documents', 'versions'], 'readwrite');
     const docStore = tx.objectStore('documents');
     const verStore = tx.objectStore('versions');
@@ -566,7 +569,7 @@ export const LocalDocumentService = {
    *  заполненным uuid не трогает. Локальная операция — облако не читается, чтобы
    *  проход не стоил квоты чтений. */
   async backfillDocumentUuids(guestId: string): Promise<number> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(guestId);
     const docs = await db.getAllFromIndex('documents', 'by-guest', guestId);
     const missing = docs.filter(d => !d.uuid);
     if (missing.length === 0) return 0;
@@ -578,7 +581,7 @@ export const LocalDocumentService = {
   },
 
   async _updateProfile(guestId: string): Promise<void> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(guestId);
     const docs = await LocalDocumentService.getDocumentsByOwner(guestId);
 
     // EA-6: пересчитываем только счётчики. Голый put без остальных полей
@@ -595,7 +598,7 @@ export const LocalDocumentService = {
   },
 
   async clearLabelFromAllDocs(userId: string, labelId: string): Promise<void> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
     const matching = all.filter(d => d.labelId === labelId);
     if (matching.length === 0) return;
@@ -605,7 +608,7 @@ export const LocalDocumentService = {
   },
 
   async renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
     const matching = all.filter(d => Array.isArray(d.tags) && d.tags.includes(oldTag));
     if (matching.length === 0) return;
@@ -615,7 +618,7 @@ export const LocalDocumentService = {
   },
 
   async removeTagFromAllDocs(userId: string, tag: string): Promise<void> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const all = await db.getAllFromIndex('documents', 'by-guest', userId);
     const matching = all.filter(d => Array.isArray(d.tags) && d.tags.includes(tag));
     if (matching.length === 0) return;
@@ -625,14 +628,14 @@ export const LocalDocumentService = {
   },
 
   async getProfile(guestId: string) {
-    const db = await getLocalDb();
+    const db = await getLocalDb(guestId);
     return db.get('profile', guestId);
   },
 
   // Reconcile sessionsCount for all documents of a user/guest by recounting
   // actual version rows. Fixes drift from the incremental update approach.
   async reconcileSessionsCount(guestId: string): Promise<{ docsFixed: number; profileFixed: boolean }> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(guestId);
     const docs = await db.getAllFromIndex('documents', 'by-guest', guestId);
     let docsFixed = 0;
 

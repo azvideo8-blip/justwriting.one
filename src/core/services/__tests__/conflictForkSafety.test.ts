@@ -20,11 +20,11 @@ const USER = 'user_fork_safety';
 const cloudV = (version: number, content: string) => ({ version, content, wordCount: 1, duration: 0, wpm: 0, sessionStartedAt: 1000, savedAt: 1000 });
 
 async function contentsOf(documentId: string): Promise<string[]> {
-  return (await LocalVersionService.getVersions(documentId)).map(v => v.content).sort();
+  return (await LocalVersionService.getVersions(documentId, USER)).map(v => v.content).sort();
 }
 
 async function forkId(): Promise<string> {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   return (await db.getAll('documents')).find(d => d.id !== 'local_orig')!.id;
 }
 
@@ -37,7 +37,7 @@ const resolve = () => ConflictResolver.resolveConflict(
 beforeEach(async () => {
   vi.restoreAllMocks();
   getCloudVersions.mockReset();
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const store of ['documents', 'versions', 'syncQueue'] as const) {
     for (const rec of await db.getAll(store)) await db.delete(store, (rec as { id: string }).id);
   }

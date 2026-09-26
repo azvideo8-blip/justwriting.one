@@ -40,13 +40,16 @@ function cloud(over: Record<string, unknown> = {}) {
 describe('FU-3: relinkOrphaned respects withDocumentLock', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    const db = await getLocalDb();
-    await db.clear('syncQueue');
-    await db.clear('documents');
+    // requeueDocumentTask кладёт задачу в базу владельца (u1) — чистим и её.
+    for (const db of [await getLocalDb(), await getLocalDb('u1')]) {
+      await db.clear('syncQueue');
+      await db.clear('documents');
+    }
   });
 
   it('skips UUID-based relinking when document lock is held', async () => {
-    const db = await getLocalDb();
+    // Замок лежит в базе владельца заметки (u1).
+    const db = await getLocalDb('u1');
     // Simulate active editor or another sync thread holding the lock
     await db.put('syncQueue', {
       id: 'lock_cloud_local_locked_1',
@@ -76,17 +79,17 @@ describe('FU-3: relinkOrphaned respects withDocumentLock', () => {
 
     expect(relinked).toBe(1);
     expect(skippedIds).toEqual([]);
-    expect(updateLinkedCloudId).toHaveBeenCalledWith('local_locked_1', 'cloud_1');
+    expect(updateLinkedCloudId).toHaveBeenCalledWith('local_locked_1', 'cloud_1', 'u1');
     expect(doc.linkedCloudId).toBe('cloud_1');
 
     // The lock was acquired and released
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     const lock = await db.get('syncQueue', 'lock_cloud_local_locked_1');
     expect(lock).toBeUndefined();
   });
 
   it('skips timestamp-based relinking when document lock is held', async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     await db.put('syncQueue', {
       id: 'lock_cloud_local_locked_2',
       documentId: 'local_locked_2',
@@ -139,7 +142,7 @@ describe('FU-3: relinkOrphaned respects withDocumentLock', () => {
 
   it('RC-1: lock contention does not enqueue a cloud id during addLocalCopy', async () => {
     const { CloudSyncService } = await import('../CloudSyncService');
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
 
     // Simulate active lock on cloud_1
     await db.put('syncQueue', {

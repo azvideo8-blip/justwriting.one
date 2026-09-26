@@ -24,7 +24,8 @@ describe('DUP-3: withDocumentLock', () => {
         return 'winner';
       },
       {
-        ownerId: 'user_1',
+        // Замок лежит в базе владельца: у одной заметки владелец один.
+        ownerId: 'user_2',
         onLockHeld: () => 'yielded',
       },
     );
@@ -46,7 +47,7 @@ describe('DUP-3: withDocumentLock', () => {
     expect(res2).toBe('yielded');
 
     // p2 must have queued a task for later drain
-    const db = await getLocalDb();
+    const db = await getLocalDb('user_2');
     const queuedTask = await db.get('syncQueue', `sync_${docId}`);
     expect(queuedTask).toBeDefined();
     expect(queuedTask?.ownerId).toBe('user_2');

@@ -97,7 +97,7 @@ export const ConflictResolver = {
     // CHOKE-1: версия, у которой облачная копия нечитаема (_decryptionError),
     // НЕ считается «уже в облаке» — её локальный plaintext копируется в форк!
     try {
-      const localVersions = await LocalVersionService.getVersions(documentId);
+      const localVersions = await LocalVersionService.getVersions(documentId, userId);
       const readableCloudContent = new Map(
         decryptedCloudVersions.filter(v => !v._decryptionError).map(v => [v.version, v.content])
       );
@@ -142,7 +142,7 @@ export const ConflictResolver = {
       reportError(copyErr, { action: 'resolveConflict_copyUnsynced', documentId });
       // Текущая правка — главное, что должно оказаться в форке: кладём её и при
       // неудачном копировании старых версий (оригинал в этом случае не трогается).
-      const inFork = await LocalVersionService.getVersions(forkedDocId).catch(() => []);
+      const inFork = await LocalVersionService.getVersions(forkedDocId, userId).catch(() => []);
       forkVersion = Math.max(0, ...inFork.map(v => v.version));
       if (!inFork.some(v => v.content === data.content)) {
         try {
@@ -165,7 +165,7 @@ export const ConflictResolver = {
       totalDuration: data.documentDuration ?? data.duration,
       currentVersion: forkHead,
       mood: data.mood,
-    });
+    }, userId);
 
     // Bring the ORIGINAL local document in line with the cloud so it doesn't stay stuck in conflict.
     // EA-3: без прочитанного облака или неполного форка оригинал не трогаем —
@@ -175,13 +175,13 @@ export const ConflictResolver = {
     } else try {
       const { comparableOrUnknown } = await import('../sync/comparableOrUnknown');
       const cloudVerMap = new Map(decryptedCloudVersions.map(v => [v.version, v]));
-      const localVersions = await LocalVersionService.getVersions(documentId);
+      const localVersions = await LocalVersionService.getVersions(documentId, userId);
 
       // Clean up any divergent local versions from original doc (they live safely in the fork now)
       // CHOKE-1: Удаляем локальную версию ТОЛЬКО если сравнение точно говорит
       // { comparable: true, same: false }. Неизвестность (нечитаемая облачная
       // версия, ошибка расшифровки) не должна приводить к удалению.
-      const db = await getLocalDb();
+      const db = await getLocalDb(userId);
       const tx = db.transaction('versions', 'readwrite');
       for (const lv of localVersions) {
         const cv = cloudVerMap.get(lv.version);
@@ -201,7 +201,7 @@ export const ConflictResolver = {
       }
       await tx.done;
 
-      const remainingLocalVersions = await LocalVersionService.getVersions(documentId);
+      const remainingLocalVersions = await LocalVersionService.getVersions(documentId, userId);
       const remainingVerNums = new Set(remainingLocalVersions.map(v => v.version));
 
       for (const cv of decryptedCloudVersions) {
@@ -226,12 +226,12 @@ export const ConflictResolver = {
         totalDuration: cloudDoc.totalDuration ?? data.documentDuration ?? data.duration,
         currentVersion: maxCloudVersion,
         mood: data.mood,
-      });
+      }, userId);
 
       try {
-        const updatedOrig = await LocalStorageService.getDocument(documentId);
+        const updatedOrig = await LocalStorageService.getDocument(documentId, userId);
         if (updatedOrig) {
-          const udb = await getLocalDb();
+          const udb = await getLocalDb(userId);
           // N2-7: оригинал приводится к облаку целиком — и корзина тоже. Иначе
           // заметка, удалённая в корзину на другом устройстве, здесь оставалась
           // живой: сверка после этого уже не видит облако «новее».

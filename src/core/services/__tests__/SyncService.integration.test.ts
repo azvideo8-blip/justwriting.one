@@ -10,7 +10,7 @@ describe('SyncService Integration', () => {
 
   beforeEach(async () => {
     localStorage.clear();
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue', 'profile'], 'readwrite');
     await Promise.all([
       tx.objectStore('documents').clear(),
@@ -22,13 +22,13 @@ describe('SyncService Integration', () => {
   });
 
   it('addToQueue creates a sync queue entry', async () => {
-    await SyncService.addToQueue('doc_1');
-    const count = await SyncService.getPendingCount();
+    await SyncService.addToQueue('doc_1', userId);
+    const count = await SyncService.getPendingCount(userId);
     expect(count).toBe(1);
   });
 
   it('getPendingCount returns 0 when queue is empty', async () => {
-    const count = await SyncService.getPendingCount();
+    const count = await SyncService.getPendingCount(userId);
     expect(count).toBe(0);
   });
 
@@ -40,9 +40,9 @@ describe('SyncService Integration', () => {
 
   it('syncPending skips when auto_sync_enabled is false', async () => {
     localStorage.setItem('auto_sync_enabled', 'false');
-    await SyncService.addToQueue('doc_1');
+    await SyncService.addToQueue('doc_1', userId);
     await SyncService.syncPending(userId);
-    const count = await SyncService.getPendingCount();
+    const count = await SyncService.getPendingCount(userId);
     expect(count).toBe(1);
     localStorage.removeItem('auto_sync_enabled');
   });
@@ -52,7 +52,7 @@ describe('SyncService Integration', () => {
   // Второй вызов должен уйти, пока первый ещё в работе.
   it('syncPending skips a second run while the first is still going', async () => {
     localStorage.setItem('auto_sync_enabled', 'true');
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('syncQueue', {
       id: 'delete_cloud_slow', documentId: 'cloud_slow', type: 'delete' as const,
       createdAt: Date.now(), ownerId: userId,
@@ -82,7 +82,7 @@ describe('SyncService Integration', () => {
   // проверял, что db.put сработал.
   it('keeps a day-old queue item instead of dropping it', async () => {
     localStorage.setItem('auto_sync_enabled', 'true');
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     await db.put('syncQueue', {
       id: 'sync_doc_old', documentId: 'doc_old', type: 'document' as const,
       createdAt: Date.now() - 25 * 60 * 60 * 1000, ownerId: userId,
@@ -98,7 +98,7 @@ describe('SyncService Integration', () => {
     const removeCloudCopySpy = vi.spyOn(CloudSyncService, 'removeCloudCopy').mockResolvedValue(undefined);
     const syncPortraitSpy = vi.spyOn(CloudSyncService, 'syncPortraitToCloud').mockResolvedValue(undefined);
 
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     
     await db.put('syncQueue', {
       id: 'delete_cloud_123',
@@ -121,7 +121,7 @@ describe('SyncService Integration', () => {
     expect(removeCloudCopySpy).toHaveBeenCalledWith(userId, 'cloud_123');
     expect(syncPortraitSpy).toHaveBeenCalledWith(userId);
 
-    const count = await SyncService.getPendingCount();
+    const count = await SyncService.getPendingCount(userId);
     expect(count).toBe(0);
 
     removeCloudCopySpy.mockRestore();

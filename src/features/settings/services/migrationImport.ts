@@ -134,7 +134,7 @@ export async function importMigrationManifest(
     return manifestExportDate ?? 0;
   }
 
-  const db = await getLocalDb();
+  const db = await getLocalDb(targetUserId);
 
   // Load existing state for idempotency and reference checks
   const existingDocs = (await db.getAll("documents")) as LocalDocument[];
@@ -670,7 +670,7 @@ export async function importMigrationManifest(
     if (!hasKey) {
       for (const docId of importedDocIds) {
         try {
-          await SyncService.addToQueue(docId);
+          await SyncService.addToQueue(docId, targetUserId);
         } catch { /* non-critical */ }
       }
       upload = {
@@ -692,7 +692,7 @@ export async function importMigrationManifest(
       } catch (uploadErr) {
         for (const docId of importedDocIds) {
           try {
-            await SyncService.addToQueue(docId);
+            await SyncService.addToQueue(docId, targetUserId);
           } catch { /* non-critical */ }
         }
         upload = {

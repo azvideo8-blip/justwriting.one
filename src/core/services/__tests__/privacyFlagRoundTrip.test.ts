@@ -15,7 +15,7 @@ const { getLocalDb } = await import('../../storage/localDb');
 
 describe('флаг «исключить из ИИ» переживает создание заметки', () => {
   beforeEach(async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     for (const r of await db.getAll('documents')) await db.delete('documents', r.id);
   });
 
@@ -26,7 +26,7 @@ describe('флаг «исключить из ИИ» переживает соз�
       mood: 'тревожно',
     });
 
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     const saved = await db.get('documents', id);
 
     expect(saved?.excludedFromAI).toBe(true);
@@ -36,7 +36,7 @@ describe('флаг «исключить из ИИ» переживает соз�
   it('без флага заметка остаётся обычной, а не «исключённой по умолчанию»', async () => {
     const id = await LocalDocumentService.createDocument('u1', { title: 'Обычная' });
 
-    const db = await getLocalDb();
+    const db = await getLocalDb('u1');
     const saved = await db.get('documents', id);
 
     expect(saved?.excludedFromAI).toBeUndefined();

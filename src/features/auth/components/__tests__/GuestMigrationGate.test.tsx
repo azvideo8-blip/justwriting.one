@@ -42,14 +42,17 @@ beforeEach(async () => {
   localStorage.clear();
   mockShowToast.mockClear();
   mockAuth = { user: null, isGuest: true };
-  const db = await getLocalDb();
-  const tx = db.transaction(['drafts', 'documents', 'versions'], 'readwrite');
-  await Promise.all([
-    tx.objectStore('drafts').clear(),
-    tx.objectStore('documents').clear(),
-    tx.objectStore('versions').clear(),
-  ]);
-  await tx.done;
+  // Перенос кладёт заметки в базу аккаунта — чистим и её, иначе тесты видят друг друга.
+  for (const uid of [undefined, 'user_new_123', 'user_sync_gate']) {
+    const db = await getLocalDb(uid);
+    const tx = db.transaction(['drafts', 'documents', 'versions'], 'readwrite');
+    await Promise.all([
+      tx.objectStore('drafts').clear(),
+      tx.objectStore('documents').clear(),
+      tx.objectStore('versions').clear(),
+    ]);
+    await tx.done;
+  }
 });
 
 describe('GuestMigrationGate', () => {

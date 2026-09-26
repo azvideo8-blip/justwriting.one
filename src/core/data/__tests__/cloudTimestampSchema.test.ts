@@ -88,7 +88,7 @@ describe('LIFE-5: cloudTimestampSchema normalisation', () => {
 
     expect(versionId).toBeDefined();
 
-    const db = await getLocalDb();
+    const db = await getLocalDb('user_test');
     const stored = await db.get('versions', versionId);
     expect(stored?.savedAt).toBe(tsMs);
   });

@@ -11,7 +11,7 @@ const USER = 'user_classify_test';
 
 describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isRevivableOnUnlock', () => {
   beforeEach(async () => {
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     await db.clear('documents');
     await db.clear('syncQueue');
     vi.restoreAllMocks();
@@ -115,7 +115,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
 
   describe('integration with SyncService quarantine and revival', () => {
     async function queueTask(id: string) {
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER);
       await db.put('documents', {
         id, guestId: USER, title: 'Note', currentVersion: 1, totalWords: 1,
         totalDuration: 0, sessionsCount: 1, tags: [], linkedCloudId: '',
@@ -136,7 +136,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       );
       await SyncService.syncPending(USER);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER);
       let task = await db.get('syncQueue', 'sync_doc_LOCKED');
       expect(task?.dead).toBe(true);
 
@@ -153,7 +153,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       );
       await SyncService.syncPending(USER);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER);
       let task = await db.get('syncQueue', 'sync_doc_locked_lower');
       expect(task?.dead).toBe(true);
 
@@ -173,7 +173,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
 
       await SyncService.syncPending(USER);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER);
       const decryptTask = await db.get('syncQueue', 'sync_doc_perm_decrypt');
       const dateTask = await db.get('syncQueue', 'sync_doc_perm_date');
 
@@ -198,7 +198,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
 
       await SyncService.syncPending(USER);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER);
       let task = await db.get('syncQueue', 'sync_doc_sync_unresolved');
       // Attempt 1: not dead, attempts bumped to 1
       expect(task?.dead).toBeFalsy();
@@ -227,7 +227,7 @@ describe('DUP-4 / FU-2 / FU-6: classifySyncError, isPoisonSyncError, and isReviv
       );
       await SyncService.syncPending(USER);
 
-      const db = await getLocalDb();
+      const db = await getLocalDb(USER);
       let task = await db.get('syncQueue', 'sync_doc_decrypt_latest');
       expect(task?.dead).toBe(true);
 

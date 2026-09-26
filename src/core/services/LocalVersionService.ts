@@ -22,7 +22,7 @@ export const LocalVersionService = {
       mood?: string | undefined;
     }
   ): Promise<string> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(guestId);
     const id = `ver_${randomUUID()}`;
     const diff = computeWordDelta(data.previousContent, data.content);
 
@@ -48,8 +48,8 @@ export const LocalVersionService = {
     return id;
   },
 
-  async getVersions(documentId: string): Promise<LocalVersion[]> {
-    const db = await getLocalDb();
+  async getVersions(documentId: string, ownerId?: string): Promise<LocalVersion[]> {
+    const db = await getLocalDb(ownerId);
     const all = await db.getAllFromIndex('versions', 'by-document', documentId);
     return all.sort((a, b) => a.version - b.version);
   },
@@ -65,7 +65,7 @@ export const LocalVersionService = {
   // locally AND in the cloud (if linkedCloudId exists and userId is provided).
   // Cloud deletion errors are reported and returned so callers can inform the user.
   async collapseToLatest(documentId: string, userId?: string): Promise<{ removedCount: number; deletedVersionNumbers: number[]; cloudError?: unknown }> {
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const all = await db.getAllFromIndex('versions', 'by-document', documentId);
     if (all.length <= 1) return { removedCount: 0, deletedVersionNumbers: [] };
     all.sort((a, b) => a.version - b.version);
@@ -93,8 +93,8 @@ export const LocalVersionService = {
     return { removedCount: toDelete.length, deletedVersionNumbers };
   },
 
-  async getLatestContent(documentId: string): Promise<string> {
-    const db = await getLocalDb();
+  async getLatestContent(documentId: string, ownerId?: string): Promise<string> {
+    const db = await getLocalDb(ownerId);
     const tx = db.transaction('versions', 'readonly');
     const index = tx.store.index('by-doc-version');
     const range = IDBKeyRange.bound([documentId, 0], [documentId, Number.MAX_SAFE_INTEGER]);

@@ -13,7 +13,7 @@ export const LocalStorageService = {
     if (data._locked || data._decryptionError) {
       throw new Error('LOCKED: cannot save locked document to local storage');
     }
-    const db = await getLocalDb();
+    const db = await getLocalDb(userId);
     const localId = `local_${randomUUID()}`;
     const versionId = `ver_${randomUUID()}`;
     const now = Date.now();
@@ -72,7 +72,7 @@ export const LocalStorageService = {
     await tx.objectStore('versions').put(verObj);
     await tx.done;
 
-    void requestPersistentStorageOnce().catch(() => {});
+    void requestPersistentStorageOnce().catch(() => { /* намеренно: просьба к браузеру, запись от отказа не зависит */ });
 
     // Profile totals are an aggregate: recomputed after the fact, never a reason
     // to hold the note's own write open.
@@ -158,7 +158,7 @@ export const LocalStorageService = {
 
       await tx.done;
     } catch (localErr) {
-      await tx.done.catch(() => {});
+      await tx.done.catch(() => { /* намеренно: исходная ошибка разбирается ниже */ });
       if (localErr instanceof DOMException && localErr.name === 'QuotaExceededError') {
         reportError(localErr, { action: 'saveVersionToLocal', documentId, quotaExceeded: true }, 'warning');
         return { ok: false };
@@ -170,40 +170,40 @@ export const LocalStorageService = {
     return { ok: true, newVersion, prevContent, existing };
   },
 
-  async getDocument(localId: string) {
-    return LocalDocumentService.getDocument(localId);
+  async getDocument(localId: string, ownerId?: string) {
+    return LocalDocumentService.getDocument(localId, ownerId);
   },
 
-  async getVersions(localId: string) {
-    return LocalVersionService.getVersions(localId);
+  async getVersions(localId: string, ownerId?: string) {
+    return LocalVersionService.getVersions(localId, ownerId);
   },
 
-  async deleteDocument(localId: string): Promise<boolean> {
-    return LocalDocumentService.deleteDocument(localId);
+  async deleteDocument(localId: string, ownerId?: string): Promise<boolean> {
+    return LocalDocumentService.deleteDocument(localId, ownerId);
   },
 
   async createDocument(userId: string, data: Parameters<typeof LocalDocumentService.createDocument>[1]) {
     return LocalDocumentService.createDocument(userId, data);
   },
 
-  async updateDocument(localId: string, data: Parameters<typeof LocalDocumentService.updateDocument>[1]) {
-    await LocalDocumentService.updateDocument(localId, data);
+  async updateDocument(localId: string, data: Parameters<typeof LocalDocumentService.updateDocument>[1], ownerId?: string) {
+    await LocalDocumentService.updateDocument(localId, data, ownerId);
   },
 
-  async updateAfterSession(localId: string, data: Parameters<typeof LocalDocumentService.updateAfterSession>[1]) {
-    await LocalDocumentService.updateAfterSession(localId, data);
+  async updateAfterSession(localId: string, data: Parameters<typeof LocalDocumentService.updateAfterSession>[1], ownerId?: string) {
+    await LocalDocumentService.updateAfterSession(localId, data, ownerId);
   },
 
-  async updateLinkedCloudId(localId: string, cloudId: string) {
-    await LocalDocumentService.updateLinkedCloudId(localId, cloudId);
+  async updateLinkedCloudId(localId: string, cloudId: string, ownerId?: string) {
+    await LocalDocumentService.updateLinkedCloudId(localId, cloudId, ownerId);
   },
 
-  async unlinkFromCloud(localId: string, reason?: 'user_choice' | 'tombstone') {
-    await LocalDocumentService.unlinkFromCloud(localId, reason);
+  async unlinkFromCloud(localId: string, reason?: 'user_choice' | 'tombstone', ownerId?: string) {
+    await LocalDocumentService.unlinkFromCloud(localId, reason, ownerId);
   },
 
-  async migrateDocumentOwner(localId: string, userId: string) {
-    await LocalDocumentService.migrateDocumentOwner(localId, userId);
+  async migrateDocumentOwner(localId: string, userId: string, ownerId?: string) {
+    await LocalDocumentService.migrateDocumentOwner(localId, userId, ownerId);
   },
 
   async getDocumentsByOwner(userId: string) {

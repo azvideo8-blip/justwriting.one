@@ -97,7 +97,7 @@ describe('ConflictResolver', () => {
       totalWords: 100,
       totalDuration: 300,
       currentVersion: 1,
-    }));
+    }), 'user1');
   });
 
   it('R4-2: the fork totals are the whole note, not this session delta', async () => {
@@ -107,7 +107,7 @@ describe('ConflictResolver', () => {
     expect(LocalStorageService.updateAfterSession).toHaveBeenCalledWith('forked_doc_123', expect.objectContaining({
       totalWords: 900,
       totalDuration: 5400,
-    }));
+    }), 'user1');
   });
 
   it('creates a forked document with English conflict title when language is en (D-18)', async () => {

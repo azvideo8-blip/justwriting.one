@@ -36,7 +36,7 @@ export function clearStoredCursor(userId: string): void {
   try {
     localStorage.removeItem(`${CHANGE_CURSOR_KEY_PREFIX}${userId}`);
   } catch {
-    // ignore
+    // намеренно: хранилище недоступно — и курсора в нём нет
   }
 }
 

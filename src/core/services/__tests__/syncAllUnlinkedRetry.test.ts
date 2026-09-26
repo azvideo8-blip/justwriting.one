@@ -8,7 +8,7 @@ import { CloudSyncService } from '../CloudSyncService';
 const USER = 'user_retry';
 
 async function seed() {
-  const db = await getLocalDb();
+  const db = await getLocalDb(USER);
   for (const rec of await db.getAll('documents')) await db.delete('documents', (rec as { id: string }).id);
   for (const rec of await db.getAll('syncQueue')) await db.delete('syncQueue', (rec as { id: string }).id);
   await db.put('documents', {
@@ -36,7 +36,7 @@ describe('syncAllUnlinked queues what it could not upload', () => {
 
     expect(synced).toBe(0);
     expect(failed).toBe(1);
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     const queued = (await db.getAll('syncQueue')).filter(i => i.documentId === 'local_fails');
     expect(queued).toHaveLength(1);
     // A7: задача принадлежит своему аккаунту, иначе дренаж её пропустит.
@@ -53,7 +53,7 @@ describe('syncAllUnlinked queues what it could not upload', () => {
 
     expect(synced).toBe(0);
     expect(failed).toBe(0);
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     expect((await db.getAll('syncQueue')).filter(i => i.documentId === 'local_fails')).toHaveLength(0);
   });
 
@@ -64,7 +64,7 @@ describe('syncAllUnlinked queues what it could not upload', () => {
 
     expect(synced).toBe(1);
     expect(failed).toBe(0);
-    const db = await getLocalDb();
+    const db = await getLocalDb(USER);
     expect((await db.getAll('syncQueue')).filter(i => i.documentId === 'local_fails')).toHaveLength(0);
   });
 });

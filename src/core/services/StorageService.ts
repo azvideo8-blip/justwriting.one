@@ -39,26 +39,47 @@ class LockManager {
 
 const _lockManager = new LockManager();
 
-async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
-  let targetCloudId = cloudId;
-  if (localId && !targetCloudId) {
-    try {
-      const fresh = await LocalStorageService.getDocument(localId);
-      if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
-    } catch { /* ignore */ }
+// Облачный номер заметки — из её локальной записи. Не прочиталась — где
+// облачная копия, неизвестно: failed = true, и облако «сделанным» не объявляется.
+async function resolveCloudId(userId: string, localId?: string, cloudId?: string): Promise<{ cloudId?: string | undefined; failed: boolean }> {
+  if (!localId || cloudId) return { cloudId, failed: false };
+  try {
+    const fresh = await LocalStorageService.getDocument(localId, userId);
+    return { cloudId: fresh?.linkedCloudId || undefined, failed: false };
+  } catch (e) {
+    reportError(e, { action: 'resolveCloudId', documentId: localId });
+    return { cloudId: undefined, failed: true };
   }
+}
+
+// N2-1: задача 'document' без флага досылала только версии — корзина,
+// изменённая без связи, до облака не доходила никогда.
+async function queueMetadataRetry(userId: string, localId: string): Promise<void> {
+  await LocalDocumentService.setMetadataDirty(localId, true, userId);
+  const db = await getLocalDb(userId);
+  await db.put('syncQueue', {
+    id: `doc_${localId}_${Date.now()}`,
+    documentId: localId,
+    type: 'document' as const,
+    createdAt: Date.now(),
+    ownerId: userId,
+  });
+}
+
+async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
+  const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
   let derivativesOk = true;
   if (localId) {
-    derivativesOk = await LocalStorageService.deleteDocument(localId);
+    derivativesOk = await LocalStorageService.deleteDocument(localId, userId);
   }
-  let cloudSynced = true;
+  let cloudSynced = !lookupFailed;
   if (targetCloudId) {
     try {
       await CloudSyncService.removeCloudCopy(userId, targetCloudId);
     } catch (e) {
       cloudSynced = false;
       reportError(e, { action: 'deleteDocument_cloudDelete', documentId: targetCloudId });
-      const db = await getLocalDb();
+      const db = await getLocalDb(userId);
       await db.put('syncQueue', {
         id: `delete_${targetCloudId}_${Date.now()}`,
         documentId: targetCloudId,
@@ -97,16 +118,10 @@ export const StorageService = {
   },
 
   async trashDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
-    let targetCloudId = cloudId;
-    if (localId && !targetCloudId) {
-      try {
-        const fresh = await LocalStorageService.getDocument(localId);
-        if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
-      } catch { /* ignore */ }
-    }
+    const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
     const now = Date.now();
     if (localId) {
-      await LocalDocumentService.trashDocument(localId, now);
+      await LocalDocumentService.trashDocument(localId, now, userId);
     }
     let cloudSynced = true;
     if (targetCloudId && !userId.startsWith('guest')) {
@@ -115,34 +130,19 @@ export const StorageService = {
       } catch (e) {
         cloudSynced = false;
         reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });
-        if (localId) {
-          // N2-1: задача 'document' без флага досылала только версии — корзина,
-          // изменённая без связи, до облака не доходила никогда.
-          await LocalDocumentService.setMetadataDirty(localId, true);
-          const db = await getLocalDb();
-          await db.put('syncQueue', {
-            id: `doc_${localId}_${Date.now()}`,
-            documentId: localId,
-            type: 'document' as const,
-            createdAt: Date.now(),
-            ownerId: userId,
-          });
-        }
+        if (localId) await queueMetadataRetry(userId, localId);
       }
+    } else if (lookupFailed && localId && !userId.startsWith('guest')) {
+      cloudSynced = false;
+      await queueMetadataRetry(userId, localId);
     }
     return { cloudSynced };
   },
 
   async restoreDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
-    let targetCloudId = cloudId;
-    if (localId && !targetCloudId) {
-      try {
-        const fresh = await LocalStorageService.getDocument(localId);
-        if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
-      } catch { /* ignore */ }
-    }
+    const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
     if (localId) {
-      await LocalDocumentService.restoreDocument(localId);
+      await LocalDocumentService.restoreDocument(localId, userId);
     }
     let cloudSynced = true;
     if (targetCloudId && !userId.startsWith('guest')) {
@@ -151,20 +151,11 @@ export const StorageService = {
       } catch (e) {
         cloudSynced = false;
         reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });
-        if (localId) {
-          // N2-1: задача 'document' без флага досылала только версии — корзина,
-          // изменённая без связи, до облака не доходила никогда.
-          await LocalDocumentService.setMetadataDirty(localId, true);
-          const db = await getLocalDb();
-          await db.put('syncQueue', {
-            id: `doc_${localId}_${Date.now()}`,
-            documentId: localId,
-            type: 'document' as const,
-            createdAt: Date.now(),
-            ownerId: userId,
-          });
-        }
+        if (localId) await queueMetadataRetry(userId, localId);
       }
+    } else if (lookupFailed && localId && !userId.startsWith('guest')) {
+      cloudSynced = false;
+      await queueMetadataRetry(userId, localId);
     }
     return { cloudSynced };
   },
@@ -179,6 +170,7 @@ export const StorageService = {
       const res = await withDocumentLock(localId, () => deleteDocumentUnlocked(userId, localId, cloudId), {
         queueOnHeld: false,
         onLockHeld: () => null,
+        ownerId: userId,
       });
       if (res) return res;
       await new Promise(r => setTimeout(r, 500));
@@ -188,7 +180,7 @@ export const StorageService = {
 
   async getStorageState(userId: string, localId?: string, cloudId?: string): Promise<StorageState> {
     const [localExists, cloudExists] = await Promise.all([
-      localId ? LocalStorageService.getDocument(localId).then(d => !!d) : Promise.resolve(false),
+      localId ? LocalStorageService.getDocument(localId, userId).then(d => !!d) : Promise.resolve(false),
       cloudId ? CloudSyncService.getDocument(userId, cloudId).then(d => !!d) : Promise.resolve(false),
     ]);
     return { local: localExists, cloud: cloudExists };
@@ -204,7 +196,7 @@ export type SaveVersionResult = {
 };
 
 async function _doSaveVersion(userId: string, documentId: string, data: SaveDocumentData): Promise<SaveVersionResult> {
-  const db = await getLocalDb();
+  const db = await getLocalDb(userId);
   const now = Date.now();
   const totalWords = data.documentWordCount ?? data.wordCount;
 
@@ -238,7 +230,7 @@ async function _doSaveVersion(userId: string, documentId: string, data: SaveDocu
 
   if (existing.linkedCloudId) {
     if (!cloudSyncEnabled(userId)) {
-      await addToSyncQueue(documentId);
+      await addToSyncQueue(documentId, userId);
       return { forked: false, cloudSynced: false };
     }
     const result = await CloudSyncService.syncVersionToCloud(

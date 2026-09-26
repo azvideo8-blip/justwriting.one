@@ -205,9 +205,9 @@ export async function trashArchiveSession(
   let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
   if (localId && !cloudId) {
     try {
-      const fresh = await LocalDocumentService.getDocument(localId);
+      const fresh = await LocalDocumentService.getDocument(localId, userId);
       if (fresh?.linkedCloudId) cloudId = fresh.linkedCloudId;
-    } catch { /* fall back to the snapshot */ }
+    } catch { /* намеренно: берём снимок; StorageService повторит поиск и скажет, если не смог */ }
   }
   const result = await StorageService.trashDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.trashed', documentId: session.id });
@@ -223,9 +223,9 @@ export async function restoreArchiveSession(
   let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
   if (localId && !cloudId) {
     try {
-      const fresh = await LocalDocumentService.getDocument(localId);
+      const fresh = await LocalDocumentService.getDocument(localId, userId);
       if (fresh?.linkedCloudId) cloudId = fresh.linkedCloudId;
-    } catch { /* fall back to the snapshot */ }
+    } catch { /* намеренно: берём снимок; StorageService повторит поиск и скажет, если не смог */ }
   }
   const result = await StorageService.restoreDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.restored', documentId: session.id });
@@ -268,9 +268,9 @@ export async function deleteArchiveSession(
   // local copy and orphans the cloud document, which then reappears in the archive.
   if (localId && !cloudId) {
     try {
-      const fresh = await LocalDocumentService.getDocument(localId);
+      const fresh = await LocalDocumentService.getDocument(localId, userId);
       if (fresh?.linkedCloudId) cloudId = fresh.linkedCloudId;
-    } catch { /* fall back to the snapshot */ }
+    } catch { /* намеренно: берём снимок; StorageService повторит поиск и скажет, если не смог */ }
   }
   const result = await StorageService.deleteDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.deleted', documentId: session.id });

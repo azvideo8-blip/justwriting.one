@@ -173,5 +173,31 @@ export default [
       ],
     },
   },
+  {
+    // Два аккаунта в одном браузере: getLocalDb() без аргумента открывает базу
+    // того, кто вошёл СЕЙЧАС. Фоновая работа, начатая для одного человека и
+    // пережившая смену аккаунта, писала его текст в базу другого (тест
+    // accountSwitch.test.ts). Функция, которая знает владельца, обязана
+    // передавать его дальше — в базу и во все локальные помощники.
+    files: ['src/core/services/**/*.ts', 'src/core/sync/**/*.ts', 'src/features/*/services/**/*.ts'],
+    ignores: ['**/*.test.ts', '**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: ":function:has(> Identifier[name=/^(userId|uid|ownerId|guestId|targetUserId)$/]) CallExpression[callee.name='getLocalDb'][arguments.length=0]",
+          message: 'Владелец известен — передайте его: getLocalDb(userId). Без него откроется база того, кто вошёл сейчас.',
+        },
+        {
+          selector: ":function:has(> Identifier[name=/^(userId|uid|ownerId|guestId|targetUserId)$/]) CallExpression:matches([callee.object.name=/^Local(Document|Storage|Version)Service$/], [callee.name=/^(addToSyncQueue|requeueDocumentTask|bumpAttempts|_clearQueueItems|dropQueueTasksFor)$/], [callee.property.name=/^(addToQueue|removeQueueTasksForDocument)$/]):not([callee.property.name=/^(saveVersionToLocal|getDocumentsByOwner|createDocument)$/]):not(:has(> Identifier[name=/^uid$|[oO]wner|[uU]serId|guestId/])):not(:has(> MemberExpression[property.name=/^uid$|[oO]wner|[uU]serId|guestId/]))",
+          message: 'Владелец известен — передайте его последним аргументом, иначе помощник откроет базу того, кто вошёл сейчас.',
+        },
+        {
+          selector: ":function:has(> Identifier[name=/^(userId|uid|ownerId|guestId|targetUserId)$/]) CallExpression[callee.name='withDocumentLock']:not(:has(Property[key.name='ownerId']))",
+          message: 'Владелец известен — передайте { ownerId } в withDocumentLock: замок и очередь лежат в его базе.',
+        },
+      ],
+    },
+  },
   prettier,
 ];
