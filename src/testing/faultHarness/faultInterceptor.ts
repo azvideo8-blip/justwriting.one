@@ -484,9 +484,15 @@ export class FaultInterceptor {
     let op: BuilderOp = 'select';
     let opPayload: unknown;
 
+    // N-44: как PostgREST, отдаём только запрошенные колонки. Иначе проверка,
+    // опирающаяся на колонку, которую запрос не выбирает (владелец, метка),
+    // зеленела бы здесь и падала на проде. Сложные выборки (связи, псевдонимы,
+    // JSON-пути) — целиком, как раньше.
+    let selectCols: string[] | null = null;
     const builder: Record<string, unknown> = {
-      select: () => {
-        op = 'select';
+      select: (cols?: string) => {
+        const c = (cols ?? '*').trim();
+        selectCols = c === '*' || /[(:>]/.test(c) ? null : c.split(',').map(x => x.trim()).filter(Boolean);
         return builder;
       },
       insert: (payload: unknown) => {
@@ -614,11 +620,11 @@ export class FaultInterceptor {
               break;
             case 'select': {
               const res = this.postgres.executeSelect(table, filters, orders, limitCount, rangeOffset);
-              let data: Record<string, unknown> | Record<string, unknown>[] | null = res.data;
-              if (isSingle) {
-                data = (res.data && res.data.length > 0) ? res.data[0]! : null;
-              } else if (isMaybeSingle) {
-                data = (res.data && res.data.length > 0) ? res.data[0]! : null;
+              const cols = selectCols;
+              const rows = cols && res.data ? res.data.map(r => Object.fromEntries(cols.map(k => [k, r[k]]))) : res.data;
+              let data: Record<string, unknown> | Record<string, unknown>[] | null = rows;
+              if (isSingle || isMaybeSingle) {
+                data = (rows && rows.length > 0) ? rows[0]! : null;
               }
               result = { data, error: res.error };
               break;

@@ -86,4 +86,21 @@ describe('№1: hostile server', () => {
     expect(texts).not.toContain('Чужой личный текст');
     expect(titles).not.toContain('Чужая заметка');
   });
+
+  // N-44: фейковая база отдаёт только запрошенные колонки, как PostgREST.
+  // Проверка владельца по колонке, которую запрос не выбрал, теперь краснеет
+  // здесь, а не на проде.
+  it('the fake server returns only the selected columns, so owner checks need the owner in the select', async () => {
+    runner.vaultEnabled = false;
+    await runner.setup();
+    const uid = runner.userId;
+    const pg = runner.interceptor.postgres;
+    pg.executeInsert('documents', { uuid: 'd-proj', user_id: uid, title: 'T', current_version: 1, _encrypted: false, first_session_at: 1000, last_session_at: 1000, tags: [] });
+    const { getSupabase } = await import('../../../core/supabase/client');
+    const { data } = await getSupabase().from('documents').select('uuid').eq('user_id', uid);
+    expect(data).toEqual([{ uuid: 'd-proj' }]);
+
+    const { fetchServerCursor } = await import('../../../core/sync/changeCursor');
+    await expect(fetchServerCursor(uid)).resolves.toBeTruthy();
+  });
 });
