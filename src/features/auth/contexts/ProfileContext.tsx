@@ -55,7 +55,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       void (async () => {
         try {
           if (data) {
-            if (typeof data === 'object' && data != null && 'uid' in data) {
+            if (typeof data === 'object' && data != null && (data as { uid?: unknown }).uid === user.uid) {
               const parsed = userProfileDbSchema.safeParse(data);
               if (parsed.success) {
                 profileSetBySnapshotRef.current = true;

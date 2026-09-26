@@ -1,3 +1,4 @@
+import { reportError } from '../../../shared/errors/reportError';
 import { ownRow } from './pageAll';
 import { getSupabase } from '../../supabase/client';
 import { ProviderRecord } from '../types';
@@ -37,6 +38,14 @@ export function subscribeToProfile(userId: string, onUpdate: (data: ProviderReco
     const { data, error } = await getSupabase().from('users').select('*').eq('uid', userId).maybeSingle();
     if (cancelled) return;
     if (error != null) { onUpdate(null); return; }
+    // TB-14 / N-31: тот же запрос, что в getProfile, и та же проверка владельца.
+    // Отсюда профиль попадает в приложение: чужая строка включила бы этому
+    // аккаунту сейф и согласие на ИИ, а её метки записались бы в его профиль.
+    try { ownRow(data, userId, 'uid'); } catch (e) {
+      reportError(e, { action: 'subscribeToProfile_foreignRow' });
+      onUpdate(null);
+      return;
+    }
     onUpdate(data ? fromDb(USER_REV, data as ProviderRecord) : null);
   })();
 
