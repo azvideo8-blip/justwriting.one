@@ -12,6 +12,17 @@ export default [
     ignores: ['dist/**', 'node_modules/**', '.claude/**', '.vercel/**', 'scripts/**', 'deploy/**'],
   },
   js.configs.recommended,
+  // N-59: public/ — загрузочный скрипт и сервис-воркер, выполняются до React;
+  // их ошибки не видел ни один гейт.
+  {
+    files: ['public/sw.js'],
+    languageOptions: { globals: globals.serviceworker, sourceType: 'script' },
+  },
+  {
+    files: ['public/**/*.js'],
+    ignores: ['public/sw.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'script' },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
