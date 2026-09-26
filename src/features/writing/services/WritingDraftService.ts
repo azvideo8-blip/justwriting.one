@@ -191,22 +191,26 @@ export const WritingDraftService = {
     } catch (e) { reportError(e, { action: 'clearLegacyDraft', userId }); }
   },
 
-  saveToLocal: async (draft: LocalDraft, generation?: number): Promise<void> => {
+  /** true — записано; false — пропущено: черновик устарел (поколение подняли:
+   *  сессию сохранили заметкой, отменили или сменили) или нет владельца. Пропуск —
+   *  не запись, и «Сохранено» по нему показывать нельзя (N-33). */
+  saveToLocal: async (draft: LocalDraft, generation?: number): Promise<boolean> => {
     if (!draft.userId) {
-      return;
+      return false;
     }
     if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
-      return;
+      return false;
     }
     try {
       const localDb = await getLocalDb(draft.userId);
       if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
-        return;
+        return false;
       }
       await localDb.put('drafts', draft);
+      return true;
     } catch (err) {
       if (generation !== undefined && generation !== getDraftGeneration(draft.userId)) {
-        return;
+        return false;
       }
       reportError(err, { action: 'saveToLocal', userId: draft.userId });
       // D-1: re-throw so Promise.allSettled sees 'rejected' and localOk is

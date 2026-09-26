@@ -417,7 +417,7 @@ describe('useDraftAutosave', () => {
   // Аккаунт сменился под открытым редактором (ссылка-приглашение поверх своей
   // сессии): текст прежнего аккаунта уходил черновиком нового — и в его облако.
   it('an account switch keeps the text with its owner and never saves it as the new account', async () => {
-    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, remoteOk: true });
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
     const ownerA = { uid: 'owner-A' } as AppUser;
     const inviteeB = { uid: 'invitee-B' } as AppUser;
     useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3 });
@@ -431,6 +431,7 @@ describe('useDraftAutosave', () => {
     vi.mocked(persistDraft).mockClear();
 
     rerender({ user: inviteeB, data: aData }); // сессия уже B, в сторе ещё текст A
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     const c = useContentStore.getState();
     rerender({ user: inviteeB, data: { ...aData, content: c.content, title: c.title } });
     await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
@@ -439,5 +440,36 @@ describe('useDraftAutosave', () => {
     expect(calls.filter(d => d.userId === 'invitee-B' && d.content.includes('Личный текст A'))).toEqual([]);
     expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-A', content: 'Личный текст A', remote: false }));
     expect(useContentStore.getState().content).toBe('');
+  });
+
+  // N-32: persistDraft не бросает. Если спасти текст прежнему владельцу не
+  // удалось, редактор не очищается и под новым аккаунтом ничего не пишется.
+  it('when the rescue write fails, the text stays on screen and is never saved as the new account', async () => {
+    const ownerA = { uid: 'owner-A' } as AppUser;
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3 });
+    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
+    const { rerender } = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    vi.mocked(persistDraft).mockClear();
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: false, remoteOk: true });
+
+    rerender({ user: inviteeB, data: aData });
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+
+    expect(useContentStore.getState().content).toBe('Личный текст A');
+    const asB = vi.mocked(persistDraft).mock.calls.filter(([d]) => (d as { userId: string }).userId === 'invitee-B');
+    expect(asB).toEqual([]);
+  });
+
+  // N-33: запись пропущена по поколению черновика — индикатор не говорит «Сохранено».
+  it('a skipped (stale-generation) write does not show «saved»', async () => {
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: true, remoteOk: true });
+    const { result, rerender } = renderHook(({ data }) => useDraftAutosave(mockUser, data), { initialProps: { data: initialData } });
+    rerender({ data: { ...initialData, content: 'Some draft text changed' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(510); });
+    expect(persistDraft).toHaveBeenCalled();
+    expect(result.current.saveStatus).not.toBe('saved');
   });
 });

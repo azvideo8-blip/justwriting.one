@@ -14,6 +14,7 @@ export type DraftErrorKind = 'quota' | 'unknown' | null;
 /** What a save reports back. Omitting `remoteOk` means "no remote save was attempted". */
 export interface DraftSaveOutcome {
   localOk?: boolean;
+  localSkipped?: boolean;
   remoteOk?: boolean;
   remoteError?: unknown;
 }
@@ -104,6 +105,12 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     try {
       markSaving();
       const res = await saveFn();
+
+      // N-33: запись пропущена (черновик устарел) — это не «Сохранено».
+      if (res && res.localSkipped) {
+        if (isMountedRef.current) setSaveStatus('idle');
+        return false;
+      }
 
       // A local-only save resolves with no remote information at all. It must
       // fall through both branches: it neither proves the cloud copy is current

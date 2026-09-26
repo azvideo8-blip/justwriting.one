@@ -69,6 +69,7 @@ export async function persistDraft(
   const [localResult, remoteResult] = await Promise.allSettled(promises);
 
   const localOk = localResult.status === 'fulfilled';
+  const localSkipped = localOk && localResult.value === false;
   const remoteOk = !shouldRemoteSave || (remoteResult.status === 'fulfilled' && remoteResult.value === true);
   const remoteError = remoteResult.status === 'rejected' ? remoteResult.reason : undefined;
 
@@ -93,5 +94,5 @@ export async function persistDraft(
     }
   }
 
-  return { localOk, remoteOk, remoteError };
+  return { localOk, localSkipped, remoteOk, remoteError };
 }

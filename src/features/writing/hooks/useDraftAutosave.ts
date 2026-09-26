@@ -45,18 +45,23 @@ export function useDraftAutosave(
   // записывало чужой текст черновиком нового аккаунта — и в его облако.
   // Выход (→ null) только очищает: при выходе с очисткой устройства запись
   // в базу вернула бы стёртое. Гость → аккаунт — это перенос, его делает миграция.
+  // Редактор очищается только после подтверждённой записи (N-32): persistDraft
+  // не бросает, а сообщает localOk/localSkipped. Пока спасение не записано,
+  // ownerRef остаётся прежним — и автосохранение под новым аккаунтом молчит,
+  // а текст остаётся на экране, а не пропадает.
   const ownerRef = useRef<string | null>(userId);
   useEffect(() => {
     const prev = ownerRef.current;
-    ownerRef.current = userId;
-    if (!prev || prev === userId || prev.startsWith('guest')) return;
+    if (!prev || prev === userId || prev.startsWith('guest')) { ownerRef.current = userId; return; }
     const current = draftDataRef.current;
-    if (userId && (current.content.trim() || current.title.trim())) {
-      void persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { remote: false })
-        .catch(e => reportError(e, { action: 'draftAutosave_saveForPreviousOwner' }));
-    }
-    resetAndClear();
-    resetAllSessionMetadata();
+    const clear = () => { ownerRef.current = userId; resetAndClear(); resetAllSessionMetadata(); };
+    if (!userId || !(current.content.trim() || current.title.trim())) { clear(); return; }
+    void (async () => {
+      const res = await persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { remote: false });
+      if (res.localOk && !res.localSkipped) { clear(); return; }
+      reportError(new Error('DRAFT_RESCUE_FAILED: the previous account\'s draft was not written; kept on screen'),
+        { action: 'draftAutosave_saveForPreviousOwner', localOk: res.localOk, localSkipped: res.localSkipped });
+    })();
   }, [userId]);
 
   const doAutosaveLocal = useCallback(async () => {
@@ -71,7 +76,8 @@ export function useDraftAutosave(
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
-    // Deliberately returns nothing: `remote: false` makes persistDraft report
+    if (result.localSkipped) return { localSkipped: true };
+    // Otherwise returns nothing: `remote: false` makes persistDraft report
     // remoteOk=true (nothing was attempted, so nothing failed). Passing that up
     // would clear the cloud-stale flag on every keystroke pause.
   }, [user]);
