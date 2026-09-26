@@ -472,4 +472,62 @@ describe('useDraftAutosave', () => {
     expect(persistDraft).toHaveBeenCalled();
     expect(result.current.saveStatus).not.toBe('saved');
   });
+
+  // N-47: редактор размонтирован (ушли на страницу приглашения) и смонтирован
+  // заново уже под другим аккаунтом, а стор текста — тот же. Раньше хозяин
+  // текста жил в ref хука и после remount «забывался».
+  it('remount under another account: the text is rescued for its owner and never saved as the new account', async () => {
+    const ownerA = { uid: 'owner-A' } as AppUser;
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3 });
+    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
+
+    const first = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    first.unmount();
+    vi.mocked(persistDraft).mockClear();
+
+    const second = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    const c = useContentStore.getState();
+    second.rerender({ user: inviteeB, data: { ...aData, content: c.content, title: c.title } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+
+    const calls = vi.mocked(persistDraft).mock.calls.map(([d, o]) => ({ ...(d as { userId: string; content: string }), ...o }));
+    expect(calls.filter(d => d.userId === 'invitee-B' && d.content.includes('Личный текст A'))).toEqual([]);
+    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-A', content: 'Личный текст A', remote: false }));
+    expect(useContentStore.getState().content).toBe('');
+  });
+
+  // N-49: спасение не удалось — это не тупик: следующая попытка автосохранения
+  // повторяет его, а индикатор не говорит «Сохранено».
+  it('a failed rescue is retried on the next autosave and never shows «saved»', async () => {
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    useContentStore.setState({ content: 'Личный текст A', title: 'A', wordCount: 3, ownerUid: 'owner-A' });
+    const aData = { ...initialData, content: 'Личный текст A', title: 'A' };
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: false, remoteOk: true });
+
+    const { result, rerender } = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
+    await act(async () => { await Promise.resolve(); });
+    expect(useContentStore.getState().content).toBe('Личный текст A');
+
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
+    rerender({ user: inviteeB, data: { ...aData, content: 'Личный текст A.' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    expect(result.current.saveStatus).not.toBe('saved');
+    expect(useContentStore.getState().content).toBe('');
+    const asB = vi.mocked(persistDraft).mock.calls.filter(([d]) => (d as { userId: string }).userId === 'invitee-B');
+    expect(asB).toEqual([]);
+  });
+
+  // N-48: облачный путь (30-секундная страховка) тоже не рапортует
+  // «Сохранено», если локальная запись пропущена.
+  it('a skipped local write on the remote path is not «saved» either', async () => {
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: true, remoteOk: true });
+    const { result } = renderHook(() => useDraftAutosave(mockUser, initialData));
+    await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
+    expect(vi.mocked(persistDraft)).toHaveBeenCalledWith(expect.anything(), { remote: true });
+    expect(result.current.saveStatus).not.toBe('saved');
+  });
 });

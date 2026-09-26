@@ -1,12 +1,15 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { AppUser } from '../../../core/auth/types';
 import { buildLocalDraft, persistDraft } from '../utils/draftPersistence';
-import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
+import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { WritingDraftService } from '../services/WritingDraftService';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { reportError } from '../../../shared/errors/reportError';
+import { useContentStore } from '../store/useContentStore';
+
+const SKIPPED: DraftSaveOutcome = { localSkipped: true };
 
 function isPristineContinuedSession(content: string, title: string): boolean {
   const meta = useSessionMetaStore.getState();
@@ -38,79 +41,88 @@ export function useDraftAutosave(
     draftDataRef.current = draftData;
   }, [draftData]);
 
-  // Чей текст сейчас в редакторе. Аккаунт сменился прямо под открытым
-  // редактором (ссылка-приглашение поверх своей сессии, вход под другим в
-  // соседней вкладке) — текст принадлежит прежнему. Сохраняем его ему, в его
-  // локальную базу, и очищаем редактор. Без этого первое же автосохранение
-  // записывало чужой текст черновиком нового аккаунта — и в его облако.
-  // Выход (→ null) только очищает: при выходе с очисткой устройства запись
-  // в базу вернула бы стёртое. Гость → аккаунт — это перенос, его делает миграция.
-  // Редактор очищается только после подтверждённой записи (N-32): persistDraft
-  // не бросает, а сообщает localOk/localSkipped. Пока спасение не записано,
-  // ownerRef остаётся прежним — и автосохранение под новым аккаунтом молчит,
-  // а текст остаётся на экране, а не пропадает.
-  const ownerRef = useRef<string | null>(userId);
-  useEffect(() => {
-    const prev = ownerRef.current;
-    if (!prev || prev === userId || prev.startsWith('guest')) { ownerRef.current = userId; return; }
-    const current = draftDataRef.current;
-    const clear = () => { ownerRef.current = userId; resetAndClear(); resetAllSessionMetadata(); };
-    if (!userId || !(current.content.trim() || current.title.trim())) { clear(); return; }
-    void (async () => {
+  // Чей текст в редакторе — записано в самом сторе текста (N-47), а не в этом
+  // хуке: стор переживает уход со страницы письма, и после приглашения или
+  // входа под другим аккаунтом редактор монтируется заново с тем же текстом.
+  // Текст прежнего владельца сохраняется ему, в его локальную базу, и только
+  // после подтверждённой записи редактор очищается (N-32). Пока не записано —
+  // под новым аккаунтом ничего не сохраняется, текст остаётся на экране, а
+  // каждая попытка автосохранения повторяет спасение (N-49).
+  const rescuingRef = useRef(false);
+  const rescueForPreviousOwner = useCallback(async (prev: string): Promise<void> => {
+    if (rescuingRef.current) return;
+    rescuingRef.current = true;
+    try {
+      const current = draftDataRef.current;
+      const clear = () => { resetAndClear(); resetAllSessionMetadata(); };
+      if (!userId || !(current.content.trim() || current.title.trim())) { clear(); return; }
       const res = await persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { remote: false });
       if (res.localOk && !res.localSkipped) { clear(); return; }
       reportError(new Error('DRAFT_RESCUE_FAILED: the previous account\'s draft was not written; kept on screen'),
         { action: 'draftAutosave_saveForPreviousOwner', localOk: res.localOk, localSkipped: res.localSkipped });
-    })();
+    } finally {
+      rescuingRef.current = false;
+    }
   }, [userId]);
 
-  const doAutosaveLocal = useCallback(async () => {
-    if (!user || ownerRef.current !== user.uid) return;
+  useEffect(() => {
+    const prev = useContentStore.getState().ownerUid;
+    if (prev && prev !== userId && !prev.startsWith('guest')) void rescueForPreviousOwner(prev);
+  }, [userId, rescueForPreviousOwner]);
+
+  /** Текст этого аккаунта? Ничейный (новый, гостевой) становится его. Чужой —
+   *  нет, и запускает спасение для владельца. */
+  const ownsText = useCallback((uid: string): boolean => {
+    const owner = useContentStore.getState().ownerUid;
+    if (owner === uid) return true;
+    if (!owner || owner.startsWith('guest')) {
+      useContentStore.setState({ ownerUid: uid });
+      return true;
+    }
+    void rescueForPreviousOwner(owner);
+    return false;
+  }, [rescueForPreviousOwner]);
+
+  const doAutosaveLocal = useCallback(async (): Promise<DraftSaveOutcome> => {
+    if (!user) return SKIPPED;
     const current = draftDataRef.current;
-    if (!current.content.trim() && !current.title.trim()) return;
+    if (!current.content.trim() && !current.title.trim()) return SKIPPED;
     // D-24: do not save draft for continued notes with no edits
-    if (isPristineContinuedSession(current.content, current.title)) return;
+    if (isPristineContinuedSession(current.content, current.title)) return SKIPPED;
+    if (!ownsText(user.uid)) return SKIPPED;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: false });
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
-    if (result.localSkipped) return { localSkipped: true };
-    // Otherwise returns nothing: `remote: false` makes persistDraft report
-    // remoteOk=true (nothing was attempted, so nothing failed). Passing that up
-    // would clear the cloud-stale flag on every keystroke pause.
-  }, [user]);
+    if (result.localSkipped) return SKIPPED;
+    // Local only: `remote: false` makes persistDraft report remoteOk=true
+    // (nothing was attempted, so nothing failed). Passing that up would clear
+    // the cloud-stale flag on every keystroke pause.
+    return {};
+  }, [user, ownsText]);
 
-  const doAutosaveRemote = useCallback(async () => {
-    if (!user || ownerRef.current !== user.uid) return;
+  const doSaveWithRemote = useCallback(async (): Promise<DraftSaveOutcome> => {
+    if (!user) return SKIPPED;
     const current = draftDataRef.current;
-    if (!current.content.trim() && !current.title.trim()) return;
+    if (!current.content.trim() && !current.title.trim()) return SKIPPED;
     // D-24: do not save draft for continued notes with no edits
-    if (isPristineContinuedSession(current.content, current.title)) return;
+    if (isPristineContinuedSession(current.content, current.title)) return SKIPPED;
+    if (!ownsText(user.uid)) return SKIPPED;
 
     const draft = buildLocalDraft(user, current);
     const result = await persistDraft(draft, { remote: true });
     if (!result.localOk) {
       throw new Error('Local save failed');
     }
+    // N-48: локальная запись пропущена — не «Сохранено», и облачный успех
+    // не должен снимать флаг «облако устарело».
+    if (result.localSkipped) return SKIPPED;
     return result;
-  }, [user]);
-
-  const doForceSave = useCallback(async () => {
-    if (!user || ownerRef.current !== user.uid) return;
-    const current = draftDataRef.current;
-    if (!current.content.trim() && !current.title.trim()) return;
-    // D-24: do not save draft for continued notes with no edits
-    if (isPristineContinuedSession(current.content, current.title)) return;
-
-    const draft = buildLocalDraft(user, current);
-    const result = await persistDraft(draft, { remote: true });
-    if (!result.localOk) {
-      throw new Error('Local save failed');
-    }
-    return result;
-  }, [user]);
+  }, [user, ownsText]);
+  const doAutosaveRemote = doSaveWithRemote;
+  const doForceSave = doSaveWithRemote;
 
   const wrappedAutosaveLocal = useCallback(async () => {
     await wrapSave(doAutosaveLocal, 'draftAutosave/autoSaveLocal');

@@ -26,6 +26,10 @@ export interface ContentStateData {
   // (видны devtools, сбрасываются тестами/HMR), в отличие от таймеров ниже.
   burstBaseline: HistoryEntry | null;
   isApplyingHistory: boolean;
+  /** N-47: чей это текст. Живёт рядом с текстом, а не в редакторе: стор
+   *  переживает уход со страницы письма (например, на страницу приглашения и
+   *  обратно уже под другим аккаунтом). null — ничей: новый или гостевой. */
+  ownerUid?: string | null;
 }
 
 interface ContentState extends ContentStateData {

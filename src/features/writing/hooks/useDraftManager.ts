@@ -5,6 +5,7 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
+import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 
 export interface DraftData {
   content: string;
@@ -44,6 +45,14 @@ export function useDraftManager(
     getDraftDataRef.current = getDraftData;
     onSaveDraftRef.current = options.onSaveDraft;
   }, [getDraftData, options.onSaveDraft]);
+
+  // N-47: после выхода из аккаунта редактор гостя получает тот же стор текста.
+  // Текст аккаунта уже лежит в его базе (автосохранение) — гостю он не
+  // показывается и гостевым черновиком не сохраняется.
+  useEffect(() => {
+    const owner = useContentStore.getState().ownerUid;
+    if (owner && !owner.startsWith('guest')) { resetAndClear(); resetAllSessionMetadata(); }
+  }, []);
 
   const doAutosave = useCallback(async () => {
     const data = getDraftDataRef.current();

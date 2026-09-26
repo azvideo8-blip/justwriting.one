@@ -18,6 +18,7 @@ const createContentDefaults = () => ({
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],
   lastWordCount: 0, wpmHistory: [],
   tags: [], labelId: undefined,
+  ownerUid: null,
 });
 
 const TIMER_DEFAULTS: {
