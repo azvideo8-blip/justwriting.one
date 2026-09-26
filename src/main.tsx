@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {BrowserRouter} from 'react-router-dom';
 import { z } from 'zod';
 import { reportError } from './shared/errors/reportError';
+import { chunkIsGone } from './shared/errors/chunkReload';
 import { APP_VERSION } from './version';
 import App from './App.tsx';
 import './index.css';
@@ -35,9 +36,16 @@ window.addEventListener('vite:preloadError', (e) => {
     reportError(payload, { action: 'vite_preload_error_after_reload' }, 'warning');
     return;
   }
-  sessionStorage.setItem(PRELOAD_RELOAD_KEY, '1');
-  reportError(payload, { action: 'vite_preload_error_reload' }, 'warning');
-  location.reload();
+  const message = payload instanceof Error ? payload.message : String(payload);
+  void chunkIsGone(message).then(gone => {
+    if (!gone) {
+      reportError(payload, { action: 'vite_preload_error_network' }, 'warning');
+      return;
+    }
+    sessionStorage.setItem(PRELOAD_RELOAD_KEY, '1');
+    reportError(payload, { action: 'vite_preload_error_reload' }, 'warning');
+    location.reload();
+  });
 });
 
 window.addEventListener('unhandledrejection', (event) => {
