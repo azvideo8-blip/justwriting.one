@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.12 — 2026-09-26
+
+- **[RU]** Смена аккаунта во вкладке — выход, вход под другим, ссылка из письма, то же в соседней вкладке — перезагружает страницу: новый человек начинает с чистой памяти, и ничего от прежнего аккаунта на экран и в его данные не попадает. Текст из редактора перед этим сохраняется прежнему владельцу.
+- **[EN]** Changing the account in a tab — signing out, signing in as someone else, an email link, the same in another tab — reloads the page: the new person starts from clean memory and nothing of the previous account reaches their screen or data. The editor text is saved for its owner first.
+- **[RU]** Фоновая синхронизация, начатая для одного аккаунта, больше не может записать его заметки в базу другого аккаунта или гостя.
+- **[EN]** Background sync started for one account can no longer write its notes into another account’s or the guest database.
+- **[RU]** Удаление, корзина и восстановление больше не отвечают «в облаке тоже», если облако не тронуто: удалённая заметка не возвращается следующей загрузкой.
+- **[EN]** Delete, trash and restore no longer answer "done in the cloud too" when the cloud was not touched: a deleted note no longer comes back with the next download.
+- **[RU]** Журнал ошибок — по-русски: запертый сейф так и назван («Возможно, сейф заблокирован»), технический текст для разработчика остаётся в подробностях.
+- **[EN]** The error log speaks Russian: a locked vault is named as such, the technical text for the developer stays in the details.
+- **[RU]** Метки «…» в окне заметки объясняют: сейф заперт, откройте его, чтобы увидеть названия.
+- **[EN]** Labels shown as "…" in the note window explain that the vault is locked.
+
 ## 0.9.11 — 2026-09-26
 
 - **[RU]** Текст в редакторе привязан к своему аккаунту и после перехода на страницу приглашения или входа под другим аккаунтом: чужой текст сохраняется прежнему владельцу и никогда — новому.
