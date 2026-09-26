@@ -34,7 +34,9 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
   return (
     <ModalShell
       open
-      onClose={handleKeepOff}
+      // N-38: Esc и клик мимо окна — «не сейчас отвечать», а не «нет»: окно
+      // закрывается до следующего запуска, ответ не записывается.
+      onClose={onClose}
       labelId="sync-consent-title"
       z="critical"
       className="w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden p-6"

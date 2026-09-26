@@ -285,4 +285,13 @@ describe("D4.25 SyncConsentModal & useSyncConsentCheck", () => {
     await new Promise(r => setTimeout(r, 20));
     expect(result.current.showConsent).toBe(false);
   });
+
+  it("Escape closes the window without recording an answer, so it is asked again later", () => {
+    const onClose = vi.fn();
+    render(<SyncConsentModal onClose={onClose} userId="u_esc" />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED("u_esc"))).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED("u_esc"))).toBeNull();
+  });
 });
