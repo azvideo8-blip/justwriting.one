@@ -22,7 +22,16 @@ const CANON = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 vi.mock('../../data', () => ({ DataProvider: { deleteSummary, deleteEmbedding } }));
 vi.mock('../../auth', () => ({ getCurrentUser: () => ({ uid: 'user-1' }) }));
 vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
-vi.mock('../facetLock', () => ({ withFacetLock: async (fn: () => Promise<void>) => fn() }));
+vi.mock('../facetLock', () => ({
+  withFacetLock: async (fn: () => Promise<void>) => fn(),
+  // Без этого шаги 7–8 уборки (грани профиля, убеждения) падали в заглушке
+  // молча и не исполнялись ни в одном тесте этого файла — видно стало, когда
+  // уборка начала сообщать о сбоях (N-51).
+  writeFacetStore: async (fn: (store: unknown) => Promise<void>) => fn({
+    getAll: async () => [],
+    transaction: () => ({ store: { delete: async () => undefined, put: async () => undefined }, done: Promise.resolve() }),
+  }),
+}));
 vi.mock('../LocalStoreSyncService', () => ({
   LocalStoreSyncService: { scheduleStoreDelete, scheduleStoreSync: vi.fn() },
 }));
@@ -95,5 +104,16 @@ describe('cascadeDeleteAIDerivatives — облачные копии', () => {
 
     expect(deleteSummary).toHaveBeenCalledWith('user-1', CANON);
     expect(deleteEmbedding).toHaveBeenCalledWith('user-1', CANON);
+  });
+
+  // N-51: облачную сводку удалить не удалось — удаление заметки об этом
+  // сообщает, а не рапортует полный успех.
+  it('reports when a cloud derivative could not be deleted', async () => {
+    deleteSummary.mockRejectedValueOnce(new Error('offline'));
+    expect(await LocalDocumentService.deleteDocument('local_1')).toBe(false);
+  });
+
+  it('reports success when everything is gone', async () => {
+    expect(await LocalDocumentService.deleteDocument('local_1')).toBe(true);
   });
 });

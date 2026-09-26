@@ -111,6 +111,7 @@ export const archiveTranslations: Translations = {
   archive_trash_days_left_many: { ru: 'Осталось {days} дней', en: '{days} days left' },
   archive_trash_restored: { ru: 'Заметка восстановлена', en: 'Note restored' },
   archive_trash_cleared: { ru: 'Корзина очищена', en: 'Trash emptied' },
+  archive_trash_partial: { ru: 'Корзина очищена не полностью: не удалось удалить {count}. Попробуйте ещё раз.', en: 'The trash was not fully emptied: {count} could not be deleted. Please try again.' },
   archive_trash_moved: { ru: 'Заметка перемещена в корзину', en: 'Note moved to trash' },
   archive_trash_search_placeholder: { ru: 'Поиск по корзине...', en: 'Search trash...' },
 

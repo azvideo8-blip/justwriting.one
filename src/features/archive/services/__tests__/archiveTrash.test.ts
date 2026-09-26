@@ -124,7 +124,7 @@ describe('FEAT-5 Archive Trash Service', () => {
 
     const res = await emptyTrash([s1, s2], 'u1');
 
-    expect(res).toEqual({ successCount: 2, failCount: 0 });
+    expect(res).toEqual({ successCount: 2, failCount: 0, deletedIds: ['s1', 's2'] });
     expect(StorageService.deleteDocument).toHaveBeenCalledTimes(2);
     expect(addActivitySpy).toHaveBeenCalledWith('корзина очищена (2)', undefined, 'info', 'archive');
   });
@@ -148,5 +148,38 @@ describe('FEAT-5 Archive Trash Service', () => {
     expect(remainingSessions.map(s => s.id)).toEqual(['active_1', 'trash_recent']);
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('u1', 'trash_expired', undefined);
     expect(StorageService.deleteDocument).toHaveBeenCalledTimes(1);
+  });
+
+  // N-50: удаление, которое не прошло, не выдаётся за прошедшее.
+  it('pruneExpiredTrash keeps a note whose deletion failed', async () => {
+    const now = 1700000000000;
+    const old = now - (11 * 24 * 60 * 60 * 1000);
+    vi.mocked(StorageService.deleteDocument)
+      .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true })
+      .mockRejectedValueOnce(new Error('idb'));
+    const a = makeSession({ id: 'exp_ok', trashedAt: old });
+    const b = makeSession({ id: 'exp_fail', trashedAt: old });
+    const { prunedCount, remainingSessions } = await pruneExpiredTrash([a, b], 'u1', now);
+    expect(prunedCount).toBe(1);
+    expect(remainingSessions.map(x => x.id)).toEqual(['exp_fail']);
+  });
+
+  it('emptyTrash reports what was really deleted and says «not fully» on a failure', async () => {
+    const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
+    vi.mocked(StorageService.deleteDocument)
+      .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true })
+      .mockRejectedValueOnce(new Error('idb'));
+    const res = await emptyTrash([makeSession({ id: 's1' }), makeSession({ id: 's2' })], 'u1');
+    expect(res).toEqual({ successCount: 1, failCount: 1, deletedIds: ['s1'] });
+    expect(addActivitySpy).toHaveBeenCalledWith(expect.stringContaining('не полностью'), undefined, 'warning', 'archive');
+  });
+
+  // N-51: заметка удалена, а производные — нет: «удалено навсегда» не пишется.
+  it('deleteArchiveSession does not claim «deleted forever» when AI derivatives were left behind', async () => {
+    const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false });
+    await deleteArchiveSession(makeSession({ id: 's9' }), 'u1');
+    expect(addActivitySpy).not.toHaveBeenCalledWith('заметка удалена навсегда', undefined, 'info', 'archive');
+    expect(addActivitySpy).toHaveBeenCalledWith(expect.stringContaining('разборов ИИ'), expect.anything(), 'warning', 'archive');
   });
 });

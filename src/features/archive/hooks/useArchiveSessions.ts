@@ -152,9 +152,12 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
 
   const handleEmptyTrash = async (trashed: ArchiveSession[]) => {
     try {
-      await emptyTrash(trashed, userId);
-      setSessions(prev => prev.filter(x => !x.trashedAt));
-      showToast(t('archive_trash_cleared'), 'success');
+      const { failCount, deletedIds } = await emptyTrash(trashed, userId);
+      const gone = new Set(deletedIds);
+      setSessions(prev => prev.filter(x => !gone.has(x.id)));
+      // N-50: «корзина очищена» — только если действительно очищена.
+      if (failCount > 0) showToast(t('archive_trash_partial').replace('{count}', String(failCount)), 'error');
+      else showToast(t('archive_trash_cleared'), 'success');
       void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {
       logger.error('archive', 'Failed to empty trash', { error: String(e) });

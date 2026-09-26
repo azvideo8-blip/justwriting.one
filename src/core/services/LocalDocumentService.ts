@@ -13,14 +13,17 @@ import { getCurrentUser } from '../auth';
  * номер заметки: политика доступа в базе сверяет его с `documents.uuid`, и по
  * локальному `local_…` не удалится ничего.
  */
-async function deleteCloudDerivative(kind: 'summary' | 'embedding', canonicalId: string): Promise<void> {
+/** false — облачную копию удалить не удалось (N-51: это не «удалено»). */
+async function deleteCloudDerivative(kind: 'summary' | 'embedding', canonicalId: string): Promise<boolean> {
   const uid = getCurrentUser()?.uid;
-  if (!uid || uid.startsWith('guest_')) return;
+  if (!uid || uid.startsWith('guest_')) return true;
   try {
     if (kind === 'summary') await DataProvider.deleteSummary(uid, canonicalId);
     else await DataProvider.deleteEmbedding(uid, canonicalId);
+    return true;
   } catch (e) {
     reportError(e, { action: `cascadeDelete_cloud_${kind}`, canonicalId });
+    return false;
   }
 }
 
@@ -149,7 +152,9 @@ export const LocalDocumentService = {
     await tx.done;
   },
 
-  async deleteDocument(id: string): Promise<void> {
+  /** true — заметка и все её производные удалены; false — заметка удалена, а
+   *  часть разборов ИИ (локально или в облаке) нет (N-51). */
+  async deleteDocument(id: string): Promise<boolean> {
     const db = await getLocalDb();
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     const verStore = tx.objectStore('versions');
@@ -181,7 +186,7 @@ export const LocalDocumentService = {
     // выше её удалили. Уборка производных не может достать uuid сама — она
     // прочитает undefined и пойдёт удалять облачные строки по локальному
     // номеру, которого в облаке нет. Ровно эта ошибка тут и была.
-    await LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid);
+    return LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid);
   },
 
   /**
@@ -189,7 +194,10 @@ export const LocalDocumentService = {
    *   Обязателен, когда заметки в хранилище уже нет: облачные строки сводки и
    *   вектора ключуются им, и по локальному номеру не удалится ничего.
    */
-  async cascadeDeleteAIDerivatives(documentId: string, canonicalUuid?: string): Promise<void> {
+  async cascadeDeleteAIDerivatives(documentId: string, canonicalUuid?: string): Promise<boolean> {
+    // N-51: каждый сбой считается — удаление производных сообщает, прошло ли оно.
+    let failed = 0;
+    const fail = () => { failed++; };
     try {
       const db = await getLocalDb();
 
@@ -198,16 +206,16 @@ export const LocalDocumentService = {
 
       // 1. Delete aiSummaries, aiEmbeddings, aiTimeline
       await Promise.all([
-        db.delete('aiSummaries', documentId).catch(() => {}),
-        db.delete('aiEmbeddings', documentId).catch(() => {}),
-        db.delete('aiTimeline', documentId).catch(() => {}),
+        db.delete('aiSummaries', documentId).catch(fail),
+        db.delete('aiEmbeddings', documentId).catch(fail),
+        db.delete('aiTimeline', documentId).catch(fail),
       ]);
       // Облачные копии тех же трёх. Локального удаления мало: восстановление
       // из облака вернуло бы разбор удалённой заметки обратно на устройство.
       LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);
       if (canonicalId) {
-        void deleteCloudDerivative('summary', canonicalId);
-        void deleteCloudDerivative('embedding', canonicalId);
+        const cloud = await Promise.all([deleteCloudDerivative('summary', canonicalId), deleteCloudDerivative('embedding', canonicalId)]);
+        if (cloud.includes(false)) fail();
       } else {
         // Постоянного номера нет ни здесь, ни у вызывающего: удалять в облаке
         // нечем. Молчать нельзя — иначе разбор удалённой заметки останется там
@@ -226,36 +234,36 @@ export const LocalDocumentService = {
           try {
             const memories = await db.getAllFromIndex('aiChatMemory', 'by-dialogue', d.id);
             for (const m of memories) {
-              await db.delete('aiChatMemory', m.id).catch(() => {});
+              await db.delete('aiChatMemory', m.id).catch(fail);
               LocalStoreSyncService.scheduleStoreDelete('aiChatMemory', m.id);
             }
-          } catch { /* ignore */ }
-          await db.delete('aiDialogues', d.id).catch(() => {});
+          } catch { fail(); }
+          await db.delete('aiDialogues', d.id).catch(fail);
           LocalStoreSyncService.scheduleStoreDelete('aiDialogues', d.id);
         }
-      } catch { /* ignore */ }
+      } catch { fail(); }
 
       // 3. Delete aiCommitments
       try {
         const commitments = await db.getAll('aiCommitments');
         for (const c of commitments) {
           if (c.documentId === documentId) {
-            await db.delete('aiCommitments', c.id).catch(() => {});
+            await db.delete('aiCommitments', c.id).catch(fail);
             LocalStoreSyncService.scheduleStoreDelete('aiCommitments', c.id);
           }
         }
-      } catch { /* ignore */ }
+      } catch { fail(); }
 
       // 4. Delete aiThreads
       try {
         const threads = await db.getAll('aiThreads');
         for (const t of threads) {
           if ((t as { documentId?: string }).documentId === documentId) {
-            await db.delete('aiThreads', t.id).catch(() => {});
+            await db.delete('aiThreads', t.id).catch(fail);
             LocalStoreSyncService.scheduleStoreDelete('aiThreads', t.id);
           }
         }
-      } catch { /* ignore */ }
+      } catch { fail(); }
 
       // 5. Clean lifeStory entries
       try {
@@ -264,14 +272,14 @@ export const LocalDocumentService = {
           if (entry.sourceDocumentIds?.includes(documentId)) {
             const updatedSources = entry.sourceDocumentIds.filter(sid => sid !== documentId);
             if (updatedSources.length === 0) {
-              await db.delete('lifeStory', entry.eventDate).catch(() => {});
+              await db.delete('lifeStory', entry.eventDate).catch(fail);
               LocalStoreSyncService.scheduleStoreDelete('lifeStory', entry.eventDate);
             } else {
-              await db.put('lifeStory', { ...entry, sourceDocumentIds: updatedSources }).catch(() => {});
+              await db.put('lifeStory', { ...entry, sourceDocumentIds: updatedSources }).catch(fail);
             }
           }
         }
-      } catch { /* ignore */ }
+      } catch { fail(); }
 
 
       // 6. Clean aiThemeLedger evidence & records
@@ -283,14 +291,14 @@ export const LocalDocumentService = {
             const filteredEv = record.evidence.filter(e => e.noteId !== documentId);
             const newCount = Math.max(0, record.count - 1);
             if (filteredEv.length === 0 || newCount === 0) {
-              await db.delete('aiThemeLedger', record.id).catch(() => {});
+              await db.delete('aiThemeLedger', record.id).catch(fail);
               LocalStoreSyncService.scheduleStoreDelete('aiThemeLedger', record.id);
             } else {
-              await db.put('aiThemeLedger', { ...record, evidence: filteredEv, count: newCount }).catch(() => {});
+              await db.put('aiThemeLedger', { ...record, evidence: filteredEv, count: newCount }).catch(fail);
             }
           }
         }
-      } catch { /* ignore */ }
+      } catch { fail(); }
 
       // 7. Clean aiProfileFacets and invalidate portrait if modified
       let facetsChanged = false;
@@ -315,7 +323,7 @@ export const LocalDocumentService = {
             }
           }
           await tx.done;
-        } catch { /* ignore */ }
+        } catch { fail(); }
       });
 
       if (facetsChanged) {
@@ -330,7 +338,7 @@ export const LocalDocumentService = {
             }
             localStorage.removeItem('ai_portrait_sections');
           }
-        } catch { /* ignore */ }
+        } catch { fail(); }
       }
 
       // 8. Clean aiBeliefs evidence
@@ -357,10 +365,12 @@ export const LocalDocumentService = {
           }
         }
         await tx.done;
-      } catch { /* ignore */ }
+      } catch { fail(); }
     } catch (e) {
       reportError(e, { action: 'cascadeDeleteAIDerivatives', documentId });
+      fail();
     }
+    return failed === 0;
   },
 
 

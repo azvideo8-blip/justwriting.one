@@ -39,7 +39,7 @@ class LockManager {
 
 const _lockManager = new LockManager();
 
-async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
+async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
   let targetCloudId = cloudId;
   if (localId && !targetCloudId) {
     try {
@@ -47,8 +47,9 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
       if (fresh?.linkedCloudId) targetCloudId = fresh.linkedCloudId;
     } catch { /* ignore */ }
   }
+  let derivativesOk = true;
   if (localId) {
-    await LocalStorageService.deleteDocument(localId);
+    derivativesOk = await LocalStorageService.deleteDocument(localId);
   }
   let cloudSynced = true;
   if (targetCloudId) {
@@ -67,7 +68,7 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
       });
     }
   }
-  return { cloudSynced };
+  return { cloudSynced, derivativesOk };
 }
 
 export const StorageService = {
@@ -87,7 +88,7 @@ export const StorageService = {
     return _lockManager.acquire(localDocumentId, () => CloudSyncService.addCloudCopy(userId, localDocumentId, _encryptionRequired));
   },
 
-  async removeLocalCopy(localDocumentId: string): Promise<void> {
+  async removeLocalCopy(localDocumentId: string): Promise<boolean> {
     return LocalStorageService.deleteDocument(localDocumentId);
   },
 
@@ -168,7 +169,7 @@ export const StorageService = {
     return { cloudSynced };
   },
 
-  async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean }> {
+  async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
     if (!localId) return deleteDocumentUnlocked(userId, localId, cloudId);
     // R3-10: если дренаж как раз выгружает эту заметку впервые, облачный ряд
     // появится уже после удаления локальной — и downloadAllFromCloud её вернёт.

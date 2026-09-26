@@ -236,27 +236,31 @@ export async function restoreArchiveSession(
 export async function emptyTrash(
   trashedSessions: ArchiveSession[],
   userId: string
-): Promise<{ successCount: number; failCount: number }> {
+): Promise<{ successCount: number; failCount: number; deletedIds: string[] }> {
   let successCount = 0;
   let failCount = 0;
+  const deletedIds: string[] = [];
   for (const session of trashedSessions) {
     try {
       await deleteArchiveSession(session, userId, { skipActivityLog: true });
       successCount++;
+      deletedIds.push(session.id);
     } catch (e) {
       failCount++;
       reportError(e, { action: 'emptyTrash_single', sessionId: session.id });
     }
   }
-  useActivityLogStore.getState().addActivity(`корзина очищена (${successCount})`, undefined, 'info', 'archive');
-  return { successCount, failCount };
+  useActivityLogStore.getState().addActivity(
+    failCount > 0 ? `корзина очищена не полностью: удалено ${successCount}, не удалось ${failCount}` : `корзина очищена (${successCount})`,
+    undefined, failCount > 0 ? 'warning' : 'info', 'archive');
+  return { successCount, failCount, deletedIds };
 }
 
 export async function deleteArchiveSession(
   session: ArchiveSession,
   userId: string,
   opts?: { skipActivityLog?: boolean }
-): Promise<{ cloudSynced: boolean }> {
+): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
   const localId = session._isLocal ? session.id : undefined;
   let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
   // The snapshot above was captured when the confirm dialog opened; a background
@@ -270,7 +274,13 @@ export async function deleteArchiveSession(
   }
   const result = await StorageService.deleteDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.deleted', documentId: session.id });
-  if (!opts?.skipActivityLog) {
+  if (result.derivativesOk === false) {
+    // N-51: заметка удалена, а часть её разборов ИИ — нет. «Удалено навсегда»
+    // без оговорки было бы неправдой.
+    useActivityLogStore.getState().addActivity(
+      'заметка удалена, но часть связанных с ней разборов ИИ удалить не удалось — они уберутся при следующей очистке',
+      { action: 'deleteArchiveSession_derivatives', documentId: session.id }, 'warning', 'archive');
+  } else if (!opts?.skipActivityLog) {
     useActivityLogStore.getState().addActivity('заметка удалена навсегда', undefined, 'info', 'archive');
   }
   return result;
@@ -294,9 +304,20 @@ export async function pruneExpiredTrash(
     }
   }
 
+  // N-50: из списка уходит только то, что действительно удалено. Неудалённое
+  // остаётся видимым в корзине — иначе интерфейс говорил бы «удалено», а
+  // заметка лежала бы и на устройстве, и в облаке. Повтор — при следующем открытии.
+  let prunedCount = 0;
   if (expired.length > 0) {
-    await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
+    const results = await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') prunedCount++;
+      else {
+        reportError(r.reason, { action: 'pruneExpiredTrash_single', sessionId: expired[i]!.id });
+        remainingSessions.push(expired[i]!);
+      }
+    });
   }
 
-  return { prunedCount: expired.length, remainingSessions };
+  return { prunedCount, remainingSessions };
 }

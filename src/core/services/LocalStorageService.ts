@@ -178,8 +178,8 @@ export const LocalStorageService = {
     return LocalVersionService.getVersions(localId);
   },
 
-  async deleteDocument(localId: string): Promise<void> {
-    await LocalDocumentService.deleteDocument(localId);
+  async deleteDocument(localId: string): Promise<boolean> {
+    return LocalDocumentService.deleteDocument(localId);
   },
 
   async createDocument(userId: string, data: Parameters<typeof LocalDocumentService.createDocument>[1]) {

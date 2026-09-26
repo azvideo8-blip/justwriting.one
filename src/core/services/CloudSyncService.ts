@@ -1027,9 +1027,11 @@ export const CloudSyncService = {
         const db = await getLocalDb();
         const cur = await db.get('documents', localDocumentId);
         if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: cur.currentVersion, lastSeenCloudUpdatedAt: new Date().toISOString() });
-      } catch { /* ignore */ }
-
-
+      } catch (e) {
+        // Заметка в облаке есть; не записалась только отметка «до какой версии
+        // выгружено» — следующий проход выгрузит лишний раз. Не сбой, но видно.
+        reportError(e, { action: 'addCloudCopy_markSynced' }, 'warning');
+      }
 
       useActivityLogStore.getState().addActivity(
         'Заметка сохранена в облако',
@@ -1048,14 +1050,10 @@ export const CloudSyncService = {
   },
 
   async removeCloudCopy(userId: string, cloudDocumentId: string, localDocumentId?: string): Promise<void> {
+    // Сводку и вектор удаляет сам deleteDocument (providers/documents.ts), с
+    // проверкой ошибки на каждом шаге и до надгробия. Повторное удаление здесь
+    // шло с непрочитанным результатом и ничего не добавляло (N-53).
     await DocumentService.deleteDocument(userId, cloudDocumentId);
-    const { DataProvider } = await import('../data');
-    try {
-      await Promise.allSettled([
-        DataProvider.deleteSummary(userId, cloudDocumentId),
-        DataProvider.deleteEmbedding(userId, cloudDocumentId),
-      ]);
-    } catch { /* non-critical */ }
     if (localDocumentId) {
       await LocalStorageService.updateLinkedCloudId(localDocumentId, '');
     }

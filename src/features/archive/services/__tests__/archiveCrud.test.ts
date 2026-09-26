@@ -23,7 +23,7 @@ vi.mock('../../../../core/services/LocalDocumentService', () => ({
 
 vi.mock('../../../../core/services/StorageService', () => ({
   StorageService: {
-    deleteDocument: vi.fn().mockResolvedValue(undefined),
+    deleteDocument: vi.fn().mockResolvedValue({ cloudSynced: true, derivativesOk: true }),
   },
 }));
 
