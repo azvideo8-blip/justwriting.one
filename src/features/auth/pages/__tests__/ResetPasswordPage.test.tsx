@@ -160,4 +160,12 @@ describe('invite link while another account is signed in', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
     expect(verifyOtpForRecovery).not.toHaveBeenCalled();
   });
+
+  // N-37: сбой проверки сессии — не «никто не вошёл»: приглашение не меняет аккаунт без вопроса.
+  it('when the session check fails, it still asks instead of switching silently', async () => {
+    getSession.mockRejectedValueOnce(new Error('storage unavailable'));
+    renderPage(['/reset-password?token_hash=abc&type=invite']);
+    expect(await screen.findByTestId('invite-switch-account')).toBeInTheDocument();
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
+  });
 });

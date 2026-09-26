@@ -65,9 +65,10 @@ export function ResetPasswordPage() {
             const signedIn = data.session?.user ?? null;
             setSwitchFrom(signedIn ? (signedIn.email ?? 'другой аккаунт') : null);
             if (!signedIn) setSwitchConfirmed(true);
-          } catch {
-            setSwitchFrom(null);
-            setSwitchConfirmed(true);
+          } catch (e) {
+            // N-37: не смогли проверить — не значит «никто не вошёл». Спрашиваем.
+            reportError(e, { action: 'inviteSwitch_getSession' });
+            setSwitchFrom('');
           }
         })();
         return unsub;
@@ -146,11 +147,13 @@ export function ResetPasswordPage() {
     return (
       <div className="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-surface-base">
         <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl border bg-surface-card border-border-subtle shadow-xl space-y-5" data-testid="invite-switch-account">
-          <h1 className="text-xl font-bold text-text-main">Сейчас выполнен вход в другой аккаунт</h1>
+          <h1 className="text-xl font-bold text-text-main">{switchFrom ? 'Сейчас выполнен вход в другой аккаунт' : 'Возможно, выполнен вход в другой аккаунт'}</h1>
           <p className="text-sm leading-relaxed text-text-main/70">
-            В этом браузере открыт аккаунт <strong className="text-text-main">{switchFrom}</strong>. Приглашение
-            создаёт новый аккаунт, и из этого придётся выйти — во всех вкладках. Ваши заметки и черновик
-            останутся в нём, войти обратно можно в любой момент.
+            {switchFrom
+              ? <>В этом браузере открыт аккаунт <strong className="text-text-main">{switchFrom}</strong>. </>
+              : <>Не удалось проверить, открыт ли в этом браузере другой аккаунт. </>}
+            Приглашение создаёт новый аккаунт, и из текущего придётся выйти — во всех вкладках. Ваши
+            заметки и черновик останутся в нём, войти обратно можно в любой момент.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button type="button" onClick={() => { void navigate('/', { replace: true }); }}
