@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.11',
+    date: '2026-09-26',
+    items: [
+      { category: 'fix', ru: 'Текст в редакторе привязан к своему аккаунту и после перехода на страницу приглашения или входа под другим аккаунтом: чужой текст сохраняется прежнему владельцу и никогда — новому.', en: 'Editor text stays bound to its account even after moving to the invite page or signing in as someone else: it is saved for its owner, never for the new account.' },
+      { category: 'fix', ru: 'Удаление больше не сообщает об успехе, которого не было: «корзина очищена» — только если очищена, неудалённое остаётся видно, а при удалении навсегда сказано, если разборы ИИ удалить не удалось.', en: 'Deleting no longer reports success it did not have: "trash emptied" only when it is, what failed stays visible, and a permanent delete says when AI analyses could not be removed.' },
+      { category: 'improvement', ru: 'В светлой теме основные кнопки теперь читаемы, а белый текст на фиолетовых кнопках в тёмных темах заменён на контрастный.', en: 'Primary buttons are readable in the light theme, and white text on purple buttons in dark themes is replaced with a contrasting colour.' },
+      { category: 'improvement', ru: 'Доступность: вопрос о смене аккаунта объявляется скринридером как диалог, поля пароля подписаны, ошибки зачитываются.', en: 'Accessibility: the account-switch question is announced as a dialog, password fields are labelled, errors are read out.' },
+      { category: 'fix', ru: 'Синхронизация не выгружает повторно уже выгруженные заметки, если запись счётчика попыток дала сбой.', en: 'Sync no longer re-uploads finished notes when writing the retry counter fails.' },
+      { category: 'fix', ru: 'Метки заметок больше не застревают на «…» после неудачного чтения профиля.', en: 'Note labels no longer get stuck at "…" after a failed profile read.' },
+      { category: 'fix', ru: 'Ссылка из письма обрабатывается один раз и после перезагрузки страницы не показывает «ссылка устарела» и не спрашивает повторно о смене аккаунта.', en: 'An email link is exchanged once: a page reload no longer shows "link expired" or asks about switching accounts again.' },
+    ],
+  },
+  {
     version: '0.9.10',
     date: '2026-09-26',
     items: [

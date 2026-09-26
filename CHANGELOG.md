@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9.11 — 2026-09-26
+
+- **[RU]** Текст в редакторе привязан к своему аккаунту и после перехода на страницу приглашения или входа под другим аккаунтом: чужой текст сохраняется прежнему владельцу и никогда — новому.
+- **[EN]** Editor text stays bound to its account even after moving to the invite page or signing in as someone else: it is saved for its owner, never for the new account.
+- **[RU]** Удаление больше не сообщает об успехе, которого не было: «корзина очищена» — только если очищена, неудалённое остаётся видно, а при удалении навсегда сказано, если разборы ИИ удалить не удалось.
+- **[EN]** Deleting no longer reports success it did not have: "trash emptied" only when it is, what failed stays visible, and a permanent delete says when AI analyses could not be removed.
+- **[RU]** В светлой теме основные кнопки теперь читаемы, а белый текст на фиолетовых кнопках в тёмных темах заменён на контрастный.
+- **[EN]** Primary buttons are readable in the light theme, and white text on purple buttons in dark themes is replaced with a contrasting colour.
+- **[RU]** Доступность: вопрос о смене аккаунта объявляется скринридером как диалог, поля пароля подписаны, ошибки зачитываются.
+- **[EN]** Accessibility: the account-switch question is announced as a dialog, password fields are labelled, errors are read out.
+- **[RU]** Синхронизация не выгружает повторно уже выгруженные заметки, если запись счётчика попыток дала сбой.
+- **[EN]** Sync no longer re-uploads finished notes when writing the retry counter fails.
+- **[RU]** Метки заметок больше не застревают на «…» после неудачного чтения профиля.
+- **[EN]** Note labels no longer get stuck at "…" after a failed profile read.
+- **[RU]** Ссылка из письма обрабатывается один раз и после перезагрузки страницы не показывает «ссылка устарела» и не спрашивает повторно о смене аккаунта.
+- **[EN]** An email link is exchanged once: a page reload no longer shows "link expired" or asks about switching accounts again.
+
 ## 0.9.10 — 2026-09-26
 
 - **[RU]** Если сервер не отвечает, а интернет есть, сверху появляется подсказка: «Нет связи с сервером. Если включён VPN, попробуйте без него». То же сказано в ошибках входа и открытия сейфа.
