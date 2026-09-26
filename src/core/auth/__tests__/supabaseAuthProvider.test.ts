@@ -27,6 +27,7 @@ import { mapAIError } from '../../../features/ai/services/AIService';
 describe('ERR-3: auth session error visibility and token refresh failure', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.removeItem('jw_voluntary_signout_at');
     mockOnAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     });
@@ -164,5 +165,20 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
       vis.mockRestore();
       Object.defineProperty(window, 'location', { configurable: true, value: origLocation });
     }
+  });
+
+  it('a sign-out made in another tab a moment ago is not reported as unexpected', () => {
+    _resetAuthStateForTesting();
+    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
+      authStateCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+    getCurrentUser();
+    authStateCallback?.('SIGNED_IN', { user: { id: 'u_tab', email: 'a@example.com' } });
+    localStorage.setItem('jw_voluntary_signout_at', String(Date.now())); // соседняя вкладка нажала «Выйти»
+    authStateCallback?.('SIGNED_OUT', null);
+    expect(reportErrorModule.reportError).not.toHaveBeenCalled();
+    localStorage.removeItem('jw_voluntary_signout_at');
   });
 });

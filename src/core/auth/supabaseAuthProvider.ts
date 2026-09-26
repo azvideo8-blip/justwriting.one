@@ -45,7 +45,7 @@ function ensureSubscribed(): void {
       return;
     }
     if (event === 'SIGNED_OUT') {
-      if (currentUser !== null && !isVoluntarySignOut) {
+      if (currentUser !== null && !isVoluntarySignOut && !signedOutElsewhereJustNow()) {
         reportError(
           new Error('SESSION_TERMINATED: auth session signed out unexpectedly'),
           { action: 'auth_session_signed_out', previousUid: currentUser.uid },
@@ -146,8 +146,17 @@ export async function signUp(email: string, password: string): Promise<AppUser> 
   return mapUser(data.user)!;
 }
 
+// Выход в одной вкладке приходит в соседние событием SIGNED_OUT, и там он
+// выглядел «неожиданным» — ложная запись в журнале. Отметка в localStorage
+// общая для вкладок: выход, сделанный человеком несколько секунд назад, — не сбой.
+const SIGNOUT_MARK = 'jw_voluntary_signout_at';
+function signedOutElsewhereJustNow(): boolean {
+  try { return Date.now() - Number(localStorage.getItem(SIGNOUT_MARK) ?? 0) < 10_000; } catch { return false; }
+}
+
 export async function signOutUser(options?: { scope?: 'global' | 'local' | 'others' }): Promise<void> {
   isVoluntarySignOut = true;
+  try { localStorage.setItem(SIGNOUT_MARK, String(Date.now())); } catch { /* private mode */ }
   try {
     const { error } = await getSupabase().auth.signOut(options);
     if (error) throw error;
