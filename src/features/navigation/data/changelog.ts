@@ -14,6 +14,20 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.10',
+    date: '2026-09-26',
+    items: [
+      { category: 'improvement', ru: 'Если сервер не отвечает, а интернет есть, сверху появляется подсказка: «Нет связи с сервером. Если включён VPN, попробуйте без него». То же сказано в ошибках входа и открытия сейфа.', en: 'If the server does not answer while the internet is up, a banner says so and suggests trying without a VPN. Sign-in and vault errors say the same.' },
+      { category: 'fix', ru: 'Сбой сети больше не перезагружает страницу посреди письма: перезагрузка — только если после выкатки части приложения действительно нет на сервере.', en: 'A network hiccup no longer reloads the page mid-writing: it reloads only when part of the app is really gone from the server after an update.' },
+      { category: 'fix', ru: 'При смене аккаунта черновик прежнего аккаунта стирается с экрана только после того, как он действительно записан; пропущенная запись больше не показывается как «Сохранено».', en: 'When the account changes, the previous account’s draft leaves the screen only after it is really written; a skipped write no longer shows as "Saved".' },
+      { category: 'fix', ru: 'Страница приглашения, не сумевшая проверить текущий вход, спрашивает, а не меняет аккаунт молча.', en: 'The invite page asks instead of switching accounts silently when it cannot check the current sign-in.' },
+      { category: 'fix', ru: 'Вопрос о синхронизации, закрытый клавишей Esc или кликом мимо окна, не считается ответом «нет» — его зададут снова.', en: 'Closing the sync question with Esc or a click outside is not an answer "no" — it will be asked again.' },
+      { category: 'fix', ru: 'Переключатель синхронизации в настройках сразу показывает изменение, сделанное в другом месте.', en: 'The sync switch in settings reflects a change made elsewhere right away.' },
+      { category: 'improvement', ru: 'Безопасность: профиль, курсор синхронизации и восстановление ИИ-данных принимают из облака только строки своего аккаунта.', en: 'Security: the profile, the sync cursor and the AI data restore accept only the account’s own rows from the cloud.' },
+      { category: 'fix', ru: 'Журнал больше не пишет ложные «сессия неожиданно завершена» после выхода в соседней вкладке и «возможная задержка редактора» по ритму набора.', en: 'The journal no longer logs false "session ended unexpectedly" after signing out in another tab, or "possible editor lag" from typing rhythm.' },
+    ],
+  },
+  {
     version: '0.9.9',
     date: '2026-09-25',
     items: [

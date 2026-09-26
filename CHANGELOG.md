@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.9.10 — 2026-09-26
+
+- **[RU]** Если сервер не отвечает, а интернет есть, сверху появляется подсказка: «Нет связи с сервером. Если включён VPN, попробуйте без него». То же сказано в ошибках входа и открытия сейфа.
+- **[EN]** If the server does not answer while the internet is up, a banner says so and suggests trying without a VPN. Sign-in and vault errors say the same.
+- **[RU]** Сбой сети больше не перезагружает страницу посреди письма: перезагрузка — только если после выкатки части приложения действительно нет на сервере.
+- **[EN]** A network hiccup no longer reloads the page mid-writing: it reloads only when part of the app is really gone from the server after an update.
+- **[RU]** При смене аккаунта черновик прежнего аккаунта стирается с экрана только после того, как он действительно записан; пропущенная запись больше не показывается как «Сохранено».
+- **[EN]** When the account changes, the previous account’s draft leaves the screen only after it is really written; a skipped write no longer shows as "Saved".
+- **[RU]** Страница приглашения, не сумевшая проверить текущий вход, спрашивает, а не меняет аккаунт молча.
+- **[EN]** The invite page asks instead of switching accounts silently when it cannot check the current sign-in.
+- **[RU]** Вопрос о синхронизации, закрытый клавишей Esc или кликом мимо окна, не считается ответом «нет» — его зададут снова.
+- **[EN]** Closing the sync question with Esc or a click outside is not an answer "no" — it will be asked again.
+- **[RU]** Переключатель синхронизации в настройках сразу показывает изменение, сделанное в другом месте.
+- **[EN]** The sync switch in settings reflects a change made elsewhere right away.
+- **[RU]** Безопасность: профиль, курсор синхронизации и восстановление ИИ-данных принимают из облака только строки своего аккаунта.
+- **[EN]** Security: the profile, the sync cursor and the AI data restore accept only the account’s own rows from the cloud.
+- **[RU]** Журнал больше не пишет ложные «сессия неожиданно завершена» после выхода в соседней вкладке и «возможная задержка редактора» по ритму набора.
+- **[EN]** The journal no longer logs false "session ended unexpectedly" after signing out in another tab, or "possible editor lag" from typing rhythm.
+
 ## 0.9.9 — 2026-09-25
 
 - **[RU]** Черновик остаётся в своём аккаунте: если аккаунт сменился при открытом редакторе, текст сохраняется прежнему владельцу, а не попадает черновиком в новый аккаунт.
