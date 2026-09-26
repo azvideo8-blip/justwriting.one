@@ -36,7 +36,17 @@ export function ResetPasswordPage() {
   // браузере одна, и переход по ссылке выкинул бы из текущего аккаунта молча.
   // Сначала спрашиваем. undefined — ещё не проверили, null — входа не было.
   const [switchFrom, setSwitchFrom] = useState<string | null | undefined>(isInvite ? undefined : null);
-  const [switchConfirmed, setSwitchConfirmed] = useState(false);
+  // Подтверждение запоминается на время вкладки: если страница перезагрузится
+  // посреди приглашения, вход уже будет новым аккаунтом — и вопрос «выйти из
+  // него?» про самого приглашённого был бы бессмыслицей.
+  const inviteConfirmKey = `jw_invite_switch_confirmed_${searchParams.get('token_hash') ?? ''}`;
+  const [switchConfirmed, setSwitchConfirmed] = useState(() => {
+    try { return sessionStorage.getItem(inviteConfirmKey) === '1'; } catch { return false; }
+  });
+  const confirmSwitch = () => {
+    try { sessionStorage.setItem(inviteConfirmKey, '1'); } catch { /* private mode */ }
+    setSwitchConfirmed(true);
+  };
   const [legacyHash] = useState(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
@@ -165,7 +175,7 @@ export function ResetPasswordPage() {
               className="w-full py-3 rounded-xl text-sm font-medium border border-border-subtle text-text-main/80 hover:text-text-main hover:bg-text-main/5 transition-colors">
               Остаться
             </button>
-            <button type="button" onClick={() => setSwitchConfirmed(true)}
+            <button type="button" onClick={confirmSwitch}
               className="w-full py-3 rounded-xl font-bold text-sm text-surface-base bg-brand-soft hover:brightness-110 transition-colors">
               Продолжить
             </button>

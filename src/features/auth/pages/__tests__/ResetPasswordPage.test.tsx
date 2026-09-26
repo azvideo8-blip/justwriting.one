@@ -48,6 +48,7 @@ function renderPage(initialEntries = ['/']) {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   updateUserPassword.mockClear();
   signOutUser.mockClear();
   verifyOtpForRecovery.mockClear();
@@ -180,5 +181,21 @@ describe('invite link while another account is signed in', () => {
     fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'bbbbbbbbbb' } });
     fireEvent.click(screen.getByText('Сменить пароль'));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  // Перезагрузка посреди приглашения: вход уже новым аккаунтом — не спрашивать
+  // «выйти из него?» про самого приглашённого.
+  it('after «Continue» and a reload of the page, it does not ask again', async () => {
+    sessionStorage.clear();
+    getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
+    const first = renderPage(['/reset-password?token_hash=tok-reload&type=invite']);
+    fireEvent.click(await screen.findByText('Продолжить'));
+    first.unmount();
+    verifyOtpForRecovery.mockClear();
+    getSession.mockResolvedValue({ data: { session: { user: { email: 'invitee@example.com' } } } });
+    renderPage(['/reset-password?token_hash=tok-reload&type=invite']);
+    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalled());
+    expect(screen.queryByTestId('invite-switch-account')).toBeNull();
+    getSession.mockResolvedValue({ data: { session: null } });
   });
 });
