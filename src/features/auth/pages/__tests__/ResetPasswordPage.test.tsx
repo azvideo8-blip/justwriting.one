@@ -148,6 +148,9 @@ describe('invite link while another account is signed in', () => {
     expect(await screen.findByTestId('invite-switch-account')).toBeInTheDocument();
     expect(screen.getByText('owner@example.com')).toBeInTheDocument();
     expect(verifyOtpForRecovery).not.toHaveBeenCalled();
+    // N-56: для скринридера это диалог с названием, фокус — на безопасном «Остаться».
+    expect(screen.getByRole('alertdialog', { name: /вход в другой аккаунт/i })).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByText('Остаться'));
 
     fireEvent.click(screen.getByText('Продолжить'));
     await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalledWith('abc', 'invite'));
@@ -167,5 +170,15 @@ describe('invite link while another account is signed in', () => {
     renderPage(['/reset-password?token_hash=abc&type=invite']);
     expect(await screen.findByTestId('invite-switch-account')).toBeInTheDocument();
     expect(verifyOtpForRecovery).not.toHaveBeenCalled();
+  });
+
+  // N-57: поля пароля различимы без placeholder'а, ошибка объявляется.
+  it('password fields have labels and the mismatch error is announced', async () => {
+    renderPage();
+    act(() => { onPasswordRecoveryCb.fire(); });
+    fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'aaaaaaaaaa' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'bbbbbbbbbb' } });
+    fireEvent.click(screen.getByText('Сменить пароль'));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 });

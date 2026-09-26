@@ -32,8 +32,9 @@ async function throughPassword() {
   expect(next()).toBeDisabled();                       // без обязательной галочки — нельзя
   fireEvent.click(screen.getAllByRole('checkbox')[0]!);
   fireEvent.click(next());
-  fireEvent.change(screen.getByPlaceholderText('Пароль'), { target: { value: 'long-password-1' } });
-  fireEvent.change(screen.getByPlaceholderText('Повторите пароль'), { target: { value: 'long-password-1' } });
+  // N-57: поля находятся по подписи, а не только по placeholder'у.
+  fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
+  fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
   fireEvent.click(next());
   await screen.findByText('Хранить заметки в облаке?');
 }

@@ -143,12 +143,17 @@ export function ResetPasswordPage() {
   };
 
   if (isInvite && searchParams.get('token_hash') && !switchConfirmed) {
-    if (switchFrom === undefined) return <div className="min-h-screen bg-surface-base" />;
+    if (switchFrom === undefined) {
+      return <div className="min-h-screen bg-surface-base"><p role="status" className="sr-only">Проверяю, выполнен ли вход…</p></div>;
+    }
     return (
       <div className="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-surface-base">
-        <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl border bg-surface-card border-border-subtle shadow-xl space-y-5" data-testid="invite-switch-account">
-          <h1 className="text-xl font-bold text-text-main">{switchFrom ? 'Сейчас выполнен вход в другой аккаунт' : 'Возможно, выполнен вход в другой аккаунт'}</h1>
-          <p className="text-sm leading-relaxed text-text-main/70">
+        {/* N-56: вопрос, после которого человек выходит из аккаунта во всех
+            вкладках, — диалог для скринридера, фокус сразу на безопасном «Остаться». */}
+        <div role="alertdialog" aria-modal="true" aria-labelledby="invite-switch-title" aria-describedby="invite-switch-desc"
+          className="w-full max-w-md p-6 sm:p-8 rounded-3xl border bg-surface-card border-border-subtle shadow-xl space-y-5" data-testid="invite-switch-account">
+          <h1 id="invite-switch-title" className="text-xl font-bold text-text-main">{switchFrom ? 'Сейчас выполнен вход в другой аккаунт' : 'Возможно, выполнен вход в другой аккаунт'}</h1>
+          <p id="invite-switch-desc" className="text-sm leading-relaxed text-text-main/70">
             {switchFrom
               ? <>В этом браузере открыт аккаунт <strong className="text-text-main">{switchFrom}</strong>. </>
               : <>Не удалось проверить, открыт ли в этом браузере другой аккаунт. </>}
@@ -156,7 +161,7 @@ export function ResetPasswordPage() {
             заметки и черновик останутся в нём, войти обратно можно в любой момент.
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => { void navigate('/', { replace: true }); }}
+            <button type="button" autoFocus onClick={() => { void navigate('/', { replace: true }); }}
               className="w-full py-3 rounded-xl text-sm font-medium border border-border-subtle text-text-main/80 hover:text-text-main hover:bg-text-main/5 transition-colors">
               Остаться
             </button>
@@ -232,6 +237,7 @@ export function ResetPasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Новый пароль"
+              aria-label="Новый пароль"
               autoComplete="new-password"
               minLength={MIN_PASSWORD_LENGTH}
               required
@@ -242,11 +248,12 @@ export function ResetPasswordPage() {
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Повторите пароль"
+              aria-label="Повторите пароль"
               autoComplete="new-password"
               required
               className="w-full rounded-lg border px-3 py-2 bg-transparent"
             />
-            {error && <p className="text-sm text-accent-danger">{error}</p>}
+            {error && <p role="alert" className="text-sm text-accent-danger">{error}</p>}
             <button
               type="submit"
               disabled={busy || password.length < MIN_PASSWORD_LENGTH}

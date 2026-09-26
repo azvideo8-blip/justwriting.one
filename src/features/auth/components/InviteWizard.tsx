@@ -151,12 +151,12 @@ export function InviteWizard({ email }: { email: string | null }) {
                 следующем шаге.
               </p>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="Пароль" autoComplete="new-password" minLength={MIN_PASSWORD_LENGTH} required
+                placeholder="Пароль" aria-label="Пароль" autoComplete="new-password" minLength={MIN_PASSWORD_LENGTH} required
                 className="w-full rounded-xl border border-border-subtle bg-surface-base/5 px-4 py-3 text-text-main outline-none focus:ring-2 focus:ring-[var(--brand-soft)]/40" />
               <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
-                placeholder="Повторите пароль" autoComplete="new-password" required
+                placeholder="Повторите пароль" aria-label="Повторите пароль" autoComplete="new-password" required
                 className="w-full rounded-xl border border-border-subtle bg-surface-base/5 px-4 py-3 text-text-main outline-none focus:ring-2 focus:ring-[var(--brand-soft)]/40" />
-              {error && <p className="text-sm text-accent-danger">{error}</p>}
+              {error && <p role="alert" className="text-sm text-accent-danger">{error}</p>}
               <Nav onBack={() => setStep('policy')} nextType="submit" nextLabel={busy ? 'Сохраняю…' : 'Далее'}
                 nextDisabled={busy || password.length < MIN_PASSWORD_LENGTH} />
             </form>
