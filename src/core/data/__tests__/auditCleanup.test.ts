@@ -63,8 +63,8 @@ describe('2.9 version ids "v5" parse to numbers, never NaN', () => {
 
 describe('2.15 tag operations surface per-document failures', () => {
   const docs = [
-    { uuid: 'doc_a', tags: ['old'], _encrypted: false },
-    { uuid: 'doc_b', tags: ['old'], _encrypted: false },
+    { uuid: 'doc_a', tags: ['old'], _encrypted: false, user_id: 'u1' },
+    { uuid: 'doc_b', tags: ['old'], _encrypted: false, user_id: 'u1' },
   ];
 
   function wireSelectRows(rows: unknown[], updateResults: Array<{ error: unknown }>) {
@@ -78,6 +78,13 @@ describe('2.15 tag operations surface per-document failures', () => {
       return { eq: () => ({ eq: async () => r }) } as never;
     });
   }
+
+  // N-45: чужая строка в ответе (сломанный RLS) не попадает в обработку тегов.
+  it('renameTag skips a row of another account', async () => {
+    wireSelectRows([...docs, { uuid: 'doc_foreign', tags: ['old'], _encrypted: false, user_id: 'intruder' }], []);
+    await SupabaseDataProvider.renameTagInAllDocs('u1', 'old', 'new');
+    expect(builder.update).toHaveBeenCalledTimes(2);
+  });
 
   it('renameTag throws TAG_OP_PARTIAL when one document fails', async () => {
     wireSelectRows(docs, [{ error: null }, { error: { message: 'rls' } }]);

@@ -176,14 +176,15 @@ export async function clearLabelFromAllDocs(userId: string, labelId: string): Pr
   if (error != null) throw error;
 }
 
-async function readAllDocTags(userId: string): Promise<{ uuid: string | null; tags: unknown; _encrypted: boolean | null }[]> {
-  return pageAll<{ uuid: string | null; tags: unknown; _encrypted: boolean | null }>((from, to) => getSupabase()
+async function readAllDocTags(userId: string): Promise<{ uuid: string | null; tags: unknown; _encrypted: boolean | null; user_id: string }[]> {
+  // N-45: владелец в выборке — чужие строки отбрасываются сразу, как у остальных читалок.
+  return ownRows(await pageAll<{ uuid: string | null; tags: unknown; _encrypted: boolean | null; user_id: string }>((from, to) => getSupabase()
     .from('documents')
-    .select('uuid, tags, _encrypted')
+    .select('uuid, tags, _encrypted, user_id')
     .eq('user_id', userId)
     .is('deleted_at', null)
     .order('uuid', { ascending: true })
-    .range(from, to));
+    .range(from, to)), userId);
 }
 
 export async function renameTagInAllDocs(userId: string, oldTag: string, newTag: string): Promise<void> {
@@ -284,13 +285,13 @@ export async function getCloudVersionDiscrepancyCount(userId: string): Promise<n
     const rows = await pageAll((from, to) =>
       supabase
         .from('documents')
-        .select('uuid, current_version')
+        .select('uuid, current_version, user_id')
         .eq('user_id', userId)
         .is('deleted_at', null)
         .order('uuid', { ascending: true })
         .range(from, to),
     );
-    return rows.map(row => ({
+    return ownRows(rows, userId).map(row => ({
       uuid: (row as { uuid?: string }).uuid ?? '',
       current_version: (row as { current_version?: number }).current_version ?? 0,
     }));
@@ -301,12 +302,12 @@ export async function getCloudVersionDiscrepancyCount(userId: string): Promise<n
     const rows = await pageAll((from, to) =>
       supabase
         .from('versions')
-        .select('document_uuid')
+        .select('document_uuid, user_id')
         .eq('user_id', userId)
         .order('id', { ascending: true })
         .range(from, to),
     );
-    for (const row of rows) {
+    for (const row of ownRows(rows, userId)) {
       const id = (row as { document_uuid?: string }).document_uuid;
       if (id) {
         counts.set(id, (counts.get(id) ?? 0) + 1);

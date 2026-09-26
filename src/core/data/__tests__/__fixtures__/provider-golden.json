@@ -284,14 +284,14 @@
       {
         "table": "documents",
         "chain": [
-          "select([\"uuid, tags, _encrypted\"])"
+          "select([\"uuid, tags, _encrypted, user_id\"])"
         ],
-        "payload": "uuid, tags, _encrypted"
+        "payload": "uuid, tags, _encrypted, user_id"
       },
       {
         "table": "documents",
         "chain": [
-          "select([\"uuid, tags, _encrypted\"])",
+          "select([\"uuid, tags, _encrypted, user_id\"])",
           "eq([\"user_id\",\"u1\"])",
           "is([\"deleted_at\",null])",
           "order([\"uuid\",{\"ascending\":true}])",
@@ -309,14 +309,14 @@
       {
         "table": "documents",
         "chain": [
-          "select([\"uuid, tags, _encrypted\"])"
+          "select([\"uuid, tags, _encrypted, user_id\"])"
         ],
-        "payload": "uuid, tags, _encrypted"
+        "payload": "uuid, tags, _encrypted, user_id"
       },
       {
         "table": "documents",
         "chain": [
-          "select([\"uuid, tags, _encrypted\"])",
+          "select([\"uuid, tags, _encrypted, user_id\"])",
           "eq([\"user_id\",\"u1\"])",
           "is([\"deleted_at\",null])",
           "order([\"uuid\",{\"ascending\":true}])",
