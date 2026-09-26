@@ -401,7 +401,10 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       let cursorId: string | undefined = getEmbeddingRestoreCursor(userId) || undefined;
       while (docsPage.length < MAX_EMBEDS_PER_RUN) {
         const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
-        if (res.items.length === 0) { clearEmbeddingRestoreRequest(userId); break; }
+        // N-39: конец списка решает число строк, которые отдал сервер (readCount),
+        // а не число своих после фильтра владельца: одна чужая строка в странице
+        // иначе объявляла восстановление законченным и снимала флаг.
+        if (res.readCount === 0) { clearEmbeddingRestoreRequest(userId); break; }
         
         docsPage.push(...res.items);
         cursorId = res.nextCursorId;
@@ -409,7 +412,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           setEmbeddingRestoreCursor(userId, cursorId);
         }
         
-        if (res.items.length < PAGE) { clearEmbeddingRestoreRequest(userId); break; }
+        if (res.readCount < PAGE) { clearEmbeddingRestoreRequest(userId); break; }
       }
 
       for (const d of docsPage) {

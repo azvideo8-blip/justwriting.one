@@ -69,6 +69,7 @@ vi.mock('../../../../core/data', () => ({
       return {
         items: slice.map(d => ({ id: d.id, ...(d.data() as any) })),
         nextCursorId: slice.length === limit ? slice[slice.length - 1]?.id ?? null : null,
+        readCount: slice.length,
       };
     },
     getLocalStoreRecords: async (...a: unknown[]) => { providerCalls.push(['localStore', a]); return localStoreRecordsDocs; },
@@ -681,5 +682,20 @@ describe('reattachOrphanedAnalysis', () => {
     // documentUuid is set but doesn't match any doc → not adopted via hash either
     expect(res.summaries).toBe(0);
     expect(localStore.aiSummaries.has('local_dead')).toBe(true);
+  });
+
+  // N-39: провайдер отбрасывает чужие строки, и в странице своих меньше десяти.
+  // Конец списка — по числу строк, которые отдал сервер, иначе восстановление
+  // эмбеддингов объявлялось законченным на первой же такой странице.
+  it('a page thinned by the owner filter does not end the embedding restore', async () => {
+    localStorage.clear();
+    const { DataProvider } = await import('../../../../core/data');
+    const spy = vi.spyOn(DataProvider, 'getUserEmbeddingsPaginated')
+      .mockResolvedValueOnce({ items: Array.from({ length: 9 }, (_, i) => ({ id: `e${i}` })), nextCursorId: 'e9', readCount: 10 })
+      .mockResolvedValueOnce({ items: [], readCount: 0 });
+    requestEmbeddingRestore('user-n39');
+    await restoreAIDataFromCloud('user-n39');
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
   });
 });
