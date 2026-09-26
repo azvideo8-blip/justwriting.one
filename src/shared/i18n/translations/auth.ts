@@ -8,7 +8,7 @@ export const authTranslations: Translations = {
   auth_error_weak_password: { ru: 'Пароль слишком простой.', en: 'Password is too weak.' },
   auth_error_invalid_credential: { ru: 'Неверный email или пароль.', en: 'Invalid email or password.' },
   auth_error_email_not_confirmed: { ru: 'Подтверди email по ссылке из письма и попробуй снова.', en: 'Confirm your email via the link we sent you and try again.' },
-  auth_error_network: { ru: 'Ошибка сети при попытке входа. Проверь соединение и попробуй снова.', en: 'Network error during sign-in. Check your connection and try again.' },
+  auth_error_network: { ru: 'Ошибка сети при попытке входа. Проверь соединение и попробуй снова. Если включён VPN — попробуй без него.', en: 'Network error during sign-in. Check your connection and try again. If a VPN is on, try without it.' },
   auth_error_rate_limited: { ru: 'Слишком много попыток. Пожалуйста, подождите минуту перед следующей попыткой.', en: 'Too many attempts. Please wait a minute before trying again.' },
   auth_error_invalid_email: { ru: 'Некорректный email.', en: 'Invalid email address.' },
   auth_subtitle: { ru: 'Минималистичное пространство для писателей.', en: 'A minimalist space for writers.' },

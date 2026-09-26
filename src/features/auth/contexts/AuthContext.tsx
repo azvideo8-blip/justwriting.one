@@ -12,6 +12,8 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isGuest: boolean;
   loading: boolean;
+  /** Вход не восстановился за 10 с: браузер «в сети», а сервер не отвечает. */
+  serverUnreachable: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -20,16 +22,19 @@ const AuthContext = createContext<AuthContextValue>({
   isAuthenticated: false,
   isGuest: false,
   loading: true,
+  serverUnreachable: false,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [authState, setAuthState] = useState<AuthState>('loading');
+  const [serverUnreachable, setServerUnreachable] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange((u) => {
       setUser(u);
       setAuthState(u ? 'authenticated' : 'guest');
+      setServerUnreachable(false);
     });
 
     const timeout = setTimeout(() => {
@@ -40,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             { action: 'auth_init_timeout' },
             'warning',
           );
+          setServerUnreachable(true);
           return 'guest';
         }
         return prev;
@@ -54,7 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: authState === 'authenticated',
     isGuest: authState === 'guest',
     loading: authState === 'loading',
-  }), [user, authState]);
+    serverUnreachable,
+  }), [user, authState, serverUnreachable]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

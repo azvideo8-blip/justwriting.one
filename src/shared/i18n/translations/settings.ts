@@ -93,6 +93,7 @@ export const settingsTranslations: Translations = {
   offline_syncing: { ru: 'Синхронизируется...', en: 'Syncing...' },
   offline_synced: { ru: 'Все данные синхронизированы', en: 'All data synced' },
   offline_compact: { ru: 'Офлайн', en: 'Offline' },
+  server_unreachable_vpn: { ru: 'Нет связи с сервером — работаем локально. Если включён VPN, попробуйте без него', en: 'Cannot reach the server — working locally. If a VPN is on, try without it' },
   synced_compact: { ru: 'Синхронизировано', en: 'Synced' },
   sync_paused_no_network: { ru: 'Синхронизация приостановлена (нет сети)', en: 'Sync paused (no network)' },
   sync_paused_cloud_unavailable: { ru: 'Синхронизация приостановлена (облако недоступно)', en: 'Sync paused (cloud unavailable)' },

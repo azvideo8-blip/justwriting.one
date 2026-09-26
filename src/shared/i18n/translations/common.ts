@@ -35,8 +35,8 @@ export const commonTranslations: Translations = {
   retry: { ru: 'Повторить', en: 'Retry' },
 
   unlock_cloud_unreachable: {
-    ru: 'Не удалось получить данные шифрования из облака. Пароль здесь ни при чём — проверь соединение и попробуй позже.',
-    en: 'Could not fetch the encryption data from the cloud. This is not about your password — check the connection and try again later.',
+    ru: 'Не удалось получить данные шифрования из облака. Пароль здесь ни при чём — проверь соединение и попробуй позже. Если включён VPN — попробуй без него.',
+    en: 'Could not fetch the encryption data from the cloud. This is not about your password — check the connection and try again later. If a VPN is on, try without it.',
   },
   error_generic: { ru: 'Что-то пошло не так', en: 'Something went wrong' },
   error_generic_action: { ru: 'Что-то пошло не так. Попробуй ещё раз.', en: 'Something went wrong. Please try again.' },

@@ -20,6 +20,11 @@ vi.mock('../../../../app/useAuthStatus', () => ({
   useAuthStatus: () => ({ user: { uid: 'user_1' }, isGuest: false }),
 }));
 
+let mockServerUnreachable = false;
+vi.mock('../../../auth/contexts/AuthContext', () => ({
+  useAuth: () => ({ serverUnreachable: mockServerUnreachable }),
+}));
+
 vi.mock('../../../../shared/hooks/useLayoutMode', () => ({
   useLayoutMode: () => ({ layoutMode: 'desktop' }),
 }));
@@ -77,5 +82,15 @@ describe('D-20: ConnectionStatusBanner reconnect messaging', () => {
 
     expect(screen.getByText('offline_synced')).toBeInTheDocument();
     expect(screen.queryByText('connection_restored')).toBeNull();
+  });
+
+  // Браузер «в сети», а сервер молчит (VPN не пропускает до него): приложение
+  // тихо становилось гостевым, и человек думал, что заметки пропали.
+  it('says the server is unreachable and suggests trying without a VPN', () => {
+    mockIsOnline = true;
+    mockServerUnreachable = true;
+    render(<ConnectionStatusBanner showZen />);
+    expect(screen.getByText('server_unreachable_vpn')).toBeInTheDocument();
+    mockServerUnreachable = false;
   });
 });

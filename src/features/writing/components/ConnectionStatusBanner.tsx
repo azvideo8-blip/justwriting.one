@@ -7,6 +7,7 @@ import { useOnlineStatus } from '../../../shared/hooks/useOnlineStatus';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useAuthStatus } from '../../../app/useAuthStatus';
+import { useAuth } from '../../auth/contexts/AuthContext';
 
 interface ConnectionStatusBannerProps {
   showZen?: boolean;
@@ -15,6 +16,9 @@ interface ConnectionStatusBannerProps {
 export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps) {
   const { t } = useLanguage();
   const { user, isGuest } = useAuthStatus();
+  // Браузер «в сети», а сервер не ответил на восстановление входа — так
+  // выглядит, например, VPN, который не пропускает до нашего сервера.
+  const { serverUnreachable } = useAuth();
   const isOnline = useOnlineStatus();
   const syncStatus = useSyncStatus(isGuest ? null : (user?.uid ?? null));
   const { layoutMode } = useLayoutMode();
@@ -44,7 +48,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
     : (isMobile ? t('connection_restored_compact') : t('connection_restored'));
 
   // Show offline indicator even in zen mode — users need to know sync is down
-  if (showZen && isOnline) return null;
+  if (showZen && isOnline && !serverUnreachable) return null;
 
   return (
     <AnimatePresence>
@@ -65,6 +69,26 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           <div className="w-2 h-2 rounded-full bg-accent-warning animate-pulse shrink-0" />
           <WifiOff size={16} className="shrink-0" />
           <span>{isMobile ? t('offline_compact') : t('offline_working_locally')}</span>
+        </motion.div>
+      )}
+
+      {isOnline && serverUnreachable && (
+        <motion.div
+          key="unreachable"
+          role="status"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className={cn(
+            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
+            "flex items-center gap-2 backdrop-blur-xl border font-medium",
+            isMobile
+              ? "px-3 py-1.5 rounded-xl text-xs bg-accent-warning/15 border-accent-warning/30 text-accent-warning max-w-[calc(100vw-32px)]"
+              : "px-4 py-2 rounded-2xl text-sm bg-accent-warning/15 border-accent-warning/30 text-accent-warning"
+          )}
+        >
+          <WifiOff size={16} className="shrink-0" />
+          <span>{t('server_unreachable_vpn')}</span>
         </motion.div>
       )}
 
