@@ -34,12 +34,11 @@ export async function cleanupDraftsAfterSave(
   if (isGuest) {
     await clearGuestDraft();
   } else {
-    try {
-      const { WritingDraftService } = await import('../services/WritingDraftService');
-      WritingDraftService.bumpDraftGeneration(userId);
-      await WritingDraftService.deleteDraft(userId);
-    } catch (delErr) {
-      logger.warn('sessionActions', 'Failed to delete draft', { error: String(delErr) });
+    // N-54: deleteDraft не бросает — результат читается, а не ловится.
+    const { WritingDraftService } = await import('../services/WritingDraftService');
+    WritingDraftService.bumpDraftGeneration(userId);
+    if (!(await WritingDraftService.deleteDraft(userId))) {
+      logger.warn('sessionActions', 'Draft not deleted after save — it may reappear as an unsaved draft');
     }
     if (docIdToSync) {
       const { SyncService } = await import('../../../core/services/SyncService');

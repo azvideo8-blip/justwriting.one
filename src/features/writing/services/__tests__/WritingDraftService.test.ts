@@ -324,7 +324,8 @@ describe('WritingDraftService', () => {
         delete: vi.fn().mockRejectedValue(new Error('idb error')),
       });
             vi.mocked(DataProvider.deleteDraft).mockRejectedValue(new Error('firestore error'));
-      await expect(WritingDraftService.deleteDraft(mockUserId)).resolves.toBeUndefined();
+      // N-54: не бросает, но сообщает, что локальный черновик не удалён.
+      await expect(WritingDraftService.deleteDraft(mockUserId)).resolves.toBe(false);
       expect(reportError).toHaveBeenCalled();
     });
   });

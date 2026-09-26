@@ -179,4 +179,17 @@ describe('SEC-7b: useProfileLabels end-to-end decryption and edit cycle', () => 
       expect(result.current.labels[0]!.name).toBe('Практика6');
     });
   });
+
+  // N-54: неудачное чтение профиля не считается прочитанным — следующий
+  // потребитель читает заново, и метки не застревают на «…».
+  it('a failed profile read is retried by the next consumer', async () => {
+    const { DataProvider } = await import('../../../../core/data');
+    const get = vi.mocked(DataProvider.getProfile);
+    get.mockRejectedValueOnce(new Error('network'));
+    renderHook(() => useProfileLabels('user_retry'));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); });
+    renderHook(() => useProfileLabels('user_retry'));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+  });
 });

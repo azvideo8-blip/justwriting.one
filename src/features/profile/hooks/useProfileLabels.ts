@@ -42,8 +42,11 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   useEffect(() => {
     if (fetchedSet.has(userId) || !userId || userId.startsWith('guest')) return;
     ProfileService.getProfile(userId).then(result => {
+      // N-54: getProfile не бросает, а отдаёт { error }. Неудачное чтение не
+      // считается прочитанным — иначе метки остаются «…» до перезагрузки.
+      if (result.error) return;
       fetchedSet.add(userId);
-      if (!result.error && result.data?.labels) {
+      if (result.data?.labels) {
         const fetched = result.data.labels;
         labelCache.set(userId, fetched);
         setLabels(fetched);
@@ -57,8 +60,11 @@ export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
       labelCache.delete(userId);
       fetchedSet.delete(userId);
       ProfileService.getProfile(userId).then(result => {
+        // N-54: getProfile не бросает, а отдаёт { error }. Неудачное чтение не
+        // считается прочитанным — иначе метки остаются «…» до перезагрузки.
+        if (result.error) return;
         fetchedSet.add(userId);
-        if (!result.error && result.data?.labels) {
+        if (result.data?.labels) {
           const fetched = result.data.labels;
           labelCache.set(userId, fetched);
           setLabels(fetched);

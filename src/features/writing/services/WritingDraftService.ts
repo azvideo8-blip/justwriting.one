@@ -263,8 +263,11 @@ export const WritingDraftService = {
     }
   },
 
-  deleteDraft: async (userId: string) => {
-    if (!userId) return;
+  /** true — локальный черновик удалён (или его не было). false — не удалось:
+   *  он может всплыть «несохранённым черновиком» поверх сохранённой заметки. */
+  deleteDraft: async (userId: string): Promise<boolean> => {
+    if (!userId) return true;
+    let localOk = true;
     bumpDraftGeneration(userId);
     // The next draft must be written even if it opens with identical text.
     _lastCloudSignature.delete(userId);
@@ -275,6 +278,7 @@ export const WritingDraftService = {
         await localDb.delete('drafts', userId);
       }
     } catch (err) {
+      localOk = false;
       reportError(err, { action: 'deleteDraft_local', userId });
     }
     try {
@@ -285,5 +289,6 @@ export const WritingDraftService = {
     } catch (err) {
       reportError(err, { action: 'deleteDraft_cloud', userId });
     }
+    return localOk;
   }
 };
