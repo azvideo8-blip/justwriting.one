@@ -10,7 +10,7 @@ import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { SyncService } from '../../../core/services/SyncService';
-import { setCloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
+import { setCloudSyncEnabled, CLOUD_SYNC_CHANGED } from '../../../core/sync/cloudSyncEnabled';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
@@ -52,11 +52,19 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
 
   useEffect(() => {
     if (!userId) return;
+    const read = () => setAutoSync(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId)) === 'true');
     // Defer to avoid synchronous setState in effect body
-    const t = setTimeout(() => {
-      setAutoSync(localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(userId)) === 'true');
-    }, 0);
-    return () => clearTimeout(t);
+    const t = setTimeout(read, 0);
+    // N-42: выбор могут поменять и не здесь — окно вопроса о синхронизации,
+    // восстановление из облака, соседняя вкладка. Переключатель это слышит.
+    const onStorage = (e: StorageEvent) => { if (e.key === STORAGE_KEYS.AUTO_SYNC_ENABLED(userId)) read(); };
+    window.addEventListener(CLOUD_SYNC_CHANGED, read);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener(CLOUD_SYNC_CHANGED, read);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [userId]);
 
   const [storageStatus, setStorageStatus] = useState<StoragePersistenceStatus | null>(null);
