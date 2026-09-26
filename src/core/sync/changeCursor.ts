@@ -1,3 +1,4 @@
+import { ownRow } from '../data/providers/pageAll';
 import { getSupabase } from '../supabase/client';
 
 const CHANGE_CURSOR_KEY_PREFIX = 'change_cursor_last_seen_';
@@ -64,14 +65,14 @@ export async function fetchServerCursor(userId: string): Promise<string | null> 
   const [docRes, verRes] = await Promise.all([
     supabase
       .from('documents')
-      .select('updated_at')
+      .select('updated_at, user_id')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
       .from('versions')
-      .select('created_at')
+      .select('created_at, user_id')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -80,6 +81,10 @@ export async function fetchServerCursor(userId: string): Promise<string | null> 
 
   if (docRes.error) throw docRes.error;
   if (verRes.error) throw verRes.error;
+  // N-35: чужая свежая метка сдвинула бы курсор вперёд, и свои изменения
+  // старее неё больше не забирались бы. Чужая строка — ошибка чтения, курсор стоит.
+  ownRow(docRes.data, userId);
+  ownRow(verRes.data, userId);
 
   const docUpdated = docRes.data?.updated_at as string | undefined;
   const verCreated = verRes.data?.created_at as string | undefined;

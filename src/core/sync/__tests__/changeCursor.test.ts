@@ -77,7 +77,7 @@ describe('SYNC-CURSOR-2: changeCursor', () => {
         order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
-          data: { updated_at: '2026-09-19T10:00:00.000Z' },
+          data: { updated_at: '2026-09-19T10:00:00.000Z', user_id: userId },
           error: null,
         }),
       };
@@ -88,7 +88,7 @@ describe('SYNC-CURSOR-2: changeCursor', () => {
         order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
-          data: { created_at: '2026-09-19T11:00:00.000Z' },
+          data: { created_at: '2026-09-19T11:00:00.000Z', user_id: userId },
           error: null,
         }),
       };
@@ -109,7 +109,7 @@ describe('SYNC-CURSOR-2: changeCursor', () => {
         order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
-          data: { updated_at: '2026-09-19T15:00:00.000Z' },
+          data: { updated_at: '2026-09-19T15:00:00.000Z', user_id: userId },
           error: null,
         }),
       };
@@ -120,7 +120,7 @@ describe('SYNC-CURSOR-2: changeCursor', () => {
         order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({
-          data: { created_at: '2026-09-19T11:00:00.000Z' },
+          data: { created_at: '2026-09-19T11:00:00.000Z', user_id: userId },
           error: null,
         }),
       };
@@ -131,6 +131,19 @@ describe('SYNC-CURSOR-2: changeCursor', () => {
 
       const cursor = await fetchServerCursor(userId);
       expect(cursor).toBe('2026-09-19T15:00:00.000Z');
+    });
+
+    // N-35: чужая свежая метка (сломанный RLS, подменённый ответ) не двигает курсор.
+    it('a newer timestamp from another account is a failed read, not a new cursor', async () => {
+      const q = (row: Record<string, unknown>) => ({
+        select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }),
+      });
+      const docQuery = q({ updated_at: '2030-01-01T00:00:00.000Z', user_id: 'someone-else' });
+      const verQuery = q({ created_at: '2026-09-19T11:00:00.000Z', user_id: userId });
+      mockGetSupabase.mockReturnValue({ from: (table: string) => (table === 'documents' ? docQuery : verQuery) });
+      await expect(fetchServerCursor(userId)).rejects.toThrow(/FOREIGN_ROW/);
     });
   });
 
