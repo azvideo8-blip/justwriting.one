@@ -1486,6 +1486,8 @@ export class LifecycleRunner {
       sessionStartedAt: new Date(1000),
     });
     const cloudId = await StorageService.addCloudCopy(this.userId, docId);
+    // Строка профиля есть у каждого аккаунта — без неё проверка users (N-46) была бы пустой.
+    this.interceptor.postgres.executeInsert('users', { uid: this.userId, email: 'test@example.com' });
 
     const markers = ['Delete Account Note', 'Text to be deleted with account'];
     const p2Before = this.evaluateP2(markers, true, notes);
@@ -1518,10 +1520,13 @@ export class LifecycleRunner {
 
     const leftoverTables: string[] = [];
     if (told.status === 'deleted') {
-      for (const t of ['documents', 'versions', 'drafts', 'ai_summaries', 'ai_embeddings', 'local_store_records'] as const) {
+      // Тот же список, что у чистки фейкового сервера, плюс users по uid (N-46):
+      // таблица, добавленная в одну половину, не выпадает из другой.
+      for (const t of this.interceptor.postgres.getTableNamesWithColumn('user_id')) {
         const rows = this.interceptor.postgres.getRows(t).filter(r => r.user_id === this.userId);
         if (rows.length > 0) leftoverTables.push(t);
       }
+      if (this.interceptor.postgres.getRows('users').some(r => r.uid === this.userId)) leftoverTables.push('users');
     }
     if (leftoverTables.length > 0) {
       notes.push('P2 VIOLATION: leftover user rows found in ' + leftoverTables.join(', '));

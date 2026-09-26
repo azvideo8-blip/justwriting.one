@@ -348,6 +348,7 @@ export class FaultInterceptor {
           for (const t of this.postgres.getTableNamesWithColumn('user_id')) {
             this.postgres.executeDelete(t, [{ type: 'eq', column: 'user_id', value: u.uid }]);
           }
+          this.postgres.executeDelete('users', [{ type: 'eq', column: 'uid', value: u.uid }]);
         }
         return { success: true } as never;
       }
