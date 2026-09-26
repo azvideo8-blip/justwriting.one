@@ -9,6 +9,7 @@ import { useLoginModal } from '../features/auth/contexts/LoginModalContext';
 import { useSyncStatus } from '../core/sync/useSyncStatus';
 import { useToast } from '../shared/components/Toast';
 import { VAULT_PASSWORD_CONVERGED_EVENT } from '../core/services/EncryptionService';
+import { takeAccountChangeNotice } from '../core/auth/accountReload';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -66,6 +67,15 @@ export function AppShell() {
     const onConverged = () => showToast(t('enc_password_converged'), 'success');
     window.addEventListener(VAULT_PASSWORD_CONVERGED_EVENT, onConverged);
     return () => window.removeEventListener(VAULT_PASSWORD_CONVERGED_EVENT, onConverged);
+  }, [showToast, t]);
+
+  // Выход перезагружает страницу — сообщение о нём показывает уже новая.
+  useEffect(() => {
+    const notice = takeAccountChangeNotice();
+    if (notice === 'signed_out') showToast('Вы вышли из аккаунта', 'success');
+    else if (notice === 'signed_out_wiped') showToast('Вы вышли, локальные данные удалены', 'success');
+    else if (notice === 'wipe_failed') showToast('Вы вышли, но очистить локальные данные не удалось. Очистите данные сайта в браузере вручную.', 'error');
+    else if (notice === 'account_deleted') showToast(t('settings_delete_account_success'), 'success');
   }, [showToast, t]);
 
   const currentPath = location.pathname;

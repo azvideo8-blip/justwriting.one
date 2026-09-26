@@ -24,16 +24,14 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
 
   const handleConfirmSignOut = async (opts: { clearLocalData: boolean; force?: boolean }) => {
     try {
+      // «Вы вышли» (и AUD-11 «очистить не удалось») показывает уже
+      // перезагруженная страница — выход перезагружает её (accountReload.ts).
       await AuthService.signOut(opts);
       emitDomainEvent({ type: 'account.reset' });
-      showToast(opts.clearLocalData ? 'Вы вышли, локальные данные удалены' : 'Вы вышли из аккаунта', 'success');
     } catch (e) {
       const isUnsynced = (e as { name?: string }).name === 'UnsyncedLocalDataError';
-      // AUD-11: очистка локальных данных не удалась — данные остались на машине.
       const isWipeFailed = (e as { name?: string }).name === 'LocalWipeFailedError';
-      if (isWipeFailed) {
-        showToast('Вы вышли, но очистить локальные данные не удалось. Очистите данные сайта в браузере вручную.', 'error');
-      } else if (!isUnsynced) {
+      if (!isUnsynced && !isWipeFailed) {
         showToast(t('error_signout_failed'), 'error');
       }
       throw e;

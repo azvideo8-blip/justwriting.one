@@ -4,6 +4,7 @@ import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } 
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { resetDbInstance } from '../../../core/storage/localDb';
+import { setAccountChangeNotice, setAccountReloadTarget, skipFlushOnAccountReload, takeAccountChangeNotice } from '../../../core/auth/accountReload';
 
 async function signUpWithEmail(email: string, password: string) {
   resetDbInstance();
@@ -159,7 +160,24 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     }
   }
 
-  await signOutUser();
+  // Выход перезагружает страницу (accountReload.ts) — сообщение и переход на
+  // вход задаём заранее, показывать их будет уже новая страница.
+  setAccountChangeNotice(
+    opts?.isAccountDeletion ? 'account_deleted'
+      : wipeFailed ? 'wipe_failed'
+        : opts?.clearLocalData ? 'signed_out_wiped' : 'signed_out',
+  );
+  setAccountReloadTarget('/login');
+  if (opts?.clearLocalData === true) skipFlushOnAccountReload();
+  try {
+    await signOutUser();
+  } catch (e) {
+    // Выход не состоялся — и «Вы вышли» на следующей странице быть не должно.
+    takeAccountChangeNotice();
+    setAccountReloadTarget(null);
+    skipFlushOnAccountReload(false);
+    throw e;
+  }
   resetDbInstance();
 
   // AUD-11: выход состоялся; теперь сообщаем, что локальная очистка не прошла.

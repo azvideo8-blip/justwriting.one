@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { useAuthStatus } from '../../../app/useAuthStatus';
@@ -20,7 +19,6 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
   const { isAuthenticated } = useAuthStatus();
-  const navigate = useNavigate();
 
   const [deleting, setDeleting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -49,10 +47,10 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
     setDeleting(true);
     setAuthError(false);
     try {
+      // Выход после удаления перезагружает страницу на /login; «Аккаунт
+      // удалён» показывает уже она.
       await AuthService.deleteAccount(password);
       emitDomainEvent({ type: 'account.reset', userId });
-      showToast(t('settings_delete_account_success'), 'success');
-      void navigate('/login');
     } catch (err) {
       reportError(err, { action: 'deleteAccount', userId });
       if (err instanceof Error && err.message === 'REAUTH_FAILED') {

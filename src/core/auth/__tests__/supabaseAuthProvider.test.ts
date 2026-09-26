@@ -23,7 +23,8 @@ vi.mock('../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 
-import { getIdToken, signOutUser, getCurrentUser, _resetAuthStateForTesting, verifyOtpForRecovery } from '../supabaseAuthProvider';
+import { getIdToken, signOutUser, getCurrentUser, onAuthStateChange, _resetAuthStateForTesting, verifyOtpForRecovery } from '../supabaseAuthProvider';
+import { onBeforeAccountReload, skipFlushOnAccountReload } from '../accountReload';
 import { mapAIError } from '../../../features/ai/services/AIService';
 
 describe('ERR-3: auth session error visibility and token refresh failure', () => {
@@ -68,105 +69,118 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
     expect(mapAIError({ message: 'unauthenticated' })).toBe('AUTH_REQUIRED');
   });
 
-  it('does NOT report error when SIGNED_OUT is triggered voluntarily via signOutUser()', async () => {
-    _resetAuthStateForTesting();
-    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
-    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
-      authStateCallback = cb;
-      return { data: { subscription: { unsubscribe: vi.fn() } } };
-    });
-    mockSignOut.mockImplementation(async () => {
-      // Supabase client fires onAuthStateChange during signOut
-      authStateCallback?.('SIGNED_OUT', null);
-      return { error: null };
-    });
-
-    // Initialize subscriber and set current user
-    getCurrentUser();
-    authStateCallback?.('SIGNED_IN', { user: { id: 'u_test_1', email: 'test@example.com' } });
-    expect(getCurrentUser()?.uid).toBe('u_test_1');
-
-    // Voluntary sign out
-    await signOutUser();
-
-    expect(getCurrentUser()).toBeNull();
-    expect(reportErrorModule.reportError).not.toHaveBeenCalled();
-  });
-
-  it('reports error when SIGNED_OUT is triggered unexpectedly (without signOutUser)', async () => {
-    _resetAuthStateForTesting();
-    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
-    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
-      authStateCallback = cb;
-      return { data: { subscription: { unsubscribe: vi.fn() } } };
-    });
-
-    // Initialize subscriber and set current user
-    getCurrentUser();
-    authStateCallback?.('SIGNED_IN', { user: { id: 'u_test_2', email: 'test@example.com' } });
-    expect(getCurrentUser()?.uid).toBe('u_test_2');
-
-    // Unexpected sign out (e.g. server token revocation / expired refresh token)
-    authStateCallback?.('SIGNED_OUT', null);
-
-    expect(getCurrentUser()).toBeNull();
-    expect(reportErrorModule.reportError).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('SESSION_TERMINATED') }),
-      expect.objectContaining({ action: 'auth_session_signed_out', previousUid: 'u_test_2' }),
-      'warning',
-    );
-  });
-
-  it('a hidden tab reloads when another tab switches the account, instead of carrying on as the old user', () => {
-    _resetAuthStateForTesting();
-    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
-    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
-      authStateCallback = cb;
-      return { data: { subscription: { unsubscribe: vi.fn() } } };
-    });
+  // Смена аккаунта во вкладке — перезагрузка (accountReload.ts). До неё
+  // зеркало остаётся прежним: фоновая работа прежнего пишет в его базу.
+  function mockLocation() {
     const reload = vi.fn();
-    const origLocation = window.location;
-    Object.defineProperty(window, 'location', { configurable: true, value: { ...origLocation, reload } });
-    const vis = vi.spyOn(document, 'visibilityState', 'get');
+    const assign = vi.fn();
+    const orig = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...orig, reload, assign } });
+    return { reload, assign, restore: () => Object.defineProperty(window, 'location', { configurable: true, value: orig }) };
+  }
+  function subscribe() {
+    _resetAuthStateForTesting();
+    const cbs: Array<(event: string, session: unknown) => void> = [];
+    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
+      cbs.push(cb);
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+    getCurrentUser();
+    return (event: string, session: unknown) => { for (const cb of [...cbs]) cb(event, session); };
+  }
+
+  it('a voluntary sign-out is not reported, and the tab reloads instead of turning into a guest in place', async () => {
+    const loc = mockLocation();
     try {
-      getCurrentUser();
-      authStateCallback?.('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
+      const fire = subscribe();
+      mockSignOut.mockImplementation(async () => { fire('SIGNED_OUT', null); return { error: null }; });
+      fire('SIGNED_IN', { user: { id: 'u_test_1', email: 'test@example.com' } });
+      expect(getCurrentUser()?.uid).toBe('u_test_1');
 
-      vis.mockReturnValue('visible');
-      authStateCallback?.('TOKEN_REFRESHED', { user: { id: 'owner', email: 'a@example.com' } });
-      expect(reload).not.toHaveBeenCalled();
+      await signOutUser();
 
-      vis.mockReturnValue('hidden');
-      authStateCallback?.('SIGNED_IN', { user: { id: 'invitee', email: 'b@example.com' } });
-      expect(reload).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() => expect(loc.reload).toHaveBeenCalledTimes(1));
+      expect(getCurrentUser()?.uid).toBe('u_test_1');
       expect(reportErrorModule.reportError).not.toHaveBeenCalled();
-    } finally {
-      vis.mockRestore();
-      Object.defineProperty(window, 'location', { configurable: true, value: origLocation });
-    }
+    } finally { loc.restore(); }
   });
 
-  it('the visible tab switching accounts itself does not reload', () => {
-    _resetAuthStateForTesting();
-    let authStateCallback: ((event: string, session: unknown) => void) | undefined;
-    mockOnAuthStateChange.mockImplementation((cb: (event: string, session: unknown) => void) => {
-      authStateCallback = cb;
-      return { data: { subscription: { unsubscribe: vi.fn() } } };
-    });
-    const reload = vi.fn();
-    const origLocation = window.location;
-    Object.defineProperty(window, 'location', { configurable: true, value: { ...origLocation, reload } });
+  it('an unexpected sign-out is reported, and the tab reloads', async () => {
+    const loc = mockLocation();
+    try {
+      const fire = subscribe();
+      fire('SIGNED_IN', { user: { id: 'u_test_2', email: 'test@example.com' } });
+      fire('SIGNED_OUT', null);
+      expect(reportErrorModule.reportError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('SESSION_TERMINATED') }),
+        expect.objectContaining({ action: 'auth_session_signed_out', previousUid: 'u_test_2' }),
+        'warning',
+      );
+      await vi.waitFor(() => expect(loc.reload).toHaveBeenCalledTimes(1));
+    } finally { loc.restore(); }
+  });
+
+  it('any tab — visible too — reloads when the account changes; a token refresh does not', async () => {
+    const loc = mockLocation();
     const vis = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
     try {
-      getCurrentUser();
-      authStateCallback?.('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
-      authStateCallback?.('SIGNED_IN', { user: { id: 'invitee', email: 'b@example.com' } });
-      expect(reload).not.toHaveBeenCalled();
-      expect(getCurrentUser()?.uid).toBe('invitee');
-    } finally {
-      vis.mockRestore();
-      Object.defineProperty(window, 'location', { configurable: true, value: origLocation });
-    }
+      const fire = subscribe();
+      fire('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
+      fire('TOKEN_REFRESHED', { user: { id: 'owner', email: 'a@example.com' } });
+      await Promise.resolve();
+      expect(loc.reload).not.toHaveBeenCalled();
+
+      fire('SIGNED_IN', { user: { id: 'invitee', email: 'b@example.com' } });
+      await vi.waitFor(() => expect(loc.reload).toHaveBeenCalledTimes(1));
+      expect(getCurrentUser()?.uid).toBe('owner');
+    } finally { vis.mockRestore(); loc.restore(); }
+  });
+
+  it('signing in from a guest tab does not reload — the guest text moves into the account', async () => {
+    const loc = mockLocation();
+    try {
+      const fire = subscribe();
+      fire('SIGNED_IN', { user: { id: 'newbie', email: 'n@example.com' } });
+      await Promise.resolve();
+      expect(loc.reload).not.toHaveBeenCalled();
+      expect(getCurrentUser()?.uid).toBe('newbie');
+    } finally { loc.restore(); }
+  });
+
+  it('the screen never learns about the new account while the reload is pending', async () => {
+    const loc = mockLocation();
+    try {
+      const fire = subscribe();
+      const seen: Array<string | null> = [];
+      onAuthStateChange(u => seen.push(u?.uid ?? null));
+      fire('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
+      fire('SIGNED_IN', { user: { id: 'intruder', email: 'b@example.com' } });
+      fire('SIGNED_OUT', null);
+      expect(seen).toEqual(['owner']);
+      await vi.waitFor(() => expect(loc.reload).toHaveBeenCalled());
+    } finally { loc.restore(); }
+  });
+
+  it('the draft is saved to its owner before the reload, but not after a wipe', async () => {
+    const loc = mockLocation();
+    try {
+      const fire = subscribe();
+      const order: string[] = [];
+      onBeforeAccountReload(async () => { await Promise.resolve(); order.push('flush'); });
+      loc.reload.mockImplementation(() => order.push('reload'));
+      fire('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
+      fire('SIGNED_OUT', null);
+      await vi.waitFor(() => expect(order).toEqual(['flush', 'reload']));
+
+      const fire2 = subscribe();
+      const flushed = vi.fn(async () => {});
+      onBeforeAccountReload(flushed);
+      skipFlushOnAccountReload();
+      fire2('SIGNED_IN', { user: { id: 'owner', email: 'a@example.com' } });
+      fire2('SIGNED_OUT', null);
+      await vi.waitFor(() => expect(loc.reload).toHaveBeenCalledTimes(2));
+      expect(flushed).not.toHaveBeenCalled();
+    } finally { loc.restore(); }
   });
 
   it('a sign-out made in another tab a moment ago is not reported as unexpected', () => {

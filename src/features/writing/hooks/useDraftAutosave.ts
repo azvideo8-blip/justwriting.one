@@ -8,6 +8,7 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useContentStore } from '../store/useContentStore';
+import { onBeforeAccountReload } from '../../../core/auth/accountReload';
 
 const SKIPPED: DraftSaveOutcome = { localSkipped: true };
 
@@ -135,6 +136,11 @@ export function useDraftAutosave(
   const wrappedForceSave = useCallback(async () => {
     await wrapSave(doForceSave, 'draftAutosave/forceSave');
   }, [wrapSave, doForceSave]);
+
+  // Смена аккаунта перезагружает страницу: текст на экране сначала
+  // сохраняется его владельцу. Сейф включён — сохранение при закрытии
+  // страницы (ниже) его пропускает, так что это единственный шанс.
+  useEffect(() => onBeforeAccountReload(doAutosaveLocal), [doAutosaveLocal]);
 
   useSyncUnloadSave(user, draftDataRef);
   useVisibilitySave(wrappedForceSave, () => draftDataRef.current.content);

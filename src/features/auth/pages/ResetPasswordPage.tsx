@@ -4,6 +4,13 @@ import { updateUserPassword, onPasswordRecovery, verifyOtpForRecovery, getCurren
 import { reportError } from '../../../shared/errors/reportError';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { InviteWizard } from '../components/InviteWizard';
+import { isAccountReloadPending, reloadForAccountChange } from '../../../core/auth/accountReload';
+
+// Смена аккаунта перезагружает страницу (accountReload.ts). Две отметки на
+// время вкладки переживают эту перезагрузку: ссылка уже обменена (второй
+// обмен ответил бы «ссылка устарела») и пароль уже изменён.
+const exchangedKey = (hash: string) => `jw_link_exchanged_${hash}`;
+const RESET_DONE_KEY = 'jw_password_reset_done';
 
 /**
  * /reset-password — цель ссылки из письма о восстановлении.
@@ -24,10 +31,17 @@ export function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+  const [doneEmail] = useState(() => {
+    try {
+      const v = sessionStorage.getItem(RESET_DONE_KEY);
+      sessionStorage.removeItem(RESET_DONE_KEY);
+      return v;
+    } catch { return null; }
+  });
+  const [done, setDone] = useState(doneEmail !== null);
   const [error, setError] = useState<string | null>(null);
   const [linkExpired, setLinkExpired] = useState(false);
-  const [email, setEmail] = useState<string | null>(() => searchParams.get('email') || (getCurrentUser()?.email ?? null));
+  const [email, setEmail] = useState<string | null>(() => doneEmail || searchParams.get('email') || (getCurrentUser()?.email ?? null));
   // Приглашённый задаёт первый пароль — те же поля, другие слова.
   const [isInvite] = useState(() => {
     return searchParams.get('type') === 'invite' || (typeof window !== 'undefined' && window.location.hash.includes('type=invite'));
@@ -83,26 +97,62 @@ export function ResetPasswordPage() {
         })();
         return unsub;
       }
-      verifyOtpForRecovery(tokenHash, type)
-        .then((linkEmail) => {
-          setRecoveryMode(true);
-          setLinkExpired(false);
-          const currentUserEmail = linkEmail ?? getCurrentUser()?.email;
-          if (currentUserEmail) setEmail(currentUserEmail);
-          window.history.replaceState(null, '', window.location.pathname);
-        })
-        .catch((err) => {
-          reportError(err, { action: 'verifyOtpRecovery' });
-          const activeUser = getCurrentUser();
-          if (activeUser && typeof activeUser.uid === 'string' && !activeUser.uid.startsWith('guest')) {
+      const exchange = () =>
+        verifyOtpForRecovery(tokenHash, type)
+          .then((linkEmail) => {
             setRecoveryMode(true);
             setLinkExpired(false);
-            if (activeUser.email) setEmail(activeUser.email);
+            const currentUserEmail = linkEmail ?? getCurrentUser()?.email;
+            if (currentUserEmail) setEmail(currentUserEmail);
+            window.history.replaceState(null, '', window.location.pathname);
+          })
+          .catch((err) => {
+            reportError(err, { action: 'verifyOtpRecovery' });
+            const activeUser = getCurrentUser();
+            if (activeUser && typeof activeUser.uid === 'string' && !activeUser.uid.startsWith('guest')) {
+              setRecoveryMode(true);
+              setLinkExpired(false);
+              if (activeUser.email) setEmail(activeUser.email);
+            } else {
+              setLinkExpired(true);
+            }
+            window.history.replaceState(null, '', window.location.pathname);
+          });
+      void (async () => {
+        const { getSupabase } = await import('../../../core/supabase/client');
+        let signedIn = false;
+        let sessionEmail: string | null = null;
+        try {
+          const { data } = await getSupabase().auth.getSession();
+          signedIn = Boolean(data.session);
+          sessionEmail = data.session?.user.email ?? null;
+        } catch (e) {
+          reportError(e, { action: 'resetLink_getSession' });
+        }
+        let exchanged = false;
+        try { exchanged = sessionStorage.getItem(exchangedKey(tokenHash)) === '1'; } catch { /* намеренно: приватный режим — обменяем как впервые */ }
+        if (exchanged) {
+          // Страница перезагрузилась после обмена: сессия от ссылки уже есть.
+          if (signedIn) {
+            setRecoveryMode(true);
+            if (sessionEmail) setEmail(sessionEmail);
           } else {
             setLinkExpired(true);
           }
           window.history.replaceState(null, '', window.location.pathname);
-        });
+          return;
+        }
+        if (signedIn) {
+          // Во вкладке кто-то вошёл. Сначала выход — страница перезагрузится
+          // и обменяет ссылку уже с чистой памятью, без чужих данных в ней.
+          const { signOutUser } = await import('../../../core/auth/supabaseAuthProvider');
+          await signOutUser({ scope: 'local' }).catch(e => reportError(e, { action: 'resetLink_signOutFirst' }));
+          if (!isAccountReloadPending()) void reloadForAccountChange();
+          return;
+        }
+        try { sessionStorage.setItem(exchangedKey(tokenHash), '1'); } catch { /* намеренно: без отметки просто не переживём перезагрузку */ }
+        await exchange();
+      })();
     }
 
     return unsub;
@@ -137,8 +187,10 @@ export function ResetPasswordPage() {
       // Полусессия от ссылки восстановления затирается: она ограничена сменой
       // пароля, и оставлять человека залогиненным, не вводившим новый пароль,
       // нельзя.
+      // Выход перезагрузит страницу — «пароль изменён» покажет уже она.
+      try { sessionStorage.setItem(RESET_DONE_KEY, recoveredEmail ?? ''); } catch { /* намеренно: без отметки покажем форму входа */ }
       const { signOutUser } = await import('../../../core/auth/supabaseAuthProvider');
-      await signOutUser().catch(() => {});
+      await signOutUser().catch(() => { /* намеренно: полусессия истечёт сама */ });
       setDone(true);
     } catch (err) {
       reportError(err, { action: 'resetPassword' });

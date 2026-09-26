@@ -33,6 +33,12 @@ vi.mock('../../../../core/supabase/client', () => ({
   getSupabase: () => ({ auth: { getSession: (...a: unknown[]) => getSession(...(a as [])) } }),
 }));
 
+const { reloadForAccountChange } = vi.hoisted(() => ({ reloadForAccountChange: vi.fn() }));
+vi.mock('../../../../core/auth/accountReload', () => ({
+  reloadForAccountChange: () => reloadForAccountChange(),
+  isAccountReloadPending: () => false,
+}));
+
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
   return {
@@ -54,6 +60,7 @@ beforeEach(() => {
   verifyOtpForRecovery.mockClear();
   getCurrentUser.mockClear();
   mockNavigate.mockClear();
+  reloadForAccountChange.mockClear();
   onPasswordRecoveryCb.reset();
 });
 
@@ -153,8 +160,13 @@ describe('invite link while another account is signed in', () => {
     expect(screen.getByRole('alertdialog', { name: /вход в другой аккаунт/i })).toBeInTheDocument();
     expect(document.activeElement).toBe(screen.getByText('Остаться'));
 
+    // «Продолжить»: сначала выход из прежнего аккаунта и перезагрузка —
+    // ссылка обменивается уже на чистой странице.
+    getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
     fireEvent.click(screen.getByText('Продолжить'));
-    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalledWith('abc', 'invite'));
+    await waitFor(() => expect(signOutUser).toHaveBeenCalledWith({ scope: 'local' }));
+    await waitFor(() => expect(reloadForAccountChange).toHaveBeenCalled());
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
   });
 
   it('«Остаться» leaves the link unused and returns to the app', async () => {
@@ -183,19 +195,47 @@ describe('invite link while another account is signed in', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 
-  // Перезагрузка посреди приглашения: вход уже новым аккаунтом — не спрашивать
-  // «выйти из него?» про самого приглашённого.
-  it('after «Continue» and a reload of the page, it does not ask again', async () => {
-    sessionStorage.clear();
-    getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
-    const first = renderPage(['/reset-password?token_hash=tok-reload&type=invite']);
+  // Путь целиком, со сменой аккаунта через перезагрузку: вопрос — выход —
+  // чистая страница обменивает ссылку — перезагрузка посреди мастера не
+  // спрашивает снова и не обменивает второй раз («ссылка устарела»).
+  it('continue → sign-out and reload → exchange on a clean page → a later reload neither asks nor exchanges again', async () => {
+    const url = ['/reset-password?token_hash=tok-reload&type=invite'];
+    getSession.mockResolvedValue({ data: { session: { user: { email: 'owner@example.com' } } } });
+    const first = renderPage(url);
     fireEvent.click(await screen.findByText('Продолжить'));
+    await waitFor(() => expect(reloadForAccountChange).toHaveBeenCalled());
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
     first.unmount();
+
+    getSession.mockResolvedValue({ data: { session: null } });
+    const second = renderPage(url);
+    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalledWith('tok-reload', 'invite'));
+    expect(screen.queryByTestId('invite-switch-account')).toBeNull();
+    second.unmount();
+
     verifyOtpForRecovery.mockClear();
     getSession.mockResolvedValue({ data: { session: { user: { email: 'invitee@example.com' } } } });
-    renderPage(['/reset-password?token_hash=tok-reload&type=invite']);
-    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalled());
+    renderPage(url);
+    await waitFor(() => expect(getSession).toHaveBeenCalled());
+    await act(async () => { await Promise.resolve(); });
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
     expect(screen.queryByTestId('invite-switch-account')).toBeNull();
+    expect(signOutUser).toHaveBeenCalledTimes(1);
     getSession.mockResolvedValue({ data: { session: null } });
+  });
+
+  it('«password changed» survives the reload that the sign-out after it causes', async () => {
+    const before = renderPage();
+    act(() => { onPasswordRecoveryCb.fire(); });
+    fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new-secret-9' } });
+    getCurrentUser.mockReturnValue({ uid: 'u1', email: 'me@example.com' });
+    fireEvent.click(screen.getByText('Сменить пароль'));
+    await waitFor(() => expect(signOutUser).toHaveBeenCalled());
+    getCurrentUser.mockReturnValue(null);
+    before.unmount(); // страница перезагрузилась
+    const { unmount } = renderPage(['/reset-password']);
+    expect(screen.getAllByText(/Пароль изменён/).length).toBeGreaterThan(0);
+    unmount();
   });
 });

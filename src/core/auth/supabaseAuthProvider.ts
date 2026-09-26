@@ -26,6 +26,7 @@ let subscribed = false;
 let isVoluntarySignOut = false;
 
 import { reportError } from '../../shared/errors/reportError';
+import { reloadForAccountChange, isAccountReloadPending, _resetAccountReloadForTesting } from './accountReload';
 
 // Subscribed on first use, never at import time. A top-level call here builds
 // the Supabase client as a side effect of importing this file, which throws
@@ -34,17 +35,7 @@ function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
   getSupabase().auth.onAuthStateChange((event, session) => {
-    // Аккаунт сменили в другой вкладке (ссылка-приглашение из письма открылась
-    // рядом, вход под другим человеком): сессия общая, а эта вкладка держит в
-    // памяти прежнего человека — его очередь, ключ, фоновые задачи — и шлёт их
-    // уже с чужой сессией (база отвечает 403 по RLS). Скрытую вкладку просто
-    // перезагружаем; видимая — та, где человек сам входит и выходит.
     const nextUid = session?.user?.id ?? null;
-    if (currentUser !== null && nextUid !== currentUser.uid
-        && typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      window.location.reload();
-      return;
-    }
     if (event === 'SIGNED_OUT') {
       if (currentUser !== null && !isVoluntarySignOut && !signedOutElsewhereJustNow(currentUser.uid)) {
         reportError(
@@ -55,8 +46,22 @@ function ensureSubscribed(): void {
       }
       isVoluntarySignOut = false;
     }
+    // Аккаунт вкладки сменился (выход, вход другим, ссылка из письма, то же в
+    // соседней вкладке) — перезагрузка: память вкладки принадлежит прежнему
+    // человеку (accountReload.ts). currentUser до перезагрузки НЕ меняем:
+    // фоновая работа прежнего так и пишет в его базу, а не в базу нового.
+    if (accountChanges(nextUid)) {
+      void reloadForAccountChange();
+      return;
+    }
     currentUser = mapUser(session?.user ?? null);
   });
+}
+
+// Смена аккаунта — только уход от вошедшего человека. Вход из гостя (null →
+// кто-то) — не смена: гостевой текст переходит в аккаунт.
+function accountChanges(nextUid: string | null): boolean {
+  return currentUser !== null && nextUid !== currentUser.uid;
 }
 
 export function getCurrentUser(): AppUser | null {
@@ -65,6 +70,9 @@ export function getCurrentUser(): AppUser | null {
 }
 
 export function onAuthStateChange(cb: (u: AppUser | null) => void): () => void {
+  // Зеркало подписывается первым: пока вкладка ждёт перезагрузки, экран не
+  // должен успеть переключиться на нового человека.
+  ensureSubscribed();
   // AUTH-1: dedupe emissions by uid. Supabase emits multiple events per sign-in
   // (INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED). Without this guard, each
   // creates a new AppUser reference, triggering downstream re-subscriptions.
@@ -73,6 +81,7 @@ export function onAuthStateChange(cb: (u: AppUser | null) => void): () => void {
     const user = mapUser(session?.user ?? null);
     const uid = user?.uid ?? null;
     if (uid === lastUid) return;
+    if (isAccountReloadPending() || accountChanges(uid)) return;
     lastUid = uid;
     cb(user);
   });
@@ -80,12 +89,14 @@ export function onAuthStateChange(cb: (u: AppUser | null) => void): () => void {
 }
 
 export function onTokenChange(cb: (u: AppUser | null) => void): () => void {
+  ensureSubscribed();
   // AUTH-1: same last-emitted-uid guard as onAuthStateChange.
   let lastUid: string | null | undefined = undefined;
   const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
     const user = mapUser(session?.user ?? null);
     const uid = user?.uid ?? null;
     if (uid === lastUid) return;
+    if (isAccountReloadPending() || accountChanges(uid)) return;
     lastUid = uid;
     cb(user);
   });
@@ -170,6 +181,7 @@ export async function signOutUser(options?: { scope?: 'global' | 'local' | 'othe
 
 export function _resetAuthStateForTesting(): void {
   currentUser = null;
+  _resetAccountReloadForTesting();
   subscribed = false;
   isVoluntarySignOut = false;
 }
