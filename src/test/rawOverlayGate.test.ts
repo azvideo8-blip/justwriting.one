@@ -155,9 +155,10 @@ describe('AG-GATE-1 — Raw Overlay Gate (scripts/raw-overlay-check.sh)', () => 
     expect(output).toContain('Raw overlay check: 0 unmanaged raw overlays found (OK)');
   });
 
+  // Медленный по делу: bash-скрипт грепает весь src/ дочерним процессом (N-34).
   it('passes cleanly on current codebase', () => {
     const repoRoot = path.resolve(__dirname, '../..');
     const output = execSync(`bash "${scriptPath}" "${repoRoot}"`, { encoding: 'utf8' });
     expect(output).toContain('Raw overlay check: 0 unmanaged raw overlays found (OK)');
-  });
+  }, 15_000);
 });

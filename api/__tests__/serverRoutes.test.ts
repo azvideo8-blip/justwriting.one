@@ -26,6 +26,8 @@ describe('production route smoke (server.ts)', () => {
     __resetCspLimiterForTests();
   });
 
+  // Медленный по делу: первый импорт server.ts поднимает весь граф маршрутов
+  // (~2–2.7 с в покое, вдвое под нагрузкой полного прогона) — 5 с не хватало (N-34).
   it('csp-report rate limit is active on the production route (AUDIT-M6 regression)', async () => {
     server = (await import('../server')).default;
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()));
@@ -38,7 +40,7 @@ describe('production route smoke (server.ts)', () => {
     } finally {
       await new Promise<void>(resolve => server.close(() => resolve()));
     }
-  });
+  }, 15_000);
 
   it('health endpoint answers on the production route', async () => {
     server = (await import('../server')).default;
@@ -75,6 +77,7 @@ describe('production route smoke (server.ts)', () => {
     }
   });
 
+  // Медленный по делу: отдельный процесс node + tsx грузит server.ts с нуля (N-34).
   it('NARROW-3: uncaughtException logs and exits with code 1 for systemd restart', async () => {
     const { execFileSync } = await import('node:child_process');
     const { resolve, dirname } = await import('node:path');
@@ -105,6 +108,5 @@ describe('production route smoke (server.ts)', () => {
       expect(stderr).toContain('[server] uncaughtException');
       expect(stderr).toContain('narrow-3-test-error');
     }
-  });
+  }, 15_000);
 });
-
