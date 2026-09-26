@@ -97,3 +97,18 @@ jobs:
 
           echo "TB-08 Part B: Running live DB deleteAccount test..."
           JW_THROWAWAY_DB=1 npx vitest run api/__tests__/deleteAccount.db.test.ts
+
+      # F-3: живой сквозной сценарий смены аккаунта на локальном стенде
+      # (Postgres + GoTrue + PostgREST в docker, Vite и прокси на :3000).
+      # Порты стенда не пересекаются с шагом 3 (5439) и с продом на этом же VPS:
+      # прод-сервисы слушают только 127.0.0.1 через Kong/nginx, а стенд — свои
+      # 3000/3010/9999/3003/5440. Если что-то из них занято — переопределить
+      # STAND_*_PORT ниже. Раннер свой и постоянный: chromium остаётся в
+      # ~/.cache/ms-playwright между прогонами, install — холостой после первого.
+      - name: 4. Account switch e2e (stand)
+        run: |
+          npx playwright install chromium
+          trap 'bash scripts/stand/down.sh' EXIT
+          bash scripts/stand/up.sh
+          npx playwright test -c playwright.stand.config.ts
+
