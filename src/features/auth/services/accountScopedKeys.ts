@@ -70,6 +70,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_pull_since_${uid}`,
     // выключатель подсказок и памяти ИИ (EA-18)
     `ai_chat_extras_${uid}`,
+    // отметка сознательного выхода — гасит ложное «сессия оборвалась» (N-60)
+    `jw_voluntary_signout_at_${uid}`,
   ];
 }
 

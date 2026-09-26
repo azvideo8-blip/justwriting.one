@@ -1,3 +1,4 @@
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { getSupabase } from '../supabase/client';
 import { deriveAuthSecret } from './authSecret';
 import type { AppUser } from './types';
@@ -45,7 +46,7 @@ function ensureSubscribed(): void {
       return;
     }
     if (event === 'SIGNED_OUT') {
-      if (currentUser !== null && !isVoluntarySignOut && !signedOutElsewhereJustNow()) {
+      if (currentUser !== null && !isVoluntarySignOut && !signedOutElsewhereJustNow(currentUser.uid)) {
         reportError(
           new Error('SESSION_TERMINATED: auth session signed out unexpectedly'),
           { action: 'auth_session_signed_out', previousUid: currentUser.uid },
@@ -149,14 +150,16 @@ export async function signUp(email: string, password: string): Promise<AppUser> 
 // Выход в одной вкладке приходит в соседние событием SIGNED_OUT, и там он
 // выглядел «неожиданным» — ложная запись в журнале. Отметка в localStorage
 // общая для вкладок: выход, сделанный человеком несколько секунд назад, — не сбой.
-const SIGNOUT_MARK = 'jw_voluntary_signout_at';
-function signedOutElsewhereJustNow(): boolean {
-  try { return Date.now() - Number(localStorage.getItem(SIGNOUT_MARK) ?? 0) < 10_000; } catch { return false; }
+// N-60: отметка своя у каждого аккаунта — выход одного не заглушает сигнал
+// «сессия оборвалась» у другого.
+function signedOutElsewhereJustNow(uid: string): boolean {
+  try { return Date.now() - Number(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(uid)) ?? 0) < 10_000; } catch { return false; }
 }
 
 export async function signOutUser(options?: { scope?: 'global' | 'local' | 'others' }): Promise<void> {
   isVoluntarySignOut = true;
-  try { localStorage.setItem(SIGNOUT_MARK, String(Date.now())); } catch { /* private mode */ }
+  const uid = currentUser?.uid;
+  if (uid) { try { localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(uid), String(Date.now())); } catch { /* private mode */ } }
   try {
     const { error } = await getSupabase().auth.signOut(options);
     if (error) throw error;
@@ -198,10 +201,25 @@ export function onPasswordRecovery(cb: () => void): () => void {
 // 'invite' — тот же обмен для приглашённого, который задаёт первый пароль.
 /** Возвращает адрес аккаунта из ссылки: при входе поверх чужой сессии
  * getCurrentUser() сразу после обмена ещё может отдать прежний аккаунт. */
-export async function verifyOtpForRecovery(token_hash: string, type: 'recovery' | 'invite' = 'recovery'): Promise<string | null> {
-  const { data, error } = await getSupabase().auth.verifyOtp({ token_hash, type });
-  if (error) throw error;
-  return data.user?.email ?? null;
+// N-58: ссылка одноразовая. Повторный обмен того же token_hash (StrictMode в
+// dev, повторное монтирование страницы) получал отказ и рисовал «ссылка
+// устарела» для сработавшей ссылки. Один обмен на хэш — его результат отдаётся всем.
+const otpExchanges = new Map<string, Promise<string | null>>();
+
+export function verifyOtpForRecovery(token_hash: string, type: 'recovery' | 'invite' = 'recovery'): Promise<string | null> {
+  const key = `${type}:${token_hash}`;
+  let p = otpExchanges.get(key);
+  if (!p) {
+    p = (async () => {
+      const { data, error } = await getSupabase().auth.verifyOtp({ token_hash, type });
+      if (error) throw error;
+      return data.user?.email ?? null;
+    })();
+    otpExchanges.set(key, p);
+    // Неудачный обмен не запоминается: сетевой сбой можно повторить.
+    p.catch(() => otpExchanges.delete(key));
+  }
+  return p;
 }
 
 export async function updateUserPassword(password: string): Promise<void> {

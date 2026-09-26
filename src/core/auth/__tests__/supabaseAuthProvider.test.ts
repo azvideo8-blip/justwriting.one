@@ -5,6 +5,7 @@ const mockRefreshSession = vi.fn();
 const mockGetSession = vi.fn();
 const mockOnAuthStateChange = vi.fn();
 const mockSignOut = vi.fn();
+const mockVerifyOtp = vi.fn();
 
 vi.mock('../../supabase/client', () => ({
   getSupabase: vi.fn(() => ({
@@ -13,6 +14,7 @@ vi.mock('../../supabase/client', () => ({
       getSession: (...args: unknown[]) => mockGetSession(...args),
       onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
       signOut: (...args: unknown[]) => mockSignOut(...args),
+      verifyOtp: (...args: unknown[]) => mockVerifyOtp(...args),
     },
   })),
 }));
@@ -21,13 +23,13 @@ vi.mock('../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
 }));
 
-import { getIdToken, signOutUser, getCurrentUser, _resetAuthStateForTesting } from '../supabaseAuthProvider';
+import { getIdToken, signOutUser, getCurrentUser, _resetAuthStateForTesting, verifyOtpForRecovery } from '../supabaseAuthProvider';
 import { mapAIError } from '../../../features/ai/services/AIService';
 
 describe('ERR-3: auth session error visibility and token refresh failure', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.removeItem('jw_voluntary_signout_at');
+    localStorage.clear();
     mockOnAuthStateChange.mockReturnValue({
       data: { subscription: { unsubscribe: vi.fn() } },
     });
@@ -176,9 +178,37 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
     });
     getCurrentUser();
     authStateCallback?.('SIGNED_IN', { user: { id: 'u_tab', email: 'a@example.com' } });
-    localStorage.setItem('jw_voluntary_signout_at', String(Date.now())); // соседняя вкладка нажала «Выйти»
+    localStorage.setItem('jw_voluntary_signout_at_u_tab', String(Date.now())); // соседняя вкладка нажала «Выйти»
     authStateCallback?.('SIGNED_OUT', null);
     expect(reportErrorModule.reportError).not.toHaveBeenCalled();
-    localStorage.removeItem('jw_voluntary_signout_at');
+    localStorage.removeItem('jw_voluntary_signout_at_u_tab');
+  });
+
+  // N-58: одноразовая ссылка обменивается один раз, второй вызов получает тот же результат.
+  it('exchanges a token_hash once, even when asked twice', async () => {
+    mockVerifyOtp.mockResolvedValue({ data: { user: { email: 'inv@example.com' } }, error: null });
+    const [a, b] = await Promise.all([verifyOtpForRecovery('h-once', 'invite'), verifyOtpForRecovery('h-once', 'invite')]);
+    expect(a).toBe('inv@example.com');
+    expect(b).toBe('inv@example.com');
+    expect(mockVerifyOtp).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed exchange can be retried', async () => {
+    mockVerifyOtp.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce({ data: { user: { email: 'r@example.com' } }, error: null });
+    await expect(verifyOtpForRecovery('h-retry', 'recovery')).rejects.toThrow('network');
+    await expect(verifyOtpForRecovery('h-retry', 'recovery')).resolves.toBe('r@example.com');
+  });
+
+  // N-60: выход одного аккаунта не заглушает обрыв сессии другого.
+  it('a sign-out of another account does not hide an unexpected sign-out of this one', () => {
+    _resetAuthStateForTesting();
+    let cb: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((f: (event: string, session: unknown) => void) => { cb = f; return { data: { subscription: { unsubscribe: vi.fn() } } }; });
+    getCurrentUser();
+    cb?.('SIGNED_IN', { user: { id: 'u_mine', email: 'm@example.com' } });
+    localStorage.setItem('jw_voluntary_signout_at_u_other', String(Date.now()));
+    cb?.('SIGNED_OUT', null);
+    expect(reportErrorModule.reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('SESSION_TERMINATED') }), expect.anything(), 'warning');
   });
 });
