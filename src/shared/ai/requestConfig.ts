@@ -61,9 +61,10 @@ export interface ChatBodyParams {
 }
 
 export function buildChatRequestBody(params: ChatBodyParams): Record<string, unknown> {
-  const messages: ChatMessage[] = params.system
-    ? [{ role: 'system', content: params.system }, ...params.messages]
-    : [...params.messages];
+  // Только role и content: сообщения частично приходят из тела клиента
+  // (editWithAI), и лишние поля не должны доезжать до провайдера.
+  const own = params.messages.map(m => ({ role: m.role, content: m.content }));
+  const messages: ChatMessage[] = params.system ? [{ role: 'system', content: params.system }, ...own] : own;
 
   const routing = resolveProviderRouting();
 

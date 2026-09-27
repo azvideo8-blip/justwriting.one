@@ -152,3 +152,12 @@ describe('SA-8: прод и харнесы шлют одно тело', () => {
     }
   });
 });
+
+describe('тело запроса к провайдеру', () => {
+  it('из сообщений уходят только role и content — лишние поля из тела клиента не доезжают', () => {
+    const body = buildChatRequestBody({
+      messages: [{ role: 'user', content: 'текст', name: 'x', tool_calls: [] } as never],
+    });
+    expect(body.messages).toEqual([{ role: 'user', content: 'текст' }]);
+  });
+});
