@@ -24,7 +24,10 @@ describe('LifeStoryService', () => {
     it('should fallback to current date when date is invalid', () => {
       const invalidDateStr = 'not-a-date';
       const eventDate = LifeStoryService.getDefaultEventDate(invalidDateStr);
-      const today = new Date().toISOString().slice(0, 10);
+      // Местный день, не UTC: с полуночи до 05:00 (UTC+5) они расходятся, и
+      // тест падал по ночам при любом коде.
+      const n = new Date();
+      const today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
       expect(eventDate).toBe(today);
     });
   });

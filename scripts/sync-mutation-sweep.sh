@@ -21,6 +21,17 @@ for f in $(python3 -c "import json;print(' '.join(sorted({m['file'] for m in jso
   if ! git diff --quiet -- "$f"; then echo "❌ $f с незакоммиченными правками — прогон не начинаю" >&2; exit 2; fi
 done
 
+# Базовый прогон без поломок обязан быть зелёным: иначе посторонний красный
+# тест засчитывается «поймавшим» любую поломку (так и было 2026-09-27 —
+# ночной флак с датой «поймал» 11 выживших).
+base=$(npx vitest run "${TESTS[@]}" --maxWorkers=4 2>&1)
+base_failed=$(echo "$base" | grep -E "^\s*Tests " | grep -oE "[0-9]+ failed" | grep -oE "[0-9]+" || echo 0)
+if [ "${base_failed:-0}" != "0" ]; then
+  echo "❌ без поломок уже падает ${base_failed} тест(ов) — прогон не начинаю:" >&2
+  echo "$base" | grep -E "^\s*×" >&2
+  exit 3
+fi
+
 : > "$OUT"
 echo "# Sync mutation sweep — $(date '+%Y-%m-%d %H:%M')" >> "$OUT"
 echo "" >> "$OUT"
