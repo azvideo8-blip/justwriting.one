@@ -424,7 +424,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       let fullText: string;
 
       if (Date.now() < _streamUnavailableUntil) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
       } else {
         try {
           fullText = await streamChat({
@@ -479,7 +479,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (lastPartial.trim().length > 200) {
               fullText = lastPartial;
             } else {
-              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning });
+              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
             }
             // RSN-4: Parse reasoning and answer unconditionally from callable fallback
             const cleanReasoning = extractReasoning(fullText);

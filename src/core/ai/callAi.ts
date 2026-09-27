@@ -1,4 +1,5 @@
 import { getCurrentUser, getIdToken } from '../auth';
+import { TimeoutError } from '../../shared/utils/withTimeout';
 import { getAiConsent, isProfileLoaded } from './aiConsent';
 import { hasIndexingConsent } from './indexingConsent';
 
@@ -8,7 +9,26 @@ const CONSENT_EXEMPT = new Set(['deleteAccount', 'sendTelemetry', 'inviteUser', 
 
 export interface CallAiOptions {
   charge?: 'user' | 'bulk';
+  /**
+   * SB-4: отмена по уходу со страницы. Пока сигнал был только у стрима, а
+   * callable-повтор (AIService.chat) дописывался даже после закрытия чата.
+   */
+  signal?: AbortSignal;
 }
+
+/**
+ * SB-4: клиентский потолок одного запроса к ИИ.
+ *
+ * Сервер сам себе дедлайн ставит (generate — 110 с, api/ai/provider.ts:118;
+ * чат-стрим — 120 с, api/chat.ts:190), но до клиента это не доезжало: fetch жил
+ * ровно столько, сколько ему позволено. `withTimeout` у AIService от вечности
+ * спасает наполовину — он перестаёт ждать, а запрос остаётся в полёте со своим
+ * слотом квоты. Здесь обрыв настоящий.
+ *
+ * 130 с заведомо больше обеих серверных цифр и самой длинной гонки AIService
+ * (115 с), то есть легитимный ответ этот потолок не режет.
+ */
+export const AI_REQUEST_TIMEOUT_MS = 130_000;
 
 export type QuotaHeadersListener = (headers: Headers) => void;
 const quotaListeners = new Set<QuotaHeadersListener>();
@@ -54,13 +74,37 @@ export async function callAi<T>(
     }
   }
 
-  const res = await fetch(`/api/${name}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({
-      data: opts.charge === 'user' && data && typeof data === 'object' ? { ...data, charge: 'user' } : data,
-    }),
-  });
+  // Каждому вызову — своё окно: retryAfterTokenRefresh заходит сюда заново и не
+  // наследует истёкший таймер предыдущей попытки.
+  const controller = new AbortController();
+  let abandon: (error: Error) => void = () => {};
+  const deadline = new Promise<never>((_resolve, reject) => { abandon = reject; });
+  const timer = setTimeout(() => {
+    controller.abort();
+    abandon(new TimeoutError('AI request timed out'));
+  }, AI_REQUEST_TIMEOUT_MS);
+  const onCallerAbort = () => {
+    controller.abort();
+    abandon(opts.signal?.reason instanceof Error
+      ? opts.signal.reason
+      : new DOMException('AI request aborted', 'AbortError'));
+  };
+  opts.signal?.addEventListener('abort', onCallerAbort, { once: true });
+
+  let res: Response;
+  try {
+    res = await Promise.race([fetch(`/api/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        data: opts.charge === 'user' && data && typeof data === 'object' ? { ...data, charge: 'user' } : data,
+      }),
+      signal: controller.signal,
+    }), deadline]);
+  } finally {
+    clearTimeout(timer);
+    opts.signal?.removeEventListener('abort', onCallerAbort);
+  }
 
   notifyQuotaHeaders(res.headers);
 

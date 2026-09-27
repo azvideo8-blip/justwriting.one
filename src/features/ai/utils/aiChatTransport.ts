@@ -345,6 +345,8 @@ export async function callableChat(params: {
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
+  /** SB-4: уход со страницы должен обрывать и этот путь, не только стрим. */
+  signal?: AbortSignal | undefined;
 }): Promise<string> {
   const result = await AIService.chat({
     personaId: params.personaId,
@@ -356,10 +358,13 @@ export async function callableChat(params: {
     responseLength: params.responseLength,
     reasoning: params.reasoning,
     callType: params.callType,
-  });
+  }, params.signal ? { signal: params.signal } : undefined);
 
 
   if (!result.ok) {
+    // Отмена по уходу со страницы — не поломка: тот же 'ABORTED', что и у
+    // кнопки «стоп», иначе ушедший чат показывал бы ошибку на пустом месте.
+    if (params.signal?.aborted) throw new Error('ABORTED');
     if (result.error === 'DAILY_LIMIT') throw new Error('DAILY_LIMIT');
     if (result.error === 'REASONING_LIMIT') throw new Error('REASONING_LIMIT');
     if (result.error === 'AUTH_REQUIRED') throw new Error('AUTH_REQUIRED');
