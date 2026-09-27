@@ -66,27 +66,50 @@ async function queueMetadataRetry(userId: string, localId: string): Promise<void
   });
 }
 
+// Метка «снести облачный ряд» — одна на заметку и идемпотентная: её ставит и
+// транзакция удаления локальной строки (SB-2), и этот хелпер, когда локальной
+// строки нет вовсе (удаление только по облачному номеру).
+async function queueCloudRemoval(userId: string, cloudId: string): Promise<void> {
+  const db = await getLocalDb(userId);
+  const queue = await db.getAll('syncQueue');
+  if (queue.some(t => t.type === 'delete' && t.documentId === cloudId)) return;
+  await db.put('syncQueue', {
+    id: `delete_${cloudId}_${Date.now()}`,
+    documentId: cloudId,
+    type: 'delete' as const,
+    createdAt: Date.now(),
+    ownerId: userId,
+  });
+}
+
+// Подтверждённое удаление: очередь больше не должна помнить про ряд, иначе
+// счётчик «ожидающих удалений» в badge вечно показывает то, что уже сделано.
+async function clearCloudRemovalTasks(userId: string, cloudId: string): Promise<void> {
+  const db = await getLocalDb(userId);
+  const stale = (await db.getAll('syncQueue')).filter(t => t.type === 'delete' && t.documentId === cloudId);
+  if (stale.length === 0) return;
+  const tx = db.transaction('syncQueue', 'readwrite');
+  for (const task of stale) await tx.store.delete(task.id);
+  await tx.done;
+}
+
 async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
   const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
   let derivativesOk = true;
   if (localId) {
-    derivativesOk = await LocalStorageService.deleteDocument(localId, userId);
+    derivativesOk = await LocalStorageService.deleteDocument(localId, userId, targetCloudId);
+  } else if (targetCloudId) {
+    await queueCloudRemoval(userId, targetCloudId);
   }
   let cloudSynced = !lookupFailed;
   if (targetCloudId) {
     try {
       await CloudSyncService.removeCloudCopy(userId, targetCloudId);
+      await clearCloudRemovalTasks(userId, targetCloudId);
     } catch (e) {
       cloudSynced = false;
       reportError(e, { action: 'deleteDocument_cloudDelete', documentId: targetCloudId });
-      const db = await getLocalDb(userId);
-      await db.put('syncQueue', {
-        id: `delete_${targetCloudId}_${Date.now()}`,
-        documentId: targetCloudId,
-        type: 'delete' as const,
-        createdAt: Date.now(),
-        ownerId: userId,
-      });
+      await queueCloudRemoval(userId, targetCloudId);
     }
   }
   return { cloudSynced, derivativesOk };

@@ -154,8 +154,17 @@ export const LocalDocumentService = {
   },
 
   /** true — заметка и все её производные удалены; false — заметка удалена, а
-   *  часть разборов ИИ (локально или в облаке) нет (N-51). */
-  async deleteDocument(id: string, ownerId?: string): Promise<boolean> {
+   *  часть разборов ИИ (локально или в облаке) нет (N-51).
+   *
+   *  @param removeCloudId Облачный ряд, который надо снести. Метка удаления
+   *    ставится в очередь ЭТИМ ЖЕ транзакционным проходом, что и снос локальной
+   *    строки (SB-2). Раньше её писали только в catch после сбоя сетевого
+   *    удаления: всё время полёта удаление не было запомнено, закрытая вкладка
+   *    оставляла облачный ряд живым, а downloadAllFromCloud по uuid возвращал
+   *    заметку на устройство — «удалил» означало «спрятал до синхронизации».
+   *    Параметр явный, а не вынутый из doc.linkedCloudId: removeLocalCopy и
+   *    откат загрузки тоже зовут это удаление, и облако там остаётся намеренно. */
+  async deleteDocument(id: string, ownerId?: string, removeCloudId?: string): Promise<boolean> {
     const db = await getLocalDb(ownerId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     const verStore = tx.objectStore('versions');
@@ -176,6 +185,15 @@ export const LocalDocumentService = {
     await Promise.all([
       ...versions.map(v => verStore.delete(v.id)),
       ...matchingTasks.map(t => queueStore.delete(t.id)),
+      ...(removeCloudId && ownerId
+        ? [queueStore.put({
+            id: `delete_${removeCloudId}_${Date.now()}`,
+            documentId: removeCloudId,
+            type: 'delete' as const,
+            createdAt: Date.now(),
+            ownerId,
+          })]
+        : []),
       docStore.delete(id),
       tx.done,
     ]);

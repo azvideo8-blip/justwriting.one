@@ -178,8 +178,8 @@ export const LocalStorageService = {
     return LocalVersionService.getVersions(localId, ownerId);
   },
 
-  async deleteDocument(localId: string, ownerId?: string): Promise<boolean> {
-    return LocalDocumentService.deleteDocument(localId, ownerId);
+  async deleteDocument(localId: string, ownerId?: string, removeCloudId?: string): Promise<boolean> {
+    return LocalDocumentService.deleteDocument(localId, ownerId, removeCloudId);
   },
 
   async createDocument(userId: string, data: Parameters<typeof LocalDocumentService.createDocument>[1]) {
