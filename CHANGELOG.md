@@ -1,9 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.9.13 — 2026-09-27
 
-- **[RU]** Запертый сейф — видимое состояние: пока сейф включён и заперт, наверху висит плашка «Сейф заперт — синхронизация на паузе» с кнопкой «Открыть сейф». Отложенное ждёт ключа без попыток и карантина, в журнал идёт справкой, а не ошибкой, и после открытия сейфа уходит само.
-- **[EN]** A locked vault is a visible state: while the vault is on and locked, a banner "Vault is locked — sync is paused" with an "Open vault" button stays at the top. Pending work waits for the key without retries or quarantine, is logged as info rather than an error, and leaves on its own once the vault is opened.
+- **[RU]** Запертый сейф — видимое состояние: пока сейф включён и заперт, наверху плашка «Сейф заперт — синхронизация на паузе» с кнопкой «Открыть сейф». Отложенное ждёт ключа без попыток и карантина и после открытия сейфа уходит само.
+- **[EN]** A locked vault is a visible state: a banner "Vault is locked — sync is paused" with an "Open vault" button. Pending work waits for the key without retries or quarantine and leaves on its own once the vault is opened.
+- **[RU]** Ссылка-приглашение при открытом аккаунте: мастер больше не открывается прежнему аккаунту, после обновления страницы возвращается мастер, а не форма восстановления, и ссылка не объявляется устаревшей по ошибке.
+- **[EN]** Invite link over an open account: the wizard is no longer shown to the previous account, a page reload returns to the wizard rather than the recovery form, and the link is no longer wrongly declared expired.
+- **[RU]** Безопасность: при повторной записи версии после коллизии номеров настроение больше не уходит в облако открытым текстом.
+- **[EN]** Security: retrying a version write after a number collision no longer sends the mood to the cloud in plain text.
+- **[RU]** Ручная синхронизация очереди при запертом сейфе говорит, что сейф заперт, а не «очередь пуста».
+- **[EN]** Manual queue sync with a locked vault says the vault is locked, not "queue is empty".
+- **[RU]** Плашка состояния соединения больше не рисуется дважды одна поверх другой.
+- **[EN]** The connection status banner is no longer drawn twice on top of itself.
+- **[RU]** При входе гостевые заметки переносятся в аккаунт без копии в гостевой базе браузера — гостевое удаляется только после подтверждённой записи в аккаунт.
+- **[EN]** On sign-in, guest notes move into the account without a leftover copy in the guest database — guest data is removed only after the account write is confirmed.
+- **[RU]** Дата в истории жизни не съезжает на день в часовых поясах западнее Гринвича.
+- **[EN]** Life-story dates no longer shift by a day in time zones west of Greenwich.
 
 ## 0.9.12 — 2026-09-26
 
