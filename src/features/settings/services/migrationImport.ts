@@ -13,6 +13,7 @@ import { type MigrationManifest } from "./migrationExport";
 import { SyncService } from "../../../core/services/SyncService";
 import { cloudSyncEnabled } from "../../../core/sync/cloudSyncEnabled";
 import { getSessionKey } from "../../../core/crypto/encrypt";
+import { reportError } from "../../../shared/errors/reportError";
 import { toTimestampMs } from "../../../core/utils/dateUtils";
 
 export interface MigrationImportResult {
@@ -668,16 +669,23 @@ export async function importMigrationManifest(
   } else if (importedDocIds.length > 0) {
     const hasKey = !!getSessionKey();
     if (!hasKey) {
+      // SB-7: задача в очередь может не встать (квота IDB, сбой хранилища). Раньше
+      // это глохло в catch, а отчёт всё равно нёс `queued = importedDocIds.length`
+      // — экран импорта показывал «заметки ждут выгрузки» там, где не ждёт ничего.
+      let queued = 0;
       for (const docId of importedDocIds) {
         try {
           await SyncService.addToQueue(docId, targetUserId);
-        } catch { /* non-critical */ }
+          queued++;
+        } catch (queueErr) {
+          reportError(queueErr, { action: "migrationImport_queueImportedDoc", docId });
+        }
       }
       upload = {
         status: "vault_locked",
         attempted: 0,
         uploaded: 0,
-        queued: importedDocIds.length,
+        queued,
         reason: "Vault is locked. Notes are saved locally and queued for upload upon unlock.",
       };
     } else {
@@ -690,16 +698,22 @@ export async function importMigrationManifest(
           queued: syncRes.failed,
         };
       } catch (uploadErr) {
+        let queued = 0;
         for (const docId of importedDocIds) {
           try {
             await SyncService.addToQueue(docId, targetUserId);
-          } catch { /* non-critical */ }
+            queued++;
+          } catch (queueErr) {
+            // На этом пути заметка не ушла в облако и не встала в очередь —
+            // то есть осталась только на этом устройстве.
+            reportError(queueErr, { action: "migrationImport_queueAfterFailedUpload", docId });
+          }
         }
         upload = {
           status: "failed",
           attempted: importedDocIds.length,
           uploaded: 0,
-          queued: importedDocIds.length,
+          queued,
           reason: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
         };
       }
