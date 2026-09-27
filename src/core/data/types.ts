@@ -81,7 +81,7 @@ export interface IDataProvider {
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
-  deleteLocalStorePagedRecords?(userId: string, store: string, key: string): Promise<void>;
+  deleteLocalStorePagedRecords?(userId: string, store: string, key: string, keepPages?: number): Promise<void>;
   deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
   deleteLocalStoreRecordsByStores(userId: string, stores: string[]): Promise<void>;
   deleteAllLocalStoreRecords?(userId: string): Promise<void>;

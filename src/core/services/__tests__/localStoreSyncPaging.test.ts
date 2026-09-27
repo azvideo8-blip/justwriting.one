@@ -109,6 +109,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
         savedRecords.push({ key, payload: payload as Record<string, unknown> });
       });
       const deleteExactSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreExactRecord').mockResolvedValue(undefined as never);
+      const deletePagedSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
 
       LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_large');
       const { synced, failed } = await LocalStoreSyncService.flushPending(true);
@@ -127,6 +128,8 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       }
 
       expect(deleteExactSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large');
+      // Хвост прежней, более длинной версии (страницы ≥ totalPages) удаляется.
+      expect(deletePagedSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large', totalPages);
     });
 
     it('deleting a record removes exact key and all paged records', async () => {
@@ -262,6 +265,28 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
 
       const current = await db.get('aiDialogues', 'dialogue_version_mismatch');
       expect(current).toEqual(localDialogue);
+    });
+
+    it('restores the newest complete version when an older, longer version left a stale page behind', async () => {
+      // Диалог стал короче: версия 3000 занимает 2 страницы, а страница #2 от
+      // версии 2000 (3 страницы) осталась в облаке. Раньше это давало
+      // «Mixed version stamps» и отказ навсегда.
+      const db = await getLocalDb();
+      const fresh = { id: 'dialogue_shrunk', guestId: USER, title: 'Короче', messages: [], updatedAt: 3000 };
+      const json = JSON.stringify(fresh);
+      const half = Math.floor(json.length / 2);
+      const cloudRecords = [
+        { store: 'aiDialogues', key: 'dialogue_shrunk#0', payload: { data: json.slice(0, half), updatedAt: 3000, page: 0, totalPages: 2 } },
+        { store: 'aiDialogues', key: 'dialogue_shrunk#2', payload: { data: 'stale tail', updatedAt: 2000, page: 2, totalPages: 3 } },
+        { store: 'aiDialogues', key: 'dialogue_shrunk#1', payload: { data: json.slice(half), updatedAt: 3000, page: 1, totalPages: 2 } },
+      ];
+      vi.spyOn(DataProvider, 'getLocalStoreRecords').mockResolvedValue(cloudRecords as never);
+      vi.spyOn(DataProvider, 'getUserSummaries').mockResolvedValue([] as never);
+
+      const res = await restoreAIDataFromCloud(USER);
+      expect(res.failed).toBe(0);
+      expect(res.localStoreRecords).toBe(1);
+      expect(await db.get('aiDialogues', 'dialogue_shrunk')).toMatchObject({ title: 'Короче', updatedAt: 3000 });
     });
 
     // AG-RESTORE-4: The longest dialogue cannot be restored and was called "malformed"

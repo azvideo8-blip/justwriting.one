@@ -570,6 +570,10 @@ export class LocalStoreSyncManager {
                 encrypted,
               );
             }
+            // Хвост прежней, более длинной версии: иначе в облаке смесь версий.
+            if (DataProvider.deleteLocalStorePagedRecords) {
+              await DataProvider.deleteLocalStorePagedRecords(uid, item.store, item.key, totalPages);
+            }
             // Clean up stale unpaged record row if previously stored unpaged
             if (DataProvider.deleteLocalStoreExactRecord) {
               await DataProvider.deleteLocalStoreExactRecord(uid, item.store, item.key);

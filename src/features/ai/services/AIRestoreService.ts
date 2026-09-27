@@ -214,60 +214,55 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
         } else {
           // SYNC-4: Multi-page reassembly
-          // Filter to only paged items
-          const pagedItems = items.filter(it => it.pageIndex !== null);
-          const firstPayload = pagedItems[0]?.payload;
-          if (!firstPayload) continue;
-          const expectedTotalPages = typeof firstPayload.totalPages === 'number' ? firstPayload.totalPages : null;
-          const expectedUpdatedAt = typeof firstPayload.updatedAt === 'number' ? firstPayload.updatedAt : null;
-
-          if (expectedTotalPages === null || expectedTotalPages <= 0 || pagedItems.length !== expectedTotalPages) {
-            logger.warn('AIRestoreService', `Incomplete page count for ${store}/${baseKey}: found ${pagedItems.length}, expected ${expectedTotalPages}. Refusing incomplete set.`);
-            result.failed++;
-            continue; // Keep local copy intact!
+          // Страницы разных версий могут лежать рядом: хвост прежней, более длинной
+          // версии, или новая версия, выгрузка которой оборвалась на середине.
+          // Собираем только самую свежую версию и только если её набор полный —
+          // склеить половинки двух версий нельзя, а старая версия поверх новой не нужна.
+          const versions = new Map<string, CloudGroupItem[]>();
+          for (const it of items) {
+            if (it.pageIndex === null) continue;
+            const ts = it.payload.updatedAt;
+            const total = it.payload.totalPages;
+            const stamp = `${typeof ts === 'number' ? ts : 'x'}|${typeof total === 'number' ? total : 'x'}`;
+            const list = versions.get(stamp) ?? [];
+            list.push(it);
+            versions.set(stamp, list);
           }
+          const newest = [...versions.values()]
+            .filter(v => typeof v[0]?.payload.updatedAt === 'number' && typeof v[0]?.payload.totalPages === 'number')
+            .sort((a, b) => (b[0]!.payload.updatedAt as number) - (a[0]!.payload.updatedAt as number))[0];
+          const expectedTotalPages = newest ? newest[0]!.payload.totalPages as number : 0;
+          const expectedUpdatedAt = newest ? newest[0]!.payload.updatedAt as number : null;
 
-          // Check that all pages 0..totalPages-1 are present with matching updatedAt and totalPages
           const pagesByIndex = new Map<number, CloudGroupItem>();
-          let hasIntegrityError = false;
-
-          for (const it of pagedItems) {
-            const pIndex = it.pageIndex!;
-            const pTotal = it.payload.totalPages;
-            const pTs = it.payload.updatedAt;
-
-            if (pTotal !== expectedTotalPages || pTs !== expectedUpdatedAt) {
-              logger.warn('AIRestoreService', `Mixed version stamps in pages for ${store}/${baseKey}. Refusing.`);
+          let hasIntegrityError = !newest || expectedTotalPages <= 0;
+          for (const it of newest ?? []) {
+            if (pagesByIndex.has(it.pageIndex!)) {
+              logger.warn('AIRestoreService', `Duplicate page index ${it.pageIndex} for ${store}/${baseKey}. Refusing.`);
               hasIntegrityError = true;
               break;
             }
-            if (pagesByIndex.has(pIndex)) {
-              logger.warn('AIRestoreService', `Duplicate page index ${pIndex} for ${store}/${baseKey}. Refusing.`);
-              hasIntegrityError = true;
-              break;
-            }
-            pagesByIndex.set(pIndex, it);
-          }
-
-          if (hasIntegrityError) {
-            result.failed++;
-            continue;
+            pagesByIndex.set(it.pageIndex!, it);
           }
 
           const sortedPages: CloudGroupItem[] = [];
-          for (let i = 0; i < expectedTotalPages; i++) {
+          for (let i = 0; !hasIntegrityError && i < expectedTotalPages; i++) {
             const pageItem = pagesByIndex.get(i);
             if (!pageItem) {
-              logger.warn('AIRestoreService', `Missing page ${i} for ${store}/${baseKey}. Refusing.`);
+              logger.warn('AIRestoreService', `Newest version of ${store}/${baseKey} is incomplete: page ${i} of ${expectedTotalPages} missing. Refusing.`);
               hasIntegrityError = true;
               break;
             }
             sortedPages.push(pageItem);
           }
+          if (!hasIntegrityError && pagesByIndex.size !== expectedTotalPages) {
+            logger.warn('AIRestoreService', `Newest version of ${store}/${baseKey} has pages beyond ${expectedTotalPages}. Refusing.`);
+            hasIntegrityError = true;
+          }
 
           if (hasIntegrityError) {
             result.failed++;
-            continue;
+            continue; // Keep local copy intact!
           }
 
           // Decrypt and join chunks

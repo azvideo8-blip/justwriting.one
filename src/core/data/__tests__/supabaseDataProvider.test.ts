@@ -493,6 +493,15 @@ describe('SupabaseDataProvider', () => {
 
       expect(mockQueryBuilder.like).toHaveBeenCalledWith('key', 'a\\_b#%');
     });
+
+    it('deleteLocalStorePagedRecords with keepPages removes only the stale tail (pages ≥ keepPages)', async () => {
+      mockQueryBuilder.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
+        resolve({ data: [{ key: 'k#0' }, { key: 'k#1' }, { key: 'k#2' }, { key: 'k#10' }], error: null }));
+
+      await SupabaseDataProvider.deleteLocalStorePagedRecords?.('user-1', 'aiDialogues', 'k', 2);
+
+      expect(mockQueryBuilder.in).toHaveBeenCalledWith('key', ['k#2', 'k#10']);
+    });
   });
 
   describe('deleteDocument — надгробие', () => {

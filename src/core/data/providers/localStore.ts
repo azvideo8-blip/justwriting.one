@@ -97,13 +97,31 @@ export async function deleteLocalStoreExactRecord(userId: string, store: string,
   if (error != null) throw error;
 }
 
-export async function deleteLocalStorePagedRecords(userId: string, store: string, key: string): Promise<void> {
-  const { error } = await getSupabase()
+/** Страницы `key#N`. С `keepPages` удаляются только N ≥ keepPages — хвост прежней,
+ *  более длинной версии: без этого он оставался в облаке навсегда, и восстановление
+ *  видело смесь версий («Mixed version stamps») и отказывалось собирать запись. */
+export async function deleteLocalStorePagedRecords(userId: string, store: string, key: string, keepPages?: number): Promise<void> {
+  let stale: string[] | null = null;
+  if (keepPages !== undefined) {
+    const { data, error } = await getSupabase()
+      .from('local_store_records')
+      .select('key')
+      .eq('user_id', userId)
+      .eq('store', store)
+      .like('key', likePrefix(key));
+    if (error != null) throw error;
+    stale = ((data ?? []) as Array<{ key: string }>)
+      .map(r => r.key)
+      .filter(k => Number(k.slice(key.length + 1)) >= keepPages);
+    if (stale.length === 0) return;
+  }
+  let q = getSupabase()
     .from('local_store_records')
     .delete()
     .eq('user_id', userId)
-    .eq('store', store)
-    .like('key', likePrefix(key));
+    .eq('store', store);
+  q = stale ? q.in('key', stale) : q.like('key', likePrefix(key));
+  const { error } = await q;
   if (error != null) throw error;
 }
 
