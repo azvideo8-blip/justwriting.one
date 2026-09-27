@@ -25,6 +25,12 @@ export async function addToSyncQueue(documentId: string, ownerId?: string): Prom
       createdAt: Date.now(),
       ownerId: doc?.guestId,
     });
+  } else {
+    // SB-1: молодую задачу не переставляем (это и есть смысл окна в 60 с — не
+    // дублировать выгрузку на каждое сохранение), но обязано остаётся след
+    // повторной постановки: правка, сохранённая во время полёта выгрузки,
+    // иначе не отличима от «ничего нового», и дренаж снимает её по снимку.
+    await tx.store.put({ ...existing, updatedAt: Date.now() });
   }
   await tx.done;
   announceQueueChange();

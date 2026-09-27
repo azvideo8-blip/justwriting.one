@@ -411,6 +411,11 @@ export const SyncService = {
 async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
   const db = await getLocalDb(userId);
   const queue = await db.getAll('syncQueue');
+  // SB-1: снимок задач, по которому решается, что снимать с очереди после
+  // выгрузки. Задача документа лежит под детерминированным ключом
+  // `sync_<documentId>`, поэтому правка, сохранённая во время полёта, попадает
+  // ровно в ту строку, которую дренаж собирается удалить.
+  const snapshot = new Map(queue.map(item => [item.id, item]));
 
   // A task belongs to the account that created it. Draining someone else's —
   // after an account switch, a multi-tab race or a crash recovery — would upload
@@ -512,7 +517,7 @@ async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
       skippedSet = new Set(relinkRes?.skippedIds ?? []);
     } catch (e) {
       logger.error('drainPendingQueue', 'Skipping uploads: could not verify cloud links', { reason: String(e) });
-      if (syncedIds.length > 0) await _clearQueueItems(syncedIds, userId);
+      if (syncedIds.length > 0) await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);
       return { drained: syncedIds.length, failed: docTasks.length };
     }
 
@@ -544,23 +549,56 @@ async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
   }
 
   // Сначала зафиксировать выгруженное, потом дождаться штрафов неудачным.
+  let keptStale = 0;
   if (syncedIds.length > 0) {
-    await _clearQueueItems(syncedIds, userId);
-    announceQueueChange();
+    const { kept } = await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);
+    keptStale = kept.length;
+    if (kept.length > 0) {
+      // Правка пришла, пока выгрузка была в полёте: задачу не снимаем, следующий
+      // проход унесёт и новую версию.
+      logger.info('drainPendingQueue', 'Kept queue tasks re-enqueued during upload', { ids: kept });
+    }
+    if (syncedIds.length > kept.length) announceQueueChange();
   }
 
   if (pendingBumps.length > 0) await Promise.all(pendingBumps);
 
   return {
-    drained: syncedIds.length,
+    drained: syncedIds.length - keptStale,
     failed: pendingBumps.length,
     ...(vaultLocked && pending.length > deleteTasks.length ? { skippedReason: 'vault_locked' as const } : {}),
   };
 }
 
-async function _clearQueueItems(ids: string[], ownerId?: string): Promise<void> {
+// SB-1: снимает с очереди только те задачи, которые с момента снимка не
+// менялись. Чтение и удаление — одна транзакция IndexedDB, так что между
+// проверкой и удалением вклиниться нельзя. Задача, переставленная во время
+// полёта (у неё свежий `updatedAt`, см. syncQueueOps), остаётся: её версия ещё
+// не в облаке, и следующий проход её унесёт.
+async function _clearQueueItemsIfUnchanged(
+  ids: string[],
+  snapshot: Map<string, { createdAt: number; updatedAt?: number | undefined }>,
+  ownerId?: string,
+): Promise<{ cleared: string[]; kept: string[] }> {
   const db = await getLocalDb(ownerId);
   const tx = db.transaction('syncQueue', 'readwrite');
-  await Promise.all(ids.map(id => tx.store.delete(id)));
+  const cleared: string[] = [];
+  const kept: string[] = [];
+  for (const id of ids) {
+    const row = await tx.store.get(id);
+    const seen = snapshot.get(id);
+    if (!row || !seen) {
+      // Строки уже нет (или её не было в снимке) — удалять нечего.
+      if (row && !seen) kept.push(id);
+      continue;
+    }
+    if (row.createdAt === seen.createdAt && (row.updatedAt ?? 0) === (seen.updatedAt ?? 0)) {
+      await tx.store.delete(id);
+      cleared.push(id);
+    } else {
+      kept.push(id);
+    }
+  }
   await tx.done;
+  return { cleared, kept };
 }

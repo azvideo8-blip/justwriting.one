@@ -325,7 +325,7 @@ export interface JustWritingDB extends DBSchema {
   profile: { key: string; value: LocalProfile; };
   syncQueue: {
     key: string;
-    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; ownerId?: string | undefined; attempts?: number | undefined; dead?: boolean | undefined; lastError?: string | undefined; ownerToken?: string | undefined; };
+    value: { id: string; documentId: string; type: 'document' | 'version' | 'delete' | 'portrait'; createdAt: number; updatedAt?: number | undefined; ownerId?: string | undefined; attempts?: number | undefined; dead?: boolean | undefined; lastError?: string | undefined; ownerToken?: string | undefined; };
   };
   drafts: { key: string; value: LocalDraft; };
   pending_sessions: { key: number; value: PendingSession; autoIncrement: true; };
