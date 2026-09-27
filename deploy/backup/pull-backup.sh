@@ -70,5 +70,8 @@ echo
 echo "готово: $DEST/$NAME ($SIZE)"
 echo "копий здесь: $COUNT, самая старая — $(ls -1t "$DEST"/justwriting-*.dump | tail -1 | xargs basename)"
 echo
-echo "Восстановить из этой копии:"
-echo "  cat \"$DEST/$NAME\" | ssh $HOST 'docker exec -i supabase-db pg_restore -U postgres -d postgres --clean --no-owner'"
+# N-79: команда восстановления здесь не печатается. Прошлая подсказка
+# (`pg_restore -U postgres … --clean --no-owner`) противоречила RESTORE.md и в
+# реальности дала 136 ошибок и exit 1 — а в момент аварии человек копирует
+# именно подсказку со экрана.
+echo "Восстановить из этой копии — по deploy/backup/RESTORE.md (раздел «Восстановление всего»)."

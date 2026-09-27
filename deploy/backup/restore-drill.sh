@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Учебное восстановление: свежий дамп → отдельный контейнер без сети → сверка
-# числа строк с боевой базой. Ничего в боевой базе не трогает. Запускать на
-# сервере от root:  sudo bash /opt/justwriting/backup/restore-drill.sh
+# числа строк и прав доступа с боевой базой. Ничего в боевой базе не трогает.
+# Запускать на сервере от root:  sudo bash /opt/justwriting/backup/restore-drill.sh
 #
 # Проверено 2026-09-24 (next-steps №3): наивное восстановление в свежий образ
 # Supabase теряет auth.users (схема auth уже создана образом и конфликтует) —
 # аккаунты не входят, а uid, к которым привязаны заметки, пропадают. Рабочий
 # способ — pg_restore --clean --if-exists от supabase_admin (см. RESTORE.md).
+#
+# N-78: счётчики строк читаются суперюзером и про права не знают ничего. Drill
+# обязан краснеть на базе, в которую приложение не может войти, — поэтому после
+# сверки счётчиков проверяется вход под ролью приложения и гранты таблиц.
 set -euo pipefail
 
 compare_drill_counts() {
@@ -59,14 +63,103 @@ compare_drill_counts() {
   return 0
 }
 
+# N-78: сравнение табличных грантов восстановленной базы с продом. Формат
+# строк — «таблица роль привилегия» по одной строке на грант (запрос GRANTS_QUERY
+# ниже), поэтому записи владельца в сравнении нет и порядок не важен.
+compare_drill_grants() {
+  local restored="$1"
+  local prod="$2"
+
+  local restored_count prod_count
+  restored_count=$(printf '%s\n' "$restored" | grep -c . || true)
+  prod_count=$(printf '%s\n' "$prod" | grep -c . || true)
+
+  # Гейт не проходит вслепую: пустой список — это не «гранты совпали».
+  if [ "$prod_count" -eq 0 ] || [ "$restored_count" -eq 0 ]; then
+    echo "ERROR: сверка грантов не состоялась (строк грантов: восстановлено=$restored_count, прод=$prod_count)" >&2
+    return 1
+  fi
+
+  local diff_out
+  if diff_out=$(diff <(printf '%s\n' "$restored" | sort) <(printf '%s\n' "$prod" | sort)); then
+    echo "OK: гранты ролей приложения совпадают с продом ($prod_count записей)"
+    return 0
+  fi
+
+  echo "ERROR: гранты разошлись с продом — приложение после восстановления может не войти в базу:" >&2
+  printf '%s\n' "$diff_out" | head -20 >&2
+  return 1
+}
+
 if [ "${1:-}" = "--compare" ]; then
   compare_drill_counts "$2" "$3"
+  exit $?
+fi
+
+if [ "${1:-}" = "--compare-grants" ]; then
+  compare_drill_grants "$2" "$3"
   exit $?
 fi
 
 IMAGE=$(docker inspect supabase-db --format '{{.Config.Image}}')
 DUMP=$(ls -t /var/backups/justwriting/*.dump | head -1)
 NAME=jw-restore-drill
+
+# ── N-78: вход приложения и гранты ──────────────────────────────────────────
+# Счётчики читаются суперюзером: на базе без единого табличного гранта они
+# точь-в-точь такие же. Проверка под ролью, которой реально работает клиент, —
+# единственная, что может покраснеть на потере грантов.
+drill_sql() { docker exec -e PGPASSWORD=drill "$NAME" psql -U supabase_admin -h localhost -d postgres -At -c "$1"; }
+prod_sql() { docker exec supabase-db psql -U postgres -d postgres -At -c "$1"; }
+
+# Права владельца в сверку не входят: pg_restore --no-owner делает владельцем
+# supabase_admin, а на проде это другой роль, — запись acl разошлась бы всегда
+# и поводу, которого нет. Смысл проверки — права трёх ролей Supabase, под
+# которыми ходит клиент (anon/authenticated через Kong, service_role у API).
+# grantee из aclexplode — OID, сравнивать его с именем надо через pg_roles.
+GRANTS_QUERY="select c.relname||' '||coalesce(r.rolname,'PUBLIC')||' '||p.privilege_type
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+ cross join lateral aclexplode(c.relacl) p
+  left join pg_roles r on r.oid = p.grantee
+ where n.nspname = 'public' and c.relkind = 'r'
+   and coalesce(r.rolname,'PUBLIC') in ('anon','authenticated','service_role')
+ order by 1"
+
+run_checks() {
+  Q="select (select count(*) from auth.users)||' auth.users, '||(select count(*) from public.users)||' users, '||(select count(*) from public.documents)||' docs, '||(select count(*) from public.versions)||' versions, '||(select count(*) from public.local_store_records)||' ai records, '||(select count(*) from public.users where encryption_meta is not null)||' vaults'"
+  echo "дамп:  $(drill_sql "$Q")"
+  echo "прод:  $(prod_sql "$Q")"
+  echo "(прод может быть впереди на то, что записано после дампа)"
+
+  Q_RAW="select (select count(*) from auth.users)||'|'||(select count(*) from public.users)||'|'||(select count(*) from public.documents)||'|'||(select count(*) from public.versions)||'|'||(select count(*) from public.local_store_records)||'|'||(select count(*) from public.users where encryption_meta is not null)"
+  compare_drill_counts "$(drill_sql "$Q_RAW")" "$(prod_sql "$Q_RAW")"
+
+  local login_failed=0
+  for role in authenticated service_role; do
+    for table in documents users; do
+      if ! out=$(drill_sql "set role $role; select 1 from public.$table limit 1" 2>&1); then
+        echo "ERROR: роль $role не читает public.$table после восстановления: $out" >&2
+        login_failed=1
+      fi
+    done
+  done
+  if [ "$login_failed" -ne 0 ]; then
+    echo "Проверить вход приложения — не удалось: см. ERROR выше."
+    return 1
+  fi
+  echo "OK: приложение входит в восстановленную базу (authenticated, service_role)"
+
+  compare_drill_grants "$(drill_sql "$GRANTS_QUERY")" "$(prod_sql "$GRANTS_QUERY")"
+}
+
+# --verify-only: боевой дамп не разворачивать, проверить контейнер с прошлой
+# итерации. Нужно, чтобы подкрутить гранты в одноразовом контейнере и убедиться,
+# что сверка краснеет, — иначе каждая поломка стоит полного восстановления.
+if [ "${1:-}" = "--verify-only" ]; then
+  run_checks
+  exit $?
+fi
 
 ( cd /var/backups/justwriting && sha256sum -c "$(basename "$DUMP").sha256" )
 
@@ -79,13 +172,4 @@ sleep 5
 docker exec -i -e PGPASSWORD=drill "$NAME" pg_restore -U supabase_admin -h localhost -d postgres \
   --clean --if-exists --no-owner --no-privileges < "$DUMP"
 
-Q="select (select count(*) from auth.users)||' auth.users, '||(select count(*) from public.users)||' users, '||(select count(*) from public.documents)||' docs, '||(select count(*) from public.versions)||' versions, '||(select count(*) from public.local_store_records)||' ai records, '||(select count(*) from public.users where encryption_meta is not null)||' vaults'"
-echo "дамп:  $(docker exec -e PGPASSWORD=drill "$NAME" psql -U supabase_admin -h localhost -d postgres -At -c "$Q")"
-echo "прод:  $(docker exec supabase-db psql -U postgres -At -c "$Q")"
-echo "(прод может быть впереди на то, что записано после дампа)"
-
-Q_RAW="select (select count(*) from auth.users)||'|'||(select count(*) from public.users)||'|'||(select count(*) from public.documents)||'|'||(select count(*) from public.versions)||'|'||(select count(*) from public.local_store_records)||'|'||(select count(*) from public.users where encryption_meta is not null)"
-dump_raw=$(docker exec -e PGPASSWORD=drill "$NAME" psql -U supabase_admin -h localhost -d postgres -At -c "$Q_RAW")
-prod_raw=$(docker exec supabase-db psql -U postgres -At -c "$Q_RAW")
-
-compare_drill_counts "$dump_raw" "$prod_raw"
+run_checks

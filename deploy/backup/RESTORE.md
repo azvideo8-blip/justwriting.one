@@ -12,14 +12,41 @@
 sudo bash /opt/justwriting/backup/restore-drill.sh
 ```
 
-Поднимает дамп в отдельном контейнере без сети и сверяет число строк с боевой
-базой. Боевую базу не трогает.
+Поднимает дамп в отдельном контейнере без сети и сверяет с боевой базой и число
+строк, и права. Боевую базу не трогает.
+
+Счётчики строк читаются суперюзером — на базе без единого табличного гранта они
+выглядят точно так же, как на здоровой. Поэтому drill дополнительно входит в
+восстановленную базу под ролями клиента (`authenticated`, `service_role`) и
+сверяет гранты таблиц `public` с продом по строкам
+«таблица роль привилегия» (`aclexplode`, права владельца не участвуют —
+`--no-owner` делает владельцем `supabase_admin`). Права `anon`, `authenticated`
+и `service_role` сравниваются целиком; расходится хотя бы одна строка — drill
+красный. Замеры 2026-09-27: 408 записей на проде и в восстановленной базе,
+совпали.
+
+`--verify-only` прогоняет проверки по уже поднятому контейнеру `jw-restore-drill`
+без нового восстановления — им и проверяют, что гейт краснеет:
+
+```bash
+sudo docker exec jw-restore-drill psql -U supabase_admin -h localhost -d postgres \
+  -c 'revoke select on public.versions from authenticated'
+sudo bash /opt/justwriting/backup/restore-drill.sh --verify-only   # → exit 1
+```
 
 ## Восстановление всего
 
 Только `--clean --if-exists` от `supabase_admin`: образ Supabase при старте
 сам создаёт схему `auth`, и восстановление поверх неё без `--clean` теряет
 `auth.users` — аккаунты не входят, uid заметок повисают.
+
+`--no-privileges` не выбрасывает гранты приложения: образ держит
+`ALTER DEFAULT PRIVILEGES`, и таблицы, созданные восстановлением, получают
+права `anon`/`authenticated`/`service_role` заново. Проверено на настоящем
+контейнере 2026-09-27 (сверка грантов в drill — тот факт и сторожит: гранты
+перестанут возвращаться — drill покраснеет). В чистом Postgres без default
+privileges эта опция теряет гранты, и приложение в базу не войдёт — если
+восстанавливать не в образ Supabase, `--no-privileges` убрать.
 
 ```bash
 cd /opt/justwriting/supabase
@@ -30,6 +57,9 @@ sudo cat "$F" | sudo docker exec -i supabase-db pg_restore -U supabase_admin -d 
   --clean --if-exists --no-owner --no-privileges
 sudo docker compose start kong auth rest realtime
 ```
+
+После восстановления всего — прогнать drill целиком: он сверяет счётчики и
+гранты с живой базой.
 
 ## Восстановление одного человека
 
