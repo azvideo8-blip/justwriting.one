@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCodeDisplayModal';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import { reportError } from '../../../shared/errors/reportError';
+
+// Код показывается раз в жизни сейфа — модалка вынесена из стартового куска (бюджет CI).
+const RecoveryCodeDisplayModal = lazy(() =>
+  import('../../../shared/components/RecoveryCodeDisplayModal').then(m => ({ default: m.RecoveryCodeDisplayModal })),
+);
 
 export function RecoveryCodeGate() {
   const { user, isGuest } = useAuthStatus();
@@ -71,10 +75,12 @@ export function RecoveryCodeGate() {
   }
 
   return (
-    <RecoveryCodeDisplayModal
-      recoveryCode={pendingCode}
-      onConfirm={handleConfirm}
-      askRememberDevice
-    />
+    <Suspense fallback={null}>
+      <RecoveryCodeDisplayModal
+        recoveryCode={pendingCode}
+        onConfirm={handleConfirm}
+        askRememberDevice
+      />
+    </Suspense>
   );
 }

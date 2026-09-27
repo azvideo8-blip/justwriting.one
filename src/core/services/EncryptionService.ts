@@ -28,7 +28,7 @@ import {
   ENCRYPTION_META_VERSION,
   VERIFICATION_PLAINTEXT,
 } from './EncryptionMetaService';
-import { encryptAllExistingNotes, type MigrationProgress } from '../crypto/encryptMigration';
+import type { MigrationProgress } from '../crypto/encryptMigration';
 import { hasLegacyEncryption, hasVault } from './LegacyKeyMigration';
 import { DataProvider } from '../data';
 import { updateUserPassword, getCurrentUser } from '../auth';
@@ -406,6 +406,8 @@ export async function encryptAll(
   signal?: AbortSignal,
 ): Promise<MigrationProgress> {
   if (!getSessionKey()) throw new Error('Vault is locked');
+  // Миграция нужна раз в жизни сейфа — из стартового куска она вынесена (бюджет CI).
+  const { encryptAllExistingNotes } = await import('../crypto/encryptMigration');
   return encryptAllExistingNotes(userId, onProgress, signal);
 }
 

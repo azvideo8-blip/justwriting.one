@@ -26,17 +26,17 @@ vi.mock('../../../../shared/components/RecoveryCodeDisplayModal', () => ({
 describe('R3-9: the auto-created vault asks whether to remember this device', () => {
   beforeEach(() => { vi.clearAllMocks(); sessionStorage.setItem(STORAGE_KEYS.PENDING_RECOVERY_CODE('u1'), 'ABCD'); });
 
-  it('forgets the device key when the person unticks it', () => {
+  it('forgets the device key when the person unticks it', async () => {
     render(<RecoveryCodeGate />);
-    expect(screen.getByText('asks')).toBeTruthy();
+    expect(await screen.findByText('asks')).toBeTruthy();
     fireEvent.click(screen.getByText('shared'));
     expect(setRememberDevice).toHaveBeenCalledWith(false);
     expect(clearDeviceKey).toHaveBeenCalledWith('u1');
   });
 
-  it('keeps it by default', () => {
+  it('keeps it by default', async () => {
     render(<RecoveryCodeGate />);
-    fireEvent.click(screen.getByText('mine'));
+    fireEvent.click(await screen.findByText('mine'));
     expect(clearDeviceKey).not.toHaveBeenCalled();
   });
 
@@ -44,7 +44,7 @@ describe('R3-9: the auto-created vault asks whether to remember this device', ()
     const error = new Error('keyVault error');
     vi.mocked(clearDeviceKey).mockRejectedValueOnce(error);
     render(<RecoveryCodeGate />);
-    fireEvent.click(screen.getByText('shared'));
+    fireEvent.click(await screen.findByText('shared'));
     await new Promise(r => setTimeout(r, 0));
     expect(reportError).toHaveBeenCalledWith(error, expect.objectContaining({
       action: 'clearDeviceKey_uncheckRememberDevice',
