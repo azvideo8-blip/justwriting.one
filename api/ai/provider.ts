@@ -1,3 +1,14 @@
+// SA-8: тело запроса строится в одном месте — `src/shared/ai/requestConfig.ts`,
+// тот же модуль импортируют харнесы из scripts/. Здесь от env остаются только
+// снимки на старте процесса.
+import {
+  buildChatRequestBody,
+  type ChatMessage,
+  resolveChatBaseUrl,
+  resolveChatModel,
+  resolveProviderRouting,
+} from '../../src/shared/ai/requestConfig.js';
+
 // RouterAI is the sole AI provider: an OpenAI-compatible gateway, billed in
 // roubles and reachable from Russia (OpenRouter is not). The wire format is
 // unchanged, so only the base URL moves.
@@ -7,18 +18,16 @@
 // and renaming a Firebase secret means re-setting and redeploying every one of
 // them — on a Firebase deployment that the VPS migration retires. The VPS AI
 // proxy gets provider-neutral AI_* names instead.
-const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
+const ACTIVE_CHAT_MODEL = resolveChatModel();
 // Ограничение контура обработки. Пусто = ограничения нет, запрос может уйти к
 // зарубежному провайдеру модели (ст. 12 152-ФЗ). Проверено 2026-09-20:
 // эмбеддинги теперь локальные и игнорируют флаг (проверено живьём); включение
 // упирается в смену модели на `yandex/*` для всех вызывающих, так как
 // `deepseek/deepseek-v4-flash` под `country: 'ru'` недоступен. См. api/chat.ts и
 // docs/audit-2026-09-20-outbound-pii.md (OUT-1).
-const PROVIDER_ROUTING = process.env.AI_PROVIDER_COUNTRY
-  ? { country: process.env.AI_PROVIDER_COUNTRY }
-  : undefined;
+const PROVIDER_ROUTING = resolveProviderRouting();
 
-const OPENROUTER_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
+const OPENROUTER_BASE_URL = resolveChatBaseUrl();
 const OPENROUTER_EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL ?? 'qwen/qwen3-embedding-8b';
 // Embeddings can point at a separate (e.g. local) server without moving chat
 // off RouterAI — AI_BASE_URL is shared with generateOpenRouter() and api/chat.ts.
@@ -29,14 +38,10 @@ export async function getActiveModel(): Promise<string> {
 }
 
 export type ProviderRole = 'user' | 'assistant';
-export interface ProviderMessage {
-  role: ProviderRole;
-  content: string;
-}
 
 export interface GenerateParams {
   system?: string | undefined;
-  messages: ProviderMessage[];
+  messages: ChatMessage[];
   maxTokens?: number;
   abortMs?: number;
   /** Override the OpenRouter model for this call (e.g. an obedient non-reasoning
@@ -94,31 +99,18 @@ async function generateOpenRouter(params: GenerateParams): Promise<GenerateResul
 
   const activeModel = params.model ?? (await getActiveModel());
 
-  const oaMessages: { role: string; content: string }[] = [];
-  if (system) oaMessages.push({ role: 'system', content: system });
-  for (const m of messages) oaMessages.push({ role: m.role, content: m.content });
-
-  const body: Record<string, unknown> = {
+  const body = buildChatRequestBody({
+    system,
+    messages,
     model: activeModel,
-    messages: oaMessages,
-    max_tokens: maxTokens ?? 4096,
-    ...(PROVIDER_ROUTING ? { provider: PROVIDER_ROUTING } : {}),
-  };
+    maxTokens,
+    reasoningEffort: params.reasoningEffort,
+  });
 
-  // Every caller of generate() wants an answer, not a chain of thought: these are
-  // summaries, judgements, taxonomies and extractions. On OpenRouter that needed no
-  // saying, because it only emitted reasoning when asked. RouterAI reasons by
-  // DEFAULT, and the reasoning is billed and counts against max_tokens — a request
-  // with a tight budget spends all of it thinking and returns empty content. So the
-  // absence of reasoning now has to be stated explicitly.
-  //
-  // `reasoning_effort: 'none'` is the switch that works. `reasoning: {effort:'low'}`
-  // does NOT — measured against deepseek-v4-flash it produced *more* reasoning than
-  // the default (374 tokens vs 61), and `reasoning: {exclude:true}` only hides the
-  // tokens while still paying for them.
-  // Chat reasoning mode opts back in with the same shape api/chat.ts streams with.
-  if (params.reasoningEffort) body.reasoning = { effort: params.reasoningEffort };
-  else body.reasoning_effort = 'none';
+  // Почему тело строится не здесь, а в src/shared/ai/requestConfig.ts: те же
+  // поля обязаны быть у харнесов из scripts/, иначе замер измеряет конфигурацию,
+  // которой нет в проде. Правило `reasoning_effort: 'none'` (и отказ от
+  // `temperature`) выверено на живом RouterAI и описано там же.
 
   // Retry transient upstream errors (502/503/504 and network errors like ECONNRESET)
   // with a short backoff while respecting an overall time deadline.

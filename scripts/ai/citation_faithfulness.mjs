@@ -5,10 +5,14 @@
 // The decisive metric: fabricated / unsupported citations. Traps have NO valid source.
 //
 // Run: OPENROUTER_API_KEY=... node citation_faithfulness.mjs
-// Model mirrors api/chat.ts:143.
+// SA-8: тело запроса — из эталонного модуля, того же, что у прода
+// (api/ai/provider.ts → src/shared/ai/requestConfig.ts). Харнес не вправе
+// выбирать себе temperature или reasoning: он тогда измеряет не прод.
 
-const MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
-const BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
+import { buildChatRequestBody, resolveChatBaseUrl, resolveChatModel } from '../../src/shared/ai/requestConfig.ts';
+
+const BASE_URL = resolveChatBaseUrl();
+const MODEL = resolveChatModel();
 const KEY = process.env.OPENROUTER_API_KEY;
 if (!KEY) { console.error('OPENROUTER_API_KEY not set'); process.exit(2); }
 
@@ -45,14 +49,10 @@ function corpusBlock() {
 }
 
 async function ask(question) {
-  const body = {
-    model: MODEL,
-    messages: [
-      { role: 'system', content: SYSTEM },
-      { role: 'user', content: `Заметки:\n${corpusBlock()}\n\nВопрос: ${question}` },
-    ],
-    temperature: 0,
-  };
+  const body = buildChatRequestBody({
+    system: SYSTEM,
+    messages: [{ role: 'user', content: `Заметки:\n${corpusBlock()}\n\nВопрос: ${question}` }],
+  });
   const r = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
