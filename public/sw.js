@@ -90,7 +90,7 @@ self.addEventListener('fetch', (event) => {
             void caches.open(CACHE).then((c) => c.put(event.request, clone));
           }
           return response;
-        // SB-6: промах по кэшу плюс отказ сети — это erroped-ответ (честная
+        // SB-6: промах по кэшу плюс отказ сети — это Response.error() (честная
         // сетевая ошибка), а не undefined, попавший в respondWith.
         }).catch(() => cached || Response.error())
       )

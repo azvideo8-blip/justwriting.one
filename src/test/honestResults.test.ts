@@ -177,7 +177,7 @@ describe('R10-3: honestResults gate — «функция вернула флаг
     }
 
     expect(findings).toEqual([]);
-  });
+  }, 30_000); // обходит весь src через AST: под полной нагрузкой 5 с не хватает
 
   it('самопроверка гейта: синтетический исходник с await deleteProbe() даёт находку', () => {
     const targets: StatusTarget[] = [{ name: 'deleteProbe' }];
