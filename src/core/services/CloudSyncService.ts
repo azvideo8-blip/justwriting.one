@@ -1261,7 +1261,8 @@ export const CloudSyncService = {
             goalTime: data.goalTime,
             goalReached: data.goalReached,
             sessionStartedAt: startedAt,
-            mood: data.mood,
+            // B-1: тот же зашифрованный mood, что и в первой попытке.
+            mood,
             _encrypted,
           });
         } else {

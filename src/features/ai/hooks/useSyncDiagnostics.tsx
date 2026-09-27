@@ -304,6 +304,9 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       const res = await SyncService.syncPending(userId);
       if (res.skippedReason === 'sync_disabled') {
         showToast(t('sync_queue_disabled'), 'error');
+      } else if (res.skippedReason === 'vault_locked') {
+        // Заметки ждут ключа — это не «очередь пуста».
+        showToast(t('settings_sync_vault_locked'), 'error');
       } else if (res.failed > 0) {
         showToast(t('sync_queue_partial', { drained: String(res.drained), failed: String(res.failed) }), 'error');
       } else if (res.drained === 0) {

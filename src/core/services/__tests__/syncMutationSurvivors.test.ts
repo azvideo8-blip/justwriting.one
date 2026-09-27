@@ -61,13 +61,12 @@ describe('SyncService (ss-*)', () => {
   });
 });
 
-// Находки в прод-коде (отчёт F-2, п. «баги»): тест намеренно красный, код не
-// трогаем — владелец решит. it.fails станет зелёным-падающим, когда починят.
-describe('known bugs kept red', () => {
+// Находки в прод-коде из отчёта F-2.
+describe('bugs found by the sweep', () => {
   // F-2 отчёт, баг B-1: повтор записи версии после коллизии номеров
   // (split metadata) отправляет mood открытым текстом при _encrypted: true.
   // Первая попытка шифрует mood, повтор берёт data.mood как есть.
-  it.fails('B-1: split-metadata retry keeps mood encrypted', async () => {
+  it('B-1: split-metadata retry keeps mood encrypted', async () => {
     setProfileLoaded(USER, true);
     setEncryptionEnabled(USER, true);
     setSessionKey(await generateDataKey());
