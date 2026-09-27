@@ -42,6 +42,9 @@ base_tests=$(python3 -c "import json; print(' '.join(sorted({t for m in json.loa
 set +e
 base=$(npx vitest run $base_tests 2>&1)
 base_exit=$?
+# Вывод разбирается grep'ом по «^\s*Tests »: в CI он цветной, и ANSI-код перед
+# словом ломал разбор базового прогона.
+base=$(printf '%s\n' "$base" | sed $'s/\x1b\\[[0-9;]*m//g')
 set -e
 
 if ! echo "$base" | grep -qE "^\s*Tests "; then
@@ -94,6 +97,7 @@ PY
   set +e
   res=$(npx vitest run $mutation_tests 2>&1)
   set -e
+  res=$(printf '%s\n' "$res" | sed $'s/\x1b\\[[0-9;]*m//g')  # см. базовый прогон
 
   failed=$(echo "$res" | grep -E "^\s*Tests " | grep -oE "[0-9]+ failed" | grep -oE "[0-9]+" || echo 0)
   names=$(echo "$res" | grep -E "^\s*×" | sed -E 's/^\s*× //; s/ [0-9]+ms$//' | head -5 | tr '\n' ';' | sed 's/;$//')
