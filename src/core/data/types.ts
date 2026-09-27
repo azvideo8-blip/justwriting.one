@@ -37,7 +37,7 @@ export interface IDataProvider {
   // --- Profile & Admin Operations ---
   getProfile(userId: string): Promise<ProviderRecord | null>;
   updateProfile(userId: string, data: ProviderRecord): Promise<void>;
-  subscribeToProfile(userId: string, onUpdate: (data: ProviderRecord | null) => void): () => void;
+  subscribeToProfile(userId: string, onUpdate: (data: ProviderRecord | null, unavailable?: boolean) => void): () => void;
   getUsers(limitCount: number): Promise<ProviderRecord[]>;
 
   // --- Writing Draft Operations ---

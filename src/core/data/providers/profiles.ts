@@ -27,7 +27,13 @@ export async function updateProfile(userId: string, data: ProviderRecord): Promi
   if (error != null) throw error;
 }
 
-export function subscribeToProfile(userId: string, onUpdate: (data: ProviderRecord | null) => void): () => void {
+export function subscribeToProfile(
+  userId: string,
+  // SB-5: второй аргумент отделяет «строки нет» от «не смогли прочитать». Без
+  // него отказ чтения выглядел как пустой профиль, и контекст шёл создавать
+  // строку — подставляя вместо ника человека локальную часть адреса почты.
+  onUpdate: (data: ProviderRecord | null, unavailable?: boolean) => void,
+): () => void {
   let cancelled = false;
 
   // Первичное чтение обязательно. Firestore onSnapshot отдавал текущий
@@ -37,13 +43,17 @@ export function subscribeToProfile(userId: string, onUpdate: (data: ProviderReco
   void (async () => {
     const { data, error } = await getSupabase().from('users').select('*').eq('uid', userId).maybeSingle();
     if (cancelled) return;
-    if (error != null) { onUpdate(null); return; }
+    if (error != null) {
+      reportError(error, { action: 'subscribeToProfile_read', uid: userId }, 'warning');
+      onUpdate(null, true);
+      return;
+    }
     // TB-14 / N-31: тот же запрос, что в getProfile, и та же проверка владельца.
     // Отсюда профиль попадает в приложение: чужая строка включила бы этому
     // аккаунту сейф и согласие на ИИ, а её метки записались бы в его профиль.
     try { ownRow(data, userId, 'uid'); } catch (e) {
       reportError(e, { action: 'subscribeToProfile_foreignRow' });
-      onUpdate(null);
+      onUpdate(null, true);
       return;
     }
     onUpdate(data ? fromDb(USER_REV, data as ProviderRecord) : null);

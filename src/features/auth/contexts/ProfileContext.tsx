@@ -50,7 +50,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    const unsubscribe = DataProvider.subscribeToProfile(user.uid, (data) => {
+    const unsubscribe = DataProvider.subscribeToProfile(user.uid, (data, unavailable) => {
       if (cancelled) return;
       void (async () => {
         try {
@@ -111,6 +111,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
               setProfile(null);
               setProfileLoaded(user.uid, true);
             }
+          } else if (unavailable) {
+            // SB-5: «не прочитали» — это не «профиля нет». Создание строки на этом
+            // пути перезаписывало бы ник человека адресом почты каждый раз, когда
+            // база моргнула, а пустой профиль в памяти означал бы «сейфа нет» и
+            // «меток нет» для аккаунта, у которого они есть.
+            reportError(new Error('profile read unavailable'), { action: 'profileContext_readUnavailable', uid: user.uid }, 'warning');
           } else {
             // No profile doc exists. Create it.
             //
@@ -123,7 +129,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             creationAttemptedRef.current = true;
 
             const existingProfileRes = await ProfileService.getProfile(user.uid);
-            if (!existingProfileRes.error && existingProfileRes.data) {
+            if (existingProfileRes.error) {
+              // SB-5: то же самое на втором чтении — отказ это или строка,
+              // неизвестно, значит создавать нечем.
+              reportError(new Error('profile re-read failed'), { action: 'profileContext_reReadUnavailable', uid: user.uid }, 'warning');
+              creationAttemptedRef.current = false;
+              return;
+            }
+            if (existingProfileRes.data) {
               creationAttemptedRef.current = false;
               const existingProfile = existingProfileRes.data;
               const hasConsent = existingProfile.aiConsentAt !== null &&
