@@ -9,7 +9,23 @@ import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 
-describe('searchNotes — rerank benchmark support', () => {
+/**
+ * SB-9: прежнее имя файла (noteRetrieverRerankBench) обещало бенчмарк качества
+ * поиска, а бенчмарка здесь нет: и эмбеддинги, и реранк замаканы, поэтому про
+ * релевантности этот файл не говорит ничего.
+ *
+ * Что он проверяет честно — контракт обхода реранка в searchNotes, на котором
+ * сидит стенд `scripts/rerank-bench`:
+ *   1. `skipRerank: true` → AIService.rerank не вызывается вообще, и в meta
+ *      приходит `bypassReason: 'skip_option'`;
+ *   2. без пропуска реранк вызывается один раз, и в meta падают замеры (`rerankLatencyMs`,
+ *      `cardCount`) с `bypassed: false`;
+ *   3. порядок, который вернул реранк, заменяет порядок RRF — базовый проход
+ *      ставит выше local_doc_1 (косинус 0.6 против 0.5), в результате первым идёт
+ *      local_doc_2. Проверено поломкой: с `const ids = fallbackIds` в
+ *      searchNotes.ts:247 тест падает на «expected 'local_doc_1' to be 'local_doc_2'».
+ */
+describe('searchNotes — контракт обхода реранка (instrumentation для rerank-bench)', () => {
   const NOTE_1 = 'local_doc_1';
   const NOTE_2 = 'local_doc_2';
 
@@ -85,6 +101,7 @@ describe('searchNotes — rerank benchmark support', () => {
     expect(meta?.bypassed).toBe(false);
     expect(typeof meta?.rerankLatencyMs).toBe('number');
     expect(meta?.cardCount).toBeGreaterThanOrEqual(1);
+    // Порядок реранка побеждает порядок RRF: без реранка выше был бы NOTE_1 (0.6 > 0.5).
     expect(results[0]?.documentId).toBe(NOTE_2);
   });
 });
