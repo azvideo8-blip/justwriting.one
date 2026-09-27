@@ -8,6 +8,13 @@ import { ConflictResolver } from '../ConflictResolver';
 import { getLocalDb } from '../../storage/localDb';
 import { useEncryptionStore } from '../../crypto/useEncryptionStore';
 
+vi.mock('../../data', () => ({
+  DataProvider: {
+    deleteSummary: vi.fn().mockResolvedValue(undefined),
+    deleteEmbedding: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 vi.mock('../DocumentService', () => ({
   DocumentService: {
     getDocument: vi.fn(),
@@ -56,6 +63,7 @@ describe('BETA-2: Honest deletion feedback and queue tracking (LIFE-9)', () => {
     const db = await getLocalDb(USER);
     await db.put('documents', {
       id: localId,
+      uuid: 'uuid_del_1',
       guestId: USER,
       title: 'Note to delete',
       currentVersion: 1,
@@ -90,6 +98,7 @@ describe('BETA-2: Honest deletion feedback and queue tracking (LIFE-9)', () => {
     const db = await getLocalDb(USER);
     await db.put('documents', {
       id: localId,
+      uuid: 'uuid_del_2',
       guestId: USER,
       title: 'Note to delete',
       currentVersion: 1,

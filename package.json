@@ -16,6 +16,7 @@
     "test:ci": "vitest run --coverage",
     "i18n:audit": "tsx scripts/i18n-audit.ts",
     "postulates": "node scripts/postulates.mjs",
+    "sweep:sync": "bash scripts/sync-mutation-sweep.sh",
     "ci": "npm run typecheck && npm run lint && npm run test:ci"
   },
   "dependencies": {

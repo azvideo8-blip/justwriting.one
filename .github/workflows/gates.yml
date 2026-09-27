@@ -33,6 +33,9 @@ jobs:
       - name: 1. Mutation suite (--check)
         run: bash scripts/test-audit-mutations.sh --check
 
+      - name: 1b. Sync mutation sweep
+        run: npm run sweep:sync
+
       - name: 2. Audit proofs
         run: bash scripts/audit-proofs.sh
 

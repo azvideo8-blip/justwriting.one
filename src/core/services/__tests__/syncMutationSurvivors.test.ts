@@ -11,6 +11,7 @@ import { DocumentService } from '../DocumentService';
 import { VersionService } from '../VersionService';
 import { LocalStorageService } from '../LocalStorageService';
 import { LocalDocumentService } from '../LocalDocumentService';
+import { LocalVersionService } from '../LocalVersionService';
 import * as authModule from '../../auth';
 import { setEncryptionEnabled, setProfileLoaded } from '../../crypto/cryptoHelpers';
 import { generateDataKey, setSessionKey, clearSessionKey } from '../../crypto/encrypt';
@@ -123,9 +124,36 @@ describe('StorageService (st-*)', () => {
     const doc = await db.get('documents', 'd_st03');
     expect(doc?.metadataDirty).toBe(true);
   });
+
+  // st-04: A cloud trash that fails offline is never retried
+  it('st-04: trashDocument queues metadata retry when cloud trash fails', async () => {
+    await seedDoc('d_st04');
+    vi.spyOn(DocumentService, 'trashDocument').mockRejectedValue(new Error('cloud offline'));
+
+    const res = await StorageService.trashDocument(USER, 'd_st04', 'cloud_st04');
+    expect(res.cloudSynced).toBe(false);
+
+    const db = await getLocalDb(USER);
+    const tasks = await db.getAll('syncQueue');
+    const retryTasks = tasks.filter(t => t.documentId === 'd_st04');
+    expect(retryTasks.length).toBeGreaterThan(0);
+    const doc = await db.get('documents', 'd_st04');
+    expect(doc?.metadataDirty).toBe(true);
+  });
 });
 
 describe('CloudSyncService (csc-*)', () => {
+  // csc-01: A linked note missing from cloud is requeued for upload
+  it('csc-01: downloadAllFromCloud requeues linked notes missing from cloud', async () => {
+    await seedDoc('d_csc01', { linkedCloudId: 'cloud_missing' });
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([]);
+    const db = await getLocalDb(USER);
+    await db.clear('syncQueue');
+
+    await CloudSyncService.downloadAllFromCloud(USER);
+    const tasks = await db.getAll('syncQueue');
+    expect(tasks.some(t => t.documentId === 'd_csc01')).toBe(true);
+  });
   // csc-05: addLocalCopy no longer short-circuits on an already-linked note
   it('csc-05: addLocalCopy returns existing localId without creating duplicate when note is already linked', async () => {
     await seedDoc('d_csc05', { linkedCloudId: 'cloud_csc05' });
@@ -305,6 +333,108 @@ describe('CloudSyncService (csc-*)', () => {
 
     const doc2 = await db.get('documents', 'd_unlinked_2');
     expect(doc2?.linkedCloudId).toBeFalsy();
+  });
+
+  // csc-09: Imported note is linked to its cloud doc
+  it('csc-09: addLocalCopy links local note to cloud document', async () => {
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({
+      id: 'cloud_csc09',
+      uuid: 'uuid_csc09',
+      title: 'Title',
+      currentVersion: 1,
+      totalWords: 5,
+      tags: [],
+    } as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
+      { id: 'v1', version: 1, content: 'Text', savedAt: new Date().toISOString() } as never,
+    ]);
+
+    const localId = await CloudSyncService.addLocalCopy(USER, 'cloud_csc09');
+    const db = await getLocalDb(USER);
+    const doc = await db.get('documents', localId);
+    expect(doc?.linkedCloudId).toBe('cloud_csc09');
+  });
+
+  // csc-14: Local versions missing from cloud >= oldestCloud are pushed
+  it('csc-14: addCloudCopy pushes missing local versions within range', async () => {
+    await seedDoc('d_csc14', { linkedCloudId: 'cloud_csc14', currentVersion: 2 });
+    const db = await getLocalDb(USER);
+    await db.put('versions', { id: 'v1', documentId: 'd_csc14', guestId: USER, version: 1, content: 'Text 1', wordCount: 1, duration: 1, wpm: 1, sessionStartedAt: new Date(), savedAt: new Date() } as never);
+    await db.put('versions', { id: 'v2', documentId: 'd_csc14', guestId: USER, version: 2, content: 'Text 2', wordCount: 1, duration: 1, wpm: 1, sessionStartedAt: new Date(), savedAt: new Date() } as never);
+
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({ id: 'cloud_csc14', currentVersion: 1 } as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
+      { id: 'cv1', version: 1, content: 'Text 1' } as never,
+    ]);
+    const addVerSpy = vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cv2' as never);
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession').mockResolvedValue(undefined as never);
+
+    await CloudSyncService.addCloudCopy(USER, 'd_csc14');
+    expect(addVerSpy).toHaveBeenCalledWith(USER, 'cloud_csc14', expect.objectContaining({
+      versionNumber: 2,
+    }));
+  });
+});
+
+describe('ConflictResolver (cr-*)', () => {
+  // cr-01: Local versions whose number exists in the cloud with DIFFERENT text are copied to fork
+  it('cr-01: local version with same number but different text is copied to fork', async () => {
+    const { ConflictResolver } = await import('../ConflictResolver');
+    vi.spyOn(LocalStorageService, 'createDocument').mockResolvedValue('fork_cr01');
+    const addVerSpy = vi.spyOn(LocalVersionService, 'addVersion').mockResolvedValue(undefined as never);
+    vi.spyOn(LocalVersionService, 'getVersions').mockResolvedValue([
+      { id: 'lv1', version: 1, content: 'different local text', sessionStartedAt: 1000 } as never,
+    ]);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([
+      { id: 'cv1', version: 1, content: 'cloud text' } as never,
+    ]);
+
+    await ConflictResolver.resolveConflict(
+      USER, 'doc_local', 'doc_cloud',
+      { title: 'T', content: 'latest', tags: [], wordCount: 1, duration: 1, wpm: 1, sessionStartedAt: new Date() },
+      2, { currentVersion: 1 }
+    );
+
+    expect(addVerSpy).toHaveBeenCalledWith(USER, 'fork_cr01', expect.objectContaining({
+      content: 'different local text',
+    }));
+  });
+
+  // cr-05: A note trashed on another device gets trashed locally after conflict
+  it('cr-05: resolveConflict applies cloud trashedAt to original document', async () => {
+    const { ConflictResolver } = await import('../ConflictResolver');
+    await seedDoc('doc_local', { trashedAt: undefined });
+    vi.spyOn(LocalStorageService, 'createDocument').mockResolvedValue('fork_cr05');
+    vi.spyOn(LocalVersionService, 'addVersion').mockResolvedValue(undefined as never);
+    vi.spyOn(LocalVersionService, 'getVersions').mockResolvedValue([]);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([]);
+
+    await ConflictResolver.resolveConflict(
+      USER, 'doc_local', 'doc_cloud',
+      { title: 'T', content: 'latest', tags: [], wordCount: 1, duration: 1, wpm: 1, sessionStartedAt: new Date() },
+      2, { currentVersion: 1, trashedAt: '2026-09-27T10:00:00.000Z' } as never
+    );
+
+    const db = await getLocalDb(USER);
+    const doc = await db.get('documents', 'doc_local');
+    expect(doc?.trashedAt).toBe(new Date('2026-09-27T10:00:00.000Z').getTime());
+  });
+
+  // cr-06: Cloud versions are fetched for linkedCloudId, not originalDocumentId
+  it('cr-06: resolveConflict fetches cloud versions for linkedCloudId', async () => {
+    const { ConflictResolver } = await import('../ConflictResolver');
+    vi.spyOn(LocalStorageService, 'createDocument').mockResolvedValue('fork_cr06');
+    vi.spyOn(LocalVersionService, 'addVersion').mockResolvedValue(undefined as never);
+    vi.spyOn(LocalVersionService, 'getVersions').mockResolvedValue([]);
+    const getVersionsSpy = vi.spyOn(VersionService, 'getVersions').mockResolvedValue([]);
+
+    await ConflictResolver.resolveConflict(
+      USER, 'doc_local_id', 'doc_cloud_id',
+      { title: 'T', content: 'latest', tags: [], wordCount: 1, duration: 1, wpm: 1, sessionStartedAt: new Date() },
+      2, { currentVersion: 1 }
+    );
+
+    expect(getVersionsSpy).toHaveBeenCalledWith(USER, 'doc_cloud_id');
   });
 });
 
