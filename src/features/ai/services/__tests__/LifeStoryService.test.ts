@@ -30,5 +30,21 @@ describe('LifeStoryService', () => {
       const today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
       expect(eventDate).toBe(today);
     });
+
+    it('should fallback to current date for impossible calendar date in YYYY-MM-DD', () => {
+      const invalidDateStr = '2026-02-31';
+      const eventDate = LifeStoryService.getDefaultEventDate(invalidDateStr);
+      const n = new Date();
+      const today = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+      expect(eventDate).toBe(today);
+    });
+
+    it('should parse full ISO datetime strings into local day', () => {
+      const isoStr = '2026-07-17T12:00:00Z';
+      const eventDate = LifeStoryService.getDefaultEventDate(isoStr);
+      const expected = new Date(isoStr);
+      const expectedLocalDay = `${expected.getFullYear()}-${String(expected.getMonth() + 1).padStart(2, '0')}-${String(expected.getDate()).padStart(2, '0')}`;
+      expect(eventDate).toBe(expectedLocalDay);
+    });
   });
 });
