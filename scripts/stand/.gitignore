@@ -1,3 +1,4 @@
 .env.stand
 .pids
 *.log
+dist/

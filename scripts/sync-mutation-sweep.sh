@@ -10,7 +10,13 @@
 set -u
 cd "$(dirname "$0")/.."
 LIST=scripts/mutations/sync-sweep.json
-OUT="${SWEEP_OUT:-docs/sync-mutation-sweep.md}"
+# Полный прогон пишет docs/sync-mutation-sweep.md; прогон по выбранным id — во
+# временный файл: иначе он затирал таблицу по всем поломкам своими 11 строками.
+if [ $# -gt 0 ]; then
+  OUT="${SWEEP_OUT:-${TMPDIR:-/tmp}/sync-mutation-sweep.partial.md}"
+else
+  OUT="${SWEEP_OUT:-docs/sync-mutation-sweep.md}"
+fi
 TESTS=(src/core src/features/*/services src/testing)
 only="$*"
 

@@ -85,8 +85,14 @@ docker run -d --name "$REST" --network "$NET" -p "127.0.0.1:${STAND_REST_PORT}:3
   postgrest/postgrest:v14.12 >/dev/null
 
 : > "$PIDS"
+# Собранный бандл, а не dev-сервер: dev собирает модули при первом заходе
+# браузера (первый тест на свежем стенде упирался в таймаут), перезагружает
+# страницы, когда Playwright пишет отчёты в папку проекта, и дважды запускает
+# эффекты (StrictMode) — всё это не то, что работает на проде.
+echo "стенд: сборка"
 VITE_SUPABASE_URL="http://localhost:${STAND_PORT}" VITE_SUPABASE_ANON_KEY="$ANON_KEY" \
-  npx vite --port "$STAND_VITE_PORT" --strictPort > scripts/stand/vite.log 2>&1 &
+  npx vite build --outDir scripts/stand/dist --emptyOutDir > scripts/stand/build.log 2>&1
+npx vite preview --outDir scripts/stand/dist --port "$STAND_VITE_PORT" --strictPort > scripts/stand/vite.log 2>&1 &
 echo $! >> "$PIDS"
 STAND_PORT="$STAND_PORT" STAND_VITE_PORT="$STAND_VITE_PORT" STAND_GOTRUE_PORT="$STAND_GOTRUE_PORT" STAND_REST_PORT="$STAND_REST_PORT" \
   node scripts/stand/proxy.mjs > scripts/stand/proxy.log 2>&1 &
