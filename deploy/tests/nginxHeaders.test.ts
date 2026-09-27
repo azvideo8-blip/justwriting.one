@@ -39,8 +39,6 @@ describe('AU-3: HSTS и защитные заголовки в nginx', () => {
     while ((match = locationRegex.exec(nginxConf)) !== null) {
       const locPath = match[1]?.trim() ?? '';
       const body = match[2] ?? '';
-      // Пропускаем killswitch в редиректном www-блоке
-      if (locPath.includes('sw.js') && body.includes('www-killswitch')) continue;
 
       if (body.includes('add_header')) {
         locationsWithAddHeader.push(locPath);
@@ -51,6 +49,9 @@ describe('AU-3: HSTS и защитные заголовки в nginx', () => {
     }
 
     expect(locationsWithAddHeader.length).toBeGreaterThanOrEqual(3);
+    // SB-8: гейт обязан видеть каждый `location = /sw.js` — и в редиректных
+    // блоках тоже. Ровно там заголовки и терялись, а проверка их пропускала.
+    expect(locationsWithAddHeader.filter((p) => p.includes('/sw.js'))).toHaveLength(3);
     expect(
       missingInclude,
       `В этих location есть add_header, но нет include snippets/security-headers.conf: ${missingInclude.join(', ')}`,
