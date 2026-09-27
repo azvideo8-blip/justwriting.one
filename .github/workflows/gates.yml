@@ -39,7 +39,7 @@ jobs:
       - name: 2. Audit proofs
         run: bash scripts/audit-proofs.sh
 
-      - name: 3. Live database checks (Canary, Postulates, Account Deletion)
+      - name: 3. Live database checks (Canary, Postulates, Account Deletion, Pool Deadlock)
         run: |
           if ! command -v docker >/dev/null 2>&1; then
             echo "::error::Docker is not available on this runner. Live database checks require Docker."
@@ -98,8 +98,12 @@ jobs:
           echo "Running postulates without canary (MUST exit 0)..."
           node scripts/postulates.mjs --require-db --max-unmeasured 0
 
-          echo "TB-08 Part B: Running live DB deleteAccount test..."
-          JW_THROWAWAY_DB=1 npx vitest run api/__tests__/deleteAccount.db.test.ts
+          echo "TB-08 Part B: Running live DB deleteAccount test + N-77 pool deadlock test..."
+          JW_THROWAWAY_DB=1 npx vitest run api/__tests__/deleteAccount.db.test.ts api/__tests__/aiPoolDeadlock.db.test.ts \
+            --reporter=json --outputFile=/tmp/jw-db-tests.json
+          # Гейт не проходит вслепую: без throwaway-базы эти тесты skipIf'ятся,
+          # и «0 пройдено» — красный, а не зелёный.
+          node -e "const r=require('/tmp/jw-db-tests.json'); if (!(r.numPassedTests>=3)) { console.error('::error::живые тесты БД не выполнились (пройдено '+r.numPassedTests+' из '+r.numTotalTests+') — JW_THROWAWAY_DB/DATABASE_URL не выставлены?'); process.exit(1) } console.log('живых тестов БД пройдено:', r.numPassedTests)"
 
       # F-3: живой сквозной сценарий смены аккаунта на локальном стенде
       # (Postgres + GoTrue + PostgREST в docker, Vite и прокси на :3000).

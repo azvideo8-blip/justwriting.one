@@ -7,7 +7,14 @@ import { AI_CONSENT_VERSION_REQUIRED } from '../src/shared/ai/consentVersion.js'
 // EA-10: ADMIN_DAILY_LIMIT — одно число с заголовками квоты, иначе админ видел x/60, а упирался в 20.
 import { DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 
+import type { PoolClient } from 'pg';
+
 import { pool } from './db';
+
+// N-77: запрос внутри транзакции обязан идти на том же соединении, что держит
+// BEGIN. Иначе это вторая покупка соединения из того же пула, и при полном пуле
+// транзакция ждёт его навсегда.
+type Queryable = Pick<PoolClient, 'query'>;
 
 // Postgres error code, if the thrown thing carries one (pg errors do).
 function pgCode(e: unknown): string | undefined {
@@ -141,9 +148,9 @@ async function getIndexingConsent(uid: string): Promise<{ granted: boolean; erro
   }
 }
 
-async function isAdmin(uid: string): Promise<boolean> {
+async function isAdmin(uid: string, q: Queryable = pool): Promise<boolean> {
   try {
-    const { rows } = await pool.query('SELECT role FROM public.users WHERE uid = $1', [uid]);
+    const { rows } = await q.query('SELECT role FROM public.users WHERE uid = $1', [uid]);
     return rows[0]?.role === 'admin';
   } catch (e) {
     console.error('[postgresAiContext] isAdmin error', e);
@@ -151,8 +158,8 @@ async function isAdmin(uid: string): Promise<boolean> {
   }
 }
 
-async function getUserDailyLimit(uid: string): Promise<number> {
-  if (await isAdmin(uid)) return ADMIN_DAILY_LIMIT;
+async function getUserDailyLimit(uid: string, q: Queryable = pool): Promise<number> {
+  if (await isAdmin(uid, q)) return ADMIN_DAILY_LIMIT;
   return PER_USER_LIMIT;
 }
 
@@ -184,7 +191,9 @@ async function checkDailyLimit(uid: string, reasoning?: boolean): Promise<LimitV
     await client.query('BEGIN');
     const date = today();
     const kind = reasoning ? 'reasoning' : 'chat';
-    const limit = reasoning ? await getUserReasoningLimit(uid) : await getUserDailyLimit(uid);
+    // N-77: потолок админа сверяется на этом же соединении — отдельного
+    // запроса через пул здесь быть не может.
+    const limit = reasoning ? await getUserReasoningLimit(uid) : await getUserDailyLimit(uid, client);
 
     const res = await client.query(
       `INSERT INTO public.ai_daily_limit (uid, day, kind, call_count)

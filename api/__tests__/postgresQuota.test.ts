@@ -15,6 +15,7 @@ let poolShouldThrow: Error | null = null;
 let poolConnectShouldThrow: Error | null = null;
 let clientQueryShouldThrow: Error | null = null;
 let clientResults: Array<{ rows: unknown[] }> = [];
+let clientRole: string | null = 'user';
 
 vi.mock('pg', () => {
   class FakePool {
@@ -32,6 +33,9 @@ vi.mock('pg', () => {
         query: vi.fn(async (text: string, params?: unknown[]) => {
           clientQueries.push({ text, params: params ?? [] });
           if (clientQueryShouldThrow) throw clientQueryShouldThrow;
+          // R10-8: роль читается на том же соединении, но слот clientResults не
+          // тратит — иначе фикстуры со счётчиками разъезжаются на один запрос.
+          if (/SELECT\s+ROLE/i.test(text)) return { rows: [{ role: clientRole }] };
           const r = clientResults.shift() ?? { rows: [] };
           return r;
         }),
@@ -54,6 +58,7 @@ beforeEach(() => {
   poolConnectShouldThrow = null;
   clientQueryShouldThrow = null;
   clientResults = [];
+  clientRole = 'user';
 });
 
 describe('1.5 atomic global token reserve', () => {
@@ -252,6 +257,19 @@ describe('S-15: limit check distinguishes unavailable/unauthorized from exhauste
     expect(verdict.reason).toBe('unauthorized');
   });
 
+  // N-77: весь запрос транзакции — на одном соединении. Вложенный pool.query за
+  // ролью при полном пуле waiting навсегда, поэтому здесь прямо: роль — в
+  // clientQueries, и ни одного запроса к пулу, пока открыт BEGIN.
+  it('роль админа читается тем же соединением, что держит транзакцию', async () => {
+    clientResults = [{ rows: [{ call_count: 1 }] }];
+    clientRole = 'admin';
+    const verdict = await postgresAiContext.checkDailyLimit('u1');
+
+    expect(verdict.ok).toBe(true);
+    expect(clientQueries.some(q => /SELECT\s+ROLE/i.test(q.text))).toBe(true);
+    expect(poolQueries).toHaveLength(0);
+  });
+
   it('checkAndIncrementBulkLimit returns reason: unavailable when pool.connect rejects', async () => {
     poolConnectShouldThrow = new Error('connection refused');
     const verdict = await postgresAiContext.checkAndIncrementBulkLimit('u1');
@@ -282,7 +300,7 @@ describe('ST-4: separate reasoning quota', () => {
   it('five chat calls then one reasoning call is allowed; 6th reasoning refused; chat still allowed', async () => {
     // 1. One reasoning call with call_count = 1 (after 5 chats) -> allowed
     clientResults = [
-      { rows: [] }, // role lookup (isAdmin)
+      { rows: [] }, // BEGIN
       { rows: [{ call_count: 1 }] }, // reasoning insert
     ];
     const r1 = await postgresAiContext.checkDailyLimit('u1', true);
@@ -313,7 +331,7 @@ describe('ST-4: separate reasoning quota', () => {
   it('checkAndIncrementLimit returns REASONING_LIMIT when reasoning is exhausted', async () => {
     poolResult = { rows: [{ uid: 'u1' }] }; // cooldown OK
     clientResults = [
-      { rows: [] }, // isAdmin
+      { rows: [] }, // BEGIN
       { rows: [{ call_count: 6 }] }, // reasoning limit exceeded
     ];
     const res = await postgresAiContext.checkAndIncrementLimit('u1', true);
