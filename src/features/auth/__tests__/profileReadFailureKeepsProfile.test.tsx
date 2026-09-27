@@ -13,7 +13,8 @@ let capturedOnUpdate: ((data: unknown, unavailable?: boolean) => void) | null = 
 
 const mocks = vi.hoisted(() => {
   const chain: Record<string, unknown> = {};
-  chain.maybeSingle = () => Promise.resolve({ data: null, error: { message: 'connection refused' } });
+  const maybeSingle = vi.fn(() => Promise.resolve({ data: null as unknown, error: { message: 'connection refused' } as unknown }));
+  chain.maybeSingle = maybeSingle;
   chain.eq = () => chain;
   chain.select = () => chain;
   return {
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => {
     setProfileLoaded: vi.fn(),
     setEncryptionEnabled: vi.fn(),
     reportError: vi.fn(),
+    maybeSingle,
     dbClient: { from: () => chain },
   };
 });
@@ -114,5 +116,28 @@ describe('SB-5: «не прочитали» — не то же самое, чт�
     expect(mocks.reportError).toHaveBeenCalled();
     expect(onUpdate.mock.calls[0]?.[0]).toBeNull();
     expect(onUpdate.mock.calls[0]?.[1]).toBe(true);
+  });
+
+  it('отказ чтения повторяется сам: приложение, открытое офлайн, получает профиль, когда база ответила', async () => {
+    // Без повтора профиль оставался незагруженным до перезагрузки страницы, и
+    // облачные записи падали с ENCRYPT_REQUIRED: profile not loaded.
+    vi.useFakeTimers();
+    try {
+      const { subscribeToProfile } = await import('../../../core/data/providers/profiles');
+      mocks.maybeSingle
+        .mockResolvedValueOnce({ data: null, error: { message: 'offline' } })
+        .mockResolvedValueOnce({ data: { uid: 'user-sb5', nickname: 'Анфиса' }, error: null });
+
+      const onUpdate = vi.fn();
+      const stop = subscribeToProfile('user-sb5', onUpdate);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onUpdate).toHaveBeenLastCalledWith(null, true);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(onUpdate.mock.calls.at(-1)?.[0]).toMatchObject({ uid: 'user-sb5', nickname: 'Анфиса' });
+      stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -115,8 +115,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
             // SB-5: «не прочитали» — это не «профиля нет». Создание строки на этом
             // пути перезаписывало бы ник человека адресом почты каждый раз, когда
             // база моргнула, а пустой профиль в памяти означал бы «сейфа нет» и
-            // «меток нет» для аккаунта, у которого они есть.
-            reportError(new Error('profile read unavailable'), { action: 'profileContext_readUnavailable', uid: user.uid }, 'warning');
+            // «меток нет» для аккаунта, у которого они есть. Отказ уже в журнале,
+            // а повтор чтения ведёт subscribeToProfile.
+            return;
           } else {
             // No profile doc exists. Create it.
             //

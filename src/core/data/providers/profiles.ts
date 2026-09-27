@@ -27,6 +27,9 @@ export async function updateProfile(userId: string, data: ProviderRecord): Promi
   if (error != null) throw error;
 }
 
+const PROFILE_RETRY_MIN_MS = 5_000;
+const PROFILE_RETRY_MAX_MS = 60_000;
+
 export function subscribeToProfile(
   userId: string,
   // SB-5: второй аргумент отделяет «строки нет» от «не смогли прочитать». Без
@@ -35,17 +38,25 @@ export function subscribeToProfile(
   onUpdate: (data: ProviderRecord | null, unavailable?: boolean) => void,
 ): () => void {
   let cancelled = false;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let retryDelay = PROFILE_RETRY_MIN_MS;
 
   // Первичное чтение обязательно. Firestore onSnapshot отдавал текущий
   // документ сразу, а postgres_changes присылает только изменения: без этого
   // профиль оставался пустым до первой чужой записи в строку, и приложение
   // считало, что у человека нет ни ника, ни роли, ни сейфа шифрования.
-  void (async () => {
+  const read = async (): Promise<void> => {
     const { data, error } = await getSupabase().from('users').select('*').eq('uid', userId).maybeSingle();
     if (cancelled) return;
     if (error != null) {
-      reportError(error, { action: 'subscribeToProfile_read', uid: userId }, 'warning');
+      // Сообщаем один раз: офлайн повторы идут до возвращения сети.
+      if (retryDelay === PROFILE_RETRY_MIN_MS) reportError(error, { action: 'subscribeToProfile_read', uid: userId }, 'warning');
       onUpdate(null, true);
+      // SB-5: «не прочитали» оставляет профиль незагруженным, а без него облачные
+      // записи падают с ENCRYPT_REQUIRED. Приложение, открытое офлайн, без
+      // повтора так и не синхронизировалось бы до перезагрузки страницы.
+      retryTimer = setTimeout(() => { retryTimer = undefined; void read(); }, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, PROFILE_RETRY_MAX_MS);
       return;
     }
     // TB-14 / N-31: тот же запрос, что в getProfile, и та же проверка владельца.
@@ -57,12 +68,26 @@ export function subscribeToProfile(
       return;
     }
     onUpdate(data ? fromDb(USER_REV, data as ProviderRecord) : null);
-  })();
+  };
+  void read();
+
+  // Сеть вернулась — не ждать конца паузы.
+  const onOnline = () => {
+    if (retryTimer === undefined) return;
+    clearTimeout(retryTimer);
+    retryTimer = undefined;
+    void read();
+  };
+  if (typeof window !== 'undefined') window.addEventListener('online', onOnline);
 
   // N-11: подписки на изменения строки нет. Публикация supabase_realtime на
   // сервере пуста (проверено 2026-09-25), поэтому канал держал вебсокет впустую;
   // а включать её для users нельзя не глядя — там сейф и портрет.
-  return () => { cancelled = true; };
+  return () => {
+    cancelled = true;
+    clearTimeout(retryTimer);
+    if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
+  };
 }
 
 export async function getUsers(limitCount: number): Promise<ProviderRecord[]> {
