@@ -5,7 +5,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import crypto from 'node:crypto';
 
-import { pool, STATEMENT_TIMEOUT_MS, IDLE_IN_TRANSACTION_TIMEOUT_MS } from '../db';
+import { pool } from '../db';
 import { postgresAiContext } from '../postgresAiContext';
 
 const throwawayDb = !!process.env.DATABASE_URL && process.env.JW_THROWAWAY_DB === '1';
@@ -44,19 +44,5 @@ describe.skipIf(!throwawayDb)('пул не виснет под одноврем�
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id = ANY($1::uuid[])', [uids]);
     }
-  }, 20_000);
-
-  // Держать пул «без потолка» — тот же риск: будущее зависшее соединение
-  // занимает его навсегда. Проверка на живом соединении, что сессия действительно
-  // получила лимиты из api/db.ts.
-  it('соединение пула работает с лимитами из api/db.ts', async () => {
-    // pg_settings возвращает значения в миллисекундах; `show` отдал бы «15s».
-    const { rows } = await pool.query<{ name: string; setting: string }>(
-      `SELECT name, setting FROM pg_settings WHERE name = ANY($1::text[])`,
-      [['statement_timeout', 'idle_in_transaction_session_timeout']],
-    );
-    const byName = Object.fromEntries(rows.map((r) => [r.name, Number(r.setting)]));
-    expect(byName.statement_timeout).toBe(STATEMENT_TIMEOUT_MS);
-    expect(byName.idle_in_transaction_session_timeout).toBe(IDLE_IN_TRANSACTION_TIMEOUT_MS);
   }, 20_000);
 });

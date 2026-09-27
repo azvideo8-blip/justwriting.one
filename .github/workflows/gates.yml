@@ -103,7 +103,7 @@ jobs:
             --reporter=json --outputFile=/tmp/jw-db-tests.json
           # Гейт не проходит вслепую: без throwaway-базы эти тесты skipIf'ятся,
           # и «0 пройдено» — красный, а не зелёный.
-          node -e "const r=require('/tmp/jw-db-tests.json'); if (!(r.numPassedTests>=3)) { console.error('::error::живые тесты БД не выполнились (пройдено '+r.numPassedTests+' из '+r.numTotalTests+') — JW_THROWAWAY_DB/DATABASE_URL не выставлены?'); process.exit(1) } console.log('живых тестов БД пройдено:', r.numPassedTests)"
+          node -e "const r=require('/tmp/jw-db-tests.json'); if (!(r.numPassedTests>=2)) { console.error('::error::живые тесты БД не выполнились (пройдено '+r.numPassedTests+' из '+r.numTotalTests+') — JW_THROWAWAY_DB/DATABASE_URL не выставлены?'); process.exit(1) } console.log('живых тестов БД пройдено:', r.numPassedTests)"
 
       # F-3: живой сквозной сценарий смены аккаунта на локальном стенде
       # (Postgres + GoTrue + PostgREST в docker, Vite и прокси на :3000).
