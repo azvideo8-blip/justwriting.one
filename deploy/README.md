@@ -95,6 +95,12 @@ sed "s#__HOME__#$HOME#g" deploy/monitor/ru.justwriting.sitecheck.plist > ~/Libra
 launchctl load ~/Library/LaunchAgents/ru.justwriting.sitecheck.plist
 ```
 
+## Сервер: защита
+
+- Вход только по ключу, root запрещён; ufw — DROP всего, кроме 22/80/443.
+- Автообновления безопасности (unattended-upgrades): таймер `apt-daily-upgrade.timer` активен, источники — только `-security` и ESM (без `-updates`: Docker и nginx обновляем руками при выкатке), `Automatic-Reboot` не задан (по умолчанию выкл., перезагружаем сами). Проверка: `sudo unattended-upgrade --dry-run -d`; журнал — `/var/log/unattended-upgrades/`. Сверено 2026-09-27.
+- fail2ban для sshd — **не установлен** (SO-2, `docs/tickets-2026-09-27-security-ops.md`); после установки заменить эту строку на «jail sshd: 3 попытки / 10 мин → бан 24 ч».
+
 ## Rate Limiting & Auth Protection
 
 1. **Nginx Layer (`deploy/nginx.conf`)**:

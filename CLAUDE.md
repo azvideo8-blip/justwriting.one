@@ -63,6 +63,7 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 ## 5. Release Checklist
+- **Security review before the bump:** `/security-review` over the diff since the previous release commit (`git diff <prev-release>..HEAD`). Every finding is either fixed or recorded as «ложное, потому что …» in the release note/memory.
 - **Version bump — FOUR places, all must match:**
   1. `package.json` `"version"`.
   2. `package-lock.json` — run `npm install --package-lock-only` after bumping `package.json`.

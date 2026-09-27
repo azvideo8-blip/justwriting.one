@@ -1,0 +1,18 @@
+# gitleaks: разобранные ложные срабатывания (SO-1, 2026-09-27).
+# Настоящих ключей здесь нет: синтетика в тестах, проза в доке, хеш чанка сборки.
+# Правило одно: сюда — только путь с объяснением, никогда не сам ключ.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Разобранные ложные срабатывания"
+paths = [
+  # синтетический пароль и адрес example.com для теста deriveAuthSecret
+  '''src/core/auth/__tests__/authSecret\.test\.ts''',
+  # поддельный wrappedDataKey — проверка ошибки расшифровки
+  '''src/core/services/__tests__/encryptionErrorHandling\.test\.ts''',
+  # фраза «auth token refresh, …» в тексте промпта
+  '''docs/fable-prompt-error-surfaces-audit\.md''',
+  # отчёт размеров сборки: хеш имени чанка похож на ключ
+  '''bundle-stats\.html''',
+]
