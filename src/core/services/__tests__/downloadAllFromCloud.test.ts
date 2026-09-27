@@ -44,7 +44,7 @@ describe('SYNC-D1: downloadAllFromCloud', () => {
     // Task 3: verify it does NOT call addCloudCopy on download
     expect(addCloudCopySpy).not.toHaveBeenCalled();
     expect(addActivitySpy).toHaveBeenCalledWith(
-      'Загружено заметок из облака: 2',
+      'activity_cloud_downloaded_all',
       expect.objectContaining({ action: 'downloadAllFromCloud', downloaded: 2 }),
       'info',
       'sync'

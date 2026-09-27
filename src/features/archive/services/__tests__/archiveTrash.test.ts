@@ -80,7 +80,7 @@ describe('FEAT-5 Archive Trash Service', () => {
     expect(domainEvents).toContainEqual({ type: 'note.trashed', documentId: 's1' });
 
     // Activity log recorded
-    expect(addActivitySpy).toHaveBeenCalledWith('заметка удалена в корзину', undefined, 'info', 'archive');
+    expect(addActivitySpy).toHaveBeenCalledWith('activity_note_trashed', undefined, 'info', 'archive');
 
     unsub();
   });
@@ -96,7 +96,7 @@ describe('FEAT-5 Archive Trash Service', () => {
     expect(result).toEqual({ cloudSynced: true });
     expect(StorageService.restoreDocument).toHaveBeenCalledWith('u1', 's1', undefined);
     expect(domainEvents).toContainEqual({ type: 'note.restored', documentId: 's1' });
-    expect(addActivitySpy).toHaveBeenCalledWith('заметка восстановлена из корзины', undefined, 'info', 'archive');
+    expect(addActivitySpy).toHaveBeenCalledWith('activity_note_restored', undefined, 'info', 'archive');
 
     unsub();
   });
@@ -112,7 +112,7 @@ describe('FEAT-5 Archive Trash Service', () => {
     expect(result).toEqual({ cloudSynced: true });
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('u1', 's1', 'c1');
     expect(domainEvents).toContainEqual({ type: 'note.deleted', documentId: 's1' });
-    expect(addActivitySpy).toHaveBeenCalledWith('заметка удалена навсегда', undefined, 'info', 'archive');
+    expect(addActivitySpy).toHaveBeenCalledWith('activity_note_deleted', undefined, 'info', 'archive');
 
     unsub();
   });
@@ -126,7 +126,7 @@ describe('FEAT-5 Archive Trash Service', () => {
 
     expect(res).toEqual({ successCount: 2, failCount: 0, deletedIds: ['s1', 's2'] });
     expect(StorageService.deleteDocument).toHaveBeenCalledTimes(2);
-    expect(addActivitySpy).toHaveBeenCalledWith('корзина очищена (2)', undefined, 'info', 'archive');
+    expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cleared', { count: 2 }, 'info', 'archive');
   });
 
   it('pruneExpiredTrash lazily purges notes older than 10 days and keeps newer ones', async () => {
@@ -171,7 +171,7 @@ describe('FEAT-5 Archive Trash Service', () => {
       .mockRejectedValueOnce(new Error('idb'));
     const res = await emptyTrash([makeSession({ id: 's1' }), makeSession({ id: 's2' })], 'u1');
     expect(res).toEqual({ successCount: 1, failCount: 1, deletedIds: ['s1'] });
-    expect(addActivitySpy).toHaveBeenCalledWith(expect.stringContaining('не полностью'), undefined, 'warning', 'archive');
+    expect(addActivitySpy).toHaveBeenCalledWith('activity_trash_cleared_partial', { success: 1, failed: 1 }, 'warning', 'archive');
   });
 
   // N-51: заметка удалена, а производные — нет: «удалено навсегда» не пишется.
@@ -179,8 +179,8 @@ describe('FEAT-5 Archive Trash Service', () => {
     const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
     vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false });
     await deleteArchiveSession(makeSession({ id: 's9' }), 'u1');
-    expect(addActivitySpy).not.toHaveBeenCalledWith('заметка удалена навсегда', undefined, 'info', 'archive');
-    expect(addActivitySpy).toHaveBeenCalledWith(expect.stringContaining('разборов ИИ'), expect.anything(), 'warning', 'archive');
+    expect(addActivitySpy).not.toHaveBeenCalledWith('activity_note_deleted', undefined, 'info', 'archive');
+    expect(addActivitySpy).toHaveBeenCalledWith('activity_note_deleted_derivatives', expect.anything(), 'warning', 'archive');
   });
 
   // N-66: derivativesOk:false не попадает в deletedIds / prunedCount

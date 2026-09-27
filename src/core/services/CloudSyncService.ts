@@ -165,7 +165,7 @@ export const CloudSyncService = {
 
       if (downloaded > 0) {
         useActivityLogStore.getState().addActivity(
-          `Загружено заметок из облака: ${downloaded}`,
+          'activity_cloud_downloaded_all',
           { action: 'downloadAllFromCloud', downloaded, skipped, failed },
           'info',
           'sync'
@@ -295,7 +295,7 @@ export const CloudSyncService = {
                 });
 
                 useActivityLogStore.getState().addActivity(
-                  'заметка изменилась на другом устройстве',
+                  'activity_cloud_remote_edit',
                   { action: 'reconcileLinkedDocuments_remote_edit', documentId: localDoc.id, cloudDocumentId: localDoc.linkedCloudId },
                   'info',
                   'sync',
@@ -529,8 +529,8 @@ export const CloudSyncService = {
             'warning',
           );
           useActivityLogStore.getState().addActivity(
-            `Часть истории заметки не читается и пропущена (версий: ${corruptedVersions.length})`,
-            { action: 'addLocalCopy_corruptedVersions', cloudDocumentId },
+            'activity_cloud_corrupted_versions',
+            { action: 'addLocalCopy_corruptedVersions', cloudDocumentId, count: corruptedVersions.length },
             'warning',
             'sync',
           );
@@ -548,7 +548,7 @@ export const CloudSyncService = {
         await LocalStorageService.updateLinkedCloudId(localId, cloudDocumentId, userId);
         
         useActivityLogStore.getState().addActivity(
-          'Заметка загружена из облака',
+          'activity_cloud_note_downloaded',
           { action: 'addLocalCopy', documentId: localId, cloudDocumentId },
           'success',
           'sync'
@@ -589,7 +589,7 @@ export const CloudSyncService = {
         // Кнопка, которая ничего не делает и молчит, читается как поломка.
         // Отказ здесь законный, но человек должен узнать причину.
         useActivityLogStore.getState().addActivity(
-          'Заметка помечена «только на устройстве» — в облако не отправлена',
+          'activity_cloud_local_only',
           { action: 'addCloudCopy_localOnly', documentId: localDocumentId },
           'warning',
           'sync',
@@ -608,7 +608,7 @@ export const CloudSyncService = {
             await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone', userId);
             await dropQueueTasksFor(localDocumentId, userId);
             useActivityLogStore.getState().addActivity(
-              'Облачная копия этой заметки была удалена. Заметка осталась на устройстве; повторное «отправить в облако» создаст новую облачную копию',
+              'activity_cloud_tombstone',
               { action: 'addCloudCopy_tombstone', documentId: localDocumentId },
               'warning',
               'sync',
@@ -701,7 +701,7 @@ export const CloudSyncService = {
           if (hasUnreadableVersion) {
             await requeueDocumentTask(localDocumentId, userId);
             useActivityLogStore.getState().addActivity(
-              'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
+              'activity_cloud_unreadable_version',
               { action: 'addCloudCopy_unreadableCloudVersion', documentId: localDocumentId, cloudId },
               'warning',
               'sync',
@@ -818,7 +818,7 @@ export const CloudSyncService = {
             // устройства расходятся — здесь она живая, там в корзине.
             await withTimeout(DocumentService.restoreDocument(userId, cloudId));
             useActivityLogStore.getState().addActivity(
-              'Заметка была в корзине на другом устройстве — после вашей правки она восстановлена',
+              'activity_cloud_restored_from_trash',
               { action: 'addCloudCopy_restoredFromTrash', documentId: localDocumentId },
               'info',
               'sync',
@@ -906,7 +906,7 @@ export const CloudSyncService = {
               await LocalDocumentService.unlinkFromCloud(localDocumentId, 'tombstone', userId);
               await dropQueueTasksFor(localDocumentId, userId);
               useActivityLogStore.getState().addActivity(
-                'Облачная копия этой заметки была удалена. Заметка осталась на устройстве; повторное «отправить в облако» создаст новую облачную копию',
+                'activity_cloud_tombstone',
                 { action: 'addCloudCopy_tombstonedUuid', documentId: localDocumentId, uuid: localDocUuid },
                 'warning',
                 'sync',
@@ -927,7 +927,7 @@ export const CloudSyncService = {
             }));
             await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId, userId);
             useActivityLogStore.getState().addActivity(
-              'Создана новая облачная копия: прежний номер заметки занят удалённой строкой',
+              'activity_cloud_new_identity',
               { action: 'addCloudCopy_newIdentity', documentId: localDocumentId, previousUuid: localDocUuid, uuid: freshUuid },
               'success',
               'sync',
@@ -1034,7 +1034,7 @@ export const CloudSyncService = {
       }
 
       useActivityLogStore.getState().addActivity(
-        'Заметка сохранена в облако',
+        'activity_cloud_note_saved',
         { action: 'addCloudCopy', documentId: localDocumentId, cloudDocumentId: cloudId },
         'success',
         'sync'
@@ -1154,7 +1154,7 @@ export const CloudSyncService = {
           if (!comp.comparable) {
             await requeueDocumentTask(documentId, userId);
             useActivityLogStore.getState().addActivity(
-              'Синхронизация отложена: невозможно расшифровать или сравнить облачную версию',
+              'activity_cloud_unreadable_version',
               { action: 'syncVersionToCloud_unreadableCloudHead', documentId, version: maxCloudVersion },
               'warning',
               'sync',
@@ -1285,7 +1285,7 @@ export const CloudSyncService = {
         if (!here?.trashedAt) {
           await DocumentService.restoreDocument(userId, linkedCloudId);
           useActivityLogStore.getState().addActivity(
-            'Заметка была в корзине на другом устройстве — после вашей правки она восстановлена',
+            'activity_cloud_restored_from_trash',
             { action: 'syncVersionToCloud_restoredFromTrash', documentId },
             'info',
             'sync',
@@ -1303,7 +1303,7 @@ export const CloudSyncService = {
       } catch { /* некритично: без поля сработает legacy-сравнение контента */ }
 
       useActivityLogStore.getState().addActivity(
-        'Изменения сохранены в облако',
+        'activity_cloud_changes_saved',
         { action: 'syncVersionToCloud', documentId, newVersion },
         'success',
         'sync'
@@ -1512,8 +1512,8 @@ async function relinkOrphaned(localDocs: LocalDocument[], cloudDocs: Document[])
 
   if (relinked > 0) {
     useActivityLogStore.getState().addActivity(
-      `Заметки заново связаны с облачными копиями: ${relinked}`,
-      { action: 'relinkOrphanedDocuments', relinked },
+      'activity_cloud_relinked',
+      { action: 'relinkOrphanedDocuments', count: relinked },
       'success',
       'sync'
     );

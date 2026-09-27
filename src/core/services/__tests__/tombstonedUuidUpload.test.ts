@@ -86,7 +86,7 @@ describe('LIFE-10: номер занят надгробием', () => {
     expect(await db.get('syncQueue', 'sync_local_1'), 'безнадёжная задача снята').toBeUndefined();
 
     expect(createDocument, 'нового номера на первом нажатии не выдаётся').toHaveBeenCalledTimes(1);
-    expect(addActivity.mock.calls[0]?.[0]).toMatch(/удалена/i);
+    expect(addActivity.mock.calls[0]?.[0]).toBe('activity_cloud_tombstone');
   });
 
   it('текст заметки остаётся на устройстве целиком', async () => {
@@ -119,7 +119,7 @@ describe('LIFE-10: номер занят надгробием', () => {
 
     const second = createDocument.mock.calls[1]?.[0 + 1] as { uuid?: string } | undefined;
     expect(second?.uuid, 'вторая попытка идёт с новым номером').toBe(doc!.uuid);
-    expect(addActivity.mock.calls.some(c => /новая облачная копия/i.test(String(c[0])))).toBe(true);
+    expect(addActivity.mock.calls.some(c => c[0] === 'activity_cloud_new_identity')).toBe(true);
   });
 
   /**

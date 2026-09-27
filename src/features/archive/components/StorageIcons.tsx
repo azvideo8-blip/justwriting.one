@@ -186,7 +186,7 @@ export function StorageIcons({
         case 'delete-cloud-only': {
           await StorageService.trashDocument(userId, doc.localId, doc.cloudId); // намеренно: тост одинаков для local и cloudSynced (N-4)
           emitDomainEvent({ type: 'note.trashed', documentId: doc.localId || doc.cloudId! });
-          useActivityLogStore.getState().addActivity('заметка удалена в корзину', undefined, 'info', 'archive');
+          useActivityLogStore.getState().addActivity('activity_note_trashed', undefined, 'info', 'archive');
           showToast(t('archive_trash_moved'), 'success');
           break;
         }

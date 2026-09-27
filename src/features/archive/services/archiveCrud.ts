@@ -211,7 +211,7 @@ export async function trashArchiveSession(
   }
   const result = await StorageService.trashDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.trashed', documentId: session.id });
-  useActivityLogStore.getState().addActivity('заметка удалена в корзину', undefined, 'info', 'archive');
+  useActivityLogStore.getState().addActivity('activity_note_trashed', undefined, 'info', 'archive');
   return result;
 }
 
@@ -229,7 +229,7 @@ export async function restoreArchiveSession(
   }
   const result = await StorageService.restoreDocument(userId, localId, cloudId);
   emitDomainEvent({ type: 'note.restored', documentId: session.id });
-  useActivityLogStore.getState().addActivity('заметка восстановлена из корзины', undefined, 'info', 'archive');
+  useActivityLogStore.getState().addActivity('activity_note_restored', undefined, 'info', 'archive');
   return result;
 }
 
@@ -255,8 +255,9 @@ export async function emptyTrash(
     }
   }
   useActivityLogStore.getState().addActivity(
-    failCount > 0 ? `корзина очищена не полностью: удалено ${successCount}, не удалось ${failCount}` : `корзина очищена (${successCount})`,
-    undefined, failCount > 0 ? 'warning' : 'info', 'archive');
+    failCount > 0 ? 'activity_trash_cleared_partial' : 'activity_trash_cleared',
+    failCount > 0 ? { success: successCount, failed: failCount } : { count: successCount },
+    failCount > 0 ? 'warning' : 'info', 'archive');
   return { successCount, failCount, deletedIds };
 }
 
@@ -282,10 +283,10 @@ export async function deleteArchiveSession(
     // N-51: заметка удалена, а часть её разборов ИИ — нет. «Удалено навсегда»
     // без оговорки было бы неправдой.
     useActivityLogStore.getState().addActivity(
-      'заметка удалена, но часть связанных с ней разборов ИИ удалить не удалось — они уберутся при следующей очистке',
+      'activity_note_deleted_derivatives',
       { action: 'deleteArchiveSession_derivatives', documentId: session.id }, 'warning', 'archive');
   } else if (!opts?.skipActivityLog) {
-    useActivityLogStore.getState().addActivity('заметка удалена навсегда', undefined, 'info', 'archive');
+    useActivityLogStore.getState().addActivity('activity_note_deleted', undefined, 'info', 'archive');
   }
   return result;
 }

@@ -108,7 +108,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
 
     // Silent — no toast, no confirmation
     expect(addActivitySpy).not.toHaveBeenCalledWith(
-      'заметка изменилась на другом устройстве',
+      'activity_cloud_remote_edit',
       expect.anything(),
       expect.anything(),
       expect.anything()
@@ -220,7 +220,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     // Exactly one activity log entry logged
     expect(addActivitySpy).toHaveBeenCalledTimes(1);
     expect(addActivitySpy).toHaveBeenCalledWith(
-      'заметка изменилась на другом устройстве',
+      'activity_cloud_remote_edit',
       expect.objectContaining({ documentId: localDocId, cloudDocumentId: cloudDocId }),
       'info',
       'sync'

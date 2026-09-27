@@ -84,21 +84,4 @@ export const activityTranslations: Translations = {
     ru: 'Заметки заново связаны с облачными копиями: {count}',
     en: 'Notes relinked to cloud copies: {count}',
   },
-  // ─── AI ───────────────────────────────────────────────────────────────────
-  activity_ai_bg_sync_started: {
-    ru: 'Фоновая синхронизация ИИ запущена',
-    en: 'AI background sync started',
-  },
-  activity_ai_themes_updated: {
-    ru: 'Темы обновлены',
-    en: 'Themes updated',
-  },
-  activity_ai_consolidation_done: {
-    ru: 'Консолидация завершена',
-    en: 'Consolidation complete',
-  },
-  activity_ai_restore_done: {
-    ru: 'Восстановление ИИ завершено',
-    en: 'AI restore complete',
-  },
 };
