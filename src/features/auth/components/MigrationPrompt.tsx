@@ -13,7 +13,7 @@ import { Button } from '../../../shared/components/Button';
 interface MigrationPromptProps {
   userId: string;
   docCount: number;
-  onDone: (migrated: boolean) => void;
+  onDone: (result: { moved: number; left: number } | boolean) => void;
   onCloudSynced?: (count: number) => void;
 }
 
@@ -23,10 +23,15 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
 
   const handleMigrate = async () => {
     try {
-      const count = await migrateDocuments(userId);
+      const { moved, left } = await migrateDocuments(userId);
+      if (left > 0) {
+        showToast(t('migration_partial', { moved, left }), 'warning');
+        onDone({ moved, left });
+        return;
+      }
       // EA-17: перенос в аккаунт — локальный; в облако заметки уходят, только
       // если синхронизация включена (иначе — кнопкой «Отправить все заметки в облако»).
-      if (count > 0 && cloudSyncEnabled(userId)) {
+      if (moved > 0 && cloudSyncEnabled(userId)) {
         try {
           const { synced, failed } = await SyncService.syncAllUnlinked(userId);
           if (synced > 0) onCloudSynced?.(synced);
@@ -41,11 +46,11 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
           showToast(t('error_generic_action'), 'error');
         }
       }
-      onDone(count > 0);
+      onDone({ moved, left: 0 });
     } catch (e) {
       reportError(e, { action: 'migrateDocuments', userId });
       showToast(t('error_generic_action'), 'error');
-      onDone(false);
+      onDone({ moved: 0, left: docCount });
     }
   };
 

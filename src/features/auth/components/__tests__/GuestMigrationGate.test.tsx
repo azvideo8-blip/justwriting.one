@@ -117,4 +117,42 @@ describe('GuestMigrationGate', () => {
     });
     expect(SyncService.syncAllUnlinked).toHaveBeenCalledTimes(calls);
   });
+
+  it('sets MIGRATION_DECLINED only when user explicitly chooses to keep local', async () => {
+    await LocalDocumentService.createDocument(getOrCreateGuestId(), { title: 'Guest Note' });
+    const { rerender } = render(<GuestMigrationGate />);
+    mockAuth = { user: { uid: 'user_decline' }, isGuest: false };
+    rerender(<GuestMigrationGate />);
+
+    const keepBtn = await screen.findByText('migration_keep_local');
+    fireEvent.click(keepBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText('migration_keep_local')).toBeNull();
+    });
+    expect(localStorage.getItem(STORAGE_KEYS.MIGRATION_DECLINED('user_decline'))).toBe('1');
+  });
+
+  it('migrates draft-only with 0 notes and shows success toast without marking declined', async () => {
+    const guestDb = await getLocalDb();
+    await guestDb.put('drafts', {
+      userId: 'guest_draft',
+      content: 'Draft content',
+      updatedAt: Date.now(),
+    } as never);
+
+    const { rerender } = render(<GuestMigrationGate />);
+    mockAuth = { user: { uid: 'user_draft_only' }, isGuest: false };
+    rerender(<GuestMigrationGate />);
+
+    const migrateBtn = await screen.findByText('Перенести в аккаунт');
+    fireEvent.click(migrateBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Перенести в аккаунт')).toBeNull();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith('migration_success_local', 'success');
+    expect(localStorage.getItem(STORAGE_KEYS.MIGRATION_DECLINED('user_draft_only'))).toBeNull();
+  });
 });

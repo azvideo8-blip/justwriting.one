@@ -2,6 +2,12 @@ import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { getFrozenDates, saveFrozenDates, clearFrozenDates } from '../../../core/utils/streakFreeze';
+import { reportError } from '../../../shared/errors/reportError';
+
+export interface MigrateResult {
+  moved: number;
+  left: number;
+}
 
 /**
  * Re-keys this device's guest notes, versions, draft and profile onto a signed-in
@@ -9,7 +15,7 @@ import { getFrozenDates, saveFrozenDates, clearFrozenDates } from '../../../core
  * thing: a copy of it in the test file drifted from production and kept
  * passing while the code it was meant to cover was wrong.
  */
-export async function migrateDocuments(userId: string): Promise<number> {
+export async function migrateDocuments(userId: string): Promise<MigrateResult> {
   const guestId = getOrCreateGuestId();
   const guestDb = await getLocalDb('justwriting-local');
   const userDb = await getLocalDb(userId);
@@ -17,6 +23,7 @@ export async function migrateDocuments(userId: string): Promise<number> {
   const hasDraftsInGuest = guestDb.objectStoreNames.contains('drafts');
   const hasDraftsInUser = userDb.objectStoreNames.contains('drafts');
 
+  let draftMigrated = false;
   // D-3 / AG-MIG-1: migrate guest draft to user draft (don't clobber existing user draft).
   if (hasDraftsInGuest) {
     const guestDraft = await guestDb.get('drafts', 'guest_draft');
@@ -29,6 +36,7 @@ export async function migrateDocuments(userId: string): Promise<number> {
           // Выгрузку делает слой письма по событию: прямой импорт из auth в
           // writing запрещён зонами import/no-restricted-paths.
           emitDomainEvent({ type: 'draft.migrated', userId });
+          draftMigrated = true;
         }
         await guestDb.delete('drafts', 'guest_draft');
         if (userDb !== guestDb) {
@@ -40,12 +48,14 @@ export async function migrateDocuments(userId: string): Promise<number> {
   }
 
   // AG-MIG-1: migrate profile store if present
+  let profileMigrated = false;
   if (guestDb.objectStoreNames.contains('profile') && userDb.objectStoreNames.contains('profile')) {
     const guestProfile = await guestDb.get('profile', guestId);
     if (guestProfile) {
       const existingUserProfile = await userDb.get('profile', userId);
       if (!existingUserProfile) {
         await userDb.put('profile', { ...guestProfile, guestId: userId });
+        profileMigrated = true;
       }
       await guestDb.delete('profile', guestId);
       if (userDb !== guestDb) {
@@ -66,37 +76,47 @@ export async function migrateDocuments(userId: string): Promise<number> {
   // Migrate documents and versions
   const guestDocs = await guestDb.getAllFromIndex('documents', 'by-guest', guestId);
   if (guestDocs.length === 0) {
-    return 0;
+    // Миграция только черновика/профиля при 0 заметок — не «не смигрировано».
+    const moved = (draftMigrated || profileMigrated) ? 1 : 0;
+    return { moved, left: 0 };
   }
 
+  let moved = 0;
   for (const doc of guestDocs) {
-    const versions = await guestDb.getAllFromIndex('versions', 'by-document', doc.id);
+    try {
+      const versions = await guestDb.getAllFromIndex('versions', 'by-document', doc.id);
 
-    if (userDb !== guestDb) {
-      const userTx = userDb.transaction(['documents', 'versions'], 'readwrite');
-      await userTx.objectStore('documents').put({ ...doc, guestId: userId });
-      for (const ver of versions) {
-        await userTx.objectStore('versions').put({ ...ver, guestId: userId });
-      }
-      await userTx.done;
+      if (userDb !== guestDb) {
+        const userTx = userDb.transaction(['documents', 'versions'], 'readwrite');
+        await userTx.objectStore('documents').put({ ...doc, guestId: userId });
+        for (const ver of versions) {
+          await userTx.objectStore('versions').put({ ...ver, guestId: userId });
+        }
+        await userTx.done;
 
-      // AG-5: Delete from guestDb ONLY after confirmed write in userDb
-      const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
-      await guestTx.objectStore('documents').delete(doc.id);
-      for (const ver of versions) {
-        await guestTx.objectStore('versions').delete(ver.id);
+        // AG-5: Delete from guestDb ONLY after confirmed write in userDb
+        const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
+        await guestTx.objectStore('documents').delete(doc.id);
+        for (const ver of versions) {
+          await guestTx.objectStore('versions').delete(ver.id);
+        }
+        await guestTx.done;
+      } else {
+        // Re-key in guestDb (fallback if userDb is the same as guestDb)
+        const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
+        await guestTx.objectStore('documents').put({ ...doc, guestId: userId });
+        for (const ver of versions) {
+          await guestTx.objectStore('versions').put({ ...ver, guestId: userId });
+        }
+        await guestTx.done;
       }
-      await guestTx.done;
-    } else {
-      // Re-key in guestDb (fallback if userDb is the same as guestDb)
-      const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
-      await guestTx.objectStore('documents').put({ ...doc, guestId: userId });
-      for (const ver of versions) {
-        await guestTx.objectStore('versions').put({ ...ver, guestId: userId });
-      }
-      await guestTx.done;
+      moved++;
+    } catch (e) {
+      reportError(e, { action: 'migrateDocuments_doc', docId: doc.id });
+      break;
     }
   }
 
-  return guestDocs.length;
+  const left = guestDocs.length - moved;
+  return { moved, left };
 }

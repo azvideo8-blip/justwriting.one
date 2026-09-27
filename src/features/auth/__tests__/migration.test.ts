@@ -102,7 +102,8 @@ import { migrateDocuments as realMigrateDocuments } from '../services/migrateDoc
 async function migrateDocuments(guestId: string, userId: string): Promise<number> {
   localStorage.setItem('jw_guest_id', guestId);
   sessionStorage.setItem('jw_guest_id', guestId);
-  return realMigrateDocuments(userId);
+  const res = await realMigrateDocuments(userId);
+  return res.moved;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

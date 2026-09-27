@@ -41,7 +41,7 @@ describe('2.8 guest draft is consumed by migration', () => {
     expect(await guestDb.get('drafts', 'guest_draft')).toBeUndefined();
     expect(await guestDb.get('drafts', 'user_1')).toBeUndefined();
     expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).toBeNull();
-    expect(moved).toBeGreaterThanOrEqual(0);
+    expect(moved.moved).toBeGreaterThanOrEqual(0);
   });
 
   it('consumes the source even when the user already had a draft', async () => {

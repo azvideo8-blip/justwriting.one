@@ -61,15 +61,27 @@ export function GuestMigrationGate() {
     <MigrationPrompt
       userId={migrationUserId}
       docCount={migrationDocCount}
-      onDone={(migrated) => {
+      onDone={(result) => {
         const count = migrationDocCount;
         setMigrationUserId(null);
         setMigrationDocCount(0);
-        if (migrated) {
-          showToast(t('migration_success_local', { count }), 'success');
-        } else {
+
+        if (result === false) {
+          // Явный отказ человека («Оставить локальными» или закрытие окна)
           try { localStorage.setItem(STORAGE_KEYS.MIGRATION_DECLINED(migrationUserId), '1'); } catch { /* private mode */ }
+          return;
         }
+
+        if (result === true) {
+          showToast(t('migration_success_local', { count }), 'success');
+          return;
+        }
+
+        if (result.left === 0 && (result.moved > 0 || count > 0)) {
+          showToast(t('migration_success_local', { count: result.moved || count }), 'success');
+        }
+        // При left > 0 тост уже показан в MigrationPrompt, а флаг MIGRATION_DECLINED
+        // НЕ ставится — предложение вернётся при следующем входе.
       }}
       onCloudSynced={(synced) => showToast(t('migration_synced_cloud', { count: synced }), 'success')}
     />

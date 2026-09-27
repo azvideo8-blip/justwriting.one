@@ -146,9 +146,9 @@ describe('AG-ISO-1: Account Isolation for Local Database', () => {
     // 2. User signs up and migrates
     const { migrateDocuments } = await import('../services/migrateDocuments');
     mockCurrentUser = { uid: 'user_new', email: 'new@example.com' };
-    const count = await migrateDocuments('user_new');
+    const { moved } = await migrateDocuments('user_new');
 
-    expect(count).toBe(1);
+    expect(moved).toBe(1);
 
     // 3. User database has the document with guestId = user_new
     const userDb = await getLocalDb('user_new');

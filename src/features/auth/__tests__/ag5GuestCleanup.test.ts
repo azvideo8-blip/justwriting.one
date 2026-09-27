@@ -97,8 +97,8 @@ describe('AG-5: Guest notes migration cleanup & atomicity', () => {
     localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'Guest draft body text' }));
 
     // 2. Perform migration to user account
-    const migratedCount = await migrateDocuments(USER_ID);
-    expect(migratedCount).toBe(1);
+    const { moved } = await migrateDocuments(USER_ID);
+    expect(moved).toBe(1);
 
     // 3. Verify guest database (justwriting-local) is completely clean:
     // No documents under guestId or userId
@@ -167,8 +167,9 @@ describe('AG-5: Guest notes migration cleanup & atomicity', () => {
       return origTx(storeNames, ...rest);
     });
 
-    // 3. Migration must reject
-    await expect(migrateDocuments(USER_ID)).rejects.toThrow('SIMULATED_USER_TX_FAILURE');
+    // 3. Migration reports failed document as left
+    const failRes = await migrateDocuments(USER_ID);
+    expect(failRes).toEqual({ moved: 0, left: 1 });
 
     // 4. Verify guest DB is untouched: document and versions still present with GUEST_ID
     const remainingDocs = await guestDb.getAll('documents');
@@ -229,12 +230,12 @@ describe('AG-5: Guest notes migration cleanup & atomicity', () => {
     });
 
     // 1st run
-    const count1 = await migrateDocuments(USER_ID);
-    expect(count1).toBe(1);
+    const res1 = await migrateDocuments(USER_ID);
+    expect(res1.moved).toBe(1);
 
     // 2nd run
-    const count2 = await migrateDocuments(USER_ID);
-    expect(count2).toBe(0);
+    const res2 = await migrateDocuments(USER_ID);
+    expect(res2.moved).toBe(0);
 
     // Verify user database has exactly 1 doc and 1 version (no duplicates)
     const userDb = await getLocalDb(USER_ID);

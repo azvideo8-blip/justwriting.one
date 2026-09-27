@@ -1287,8 +1287,8 @@ export class LifecycleRunner {
 
     let told: ToldState = { status: 'migrated', cloudSynced: false };
     try {
-      const count = await migrateDocuments(this.userId);
-      told = { status: 'migrated', cloudSynced: false, userFacingMessage: `Migrated ${count} docs` };
+      const { moved } = await migrateDocuments(this.userId);
+      told = { status: 'migrated', cloudSynced: false, userFacingMessage: `Migrated ${moved} docs` };
       // Sync migrated document
       try {
         const cloudId = await StorageService.addCloudCopy(this.userId, guestDocId);
