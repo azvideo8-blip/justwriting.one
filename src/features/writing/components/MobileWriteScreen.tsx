@@ -11,7 +11,6 @@ import { MobileWriteToolbar } from './MobileWriteToolbar';
 import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
-import { ConnectionStatusBanner } from './ConnectionStatusBanner';
 import { getWpmHex } from '../utils/wpmColors';
 import { cn } from '../../../core/utils/utils';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
@@ -229,7 +228,6 @@ export function MobileWriteScreen({
     <>
       {/* not-a-modal: fullscreen mobile screen */}
       <div className="fixed inset-0 bg-[var(--color-surface-base,#0b0d0c)] flex flex-col z-30">
-      <ConnectionStatusBanner showZen={showZen} />
 
       <AnimatePresence>
         {!showZen && (

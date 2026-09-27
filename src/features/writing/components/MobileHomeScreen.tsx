@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../../../shared/i18n';
 import { Session } from '../../../types';
 import type { SessionGroup, DailySummary, LifeLogDocument } from '../types/lifeLog';
-import { ConnectionStatusBanner } from './ConnectionStatusBanner';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../../core/utils/utils';
 import { Settings } from 'lucide-react';
@@ -138,7 +137,6 @@ export function MobileHomeScreen({
         </div>
       )}
 
-      <ConnectionStatusBanner />
 
       <div className="flex items-center justify-between px-5 pt-3 pt-[calc(env(safe-area-inset-top,0px)+12px)]">
         <div className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 bg-[var(--surface-card)] border border-[var(--border-light)] rounded-full">

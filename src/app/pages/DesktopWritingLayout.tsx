@@ -14,7 +14,6 @@ import { WritingEditor } from '../../features/writing/components/WritingEditor';
 import { WritingSetup } from '../../features/writing/components/WritingSetup';
 import { LifeLogPanel } from '../../features/writing/components/LifeLogPanel';
 import { BottomStats } from '../../features/writing/components/BottomStats';
-import { ConnectionStatusBanner } from '../../features/writing/components/ConnectionStatusBanner';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
 // каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
 function LiveAIPanelContent() {
@@ -110,7 +109,6 @@ export function DesktopWritingLayout() {
       animate={reducedMotion ? false : { opacity: 1 }}
       className="w-full transition-colors duration-1000"
     >
-      <ConnectionStatusBanner showZen={showZen} />
 
       <div
         style={{
