@@ -86,7 +86,7 @@ export function InviteWizard({ email }: { email: string | null }) {
 
   const copyCode = async () => {
     if (!recoveryCode) return;
-    try { await navigator.clipboard.writeText(recoveryCode); setCopied(true); } catch { /* ignore */ }
+    try { await navigator.clipboard.writeText(recoveryCode); setCopied(true); } catch { /* намеренно: доступ к буферу обмена может быть запрещён */ }
   };
 
   const downloadCode = () => {

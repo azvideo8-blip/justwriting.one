@@ -4,6 +4,7 @@ import { RecoveryCodeDisplayModal } from '../../../shared/components/RecoveryCod
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { setRememberDevice } from '../../../core/crypto/useEncryptionStore';
+import { reportError } from '../../../shared/errors/reportError';
 
 export function RecoveryCodeGate() {
   const { user, isGuest } = useAuthStatus();
@@ -50,7 +51,9 @@ export function RecoveryCodeGate() {
       // R3-9: сейф, созданный при входе, сам запоминает ключ на устройстве —
       // на чужом компьютере человек снимает галочку, и ключ забывается.
       setRememberDevice(false);
-      void clearDeviceKey(user.uid).catch(() => {});
+      void clearDeviceKey(user.uid).catch((err) => {
+        reportError(err, { action: 'clearDeviceKey_uncheckRememberDevice', userId: user.uid });
+      });
     }
     if (user) {
       try {

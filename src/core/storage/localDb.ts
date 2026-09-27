@@ -825,7 +825,7 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
           if (legacyDb.objectStoreNames.contains(storeName as never)) {
             try {
               await legacyDb.clear(storeName as never);
-            } catch { /* ignore */ }
+            } catch { /* намеренно: очистка legacy-хранилища при миграции best-effort */ }
           }
         }
       }
@@ -882,19 +882,19 @@ export async function migrateLegacyIfNeeded(targetDbName: string, targetUid: str
       for (const doc of userDocs) {
         try {
           await legacyDb.delete('documents', doc.id);
-        } catch { /* ignore */ }
+        } catch { /* намеренно: удаление из legacyDb после успешной миграции best-effort */ }
       }
       if (legacyDb.objectStoreNames.contains('drafts')) {
         try {
           await legacyDb.delete('drafts', targetUid);
-        } catch { /* ignore */ }
+        } catch { /* намеренно: удаление черновика из legacyDb best-effort */ }
       }
       if (claimUnowned) {
         for (const storeName of LEGACY_WIPE_STORES) {
           if (legacyDb.objectStoreNames.contains(storeName as never)) {
             try {
               await legacyDb.clear(storeName as never);
-            } catch { /* ignore */ }
+            } catch { /* намеренно: очистка legacy-хранилища best-effort */ }
           }
         }
       }

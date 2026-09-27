@@ -164,7 +164,7 @@ export const WritingDraftService = {
         return null;
       }
       if (winner === cloudDraft && !localFailed) {
-        await WritingDraftService.saveToLocal(cloudDraft).catch(() => {});
+        await WritingDraftService.saveToLocal(cloudDraft).catch(() => { /* намеренно: фоновое кэширование черновика из облака */ });
       }
       return winner;
     }
@@ -179,7 +179,7 @@ export const WritingDraftService = {
         return null;
       }
       if (resolved === cloudDraft && !localFailed) {
-        await WritingDraftService.saveToLocal(cloudDraft).catch(() => {});
+        await WritingDraftService.saveToLocal(cloudDraft).catch(() => { /* намеренно: фоновое кэширование черновика из облака */ });
       }
     }
     return resolved;

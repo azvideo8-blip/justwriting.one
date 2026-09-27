@@ -142,7 +142,7 @@ export async function initializeEncryption(
       const { setRememberDevice } = await import('../crypto/useEncryptionStore');
       await saveDeviceKey(userId, dataKey);
       setRememberDevice(true);
-    } catch { /* device key storage optional (e.g. private mode) */ }
+    } catch { /* намеренно: сохранение ключа устройства опционально (напр. режим инкогнито) */ }
   }
 
   return { recoveryCode };

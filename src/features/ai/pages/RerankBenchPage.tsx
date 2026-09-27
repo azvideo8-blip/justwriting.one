@@ -53,7 +53,7 @@ function loadState(): BenchState | null {
 function saveState(state: BenchState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch { /* переполнение хранилища не должно ронять оценку */ }
+  } catch { /* намеренно: переполнение хранилища не должно ронять оценку */ }
 }
 
 function shuffle<T>(arr: T[]): T[] {

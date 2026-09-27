@@ -31,7 +31,7 @@ export function saveWordGoal(goal: number, uid?: string | null): void {
       localStorage.removeItem(key);
     }
   } catch {
-    // ignore
+    // намеренно: запись цели слов в localStorage опциональна
   }
 }
 

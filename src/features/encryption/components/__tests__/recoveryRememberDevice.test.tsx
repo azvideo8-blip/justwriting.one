@@ -5,6 +5,9 @@ import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { clearDeviceKey } from '../../../../core/crypto/keyVaultCache';
 import { setRememberDevice } from '../../../../core/crypto/useEncryptionStore';
 
+import { reportError } from '../../../../shared/errors/reportError';
+
+vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../app/useAuthStatus', () => ({ useAuthStatus: () => ({ user: { uid: 'u1' }, isGuest: false }) }));
 vi.mock('../../../../core/crypto/keyVaultCache', () => ({ clearDeviceKey: vi.fn(async () => {}) }));
 vi.mock('../../../../core/crypto/useEncryptionStore', () => ({ setRememberDevice: vi.fn() }));
@@ -35,5 +38,17 @@ describe('R3-9: the auto-created vault asks whether to remember this device', ()
     render(<RecoveryCodeGate />);
     fireEvent.click(screen.getByText('mine'));
     expect(clearDeviceKey).not.toHaveBeenCalled();
+  });
+
+  it('N-69: reports error when clearDeviceKey fails upon unticking rememberDevice', async () => {
+    const error = new Error('keyVault error');
+    vi.mocked(clearDeviceKey).mockRejectedValueOnce(error);
+    render(<RecoveryCodeGate />);
+    fireEvent.click(screen.getByText('shared'));
+    await new Promise(r => setTimeout(r, 0));
+    expect(reportError).toHaveBeenCalledWith(error, expect.objectContaining({
+      action: 'clearDeviceKey_uncheckRememberDevice',
+      userId: 'u1',
+    }));
   });
 });

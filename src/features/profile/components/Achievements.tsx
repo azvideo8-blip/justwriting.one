@@ -124,7 +124,7 @@ function readEarnedAtMap(userId: string): Record<string, number> {
   } catch { return {}; }
 }
 function writeEarnedAtMap(userId: string, map: Record<string, number>): void {
-  try { localStorage.setItem(`achievement_earned_at_${userId}`, JSON.stringify(map)); } catch { /* quota */ }
+  try { localStorage.setItem(`achievement_earned_at_${userId}`, JSON.stringify(map)); } catch { /* намеренно: переполнение квоты localStorage */ }
 }
 function readResetAt(userId: string): number {
   try { return Number(localStorage.getItem(`achievements_reset_at_${userId}`) ?? 0); }
