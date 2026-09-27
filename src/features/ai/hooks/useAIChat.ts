@@ -304,6 +304,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       setDialogue(tempDialogue);
     }
 
+    // SB-3: пара «вопрос + ответ» пишется один раз — в конце успешного прохода.
+    // Поэтому исключение в середине стрима уносило из истории всё, что человек
+    // уже видел. Эти три значения — страховка для catch: какой диалог, какой
+    // показанный кусок и записан ли уже ход.
+    let turnDialogueId: string | undefined = dialogueId ?? undefined;
+    let shownPartial = '';
+    let turnSaved = false;
+
     try {
 
             // Sticky note: remember a freshly attached note, and reuse it on follow-up
@@ -355,6 +363,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           reasoning: effectiveReasoning,
         });
         effectiveDialogueId = currentDialogue.id;
+        turnDialogueId = currentDialogue.id;
         // Show the freshly created dialogue WITH the message the user just sent.
         // The stored record is deliberately empty — appendMessage writes the
         // user turn together with the answer — but handing that empty record to
@@ -443,6 +452,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
                 : null;
               setStreamingMessage(cleanPartial);
               setStreamingReasoning(cleanReasoning);
+              shownPartial = cleanPartial;
             },
           });
         } catch (e: unknown) {
@@ -550,6 +560,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';
       }
       await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
+      turnSaved = true;
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
         await AIDialogueService.setDocumentId(currentDialogue.id, attached.documentId);
@@ -608,6 +619,23 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const fresh = (dialogueId && typeof dialogueId === 'string') ? await db.get('aiDialogues', dialogueId) : null;
       setDialogue(fresh ?? dialogue);
       const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
+
+      // SB-3: показанное должно пережить обрыв. Если куски уже были на экране, а
+      // ход не записан (исключение из стрима или из callable-повтора), сохраняем
+      // его как есть — с честной пометкой, что ответ не дописан. Вопрос сам по
+      // себе в поле ввода остаётся, но в дневнике хода не было вовсе.
+      if (!turnSaved && turnDialogueId && text.trim() && shownPartial.trim()) {
+        try {
+          await AIDialogueService.appendMessage(
+            turnDialogueId,
+            text,
+            `${shownPartial.trim()}\n\n[ответ не дописан — стрим оборвался]`,
+          );
+          turnSaved = true;
+        } catch (persistErr) {
+          reportError(persistErr, { action: 'useAIChat_persistInterruptedTurn', dialogueId: turnDialogueId });
+        }
+      }
 
       if (rawMsg === 'ABORTED') {
         try { localStorage.removeItem('jw_ai_cooldown_until'); } catch { /* ignore */ }
