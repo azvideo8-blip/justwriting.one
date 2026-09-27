@@ -24,7 +24,12 @@ const RESET_DONE_KEY = 'jw_password_reset_done';
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // Ссылка в адресе ещё не разобрана — кто сейчас вошёл, ничего не значит:
+  // это может быть прежний аккаунт, который вот-вот выйдет (иначе мастер
+  // приглашения на миг открывался ему, с его адресом). Решает эффект ниже.
+  const [linkPending] = useState(() => Boolean(searchParams.get('token_hash')));
   const [recoveryMode, setRecoveryMode] = useState(() => {
+    if (linkPending) return false;
     const u = getCurrentUser();
     return Boolean(u && typeof u.uid === 'string' && !u.uid.startsWith('guest'));
   });
@@ -41,7 +46,7 @@ export function ResetPasswordPage() {
   const [done, setDone] = useState(doneEmail !== null);
   const [error, setError] = useState<string | null>(null);
   const [linkExpired, setLinkExpired] = useState(false);
-  const [email, setEmail] = useState<string | null>(() => doneEmail || searchParams.get('email') || (getCurrentUser()?.email ?? null));
+  const [email, setEmail] = useState<string | null>(() => doneEmail || searchParams.get('email') || (linkPending ? null : (getCurrentUser()?.email ?? null)));
   // Приглашённый задаёт первый пароль — те же поля, другие слова.
   const [isInvite] = useState(() => {
     return searchParams.get('type') === 'invite' || (typeof window !== 'undefined' && window.location.hash.includes('type=invite'));
@@ -100,11 +105,17 @@ export function ResetPasswordPage() {
       const exchange = () =>
         verifyOtpForRecovery(tokenHash, type)
           .then((linkEmail) => {
+            // Отметка — только после успешного обмена. Поставленная до него,
+            // она сбивала повторный запуск эффекта, пока обмен ещё в пути:
+            // «обменена, а сессии нет» читалось как «ссылка устарела».
+            try { sessionStorage.setItem(exchangedKey(tokenHash), '1'); } catch { /* намеренно: без отметки просто не переживём перезагрузку */ }
             setRecoveryMode(true);
             setLinkExpired(false);
             const currentUserEmail = linkEmail ?? getCurrentUser()?.email;
             if (currentUserEmail) setEmail(currentUserEmail);
-            window.history.replaceState(null, '', window.location.pathname);
+            // Адрес не чистим: обменянный token_hash второй раз не сработает, а
+            // перезагрузка на шаге пароля по нему узнаёт «уже обменена» и что
+            // это приглашение (иначе вместо мастера — форма восстановления).
           })
           .catch((err) => {
             reportError(err, { action: 'verifyOtpRecovery' });
@@ -138,8 +149,8 @@ export function ResetPasswordPage() {
             if (sessionEmail) setEmail(sessionEmail);
           } else {
             setLinkExpired(true);
+            window.history.replaceState(null, '', window.location.pathname);
           }
-          window.history.replaceState(null, '', window.location.pathname);
           return;
         }
         if (signedIn) {
@@ -150,7 +161,6 @@ export function ResetPasswordPage() {
           if (!isAccountReloadPending()) void reloadForAccountChange();
           return;
         }
-        try { sessionStorage.setItem(exchangedKey(tokenHash), '1'); } catch { /* намеренно: без отметки просто не переживём перезагрузку */ }
         await exchange();
       })();
     }

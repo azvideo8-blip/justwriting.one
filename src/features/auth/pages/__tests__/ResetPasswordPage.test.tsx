@@ -1,6 +1,7 @@
 // TEST-1 §1.3: the recovery link leads to a working password change.
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { LanguageProvider } from '../../../../shared/i18n';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -86,6 +87,24 @@ describe('1.3 password recovery', () => {
     expect(screen.getByText(/Пароль изменён/)).toBeTruthy();
   });
 
+  // Эффект запускается повторно, пока обмен ещё в пути (StrictMode в разработке,
+  // смена зависимостей на проде). Отметка «обменена», поставленная ДО обмена,
+  // читалась вторым запуском как «обменена, а сессии нет» → «ссылка устарела».
+  it('a second run of the effect during the exchange does not declare the link expired', async () => {
+    let finish: (email: string) => void = () => {};
+    verifyOtpForRecovery.mockImplementationOnce(() => new Promise(r => { finish = r as (email: string) => void; }));
+    // «Ссылка устарела» хоть на миг — это чистка адреса и перемонтирование мастера.
+    const replaceSpy = vi.spyOn(window.history, 'replaceState');
+    render(<StrictMode><LanguageProvider><MemoryRouter initialEntries={['/reset-password?token_hash=strict-1&type=recovery']}><ResetPasswordPage /></MemoryRouter></LanguageProvider></StrictMode>);
+    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalled());
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    await act(async () => { finish('me@example.com'); await Promise.resolve(); });
+    expect(await screen.findAllByPlaceholderText(/Новый пароль|Повторите пароль/)).toHaveLength(2);
+    expect(screen.queryByText(/устарела/i)).toBeNull();
+    expect(replaceSpy).not.toHaveBeenCalled();
+    replaceSpy.mockRestore();
+  });
+
   it('mismatched confirmation blocks the submit', async () => {
     renderPage();
     act(() => { onPasswordRecoveryCb.fire(); });
@@ -109,7 +128,9 @@ describe('1.3 password recovery', () => {
 
     const pwInputs = await screen.findAllByPlaceholderText(/Новый пароль|Повторите пароль/);
     expect(pwInputs).toHaveLength(2);
-    expect(replaceSpy).toHaveBeenCalledWith(null, '', expect.any(String));
+    // Адрес не чистится: обменянный token_hash второй раз не сработает, а после
+    // перезагрузки по нему страница узнаёт «ссылка уже обменена» (F-3, 3b).
+    expect(replaceSpy).not.toHaveBeenCalled();
     replaceSpy.mockRestore();
   });
 
@@ -167,6 +188,20 @@ describe('invite link while another account is signed in', () => {
     await waitFor(() => expect(signOutUser).toHaveBeenCalledWith({ scope: 'local' }));
     await waitFor(() => expect(reloadForAccountChange).toHaveBeenCalled());
     expect(verifyOtpForRecovery).not.toHaveBeenCalled();
+  });
+
+  // До выхода и перезагрузки мастер приглашения не открывается прежнему
+  // аккаунту: раньше он на миг показывался с его адресом, и клик сбрасывался.
+  it('after «Continue» the previous account never sees the invite wizard', async () => {
+    getCurrentUser.mockReturnValue({ uid: 'owner', email: 'owner@example.com' });
+    getSession.mockResolvedValue({ data: { session: { user: { email: 'owner@example.com' } } } });
+    renderPage(['/reset-password?token_hash=pending-1&type=invite']);
+    fireEvent.click(await screen.findByText('Продолжить'));
+    await waitFor(() => expect(reloadForAccountChange).toHaveBeenCalled());
+    expect(screen.queryByText('Начать')).toBeNull();
+    expect(screen.queryByText('owner@example.com')).toBeNull();
+    getCurrentUser.mockReturnValue(null);
+    getSession.mockResolvedValue({ data: { session: null } });
   });
 
   it('«Остаться» leaves the link unused and returns to the app', async () => {

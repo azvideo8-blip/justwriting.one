@@ -159,21 +159,24 @@ async function inviteOverOpenAccount(page: Page): Promise<void> {
   await login(page, A);
   const token = await generateLink('invite', freshEmail('c3'));
 
-  await stamp(page);
   await page.goto(`/reset-password?token_hash=${token}&type=invite`);
   const ask = page.getByTestId('invite-switch-account');
   await expect(ask).toBeVisible({ timeout: 15_000 });
   await expect(ask).toContainText('Сейчас выполнен вход');
+  // Метка — уже на странице приглашения: поставленная до goto, она стиралась
+  // самим переходом, и проверка перезагрузки проходила вхолостую.
+  await stamp(page);
   await ask.getByRole('button', { name: 'Продолжить' }).click();
+  // До перезагрузки мастер прежнему аккаунту не показывается.
+  await expect(page.getByText(A.email)).toHaveCount(0);
 
   await expectReloaded(page);
   await expect(page.getByRole('heading', { name: 'Добро пожаловать в justwriting' })).toBeVisible({ timeout: 20_000 });
-  // Сразу после обмена ссылки приходит событие входа, и мастер перемонтируется
-  // на шаг «welcome»; клик в этот зазор теряется — человек нажал бы ещё раз.
-  await expect(async () => {
-    await page.getByRole('button', { name: 'Начать' }).click();
-    await expect(page.getByRole('heading', { name: 'Как мы обращаемся с данными' })).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  // Мастер открывается только после перезагрузки и обмена ссылки — один раз:
+  // повторять клик больше не нужно (раньше он на миг открывался прежнему
+  // аккаунту и сбрасывался перезагрузкой).
+  await page.getByRole('button', { name: 'Начать' }).click();
+  await expect(page.getByRole('heading', { name: 'Как мы обращаемся с данными' })).toBeVisible();
   await page.getByRole('checkbox', { name: /Обязательно/ }).check();
   await page.getByRole('button', { name: 'Далее' }).click();
   await expect(page.getByRole('heading', { name: 'Придумайте пароль' })).toBeVisible();
@@ -183,18 +186,16 @@ test('3. приглашение при открытом аккаунте: воп
   await inviteOverOpenAccount(page);
 
   await page.reload();
-  await expect(page.locator('input[type="password"]')).toHaveCount(2, { timeout: 20_000 });
+  // После перезагрузки — снова мастер приглашения (3b), а не форма восстановления.
+  await expect(page.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумайте пароль/ })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Ссылка уже использована или устарела')).toHaveCount(0);
   await expect(page.getByTestId('invite-switch-account')).toHaveCount(0);
 });
 
-// Отчёт F-3, находка 1: после обновления страницы на шаге пароля мастер не
-// возвращается — вместо него форма «Восстановление пароля» с предупреждением
-// о заметках, зашифрованных прежним паролем (у приглашённого их нет).
-// Причина: после обмена ссылки адрес чистится до /reset-password, и `type=invite`
-// не переживает перезагрузку. Владелец решит; тест намеренно красный.
-test('3b. после обновления страницы приглашённый остаётся в мастере (известная находка)', async ({ page }) => {
-  test.fail();
+// Отчёт F-3, находка 1 (исправлено): после обмена ссылки адрес чистился до
+// /reset-password, `type=invite` не переживал перезагрузку, и вместо мастера
+// показывалась форма восстановления пароля.
+test('3b. после обновления страницы приглашённый остаётся в мастере', async ({ page }) => {
   await inviteOverOpenAccount(page);
   await page.reload();
   await expect(page.getByRole('heading', { name: /Добро пожаловать в justwriting|Придумайте пароль/ })).toBeVisible({ timeout: 20_000 });
