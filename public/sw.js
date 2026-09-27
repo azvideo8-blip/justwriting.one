@@ -2,6 +2,40 @@ const CACHE_VERSION = 'v0.9.13';
 const CACHE = `jw-${CACHE_VERSION}`;
 const NAV_CACHE = `jw-nav-${CACHE_VERSION}`;
 
+// SB-6: `caches.match` при пустом кэше резолвится в undefined, а
+// `respondWith(undefined)` — не «страница ошибки по вкусу», а сетевая ошибка по
+// спецификации: человек видит системную заглушку браузера без единой подсказки,
+// что его записи на месте. Статус 200, а не 503: на стенде (офлайн, пустой кэш)
+// синтетический 503 для навигации Chrome тоже оформляет как свою страницу
+// ошибки — текст видно, но адрес в строке при этом теряется.
+const OFFLINE_HTML = '<!doctype html><html lang="ru"><head><meta charset="utf-8">' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+  '<title>Нет сети</title></head><body>' +
+  '<h1>Нет сети</h1>' +
+  '<p>Не удалось загрузить приложение. Записи, сохранённые на этом устройстве, на месте — ' +
+  'откройте страницу заново, когда связь вернётся.</p>' +
+  '</body></html>';
+
+function offlineResponse() {
+  return new Response(OFFLINE_HTML, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
+// Офлайн-навигация: сначала записанная страница, затем оболочка из кэша
+// установки, и только потом заглушка. Дно — ответ всегда: промах по кэшу — это
+// «мы не знаем», а не «показывать нечего».
+async function offlineNavigation(request) {
+  try {
+    const cache = await caches.open(NAV_CACHE);
+    return (await cache.match(request)) || (await caches.match('/index.html')) || offlineResponse();
+  } catch {
+    // Приватный режим и переполненная квота: кэш-хранилище не открылось.
+    return offlineResponse();
+  }
+}
+
 self.addEventListener('install', (event) => {
   // DA-19: addAll — всё или ничего: один сбойный запрос ронял установку, и новый
   // воркер так и не вставал. Оболочка — лишь запасной вариант офлайн (навигация
@@ -42,11 +76,7 @@ self.addEventListener('fetch', (event) => {
           void caches.open(NAV_CACHE).then((cache) => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() =>
-        caches.open(NAV_CACHE).then((cache) =>
-          cache.match(event.request).then((cached) => cached || caches.match('/index.html'))
-        )
-      )
+      }).catch(() => offlineNavigation(event.request))
     );
     return;
   }
@@ -60,7 +90,9 @@ self.addEventListener('fetch', (event) => {
             void caches.open(CACHE).then((c) => c.put(event.request, clone));
           }
           return response;
-        }).catch(() => cached)
+        // SB-6: промах по кэшу плюс отказ сети — это erroped-ответ (честная
+        // сетевая ошибка), а не undefined, попавший в respondWith.
+        }).catch(() => cached || Response.error())
       )
     );
     return;
