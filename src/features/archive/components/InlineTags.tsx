@@ -67,6 +67,7 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
           <input
             ref={inputRef}
             value={input}
+            aria-label="Добавить тег"
             onChange={e => {
               setInput(e.target.value);
               setSelectedIdx(-1);

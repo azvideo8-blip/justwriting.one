@@ -392,6 +392,7 @@ export function DiagnosticsPage() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder={t('admin_invite_placeholder')}
+                  aria-label={t('admin_invite_placeholder')}
                   disabled={invitingUser}
                   className="flex-1 px-3.5 py-2 rounded-xl text-xs bg-surface-elevated border border-border-subtle text-text-main placeholder:text-text-main/40 focus:outline-none focus:border-brand-soft transition-colors disabled:opacity-50"
                   required
@@ -481,6 +482,7 @@ export function DiagnosticsPage() {
                     type="date"
                     value={aiUsageDate}
                     onChange={e => setAiUsageDate(e.target.value)}
+                    aria-label={t('admin_ai_stats_title')}
                     className="px-3 py-1.5 rounded-xl bg-surface-base/5 border border-border-subtle text-xs text-text-main outline-none"
                   />
                   <Button
@@ -546,6 +548,7 @@ export function DiagnosticsPage() {
                   value={aiSearchQuery}
                   onChange={e => setAiSearchQuery(e.target.value)}
                   placeholder={t('admin_search_placeholder')}
+                  aria-label={t('admin_search_placeholder')}
                   className="flex-1 min-w-[200px] px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/40 outline-none"
                 />
                 <div className="flex items-center gap-2">
@@ -554,6 +557,7 @@ export function DiagnosticsPage() {
                     value={manualResetUid}
                     onChange={e => setManualResetUid(e.target.value)}
                     placeholder={t('admin_reset_uid_placeholder')}
+                    aria-label={t('admin_reset_uid_placeholder')}
                     className="px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main placeholder:text-text-main/40 outline-none w-52"
                   />
                   <Button

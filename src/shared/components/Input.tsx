@@ -7,10 +7,11 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ error, helperText, className, ...props }, ref) => (
+  ({ error, helperText, className, 'aria-label': ariaLabel, ...props }, ref) => (
     <div className="w-full">
       <input
         ref={ref}
+        aria-label={ariaLabel}
         className={cn(
           'w-full px-3 py-2 rounded-xl border bg-surface-elevated text-text-main placeholder:text-text-subtle/50',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50',

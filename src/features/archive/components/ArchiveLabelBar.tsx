@@ -56,6 +56,7 @@ export function ArchiveLabelBar({
                 value={editLabelName}
                 onChange={e => setEditLabelName(e.target.value)}
                 autoFocus
+                aria-label="Название метки"
                 className="w-24 bg-transparent text-[12px] text-text-main outline-none"
                 onKeyDown={e => {
                   if (e.key === 'Enter') onUpdateLabel(label.id);
@@ -140,6 +141,7 @@ export function ArchiveLabelBar({
             value={newLabelName}
             onChange={e => setNewLabelName(e.target.value)}
             placeholder={t('archive_label_name_placeholder')}
+            aria-label={t('archive_label_name_placeholder')}
             autoFocus
             className="w-28 bg-transparent text-[12px] text-text-main outline-none placeholder:text-text-main/40"
             onKeyDown={e => {

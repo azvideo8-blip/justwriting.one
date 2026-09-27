@@ -48,6 +48,7 @@ export function EditorPanel({ keystrokeTrackerRef }: EditorPanelProps) {
           onBlur={() => setTitleFocused(false)}
           onKeyDown={handleTitleKey}
           placeholder="Title"
+          aria-label="Title"
           style={{
             boxShadow: titleActive
               ? `0 2px 0 0 color-mix(in srgb, var(--flow-pulse-color) ${titleTyping ? '60%' : '30%'}, transparent), 0 4px 16px color-mix(in srgb, var(--flow-pulse-color) ${titleTyping ? '15%' : '6%'}, transparent)`

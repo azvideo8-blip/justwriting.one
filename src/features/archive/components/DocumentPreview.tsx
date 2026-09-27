@@ -528,6 +528,7 @@ export function DocumentPreview({
                     onChange={e => setNewLabelName(e.target.value)}
                     autoFocus
                     placeholder={t('archive_label_name_placeholder')}
+                    aria-label={t('archive_label_name_placeholder')}
                     className="w-24 bg-transparent text-label-sm text-text-main outline-none placeholder:text-text-main/40"
                     onKeyDown={e => {
                       if (e.key === 'Enter') handleCreateLabel();

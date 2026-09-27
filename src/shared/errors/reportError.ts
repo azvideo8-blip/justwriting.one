@@ -13,18 +13,31 @@ export function isNetworkFailure(error: unknown): boolean {
   return error instanceof TypeError && NETWORK_FAILURE_RE.test(error.message);
 }
 
+import { isVaultLocked as getIsVaultLocked, registerVaultLockedChecker } from './vaultLockState';
+export { registerVaultLockedChecker };
+
 // F-1: сбой «нет ключа» — это запертый сейф, ожидаемое состояние, а не
 // поломка: такое идёт в журнал уровнем info. Смотрим на текст, а не на стор:
 // импорт стора отсюда замыкает цикл модулей. Эти строки бросаются только
 // когда ключа нет (cryptoHelpers, CloudSyncService по `_locked`).
-// ponytail: по тексту, без сверки с состоянием сейфа; сверять со стором —
-// если info начнёт прятать настоящую поломку при открытом сейфе.
 const VAULT_LOCKED_RE = /session key not available|\bLOCKED\b|[Vv]ault is locked/;
 
-export function isVaultLockedFailure(error: unknown, context: ErrorContext = {}): boolean {
+export function isVaultLockedFailure(
+  error: unknown,
+  context: ErrorContext = {},
+  isVaultLocked?: () => boolean
+): boolean {
   const text = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
   const reason = [context.reason, context.error].filter(v => typeof v === 'string').join(' ');
-  return VAULT_LOCKED_RE.test(`${text} ${reason}`);
+  if (!VAULT_LOCKED_RE.test(`${text} ${reason}`)) {
+    return false;
+  }
+  const check = isVaultLocked ?? getIsVaultLocked;
+  // N-70: понижение до info делаем только если сейф действительно заперт
+  if (!check()) {
+    return false;
+  }
+  return true;
 }
 
 export function reportError(

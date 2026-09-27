@@ -68,6 +68,7 @@ export function TagsSection({ session, isEditing: _isEditing }: TagsSectionProps
             onChange={(e) => setNewTag(e.target.value)}
             onBlur={() => !newTag && setIsAddingTag(false)}
             placeholder={t('session_tag_placeholder')}
+            aria-label={t('session_tag_placeholder')}
             className="w-24 px-2.5 py-1.5 border rounded-lg text-xs outline-none transition-colors bg-transparent border-border-subtle text-text-main placeholder-text-main/40 focus:ring-1 focus:ring-text-main/20 focus:border-text-main/40 focus:bg-white/5"
           />
         </form>

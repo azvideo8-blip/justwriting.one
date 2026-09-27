@@ -230,7 +230,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
               <Button
                 onClick={onSend}
                 disabled={(!inputText.trim() && pendingAttachments.length === 0) || outOfQuota}
-                className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-white text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
+                className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-surface-base text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
               >
                 <span className="hidden md:inline">{t('ai_send')}</span>
                 <ArrowRight size={14} />

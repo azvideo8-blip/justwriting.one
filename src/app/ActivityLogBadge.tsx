@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, X, Trash2, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react';
 import { useActivityLogStore, ActivityLogItem } from '../shared/activity/useActivityLogStore';
+import { useLanguage } from '../shared/i18n';
 
 // The triggers live in the desktop Sidebar and mobile BottomNav; this renders only the
 // slide-out panel, driven by the store's panelOpen flag.
 export const ActivityLogBadge: React.FC = () => {
+  const { t } = useLanguage();
   const entries = useActivityLogStore(s => s.entries);
   const clearLog = useActivityLogStore(s => s.clearLog);
   const dismissEntry = useActivityLogStore(s => s.dismissEntry);
@@ -20,13 +22,21 @@ export const ActivityLogBadge: React.FC = () => {
     ? entries.filter(e => e.level === 'error' || e.level === 'warning')
     : entries;
 
+  const renderMessage = (msg: string, context?: Record<string, unknown>): string => {
+    const params = context
+      ? Object.fromEntries(Object.entries(context).filter(([_, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
+      : undefined;
+    return t(msg, params);
+  };
+
   const buildReport = (): string =>
     entries
       .map((e: ActivityLogItem) => {
         const time = new Date(e.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const repeats = e.count > 1 ? ` (x${e.count})` : '';
         const ctx = e.context ? `\n  ${JSON.stringify(e.context)}` : '';
-        return `[${time}] ${e.level.toUpperCase()} ${e.source ?? ''}${repeats}: ${e.message}${ctx}`.trim();
+        const msg = renderMessage(e.message, e.context);
+        return `[${time}] ${e.level.toUpperCase()} ${e.source ?? ''}${repeats}: ${msg}${ctx}`.trim();
       })
       .join('\n');
 
@@ -190,7 +200,7 @@ export const ActivityLogBadge: React.FC = () => {
                     <p className={`font-mono text-[11px] break-words whitespace-pre-wrap leading-relaxed select-text ${
                       entry.level === 'error' ? 'text-accent-danger font-semibold' : 'text-text-main'
                     }`}>
-                      {entry.message}
+                      {renderMessage(entry.message, entry.context)}
                     </p>
 
                     {hasContext && (

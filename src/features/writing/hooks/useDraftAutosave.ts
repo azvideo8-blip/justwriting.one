@@ -9,6 +9,7 @@ import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 import { reportError } from '../../../shared/errors/reportError';
 import { useContentStore } from '../store/useContentStore';
 import { onBeforeAccountReload } from '../../../core/auth/accountReload';
+import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 
 const SKIPPED: DraftSaveOutcome = { localSkipped: true };
 
@@ -57,7 +58,7 @@ export function useDraftAutosave(
       const current = draftDataRef.current;
       const clear = () => { resetAndClear(); resetAllSessionMetadata(); };
       if (!userId || !(current.content.trim() || current.title.trim())) { clear(); return; }
-      const res = await persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { remote: false });
+      const res = await persistDraft(buildLocalDraft({ uid: prev } as AppUser, current), { remote: cloudSyncEnabled(prev) });
       if (res.localOk && !res.localSkipped) { clear(); return; }
       reportError(new Error('DRAFT_RESCUE_FAILED: the previous account\'s draft was not written; kept on screen'),
         { action: 'draftAutosave_saveForPreviousOwner', localOk: res.localOk, localSkipped: res.localSkipped });

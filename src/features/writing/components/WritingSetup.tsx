@@ -214,6 +214,7 @@ export function WritingSetup({
                             type="number" 
                             value={timerDuration / 60}
                             onChange={(e) => setTimerDuration(Number(e.target.value) * 60)}
+                            aria-label={t('writing_minutes')}
                             className="w-32 md:w-40 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 text-text-main"
                             min="1"
                             autoFocus
@@ -227,6 +228,7 @@ export function WritingSetup({
                             type="number" 
                             value={wordGoal}
                             onChange={(e) => setWordGoal(Number(e.target.value))}
+                            aria-label={t('writing_words')}
                             className="w-40 md:w-48 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 text-text-main"
                             min="10"
                             step="50"
@@ -241,6 +243,7 @@ export function WritingSetup({
                             type="time" 
                             value={targetTime || ''}
                             onChange={(e) => { setTargetTime(e.target.value); setFinishByError(false); }}
+                            aria-label={t('writing_time')}
                             className={`w-56 md:w-64 text-center text-5xl md:text-7xl font-black bg-transparent outline-none transition-colors focus:scale-110 ${
                               finishByError ? 'text-accent-danger' : 'text-text-main'
                             }`}

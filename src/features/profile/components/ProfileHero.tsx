@@ -92,6 +92,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
                 onBlur={handleSaveName}
                 onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                 autoFocus
+                aria-label="Имя"
                 className="text-2xl md:text-3xl font-medium text-text-main bg-transparent border-b border-text-main/20 outline-none text-center md:text-left"
               />
             ) : (

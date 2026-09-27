@@ -112,6 +112,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Поиск по названию…"
+          aria-label="Поиск по названию"
           className="w-full px-3 py-2 rounded-lg bg-surface-base/5 border border-border-subtle text-xs text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
         />
       )}

@@ -62,6 +62,7 @@ export function MeWritingSection() {
           min={14} max={28}
           value={fontSize}
           onChange={e => setFontSize(Number(e.target.value))}
+          aria-label={t('settings_font_size')}
           className="w-[100px]" 
         />
       </SettingRow>

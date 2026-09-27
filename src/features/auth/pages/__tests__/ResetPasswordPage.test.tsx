@@ -212,6 +212,36 @@ describe('invite link while another account is signed in', () => {
     expect(verifyOtpForRecovery).not.toHaveBeenCalled();
   });
 
+  // N-71: Escape in alertdialog acts like «Остаться»
+  it('Escape in alertdialog navigates away and leaves the link unused', async () => {
+    getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
+    renderPage(['/reset-password?token_hash=abc&type=invite']);
+    await screen.findByTestId('invite-switch-account');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
+  });
+
+  // N-71: Tab focus trap in alertdialog cycles between the two buttons
+  it('Tab focus trap in alertdialog cycles between «Остаться» and «Продолжить»', async () => {
+    getSession.mockResolvedValueOnce({ data: { session: { user: { email: 'owner@example.com' } } } });
+    renderPage(['/reset-password?token_hash=abc&type=invite']);
+    const stayBtn = await screen.findByText('Остаться');
+    const continueBtn = await screen.findByText('Продолжить');
+
+    // Focus starts on stayBtn
+    stayBtn.focus();
+    expect(document.activeElement).toBe(stayBtn);
+
+    // Shift+Tab from Stay loops to Continue
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(continueBtn);
+
+    // Tab from Continue loops to Stay
+    fireEvent.keyDown(window, { key: 'Tab', shiftKey: false });
+    expect(document.activeElement).toBe(stayBtn);
+  });
+
   // N-37: сбой проверки сессии — не «никто не вошёл»: приглашение не меняет аккаунт без вопроса.
   it('when the session check fails, it still asks instead of switching silently', async () => {
     getSession.mockRejectedValueOnce(new Error('storage unavailable'));

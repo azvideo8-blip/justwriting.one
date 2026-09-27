@@ -34,4 +34,10 @@ describe('ошибки в журнале — по-русски, исходник
     expect(e.context?.['raw']).toBe('ENCRYPT_REQUIRED: session key not available');
     expect(e.context?.['action']).toBe('ai_summary_cloud_save');
   });
+
+  it('N-75: describeError поддерживает английский язык (lang = "en")', () => {
+    expect(describeError('ENCRYPT_REQUIRED: session key not available', undefined, 'en')).toMatch(/Vault may be locked/);
+    expect(describeError('LOCK_HELD', undefined, 'en')).toMatch(/syncing in another tab/);
+    expect(describeError('Unknown error', undefined, 'en')).toMatch(/Technical error/);
+  });
 });

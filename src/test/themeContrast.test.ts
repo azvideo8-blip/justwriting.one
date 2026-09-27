@@ -29,15 +29,20 @@ describe('primary button contrast in every theme', () => {
   it('finds the themes', () => { expect(themes.length).toBeGreaterThanOrEqual(5); });
   for (const [, name, block] of themes) {
     it(`${name}: brand button text ≥ 4.5:1`, () => {
-      const brand = varIn(block!, 'brand-soft') ?? rootBrand;
+      // N-72: проверяем --color-brand-soft (его ест Tailwind) с фолбэком на --brand-soft
+      const brand = varIn(block!, 'color-brand-soft') ?? varIn(block!, 'brand-soft') ?? rootBrand;
       expect(ratio(brand, varIn(block!, 'bg-base')!)).toBeGreaterThanOrEqual(4.5);
     });
   }
 
   // Белый текст на фиолетовом давал 3.0:1 во всех тёмных темах — такие кнопки
   // должны брать цвет текста темы, как остальные основные кнопки.
+  // N-72: проверка на сплошной bg-brand-soft и градиент from-brand-soft с text-white.
   it('no primary button puts white text on the brand colour', () => {
-    const hits = execSync(`grep -rn --include='*.tsx' "bg-brand-soft text-white" ${resolve(__dirname, '..')} || true`, { encoding: 'utf8' }).trim();
+    const hits = execSync(
+      `grep -rn --include='*.tsx' -E "(bg-brand-soft.*text-white|text-white.*bg-brand-soft|from-brand-soft.*text-white|text-white.*from-brand-soft)" ${resolve(__dirname, '..')} || true`,
+      { encoding: 'utf8' }
+    ).trim();
     expect(hits).toBe('');
   });
 });

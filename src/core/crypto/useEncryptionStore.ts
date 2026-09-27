@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { reportError } from '../../shared/errors/reportError';
+import { registerVaultLockedChecker } from '../../shared/errors/vaultLockState';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
 /**
@@ -297,3 +298,6 @@ export const useEncryptionStore = create<EncryptionState>((set, get) => ({
     return get().profileLoaded[userId] ?? false;
   },
 }));
+
+registerVaultLockedChecker(() => !useEncryptionStore.getState().isVaultUnlocked);
+

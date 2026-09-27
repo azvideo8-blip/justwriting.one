@@ -254,6 +254,7 @@ export function MobileWriteScreen({
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder={t('topbar_title_placeholder')}
+              aria-label={t('topbar_title_placeholder')}
               inputMode="text"
               enterKeyHint="done"
               className="flex-1 bg-transparent border-none outline-none text-base font-medium text-[var(--text-muted)] text-center font-sans"

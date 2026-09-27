@@ -4,7 +4,7 @@ import type { AppUser } from '../../../core/auth/types';
 import { useTimerStore } from '../store/useTimerStore';
 import { useContentStore } from '../store/useContentStore';
 import { useSessionMetaStore } from '../store/useSessionMetaStore';
-import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind } from './useDraftCore';
+import { useDraftCore, useVisibilitySave, useSyncUnloadSave, type DraftSaveStatus, type DraftErrorKind, type DraftSaveOutcome } from './useDraftCore';
 import { resetAndClear, resetAllSessionMetadata } from '../store/storeActions';
 
 export interface DraftData {
@@ -27,6 +27,8 @@ export interface DraftData {
 export interface DraftManagerOptions {
   onSaveDraft: (data: DraftData) => Promise<void>;
 }
+
+const SKIPPED: DraftSaveOutcome = { localSkipped: true };
 
 export function useDraftManager(
   userId: string | null,
@@ -55,18 +57,18 @@ export function useDraftManager(
   }, []);
 
   const doAutosave = useCallback(async () => {
-    const data = getDraftDataRef.current();
-    const meta = useSessionMetaStore.getState();
-    if (
-      meta.savedDocumentId &&
-      meta.loadedContent !== null &&
-      data.content === meta.loadedContent &&
-      (meta.loadedTitle ?? '') === (data.title ?? '')
-    ) {
-      return;
-    }
     await wrapSave(
       async () => {
+        const data = getDraftDataRef.current();
+        const meta = useSessionMetaStore.getState();
+        if (
+          meta.savedDocumentId &&
+          meta.loadedContent !== null &&
+          data.content === meta.loadedContent &&
+          (meta.loadedTitle ?? '') === (data.title ?? '')
+        ) {
+          return SKIPPED;
+        }
         await onSaveDraftRef.current(data);
       },
       'draftManager/autosave'

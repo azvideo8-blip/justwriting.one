@@ -119,6 +119,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                 }}
                 className="text-[22px] font-bold tracking-tight text-text-main bg-transparent border-b border-brand-soft/40 outline-none px-1 -mx-1 max-w-[300px]"
                 placeholder="Название диалога"
+                aria-label="Название диалога"
               />
             ) : (
               <h1 className="text-[22px] font-bold tracking-tight text-text-main truncate">{activePersonaName}</h1>

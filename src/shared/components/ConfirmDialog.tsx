@@ -193,6 +193,7 @@ export function ConfirmDialogRenderer() {
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleConfirm(); }}
             placeholder={placeholder}
+            aria-label={placeholder || title}
             className="w-full mb-4 px-3 py-2.5 rounded-xl bg-surface-base border border-border-subtle text-sm text-text-main outline-none focus:border-brand-soft/40"
           />
         )}

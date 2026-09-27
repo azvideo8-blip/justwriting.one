@@ -77,6 +77,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
         value={editTitle}
         onChange={(e) => setEditTitle(e.target.value)}
         placeholder={t('editor_title_placeholder')}
+        aria-label={t('editor_title_placeholder')}
         className="w-full px-4 py-2 bg-surface-base rounded-2xl border border-border-subtle outline-none focus:border-text-main/40 transition-colors text-text-main font-bold"
       />
       <textarea 
@@ -99,6 +100,7 @@ export function SessionEditor({ session, onCancel, onSave }: SessionEditorProps)
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTag()}
           placeholder={t('session_tag_placeholder')}
+          aria-label={t('session_tag_placeholder')}
           className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm text-text-main"
         />
       </div>

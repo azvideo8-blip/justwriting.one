@@ -38,6 +38,20 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(res.stdout).not.toContain('All four postulates hold');
   }, 80000);
 
+  it('N-76: --help / -h exits 0 and prints usage (does not run the matrix)', () => {
+    const { DATABASE_URL: _db, ...env } = process.env;
+    for (const flag of ['--help', '-h']) {
+      const res = spawnSync('node', [postulatesScript, flag], {
+        cwd: rootDir, encoding: 'utf8', timeout: 10000, env,
+      });
+      expect(res.status, `${flag} should exit 0`).toBe(0);
+      expect(res.stdout, `${flag} should print Usage`).toContain('Usage: node scripts/postulates.mjs');
+      expect(res.stdout, `${flag} should explain --max-unmeasured`).toContain('--max-unmeasured');
+      expect(res.stdout, `${flag} should describe cells`).toContain('cells');
+      expect(res.stdout, `${flag} should NOT run matrix`).not.toContain('LIFECYCLE MATRIX RUNNER');
+    }
+  });
+
   it('scripts/postulates.mjs --max-unmeasured ratchet works (TB-11)', () => {
     const { DATABASE_URL: _db, ...env } = process.env;
 

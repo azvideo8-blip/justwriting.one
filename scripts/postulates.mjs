@@ -195,6 +195,25 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
   };
 }
 
+const HELP_TEXT = `
+Usage: node scripts/postulates.mjs [options]
+
+Options:
+  --max-unmeasured <N>   Fail if the number of unmeasured matrix cells (cells
+                         where a postulate could not be evaluated) exceeds N.
+                         Default: no limit. Use 0 to enforce full coverage.
+                         N counts individual cells (e.g. one sequence × vault
+                         state × postulate slot), not postulate types.
+  --require-db           Fail if DATABASE_URL is not set or if any DB check is
+                         skipped.
+  --help, -h             Print this help and exit 0.
+
+Examples:
+  node scripts/postulates.mjs
+  node scripts/postulates.mjs --max-unmeasured 0
+  DATABASE_URL=postgres://... node scripts/postulates.mjs --require-db
+`.trimStart();
+
 /**
  * @param {number | null} [maxUnmeasured=null]
  */
@@ -454,6 +473,12 @@ export async function runDatabaseSweep(databaseUrl, options = {}) {
 }
 
 export async function main() {
+  // N-76: --help / -h — печатаем справку и выходим 0 (не запускаем матрицу).
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    process.stdout.write(HELP_TEXT);
+    process.exit(0);
+  }
+
   const maxUnmeasuredArg = process.argv.find(a => a.startsWith('--max-unmeasured'));
   let maxUnmeasured = null;
   if (maxUnmeasuredArg) {

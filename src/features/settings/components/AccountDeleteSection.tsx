@@ -114,6 +114,7 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
               autoFocus
               className="w-full px-3 py-2 rounded-xl border border-border-subtle bg-transparent text-sm text-text-main focus:border-accent-danger/50 outline-none"
               placeholder={t('settings_delete_account_password_placeholder')}
+              aria-label={t('settings_delete_account_password_placeholder')}
             />
             {authError && (
               <p className="text-xs text-accent-danger">{t('settings_delete_account_wrong_password')}</p>

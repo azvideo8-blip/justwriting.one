@@ -119,6 +119,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 placeholder={t('writing_words')}
                 value={customWords}
                 onChange={(e) => setCustomWords(e.target.value)}
+                aria-label={t('writing_words')}
                 onBlur={handleApplyCustomWords}
                 onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomWords()}
                 className="flex-1 bg-transparent border-none outline-none py-2 text-sm text-text-main"
@@ -168,6 +169,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                 placeholder={t('writing_minutes')}
                 value={customMins}
                 onChange={(e) => setCustomMins(e.target.value)}
+                aria-label={t('writing_minutes')}
                 onBlur={handleApplyCustomMins}
                 onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomMins()}
                 className="flex-1 bg-transparent border-none outline-none py-2 text-sm text-text-main"

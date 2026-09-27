@@ -170,7 +170,12 @@ function signedOutElsewhereJustNow(uid: string): boolean {
 export async function signOutUser(options?: { scope?: 'global' | 'local' | 'others' }): Promise<void> {
   isVoluntarySignOut = true;
   const uid = currentUser?.uid;
-  if (uid) { try { localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(uid), String(Date.now())); } catch { /* private mode */ } }
+  try {
+    localStorage.removeItem('jw_voluntary_signout_at');
+    if (uid) {
+      localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(uid), String(Date.now()));
+    }
+  } catch { /* private mode */ }
   try {
     const { error } = await getSupabase().auth.signOut(options);
     if (error) throw error;

@@ -530,4 +530,25 @@ describe('useDraftAutosave', () => {
     expect(vi.mocked(persistDraft)).toHaveBeenCalledWith(expect.anything(), { remote: true });
     expect(result.current.saveStatus).not.toBe('saved');
   });
+
+  it('N-73 (b): rescue draft sends remote: true when sync is enabled for previous owner', async () => {
+    const { setCloudSyncEnabled } = await import('../../../../core/sync/cloudSyncEnabled');
+    const ownerA = { uid: 'owner-sync-A' } as AppUser;
+    const inviteeB = { uid: 'invitee-B' } as AppUser;
+    setCloudSyncEnabled('owner-sync-A', true);
+    vi.mocked(persistDraft).mockResolvedValue({ localOk: true, localSkipped: false, remoteOk: true });
+    useContentStore.setState({ content: 'Личный текст с синхронизацией', title: 'A', wordCount: 3 });
+    const aData = { ...initialData, content: 'Личный текст с синхронизацией', title: 'A' };
+
+    const first = renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: ownerA, data: aData } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    first.unmount();
+    vi.mocked(persistDraft).mockClear();
+
+    renderHook(({ user, data }) => useDraftAutosave(user, data), { initialProps: { user: inviteeB, data: aData } });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    const calls = vi.mocked(persistDraft).mock.calls.map(([d, o]) => ({ ...(d as { userId: string; content: string }), ...o }));
+    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-sync-A', content: 'Личный текст с синхронизацией', remote: true }));
+  });
 });

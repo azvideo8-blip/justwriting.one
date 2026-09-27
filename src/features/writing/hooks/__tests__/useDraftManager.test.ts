@@ -181,4 +181,24 @@ describe('useDraftManager', () => {
     renderHook(() => useDraftManager('guest_x', getDraftData, { onSaveDraft: mockOnSaveDraft }));
     expect(useContentStore.getState().content).toBe('Гостевой текст');
   });
+
+  it('N-73 (a): pristine continued session returns SKIPPED and leaves saveStatus idle (not saved)', async () => {
+    const { useSessionMetaStore } = await import('../../store/useSessionMetaStore');
+    useSessionMetaStore.setState({
+      savedDocumentId: 'doc_cont_1',
+      loadedContent: 'Draft Content',
+      loadedTitle: 'Draft Title',
+    });
+
+    const { result } = renderHook(() =>
+      useDraftManager(userId, getDraftData, { onSaveDraft: mockOnSaveDraft })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(mockOnSaveDraft).not.toHaveBeenCalled();
+    expect(result.current.saveStatus).toBe('idle');
+  });
 });

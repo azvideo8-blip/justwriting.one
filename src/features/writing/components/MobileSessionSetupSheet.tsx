@@ -189,6 +189,7 @@ export function MobileSessionSetupSheet({
                               className="w-32 text-center text-6xl font-black bg-transparent border-b border-white/10 py-1 outline-none text-text-main"
                               min="1"
                               placeholder="15"
+                              aria-label={t('writing_minutes')}
                               autoFocus
                             />
                           </div>
@@ -228,6 +229,7 @@ export function MobileSessionSetupSheet({
                               className="w-40 text-center text-6xl font-black bg-transparent border-b border-white/10 py-1 outline-none text-text-main"
                               min="10"
                               placeholder="500"
+                              aria-label={t('writing_words')}
                               autoFocus
                             />
                           </div>
@@ -266,6 +268,7 @@ export function MobileSessionSetupSheet({
                                 "w-52 text-center text-5xl font-black bg-transparent border-b border-white/10 py-1 outline-none",
                                 finishByError ? "text-accent-danger border-accent-danger/50" : "text-text-main"
                               )}
+                              aria-label={t('writing_time')}
                               autoFocus
                             />
                           </div>

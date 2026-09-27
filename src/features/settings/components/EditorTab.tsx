@@ -74,6 +74,7 @@ export function EditorTab() {
             type="range" min={14} max={24} step={1}
             value={fontSize}
             onChange={e => setFontSize(Number(e.target.value))}
+            aria-label={t('settings_font_size')}
             className="flex-1 accent-text-main"
           />
           <span className="text-sm font-mono text-text-main w-10 text-right">
@@ -88,6 +89,7 @@ export function EditorTab() {
             type="range" min={1.2} max={2.2} step={0.1}
             value={lineHeight}
             onChange={e => setLineHeight(Number(e.target.value))}
+            aria-label={t('settings_line_height')}
             className="flex-1 accent-text-main"
           />
           <span className="text-sm font-mono text-text-main w-10 text-right">
@@ -106,6 +108,7 @@ export function EditorTab() {
               step={1}
               value={editorWidth}
               onChange={e => setEditorWidth(Number(e.target.value))}
+              aria-label={t('settings_editor_width')}
               className="flex-1 accent-text-main"
             />
             <span className="text-sm font-mono text-text-main w-16 text-right">

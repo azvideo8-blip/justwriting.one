@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { reportError } from '../reportError';
+import { reportError, registerVaultLockedChecker } from '../reportError';
 import { useActivityLogStore } from '../../activity/useActivityLogStore';
 
 describe('reportError PII stripping (SEC-2)', () => {
@@ -56,5 +56,20 @@ describe('reportError PII stripping (SEC-2)', () => {
     const count = (lvl: string) => entries.filter(e => e.level === lvl).reduce((n, e) => n + e.count, 0);
     expect(count('warning')).toBe(2);
     expect(count('error')).toBe(1);
+  });
+
+  it('N-70: LOCKED error stays error when vault is open, demotes to info only when locked', () => {
+    // When vault is open: LOCKED stays error
+    registerVaultLockedChecker(() => false);
+    reportError(new Error('LOCKED: session key not available'), { action: 'cloudSync' });
+    let entries = useActivityLogStore.getState().entries;
+    expect(entries[0]?.level).toBe('error');
+
+    // When vault is locked: LOCKED is demoted to info
+    useActivityLogStore.getState().clearLog();
+    registerVaultLockedChecker(() => true);
+    reportError(new Error('LOCKED: session key not available'), { action: 'cloudSync' });
+    entries = useActivityLogStore.getState().entries;
+    expect(entries[0]?.level).toBe('info');
   });
 });

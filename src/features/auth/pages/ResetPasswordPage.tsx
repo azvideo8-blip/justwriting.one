@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, useRef, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { updateUserPassword, onPasswordRecovery, verifyOtpForRecovery, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 import { reportError } from '../../../shared/errors/reportError';
@@ -214,6 +214,44 @@ export function ResetPasswordPage() {
     }
   };
 
+  const stayBtnRef = useRef<HTMLButtonElement>(null);
+  const continueBtnRef = useRef<HTMLButtonElement>(null);
+
+  const isSwitchAlertActive = isInvite && Boolean(searchParams.get('token_hash')) && !switchConfirmed && switchFrom !== undefined;
+
+  useEffect(() => {
+    if (!isSwitchAlertActive) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        void navigate('/', { replace: true });
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        const stay = stayBtnRef.current;
+        const cont = continueBtnRef.current;
+        if (!stay || !cont) return;
+
+        if (e.shiftKey) {
+          if (document.activeElement === stay || !document.activeElement || !stay.contains(document.activeElement)) {
+            e.preventDefault();
+            cont.focus();
+          }
+        } else {
+          if (document.activeElement === cont) {
+            e.preventDefault();
+            stay.focus();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSwitchAlertActive, navigate]);
+
   if (isInvite && searchParams.get('token_hash') && !switchConfirmed) {
     if (switchFrom === undefined) {
       return <div className="min-h-screen bg-surface-base"><p role="status" className="sr-only">Проверяю, выполнен ли вход…</p></div>;
@@ -233,11 +271,11 @@ export function ResetPasswordPage() {
             заметки и черновик останутся в нём, войти обратно можно в любой момент.
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" autoFocus onClick={() => { void navigate('/', { replace: true }); }}
+            <button ref={stayBtnRef} type="button" autoFocus onClick={() => { void navigate('/', { replace: true }); }}
               className="w-full py-3 rounded-xl text-sm font-medium border border-border-subtle text-text-main/80 hover:text-text-main hover:bg-text-main/5 transition-colors">
               Остаться
             </button>
-            <button type="button" onClick={confirmSwitch}
+            <button ref={continueBtnRef} type="button" onClick={confirmSwitch}
               className="w-full py-3 rounded-xl font-bold text-sm text-surface-base bg-brand-soft hover:brightness-110 transition-colors">
               Продолжить
             </button>

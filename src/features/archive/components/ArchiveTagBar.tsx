@@ -44,6 +44,7 @@ export function ArchiveTagBar({
                  value={renameTagValue}
                  onChange={e => setRenameTagValue(e.target.value)}
                  autoFocus
+                 aria-label="Переименование тега"
                  className="w-20 bg-transparent text-[12px] text-text-main outline-none"
                  onKeyDown={e => {
                    if (e.key === 'Enter') void onRenameSubmit(tag, renameTagValue);

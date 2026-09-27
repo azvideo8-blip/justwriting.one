@@ -200,6 +200,7 @@ export function Toolbar({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder={t('topbar_title_placeholder')}
+          aria-label={t('topbar_title_placeholder')}
           className="w-full bg-transparent border-0 px-0 py-1 text-[15px] font-medium font-sans text-text-main/60 placeholder:text-text-main/40 outline-none focus:ring-0 focus:text-text-main focus:shadow-[0_0_25px_color-mix(in_srgb,var(--brand-soft)_15%,transparent)] transition-all duration-500"
         />
       </div>
