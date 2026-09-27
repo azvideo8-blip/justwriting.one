@@ -5,15 +5,21 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+let cachedEnv: Record<string, string> | null = null;
+
 function env(): Record<string, string> {
-  const text = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../scripts/stand/.env.stand'), 'utf8');
-  return Object.fromEntries(text.split('\n').filter(Boolean).map(l => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)]; }));
+  if (!cachedEnv) {
+    const text = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../scripts/stand/.env.stand'), 'utf8');
+    cachedEnv = Object.fromEntries(text.split('\n').filter(Boolean).map(l => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)]; }));
+  }
+  return cachedEnv;
 }
 
-const E = env();
-export const STAND_URL = E.STAND_URL!;
-const GOTRUE = E.STAND_GOTRUE_URL!;
-const SERVICE = E.SERVICE_KEY!;
+export function getStandUrl(): string {
+  return env().STAND_URL!;
+}
+
+export const STAND_URL = (typeof process !== 'undefined' && process.env.STAND_URL) || 'http://localhost:3000';
 
 /** То же, что src/core/auth/authSecret.ts: в GoTrue уходит не пароль, а производное. */
 export function deriveAuthSecret(password: string, email: string): string {
@@ -30,9 +36,10 @@ export function freshPassword(): string {
 }
 
 async function admin(path: string, body: unknown): Promise<Record<string, unknown>> {
-  const res = await fetch(`${GOTRUE}/admin/${path}`, {
+  const e = env();
+  const res = await fetch(`${e.STAND_GOTRUE_URL}/admin/${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: SERVICE, Authorization: `Bearer ${SERVICE}` },
+    headers: { 'Content-Type': 'application/json', apikey: e.SERVICE_KEY!, Authorization: `Bearer ${e.SERVICE_KEY}` },
     body: JSON.stringify(body),
   });
   const json = (await res.json()) as Record<string, unknown>;

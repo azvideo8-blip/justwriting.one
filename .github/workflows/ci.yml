@@ -111,6 +111,11 @@ jobs:
         echo "index gzip (largest chunk): $biggest_gz"
         [ "$biggest_gz" -gt "$MAX_INDEX_GZ" ] && { echo "::error::largest index chunk gzip $biggest_gz > $MAX_INDEX_GZ"; fail=1; }
         exit $fail
+    - name: E2E test discovery check
+      run: |
+        OUTPUT=$(npx playwright test --list --project=chromium)
+        echo "$OUTPUT"
+        echo "$OUTPUT" | grep -q "Total: [1-9][0-9]* tests" || { echo "::error::Playwright test discovery failed or found 0 tests"; exit 1; }
     - name: E2E Tests
       run: npx playwright test --project=chromium
   # Сравнение размера бандла живёт отдельно от гейтов корректности намеренно.
