@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { rerankNotesLogic } from '../ai/rerankNotes.logic';
 import { generate } from '../ai/provider';
 import { type AiContext, type GlobalReservation } from '../../src/shared/ai/context.js';
+import { RERANK_SYSTEM_PROMPT, buildRerankUserMessage } from '../../src/shared/ai/rerankPrompt.js';
 
 vi.mock('../ai/provider', () => ({
   generate: vi.fn(),
@@ -109,5 +110,32 @@ describe('L-5: rerankNotesLogic malformed response handling', () => {
     expect(result).toEqual({ documentIds: ['doc_2', 'doc_1'] });
     expect(refundBulkLimit).not.toHaveBeenCalled();
     expect(recordUsage).toHaveBeenCalled();
+  });
+
+  /**
+   * SA-7: прод отправляет общий промпт и общее user-сообщение. Если кто-то
+   * вернёт сюда локальную копию — харнес и прод разойдутся молча, и бенчмарк
+   * снова будет мерить не то, что происходит в приложении.
+   */
+  it('отправляет продовый промпт и форму сообщения из общего модуля', async () => {
+    const { ctx } = mockAiContext();
+
+    vi.mocked(generate).mockResolvedValueOnce({
+      text: '{"idx":[1]}',
+      tokensIn: 40,
+      tokensOut: 8,
+      model: 'deepseek/deepseek-v4-flash',
+    });
+
+    await rerankNotesLogic(ctx, 'user_1', validPayload);
+
+    const params = vi.mocked(generate).mock.calls[0]?.[0];
+    expect(params?.system).toBe(RERANK_SYSTEM_PROMPT);
+    const cardsText = validPayload.candidates
+      .map((c, i) => `[${i + 1}]\n${c.card}`)
+      .join('\n\n');
+    expect(params?.messages[0]?.content).toBe(
+      buildRerankUserMessage(validPayload.query, cardsText, validPayload.maxResults),
+    );
   });
 });

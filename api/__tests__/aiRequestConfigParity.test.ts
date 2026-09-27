@@ -16,12 +16,24 @@ import { buildChatRequestBody } from '../../src/shared/ai/requestConfig.js';
  * Проверка держит три вещи: тело прода и тело харнеса для одних параметров
  * совпадают; `temperature` нет ни там, ни там; и ни один харнес не строит тело
  * сам — статическая проверка исходников, иначе правка «вернули свою копию»
- * прошла бы зелёной.
+ * прошла бы зелёной. Там же (SA-7) харнес ранжирования обязан брать промпт,
+ * форму user-сообщения и разбор ответа из src/shared/ai/rerankPrompt.ts.
  */
 
-/** Харнесы, обязанные идти через эталонное тело. */
+/**
+ * Харнесы, обязанные идти через эталонное тело. `promptImports` — что ещё они
+ * обязаны импортировать (SA-7: свой промпт ранжирования = другой измеряемый
+ * контракт), а `noPromptCopy` запрещает промт-текст в коде харнеса.
+ */
 const HARNESS_FILES = [
-  'scripts/ai/citation_faithfulness.mjs',
+  { file: 'scripts/ai/citation_faithfulness.mjs', promptImports: [] as string[], noPromptCopy: false },
+  {
+    file: 'scripts/rerank-bench/rerank-real.mjs',
+    promptImports: ['RERANK_SYSTEM_PROMPT', 'buildRerankUserMessage', 'parseRerankSelection'],
+    // У харнеса ранжирования не должно быть ни своего промпта, ни своего
+    // формата ответа: в коде не бывает кириллицы, кроме цитат из общих модулей.
+    noPromptCopy: true,
+  },
 ];
 
 // Корень ищем подъёмом от cwd, а не через import.meta.url: в jsdom модуль
@@ -114,7 +126,7 @@ describe('SA-8: прод и харнесы шлют одно тело', () => {
    * `reasoning` руками, расхождение возможно только в одном месте — и оно
    * упадёт на тесте выше.
    */
-  it.each(HARNESS_FILES)('харнес %s строит тело через эталонный модуль', (file) => {
+  it.each(HARNESS_FILES)('харнес $file строит тело через эталонный модуль', ({ file, promptImports, noPromptCopy }) => {
     const src = readFileSync(join(repoRoot, file), 'utf8');
     // Только код: рассуждения о temperature и reasoning в комментариях — как раз
     // то, что здесь объясняется, и запрещать их в тексте бессмысленно.
@@ -125,5 +137,18 @@ describe('SA-8: прод и харнесы шлют одно тело', () => {
     // = 0`, `reasoning_effort: 'none'` — это решение харнеса, а не прода.
     expect(code).not.toMatch(/temperature/i);
     expect(code).not.toMatch(/reasoning/i);
+
+    for (const name of promptImports) {
+      expect(code).toContain(`${name}`);
+    }
+    if (noPromptCopy) {
+      // Свой промпт = другой измеряемый контракт. Копия промта — это длинный
+      // строковый литерал; короткие подписи (`'ПУСТО'`, метки строк) разрешены.
+      const copied = [...code.matchAll(/(['"`])((?:\\\1|(?!\1)[\s\S])*?)\1/g)]
+        .map(m => m[2] ?? '')
+        .filter(text => text.length > 100)
+        .map(text => `${text.slice(0, 40)}…`);
+      expect(copied).toEqual([]);
+    }
   });
 });

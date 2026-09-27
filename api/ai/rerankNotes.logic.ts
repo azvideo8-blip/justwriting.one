@@ -4,6 +4,15 @@ import { sanitizeAiInput, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { estimateInputTokens, chargeCall } from '../../src/shared/ai/aiPolicy.js';
+// SA-7: промпт, форма user-сообщения и разбор ответа — в общем модуле, оттуда
+// же их берёт харнес scripts/rerank-bench/. Копия в харнесе расходится с продом
+// молча и незаметно.
+import {
+  RERANK_SYSTEM_PROMPT,
+  buildRerankUserMessage,
+  parseRerankSelection,
+  RerankResponseError,
+} from '../../src/shared/ai/rerankPrompt.js';
 
 const inputSchema = z.object({
   query: z.string().min(1).max(2_000),
@@ -13,8 +22,6 @@ const inputSchema = z.object({
   })).min(1).max(50),
   maxResults: z.number().int().min(1).max(20).optional(),
 });
-
-const SYSTEM_PROMPT = 'Ты — модуль ранжирования заметок. По запросу пользователя и списку заметок-кандидатов выбери самые релевантные по смыслу и намерению запроса. Верни ТОЛЬКО валидный JSON-объект вида {"idx":[1,2]} — массив номеров выбранных кандидатов (начиная с 1) по убыванию релевантности, без пояснений.';
 
 export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
@@ -56,10 +63,10 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
 
   try {
     const result = await generate({
-      system: SYSTEM_PROMPT,
+      system: RERANK_SYSTEM_PROMPT,
       messages: [{
         role: 'user',
-        content: `Запрос пользователя: "${safeQuery}"\n\nКандидаты-заметки:\n${cardsText}\n\nВыбери до ${maxResults} самых релевантных.`,
+        content: buildRerankUserMessage(safeQuery, cardsText, maxResults),
       }],
       maxTokens: 512,
       abortMs: 50_000,
@@ -67,30 +74,13 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
 
     callRes.markProduced(result.text.length);
 
-    let ids: string[] = [];
-    let txt = result.text.trim();
-    if (txt.startsWith('```')) {
-      txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-    }
+    let ids: string[];
     try {
-      const obj = JSON.parse(txt) as { idx?: unknown; ids?: unknown };
-      if (Array.isArray(obj.idx)) {
-        for (const item of obj.idx) {
-          const num = typeof item === 'number' ? item : parseInt(String(item), 10);
-          if (!Number.isNaN(num) && num >= 1 && num <= candidates.length) {
-            const cand = candidates[num - 1];
-            if (cand && !ids.includes(cand.documentId)) {
-              ids.push(cand.documentId);
-            }
-          }
-        }
-      } else if (Array.isArray(obj.ids)) {
-        const candidateIds = new Set(candidates.map(c => c.documentId));
-        ids = obj.ids.filter((x): x is string => typeof x === 'string' && candidateIds.has(x));
-      }
-    } catch {
+      ids = parseRerankSelection(result.text, candidates.map(c => c.documentId), maxResults);
+    } catch (err) {
+      if (!(err instanceof RerankResponseError)) throw err;
       await callRes.settle('failed', { tokensIn: result.tokensIn, tokensOut: result.tokensOut, model: result.model });
-      throw new AiError('internal', 'Rerank response was not valid JSON.');
+      throw new AiError('internal', err.message);
     }
 
     await callRes.settle('done');
