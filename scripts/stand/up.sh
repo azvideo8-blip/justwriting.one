@@ -19,6 +19,15 @@ PIDS=scripts/stand/.pids
 
 bash scripts/stand/down.sh >/dev/null 2>&1 || true
 
+# Порт занят — чужой сервис: на VPS раннера :3000 держит продовый API. Молча
+# ждать «готовности» на занятом порту значит гнать проверки в чужое.
+for port in "$STAND_PORT" "$STAND_VITE_PORT" "$STAND_GOTRUE_PORT" "$STAND_REST_PORT" "$STAND_PG_PORT"; do
+  if (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null; then
+    echo "❌ порт ${port} уже занят — задайте STAND_*_PORT" >&2
+    exit 1
+  fi
+done
+
 node scripts/stand/keys.mjs > "$ENV_FILE"
 # shellcheck disable=SC1090
 source "$ENV_FILE"
