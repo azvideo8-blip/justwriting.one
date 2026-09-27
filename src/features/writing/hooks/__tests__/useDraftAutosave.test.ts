@@ -531,7 +531,10 @@ describe('useDraftAutosave', () => {
     expect(result.current.saveStatus).not.toBe('saved');
   });
 
-  it('N-73 (b): rescue draft sends remote: true when sync is enabled for previous owner', async () => {
+  // N-73б пересмотрено: сессия уже принадлежит новому человеку, облачная запись
+  // от имени прежнего упрётся в права базы — спасение только локальное, даже
+  // когда у прежнего владельца синхронизация включена.
+  it('N-73 (b): rescue draft stays local even when sync is enabled for the previous owner', async () => {
     const { setCloudSyncEnabled } = await import('../../../../core/sync/cloudSyncEnabled');
     const ownerA = { uid: 'owner-sync-A' } as AppUser;
     const inviteeB = { uid: 'invitee-B' } as AppUser;
@@ -549,6 +552,7 @@ describe('useDraftAutosave', () => {
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
     const calls = vi.mocked(persistDraft).mock.calls.map(([d, o]) => ({ ...(d as { userId: string; content: string }), ...o }));
-    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-sync-A', content: 'Личный текст с синхронизацией', remote: true }));
+    expect(calls).toContainEqual(expect.objectContaining({ userId: 'owner-sync-A', content: 'Личный текст с синхронизацией', remote: false }));
+    expect(calls).not.toContainEqual(expect.objectContaining({ userId: 'owner-sync-A', remote: true }));
   });
 });
