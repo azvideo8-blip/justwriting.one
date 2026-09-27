@@ -189,6 +189,7 @@ export function AIPage() {
           onOpenDocPicker={() => setDocPickerOpen(true)}
           dailyLimitRemaining={dailyLimit.remaining}
           dailyLimitTotal={dailyLimit.limit}
+          quotaUnknown={dailyLimit.limitUnknown}
           reasoningRemaining={dailyLimit.reasoningRemaining}
           reasoningLimit={dailyLimit.reasoningLimit}
           reasoning={reasoning}

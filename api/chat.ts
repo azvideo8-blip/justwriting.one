@@ -79,14 +79,25 @@ async function getActiveModel(): Promise<string> {
 }
 
 async function attachQuotaHeaders(res: ServerResponse, uid: string): Promise<void> {
+  if (res.headersSent) return;
+  let headers: Record<string, string>;
   try {
     const quota = await postgresAiContext.getDailyLimitCount(uid);
     const isAdmin = await postgresAiContext.isAdmin(uid);
-    res.setHeader('X-AI-Quota-Used', String(quota.used));
-    res.setHeader('X-AI-Quota-Limit', String(isAdmin ? ADMIN_DAILY_LIMIT : DAILY_LIMIT));
-    res.setHeader('X-AI-Reasoning-Used', String(quota.reasoningUsed ?? 0));
-    res.setHeader('X-AI-Reasoning-Limit', process.env.AI_REASONING_DAILY_LIMIT || '5');
-  } catch { /* non-critical */ }
+    headers = {
+      'X-AI-Quota-Used': String(quota.used),
+      'X-AI-Quota-Limit': String(isAdmin ? ADMIN_DAILY_LIMIT : DAILY_LIMIT),
+      'X-AI-Reasoning-Used': String(quota.reasoningUsed ?? 0),
+      'X-AI-Reasoning-Limit': process.env.AI_REASONING_DAILY_LIMIT || '5',
+    };
+  } catch {
+    // SA-2: молчаливое отсутствие заголовков клиент читает как «ничего не
+    // изменилось» и продолжает показывать прошлое подтверждённое число.
+    headers = { 'X-AI-Quota-Status': 'unavailable' };
+  }
+  try {
+    for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
+  } catch { /* head успел уйти раньше — тело ответа важнее счётчика */ }
 }
 
 async function getChatModel() {

@@ -27,6 +27,8 @@ export interface AIChatComposerProps {
   onFileUpload: (e: ChangeEvent<HTMLInputElement>) => void;  onOpenDocPicker: () => void;
   dailyLimitRemaining: number;
   dailyLimitTotal: number;
+  /** SA-2: сервер не смог прочитать лимиты — локальные числа устарели. */
+  quotaUnknown?: boolean;
   reasoningRemaining?: number;
   reasoningLimit?: number;
   reasoning?: boolean;
@@ -85,6 +87,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
     onOpenDocPicker,
     dailyLimitRemaining,
     dailyLimitTotal,
+    quotaUnknown,
     reasoningRemaining,
     reasoningLimit,
     reasoning,
@@ -107,7 +110,9 @@ export function AIChatComposer(props: AIChatComposerProps) {
 
   // UI-07 review: chat and reasoning are separate server buckets. Gate BOTH the
   // input and the send button on the active mode's bucket — the send button was
-  const outOfQuota = reasoning ? reasoningRem <= 0 : dailyLimitRemaining <= 0;
+  // SA-2: число, за которое сервер не ручается, не имеет права запирать доступ —
+  // авторитет остаётся на сервере, он сам ответит 429.
+  const outOfQuota = !quotaUnknown && (reasoning ? reasoningRem <= 0 : dailyLimitRemaining <= 0);
   const isReasoningOnly = reasoning && reasoningRem <= 0 && dailyLimitRemaining > 0;
   const quotaNoticeText = isReasoningOnly
     ? t('ai_quota_reasoning_exhausted')
@@ -240,21 +245,27 @@ export function AIChatComposer(props: AIChatComposerProps) {
 
           <div className="flex items-center gap-3.5 mt-2.5 flex-wrap">
             <span className="flex items-center gap-1.5 text-[10px] font-mono text-text-main/60 flex-wrap">
-              <span>{t('ai_quota_chat')}</span>
-              <QuotaMeter used={chatUsed} limit={dailyLimitTotal} />
-              <b className={chatDanger ? "text-accent-danger" : chatWarning ? "text-accent-warning" : "text-text-main/60"}>
-                {dailyLimitRemaining}/{dailyLimitTotal}
-              </b>
-              <span>·</span>
-              <span>{t('ai_quota_reasoning')}</span>
-              <QuotaMeter used={reasoningUsed} limit={reasoningLim} />
-              <b className={reasoningDanger ? "text-accent-danger" : reasoningWarning ? "text-accent-warning" : "text-text-main/60"}>
-                {reasoningRem}/{reasoningLim}
-              </b>
-              {(chatDanger || reasoningDanger) && (
-                <span className="text-accent-danger ml-1">
-                  ({t('ai_quota_reset_in', { hours: String(quotaResetInHours()) })})
-                </span>
+              {quotaUnknown ? (
+                <span>{t('ai_quota_unavailable')}</span>
+              ) : (
+                <>
+                  <span>{t('ai_quota_chat')}</span>
+                  <QuotaMeter used={chatUsed} limit={dailyLimitTotal} />
+                  <b className={chatDanger ? "text-accent-danger" : chatWarning ? "text-accent-warning" : "text-text-main/60"}>
+                    {dailyLimitRemaining}/{dailyLimitTotal}
+                  </b>
+                  <span>·</span>
+                  <span>{t('ai_quota_reasoning')}</span>
+                  <QuotaMeter used={reasoningUsed} limit={reasoningLim} />
+                  <b className={reasoningDanger ? "text-accent-danger" : reasoningWarning ? "text-accent-warning" : "text-text-main/60"}>
+                    {reasoningRem}/{reasoningLim}
+                  </b>
+                  {(chatDanger || reasoningDanger) && (
+                    <span className="text-accent-danger ml-1">
+                      ({t('ai_quota_reset_in', { hours: String(quotaResetInHours()) })})
+                    </span>
+                  )}
+                </>
               )}
             </span>
             <div className="flex-1" />

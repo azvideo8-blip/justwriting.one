@@ -89,7 +89,12 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
         'X-AI-Reasoning-Used': String(quota.reasoningUsed ?? 0),
         'X-AI-Reasoning-Limit': process.env.AI_REASONING_DAILY_LIMIT || '5',
       };
-    } catch { /* non-critical */ }
+    } catch {
+      // SA-2: отказ чтения лимита не критичен для ответа, но молчать нельзя —
+      // без заголовков клиент считает это «ничего нового» и продолжает
+      // показывать прошлое подтверждённое число нынешнее.
+      quotaHeaders = { 'X-AI-Quota-Status': 'unavailable' };
+    }
     json(res, status, body, quotaHeaders);
   } catch (err: unknown) {
     console.error('[dispatcher error]', err);

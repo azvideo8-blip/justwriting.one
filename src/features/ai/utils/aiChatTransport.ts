@@ -199,7 +199,10 @@ export async function streamChat(params: {
     signal: params.signal ?? null,
   });
 
-  if (typeof response.headers.has === 'function' && response.headers.has('x-ai-quota-used')) {
+  // SA-2: «unavailable» приходит без x-ai-quota-used — на стриминговом пути
+  // без этой ветки отметка терялась.
+  if (typeof response.headers.has === 'function'
+    && (response.headers.has('x-ai-quota-used') || response.headers.get('x-ai-quota-status') === 'unavailable')) {
     useAiLimitStore.getState().syncFromHeaders(response.headers);
   }
 

@@ -11,6 +11,8 @@ interface DailyLimitState {
   reasoningLimit: number;
   reasoningRemaining: number;
   resetsAt: Date;
+  /** SA-2: сервер не смог прочитать лимит — показывать прошлое число нельзя. */
+  limitUnknown: boolean;
 }
 
 export function useDailyLimit(): DailyLimitState {
@@ -22,6 +24,7 @@ export function useDailyLimit(): DailyLimitState {
     reasoningLimit,
     reasoningRemaining,
     resetsAt,
+    limitUnknown,
     loaded,
     loadLimitFromServer,
   } = useAiLimitStore();
@@ -41,7 +44,7 @@ export function useDailyLimit(): DailyLimitState {
     return () => clearInterval(interval);
   }, [resetsAt, loadLimitFromServer]);
 
-  return { used, limit, remaining, reasoningUsed, reasoningLimit, reasoningRemaining, resetsAt };
+  return { used, limit, remaining, reasoningUsed, reasoningLimit, reasoningRemaining, resetsAt, limitUnknown };
 }
 
 export function incrementDailyUsage(reasoning?: boolean): void {
@@ -52,9 +55,10 @@ export function setDailyLimitExhausted(reasoning?: boolean): void {
   const state = useAiLimitStore.getState();
   const key = STORAGE_KEYS.AI_LIMIT(getCurrentUser()?.uid);
   const today = new Date().toISOString().slice(0, 10);
+  // 429 — это сервер сам сказал «исчерпано»: отметка «данные недоступны» больше не нужна.
   if (reasoning) {
     const reasoningLimit = state.reasoningLimit;
-    useAiLimitStore.setState({ reasoningUsed: reasoningLimit, reasoningRemaining: 0 });
+    useAiLimitStore.setState({ reasoningUsed: reasoningLimit, reasoningRemaining: 0, limitUnknown: false });
     try {
       const raw = localStorage.getItem(key);
       const prev = raw ? JSON.parse(raw) : {};
@@ -62,7 +66,7 @@ export function setDailyLimitExhausted(reasoning?: boolean): void {
     } catch { /* ignore */ }
   } else {
     const limit = state.limit;
-    useAiLimitStore.setState({ used: limit, remaining: 0 });
+    useAiLimitStore.setState({ used: limit, remaining: 0, limitUnknown: false });
     try {
       const raw = localStorage.getItem(key);
       const prev = raw ? JSON.parse(raw) : {};

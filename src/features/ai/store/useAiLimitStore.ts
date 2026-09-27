@@ -85,6 +85,9 @@ interface AiLimitState {
   /** AUDIT-part3 3: false = число из локального счётчика, сервером не
    *  подтверждено. true только после ответа /api/getAiQuota. */
   reconciled: boolean;
+  /** SA-2: сервер не смог прочитать свои лимиты (`X-AI-Quota-Status:
+   *  unavailable`) — прошлое число на экране больше не-current. */
+  limitUnknown: boolean;
   isAdmin: boolean;
   loadLimit: () => void;
   loadLimitFromServer: () => Promise<void>;
@@ -119,6 +122,7 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
   resetsAt: getMidnightUtc(),
   loaded: false,
   reconciled: false,
+  limitUnknown: false,
   isAdmin: false,
 
   loadLimit() {
@@ -176,6 +180,7 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
         resetsAt: getMidnightUtc(),
         loaded: true,
         reconciled: true,
+        limitUnknown: false,
       });
     } catch {
       // Сеть недоступна / эндпоинт не отвечает — остаёмся на локальном
@@ -192,6 +197,15 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
       const r = headers as Record<string, string | undefined>;
       return r[name] ?? r[name.toLowerCase()] ?? null;
     };
+
+    const statusHeader = getHeader('x-ai-quota-status');
+    if (statusHeader === 'unavailable') {
+      // SA-2: отказ сервера — не «число не изменилось». Прежнее значение
+      // остаётся в state (обнулить — наврать сильнее, чем правда), но перестаёт
+      // считаться подтверждённым, и показывать наружу надо уже не его.
+      set({ reconciled: false, limitUnknown: true });
+      return;
+    }
 
     const usedHeader = getHeader('x-ai-quota-used');
     if (usedHeader === null || usedHeader === undefined) return;
@@ -225,6 +239,7 @@ export const useAiLimitStore = create<AiLimitState>((set, get) => ({
       resetsAt: getMidnightUtc(),
       loaded: true,
       reconciled: true,
+      limitUnknown: false,
     });
   },
 

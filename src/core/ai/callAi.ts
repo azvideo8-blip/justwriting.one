@@ -21,15 +21,17 @@ export function onAiQuotaHeaders(listener: QuotaHeadersListener): () => void {
 }
 
 function notifyQuotaHeaders(headers?: Headers | null): void {
-  if (headers && typeof headers.has === 'function' && headers.has('x-ai-quota-used')) {
-    quotaListeners.forEach(listener => {
-      try {
-        listener(headers);
-      } catch {
-        // ignore listener errors
-      }
-    });
-  }
+  if (!headers || typeof headers.has !== 'function') return;
+  // SA-2: «unavailable» приходит без чисел — и именно тогда подписчик нужнее
+  // всего: без него store продолжит показывать прошлое подтверждённое число.
+  if (!headers.has('x-ai-quota-used') && headers.get('x-ai-quota-status') !== 'unavailable') return;
+  quotaListeners.forEach(listener => {
+    try {
+      listener(headers);
+    } catch {
+      // ignore listener errors
+    }
+  });
 }
 
 export async function callAi<T>(
