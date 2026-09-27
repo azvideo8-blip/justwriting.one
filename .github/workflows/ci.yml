@@ -7,16 +7,28 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Минуты GitHub кончаются (2026-09-27): push гоняется на своём раннере на VPS
+# бесплатно. Машины GitHub — только вручную (мажорный релиз: Run workflow →
+# hosted) и для pull_request: чужой код из PR (dependabot) на прод-сервере не
+# исполняется.
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      hosted:
+        description: 'Гнать на машинах GitHub (мажорный релиз)'
+        type: boolean
+        default: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     env:
+      # На VPS :3000 — прод-API, :3100 — стенд из gates.yml; E2E берёт свой порт.
+      E2E_PORT: '3200'
       # Клиент живёт на Supabase: без этих двух getSupabase() бросает на старте,
       # и E2E падает 17 тестами из 19 (проверено локально 2026-08-21 — выживают
       # только два теста лендинга). Секреты в репозитории заведены с 21 августа,
@@ -125,7 +137,7 @@ jobs:
   # функции, правила Firestore — проверяло main вместо PR.
   
   rls:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     services:
       postgres:
         image: postgres:16
@@ -134,23 +146,19 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 10s
           --health-timeout 5s --health-retries 5
-        ports:
-          - 5432:5432
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: Apply schema and run RLS tests
-      env:
-        PGPASSWORD: postgres
       run: |
         # Все миграции по порядку, а не первые три. Тест проверяет поведение,
         # которое вводится позже: ограничение роли при вставке приходит из
         # 0009, а профиль при регистрации заводит триггер из 0006. С обрезанным
         # набором проверка роли проваливалась, потому что политики из 0009
         # в базе просто не было.
-        ARGS="-f supabase/tests/_auth_setup.sql"
-        for f in supabase/migrations/*.sql; do ARGS="$ARGS -f $f"; done
-        ARGS="$ARGS -f supabase/tests/rls.test.sql"
-        psql -h localhost -U postgres -v ON_ERROR_STOP=1 $ARGS
+        # psql — внутри контейнера сервиса: на VPS-раннере клиента Postgres нет,
+        # а порт наружу не публикуется (5432 там — Supavisor прода).
+        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql; do cat "$f"; echo; done; } \
+          | docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -v ON_ERROR_STOP=1
 
   bundle-size:
     runs-on: ubuntu-latest

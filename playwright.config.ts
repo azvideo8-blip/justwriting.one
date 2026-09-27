@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// На VPS-раннере :3000 занят прод-API (justwriting.service): CI задаёт E2E_PORT.
+// strictPort — занятый порт роняет прогон, а не пускает тесты в чужой сервер.
+const PORT = process.env.E2E_PORT ?? '3000';
+
 export default defineConfig({
   testDir: './e2e',
   testIgnore: /accountSwitch\.spec\.ts/,
@@ -9,12 +13,12 @@ export default defineConfig({
   ...(process.env.CI ? { workers: 1 } : {}),
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm run dev -- --port 3000',
-    url: 'http://localhost:3000',
+    command: `npx vite --port ${PORT} --strictPort --host 127.0.0.1`,
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },
