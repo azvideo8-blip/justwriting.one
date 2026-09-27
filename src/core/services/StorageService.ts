@@ -105,8 +105,8 @@ export const StorageService = {
     return CloudSyncService.addLocalCopy(userId, cloudDocumentId);
   },
 
-  async addCloudCopy(userId: string, localDocumentId: string, _encryptionRequired = true): Promise<string> {
-    return _lockManager.acquire(localDocumentId, () => CloudSyncService.addCloudCopy(userId, localDocumentId, _encryptionRequired));
+  async addCloudCopy(userId: string, localDocumentId: string): Promise<string> {
+    return _lockManager.acquire(localDocumentId, () => CloudSyncService.addCloudCopy(userId, localDocumentId));
   },
 
   async removeLocalCopy(localDocumentId: string): Promise<boolean> {

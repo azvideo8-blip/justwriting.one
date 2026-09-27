@@ -100,7 +100,7 @@ describe('FU-1 / D-5: StorageIcons upload localOnly note to cloud', () => {
       expect(LocalDocumentService.clearLocalOnlyForUpload).toHaveBeenCalledTimes(1);
       expect(LocalDocumentService.clearLocalOnlyForUpload).toHaveBeenCalledWith('local_d5_note');
       expect(StorageService.addCloudCopy).toHaveBeenCalledTimes(1);
-      expect(StorageService.addCloudCopy).toHaveBeenCalledWith(userId, 'local_d5_note', true);
+      expect(StorageService.addCloudCopy).toHaveBeenCalledWith(userId, 'local_d5_note');
       expect(callOrder).toEqual(['clearLocalOnlyForUpload', 'addCloudCopy']);
       expect(mockShowToast).toHaveBeenCalledWith('storage_uploaded_cloud', 'success');
     });
@@ -128,7 +128,7 @@ describe('FU-1 / D-5: StorageIcons upload localOnly note to cloud', () => {
 
     await waitFor(() => {
       expect(LocalDocumentService.clearLocalOnlyForUpload).not.toHaveBeenCalled();
-      expect(StorageService.addCloudCopy).toHaveBeenCalledWith(userId, 'local_normal_note', true);
+      expect(StorageService.addCloudCopy).toHaveBeenCalledWith(userId, 'local_normal_note');
     });
   });
 });

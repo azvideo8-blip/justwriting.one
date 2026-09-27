@@ -571,7 +571,7 @@ export const CloudSyncService = {
     }, { queueOnHeld: false, ownerId: userId });
   },
 
-  async addCloudCopy(userId: string, localDocumentId: string, _encryptionRequired = true): Promise<string> {
+  async addCloudCopy(userId: string, localDocumentId: string): Promise<string> {
     if (!navigator.onLine) {
       throw new Error('Not connected to cloud. Changes saved locally.');
     }

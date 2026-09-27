@@ -199,9 +199,9 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
     try {
       let ok = true;
       if (item.status === 'pending' || item.status === 'mismatch') {
-        ok = await SyncService.syncDocument(userId, item.localId, hasEncryption);
+        ok = await SyncService.syncDocument(userId, item.localId);
       } else {
-        ok = !!(await StorageService.addCloudCopy(userId, item.localId, hasEncryption));
+        ok = !!(await StorageService.addCloudCopy(userId, item.localId));
       }
       if (ok) {
         showToast(t('storage_uploaded_cloud'), 'success');

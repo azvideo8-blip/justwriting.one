@@ -180,7 +180,7 @@ describe('SYNC-D3: StorageIcons download to local', () => {
 
     await waitFor(() => {
       expect(LocalDocumentService.clearLocalOnlyForUpload).toHaveBeenCalledWith('local_relink_1');
-      expect(StorageService.addCloudCopy).toHaveBeenCalledWith(userId, 'local_relink_1', true);
+      expect(StorageService.addCloudCopy).toHaveBeenCalledWith(userId, 'local_relink_1');
       expect(mockShowToast).toHaveBeenCalledWith('storage_uploaded_cloud', 'success');
     });
   });

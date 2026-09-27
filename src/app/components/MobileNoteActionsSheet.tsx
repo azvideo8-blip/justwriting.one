@@ -98,14 +98,14 @@ export function MobileNoteActionsSheet({
     setLoadingAction('upload');
     try {
       if (doc.hasPendingSync) {
-        const ok = await SyncService.syncDocument(userId, doc.localId, true);
+        const ok = await SyncService.syncDocument(userId, doc.localId);
         if (ok) {
           showToast(t('storage_uploaded_cloud'), 'success');
         } else {
           showToast(t('storage_sync_error_activity_log'), 'error');
         }
       } else {
-        const cloudId = await StorageService.addCloudCopy(userId, doc.localId, true);
+        const cloudId = await StorageService.addCloudCopy(userId, doc.localId);
         if (cloudId === 'LOCAL_ONLY') {
           showToast(t('storage_local_only_notice'), 'info');
         } else if (cloudId === 'TOMBSTONE') {
