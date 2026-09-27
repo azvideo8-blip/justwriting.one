@@ -30,15 +30,12 @@ export async function migrateDocuments(userId: string): Promise<number> {
           // writing запрещён зонами import/no-restricted-paths.
           emitDomainEvent({ type: 'draft.migrated', userId });
         }
-      }
-      if (hasDraftsInGuest && userDb !== guestDb) {
-        const existingInGuest = await guestDb.get('drafts', userId);
-        if (!existingInGuest) {
-          await guestDb.put('drafts', { ...guestDraft, userId });
+        await guestDb.delete('drafts', 'guest_draft');
+        if (userDb !== guestDb) {
+          await guestDb.delete('drafts', userId);
         }
+        try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
       }
-      await guestDb.delete('drafts', 'guest_draft');
-      try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
     }
   }
 
@@ -51,6 +48,9 @@ export async function migrateDocuments(userId: string): Promise<number> {
         await userDb.put('profile', { ...guestProfile, guestId: userId });
       }
       await guestDb.delete('profile', guestId);
+      if (userDb !== guestDb) {
+        await guestDb.delete('profile', userId);
+      }
     }
   }
 
@@ -79,15 +79,23 @@ export async function migrateDocuments(userId: string): Promise<number> {
         await userTx.objectStore('versions').put({ ...ver, guestId: userId });
       }
       await userTx.done;
-    }
 
-    // Re-key in guestDb
-    const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
-    await guestTx.objectStore('documents').put({ ...doc, guestId: userId });
-    for (const ver of versions) {
-      await guestTx.objectStore('versions').put({ ...ver, guestId: userId });
+      // AG-5: Delete from guestDb ONLY after confirmed write in userDb
+      const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
+      await guestTx.objectStore('documents').delete(doc.id);
+      for (const ver of versions) {
+        await guestTx.objectStore('versions').delete(ver.id);
+      }
+      await guestTx.done;
+    } else {
+      // Re-key in guestDb (fallback if userDb is the same as guestDb)
+      const guestTx = guestDb.transaction(['documents', 'versions'], 'readwrite');
+      await guestTx.objectStore('documents').put({ ...doc, guestId: userId });
+      for (const ver of versions) {
+        await guestTx.objectStore('versions').put({ ...ver, guestId: userId });
+      }
+      await guestTx.done;
     }
-    await guestTx.done;
   }
 
   return guestDocs.length;

@@ -23,8 +23,8 @@ beforeEach(async () => {
 
 describe('2.8 guest draft is consumed by migration', () => {
   it('copies to the user, deletes the source and clears the localStorage copy', async () => {
-    const db = await getLocalDb();
-    await db.put('drafts', {
+    const guestDb = await getLocalDb();
+    await guestDb.put('drafts', {
       userId: 'guest_draft',
       content: 'черновик гостя до входа',
       updatedAt: Date.now(),
@@ -33,23 +33,27 @@ describe('2.8 guest draft is consumed by migration', () => {
 
     const moved = await migrateDocuments('user_1');
 
-    // The user now owns the draft…
-    const userDraft = await db.get('drafts', 'user_1');
+    // The user now owns the draft in userDb…
+    const userDb = await getLocalDb('user_1');
+    const userDraft = await userDb.get('drafts', 'user_1');
     expect((userDraft as { content?: string })?.content).toBe('черновик гостя до входа');
-    // …and the source is consumed either way.
-    expect(await db.get('drafts', 'guest_draft')).toBeUndefined();
+    // …and the source is consumed either way, with no copy left in guestDb.
+    expect(await guestDb.get('drafts', 'guest_draft')).toBeUndefined();
+    expect(await guestDb.get('drafts', 'user_1')).toBeUndefined();
     expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).toBeNull();
     expect(moved).toBeGreaterThanOrEqual(0);
   });
 
   it('consumes the source even when the user already had a draft', async () => {
-    const db = await getLocalDb();
-    await db.put('drafts', { userId: 'guest_draft', content: 'гостевой', updatedAt: Date.now() } as never);
-    await db.put('drafts', { userId: 'user_2', content: 'уже был черновик', updatedAt: Date.now() } as never);
+    const guestDb = await getLocalDb();
+    const userDb = await getLocalDb('user_2');
+    await guestDb.put('drafts', { userId: 'guest_draft', content: 'гостевой', updatedAt: Date.now() } as never);
+    await userDb.put('drafts', { userId: 'user_2', content: 'уже был черновик', updatedAt: Date.now() } as never);
 
     await migrateDocuments('user_2');
 
-    expect(await db.get('drafts', 'guest_draft')).toBeUndefined();
-    expect(((await db.get('drafts', 'user_2')) as { content: string }).content).toBe('уже был черновик');
+    expect(await guestDb.get('drafts', 'guest_draft')).toBeUndefined();
+    expect(await guestDb.get('drafts', 'user_2')).toBeUndefined();
+    expect(((await userDb.get('drafts', 'user_2')) as { content: string }).content).toBe('уже был черновик');
   });
 });
