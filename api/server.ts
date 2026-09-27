@@ -12,6 +12,15 @@ function json(res: http.ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
+// SA-4: код ошибки — единственное, что наружу говорит о причине отказа.
+// Формат жёсткий (pg: «28P01», node: «ECONNREFUSED»), поэтому в ответ не
+// протаскивается ни один свободный текст драйвера, ни содержимое env.
+const ERROR_CODE = /^[A-Za-z0-9_]{2,20}$/;
+function safeErrorCode(err: unknown): string {
+  const code = (err as { code?: unknown } | null | undefined)?.code;
+  return typeof code === 'string' && ERROR_CODE.test(code) ? code : 'unknown';
+}
+
 // Max payload size: 4MB (note version content schema allows up to 700k chars ~2MB in UTF-8, 4MB provides safety margin)
 function readBody(req: http.IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -43,34 +52,40 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /ready — readiness: "dependencies available, send traffic"
-  // POST-5: returns real checks for database connectivity and AI_EMBED_BASE_URL state
+  // POST-5: returns real checks for database connectivity and AI_EMBED_BASE_URL state.
+  // SA-4: наружу уходят только коды и флаги. Сообщение драйвера — это
+  // «connect ECONNREFUSED 10.0.0.7:5432» или «password authentication failed
+  // for user "supabase_admin"»: внутренние адреса и форма строки подключения.
+  // /ready наружу не проксируется (deploy/nginx.conf), но его читают с VPS —
+  // а значит печатать в него env ровно так же плохо.
   if (method === 'GET' && url === '/ready') {
     let dbOk = false;
-    let dbError: string | undefined;
-    if (process.env.DATABASE_URL) {
+    let dbErrorCode: string | undefined;
+    const databaseConfigured = Boolean(process.env.DATABASE_URL);
+    if (databaseConfigured) {
       try {
         await pool.query('SELECT 1');
         dbOk = true;
       } catch (err: unknown) {
-        dbError = (err as Error).message;
+        dbErrorCode = safeErrorCode(err);
       }
     }
 
-    const embedUrlConfigured = Boolean(process.env.AI_EMBED_BASE_URL);
     const checks = [
       {
         name: 'database',
-        status: !process.env.DATABASE_URL ? 'not_configured' : dbOk ? 'ok' : 'error',
-        ...(dbError ? { error: dbError } : {}),
+        status: !databaseConfigured ? 'not_configured' : dbOk ? 'ok' : 'error',
+        ok: dbOk,
+        ...(dbErrorCode ? { code: dbErrorCode } : {}),
       },
       {
+        // configured | fallback_default — сам адрес не печатается.
         name: 'ai_embed_base_url',
-        status: embedUrlConfigured ? 'configured' : 'fallback_default',
-        url: process.env.AI_EMBED_BASE_URL || (process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1'),
+        status: process.env.AI_EMBED_BASE_URL ? 'configured' : 'fallback_default',
       },
     ];
 
-    const isReady = !process.env.DATABASE_URL || dbOk;
+    const isReady = !databaseConfigured || dbOk;
     return json(res, isReady ? 200 : 503, {
       status: isReady ? 'ready' : 'not_ready',
       checks,
