@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.9.14 — 2026-09-27
+
+- **[RU]** Удалённая заметка больше не возвращается, если вкладку закрыли, пока облако ещё не ответило: удаление запоминается вместе с локальным.
+- **[EN]** A deleted note no longer comes back if the tab was closed before the cloud answered: the deletion is remembered together with the local one.
+- **[RU]** Правка, сохранённая, пока предыдущая версия уезжала в облако, больше не теряется.
+- **[EN]** An edit saved while the previous version was uploading is no longer lost.
+- **[RU]** Диалоги и разборы ИИ, ждущие выгрузки, переживают закрытие вкладки; то, что облако отвергло, видно в статусе синхронизации и в настройках, а не пропадает молча.
+- **[EN]** AI dialogues and analyses waiting for upload survive closing the tab; what the cloud rejected is shown in the sync status and settings instead of vanishing silently.
+- **[RU]** Чат: ваш вопрос остаётся в диалоге, если ответ оборвался на середине.
+- **[EN]** Chat: your question stays in the dialogue if the answer breaks off midway.
+- **[RU]** Запрос к ИИ больше не висит бесконечно: через 130 секунд он обрывается с понятной ошибкой, а уход со страницы его отменяет.
+- **[EN]** An AI request no longer hangs forever: it is cut off after 130 seconds with a clear error, and leaving the page cancels it.
+- **[RU]** Счётчик запросов к ИИ говорит «неизвестно», если сервер не смог прочитать лимиты, а не показывает прошлое число.
+- **[EN]** The AI request counter says "unknown" when the server could not read the limits instead of showing an old number.
+- **[RU]** Сбой чтения профиля больше не перезаписывает ник; приложение, открытое без сети, подхватывает профиль, когда сеть вернулась.
+- **[EN]** A failed profile read no longer overwrites the nickname; an app opened offline picks up the profile once the network is back.
+- **[RU]** Без сети и без сохранённой копии приложение показывает страницу «Нет сети» вместо системной ошибки браузера.
+- **[EN]** Offline with nothing cached, the app shows a "No connection" page instead of the browser error.
+- **[RU]** Сервер: десяток одновременных запросов к ИИ больше не может повесить весь сервис.
+- **[EN]** Server: a dozen simultaneous AI requests can no longer hang the whole service.
+- **[RU]** Подписи у полей, фокус и Escape в диалогах, контраст текста.
+- **[EN]** Field labels, focus and Escape in dialogs, text contrast.
+
 ## 0.9.13 — 2026-09-27
 
 - **[RU]** Запертый сейф — видимое состояние: пока сейф включён и заперт, наверху плашка «Сейф заперт — синхронизация на паузе» с кнопкой «Открыть сейф». Отложенное ждёт ключа без попыток и карантина и после открытия сейфа уходит само.
