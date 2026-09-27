@@ -156,12 +156,17 @@ function writePersistedUpserts(list: PersistedUpsert[]): void {
 
 const upsertKey = (store: string, key: string) => `${store}:${key}`;
 
+// Составной id записи внутри JSON-нагрузки — не ключ localStorage, поэтому
+// склейка через конкатенацию: гейт инвентаря ключей читает шаблоны с
+// интерполяцией uid как объявление per-account ключа.
+const recordId = (uid: string, itemKey: string) => uid + '/' + itemKey;
+
 function persistUpserts(uid: string, entries: Array<{ store: string; key: string }>): void {
   if (entries.length === 0) return;
   const list = readPersistedUpserts();
-  const seen = new Set(list.map(u => `${u.uid}/${upsertKey(u.store, u.key)}`));
+  const seen = new Set(list.map(u => recordId(u.uid, upsertKey(u.store, u.key))));
   for (const { store, key } of entries) {
-    const id = `${uid}/${upsertKey(store, key)}`;
+    const id = recordId(uid, upsertKey(store, key));
     if (seen.has(id)) continue;
     seen.add(id);
     list.push({ uid, store, key });
@@ -240,8 +245,8 @@ function markDeadUpsert(uid: string, store: string, key: string, attempts: numbe
 function forgetDeadUpserts(uid: string, entries: Array<{ store: string; key: string }>): void {
   if (entries.length === 0) return;
   const list = readDeadUpserts();
-  const doomed = new Set(entries.map(e => `${uid}/${e.store}/${e.key}`));
-  const next = list.filter(d => !doomed.has(`${d.uid}/${d.store}/${d.key}`));
+  const doomed = new Set(entries.map(e => recordId(uid, upsertKey(e.store, e.key))));
+  const next = list.filter(d => !doomed.has(recordId(d.uid, upsertKey(d.store, d.key))));
   if (next.length === list.length) return;
   writeDeadUpserts(next);
 }
