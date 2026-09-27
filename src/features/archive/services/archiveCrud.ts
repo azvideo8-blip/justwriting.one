@@ -242,9 +242,13 @@ export async function emptyTrash(
   const deletedIds: string[] = [];
   for (const session of trashedSessions) {
     try {
-      await deleteArchiveSession(session, userId, { skipActivityLog: true });
-      successCount++;
-      deletedIds.push(session.id);
+      const res = await deleteArchiveSession(session, userId, { skipActivityLog: true });
+      if (res.derivativesOk === false) {
+        failCount++;
+      } else {
+        successCount++;
+        deletedIds.push(session.id);
+      }
     } catch (e) {
       failCount++;
       reportError(e, { action: 'emptyTrash_single', sessionId: session.id });
@@ -311,9 +315,12 @@ export async function pruneExpiredTrash(
   if (expired.length > 0) {
     const results = await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
     results.forEach((r, i) => {
-      if (r.status === 'fulfilled') prunedCount++;
-      else {
-        reportError(r.reason, { action: 'pruneExpiredTrash_single', sessionId: expired[i]!.id });
+      if (r.status === 'fulfilled' && r.value.derivativesOk !== false) {
+        prunedCount++;
+      } else {
+        if (r.status === 'rejected') {
+          reportError(r.reason, { action: 'pruneExpiredTrash_single', sessionId: expired[i]!.id });
+        }
         remainingSessions.push(expired[i]!);
       }
     });

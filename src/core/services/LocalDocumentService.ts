@@ -3,7 +3,6 @@ import { reportError } from '../../shared/errors/reportError';
 import { writeFacetStore } from './facetLock';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
 import { DataProvider } from '../data';
-import { getCurrentUser } from '../auth';
 
 /**
  * Сносит облачную копию производной ИИ, привязанной к заметке.
@@ -14,15 +13,15 @@ import { getCurrentUser } from '../auth';
  * локальному `local_…` не удалится ничего.
  */
 /** false — облачную копию удалить не удалось (N-51: это не «удалено»). */
-async function deleteCloudDerivative(kind: 'summary' | 'embedding', canonicalId: string): Promise<boolean> {
-  const uid = getCurrentUser()?.uid;
-  if (!uid || uid.startsWith('guest_')) return true;
+async function deleteCloudDerivative(kind: 'summary' | 'embedding', canonicalId: string, ownerId?: string): Promise<boolean> {
+  const uid = ownerId;
+  if (!uid || uid.startsWith('guest_')) return false;
   try {
     if (kind === 'summary') await DataProvider.deleteSummary(uid, canonicalId);
     else await DataProvider.deleteEmbedding(uid, canonicalId);
     return true;
   } catch (e) {
-    reportError(e, { action: `cascadeDelete_cloud_${kind}`, canonicalId });
+    reportError(e, { action: `cascadeDelete_cloud_${kind}`, canonicalId, ownerId });
     return false;
   }
 }
@@ -188,7 +187,8 @@ export const LocalDocumentService = {
     // выше её удалили. Уборка производных не может достать uuid сама — она
     // прочитает undefined и пойдёт удалять облачные строки по локальному
     // номеру, которого в облаке нет. Ровно эта ошибка тут и была.
-    return LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid, ownerId);
+    const effectiveOwner = ownerId ?? doc?.guestId;
+    return LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid, effectiveOwner);
   },
 
   /**
@@ -205,6 +205,7 @@ export const LocalDocumentService = {
 
       const doc = canonicalUuid ? undefined : await db.get('documents', documentId).catch(() => undefined);
       const canonicalId = canonicalUuid ?? doc?.uuid;
+      const effectiveOwnerId = ownerId ?? doc?.guestId;
 
       // 1. Delete aiSummaries, aiEmbeddings, aiTimeline
       await Promise.all([
@@ -216,7 +217,10 @@ export const LocalDocumentService = {
       // из облака вернуло бы разбор удалённой заметки обратно на устройство.
       LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);
       if (canonicalId) {
-        const cloud = await Promise.all([deleteCloudDerivative('summary', canonicalId), deleteCloudDerivative('embedding', canonicalId)]);
+        const cloud = await Promise.all([
+          deleteCloudDerivative('summary', canonicalId, effectiveOwnerId),
+          deleteCloudDerivative('embedding', canonicalId, effectiveOwnerId),
+        ]);
         if (cloud.includes(false)) fail();
       } else {
         // Постоянного номера нет ни здесь, ни у вызывающего: удалять в облаке
@@ -227,6 +231,7 @@ export const LocalDocumentService = {
           { action: 'cascadeDeleteAIDerivatives_noUuid', documentId },
           'warning',
         );
+        fail();
       }
 
       // 2. Delete aiDialogues & related aiChatMemory

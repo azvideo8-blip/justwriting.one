@@ -132,7 +132,7 @@ export function useSessionPersistence(
 
   const handleCancel = useCallback(async () => {
     WritingDraftService.bumpDraftGeneration(userId);
-    await WritingDraftService.deleteDraft(userId);
+    await WritingDraftService.deleteDraft(userId); // намеренно: сброс черновика при отмене сессии
     actions.setHasDraft(false);
     actions.resetAndClear();
     actions.setStatus('idle');

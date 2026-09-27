@@ -148,8 +148,12 @@ export function MobileStorageActionsSheet({
     setLoadingAction('delete-local');
     triggerVibration();
     try {
-      await StorageService.removeLocalCopy(doc.localId!);
-      showToast(t('storage_deleted_local'), 'success');
+      const ok = await StorageService.removeLocalCopy(doc.localId!);
+      if (ok) {
+        showToast(t('storage_deleted_local'), 'success');
+      } else {
+        showToast(t('error_generic_action'), 'error');
+      }
       onStorageChange();
       onClose();
     } catch (e) {

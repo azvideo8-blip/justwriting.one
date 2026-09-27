@@ -558,7 +558,7 @@ export const CloudSyncService = {
       } catch (e) {
         reportError(e, { action: 'addLocalCopy', cloudDocumentId });
         if (localId) {
-          try { await LocalStorageService.deleteDocument(localId, userId); } catch (cleanupErr) {
+          try { await LocalStorageService.deleteDocument(localId, userId); } catch (cleanupErr) { // намеренно: откат локальной копии при ошибке загрузки
             reportError(cleanupErr, { action: 'addLocalCopy_cleanup', localId });
           }
         }

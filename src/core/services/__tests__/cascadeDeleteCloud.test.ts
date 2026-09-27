@@ -76,7 +76,7 @@ describe('cascadeDeleteAIDerivatives — облачные копии', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     docs.clear();
-    docs.set('local_1', { id: 'local_1', uuid: CANON, guestId: 'u1' });
+    docs.set('local_1', { id: 'local_1', uuid: CANON, guestId: 'user-1' });
   });
 
   it('сносит облачные сводку и вектор по постоянному номеру заметки', async () => {
@@ -115,5 +115,17 @@ describe('cascadeDeleteAIDerivatives — облачные копии', () => {
 
   it('reports success when everything is gone', async () => {
     expect(await LocalDocumentService.deleteDocument('local_1')).toBe(true);
+  });
+
+  // N-64: когда нет канонического uuid, удаление возвращает false (fail)
+  it('N-64: returns false when canonical uuid is missing', async () => {
+    docs.set('local_no_uuid', { id: 'local_no_uuid', guestId: 'user-1' });
+    expect(await LocalDocumentService.deleteDocument('local_no_uuid')).toBe(false);
+  });
+
+  // N-65: удаление облачных производных для гостя или чужого владельца возвращает false
+  it('N-65: returns false when owner is guest or missing for cloud derivatives', async () => {
+    docs.set('local_guest_doc', { id: 'local_guest_doc', uuid: CANON, guestId: 'guest_123' });
+    expect(await LocalDocumentService.deleteDocument('local_guest_doc')).toBe(false);
   });
 });

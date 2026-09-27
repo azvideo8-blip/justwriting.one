@@ -156,11 +156,11 @@ export const WritingDraftService = {
         winner = localTs > cloudTs ? resolvedLocal : cloudDraft;
       }
       if (deletedAt && (toTimestampMs(winner.updatedAt) ?? 0) <= deletedAt) {
-        await WritingDraftService.deleteDraft(userId);
+        await WritingDraftService.deleteDraft(userId); // намеренно: удаление удалённого черновика
         return null;
       }
       if (isDraftExpired(winner)) {
-        await WritingDraftService.deleteDraft(userId);
+        await WritingDraftService.deleteDraft(userId); // намеренно: удаление просроченного черновика
         return null;
       }
       if (winner === cloudDraft && !localFailed) {
@@ -171,11 +171,11 @@ export const WritingDraftService = {
     const resolved = resolvedLocal || cloudDraft;
     if (resolved) {
       if (deletedAt && (toTimestampMs(resolved.updatedAt) ?? 0) <= deletedAt) {
-        if (!localFailed) await WritingDraftService.deleteDraft(userId);
+        if (!localFailed) await WritingDraftService.deleteDraft(userId); // намеренно: удаление удалённого черновика
         return null;
       }
       if (isDraftExpired(resolved)) {
-        if (!localFailed) await WritingDraftService.deleteDraft(userId);
+        if (!localFailed) await WritingDraftService.deleteDraft(userId); // намеренно: удаление просроченного черновика
         return null;
       }
       if (resolved === cloudDraft && !localFailed) {

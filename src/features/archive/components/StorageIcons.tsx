@@ -149,7 +149,7 @@ export function StorageIcons({
       // addCloudCopy законно отказывал. Нажатие «Загрузить на облако» — сменившийся
       // выбор пользователя, поэтому снимаем пометку здесь и только здесь.
       if (doc.localOnly) {
-        await LocalDocumentService.clearLocalOnlyForUpload(doc.localId);
+        await LocalDocumentService.clearLocalOnlyForUpload(doc.localId); // намеренно: при неудаче addCloudCopy вернёт LOCAL_ONLY
       }
       if (doc.hasPendingSync) {
         const ok = await SyncService.syncDocument(userId, doc.localId);
@@ -184,16 +184,21 @@ export function StorageIcons({
       switch (confirmState.kind) {
         case 'delete-local-only':
         case 'delete-cloud-only': {
-          await StorageService.trashDocument(userId, doc.localId, doc.cloudId);
+          await StorageService.trashDocument(userId, doc.localId, doc.cloudId); // намеренно: тост одинаков для local и cloudSynced (N-4)
           emitDomainEvent({ type: 'note.trashed', documentId: doc.localId || doc.cloudId! });
           useActivityLogStore.getState().addActivity('заметка удалена в корзину', undefined, 'info', 'archive');
           showToast(t('archive_trash_moved'), 'success');
           break;
         }
-        case 'delete-local':
-          await StorageService.removeLocalCopy(doc.localId!);
-          showToast(t('storage_deleted_local'), 'success');
+        case 'delete-local': {
+          const ok = await StorageService.removeLocalCopy(doc.localId!);
+          if (ok) {
+            showToast(t('storage_deleted_local'), 'success');
+          } else {
+            showToast(t('error_generic_action'), 'error');
+          }
           break;
+        }
         case 'delete-cloud':
           await StorageService.removeCloudCopy(userId, doc.cloudId!);
           if (doc.localId) {

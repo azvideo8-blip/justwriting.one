@@ -1411,7 +1411,7 @@ export class LifecycleRunner {
 
     if (told.status !== 'error_thrown') {
       try {
-        await CloudSyncService.restoreMissingDocuments(this.userId, { force: true });
+        await CloudSyncService.restoreMissingDocuments(this.userId, { force: true }); // намеренно: в симуляции проверяется состояние БД, а не число восстановленных
       } catch (e: unknown) {
         notes.push(`Error during restoreMissingDocuments: ${(e as Error).message}`);
       }

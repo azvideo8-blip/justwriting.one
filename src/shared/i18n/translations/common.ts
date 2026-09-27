@@ -102,6 +102,10 @@ export const commonTranslations: Translations = {
     en: 'Pasted text is very large (cloud limit ≈ 700,000 characters). Consider splitting it into parts.',
   },
   session_deleted: { ru: 'Заметка удалена', en: 'Note deleted' },
+  session_deleted_partial: {
+    ru: 'Заметка удалена не полностью: часть разборов осталась в облаке',
+    en: 'Note deleted partially: some AI derivatives remain in the cloud',
+  },
   delete_local_only_queued: {
     ru: 'Удалено на этом устройстве — из облака удалится позже',
     en: 'Deleted on this device — will be removed from the cloud later',

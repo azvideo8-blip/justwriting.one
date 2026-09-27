@@ -74,8 +74,11 @@ onDomainEvent(e => {
         const draft = await db.get('drafts', e.userId);
         if (!draft) return;
         const { WritingDraftService } = await import('../services/WritingDraftService');
-        await WritingDraftService.saveDraftToCloud(draft);
-      } catch { /* ignore */ }
+        await WritingDraftService.saveDraftToCloud(draft); // намеренно: черновик уже сохранён локально
+      } catch (err) { // намеренно: локальный черновик сохранён, ошибка синка не фатальна
+        const { reportError } = await import('../../../shared/errors/reportError');
+        reportError(err, { action: 'draft.migrated_saveDraftToCloud', userId: e.userId });
+      }
     })();
     return;
   }

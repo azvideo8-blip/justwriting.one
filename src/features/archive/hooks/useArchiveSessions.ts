@@ -109,10 +109,14 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   const handleTrashSession = async (s: ArchiveSession) => {
     try {
       const now = Date.now();
-      await trashArchiveSession(s, userId);
+      const res = await trashArchiveSession(s, userId);
       setSessions(prev => prev.map(x => x.id === s.id ? { ...x, trashedAt: now } : x));
       if (previewSession?.id === s.id) setPreviewSession(null);
-      showToast(t('session_deleted'), 'success');
+      if (res.cloudSynced) {
+        showToast(t('archive_trash_moved'), 'success');
+      } else {
+        showToast(t('delete_local_only_queued'));
+      }
       void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {
       logger.error('archive', 'Failed to trash session', { error: String(e) });
@@ -122,7 +126,7 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
 
   const handleRestoreSession = async (s: ArchiveSession) => {
     try {
-      await restoreArchiveSession(s, userId);
+      await restoreArchiveSession(s, userId); // намеренно: локальная заметка восстановлена, при сбое облака задача встаёт в очередь
       setSessions(prev => prev.map(x => x.id === s.id ? { ...x, trashedAt: undefined } : x));
       if (previewSession?.id === s.id) setPreviewSession(null);
       showToast(t('archive_trash_restored'), 'success');
@@ -138,10 +142,12 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
       const res = await deleteArchiveSession(s, userId);
       setSessions(prev => prev.filter(x => x.id !== s.id));
       if (previewSession?.id === s.id) setPreviewSession(null);
-      if (res.cloudSynced) {
+      if (res.cloudSynced && res.derivativesOk !== false) {
         showToast(t('session_deleted'), 'success');
-      } else {
+      } else if (!res.cloudSynced) {
         showToast(t('delete_local_only_queued'));
+      } else {
+        showToast(t('session_deleted_partial'), 'warning');
       }
       void rebuildWordCloud(userId).catch(() => { /* non-critical */ });
     } catch (e) {

@@ -128,4 +128,60 @@ describe('POST-2: StorageIcons delete toasts based on cloudSynced', () => {
       expect(mockShowToast).toHaveBeenCalledWith('archive_trash_moved', 'success');
     });
   });
+
+  it('N-67: shows storage_deleted_local when removeLocalCopy succeeds', async () => {
+    vi.mocked(StorageService.removeLocalCopy).mockResolvedValueOnce(true);
+
+    render(
+      <StorageIcons
+        doc={{
+          localId: 'local_1',
+          cloudId: 'cloud_1',
+          hasLocal: true,
+          hasCloud: true,
+        }}
+        userId={userId}
+        onStorageChange={mockOnStorageChange}
+      />
+    );
+
+    const localBtn = screen.getByRole('button', { name: 'storage_remove_local' });
+    fireEvent.click(localBtn);
+
+    const confirmBtn = screen.getByRole('button', { name: 'storage_delete_confirm' });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(StorageService.removeLocalCopy).toHaveBeenCalledWith('local_1');
+      expect(mockShowToast).toHaveBeenCalledWith('storage_deleted_local', 'success');
+    });
+  });
+
+  it('N-67: shows error_generic_action when removeLocalCopy fails', async () => {
+    vi.mocked(StorageService.removeLocalCopy).mockResolvedValueOnce(false);
+
+    render(
+      <StorageIcons
+        doc={{
+          localId: 'local_1',
+          cloudId: 'cloud_1',
+          hasLocal: true,
+          hasCloud: true,
+        }}
+        userId={userId}
+        onStorageChange={mockOnStorageChange}
+      />
+    );
+
+    const localBtn = screen.getByRole('button', { name: 'storage_remove_local' });
+    fireEvent.click(localBtn);
+
+    const confirmBtn = screen.getByRole('button', { name: 'storage_delete_confirm' });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(StorageService.removeLocalCopy).toHaveBeenCalledWith('local_1');
+      expect(mockShowToast).toHaveBeenCalledWith('error_generic_action', 'error');
+    });
+  });
 });

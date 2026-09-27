@@ -26,7 +26,7 @@ export function useDraftSession(userId: string, isGuest: boolean): DraftSessionS
       await deleteGuestDraftFromStorage();
     } else {
       WritingDraftService.bumpDraftGeneration(userId);
-      await WritingDraftService.deleteDraft(userId);
+      await WritingDraftService.deleteDraft(userId); // намеренно: сброс черновика при отмене или сбросе сессии
     }
     setHasDraft(false);
   }, [userId, isGuest]);

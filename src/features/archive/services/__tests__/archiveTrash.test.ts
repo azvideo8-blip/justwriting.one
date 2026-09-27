@@ -182,4 +182,23 @@ describe('FEAT-5 Archive Trash Service', () => {
     expect(addActivitySpy).not.toHaveBeenCalledWith('заметка удалена навсегда', undefined, 'info', 'archive');
     expect(addActivitySpy).toHaveBeenCalledWith(expect.stringContaining('разборов ИИ'), expect.anything(), 'warning', 'archive');
   });
+
+  // N-66: derivativesOk:false не попадает в deletedIds / prunedCount
+  it('emptyTrash treats derivativesOk:false as failure (N-66)', async () => {
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false });
+    const res = await emptyTrash([makeSession({ id: 's_der_fail' })], 'u1');
+    expect(res.failCount).toBe(1);
+    expect(res.successCount).toBe(0);
+    expect(res.deletedIds).toEqual([]);
+  });
+
+  it('pruneExpiredTrash keeps note when derivativesOk:false (N-66)', async () => {
+    const now = 1700000000000;
+    const old = now - (11 * 24 * 60 * 60 * 1000);
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false });
+    const session = makeSession({ id: 'prune_der_fail', trashedAt: old });
+    const { prunedCount, remainingSessions } = await pruneExpiredTrash([session], 'u1', now);
+    expect(prunedCount).toBe(0);
+    expect(remainingSessions.map(s => s.id)).toEqual(['prune_der_fail']);
+  });
 });
