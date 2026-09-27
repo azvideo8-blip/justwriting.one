@@ -4,6 +4,7 @@ import { useOnlineStatus } from '../../shared/hooks/useOnlineStatus';
 import { SyncService } from '../services/SyncService';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { cloudSyncEnabled, CLOUD_SYNC_CHANGED } from './cloudSyncEnabled';
+import { isAccountReloadPending } from '../auth/accountReload';
 
 export type SyncStatus =
   | 'synced'
@@ -249,6 +250,10 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     }
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Вето здесь при смене аккаунта недопустимо: очередь синхронизации уже
+      // сохранена в IndexedDB, а отмена перезагрузки оставляет интерфейс старого
+      // аккаунта поверх новой сессии (подмена аккаунта во вкладке).
+      if (isAccountReloadPending()) return;
       e.preventDefault();
       e.returnValue = '';
       return '';

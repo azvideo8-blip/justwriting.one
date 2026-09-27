@@ -1,5 +1,6 @@
 import { useEffect, RefObject } from 'react';
 import { useTimerStore } from '../store/useTimerStore';
+import { isAccountReloadPending } from '../../../core/auth/accountReload';
 
 interface UseWritingKeyboardParams {
   sessionStatus: string;
@@ -47,6 +48,9 @@ export function useWritingKeyboard({ sessionStatus, handlePlayRef, handlePauseRe
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Вето здесь при смене аккаунта недопустимо: отмена перезагрузки оставляет
+      // интерфейс старого аккаунта поверх новой сессии (подмена аккаунта во вкладке).
+      if (isAccountReloadPending()) return;
       const state = useTimerStore.getState();
       if (state.status === 'writing' || state.status === 'paused') {
         e.preventDefault();

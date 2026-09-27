@@ -6,6 +6,7 @@ import { useSessionMetaStore } from '../store/useSessionMetaStore';
 import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { isAccountReloadPending } from '../../../core/auth/accountReload';
 
 
 export type DraftSaveStatus = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
@@ -187,6 +188,7 @@ export function useSyncUnloadSave(
 ) {
   useEffect(() => {
     const handleBeforeUnload = () => {
+      if (isAccountReloadPending()) return;
       const contentState = useContentStore.getState();
       const timerState_ = useTimerStore.getState();
       const meta = useSessionMetaStore.getState();

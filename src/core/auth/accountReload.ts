@@ -10,6 +10,8 @@
  * Перед перезагрузкой дожидаемся тех, кто зарегистрировался (черновик
  * сохраняется прежнему владельцу), но не дольше FLUSH_LIMIT_MS.
  */
+import { reportError } from '../../shared/errors/reportError';
+
 const FLUSH_LIMIT_MS = 1500;
 const NOTICE_KEY = 'jw_account_change_notice';
 
@@ -17,6 +19,7 @@ const flushers = new Set<() => Promise<unknown>>();
 let pending = false;
 let nextLocation: string | null = null;
 let skipFlush = false;
+let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function onBeforeAccountReload(fn: () => Promise<unknown>): () => void {
   flushers.add(fn);
@@ -64,8 +67,27 @@ export async function reloadForAccountChange(): Promise<void> {
       new Promise(r => setTimeout(r, FLUSH_LIMIT_MS)),
     ]);
   }
-  if (nextLocation) window.location.assign(nextLocation);
-  else window.location.reload();
+  const target = nextLocation;
+  if (typeof window !== 'undefined') {
+    if (target) window.location.assign(target);
+    else window.location.reload();
+
+    // Страховка: если через ~3 с после вызова страница всё ещё жива (например,
+    // пользователь или расширение заблокировали переход) — повторяем через replace
+    // и пишем warning в журнал, чтобы pending не оставался вечным без действия.
+    // Вето beforeunload здесь = подмена аккаунта во вкладке: если отменить выгрузку
+    // страницы, вкладка остаётся с данными, черновиками и интерфейсом старого
+    // аккаунта поверх новой сессии, а слушатели auth заглушены.
+    fallbackTimer = setTimeout(() => {
+      reportError(
+        new Error('Account reload timed out; retrying navigation via replace'),
+        { action: 'account_reload_timeout', target: target ?? 'reload' },
+        'warning'
+      );
+      if (target) window.location.replace(target);
+      else window.location.replace(window.location.href);
+    }, 3000);
+  }
 }
 
 export function _resetAccountReloadForTesting(): void {
@@ -73,4 +95,8 @@ export function _resetAccountReloadForTesting(): void {
   pending = false;
   nextLocation = null;
   skipFlush = false;
+  if (fallbackTimer) {
+    clearTimeout(fallbackTimer);
+    fallbackTimer = null;
+  }
 }
