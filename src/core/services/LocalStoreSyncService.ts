@@ -125,6 +125,134 @@ export function getPendingStoreDeleteKeys(uid: string): Set<string> {
   return new Set(readPersistedDeletes().filter(d => d.uid === uid).map(d => `${d.store}:${d.key}`));
 }
 
+// SA-1: ожидающее обновление жило только в памяти. Окно потери — дебаунс
+// (1,5 с) и полёт запроса: закрытая вкладка означает, что изменённая запись
+// не уехала и больше никогда не уедет — фонового перескана нет,
+// syncAllLocalStores зовётся только из ручной кнопки. Выбор — тот же образец,
+// что у персистентных удалений выше: маркер лежит на диске до успеха.
+//
+// Почему не «фоновый syncAllLocalStores при входе и при возврате фокуса»: он
+// перечитывает, перешифровывает и перезагружает ВСЕ записи всех 14 сторов
+// ради нескольких потерянных, требует разблокированного сейфа и всё равно не
+// накрывает окно дебаунса.
+const PENDING_UPSERTS_LS_KEY = 'ai_sync_pending_upserts';
+
+interface PersistedUpsert { uid: string; store: string; key: string; attempts?: number }
+
+function readPersistedUpserts(): PersistedUpsert[] {
+  try {
+    const raw = localStorage.getItem(PENDING_UPSERTS_LS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as PersistedUpsert[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePersistedUpserts(list: PersistedUpsert[]): void {
+  // Не записалось — потеря ровно та же, что без персистентности.
+  try { localStorage.setItem(PENDING_UPSERTS_LS_KEY, JSON.stringify(list)); } catch (e) { reportError(e, { action: 'writePersistedUpserts' }, 'warning'); }
+}
+
+const upsertKey = (store: string, key: string) => `${store}:${key}`;
+
+function persistUpserts(uid: string, entries: Array<{ store: string; key: string }>): void {
+  if (entries.length === 0) return;
+  const list = readPersistedUpserts();
+  const seen = new Set(list.map(u => `${u.uid}/${upsertKey(u.store, u.key)}`));
+  for (const { store, key } of entries) {
+    const id = `${uid}/${upsertKey(store, key)}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    list.push({ uid, store, key });
+  }
+  writePersistedUpserts(list);
+}
+
+/** Обновить счётчик попыток / убрать маркеры одним перечнём и одной записью. */
+function applyUpsertMarkerChanges(
+  uid: string,
+  changes: { attempts: Map<string, number>; dropped: Set<string> },
+  stillPending: (itemKey: string) => boolean,
+): void {
+  if (changes.attempts.size === 0 && changes.dropped.size === 0) return;
+  const list = readPersistedUpserts();
+  const next: PersistedUpsert[] = [];
+  for (const u of list) {
+    if (u.uid !== uid) { next.push(u); continue; }
+    const id = upsertKey(u.store, u.key);
+    if (changes.dropped.has(id) && !stillPending(id)) continue;
+    const attempts = changes.attempts.get(id);
+    next.push(attempts === undefined ? u : { ...u, attempts });
+  }
+  writePersistedUpserts(next);
+}
+
+/** Записи, ждущие облачного upsert и ещё не уехавшие (с пережитой перезагрузкой). */
+export function getPendingStoreUpserts(uid: string): PersistedUpsert[] {
+  return readPersistedUpserts().filter(u => u.uid === uid);
+}
+
+// SA-1: «молча сброшенного» не существует. Запись, которую сервер отверг
+// MAX_UPSERT_ATTEMPTS раз, раньше исчезала из очереди без следа — ни в бейдже,
+// ни в журнале. Теперь у неё есть персистентная отметка (по образцу
+// OVERSIZED_LS_KEY), снимаемая успехом, новой правкой или удалением.
+const DEAD_UPSERTS_LS_KEY = 'ai_sync_dead_upserts';
+
+export interface DeadStoreUpsert {
+  uid: string;
+  store: string;
+  key: string;
+  lastError: string;
+  attempts: number;
+  timestamp: number;
+}
+
+function readDeadUpserts(): DeadStoreUpsert[] {
+  try {
+    const raw = localStorage.getItem(DEAD_UPSERTS_LS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as DeadStoreUpsert[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDeadUpserts(list: DeadStoreUpsert[]): void {
+  try { localStorage.setItem(DEAD_UPSERTS_LS_KEY, JSON.stringify(list)); } catch (e) { reportError(e, { action: 'writeDeadUpserts' }, 'warning'); }
+}
+
+export function getDeadStoreUpserts(uid?: string): DeadStoreUpsert[] {
+  return uid ? readDeadUpserts().filter(d => d.uid === uid) : readDeadUpserts();
+}
+
+export function getDeadStoreUpsertCount(uid?: string): number {
+  return getDeadStoreUpserts(uid).length;
+}
+
+function markDeadUpsert(uid: string, store: string, key: string, attempts: number, lastError: string): void {
+  const list = readDeadUpserts().filter(d => !(d.uid === uid && d.store === store && d.key === key));
+  list.push({ uid, store, key, lastError, attempts, timestamp: Date.now() });
+  writeDeadUpserts(list);
+}
+
+/** Снять отметку «отвергнуто» сразу с нескольких записей — одним перечнём. */
+function forgetDeadUpserts(uid: string, entries: Array<{ store: string; key: string }>): void {
+  if (entries.length === 0) return;
+  const list = readDeadUpserts();
+  const doomed = new Set(entries.map(e => `${uid}/${e.store}/${e.key}`));
+  const next = list.filter(d => !doomed.has(`${d.uid}/${d.store}/${d.key}`));
+  if (next.length === list.length) return;
+  writeDeadUpserts(next);
+}
+
+/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. */
+export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: number } {
+  const pending = getPendingStoreUpserts(uid).length
+    + readPersistedDeletes().filter(d => d.uid === uid).length;
+  return { pending, dead: getDeadStoreUpserts(uid).length };
+}
+
 const OVERSIZED_LS_KEY = 'ai_sync_oversized_records';
 const DEBOUNCE_DELAY_MS = 1500;
 
@@ -211,7 +339,7 @@ function removeOversizedRecord(store: string, key: string): void {
   } catch { /* намеренно: лишняя пометка «слишком большой» ничего не теряет */ }
 }
 
-class LocalStoreSyncManager {
+export class LocalStoreSyncManager {
   private pending = new Map<string, PendingSyncItem>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private isSyncing = false;
@@ -237,13 +365,26 @@ class LocalStoreSyncManager {
   public scheduleStoreSync(store: SupportedLocalStoreName, key: string): void {
     const itemKey = `${store}:${key}`;
     this.pending.set(itemKey, { store, key, isDelete: false });
+    // SA-1: правка мёртвой записи даёт ей новый шанс — отметка «отвергнуто»
+    // снимается, а счётчик попыток у ещё живого маркера остаётся: серия
+    // быстрых правок не должна обнулять израсходованный бюджет повторов.
+    const uid = getCurrentUser()?.uid;
+    if (uid) {
+      persistUpserts(uid, [{ store, key }]);
+      forgetDeadUpserts(uid, [{ store, key }]);
+    }
     this.resetTimer();
   }
 
   public scheduleStoreDelete(store: SupportedLocalStoreName, key: string): void {
     const itemKey = `${store}:${key}`;
     const uid = getCurrentUser()?.uid;
-    if (uid) persistDelete(uid, store, key);
+    if (uid) {
+      persistDelete(uid, store, key);
+      // Обязательство «доехать как обновление» закрыто: теперь это удаление.
+      applyUpsertMarkerChanges(uid, { attempts: new Map(), dropped: new Set([itemKey]) }, () => false);
+      forgetDeadUpserts(uid, [{ store, key }]);
+    }
     this.pending.set(itemKey, { store, key, isDelete: true });
     this.resetTimer();
   }
@@ -289,8 +430,25 @@ class LocalStoreSyncManager {
       if (!this.pending.has(k)) this.pending.set(k, { store: d.store as SupportedLocalStoreName, key: d.key, isDelete: true });
     }
 
+    // SA-1: то же для обновлений — маркер переживает и закрытие вкладки, и
+    // выключенную автосинхронизацию (раньше он жил только в памяти).
+    for (const u of readPersistedUpserts()) {
+      if (u.uid !== uid || !SUPPORTED_LOCAL_STORES.includes(u.store as SupportedLocalStoreName)) continue;
+      const k = `${u.store}:${u.key}`;
+      if (!this.pending.has(k)) this.pending.set(k, { store: u.store as SupportedLocalStoreName, key: u.key, isDelete: false, attempts: u.attempts ?? 0 });
+    }
+
     if (this.pending.size === 0) return result;
     if (this.isSyncing) return result;
+
+    // Изменения маркеров складываются и пишутся один раз в конце: проход по
+    // ручному бэкфиллу касается тысяч записей, а перечитывать и перезаписывать
+    // список ради каждой — O(n²).
+    const markerChanges = {
+      attempts: new Map<string, number>(),
+      dropped: new Set<string>(),
+      revived: [] as Array<{ store: string; key: string }>,
+    };
 
     this.isSyncing = true;
     const items = Array.from(this.pending.values());
@@ -312,6 +470,7 @@ class LocalStoreSyncManager {
             await DataProvider.deleteLocalStoreRecord(uid, item.store, item.key);
             forgetPersistedDelete(uid, item.store, item.key);
             removeOversizedRecord(item.store, item.key);
+            markerChanges.dropped.add(itemKey);
             result.synced++;
             continue;
           }
@@ -319,7 +478,10 @@ class LocalStoreSyncManager {
           // Get record from IDB
           const rawRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(item.store, item.key);
           if (rawRecord === undefined) {
-            // If record does not exist locally anymore, skip or delete from cloud
+            // SA-1: локальной записи нет — отправлять нечего, маркер снимаем,
+            // иначе бейдж навсегда останется «есть несданное».
+            markerChanges.dropped.add(itemKey);
+            markerChanges.revived.push({ store: item.store, key: item.key });
             continue;
           }
 
@@ -329,6 +491,7 @@ class LocalStoreSyncManager {
               ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).ownerId
               ?? (rawRecord as { userId?: string; ownerId?: string; guestId?: string }).guestId;
             if (owner && owner !== uid) {
+              markerChanges.dropped.add(itemKey);
               continue;
             }
           }
@@ -338,6 +501,9 @@ class LocalStoreSyncManager {
 
           if (recordBytes > MAX_LOCAL_RECORD_BYTES) {
             setOversizedRecord(item.store, item.key, recordBytes);
+            // Для таких записей уже есть своя персистентная отметка — две на
+            // одну запись удваивали бы счёт в бейдже.
+            markerChanges.dropped.add(itemKey);
             result.skippedOversized++;
             logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
             useActivityLogStore.getState().addActivity(
@@ -405,6 +571,9 @@ class LocalStoreSyncManager {
             }
           }
           result.synced++;
+          // SA-1: облако приняло — обязательство закрыто.
+          markerChanges.dropped.add(itemKey);
+          markerChanges.revived.push({ store: item.store, key: item.key });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           if (msg.includes('ENCRYPT_REQUIRED') || msg.includes('LOCKED')) {
@@ -419,15 +588,31 @@ class LocalStoreSyncManager {
             // Re-queue it so network/server errors do not drop the delete permanently.
             if (item.isDelete) {
               this.pending.set(itemKey, item);
-            } else if ((item.attempts ?? 0) + 1 < MAX_UPSERT_ATTEMPTS && !this.pending.has(itemKey)) {
+            } else if (!this.pending.has(itemKey)) {
               // R3-8: обновление читается из IDB заново, так что повтор отправит
               // свежую версию; новое изменение за время прохода не перетираем.
-              this.pending.set(itemKey, { ...item, attempts: (item.attempts ?? 0) + 1 });
+              const attempts = (item.attempts ?? 0) + 1;
+              if (attempts < MAX_UPSERT_ATTEMPTS) {
+                this.pending.set(itemKey, { ...item, attempts });
+                markerChanges.attempts.set(itemKey, attempts);
+              } else {
+                // SA-1: раньше здесь запись исчезала молча.
+                markDeadUpsert(uid, item.store, item.key, attempts, msg.slice(0, 200));
+                markerChanges.dropped.add(itemKey);
+                useActivityLogStore.getState().addActivity(
+                  `Запись ${item.store}/${item.key} не принята облаком ${attempts} раз и осталась только на устройстве`,
+                  { action: 'localStoreSync_dead', store: item.store, key: item.key, attempts, error: msg.slice(0, 200) },
+                  'warning',
+                  'sync'
+                );
+              }
             }
           }
         }
       }
     } finally {
+      applyUpsertMarkerChanges(uid, markerChanges, k => this.pending.has(k));
+      forgetDeadUpserts(uid, markerChanges.revived);
       this.isSyncing = false;
     }
     return result;
@@ -448,17 +633,27 @@ class LocalStoreSyncManager {
 
     const db = await getLocalDb(userId);
 
+    // SA-1: бэкфилл касается всех записей всех сторов — маркеры пишутся одним
+    // блоком, иначе по перезаписи списка на каждую запись.
+    const batch: Array<{ store: SupportedLocalStoreName; key: string }> = [];
+
     for (const store of SUPPORTED_LOCAL_STORES) {
       if (!db.objectStoreNames.contains(store)) continue;
       try {
         const allKeys = await (db as unknown as { getAllKeys(s: string): Promise<IDBValidKey[]> }).getAllKeys(store);
         for (const key of allKeys) {
-          this.scheduleStoreSync(store, String(key));
+          batch.push({ store, key: String(key) });
         }
       } catch (err) {
         reportError(err, { action: 'LocalStoreSyncService_syncAll_store', store });
       }
     }
+
+    for (const { store, key } of batch) {
+      this.pending.set(`${store}:${key}`, { store, key, isDelete: false });
+    }
+    persistUpserts(userId, batch);
+    forgetDeadUpserts(userId, batch);
 
     // SEC-8 / SEC-6: syncAllLocalStores is a manual/backfill pass, so it runs
     // regardless of the background auto-sync toggle.

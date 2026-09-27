@@ -102,6 +102,10 @@ export const settingsTranslations: Translations = {
   sync_paused_cloud_unavailable: { ru: 'Синхронизация приостановлена (облако недоступно)', en: 'Sync paused (cloud unavailable)' },
   sync_paused_pending: { ru: '{count} заметок ждут отправки', en: '{count} notes pending sync' },
   sync_pending_deletions_count: { ru: '{count} удалений ожидают удаления из облака', en: '{count} deletions pending cloud removal' },
+  // SA-1: производные ИИ живут в своих сторах и раньше для бейджа не
+  // считались вообще; «не синхронизировано заметок» про них — ложь.
+  sync_ai_store_pending: { ru: 'Записей ИИ не синхронизировано: {count}', en: 'AI records not synced: {count}' },
+  sync_ai_store_dead: { ru: 'Облако отвергло записей ИИ: {count} — они только на этом устройстве', en: 'The cloud rejected {count} AI records — they exist only on this device' },
   sync_indicator_label: { ru: 'Синхронизация', en: 'Sync' },
 
   settings_change_password:    { ru: 'Сменить пароль', en: 'Change password' },

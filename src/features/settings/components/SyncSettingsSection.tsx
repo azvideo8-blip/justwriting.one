@@ -294,6 +294,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                     {syncStatus.status === 'cloud_unavailable' && t('sync_paused_cloud_unavailable')}
                     {syncStatus.status === 'pending' && t('sync_paused_pending', { count: String(syncStatus.pendingCount) })}
                     {syncStatus.status === 'unsynced' && t('sync_paused_unsynced', { count: String(syncStatus.unsyncedCount) })}
+                    {syncStatus.status === 'ai_store_unsynced' && t('sync_ai_store_pending', { count: String(syncStatus.aiStorePendingCount + syncStatus.aiStoreDeadCount) })}
                     {syncStatus.status === 'sync_off' && t('sync_off_all_uploaded')}
                   </span>
                 )}
@@ -320,6 +321,16 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
               {syncStatus.pendingDeletionsCount > 0 && (
                 <p className="text-[11px] text-accent-warning">
                   {t('sync_pending_deletions_count', { count: String(syncStatus.pendingDeletionsCount) })}
+                </p>
+              )}
+              {syncStatus.aiStorePendingCount > 0 && (
+                <p className="text-[11px] text-accent-warning">
+                  {t('sync_ai_store_pending', { count: String(syncStatus.aiStorePendingCount) })}
+                </p>
+              )}
+              {syncStatus.aiStoreDeadCount > 0 && (
+                <p className="text-[11px] text-accent-danger">
+                  {t('sync_ai_store_dead', { count: String(syncStatus.aiStoreDeadCount) })}
                 </p>
               )}
               {syncStatus.deadCount > 0 && (

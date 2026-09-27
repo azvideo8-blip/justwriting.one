@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useOnlineStatus } from '../../shared/hooks/useOnlineStatus';
 
 import { SyncService } from '../services/SyncService';
+import { getLocalStoreSyncSummary } from '../services/LocalStoreSyncService';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { cloudSyncEnabled, CLOUD_SYNC_CHANGED } from './cloudSyncEnabled';
 import { isAccountReloadPending } from '../auth/accountReload';
@@ -14,7 +15,11 @@ export type SyncStatus =
   | 'unsynced'
   /** Автосинхронизация выключена, и в облаке всё же всё есть. Не то же самое,
    *  что «синхронизировано»: новое туда само не поедет. */
-  | 'sync_off';
+  | 'sync_off'
+  /** SA-1: заметки в порядке, а производные ИИ (диалоги, разбор, темы) — нет:
+   *  они ждут отправки или были отвергнуты облаком. Отдельное состояние,
+   *  потому что «не синхронизировано заметок» про них врёт в обе стороны. */
+  | 'ai_store_unsynced';
 
 export interface SyncStatusState {
   status: SyncStatus;
@@ -26,6 +31,10 @@ export interface SyncStatusState {
   deviceOnlyCount: number;
   hasUnknown: boolean;
   deadCount: number;
+  /** SA-1: записи ИИ-сторов, которые ещё не уехали в облако. */
+  aiStorePendingCount: number;
+  /** SA-1: записи ИИ-сторов, отвергнутые облаком после лимита попыток. */
+  aiStoreDeadCount: number;
   /** false when user disabled auto-sync — indicator should be hidden */
   autoSyncEnabled: boolean;
 }
@@ -47,6 +56,8 @@ export interface SharedCounts {
   deviceOnly: number;
   hasUnknown: boolean;
   deadCount: number;
+  aiStorePending: number;
+  aiStoreDead: number;
 }
 
 // Shared across all useSyncStatus() instances (Sidebar, BottomNav, AppShell, AppTab
@@ -60,6 +71,8 @@ let sharedCounts: SharedCounts = {
   deviceOnly: 0,
   hasUnknown: false,
   deadCount: 0,
+  aiStorePending: 0,
+  aiStoreDead: 0,
 };
 let activeSubscribers = 0;
 let currentSubscribedUserId: string | null = null;
@@ -67,6 +80,9 @@ const statusListeners = new Set<(counts: SharedCounts) => void>();
 
 async function pollSyncStatus(userId: string | null) {
   try {
+    // SA-1: состояние ИИ-сторов читается здесь же — бейдж раньше знал только
+    // про заметки, и потерянная облачная копия разбора для него отсутствовала.
+    const storeSummary = userId ? getLocalStoreSyncSummary(userId) : null;
     const [pending, pendingDeletions, summary] = await Promise.all([
       SyncService.getPendingCount(),
       typeof SyncService.getPendingDeletionsCount === 'function'
@@ -96,9 +112,28 @@ async function pollSyncStatus(userId: string | null) {
       deviceOnly: summary?.deviceOnlyCount ?? 0,
       hasUnknown: summary?.hasUnknown ?? false,
       deadCount: summary?.deadCount ?? 0,
+      aiStorePending: storeSummary?.pending ?? 0,
+      aiStoreDead: storeSummary?.dead ?? 0,
     };
     statusListeners.forEach(fn => fn(sharedCounts));
-  } catch { /* non-critical */ }
+  } catch {
+    // SA-1: молчание здесь означало «бейдж держит прошлый снимок»: одно
+    // неудачное чтение IndexedDB навечно оставляло интерфейс в состоянии
+    // «всё синхронизировано». Незнание показывается как незнание.
+    sharedCounts = {
+      pending: 0,
+      pendingDeletions: 0,
+      unsynced: 0,
+      behind: 0,
+      unlinked: 0,
+      deviceOnly: 0,
+      hasUnknown: true,
+      deadCount: 0,
+      aiStorePending: 0,
+      aiStoreDead: 0,
+    };
+    statusListeners.forEach(fn => fn(sharedCounts));
+  }
 }
 
 function subscribeSyncStatus(userId: string | null, listener: (counts: SharedCounts) => void): () => void {
@@ -146,6 +181,8 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   const [deviceOnlyCount, setDeviceOnlyCount] = useState(0);
   const [hasUnknown, setHasUnknown] = useState(false);
   const [deadCount, setDeadCount] = useState(0);
+  const [aiStorePendingCount, setAiStorePendingCount] = useState(0);
+  const [aiStoreDeadCount, setAiStoreDeadCount] = useState(0);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
     () => (userId ? cloudSyncEnabled(userId) : false)
   );
@@ -189,6 +226,8 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
         setDeviceOnlyCount(0);
         setHasUnknown(false);
         setDeadCount(0);
+        setAiStorePendingCount(0);
+        setAiStoreDeadCount(0);
       }, 0);
       return () => clearTimeout(t);
     }
@@ -202,6 +241,8 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       setDeviceOnlyCount(sharedCounts.deviceOnly);
       setHasUnknown(sharedCounts.hasUnknown);
       setDeadCount(sharedCounts.deadCount);
+      setAiStorePendingCount(sharedCounts.aiStorePending);
+      setAiStoreDeadCount(sharedCounts.aiStoreDead);
     }, 0);
     const unsubscribe = subscribeSyncStatus(userId, c => {
       setPendingCount(c.pending);
@@ -212,6 +253,8 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
       setDeviceOnlyCount(c.deviceOnly);
       setHasUnknown(c.hasUnknown);
       setDeadCount(c.deadCount);
+      setAiStorePendingCount(c.aiStorePending);
+      setAiStoreDeadCount(c.aiStoreDead);
     });
     return () => { clearTimeout(t); unsubscribe(); };
   }, [userId, autoSyncEnabled]);
@@ -283,6 +326,8 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     status = 'pending';
   } else if (unsyncedCount > 0) {
     status = 'unsynced';
+  } else if (aiStorePendingCount + aiStoreDeadCount > 0) {
+    status = 'ai_store_unsynced';
   } else if (!autoSyncEnabled) {
     status = 'sync_off';
   }
@@ -297,6 +342,8 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     deviceOnlyCount,
     hasUnknown,
     deadCount,
+    aiStorePendingCount,
+    aiStoreDeadCount,
     autoSyncEnabled,
   };
 }

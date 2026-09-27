@@ -162,8 +162,11 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
           title={t(
             syncStatus.status === 'offline' ? 'sync_paused_no_network'
               : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
+              : syncStatus.status === 'ai_store_unsynced' ? 'sync_ai_store_pending'
               : 'sync_paused_pending',
-            syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) } : undefined
+            syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) }
+              : syncStatus.status === 'ai_store_unsynced' ? { count: String(syncStatus.aiStorePendingCount + syncStatus.aiStoreDeadCount) }
+              : undefined
           )}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-accent-warning animate-pulse" />

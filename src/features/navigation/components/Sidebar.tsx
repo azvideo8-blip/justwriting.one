@@ -258,8 +258,10 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
               syncStatus.status === 'offline' ? 'sync_paused_no_network'
                 : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
                 : syncStatus.status === 'unsynced' ? 'sync_paused_unsynced'
+                : syncStatus.status === 'ai_store_unsynced' ? 'sync_ai_store_pending'
                 : 'sync_paused_pending',
               syncStatus.status === 'unsynced' ? { count: String(syncStatus.unsyncedCount) }
+                : syncStatus.status === 'ai_store_unsynced' ? { count: String(syncStatus.aiStorePendingCount + syncStatus.aiStoreDeadCount) }
                 : syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) }
                 : undefined
             )}
@@ -273,8 +275,10 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
                 syncStatus.status === 'offline' ? 'sync_paused_no_network'
                   : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
                   : syncStatus.status === 'unsynced' ? 'sync_paused_unsynced'
+                  : syncStatus.status === 'ai_store_unsynced' ? 'sync_ai_store_pending'
                   : 'sync_paused_pending',
                 syncStatus.status === 'unsynced' ? { count: String(syncStatus.unsyncedCount) }
+                  : syncStatus.status === 'ai_store_unsynced' ? { count: String(syncStatus.aiStorePendingCount + syncStatus.aiStoreDeadCount) }
                   : syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) }
                   : undefined
               )}
