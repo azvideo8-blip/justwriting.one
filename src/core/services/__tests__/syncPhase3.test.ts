@@ -64,6 +64,14 @@ describe('Phase 3 Fix Tickets: SYNC-3, SYNC-5, SYNC-6, SYNC-7, SYNC-8', () => {
 
       // relink reconnects the note and queues a task
       vi.spyOn(CloudSyncService, 'relinkOrphanedDocuments').mockImplementation(async () => {
+        // Настоящая перелинковка работает только пока ссылка потеряна. Её зовут
+        // дважды за нажатие — раз syncAllUnlinked, потом дренаж; второй раз
+        // заметка уже связана, и новую задачу она не рождает. Прежняя заглушка
+        // ставила задачу при каждом вызове, и после SB-1 (правка в полёте
+        // остаётся в очереди по свежему `updatedAt`) эта лишняя постановка
+        // начала держать очередь незакрытой.
+        const current = await LocalDocumentService.getDocument(docId);
+        if (current?.linkedCloudId) return { relinked: 0, skippedIds: [] };
         await LocalDocumentService.updateLinkedCloudId(docId, 'cloud_relinked_id');
         await LocalDocumentService.updateDocument(docId, { currentVersion: 1, lastSyncedCloudVersion: 0 });
         await SyncService.addToQueue(docId);
