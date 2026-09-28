@@ -168,4 +168,36 @@ export const archiveTranslations: Translations = {
   archive_decryption_error: { ru: 'Не удалось прочитать', en: 'Failed to read' },
   archive_locked_preview_desc: { ru: 'Сейф заперт. Введите пароль, чтобы открыть заметку.', en: 'Vault is locked. Enter password to open note.' },
   archive_unlock: { ru: 'Разблокировать', en: 'Unlock' },
+  archive_export_not_loaded: {
+    ru: 'Текст заметки ещё не загружен из облака',
+    en: 'Note text is not loaded from cloud yet',
+  },
+  archive_export_locked: {
+    ru: 'Заметка заперта — откройте сейф перед экспортом',
+    en: 'Note is locked — unlock vault before exporting',
+  },
+  archive_export_encrypted_unavailable: {
+    ru: 'Заметка зашифрована или недоступна — экспортировать нечего.',
+    en: 'Note is encrypted or unavailable — nothing to export.',
+  },
+  archive_related_notes: {
+    ru: 'Связанные записи',
+    en: 'Related notes',
+  },
+  archive_attach_to_ai: {
+    ru: 'Прикрепить к ИИ',
+    en: 'Attach to AI',
+  },
+  archive_add_tag_aria: {
+    ru: 'Добавить тег',
+    en: 'Add tag',
+  },
+  archive_rename_tag_aria: {
+    ru: 'Переименование тега',
+    en: 'Rename tag',
+  },
+  archive_label_name_aria: {
+    ru: 'Название метки',
+    en: 'Label name',
+  },
 };

@@ -1,5 +1,6 @@
 import { Pencil, X } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -18,15 +19,17 @@ interface ArchiveTagBarProps {
   onDeleteTag: (tag: string) => void;
   onResetTags: () => void;
   showControls: boolean;
-  t: (key: string) => string;
+  t?: (key: string) => string;
 }
 
 export function ArchiveTagBar({
   allTags, selectedTags, tagCounts, onToggleTag,
   renamingTag, renameTagValue, setRenameTagValue,
   onStartRename, onRenameSubmit, onRenameCancel, onDeleteTag,
-  onResetTags, showControls, t,
+  onResetTags, showControls, t: propT,
 }: ArchiveTagBarProps) {
+  const { t: hookT } = useLanguage();
+  const t = propT ?? hookT;
   if (allTags.length === 0) return null;
 
   return (
@@ -44,7 +47,7 @@ export function ArchiveTagBar({
                  value={renameTagValue}
                  onChange={e => setRenameTagValue(e.target.value)}
                  autoFocus
-                 aria-label="Переименование тега"
+                 aria-label={t('archive_rename_tag_aria')}
                  className="w-20 bg-transparent text-[12px] text-text-main outline-none"
                  onKeyDown={e => {
                    if (e.key === 'Enter') void onRenameSubmit(tag, renameTagValue);

@@ -9,9 +9,6 @@ import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { DocumentService } from '../../../core/services/DocumentService';
 import { LocalStorageService } from '../../../core/services/LocalStorageService';
 
-vi.mock('../../../shared/i18n', () => ({
-  useLanguage: () => ({ t: (k: string) => k }),
-}));
 
 vi.mock('../../../features/auth/hooks/useAuthStatus', () => ({
   useAuthStatus: () => ({ user: { uid: 'u_restore_1' } }),
@@ -140,7 +137,7 @@ describe('AUD-12 restore modal reports failure', () => {
 
       render(<RestoreFromCloudModal open onClose={() => {}} />);
 
-      expect(await screen.findByText(/restore_cloud_counts_error/)).toBeDefined();
+      expect(await screen.findByText(/Не удалось загрузить количество|restore_cloud_counts_error/)).toBeDefined();
       expect(screen.queryByText(/сохранено 0/)).toBeNull();
       expect(screen.getByText('Начать загрузку')).toBeDefined();
     });

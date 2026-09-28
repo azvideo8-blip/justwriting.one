@@ -1,4 +1,5 @@
 import { Pencil, X } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { Label } from '../../../types';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
@@ -26,7 +27,7 @@ interface ArchiveLabelBarProps {
   onUpdateLabel: (id: string) => void;
   onDeleteLabel: (id: string) => void;
   showControls: boolean;
-  t: (key: string) => string;
+  t?: (key: string) => string;
 }
 
 export function ArchiveLabelBar({
@@ -38,8 +39,10 @@ export function ArchiveLabelBar({
   editLabelName, setEditLabelName,
   editLabelColor: _editLabelColor, setEditLabelColor,
   onUpdateLabel, onDeleteLabel,
-  showControls, t,
+  showControls, t: propT,
 }: ArchiveLabelBarProps) {
+  const { t: hookT } = useLanguage();
+  const t = propT ?? hookT;
   if (labels.length === 0 && !showControls) return null;
 
   return (
@@ -56,7 +59,7 @@ export function ArchiveLabelBar({
                 value={editLabelName}
                 onChange={e => setEditLabelName(e.target.value)}
                 autoFocus
-                aria-label="Название метки"
+                aria-label={t('archive_label_name_aria')}
                 className="w-24 bg-transparent text-[12px] text-text-main outline-none"
                 onKeyDown={e => {
                   if (e.key === 'Enter') onUpdateLabel(label.id);

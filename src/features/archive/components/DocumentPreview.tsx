@@ -210,7 +210,7 @@ export function DocumentPreview({
       const newSession: ArchiveSession = {
         id: doc.id,
         userId: doc.guestId,
-        title: doc.title || 'Без названия',
+        title: doc.title || t('archive_untitled'),
         content: content || '',
         duration: doc.totalDuration || 0,
         wordCount: doc.totalWords || 0,
@@ -342,12 +342,10 @@ export function DocumentPreview({
   // Refuse to export a note whose text could not be read (vault locked, decryption
   // or storage failure) — otherwise the user silently downloads an empty file.
   const exportUnavailableMessage = session._contentNotLoaded
-    ? (language === 'ru' ? 'Текст заметки ещё не загружен из облака' : 'Note text is not loaded from cloud yet')
+    ? t('archive_export_not_loaded')
     : session._locked
-    ? (language === 'ru' ? 'Заметка заперта — откройте сейф перед экспортом' : 'Note is locked — unlock vault before exporting')
-    : language === 'ru'
-    ? 'Заметка зашифрована или недоступна — экспортировать нечего.'
-    : 'This note is locked or unreadable — there is nothing to export.';
+    ? t('archive_export_locked')
+    : t('archive_export_encrypted_unavailable');
   // PDF and DOCX exporters are async; typing this as `() => void` made passing
   // them a no-misused-promises error.
   const runExport = (fn: () => void | Promise<void>) => {
@@ -698,7 +696,7 @@ export function DocumentPreview({
         {relatedNotes.length > 0 && (
           <div className="mt-8 pt-5 border-t border-border-subtle/40">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-text-main/55 mb-3 flex items-center gap-1.5">
-              <span>Связанные записи</span>
+              <span>{t('archive_related_notes')}</span>
             </h4>
             <div className="space-y-2">
               {relatedNotes.map((note) => (
@@ -744,7 +742,7 @@ export function DocumentPreview({
           <Button
             onClick={() => onAttach(session.id)}
             className="flex items-center justify-center px-3 h-11 rounded-xl bg-surface-card border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors text-sm cursor-pointer"
-            title="Прикрепить к ИИ"
+            title={t('archive_attach_to_ai')}
           >
             <Paperclip size={14} />
           </Button>

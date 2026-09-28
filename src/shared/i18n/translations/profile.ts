@@ -118,4 +118,5 @@ export const profileTranslations: Translations = {
   me_account_status:   { ru: 'Статус аккаунта',    en: 'Account Status' },
   me_guest_desc:       { ru: 'Локальный гостевой режим. Войдите, чтобы синхронизировать данные.', en: 'Local guest mode. Sign in to sync your data across devices.' },
   me_sign_out:       { ru: 'Выйти',                en: 'Sign out' },
+  profile_name_aria: { ru: 'Имя',                  en: 'Name' },
 };

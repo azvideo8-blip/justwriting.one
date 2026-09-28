@@ -136,7 +136,8 @@ interface SidebarProps {
 
 export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarProps) {
   const [hovered, setHovered] = useState(false);
-  const { t } = useLanguage();
+  const { t, tp: rawTp } = useLanguage();
+  const tp = typeof rawTp === 'function' ? rawTp : ((k: string, count: number) => t(k, { count: String(count) }));
   const { lifeLogEnabled: _lifeLogEnabled, isZenActive, zenModeEnabled, dismissRightPanel } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const location = useLocation();
@@ -185,7 +186,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
     { id: 'archive', path: '/archive', icon: <History size={20} />,   label: t('nav_notes') },
     { id: 'ai',      path: '/ai',     icon: <Sparkles size={20} />,  label: 'AI' },
     { id: 'profile', path: '/profile', icon: <UserIcon size={20} />,  label: t('nav_profile') },
-    ...(isAdmin ? [{ id: 'diagnostics', path: '/diagnostics', icon: <Bug size={20} className="text-accent-danger" />, label: 'Диагностика' }] : []),
+    ...(isAdmin ? [{ id: 'diagnostics', path: '/diagnostics', icon: <Bug size={20} className="text-accent-danger" />, label: t('nav_diagnostics') }] : []),
   ];
 
   return (
@@ -293,7 +294,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
           let badgeColor = "text-text-main/60 hover:text-text-main";
           let badgeBg = "hover:bg-surface-elevated";
           let icon = <Activity size={18} className="shrink-0" />;
-          let label = "Журнал";
+          let label = t('activity_log_label');
           let dotColor = "";
           let dotText = "";
 
@@ -301,21 +302,21 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
             badgeColor = "text-accent-danger/80 hover:text-accent-danger";
             badgeBg = "hover:bg-accent-danger/10";
             icon = <AlertCircle size={18} className="shrink-0" />;
-            label = `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`;
+            label = tp('activity_errors', errorCount);
             dotColor = "bg-accent-danger text-surface-card";
             dotText = errorCount > 9 ? '9+' : String(errorCount);
           } else if (newestLevel === 'warning') {
             badgeColor = "text-accent-warning/80 hover:text-accent-warning";
             badgeBg = "hover:bg-accent-warning/10";
             icon = <AlertTriangle size={18} className="shrink-0" />;
-            label = `${warnCount} ${warnCount === 1 ? 'внимание' : 'внимания'}`;
+            label = tp('activity_warnings', warnCount);
             dotColor = "bg-accent-warning text-surface-card";
             dotText = warnCount > 9 ? '9+' : String(warnCount);
           } else if (newestLevel === 'success' || isRecent) {
             badgeColor = "text-accent-success/80 hover:text-accent-success";
             badgeBg = "hover:bg-accent-success/10";
             icon = <CheckCircle2 size={18} className="shrink-0" />;
-            label = "Активность";
+            label = t('activity_log_active');
             dotColor = "bg-accent-success";
           }
 
@@ -325,7 +326,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
                 dismissRightPanel();
                 openActivityPanel(true);
               }}
-              aria-label="Журнал активности"
+              aria-label={t('activity_log_aria')}
               className={cn(
                 "relative flex items-center gap-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden px-3 py-2",
                 badgeColor, badgeBg

@@ -14,6 +14,7 @@ import { ToastProvider } from '../../../../shared/components/Toast';
 vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({
     t: (k: string) => k,
+    tp: (k: string) => k,
     language: 'ru',
   }),
 }));
@@ -130,7 +131,7 @@ describe('Right Panel Unification (AG-RIGHT-PANEL)', () => {
     expect(screen.getByTestId('panel-visible')).toHaveTextContent('open-log');
 
     // Click the error log badge in Sidebar
-    const badgeBtn = screen.getByTitle(/ошибка|ошибки|ошибок/);
+    const badgeBtn = screen.getByTitle(/ошибка|ошибки|ошибок|activity_errors/);
     fireEvent.click(badgeBtn);
 
     // Right panel should now be closed, and activity log panel opened

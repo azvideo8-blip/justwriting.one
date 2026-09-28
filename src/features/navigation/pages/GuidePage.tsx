@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n';
 import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { cn } from '../../../core/utils/utils';
 import './guide.css';
@@ -9,15 +10,15 @@ import './guide.css';
 // приложения показываем только статью: без шапки «Открыть приложение», в
 // шрифтах и цветах приложения, со ссылками-переходами внутри приложения.
 export const GUIDE_PAGES = [
-  { slug: 'index', title: 'Начало работы' },
-  { slug: 'writing', title: 'Как писать' },
-  { slug: 'notes', title: 'Заметки' },
-  { slug: 'ai', title: 'ИИ-собеседник и разбор' },
-  { slug: 'sync', title: 'Облако и устройства' },
-  { slug: 'security', title: 'Пароли и шифрование' },
-  { slug: 'backup', title: 'Резервные копии и импорт' },
-  { slug: 'profile', title: 'Профиль и статистика' },
-  { slug: 'faq', title: 'Вопросы и проблемы' },
+  { slug: 'index', titleKey: 'guide_nav_start' },
+  { slug: 'writing', titleKey: 'guide_nav_writing' },
+  { slug: 'notes', titleKey: 'guide_nav_notes' },
+  { slug: 'ai', titleKey: 'guide_nav_ai' },
+  { slug: 'sync', titleKey: 'guide_nav_sync' },
+  { slug: 'security', titleKey: 'guide_nav_security' },
+  { slug: 'backup', titleKey: 'guide_nav_backup' },
+  { slug: 'profile', titleKey: 'guide_nav_profile' },
+  { slug: 'faq', titleKey: 'guide_nav_faq' },
 ] as const;
 
 const guidePath = (slug: string) => (slug === 'index' ? '/guide' : `/guide/${slug}`);
@@ -48,6 +49,7 @@ export function extractGuideArticle(html: string): string | null {
 }
 
 export function GuidePage() {
+  const { t } = useLanguage();
   const { page = 'index' } = useParams();
   const slug = GUIDE_PAGES.some(p => p.slug === page) ? page : 'index';
   const navigate = useNavigate();
@@ -90,13 +92,14 @@ export function GuidePage() {
   };
 
   const current = GUIDE_PAGES.find(p => p.slug === slug)!;
+  const currentTitle = t(current.titleKey);
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4">
       <SeoHead
         path={guidePath(slug)}
-        titleRu={`${current.title} — руководство justwriting`}
-        titleEn={`${current.title} — justwriting guide`}
+        titleRu={`${currentTitle} — руководство justwriting`}
+        titleEn={`${currentTitle} — justwriting guide`}
         descriptionRu="Руководство пользователя justwriting."
         descriptionEn="justwriting user guide (Russian)."
       />
@@ -104,11 +107,11 @@ export function GuidePage() {
         <div className="w-10 h-10 rounded-xl bg-surface-base/10 border border-border-subtle flex items-center justify-center text-text-main">
           <BookOpen size={20} />
         </div>
-        <h1 className="text-xl font-bold text-text-main">Руководство пользователя</h1>
+        <h1 className="text-xl font-bold text-text-main">{t('guide_title')}</h1>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[210px_minmax(0,1fr)]">
-        <nav aria-label="Разделы руководства" className="lg:sticky lg:top-6 lg:self-start">
+        <nav aria-label={t('guide_sections_nav')} className="lg:sticky lg:top-6 lg:self-start">
           <ol className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
             {GUIDE_PAGES.map(p => (
               <li key={p.slug}>
@@ -122,7 +125,7 @@ export function GuidePage() {
                       : 'text-text-main/60 hover:text-text-main hover:bg-text-main/5',
                   )}
                 >
-                  {p.title}
+                  {t(p.titleKey)}
                 </Link>
               </li>
             ))}
@@ -132,12 +135,12 @@ export function GuidePage() {
         <div className="min-w-0 max-w-3xl">
           {state.slug === slug && state.failed ? (
             <p className="text-sm text-text-main/60">
-              Не удалось загрузить раздел. Проверьте соединение и попробуйте ещё раз.
+              {t('guide_load_error')}
             </p>
           ) : ready ? (
             <article className="guide-doc" onClick={onClick} dangerouslySetInnerHTML={{ __html: state.html! }} />
           ) : (
-            <p className="text-sm text-text-main/40">Загрузка…</p>
+            <p className="text-sm text-text-main/40">{t('guide_loading')}</p>
           )}
         </div>
       </div>

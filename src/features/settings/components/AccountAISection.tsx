@@ -195,7 +195,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
   };
 
   return (
-    <Section title="Искусственный интеллект и приватность">
+    <Section title={t('settings_ai_privacy_title')}>
       <div className="space-y-4">
         {/* Main AI Consent Card */}
         <div className="p-4 rounded-xl border border-border-subtle space-y-4">
@@ -203,25 +203,25 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-brand-soft" />
               <span className="text-sm font-medium text-text-main">
-                Согласие на использование ИИ
+                {t('settings_ai_consent_label')}
               </span>
             </div>
             {hasConsent ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-success bg-accent-success/10 px-2.5 py-1 rounded-full border border-accent-success/20">
                 <CheckCircle2 size={12} />
-                Предоставлено
+                {t('settings_ai_consent_status_granted')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-main/50 bg-surface-base/10 px-2.5 py-1 rounded-full border border-border-subtle">
                 <XCircle size={12} />
-                Не предоставлено
+                {t('settings_ai_consent_not_granted')}
               </span>
             )}
           </div>
 
           <p className="text-xs text-text-main/60 leading-relaxed">
-            ИИ анализирует ваши заметки, помогает искать по смыслу и поддерживает диалог.
-            Запросы отправляются модели только при явном согласии и только для тех заметок, которые не скрыты от ИИ.
+            {t('settings_ai_consent_desc_1')}{' '}
+            {t('settings_ai_consent_desc_2')}
           </p>
 
           <div className="flex flex-wrap gap-2 pt-1 border-t border-border-subtle">
@@ -231,7 +231,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
                 disabled={loading}
                 className="py-2 px-3 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-accent-danger hover:border-accent-danger/30 transition-colors"
               >
-                Отозвать согласие
+                {t('settings_ai_revoke_consent')}
               </Button>
             ) : (
               <Button
@@ -239,7 +239,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
                 disabled={loading}
                 className="py-2 px-3 rounded-xl bg-brand-soft text-surface-base text-xs font-medium hover:bg-brand-soft-hover transition-colors"
               >
-                Предоставить согласие
+                {t('settings_ai_grant_consent')}
               </Button>
             )}
 
@@ -249,7 +249,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
               className="py-2 px-3 rounded-xl border border-accent-danger/30 text-xs text-accent-danger hover:bg-accent-danger/10 transition-colors flex items-center gap-1.5 ml-auto"
             >
               <Trash2 size={13} />
-              Удалить все данные ИИ
+              {t('settings_ai_delete_all_data')}
             </Button>
           </div>
         </div>
@@ -260,32 +260,32 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             <div className="flex items-center gap-2">
               <Database size={16} className="text-brand-soft" />
               <span className="text-sm font-medium text-text-main">
-                Поиск по смыслу (векторная индексация)
+                {t('settings_ai_semantic_label')}
               </span>
             </div>
             {indexingConsentState === 'granted' ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-success bg-accent-success/10 px-2.5 py-1 rounded-full border border-accent-success/20">
                 <CheckCircle2 size={12} />
-                Включено
+                {t('settings_ai_status_enabled')}
               </span>
             ) : indexingConsentState === 'refused' ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-main/60 bg-surface-base/10 px-2.5 py-1 rounded-full border border-border-subtle">
                 <Search size={12} />
-                Только по словам
+                {t('settings_ai_status_words_only')}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-warning bg-accent-warning/10 px-2.5 py-1 rounded-full border border-accent-warning/20">
                 <XCircle size={12} />
-                Не выбрано
+                {t('settings_ai_status_not_selected')}
               </span>
             )}
           </div>
 
           <p className="text-xs text-text-main/60 leading-relaxed">
-            Для поиска по смыслу (семантического поиска), связывания мыслей и подбора заметок в диалогах фрагменты текста отправляются поставщику ИИ для построения числового вектора (эмбеддинга). Векторы хранятся на устройстве в зашифрованном виде.
+            {t('settings_ai_semantic_desc_1')}
           </p>
           <p className="text-xs text-text-main/50 leading-relaxed">
-            При отключении поиск работает по точным совпадениям слов (BM25), а разбор заметок, хронология и журнал тем продолжают работать без ограничений. Существующие индексы сохраняются на устройстве.
+            {t('settings_ai_semantic_desc_2')}
           </p>
 
           <div className="flex flex-wrap gap-2 pt-1 border-t border-border-subtle">
@@ -295,7 +295,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
                 disabled={indexingLoading}
                 className="py-2 px-3 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-accent-danger hover:border-accent-danger/30 transition-colors"
               >
-                Отключить (искать только по словам)
+                {t('settings_ai_disable_semantic')}
               </Button>
             ) : (
               <Button
@@ -303,7 +303,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
                 disabled={indexingLoading}
                 className="py-2 px-3 rounded-xl bg-brand-soft text-surface-base text-xs font-medium hover:bg-brand-soft-hover transition-colors"
               >
-                Включить поиск по смыслу
+                {t('settings_ai_enable_semantic')}
               </Button>
             )}
           </div>
@@ -315,21 +315,18 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             <div className="flex items-center gap-2">
               <UserRound size={16} className="text-brand-soft" />
               <span className="text-sm font-medium text-text-main">
-                Портрет в диалоге
+                {t('settings_ai_portrait_dialog_label')}
               </span>
             </div>
             <Toggle
               checked={sendPortrait}
               onChange={handleTogglePortrait}
-              ariaLabel="Отправлять портрет в диалог"
+              ariaLabel={t('settings_ai_portrait_dialog_aria')}
             />
           </div>
 
           <p className="text-xs text-text-main/60 leading-relaxed">
-            Портрет — то, что ИИ понял о вас из заметок — сейчас уходит поставщику
-            вместе с каждым сообщением в чате, чтобы ответы были точнее. Здесь
-            можно отключить это для диалога, не трогая сам портрет и разбор
-            заметок — они продолжат работать как прежде.
+            {t('settings_ai_portrait_dialog_desc')}
           </p>
         </div>
 
@@ -339,21 +336,17 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
             <div className="flex items-center gap-2">
               <Lightbulb size={16} className="text-brand-soft" />
               <span className="text-sm font-medium text-text-main">
-                Память ИИ и подсказки
+                {t('settings_ai_memory_hints_label')}
               </span>
             </div>
             <Toggle
               checked={chatExtras}
               onChange={handleToggleChatExtras}
-              ariaLabel="Память ИИ и подсказки"
+              ariaLabel={t('settings_ai_memory_hints_label')}
             />
           </div>
           <p className="text-xs text-text-main/60 leading-relaxed">
-            После ответа в чате приложение само делает служебные запросы с тем же
-            разговором: предлагает варианты следующего сообщения и раз в несколько
-            сообщений сохраняет факты в «Память ИИ». Выключите — и после ответа
-            ничего дополнительно не отправляется (название диалога по-прежнему
-            придумывается один раз).
+            {t('settings_ai_memory_hints_desc')}
           </p>
         </div>
       </div>

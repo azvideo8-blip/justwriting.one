@@ -57,7 +57,7 @@ export function AboutSettingsSection() {
             onClick={handleVersionTap}
             tabIndex={0}
             role="button"
-            aria-label={`Версия ${APP_VERSION}`}
+            aria-label={t('about_version_aria', { version: APP_VERSION })}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVersionTap(); } }}
             className="text-xs font-mono text-text-main/70 bg-surface-base/40 px-2.5 py-1 rounded-md border border-border-subtle cursor-pointer select-none hover:text-text-main"
           >
@@ -73,7 +73,7 @@ export function AboutSettingsSection() {
           >
             <span className="flex items-center gap-2">
               <FileText size={14} className="text-text-main/50" />
-              {language === 'ru' ? 'Журнал изменений' : 'Changelog'}
+              {t('about_changelog')}
               {hasUnseenChangelog && (
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-primary shrink-0" aria-hidden="true" />
               )}
@@ -87,7 +87,7 @@ export function AboutSettingsSection() {
           >
             <span className="flex items-center gap-2">
               <Info size={14} className="text-text-main/50" />
-              {language === 'ru' ? 'О проекте' : 'About'}
+              {t('about_project')}
             </span>
             <ExternalLink size={12} className="text-text-main/40" />
           </Button>
@@ -98,7 +98,7 @@ export function AboutSettingsSection() {
           >
             <span className="flex items-center gap-2">
               <HelpCircle size={14} className="text-text-main/50" />
-              {language === 'ru' ? 'Помощь: заметки не видны?' : 'Help & Troubleshooting'}
+              {t('about_help')}
             </span>
             <ExternalLink size={12} className="text-text-main/40" />
           </Button>
@@ -109,7 +109,7 @@ export function AboutSettingsSection() {
           >
             <span className="flex items-center gap-2">
               <BookOpen size={14} className="text-text-main/50" />
-              {language === 'ru' ? 'Руководство пользователя' : 'User guide (Russian)'}
+              {t('about_guide')}
             </span>
             <ExternalLink size={12} className="text-text-main/40" />
           </Button>
@@ -118,7 +118,7 @@ export function AboutSettingsSection() {
             href="/privacy"
             className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors"
           >
-            <span>{language === 'ru' ? 'Политика конфиденциальности' : 'Privacy Policy'}</span>
+            <span>{t('about_privacy_policy')}</span>
             <ExternalLink size={12} className="text-text-main/40" />
           </a>
 
@@ -126,7 +126,7 @@ export function AboutSettingsSection() {
             href="/terms"
             className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border-subtle text-xs text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors"
           >
-            <span>{language === 'ru' ? 'Условия использования' : 'Terms of Service'}</span>
+            <span>{t('about_terms')}</span>
             <ExternalLink size={12} className="text-text-main/40" />
           </a>
         </div>
@@ -135,7 +135,7 @@ export function AboutSettingsSection() {
           href="/privacy"
           className="block text-xs text-text-main/50 hover:text-text-main transition-colors px-1"
         >
-          {language === 'ru' ? 'Не продавать мои данные (CCPA)' : 'Do Not Sell My Personal Information'}
+          {t('about_do_not_sell')}
         </a>
 
         {/* Diagnostics tool (if admin or unlocked) */}

@@ -106,7 +106,7 @@ function CelebrationBadge({ reduced }: { reduced: boolean }) {
   );
 }
 
-async function computeLocalEcho(content: string, docId: string): Promise<string> {
+async function computeLocalEcho(content: string, docId: string, t?: (key: string, params?: Record<string, string | number>) => string): Promise<string> {
   try {
     const { getLocalDb } = await import('../../../core/storage/localDb');
     const db = await getLocalDb();
@@ -145,10 +145,10 @@ async function computeLocalEcho(content: string, docId: string): Promise<string>
 
     if (bestEntry && bestScore >= 0.7) {
       const date = new Date(bestEntry.date);
-      const days = ['воскресенье', 'понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу'];
-      const dayName = days[date.getDay()] ?? 'прошлых днях';
-      const theme = bestEntry.themes?.[0] || 'важных темах';
-      return `Похоже на твои записи от ${dayName} о "${theme}"`;
+      const isRu = !t || t('finish_echo_title') === 'Связь мыслей';
+      const dayName = date.toLocaleDateString(isRu ? 'ru-RU' : 'en-US', { weekday: 'long' });
+      const theme = bestEntry.themes?.[0] || (t ? t('finish_echo_default_theme') : 'важных темах');
+      return t ? t('finish_echo_similar', { day: dayName, theme }) : `Похоже на твои записи от ${dayName} о "${theme}"`;
     }
   } catch (e) {
     console.error(e);
@@ -298,14 +298,14 @@ function WritingFinishModalBody({
     setEchoText('');
     void (async () => {
       try {
-        const echo = await computeLocalEcho(content, savedDocumentId || '');
+        const echo = await computeLocalEcho(content, savedDocumentId || '', t);
         if (!cancelled) setEchoText(echo);
       } catch {
         /* no echo on error */
       }
     })();
     return () => { cancelled = true; };
-  }, [step, content, savedDocumentId]);
+  }, [step, content, savedDocumentId, t]);
 
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [formExpanded, setFormExpanded] = useState(true);
@@ -527,7 +527,7 @@ function WritingFinishModalBody({
               <div className="flex items-center gap-2.5 text-left max-w-sm mx-auto bg-surface-base/10 border border-border-subtle/50 px-4 py-3 rounded-2xl">
                 <Sparkles className="text-brand-soft shrink-0" size={16} />
                 <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-brand-soft/80">Связь мыслей</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-brand-soft/80">{t('finish_echo_title')}</div>
                   <div className="text-xs text-text-main/80 leading-relaxed italic">{echoText}</div>
                 </div>
               </div>

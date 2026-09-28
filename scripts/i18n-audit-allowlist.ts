@@ -28,12 +28,6 @@ export const JSX_TEXT_ALLOWLIST: readonly string[] = [
   "src/features/ai/components/chat/AIChatMessages.tsx",
   "src/features/ai/components/chat/ThinkingIndicator.tsx",
   "src/features/ai/hooks/useSyncDiagnostics.tsx",
-  "src/features/archive/components/DocumentPreview.tsx",
-  "src/features/navigation/pages/GuidePage.tsx",
-  "src/features/settings/components/AccountAISection.tsx",
-  "src/features/settings/components/EditorTab.tsx",
-  "src/features/settings/components/SyncSettingsSection.tsx",
-  "src/features/writing/components/WritingFinishModal.tsx",
 ];
 
 export const JSX_ATTR_ALLOWLIST: readonly string[] = [
@@ -48,14 +42,4 @@ export const JSX_ATTR_ALLOWLIST: readonly string[] = [
   "src/features/ai/components/SyncDiagnostics.tsx",
   "src/features/ai/components/chat/AIChatHeader.tsx",
   "src/features/ai/components/chat/AIChatSidebar.tsx",
-  "src/features/archive/components/ArchiveLabelBar.tsx",
-  "src/features/archive/components/ArchiveTagBar.tsx",
-  "src/features/archive/components/DocumentPreview.tsx",
-  "src/features/archive/components/InlineTags.tsx",
-  "src/features/navigation/components/BottomNav.tsx",
-  "src/features/navigation/components/Sidebar.tsx",
-  "src/features/navigation/pages/GuidePage.tsx",
-  "src/features/profile/components/ProfileHero.tsx",
-  "src/features/settings/components/AboutSettingsSection.tsx",
-  "src/features/settings/components/AccountAISection.tsx",
 ];

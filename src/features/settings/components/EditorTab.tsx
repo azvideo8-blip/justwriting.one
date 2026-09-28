@@ -61,7 +61,7 @@ export function EditorTab() {
                 {font.split(' ')[0]}
               </div>
               <div className="text-xs opacity-50 mt-0.5" style={{ fontFamily: font }}>
-                Аа 123
+                {t('settings_font_preview_sample')}
               </div>
             </Button>
           ))}
@@ -215,7 +215,7 @@ export function EditorTab() {
                   : "border-border-subtle text-text-main/60 hover:text-text-main"
               }`}
             >
-              {lang === 'ru' ? '🇷🇺 Русский' : '🇺🇸 English'}
+              {lang === 'ru' ? t('settings_language_russian') : t('settings_language_english')}
             </Button>
           ))}
         </div>

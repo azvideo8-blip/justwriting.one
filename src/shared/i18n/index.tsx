@@ -284,10 +284,32 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+const defaultContextValue: LanguageContextType = {
+  language: 'ru',
+  setLanguage: () => {},
+  t: (key: string, params?: Record<string, string | number>): string => {
+    let str = translations[key]?.ru ?? key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), () => String(v));
+      });
+    }
+    return str;
+  },
+  tp: (key: string, count: number): string => {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    const suffix = (mod100 >= 11 && mod100 <= 14) ? '_many' : mod10 === 1 ? '_one' : (mod10 >= 2 && mod10 <= 4) ? '_few' : '_many';
+    const fullKey = `${key}${suffix}`;
+    const str = translations[fullKey]?.ru ?? translations[key]?.ru ?? key;
+    return str.replace('{count}', () => String(count));
+  },
+};
+
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (context === undefined) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
+    return defaultContextValue;
   }
   return context;
 }

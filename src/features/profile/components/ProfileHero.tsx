@@ -52,7 +52,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
     }
   };
 
-  const initials = (name || 'А').slice(0, 1).toUpperCase();
+  const initials = (name || 'A').slice(0, 1).toUpperCase();
   const memberSince = useMemo(() =>
     user?.metadata?.creationTime
       ? new Date(user.metadata.creationTime)
@@ -92,7 +92,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
                 onBlur={handleSaveName}
                 onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                 autoFocus
-                aria-label="Имя"
+                aria-label={t('profile_name_aria')}
                 className="text-2xl md:text-3xl font-medium text-text-main bg-transparent border-b border-text-main/20 outline-none text-center md:text-left"
               />
             ) : (

@@ -331,4 +331,160 @@ export const settingsTranslations: Translations = {
     ru: 'Не удалось очистить данные ИИ',
     en: 'Failed to clear AI data',
   },
+
+  // AccountAISection
+  settings_ai_privacy_title: {
+    ru: 'Искусственный интеллект и приватность',
+    en: 'AI & Privacy',
+  },
+  settings_ai_consent_label: {
+    ru: 'Согласие на использование ИИ',
+    en: 'Consent to use AI',
+  },
+  settings_ai_consent_status_granted: {
+    ru: 'Предоставлено',
+    en: 'Granted',
+  },
+  settings_ai_consent_not_granted: {
+    ru: 'Не предоставлено',
+    en: 'Not granted',
+  },
+  settings_ai_consent_desc_1: {
+    ru: 'ИИ анализирует ваши заметки, помогает искать по смыслу и поддерживает диалог.',
+    en: 'AI analyzes your notes, helps with semantic search, and maintains conversation.',
+  },
+  settings_ai_consent_desc_2: {
+    ru: 'Запросы отправляются модели только при явном согласии и только для тех заметок, которые не скрыты от ИИ.',
+    en: 'Requests are sent to the model only with explicit consent and only for notes not hidden from AI.',
+  },
+  settings_ai_revoke_consent: {
+    ru: 'Отозвать согласие',
+    en: 'Revoke consent',
+  },
+  settings_ai_grant_consent: {
+    ru: 'Предоставить согласие',
+    en: 'Grant consent',
+  },
+  settings_ai_delete_all_data: {
+    ru: 'Удалить все данные ИИ',
+    en: 'Delete all AI data',
+  },
+  settings_ai_semantic_label: {
+    ru: 'Поиск по смыслу (векторная индексация)',
+    en: 'Semantic search (vector indexing)',
+  },
+  settings_ai_status_enabled: {
+    ru: 'Включено',
+    en: 'Enabled',
+  },
+  settings_ai_status_words_only: {
+    ru: 'Только по словам',
+    en: 'Words only',
+  },
+  settings_ai_status_not_selected: {
+    ru: 'Не выбрано',
+    en: 'Not selected',
+  },
+  settings_ai_semantic_desc_1: {
+    ru: 'Для поиска по смыслу (семантического поиска), связывания мыслей и подбора заметок в диалогах фрагменты текста отправляются поставщику ИИ для построения числового вектора (эмбеддинга). Векторы хранятся на устройстве в зашифрованном виде.',
+    en: 'For semantic search, idea linking, and note matching in chats, text fragments are sent to the AI provider to generate a numerical vector (embedding). Vectors are stored encrypted on the device.',
+  },
+  settings_ai_semantic_desc_2: {
+    ru: 'При отключении поиск работает по точным совпадениям слов (BM25), а разбор заметок, хронология и журнал тем продолжают работать без ограничений. Существующие индексы сохраняются на устройстве.',
+    en: 'When disabled, search works via exact word matches (BM25), while note analysis, timeline, and topic ledger continue to work without limitations. Existing indices are preserved on the device.',
+  },
+  settings_ai_disable_semantic: {
+    ru: 'Отключить (искать только по словам)',
+    en: 'Disable (search only by words)',
+  },
+  settings_ai_enable_semantic: {
+    ru: 'Включить поиск по смыслу',
+    en: 'Enable semantic search',
+  },
+  settings_ai_portrait_dialog_label: {
+    ru: 'Портрет в диалоге',
+    en: 'Portrait in dialogue',
+  },
+  settings_ai_portrait_dialog_aria: {
+    ru: 'Отправлять портрет в диалог',
+    en: 'Send portrait to dialogue',
+  },
+  settings_ai_portrait_dialog_desc: {
+    ru: 'Портрет — то, что ИИ понял о вас из заметок — сейчас уходит поставщику вместе с каждым сообщением в чате, чтобы ответы были точнее. Здесь можно отключить это для диалога, не трогая сам портрет и разбор заметок — они продолжат работать как прежде.',
+    en: 'The portrait — what AI understood about you from notes — is sent to the provider with each chat message for more accurate answers. You can disable this for dialogue here without affecting the portrait or note analysis themselves — they will continue working as before.',
+  },
+  settings_ai_memory_hints_label: {
+    ru: 'Память ИИ и подсказки',
+    en: 'AI memory & suggestions',
+  },
+  settings_ai_memory_hints_desc: {
+    ru: 'После ответа в чате приложение само делает служебные запросы с тем же разговором: предлагает варианты следующего сообщения и раз в несколько сообщений сохраняет факты в «Память ИИ». Выключите — и после ответа ничего дополнительно не отправляется (название диалога по-прежнему придумывается один раз).',
+    en: 'After a reply in chat, the app makes background requests with the same conversation: suggests follow-up message options and periodically saves facts to "AI Memory". Turn this off, and nothing additional is sent after a reply (dialogue title is still generated once).',
+  },
+
+  // SyncSettingsSection
+  settings_sync_state_label: {
+    ru: 'Состояние синхронизации:',
+    en: 'Sync state:',
+  },
+  settings_sync_oversized_single: {
+    ru: '{count} диалог / запись превышает лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
+    en: '{count} conversation / record exceeds the 10 MB limit and is saved only on this device (only exists in this browser)',
+  },
+  settings_sync_oversized_plural: {
+    ru: '{count} диалогов / записей превышают лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
+    en: '{count} conversations / records exceed the 10 MB limit and are saved only on this device (only exist in this browser)',
+  },
+  settings_sync_download_from_cloud: {
+    ru: 'Загрузить из облака',
+    en: 'Download from cloud',
+  },
+
+  // EditorTab
+  settings_font_preview_sample: {
+    ru: 'Аа 123',
+    en: 'Aa 123',
+  },
+  settings_language_russian: {
+    ru: '🇷🇺 Русский',
+    en: '🇷🇺 Russian',
+  },
+  settings_language_english: {
+    ru: '🇺🇸 English',
+    en: '🇺🇸 English',
+  },
+
+  // AboutSettingsSection
+  about_version_aria: {
+    ru: 'Версия {version}',
+    en: 'Version {version}',
+  },
+  about_changelog: {
+    ru: 'Журнал изменений',
+    en: 'Changelog',
+  },
+  about_project: {
+    ru: 'О проекте',
+    en: 'About',
+  },
+  about_help: {
+    ru: 'Помощь: заметки не видны?',
+    en: 'Help & Troubleshooting',
+  },
+  about_guide: {
+    ru: 'Руководство пользователя',
+    en: 'User guide (Russian)',
+  },
+  about_privacy_policy: {
+    ru: 'Политика конфиденциальности',
+    en: 'Privacy Policy',
+  },
+  about_terms: {
+    ru: 'Условия использования',
+    en: 'Terms of Service',
+  },
+  about_do_not_sell: {
+    ru: 'Не продавать мои данные (CCPA)',
+    en: 'Do Not Sell My Personal Information',
+  },
 };

@@ -174,4 +174,16 @@ export const writingTranslations: Translations = {
   shortcuts_save: { ru: 'Сохранить', en: 'Save' },
   shortcuts_finish: { ru: 'Завершить сессию', en: 'Finish session' },
   shortcuts_toggle: { ru: 'Показать горячие клавиши', en: 'Toggle shortcuts list' },
+  finish_echo_title: {
+    ru: 'Связь мыслей',
+    en: 'Connection of thoughts',
+  },
+  finish_echo_similar: {
+    ru: 'Похоже на твои записи от {day} о "{theme}"',
+    en: 'Similar to your notes from {day} about "{theme}"',
+  },
+  finish_echo_default_theme: {
+    ru: 'важных темах',
+    en: 'important topics',
+  },
 };

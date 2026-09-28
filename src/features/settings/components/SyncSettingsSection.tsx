@@ -281,7 +281,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
             {/* Honest sync state */}
             <div className="p-3 rounded-lg border border-border-subtle bg-surface-base/30 space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-text-main/70">Состояние синхронизации:</span>
+                <span className="text-text-main/70">{t('settings_sync_state_label')}</span>
                 {syncStatus.status === 'synced' ? (
                   <span className="inline-flex items-center gap-1 font-semibold text-accent-success">
                     <CheckCircle2 size={13} />
@@ -352,7 +352,11 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
               {oversizedCount > 0 && (
                 <div className="text-[11px] text-accent-warning flex items-center gap-1 mt-1">
                   <AlertTriangle size={12} />
-                  <span>{oversizedCount} {oversizedCount === 1 ? 'диалог / запись превышает' : 'диалогов / записей превышают'} лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)</span>
+                  <span>
+                    {oversizedCount === 1
+                      ? t('settings_sync_oversized_single', { count: String(oversizedCount) })
+                      : t('settings_sync_oversized_plural', { count: String(oversizedCount) })}
+                  </span>
                 </div>
               )}
             </div>
@@ -384,7 +388,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-border-subtle text-xs text-text-main/70 hover:text-text-main transition-colors"
               >
                 <CloudDownload size={15} />
-                Загрузить из облака
+                {t('settings_sync_download_from_cloud')}
               </Button>
             </div>
 

@@ -42,8 +42,8 @@ interface BottomNavProps {
 
 export function BottomNav({ isAdmin }: BottomNavProps) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { t } = useLanguage();
+  const { t, tp: rawTp } = useLanguage();
+  const tp = typeof rawTp === 'function' ? rawTp : ((k: string, count: number) => t(k, { count: String(count) }));
   const { isGuest, user } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(user?.uid ?? null);
@@ -115,7 +115,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
       <button
         type="button"
         onClick={() => openActivityPanel(true)}
-        aria-label="Журнал активности"
+        aria-label={t('activity_log_aria')}
         className={cn(
           "absolute -top-8 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-md transition-colors",
           isNewestError
@@ -128,12 +128,12 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
         )}
         title={
           isNewestError
-            ? `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`
+            ? tp('activity_errors', errorCount)
             : isNewestWarning
-              ? `${warnCount} ${warnCount === 1 ? 'внимание' : 'внимания'}`
+              ? tp('activity_warnings', warnCount)
               : (newestLevel === 'success' || isRecent)
-                ? 'Активность'
-                : 'Журнал'
+                ? t('activity_log_active')
+                : t('activity_log_label')
         }
       >
         {isNewestError ? (
@@ -147,12 +147,12 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
         )}
         <span>
           {isNewestError
-            ? `${errorCount} ${errorCount === 1 ? 'ошибка' : errorCount < 5 ? 'ошибки' : 'ошибок'}`
+            ? tp('activity_errors', errorCount)
             : isNewestWarning
-              ? `${warnCount} ${warnCount === 1 ? 'внимание' : 'внимания'}`
+              ? tp('activity_warnings', warnCount)
               : (newestLevel === 'success' || isRecent)
-                ? 'Активность'
-                : 'Журнал'}
+                ? t('activity_log_active')
+                : t('activity_log_label')}
         </span>
       </button>
       {showSyncIndicator && (
