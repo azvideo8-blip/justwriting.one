@@ -73,6 +73,11 @@ export function useSpeechInput({ onTranscript }: UseSpeechInputProps) {
     const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+    }
+
     const recognition = new SpeechRecognition();
 
     recognition.continuous = true;
