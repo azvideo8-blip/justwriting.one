@@ -36,8 +36,7 @@ export function useDailyLimit(): DailyLimitState {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const today = new Date().toISOString().slice(0, 10);
-      if (today !== new Date(resetsAt).toISOString().slice(0, 10)) {
+      if (Date.now() >= new Date(resetsAt).getTime()) {
         void loadLimitFromServer();
       }
     }, 60_000);

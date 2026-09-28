@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useDailyLimit } from '../useDailyLimit';
+import { useAiLimitStore } from '../../store/useAiLimitStore';
 
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
@@ -87,5 +90,45 @@ describe('useDailyLimit helpers', () => {
     const parsed = JSON.parse(raw!) as { count: number };
     const remaining = Math.max(0, DAILY_LIMIT - parsed.count);
     expect(remaining).toBe(0);
+  });
+
+  describe('F-038: useDailyLimit interval refresh', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('does not refresh quota while resetsAt is in the future, but refreshes once resetsAt has passed', async () => {
+      const now = Date.now();
+      const futureReset = new Date(now + 120_000); // 2 minutes in future
+      const loadSpy = vi.fn().mockImplementation(async () => {
+        useAiLimitStore.setState({ resetsAt: new Date(Date.now() + 86_400_000) });
+      });
+
+      useAiLimitStore.setState({
+        loaded: true,
+        resetsAt: futureReset,
+        loadLimitFromServer: loadSpy,
+      });
+
+      renderHook(() => useDailyLimit());
+
+      // Advance 60 seconds: resetsAt is still 60 seconds in the future
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+
+      expect(loadSpy).not.toHaveBeenCalled();
+
+      // Now advance another 60 seconds: resetsAt has arrived
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+
+      expect(loadSpy).toHaveBeenCalledTimes(1);
+    });
   });
 });
