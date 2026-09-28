@@ -48,7 +48,7 @@ jobs:
 
           echo "Starting Postgres 16 container..."
           CONTAINER_NAME="jw-gate-postgres-${GITHUB_RUN_ID:-local}"
-          docker run --name "$CONTAINER_NAME" -d -p 5439:5432 -e POSTGRES_PASSWORD=postgres postgres:16
+          docker run --name "$CONTAINER_NAME" -d -p 127.0.0.1:5439:5432 -e POSTGRES_PASSWORD=postgres postgres:16
 
           cleanup() {
             echo "Cleaning up Postgres container..."
@@ -69,7 +69,7 @@ jobs:
           done
           docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/rls.test.sql
 
-          export DATABASE_URL="postgres://postgres:postgres@localhost:5439/postgres"
+          export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5439/postgres"
 
           echo "TB-02/TB-03 Step A: Injecting canary..."
           docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/postulates_canary.sql
