@@ -36,9 +36,11 @@ sudo cp -r dist/* /var/www/justwriting/
 npx esbuild api/server.ts --bundle --platform=node --format=esm \
   --target=node20 --packages=external --outfile=/tmp/server.mjs
 sudo cp /tmp/server.mjs /opt/justwriting/api/server.mjs
-sudo cp deploy/api-package.json /opt/justwriting/api/package.json
-sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs /opt/justwriting/api/package.json
-sudo -u justwriting npm install --prefix /opt/justwriting/api --omit=dev
+sudo cp deploy/api/package.json /opt/justwriting/api/package.json
+sudo cp deploy/api/package-lock.json /opt/justwriting/api/package-lock.json
+sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs /opt/justwriting/api/package.json /opt/justwriting/api/package-lock.json
+sudo -u justwriting env npm_config_cache=/opt/justwriting/api/.npm-cache \
+  npm ci --prefix /opt/justwriting/api --omit=dev --no-audit --no-fund
 
 # 4. Environment
 sudo cp deploy/.env.example /opt/justwriting/api/.env

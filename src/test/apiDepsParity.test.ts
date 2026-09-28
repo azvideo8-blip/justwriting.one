@@ -1,5 +1,5 @@
-// D-3 / F-043: зависимости службы на сервере обязаны быть тем же набором, на
-// котором крутятся тесты. Пока манифест жил одним файлом с диапазонами и без
+// D-3 / F-043, F-064: зависимости службы на сервере обязаны быть тем же набором,
+// на котором крутятся тесты. Пока манифест жил одним файлом с диапазонами и без
 // лока, он разошёлся с корнем (ai ^6.0.257 против ^6.0.191), и прод получал
 // версии, которые CI не видел. Транзитивные зависимости при этом совпадать не
 // обязаны — графы разные; фиксируется ровно то, что импортит бандл.
@@ -18,7 +18,7 @@ type Lock = {
 
 const manifest = JSON.parse(
   readFileSync(path.join(API_DIR, 'package.json'), 'utf-8'),
-) as { dependencies: Record<string, string> };
+) as { dependencies: Record<string, string>; private?: boolean; version?: string };
 const apiLock = JSON.parse(
   readFileSync(path.join(API_DIR, 'package-lock.json'), 'utf-8'),
 ) as Lock;
@@ -67,6 +67,16 @@ describe('AG-DEPS-1 — зависимости службы совпадают �
       }
     }
     expect(problems).toEqual([]);
+  });
+
+  it('манифест службы private и без version (F-064)', () => {
+    // «1.0.0» в этом файле вечна и ни в одном релизном процессе не участвует:
+    // при этом это единственный манифест, который видит прод-API, — то есть
+    // выглядит как версия API, которой никто не сверяет. Поле убрано, чтобы не
+    // притворялось; версия приложения живёт в src/version.ts / package.json /
+    // public/sw.js и её держит вместе versionConsistency.test.ts.
+    expect(manifest.private, 'без private npm ci не примет манифест без version').toBe(true);
+    expect(manifest.version, `version ${manifest.version} ничего не описывает`).toBeUndefined();
   });
 
   it('лок службы описывает тот же манифест, что лежит рядом', () => {
