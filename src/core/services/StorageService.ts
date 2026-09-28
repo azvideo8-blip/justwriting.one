@@ -97,12 +97,12 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
   const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
   let derivativesOk = true;
   if (localId) {
-    derivativesOk = await LocalStorageService.deleteDocument(localId, userId, targetCloudId);
+    derivativesOk = await LocalStorageService.deleteDocument(localId, userId, { remove: true, cloudId: targetCloudId });
   } else if (targetCloudId) {
     await queueCloudRemoval(userId, targetCloudId);
   }
   let cloudSynced = !lookupFailed;
-  if (targetCloudId) {
+  if (targetCloudId && !lookupFailed) {
     try {
       await CloudSyncService.removeCloudCopy(userId, targetCloudId);
       await clearCloudRemovalTasks(userId, targetCloudId);

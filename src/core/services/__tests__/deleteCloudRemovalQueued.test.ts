@@ -40,6 +40,7 @@ vi.mock('../LocalStoreSyncService', () => ({
 vi.mock('../CloudSyncService', () => ({ CloudSyncService: { removeCloudCopy } }));
 
 import { StorageService } from '../StorageService';
+import { LocalStorageService } from '../LocalStorageService';
 
 async function deleteTasks() {
   const db = await getLocalDb('u1');
@@ -107,5 +108,24 @@ describe('SB-2: постановка удаления облачной копи�
 
     expect(res.cloudSynced).toBe(false);
     expect(await deleteTasks()).toHaveLength(1);
+  });
+
+  it('A-3.1: the pre-read throws, the note has linkedCloudId -> after deletion a delete task for that cloud id exists', async () => {
+    vi.spyOn(LocalStorageService, 'getDocument').mockRejectedValueOnce(new Error('IDB pre-read fail'));
+
+    const res = await StorageService.deleteDocument('u1', LOCAL);
+
+    expect(res.cloudSynced).toBe(false);
+    expect(removeCloudCopy).not.toHaveBeenCalled();
+    const tasks = await deleteTasks();
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]!.documentId).toBe(CLOUD);
+  });
+
+  it('A-3.1: removeLocalCopy -> no delete task queued', async () => {
+    await StorageService.removeLocalCopy(LOCAL);
+
+    const tasks = await deleteTasks();
+    expect(tasks).toHaveLength(0);
   });
 });

@@ -26,6 +26,10 @@ async function deleteCloudDerivative(kind: 'summary' | 'embedding', canonicalId:
   }
 }
 
+export interface DeleteDocumentCloudOptions {
+  remove: true;
+  cloudId?: string | undefined;
+}
 
 export const LocalDocumentService = {
   async createDocument(
@@ -156,15 +160,15 @@ export const LocalDocumentService = {
   /** true — заметка и все её производные удалены; false — заметка удалена, а
    *  часть разборов ИИ (локально или в облаке) нет (N-51).
    *
-   *  @param removeCloudId Облачный ряд, который надо снести. Метка удаления
+   *  @param cloud Явный параметр облачного удаления. Если задан `cloud.remove`,
+   *    задача на снос облачной копии (`cloud.cloudId ?? doc?.linkedCloudId`)
    *    ставится в очередь ЭТИМ ЖЕ транзакционным проходом, что и снос локальной
-   *    строки (SB-2). Раньше её писали только в catch после сбоя сетевого
-   *    удаления: всё время полёта удаление не было запомнено, закрытая вкладка
-   *    оставляла облачный ряд живым, а downloadAllFromCloud по uuid возвращал
-   *    заметку на устройство — «удалил» означало «спрятал до синхронизации».
-   *    Параметр явный, а не вынутый из doc.linkedCloudId: removeLocalCopy и
-   *    откат загрузки тоже зовут это удаление, и облако там остаётся намеренно. */
-  async deleteDocument(id: string, ownerId?: string, removeCloudId?: string): Promise<boolean> {
+   *    строки (SB-2). Раньше при сбое предварительного чтения (F-023) облачное
+   *    удаление терялось, возвращая заметку при синхронизации. Теперь при
+   *    `cloud.remove` идентификаторы берутся из прочитанного документа в транзакции.
+   *    Когда параметр отсутствует (removeLocalCopy, откат загрузки),
+   *    ничего в очередь не ставится — облако остаётся намеренно. */
+  async deleteDocument(id: string, ownerId?: string, cloud?: DeleteDocumentCloudOptions): Promise<boolean> {
     const db = await getLocalDb(ownerId);
     const tx = db.transaction(['documents', 'versions', 'syncQueue'], 'readwrite');
     const verStore = tx.objectStore('versions');
@@ -182,16 +186,19 @@ export const LocalDocumentService = {
            (Boolean(linkedCloudId) && t.documentId === linkedCloudId)
     );
 
+    const targetCloudId = cloud?.remove ? (cloud.cloudId ?? doc?.linkedCloudId) : undefined;
+    const targetOwner = ownerId ?? doc?.guestId;
+
     await Promise.all([
       ...versions.map(v => verStore.delete(v.id)),
       ...matchingTasks.map(t => queueStore.delete(t.id)),
-      ...(removeCloudId && ownerId
+      ...(targetCloudId && targetOwner
         ? [queueStore.put({
-            id: `delete_${removeCloudId}_${Date.now()}`,
-            documentId: removeCloudId,
+            id: `delete_${targetCloudId}_${Date.now()}`,
+            documentId: targetCloudId,
             type: 'delete' as const,
             createdAt: Date.now(),
-            ownerId,
+            ownerId: targetOwner,
           })]
         : []),
       docStore.delete(id),

@@ -1,4 +1,4 @@
-import { LocalDocumentService } from './LocalDocumentService';
+import { LocalDocumentService, type DeleteDocumentCloudOptions } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb, randomUUID, LocalDocument } from '../storage/localDb';
 import { computeWordDelta } from './DiffService';
@@ -178,8 +178,8 @@ export const LocalStorageService = {
     return LocalVersionService.getVersions(localId, ownerId);
   },
 
-  async deleteDocument(localId: string, ownerId?: string, removeCloudId?: string): Promise<boolean> {
-    return LocalDocumentService.deleteDocument(localId, ownerId, removeCloudId);
+  async deleteDocument(localId: string, ownerId?: string, cloud?: DeleteDocumentCloudOptions): Promise<boolean> {
+    return LocalDocumentService.deleteDocument(localId, ownerId, cloud);
   },
 
   async createDocument(userId: string, data: Parameters<typeof LocalDocumentService.createDocument>[1]) {
