@@ -88,12 +88,6 @@ export interface MemoryClusterCandidate {
   salience: number;
 }
 
-export interface JudgeResult {
-  passed: boolean;
-  reason: string;
-  correctiveHint?: string;
-}
-
 export const AIConsolidationService = {
   /**
    * Retrieves all published beliefs from IndexedDB `aiBeliefs`.

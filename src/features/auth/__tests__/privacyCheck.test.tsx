@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePrivacyCheck } from '../components/usePrivacyCheck';
-import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 
 // Mock the data facade, not a provider. The hook reads
 // DataProvider.getProfile(); mocking the old firestoreClient left the real
@@ -42,7 +42,7 @@ describe('usePrivacyCheck waits for the restored session', () => {
   });
 
   it('does not ask again when consent for the current version is cached locally', async () => {
-    localStorage.setItem('privacy_accepted_u1', String(PRIVACY_VERSION));
+    localStorage.setItem('privacy_accepted_u1', String(AI_CONSENT_VERSION_REQUIRED));
     authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
 
     const { result } = renderHook(() => usePrivacyCheck());
@@ -65,7 +65,7 @@ describe('usePrivacyCheck waits for the restored session', () => {
   });
 
   it('does not ask when the profile already carries the current version', async () => {
-    mockGetProfile.mockResolvedValueOnce({ privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION });
+    mockGetProfile.mockResolvedValueOnce({ privacyAcceptedAt: new Date(), privacyVersion: AI_CONSENT_VERSION_REQUIRED });
     authStatus = { user: { uid: 'u1' }, authState: 'authenticated' };
 
     const { result } = renderHook(() => usePrivacyCheck());
@@ -105,7 +105,7 @@ describe('usePrivacyCheck waits for the restored session', () => {
     await act(async () => { await Promise.resolve(); });
     expect(result.current.showPrivacy).toBe(false);
 
-    localStorage.setItem('privacy_accepted_u1', String(PRIVACY_VERSION)); // мастер записал согласие
+    localStorage.setItem('privacy_accepted_u1', String(AI_CONSENT_VERSION_REQUIRED)); // мастер записал согласие
     rerender({ suspended: false });
     await act(async () => { await Promise.resolve(); });
     expect(result.current.showPrivacy).toBe(false);

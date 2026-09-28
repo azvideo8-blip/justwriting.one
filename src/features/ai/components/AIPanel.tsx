@@ -292,21 +292,3 @@ export function AIPanel({ open, onClose, content, onApplyContent }: AIPanelProps
     </AnimatePresence>
   );
 }
-
-export function AIToggleButton({ onClick, active }: { onClick: () => void; active: boolean }) {
-  const { t } = useLanguage();
-  return (
-    <IconButton
-      icon={<Sparkles size={16} />}
-      label={t('ai_toggle')}
-      onClick={onClick}
-      active={active}
-      className={cn(
-        "rounded-lg",
-        active
-          ? "bg-brand-soft/20 text-brand-soft"
-          : "text-text-main/60 hover:text-text-main hover:bg-text-main/5"
-      )}
-    />
-  );
-}

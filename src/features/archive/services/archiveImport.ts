@@ -113,42 +113,5 @@ export async function importNoteFile(
   return { success: true, dateUnreadable };
 }
 
-const MAX_BATCH_COUNT = 20;
-
-export async function importBatchFiles(
-  files: File[],
-  userId: string,
-  isSignedIn: boolean
-): Promise<{ successCount: number; failureCount: number; unreadableDateCount: number }> {
-  if (files.length > MAX_BATCH_COUNT) {
-    throw new Error(`BATCH_LIMIT_EXCEEDED: Maximum ${MAX_BATCH_COUNT} files allowed per import.`);
-  }
-
-  let successCount = 0;
-  let failureCount = 0;
-  let unreadableDateCount = 0;
-
-  for (const file of files) {
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!ext || !['txt', 'md', 'docx'].includes(ext)) {
-      failureCount += 1;
-      continue;
-    }
-
-    try {
-      const res = await importNoteFile(file, userId, isSignedIn);
-      if (res.success) {
-        successCount += 1;
-        if (res.dateUnreadable) unreadableDateCount += 1;
-      } else {
-        failureCount += 1;
-      }
-    } catch {
-      failureCount += 1;
-    }
-  }
-
-  return { successCount, failureCount, unreadableDateCount };
-}
 
 

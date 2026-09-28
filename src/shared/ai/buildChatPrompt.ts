@@ -124,10 +124,6 @@ export function classifyInvisibleCodePoint(code: number): InvisibleCategory {
   return 'keep';
 }
 
-export function isInvisibleCodePoint(code: number): boolean {
-  return classifyInvisibleCodePoint(code) !== 'keep';
-}
-
 // E-9: Small Cyrillic/Greek -> Latin confusable characters map
 export const CONFUSABLES_MAP: Record<string, string> = {
   'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c',
@@ -218,8 +214,6 @@ export const chatInputSchema = z.object({
   reasoning: z.boolean().nullish(),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand', 'system_task']).nullish(),
 });
-
-export type ChatInputPayload = z.infer<typeof chatInputSchema>;
 
 export interface ChatPromptInput {
   personaId: string;

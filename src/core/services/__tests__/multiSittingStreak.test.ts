@@ -8,8 +8,7 @@ import { calculateStreak, getSessionDates } from '../../utils/utils';
 import { useArchiveGrouping } from '../../../features/archive/hooks/useArchiveGrouping';
 import { renderHook } from '@testing-library/react';
 import { subDays, startOfDay } from 'date-fns';
-import { Session } from '../../../types';
-import { ArchiveSession } from '../../../features/archive/types';
+import { Session, ArchiveSession } from '../../../types';
 
 describe('DEEP-2: multi-sitting note history', () => {
   const userId = 'user_multi_sitting_test';

@@ -1,1 +1,1 @@
-export type { ArchiveSession, ExportStrings } from './types/archive';
+export type { ArchiveSession } from './types/archive';

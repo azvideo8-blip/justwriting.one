@@ -5,7 +5,6 @@ import { getCurrentUser } from '../../../core/auth';
 import { PrivacyConsentBody, savePrivacyConsent } from './PrivacyConsentBody';
 import { Button } from '../../../shared/components/Button';
 import { ModalShell } from '../../../shared/components/ModalShell';
-import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
 import { useLanguage } from '../../../shared/i18n';
 
 interface PrivacyModalProps {
@@ -77,5 +76,4 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
 // (2026-08-18) — первая, где сказано, что запрос к модели может уйти за границу.
 
 
-// Ре-экспорт для обратной совместимости: часть кода импортирует константу отсюда.
-export { PRIVACY_VERSION };
+

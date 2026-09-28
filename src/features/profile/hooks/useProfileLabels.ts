@@ -10,16 +10,6 @@ import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 const labelCache = new Map<string, Label[]>();
 const fetchedSet = new Set<string>();
 
-export function clearProfileLabelCache(userId?: string) {
-  if (userId) {
-    labelCache.delete(userId);
-    fetchedSet.delete(userId);
-  } else {
-    labelCache.clear();
-    fetchedSet.clear();
-  }
-}
-
 export function useProfileLabels(userId: string, initialLabels: Label[] = []) {
   const cached = labelCache.get(userId);
   const [labels, setLabels] = useState<Label[]>(cached ?? initialLabels);

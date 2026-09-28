@@ -3,7 +3,6 @@ import { generateRecoveryCode, wrapDataKeyWithRecoveryCode } from '../crypto/rec
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
 import {
   saveEncryptionMeta,
-  getEncryptionMeta,
   generateSalt,
   saltToBase64,
   ENCRYPTION_META_VERSION,
@@ -17,11 +16,6 @@ export function hasLegacyEncryption(profile: { encryptionSalt?: string | undefin
 
 export function hasVault(profile?: { encryptionMeta?: unknown; encryptionSalt?: string | undefined; encryptedDataKey?: string | undefined } | null): boolean {
   return !!profile?.encryptionMeta || hasLegacyEncryption(profile ?? null);
-}
-
-export async function hasNewEncryption(uid: string): Promise<boolean> {
-  const meta = await getEncryptionMeta(uid);
-  return meta !== null;
 }
 
 export async function migrateFromLegacy(

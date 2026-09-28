@@ -59,18 +59,6 @@ let _burstDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _lastCaret = 0;
 const MAX_HISTORY = 100;
 
-// AUDIT-M13: сброс модульных синглтонов между тестами и при HMR — иначе
-// грязное состояние переживает пересоздание store.
-export function __resetContentStoreInternalsForTests() {
-  _lastCaret = 0;
-  clearWordCalcTimer();
-  if (_burstDebounceTimer != null) {
-    clearTimeout(_burstDebounceTimer);
-    _burstDebounceTimer = null;
-  }
-  useContentStore.setState({ burstBaseline: null, isApplyingHistory: false });
-}
-
 export function clearWordCalcTimer() {
   if (_wordCalcRaf != null) cancelAnimationFrame(_wordCalcRaf);
   _wordCalcRaf = null;

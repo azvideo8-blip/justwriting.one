@@ -1,6 +1,6 @@
 import React from 'react';
 import { DataProvider } from '../../../core/data';
-import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { useLanguage } from '../../../shared/i18n';
 
 /**
@@ -84,12 +84,12 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
 export async function savePrivacyConsent(uid: string, aiConsent: boolean): Promise<void> {
   await DataProvider.updateProfile(uid, {
     privacyAcceptedAt: new Date(),
-    privacyVersion: PRIVACY_VERSION,
+    privacyVersion: AI_CONSENT_VERSION_REQUIRED,
     // Согласие на спецкатегории пишется отдельным полем и отдельной
     // отметкой времени: оно даётся и отзывается независимо от согласия с
     // политикой, и доказывать их придётся по отдельности.
     aiConsentAt: aiConsent ? new Date() : null,
-    aiConsentVersion: aiConsent ? PRIVACY_VERSION : null,
+    aiConsentVersion: aiConsent ? AI_CONSENT_VERSION_REQUIRED : null,
   } as Record<string, unknown>);
-  localStorage.setItem(`privacy_accepted_${uid}`, String(PRIVACY_VERSION));
+  localStorage.setItem(`privacy_accepted_${uid}`, String(AI_CONSENT_VERSION_REQUIRED));
 }

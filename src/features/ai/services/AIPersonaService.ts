@@ -9,10 +9,6 @@ export const PRESET_PERSONAS = [
   { id: 'coach', name: 'Коуч', emoji: '\u{1F680}', isPreset: true },
 ] as const;
 
-export const PRESET_PERSONA_IDS = PRESET_PERSONAS.map(p => p.id);
-
-export type PresetPersona = typeof PRESET_PERSONAS[number];
-
 export const AIPersonaService = {
   async listCustom(): Promise<AIPersona[]> {
     const db = await getLocalDb();

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PrivacyModal } from '../components/PrivacyModal';
 import { DataProvider } from '../../../core/data';
 import { getCurrentUser } from '../../../core/auth';
-import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { LanguageProvider } from '../../../shared/i18n';
 
 vi.mock('../../../core/auth', () => ({
@@ -64,13 +64,13 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
 
     await waitFor(() => {
       expect(DataProvider.updateProfile).toHaveBeenCalledWith('user_123', expect.objectContaining({
-        privacyVersion: PRIVACY_VERSION,
+        privacyVersion: AI_CONSENT_VERSION_REQUIRED,
         aiConsentAt: null,
         aiConsentVersion: null,
       }));
     });
 
-    expect(localStorage.getItem('privacy_accepted_user_123')).toBe(String(PRIVACY_VERSION));
+    expect(localStorage.getItem('privacy_accepted_user_123')).toBe(String(AI_CONSENT_VERSION_REQUIRED));
     expect(onAccepted).toHaveBeenCalledTimes(1);
   });
 
@@ -87,12 +87,12 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
 
     await waitFor(() => {
       expect(DataProvider.updateProfile).toHaveBeenCalledWith('user_123', expect.objectContaining({
-        privacyVersion: PRIVACY_VERSION,
-        aiConsentVersion: PRIVACY_VERSION,
+        privacyVersion: AI_CONSENT_VERSION_REQUIRED,
+        aiConsentVersion: AI_CONSENT_VERSION_REQUIRED,
       }));
     });
 
-    expect(localStorage.getItem('privacy_accepted_user_123')).toBe(String(PRIVACY_VERSION));
+    expect(localStorage.getItem('privacy_accepted_user_123')).toBe(String(AI_CONSENT_VERSION_REQUIRED));
     expect(onAccepted).toHaveBeenCalledTimes(1);
   });
 });

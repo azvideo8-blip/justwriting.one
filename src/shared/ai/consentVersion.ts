@@ -11,11 +11,4 @@
  * privacyVersion и aiConsentVersion в профиле, и большее число означает, что
  * согласие нужно собрать заново.
  */
-export const PRIVACY_VERSION = 3;
-
-/**
- * Минимальная версия согласия на ИИ. `aiConsentVersion` в профиле пишется тем же
- * PRIVACY_VERSION (PrivacyModal, AccountAISection), поэтому отдельная константа
- * здесь — это имя для смысла, а не второе число, которое может разойтись.
- */
-export const AI_CONSENT_VERSION_REQUIRED = PRIVACY_VERSION;
+export const AI_CONSENT_VERSION_REQUIRED = 3;

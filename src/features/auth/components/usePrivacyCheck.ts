@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DataProvider } from '../../../core/data';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 
 // Отдельно от PrivacyModal: проверка нужна при каждом запуске, а само окно —
 // редко. Так окно грузится лениво и не лежит в стартовом куске.
@@ -28,7 +28,7 @@ export function usePrivacyCheck(suspended = false) {
       // В кэше держим принятую версию, а не «true»: иначе человек, согласившийся
       // со старым текстом, никогда не увидит новый.
       const cached = localStorage.getItem(`privacy_accepted_${user.uid}`);
-      if (cached === String(PRIVACY_VERSION)) {
+      if (cached === String(AI_CONSENT_VERSION_REQUIRED)) {
         setShowPrivacy(false);
         return;
       }
@@ -38,8 +38,8 @@ export function usePrivacyCheck(suspended = false) {
         if (cancelled) return;
         const accepted = profile?.privacyAcceptedAt !== undefined && profile.privacyAcceptedAt !== null;
         const version = typeof profile?.privacyVersion === 'number' ? profile.privacyVersion : 0;
-        if (accepted && version >= PRIVACY_VERSION) {
-          localStorage.setItem(`privacy_accepted_${user.uid}`, String(PRIVACY_VERSION));
+        if (accepted && version >= AI_CONSENT_VERSION_REQUIRED) {
+          localStorage.setItem(`privacy_accepted_${user.uid}`, String(AI_CONSENT_VERSION_REQUIRED));
           setShowPrivacy(false);
           return;
         }

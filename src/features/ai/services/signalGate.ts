@@ -15,8 +15,6 @@ export const SIGNAL_THRESHOLDS = {
   themeLedger: { minCount: 3, minUniqueMonths: 1 } as SignalThreshold,
 } as const;
 
-export type ArtifactSignalType = keyof typeof SIGNAL_THRESHOLDS;
-
 /**
  * Calculates the number of distinct YYYY-MM calendar months spanned by a set of dates/timestamps.
  */

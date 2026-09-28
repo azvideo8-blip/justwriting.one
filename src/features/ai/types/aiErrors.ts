@@ -23,7 +23,3 @@ export type AIErrorCode =
 export function isDayLimitError(code?: string | null): boolean {
   return code === 'DAILY_LIMIT' || code === 'BULK_LIMIT';
 }
-
-export function assertNever(x: never): never {
-  throw new Error(`unhandled: ${String(x)}`);
-}

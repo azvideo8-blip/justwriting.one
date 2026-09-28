@@ -14,7 +14,7 @@ vi.mock('../db', () => ({
 }));
 
 import { postgresAiContext } from '../postgresAiContext';
-import { AI_CONSENT_VERSION_REQUIRED, PRIVACY_VERSION } from '../../src/shared/ai/consentVersion';
+import { AI_CONSENT_VERSION_REQUIRED } from '../../src/shared/ai/consentVersion';
 
 const GRANTED_AT = '2026-09-01T00:00:00.000Z';
 
@@ -24,23 +24,23 @@ describe('AI consent version is one number for client and server (D-6)', () => {
   });
 
   it('the shared constant is the current policy version', () => {
-    expect(AI_CONSENT_VERSION_REQUIRED).toBe(PRIVACY_VERSION);
+    expect(AI_CONSENT_VERSION_REQUIRED).toBe(3);
   });
 
   it('accepts consent given on the current version', async () => {
-    consentRow = { ai_consent_at: GRANTED_AT, ai_consent_version: PRIVACY_VERSION };
+    consentRow = { ai_consent_at: GRANTED_AT, ai_consent_version: AI_CONSENT_VERSION_REQUIRED };
     await expect(postgresAiContext.getAiConsent('u1')).resolves.toEqual({ granted: true });
   });
 
   it('rejects the version the settings screen also rejects', async () => {
     // Именно этот случай расходился: сервер пускал (2 >= 2), Настройки показывали
-    // «Согласие не предоставлено» (2 < PRIVACY_VERSION).
-    consentRow = { ai_consent_at: GRANTED_AT, ai_consent_version: PRIVACY_VERSION - 1 };
+    // «Согласие не предоставлено» (2 < AI_CONSENT_VERSION_REQUIRED).
+    consentRow = { ai_consent_at: GRANTED_AT, ai_consent_version: AI_CONSENT_VERSION_REQUIRED - 1 };
     await expect(postgresAiContext.getAiConsent('u1')).resolves.toEqual({ granted: false });
   });
 
   it('rejects a profile without a consent timestamp', async () => {
-    consentRow = { ai_consent_at: null, ai_consent_version: PRIVACY_VERSION };
+    consentRow = { ai_consent_at: null, ai_consent_version: AI_CONSENT_VERSION_REQUIRED };
     await expect(postgresAiContext.getAiConsent('u1')).resolves.toEqual({ granted: false });
   });
 });

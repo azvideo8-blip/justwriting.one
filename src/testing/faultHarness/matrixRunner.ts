@@ -12,11 +12,6 @@
 import { LifecycleRunner } from './lifecycleRunner';
 import { FaultType, StepName, MatrixCellResult, LifecycleSequence } from './faultTypes';
 
-export interface MatrixRunConfig {
-  sequences: LifecycleSequence[];
-  faults: FaultType[];
-}
-
 export class MatrixRunner {
   private runner: LifecycleRunner;
 

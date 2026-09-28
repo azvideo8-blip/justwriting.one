@@ -136,14 +136,6 @@ export interface Session extends SessionCore {
   _localOnly?: boolean | undefined;
 }
 
-export interface SessionPayload extends SessionCore {
-  pinnedThoughts?: string[] | undefined;
-  sessionType?: 'free' | 'stopwatch' | 'timer' | 'words' | 'finish-by' | undefined;
-  sessionStartTime?: number | null | undefined;
-  goalReached?: boolean | undefined;
-  updatedAt?: Timestamp | Date | number | undefined;
-}
-
 // AUDIT-part2 4.2: канонические поля документа — единый источник истины для
 // LocalDocument (core/storage/localDb) и Document (облачная форма). Время
 // параметризовано сознательно: локальный стор хранит ms-числа, облако —

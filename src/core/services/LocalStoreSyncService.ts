@@ -231,10 +231,6 @@ export function getDeadStoreUpserts(uid?: string): DeadStoreUpsert[] {
   return uid ? readDeadUpserts().filter(d => d.uid === uid) : readDeadUpserts();
 }
 
-export function getDeadStoreUpsertCount(uid?: string): number {
-  return getDeadStoreUpserts(uid).length;
-}
-
 function markDeadUpsert(uid: string, store: string, key: string, attempts: number, lastError: string): void {
   const list = readDeadUpserts().filter(d => !(d.uid === uid && d.store === store && d.key === key));
   list.push({ uid, store, key, lastError, attempts, timestamp: Date.now() });

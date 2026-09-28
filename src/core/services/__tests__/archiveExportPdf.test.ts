@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { exportAsPdf } from '../ArchiveExportService';
-import type { ArchiveSession } from '../../../features/archive/types/archive';
+import type { ArchiveSession } from '../../../types';
 
 describe('D-27: exportAsPdf window.open popup behavior', () => {
   const dummySession: ArchiveSession = {

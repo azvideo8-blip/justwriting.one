@@ -4,23 +4,6 @@ import { toDate } from '../../../core/utils/dateUtils';
 import { getSessionDate } from '../../../core/utils/utils';
 import { LifeLogDocument, SessionGroup } from '../types/lifeLog';
 
-export function localDocToSession(doc: LocalDocument, content: string): Session {
-  return {
-    id: doc.id,
-    userId: doc.guestId,
-    content,
-    duration: doc.totalDuration,
-    wordCount: doc.totalWords,
-    charCount: 0,
-    wpm: 0,
-    title: doc.title,
-    tags: doc.tags,
-    createdAt: new Date(doc.lastSessionAt),
-    _isLocal: true,
-    mood: doc.mood,
-  };
-}
-
 export function localDocToLifeLog(d: LocalDocument, hasCloud: boolean): LifeLogDocument {
   return {
     localId: d.id,

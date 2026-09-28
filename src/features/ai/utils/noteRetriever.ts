@@ -1,4 +1,4 @@
-export type { RetrievedNote, SearchNotesOptions } from './retrieval';
+export type { RetrievedNote } from './retrieval';
 export { RESURFACE_FLOOR } from './retrieval';
 export { invalidateMiniSearchCache, refreshMiniSearchDoc } from './retrieval';
 export { vectorScore01 } from './retrieval';

@@ -37,8 +37,6 @@ async function getActiveModel(): Promise<string> {
   return ACTIVE_CHAT_MODEL;
 }
 
-export type ProviderRole = 'user' | 'assistant';
-
 export interface GenerateParams {
   system?: string | undefined;
   messages: ChatMessage[];

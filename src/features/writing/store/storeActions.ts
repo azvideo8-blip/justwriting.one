@@ -8,12 +8,6 @@ import type { ContentStateData } from './useContentStore';
 import type { TimerStateData } from './useTimerStore';
 import type { SessionMetaStateData } from './useSessionMetaStore';
 
-export function getContentState() { return useContentStore.getState(); }
-export function getTimerState() { return useTimerStore.getState(); }
-export function setTimerPartial(partial: Parameters<typeof useTimerStore.setState>[0]) {
-  return useTimerStore.setState(partial);
-}
-
 const createContentDefaults = () => ({
   content: '', title: '', pinnedThoughts: [],
   wordCount: 0, initialWordCount: 0, wpm: 0, wordSnapshots: [],

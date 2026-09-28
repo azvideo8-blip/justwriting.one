@@ -8,7 +8,7 @@ import { getSendPortraitInDialogue, setSendPortraitInDialogue } from '../../../c
 import { getChatExtrasEnabled, setChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { Toggle } from '../../../shared/components/Toggle';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
-import { PRIVACY_VERSION, AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
+import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getLocalDb } from '../../../core/storage/localDb';
@@ -61,7 +61,7 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       const now = new Date();
       await DataProvider.updateProfile(userId, {
         aiConsentAt: now,
-        aiConsentVersion: PRIVACY_VERSION,
+        aiConsentVersion: AI_CONSENT_VERSION_REQUIRED,
       });
       setAiConsent(userId, true);
       showToast(t('settings_ai_consent_granted'), 'success');

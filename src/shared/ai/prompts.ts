@@ -94,6 +94,3 @@ Write in a warm, conversational tone — not like a report or academic paper.
 Language: always match the language of the user's text.`,
 
 } as const;
-
-export type PersonaId = keyof typeof PERSONA_PROMPTS;
-export const PRESET_PERSONA_IDS = Object.keys(PERSONA_PROMPTS) as PersonaId[];

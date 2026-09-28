@@ -88,21 +88,6 @@ export function onAuthStateChange(cb: (u: AppUser | null) => void): () => void {
   return () => subscription.unsubscribe();
 }
 
-export function onTokenChange(cb: (u: AppUser | null) => void): () => void {
-  ensureSubscribed();
-  // AUTH-1: same last-emitted-uid guard as onAuthStateChange.
-  let lastUid: string | null | undefined = undefined;
-  const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, session) => {
-    const user = mapUser(session?.user ?? null);
-    const uid = user?.uid ?? null;
-    if (uid === lastUid) return;
-    if (isAccountReloadPending() || accountChanges(uid)) return;
-    lastUid = uid;
-    cb(user);
-  });
-  return () => subscription.unsubscribe();
-}
-
 export async function getIdToken(forceRefresh?: boolean): Promise<string | null> {
   if (forceRefresh) {
     const { error } = await getSupabase().auth.refreshSession();

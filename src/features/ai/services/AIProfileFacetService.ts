@@ -4,11 +4,7 @@ import { AIProfileFacetBuilder, type FacetBuildProgress, type FacetBuildResult }
 import { AIProfileFacetSummarizer } from './AIProfileFacetSummarizer';
 
 import type { CallAiOptions } from '../../../core/ai/callAi';
-import { withFacetLock, writeFacetStore } from '../../../core/services/facetLock';
-
-// Ре-экспорт: часть кода импортирует лок отсюда исторически.
-export { withFacetLock, writeFacetStore };
-
+import { writeFacetStore } from '../../../core/services/facetLock';
 
 export const AIProfileFacetService = {
   async getAll(): Promise<AIProfileFacet[]> {

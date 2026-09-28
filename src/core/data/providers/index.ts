@@ -16,7 +16,6 @@ import * as embeddings from './embeddings';
 import * as localStore from './localStore';
 
 export { likePrefix } from './fields';
-export { pageAll, PAGE_SIZE } from './pageAll';
 
 export const SupabaseDataProvider: IDataProvider = {
   ...documents,

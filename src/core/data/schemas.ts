@@ -25,33 +25,6 @@ export const labelSchema = z.object({
   _encrypted: z.boolean().optional(),
 });
 
-export const sessionDbSchema = z.object({
-  id: z.string(),
-  userId: z.string().default(''),
-  content: z.string().default(''),
-  title: z.string().default(''),
-  wordCount: z.number().nonnegative().default(0),
-  charCount: z.number().nonnegative().default(0),
-  duration: z.number().nonnegative().default(0),
-  wpm: z.number().nonnegative().default(0),
-  tags: z.array(z.string()).default([]),
-  pinnedThoughts: z.array(z.string()).default([]),
-  isPublic: z.boolean().optional(),
-  authorName: z.string().optional(),
-  authorPhoto: z.string().optional(),
-  nickname: z.string().optional(),
-  labelId: z.string().nullable().optional(),
-  createdAt: cloudTimestampSchema,
-  sessionStartTime: z.number().nullable().optional(),
-  _encrypted: z.boolean().optional(),
-  _aiProcessed: z.boolean().optional(),
-  _aiAction: z.string().optional(),
-  _aiProcessedAt: cloudTimestampSchema.optional(),
-  _aiResultText: z.string().optional(),
-  mood: z.string().optional(),
-  excludedFromAI: z.boolean().optional(),
-});
-
 export const encryptionMetaSchema = z.object({
   salt: z.string(),
   version: z.number().default(1),
@@ -153,10 +126,7 @@ export const versionDbSchema = z.object({
   createdAt: cloudTimestampSchema.optional(),
 });
 
-export type SessionDb = z.infer<typeof sessionDbSchema>;
 export type DocumentDb = z.infer<typeof documentDbSchema>;
-export type VersionDb = z.infer<typeof versionDbSchema>;
-export type EncryptionMetaDb = z.infer<typeof encryptionMetaSchema>;
 export type UserProfileDb = z.infer<typeof userProfileDbSchema>;
 
 // Облачный черновик проходит через эту схему до входа в таймеры/арифметику:
@@ -172,5 +142,3 @@ export const draftDbSchema = z.object({
     .transform(v => (typeof v === 'number' ? v : new Date(v as string | Date).getTime()))
     .nullish(),
 }).passthrough();
-
-export type DraftDb = z.infer<typeof draftDbSchema>;

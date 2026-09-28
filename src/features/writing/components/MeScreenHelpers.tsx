@@ -1,1 +1,1 @@
-export { StatCard, SettingRow } from '../../../shared/components/MeScreenHelpers';
+export { StatCard } from '../../../shared/components/MeScreenHelpers';

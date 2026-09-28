@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../storage/localDb';
 import { SyncService } from '../SyncService';
-import { StorageService, CLOUD_COPY_TOMBSTONE } from '../StorageService';
+import { StorageService } from '../StorageService';
+import { CLOUD_COPY_TOMBSTONE } from '../CloudSyncService';
 
 vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }));
 vi.mock('../../data', () => ({

@@ -1,5 +1,5 @@
-import { Document, Version } from '../../types';
-import { DocumentDb, VersionDb } from '../data/schemas';
+import { Document } from '../../types';
+import { DocumentDb } from '../data/schemas';
 import { toDate } from '../utils/dateUtils';
 
 export function documentFromDb(dbDoc: DocumentDb): Document {
@@ -26,25 +26,4 @@ export function documentFromDb(dbDoc: DocumentDb): Document {
     createdAt: toDate(dbDoc.createdAt) ?? null,
     updatedAt: toDate(dbDoc.updatedAt) ?? null,
   } as Document;
-}
-
-export function versionFromDb(dbVer: VersionDb): Version {
-  return {
-    id: dbVer.id,
-    documentId: dbVer.documentId,
-    userId: dbVer.userId,
-    version: dbVer.version,
-    content: dbVer.content,
-    wordCount: dbVer.wordCount,
-    wordsAdded: dbVer.wordsAdded,
-    charsAdded: dbVer.charsAdded,
-    duration: dbVer.duration,
-    wpm: dbVer.wpm,
-    goalWords: dbVer.goalWords ?? undefined,
-    goalTime: dbVer.goalTime ?? undefined,
-    goalReached: dbVer.goalReached,
-    savedAt: toDate(dbVer.savedAt) ?? null,
-    sessionStartedAt: toDate(dbVer.sessionStartedAt) ?? null,
-    mood: dbVer.mood,
-  } as Version;
 }
