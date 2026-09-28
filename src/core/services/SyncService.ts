@@ -155,6 +155,10 @@ export const SyncService = {
     let unlinkedCount = 0;
     let deviceOnlyCount = 0;
     let hasUnknown = false;
+    // Отметка, записанная в базу на этом проходе. Счётчики ниже считаются по
+    // снимку localDocs, сделанному до сетевого вызова — без этой карты только что
+    // выясненная заметка осталась бы «неизвестной» ещё на один проход.
+    const resolvedVersions = new Map<string, number>();
 
     // 1. Identify unresolved linked documents whose lastSyncedCloudVersion is undefined
     const unresolvedDocs = localDocs.filter(
@@ -171,10 +175,12 @@ export const SyncService = {
           const tx = db.transaction('documents', 'readwrite');
           for (const d of unresolvedDocs) {
             const fresh = await tx.store.get(d.id);
-            if (fresh && fresh.lastSyncedCloudVersion === undefined) {
-              const cloudVer = cloudDocVersions.get(d.linkedCloudId!) ?? 0;
-              await tx.store.put({ ...fresh, lastSyncedCloudVersion: cloudVer });
+            if (!fresh) continue;
+            const known = fresh.lastSyncedCloudVersion ?? cloudDocVersions.get(d.linkedCloudId!) ?? 0;
+            if (fresh.lastSyncedCloudVersion === undefined) {
+              await tx.store.put({ ...fresh, lastSyncedCloudVersion: known });
             }
+            resolvedVersions.set(d.id, known);
           }
           await tx.done;
         } catch (err) {
@@ -193,11 +199,12 @@ export const SyncService = {
         unlinkedCount++;
         continue;
       }
-      if (d.lastSyncedCloudVersion === undefined) {
+      const lastSynced = d.lastSyncedCloudVersion ?? resolvedVersions.get(d.id);
+      if (lastSynced === undefined) {
         hasUnknown = true;
         continue;
       }
-      if ((d.currentVersion ?? 0) > d.lastSyncedCloudVersion) {
+      if ((d.currentVersion ?? 0) > lastSynced) {
         behindCount++;
       }
     }

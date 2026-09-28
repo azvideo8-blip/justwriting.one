@@ -22,6 +22,9 @@ const getDocumentsByOwner = vi.fn();
 const getCloudDocumentVersions = vi.fn();
 const dbPut = vi.fn(async () => undefined);
 
+/** Строки `documents` в фейковой базе: транзакция читает и пишет их, как живая. */
+let rows = new Map<string, Record<string, unknown>>();
+
 vi.mock('../LocalDocumentService', () => ({ LocalDocumentService: { getDocumentsByOwner } }));
 vi.mock('../DocumentService', () => ({ DocumentService: { getCloudDocumentVersions } }));
 vi.mock('../StorageService', () => ({ StorageService: {} }));
@@ -32,7 +35,16 @@ vi.mock('../../../shared/errors/logger', () => ({ logger: { warn: vi.fn(), info:
 vi.mock('../../storage/localDb', () => ({
   getLocalDb: vi.fn(async () => ({
     getAll: vi.fn(async () => []),
-    transaction: vi.fn(() => ({ store: { put: dbPut }, done: Promise.resolve() })),
+    transaction: vi.fn(() => ({
+      store: {
+        get: async (id: string) => rows.get(id),
+        put: async (row: { id: string }) => {
+          rows.set(row.id, row as Record<string, unknown>);
+          await dbPut(row);
+        },
+      },
+      done: Promise.resolve(),
+    })),
   })),
 }));
 
@@ -41,7 +53,7 @@ const { SyncService } = await import('../SyncService');
 /**
  * Заметка, связанная с облаком, но без записанной отметки о версии.
  *
- * Строится заново на каждый тест: разрешение МУТИРУЕТ документ, и общий объект
+ * Строится заново на каждый тест: разрешение пишет отметку, и общий объект
  * протекал бы из теста в тест — на этом сам и попался.
  */
 const unresolved = () => ({
@@ -54,7 +66,9 @@ const unresolved = () => ({
 describe('незаполненная отметка о версии не считается отставанием', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getDocumentsByOwner.mockImplementation(async () => [unresolved()]);
+    const doc = unresolved();
+    rows = new Map([[doc.id, doc]]);
+    getDocumentsByOwner.mockImplementation(async () => [doc]);
   });
 
   it('облако недоступно → заметка «неизвестна», а не «не отправлена»', async () => {

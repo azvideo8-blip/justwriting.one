@@ -10,13 +10,27 @@ const dbDelete = vi.fn().mockResolvedValue(undefined);
 
 let versions: { version: number; content: string }[] = [];
 
+/** Строки `documents`: их читает и пишет и обычный get, и транзакция. */
+let docRows = new Map<string, Record<string, unknown>>([['doc_1', { id: 'doc_1', aiProcessed: true }]]);
+
 vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: vi.fn(async () => ({
-    get: vi.fn(async (store: string) => (store === 'documents' ? { id: 'doc_1', aiProcessed: true } : undefined)),
+    get: vi.fn(async (store: string, id?: string) =>
+      store === 'documents' ? (id ? docRows.get(id) : undefined) ?? docRows.get('doc_1') : undefined),
     getAll: vi.fn(async () => []),
     getAllFromIndex: vi.fn(async () => versions),
     put: dbPut,
     delete: dbDelete,
+    transaction: vi.fn((storeName: string) => {
+      const store = {
+        get: async (id: string) => (storeName === 'documents' ? docRows.get(id) : undefined),
+        put: async (row: { id: string }) => {
+          if (storeName === 'documents') docRows.set(row.id, row as Record<string, unknown>);
+          await dbPut(row);
+        },
+      };
+      return { store, objectStore: () => store, done: Promise.resolve() };
+    }),
   })),
 }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'user_1' }) }));
@@ -34,6 +48,7 @@ const { NoteAnalysisService } = await import('../NoteAnalysisService');
 describe('NoteAnalysisService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    docRows = new Map([['doc_1', { id: 'doc_1', aiProcessed: true }]]);
     indexDocument.mockResolvedValue('ok');
   });
 

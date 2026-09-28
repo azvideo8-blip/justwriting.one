@@ -23,6 +23,19 @@ vi.mock('../../../../core/storage/localDb', () => ({
       (contentByDoc[docId] != null ? [{ version: 1, content: contentByDoc[docId] }] : [])),
     put: vi.fn(async () => undefined),
     delete: vi.fn(async () => undefined),
+    transaction: vi.fn((storeName: string) => {
+      const store = {
+        get: async (id: string) => (storeName === 'documents' ? documents.find(d => d.id === id) : undefined),
+        put: async (row: { id: string }) => {
+          if (storeName === 'documents') {
+            const at = documents.findIndex(d => d.id === row.id);
+            if (at >= 0) documents[at] = row as { id: string; excludedFromAI?: boolean };
+            else documents.push(row as { id: string; excludedFromAI?: boolean });
+          }
+        },
+      };
+      return { store, objectStore: () => store, done: Promise.resolve() };
+    }),
   })),
 }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'user_1' }) }));

@@ -48,6 +48,13 @@ vi.mock('../../../../core/storage/localDb', () => ({
     clear: (...args: unknown[]) => mockClear(...args),
     getAll: (...args: unknown[]) => mockGetAll(...args),
     put: (...args: unknown[]) => mockPut(...args),
+    transaction: vi.fn(() => {
+      const store = {
+        getAll: async () => mockGetAll('documents'),
+        put: async (row: unknown) => mockPut('documents', row),
+      };
+      return { store, objectStore: () => store, done: Promise.resolve() };
+    }),
   }),
 }));
 
