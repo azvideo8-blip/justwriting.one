@@ -211,8 +211,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // `attached.content` is the full note text routed through documentContent (50K),
   // so the model reads the whole note while the chat message stays small (just a
   // "[Прикреплена заметка: …]" marker plus any text the user typed). The note body
-  // is never put into the message itself (that would trip the 10K per-message cap).
-  const sendMessage = useCallback(async (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string, forcedSearchQuery?: string): Promise<string | null> => {
+  const sendMessage = useCallback(async (
+    text: string,
+    attached?: { content: string; documentId?: string; inline?: boolean },
+    mood?: string,
+    forcedSearchQuery?: string,
+    options?: { replaceFromIndex?: number },
+  ): Promise<string | null> => {
     if (!text.trim() && !forcedSearchQuery) return null;
     // R-1: Synchronous re-entrancy guard — prevents two calls in the same tick
     // from both proceeding past the isLoading check (state isn't committed yet).
@@ -375,7 +380,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           : currentDialogue);
       }
 
-      const baseMessages = currentDialogue.messages;
+      const baseMessages = options?.replaceFromIndex !== undefined
+        ? currentDialogue.messages.slice(0, options.replaceFromIndex)
+        : currentDialogue.messages;
       const sourceForApi: AIMessage[] = text.trim() ? [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...baseMessages];
       const apiMessages = prepareApiMessages(sourceForApi);
 
@@ -559,7 +566,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         savedReasoning = sanitizedFullText.trim();
         savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';
       }
-      await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
+      if (options?.replaceFromIndex !== undefined) {
+        await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceFromIndex, text, savedText, savedReasoning, searchReq, degradedReason);
+      } else {
+        await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
+      }
       turnSaved = true;
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
@@ -626,11 +637,21 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // себе в поле ввода остаётся, но в дневнике хода не было вовсе.
       if (!turnSaved && turnDialogueId && text.trim() && shownPartial.trim()) {
         try {
-          await AIDialogueService.appendMessage(
-            turnDialogueId,
-            text,
-            `${shownPartial.trim()}\n\n[ответ не дописан — стрим оборвался]`,
-          );
+          const interruptedMsg = `${shownPartial.trim()}\n\n[ответ не дописан — стрим оборвался]`;
+          if (options?.replaceFromIndex !== undefined) {
+            await AIDialogueService.replaceLastTurn(
+              turnDialogueId,
+              options.replaceFromIndex,
+              text,
+              interruptedMsg,
+            );
+          } else {
+            await AIDialogueService.appendMessage(
+              turnDialogueId,
+              text,
+              interruptedMsg,
+            );
+          }
           turnSaved = true;
         } catch (persistErr) {
           reportError(persistErr, { action: 'useAIChat_persistInterruptedTurn', dialogueId: turnDialogueId });
@@ -733,7 +754,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     // Truncate dialogue in memory (React state) so sendMessage appends userText as a replacement turn,
     // but DO NOT truncate in IndexedDB yet so failures leave the stored dialogue intact.
     setDialogue({ ...d, messages: d.messages.slice(0, userIdx) });
-    const newId = await sendMessage(userText);
+    const newId = await sendMessage(userText, undefined, undefined, undefined, { replaceFromIndex: userIdx });
     // After the new response is saved, merge variants including the new response
     if (newId) {
       const updated = await AIDialogueService.get(newId);

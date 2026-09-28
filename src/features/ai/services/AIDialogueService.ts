@@ -17,6 +17,8 @@ function formatDateYYYYMMDD(timestamp: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+const MAX_MSG_LENGTH = 100_000;
+
 async function removeDialogueFromFacets(dialogueId: string): Promise<void> {
   await writeFacetStore(async (store) => {
     try {
@@ -86,12 +88,45 @@ export const AIDialogueService = {
     searchRequest?: string | null,
     degradedReason?: string | null
   ): Promise<void> {
-    const MAX_MSG_LENGTH = 100_000;
     const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? s.slice(0, MAX_MSG_LENGTH) + '\n[...truncated]' : s;
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
+    const now = Date.now();
+    existing.messages.push(
+      { role: 'user', content: truncate(userMsg) },
+      {
+        role: 'assistant',
+        content: truncate(assistantMsg),
+        ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
+        ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
+        ...(degradedReason ? { degradedReason } : {}),
+      },
+    );
+    existing.updatedAt = now;
+    await tx.store.put(existing);
+    await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
+  },
+
+  async replaceLastTurn(
+    id: string,
+    fromIndex: number,
+    userMsg: string,
+    assistantMsg: string,
+    reasoning?: string,
+    searchRequest?: string | null,
+    degradedReason?: string | null,
+  ): Promise<void> {
+    const truncate = (s: string) => s.length > MAX_MSG_LENGTH ? s.slice(0, MAX_MSG_LENGTH) + '\n[...truncated]' : s;
+    const db = await getLocalDb();
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return; }
+    if (fromIndex >= 0 && fromIndex < existing.messages.length) {
+      existing.messages.splice(fromIndex);
+    }
     const now = Date.now();
     existing.messages.push(
       { role: 'user', content: truncate(userMsg) },
