@@ -25,6 +25,11 @@ export const COSINE_CLUSTERING_THRESHOLD = 0.78;
  */
 export const FALLBACK_JACCARD_THRESHOLD = 0.35;
 
+const SERVICE_STOP_ERRORS = new Set(['SERVER_ERROR', 'DAILY_LIMIT', 'AI_CONSENT_REQUIRED', 'SERVICE_UNAVAILABLE', 'UPSTREAM']);
+export function isServiceStopError(error?: string): boolean {
+  return error !== undefined && SERVICE_STOP_ERRORS.has(error);
+}
+
 export interface AIBeliefEvidence {
   id: string;
   date: string;
@@ -402,7 +407,7 @@ export const AIConsolidationService = {
       // A service failure is a property of the provider, not of this cluster:
       // every remaining cluster would hit the same 60s function timeout. Report
       // it so the pass stops instead of retrying the whole list each minute.
-      const serviceFailed = !initialRes.ok && initialRes.error === 'SERVER_ERROR';
+      const serviceFailed = !initialRes.ok && isServiceStopError(initialRes.error);
       return { belief: null, llmCalls, serviceFailed };
     }
     llmCalls++;
@@ -418,6 +423,7 @@ export const AIConsolidationService = {
 
     let verdict: 'PASSED' | 'REWRITTEN_PASSED' | 'REJECTED' = 'REJECTED';
     let finalReason: string | undefined;
+    let rewriteRes: Awaited<ReturnType<typeof AIService.summarizeBeliefCluster>> | undefined;
 
     if (initialJudgeRes.ok && initialJudgeRes.passed) {
       verdict = 'PASSED';
@@ -426,7 +432,7 @@ export const AIConsolidationService = {
       // Attempt 1 Rewrite with corrective hint
       rewriteAttempted = true;
       const correctiveHint = initialJudgeRes.correctiveHint ?? initialJudgeRes.reason ?? 'Учти все условия и не делай ложных обобщений.';
-      const rewriteRes = await AIService.summarizeBeliefCluster({
+      rewriteRes = await AIService.summarizeBeliefCluster({
         evidence: evidenceList,
         firstSeenAt: cluster.earliestDate,
         correctionHint: correctiveHint,
@@ -477,7 +483,8 @@ export const AIConsolidationService = {
         'ai'
       );
       
-      const serviceFailed = !initialJudgeRes.ok && (initialJudgeRes.error === 'SERVER_ERROR' || initialJudgeRes.error === 'SERVICE_UNAVAILABLE' || initialJudgeRes.error === 'UPSTREAM');
+      const serviceFailed = (!initialJudgeRes.ok && isServiceStopError(initialJudgeRes.error))
+        || (rewriteAttempted && rewriteRes !== undefined && !rewriteRes.ok && isServiceStopError(rewriteRes.error));
       return { belief: null, llmCalls, serviceFailed };
     }
 

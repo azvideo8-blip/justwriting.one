@@ -333,4 +333,44 @@ describe('AG-MIND-W3-consolidation — Episodic to Semantic Belief Consolidation
 
     expect(syncSpy).toHaveBeenCalledWith('aiBeliefRejections', 'rej-sync-test-1');
   });
+
+  it('F-035: DAILY_LIMIT stops consolidation pass immediately', async () => {
+    vi.spyOn(AIConsolidationService, 'gatherMemoryUnits').mockResolvedValue([
+      { id: 'u1', type: 'chat_memory', text: '1', date: '2026-05-10', salience: 0.9 },
+      { id: 'u2', type: 'chat_memory', text: '2', date: '2026-05-10', salience: 0.9 },
+    ]);
+    vi.spyOn(AIConsolidationService, 'clusterMemoryUnits').mockReturnValue([
+      { clusterId: 'c1', earliestDate: '2026-05-10', salience: 0.9, units: [{ id: 'u1', type: 'chat_memory', text: '1', date: '2026-05-10', salience: 0.9 }] },
+      { clusterId: 'c2', earliestDate: '2026-05-10', salience: 0.9, units: [{ id: 'u2', type: 'chat_memory', text: '2', date: '2026-05-10', salience: 0.9 }] },
+    ]);
+
+    vi.mocked(AIService.summarizeBeliefCluster).mockResolvedValue({
+      ok: false,
+      error: 'DAILY_LIMIT',
+    });
+
+    const res = await AIConsolidationService.processConsolidationPass();
+    expect(res.serviceFailed).toBe(true);
+    expect(AIService.summarizeBeliefCluster).toHaveBeenCalledTimes(1);
+  });
+
+  it('F-035: AI_CONSENT_REQUIRED stops consolidation pass immediately', async () => {
+    vi.spyOn(AIConsolidationService, 'gatherMemoryUnits').mockResolvedValue([
+      { id: 'u1', type: 'chat_memory', text: '1', date: '2026-05-10', salience: 0.9 },
+      { id: 'u2', type: 'chat_memory', text: '2', date: '2026-05-10', salience: 0.9 },
+    ]);
+    vi.spyOn(AIConsolidationService, 'clusterMemoryUnits').mockReturnValue([
+      { clusterId: 'c1', earliestDate: '2026-05-10', salience: 0.9, units: [{ id: 'u1', type: 'chat_memory', text: '1', date: '2026-05-10', salience: 0.9 }] },
+      { clusterId: 'c2', earliestDate: '2026-05-10', salience: 0.9, units: [{ id: 'u2', type: 'chat_memory', text: '2', date: '2026-05-10', salience: 0.9 }] },
+    ]);
+
+    vi.mocked(AIService.summarizeBeliefCluster).mockResolvedValue({
+      ok: false,
+      error: 'AI_CONSENT_REQUIRED',
+    });
+
+    const res = await AIConsolidationService.processConsolidationPass();
+    expect(res.serviceFailed).toBe(true);
+    expect(AIService.summarizeBeliefCluster).toHaveBeenCalledTimes(1);
+  });
 });
