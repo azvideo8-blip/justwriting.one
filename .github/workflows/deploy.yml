@@ -140,16 +140,16 @@ jobs:
           # мешают друг другу; лишнее подчищается по возрасту.
           # Перед копированием сохраняем index.html и sw.js для полного отката.
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
+            set -euo pipefail
             if [ -f /var/www/justwriting/index.html ]; then
-              sudo cp /var/www/justwriting/index.html /var/www/justwriting/index.html.prev;
-            fi &&
+              sudo cp /var/www/justwriting/index.html /var/www/justwriting/index.html.prev
+            fi
             if [ -f /var/www/justwriting/sw.js ]; then
-              sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev;
-            fi &&
-            sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/ &&
-            sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || true;
-            sudo chown -R www-data:www-data /var/www/justwriting;
-            sudo find /var/www/justwriting/assets -type f -mtime +14 -delete;
+              sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev
+            fi
+            sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/
+            sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || echo "email templates not synced"
+            sudo chown -R www-data:www-data /var/www/justwriting
             rm -rf "$REMOTE_DIR"
           REMOTE
 
@@ -218,6 +218,15 @@ jobs:
           SMOKE_LOGIN_EMAIL: ${{ secrets.SMOKE_LOGIN_EMAIL }}
           SMOKE_LOGIN_PASSWORD: ${{ secrets.SMOKE_LOGIN_PASSWORD }}
         run: npx tsx scripts/post-deploy-login.ts https://justwriting.ru/
+
+      # F-047: старые ассеты удаляются только после того, как релиз прошёл проверку входа.
+      # Если проверка упадёт и сработает откат к index.html.prev, его бандлы старше 14 дней
+      # останутся на месте и пользователи не получат 404.
+      - name: Очистка устаревших ассетов клиента
+        if: success() && inputs.what != 'api'
+        run: |
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            sudo find /var/www/justwriting/assets -type f -mtime +14 -delete'
 
       # Если служба не поднялась или проверка после выкатки упала — возвращаем
       # предыдущий бандл службы, а не оставляем сервис лежать.
