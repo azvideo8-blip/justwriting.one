@@ -225,7 +225,9 @@ export async function runLifecycleMatrix(maxUnmeasured = null) {
 
   const tmpOut = path.join(rootDir, `.postulates-results-${Date.now()}.json`);
   try {
-    execSync(`npx vitest run -c vitest.runner.config.ts --silent`, {
+    // Один файл — один форк: вложенный прогон не должен плодить воркеры рядом
+    // с внешним vitest (тест postulatesCommand запускает его изнутри прогона).
+    execSync(`npx vitest run -c vitest.runner.config.ts --silent --maxWorkers=1`, {
       cwd: rootDir,
       env: {
         ...process.env,

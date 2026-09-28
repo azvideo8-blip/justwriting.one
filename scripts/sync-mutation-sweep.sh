@@ -8,6 +8,11 @@
 #
 # Выживший = все тесты зелёные при сломанном коде. Это главный результат.
 set -eu
+# На раннере VPS (4 ядра, ~3 ГБ свободных) базовый прогон с 4 форками плюс
+# вложенный vitest из postulatesCommand.test.ts не давали воркеру стартовать
+# («Timeout waiting for worker to respond»), и базовый прогон краснел без
+# единой настоящей ошибки. В CI — два форка; локально — как обычно.
+VITEST_ARGS="${SWEEP_VITEST_ARGS:-${CI:+--maxWorkers=2}}"
 cd "$(dirname "$0")/.."
 LIST=scripts/mutations/sync-sweep.json
 # Полный прогон пишет docs/sync-mutation-sweep.md; прогон по выбранным id — во
@@ -40,7 +45,7 @@ done
 # тест засчитывается «поймавшим» любую поломку.
 base_tests=$(python3 -c "import json; print(' '.join(sorted({t for m in json.load(open('$LIST')) for t in m.get('tests', [])})))")
 set +e
-base=$(npx vitest run $base_tests 2>&1)
+base=$(npx vitest run $VITEST_ARGS $base_tests 2>&1)
 base_exit=$?
 # Вывод разбирается grep'ом по «^\s*Tests »: в CI он цветной, и ANSI-код перед
 # словом ломал разбор базового прогона.
@@ -95,7 +100,7 @@ PY
   fi
 
   set +e
-  res=$(npx vitest run $mutation_tests 2>&1)
+  res=$(npx vitest run $VITEST_ARGS $mutation_tests 2>&1)
   set -e
   res=$(printf '%s\n' "$res" | sed $'s/\x1b\\[[0-9;]*m//g')  # см. базовый прогон
 
