@@ -62,6 +62,18 @@ export function RestoreFromCloudModal({
     open && Boolean(user) && (initialCloudCount === undefined || initialLocalCount === undefined)
   ));
   const [countsError, setCountsError] = useState<string | null>(null);
+  // Инициализатор useState отработал бы одно открытие: в настройках окно не
+  // размонтируют, и второе открытие показывало прежние числа, пока висит новый
+  // запрос. Это «состояние из пропсов» во время рендера — паттерн React, а не
+  // эффект: каскада рендеров нет и храповик set-state-in-effect не растёт.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && (initialCloudCount === undefined || initialLocalCount === undefined)) {
+      setLoadingCounts(Boolean(user));
+      setCountsError(null);
+    }
+  }
   const [progress, setProgress] = useState<RestoreProgressState>({
     currentStage: '',
     notesCurrent: 0,

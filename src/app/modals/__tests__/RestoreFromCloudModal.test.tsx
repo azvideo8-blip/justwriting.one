@@ -144,5 +144,25 @@ describe('AUD-12 restore modal reports failure', () => {
       expect(screen.queryByText(/сохранено 0/)).toBeNull();
       expect(screen.getByText('Начать загрузку')).toBeDefined();
     });
+
+    // F-029: состояние «считаем» ставил только useState-инициализатор, то есть
+    // на первом открытии. При втором открытии висит новый запрос, а на экране —
+    // прежняя цифра, которой уже нет.
+    it('reopening while counts are refetched shows "…", not the previous number', async () => {
+      vi.mocked(DocumentService.getUserDocuments).mockResolvedValueOnce([{}, {}] as never);
+      vi.mocked(LocalStorageService.getDocumentsByOwner).mockResolvedValueOnce([] as never);
+
+      const { rerender } = render(<RestoreFromCloudModal open onClose={() => {}} />);
+      expect(await screen.findByText(/2 заметок в облаке/)).toBeDefined();
+
+      vi.mocked(DocumentService.getUserDocuments).mockReturnValue(new Promise(() => {}));
+      vi.mocked(LocalStorageService.getDocumentsByOwner).mockReturnValue(new Promise(() => {}));
+
+      rerender(<RestoreFromCloudModal open={false} onClose={() => {}} />);
+      rerender(<RestoreFromCloudModal open onClose={() => {}} />);
+
+      expect(screen.getByText(/… заметок в облаке/)).toBeDefined();
+      expect(screen.queryByText(/2 заметок в облаке/)).toBeNull();
+    });
   });
 });
