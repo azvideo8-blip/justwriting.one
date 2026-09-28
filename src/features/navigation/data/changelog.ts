@@ -14,6 +14,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.15',
+    date: '2026-09-28',
+    items: [
+      { category: 'fix', ru: 'Правка, сделанная пока предыдущая версия уезжала в облако, или заметка, у которой потерялась задача синхронизации, больше не остаются невыгруженными: сверка с облаком не сбрасывает счётчики заметки, пока на устройстве есть невыгруженное.', en: 'An edit made while the previous version was uploading, or a note whose sync task got lost, is no longer left un-uploaded: reconciling with the cloud never resets a note’s counters while the device holds an un-uploaded change.' },
+      { category: 'fix', ru: 'Удалённое не возвращается: заметка, у которой не удалось прочитать связь с облаком, итог удалённого диалога с ИИ и удалённый разбор заметки больше не воскресают после синхронизации.', en: 'Deleted things stay deleted: a note whose cloud link could not be read, the closing summary of a deleted AI dialogue and a deleted note analysis no longer come back after sync.' },
+      { category: 'fix', ru: 'Разбор заметки ИИ больше не возвращает её из корзины и не откатывает счётчик версий, если заметку меняли во время разбора.', en: 'A note analysis no longer takes the note out of the trash or rolls back its version counter when the note changed during the analysis.' },
+      { category: 'fix', ru: 'Чат с ИИ: «ответить иначе» не дублирует вопрос; остановленный ответ помечен как недописанный; при обрыве потока показанный текст сохраняется без второго списания; в контекст попадают самые релевантные заметки, а прикреплённая заметка не теряется в режиме сравнения периодов.', en: 'AI chat: “answer differently” no longer duplicates the question; a stopped answer is marked unfinished; when the stream breaks, the shown text is kept without a second charge; the most relevant notes make it into the context, and an attached note is kept in period-comparison mode.' },
+      { category: 'improvement', ru: 'Согласие на обработку данных, выход из аккаунта и сброс пароля переведены на английский.', en: 'The data-processing consent, sign-out and password-reset screens are now available in English.' },
+      { category: 'improvement', ru: 'Сейф, созданный до повышения стойкости пароля, при разблокировке переводится на 600 000 итераций — как обещано в описании безопасности.', en: 'A vault created before the password-hardening raise is upgraded to 600 000 iterations on unlock, as the security notes promise.' },
+      { category: 'fix', ru: 'Если не загрузился один из языковых файлов, приложение больше не остаётся белым экраном: оно открывается и догружает переводы.', en: 'If one language file fails to load, the app no longer stays a white screen: it opens and fetches the translations later.' },
+      { category: 'fix', ru: 'Мелкое в интерфейсе: Escape закрывает верхнее окно, а не нижнее; второй диалог не подвешивает первый; окно восстановления показывает «…» и ошибку вместо «0 в облаке»; виджет настроения сообщает об ошибке чтения; диктовка не запускает два движка подряд.', en: 'Small UI fixes: Escape closes the top dialog, not the bottom one; a second dialog no longer hangs the first; the restore window shows “…” and an error instead of “0 in the cloud”; the mood widget reports a read error; dictation no longer starts two engines at once.' },
+      { category: 'fix', ru: 'Длинный диалог с ИИ, ставший короче, больше не блокирует своё восстановление на другом устройстве.', en: 'A long AI dialogue that became shorter no longer blocks its own restore on another device.' },
+    ],
+  },
+  {
     version: '0.9.14',
     date: '2026-09-27',
     items: [
