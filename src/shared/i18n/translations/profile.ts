@@ -33,6 +33,7 @@ export const profileTranslations: Translations = {
   profile_rhythm_peak:        { ru: 'типичный час',               en: 'typical hour' },
   profile_mood_title:         { ru: 'Настроение',                 en: 'Mood' },
   profile_mood_most:          { ru: 'чаще всего',                 en: 'most often' },
+  profile_mood_load_failed:   { ru: 'Не удалось загрузить данные о настроении',   en: 'Failed to load mood data' },
   profile_achievements_title:  { ru: 'Достижения',  en: 'Achievements' },
   profile_achievement_done:    { ru: 'получено',     en: 'unlocked' },
   profile_achievement_locked:  { ru: 'не получено',  en: 'locked' },

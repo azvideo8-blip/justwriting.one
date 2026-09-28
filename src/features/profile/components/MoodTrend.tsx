@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../../../shared/i18n';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
+import { reportError } from '../../../shared/errors/reportError';
 import { cn } from '../../../core/utils/utils';
 
 // Mood is stored as one of 6 emotion emojis on a note. These are categorical
@@ -24,6 +25,7 @@ const TONE_CLASS: Record<string, string> = {
 export function MoodTrend({ userId, className }: { userId: string; className?: string }) {
   const { t, language } = useLanguage();
   const [entries, setEntries] = useState<{ mood: string; date: number }[]>([]);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -36,6 +38,10 @@ export function MoodTrend({ userId, className }: { userId: string; className?: s
         .map(d => ({ mood: d.mood as string, date: d.lastSessionAt ?? 0 }))
         .sort((a, b) => a.date - b.date);
       setEntries(withMood);
+    }).catch(e => {
+      if (!active) return;
+      reportError(e, { action: 'MoodTrend_getDocuments' });
+      setFailed(true);
     });
     return () => { active = false; };
   }, [userId]);
@@ -48,6 +54,15 @@ export function MoodTrend({ userId, className }: { userId: string; className?: s
     for (const m of ORDER) if (counts[m] && (!top || counts[m]! > counts[top]!)) top = m;
     return { counts, total, top };
   }, [entries]);
+
+  if (failed) {
+    return (
+      <div className={className ?? "px-4 py-6 md:px-9 md:py-8 border-b border-border-subtle"}>
+        <h2 className="text-[18px] font-medium text-text-main mb-2">{t('profile_mood_title')}</h2>
+        <p className="text-xs text-text-main/60">{t('profile_mood_load_failed')}</p>
+      </div>
+    );
+  }
 
   if (total === 0) return null;
 
