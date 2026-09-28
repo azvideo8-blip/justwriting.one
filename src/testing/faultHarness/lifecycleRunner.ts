@@ -1610,7 +1610,12 @@ export class LifecycleRunner {
     });
     const cloudId = await StorageService.addCloudCopy(this.userId, localDocId);
 
-    // 2. Cloud receives version 2 from another device
+    // 2. Cloud receives version 2 from another device. Отметка времени — из
+    // настоящих часов и с запасом вперёд: локальная запись стампит
+    // lastSeenCloudUpdatedAt реальным `now` (addCloudCopy), и облачная версия с
+    // эпохой «2000 мс» выглядела бы старее, чем всё локальное — reconcile тогда
+    // пропускает заметку, и ячейка краснеет от порядка таймеров, а не от кода.
+    const cloudV2At = new Date(Date.now() + 60_000).toISOString();
     const cloudV2Text = 'Cloud version 2 content';
     const cloudV2Payload = this.vaultEnabled
       ? (await maybeEncrypt({ content: cloudV2Text }, ['content'], [], true)).content
@@ -1622,13 +1627,13 @@ export class LifecycleRunner {
       content: cloudV2Payload as string,
       word_count: 4,
       duration: 30,
-      saved_at: new Date(2000).toISOString(),
-      session_started_at: new Date(2000).toISOString(),
+      saved_at: cloudV2At,
+      session_started_at: cloudV2At,
       _encrypted: this.vaultEnabled,
     });
     this.interceptor.postgres.executeUpdate(
       'documents',
-      { current_version: 2, updated_at: new Date(2000).toISOString() },
+      { current_version: 2, updated_at: cloudV2At },
       [{ type: 'eq', column: 'uuid', value: cloudId }]
     );
 
