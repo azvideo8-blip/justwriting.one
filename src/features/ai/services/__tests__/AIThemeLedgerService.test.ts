@@ -19,6 +19,8 @@ import {
   AIThemeLedgerService,
   extractVerbatimSentence,
   calculateEmotionalWeight,
+  enqueuePendingThemeTouch,
+  getPendingThemeTouches,
 } from '../AIThemeLedgerService';
 
 
@@ -350,5 +352,37 @@ describe('AIThemeLedgerService (C2-scaffold / Theme Ledger)', () => {
     const record = records.find(r => r.theme === 'контроль');
     expect(record).toBeDefined();
     expect(record?.evidence[0]?.sentence).toBe(modelQuote);
+  });
+
+  it('F-033: rethrows error from touchThemes and preserves failed document in pending queue', async () => {
+    const { getLocalDb } = await import('../../../../core/storage/localDb');
+    const db = await getLocalDb();
+    await db.put('aiSummaries', {
+      documentId: 'doc-failed-touch',
+      themes: ['тревога'],
+      processedAt: Date.now(),
+    } as any);
+
+    enqueuePendingThemeTouch('doc-failed-touch');
+    expect(getPendingThemeTouches()).toContain('doc-failed-touch');
+
+    const originalTransaction = db.transaction.bind(db);
+    vi.spyOn(db, 'transaction').mockImplementation(((storeName: any, mode: any) => {
+      if (storeName === 'aiThemeLedger') {
+        throw new Error('disk full or tx error');
+      }
+      return originalTransaction(storeName, mode);
+    }) as any);
+
+    // 1. Direct touchThemes call must rethrow
+    await expect(AIThemeLedgerService.touchThemes({
+      documentId: 'doc-failed-touch',
+      themes: ['тревога'],
+      eventDate: '2026-07-24',
+    })).rejects.toThrow('disk full or tx error');
+
+    // 2. processPendingThemeTouches must catch and keep doc in pending queue
+    await AIThemeLedgerService.processPendingThemeTouches();
+    expect(getPendingThemeTouches()).toContain('doc-failed-touch');
   });
 });

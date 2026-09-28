@@ -302,6 +302,7 @@ export const AIThemeLedgerService = {
       }
     } catch (e) {
       reportError(e, { action: 'ai_theme_ledger_touch', documentId });
+      throw e;
     }
   },
 
