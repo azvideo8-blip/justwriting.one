@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MoodTrend } from '../MoodTrend';
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { reportError } from '../../../../shared/errors/reportError';
+import { LanguageProvider } from '../../../../shared/i18n';
 
 vi.mock('../../../../core/services/LocalDocumentService', () => ({
   LocalDocumentService: {
@@ -23,7 +24,7 @@ describe('B-5.3 (F-025) MoodTrend error handling on read failure', () => {
     const error = new Error('IndexedDB read failed');
     vi.mocked(LocalDocumentService.getDocumentsByOwner).mockRejectedValue(error);
 
-    const { container } = render(<MoodTrend userId="user_123" />);
+    const { container } = render(<LanguageProvider><MoodTrend userId="user_123" /></LanguageProvider>);
 
     // On unpatched code, it catches nothing, reportError is never called, and container is empty (null).
     expect(await screen.findByText('Не удалось загрузить данные о настроении')).toBeInTheDocument();

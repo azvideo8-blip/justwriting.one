@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSpeechInput } from '../useSpeechInput';
+import { LanguageProvider } from '../../i18n';
 
 vi.mock('../../components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
@@ -40,7 +41,7 @@ describe('B-5.5 (F-014) useSpeechInput aborts previous recognition engine before
   });
 
   it('aborts the first recognition engine when startListening is called a second time', () => {
-    const { result } = renderHook(() => useSpeechInput({ onTranscript: vi.fn() }));
+    const { result } = renderHook(() => useSpeechInput({ onTranscript: vi.fn() }), { wrapper: LanguageProvider });
 
     act(() => {
       result.current.startListening();
