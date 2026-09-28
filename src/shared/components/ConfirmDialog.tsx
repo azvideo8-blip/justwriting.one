@@ -56,7 +56,19 @@ interface DialogState {
   handleCancel: () => void;
 }
 
-const useDialogStore = create<DialogState>((set, get) => ({
+function settlePreviousDialog(state: DialogState) {
+  if (state.resolve) {
+    if (state.mode === 'prompt') {
+      state.resolve(null);
+    } else if (state.mode === 'alert') {
+      state.resolve(null);
+    } else {
+      state.resolve(false);
+    }
+  }
+}
+
+export const useDialogStore = create<DialogState>((set, get) => ({
   isOpen: false,
   mode: 'confirm',
   title: '',
@@ -71,6 +83,7 @@ const useDialogStore = create<DialogState>((set, get) => ({
   resolveAs: 'boolean' as const,
 
   openConfirm(opts) {
+    settlePreviousDialog(get());
     return new Promise<boolean>(resolve => {
       set({
         isOpen: true,
@@ -87,6 +100,7 @@ const useDialogStore = create<DialogState>((set, get) => ({
   },
 
   openAlert(opts) {
+    settlePreviousDialog(get());
     return new Promise<void>(resolve => {
       set({
         isOpen: true,
@@ -101,6 +115,7 @@ const useDialogStore = create<DialogState>((set, get) => ({
   },
 
   openPrompt(opts) {
+    settlePreviousDialog(get());
     return new Promise<string | null>(resolve => {
       set({
         isOpen: true,
