@@ -4,6 +4,7 @@ import { PrivacyModal } from '../components/PrivacyModal';
 import { DataProvider } from '../../../core/data';
 import { getCurrentUser } from '../../../core/auth';
 import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { LanguageProvider } from '../../../shared/i18n';
 
 vi.mock('../../../core/auth', () => ({
   getCurrentUser: vi.fn(),
@@ -28,7 +29,7 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
   });
 
   it('renders semantic headings and intro sentence', () => {
-    render(<PrivacyModal onAccepted={vi.fn()} />);
+    render(<LanguageProvider><PrivacyModal onAccepted={vi.fn()} /></LanguageProvider>);
 
     expect(screen.getByText(/justwriting — приватный редактор для свободного письма/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Политика конфиденциальности' })).toBeInTheDocument();
@@ -37,7 +38,7 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
   });
 
   it('renders distinct required terms checkbox and optional AI consent checkbox', () => {
-    render(<PrivacyModal onAccepted={vi.fn()} />);
+    render(<LanguageProvider><PrivacyModal onAccepted={vi.fn()} /></LanguageProvider>);
 
     expect(screen.getByText(/Обязательно:/i)).toBeInTheDocument();
     expect(screen.getByText(/Необязательно, для функций ИИ:/i)).toBeInTheDocument();
@@ -48,7 +49,7 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
 
   it('submits required consent when only required checkbox is checked', async () => {
     const onAccepted = vi.fn();
-    render(<PrivacyModal onAccepted={onAccepted} />);
+    render(<LanguageProvider><PrivacyModal onAccepted={onAccepted} /></LanguageProvider>);
 
     const checkboxes = screen.getAllByRole('checkbox');
     expect(checkboxes).toHaveLength(2);
@@ -75,7 +76,7 @@ describe('PrivacyModal (AG-ONBOARD-3)', () => {
 
   it('submits both consents when AI consent is also checked', async () => {
     const onAccepted = vi.fn();
-    render(<PrivacyModal onAccepted={onAccepted} />);
+    render(<LanguageProvider><PrivacyModal onAccepted={onAccepted} /></LanguageProvider>);
 
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[0]!);

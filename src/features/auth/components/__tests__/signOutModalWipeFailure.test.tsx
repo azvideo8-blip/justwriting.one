@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SignOutConfirmModal } from '../SignOutConfirmModal';
+import { LanguageProvider } from '../../../../shared/i18n';
 
 vi.mock('../../hooks/useAuthStatus', () => ({
   useAuthStatus: () => ({ user: { uid: 'u_wipe_1' } }),
@@ -32,7 +33,7 @@ describe('AUD-11 sign-out modal after a failed local wipe', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn().mockRejectedValue(new LocalWipeFailedError());
 
-    render(<SignOutConfirmModal open onClose={onClose} onConfirm={onConfirm} />);
+    render(<LanguageProvider><SignOutConfirmModal open onClose={onClose} onConfirm={onConfirm} /></LanguageProvider>);
     fireEvent.click(screen.getByText('Выйти'));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -43,7 +44,7 @@ describe('AUD-11 sign-out modal after a failed local wipe', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn().mockRejectedValue(new Error('network down'));
 
-    render(<SignOutConfirmModal open onClose={onClose} onConfirm={onConfirm} />);
+    render(<LanguageProvider><SignOutConfirmModal open onClose={onClose} onConfirm={onConfirm} /></LanguageProvider>);
     fireEvent.click(screen.getByText('Выйти'));
 
     expect(await screen.findByText('network down')).toBeDefined();
