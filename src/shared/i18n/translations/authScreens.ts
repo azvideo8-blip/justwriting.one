@@ -316,4 +316,426 @@ export const authScreensTranslations: Translations = {
     ru: 'Пароль изменён. Войдите с новым паролем.',
     en: 'Password changed. Sign in with your new password.',
   },
+
+  // Privacy modal
+  privacy_modal_title: {
+    ru: 'Политика конфиденциальности',
+    en: 'Privacy Policy',
+  },
+  privacy_modal_save_error: {
+    ru: 'Не удалось сохранить согласие. Проверьте связь и попробуйте ещё раз.',
+    en: 'Failed to save consent. Please check your connection and try again.',
+  },
+  privacy_modal_continue: {
+    ru: 'Продолжить',
+    en: 'Continue',
+  },
+
+  // Other user data modal
+  other_user_data_title: {
+    ru: 'Данные предыдущего пользователя',
+    en: 'Previous user data',
+  },
+  other_user_data_desc_1: {
+    ru: 'На этом устройстве обнаружены локальные записи предыдущей учётной записи.',
+    en: 'Local entries from a previous account were found on this device.',
+  },
+  other_user_data_desc_2: {
+    ru: 'Они изолированы и не видны в ваших заметках. Вы можете очистить их, чтобы освободить место на устройстве.',
+    en: 'They are isolated and not visible in your notes. You can clear them to free up space on your device.',
+  },
+  other_user_data_btn_keep: {
+    ru: 'Оставить',
+    en: 'Keep',
+  },
+  other_user_data_btn_clear: {
+    ru: 'Очистить чужие данные',
+    en: 'Clear other data',
+  },
+
+  // Indexing consent modal
+  indexing_consent_title: {
+    ru: 'Поиск по смыслу (индексация)',
+    en: 'Semantic search (indexing)',
+  },
+  indexing_consent_desc: {
+    ru: 'Чтобы искать заметки не только по точным совпадениям слов, но и по смыслу и ассоциациям, приложению требуется построить числовой индекс (эмбеддинги).',
+    en: 'To search notes not only by exact word matches, but also by meaning and association, the app needs to build a numerical index (embeddings).',
+  },
+  indexing_consent_data_title: {
+    ru: 'Что происходит с данными:',
+    en: 'What happens with data:',
+  },
+  indexing_consent_what_sent_title: {
+    ru: 'Что отправляется:',
+    en: 'What is sent:',
+  },
+  indexing_consent_what_sent_desc: {
+    ru: 'Текст заметок отправляется частями модели эмбеддингов для построения смыслового поиска. Заметки с пометкой «не показывать ИИ» не индексируются.',
+    en: 'Note text is sent in chunks to the embedding model to build semantic search. Notes marked "do not show to AI" are not indexed.',
+  },
+  indexing_consent_when_sent_title: {
+    ru: 'Когда отправляется:',
+    en: 'When it is sent:',
+  },
+  indexing_consent_when_sent_desc: {
+    ru: 'когда вы запускаете разбор заметки, и один раз по всему архиву в момент включения поиска по смыслу. Само по себе письмо и сохранение заметки ничего не отправляют.',
+    en: 'when you trigger note analysis, and once across the entire archive when semantic search is enabled. Writing and saving notes by themselves send nothing.',
+  },
+  indexing_consent_what_returned_title: {
+    ru: 'Что возвращается:',
+    en: 'What is returned:',
+  },
+  indexing_consent_what_returned_desc: {
+    ru: 'Числовой вектор, который сохраняется в локальной базе устройства в зашифрованном виде.',
+    en: 'A numerical vector that is stored in the device’s local database in encrypted form.',
+  },
+  indexing_consent_disabled_title: {
+    ru: 'При отказе отключается:',
+    en: 'Disabled if declined:',
+  },
+  indexing_consent_disabled_item_1: {
+    ru: 'Поиск по смыслу и блок связанных мыслей',
+    en: 'Semantic search and related thoughts block',
+  },
+  indexing_consent_disabled_item_2: {
+    ru: 'Автоматический подбор заметок в диалогах',
+    en: 'Automatic note suggestions in dialogues',
+  },
+  indexing_consent_disabled_item_3: {
+    ru: 'Грани личности в профиле',
+    en: 'Personality facets in profile',
+  },
+  indexing_consent_disabled_item_4: {
+    ru: 'Смысловые цепочки заметок (ветки)',
+    en: 'Semantic note chains (threads)',
+  },
+  indexing_consent_enabled_title: {
+    ru: 'Продолжает работать:',
+    en: 'Continues to work:',
+  },
+  indexing_consent_enabled_item_1: {
+    ru: 'Поиск по точным ключевым словам',
+    en: 'Exact keyword search',
+  },
+  indexing_consent_enabled_item_2: {
+    ru: 'Ручной разбор отдельных заметок',
+    en: 'Manual analysis of individual notes',
+  },
+  indexing_consent_enabled_item_3: {
+    ru: 'Хронология и журнал тем',
+    en: 'Timeline and theme ledger',
+  },
+  indexing_consent_enabled_item_4: {
+    ru: 'Обязательства и цели',
+    en: 'Commitments and goals',
+  },
+  indexing_consent_footer: {
+    ru: 'Выбор можно изменить в любой момент в настройках аккаунта.',
+    en: 'This choice can be changed at any time in account settings.',
+  },
+  indexing_consent_btn_words_only: {
+    ru: 'Искать только по словам',
+    en: 'Search words only',
+  },
+  indexing_consent_btn_enable: {
+    ru: 'Включить поиск по смыслу',
+    en: 'Enable semantic search',
+  },
+
+  // Invite wizard
+  invite_wizard_step: {
+    ru: 'Шаг {current} из {total}',
+    en: 'Step {current} of {total}',
+  },
+  invite_wizard_welcome_title: {
+    ru: 'Добро пожаловать в justwriting',
+    en: 'Welcome to justwriting',
+  },
+  invite_wizard_welcome_desc: {
+    ru: 'Спасибо, что решили попробовать мой проект. Это тихий редактор для свободного письма: пишете без оглядки, заметки хранятся у вас и шифруются, а ИИ помогает перечитать написанное — только когда вы сами его позовёте.',
+    en: 'Thank you for trying my project. It is a quiet editor for free writing: write without second thoughts, notes are stored locally and encrypted, and AI helps reread what you wrote — only when you ask for it.',
+  },
+  invite_wizard_welcome_prompt: {
+    ru: 'Сейчас пройдём три коротких шага, прежде чем начать',
+    en: 'We will now take three quick steps before starting',
+  },
+  invite_wizard_for_email_prefix: {
+    ru: '— для',
+    en: '— for',
+  },
+  invite_wizard_btn_start: {
+    ru: 'Начать',
+    en: 'Start',
+  },
+  invite_wizard_policy_title: {
+    ru: 'Как мы обращаемся с данными',
+    en: 'How we handle data',
+  },
+  invite_wizard_password_title: {
+    ru: 'Придумайте пароль',
+    en: 'Create a password',
+  },
+  invite_wizard_login_label: {
+    ru: 'Ваш логин:',
+    en: 'Your login:',
+  },
+  invite_wizard_password_desc: {
+    ru: 'Пароль нужен, чтобы входить, — и им же шифруются ваши заметки: без него их не прочитает никто, даже мы. Хранить заметки в облаке или только на этом устройстве, решите на следующем шаге.',
+    en: 'The password is required to sign in — and it encrypts your notes: without it, nobody can read them, not even us. You will decide on the next step whether to store notes in the cloud or only on this device.',
+  },
+  invite_wizard_password_placeholder: {
+    ru: 'Пароль',
+    en: 'Password',
+  },
+  invite_wizard_confirm_placeholder: {
+    ru: 'Повторите пароль',
+    en: 'Repeat password',
+  },
+  invite_wizard_saving: {
+    ru: 'Сохраняю…',
+    en: 'Saving…',
+  },
+  invite_wizard_btn_next: {
+    ru: 'Далее',
+    en: 'Next',
+  },
+  invite_wizard_sync_title: {
+    ru: 'Хранить заметки в облаке?',
+    en: 'Store notes in the cloud?',
+  },
+  invite_wizard_sync_desc: {
+    ru: 'С синхронизацией заметки попадают на наш сервер в зашифрованном виде — их можно открыть на другом устройстве, и они не пропадут вместе с этим. Без неё заметки живут только в этом браузере.',
+    en: 'With sync enabled, notes are saved to our server in encrypted form — you can open them on another device, and they will not be lost with this one. Without it, notes live only in this browser.',
+  },
+  invite_wizard_sync_hint: {
+    ru: 'Решение можно поменять в любой момент: Настройки → Синхронизация.',
+    en: 'You can change this choice at any time: Settings → Sync.',
+  },
+  invite_wizard_btn_not_now: {
+    ru: 'Не сейчас',
+    en: 'Not now',
+  },
+  invite_wizard_btn_enable_sync: {
+    ru: 'Включить',
+    en: 'Enable',
+  },
+  invite_wizard_recovery_title: {
+    ru: 'Сохраните код восстановления',
+    en: 'Save your recovery code',
+  },
+  invite_wizard_recovery_desc: {
+    ru: 'Если забудете пароль, этот код — единственный способ открыть заметки из облака. Мы его не храним и показываем один раз.',
+    en: 'If you forget your password, this code is the only way to open notes from the cloud. We do not store it and show it only once.',
+  },
+  invite_wizard_copied: {
+    ru: 'Скопировано',
+    en: 'Copied',
+  },
+  invite_wizard_copy: {
+    ru: 'Скопировать',
+    en: 'Copy',
+  },
+  invite_wizard_download: {
+    ru: 'Скачать',
+    en: 'Download',
+  },
+  invite_wizard_download_file_content: {
+    ru: 'Код восстановления justwriting\n\n{recoveryCode}\n\nОн нужен, если забудете пароль: без него зашифрованные заметки не открыть.\n',
+    en: 'justwriting recovery code\n\n{recoveryCode}\n\nNeeded if you forget your password: without it, encrypted notes cannot be opened.\n',
+  },
+  invite_wizard_saved_checkbox: {
+    ru: 'Я сохранил(а) код в надёжном месте',
+    en: 'I have saved the code in a safe place',
+  },
+  invite_wizard_btn_start_writing: {
+    ru: 'Начать писать',
+    en: 'Start writing',
+  },
+  invite_wizard_btn_back: {
+    ru: 'Назад',
+    en: 'Back',
+  },
+  invite_wizard_err_min_chars: {
+    ru: 'Минимум {count} символов',
+    en: 'Minimum {count} characters',
+  },
+  invite_wizard_err_mismatch: {
+    ru: 'Пароли не совпадают',
+    en: 'Passwords do not match',
+  },
+  invite_wizard_err_no_email: {
+    ru: 'Не удалось узнать адрес из ссылки — откройте ссылку из письма ещё раз.',
+    en: 'Could not resolve email from link — please reopen the link from your email.',
+  },
+  invite_wizard_err_offline: {
+    ru: 'Нет соединения с сетью. Проверьте подключение и попробуйте снова.',
+    en: 'No network connection. Please check your connection and try again.',
+  },
+  invite_wizard_err_failed: {
+    ru: 'Не удалось задать пароль. Ссылка могла устареть — попросите новое приглашение.',
+    en: 'Failed to set password. The link may have expired — please request a new invitation.',
+  },
+
+  // Restore from cloud modal
+  restore_cloud_title_completed: {
+    ru: 'Восстановление завершено',
+    en: 'Restore completed',
+  },
+  restore_cloud_title_failed: {
+    ru: 'Восстановление не удалось',
+    en: 'Restore failed',
+  },
+  restore_cloud_title_empty: {
+    ru: 'Нечего восстанавливать',
+    en: 'Nothing to restore',
+  },
+  restore_cloud_title_loading: {
+    ru: 'Загрузка данных из облака',
+    en: 'Downloading data from cloud',
+  },
+  restore_cloud_desc_loading_zero: {
+    ru: 'На этом устройстве пока нет ваших записей, а в облаке сохранено … Хотите загрузить их сейчас?',
+    en: 'There are no entries on this device yet, and the cloud has … Would you like to download them now?',
+  },
+  restore_cloud_desc_loading_nonzero: {
+    ru: 'На этом устройстве … заметок, а в облаке найдено … Хотите синхронизировать недостающие данные?',
+    en: 'There are … notes on this device, and … found in the cloud. Would you like to sync missing data?',
+  },
+  restore_cloud_desc_error_zero: {
+    ru: 'На этом устройстве пока нет ваших записей. Хотите загрузить их из облака?',
+    en: 'There are no entries on this device yet. Would you like to download them from the cloud?',
+  },
+  restore_cloud_desc_error_nonzero: {
+    ru: 'На этом устройстве {localCount} заметок. Хотите синхронизировать недостающие данные?',
+    en: 'There are {localCount} notes on this device. Would you like to sync missing data?',
+  },
+  restore_cloud_desc_ready_zero: {
+    ru: 'На этом устройстве пока нет ваших записей, а в облаке сохранено {cloudCount}. Хотите загрузить их сейчас?',
+    en: 'There are no entries on this device yet, and {cloudCount} stored in the cloud. Would you like to download them now?',
+  },
+  restore_cloud_desc_ready_nonzero: {
+    ru: 'На этом устройстве {localCount} заметок, а в облаке найдено {cloudCount}. Хотите синхронизировать недостающие данные?',
+    en: 'There are {localCount} notes on this device, and {cloudCount} found in the cloud. Would you like to sync missing data?',
+  },
+  restore_cloud_opt_notes_title: {
+    ru: 'Заметки и история версий',
+    en: 'Notes and version history',
+  },
+  restore_cloud_opt_notes_desc: {
+    ru: 'Все тексты, сессии и правки ({count} заметок в облаке)',
+    en: 'All texts, sessions, and edits ({count} notes in the cloud)',
+  },
+  restore_cloud_opt_ai_title: {
+    ru: 'Разбор ИИ и поиск',
+    en: 'AI analysis and search',
+  },
+  restore_cloud_opt_ai_desc: {
+    ru: 'Сводки, ключевые темы, инсайты и векторы семантического поиска',
+    en: 'Summaries, key themes, insights, and semantic search vectors',
+  },
+  restore_cloud_opt_profile_title: {
+    ru: 'Личность, диалоги и история жизни',
+    en: 'Personality, dialogues, and life story',
+  },
+  restore_cloud_opt_profile_desc: {
+    ru: 'Портрет, грани профиля, история чатов, реестр тем и убеждения',
+    en: 'Portrait, profile facets, chat history, theme ledger, and beliefs',
+  },
+  restore_cloud_btn_not_now: {
+    ru: 'Не сейчас',
+    en: 'Not now',
+  },
+  restore_cloud_btn_start: {
+    ru: 'Начать загрузку',
+    en: 'Start download',
+  },
+  restore_cloud_btn_retry: {
+    ru: 'Повторить',
+    en: 'Retry',
+  },
+  restore_cloud_prog_notes: {
+    ru: 'Загружено заметок:',
+    en: 'Notes downloaded:',
+  },
+  restore_cloud_prog_summaries: {
+    ru: 'Восстановлено сводок:',
+    en: 'Summaries restored:',
+  },
+  restore_cloud_prog_embeddings: {
+    ru: 'Векторов поиска (эмбеддингов):',
+    en: 'Search vectors (embeddings):',
+  },
+  restore_cloud_prog_ai_records: {
+    ru: 'Записей ИИ и диалогов:',
+    en: 'AI records and dialogues:',
+  },
+  restore_cloud_prog_keep_open: {
+    ru: 'Пожалуйста, не закрывайте вкладку до завершения загрузки.',
+    en: 'Please do not close this tab until the download completes.',
+  },
+  restore_cloud_fail_threw: {
+    ru: 'Восстановление прервано ошибкой. Попробуйте ещё раз позже.',
+    en: 'Restore interrupted by an error. Please try again later.',
+  },
+  restore_cloud_fail_empty: {
+    ru: 'Проход завершился, но из облака ничего не вернулось.',
+    en: 'The operation completed, but nothing was returned from the cloud.',
+  },
+  restore_cloud_stat_notes: {
+    ru: 'Заметок восстановлено:',
+    en: 'Notes restored:',
+  },
+  restore_cloud_stat_summaries: {
+    ru: 'Сводок ИИ:',
+    en: 'AI summaries:',
+  },
+  restore_cloud_stat_embeddings: {
+    ru: 'Векторов поиска:',
+    en: 'Search vectors:',
+  },
+  restore_cloud_stat_ai_records: {
+    ru: 'Записей ИИ:',
+    en: 'AI records:',
+  },
+  restore_cloud_stat_oversized: {
+    ru: 'Превышают лимит размера (10 МБ):',
+    en: 'Exceed size limit (10 MB):',
+  },
+  restore_cloud_success_title: {
+    ru: 'Данные успешно загружены',
+    en: 'Data downloaded successfully',
+  },
+  restore_cloud_success_embeddings: {
+    ru: 'Векторов поиска (эмбеддингов):',
+    en: 'Search vectors (embeddings):',
+  },
+  restore_cloud_success_ai_records: {
+    ru: 'Записей ИИ (диалоги, портрет, темы):',
+    en: 'AI records (dialogues, portrait, themes):',
+  },
+  restore_cloud_failed_skipped: {
+    ru: 'Пропущено с ошибкой:',
+    en: 'Skipped due to error:',
+  },
+  restore_cloud_oversized_skipped: {
+    ru: 'Пропущено из-за превышения лимита 10 МБ:',
+    en: 'Skipped due to exceeding 10 MB limit:',
+  },
+  restore_cloud_autosync_title: {
+    ru: 'Включить автосинхронизацию на этом устройстве?',
+    en: 'Enable auto-sync on this device?',
+  },
+  restore_cloud_autosync_desc: {
+    ru: 'Новые заметки и правки будут автоматически сохраняться в облако.',
+    en: 'New notes and edits will be automatically saved to the cloud.',
+  },
+  restore_cloud_autosync_enable: {
+    ru: 'Включить автосинк',
+    en: 'Enable auto-sync',
+  },
+  restore_cloud_autosync_manual: {
+    ru: 'Оставить ручную',
+    en: 'Keep manual',
+  },
 };

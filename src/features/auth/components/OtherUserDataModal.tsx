@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ModalWrapper } from '../../../shared/components/ModalWrapper';
 import { Button } from '../../../shared/components/Button';
 import { Users, Trash2, Loader2 } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n';
 
 export interface OtherUserDataModalProps {
   open: boolean;
@@ -10,6 +11,7 @@ export interface OtherUserDataModalProps {
 }
 
 export function OtherUserDataModal({ open, onClose, onClear }: OtherUserDataModalProps) {
+  const { t } = useLanguage();
   const [clearing, setClearing] = useState(false);
 
   const handleClear = async () => {
@@ -36,17 +38,17 @@ export function OtherUserDataModal({ open, onClose, onClear }: OtherUserDataModa
           </div>
           <div>
             <h2 id="other-user-data-title" className="text-base font-semibold text-text-main">
-              Данные предыдущего пользователя
+              {t('other_user_data_title')}
             </h2>
           </div>
         </div>
 
         <div className="space-y-2 text-xs text-text-main/70 leading-relaxed">
           <p>
-            На этом устройстве обнаружены локальные записи предыдущей учётной записи.
+            {t('other_user_data_desc_1')}
           </p>
           <p>
-            Они изолированы и не видны в ваших заметках. Вы можете очистить их, чтобы освободить место на устройстве.
+            {t('other_user_data_desc_2')}
           </p>
         </div>
 
@@ -56,7 +58,7 @@ export function OtherUserDataModal({ open, onClose, onClear }: OtherUserDataModa
             disabled={clearing}
             className="px-4 py-2 text-xs text-text-main/70 hover:text-text-main"
           >
-            Оставить
+            {t('other_user_data_btn_keep')}
           </Button>
           <Button
             onClick={() => void handleClear()}
@@ -68,7 +70,7 @@ export function OtherUserDataModal({ open, onClose, onClear }: OtherUserDataModa
             ) : (
               <Trash2 className="w-3.5 h-3.5" />
             )}
-            Очистить чужие данные
+            {t('other_user_data_btn_clear')}
           </Button>
         </div>
       </div>

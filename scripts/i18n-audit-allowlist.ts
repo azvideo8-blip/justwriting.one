@@ -7,7 +7,6 @@
 
 export const JSX_TEXT_ALLOWLIST: readonly string[] = [
   "src/app/ActivityLogBadge.tsx",
-  "src/app/modals/RestoreFromCloudModal.tsx",
   "src/features/ai/components/AIChatPresentational.tsx",
   "src/features/ai/components/ArchiveAnalysisButton.tsx",
   "src/features/ai/components/AuthorPortrait.tsx",
@@ -17,7 +16,6 @@ export const JSX_TEXT_ALLOWLIST: readonly string[] = [
   "src/features/ai/components/DocumentPickerModal.tsx",
   "src/features/ai/components/EmbeddingDiagnostics.tsx",
   "src/features/ai/components/FacetDiagnostics.tsx",
-  "src/features/ai/components/IndexingConsentModal.tsx",
   "src/features/ai/components/LifeStoryTimeline.tsx",
   "src/features/ai/components/MemoryAssemblerDiagnostics.tsx",
   "src/features/ai/components/PersonaDetailModal.tsx",
@@ -31,9 +29,6 @@ export const JSX_TEXT_ALLOWLIST: readonly string[] = [
   "src/features/ai/components/chat/ThinkingIndicator.tsx",
   "src/features/ai/hooks/useSyncDiagnostics.tsx",
   "src/features/archive/components/DocumentPreview.tsx",
-  "src/features/auth/components/InviteWizard.tsx",
-  "src/features/auth/components/OtherUserDataModal.tsx",
-  "src/features/auth/components/PrivacyModal.tsx",
   "src/features/navigation/pages/GuidePage.tsx",
   "src/features/settings/components/AccountAISection.tsx",
   "src/features/settings/components/EditorTab.tsx",
@@ -57,7 +52,6 @@ export const JSX_ATTR_ALLOWLIST: readonly string[] = [
   "src/features/archive/components/ArchiveTagBar.tsx",
   "src/features/archive/components/DocumentPreview.tsx",
   "src/features/archive/components/InlineTags.tsx",
-  "src/features/auth/components/InviteWizard.tsx",
   "src/features/navigation/components/BottomNav.tsx",
   "src/features/navigation/components/Sidebar.tsx",
   "src/features/navigation/pages/GuidePage.tsx",

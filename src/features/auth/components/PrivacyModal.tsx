@@ -6,12 +6,14 @@ import { PrivacyConsentBody, savePrivacyConsent } from './PrivacyConsentBody';
 import { Button } from '../../../shared/components/Button';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { useLanguage } from '../../../shared/i18n';
 
 interface PrivacyModalProps {
   onAccepted: () => void;
 }
 
 export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
+  const { t } = useLanguage();
   const [checked, setChecked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
       await savePrivacyConsent(user.uid, aiConsent);
     } catch (e) {
       reportError(e, { action: 'privacyAccept', userId: user.uid });
-      setSaveError('Не удалось сохранить согласие. Проверьте связь и попробуйте ещё раз.');
+      setSaveError(t('privacy_modal_save_error'));
       return;
     } finally {
       setSaving(false);
@@ -49,7 +51,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <Shield size={20} className="text-brand-soft" />
-            <h2 id="privacy-modal-title" className="text-base font-bold text-text-main">Политика конфиденциальности</h2>
+            <h2 id="privacy-modal-title" className="text-base font-bold text-text-main">{t('privacy_modal_title')}</h2>
           </div>
 
           <PrivacyConsentBody checked={checked} onChecked={setChecked} aiConsent={aiConsent} onAiConsent={setAiConsent} />
@@ -63,7 +65,7 @@ export function PrivacyModal({ onAccepted }: PrivacyModalProps) {
             disabled={!checked || saving}
             className="w-full mt-4 py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
           >
-            Продолжить
+            {t('privacy_modal_continue')}
           </Button>
         </div>
     </ModalShell>

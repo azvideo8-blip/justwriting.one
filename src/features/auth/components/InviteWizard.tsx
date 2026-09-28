@@ -9,6 +9,7 @@ import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { setCloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 /**
  * ON-1/ON-2: мастер приглашения. Приветствие → политика → пароль →
@@ -25,6 +26,7 @@ const NUMBERED: Step[] = ['policy', 'password', 'sync'];
 
 export function InviteWizard({ email }: { email: string | null }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [step, setStep] = useState<Step>('welcome');
   const [policy, setPolicy] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
@@ -40,9 +42,9 @@ export function InviteWizard({ email }: { email: string | null }) {
   const submitPassword = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password.length < MIN_PASSWORD_LENGTH) return setError(`Минимум ${MIN_PASSWORD_LENGTH} символов`);
-    if (password !== confirm) return setError('Пароли не совпадают');
-    if (!email) return setError('Не удалось узнать адрес из ссылки — откройте ссылку из письма ещё раз.');
+    if (password.length < MIN_PASSWORD_LENGTH) return setError(t('invite_wizard_err_min_chars', { count: MIN_PASSWORD_LENGTH }));
+    if (password !== confirm) return setError(t('invite_wizard_err_mismatch'));
+    if (!email) return setError(t('invite_wizard_err_no_email'));
     setBusy(true);
     try {
       await updateUserPassword(password);
@@ -53,8 +55,8 @@ export function InviteWizard({ email }: { email: string | null }) {
     } catch (err) {
       reportError(err, { action: 'inviteWizard_password' });
       setError(typeof navigator !== 'undefined' && !navigator.onLine
-        ? 'Нет соединения с сетью. Проверьте подключение и попробуйте снова.'
-        : 'Не удалось задать пароль. Ссылка могла устареть — попросите новое приглашение.');
+        ? t('invite_wizard_err_offline')
+        : t('invite_wizard_err_failed'));
     } finally {
       setBusy(false);
     }
@@ -91,7 +93,7 @@ export function InviteWizard({ email }: { email: string | null }) {
 
   const downloadCode = () => {
     if (!recoveryCode) return;
-    const blob = new Blob([`Код восстановления justwriting\n\n${recoveryCode}\n\nОн нужен, если забудете пароль: без него зашифрованные заметки не открыть.\n`], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([t('invite_wizard_download_file_content', { recoveryCode })], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -110,7 +112,7 @@ export function InviteWizard({ email }: { email: string | null }) {
           <span className="text-sm font-semibold text-text-main/70">justwriting</span>
           {stepNo >= 0 && (
             <span className="ml-auto text-xs font-medium text-text-main/50" data-testid="invite-step">
-              Шаг {stepNo + 1} из {NUMBERED.length}
+              {t('invite_wizard_step', { current: stepNo + 1, total: NUMBERED.length })}
             </span>
           )}
         </div>
@@ -118,22 +120,20 @@ export function InviteWizard({ email }: { email: string | null }) {
         <div className="p-6 sm:p-8 rounded-3xl border bg-surface-card border-border-subtle shadow-xl space-y-5">
           {step === 'welcome' && (
             <>
-              <h1 className="text-2xl font-bold text-text-main">Добро пожаловать в justwriting</h1>
+              <h1 className="text-2xl font-bold text-text-main">{t('invite_wizard_welcome_title')}</h1>
               <p className="text-sm leading-relaxed text-text-main/70">
-                Спасибо, что решили попробовать мой проект. Это тихий редактор для свободного письма:
-                пишете без оглядки, заметки хранятся у вас и шифруются, а ИИ помогает перечитать
-                написанное — только когда вы сами его позовёте.
+                {t('invite_wizard_welcome_desc')}
               </p>
               <p className="text-sm leading-relaxed text-text-main/70">
-                Сейчас пройдём три коротких шага, прежде чем начать{email ? <> — для <strong className="text-text-main">{email}</strong></> : null}.
+                {t('invite_wizard_welcome_prompt')}{email ? <> {t('invite_wizard_for_email_prefix')} <strong className="text-text-main">{email}</strong></> : null}.
               </p>
-              <Primary onClick={() => setStep('policy')}>Начать</Primary>
+              <Primary onClick={() => setStep('policy')}>{t('invite_wizard_btn_start')}</Primary>
             </>
           )}
 
           {step === 'policy' && (
             <>
-              <h1 className="text-xl font-bold text-text-main">Как мы обращаемся с данными</h1>
+              <h1 className="text-xl font-bold text-text-main">{t('invite_wizard_policy_title')}</h1>
               <PrivacyConsentBody checked={policy} onChecked={setPolicy} aiConsent={aiConsent} onAiConsent={setAiConsent} />
               <Nav onBack={() => setStep('welcome')} onNext={() => setStep('password')} nextDisabled={!policy} />
             </>
@@ -141,62 +141,57 @@ export function InviteWizard({ email }: { email: string | null }) {
 
           {step === 'password' && (
             <form onSubmit={e => { void submitPassword(e); }} className="space-y-4">
-              <h1 className="text-xl font-bold text-text-main">Придумайте пароль</h1>
+              <h1 className="text-xl font-bold text-text-main">{t('invite_wizard_password_title')}</h1>
               {email && (
-                <p className="text-sm text-text-main/70">Ваш логин: <strong className="text-text-main">{email}</strong></p>
+                <p className="text-sm text-text-main/70">{t('invite_wizard_login_label')} <strong className="text-text-main">{email}</strong></p>
               )}
               <p className="text-sm leading-relaxed text-text-main/70">
-                Пароль нужен, чтобы входить, — и им же шифруются ваши заметки: без него их не прочитает
-                никто, даже мы. Хранить заметки в облаке или только на этом устройстве, решите на
-                следующем шаге.
+                {t('invite_wizard_password_desc')}
               </p>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="Пароль" aria-label="Пароль" autoComplete="new-password" minLength={MIN_PASSWORD_LENGTH} required
+                placeholder={t('invite_wizard_password_placeholder')} aria-label={t('invite_wizard_password_placeholder')} autoComplete="new-password" minLength={MIN_PASSWORD_LENGTH} required
                 className="w-full rounded-xl border border-border-subtle bg-surface-base/5 px-4 py-3 text-text-main outline-none focus:ring-2 focus:ring-[var(--brand-soft)]/40" />
               <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
-                placeholder="Повторите пароль" aria-label="Повторите пароль" autoComplete="new-password" required
+                placeholder={t('invite_wizard_confirm_placeholder')} aria-label={t('invite_wizard_confirm_placeholder')} autoComplete="new-password" required
                 className="w-full rounded-xl border border-border-subtle bg-surface-base/5 px-4 py-3 text-text-main outline-none focus:ring-2 focus:ring-[var(--brand-soft)]/40" />
               {error && <p role="alert" className="text-sm text-accent-danger">{error}</p>}
-              <Nav onBack={() => setStep('policy')} nextType="submit" nextLabel={busy ? 'Сохраняю…' : 'Далее'}
+              <Nav onBack={() => setStep('policy')} nextType="submit" nextLabel={busy ? t('invite_wizard_saving') : t('invite_wizard_btn_next')}
                 nextDisabled={busy || password.length < MIN_PASSWORD_LENGTH} />
             </form>
           )}
 
           {step === 'sync' && !recoveryCode && (
             <>
-              <h1 className="text-xl font-bold text-text-main">Хранить заметки в облаке?</h1>
+              <h1 className="text-xl font-bold text-text-main">{t('invite_wizard_sync_title')}</h1>
               <p className="text-sm leading-relaxed text-text-main/70">
-                С синхронизацией заметки попадают на наш сервер в зашифрованном виде — их можно открыть
-                на другом устройстве, и они не пропадут вместе с этим. Без неё заметки живут только в
-                этом браузере.
+                {t('invite_wizard_sync_desc')}
               </p>
-              <p className="text-xs text-text-main/50">Решение можно поменять в любой момент: Настройки → Синхронизация.</p>
+              <p className="text-xs text-text-main/50">{t('invite_wizard_sync_hint')}</p>
               <div className="grid grid-cols-2 gap-3">
-                <Secondary onClick={() => finish(false)}>Не сейчас</Secondary>
-                <Primary onClick={enableSync}>Включить</Primary>
+                <Secondary onClick={() => finish(false)}>{t('invite_wizard_btn_not_now')}</Secondary>
+                <Primary onClick={enableSync}>{t('invite_wizard_btn_enable_sync')}</Primary>
               </div>
             </>
           )}
 
           {step === 'sync' && recoveryCode && (
             <>
-              <h1 className="text-xl font-bold text-text-main">Сохраните код восстановления</h1>
+              <h1 className="text-xl font-bold text-text-main">{t('invite_wizard_recovery_title')}</h1>
               <p className="text-sm leading-relaxed text-text-main/70">
-                Если забудете пароль, этот код — единственный способ открыть заметки из облака. Мы его
-                не храним и показываем один раз.
+                {t('invite_wizard_recovery_desc')}
               </p>
               <div className="p-4 rounded-2xl bg-surface-base border border-border-subtle text-center font-mono text-base font-bold tracking-wider text-text-main select-all break-all">
                 {recoveryCode}
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Secondary onClick={() => void copyCode()}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? 'Скопировано' : 'Скопировать'}</Secondary>
-                <Secondary onClick={downloadCode}><Download size={14} />Скачать</Secondary>
+                <Secondary onClick={() => void copyCode()}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? t('invite_wizard_copied') : t('invite_wizard_copy')}</Secondary>
+                <Secondary onClick={downloadCode}><Download size={14} />{t('invite_wizard_download')}</Secondary>
               </div>
               <label className="flex items-start gap-3 cursor-pointer text-left">
                 <input type="checkbox" checked={codeSaved} onChange={e => setCodeSaved(e.target.checked)} className="mt-0.5 accent-brand-soft shrink-0" />
-                <span className="text-xs text-text-main/70">Я сохранил(а) код в надёжном месте</span>
+                <span className="text-xs text-text-main/70">{t('invite_wizard_saved_checkbox')}</span>
               </label>
-              <Primary onClick={() => finish(true)} disabled={!codeSaved}>Начать писать</Primary>
+              <Primary onClick={() => finish(true)} disabled={!codeSaved}>{t('invite_wizard_btn_start_writing')}</Primary>
             </>
           )}
         </div>
@@ -223,13 +218,14 @@ function Secondary({ children, onClick }: { children: ReactNode; onClick?: () =>
   );
 }
 
-function Nav({ onBack, onNext, nextDisabled, nextType = 'button', nextLabel = 'Далее' }: {
+function Nav({ onBack, onNext, nextDisabled, nextType = 'button', nextLabel }: {
   onBack: () => void; onNext?: (() => void) | undefined; nextDisabled?: boolean | undefined; nextType?: 'button' | 'submit'; nextLabel?: string;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="grid grid-cols-2 gap-3 pt-1">
-      <Secondary onClick={onBack}>Назад</Secondary>
-      <Primary type={nextType} onClick={onNext} disabled={nextDisabled}>{nextLabel}</Primary>
+      <Secondary onClick={onBack}>{t('invite_wizard_btn_back')}</Secondary>
+      <Primary type={nextType} onClick={onNext} disabled={nextDisabled}>{nextLabel ?? t('invite_wizard_btn_next')}</Primary>
     </div>
   );
 }

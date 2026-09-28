@@ -273,10 +273,10 @@ export function RestoreFromCloudModal({
           <div>
             <h2 id="restore-cloud-title" className="text-base font-semibold text-text-main">
               {step === 'completed'
-                ? 'Восстановление завершено'
+                ? t('restore_cloud_title_completed')
                 : step === 'failed'
-                  ? (threw ? 'Восстановление не удалось' : 'Нечего восстанавливать')
-                  : 'Загрузка данных из облака'}
+                  ? (threw ? t('restore_cloud_title_failed') : t('restore_cloud_title_empty'))
+                  : t('restore_cloud_title_loading')}
             </h2>
           </div>
         </div>
@@ -286,15 +286,15 @@ export function RestoreFromCloudModal({
             <p className="text-xs text-text-main/70 leading-relaxed">
               {loadingCounts
                 ? (localCount === 0
-                  ? 'На этом устройстве пока нет ваших записей, а в облаке сохранено … Хотите загрузить их сейчас?'
-                  : 'На этом устройстве … заметок, а в облаке найдено … Хотите синхронизировать недостающие данные?')
+                  ? t('restore_cloud_desc_loading_zero')
+                  : t('restore_cloud_desc_loading_nonzero'))
                 : countsError
                   ? (localCount === 0
-                    ? 'На этом устройстве пока нет ваших записей. Хотите загрузить их из облака?'
-                    : `На этом устройстве ${localCount} заметок. Хотите синхронизировать недостающие данные?`)
+                    ? t('restore_cloud_desc_error_zero')
+                    : t('restore_cloud_desc_error_nonzero', { localCount }))
                   : (localCount === 0
-                    ? `На этом устройстве пока нет ваших записей, а в облаке сохранено ${cloudCount}. Хотите загрузить их сейчас?`
-                    : `На этом устройстве ${localCount} заметок, а в облаке найдено ${cloudCount}. Хотите синхронизировать недостающие данные?`)}
+                    ? t('restore_cloud_desc_ready_zero', { cloudCount })
+                    : t('restore_cloud_desc_ready_nonzero', { localCount, cloudCount }))}
             </p>
 
             {countsError && (
@@ -320,10 +320,10 @@ export function RestoreFromCloudModal({
                 />
                 <div className="space-y-0.5">
                   <div className="text-xs font-semibold text-text-main group-hover:text-accent transition-colors">
-                    Заметки и история версий
+                    {t('restore_cloud_opt_notes_title')}
                   </div>
                   <div className="text-[11px] text-text-main/60">
-                    Все тексты, сессии и правки ({loadingCounts ? '…' : (countsError ? '—' : cloudCount)} заметок в облаке)
+                    {t('restore_cloud_opt_notes_desc', { count: loadingCounts ? '…' : (countsError ? '—' : cloudCount) })}
                   </div>
                 </div>
               </label>
@@ -337,10 +337,10 @@ export function RestoreFromCloudModal({
                 />
                 <div className="space-y-0.5">
                   <div className="text-xs font-semibold text-text-main group-hover:text-accent transition-colors">
-                    Разбор ИИ и поиск
+                    {t('restore_cloud_opt_ai_title')}
                   </div>
                   <div className="text-[11px] text-text-main/60">
-                    Сводки, ключевые темы, инсайты и векторы семантического поиска
+                    {t('restore_cloud_opt_ai_desc')}
                   </div>
                 </div>
               </label>
@@ -354,10 +354,10 @@ export function RestoreFromCloudModal({
                 />
                 <div className="space-y-0.5">
                   <div className="text-xs font-semibold text-text-main group-hover:text-accent transition-colors">
-                    Личность, диалоги и история жизни
+                    {t('restore_cloud_opt_profile_title')}
                   </div>
                   <div className="text-[11px] text-text-main/60">
-                    Портрет, грани профиля, история чатов, реестр тем и убеждения
+                    {t('restore_cloud_opt_profile_desc')}
                   </div>
                 </div>
               </label>
@@ -365,7 +365,7 @@ export function RestoreFromCloudModal({
 
             <div className="pt-3 border-t border-border-subtle flex items-center justify-between">
               <Button onClick={handleDismiss} className="px-3 py-1.5 text-xs text-text-main/60 hover:text-text-main">
-                Не сейчас
+                {t('restore_cloud_btn_not_now')}
               </Button>
               <Button
                 onClick={() => void handleStartRestore()}
@@ -373,7 +373,7 @@ export function RestoreFromCloudModal({
                 className="px-4 py-2 text-xs font-semibold bg-brand-soft text-surface-base hover:opacity-90 flex items-center gap-1.5"
               >
                 <CloudDownload className="w-4 h-4" />
-                Начать загрузку
+                {t('restore_cloud_btn_start')}
               </Button>
             </div>
           </div>
@@ -397,32 +397,32 @@ export function RestoreFromCloudModal({
             <div className="p-3 bg-surface-base rounded-xl border border-border-subtle text-xs space-y-1.5 text-text-main/60">
               {progress.notesTotal > 0 && (
                 <div className="flex justify-between">
-                  <span>Загружено заметок:</span>
+                  <span>{t('restore_cloud_prog_notes')}</span>
                   <span className="text-text-main font-medium">{progress.notesCurrent} / {progress.notesTotal}</span>
                 </div>
               )}
               {progress.summariesCount > 0 && (
                 <div className="flex justify-between">
-                  <span>Восстановлено сводок:</span>
+                  <span>{t('restore_cloud_prog_summaries')}</span>
                   <span className="text-text-main font-medium">{progress.summariesCount}</span>
                 </div>
               )}
               {progress.embeddingsCount > 0 && (
                 <div className="flex justify-between">
-                  <span>Векторов поиска (эмбеддингов):</span>
+                  <span>{t('restore_cloud_prog_embeddings')}</span>
                   <span className="text-text-main font-medium">{progress.embeddingsCount}</span>
                 </div>
               )}
               {progress.localStoreCount > 0 && (
                 <div className="flex justify-between">
-                  <span>Записей ИИ и диалогов:</span>
+                  <span>{t('restore_cloud_prog_ai_records')}</span>
                   <span className="text-text-main font-medium">{progress.localStoreCount}</span>
                 </div>
               )}
             </div>
 
             <p className="text-[11px] text-text-main/50 text-center italic">
-              Пожалуйста, не закрывайте вкладку до завершения загрузки.
+              {t('restore_cloud_prog_keep_open')}
             </p>
           </div>
         )}
@@ -433,30 +433,30 @@ export function RestoreFromCloudModal({
               <div className="flex items-center gap-2 text-xs font-semibold text-accent-danger">
                 <AlertTriangle className="w-4 h-4 text-accent-danger" />
                 {threw
-                  ? 'Восстановление прервано ошибкой. Попробуйте ещё раз позже.'
-                  : 'Проход завершился, но из облака ничего не вернулось.'}
+                  ? t('restore_cloud_fail_threw')
+                  : t('restore_cloud_fail_empty')}
               </div>
               {/* Частичный успех — числами: что успело вернуться до падения. */}
               {(Boolean(report?.restoredNotes) || Boolean(report?.restoredSummaries) || Boolean(report?.restoredEmbeddings) || Boolean(report?.restoredAIStoreRecords) || Boolean(report?.oversizedCount)) && (
                 <div className="text-[11px] text-text-main/70 space-y-1 pl-6">
-                  {Boolean(report?.restoredNotes) && <div>Заметок восстановлено: <strong className="text-text-main">{report?.restoredNotes}</strong></div>}
-                  {Boolean(report?.restoredSummaries) && <div>Сводок ИИ: <strong className="text-text-main">{report?.restoredSummaries}</strong></div>}
-                  {Boolean(report?.restoredEmbeddings) && <div>Векторов поиска: <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>}
-                  {Boolean(report?.restoredAIStoreRecords) && <div>Записей ИИ: <strong className="text-text-main">{report?.restoredAIStoreRecords}</strong></div>}
-                  {Boolean(report?.oversizedCount) && <div>Превышают лимит размера (10 МБ): <strong className="text-accent-warning">{report?.oversizedCount}</strong></div>}
+                  {Boolean(report?.restoredNotes) && <div>{t('restore_cloud_stat_notes')} <strong className="text-text-main">{report?.restoredNotes}</strong></div>}
+                  {Boolean(report?.restoredSummaries) && <div>{t('restore_cloud_stat_summaries')} <strong className="text-text-main">{report?.restoredSummaries}</strong></div>}
+                  {Boolean(report?.restoredEmbeddings) && <div>{t('restore_cloud_stat_embeddings')} <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>}
+                  {Boolean(report?.restoredAIStoreRecords) && <div>{t('restore_cloud_stat_ai_records')} <strong className="text-text-main">{report?.restoredAIStoreRecords}</strong></div>}
+                  {Boolean(report?.oversizedCount) && <div>{t('restore_cloud_stat_oversized')} <strong className="text-accent-warning">{report?.oversizedCount}</strong></div>}
                 </div>
               )}
             </div>
 
             <div className="pt-2 flex items-center justify-end gap-2">
               <Button onClick={handleDismiss} className="px-3 py-1.5 text-xs text-text-main/60 hover:text-text-main">
-                Не сейчас
+                {t('restore_cloud_btn_not_now')}
               </Button>
               <Button
                 onClick={() => void handleStartRestore()}
                 className="px-4 py-2 text-xs font-semibold bg-brand-soft text-surface-base hover:opacity-90"
               >
-                Повторить
+                {t('restore_cloud_btn_retry')}
               </Button>
             </div>
           </div>
@@ -467,25 +467,25 @@ export function RestoreFromCloudModal({
             <div className="p-3.5 bg-accent/10 border border-accent/20 rounded-xl space-y-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-accent">
                 <CheckCircle className="w-4 h-4 text-accent" />
-                Данные успешно загружены
+                {t('restore_cloud_success_title')}
               </div>
               <div className="text-[11px] text-text-main/70 space-y-1 pl-6">
-                <div>Заметок восстановлено: <strong className="text-text-main">{report?.restoredNotes ?? 0}</strong></div>
-                <div>Сводок ИИ: <strong className="text-text-main">{report?.restoredSummaries ?? 0}</strong></div>
+                <div>{t('restore_cloud_stat_notes')} <strong className="text-text-main">{report?.restoredNotes ?? 0}</strong></div>
+                <div>{t('restore_cloud_stat_summaries')} <strong className="text-text-main">{report?.restoredSummaries ?? 0}</strong></div>
                 {Boolean(report?.restoredEmbeddings) && (
-                  <div>Векторов поиска (эмбеддингов): <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>
+                  <div>{t('restore_cloud_success_embeddings')} <strong className="text-text-main">{report?.restoredEmbeddings}</strong></div>
                 )}
-                <div>Записей ИИ (диалоги, портрет, темы): <strong className="text-text-main">{report?.restoredAIStoreRecords ?? 0}</strong></div>
+                <div>{t('restore_cloud_success_ai_records')} <strong className="text-text-main">{report?.restoredAIStoreRecords ?? 0}</strong></div>
                 {Boolean(report?.failedCount) && (
                   <div className="text-accent-warning flex items-center gap-1 mt-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    Пропущено с ошибкой: {report?.failedCount}
+                    {t('restore_cloud_failed_skipped')} {report?.failedCount}
                   </div>
                 )}
                 {Boolean(report?.oversizedCount) && (
                   <div className="text-accent-warning flex items-center gap-1 mt-1">
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    Пропущено из-за превышения лимита 10 МБ: {report?.oversizedCount}
+                    {t('restore_cloud_oversized_skipped')} {report?.oversizedCount}
                   </div>
                 )}
               </div>
@@ -494,17 +494,17 @@ export function RestoreFromCloudModal({
             {!isAutoSyncAlreadyEnabled && !autoSyncPromptAnswered && (
               <div className="p-3 bg-surface-base border border-border-subtle rounded-xl space-y-2">
                 <div className="text-xs font-medium text-text-main">
-                  Включить автосинхронизацию на этом устройстве?
+                  {t('restore_cloud_autosync_title')}
                 </div>
                 <div className="text-[11px] text-text-main/60">
-                  Новые заметки и правки будут автоматически сохраняться в облако.
+                  {t('restore_cloud_autosync_desc')}
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button onClick={handleEnableAutoSync} className="px-3 py-1.5 text-xs bg-brand-soft text-surface-base hover:opacity-90">
-                    Включить автосинк
+                    {t('restore_cloud_autosync_enable')}
                   </Button>
                   <Button onClick={handleSkipAutoSync} className="px-3 py-1.5 text-xs text-text-main/60 hover:text-text-main">
-                    Оставить ручную
+                    {t('restore_cloud_autosync_manual')}
                   </Button>
                 </div>
               </div>
