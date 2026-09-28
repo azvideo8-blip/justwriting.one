@@ -369,11 +369,41 @@ export class LocalStoreSyncManager {
 
   public scheduleStoreSync(store: SupportedLocalStoreName, key: string): void {
     const itemKey = `${store}:${key}`;
+    const pendingItem = this.pending.get(itemKey);
+    const hasPendingDelete = pendingItem?.isDelete === true;
+    const uid = getCurrentUser()?.uid;
+    const hasPersistedDelete = uid
+      ? readPersistedDeletes().some(d => d.uid === uid && d.store === store && d.key === key)
+      : false;
+
+    // A-3.2 (F-007): если у записи есть ожидающее или персистентное удаление,
+    // а самой записи в IndexedDB уже нет (запоздалый ответ ИИ или фоновой задачи),
+    // вызов игнорируется, чтобы не воскрешать удалённую строку в памяти и облаке.
+    if (hasPendingDelete || hasPersistedDelete) {
+      void (async () => {
+        try {
+          const db = await getLocalDb();
+          const rec = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, key);
+          if (!rec) {
+            return;
+          }
+          this.pending.set(itemKey, { store, key, isDelete: false });
+          if (uid) {
+            persistUpserts(uid, [{ store, key }]);
+            forgetDeadUpserts(uid, [{ store, key }]);
+          }
+          this.resetTimer();
+        } catch (err) {
+          reportError(err, { action: 'scheduleStoreSync_checkDeletedRecord', store, key });
+        }
+      })();
+      return;
+    }
+
     this.pending.set(itemKey, { store, key, isDelete: false });
     // SA-1: правка мёртвой записи даёт ей новый шанс — отметка «отвергнуто»
     // снимается, а счётчик попыток у ещё живого маркера остаётся: серия
     // быстрых правок не должна обнулять израсходованный бюджет повторов.
-    const uid = getCurrentUser()?.uid;
     if (uid) {
       persistUpserts(uid, [{ store, key }]);
       forgetDeadUpserts(uid, [{ store, key }]);

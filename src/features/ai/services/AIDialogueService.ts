@@ -258,18 +258,23 @@ export const AIDialogueService = {
 
         const tx = db.transaction(['aiDialogues', 'aiDialogueEvents'], 'readwrite');
         const existing = await tx.objectStore('aiDialogues').get(id);
-        if (existing) {
-          existing.closingSummary = text;
-          await tx.objectStore('aiDialogues').put(existing);
+        if (!existing) {
+          try {
+            tx.abort();
+            await tx.done.catch(() => {});
+          } catch { /* ignore */ }
+          return;
         }
 
-        const dialogueToUse = existing || dialogue;
+        existing.closingSummary = text;
+        await tx.objectStore('aiDialogues').put(existing);
+
         await tx.objectStore('aiDialogueEvents').put({
           dialogueId: id,
           date,
           month,
-          personaId: dialogueToUse.personaId,
-          personaName: dialogueToUse.personaName,
+          personaId: existing.personaId,
+          personaName: existing.personaName,
           summary: text,
           themes: [],
           ...(vector ? { vector } : {}),
