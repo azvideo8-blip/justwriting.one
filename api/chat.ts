@@ -135,6 +135,7 @@ function createSettlement(
   estimatedInputTokens?: number,
   kind: 'chat' | 'reasoning' | string = 'chat',
 ): Settlement {
+  const effectiveKind = isInternalCall ? 'internal_chat' : kind;
   const callRes = createCallReservation(
     postgresAiContext,
     uid,
@@ -142,7 +143,7 @@ function createSettlement(
     chargedDay,
     reservation,
     estimatedInputTokens,
-    kind,
+    effectiveKind,
   );
   return {
     get usageRecorded() {
