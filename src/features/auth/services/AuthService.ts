@@ -2,6 +2,7 @@ import { signIn, signUp, signOutUser, sendPasswordResetEmail, getCurrentUser, re
 import { setPendingLoginPassword, clearPendingLoginPassword } from '../../../core/crypto/pendingLoginPassword';
 import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
+import { clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { reportError } from '../../../shared/errors/reportError';
 import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { resetDbInstance } from '../../../core/storage/localDb';
@@ -137,7 +138,6 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
   }
 
   try {
-    const { clearDeviceKey } = await import('../../../core/crypto/keyVaultCache');
     await clearDeviceKey(currentUid);
   } catch (e) {
     if (opts?.clearLocalData) {

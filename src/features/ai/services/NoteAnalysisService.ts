@@ -11,6 +11,7 @@ import { isDayLimitError, type AIErrorCode } from '../types/aiErrors';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { persistPendingAnalysisDelete, forgetPendingAnalysisDelete } from './pendingAnalysisDeletes';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 
 /**
  * Разбор одной заметки — по явному нажатию, и только по нему.
@@ -103,7 +104,6 @@ async function purgeNoteDerivatives(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const idSet = new Set(ids);
   const mine = (unitId: string) => ids.some(id => unitId === `summary-${id}` || unitId.startsWith(`timeline-${id}-`));
-  const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
   const db = await getLocalDb();
   try {
     for (const id of ids) {

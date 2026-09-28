@@ -1,5 +1,7 @@
 import { ownRow } from '../data/providers/pageAll';
 import { getSupabase } from '../supabase/client';
+import { SyncService } from '../services/SyncService';
+import { CloudSyncService } from '../services/CloudSyncService';
 
 const CHANGE_CURSOR_KEY_PREFIX = 'change_cursor_last_seen_';
 
@@ -125,15 +127,8 @@ export async function checkAndSyncCursor(
     return { checked: true, synced: false, serverCursor };
   }
 
-  const downloadAll = options?.downloadAll ?? (async (uid: string) => {
-    const { SyncService } = await import('../services/SyncService');
-    return SyncService.downloadAllFromCloud(uid);
-  });
-
-  const reconcileLinked = options?.reconcileLinked ?? (async (uid: string) => {
-    const { CloudSyncService } = await import('../services/CloudSyncService');
-    return CloudSyncService.reconcileLinkedDocuments(uid);
-  });
+  const downloadAll = options?.downloadAll ?? (async (uid: string) => SyncService.downloadAllFromCloud(uid));
+  const reconcileLinked = options?.reconcileLinked ?? (async (uid: string) => CloudSyncService.reconcileLinkedDocuments(uid));
 
   // EA-4: проходы сообщают о сбоях возвращаемым значением ({ failed, locked }),
   // а не исключением. Курсор двигаем, только если оба прошли чисто: иначе

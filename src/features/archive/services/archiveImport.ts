@@ -1,5 +1,6 @@
 import { parseNoteMarkdown } from '../../../core/services/noteFormat';
 import { countWords } from '../../../shared/utils/countWords';
+import { SyncService } from '../../../core/services/SyncService';
 
 export interface ParsedImportFile {
   title: string;
@@ -99,7 +100,6 @@ export async function importNoteFile(
   });
 
   if (isSignedIn) {
-    const { SyncService } = await import('../../../core/services/SyncService');
     try {
       await SyncService.addToQueue(localId, userId);
     } catch (queueErr) {

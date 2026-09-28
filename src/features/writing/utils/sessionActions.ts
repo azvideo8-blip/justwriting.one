@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { logger } from '../../../shared/errors/logger';
 import { WritingDraftService } from '../services/WritingDraftService';
+import { SyncService } from '../../../core/services/SyncService';
 
 export function reportKeystrokeStats(
   stats: { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number },
@@ -41,7 +42,6 @@ export async function cleanupDraftsAfterSave(
       logger.warn('sessionActions', 'Draft not deleted after save — it may reappear as an unsaved draft');
     }
     if (docIdToSync) {
-      const { SyncService } = await import('../../../core/services/SyncService');
       try {
         await SyncService.addToQueue(docIdToSync);
       } catch (queueErr) {

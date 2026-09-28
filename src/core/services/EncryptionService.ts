@@ -21,6 +21,8 @@ import {
 } from '../crypto/recoveryCode';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { broadcastManualLock, setRememberDevice } from '../crypto/useEncryptionStore';
+import { saveDeviceKey } from '../crypto/keyVaultCache';
+import { SyncService } from './SyncService';
 import {
   saveEncryptionMeta,
   getEncryptionMeta,
@@ -140,7 +142,6 @@ export async function initializeEncryption(
 
   if (autoCreated) {
     try {
-      const { saveDeviceKey } = await import('../crypto/keyVaultCache');
       await saveDeviceKey(userId, dataKey);
       setRememberDevice(true);
     } catch { /* намеренно: сохранение ключа устройства опционально (напр. режим инкогнито) */ }
@@ -247,7 +248,6 @@ export async function unlockVault(userId: string, password: string): Promise<voi
   }
 
   try {
-    const { SyncService } = await import('./SyncService');
     await SyncService.reviveLockedTasks(userId);
     void SyncService.syncPending(userId);
   } catch { /* non-critical */ }
@@ -305,7 +305,6 @@ export async function recoverVaultWithCode(
   setSessionKey(dataKey);
   setEncryptionEnabled(userId, true);
   try {
-    const { SyncService } = await import('./SyncService');
     await SyncService.reviveLockedTasks(userId);
     void SyncService.syncPending(userId);
   } catch { /* non-critical */ }

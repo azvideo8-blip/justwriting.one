@@ -5,6 +5,8 @@ import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
+import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+import { SyncService } from '../../../core/services/SyncService';
 
 /**
  * Фоновый проход, который **не обращается к ИИ**.
@@ -44,7 +46,6 @@ export function useBackgroundSync(): void {
       // автосинхронизации (без force: true). При выключенной синхронизации в облако
       // ничего не уходит.
       try {
-        const { SyncService } = await import('../../../core/services/SyncService');
         await SyncService.syncPending(uid);
       } catch (e) {
         reportError(e, { action: 'backgroundSync_syncPending' });
@@ -110,7 +111,6 @@ export function useBackgroundSync(): void {
       // Защитный обход: найти и поставить в очередь заметки, оставшиеся без облачной копии
       // и очереди (например, созданные в оффлайне или при сбое процесса).
       try {
-        const { SyncService } = await import('../../../core/services/SyncService');
         await SyncService.sweepOrphanedDocuments(uid);
         await SyncService.syncPending(uid);
       } catch (e) {
@@ -122,7 +122,6 @@ export function useBackgroundSync(): void {
       await AIEmbeddingService.syncPendingToCloud();
 
       // Выгрузить накопившиеся в очереди записи 13 хранилищ ИИ (если сейф был заперт)
-      const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
       LocalStoreSyncService.retryOversizedRecords();
       await LocalStoreSyncService.flushPending();
 

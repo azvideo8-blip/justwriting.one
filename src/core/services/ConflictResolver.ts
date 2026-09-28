@@ -7,6 +7,8 @@ import { reportError } from '../../shared/errors/reportError';
 import { SaveDocumentData } from './storageTypes';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { maybeDecrypt, DecryptionError } from '../crypto/cryptoHelpers';
+import { VersionService } from './VersionService';
+import { comparableOrUnknown } from '../sync/comparableOrUnknown';
 
 export const ConflictResolver = {
   async resolveConflict(
@@ -55,7 +57,6 @@ export const ConflictResolver = {
     let forkCopied = false;
     let forkVersion = 0;
     try {
-      const { VersionService } = await import('./VersionService');
       const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
       for (const cv of cloudVersions) {
         let plain: Record<string, unknown>;
@@ -174,7 +175,6 @@ export const ConflictResolver = {
     if (!cloudFetched || !forkCopied) {
       reportError(new Error('Conflict fork incomplete: original left untouched'), { action: 'resolveConflict_skipReconcile', documentId, cloudFetched, forkCopied }, 'warning');
     } else try {
-      const { comparableOrUnknown } = await import('../sync/comparableOrUnknown');
       const cloudVerMap = new Map(decryptedCloudVersions.map(v => [v.version, v]));
       const localVersions = await LocalVersionService.getVersions(documentId, userId);
 
