@@ -75,7 +75,10 @@ describe('AG-DEPS-1 — зависимости службы совпадают �
     // выглядит как версия API, которой никто не сверяет. Поле убрано, чтобы не
     // притворялось; версия приложения живёт в src/version.ts / package.json /
     // public/sw.js и её держит вместе versionConsistency.test.ts.
-    expect(manifest.private, 'без private npm ci не примет манифест без version').toBe(true);
+    // private тут не потому, что без него npm ci падает: на копии с пустым
+    // node_modules npm 10.9.9 ставит 75 пакетов и с private, и без него (exit 0
+    // в обоих случаях). Он потому, что этот манифест не публикуется.
+    expect(manifest.private, 'приватный: манифест службы не уходит в registry').toBe(true);
     expect(manifest.version, `version ${manifest.version} ничего не описывает`).toBeUndefined();
   });
 
