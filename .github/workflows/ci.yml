@@ -95,6 +95,11 @@ jobs:
     - run: npm run typecheck
     - run: npm run lint
     - run: npm run i18n:audit
+    - name: Dead-code ratchet (G-2 / F-050)
+      # Храповик, а не ноль: knip на этом репозитории находит 42 уже существующих
+      # нарушения, они лежат в scripts/knip-baseline.txt и красят прогон только
+      # когда список растёт.
+      run: node scripts/knip-check.mjs
     - name: Cross-feature ratchet (AUDIT-part3 9, v2 detection)
       run: bash scripts/cross-feature-check.sh
     - name: Raw overlay gate (AUDIT-part2 3.1, AG-GATE-1)

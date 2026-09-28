@@ -74,6 +74,7 @@
     "glob": "^13.0.6",
     "globals": "^14.0.0",
     "jsdom": "^29.0.1",
+    "knip": "^6.38.0",
     "prettier": "^3.8.1",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "^4.1.14",

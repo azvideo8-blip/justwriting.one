@@ -1,0 +1,58 @@
+// G-2: контроль мёртвого кода. Запуск — `node scripts/knip-check.mjs` (шаг в CI),
+// вручную — `npx knip`.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // Всё, что не импортируется, но живёт по своему назначению: сервис-работники
+  // регистрируются строкой, стенды и скрипты запускаются руками, конфиги читаются
+  // инструментом. Без этого списка knip считает их мёртвыми.
+  "entry": [
+    "src/main.tsx",
+    "index.html",
+    "api/server.ts",
+    "public/sw.js",
+    "public/inline-init.js",
+    "public/docs/*.html",
+    "deploy/www-killswitch/sw.js",
+    "src/testing/faultHarness/postulatesCli.runner.ts",
+    "vite.config.ts",
+    "vitest.runner.config.ts",
+    "playwright.config.ts",
+    "playwright.stand.config.ts",
+    "eslint.config.js",
+    "scripts/**/*.{ts,mjs}",
+    "e2e/**/*.ts",
+    "deploy/tests/**/*.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "api/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+
+  // Экспорт, который читают в этом же файле, — не мёртвый код.
+  "ignoreExportsUsedInFile": true,
+
+  "ignore": [
+    "dist/**",
+    "coverage/**",
+    "playwright-report/**",
+    "bundle-stats.html",
+    "skills/**"
+  ],
+
+  // tailwindcss лежит в devDependencies как peer для @tailwindcss/vite: в v4
+  // плагин требует пакет в дереве, но сам его не импортирует.
+  // @huggingface/transformers — локальный стенд из scripts/embed-bench, ставится
+  // руками под прогон и в прод не входит.
+  "ignoreDependencies": [
+    "tailwindcss",
+    "@huggingface/transformers"
+  ],
+
+  // Конфиг, переданный через `-c`, knip принимает за имя бинарника.
+  "ignoreBinaries": [
+    "playwright.stand.config.ts",
+    "vitest.runner.config.ts"
+  ]
+}
