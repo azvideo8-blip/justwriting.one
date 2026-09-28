@@ -118,8 +118,8 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                   if (e.key === 'Escape') { setIsRenaming(false); }
                 }}
                 className="text-[22px] font-bold tracking-tight text-text-main bg-transparent border-b border-brand-soft/40 outline-none px-1 -mx-1 max-w-[300px]"
-                placeholder="Название диалога"
-                aria-label="Название диалога"
+                placeholder={t('ai_dialogue_title_placeholder')}
+                aria-label={t('ai_dialogue_title_placeholder')}
               />
             ) : (
               <h1 className="text-[22px] font-bold tracking-tight text-text-main truncate">{activePersonaName}</h1>
@@ -138,17 +138,17 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                 ? "border-brand-soft text-brand-soft bg-brand-soft/5"
                 : "border-border-subtle text-text-main/45 hover:text-text-main"
             )}
-            title="Настройки объема вывода"
-            label="Настройки объема вывода"
+            title={t('ai_volume_settings_title')}
+            label={t('ai_volume_settings_title')}
             icon={<Settings size={15} />}
           />
           {volumeSettingsOpen && (
             <div className="absolute right-0 top-full mt-1.5 p-3 w-56 bg-surface-popup border border-border-subtle rounded-2xl shadow-xl z-30 space-y-3">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/60">Объём ответа:</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/60">{t('ai_volume_response_heading')}</div>
               <div className="flex flex-col gap-1.5">
                 {(['short', 'standard', 'detailed'] as const).map(len => {
                   const active = responseLength === len;
-                  const label = len === 'short' ? 'Кратко' : len === 'standard' ? 'Стандартно' : 'Объёмно';
+                  const label = len === 'short' ? t('ai_volume_short') : len === 'standard' ? t('ai_volume_standard') : t('ai_volume_detailed');
                   return (
                     <button
                       key={len}
@@ -177,7 +177,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                     : "border-transparent text-text-main/60 hover:text-text-main hover:bg-text-main/[0.04]"
                 )}
               >
-                <span>🧠 Рассуждения</span>
+                <span>{t('ai_volume_reasoning')}</span>
                 <span className={cn("w-2 h-2 rounded-full", reasoning ? "bg-brand-soft" : "bg-text-main/20")} />
               </button>
             </div>
@@ -186,7 +186,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
         {hasActiveDialogue && (
           <div className="flex items-center gap-1">
              <IconButton onClick={onExport} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_download_md')} label={t('ai_download_md')} icon={<Download size={15} />} />
-             <IconButton onClick={() => { setIsRenaming(true); setRenameValue(dialogueTitle ?? ''); }} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title="Переименовать" label="Переименовать" icon={<Pencil size={15} />} />
+             <IconButton onClick={() => { setIsRenaming(true); setRenameValue(dialogueTitle ?? ''); }} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_dialogue_rename')} label={t('ai_dialogue_rename')} icon={<Pencil size={15} />} />
              <IconButton onClick={onArchive} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/45 hover:text-text-main transition-colors flex items-center justify-center" title={t('ai_to_archive')} label={t('ai_to_archive')} icon={<Archive size={15} />} />
              <IconButton onClick={onDelete} className="w-8 h-8 rounded-lg border border-border-subtle text-text-main/35 hover:text-accent-danger transition-colors flex items-center justify-center" title={t('ai_delete')} label={t('ai_delete')} icon={<Trash2 size={15} />} />
           </div>
@@ -194,7 +194,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 mt-3.5">
-        <span className="text-[10px] font-mono uppercase tracking-wider text-text-main/55">Собеседник:</span>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-text-main/55">{t('ai_interlocutor')}:</span>
         <div ref={personaDropdownRef} className="relative">
           <button
             type="button"

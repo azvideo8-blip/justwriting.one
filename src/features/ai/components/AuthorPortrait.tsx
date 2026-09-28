@@ -7,12 +7,14 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { isDayLimitError } from '../types/aiErrors';
+import { useLanguage } from '../../../shared/i18n';
 
 interface AuthorPortraitProps {
   readOnly?: boolean;
 }
 
 export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const [portraitText, setPortraitText] = useState<string | null>(null);
   const [portraitGenerating, setPortraitGenerating] = useState(false);
@@ -71,7 +73,7 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
 
   const handleExportProfile = async () => {
     const result = await AIProfileService.exportMarkdown();
-    if (!result) showToast('Портрет ещё не создан', 'error');
+    if (!result) showToast(t('ai_portrait_not_created_short'), 'error');
   };
 
   if (loading) {
@@ -86,9 +88,9 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider flex items-center gap-2">
-          Психологический портрет
+          {t('ai_portrait_title')}
           <span className="inline-flex items-center gap-1 normal-case tracking-normal text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-brand-soft/10 text-brand-soft/80 border border-brand-soft/20">
-            <Sparkles size={9} /> сгенерировано ИИ
+            <Sparkles size={9} /> {t('ai_generated_tag')}
           </span>
         </span>
         {!readOnly && (
@@ -99,7 +101,7 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
             >
               {portraitGenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              {portraitGenerating ? 'Генерация…' : (portraitText ? 'Обновить' : 'Сгенерировать')}
+              {portraitGenerating ? t('ai_portrait_generating') : (portraitText ? t('ai_portrait_refresh') : t('ai_portrait_generate'))}
             </Button>
             <Button
               onClick={() => void handleExportProfile()}
@@ -107,7 +109,7 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-40"
             >
               <Download size={12} />
-              Экспорт .md
+              {t('ai_portrait_export_md')}
             </Button>
           </div>
         )}
@@ -117,11 +119,11 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
           <MarkdownRenderer content={portraitText} />
         ) : readOnly && summariesCount < 20 ? (
           <span className="italic text-text-main/60">
-            Портрет появится автоматически после ~20 проанализированных заметок (сейчас проанализировано: {summariesCount}/20).
+            {t('ai_portrait_auto_pending', { count: String(summariesCount) })}
           </span>
         ) : (
           <span className="italic text-text-main/60">
-            Портрет ещё не создан — нажмите «Сгенерировать» (нужно ≥3 проанализированных заметок)
+            {t('ai_portrait_not_created')}
           </span>
         )}
       </div>

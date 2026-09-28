@@ -70,7 +70,7 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
   const presetPrompt = persona.isPreset ? (PERSONA_PROMPTS as Record<string, string>)[persona.id] ?? '' : '';
 
   const clientError = !persona.isPreset && hasInjectionAttempt(prompt)
-    ? 'Обнаружена попытка инъекции. Измените формулировку.'
+    ? t('ai_injection_detected')
     : null;
 
   const handleSave = async () => {
@@ -113,7 +113,7 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
         <div className="min-w-0 flex-1">
           <h3 id="persona-detail-title" className="text-sm font-bold text-text-main truncate">{persona.name}</h3>
             <span className="text-[11px] text-text-main/60">
-              {persona.isPreset ? 'Встроенная персона' : 'Ваша персона'}
+              {persona.isPreset ? t('ai_persona_builtin') : t('ai_persona_custom')}
             </span>
           </div>
           <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
@@ -124,7 +124,7 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
             <>
               {presetDescription && (
                 <div>
-                  <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide mb-1.5 block">Описание</label>
+                  <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide mb-1.5 block">{t('ai_persona_field_desc')}</label>
                   <p className="text-sm text-text-main/70 leading-relaxed">{presetDescription}</p>
                 </div>
               )}
@@ -133,14 +133,14 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
                 <div className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-xs text-text-main/60 leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
                   {presetPrompt}
                 </div>
-                <p className="text-[10px] text-text-main/60 mt-1.5">Промпт встроенной персоны изменить нельзя.</p>
+                <p className="text-[10px] text-text-main/60 mt-1.5">{t('ai_persona_builtin_prompt_readonly')}</p>
               </div>
             </>
           ) : (
             <>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">Имя</label>
+                  <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">{t('ai_persona_field_name')}</label>
                   <span className="text-[10px] font-mono text-text-main/60">{name.length}/30</span>
                 </div>
                 <Input
@@ -166,8 +166,8 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
                 <IconButton
                   onClick={() => void handleDelete()}
                   className="px-3 py-2.5 rounded-xl border border-border-subtle text-text-main/60 hover:text-accent-danger hover:border-accent-danger/30 transition-colors flex items-center justify-center"
-                  title="Удалить персону"
-                  label="Удалить персону"
+                  title={t('ai_persona_delete_btn')}
+                  label={t('ai_persona_delete_btn')}
                   icon={<Trash2 size={16} />}
                 />
                 <Button
@@ -175,7 +175,7 @@ export function PersonaDetailModal({ persona, onClose, onChanged }: PersonaDetai
                   disabled={!name.trim() || !prompt.trim() || !!clientError || validating}
                   className="flex-1 py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
                 >
-                  {validating ? 'Валидация…' : 'Сохранить'}
+                  {validating ? t('ai_persona_validating') : t('common_save')}
                 </Button>
               </div>
             </>

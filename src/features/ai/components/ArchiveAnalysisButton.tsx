@@ -7,6 +7,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { NoteAnalysisService, type BatchResult, type PendingSurvey } from '../services/NoteAnalysisService';
 import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 /**
  * «Разобрать заметки» — добор корпуса для всего, что строится на разборах:
@@ -26,6 +27,7 @@ const STOP_MESSAGES: Record<NonNullable<BatchResult['stopped']>, string> = {
 };
 
 export function ArchiveAnalysisButton() {
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const [survey, setSurvey] = useState<PendingSurvey | null>(null);
   const [counting, setCounting] = useState(false);
@@ -88,18 +90,18 @@ export function ArchiveAnalysisButton() {
           <>
             <Loader2 size={16} className="animate-spin" />
             {progress.waiting
-              ? 'Жду сброса ограничения…'
-              : `Разбираю ${progress.done} из ${progress.total}…`}
+              ? t('ai_archive_analysis_waiting')
+              : t('ai_archive_analysis_progress', { done: String(progress.done), total: String(progress.total) })}
           </>
         ) : counting ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            Считаю, сколько ждёт…
+            {t('ai_archive_analysis_counting')}
           </>
         ) : (
           <>
             <Sparkles size={16} />
-            Разобрать заметки
+            {t('ai_archive_analysis_btn')}
           </>
         )}
       </Button>
@@ -112,64 +114,65 @@ export function ArchiveAnalysisButton() {
           className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-lg"
         >
           <div id="archive-analysis-modal-title" className="text-sm font-semibold text-text-main mb-1">
-            Разобрать заметки
+            {t('ai_archive_analysis_btn')}
           </div>
 
           {nothingToDo ? (
             <p className="text-xs text-text-main/60 mb-4">
-              Разбирать нечего. На устройстве заметок: {survey.totalDocuments}, из них
-              разобраны {survey.alreadyAnalyzed}
-              {survey.noContent > 0 && `, без текста на устройстве ${survey.noContent}`}
-              {survey.tooShort > 0 && `, слишком коротких ${survey.tooShort}`}
-              {survey.excluded > 0 && `, исключено из ИИ ${survey.excluded}`}.
+              {t('ai_archive_analysis_empty_desc', {
+                total: String(survey.totalDocuments),
+                alreadyAnalyzed: String(survey.alreadyAnalyzed),
+                tail: [
+                  survey.noContent > 0 ? t('ai_archive_analysis_tail_no_content', { count: String(survey.noContent) }) : '',
+                  survey.tooShort > 0 ? t('ai_archive_analysis_tail_too_short', { count: String(survey.tooShort) }) : '',
+                  survey.excluded > 0 ? t('ai_archive_analysis_tail_excluded', { count: String(survey.excluded) }) : '',
+                ].filter(Boolean).join(''),
+              })}
             </p>
           ) : (
             <>
               <p className="text-xs text-text-main/60 mb-3">
-                Ждут разбора: <span className="font-mono text-text-main">{survey.ids.length}</span>.
-                Текст этих заметок уйдёт поставщику ИИ — по одной, по вашему нажатию.
+                {t('ai_archive_analysis_pending_desc', { count: String(survey.ids.length) })}
               </p>
 
               <div className="space-y-1 mb-3 text-xs text-text-main/50">
                 <div className="flex items-center justify-between">
-                  <span>Заметок на этом устройстве</span>
+                  <span>{t('ai_archive_analysis_stat_total')}</span>
                   <span className="font-mono">{survey.totalDocuments}</span>
                 </div>
                 {survey.alreadyAnalyzed > 0 && (
                   <div className="flex items-center justify-between">
-                    <span>Уже разобраны</span>
+                    <span>{t('ai_archive_analysis_stat_analyzed')}</span>
                     <span className="font-mono">{survey.alreadyAnalyzed}</span>
                   </div>
                 )}
                 {survey.noContent > 0 && (
                   <div className="flex items-center justify-between">
-                    <span>Текста нет на устройстве</span>
+                    <span>{t('ai_archive_analysis_stat_no_content')}</span>
                     <span className="font-mono">{survey.noContent}</span>
                   </div>
                 )}
                 {survey.tooShort > 0 && (
                   <div className="flex items-center justify-between">
-                    <span>Слишком короткие</span>
+                    <span>{t('ai_archive_analysis_stat_too_short')}</span>
                     <span className="font-mono">{survey.tooShort}</span>
                   </div>
                 )}
                 {survey.excluded > 0 && (
                   <div className="flex items-center justify-between">
-                    <span>Исключены из ИИ</span>
+                    <span>{t('ai_archive_analysis_stat_excluded')}</span>
                     <span className="font-mono">{survey.excluded}</span>
                   </div>
                 )}
               </div>
 
               <p className="text-xs text-text-main/60 mb-3">
-                Проход остановится сам, когда упрётся в дневной лимит, и продолжится
-                со следующего нажатия — уже разобранное второй раз не отправляется.
+                {t('ai_archive_analysis_limit_note')}
               </p>
 
               {!indexingOn && (
                 <p className="text-xs text-accent-danger mb-4">
-                  Поиск по смыслу выключен в настройках, поэтому векторы считаться не будут:
-                  разбор появится, а в поиске по смыслу эти заметки не найдутся.
+                  {t('ai_archive_analysis_semantic_off_warning')}
                 </p>
               )}
             </>
@@ -181,14 +184,14 @@ export function ArchiveAnalysisButton() {
                 onClick={() => void start()}
                 className="flex-1 py-2 rounded-xl bg-brand-soft text-surface-base text-sm font-semibold hover:bg-brand-soft-hover transition-colors"
               >
-                Разобрать
+                {t('ai_archive_analysis_start')}
               </Button>
             )}
             <Button
               onClick={() => setSurvey(null)}
               className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/60 text-sm hover:text-text-main transition-colors"
             >
-              {nothingToDo ? 'Понятно' : 'Отмена'}
+              {nothingToDo ? t('common_got_it') : t('common_cancel')}
             </Button>
           </div>
         </ModalShell>

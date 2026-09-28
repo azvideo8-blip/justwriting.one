@@ -75,7 +75,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
       className="bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[70vh]"
     >
       <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
-        <h3 id="doc-picker-title" className="text-sm font-bold text-text-main">Какую заметку разберём?</h3>
+        <h3 id="doc-picker-title" className="text-sm font-bold text-text-main">{t('ai_doc_picker_title')}</h3>
           <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
         </div>
 
@@ -86,7 +86,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
               ref={inputRef}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Поиск по названию..."
+              placeholder={t('ai_doc_picker_search_placeholder')}
               className="pl-9 pr-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
             />
           </div>
@@ -107,7 +107,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
             </Button>
           ))}
           {filtered.length === 0 && (
-            <div className="py-8 text-center text-sm text-text-main/60">Ничего не найдено</div>
+            <div className="py-8 text-center text-sm text-text-main/60">{t('ai_doc_picker_empty')}</div>
           )}
         </div>
     </ModalShell>

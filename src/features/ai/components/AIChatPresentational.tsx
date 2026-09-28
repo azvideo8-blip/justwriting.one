@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus, CheckSquare } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
+import { useLanguage } from '../../../shared/i18n';
 
 const ATTACHED_NOTE_RE = /^(?:\[#[^\]]*\]\s*)?\[Прикреплена заметка: "([^"]+)"\]/;
 const ATTACHED_NOTE_SUMMARY_RE = /^(?:\[#[^\]]*\]\s*)?\[Прикреплено саммари заметки: "([^"]+)"\]/;
@@ -43,9 +44,10 @@ export function threadPreview(d: { messages: { content: string }[] }): string {
 }
 
 export function AttachedNoteCard({ content }: { content: string }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const match = content.match(ATTACHED_NOTE_RE);
-  const title = match?.[1] ?? 'Заметка';
+  const title = match?.[1] ?? t('ai_note_fallback');
   const noteContent = content.replace(ATTACHED_NOTE_RE, '').trim();
 
   return (
@@ -74,9 +76,10 @@ export function AttachedNoteCard({ content }: { content: string }) {
 }
 
 export function AttachedFileCard({ content }: { content: string }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const match = content.match(ATTACHED_FILE_RE);
-  const fileName = match?.[1] ?? 'Файл';
+  const fileName = match?.[1] ?? t('ai_file_fallback');
   const fileContent = content.replace(ATTACHED_FILE_RE, '').trim();
 
   return (
@@ -105,9 +108,10 @@ export function AttachedFileCard({ content }: { content: string }) {
 }
 
 export function AttachedSummaryCard({ content }: { content: string }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const match = content.match(ATTACHED_NOTE_SUMMARY_RE);
-  const title = match?.[1] ?? 'Заметка';
+  const title = match?.[1] ?? t('ai_note_fallback');
   const summaryContent = content.replace(ATTACHED_NOTE_SUMMARY_RE, '').trim();
 
   return (
@@ -121,7 +125,7 @@ export function AttachedSummaryCard({ content }: { content: string }) {
         >
           <span className="flex items-center gap-2 min-w-0">
             <Sparkles size={12} className="text-brand-soft shrink-0" aria-hidden="true" />
-            <span className="text-sm font-medium text-text-main truncate">Саммари: {title}</span>
+            <span className="text-sm font-medium text-text-main truncate">{t('ai_attached_summary_title', { title })}</span>
           </span>
           {expanded ? <ChevronUp size={12} className="text-text-main/60 shrink-0" aria-hidden="true" /> : <ChevronDown size={12} className="text-text-main/60 shrink-0" aria-hidden="true" />}
         </Button>
@@ -170,6 +174,7 @@ export const AssistantTurn = React.memo(
     content?: string | undefined;
     reasoning?: string | undefined;
   }) {
+  const { t } = useLanguage();
   const borderStyle = { borderLeft: `2px solid ${color}40` };
   return (
     <div className="flex gap-4 w-full self-start">
@@ -192,7 +197,7 @@ export const AssistantTurn = React.memo(
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
               >
                 <Copy size={11} aria-hidden="true" />
-                копировать
+                {t('ai_action_copy')}
               </Button>
             )}
             {onCreateNote && (
@@ -201,7 +206,7 @@ export const AssistantTurn = React.memo(
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
               >
                 <FilePlus size={11} aria-hidden="true" />
-                создать заметку
+                {t('ai_action_create_note')}
               </Button>
             )}
             {onApplyToNote && (
@@ -210,7 +215,7 @@ export const AssistantTurn = React.memo(
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
               >
                 <CheckSquare size={11} aria-hidden="true" />
-                применить к заметке
+                {t('ai_action_apply_to_note')}
               </Button>
             )}
             {onRegenerate && (
@@ -219,7 +224,7 @@ export const AssistantTurn = React.memo(
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-text-main/70 hover:bg-text-main/5 transition-colors font-mono text-[10px] tracking-wide"
               >
                 <RefreshCw size={11} aria-hidden="true" />
-                иначе
+                {t('ai_action_regenerate')}
               </Button>
             )}
             {onSwitchVariant && variants && variants.length > 1 && (
@@ -248,14 +253,14 @@ export const AssistantTurn = React.memo(
                 <Button
                   onClick={() => onFeedback('up')}
                   className="flex items-center gap-1.5 px-2 py-1 rounded-md text-text-main/35 hover:text-brand-soft hover:bg-brand-soft/10 transition-colors"
-                  aria-label="Полезный ответ"
+                  aria-label={t('ai_action_thumbs_up')}
                 >
                   <ThumbsUp size={11} aria-hidden="true" />
                 </Button>
                 <Button
                   onClick={() => onFeedback('down')}
                   className="flex items-center gap-1.5 px-2 py-1 rounded-md text-text-main/35 hover:text-accent-danger hover:bg-accent-danger/10 transition-colors"
-                  aria-label="Не то"
+                  aria-label={t('ai_action_thumbs_down')}
                 >
                   <ThumbsDown size={11} aria-hidden="true" />
                 </Button>
@@ -267,7 +272,7 @@ export const AssistantTurn = React.memo(
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-text-main/35 hover:text-accent-danger hover:bg-accent-danger/10 transition-colors font-mono text-[10px] tracking-wide"
               >
                 <Trash2 size={11} aria-hidden="true" />
-                удалить
+                {t('ai_action_delete')}
               </Button>
             )}
           </div>

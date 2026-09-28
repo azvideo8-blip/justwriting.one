@@ -5,6 +5,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { analyzeDoors, aggregateDoors, doorLabel, type AggregatedDoors } from '../utils/contactDoors';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
+import { useLanguage } from '../../../shared/i18n';
 
 const DOORS_CACHE_KEY = 'contact_doors_cache';
 
@@ -13,6 +14,7 @@ interface ContactDoorsProps {
 }
 
 export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
+  const { t } = useLanguage();
   const [data, setData] = useState<AggregatedDoors | null>(null);
   const [loading, setLoading] = useState(false);
   const uid = getCurrentUser()?.uid ?? 'guest';
@@ -67,7 +69,7 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
   return (
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
-        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">Три двери контакта</span>
+        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">{t('ai_doors_title')}</span>
         {!readOnly && (
           <Button
             onClick={() => void handleAnalyze()}
@@ -75,38 +77,40 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
             className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border-subtle text-text-main/60 text-[10px] font-bold disabled:opacity-50"
           >
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-            {loading ? 'Анализ…' : (display ? 'Обновить' : 'Анализировать')}
+            {loading ? t('ai_doors_analyzing') : (display ? t('ai_doors_refresh') : t('ai_doors_analyze'))}
           </Button>
         )}
       </div>
 
       <div className="p-5">
         {!display && !loading && (
-          <p className="text-xs text-text-main/60">Нажми «Анализировать», чтобы увидеть, куда направлено внимание в записях.</p>
+          <p className="text-xs text-text-main/60">{t('ai_doors_empty')}</p>
         )}
 
         {display?.lowData && (
-          <p className="text-xs text-text-main/60">Недостаточно данных для анализа. Напиши больше заметок.</p>
+          <p className="text-xs text-text-main/60">{t('ai_doors_low_data')}</p>
         )}
 
         {display && !display.lowData && (
           <>
             <div className="space-y-3 mb-4">
-              <DoorBar label="Мысли" value={display.thinking} color="bg-accent-info/60" />
-              <DoorBar label="Чувства" value={display.feeling} color="bg-accent-warning/60" />
-              <DoorBar label="Поведение" value={display.behavior} color="bg-accent-success/60" />
+              <DoorBar label={t('ai_doors_thinking')} value={display.thinking} color="bg-accent-info/60" />
+              <DoorBar label={t('ai_doors_feeling')} value={display.feeling} color="bg-accent-warning/60" />
+              <DoorBar label={t('ai_doors_behavior')} value={display.behavior} color="bg-accent-success/60" />
             </div>
 
             {display.dominantDoor && display.thinnestDoor && (
               <p className="text-xs text-text-main/60 leading-relaxed mb-3">
-                Сейчас твоё внимание чаще идёт через <strong className="text-text-main">{doorLabel(display.dominantDoor)}</strong>;
-                тоньше всего — <strong className="text-text-main">{doorLabel(display.thinnestDoor)}</strong>.
+                {t('ai_doors_summary', {
+                  dominant: t(`ai_doors_${display.dominantDoor}` as 'ai_doors_thinking').toLowerCase(),
+                  thinnest: t(`ai_doors_${display.thinnestDoor}` as 'ai_doors_thinking').toLowerCase(),
+                })}
               </p>
             )}
 
             {display.byPeriod.length > 1 && (
               <div className="mt-4">
-                <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/60 mb-2">Динамика по месяцам</div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/60 mb-2">{t('ai_doors_dynamics')}</div>
                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                   {display.byPeriod.map(p => (
                     <div key={p.period} className="shrink-0 w-20 text-center">
@@ -123,7 +127,7 @@ export function ContactDoors({ readOnly = false }: ContactDoorsProps = {}) {
             )}
 
             <p className="text-[10px] text-text-main/60 mt-4 italic">
-              Это про то, куда направлено внимание в записях, а не диагноз.
+              {t('ai_doors_disclaimer')}
             </p>
           </>
         )}

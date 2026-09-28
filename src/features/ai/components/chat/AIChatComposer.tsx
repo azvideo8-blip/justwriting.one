@@ -4,7 +4,6 @@ import { Button } from '../../../../shared/components/Button';
 import { IconButton } from '../../../../shared/components/IconButton';
 import { useLanguage } from '../../../../shared/i18n';
 import { cn } from '../../../../core/utils/utils';
-import { CRISIS_RESOURCES } from '../../utils/riskDetect';
 
 export interface PendingAttachment {
   title: string;
@@ -132,9 +131,14 @@ export function AIChatComposer(props: AIChatComposerProps) {
           <div className="flex items-start gap-2">
             <span className="text-sm">🆘</span>
             <div className="flex-1 text-xs text-text-main/80 leading-relaxed">
-              <p className="font-semibold mb-1">Если тяжело — ты не один. Можно позвонить живому человеку прямо сейчас:</p>
+              <p className="font-semibold mb-1">{t('ai_composer_crisis_title')}</p>
               <ul className="space-y-0.5">
-                {CRISIS_RESOURCES.map(r => <li key={r}>{r}</li>)}
+                {[
+                  t('ai_crisis_resource_1'),
+                  t('ai_crisis_resource_2'),
+                  t('ai_crisis_resource_3'),
+                  t('ai_crisis_resource_4'),
+                ].map((r, i) => <li key={i}>{r}</li>)}
               </ul>
             </div>
             <button type="button" onClick={dismissCrisis} className="text-text-main/40 hover:text-text-main transition-colors" aria-label={t('ai_close')}><X size={14} /></button>
@@ -151,7 +155,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
               className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/10 border border-brand-soft/30 text-xs text-brand-soft hover:bg-brand-soft/20 transition-colors"
             >
               <Paperclip size={12} />
-              Это заметка? Разобрать как заметку (точнее по тексту)
+              {t('ai_composer_paste_as_note')}
             </button>
           )}
           {pendingAttachments.length > 0 && (

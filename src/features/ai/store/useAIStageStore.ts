@@ -17,16 +17,6 @@ export type AIStage =
   | 'timeline'   // looking at the chronology
   | 'answer';    // the model is finally writing
 
-/** Third person, so it reads as "{персона} ищет в заметках…" */
-export const AI_STAGE_LABEL: Record<AIStage, string> = {
-  query: 'разбирает запрос',
-  search: 'ищет в заметках',
-  rank: 'отбирает самое близкое',
-  summaries: 'читает сводки заметок',
-  memory: 'вспоминает прошлые разговоры',
-  timeline: 'смотрит хронологию',
-  answer: 'пишет ответ',
-};
 
 interface AIStageState {
   stage: AIStage | null;

@@ -7,6 +7,7 @@ import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
 import { Textarea } from '../../../shared/components/Textarea';
 import { ModalShell } from '../../../shared/components/ModalShell';
+import { useLanguage } from '../../../shared/i18n';
 
 const SUGGESTED_EMOJIS = [
   '\u{1F9D1}', '\u{1F468}\u200D\u{1F4BC}', '\u{1F469}\u200D\u{1F4BC}',
@@ -24,6 +25,7 @@ interface CreatePersonaModalProps {
 }
 
 export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersonaModalProps) {
+  const { t } = useLanguage();
   const [emoji, setEmoji] = useState('\u{1F9D1}');
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -34,7 +36,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
   if (!isOpen) return null;
 
   const clientValidationError = hasInjectionAttempt(prompt)
-    ? 'Обнаружена попытка инъекции. Измените формулировку.'
+    ? t('ai_injection_detected')
     : null;
 
   const handleSubmit = async () => {
@@ -45,7 +47,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
 
     const result = await AIPersonaService.validate(prompt);
     if (!result.valid) {
-      setValidationError(result.reason ?? 'Промпт не прошёл валидацию');
+      setValidationError(result.reason ?? t('ai_persona_validation_failed'));
       setValidating(false);
       return;
     }
@@ -63,13 +65,13 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
     <ModalShell open={isOpen} onClose={onClose} labelId="create-persona-title"
       className="w-full max-w-md bg-surface-card border border-border-subtle rounded-2xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
-          <h3 id="create-persona-title" className="text-sm font-bold text-text-main">Создать персону</h3>
-          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label="Close" icon={<X size={18} />} />
+          <h3 id="create-persona-title" className="text-sm font-bold text-text-main">{t('ai_create_persona_title')}</h3>
+          <IconButton onClick={onClose} className="p-1.5 rounded-lg text-text-main/60 hover:text-text-main transition-colors" label={t('close')} icon={<X size={18} />} />
         </div>
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide mb-1.5 block">Эмодзи</label>
+            <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide mb-1.5 block">{t('ai_persona_field_emoji')}</label>
             <div className="relative">
               <Button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -95,13 +97,13 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">Имя</label>
+              <label className="text-xs font-medium text-text-main/60 uppercase tracking-wide">{t('ai_persona_field_name')}</label>
               <span className="text-[10px] font-mono text-text-main/60">{name.length}/30</span>
             </div>
             <Input
               value={name}
               onChange={e => setName(e.target.value.slice(0, 30))}
-              placeholder="Мудрый друг"
+              placeholder={t('ai_create_persona_name_placeholder')}
               className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
             />
           </div>
@@ -114,7 +116,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
             <Textarea
               value={prompt}
               onChange={e => setPrompt(e.target.value.slice(0, 500))}
-              placeholder="Опишите роль персоны. Пример: 'Ты — мудрый друг, который...'"
+              placeholder={t('ai_create_persona_prompt_placeholder')}
               rows={4}
               className="px-3 py-2 rounded-xl bg-text-main/5 border border-border-subtle text-sm text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40 resize-none"
             />
@@ -128,7 +130,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
             disabled={!name.trim() || !prompt.trim() || !!clientValidationError || validating}
             className="w-full py-2.5 rounded-xl bg-brand-soft text-surface-base text-sm font-bold disabled:opacity-40 transition-colors"
           >
-            {validating ? 'Валидация...' : 'Создать'}
+            {validating ? t('ai_persona_validating') : t('ai_create')}
           </Button>
         </div>
     </ModalShell>

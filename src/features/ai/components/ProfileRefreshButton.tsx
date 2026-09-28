@@ -10,6 +10,8 @@ import {
   type RefreshStepKey,
 } from '../services/AIProfileRefreshService';
 import { reportError } from '../../../shared/errors/reportError';
+import { ModalShell } from '../../../shared/components/ModalShell';
+import { useLanguage } from '../../../shared/i18n';
 
 /**
  * «Обновить профиль» — единственный способ пересчитать портрет, грани, реестр
@@ -20,23 +22,17 @@ import { reportError } from '../../../shared/errors/reportError';
  * что и чат, — иначе обновление бесплатно, и жать его можно бесконечно.
  */
 
-import { ModalShell } from '../../../shared/components/ModalShell';
-
-const STEP_LABELS: Record<RefreshStepKey, string> = {
-  facets: 'Грани профиля',
-  judge: 'Проверка граней',
-  portrait: 'Портрет',
-  themes: 'Реестр тем',
-  digests: 'Месячные обзоры',
-  consolidation: 'Убеждения',
+const getStepLabel = (step: RefreshStepKey, t: (k: string) => string) => {
+  return t(`ai_refresh_step_${step}`);
 };
 
-function formatDuration(seconds: number): string {
-  if (seconds < 90) return 'около минуты';
-  return `примерно ${Math.round(seconds / 60)} мин`;
+function formatDuration(seconds: number, t: (k: string, p?: Record<string, string>) => string): string {
+  if (seconds < 90) return t('ai_refresh_duration_about_minute');
+  return t('ai_refresh_duration_minutes', { count: String(Math.round(seconds / 60)) });
 }
 
 export function ProfileRefreshButton() {
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const { remaining, limit } = useDailyLimit();
   const [estimate, setEstimate] = useState<RefreshEstimate | null>(null);
@@ -74,7 +70,7 @@ export function ProfileRefreshButton() {
       if (failed.length === 0) {
         showToast('Профиль обновлён', 'success');
       } else {
-        showToast(`Обновлено частично: не вышло — ${failed.map(f => STEP_LABELS[f].toLowerCase()).join(', ')}`, 'error');
+        showToast(`Обновлено частично: не вышло — ${failed.map(f => getStepLabel(f, t).toLowerCase()).join(', ')}`, 'error');
       }
     } catch (e) {
       reportError(e, { action: 'profileRefresh_run' });
@@ -97,17 +93,17 @@ export function ProfileRefreshButton() {
         {running !== null ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            {STEP_LABELS[running]}…
+            {getStepLabel(running, t)}…
           </>
         ) : estimating ? (
           <>
             <Loader2 size={16} className="animate-spin" />
-            Считаю объём…
+            {t('ai_refresh_estimating')}
           </>
         ) : (
           <>
             <RefreshCw size={16} />
-            Обновить профиль
+            {t('ai_refresh_btn')}
           </>
         )}
       </Button>
@@ -119,23 +115,22 @@ export function ProfileRefreshButton() {
           labelId="profile-refresh-modal-title"
           className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-lg"
         >
-          <div id="profile-refresh-modal-title" className="text-sm font-semibold text-text-main mb-1">Обновить профиль</div>
+          <div id="profile-refresh-modal-title" className="text-sm font-semibold text-text-main mb-1">{t('ai_refresh_btn')}</div>
 
           {nothingToDo ? (
             <p className="text-xs text-text-main/60 mb-4">
-              Пересчитывать нечего: с прошлого обновления не появилось ни одной разобранной заметки.
-              Разберите заметку кнопкой ✨ в архиве — и возвращайтесь.
+              {t('ai_refresh_empty')}
             </p>
           ) : (
             <>
               <p className="text-xs text-text-main/60 mb-3">
-                Обновление займёт {formatDuration(estimate.seconds)}. Не закрывайте вкладку.
+                {t('ai_refresh_duration_notice', { duration: formatDuration(estimate.seconds, t) })}
               </p>
 
               <div className="space-y-1 mb-3">
                 {estimate.steps.map(s => (
                   <div key={s.key} className="flex items-center justify-between text-xs">
-                    <span className="text-text-main/70">{STEP_LABELS[s.key]}</span>
+                    <span className="text-text-main/70">{getStepLabel(s.key, t)}</span>
                     <span className="text-text-main/50 font-mono">~{s.calls}</span>
                   </div>
                 ))}
@@ -143,21 +138,20 @@ export function ProfileRefreshButton() {
 
               <div className="border-t border-border-subtle pt-3 mb-4 space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-text-main/70">Всего вызовов ИИ</span>
+                  <span className="text-text-main/70">{t('ai_refresh_total_calls')}</span>
                   <span className="text-text-main font-mono">~{estimate.totalCalls}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-text-main/70">Дневной лимит</span>
+                  <span className="text-text-main/70">{t('ai_refresh_daily_limit')}</span>
                   <span className={notEnough ? 'text-accent-danger font-mono' : 'text-text-main/50 font-mono'}>
-                    {remaining} из {limit} осталось
+                    {t('ai_refresh_remaining_of_limit', { remaining: String(remaining), limit: String(limit) })}
                   </span>
                 </div>
               </div>
 
               {notEnough && (
                 <p className="text-xs text-accent-danger mb-4">
-                  На это не хватит лимита: нужно ~{estimate.totalCalls}, осталось {remaining}.
-                  Лимит обновится завтра.
+                  {t('ai_refresh_not_enough_limit', { needed: String(estimate.totalCalls), remaining: String(remaining) })}
                 </p>
               )}
             </>
@@ -170,14 +164,14 @@ export function ProfileRefreshButton() {
                 disabled={notEnough}
                 className="flex-1 py-2 rounded-xl bg-brand-soft text-surface-base text-sm font-semibold hover:bg-brand-soft-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Обновить
+                {t('ai_refresh_confirm_btn')}
               </Button>
             )}
             <Button
               onClick={() => setEstimate(null)}
               className="flex-1 py-2 rounded-xl border border-border-subtle text-text-main/60 text-sm hover:text-text-main transition-colors"
             >
-              {nothingToDo ? 'Понятно' : 'Отмена'}
+              {nothingToDo ? t('common_got_it') : t('common_cancel')}
             </Button>
           </div>
         </ModalShell>

@@ -3,6 +3,7 @@ import { Translations } from '../types';
 export const commonTranslations: Translations = {
   app_name: { ru: 'justwriting', en: 'justwriting' },
   common_done: { ru: 'Готово', en: 'Done' },
+  common_got_it: { ru: 'Понятно', en: 'Got it' },
   close: { ru: 'Закрыть', en: 'Close' },
   nav_write: { ru: 'Писать', en: 'Write' },
   nav_notes: { ru: 'Заметки', en: 'Notes' },

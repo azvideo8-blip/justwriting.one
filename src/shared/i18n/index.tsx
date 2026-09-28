@@ -26,7 +26,6 @@ export const translations: Translations = {
   ...commonTranslations,
   ...writingTranslations,
   ...authTranslations,
-  ...aiTranslations,
 };
 
 export type NamespaceLoader = () => Promise<Translations>;
@@ -44,6 +43,7 @@ export const LAZY_NAMESPACES: LazyNamespaceDef[] = [
   { name: 'admin', load: () => import('./translations/admin').then(m => m.adminTranslations) },
   { name: 'activity', load: () => import('./translations/activity').then(m => m.activityTranslations) },
   { name: 'authScreens', load: () => import('./translations/authScreens').then(m => m.authScreensTranslations) },
+  { name: 'ai', load: () => import('./translations/ai').then(m => m.aiTranslations) },
 ];
 
 const loadedNamespaces = new Set<string>();
@@ -145,7 +145,7 @@ export function _setForceAsyncReadyForTesting(val: boolean) {
 
 export function _resetTranslationsForTesting(customNamespaces?: LazyNamespaceDef[]): Promise<void> | undefined {
   for (const k of Object.keys(translations)) {
-    if (!(k in commonTranslations) && !(k in writingTranslations) && !(k in authTranslations) && !(k in aiTranslations)) {
+    if (!(k in commonTranslations) && !(k in writingTranslations) && !(k in authTranslations)) {
       delete translations[k];
     }
   }
@@ -177,6 +177,7 @@ if (import.meta.env.VITEST) {
     adminTranslations,
     activityTranslations,
     authScreensTranslations,
+    aiTranslations,
   );
 }
 

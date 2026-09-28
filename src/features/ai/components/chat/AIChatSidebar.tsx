@@ -93,7 +93,7 @@ export function AIChatSidebar(props: AIChatSidebarProps) {
               type="button"
               onClick={toggleSidebar}
               className="w-10 h-10 flex items-center justify-center rounded-xl text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors border border-border-subtle/50"
-              title="Развернуть боковую панель"
+              title={t('ai_sidebar_expand')}
             >
               <PanelLeftOpen size={16} />
             </button>
@@ -120,7 +120,7 @@ export function AIChatSidebar(props: AIChatSidebarProps) {
                 type="button"
                 onClick={toggleSidebar}
                 className="p-2.5 rounded-xl text-text-main/60 hover:text-text-main hover:bg-surface-elevated transition-colors border border-border-subtle"
-                title="Свернуть боковую панель"
+                title={t('ai_sidebar_collapse')}
               >
                 <PanelLeftClose size={15} />
               </button>

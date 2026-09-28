@@ -4,6 +4,7 @@ import { getLocalDb, type LifeStoryEntry } from '../../../core/storage/localDb';
 import { LifeStoryService } from '../services/LifeStoryService';
 import { reportError } from '../../../shared/errors/reportError';
 import { cn } from '../../../core/utils/utils';
+import { useLanguage } from '../../../shared/i18n';
 
 interface DayNote {
   documentId: string;
@@ -21,6 +22,7 @@ interface DayItem {
 }
 
 export function LifeStoryTimeline() {
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState<DayItem[]>([]);
   const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
@@ -64,7 +66,7 @@ export function LifeStoryTimeline() {
 
         dayData.notes.push({
           documentId: entry.documentId,
-          noteTitle: doc?.title || 'Заметка без названия',
+          noteTitle: doc?.title || t('common_untitled'),
           summary: entry.summary,
         });
 
@@ -85,7 +87,7 @@ export function LifeStoryTimeline() {
           dayMap.set(entry.eventDate, {
             notes: [{
               documentId: entry.sourceDocumentIds[0] || '',
-              noteTitle: 'Вручную добавленное событие',
+              noteTitle: t('ai_timeline_manual_event'),
             }],
             facts: new Set<string>(),
             themes: new Set<string>(),
@@ -129,13 +131,13 @@ export function LifeStoryTimeline() {
   return (
     <div className="rounded-2xl bg-surface-base/5 border border-border-subtle overflow-hidden">
       <div className="px-5 py-3 border-b border-border-subtle">
-        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">История моей жизни (по дням)</span>
+        <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider">{t('ai_timeline_title')}</span>
       </div>
 
       <div className="p-5 space-y-6">
         {days.length === 0 ? (
           <div className="text-center py-8 text-xs text-text-main/60 italic">
-            История жизни пока пуста. Напишите и проанализируйте заметки, чтобы они появились здесь.
+            {t('ai_timeline_empty')}
           </div>
         ) : (
           <div className="relative border-l border-border-subtle ml-3 space-y-6">
@@ -160,14 +162,14 @@ export function LifeStoryTimeline() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-semibold text-text-main">
-                          {new Date(item.eventDate).toLocaleDateString('ru-RU', {
+                          {new Date(item.eventDate).toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
                             day: '2-digit',
                             month: 'long',
                             year: 'numeric',
                           })}
                         </span>
                         {entry?.edited && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-accent-warning/15 text-accent-warning">изменено</span>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-accent-warning/15 text-accent-warning">{t('ai_timeline_edited')}</span>
                         )}
                       </div>
                       {hasDetails && (
@@ -175,7 +177,7 @@ export function LifeStoryTimeline() {
                           type="button"
                           onClick={() => toggleDateExpanded(item.eventDate)}
                           className="p-1 text-text-main/40 hover:text-brand-soft hover:bg-surface-elevated rounded transition-all cursor-pointer focus:outline-none"
-                          title={isExpanded ? 'Свернуть детали' : 'Развернуть детали'}
+                          title={isExpanded ? t('ai_timeline_collapse_details') : t('ai_timeline_expand_details')}
                         >
                           <ChevronDown size={14} className={cn('transition-transform duration-200', isExpanded && 'rotate-180')} />
                         </button>
@@ -187,7 +189,7 @@ export function LifeStoryTimeline() {
                       {!mainText && !hasNotes ? (
                         <div className="flex items-center gap-1.5 text-text-main/50 italic py-0.5">
                           <AlertCircle size={12} className="text-text-main/40" />
-                          Нет описания для этого дня
+                          {t('ai_timeline_no_desc')}
                         </div>
                       ) : (
                         <div className="space-y-3">
@@ -210,7 +212,7 @@ export function LifeStoryTimeline() {
                             <div className="mt-2.5 pt-2.5 border-t border-border-subtle/30 space-y-3">
                               {hasFacts && (
                                 <div className="space-y-1">
-                                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50 font-bold">Факты:</div>
+                                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50 font-bold">{t('ai_timeline_facts')}</div>
                                   <ul className="list-disc pl-4 space-y-1 text-text-main/70">
                                     {item.facts.map((fact, idx) => (
                                       <li key={idx}>{fact}</li>
@@ -220,7 +222,7 @@ export function LifeStoryTimeline() {
                               )}
                               {hasInsights && (
                                 <div className="space-y-1">
-                                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50 font-bold">Инсайты:</div>
+                                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-main/50 font-bold">{t('ai_timeline_insights')}</div>
                                   <ul className="list-disc pl-4 space-y-1 text-text-main/70">
                                     {item.insights.map((insight, idx) => (
                                       <li key={idx}>{insight}</li>

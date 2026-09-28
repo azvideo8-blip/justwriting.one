@@ -112,7 +112,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                 onClick={() => { if (proactiveHint) setInputText(proactiveHint.replace(/.*«|».*/, '').trim()); }}
                 className="text-xs font-bold px-3 py-1 rounded-lg bg-brand-soft/20 hover:bg-brand-soft/30"
               >
-                {isMobile ? 'OK' : 'Обсудить'}
+                {isMobile ? 'OK' : t('ai_discuss')}
               </Button>
             </div>
           )}
@@ -191,14 +191,14 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                       )}
                     >
                       <span className="text-sm">🔍</span>
-                      <span className="opacity-80">Поискать в заметках:</span>
+                      <span className="opacity-80">{t('ai_search_in_notes')}</span>
                       <span className="font-semibold truncate">„{msg.searchRequest}“</span>
                     </button>
                   )}
                   {msg.reasoning && (
                     <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
                       <summary className="px-4 py-2 text-xs font-medium text-text-main/60 cursor-pointer hover:text-text-main transition-colors select-none">
-                        🧠 Ход мысли
+                        {t('ai_reasoning_flow')}
                       </summary>
                       <div className="px-4 py-3 text-xs text-text-main/60 leading-relaxed whitespace-pre-wrap border-t border-border-subtle">
                         {msg.reasoning}
@@ -287,7 +287,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
           {streamingReasoning && (
             <details className="mb-3 rounded-xl border border-border-subtle bg-surface-card/50 overflow-hidden">
               <summary className="px-4 py-2 text-xs font-medium text-text-main/60 cursor-pointer hover:text-text-main transition-colors select-none">
-                🧠 Ход мысли
+                {t('ai_reasoning_flow')}
               </summary>
               <div className="px-4 py-3 text-xs text-text-main/60 leading-relaxed whitespace-pre-wrap border-t border-border-subtle">
                 {streamingReasoning}
