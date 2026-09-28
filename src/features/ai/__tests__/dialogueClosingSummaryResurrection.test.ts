@@ -76,18 +76,18 @@ describe('A-3.2 (F-007): dialogue closing summary resurrection protection', () =
 
   it('Acceptance 2: scheduleStoreDelete -> scheduleStoreSync for non-existent record -> pending entry remains delete', async () => {
     const store = 'aiDialogues';
-    const key = 'non_existent_key_123';
+    const recordId = 'missing-dialogue-record';
 
-    LocalStoreSyncService.scheduleStoreDelete(store, key);
+    LocalStoreSyncService.scheduleStoreDelete(store, recordId);
 
     // scheduleStoreSync should check IDB and, finding no record, ignore the upsert
-    LocalStoreSyncService.scheduleStoreSync(store, key);
+    LocalStoreSyncService.scheduleStoreSync(store, recordId);
 
     // Allow any async IDB check to settle
     await new Promise((r) => setTimeout(r, 50));
 
     const pendingMap = (LocalStoreSyncService as unknown as { pending: Map<string, { isDelete: boolean }> }).pending;
-    const entry = pendingMap.get(`${store}:${key}`);
+    const entry = pendingMap.get(`${store}:${recordId}`);
     expect(entry).toBeDefined();
     expect(entry?.isDelete).toBe(true);
   });

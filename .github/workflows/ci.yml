@@ -16,6 +16,10 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main, master ]
+    # PR от Dependabot не гоняются вовсе (см. `if:` у джобов): на машинах
+    # GitHub это минуты за каждый недельный PR, а на прод-раннере — чужой код.
+    # Обновления зависимостей идут пачкой руками: корень и deploy/api вместе
+    # (тест AG-DEPS-1 держит их равными), прогон — на своём раннере при push.
   workflow_dispatch:
     inputs:
       hosted:
@@ -25,6 +29,7 @@ on:
 
 jobs:
   build:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     env:
       # На VPS :3000 — прод-API, :3100 — стенд из gates.yml; E2E берёт свой порт.
@@ -188,6 +193,7 @@ jobs:
   # функции, правила Firestore — проверяло main вместо PR.
   
   rls:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     services:
       postgres:
@@ -213,7 +219,7 @@ jobs:
 
   bundle-size:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
