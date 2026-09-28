@@ -653,7 +653,8 @@
   "new": "if (isPoisonSyncError(e)) {\n        try {\n          await requeueDocumentTask(documentId, userId);",
   "why": "A transient failure (timeout, offline blip) is not retried — the edit silently never reaches the cloud though the editor shows it saved; permanent (poison) failures are retried forever instead of being quarantined.",
   "tests": [
-   "src/testing/faultHarness/__tests__/postulatesCommand.test.ts"
+   "src/testing/faultHarness/__tests__/postulatesCommand.test.ts",
+   "src/core/services/__tests__/syncPoisonQuarantine.test.ts"
   ]
  },
  {

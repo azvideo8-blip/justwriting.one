@@ -86,4 +86,20 @@ describe('A-2.2 (F-053): poison errors write a dead task to syncQueue', () => {
     const taskAfter = await db.get('syncQueue', 'sync_doc_poison_1');
     expect(taskAfter?.dead).toBe(true);
   });
+
+  // csc-30: перепутать ветки — «временную ошибку в карантин, ядовитую в повтор» —
+  // матрица постулатов не ловит (задача есть в обоих случаях). Ловит эта проверка.
+  it('a transient error (network) requeues a LIVE task — not dead, without lastError', async () => {
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const res = await CloudSyncService.syncVersionToCloud(USER, 'doc_poison_1', 'cloud_poison_1', dummyData, 2, 'hello');
+    expect(res.cloudSynced).toBe(false);
+
+    const db = await getLocalDb(USER);
+    const task = await db.get('syncQueue', 'sync_doc_poison_1');
+    expect(task).toBeDefined();
+    expect(task?.dead).toBeFalsy();
+    expect(task?.lastError).toBeUndefined();
+    expect(task?.updatedAt).toBeTypeOf('number');
+  });
 });
