@@ -194,7 +194,7 @@ export async function decodeCloudEmbedding(
   const model = typeof decrypted.model === 'string' ? decrypted.model : '';
   const dim = typeof decrypted.dim === 'number' ? decrypted.dim : (vectors[0]?.length ?? 0);
   const contentHash = typeof decrypted.contentHash === 'string' ? decrypted.contentHash : '';
-  const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
+  const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : 0;
   const base: AIDocumentEmbedding = { documentId: docId, vectors, model, dim, contentHash, processedAt };
   // Замыкает круг: восстановленный эмбеддинг знает каноничный id своей заметки.
   if (typeof decrypted.documentUuid === 'string') base.documentUuid = decrypted.documentUuid;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { isOversizedError, saveEmbeddingToCloud } from '../AIEmbeddingService';
+import { isOversizedError, saveEmbeddingToCloud, decodeCloudEmbedding } from '../AIEmbeddingService';
 import type { AIDocumentEmbedding } from '../../../../core/storage/localDb';
 
 vi.mock('../../../../core/data', () => ({
@@ -76,5 +76,13 @@ describe('AIEmbeddingService — Size Guard & Error Handler (EMB-1)', () => {
 
     const res = await saveEmbeddingToCloud('user_123', emb);
     expect(res.skipped).toBe(true);
+  });
+
+  it('F-040: decodes missing processedAt as 0 instead of Date.now()', async () => {
+    const decoded = await decodeCloudEmbedding(
+      { documentId: 'doc_no_ts', vectors: [[0.1, 0.2]] },
+      'doc_no_ts',
+    );
+    expect(decoded.processedAt).toBe(0);
   });
 });

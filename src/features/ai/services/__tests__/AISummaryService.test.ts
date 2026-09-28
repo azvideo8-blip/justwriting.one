@@ -185,4 +185,15 @@ describe('documentUuid survives the round trip through the cloud', () => {
 
     expect(decoded.documentUuid).toBeUndefined();
   });
+
+  it('F-040: decodes missing processedAt as 0 instead of Date.now()', async () => {
+    mockMaybeDecrypt.mockImplementation(async (d: Record<string, unknown>) => d);
+
+    const decoded = await decodeCloudSummary(
+      { documentId: 'doc-no-ts', tone: 'calm' },
+      'doc-no-ts',
+    );
+
+    expect(decoded.processedAt).toBe(0);
+  });
 });

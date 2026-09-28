@@ -76,7 +76,7 @@ export async function decodeCloudSummary(
   const themes = Array.isArray(decrypted.themes) ? decrypted.themes.map(String) : [];
   const extractedFacts = Array.isArray(decrypted.extractedFacts) ? decrypted.extractedFacts.map(String) : [];
   const commitments = Array.isArray(decrypted.commitments) ? decrypted.commitments.map(String) : [];
-  const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : Date.now();
+  const processedAt = typeof decrypted.processedAt === 'number' ? decrypted.processedAt : 0;
   const valence = typeof decrypted.valence === 'number' ? decrypted.valence : undefined;
   const arousal = typeof decrypted.arousal === 'number' ? decrypted.arousal : undefined;
 
