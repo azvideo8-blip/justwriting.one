@@ -3,6 +3,7 @@ import {
   deriveMasterKey,
   generateDataKey,
   wrapDataKey,
+  unwrapDataKey,
   unwrapDataKeyWithPassword,
   PBKDF2_ITERATIONS,
   encryptContent,
@@ -153,13 +154,14 @@ export async function unlockVault(userId: string, password: string): Promise<voi
   if (!meta) throw new Error('Encryption not configured');
 
   let dataKey: CryptoKey;
+  let usedLegacyIterations = false;
   try {
     const salt = saltFromBase64(meta.salt);
     // Tries the current PBKDF2 count, then the pre-SEC-36 one. Without the
     // fallback a vault wrapped at 300k reports WrongPasswordError for the
     // correct password — the user is locked out of their own notes.
     // AUDIT-L7: известные итерации — одна попытка вместо перебора 600k/300k.
-    ({ dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt, undefined, undefined, meta.iterations));
+    ({ dataKey, usedLegacyIterations } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt, undefined, undefined, meta.iterations));
   } catch (e) {
     if (isWrongKeyOperationError(e)) {
       throw new WrongPasswordError();
@@ -178,14 +180,48 @@ export async function unlockVault(userId: string, password: string): Promise<voi
 
   // D-28: сейф открыли не тем паролем, которым вошли (пароль входа сбросили по
   // почте) — перешифровываем сейф паролем входа, и пароли снова одинаковые.
+  let passwordConverged = false;
   const loginPassword = takePendingLoginPassword(userId);
   if (loginPassword && loginPassword !== password) {
     try {
       await rewrapVaultPassword(userId, password, loginPassword);
+      passwordConverged = true;
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(VAULT_PASSWORD_CONVERGED_EVENT));
     } catch (e) {
       // Сейф уже открыт — неудача сведения не повод его закрывать; попробуем при следующем входе.
       reportError(e, { action: 'unlockVault_convergePassword', userId }, 'warning');
+    }
+  }
+
+  // C-1 (F-017): Re-wrap legacy vaults (unwrapped with < PBKDF2_ITERATIONS)
+  // to PBKDF2_ITERATIONS (600k) on unlock, if password convergence did not already re-wrap.
+  if (usedLegacyIterations && !passwordConverged) {
+    try {
+      const newSalt = generateSalt();
+      const newMasterKey = await deriveMasterKey(password, newSalt, PBKDF2_ITERATIONS);
+      const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
+
+      // Verify the new wrap before saving it: unwrap with freshly derived key and verify against verification
+      const verifyMasterKey = await deriveMasterKey(password, newSalt, PBKDF2_ITERATIONS);
+      const unwrappedCandidate = await unwrapDataKey(newWrappedDataKey, verifyMasterKey);
+      const isVerified = meta.verification
+        ? await verifyKey(unwrappedCandidate, meta.verification)
+        : true;
+      if (!isVerified) {
+        throw new Error('Re-wrap verification failed');
+      }
+
+      await saveEncryptionMeta(userId, {
+        salt: saltToBase64(newSalt),
+        version: meta.version ?? ENCRYPTION_META_VERSION,
+        wrappedDataKey: newWrappedDataKey,
+        verification: meta.verification,
+        recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
+        recoverySalt: meta.recoverySalt,
+        iterations: PBKDF2_ITERATIONS,
+      });
+    } catch (e) {
+      reportError(e, { action: 'unlockVault_legacyRewrap', userId }, 'warning');
     }
   }
 
@@ -365,7 +401,7 @@ async function rewrapVaultPassword(userId: string, currentPassword: string, newP
     if (!valid) throw new WrongPasswordError();
   }
 
-  const iterations = meta.iterations ?? PBKDF2_ITERATIONS;
+  const iterations = PBKDF2_ITERATIONS;
   const newSalt = generateSalt();
   const newMasterKey = await deriveMasterKey(newPassword, newSalt, iterations);
   const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);

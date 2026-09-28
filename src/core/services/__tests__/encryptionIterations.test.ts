@@ -18,6 +18,7 @@ import {
   wrapDataKey,
   encryptContent,
   getSessionKey,
+  PBKDF2_ITERATIONS,
 } from '../../crypto/encrypt';
 import { DataProvider } from '../../data';
 import { setProfileLoaded, setEncryptionEnabled } from '../../crypto/cryptoHelpers';
@@ -92,7 +93,7 @@ describe('DEEP-7: PBKDF2 iteration count preservation across reads and password 
     expect(sessionKey).not.toBeNull();
   }, 15_000);
 
-  it('changePassword preserves existing custom iteration count in newly saved metadata', async () => {
+  it('changePassword upgrades iteration count to PBKDF2_ITERATIONS in newly saved metadata', async () => {
     const customIterations = 2000;
     const oldPassword = 'oldPassword123';
     const newPassword = 'newPassword456';
@@ -117,7 +118,7 @@ describe('DEEP-7: PBKDF2 iteration count preservation across reads and password 
     // Read back metadata
     const updatedMeta = await getEncryptionMeta(USER);
     expect(updatedMeta).not.toBeNull();
-    expect(updatedMeta?.iterations).toBe(customIterations);
+    expect(updatedMeta?.iterations).toBe(PBKDF2_ITERATIONS);
 
     // Verify the newly set password unlocks with that iteration count
     lockVault(USER);
