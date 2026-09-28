@@ -50,6 +50,8 @@ interface UseAIChatReturn {
   clearError: () => void;
 }
 
+const INTERRUPTED_STREAM_MARKER = '\n\n[ответ не дописан — стрим оборвался]';
+
 export function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
   const UNRECOGNISED_MARKER = '\uE000';
@@ -566,6 +568,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         savedReasoning = sanitizedFullText.trim();
         savedText = 'Ответ не дошёл: я потратил весь лимит на рассуждение и оборвался на полуслове. Ход мысли сохранён ниже. Попробуй переспросить короче или выключить режим рассуждений.';
       }
+      if (controller.signal.aborted) {
+        savedText = `${savedText.trim()}${INTERRUPTED_STREAM_MARKER}`;
+      }
       if (options?.replaceFromIndex !== undefined) {
         await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceFromIndex, text, savedText, savedReasoning, searchReq, degradedReason);
       } else {
@@ -637,7 +642,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // себе в поле ввода остаётся, но в дневнике хода не было вовсе.
       if (!turnSaved && turnDialogueId && text.trim() && shownPartial.trim()) {
         try {
-          const interruptedMsg = `${shownPartial.trim()}\n\n[ответ не дописан — стрим оборвался]`;
+          const interruptedMsg = `${shownPartial.trim()}${INTERRUPTED_STREAM_MARKER}`;
           if (options?.replaceFromIndex !== undefined) {
             await AIDialogueService.replaceLastTurn(
               turnDialogueId,
