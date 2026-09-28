@@ -39,11 +39,57 @@ jobs:
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # fetch-depth: 0 — скан секретов (C-3) читает диапазон выкладки; при
+      # глубине 1 у раннера нет коммита, от которого считать.
+      with:
+        fetch-depth: 0
     - name: Use Node.js
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: '22'
         cache: 'npm'
+    # C-3 / F-042: каждый push в main проверяется на секреты. Полная история не
+    # сканируется намеренно: в ней лежит известный старый ключ Firebase (его
+    # отзывают отдельно), и гейт, красный всегда, — это гейт молча выключенный.
+    # Бинарник — зафиксированный релиз с проверкой sha256, не чужой action.
+    - name: Secret scan (gitleaks)
+      env:
+        GL_RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.sha) || format('{0}..{1}', github.event.before, github.sha) }}
+      run: |
+        set -euo pipefail
+        GL_VERSION=8.30.1
+        case "$(uname -m)" in
+          x86_64|amd64)
+            GL_ARCH=linux_x64
+            GL_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+            ;;
+          aarch64|arm64)
+            GL_ARCH=linux_arm64
+            GL_SHA256=e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080
+            ;;
+          *)
+            echo "::error::Нет зафиксированной сборки gitleaks для $GL_VERSION под $(uname -m)"
+            exit 1
+            ;;
+        esac
+        WORK=$(mktemp -d)
+        trap 'rm -rf "$WORK"' EXIT
+        curl -fsSL --retry 3 -o "$WORK/gitleaks.tar.gz" \
+          "https://github.com/gitleaks/gitleaks/releases/download/v${GL_VERSION}/gitleaks_${GL_VERSION}_${GL_ARCH}.tar.gz"
+        echo "${GL_SHA256}  $WORK/gitleaks.tar.gz" | sha256sum --check --status
+        tar -xzf "$WORK/gitleaks.tar.gz" -C "$WORK"
+        ZERO=0000000000000000000000000000000000000000
+        FROM="${GL_RANGE%%..*}"
+        # Свежая ветка (before — нули) и force-push (before уже не предок) —
+        # проверяем хотя бы выгруженный коммит, а не всю историю.
+        if [ "$FROM" = "$ZERO" ] || ! git cat-file -e "${FROM}^{commit}" 2>/dev/null \
+           || ! git merge-base --is-ancestor "$FROM" HEAD 2>/dev/null; then
+          LOG_OPTS="-1 ${GITHUB_SHA}"
+        else
+          LOG_OPTS="$GL_RANGE"
+        fi
+        echo "Сканирую: $LOG_OPTS"
+        "$WORK/gitleaks" git --config .gitleaks.toml --log-opts="$LOG_OPTS" --redact --no-banner --exit-code 1
     - run: npm ci
     - run: node scripts/prod-audit.mjs  # gate on shipped (prod) deps; fails on any high/critical advisory except the documented N/A exceptions in the script
     - run: npm run typecheck
