@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 vi.mock('../../../../shared/i18n', () => ({
-  useLanguage: () => ({ t: (k: string) => k }),
+  useLanguage: () => ({
+    t: (k: string, p?: Record<string, unknown>) => (p?.count !== undefined ? String(p.count) : k),
+  }),
 }));
 
 import { MobileGoalSheet } from '../MobileGoalSheet';

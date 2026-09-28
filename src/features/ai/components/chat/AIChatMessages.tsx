@@ -52,6 +52,31 @@ export interface AIChatMessagesProps {
   setCitationPreviewSession: (session: ArchiveSession) => void;
 }
 
+const ATTACHED_NOTE_SEPARATOR = '\n\n— — —\nВопрос: ';
+const ATTACHED_NOTE_MARKER_RE = /\[Прикреплена заметка: "([^"]+)"\]/g;
+
+function parseAttachedNotes(content: string, defaultTitle: string) {
+  const sepIdx = content.indexOf(ATTACHED_NOTE_SEPARATOR);
+  const beforeSep = sepIdx >= 0 ? content.slice(0, sepIdx) : content;
+  const question = sepIdx >= 0 ? content.slice(sepIdx + ATTACHED_NOTE_SEPARATOR.length).trim() : '';
+
+  const markers: { title: string; start: number; end: number }[] = [];
+  for (const m of beforeSep.matchAll(ATTACHED_NOTE_MARKER_RE)) {
+    markers.push({ title: m[1] ?? defaultTitle, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+  }
+  const notes: { title: string; body: string }[] = markers.map((mk, idx) => {
+    const nextStart = idx + 1 < markers.length ? markers[idx + 1]!.start : beforeSep.length;
+    const body = beforeSep.slice(mk.end, nextStart).trim();
+    return { title: mk.title, body };
+  });
+
+  return { question, notes };
+}
+
+function buildAttachedNoteContent(title: string, body: string): string {
+  return `[Прикреплена заметка: "${title}"]\n\n${body}`;
+}
+
 export function AIChatMessages(props: AIChatMessagesProps) {
   const {
     displayMessages,
@@ -219,29 +244,14 @@ export function AIChatMessages(props: AIChatMessagesProps) {
             if (isAttachedNote) {
               // AX-1/AX-10: parse display into note cards + question.
               // Supports multiple attached notes (each with its own marker).
-              const SEPARATOR = '\n\n— — —\nВопрос: ';
-              const sepIdx = msg.content.indexOf(SEPARATOR);
-              const beforeSep = sepIdx >= 0 ? msg.content.slice(0, sepIdx) : msg.content;
-              const question = sepIdx >= 0 ? msg.content.slice(sepIdx + SEPARATOR.length).trim() : '';
-
-              // Extract all note markers and their content blocks
-              const NOTE_MARKER_RE = /\[Прикреплена заметка: "([^"]+)"\]/g;
-              const markers: { title: string; start: number; end: number }[] = [];
-              for (const m of beforeSep.matchAll(NOTE_MARKER_RE)) {
-                markers.push({ title: m[1] ?? 'Заметка', start: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
-              }
-              const notes: { title: string; body: string }[] = markers.map((mk, idx) => {
-                const nextStart = idx + 1 < markers.length ? markers[idx + 1]!.start : beforeSep.length;
-                const body = beforeSep.slice(mk.end, nextStart).trim();
-                return { title: mk.title, body };
-              });
+              const { question, notes } = parseAttachedNotes(msg.content, t('common_untitled'));
 
               return (
                 <div key={i} className="flex flex-col items-end gap-1.5">
                   <div className="max-w-[78%] flex flex-col items-end gap-1.5">
                     {notes.map((note, ni) => (
                       note.body
-                        ? <AttachedNoteCard key={ni} content={`[Прикреплена заметка: "${note.title}"]\n\n${note.body}`} />
+                        ? <AttachedNoteCard key={ni} content={buildAttachedNoteContent(note.title, note.body)} />
                         : <span key={ni} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card border border-brand-soft/30 text-xs text-text-main/80 max-w-full">
                             <Paperclip size={12} className="text-brand-soft shrink-0" />
                             <span className="truncate">{note.title}</span>

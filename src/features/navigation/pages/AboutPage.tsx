@@ -5,9 +5,8 @@ import { SeoHead } from '../../../shared/i18n/SeoHead';
 import { Button } from '../../../shared/components/Button';
 
 export function AboutPage() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const navigate = useNavigate();
-  const isRu = language === 'ru';
 
   return (
     <div className="max-w-md mx-auto py-8 px-4">
@@ -55,11 +54,11 @@ export function AboutPage() {
           </Link>
           <Link to="/privacy" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
             <Shield size={16} className="text-text-main/60 shrink-0" />
-            {isRu ? 'Политика конфиденциальности' : 'Privacy Policy'}
+            {t('about_privacy_policy')}
           </Link>
           <Link to="/terms" className="flex items-center gap-3 text-sm text-text-main/60 hover:text-text-main transition-colors">
             <FileText size={16} className="text-text-main/60 shrink-0" />
-            {isRu ? 'Условия использования' : 'Terms of Service'}
+            {t('about_terms')}
           </Link>
         </div>
       </div>

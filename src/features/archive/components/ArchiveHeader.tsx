@@ -97,7 +97,7 @@ export function ArchiveHeader({
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                 />
               )}
-              <span className="relative z-10">{notesTabLabel || 'Заметки'}</span>
+              <span className="relative z-10">{notesTabLabel || t('archive_tab_notes')}</span>
             </Button>
             <Button
               onClick={() => onTabChange('trash')}
@@ -115,7 +115,7 @@ export function ArchiveHeader({
               )}
               <span className="relative z-10 flex items-center gap-1.5">
                 <Trash2 size={13} aria-hidden="true" />
-                <span>{trashTabLabel || 'Корзина'}</span>
+                <span>{trashTabLabel || t('archive_tab_trash')}</span>
                 {trashCount !== undefined && trashCount > 0 && (
                   <span className="font-mono text-xs opacity-75">({trashCount})</span>
                 )}

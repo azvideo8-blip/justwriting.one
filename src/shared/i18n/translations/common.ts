@@ -66,6 +66,26 @@ export const commonTranslations: Translations = {
     en: 'A new version of the application is available. Please reload the page to continue.',
   },
   error_reload_page: { ru: 'Обновить страницу', en: 'Reload page' },
+  error_hide_details: { ru: 'Скрыть детали', en: 'Hide details' },
+  error_show_details: { ru: 'Показать детали', en: 'Show details' },
+  common_back: { ru: 'Назад', en: 'Back' },
+  not_found_desc: { ru: 'Запрашиваемая страница не существует.', en: 'The requested page does not exist.' },
+  not_found_back_home: { ru: 'На главную', en: 'Back to home' },
+  legal_last_updated: { ru: 'Последнее обновление: {date}', en: 'Last updated: {date}' },
+  legal_draft_notice: {
+    ru: 'Предварительная редакция. Документ подготовлен для юридической проверки; реквизиты оператора будут указаны после государственной регистрации. Сервис работает в закрытом режиме, регистрация новых пользователей отключена.',
+    en: 'Draft revision. This document is prepared for legal review; the operator’s details will be filled in after state registration. The service runs in closed mode and registration of new users is disabled.',
+  },
+  landing_tagline: {
+    ru: 'Тихий редактор для свободного письма. Один знак, одна буква, одна минута.',
+    en: 'A quiet editor for free writing. One sign, one letter, one minute.',
+  },
+  landing_start_writing: { ru: 'Начать писать', en: 'Start writing' },
+  landing_bottom_title: { ru: 'Просто начни писать.', en: 'Just start writing.' },
+  landing_bottom_desc: {
+    ru: 'Не нужно регистрироваться, чтобы попробовать. Открой редактор и пиши. Облако и шифрование — когда будешь готов.',
+    en: 'No sign-up required to try. Open the editor and write. Cloud and encryption — when you are ready.',
+  },
 
   unlock_title: { ru: 'Разблокировать шифрование', en: 'Unlock Encryption' },
   unlock_subtitle: {

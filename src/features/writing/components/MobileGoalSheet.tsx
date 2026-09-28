@@ -105,7 +105,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
                   )}
                 >
-                  {words === 0 ? t('archive_stats_reset') : `${words} сл.`}
+                  {words === 0 ? t('archive_stats_reset') : t('writing_goal_words_preset', { count: words })}
                 </Button>
               ))}
             </div>
@@ -155,7 +155,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
                   )}
                 >
-                  {mins === 0 ? t('archive_stats_reset') : `${mins} мин.`}
+                  {mins === 0 ? t('archive_stats_reset') : t('writing_goal_mins_preset', { count: mins })}
                 </Button>
               ))}
             </div>

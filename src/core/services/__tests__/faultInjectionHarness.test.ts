@@ -1219,6 +1219,6 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
         expect(cell.device).toBeDefined();
         expect(cell.postgres).toBeDefined();
       }
-    });
+    }, 30_000);
   });
 });

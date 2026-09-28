@@ -247,7 +247,7 @@ export function EmbeddingDiagnostics() {
                       {r.score.toFixed(3)}
                     </span>
                   </div>
-                  <p className="text-[11px] text-text-main/60 line-clamp-2">{r.content.slice(0, 240) || '(пусто)'}</p>
+                  <p className="text-[11px] text-text-main/60 line-clamp-2">{r.content.slice(0, 240) || t('admin_embed_empty')}</p>
                 </div>
               ))}
             </div>

@@ -278,6 +278,7 @@ export const adminTranslations: Translations = {
   admin_embed_test_search_placeholder: { ru: 'напр.: что я писал про отцовство и усталость', en: 'e.g.: what did I write about fatherhood and fatigue' },
   admin_embed_test_search_btn: { ru: 'Найти', en: 'Search' },
   admin_embed_test_search_empty: { ru: 'Ничего не найдено (нет проиндексированных заметок или совпадений)', en: 'Nothing found (no indexed notes or matches)' },
+  admin_embed_empty: { ru: '(пусто)', en: '(empty)' },
   admin_embed_test_search_footer: { ru: 'Эмбеддит запрос → косинус по локальным векторам → LLM-рерэнк по саммари → топ-5. Так это работает в чате при запросах «что я писал про…».', en: 'Embeds query → cosine over local vectors → LLM rerank on summaries → top-5. This is how chat queries work.' },
   admin_embed_toast_status_error: { ru: 'Не удалось загрузить статус индексации', en: 'Failed to load indexing status' },
   admin_embed_toast_daily_limit: { ru: 'Индексация приостановлена: дневной лимит ИИ', en: 'Indexing paused: daily AI limit' },

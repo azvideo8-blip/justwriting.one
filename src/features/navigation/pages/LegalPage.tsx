@@ -19,7 +19,7 @@ export function LegalPage({
   descriptionEn: string;
   draft?: boolean;
 }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const isRu = language === 'ru';
   const content = isRu ? doc.ru : doc.en;
@@ -38,12 +38,12 @@ export function LegalPage({
         className="flex items-center gap-2 text-text-main/60 hover:text-text-main text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
-        {isRu ? 'Назад' : 'Back'}
+        {t('common_back')}
       </Button>
 
       <h1 className="text-2xl font-bold text-text-main mb-2">{isRu ? titleRu : titleEn}</h1>
       <p className="text-sm text-text-main/60 mb-6">
-        {isRu ? `Последнее обновление: ${content.updated}` : `Last updated: ${content.updated}`}
+        {t('legal_last_updated', { date: content.updated })}
       </p>
 
       {draft && (
@@ -51,9 +51,7 @@ export function LegalPage({
            юридическую проверку, а реквизиты оператора появятся после
            регистрации. Публиковать его как окончательный было бы неправдой. */
         <div className="mb-8 p-3 rounded-xl border border-accent-danger/40 bg-accent-danger/5 text-xs text-text-main/70 leading-relaxed">
-          {isRu
-            ? 'Предварительная редакция. Документ подготовлен для юридической проверки; реквизиты оператора будут указаны после государственной регистрации. Сервис работает в закрытом режиме, регистрация новых пользователей отключена.'
-            : 'Draft revision. This document is prepared for legal review; the operator’s details will be filled in after state registration. The service runs in closed mode and registration of new users is disabled.'}
+          {t('legal_draft_notice')}
         </div>
       )}
 

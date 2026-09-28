@@ -61,6 +61,8 @@ export const writingTranslations: Translations = {
   goal_popup_time_title:  { ru: 'Цель по времени', en: 'Time goal' },
   goal_popup_clear:       { ru: 'Убрать',          en: 'Clear' },
   goal_time_short:        { ru: 'мин',           en: 'mins' },
+  writing_goal_words_preset: { ru: '{count} сл.', en: '{count} words' },
+  writing_goal_mins_preset: { ru: '{count} мин.', en: '{count} min.' },
 
   finish_congrats: { ru: 'Сессия завершена.', en: 'Session complete.' },
   finish_streak_days: { ru: 'дней подряд', en: 'days in a row' },

@@ -12,7 +12,6 @@ import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 import path from 'node:path';
 import { findHardcodedJsxCyrillic, isBlind } from '../../scripts/i18n-audit';
-import { JSX_TEXT_ALLOWLIST, JSX_ATTR_ALLOWLIST } from '../../scripts/i18n-audit-allowlist';
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
 
@@ -93,7 +92,7 @@ describe('AG-I18N-JSX-1 — findHardcodedJsxCyrillic', () => {
     expect(found.attrs).toHaveLength(0);
   });
 
-  it('6. строку внутри {…} считает, но в гейт не кладёт', () => {
+  it('6. ловит строку внутри {…}', () => {
     const found = scan(`
       export function Title({ title }: { title?: string }) {
         return <div>{title ?? 'Без названия'}</div>;
@@ -101,7 +100,8 @@ describe('AG-I18N-JSX-1 — findHardcodedJsxCyrillic', () => {
     `);
     expect(found.text).toHaveLength(0);
     expect(found.attrs).toHaveLength(0);
-    expect(found.expressionStrings).toBe(1);
+    expect(found.expressions).toHaveLength(1);
+    expect(found.expressions[0]?.match).toContain('Без названия');
   });
 
   it('7. кириллица за пределами JSX не считается JSX-долгом', () => {
@@ -113,9 +113,10 @@ describe('AG-I18N-JSX-1 — findHardcodedJsxCyrillic', () => {
     `);
     expect(found.text).toHaveLength(0);
     expect(found.attrs).toHaveLength(0);
+    expect(found.expressions).toHaveLength(0);
   });
 
-  it('8. репозиторий: файлы разобраны и за пределом allowlist нарушений нет', () => {
+  it('8. репозиторий: файлы разобраны и нарушений нет (allowlist удалён)', () => {
     const tsFiles = globSync('src/**/*.{ts,tsx}', {
       ignore: ['src/shared/i18n/**', 'src/**/__tests__/**', 'node_modules/**'],
     });
@@ -125,25 +126,28 @@ describe('AG-I18N-JSX-1 — findHardcodedJsxCyrillic', () => {
     const offenders: string[] = [];
     for (const file of tsxFiles) {
       const found = scan(readFileSync(file, 'utf-8'));
-      if (found.text.length && !JSX_TEXT_ALLOWLIST.includes(file)) {
+      if (found.text.length) {
         offenders.push(...found.text.map(m => `${file}${m.match}`));
       }
-      if (found.attrs.length && !JSX_ATTR_ALLOWLIST.includes(file)) {
+      if (found.attrs.length) {
         offenders.push(...found.attrs.map(m => `${file}: ${m.match}`));
+      }
+      if (found.expressions.length) {
+        offenders.push(...found.expressions.map(m => `${file}${m.match}`));
       }
     }
     expect(offenders).toEqual([]);
   });
 
-  it('9. allowlist не разрастается молча: каждая запись под ним правда нарушает', () => {
-    const stale: string[] = [];
-    for (const file of JSX_TEXT_ALLOWLIST) {
-      if (scan(readFileSync(file, 'utf-8')).text.length === 0) stale.push(`текст: ${file}`);
+  it('9. allowlist файл удалён: гейт работает без исключений', () => {
+    const allowlistPath = path.resolve(ROOT_DIR, 'scripts/i18n-audit-allowlist.ts');
+    let exists = true;
+    try {
+      readFileSync(allowlistPath);
+    } catch {
+      exists = false;
     }
-    for (const file of JSX_ATTR_ALLOWLIST) {
-      if (scan(readFileSync(file, 'utf-8')).attrs.length === 0) stale.push(`атрибуты: ${file}`);
-    }
-    expect(stale).toEqual([]);
+    expect(exists).toBe(false);
   });
 
   // Под-процесс со своим бюджетом: в полном прогоне файл стартует на загрузке

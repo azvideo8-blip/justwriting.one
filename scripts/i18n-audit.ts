@@ -2,7 +2,6 @@ import { readFileSync, readdirSync } from 'fs';
 import { globSync } from 'glob';
 import { fileURLToPath } from 'url';
 import ts from 'typescript';
-import { JSX_TEXT_ALLOWLIST, JSX_ATTR_ALLOWLIST } from './i18n-audit-allowlist';
 
 export function stripComments(code: string): string {
   let result = '';
@@ -147,7 +146,9 @@ export interface JsxCyrillicReport {
   text: { file: string; match: string }[];
   /** То же в placeholder / aria-label / title / alt. */
   attrs: { file: string; match: string }[];
-  /** Кириллица внутри {…}: гейтится отдельно, здесь только считается. */
+  /** Кириллица внутри {…} в JSX (шаблоны, тернарники и т.д.). */
+  expressions: { file: string; match: string }[];
+  /** Для обратной совместимости: число строк с выражениями */
   expressionStrings: number;
 }
 
@@ -162,7 +163,7 @@ const UI_ATTRS = new Set(['placeholder', 'aria-label', 'title', 'alt']);
  */
 export function findHardcodedJsxCyrillic(src: string, file: string = ''): JsxCyrillicReport {
   const sourceFile = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const report: JsxCyrillicReport = { text: [], attrs: [], expressionStrings: 0 };
+  const report: JsxCyrillicReport = { text: [], attrs: [], expressions: [], expressionStrings: 0 };
 
   const literalValue = (node: ts.Node): string | null => {
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
@@ -199,12 +200,16 @@ export function findHardcodedJsxCyrillic(src: string, file: string = ''): JsxCyr
       }
     }
 
-    if (literalValue(node)) {
+    const litVal = literalValue(node);
+    if (litVal) {
       for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
         // Значение атрибута уже учтено выше — не двойным счётом.
         if (ts.isJsxAttribute(p)) break;
         if (ts.isJsxExpression(p)) {
-          if (!ts.isJsxAttribute(p.parent)) report.expressionStrings++;
+          if (!ts.isJsxAttribute(p.parent)) {
+            report.expressions.push({ file, match: `:${line(node)} ${collapse(litVal)}` });
+            report.expressionStrings++;
+          }
           break;
         }
       }
@@ -294,25 +299,16 @@ export function runAudit() {
   // G-1: «не видно» должно отличаться от «проверено и чисто», поэтому здесь
   // считается, сколько файлов реально разобрано, и сколько лежат под allowlist.
   const tsxFiles = srcFiles.filter(file => file.endsWith('.tsx'));
-  const jsxTextNew: { file: string; match: string }[] = [];
-  const jsxAttrNew: { file: string; match: string }[] = [];
-  let exprStrings = 0;
-  let exprFiles = 0;
-  const offendingText = new Set<string>();
-  const offendingAttrs = new Set<string>();
+  const jsxText: { file: string; match: string }[] = [];
+  const jsxAttr: { file: string; match: string }[] = [];
+  const jsxExpr: { file: string; match: string }[] = [];
 
   for (const file of tsxFiles) {
     const found = findHardcodedJsxCyrillic(readFileSync(file, 'utf-8'), file);
-    if (found.text.length) offendingText.add(file);
-    if (found.attrs.length) offendingAttrs.add(file);
-    exprStrings += found.expressionStrings;
-    if (found.expressionStrings) exprFiles++;
-    if (!JSX_TEXT_ALLOWLIST.includes(file)) jsxTextNew.push(...found.text);
-    if (!JSX_ATTR_ALLOWLIST.includes(file)) jsxAttrNew.push(...found.attrs);
+    jsxText.push(...found.text);
+    jsxAttr.push(...found.attrs);
+    jsxExpr.push(...found.expressions);
   }
-
-  const staleText = JSX_TEXT_ALLOWLIST.filter(file => !offendingText.has(file));
-  const staleAttrs = JSX_ATTR_ALLOWLIST.filter(file => !offendingAttrs.has(file));
 
   const missing = [...usedKeys].filter(k => !definedKeys.has(k));
   const unused = [...definedKeys].filter(k => !usedKeys.has(k));
@@ -333,26 +329,25 @@ export function runAudit() {
 
   console.log('\n=== CYRILLIC IN JSX (G-1) ===');
   console.log(`  файлов разобрано: ${tsxFiles.length} из ${srcFiles.length} (ts/tsx без i18n и тестов)`);
-  console.log(`  под allowlist (известный долг, см. docs/ag-tickets-28.09.26-i18n-jsx-debt.md): ` +
-    `текст ${JSX_TEXT_ALLOWLIST.length} файлов, атрибуты ${JSX_ATTR_ALLOWLIST.length}`);
-  if (jsxTextNew.length > 0) {
+  if (jsxText.length > 0) {
     console.log('  ❌ JSX-текст вне t():');
-    jsxTextNew.forEach(({ file, match }) => console.log(`     ${file}${match}`));
+    jsxText.forEach(({ file, match }) => console.log(`     ${file}${match}`));
   }
-  if (jsxAttrNew.length > 0) {
+  if (jsxAttr.length > 0) {
     console.log('  ❌ placeholder/aria-label/title/alt вне t():');
-    jsxAttrNew.forEach(({ file, match }) => console.log(`     ${file}: ${match}`));
+    jsxAttr.forEach(({ file, match }) => console.log(`     ${file}: ${match}`));
   }
-  if (staleText.length + staleAttrs.length > 0) {
-    console.log('  ⚠️  записи allowlist без нарушений — файл можно вычеркнуть:');
-    [...staleText, ...staleAttrs].forEach(file => console.log(`     ${file}`));
+  if (jsxExpr.length > 0) {
+    console.log('  ❌ кириллица внутри {…} в JSX вне t():');
+    jsxExpr.forEach(({ file, match }) => console.log(`     ${file}${match}`));
   }
-  console.log(`  не гейтится: ${exprStrings} строк с кириллицей внутри {…} в ${exprFiles} файлах`);
+
+  const hardcodedJsxTotal = jsxText.length + jsxAttr.length + jsxExpr.length;
 
   console.log(`\nTotal defined: ${definedKeys.size}`);
   console.log(`Total used: ${usedKeys.size}`);
   console.log(`Missing: ${missing.length}, Unused: ${unused.length}, Incomplete: ${missingLocale.length}, ` +
-    `Hardcoded Dialogs: ${hardcodedConfirmDialogs.length}, Hardcoded JSX: ${jsxTextNew.length + jsxAttrNew.length}`);
+    `Hardcoded Dialogs: ${hardcodedConfirmDialogs.length}, Hardcoded JSX: ${hardcodedJsxTotal}`);
 
   if (isBlind(srcFiles.length, tsxFiles.length)) {
     console.error('смёржено 0 файлов — аудит не видит кода, результат не считается');
@@ -361,7 +356,7 @@ export function runAudit() {
 
   if (
     missing.length > 0 || missingLocale.length > 0 || hardcodedConfirmDialogs.length > 0 ||
-    unused.length > 0 || jsxTextNew.length > 0 || jsxAttrNew.length > 0
+    unused.length > 0 || hardcodedJsxTotal > 0
   ) {
     process.exit(1);
   }

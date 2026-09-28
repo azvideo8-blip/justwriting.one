@@ -61,7 +61,7 @@ const iconMap: Record<string, string> = {
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const isRu = language === 'ru';
 
   return (
@@ -82,15 +82,13 @@ export function LandingPage() {
           justwriting
         </h1>
         <p className="text-lg md:text-xl text-text-main/60 max-w-xl mx-auto leading-relaxed">
-          {isRu
-            ? 'Тихий редактор для свободного письма. Один знак, одна буква, одна минута.'
-            : 'A quiet editor for free writing. One sign, one letter, one minute.'}
+          {t('landing_tagline')}
         </p>
         <Button
           onClick={() => void navigate('/')}
           className="mt-8 px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-[filter,transform] bg-[var(--brand-primary)]"
         >
-          {isRu ? 'Начать писать' : 'Start writing'}
+          {t('landing_start_writing')}
         </Button>
       </header>
 
@@ -141,18 +139,16 @@ export function LandingPage() {
 
       <section className="max-w-2xl mx-auto px-6 pb-20 text-center">
         <h2 className="text-2xl font-serif italic text-brand-soft mb-4">
-          {isRu ? 'Просто начни писать.' : 'Just start writing.'}
+          {t('landing_bottom_title')}
         </h2>
         <p className="text-sm text-text-main/60 leading-relaxed mb-8">
-          {isRu
-            ? 'Не нужно регистрироваться, чтобы попробовать. Открой редактор и пиши. Облако и шифрование — когда будешь готов.'
-            : 'No sign-up required to try. Open the editor and write. Cloud and encryption — when you are ready.'}
+          {t('landing_bottom_desc')}
         </p>
         <Button
           onClick={() => void navigate('/')}
           className="px-8 py-3.5 rounded-xl font-bold text-white hover:brightness-110 active:scale-[0.98] transition-[filter,transform] bg-[var(--brand-primary)]"
         >
-          {isRu ? 'Начать писать' : 'Start writing'}
+          {t('landing_start_writing')}
         </Button>
       </section>
 
