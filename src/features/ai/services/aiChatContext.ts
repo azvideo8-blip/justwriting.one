@@ -156,6 +156,7 @@ export function useAIChatContext(personaId: string): {
     const effectiveQuery = forcedSearchQuery ?? text;
 
     let searchContext: string | undefined;
+    let attachedBlock: string | undefined;
 
     if (attached) {
       let isAttachedExcluded = false;
@@ -169,15 +170,16 @@ export function useAIChatContext(personaId: string): {
       }
       if (!isAttachedExcluded) {
         if (attached.content.includes('[#')) {
-          searchContext = attached.content;
+          attachedBlock = attached.content;
         } else {
           const yyyymmdd = attached.documentId ? (await getDocDate(attached.documentId)) : formatDateYYYYMMDD(Date.now());
           const docId = attached.documentId || 'attached-note';
           const label = attachedIsSticky
             ? '[Заметка, к которой привязан этот диалог — пользователь НЕ присылал её сейчас, не говори «присланная/прикреплённая заметка»]'
             : '[Прикрепленная заметка]';
-          searchContext = `[#${docId} · ${yyyymmdd}]\n${label}\n${attached.content}`;
+          attachedBlock = `[#${docId} · ${yyyymmdd}]\n${label}\n${attached.content}`;
         }
+        searchContext = attachedBlock;
 
         if (attached.documentId) {
           injectedDocumentIds.push(attached.documentId);
@@ -290,7 +292,9 @@ export function useAIChatContext(personaId: string): {
       minTime = temporal.outcome.minTime;
       maxTime = temporal.outcome.maxTime;
       if (temporal.setSearchContextTo !== undefined) {
-        searchContext = temporal.setSearchContextTo;
+        searchContext = attachedBlock
+          ? `${temporal.setSearchContextTo}\n\n${attachedBlock}`
+          : temporal.setSearchContextTo;
       } else if (temporal.appended) {
         searchContext = (searchContext ?? '') + temporal.appended;
       }
