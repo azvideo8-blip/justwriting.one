@@ -23,14 +23,12 @@ export const commonTranslations: Translations = {
 
   unit_min: { ru: 'м', en: 'm' },
   unit_hour: { ru: 'ч', en: 'h' },
-  unit_words: { ru: 'сл', en: 'w' },
 
   common_loading: { ru: 'Загрузка...', en: 'Loading...' },
   common_untitled: { ru: 'Без названия', en: 'Untitled' },
   common_cancel: { ru: 'Отмена', en: 'Cancel' },
   common_save: { ru: 'Сохранить', en: 'Save' },
   common_close: { ru: 'Закрыть', en: 'Close' },
-  common_anonymous: { ru: 'Аноним', en: 'Anonymous' },
 
   retry: { ru: 'Повторить', en: 'Retry' },
   restore_cloud_counts_error: {

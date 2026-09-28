@@ -17,7 +17,6 @@ export const writingTranslations: Translations = {
   writing_set_timer: { ru: 'Установить таймер', en: 'Set Timer' },
   writing_minutes: { ru: 'минут', en: 'minutes' },
   writing_words: { ru: 'слов', en: 'words' },
-  writing_chars: { ru: 'символов', en: 'characters' },
   writing_time: { ru: 'время', en: 'time' },
   error_target_time_in_past: { ru: 'Выберите время в будущем', en: 'Select a time in the future' },
   writing_continue_session: { ru: 'Выбери сессию для продолжения', en: 'Choose a session to continue' },

@@ -40,9 +40,6 @@ export const lifelogTranslations: Translations = {
 
   focus_exit_hint:   { ru: 'свайп вверх — выйти', en: 'swipe up to exit' },
 
-  log_week_summary:  { ru: 'За 7 дней',           en: 'Last 7 days' },
-  log_no_results:    { ru: 'Ничего не найдено',    en: 'No results' },
-  log_empty:         { ru: 'Пока нет записей',     en: 'No entries yet' },
 
 
   pull_to_refresh: { ru: 'Потяни для обновления', en: 'Pull to refresh' },

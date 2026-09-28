@@ -46,9 +46,6 @@ export const authTranslations: Translations = {
 
   admin_tab_diagnostics: { ru: 'Диагностика', en: 'Diagnostics' },
   admin_confirm_delete_session: { ru: 'Ты уверен, что хочешь удалить эту сессию?', en: 'Are you sure you want to delete this session?' },
-  admin_col_title: { ru: 'Заголовок', en: 'Title' },
-  admin_col_author: { ru: 'Автор', en: 'Author' },
-  admin_col_date: { ru: 'Дата', en: 'Date' },
   admin_col_actions: { ru: 'Действия', en: 'Actions' },
   admin_col_role: { ru: 'Роль', en: 'Role' },
 

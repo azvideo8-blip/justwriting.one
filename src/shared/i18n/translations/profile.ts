@@ -2,10 +2,6 @@ import { Translations } from '../types';
 
 export const profileTranslations: Translations = {
   profile_reset_achievements: { ru: 'Сбросить все достижения', en: 'Reset all achievements' },
-  reset_achievements_confirm: {
-    ru: 'Все достижения будут удалены навсегда. Ты уверен?',
-    en: 'All achievements will be permanently deleted. Are you sure?'
-  },
   profile_loading: { ru: 'Загружаем профиль...', en: 'Loading profile...' },
   profile_theme_title: { ru: 'Дизайн', en: 'Design' },
   profile_streak: { ru: 'дн. стрик', en: 'day streak' },
@@ -66,9 +62,6 @@ export const profileTranslations: Translations = {
   profile_quote_19: { ru: 'Письмо — это медитация для тех, кто не умеет молчать.', en: 'Writing is meditation for those who can\'t stay silent.' },
   profile_quote_20: { ru: 'Каждое слово — шаг в сторону ясности.', en: 'Every word is a step toward clarity.' },
 
-  badge_tier_common:    { ru: 'обычное',      en: 'common' },
-  badge_tier_rare:      { ru: 'редкое',       en: 'rare' },
-  badge_tier_legendary: { ru: 'легендарное',  en: 'legendary' },
 
   ach_streak_1: { ru: 'Первые шаги', en: 'First Steps' },
   ach_streak_3: { ru: 'Начинающий писатель', en: 'Aspiring Writer' },

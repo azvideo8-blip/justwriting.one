@@ -117,16 +117,8 @@ export const archiveTranslations: Translations = {
 
   session_untitled: { ru: 'Без названия', en: 'Untitled' },
   session_export: { ru: 'Экспорт', en: 'Export' },
-  session_edit: { ru: 'Редактировать', en: 'Edit' },
   session_delete: { ru: 'Удалить', en: 'Delete' },
   session_delete_confirm: { ru: 'Подтвердить удаление', en: 'Confirm deletion' },
-  session_collapse: { ru: 'Свернуть', en: 'Collapse' },
-  session_expand: { ru: 'Развернуть', en: 'Expand' },
-  session_add_tags: { ru: 'Добавить теги', en: 'Add tags' },
-  session_add_tag: { ru: 'Добавить тег', en: 'Add tag' },
-  session_remove_tag: { ru: 'Удалить тег', en: 'Remove tag' },
-  session_tag_placeholder: { ru: 'тег...', en: 'tag...' },
-  session_continue: { ru: 'Продолжить писать', en: 'Continue writing' },
 
   export_txt: { ru: 'Текстовый (.txt)', en: 'Text (.txt)' },
   export_pdf: { ru: 'PDF (.pdf)', en: 'PDF (.pdf)' },
