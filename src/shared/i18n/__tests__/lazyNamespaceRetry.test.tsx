@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { reportError } from '../../errors/reportError';
@@ -10,6 +10,63 @@ vi.mock('../../errors/reportError', () => ({
 describe('B-3.1 (F-018) Failed lazy translation chunk does not block render and retries', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    // Фейковые таймеры и флаг асинхронной готовности не должны перетекать
+    // в следующий тест.
+    vi.useRealTimers();
+    const { _setForceAsyncReadyForTesting } = await import('../index');
+    _setForceAsyncReadyForTesting(false);
+  });
+
+  it('встроенный ретрай делает три попытки и останавливается, а не молотит сеть', async () => {
+    vi.useFakeTimers();
+    const { _resetTranslationsForTesting } = await import('../index');
+
+    const loader = vi.fn(async () => {
+      throw new Error('ChunkLoadError: 503');
+    });
+
+    await _resetTranslationsForTesting([{ name: 'settings', load: loader }]);
+    expect(loader, 'первая попытка при старте').toHaveBeenCalledTimes(1);
+
+    // Backoff: 1s, 2s, 4s … Если счётчик попыток не доходит до мока, цикл
+    // повторяется вечно — сеть молотится пока открыта вкладка.
+    for (let i = 0; i < 12; i++) {
+      await vi.advanceTimersByTimeAsync(5000);
+    }
+
+    expect(loader, 'ретраев не больше трёх всего').toHaveBeenCalledTimes(3);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('событие online будит ретрай провалившегося чанка', async () => {
+    vi.useFakeTimers();
+    const { _resetTranslationsForTesting } = await import('../index');
+
+    let failures = 0;
+    const loader = vi.fn(async () => {
+      failures++;
+      if (failures <= 4) throw new Error('ChunkLoadError: offline');
+      return { online_key: { ru: 'Строка после online', en: 'String after online' } };
+    });
+
+    await _resetTranslationsForTesting([{ name: 'settings', load: loader }]);
+    const before = loader.mock.calls.length;
+
+    window.dispatchEvent(new Event('online'));
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(loader.mock.calls.length, 'online будит ретрай').toBeGreaterThan(before);
+    expect(loader, 'чанка дождался успешной загрузки').toHaveReturned();
+
+    // Выздоровевший чанк больше не дёргается: таймеры после успеха молчат.
+    const settled = loader.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(loader.mock.calls.length, 'после загрузки ретраев больше нет').toBe(settled);
+    vi.useRealTimers();
   });
 
   it('renders children with core translations when a namespace chunk fails, and updates once retry succeeds', async () => {

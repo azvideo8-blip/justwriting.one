@@ -81,11 +81,14 @@ async function loadSingleNamespace(def: LazyNamespaceDef): Promise<boolean> {
 }
 
 async function retryFailedNamespace(name: string) {
-  const item = failedNamespaces.get(name);
-  if (!item || loadedNamespaces.has(name)) return;
-
   const maxAttempts = 3;
-  while (item.attempts < maxAttempts) {
+  for (;;) {
+    // Счётчик читается из карты на каждом шаге: loadSingleNamespace при провале
+    // кладёт в карту новый объект, и прежняя ссылка навсегда осталась бы с
+    // attempts = 1 — то есть бесконечный опрос сети вместо трёх попыток.
+    const item = failedNamespaces.get(name);
+    if (!item || loadedNamespaces.has(name) || item.attempts >= maxAttempts) return;
+
     const backoffMs = Math.min(1000 * Math.pow(2, item.attempts - 1), 5000);
     await new Promise(resolve => setTimeout(resolve, backoffMs));
     if (loadedNamespaces.has(name)) return;
