@@ -878,7 +878,9 @@ export const CloudSyncService = {
             const cur = await tx.store.get(localDocumentId);
             if (cur) await tx.store.put({ ...cur, lastSyncedCloudVersion: syncdVer, lastSeenCloudUpdatedAt: new Date().toISOString() });
             await tx.done;
-          } catch { /* ignore */ }
+          } catch (e) {
+            reportError(e, { action: 'addCloudCopy_markSynced', documentId: localDocumentId });
+          }
           return cloudId;
         }
         await LocalStorageService.updateLinkedCloudId(localDocumentId, '', userId);

@@ -193,5 +193,39 @@ describe('addCloudCopy — pruned history is not re-uploaded', () => {
 
     expect(addVersion).not.toHaveBeenCalled();
   });
+
+  it('F-022: reports error when marking synced document fails in addCloudCopy', async () => {
+    const { LocalVersionService } = await import('../LocalVersionService');
+    const { VersionService } = await import('../VersionService');
+    const { DocumentService } = await import('../DocumentService');
+    const { getLocalDb } = await import('../../storage/localDb');
+    const reportErrorModule = await import('../../../shared/errors/reportError');
+    const reportErrorSpy = vi.spyOn(reportErrorModule, 'reportError');
+
+    vi.spyOn(LocalStorageService, 'getDocument').mockResolvedValue({
+      id: 'local_fail_mark', linkedCloudId: 'cloud_1', currentVersion: 1,
+      totalWords: 10, totalDuration: 0, sessionsCount: 1,
+    } as never);
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({ id: 'cloud_1', currentVersion: 1 } as never);
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue({ id: 'cloud_1', currentVersion: 1 } as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{ id: 'v1', version: 1, content: 'x' }] as never);
+    vi.spyOn(LocalVersionService, 'getVersions').mockResolvedValue([{ id: 'v1', version: 1, content: 'x' }] as never);
+
+    const db = await getLocalDb('user_1');
+    const originalTransaction = db.transaction.bind(db);
+    vi.spyOn(db, 'transaction').mockImplementation(((storeName: any, mode: any) => {
+      if (storeName === 'documents' && mode === 'readwrite') {
+        throw new Error('IDB write failure');
+      }
+      return originalTransaction(storeName, mode);
+    }) as any);
+
+    await CloudSyncService.addCloudCopy('user_1', 'local_fail_mark');
+
+    expect(reportErrorSpy).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ action: 'addCloudCopy_markSynced', documentId: 'local_fail_mark' }),
+    );
+  });
 });
 
