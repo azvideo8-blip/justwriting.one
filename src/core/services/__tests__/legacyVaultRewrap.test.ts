@@ -10,6 +10,7 @@ import {
 import {
   unlockVault,
   lockVault,
+  changePassword,
   recoverVaultWithCode,
   WrongPasswordError,
 } from '../EncryptionService';
@@ -35,7 +36,7 @@ vi.mock('../../auth', () => ({
   updateUserPassword: vi.fn().mockResolvedValue(undefined),
 }));
 
-async function createDirectLegacyVault(password: string, recoveryCode?: string) {
+async function createDirectLegacyVault(password: string, recoveryCode?: string, opts: { omitIterations?: boolean } = {}) {
   const dataKey = await generateDataKey();
   const salt = generateSalt();
   const masterKey = await deriveMasterKey(password, salt, LEGACY_PBKDF2_ITERATIONS);
@@ -55,7 +56,8 @@ async function createDirectLegacyVault(password: string, recoveryCode?: string) 
     version: 2,
     wrappedDataKey,
     verification,
-    iterations: LEGACY_PBKDF2_ITERATIONS,
+    // Настоящий сейф до AUDIT-L7 поля iterations не имеет вовсе.
+    ...(opts.omitIterations ? {} : { iterations: LEGACY_PBKDF2_ITERATIONS }),
     recoveryWrappedDataKey,
     recoverySalt,
   };
@@ -201,6 +203,23 @@ describe('C-1 (F-017): Legacy vaults are re-wrapped to PBKDF2_ITERATIONS on unlo
     await expect(unlockVault(USER, 'wrongPassword123')).rejects.toThrow(WrongPasswordError);
   }, 30_000);
 
+  it('1б. сейф без поля iterations (настоящая форма до AUDIT-L7) тоже переворачивается и открывается снова', async () => {
+    const password = 'legacyNoField123';
+    const { meta: legacyMeta } = await createDirectLegacyVault(password, undefined, { omitIterations: true });
+    await saveEncryptionMeta(USER, legacyMeta);
+    expect((await getEncryptionMeta(USER))?.iterations).toBeUndefined();
+
+    await unlockVault(USER, password);
+    expect(getSessionKey()).not.toBeNull();
+    const updatedMeta = await getEncryptionMeta(USER);
+    expect(updatedMeta?.iterations).toBe(PBKDF2_ITERATIONS);
+    expect(updatedMeta?.salt).not.toBe(legacyMeta.salt);
+
+    lockVault(USER);
+    await unlockVault(USER, password);
+    expect(getSessionKey()).not.toBeNull();
+  });
+
   it('6. авто-созданный сейф остаётся авто-созданным после переворачивания', async () => {
     const password = 'autoCreatedVault';
     const { meta: legacyMeta } = await createDirectLegacyVault(password);
@@ -210,7 +229,12 @@ describe('C-1 (F-017): Legacy vaults are re-wrapped to PBKDF2_ITERATIONS on unlo
 
     expect(inMemoryMeta.iterations).toBe(PBKDF2_ITERATIONS);
     expect(inMemoryMeta.autoCreated, 'флаг авто-создания не должен потеряться при перезаписи меты').toBe(true);
-  }, 30_000);
+
+    // Смена пароля переписывает мету ещё раз — флаг обязан пережить и её.
+    await changePassword(USER, password, 'anotherPassword456');
+    expect(inMemoryMeta.autoCreated, 'флаг авто-создания теряется при смене пароля').toBe(true);
+    expect(inMemoryMeta.iterations).toBe(PBKDF2_ITERATIONS);
+  }, 60_000);
 
   it('7. мету переписали во время деривации — своя запись не идёт в базу', async () => {
     const password = 'racedVault';

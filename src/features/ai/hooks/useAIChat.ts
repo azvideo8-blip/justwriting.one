@@ -424,7 +424,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // 50K, userPortrait 100K), or the request 400s before reaching the model.
       if (searchContext && searchContext.length > 49_000) {
         const excess = searchContext.length - 49_000;
-        const headerEnd = searchContext.indexOf('\n\n');
+        // Контекст без вложения начинается с пустой строки — заголовок ищется с первого непробельного символа.
+        const headerEnd = searchContext.indexOf('\n\n', searchContext.search(/\S/));
         if (headerEnd !== -1 && headerEnd < 200) {
           const header = searchContext.slice(0, headerEnd + 2);
           const rest = searchContext.slice(headerEnd + 2);

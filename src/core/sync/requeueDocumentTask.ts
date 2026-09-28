@@ -14,16 +14,18 @@ export async function requeueDocumentTask(documentId: string, ownerId?: string |
   const tx = db.transaction('syncQueue', 'readwrite');
   const id = `sync_${documentId}`;
   const existing = await tx.store.get(id);
-  const { lastError: _dropLastError, ...rest } = existing ?? {};
+  // История задачи (attempts/dead/lastError) сохраняется: это путь ПОВТОРА
+  // (замок занят, офлайн, нечитаемая облачная версия), а не новой правки —
+  // сброс счётчика здесь и был петлёй R3-6. Новая правка идёт через
+  // addToSyncQueue, и там мёртвая задача заменяется свежей. Меняется только
+  // updatedAt: без него снимок дренажа (SB-1) снял бы задачу как «не менялась».
   await tx.store.put({
-    ...rest,
+    ...(existing ?? {}),
     id,
     documentId,
     type: 'document' as const,
     createdAt: existing?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
-    dead: false,
-    attempts: 0,
     ...(ownerId ? { ownerId } : existing?.ownerId ? { ownerId: existing.ownerId } : {}),
   });
   await tx.done;

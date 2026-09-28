@@ -294,6 +294,7 @@ export async function recoverVaultWithCode(
     verification: meta.verification || (await createVerification(dataKey)),
     recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
     recoverySalt: meta.recoverySalt,
+    autoCreated: meta.autoCreated,
     // AUDIT-L7: ключ только что перевёрнут на PBKDF2_ITERATIONS — запись
     // обязана сказать об этом. Унаследовать прежнее значение и промолчать
     // значит однажды, при подъёме константы, развести число в мете с числом
@@ -434,6 +435,7 @@ async function rewrapVaultPassword(userId: string, currentPassword: string, newP
     verification: meta.verification || (await createVerification(dataKey)),
     recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
     recoverySalt: meta.recoverySalt,
+    autoCreated: meta.autoCreated,
     iterations,
   });
 

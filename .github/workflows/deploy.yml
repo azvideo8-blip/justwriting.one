@@ -126,10 +126,7 @@ jobs:
           # G-4 / F-002: хэш собранного index.html. Им сверяется проверка после
           # выкатки: номер версии не отличает удачную копию от неудачной при
           # перевыкатке того же номера.
-          INDEX_SHA256=$(sha256sum dist/index.html 2>/dev/null | cut -d' ' -f1)
-          if [ -z "$INDEX_SHA256" ]; then
-            INDEX_SHA256=$(shasum -a 256 dist/index.html | cut -d' ' -f1)
-          fi
+          INDEX_SHA256=$(sha256sum dist/index.html | cut -d' ' -f1)
           if [ -z "$INDEX_SHA256" ]; then
             echo "не удалось посчитать sha256 dist/index.html" >&2
             exit 1
@@ -214,17 +211,21 @@ jobs:
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package-lock.json
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
             sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev &&
-            sudo cp "$REMOTE_DIR"/api-package.json /opt/justwriting/api/package.json &&
-            sudo cp "$REMOTE_DIR"/api-package-lock.json /opt/justwriting/api/package-lock.json &&
-            sudo chown justwriting:justwriting /opt/justwriting/api/package.json /opt/justwriting/api/package-lock.json &&
             # npm ci, а не npm install: ставит ровно то, что записано в локе, и
-            # падает, если лок и манифест расходятся. Молча поставить другое он
-            # больше не может. Цена: ci сначала сносит node_modules, поэтому
-            # неудачная установка оставляет службу без зависимостей — но до
-            # `systemctl restart` дело не доходит (цепочка обрывается), а бандл
-            # предыдущего прогона остаётся в server.mjs.prev.
-            sudo -u justwriting env npm_config_cache=/opt/justwriting/api/.npm-cache \
-              npm ci --prefix /opt/justwriting/api --omit=dev --no-audit --no-fund &&
+            # падает, если лок и манифест расходятся. Ставится в отдельный каталог:
+            # ci сначала сносит node_modules, и провал установки прямо в
+            # /opt/justwriting/api оставил бы службу без зависимостей — а откат
+            # ниже перезапускает её и получил бы мёртвый процесс. Готовое дерево
+            # подменяется rsync'ом, когда установка уже прошла.
+            mkdir -p "$REMOTE_DIR"/stage &&
+            cp "$REMOTE_DIR"/api-package.json "$REMOTE_DIR"/stage/package.json &&
+            cp "$REMOTE_DIR"/api-package-lock.json "$REMOTE_DIR"/stage/package-lock.json &&
+            # Кэш — у пользователя выкатки: в /opt/justwriting/api ему писать нельзя.
+            env npm_config_cache="$HOME/.npm-cache-jw-api" \
+              npm ci --prefix "$REMOTE_DIR"/stage --omit=dev --no-audit --no-fund &&
+            sudo rsync -a --delete "$REMOTE_DIR"/stage/node_modules/ /opt/justwriting/api/node_modules/ &&
+            sudo cp "$REMOTE_DIR"/stage/package.json "$REMOTE_DIR"/stage/package-lock.json /opt/justwriting/api/ &&
+            sudo chown -R justwriting:justwriting /opt/justwriting/api/node_modules /opt/justwriting/api/package.json /opt/justwriting/api/package-lock.json &&
             sudo cp "$REMOTE_DIR"/server.mjs /opt/justwriting/api/server.mjs &&
             sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
             rm -rf "$REMOTE_DIR" &&

@@ -284,33 +284,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-const defaultFallbackContext: LanguageContextType = {
-  language: 'ru',
-  setLanguage: () => {},
-  t: (key: string, params?: Record<string, string | number>) => {
-    let str = translations[key]?.['ru'] ?? key;
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), () => String(v));
-      });
-    }
-    return str;
-  },
-  tp: (key: string, count: number) => {
-    const mod10 = count % 10;
-    const mod100 = count % 100;
-    let suffix = '_many';
-    if (mod100 >= 11 && mod100 <= 14) suffix = '_many';
-    else if (mod10 === 1) suffix = '_one';
-    else if (mod10 >= 2 && mod10 <= 4) suffix = '_few';
-    return translations[`${key}${suffix}`]?.['ru'] ?? `${key}${suffix}`;
-  },
-};
-
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (context === undefined) {
-    return defaultFallbackContext;
+    throw new Error('useLanguage must be used within a LanguageProvider');
   }
   return context;
 }

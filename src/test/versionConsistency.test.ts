@@ -1,5 +1,5 @@
-// F-041 / G-3: версия живёт в трёх местах — src/version.ts, package.json и
-// CACHE_VERSION в public/sw.js. Их сводят руками, и разъезд молча стоит людям
+// F-041 / G-3: версия живёт в четырёх местах — src/version.ts, package.json,
+// package-lock.json и CACHE_VERSION в public/sw.js. Их сводят руками, и разъезд молча стоит людям
 // старого кэша: service worker сравнивает имя кэша с версией приложения, а
 // о расхождении не сообщает никто. Тест держит их вместе.
 import { describe, it, expect } from 'vitest';
@@ -10,7 +10,7 @@ import packageJson from '../../package.json';
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
 
-describe('AG-VERSION-1 — версия в трёх местах одна', () => {
+describe('AG-VERSION-1 — версия в четырёх местах одна', () => {
   it('public/sw.js объявляет CACHE_VERSION в ожидаемом формате', () => {
     const sw = readFileSync(path.join(ROOT_DIR, 'public/sw.js'), 'utf-8');
     const declared = /const CACHE_VERSION = '([^']+)';/.exec(sw);
@@ -22,5 +22,13 @@ describe('AG-VERSION-1 — версия в трёх местах одна', () =
 
   it('APP_VERSION совпадает с version в package.json', () => {
     expect(APP_VERSION).toBe(packageJson.version);
+  });
+
+  it('package-lock.json описывает ту же версию (обе записи)', () => {
+    const lock = JSON.parse(readFileSync(path.join(ROOT_DIR, 'package-lock.json'), 'utf-8')) as {
+      version: string; packages: Record<string, { version?: string }>;
+    };
+    expect(lock.version).toBe(APP_VERSION);
+    expect(lock.packages['']?.version).toBe(APP_VERSION);
   });
 });
