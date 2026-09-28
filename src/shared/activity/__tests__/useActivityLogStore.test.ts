@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useActivityLogStore } from '../useActivityLogStore';
+import { useActivityLogStore, scrubMessage } from '../useActivityLogStore';
 
 describe('useActivityLogStore (AG-BG-1)', () => {
   beforeEach(() => {
@@ -135,6 +135,13 @@ describe('useActivityLogStore (AG-BG-1)', () => {
       const entries = useActivityLogStore.getState().entries;
       expect(entries).toHaveLength(1);
       expect(entries[0]?.message).toBe('Cloud unavailable');
+    });
+
+    it('F-027: scrubs long quoted strings for double, single, and guillemet quotes', () => {
+      const longText = 'Это очень длинный текст дневниковой записи';
+      expect(scrubMessage(`Error in "${longText}" during save`)).toBe('Error in "…" during save');
+      expect(scrubMessage(`Error in '${longText}' during save`)).toBe("Error in '…' during save");
+      expect(scrubMessage(`Error in «${longText}» during save`)).toBe('Error in «…» during save');
     });
   });
 });

@@ -97,7 +97,7 @@ const MAX_MESSAGE_LENGTH = 200;
 export function scrubMessage(raw: string): string {
   return raw
     // строки в кавычках — почти всегда прилетевшее значение, а не текст ошибки
-    .replace(/(["'«])(?:(?!\1).){20,}\1/g, '$1…$1')
+    .replace(/"[^"]{20,}"|'[^']{20,}'|«[^»]{20,}»/g, match => `${match[0]}…${match[match.length - 1]}`)
     // base64-подобные простыни: шифротекст, ключи, вложения
     .replace(/[A-Za-z0-9+/=]{40,}/g, '[data]')
     .slice(0, MAX_MESSAGE_LENGTH);
