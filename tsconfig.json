@@ -26,5 +26,14 @@
     "types": ["vitest/globals"],
     "noUncheckedIndexedAccess": true
   },
-  "exclude": ["_archive", "old_tests", "scratch"]
+  "exclude": [
+    "_archive",
+    "old_tests",
+    "scratch",
+    "dist",
+    "coverage",
+    "playwright-report",
+    "bundle-stats",
+    "scripts/stand/dist"
+  ]
 }
