@@ -20,7 +20,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const getDocumentsByOwner = vi.fn();
 const getCloudDocumentVersions = vi.fn();
-const dbPut = vi.fn(async () => undefined);
+const dbPut = vi.fn(async (_row?: unknown) => undefined);
 
 /** Строки `documents` в фейковой базе: транзакция читает и пишет их, как живая. */
 let rows = new Map<string, Record<string, unknown>>();
