@@ -33,6 +33,14 @@ export const commonTranslations: Translations = {
   common_anonymous: { ru: 'Аноним', en: 'Anonymous' },
 
   retry: { ru: 'Повторить', en: 'Retry' },
+  restore_cloud_counts_error: {
+    ru: 'Не удалось загрузить количество заметок в облаке',
+    en: 'Failed to load cloud note count',
+  },
+  restore_cloud_counts_retry: {
+    ru: 'Повторить',
+    en: 'Retry',
+  },
 
   unlock_cloud_unreachable: {
     ru: 'Не удалось получить данные шифрования из облака. Пароль здесь ни при чём — проверь соединение и попробуй позже. Если включён VPN — попробуй без него.',

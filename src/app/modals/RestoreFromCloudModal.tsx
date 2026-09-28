@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthStatus } from '../../features/auth/hooks/useAuthStatus';
 import { CloudSyncService } from '../../core/services/CloudSyncService';
 import { emitDomainEvent } from '../../core/events/domainEvents';
@@ -58,8 +58,10 @@ export function RestoreFromCloudModal({
 
   const [localCount, setLocalCount] = useState(initialLocalCount ?? 0);
   const [cloudCount, setCloudCount] = useState(initialCloudCount ?? 0);
-  const [loadingCounts, setLoadingCounts] = useState(false);
-
+  const [loadingCounts, setLoadingCounts] = useState(() => (
+    open && Boolean(user) && (initialCloudCount === undefined || initialLocalCount === undefined)
+  ));
+  const [countsError, setCountsError] = useState<string | null>(null);
   const [progress, setProgress] = useState<RestoreProgressState>({
     currentStage: '',
     notesCurrent: 0,
@@ -74,6 +76,23 @@ export function RestoreFromCloudModal({
   // Упало ли восстановление, или дошло до конца и не нашло, что вернуть.
   const [threw, setThrew] = useState(false);
   const [autoSyncPromptAnswered, setAutoSyncPromptAnswered] = useState(false);
+
+  const loadCounts = useCallback(() => {
+    if (!user) return;
+    setLoadingCounts(true);
+    setCountsError(null);
+    void Promise.all([
+      LocalStorageService.getDocumentsByOwner(user.uid),
+      DocumentService.getUserDocuments(user.uid),
+    ]).then(([localDocs, cloudDocs]) => {
+      setLocalCount(localDocs.length);
+      setCloudCount(cloudDocs.length);
+      setLoadingCounts(false);
+    }).catch(() => {
+      setLoadingCounts(false);
+      setCountsError(t('restore_cloud_counts_error'));
+    });
+  }, [user, t]);
 
   useEffect(() => {
     let active = true;
@@ -90,13 +109,14 @@ export function RestoreFromCloudModal({
       }).catch(() => {
         if (active) {
           setLoadingCounts(false);
+          setCountsError(t('restore_cloud_counts_error'));
         }
       });
     }
     return () => {
       active = false;
     };
-  }, [open, user, initialCloudCount, initialLocalCount]);
+  }, [open, user, initialCloudCount, initialLocalCount, t]);
 
   const handleStartRestore = async () => {
     if (!user) return;
@@ -252,10 +272,31 @@ export function RestoreFromCloudModal({
         {step === 'idle' && (
           <div className="space-y-4">
             <p className="text-xs text-text-main/70 leading-relaxed">
-              {localCount === 0
-                ? `На этом устройстве пока нет ваших записей, а в облаке сохранено ${loadingCounts ? '...' : cloudCount}. Хотите загрузить их сейчас?`
-                : `На этом устройстве ${loadingCounts ? '...' : localCount} заметок, а в облаке найдено ${loadingCounts ? '...' : cloudCount}. Хотите синхронизировать недостающие данные?`}
+              {loadingCounts
+                ? (localCount === 0
+                  ? 'На этом устройстве пока нет ваших записей, а в облаке сохранено … Хотите загрузить их сейчас?'
+                  : 'На этом устройстве … заметок, а в облаке найдено … Хотите синхронизировать недостающие данные?')
+                : countsError
+                  ? (localCount === 0
+                    ? 'На этом устройстве пока нет ваших записей. Хотите загрузить их из облака?'
+                    : `На этом устройстве ${localCount} заметок. Хотите синхронизировать недостающие данные?`)
+                  : (localCount === 0
+                    ? `На этом устройстве пока нет ваших записей, а в облаке сохранено ${cloudCount}. Хотите загрузить их сейчас?`
+                    : `На этом устройстве ${localCount} заметок, а в облаке найдено ${cloudCount}. Хотите синхронизировать недостающие данные?`)}
             </p>
+
+            {countsError && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-accent-danger/10 border border-accent-danger/20 text-xs text-accent-danger">
+                <span>{countsError}</span>
+                <button
+                  type="button"
+                  onClick={loadCounts}
+                  className="font-medium underline hover:no-underline ml-2 shrink-0 cursor-pointer"
+                >
+                  {t('restore_cloud_counts_retry')}
+                </button>
+              </div>
+            )}
 
             <div className="space-y-2.5 pt-2 border-t border-border-subtle">
               <label className="flex items-start gap-3 cursor-pointer group p-2 rounded-lg hover:bg-surface-base/50">
@@ -270,7 +311,7 @@ export function RestoreFromCloudModal({
                     Заметки и история версий
                   </div>
                   <div className="text-[11px] text-text-main/60">
-                    Все тексты, сессии и правки ({cloudCount} заметок в облаке)
+                    Все тексты, сессии и правки ({loadingCounts ? '…' : (countsError ? '—' : cloudCount)} заметок в облаке)
                   </div>
                 </div>
               </label>

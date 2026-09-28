@@ -6,6 +6,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RestoreFromCloudModal } from '../RestoreFromCloudModal';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
+import { DocumentService } from '../../../core/services/DocumentService';
+import { LocalStorageService } from '../../../core/services/LocalStorageService';
 
 vi.mock('../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (k: string) => k }),
@@ -120,5 +122,27 @@ describe('AUD-12 restore modal reports failure', () => {
     expect(screen.queryByText('Восстановление завершено')).toBeNull();
     const { setRestoreDismissed } = await import('../../../core/sync/useEmptyDeviceDetection');
     expect(setRestoreDismissed).not.toHaveBeenCalled();
+  });
+
+  describe('B-5.2 (F-029) counting state and error handling', () => {
+    it('shows "…" while count request is pending', () => {
+      vi.mocked(DocumentService.getUserDocuments).mockReturnValue(new Promise(() => {}));
+      vi.mocked(LocalStorageService.getDocumentsByOwner).mockReturnValue(new Promise(() => {}));
+
+      render(<RestoreFromCloudModal open onClose={() => {}} />);
+
+      expect(screen.getByText(/сохранено …/)).toBeDefined();
+    });
+
+    it('shows error text and retry button when count request fails, not "0"', async () => {
+      vi.mocked(DocumentService.getUserDocuments).mockRejectedValue(new Error('network error'));
+      vi.mocked(LocalStorageService.getDocumentsByOwner).mockResolvedValue([]);
+
+      render(<RestoreFromCloudModal open onClose={() => {}} />);
+
+      expect(await screen.findByText(/restore_cloud_counts_error/)).toBeDefined();
+      expect(screen.queryByText(/сохранено 0/)).toBeNull();
+      expect(screen.getByText('Начать загрузку')).toBeDefined();
+    });
   });
 });
