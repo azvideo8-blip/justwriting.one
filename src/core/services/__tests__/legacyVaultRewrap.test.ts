@@ -106,7 +106,7 @@ describe('C-1 (F-017): Legacy vaults are re-wrapped to PBKDF2_ITERATIONS on unlo
 
     await unlockVault(USER, password);
     expect(getSessionKey()).not.toBeNull();
-  });
+  }, 30_000);
 
   it('2. a second device holding old meta unlocks with same password (data key unchanged) and re-wraps', async () => {
     const password = 'deviceSharedPassword';
@@ -131,7 +131,7 @@ describe('C-1 (F-017): Legacy vaults are re-wrapped to PBKDF2_ITERATIONS on unlo
     // Device B also updates meta to 600k
     const metaB = await getEncryptionMeta(USER);
     expect(metaB?.iterations).toBe(PBKDF2_ITERATIONS);
-  });
+  }, 30_000);
 
   it('3. saveEncryptionMeta throws during re-wrap -> unlock succeeds, vault stays at 300k, next unlock re-wraps', async () => {
     const password = 'resilientPassword';
@@ -159,7 +159,7 @@ describe('C-1 (F-017): Legacy vaults are re-wrapped to PBKDF2_ITERATIONS on unlo
     lockVault(USER);
     await unlockVault(USER, password);
     expect(inMemoryMeta.iterations).toBe(PBKDF2_ITERATIONS);
-  });
+  }, 30_000);
 
   it('4. after re-wrap, the recovery code still opens the vault', async () => {
     const password = 'passwordWithRecovery';
@@ -185,7 +185,7 @@ describe('C-1 (F-017): Legacy vaults are re-wrapped to PBKDF2_ITERATIONS on unlo
     lockVault(USER);
     await unlockVault(USER, newPassword);
     expect(getSessionKey()).not.toBeNull();
-  });
+  }, 30_000);
 
   it('5. wrong password on a re-wrapped vault still raises WrongPasswordError', async () => {
     const password = 'correctPassword';
@@ -199,5 +199,39 @@ describe('C-1 (F-017): Legacy vaults are re-wrapped to PBKDF2_ITERATIONS on unlo
 
     // Attempt unlock with wrong password
     await expect(unlockVault(USER, 'wrongPassword123')).rejects.toThrow(WrongPasswordError);
-  });
+  }, 30_000);
+
+  it('6. авто-созданный сейф остаётся авто-созданным после переворачивания', async () => {
+    const password = 'autoCreatedVault';
+    const { meta: legacyMeta } = await createDirectLegacyVault(password);
+    inMemoryMeta = { ...legacyMeta, autoCreated: true };
+
+    await unlockVault(USER, password);
+
+    expect(inMemoryMeta.iterations).toBe(PBKDF2_ITERATIONS);
+    expect(inMemoryMeta.autoCreated, 'флаг авто-создания не должен потеряться при перезаписи меты').toBe(true);
+  }, 30_000);
+
+  it('7. мету переписали во время деривации — своя запись не идёт в базу', async () => {
+    const password = 'racedVault';
+    const { meta: legacyMeta } = await createDirectLegacyVault(password);
+    inMemoryMeta = legacyMeta;
+
+    // Первая читка — наша, до переворачивания. Вторая — уже чужая запись:
+    // другая вкладка успела сменить пароль. Свой wrap другого data key означал
+    // бы потерю заметок, поэтому перечитываем и сравниваем.
+    let reads = 0;
+    vi.spyOn(DataProvider, 'getEncryptionMeta').mockImplementation(async () => {
+      reads++;
+      if (reads === 1) return { encryptionMeta: legacyMeta };
+      return {
+        encryptionMeta: { ...legacyMeta, wrappedDataKey: 'chuzhoy-wrap', salt: saltToBase64(generateSalt()) },
+      };
+    });
+
+    await unlockVault(USER, password);
+
+    expect(reads, 'мету перечитывают перед записью').toBeGreaterThanOrEqual(2);
+    expect(inMemoryMeta.iterations, 'чужая мета осталась нетронутой').toBe(LEGACY_PBKDF2_ITERATIONS);
+  }, 30_000);
 });

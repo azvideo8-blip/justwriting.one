@@ -134,6 +134,27 @@ export async function unwrapDataKey(
   }
 }
 
+/**
+ * Эквивалентность двух ключей без их раскрытия: один шифрует заполнитель,
+ * другой обязан его расшифровать. Нужна там, где у сейфа нет verification-строки
+ * и проверить новый wrap больше нечем.
+ */
+export async function keysEquivalent(a: CryptoKey, b: CryptoKey): Promise<boolean> {
+  const probe = new TextEncoder().encode('justwriting-key-equality-probe');
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+  try {
+    const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, a, probe);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, b, ct);
+    const out = new Uint8Array(pt);
+    return out.length === probe.length && out.every((v, i) => v === probe[i]);
+  } catch {
+    return false;
+  } finally {
+    secureClear(probe);
+    secureClear(iv);
+  }
+}
+
 export async function encryptContent(plaintext: string, dataKey: CryptoKey): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
   const encoder = new TextEncoder();

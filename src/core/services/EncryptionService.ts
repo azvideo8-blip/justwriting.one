@@ -12,6 +12,7 @@ import {
   getSessionKey,
   clearSessionKey,
   isVaultUnlocked,
+  keysEquivalent,
 } from '../crypto/encrypt';
 import {
   generateRecoveryCode,
@@ -200,25 +201,46 @@ export async function unlockVault(userId: string, password: string): Promise<voi
       const newMasterKey = await deriveMasterKey(password, newSalt, PBKDF2_ITERATIONS);
       const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
 
-      // Verify the new wrap before saving it: unwrap with freshly derived key and verify against verification
-      const verifyMasterKey = await deriveMasterKey(password, newSalt, PBKDF2_ITERATIONS);
-      const unwrappedCandidate = await unwrapDataKey(newWrappedDataKey, verifyMasterKey);
-      const isVerified = meta.verification
+      // Проверка обязательна до записи: перевёрнутый wrap в базе — это сейф,
+      // который больше не открывается. Кандидат разворачивается тем же ключом,
+      // которым был свёрнут (вторая деривация детерминирована и ничего не
+      // доказывает), и сравнивается с ключом сессии; verification-строка, если
+      // она есть, проверяется поверх. Без verification сравнение с ключом
+      // сессии — единственное доступное доказательство.
+      const unwrappedCandidate = await unwrapDataKey(newWrappedDataKey, newMasterKey);
+      const sameKey = await keysEquivalent(unwrappedCandidate, dataKey);
+      const matchesVerification = meta.verification
         ? await verifyKey(unwrappedCandidate, meta.verification)
         : true;
-      if (!isVerified) {
+      if (!sameKey || !matchesVerification) {
         throw new Error('Re-wrap verification failed');
       }
 
-      await saveEncryptionMeta(userId, {
-        salt: saltToBase64(newSalt),
-        version: meta.version ?? ENCRYPTION_META_VERSION,
-        wrappedDataKey: newWrappedDataKey,
-        verification: meta.verification,
-        recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
-        recoverySalt: meta.recoverySalt,
-        iterations: PBKDF2_ITERATIONS,
-      });
+      // Мету перечитывают: пока мы деривали ключ, её могла переписать другая
+      // вкладка (смена пароля, миграция ключа). Затирать чужую запись своим
+      // wrap безопасно только пока тот же data key — иначе заметки теряются.
+      const latest = await getEncryptionMeta(userId);
+      const stale = !latest
+        || latest.wrappedDataKey !== meta.wrappedDataKey
+        || latest.salt !== meta.salt;
+      if (stale) {
+        reportError(
+          new Error('vault meta changed during re-wrap'),
+          { action: 'unlockVault_legacyRewrapSkipped', userId },
+          'warning',
+        );
+      } else {
+        await saveEncryptionMeta(userId, {
+          salt: saltToBase64(newSalt),
+          version: meta.version ?? ENCRYPTION_META_VERSION,
+          wrappedDataKey: newWrappedDataKey,
+          verification: meta.verification,
+          recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
+          recoverySalt: meta.recoverySalt,
+          iterations: PBKDF2_ITERATIONS,
+          autoCreated: meta.autoCreated,
+        });
+      }
     } catch (e) {
       reportError(e, { action: 'unlockVault_legacyRewrap', userId }, 'warning');
     }
