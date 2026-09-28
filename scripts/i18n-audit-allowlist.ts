@@ -1,0 +1,67 @@
+// Позволяет гейту i18n (G-1) видеть разницу между «проверено» и «не видно».
+// Каждый файл здесь — известный долг: русский текст вне t() в JSX или в атрибутах
+// placeholder/aria-label/title/alt. Запись убирается, когда файл переводит текст на
+// ключи; новый файл попадает сюда только осознанно — без записи гейт краснеет.
+//
+// Долг вынесен отдельным тикетом: docs/ag-tickets-28.09.26-i18n-jsx-debt.md.
+
+export const JSX_TEXT_ALLOWLIST: readonly string[] = [
+  "src/app/ActivityLogBadge.tsx",
+  "src/app/modals/RestoreFromCloudModal.tsx",
+  "src/features/ai/components/AIChatPresentational.tsx",
+  "src/features/ai/components/ArchiveAnalysisButton.tsx",
+  "src/features/ai/components/AuthorPortrait.tsx",
+  "src/features/ai/components/BeliefsDiagnostics.tsx",
+  "src/features/ai/components/ContactDoors.tsx",
+  "src/features/ai/components/CreatePersonaModal.tsx",
+  "src/features/ai/components/DocumentPickerModal.tsx",
+  "src/features/ai/components/EmbeddingDiagnostics.tsx",
+  "src/features/ai/components/FacetDiagnostics.tsx",
+  "src/features/ai/components/IndexingConsentModal.tsx",
+  "src/features/ai/components/LifeStoryTimeline.tsx",
+  "src/features/ai/components/MemoryAssemblerDiagnostics.tsx",
+  "src/features/ai/components/PersonaDetailModal.tsx",
+  "src/features/ai/components/ProfileRefreshButton.tsx",
+  "src/features/ai/components/QueueExplorer.tsx",
+  "src/features/ai/components/SummaryModal.tsx",
+  "src/features/ai/components/SyncDiagnostics.tsx",
+  "src/features/ai/components/chat/AIChatComposer.tsx",
+  "src/features/ai/components/chat/AIChatHeader.tsx",
+  "src/features/ai/components/chat/AIChatMessages.tsx",
+  "src/features/ai/components/chat/ThinkingIndicator.tsx",
+  "src/features/ai/hooks/useSyncDiagnostics.tsx",
+  "src/features/archive/components/DocumentPreview.tsx",
+  "src/features/auth/components/InviteWizard.tsx",
+  "src/features/auth/components/OtherUserDataModal.tsx",
+  "src/features/auth/components/PrivacyModal.tsx",
+  "src/features/navigation/pages/GuidePage.tsx",
+  "src/features/settings/components/AccountAISection.tsx",
+  "src/features/settings/components/EditorTab.tsx",
+  "src/features/settings/components/SyncSettingsSection.tsx",
+  "src/features/writing/components/WritingFinishModal.tsx",
+];
+
+export const JSX_ATTR_ALLOWLIST: readonly string[] = [
+  "src/app/ActivityLogBadge.tsx",
+  "src/app/pages/ProfilePage.tsx",
+  "src/features/ai/components/AIChatPresentational.tsx",
+  "src/features/ai/components/CreatePersonaModal.tsx",
+  "src/features/ai/components/DocumentPickerModal.tsx",
+  "src/features/ai/components/EmbeddingDiagnostics.tsx",
+  "src/features/ai/components/FacetDiagnostics.tsx",
+  "src/features/ai/components/PersonaDetailModal.tsx",
+  "src/features/ai/components/SyncDiagnostics.tsx",
+  "src/features/ai/components/chat/AIChatHeader.tsx",
+  "src/features/ai/components/chat/AIChatSidebar.tsx",
+  "src/features/archive/components/ArchiveLabelBar.tsx",
+  "src/features/archive/components/ArchiveTagBar.tsx",
+  "src/features/archive/components/DocumentPreview.tsx",
+  "src/features/archive/components/InlineTags.tsx",
+  "src/features/auth/components/InviteWizard.tsx",
+  "src/features/navigation/components/BottomNav.tsx",
+  "src/features/navigation/components/Sidebar.tsx",
+  "src/features/navigation/pages/GuidePage.tsx",
+  "src/features/profile/components/ProfileHero.tsx",
+  "src/features/settings/components/AboutSettingsSection.tsx",
+  "src/features/settings/components/AccountAISection.tsx",
+];
