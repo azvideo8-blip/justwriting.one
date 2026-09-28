@@ -29,7 +29,8 @@ echo "1/4 · прошу сервер снять свежую копию…"
 ssh "$HOST" "sudo /opt/justwriting/backup/pg-backup.sh"
 
 echo "2/4 · ищу самую свежую…"
-NAME=$(ssh "$HOST" "sudo ls -1t /var/backups/justwriting/*.dump | head -1 | xargs basename")
+NAME=$(ssh "$HOST" "sudo sh -c 'ls -1t /var/backups/justwriting/*.dump | head -1'")
+NAME=$(basename "$NAME")
 if [ -z "$NAME" ]; then
     echo "на сервере нет ни одной копии — что-то пошло не так" >&2
     exit 1
@@ -42,7 +43,7 @@ case "$NAME" in
   *) echo "неожиданное имя дампа: '$NAME' — обрываю" >&2; exit 1;;
 esac
 
-echo "3/4 · забираю $NAME…"
+echo "3/4 · забираю ${NAME}…"
 # Через sudo cat, а не scp: файлы принадлежат root (права 600, каталог 700),
 # и дамп не отдаётся непривилегированному SSH-пользователю без sudo.
 ssh "$HOST" "sudo cat /var/backups/justwriting/$NAME" > "$DEST/$NAME"

@@ -49,10 +49,10 @@ privileges эта опция теряет гранты, и приложение 
 восстанавливать не в образ Supabase, `--no-privileges` убрать.
 
 ```bash
+F=$(sudo sh -c 'ls -1t /var/backups/justwriting/*.dump | head -1')
+sudo sh -c "cd /var/backups/justwriting && sha256sum -c \"$(basename "$F").sha256\""
 cd /opt/justwriting/supabase
 sudo docker compose stop kong auth rest realtime   # никто не пишет во время восстановления
-F=$(sudo ls -t /var/backups/justwriting/*.dump | head -1)
-( cd /var/backups/justwriting && sudo sha256sum -c "$(basename $F).sha256" )
 sudo cat "$F" | sudo docker exec -i supabase-db pg_restore -U supabase_admin -d postgres \
   --clean --if-exists --no-owner --no-privileges
 sudo docker compose start kong auth rest realtime
