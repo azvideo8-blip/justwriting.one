@@ -75,7 +75,7 @@ export function useBackgroundSync(): void {
           }
           const aiRestored = await restoreAIDataFromCloud(uid);
           const notesFullyRestored = !hasMore && !throttled;
-          if (!aiRestored.skippedLocked && notesFullyRestored) {
+          if (!aiRestored.skippedLocked && notesFullyRestored && (aiRestored.failed ?? 0) === 0 && !aiRestored.sectionFailed) {
             localStorage.setItem(restoreDoneKey, new Date().toISOString().slice(0, 10));
           }
         } catch (e) {

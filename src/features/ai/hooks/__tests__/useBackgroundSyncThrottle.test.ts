@@ -81,4 +81,26 @@ describe('AUD-13 restore throttle is per-account and only after success', () => 
     expect(localStorage.getItem('ai_restore_done_date_u_throttle_1'))
       .toBe(new Date().toISOString().slice(0, 10));
   });
+
+  it('F-024: does not set the throttle key when aiRestored has failed > 0', async () => {
+    mockRestore.mockResolvedValue({ restored: 2, hasMore: false });
+    mockRestoreAi.mockResolvedValue({ skippedLocked: false, failed: 1, sectionFailed: false });
+
+    renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(mockRestore).toHaveBeenCalled();
+    expect(localStorage.getItem('ai_restore_done_date_u_throttle_1')).toBeNull();
+  });
+
+  it('F-024: does not set the throttle key when aiRestored has sectionFailed === true', async () => {
+    mockRestore.mockResolvedValue({ restored: 2, hasMore: false });
+    mockRestoreAi.mockResolvedValue({ skippedLocked: false, failed: 0, sectionFailed: true });
+
+    renderHook(() => useBackgroundSync());
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(mockRestore).toHaveBeenCalled();
+    expect(localStorage.getItem('ai_restore_done_date_u_throttle_1')).toBeNull();
+  });
 });

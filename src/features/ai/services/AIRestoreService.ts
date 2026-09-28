@@ -77,6 +77,7 @@ export interface AIRestoreResult {
   failed: number;
   oversized: number;
   skippedLocked: boolean;
+  sectionFailed?: boolean;
 }
 
 
@@ -100,7 +101,7 @@ export interface AIRestoreResult {
  */
 export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: number }): Promise<AIRestoreResult> {
   const sinceMs = opts?.sinceMs;
-  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false };
+  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false, sectionFailed: false };
   if (!userId) return result;
 
   // With E2E on but the vault locked, every decrypt throws. Restoring now would
@@ -154,6 +155,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       }
     }
   } catch (e) {
+    result.sectionFailed = true;
     reportError(e, { action: 'restoreAIData_summaries', userId });
   }
 
@@ -377,6 +379,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       }
     }
   } catch (e) {
+    result.sectionFailed = true;
     reportError(e, { action: 'restoreAIData_local_store_records', userId });
   }
 
@@ -444,6 +447,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       }
     }
   } catch (e) {
+    result.sectionFailed = true;
     reportError(e, { action: 'restoreAIData_embeddings', userId });
   }
 
