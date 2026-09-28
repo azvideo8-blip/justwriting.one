@@ -10,7 +10,7 @@
 | `supabase-compose.override.yml` | `/opt/justwriting/supabase/docker-compose.override.yml` — порты только на 127.0.0.1, русские письма GoTrue |
 | `invite.sh` | `/opt/justwriting/deploy/invite.sh` — пригласить тестера (регистрация в UI выключена) |
 | `justwriting.service` | `/etc/systemd/system/justwriting.service` |
-| `api-package.json` | `/opt/justwriting/api/package.json` — внешние зависимости бандла службы; выкатка ставит их `npm install` |
+| `api/package.json` + `api/package-lock.json` | `/opt/justwriting/api/` — внешние зависимости бандла службы; выкатка ставит их `npm ci` (ровно те версии, что в локе, — он же тот набор, на котором крутятся тесты; `npm ci` сначала сносит `node_modules`, поэтому при провале установки служба останется без зависимостей до следующей выкатки) |
 | `.env.example` | Copy to `/opt/justwriting/api/.env` (`EnvironmentFile` in `justwriting.service`), fill in values |
 
 ## Prerequisites

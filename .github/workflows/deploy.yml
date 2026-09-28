@@ -185,7 +185,7 @@ jobs:
             const fs = require("fs");
             const bundle = fs.readFileSync(process.env.RUNNER_TEMP + "/server.mjs", "utf8");
             const declared = new Set(Object.keys(
-              JSON.parse(fs.readFileSync("deploy/api-package.json", "utf8")).dependencies
+              JSON.parse(fs.readFileSync("deploy/api/package.json", "utf8")).dependencies
             ));
             const missing = [...bundle.matchAll(/^import[^;]*?from\s*"([^"]+)"/gm)]
               .map(m => m[1])
@@ -194,23 +194,37 @@ jobs:
               .filter(s => !require("module").builtinModules.includes(s))
               .filter(s => !declared.has(s));
             if (missing.length) {
-              console.error("нет в deploy/api-package.json: " + [...new Set(missing)].join(", "));
+              console.error("нет в deploy/api/package.json: " + [...new Set(missing)].join(", "));
               process.exit(1);
             }
             console.log("все внешние импорты бандла объявлены");
           '
+          # D-3 / F-043: манифест службы лежит в своём каталоге вместе с локом.
+          # Пока это был один файл без lock-файла, выкатка ставила «что найду по
+          # диапазону», и на сервере оказывались версии, на которых CI не тестировал
+          # (ai 6.0.257 против 6.0.191 в корне). Лок рядом с манифестом нужен ещё и
+          # потому, что Dependabot смотрит на каталог, а не на отдельный файл.
           # EA-11: свой каталог (mktemp, 0700), а не общие /tmp/server.mjs и /tmp/api-package.json.
           REMOTE_DIR=$($DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mktemp -d /tmp/jw-api.XXXXXX')
           $DEPLOY_SCP "$RUNNER_TEMP/server.mjs" \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/server.mjs
-          $DEPLOY_SCP deploy/api-package.json \
+          $DEPLOY_SCP deploy/api/package.json \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package.json
+          $DEPLOY_SCP deploy/api/package-lock.json \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package-lock.json
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
             sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev &&
             sudo cp "$REMOTE_DIR"/api-package.json /opt/justwriting/api/package.json &&
-            sudo chown justwriting:justwriting /opt/justwriting/api/package.json &&
+            sudo cp "$REMOTE_DIR"/api-package-lock.json /opt/justwriting/api/package-lock.json &&
+            sudo chown justwriting:justwriting /opt/justwriting/api/package.json /opt/justwriting/api/package-lock.json &&
+            # npm ci, а не npm install: ставит ровно то, что записано в локе, и
+            # падает, если лок и манифест расходятся. Молча поставить другое он
+            # больше не может. Цена: ci сначала сносит node_modules, поэтому
+            # неудачная установка оставляет службу без зависимостей — но до
+            # `systemctl restart` дело не доходит (цепочка обрывается), а бандл
+            # предыдущего прогона остаётся в server.mjs.prev.
             sudo -u justwriting env npm_config_cache=/opt/justwriting/api/.npm-cache \
-              npm install --prefix /opt/justwriting/api --omit=dev --no-audit --no-fund &&
+              npm ci --prefix /opt/justwriting/api --omit=dev --no-audit --no-fund &&
             sudo cp "$REMOTE_DIR"/server.mjs /opt/justwriting/api/server.mjs &&
             sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
             rm -rf "$REMOTE_DIR" &&

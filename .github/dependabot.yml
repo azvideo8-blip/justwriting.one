@@ -24,6 +24,19 @@ updates:
       # Мажоры — руками, с открытым changelog.
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+  # D-3 / F-064: зависимости службы на сервере. Отдельный каталог с отдельным
+  # локом — пока манифест лежал одним файлом (`deploy/api-package.json`),
+  # Dependabot его не видел вовсе, и CVE в jose не породил бы ни одного PR.
+  # Версии здесь точные и обязаны совпадать с корневым локом: PR от Dependabot
+  # поднимает версию только в этом каталоге, поэтому его нельзя мержить сам по
+  # себе — сначала та же версия попадает в корень и на ней зелёнеют тесты.
+  - package-ecosystem: npm
+    directory: "/deploy/api"
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
