@@ -64,7 +64,7 @@ export function generateRecoveryCode(): string {
  * Derives an AES-KW CryptoKey from the normalized recovery code and salt.
  * Uses the exact same PBKDF2 parameters as the master password key.
  */
-export async function deriveRecoveryMasterKey(
+async function deriveRecoveryMasterKey(
   recoveryCode: string,
   salt: Uint8Array<ArrayBuffer>,
   iterations: number = PBKDF2_ITERATIONS,

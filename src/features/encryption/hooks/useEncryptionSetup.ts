@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuthStatus } from '../../../app/useAuthStatus';
-import { isVaultUnlocked, setSessionKey } from '../../../core/crypto/encrypt';
+import { isVaultUnlocked, setSessionKey, decryptContent } from '../../../core/crypto/encrypt';
 import { useEncryptionStore, setRememberDevice } from '../../../core/crypto/useEncryptionStore';
 import { loadDeviceKey, clearDeviceKey } from '../../../core/crypto/keyVaultCache';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
@@ -71,7 +71,6 @@ export function useEncryptionSetup(): {
           // prompt to avoid accepting a possibly-wrong cached device key.
           if (meta?.verification) {
             try {
-              const { decryptContent } = await import('../../../core/crypto/encrypt');
               const result = await decryptContent(meta.verification, deviceKey);
               if (result !== 'justwriting-verify-v1') {
                 // Key doesn't match — stale, clear it

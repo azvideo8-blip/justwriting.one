@@ -691,5 +691,3 @@ function waitForNextOrAbort<T>(
     }
   }
 }
-
-export default handleChat;

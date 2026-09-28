@@ -1,4 +1,5 @@
 import { onDomainEvent } from '../../../core/events/domainEvents';
+import { WritingDraftService } from '../services/WritingDraftService';
 import { useContentStore, clearWordCalcTimer } from './useContentStore';
 import { useTimerStore } from './useTimerStore';
 import { useSessionMetaStore } from './useSessionMetaStore';
@@ -73,7 +74,6 @@ onDomainEvent(e => {
         const db = await getLocalDb(e.userId);
         const draft = await db.get('drafts', e.userId);
         if (!draft) return;
-        const { WritingDraftService } = await import('../services/WritingDraftService');
         await WritingDraftService.saveDraftToCloud(draft); // намеренно: черновик уже сохранён локально
       } catch (err) { // намеренно: локальный черновик сохранён, ошибка синка не фатальна
         const { reportError } = await import('../../../shared/errors/reportError');

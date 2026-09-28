@@ -3,6 +3,7 @@ import { setPendingLoginPassword, clearPendingLoginPassword } from '../../../cor
 import { unwrapDataKeyWithPassword, setSessionKey, fromBase64, decryptContent } from '../../../core/crypto/encrypt';
 import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
+import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { resetDbInstance } from '../../../core/storage/localDb';
 import { setAccountChangeNotice, setAccountReloadTarget, skipFlushOnAccountReload, takeAccountChangeNotice } from '../../../core/auth/accountReload';
 
@@ -146,7 +147,6 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
   }
 
   try {
-    const { useEncryptionStore } = await import('../../../core/crypto/useEncryptionStore');
     useEncryptionStore.getState().lockVault();
   } catch (e) {
     reportError(e, { action: 'signOut_lockVault' });

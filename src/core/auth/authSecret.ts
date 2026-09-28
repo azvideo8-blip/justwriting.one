@@ -12,7 +12,7 @@
 
 const ITERATIONS = 600_000;
 
-export function authSalt(email: string): string {
+function authSalt(email: string): string {
   return `justwriting-auth|${email.trim().toLowerCase()}`;
 }
 

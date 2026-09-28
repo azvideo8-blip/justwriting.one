@@ -5,6 +5,8 @@ import { LocalVersionService } from './LocalVersionService';
 import { getLocalDb } from '../storage/localDb';
 import { reportError } from '../../shared/errors/reportError';
 import { SaveDocumentData } from './storageTypes';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
+import { maybeDecrypt, DecryptionError } from '../crypto/cryptoHelpers';
 
 export const ConflictResolver = {
   async resolveConflict(
@@ -18,7 +20,7 @@ export const ConflictResolver = {
   ): Promise<{ forked: boolean; forkTitle?: string }> {
     // AUDIT-MH3: дата без времени делала одноимённые форки одного дня
     // неразличимыми; превью контента помогает узнать свою заметку.
-    const lang = typeof localStorage !== 'undefined' && localStorage.getItem('app_language') === 'en' ? 'en' : 'ru';
+    const lang = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) === 'en' ? 'en' : 'ru';
     const hhmm = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const preview = (data.content || '').slice(0, 30).replace(/\s+/g, ' ').trim();
     const conflictWord = lang === 'ru' ? 'конфликт' : 'conflict';
@@ -55,7 +57,6 @@ export const ConflictResolver = {
     try {
       const { VersionService } = await import('./VersionService');
       const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);
-      const { maybeDecrypt, DecryptionError } = await import('../crypto/cryptoHelpers');
       for (const cv of cloudVersions) {
         let plain: Record<string, unknown>;
         try {

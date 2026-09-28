@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { logger } from '../../../shared/errors/logger';
+import { WritingDraftService } from '../services/WritingDraftService';
 
 export function reportKeystrokeStats(
   stats: { kpm: number; ikiMedian: number; ikiCv: number; sampleSize: number; kpmWpmRatio?: number },
@@ -35,7 +36,6 @@ export async function cleanupDraftsAfterSave(
     await clearGuestDraft();
   } else {
     // N-54: deleteDraft не бросает — результат читается, а не ловится.
-    const { WritingDraftService } = await import('../services/WritingDraftService');
     WritingDraftService.bumpDraftGeneration(userId);
     if (!(await WritingDraftService.deleteDraft(userId))) {
       logger.warn('sessionActions', 'Draft not deleted after save — it may reappear as an unsaved draft');

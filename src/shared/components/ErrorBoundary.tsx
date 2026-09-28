@@ -2,6 +2,7 @@ import { Component, ErrorInfo, ReactNode } from 'react';
 import { reportError } from '../../shared/errors/reportError';
 import { translations } from '../../shared/i18n';
 import { Button } from './Button';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 interface Props {
   children: ReactNode;
@@ -82,7 +83,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       const isChunk = isChunkLoadError(this.state.errorMessage);
-      const lang = (() => { try { return (localStorage.getItem('app_language') as 'ru' | 'en') || 'ru'; } catch { return 'ru'; } })();
+      const lang = (() => { try { return (localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) as 'ru' | 'en') || 'ru'; } catch { return 'ru'; } })();
       const t = (key: string) => translations[key as keyof typeof translations]?.[lang] ?? key;
 
       if (isChunk) {

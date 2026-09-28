@@ -14,11 +14,9 @@ export { MAX_AI_CONTENT_LENGTH };
 export const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 
 // AG-AIONE-1: вся логика инъекций (паттерны, невидимые символы, гомоглифы)
-// живёт в src/shared/ai/injectionPatterns.ts — здесь только ре-экспорт.
-export {
-  INJECTION_PATTERNS,
-  hasInjectionAttempt,
-} from '../../src/shared/ai/injectionPatterns.js';
+// живёт в src/shared/ai/injectionPatterns.ts — здесь только ре-экспорт
+// нужной эндпоинтам функции.
+export { hasInjectionAttempt } from '../../src/shared/ai/injectionPatterns.js';
 
 export function sanitizeAiInput(content: string): string {
   return sanitizeAiInputShared(content);
@@ -193,12 +191,4 @@ export function splitFactsByModality(
   });
   return { facts: keptFacts, commitments: [...commitments, ...added] };
 }
-
-// ── Bulk Daily limit ─────────────────────────────────────────────────────────
-export const BULK_DAILY_LIMIT = (() => {
-  const raw = process.env.AI_BULK_DAILY_LIMIT;
-  if (!raw) return 50;
-  const parsed = parseInt(raw, 10);
-  return Number.isNaN(parsed) ? 50 : parsed;
-})();
 

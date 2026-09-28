@@ -33,7 +33,7 @@ const OPENROUTER_EMBED_MODEL = process.env.OPENROUTER_EMBED_MODEL ?? 'qwen/qwen3
 // off RouterAI — AI_BASE_URL is shared with generateOpenRouter() and api/chat.ts.
 const EMBED_BASE_URL = process.env.AI_EMBED_BASE_URL ?? OPENROUTER_BASE_URL;
 
-export async function getActiveModel(): Promise<string> {
+async function getActiveModel(): Promise<string> {
   return ACTIVE_CHAT_MODEL;
 }
 
@@ -61,7 +61,7 @@ export interface GenerateResult {
   reasoning?: string;
 }
 
-export function isTransientError(err: unknown, didTimeout = false): boolean {
+function isTransientError(err: unknown, didTimeout = false): boolean {
   if (didTimeout) return false;
   if (!err) return false;
 

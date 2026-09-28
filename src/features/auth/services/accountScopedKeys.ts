@@ -8,6 +8,8 @@
 // пер-аккаунтный ключ добавляется сюда И в тест
 // accountScopedKeys.test.ts (инвентаризация по grep).
 
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+
 export function accountScopedLocalStorageKeys(uid: string): string[] {
   return [
     // сейф и его состояние (STORAGE_KEYS.ENC_ENABLED)
@@ -99,7 +101,7 @@ export function accountScopedSessionStorageKeys(uid: string): string[] {
  */
 const DEVICE_SETTINGS_KEYS = new Set<string>([
   'app-theme',
-  'app_language',
+  STORAGE_KEYS.APP_LANGUAGE,
   'layout-mode',
   'layout-mode-v3',
   'preview_width',

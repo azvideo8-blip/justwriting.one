@@ -32,7 +32,7 @@ export function rateLimited(ip: string): boolean {
 // AUDIT-L3: уборка по таймеру, а не полным сканом при >10k — иначе
 // spoofed-XFF flood раздувает карту между редкими чистками.
 let sweepStarted = false;
-export function startHitsSweep(): void {
+function startHitsSweep(): void {
   if (sweepStarted || typeof setInterval === 'undefined') return;
   sweepStarted = true;
   const timer = setInterval(() => {

@@ -19,7 +19,7 @@ import {
   unwrapDataKeyWithRecoveryCode,
 } from '../crypto/recoveryCode';
 import { setEncryptionEnabled } from '../crypto/cryptoHelpers';
-import { broadcastManualLock } from '../crypto/useEncryptionStore';
+import { broadcastManualLock, setRememberDevice } from '../crypto/useEncryptionStore';
 import {
   saveEncryptionMeta,
   getEncryptionMeta,
@@ -140,7 +140,6 @@ export async function initializeEncryption(
   if (autoCreated) {
     try {
       const { saveDeviceKey } = await import('../crypto/keyVaultCache');
-      const { setRememberDevice } = await import('../crypto/useEncryptionStore');
       await saveDeviceKey(userId, dataKey);
       setRememberDevice(true);
     } catch { /* намеренно: сохранение ключа устройства опционально (напр. режим инкогнито) */ }

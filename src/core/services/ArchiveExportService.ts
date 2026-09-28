@@ -4,6 +4,7 @@ import { escapeHtml } from '../../shared/utils/exportUtils';
 import { reportError } from '../../shared/errors/reportError';
 import { serializeNoteMarkdown } from './noteFormat';
 import { isBlankTitle } from '../../shared/utils/titleUtils';
+import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 
 export type { ExportStrings };
 
@@ -29,7 +30,7 @@ export function isExpectedShareRefusal(e: unknown): boolean {
 }
 
 function getLocale(): string {
-  return localStorage.getItem('app_language') || 'ru';
+  return localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) || 'ru';
 }
 
 function buildHeader(session: ArchiveSession, s: ExportStrings): string {
