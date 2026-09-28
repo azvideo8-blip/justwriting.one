@@ -7,7 +7,7 @@
 // Фальсификация: убрать из findHardcodedJsxCyrillic ветку isJsxAttribute — тесты
 // 2 и 3 краснеют; заменить glob на несуществующий каталог — краснеет тест 8.
 import { describe, it, expect } from 'vitest';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 import path from 'node:path';
@@ -146,14 +146,21 @@ describe('AG-I18N-JSX-1 — findHardcodedJsxCyrillic', () => {
     expect(stale).toEqual([]);
   });
 
+  // Под-процесс со своим бюджетом: в полном прогоне файл стартует на загрузке
+  // процессора, и дефолтных 5 секунд ему не хватает (поймано на прогоне 28.09.26).
   it('10. сводка печатает число разобранных файлов и оно ненулевое', () => {
-    const out = execSync('npx tsx scripts/i18n-audit.ts', { cwd: ROOT_DIR, encoding: 'utf8' });
+    const out = execFileSync('npx', ['tsx', 'scripts/i18n-audit.ts'], {
+      cwd: ROOT_DIR,
+      encoding: 'utf8',
+      timeout: 60_000,
+      maxBuffer: 16 * 1024 * 1024,
+    });
     const parsed = /файлов разобрано: (\d+) из (\d+)/.exec(out);
     expect(parsed, out).not.toBeNull();
     expect(Number(parsed?.[1])).toBeGreaterThan(0);
     expect(Number(parsed?.[2])).toBeGreaterThan(0);
     expect(out).toMatch(/Hardcoded JSX: \d+/);
-  });
+  }, 90_000);
 
   it('11. пустой прогон — слепой, а не чистый', () => {
     expect(isBlind(0, 0)).toBe(true);
