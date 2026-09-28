@@ -469,7 +469,9 @@ export function useAIChatContext(personaId: string): {
           }
 
           if (allNotes.length > 0) {
-            const BUDGET_CHARS = 25_000;
+            const existingContextLen = (searchContext ?? '').length;
+            const remainingBudget = Math.max(5_000, 48_000 - existingContextLen);
+            const BUDGET_CHARS = Math.min(25_000, remainingBudget);
             const now = Date.now();
             const scored = allNotes.map(n => {
               // RRF живёт в шкале ≤~0.05; нормализация — см. vectorScore01 (#104).
@@ -483,14 +485,16 @@ export function useAIChatContext(personaId: string): {
               };
             }).sort((a, b) => b.compositeScore - a.compositeScore);
 
-            const orderedForPlacement = [...scored].reverse();
             const CONTEXT_RADIUS = 500;
             const PER_NOTE_CHARS = 2_000;
-            const parts: string[] = [];
+            const selectedNotes: Array<{
+              note: typeof scored[0]['note'];
+              snippet: string;
+              summaryPrefix: string;
+            }> = [];
             let totalChars = 0;
-            let noteIdx = 0;
 
-            for (const { note: n } of orderedForPlacement) {
+            for (const { note: n } of scored) {
               if (totalChars >= BUDGET_CHARS) break;
               let snippet: string;
               if (candidateNames.length > 0) {
@@ -511,21 +515,32 @@ export function useAIChatContext(personaId: string): {
                   ? n.content.slice(0, PER_NOTE_CHARS) + '…'
                   : n.content;
               }
-              noteIdx++;
+
               setAIStage('summaries');
               const noteSummary = await db.get('aiSummaries', n.documentId);
               const summaryPrefix = noteSummary?.summary ? `[Суть: ${noteSummary.summary}]\n` : '';
 
+              selectedNotes.push({ note: n, snippet, summaryPrefix });
+              totalChars += snippet.length + summaryPrefix.length;
+            }
+
+            // OPT-7: place best notes last (reversed selected notes) so they are closest to query
+            const orderedForPlacement = [...selectedNotes].reverse();
+            const parts: string[] = [];
+            let noteIdx = 0;
+
+            for (const { note: n, snippet, summaryPrefix } of orderedForPlacement) {
+              noteIdx++;
               const yyyymmdd = formatDateYYYYMMDD(n.lastSessionAt);
               injectedDocumentIds.push(n.documentId);
               parts.push(`[#${n.documentId} · ${yyyymmdd}]\nЗаметка ${noteIdx}: "${n.title}"\n${summaryPrefix}${snippet}`);
-              totalChars += snippet.length + summaryPrefix.length;
             }
+
             const corpus = await getCorpusStats(db);
             const noteBlock = (
               `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
               `Искал по ВСЕЙ базе: ${corpus.total} заметок, ${corpus.from} — ${corpus.to}. ` +
-              `Найдено заметок: ${allNotes.length} (отобрано ${noteIdx} по релевантности). ` +
+              `Найдено заметок: ${allNotes.length} (отобрано ${selectedNotes.length} по релевантности). ` +
               `Это наиболее релевантные заметки по запросу. Если ответа в них нет — так и скажи, не домысливай.\n\n` +
               parts.join('\n\n')
             );
