@@ -40,6 +40,9 @@ export const profileTranslations: Translations = {
   profile_empty_desc: { ru: 'Статистика появится после первой сессии', en: 'Stats will appear after your first session' },
   profile_empty_hint: { ru: 'вкладка «Писать»', en: 'go to the Write tab' },
   profile_theme_hint: { ru: 'Меняет цвет фона. Логотип и акценты бренда остаются фиолетовыми.', en: 'Changes background color. Logo and brand accents stay purple.' },
+  profile_sec_how_write: { ru: 'Как я пишу', en: 'How I write' },
+  profile_sec_about_me: { ru: 'Обо мне', en: 'About me' },
+  profile_sec_life_story: { ru: 'История моей жизни', en: 'My life story' },
 
   profile_quote_1:  { ru: 'Пишу по утрам, до того, как голова наполнится чужими голосами.', en: 'I write in the morning, before my head fills with other voices.' },
   profile_quote_2:  { ru: 'Письмо — это способ узнать, что ты думаешь на самом деле.', en: 'Writing is a way to find out what you really think.' },

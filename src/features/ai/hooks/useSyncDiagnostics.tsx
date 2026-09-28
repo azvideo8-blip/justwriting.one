@@ -268,7 +268,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       // 'PARSE_FAILED' — строка не читается целиком; _encrypted у неё не спросить.
       if (latest !== 'PARSE_FAILED' && (latest as unknown as { _encrypted?: boolean } | null)?._encrypted) {
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, cloudEncrypted: true } : i));
-        showToast('Уже зашифровано в облаке', 'success');
+        showToast(t('admin_sync_toast_already_encrypted'), 'success');
         return;
       }
       const res = await encryptSingleDocument(userId, item.cloudId);
@@ -325,7 +325,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
 
   const handleProcessDocument = async (item: DiagnosticItem) => {
     if (!item.localId) {
-      showToast('Документ должен быть сохранен на устройстве для обработки', 'error');
+      showToast(t('admin_sync_toast_need_local'), 'error');
       return;
     }
     setProcessingDocId(item.id);
@@ -333,7 +333,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       const db = await getLocalDb();
       const versions = await db.getAllFromIndex('versions', 'by-document', item.localId);
       if (versions.length === 0) {
-        showToast('Не найден контент документа для обработки', 'error');
+        showToast(t('admin_sync_toast_no_content'), 'error');
         return;
       }
       versions.sort((a, b) => b.version - a.version);
@@ -344,16 +344,16 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         decryptedVer = await maybeDecrypt(latestVersion as unknown as Record<string, unknown>, ['content'], []);
       } catch (decryptErr) {
         if (decryptErr instanceof Error && decryptErr.message.includes('LOCKED')) {
-          showToast('⚠️ Пожалуйста, сначала разблокируйте сейф для расшифровки контента', 'error');
+          showToast(t('admin_sync_toast_unlock_vault'), 'error');
         } else {
-          showToast('Ошибка расшифровки документа', 'error');
+          showToast(t('admin_sync_toast_decrypt_error'), 'error');
         }
         return;
       }
 
       const content = decryptedVer.content as string;
       if (!content || content.trim().length < 50) {
-        showToast('Текст документа слишком короткий для ИИ-анализа (минимум 50 символов)', 'error');
+        showToast(t('admin_sync_toast_too_short'), 'error');
         return;
       }
 
@@ -377,15 +377,15 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         }
         await tx.done;
 
-        showToast('Анализ ИИ завершен успешно', 'success');
+        showToast(t('admin_sync_toast_ai_done'), 'success');
         await loadAIStatus();
         await fetchData();
       } else {
-        showToast('Не удалось обработать: ' + result.error, 'error');
+        showToast(t('admin_sync_toast_ai_fail', { error: result.error }), 'error');
       }
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] AI processing failed' });
-      showToast('Ошибка при запуске обработки ИИ', 'error');
+      showToast(t('admin_sync_toast_ai_error'), 'error');
     } finally {
       setProcessingDocId(null);
     }
@@ -397,11 +397,11 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
       if (summary) {
         setReadSummary(summary);
       } else {
-        showToast('Саммари не найдено', 'error');
+        showToast(t('admin_sync_toast_no_summary'), 'error');
       }
     } catch (e) {
       reportError(e, { action: '[SyncDiagnostics] Failed to load summary' });
-      showToast('Не удалось прочитать результаты анализа', 'error');
+      showToast(t('admin_sync_toast_load_summary_error'), 'error');
     }
   };
 
@@ -446,7 +446,7 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-label font-medium bg-accent-warning/10 text-accent-warning border border-accent-warning/20">
             <AlertTriangle size={10} />
-            Облако недоступно
+            {t('admin_sync_status_cloud_unknown')}
           </span>
         );
       case 'cloud_missing':

@@ -38,23 +38,23 @@ export function QueueExplorer({ userId }: { userId: string }) {
         .filter(item => !item.id.startsWith('lock_cloud_') && !item.id.startsWith('migrated_'))
         .map(item => ({
           ...item,
-          title: docMap.get(item.documentId) ?? `Неизвестная заметка (${item.documentId})`,
+          title: docMap.get(item.documentId) ?? t('admin_queue_unknown_note', { id: item.documentId }),
         }));
       setItems(filtered);
     } catch (e) {
       reportError(e, { action: 'queue_explorer_refresh' });
-      showToast('Не удалось загрузить очередь', 'error');
+      showToast(t('admin_queue_toast_load_error'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on mount
   useEffect(() => { void refresh(); }, [refresh]);
 
   const handleSyncAll = async () => {
     if (!navigator.onLine) {
-      showToast('Данная функция работает только при подключении к сети', 'error');
+      showToast(t('admin_queue_toast_offline'), 'error');
       return;
     }
     setSyncingAll(true);
@@ -71,7 +71,7 @@ export function QueueExplorer({ userId }: { userId: string }) {
       }
     } catch (e) {
       reportError(e, { action: 'queue_sync_all' });
-      showToast('Ошибка синхронизации', 'error');
+      showToast(t('admin_queue_toast_sync_error'), 'error');
     } finally {
       setSyncingAll(false);
       void refresh();
@@ -90,10 +90,10 @@ export function QueueExplorer({ userId }: { userId: string }) {
       const tx = db.transaction('syncQueue', 'readwrite');
       await Promise.all(items.map(item => tx.store.delete(item.id)));
       await tx.done;
-      showToast('Очередь очищена', 'success');
+      showToast(t('admin_queue_toast_cleared'), 'success');
     } catch (e) {
       reportError(e, { action: 'queue_clear' });
-      showToast('Не удалось очистить очередь', 'error');
+      showToast(t('admin_queue_toast_clear_error'), 'error');
     } finally {
       setClearing(false);
       void refresh();
@@ -102,20 +102,20 @@ export function QueueExplorer({ userId }: { userId: string }) {
 
   const handleSyncItem = async (item: QueueItem) => {
     if (!navigator.onLine) {
-      showToast('Данная функция работает только при подключении к сети', 'error');
+      showToast(t('admin_queue_toast_offline'), 'error');
       return;
     }
     setSyncingRow(item.id);
     try {
       const ok = await SyncService.syncDocument(userId, item.documentId);
       if (ok) {
-        showToast('Заметка синхронизирована', 'success');
+        showToast(t('admin_queue_toast_item_synced'), 'success');
       } else {
-        showToast('Ошибка синхронизации', 'error');
+        showToast(t('admin_queue_toast_sync_error'), 'error');
       }
     } catch (e) {
       reportError(e, { action: 'queue_sync_item' });
-      showToast('Ошибка синхронизации', 'error');
+      showToast(t('admin_queue_toast_sync_error'), 'error');
     } finally {
       setSyncingRow(null);
       void refresh();
@@ -129,7 +129,7 @@ export function QueueExplorer({ userId }: { userId: string }) {
       await db.delete('syncQueue', item.id);
     } catch (e) {
       reportError(e, { action: 'queue_remove_item' });
-      showToast('Не удалось удалить элемент', 'error');
+      showToast(t('admin_queue_toast_remove_error'), 'error');
     } finally {
       setRemovingRow(null);
       void refresh();
@@ -140,7 +140,7 @@ export function QueueExplorer({ userId }: { userId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="text-sm font-semibold text-text-main">
-          Очередь синхронизации ({items.length})
+          {t('admin_queue_title', { count: items.length })}
         </h3>
         <div className="flex items-center gap-2">
           <Button
@@ -149,7 +149,7 @@ export function QueueExplorer({ userId }: { userId: string }) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors"
           >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Обновить
+            {t('admin_refresh')}
           </Button>
           <Button
             onClick={() => void handleSyncAll()}
@@ -157,7 +157,7 @@ export function QueueExplorer({ userId }: { userId: string }) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-xs font-semibold disabled:opacity-50 transition-colors"
           >
             {syncingAll ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-            Синхронизировать все
+            {t('admin_queue_sync_all')}
           </Button>
           <Button
             onClick={() => void handleClearQueue()}
@@ -165,13 +165,13 @@ export function QueueExplorer({ userId }: { userId: string }) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-accent-danger/20 bg-accent-danger/10 text-accent-danger text-xs font-semibold disabled:opacity-50 transition-colors"
           >
             {clearing ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-            Очистить очередь
+            {t('admin_queue_clear_btn')}
           </Button>
         </div>
       </div>
 
       {items.length === 0 && !loading && (
-        <p className="text-xs text-text-main/50 py-4 text-center">Очередь пуста</p>
+        <p className="text-xs text-text-main/50 py-4 text-center">{t('admin_queue_empty')}</p>
       )}
 
       {items.length > 0 && (
@@ -179,10 +179,10 @@ export function QueueExplorer({ userId }: { userId: string }) {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-surface-base/10 text-text-main/60 text-left">
-                <th className="px-3 py-2 font-semibold">Заметка</th>
-                <th className="px-3 py-2 font-semibold">Тип</th>
-                <th className="px-3 py-2 font-semibold">Создано</th>
-                <th className="px-3 py-2 font-semibold text-right">Действия</th>
+                <th className="px-3 py-2 font-semibold">{t('admin_queue_th_note')}</th>
+                <th className="px-3 py-2 font-semibold">{t('admin_queue_th_type')}</th>
+                <th className="px-3 py-2 font-semibold">{t('admin_queue_th_created')}</th>
+                <th className="px-3 py-2 font-semibold text-right">{t('admin_queue_th_actions')}</th>
               </tr>
             </thead>
             <tbody>

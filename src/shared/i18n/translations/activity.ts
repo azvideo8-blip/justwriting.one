@@ -84,4 +84,18 @@ export const activityTranslations: Translations = {
     ru: 'Заметки заново связаны с облачными копиями: {count}',
     en: 'Notes relinked to cloud copies: {count}',
   },
+  // ─── badge UI ─────────────────────────────────────────────────────────────
+  activity_log_title: { ru: 'Журнал активности', en: 'Activity log' },
+  activity_log_header: { ru: 'Активность ({count})', en: 'Activity ({count})' },
+  activity_copy_all: { ru: 'Скопировать весь журнал', en: 'Copy entire log' },
+  activity_copy: { ru: 'Копировать', en: 'Copy' },
+  activity_copied: { ru: 'Скопировано', en: 'Copied' },
+  activity_clear_all: { ru: 'Очистить все', en: 'Clear all' },
+  activity_clear: { ru: 'Очистить', en: 'Clear' },
+  activity_filter_all: { ru: 'Все события', en: 'All events' },
+  activity_filter_error: { ru: 'Только ошибки', en: 'Errors only' },
+  activity_context_details: { ru: 'Детали контекста', en: 'Context details' },
+  activity_empty_error: { ru: 'Ошибок нет', en: 'No errors' },
+  activity_empty_all: { ru: 'Журнал пуст', en: 'Log is empty' },
+  activity_entry_delete: { ru: 'Удалить', en: 'Delete' },
 };

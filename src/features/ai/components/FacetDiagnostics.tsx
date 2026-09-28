@@ -3,6 +3,7 @@ import { Loader2, Gauge } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
+import { useLanguage } from '../../../shared/i18n';
 import { AIEmbeddingService } from '../services/AIEmbeddingService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { cosineSimilarity } from '../utils/vectorSearch';
@@ -38,6 +39,7 @@ function fmtScore(s: number): string {
 }
 
 export function FacetDiagnostics() {
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [ran, setRan] = useState(false);
@@ -65,7 +67,7 @@ export function FacetDiagnostics() {
 
       const seeds = await getDomainSeedVectors();
       if (seeds.length === 0) {
-        showToast('Ошибка эмбеддинга доменов', 'error');
+        showToast(t('admin_facet_toast_seeds_error'), 'error');
         return;
       }
 
@@ -81,7 +83,7 @@ export function FacetDiagnostics() {
         if (chunks.length === 0) continue;
         totalChunks += chunks.length;
         const doc = docMap.get(emb.documentId);
-        const title = doc?.title ?? '(без названия)';
+        const title = doc?.title ?? t('common_untitled');
 
         const domainScores: DomainScore[] = seeds.map((s: DomainSeedVec) => {
           let best = -Infinity;
@@ -142,7 +144,7 @@ export function FacetDiagnostics() {
       setRan(true);
     } catch (e) {
       reportError(e, { action: 'facet_diagnostics_run' });
-      showToast('Ошибка диагностики порогов', 'error');
+      showToast(t('admin_facet_toast_run_error'), 'error');
     } finally {
       setLoading(false);
     }
@@ -153,7 +155,7 @@ export function FacetDiagnostics() {
       <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-text-main/60 uppercase tracking-wider flex items-center gap-2">
           <Gauge size={13} className="text-brand-soft" />
-          Диагностика доменов (DEV)
+          {t('admin_facet_diag_title')}
         </span>
         <Button
           onClick={() => void handleRun()}
@@ -161,7 +163,7 @@ export function FacetDiagnostics() {
           className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-brand-soft/20 bg-brand-soft/10 text-brand-soft text-[10px] font-bold disabled:opacity-50"
         >
           {loading ? <Loader2 size={12} className="animate-spin" /> : <Gauge size={12} />}
-          {loading ? 'Расчёт…' : 'Диагностика порогов'}
+          {loading ? t('admin_facet_calculating') : t('admin_facet_diag_btn')}
         </Button>
       </div>
 
@@ -172,18 +174,18 @@ export function FacetDiagnostics() {
           </div>
         ) : noEmbeddings ? (
           <p className="text-xs text-text-main/60 italic py-6 text-center">
-            Сначала проиндексируйте заметки (вкладка «База данных»)
+            {t('admin_facet_index_first')}
           </p>
         ) : !ran ? (
           <p className="text-xs text-text-main/60 italic py-6 text-center">
-            Нажми «Диагностика порогов» — для каждой заметки посчитается лучший косинус к каждому домену.
+            {t('admin_facet_intro_hint')}
           </p>
         ) : summary && rows.length > 0 ? (
           <div className="space-y-4">
             {/* Corpus summary */}
             <div className="rounded-xl border border-border-subtle bg-surface-card/20 p-3 space-y-2">
               <div className="text-[10px] font-bold text-text-main/60 uppercase tracking-wider">
-                Корпус: {summary.totalNotes} заметок · {summary.totalChunks} чанков
+                {t('admin_facet_corpus_summary', { totalNotes: summary.totalNotes, totalChunks: summary.totalChunks })}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {summary.perDomain.map(d => (
@@ -201,7 +203,7 @@ export function FacetDiagnostics() {
                 ))}
               </div>
               <div className="text-[10px] text-text-main/60 font-mono">
-                без домена: {summary.noDomainNotes} заметок · чанков без домена: {summary.totalNoDomainChunks}
+                {t('admin_facet_no_domain_meta', { noDomainNotes: summary.noDomainNotes, totalNoDomainChunks: summary.totalNoDomainChunks })}
               </div>
             </div>
 
@@ -217,7 +219,7 @@ export function FacetDiagnostics() {
                       {row.title}
                     </span>
                     <span className="text-[9px] text-text-main/60 font-mono shrink-0">
-                      {row.chunkCount} чанков · {row.noDomainChunks} без домена
+                      {t('admin_facet_note_chunks', { chunkCount: row.chunkCount, noDomainChunks: row.noDomainChunks })}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -232,7 +234,7 @@ export function FacetDiagnostics() {
                               ? 'bg-accent-success/15 text-accent-success'
                               : 'bg-surface-base/10 text-text-main/60',
                           )}
-                          title={`порог: ${d.threshold}`}
+                          title={t('admin_facet_threshold_title', { threshold: d.threshold })}
                         >
                           {d.label} {fmtScore(d.score)}
                         </span>
@@ -245,11 +247,11 @@ export function FacetDiagnostics() {
           </div>
         ) : (
           <p className="text-xs text-text-main/60 italic py-6 text-center">
-            Нет заметок с чанками для анализа.
+            {t('admin_facet_empty_chunks')}
           </p>
         )}
         <p className="text-[10px] text-text-main/60 mt-3">
-          Только чтение: косинус лучшего чана заметки к каждому домену. Зелёным — проходит порог, серым — нет. Не пишет в aiProfileFacets.
+          {t('admin_facet_footer_note')}
         </p>
       </div>
     </div>

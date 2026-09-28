@@ -95,17 +95,17 @@ export const ActivityLogBadge: React.FC = () => {
         <>
           {/* not-a-modal: slide-out drawer */}
           <div className="fixed inset-0 z-50 flex justify-start bg-black/40 backdrop-blur-xs animate-fadeIn">
-          <div
+            <div
             className="w-full max-w-md bg-surface-card border-r border-border-subtle shadow-2xl h-full flex flex-col overflow-hidden"
             role="dialog"
-            aria-label="Журнал активности"
+            aria-label={t('activity_log_title')}
           >
             {/* Header */}
             <div className="px-5 py-4 border-b border-border-subtle flex flex-col gap-3 bg-surface-base/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   {getHeaderIcon()}
-                  <h3 className="font-semibold text-text-main text-sm">Активность ({entries.length})</h3>
+                  <h3 className="font-semibold text-text-main text-sm">{t('activity_log_header', { count: entries.length })}</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -113,25 +113,25 @@ export const ActivityLogBadge: React.FC = () => {
                     onClick={() => void copyAll()}
                     disabled={entries.length === 0}
                     className="flex items-center gap-1 text-xs text-text-muted hover:text-text-main px-2 py-1 rounded-lg hover:bg-surface-elevated transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                    title="Скопировать весь журнал"
+                    title={t('activity_copy_all')}
                   >
                     {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Скопировано' : 'Копировать'}</span>
+                    <span>{copied ? t('activity_copied') : t('activity_copy')}</span>
                   </button>
                   <button
                     type="button"
                     onClick={clearLog}
                     className="flex items-center gap-1 text-xs text-text-muted hover:text-text-main px-2 py-1 rounded-lg hover:bg-surface-elevated transition-colors"
-                    title="Очистить все"
+                    title={t('activity_clear_all')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Очистить</span>
+                    <span>{t('activity_clear')}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
                     className="p-1 rounded-lg text-text-muted hover:text-text-main hover:bg-surface-elevated transition-colors"
-                    aria-label="Закрыть"
+                    aria-label={t('common_close')}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -144,14 +144,14 @@ export const ActivityLogBadge: React.FC = () => {
                   onClick={() => setFilter('all')}
                   className={`text-xs px-3 py-1 rounded-full transition-colors ${filter === 'all' ? 'bg-surface-elevated text-text-main' : 'text-text-muted hover:bg-surface-base'}`}
                 >
-                  Все события
+                  {t('activity_filter_all')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilter('error')}
                   className={`text-xs px-3 py-1 rounded-full transition-colors ${filter === 'error' ? 'bg-accent-danger/20 text-accent-danger' : 'text-text-muted hover:bg-surface-base'}`}
                 >
-                  Только ошибки
+                  {t('activity_filter_error')}
                 </button>
               </div>
             </div>
@@ -191,7 +191,7 @@ export const ActivityLogBadge: React.FC = () => {
                         type="button"
                         onClick={() => dismissEntry(entry.id)}
                         className="text-text-muted hover:text-text-main p-1 rounded hover:bg-surface-elevated transition-colors"
-                        title="Удалить"
+                        title={t('activity_entry_delete')}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -211,7 +211,7 @@ export const ActivityLogBadge: React.FC = () => {
                           className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-main transition-colors"
                         >
                           {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                          <span>Детали контекста</span>
+                          <span>{t('activity_context_details')}</span>
                         </button>
                         {isExpanded && (
                           <pre className="mt-2 p-2 rounded bg-surface-elevated/70 text-[10px] text-text-muted font-mono overflow-x-auto select-text max-h-36">
@@ -225,7 +225,7 @@ export const ActivityLogBadge: React.FC = () => {
               })}
               {filteredEntries.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-32 text-text-muted text-sm">
-                  {filter === 'error' ? 'Ошибок нет' : 'Журнал пуст'}
+                  {filter === 'error' ? t('activity_empty_error') : t('activity_empty_all')}
                 </div>
               )}
             </div>

@@ -34,11 +34,11 @@ export function EmbeddingDiagnostics() {
       setCoverage(await getIndexCoverage());
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_coverage' });
-      showToast('Не удалось загрузить статус индексации', 'error');
+      showToast(t('admin_embed_toast_status_error'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch on mount/refresh
   useEffect(() => { void refresh(); }, [refresh]);
@@ -50,12 +50,12 @@ export function EmbeddingDiagnostics() {
       const summary = await indexPending({
         onProgress: (done, total) => setProgress({ done, total }),
       });
-      if (summary.stopped === 'daily') showToast('Индексация приостановлена: дневной лимит ИИ', 'error');
-      else if (summary.stopped === 'rate') showToast('Индексация приостановлена: слишком много запросов', 'error');
-      else showToast(`Индексация: +${summary.ok} новых, ${summary.skipped} пропущено, ${summary.failed} ошибок`, 'success');
+      if (summary.stopped === 'daily') showToast(t('admin_embed_toast_daily_limit'), 'error');
+      else if (summary.stopped === 'rate') showToast(t('admin_embed_toast_rate_limit'), 'error');
+      else showToast(t('admin_embed_toast_index_summary', { ok: summary.ok, skipped: summary.skipped, failed: summary.failed }), 'success');
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_index' });
-      showToast('Ошибка индексации', 'error');
+      showToast(t('admin_embed_toast_index_error'), 'error');
     } finally {
       setIndexing(false);
       setProgress(null);
@@ -74,12 +74,12 @@ export function EmbeddingDiagnostics() {
     setProgress({ done: 0, total });
     try {
       const summary = await reindexAll({ onProgress: (done, t) => setProgress({ done, total: t }) });
-      if (summary.stopped === 'daily') showToast('Переиндексация приостановлена: дневной лимит ИИ', 'error');
-      else if (summary.stopped === 'rate') showToast('Переиндексация приостановлена: слишком много запросов', 'error');
-      else showToast(`Переиндексировано: ${summary.ok}, пропущено ${summary.skipped}, ошибок ${summary.failed}`, 'success');
+      if (summary.stopped === 'daily') showToast(t('admin_embed_toast_reindex_daily'), 'error');
+      else if (summary.stopped === 'rate') showToast(t('admin_embed_toast_reindex_rate'), 'error');
+      else showToast(t('admin_embed_toast_reindex_summary', { ok: summary.ok, skipped: summary.skipped, failed: summary.failed }), 'success');
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_reindex' });
-      showToast('Ошибка переиндексации', 'error');
+      showToast(t('admin_embed_toast_reindex_error'), 'error');
     } finally {
       setReindexing(false);
       setProgress(null);
@@ -91,12 +91,12 @@ export function EmbeddingDiagnostics() {
     setSyncing(true);
     try {
       const r = await AIEmbeddingService.syncPendingToCloud();
-      if (r.locked) showToast(`Синхронизировано ${r.synced}; остальное ждёт — разблокируй E2E-шифрование`, 'error');
-      else if (r.synced > 0) showToast(`В облако выгружено эмбеддингов: ${r.synced}`, 'success');
-      else showToast('Всё уже синхронизировано', 'success');
+      if (r.locked) showToast(t('admin_embed_toast_sync_locked', { synced: r.synced }), 'error');
+      else if (r.synced > 0) showToast(t('admin_embed_toast_sync_count', { synced: r.synced }), 'success');
+      else showToast(t('admin_embed_toast_sync_all_done'), 'success');
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_sync' });
-      showToast('Ошибка синхронизации', 'error');
+      showToast(t('admin_embed_toast_sync_error'), 'error');
     } finally {
       setSyncing(false);
       void refresh();
@@ -112,7 +112,7 @@ export function EmbeddingDiagnostics() {
       setResults(await searchNotes(q, 5));
     } catch (e) {
       reportError(e, { action: 'embedding_diagnostics_search' });
-      showToast('Ошибка поиска', 'error');
+      showToast(t('admin_embed_toast_search_error'), 'error');
       setResults([]);
     } finally {
       setSearching(false);
@@ -130,7 +130,7 @@ export function EmbeddingDiagnostics() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-semibold text-text-main flex items-center gap-2">
             <Sparkles size={15} className="text-brand-soft" />
-            Эмбеддинги заметок (семантический поиск)
+            {t('admin_embed_card_title')}
           </h3>
           <div className="flex items-center gap-2">
             <Button
@@ -139,7 +139,7 @@ export function EmbeddingDiagnostics() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors"
             >
               {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              Обновить
+              {t('admin_refresh')}
             </Button>
             <Button
               onClick={() => void handleSync()}
@@ -147,7 +147,7 @@ export function EmbeddingDiagnostics() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors min-h-[34px]"
             >
               {syncing ? <Loader2 size={12} className="animate-spin" /> : <CloudUpload size={12} />}
-              {(coverage?.unsynced ?? 0) === 0 ? 'В облаке' : `В облако (${coverage?.unsynced ?? 0})`}
+              {(coverage?.unsynced ?? 0) === 0 ? t('admin_embed_synced') : t('admin_embed_upload', { count: coverage?.unsynced ?? 0 })}
             </Button>
             <Button
               onClick={() => void handleReindexAll()}
@@ -155,7 +155,7 @@ export function EmbeddingDiagnostics() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-subtle bg-surface-base/5 text-text-main/60 text-xs font-semibold disabled:opacity-50 transition-colors min-h-[34px]"
             >
               {reindexing ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
-              {reindexing && progress ? `Пересчёт ${progress.done}/${progress.total}…` : 'Переиндексировать всё'}
+              {reindexing && progress ? t('admin_embed_reindexing_progress', { done: progress.done, total: progress.total }) : t('admin_embed_reindex_all')}
             </Button>
             <Button
               onClick={() => void handleIndexNow()}
@@ -164,8 +164,8 @@ export function EmbeddingDiagnostics() {
             >
               {indexing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
               {indexing && progress
-                ? `Индексация ${progress.done}/${progress.total}…`
-                : (coverage?.stale ?? 0) === 0 ? 'Всё проиндексировано' : `Индексировать сейчас (${coverage?.stale ?? 0})`}
+                ? t('admin_embed_indexing_progress', { done: progress.done, total: progress.total })
+                : (coverage?.stale ?? 0) === 0 ? t('admin_embed_all_indexed') : t('admin_embed_index_now', { count: coverage?.stale ?? 0 })}
             </Button>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function EmbeddingDiagnostics() {
         {/* Progress bar */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="text-text-main/60">Покрытие корпуса</span>
+            <span className="text-text-main/60">{t('admin_embed_corpus_coverage')}</span>
             <span className="font-mono text-text-main/70">
               {coverage ? `${coverage.indexed} / ${coverage.totalDocs}` : '—'}{' '}
               <span className="text-text-main/60">({pct}%)</span>
@@ -187,11 +187,11 @@ export function EmbeddingDiagnostics() {
         {/* Stats grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
           {[
-            { label: 'Проиндексировано', value: coverage ? String(coverage.indexed) : '—' },
-            { label: 'Ожидают', value: coverage ? String(coverage.stale) : '—' },
-            { label: 'Не в облаке', value: coverage ? String(coverage.unsynced) : '—' },
-            { label: 'Модель / размер', value: coverage ? `${coverage.model.split('/').pop()} · ${coverage.dim}` : '—' },
-            { label: 'Последняя', value: coverage?.lastProcessedAt ? new Date(coverage.lastProcessedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—' },
+            { label: t('admin_embed_stat_indexed'), value: coverage ? String(coverage.indexed) : '—' },
+            { label: t('admin_embed_stat_pending'), value: coverage ? String(coverage.stale) : '—' },
+            { label: t('admin_embed_stat_unsynced'), value: coverage ? String(coverage.unsynced) : '—' },
+            { label: t('admin_embed_stat_model_dim'), value: coverage ? `${coverage.model.split('/').pop()} · ${coverage.dim}` : '—' },
+            { label: t('admin_embed_stat_latest'), value: coverage?.lastProcessedAt ? new Date(coverage.lastProcessedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—' },
           ].map(s => (
             <div key={s.label} className="p-2.5 rounded-xl border border-border-subtle/60 bg-surface-base/5">
               <div className="text-[9px] uppercase tracking-wider text-text-main/60 font-bold">{s.label}</div>
@@ -200,7 +200,7 @@ export function EmbeddingDiagnostics() {
           ))}
         </div>
         <p className="text-[10px] text-text-main/60">
-          Индексация идёт автоматически в фоне при простое. Кнопка выше форсирует прогон сейчас. Каждый прогон тратит лимит ИИ (по одному эмбеддингу на заметку) и дневной бюджет записи в облако — общий на всё приложение, чтобы фоновая переиндексация не могла вытеснить обычное сохранение заметок.
+          {t('admin_embed_footer_desc')}
         </p>
       </div>
 
@@ -208,7 +208,7 @@ export function EmbeddingDiagnostics() {
       <div className="p-5 rounded-2xl border border-border-subtle bg-surface-base/5 space-y-3">
         <h3 className="text-sm font-semibold text-text-main flex items-center gap-2">
           <Search size={15} className="text-brand-soft" />
-          Тестовый поиск по заметкам
+          {t('admin_embed_test_search_title')}
         </h3>
         <div className="flex items-center gap-2">
           <Input
@@ -216,7 +216,7 @@ export function EmbeddingDiagnostics() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void handleSearch(); }}
-            placeholder="напр.: что я писал про отцовство и усталость"
+            placeholder={t('admin_embed_test_search_placeholder')}
             className="flex-1 px-3 py-2 text-xs rounded-xl bg-surface-base/5 border border-border-subtle text-text-main outline-none placeholder:text-text-main/40"
           />
           <Button
@@ -225,20 +225,20 @@ export function EmbeddingDiagnostics() {
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-text-main text-surface-base text-xs font-semibold disabled:opacity-50 transition-colors min-h-[36px]"
           >
             {searching ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
-            Найти
+            {t('admin_embed_test_search_btn')}
           </Button>
         </div>
 
         {results !== null && (
           results.length === 0 ? (
-            <p className="text-xs text-text-main/60 italic py-2">Ничего не найдено (нет проиндексированных заметок или совпадений)</p>
+            <p className="text-xs text-text-main/60 italic py-2">{t('admin_embed_test_search_empty')}</p>
           ) : (
             <div className="space-y-2">
               {results.map((r, i) => (
                 <div key={r.documentId} className="p-3 rounded-xl border border-border-subtle/60 bg-surface-base/5">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-xs font-semibold text-text-main/80 truncate">
-                      {i + 1}. {r.title || 'Без названия'}
+                      {i + 1}. {r.title || t('common_untitled')}
                     </span>
                     <span className={cn(
                       "text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0",
@@ -254,7 +254,7 @@ export function EmbeddingDiagnostics() {
           )
         )}
         <p className="text-[10px] text-text-main/60">
-          Эмбеддит запрос → косинус по локальным векторам → LLM-рерэнк по саммари → топ-5. Так это работает в чате при запросах «что я писал про…».
+          {t('admin_embed_test_search_footer')}
         </p>
       </div>
     </div>

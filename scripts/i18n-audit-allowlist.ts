@@ -5,21 +5,6 @@
 //
 // Долг вынесен отдельным тикетом: docs/ag-tickets-28.09.26-i18n-jsx-debt.md.
 
-export const JSX_TEXT_ALLOWLIST: readonly string[] = [
-  "src/app/ActivityLogBadge.tsx",
-  "src/features/ai/components/BeliefsDiagnostics.tsx",
-  "src/features/ai/components/EmbeddingDiagnostics.tsx",
-  "src/features/ai/components/FacetDiagnostics.tsx",
-  "src/features/ai/components/MemoryAssemblerDiagnostics.tsx",
-  "src/features/ai/components/QueueExplorer.tsx",
-  "src/features/ai/components/SyncDiagnostics.tsx",
-  "src/features/ai/hooks/useSyncDiagnostics.tsx",
-];
+export const JSX_TEXT_ALLOWLIST: readonly string[] = [];
 
-export const JSX_ATTR_ALLOWLIST: readonly string[] = [
-  "src/app/ActivityLogBadge.tsx",
-  "src/app/pages/ProfilePage.tsx",
-  "src/features/ai/components/EmbeddingDiagnostics.tsx",
-  "src/features/ai/components/FacetDiagnostics.tsx",
-  "src/features/ai/components/SyncDiagnostics.tsx",
-];
+export const JSX_ATTR_ALLOWLIST: readonly string[] = [];

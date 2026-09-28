@@ -113,7 +113,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
       />
       
       <div className="max-w-screen-2xl mx-auto px-6 md:px-9 space-y-6 pt-6">
-        <CollapsibleSection title="Как я пишу" storageKey="profile_sec_how_write_v2" defaultOpen={true}>
+        <CollapsibleSection title={t('profile_sec_how_write')} storageKey="profile_sec_how_write_v2" defaultOpen={true}>
           <div className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible scroll-snap-x-container gap-6 md:gap-0 pb-6 md:pb-0">
             <div className="scroll-snap-card shrink-0 w-[88vw] md:w-full bg-surface-card/20 md:bg-transparent border border-border-subtle/20 md:border-0 rounded-3xl md:rounded-none overflow-hidden animate-none">
               <KPIStrip stats={kpiStats} />
@@ -174,7 +174,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           карточки и векторы поиска работают у всех.
         */}
         {isAdmin && (
-          <CollapsibleSection title="Обо мне" storageKey="profile_sec_about_me_v3" defaultOpen={false}>
+          <CollapsibleSection title={t('profile_sec_about_me')} storageKey="profile_sec_about_me_v3" defaultOpen={false}>
             <div className="space-y-6">
               <ArchiveAnalysisButton />
               <ProfileRefreshButton />
@@ -185,7 +185,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
           </CollapsibleSection>
         )}
 
-        <CollapsibleSection title="История моей жизни" storageKey="profile_sec_life_story_v3" defaultOpen={false}>
+        <CollapsibleSection title={t('profile_sec_life_story')} storageKey="profile_sec_life_story_v3" defaultOpen={false}>
           <LifeStoryTimeline />
         </CollapsibleSection>
       </div>

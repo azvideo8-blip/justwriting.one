@@ -4,8 +4,10 @@ import { MemoryFlagsService, MemoryFeatureFlags } from '../services/memoryFlags'
 import { Button } from '../../../shared/components/Button';
 import { cn } from '../../../core/utils/utils';
 import { Sparkles, CheckCircle, AlertTriangle, RefreshCw, Trash2, Layers } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n';
 
 export function MemoryAssemblerDiagnostics() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<JournalStats>(() => InjectionJournal.getStats());
   const [entries, setEntries] = useState<JournalEntry[]>(() => InjectionJournal.getEntries(30));
   const [flags, setFlags] = useState<MemoryFeatureFlags>(() => MemoryFlagsService.getFlags());
@@ -57,10 +59,10 @@ export function MemoryAssemblerDiagnostics() {
         <div>
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-accent-main" />
-            <h3 className="text-sm font-bold text-text-main">MIND W2 Memory Assembler Diagnostics</h3>
+            <h3 className="text-sm font-bold text-text-main">{t('admin_memory_diag_title')}</h3>
           </div>
           <p className="text-xs text-text-main/60 mt-1">
-            Shadow-mode instrumentation, overlap metrics baseline, and per-block cutover flags.
+            {t('admin_memory_diag_desc')}
           </p>
         </div>
 
@@ -70,14 +72,14 @@ export function MemoryAssemblerDiagnostics() {
             className="px-3 py-1.5 rounded-xl text-xs font-medium bg-surface-base/60 text-text-main border border-border-subtle flex items-center gap-1.5"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-            Обновить
+            {t('admin_refresh')}
           </Button>
           <Button
             onClick={handleClearJournal}
             className="px-3 py-1.5 rounded-xl text-xs font-medium bg-status-error/10 text-status-error border border-status-error/20 flex items-center gap-1.5"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Очистить лог
+            {t('admin_memory_clear_log')}
           </Button>
         </div>
       </div>
@@ -85,9 +87,9 @@ export function MemoryAssemblerDiagnostics() {
       {/* Executive Go/No-Go Bar Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
-          <span className="text-xs font-medium text-text-main/60">Всего сессий в логе</span>
+          <span className="text-xs font-medium text-text-main/60">{t('admin_memory_stat_total_turns')}</span>
           <div className="text-xl font-bold text-text-main">{stats.totalTurns} / 100</div>
-          <div className="text-[10px] text-text-main/50">Порог готовности ≥ 100 сессий</div>
+          <div className="text-[10px] text-text-main/50">{t('admin_memory_stat_turns_threshold')}</div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
@@ -95,19 +97,19 @@ export function MemoryAssemblerDiagnostics() {
           <div className="text-xl font-bold text-text-main">
             {stats.medianOverlap === null ? '—' : `${(stats.medianOverlap * 100).toFixed(1)}%`}
           </div>
-          <div className="text-[10px] text-text-main/50">Порог готовности ≥ 80.0%</div>
+          <div className="text-[10px] text-text-main/50">{t('admin_memory_stat_overlap_threshold')}</div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
-          <span className="text-xs font-medium text-text-main/60">Mandatory Band Drops</span>
+          <span className="text-xs font-medium text-text-main/60">{t('admin_memory_stat_mandatory_drops')}</span>
           <div className={cn("text-xl font-bold", stats.mandatoryDropsCount === 0 ? "text-status-success" : "text-status-error")}>
             {stats.mandatoryDropsCount}
           </div>
-          <div className="text-[10px] text-text-main/50">Строго 0 выпадений</div>
+          <div className="text-[10px] text-text-main/50">{t('admin_memory_stat_drops_zero')}</div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
-          <span className="text-xs font-medium text-text-main/60">P90 Budget Usage</span>
+          <span className="text-xs font-medium text-text-main/60">{t('admin_memory_stat_p90_usage')}</span>
           <div className="text-xl font-bold text-text-main">{stats.p90BudgetUsage} / {stats.maxBudget} chars</div>
           <div className="text-[10px] text-text-main/50">P90 Pct: {((stats.p90BudgetUsage / stats.maxBudget) * 100).toFixed(1)}%</div>
         </div>
@@ -124,8 +126,8 @@ export function MemoryAssemblerDiagnostics() {
           {isGoNoGoMet ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
           <span>
             {isGoNoGoMet
-              ? "Go / No-Go Bar выполнен! Сборщик готов к полному переключению блоков."
-              : "Накопление данных или калибровка. Текущая выборка недостаточно велика или не достигла 80% совпадения."}
+              ? t('admin_memory_status_go')
+              : t('admin_memory_status_nogo')}
           </span>
         </div>
       </div>
@@ -135,13 +137,13 @@ export function MemoryAssemblerDiagnostics() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-accent-main" />
-            <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">Флаги переключения блоков (Cutover Flags)</h4>
+            <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">{t('admin_memory_flags_title')}</h4>
           </div>
           <Button
             onClick={handleResetFlags}
             className="px-2.5 py-1 text-[11px] font-medium text-text-main/60 hover:text-text-main bg-surface-base/40 rounded-lg border border-border-subtle"
           >
-            Сбросить к дефолту
+            {t('admin_memory_reset_flags')}
           </Button>
         </div>
 
@@ -154,12 +156,12 @@ export function MemoryAssemblerDiagnostics() {
               <div className="space-y-0.5">
                 <div className="text-xs font-bold text-text-main font-mono">{flagKey}</div>
                 <div className="text-[10px] text-text-main/60">
-                  {flagKey === 'ff_memory_assembler_shadow' && 'Теневой режим (вывод без изменений)'}
-                  {flagKey === 'ff_memory_assembler_chat_memory' && 'Блок 1: Память чата'}
-                  {flagKey === 'ff_memory_assembler_retrieval' && 'Блок 2: Поиск RAG'}
-                  {flagKey === 'ff_memory_assembler_turn1' && 'Блок 3: Turn-1 контекст'}
-                  {flagKey === 'ff_memory_assembler_portrait' && 'Блок 4: Портрет пользователя'}
-                  {flagKey === 'ff_memory_assembler_beliefs' && 'Блок 5: Убеждения W3 (Beliefs)'}
+                  {flagKey === 'ff_memory_assembler_shadow' && t('admin_memory_flag_shadow')}
+                  {flagKey === 'ff_memory_assembler_chat_memory' && t('admin_memory_flag_chat_memory')}
+                  {flagKey === 'ff_memory_assembler_retrieval' && t('admin_memory_flag_retrieval')}
+                  {flagKey === 'ff_memory_assembler_turn1' && t('admin_memory_flag_turn1')}
+                  {flagKey === 'ff_memory_assembler_portrait' && t('admin_memory_flag_portrait')}
+                  {flagKey === 'ff_memory_assembler_beliefs' && t('admin_memory_flag_beliefs')}
                 </div>
               </div>
 
@@ -181,9 +183,9 @@ export function MemoryAssemblerDiagnostics() {
 
       {/* Would Have Dropped by Category Breakdown */}
       <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-3">
-        <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">Отклоненные кандидаты по категориям (Would Have Dropped)</h4>
+        <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">{t('admin_memory_dropped_title')}</h4>
         {Object.keys(stats.wouldHaveDroppedByCategory).length === 0 ? (
-          <div className="text-xs text-text-main/50 py-2">Отклоненных кандидатов не зафиксировано.</div>
+          <div className="text-xs text-text-main/50 py-2">{t('admin_memory_dropped_empty')}</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Object.entries(stats.wouldHaveDroppedByCategory).map(([cat, count]) => (
@@ -198,9 +200,9 @@ export function MemoryAssemblerDiagnostics() {
 
       {/* Recent Journal Entries Feed */}
       <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-3">
-        <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">Последние записи журнала (Journal Entries)</h4>
+        <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">{t('admin_memory_journal_title')}</h4>
         {entries.length === 0 ? (
-          <div className="text-xs text-text-main/50 py-4 text-center">Журнал инжекции пуст. Запустите AI-чат для накопления записей.</div>
+          <div className="text-xs text-text-main/50 py-4 text-center">{t('admin_memory_journal_empty')}</div>
         ) : (
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
             {entries.map(entry => (
@@ -212,7 +214,7 @@ export function MemoryAssemblerDiagnostics() {
 
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-text-main">
-                    Введено кандидатов: {entry.candidates.length}
+                    {t('admin_memory_candidates_in', { count: entry.candidates.length })}
                   </span>
                   {entry.shadowComparison && (
                     <span className="font-mono text-accent-main font-bold">

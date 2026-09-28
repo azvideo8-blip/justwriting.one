@@ -2,17 +2,19 @@ import { useState, useMemo } from 'react';
 import { RefreshCw, AlertTriangle, Upload, Download, Trash2, Loader2, Link2Off, Lock, Sparkles, Eye } from 'lucide-react';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { cn } from '../../../core/utils/utils';
-import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useSyncDiagnostics, type DiagnosticItem } from '../hooks/useSyncDiagnostics';
 import { SummaryModal } from './SummaryModal';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
+import { useLanguage } from '../../../shared/i18n';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 
 interface SyncDiagnosticsProps {
   userId: string;
 }
 
 export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
+  const { t } = useLanguage();
   const { layoutMode } = useLayoutMode();
   const {
     loading, syncingId, items, queueCount, discrepancyCount,
@@ -82,7 +84,10 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           {discrepancyCount > 0 && (
             <div className="text-label-sm text-accent-warning/80 mt-1 font-medium flex items-center gap-1">
               <AlertTriangle size={11} />
-              Обнаружено расхождение версий в облаке: {discrepancyCount} {discrepancyCount === 1 ? 'заметка' : 'заметок'} (current_version ≠ числу версий)
+              {t('admin_sync_discrepancy_alert', {
+                count: discrepancyCount,
+                noun: discrepancyCount === 1 ? t('admin_sync_noun_single') : t('admin_sync_noun_plural'),
+              })}
             </div>
           )}
         </div>
@@ -111,8 +116,8 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Поиск по названию…"
-          aria-label="Поиск по названию"
+          placeholder={t('admin_sync_search_placeholder')}
+          aria-label={t('admin_sync_search_aria')}
           className="w-full px-3 py-2 rounded-lg bg-surface-base/5 border border-border-subtle text-xs text-text-main placeholder:text-text-main/40 outline-none focus:border-brand-soft/40"
         />
       )}
@@ -198,7 +203,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         <Button
                           onClick={() => void handleUnlinkItem(item)}
                           disabled={cloudReadFailed}
-                          title={cloudReadFailed ? 'Облако недоступно — связь рвать нельзя, пока не ясно, есть ли копия' : undefined}
+                          title={cloudReadFailed ? t('admin_sync_cloud_unavailable_title') : undefined}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger text-xs font-semibold border border-accent-danger/20 transition-colors min-h-[44px]"
                         >
                           <Link2Off size={14} />
@@ -313,7 +318,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                           <IconButton
                             onClick={() => void handleReadSummary(item.id)}
                             className="p-1 rounded hover:bg-surface-base/10 text-text-main/60 hover:text-text-main transition-colors"
-                            label="Прочитать саммари"
+                            label={t('admin_sync_read_summary_label')}
                             icon={<Eye size={12} />}
                           />
                         </div>
@@ -323,7 +328,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                         <Button
                           onClick={() => void handleProcessDocument(item)}
                           className="flex items-center gap-1 px-2 py-1 rounded bg-brand-soft/10 hover:bg-brand-soft/20 text-brand-soft text-label font-semibold border border-brand-soft/20 transition-colors mx-auto"
-                          title="Обработать ИИ"
+                          title={t('admin_sync_analyze_ai_title')}
                         >
                           <Sparkles size={10} />
                           Analyze
@@ -373,7 +378,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                                 onClick={() => void handleUnlinkItem(item)}
                                 disabled={cloudReadFailed}
                                 className="flex items-center gap-1 px-2 py-1 rounded bg-accent-danger/10 hover:bg-accent-danger/20 text-accent-danger text-label font-semibold border border-accent-danger/20 transition-colors disabled:opacity-40"
-                                title={cloudReadFailed ? 'Облако недоступно — рвать связь нельзя, пока не ясно, есть ли копия' : 'Cloud document has been deleted. Unlink local document to allow re-upload.'}
+                                title={cloudReadFailed ? t('admin_sync_cloud_unavailable_title') : 'Cloud document has been deleted. Unlink local document to allow re-upload.'}
                               >
                                 <Link2Off size={10} />
                                 Unlink

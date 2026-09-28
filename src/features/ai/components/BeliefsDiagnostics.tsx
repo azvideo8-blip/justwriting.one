@@ -3,8 +3,10 @@ import { AIConsolidationService, type AIBelief, type RejectedBeliefRecord } from
 import { Button } from '../../../shared/components/Button';
 import { cn } from '../../../core/utils/utils';
 import { Brain, CheckCircle, AlertTriangle, RefreshCw, Trash2, ShieldAlert, History } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n';
 
 export function BeliefsDiagnostics() {
+  const { t } = useLanguage();
   const [beliefs, setBeliefs] = useState<AIBelief[]>([]);
   const [rejections, setRejections] = useState<RejectedBeliefRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,7 @@ export function BeliefsDiagnostics() {
       setBeliefs(pubBeliefs);
       setRejections(rejRecords);
     } catch {
-      setError('Не удалось загрузить данные. Возможно, ошибка доступа к IndexedDB.');
+      setError(t('admin_beliefs_load_error'));
     } finally {
       setLoading(false);
     }
@@ -58,10 +60,10 @@ export function BeliefsDiagnostics() {
         <div>
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-accent-main" />
-            <h3 className="text-sm font-bold text-text-main">MIND W3 Consolidation & AI Judge Diagnostics</h3>
+            <h3 className="text-sm font-bold text-text-main">{t('admin_beliefs_diag_title')}</h3>
           </div>
           <p className="text-xs text-text-main/60 mt-1">
-            Мониторинг консолидации эпизодической памяти в семантические убеждения, точность AI-Судьи и отбраковка искажений.
+            {t('admin_beliefs_diag_desc')}
           </p>
         </div>
 
@@ -71,14 +73,14 @@ export function BeliefsDiagnostics() {
             className="px-3 py-1.5 rounded-xl text-xs font-medium bg-surface-base/60 text-text-main border border-border-subtle flex items-center gap-1.5"
           >
             <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
-            Обновить
+            {t('admin_refresh')}
           </Button>
           <Button
             onClick={() => void handleClearRejections()}
             className="px-3 py-1.5 rounded-xl text-xs font-medium bg-status-error/10 text-status-error border border-status-error/20 flex items-center gap-1.5"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Очистить лог отклонений
+            {t('admin_beliefs_clear_log')}
           </Button>
         </div>
       </div>
@@ -93,29 +95,29 @@ export function BeliefsDiagnostics() {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
-          <span className="text-xs font-medium text-text-main/60">Опубликовано убеждений</span>
+          <span className="text-xs font-medium text-text-main/60">{t('admin_beliefs_kpi_published')}</span>
           <div className="text-xl font-bold text-status-success">{publishedCount}</div>
-          <div className="text-[10px] text-text-main/50">Прошли валидацию AI-Судьи</div>
+          <div className="text-[10px] text-text-main/50">{t('admin_beliefs_kpi_passed_judge')}</div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
-          <span className="text-xs font-medium text-text-main/60">Отклонено судьёй</span>
+          <span className="text-xs font-medium text-text-main/60">{t('admin_beliefs_kpi_rejected')}</span>
           <div className="text-xl font-bold text-status-error">{judgeRejectedCount}</div>
           <div className="text-[10px] text-text-main/50">
-            Заблокировано искажений{evaluationFailedCount > 0 ? ` · ${evaluationFailedCount} без вердикта (сбой)` : ''}
+            {t('admin_beliefs_kpi_blocked_distortions')}{evaluationFailedCount > 0 ? t('admin_beliefs_kpi_no_verdict', { count: evaluationFailedCount }) : ''}
           </div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
-          <span className="text-xs font-medium text-text-main/60">Доля отбраковки (Reject Rate)</span>
+          <span className="text-xs font-medium text-text-main/60">{t('admin_beliefs_kpi_reject_rate')}</span>
           <div className="text-xl font-bold text-text-main">{rejectRate.toFixed(1)}%</div>
-          <div className="text-[10px] text-text-main/50">Ожидаемый диапазон: 5% – 40%</div>
+          <div className="text-[10px] text-text-main/50">{t('admin_beliefs_kpi_expected_reject')}</div>
         </div>
 
         <div className="p-4 bg-surface-card/40 border border-border-subtle rounded-2xl space-y-1">
-          <span className="text-xs font-medium text-text-main/60">Доля исправлений (Rewrite Share)</span>
+          <span className="text-xs font-medium text-text-main/60">{t('admin_beliefs_kpi_rewrite_share')}</span>
           <div className="text-xl font-bold text-text-main">{rewriteShare.toFixed(1)}%</div>
-          <div className="text-[10px] text-text-main/50">PASSED: {passedDirectCount} | REWRITTEN: {rewrittenPassedCount}</div>
+          <div className="text-[10px] text-text-main/50">{t('admin_beliefs_kpi_passed_rewritten', { passed: passedDirectCount, rewritten: rewrittenPassedCount })}</div>
         </div>
       </div>
 
@@ -138,10 +140,10 @@ export function BeliefsDiagnostics() {
           )}
           <span>
             {totalEvaluated === 0
-              ? "Нет данных о консолидации. Запустите фоновый проход для оценки."
+              ? t('admin_beliefs_status_no_data')
               : (rejectRate > 50 || (publishedCount > 5 && rewriteShare > 75))
-                ? "Внимание: слишком высокая доля отбраковки или исправлений. Промпт первичной суммаризации требует калибровки."
-                : "Калибровка AI-Судьи в норме: устойчивые убеждения публикуются, искажения отфильтровываются."}
+                ? t('admin_beliefs_status_warn')
+                : t('admin_beliefs_status_ok')}
           </span>
         </div>
       </div>
@@ -151,13 +153,13 @@ export function BeliefsDiagnostics() {
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-status-error" />
           <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">
-            Журнал отклонений AI-Судьи ({rejections.length})
+            {t('admin_beliefs_rejections_title', { count: rejections.length })}
           </h4>
         </div>
 
         {rejections.length === 0 ? (
           <div className="text-xs text-text-main/50 py-4 text-center">
-            Лог отклонений пуст. Отклоненных искажений пока не зафиксировано.
+            {t('admin_beliefs_rejections_empty')}
           </div>
         ) : (
           <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
@@ -183,12 +185,12 @@ export function BeliefsDiagnostics() {
                 </div>
 
                 <div className="p-2 bg-status-error/5 border border-status-error/10 rounded-lg text-[11px] text-status-error">
-                  <strong>Причина отбраковки:</strong> {rej.reason}
+                  <strong>{t('admin_beliefs_rejection_reason')}</strong> {rej.reason}
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] text-text-main/50">
-                  <span>Кластер: {rej.clusterSize} фрагм. | Впервые: {rej.firstSeenAt}</span>
-                  <span>Юниты: {rej.unitIds.join(', ')}</span>
+                  <span>{t('admin_beliefs_cluster_meta', { size: rej.clusterSize, firstSeen: rej.firstSeenAt })}</span>
+                  <span>{t('admin_beliefs_units_meta', { units: rej.unitIds.join(', ') })}</span>
                 </div>
               </div>
             ))}
@@ -201,13 +203,13 @@ export function BeliefsDiagnostics() {
         <div className="flex items-center gap-2">
           <Brain className="w-4 h-4 text-status-success" />
           <h4 className="text-xs font-bold text-text-main uppercase tracking-wider">
-            Опубликованные убеждения (`aiBeliefs` — Read Only) ({beliefs.length})
+            {t('admin_beliefs_published_title', { count: beliefs.length })}
           </h4>
         </div>
 
         {beliefs.length === 0 ? (
           <div className="text-xs text-text-main/50 py-4 text-center">
-            Опубликованных семантических убеждений пока нет.
+            {t('admin_beliefs_published_empty')}
           </div>
         ) : (
           <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
@@ -225,7 +227,7 @@ export function BeliefsDiagnostics() {
                       {b.judgeVerdict}
                     </span>
                   </div>
-                  <span className="text-text-main/50">Первое упоминание: {b.firstSeenAt}</span>
+                  <span className="text-text-main/50">{t('admin_beliefs_first_seen', { date: b.firstSeenAt })}</span>
                 </div>
 
                 <div className="text-text-main font-semibold text-sm">
@@ -234,13 +236,13 @@ export function BeliefsDiagnostics() {
 
                 {b.judgeReason && (
                   <div className="text-[11px] text-text-main/70 bg-surface-card/60 p-2 rounded-lg border border-border-subtle">
-                    <strong>Вердикт Судьи:</strong> {b.judgeReason}
+                    <strong>{t('admin_beliefs_judge_verdict')}</strong> {b.judgeReason}
                   </div>
                 )}
 
                 {/* Evidence List */}
                 <div className="space-y-1.5 pt-1">
-                  <span className="text-[10px] font-bold text-text-main/60 uppercase">Доказательства (Evidence):</span>
+                  <span className="text-[10px] font-bold text-text-main/60 uppercase">{t('admin_beliefs_evidence_title')}</span>
                   <div className="space-y-1">
                     {b.evidence.map(ev => (
                       <div key={ev.id} className="p-2 bg-surface-card/40 rounded-lg text-[11px] border border-border-subtle flex flex-col gap-0.5">
