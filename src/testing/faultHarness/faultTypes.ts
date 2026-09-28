@@ -28,7 +28,8 @@ export type LifecycleSequence =
   | 'seq7_sign_out_erase_restore'
   | 'seq8_guest_signup_migrate_sync'
   | 'seq9_enable_encryption_sync_restore'
-  | 'seq10_delete_account';
+  | 'seq10_delete_account'
+  | 'seq11_reconcile_edit_no_task';
 
 export type StepName =
   | 'initial_write'

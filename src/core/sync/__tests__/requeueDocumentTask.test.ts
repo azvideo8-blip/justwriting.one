@@ -8,17 +8,20 @@ import { requeueDocumentTask } from '../requeueDocumentTask';
 describe('R3-6: requeueing keeps the task history', () => {
   beforeEach(async () => { await (await getLocalDb('u')).clear('syncQueue'); });
 
-  it('keeps attempts, dead and lastError of an existing task', async () => {
+  it('resets attempts, dead, drops lastError and updates updatedAt while keeping createdAt', async () => {
     const db = await getLocalDb('u');
     await db.put('syncQueue', { id: 'sync_d1', documentId: 'd1', type: 'document', createdAt: 1, ownerId: 'u', attempts: 7, dead: true, lastError: 'SYNC_UNRESOLVED' });
     await requeueDocumentTask('d1', 'u');
-    expect(await db.get('syncQueue', 'sync_d1')).toMatchObject({ attempts: 7, dead: true, lastError: 'SYNC_UNRESOLVED', createdAt: 1 });
+    const task = await db.get('syncQueue', 'sync_d1');
+    expect(task).toMatchObject({ attempts: 0, dead: false, createdAt: 1 });
+    expect(task?.lastError).toBeUndefined();
+    expect(task?.updatedAt).toBeTypeOf('number');
   });
 
   it('creates a fresh task when there is none', async () => {
     await requeueDocumentTask('d2', 'u');
     const task = await (await getLocalDb('u')).get('syncQueue', 'sync_d2');
     expect(task).toMatchObject({ documentId: 'd2', type: 'document', ownerId: 'u' });
-    expect(task?.attempts).toBeUndefined();
+    expect(task?.attempts).toBe(0);
   });
 });

@@ -11,6 +11,7 @@ import { StorageService } from '../StorageService';
 import { CloudSyncService } from '../CloudSyncService';
 import { setEncryptionEnabled, setProfileLoaded } from '../../crypto/cryptoHelpers';
 import { addToSyncQueue } from '../syncQueueOps';
+import { requeueDocumentTask } from '../../sync/requeueDocumentTask';
 
 const USER = 'user_inflight_save';
 
@@ -71,6 +72,33 @@ describe('SB-1 — сохранение во время выгрузки', () =>
 
     const db = await getLocalDb(USER);
     expect(await db.get('syncQueue', 'sync_d_inflight')).toBeDefined();
+    expect(res.drained).toBe(0);
+  });
+
+  it('A-2.1: задача, переставленная через requeueDocumentTask во время выгрузки, остаётся в очереди', async () => {
+    await seedDoc('d_requeue_inflight');
+    await addToSyncQueue('d_requeue_inflight', USER);
+    vi.spyOn(CloudSyncService, 'relinkOrphanedDocuments').mockResolvedValue({ relinked: 0, skippedIds: [] });
+
+    let release: () => void = () => {};
+    const inFlight = new Promise<void>(resolve => { release = resolve; });
+    const started = vi.fn();
+    vi.spyOn(StorageService, 'addCloudCopy').mockImplementation(async () => {
+      started();
+      await inFlight;
+      return 'cloud_requeue_inflight';
+    });
+
+    const draining = SyncService.syncPending(USER, { force: true });
+    await vi.waitFor(() => expect(started).toHaveBeenCalled());
+
+    // Requeue happens during flight
+    await requeueDocumentTask('d_requeue_inflight', USER);
+    release();
+    const res = await draining;
+
+    const db = await getLocalDb(USER);
+    expect(await db.get('syncQueue', 'sync_d_requeue_inflight')).toBeDefined();
     expect(res.drained).toBe(0);
   });
 });

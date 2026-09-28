@@ -515,6 +515,14 @@ async function _drainPendingQueue(userId: string): Promise<SyncPendingResult> {
       // Вызывающий не должен падать на форме ответа — TypeError здесь оставил
       // бы очередь недренированной, а документ незагруженным.
       skippedSet = new Set(relinkRes?.skippedIds ?? []);
+      if ((relinkRes?.relinked ?? 0) > 0) {
+        const currentQueue = await db.getAll('syncQueue');
+        for (const item of currentQueue) {
+          if (snapshot.has(item.id)) {
+            snapshot.set(item.id, item);
+          }
+        }
+      }
     } catch (e) {
       logger.error('drainPendingQueue', 'Skipping uploads: could not verify cloud links', { reason: String(e) });
       if (syncedIds.length > 0) await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);

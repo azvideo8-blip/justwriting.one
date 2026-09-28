@@ -1,25 +1,60 @@
 import { getLocalDb } from '../storage/localDb';
+import { matchRule } from './classifySyncError';
 
 /**
- * R3-6: поставить заметку в очередь выгрузки, НЕ сбрасывая счётчик попыток.
+ * A-2.1 / R3-6: перепостановка заметки в очередь выгрузки на новую правку.
  *
- * Раньше каждое место писало задачу заново — без attempts/dead/lastError, и
- * bumpAttempts всегда видел 1: MAX_ATTEMPTS не наступал, задача, которая не
- * выполнится никогда (нечитаемая облачная версия), крутилась вечно, а
- * withDocumentLock ещё и снимал карантин. Теперь существующая задача
- * сохраняет свою историю; новая создаётся как раньше.
+ * Сохраняет createdAt (жизненный цикл исходной постановки), но обновляет updatedAt
+ * (чтобы задача пережила снимок дренажа _clearQueueItemsIfUnchanged), сбрасывает
+ * dead: false, attempts: 0 и очищает lastError, давая новой правке свежий бюджет
+ * попыток.
  */
 export async function requeueDocumentTask(documentId: string, ownerId?: string | null): Promise<void> {
   const db = await getLocalDb(ownerId ?? undefined);
   const tx = db.transaction('syncQueue', 'readwrite');
   const id = `sync_${documentId}`;
   const existing = await tx.store.get(id);
+  const { lastError: _dropLastError, ...rest } = existing ?? {};
+  await tx.store.put({
+    ...rest,
+    id,
+    documentId,
+    type: 'document' as const,
+    createdAt: existing?.createdAt ?? Date.now(),
+    updatedAt: Date.now(),
+    dead: false,
+    attempts: 0,
+    ...(ownerId ? { ownerId } : existing?.ownerId ? { ownerId: existing.ownerId } : {}),
+  });
+  await tx.done;
+}
+
+/**
+ * A-2.2 (F-053): ставит задачу в очередь в статусе карантина (dead: true)
+ * с кодом ошибки из classifySyncError, чтобы ошибка отражалась в счетчиках
+ * и задача могла быть оживлена при разблокировке сейфа (reviveLockedTasks).
+ */
+export async function quarantineDocumentTask(
+  documentId: string,
+  ownerId: string | null | undefined,
+  error: unknown,
+): Promise<void> {
+  const db = await getLocalDb(ownerId ?? undefined);
+  const tx = db.transaction('syncQueue', 'readwrite');
+  const id = `sync_${documentId}`;
+  const existing = await tx.store.get(id);
+  const rule = matchRule(error);
+  const lastError = rule?.code ?? (error instanceof Error ? error.message : String(error ?? 'UNKNOWN_ERROR'));
   await tx.store.put({
     ...(existing ?? {}),
     id,
     documentId,
     type: 'document' as const,
     createdAt: existing?.createdAt ?? Date.now(),
+    updatedAt: Date.now(),
+    dead: true,
+    lastError,
+    attempts: existing?.attempts ?? 1,
     ...(ownerId ? { ownerId } : existing?.ownerId ? { ownerId: existing.ownerId } : {}),
   });
   await tx.done;

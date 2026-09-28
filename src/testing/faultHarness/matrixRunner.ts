@@ -65,6 +65,9 @@ export class MatrixRunner {
       case 'seq10_delete_account':
         res = await this.runner.runSeq10_DeleteAccount(fault, step);
         break;
+      case 'seq11_reconcile_edit_no_task':
+        res = await this.runner.runSeq11_ReconcileEditNoTask(fault, step);
+        break;
     }
     res.vaultEnabled = vaultEnabled ?? this.runner.vaultEnabled;
     return res;
@@ -134,6 +137,9 @@ export class MatrixRunner {
       // Sequence 10: delete account
       { seq: 'seq10_delete_account', fault: 'none', step: 'delete_account' },
       { seq: 'seq10_delete_account', fault: 'network_pre', step: 'delete_account' },
+
+      // Sequence 11: reconcile while an edit has no task (A-2.3)
+      { seq: 'seq11_reconcile_edit_no_task', fault: 'none', step: 'sync_cloud' },
     ];
 
     for (const item of scenarios) {

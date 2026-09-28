@@ -4,6 +4,7 @@ import { SyncService } from '../SyncService';
 import { CloudSyncService } from '../CloudSyncService';
 import { DocumentService } from '../DocumentService';
 import { LocalVersionService } from '../LocalVersionService';
+import { LocalStorageService } from '../LocalStorageService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { VersionService } from '../VersionService';
 import { getLocalDb } from '../../storage/localDb';
@@ -212,9 +213,9 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     const result1 = await SyncService.reconcileLinkedDocuments(userId);
     expect(result1).toEqual({ reconciled: 1, skipped: 0, failed: 0 });
 
-    // Content on screen / document currentVersion is UNTOUCHED
+    // Content on screen is preserved, currentVersion is raised to nextVersionNo (A-2.4)
     const docAfter1 = await db.get('documents', localDocId);
-    expect(docAfter1?.currentVersion).toBe(1);
+    expect(docAfter1?.currentVersion).toBe(2);
     expect(docAfter1?.title).toBe('Local In-Progress Title');
 
     // Exactly one activity log entry logged
@@ -309,9 +310,9 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     const result = await SyncService.reconcileLinkedDocuments(userId);
     expect(result).toEqual({ reconciled: 1, skipped: 0, failed: 0 });
 
-    // Document currentVersion must NOT fast forward (it must protect what is on screen)
+    // Document currentVersion is raised to nextVersionNo (A-2.4), title and on-screen content preserved
     const docAfter = await db.get('documents', localDocId);
-    expect(docAfter?.currentVersion).toBe(1);
+    expect(docAfter?.currentVersion).toBe(2);
     expect(docAfter?.title).toBe('Current Note In Editor');
 
     // But the remote change was saved to version history so it is not lost
@@ -504,5 +505,224 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     } as any]);
     await SyncService.reconcileLinkedDocuments(userId);
     expect((await db.get('documents', localDocId))?.trashedAt).toBeUndefined();
+  });
+
+  it('A-2.3: getAll(syncQueue) throws -> no local note changes and failed count bumped', async () => {
+    const db = await getLocalDb(userId);
+    await db.put('documents', {
+      id: localDocId,
+      guestId: userId,
+      title: 'Original Title',
+      currentVersion: 1,
+      totalWords: 10,
+      totalDuration: 100,
+      sessionsCount: 1,
+      firstSessionAt: 1000,
+      lastSessionAt: 1000,
+      tags: ['draft'],
+      linkedCloudId: cloudDocId,
+      lastSyncedCloudVersion: 1,
+      lastSeenCloudUpdatedAt: '2026-09-19T10:00:00.000Z',
+    });
+
+    const origGetAll = db.getAll.bind(db);
+    vi.spyOn(db, 'getAll').mockImplementation((storeName: string, ...args: unknown[]) => {
+      if (storeName === 'syncQueue') {
+        return Promise.reject(new Error('IDB syncQueue read error'));
+      }
+      return origGetAll(storeName as never, ...(args as [never]));
+    });
+
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{
+      id: cloudDocId,
+      title: 'Cloud Newer Title',
+      currentVersion: 2,
+      updatedAt: new Date('2026-09-20T10:00:00.000Z'),
+    } as any]);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{
+      id: 'ver_c2',
+      version: 2,
+      content: 'Cloud 2 text',
+      wordCount: 20,
+      duration: 200,
+      wpm: 20,
+      sessionStartedAt: new Date('2026-09-20T10:00:00.000Z'),
+    }] as any);
+
+    const res = await SyncService.reconcileLinkedDocuments(userId);
+    expect(res.failed).toBeGreaterThanOrEqual(1);
+
+    const docAfter = await (await getLocalDb(userId)).get('documents', localDocId);
+    expect(docAfter?.title).toBe('Original Title');
+    expect(docAfter?.currentVersion).toBe(1);
+  });
+
+  it('A-2.3: note with currentVersion 5, lastSyncedCloudVersion 4, no task, cloud at 6 -> counters not set to 6, task exists', async () => {
+    const db = await getLocalDb(userId);
+    await db.put('documents', {
+      id: localDocId,
+      guestId: userId,
+      title: 'Local Title v5',
+      currentVersion: 5,
+      totalWords: 50,
+      totalDuration: 500,
+      sessionsCount: 5,
+      firstSessionAt: 1000,
+      lastSessionAt: 5000,
+      tags: [],
+      linkedCloudId: cloudDocId,
+      lastSyncedCloudVersion: 4,
+      lastSeenCloudUpdatedAt: '2026-09-19T10:00:00.000Z',
+    });
+    await db.clear('syncQueue');
+
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{
+      id: cloudDocId,
+      title: 'Cloud Title v6',
+      currentVersion: 6,
+      updatedAt: new Date('2026-09-20T10:00:00.000Z'),
+    } as any]);
+
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{
+      id: 'ver_c6',
+      version: 6,
+      content: 'Cloud 6 text',
+      wordCount: 60,
+      duration: 600,
+      wpm: 20,
+      sessionStartedAt: new Date('2026-09-20T10:00:00.000Z'),
+    }] as any);
+
+    await SyncService.reconcileLinkedDocuments(userId);
+
+    const docAfter = await db.get('documents', localDocId);
+    expect(docAfter?.currentVersion).not.toBe(6);
+    expect(docAfter?.lastSyncedCloudVersion).not.toBe(6);
+
+    const task = await db.get('syncQueue', `sync_${localDocId}`);
+    expect(task).toBeDefined();
+  });
+
+  it('A-2.3: task created between snapshot and lock -> pending branch is taken', async () => {
+    const db = await getLocalDb(userId);
+    await db.put('documents', {
+      id: localDocId,
+      guestId: userId,
+      title: 'Local Title',
+      currentVersion: 2,
+      totalWords: 20,
+      totalDuration: 200,
+      sessionsCount: 2,
+      firstSessionAt: 1000,
+      lastSessionAt: 2000,
+      tags: [],
+      linkedCloudId: cloudDocId,
+      lastSyncedCloudVersion: 2,
+      lastSeenCloudUpdatedAt: '2026-09-19T10:00:00.000Z',
+    });
+    await db.clear('syncQueue');
+
+    vi.spyOn(DocumentService, 'getUserDocuments').mockImplementation(async () => {
+      const localDb = await getLocalDb(userId);
+      await localDb.put('syncQueue', {
+        id: `sync_${localDocId}`,
+        documentId: localDocId,
+        type: 'document',
+        createdAt: Date.now(),
+        ownerId: userId,
+      });
+      return [{
+        id: cloudDocId,
+        title: 'Cloud Title v3',
+        currentVersion: 3,
+        updatedAt: new Date('2026-09-20T10:00:00.000Z'),
+      } as any];
+    });
+
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{
+      id: 'ver_c3',
+      version: 3,
+      content: 'Cloud 3 text',
+      wordCount: 30,
+      duration: 300,
+      wpm: 20,
+      sessionStartedAt: new Date('2026-09-20T10:00:00.000Z'),
+    }] as any);
+
+    await SyncService.reconcileLinkedDocuments(userId);
+
+    const docAfter = await db.get('documents', localDocId);
+    expect(docAfter?.lastSyncedCloudVersion).toBe(2);
+  });
+
+  it('A-2.4: pending branch runs, then local save -> versions have different numbers', async () => {
+    const db = await getLocalDb(userId);
+    await db.put('documents', {
+      id: localDocId,
+      guestId: userId,
+      title: 'Local Doc',
+      currentVersion: 1,
+      totalWords: 10,
+      totalDuration: 10,
+      sessionsCount: 1,
+      firstSessionAt: 1000,
+      lastSessionAt: 1000,
+      tags: [],
+      linkedCloudId: cloudDocId,
+      lastSyncedCloudVersion: 1,
+      lastSeenCloudUpdatedAt: '2026-09-19T10:00:00.000Z',
+    });
+    await db.put('versions', {
+      id: 'ver_loc_1',
+      documentId: localDocId,
+      guestId: userId,
+      version: 1,
+      content: 'Initial v1',
+      wordCount: 2,
+      duration: 10,
+      wpm: 20,
+      sessionStartedAt: 1000,
+    } as never);
+    await db.put('syncQueue', {
+      id: `sync_${localDocId}`,
+      documentId: localDocId,
+      type: 'document',
+      createdAt: Date.now(),
+      ownerId: userId,
+    });
+
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{
+      id: cloudDocId,
+      title: 'Cloud Doc',
+      currentVersion: 2,
+      updatedAt: new Date('2026-09-20T10:00:00.000Z'),
+    } as any]);
+
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{
+      id: 'ver_c2',
+      version: 2,
+      content: 'Cloud v2 text',
+      wordCount: 3,
+      duration: 10,
+      wpm: 20,
+      sessionStartedAt: new Date('2026-09-20T10:00:00.000Z'),
+    }] as any);
+
+    await SyncService.reconcileLinkedDocuments(userId);
+
+    await LocalStorageService.saveVersionToLocal(db, localDocId, {
+      title: 'Local Doc',
+      content: 'Next local edit',
+      wordCount: 5,
+      duration: 20,
+      wpm: 30,
+      tags: [],
+      sessionStartedAt: new Date(),
+    }, Date.now());
+
+    const allVersions = await db.getAllFromIndex('versions', 'by-document', localDocId);
+    const versionNumbers = allVersions.map(v => v.version);
+    expect(new Set(versionNumbers).size).toBe(versionNumbers.length);
+    expect(versionNumbers.sort((a, b) => a - b)).toEqual([1, 2, 3]);
   });
 });

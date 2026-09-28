@@ -1583,4 +1583,114 @@ export class LifecycleRunner {
       faultFired: this.interceptor.getFaultFiredCount(),
     };
   }
+
+  // =========================================================================
+  // SEQUENCE 11: Reconcile while an edit has no task (A-2.3)
+  // =========================================================================
+  public async runSeq11_ReconcileEditNoTask(fault: FaultType, faultStep: StepName): Promise<MatrixCellResult> {
+    await this.setup();
+    this.interceptor.resetFaultFired();
+    const notes: string[] = [];
+
+    // 1. Local creates note and syncs v1
+    const localDocId = await LocalStorageService.createDocument(this.userId, {
+      title: 'Seq 11 Note',
+      tags: [],
+      firstSessionAt: 1000,
+      lastSessionAt: 1000,
+    });
+    await StorageService.saveVersion(this.userId, localDocId, {
+      title: 'Seq 11 Note',
+      content: 'Version 1 base content',
+      wordCount: 4,
+      duration: 30,
+      wpm: 10,
+      tags: [],
+      sessionStartedAt: new Date(1000),
+    });
+    const cloudId = await StorageService.addCloudCopy(this.userId, localDocId);
+
+    // 2. Cloud receives version 2 from another device
+    const cloudV2Text = 'Cloud version 2 content';
+    const cloudV2Payload = this.vaultEnabled
+      ? (await maybeEncrypt({ content: cloudV2Text }, ['content'], [], true)).content
+      : cloudV2Text;
+    this.interceptor.postgres.executeInsert('versions', {
+      document_uuid: cloudId,
+      user_id: this.userId,
+      version: 2,
+      content: cloudV2Payload as string,
+      word_count: 4,
+      duration: 30,
+      saved_at: new Date(2000).toISOString(),
+      session_started_at: new Date(2000).toISOString(),
+      _encrypted: this.vaultEnabled,
+    });
+    this.interceptor.postgres.executeUpdate(
+      'documents',
+      { current_version: 2, updated_at: new Date(2000).toISOString() },
+      [{ type: 'eq', column: 'uuid', value: cloudId }]
+    );
+
+    // 3. Local edit to version 2 (local edit whose task is lost/cleared)
+    const localV2Text = 'Local edit version 2 without task';
+    const db = await getLocalDb();
+    await LocalStorageService.saveVersionToLocal(db, localDocId, { // намеренно: результат локального сохранения v2 не проверяется в сценарии
+      title: 'Seq 11 Note',
+      content: localV2Text,
+      wordCount: 6,
+      duration: 20,
+      wpm: 15,
+      tags: [],
+      sessionStartedAt: new Date(2500),
+    }, 2500);
+
+    // Task is dropped/cleared from syncQueue
+    await db.clear('syncQueue');
+
+    // 4. Reconcile runs while the edit has no task
+    this.interceptor.setStep(faultStep);
+    let told: ToldState = { status: 'saved_local_queued', cloudSynced: false };
+    try {
+      await CloudSyncService.reconcileLinkedDocuments(this.userId);
+    } catch (e: unknown) {
+      told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
+      notes.push(`Error during reconcile: ${(e as Error).message}`);
+    }
+
+    const device = await this.inspectDevice(localDocId);
+    const postgres = this.inspectPostgres(cloudId);
+    const freshDoc = await db.get('documents', localDocId);
+
+    // P1: What a person writes locally is never lost!
+    // Reconcile must not overwrite local note counters from cloud without a task in queue to upload the local edit.
+    const hasTask = device.queueTasks.some(t => t.documentId === localDocId || t.id.includes(localDocId));
+    const p1Held = Boolean(hasTask && (freshDoc?.lastSyncedCloudVersion ?? 0) < (freshDoc?.currentVersion ?? 0));
+    if (!p1Held) {
+      notes.push('P1 VIOLATION (A-2.3): reconcile fast-forwarded note counters and dropped local edit without a task');
+    }
+
+    const p2Held = this.evaluateP2(
+      ['Seq 11 Note', 'Version 1 base content', localV2Text],
+      (postgres.documentExists && !postgres.deletedAt) || postgres.versionsCount > 0,
+      notes
+    );
+    const p3Held = this.evaluateP3(notes);
+    const p4Held = this.computeP4(p1Held, p2Held, p3Held, told, device, postgres);
+
+    return {
+      sequence: 'seq11_reconcile_edit_no_task',
+      fault,
+      step: faultStep,
+      told,
+      device,
+      postgres,
+      p1Held,
+      p2Held,
+      p3Held,
+      p4Held,
+      notes,
+      faultFired: this.interceptor.getFaultFiredCount(),
+    };
+  }
 }

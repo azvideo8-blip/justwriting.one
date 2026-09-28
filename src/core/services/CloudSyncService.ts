@@ -1,12 +1,12 @@
 import { DocumentService } from './DocumentService';
-import { requeueDocumentTask } from '../sync/requeueDocumentTask';
+import { requeueDocumentTask, quarantineDocumentTask } from '../sync/requeueDocumentTask';
 import { VersionService } from './VersionService';
 import { LocalStorageService } from './LocalStorageService';
 import { syncStatusOf } from '../sync/syncStatus';
 import { isPoisonSyncError } from '../sync/classifySyncError';
 import { LocalDocumentService } from './LocalDocumentService';
 import { LocalVersionService } from './LocalVersionService';
-import { getLocalDb, type LocalDocument } from '../storage/localDb';
+import { getLocalDb, type LocalDocument, randomUUID } from '../storage/localDb';
 import { Document } from '../../types';
 import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, DecryptionError, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
@@ -216,9 +216,8 @@ export const CloudSyncService = {
         }
       } catch (err) {
         reportError(err, { action: 'reconcileLinkedDocuments_syncQueue' });
+        return { reconciled: 0, skipped: 0, failed: 1 };
       }
-
-      const activeEditorDocId = opts?.getActiveDocumentId ? opts.getActiveDocumentId() : getActiveEditorDocumentId();
 
       const [localDocs, cloudDocs] = await Promise.all([
         LocalStorageService.getDocumentsByOwner(userId),
@@ -249,7 +248,33 @@ export const CloudSyncService = {
 
         try {
           await withDocumentLock(localDoc.id, async () => {
-            const isPending = pendingDocIds.has(localDoc.id) || (activeEditorDocId === localDoc.id);
+            const db = await getLocalDb(userId);
+            const fresh = await db.get('documents', localDoc.id);
+            if (!fresh) {
+              skipped++;
+              return;
+            }
+
+            const freshQueue = await db.getAll('syncQueue');
+            const docUuid = fresh.uuid;
+            const linkedCloudId = fresh.linkedCloudId;
+            const hasQueueTask = freshQueue.some(
+              t => !t.id.startsWith('lock_cloud_') && (
+                t.documentId === localDoc.id ||
+                (Boolean(docUuid) && t.documentId === docUuid) ||
+                (Boolean(linkedCloudId) && t.documentId === linkedCloudId)
+              )
+            );
+
+            const activeEditorDocId = opts?.getActiveDocumentId ? opts.getActiveDocumentId() : getActiveEditorDocumentId();
+            const hasUnsyncedEdits = fresh.lastSyncedCloudVersion !== undefined &&
+              (fresh.currentVersion ?? 0) > fresh.lastSyncedCloudVersion;
+
+            const isPending = hasQueueTask || (activeEditorDocId === localDoc.id) || hasUnsyncedEdits;
+
+            if (hasUnsyncedEdits) {
+              await requeueDocumentTask(localDoc.id, userId);
+            }
 
             const cloudVersions = await VersionService.getVersions(userId, localDoc.linkedCloudId!);
             if (!cloudVersions.length) {
@@ -279,20 +304,40 @@ export const CloudSyncService = {
                 const localVersions = await LocalVersionService.getVersions(localDoc.id, userId);
                 const nextVersionNo = Math.max(...localVersions.map(v => v.version), 0) + 1;
 
-                await LocalVersionService.addVersion(userId, localDoc.id, {
+                const tx = db.transaction(['documents', 'versions'], 'readwrite');
+                const docStore = tx.objectStore('documents');
+                const verStore = tx.objectStore('versions');
+
+                const cur = await docStore.get(localDoc.id);
+                const verId = 'ver_' + randomUUID();
+
+                await verStore.put({
+                  id: verId,
+                  documentId: localDoc.id,
+                  guestId: userId,
+                  version: nextVersionNo,
                   content: plainContent,
-                  previousContent: '',
                   wordCount: latestCloudVer.wordCount ?? 0,
+                  wordsAdded: 0,
+                  charsAdded: 0,
                   duration: latestCloudVer.duration ?? 0,
                   wpm: latestCloudVer.wpm ?? 0,
-                  versionNumber: nextVersionNo,
                   goalWords: latestCloudVer.goalWords,
                   goalTime: latestCloudVer.goalTime,
-                  goalReached: latestCloudVer.goalReached,
-                  sessionStartedAt: latestCloudVer.sessionStartedAt ? toDate(latestCloudVer.sessionStartedAt) ?? new Date() : new Date(),
-                  savedAt: latestCloudVer.savedAt ? toDate(latestCloudVer.savedAt) ?? undefined : undefined,
+                  goalReached: latestCloudVer.goalReached ?? false,
+                  sessionStartedAt: latestCloudVer.sessionStartedAt ? toDate(latestCloudVer.sessionStartedAt)?.getTime() ?? Date.now() : Date.now(),
+                  savedAt: latestCloudVer.savedAt ? toDate(latestCloudVer.savedAt)?.getTime() ?? Date.now() : Date.now(),
                   mood: plainMood,
                 });
+
+                if (cur) {
+                  await docStore.put({
+                    ...cur,
+                    currentVersion: nextVersionNo,
+                    lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
+                  });
+                }
+                await tx.done;
 
                 useActivityLogStore.getState().addActivity(
                   'activity_cloud_remote_edit',
@@ -301,14 +346,6 @@ export const CloudSyncService = {
                   'sync',
                 );
 
-                const db = await getLocalDb(userId);
-                const cur = await db.get('documents', localDoc.id);
-                if (cur) {
-                  await db.put('documents', {
-                    ...cur,
-                    lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
-                  });
-                }
                 reconciled++;
               }
             } else {
@@ -1316,6 +1353,12 @@ export const CloudSyncService = {
           await requeueDocumentTask(documentId, userId);
         } catch (queueErr) {
           reportError(queueErr, { action: 'syncVersionToCloud_queueSync', documentId });
+        }
+      } else {
+        try {
+          await quarantineDocumentTask(documentId, userId, e);
+        } catch (queueErr) {
+          reportError(queueErr, { action: 'syncVersionToCloud_quarantineTask', documentId });
         }
       }
       return { forked: false, cloudSynced: false };
