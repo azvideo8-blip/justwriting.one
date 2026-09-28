@@ -12,13 +12,15 @@ import { activityTranslations } from './translations/activity';
 import { Language, Translations } from './types';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 
+import { reportError } from '../errors/reportError';
+
 export type { Language, Translations };
 
 // DEBT-1 (#55): index-чанк не влезал в бюджет (806 933 при пороге 810 000).
 // Переводы второстепенных пространств имён (~35 КБ минифицированного кода)
 // вынесены в отдельные чанки: они догружаются параллельно при старте и
 // доливаются в тот же объект до первого рендера детей провайдера. Ядро
-// (common/writing/auth) остаётся eager — оно нужно первому экрану.
+// (common/writing/auth/ai) остаётся eager — оно нужно первому экрану.
 export const translations: Translations = {
   ...commonTranslations,
   ...writingTranslations,
@@ -26,19 +28,135 @@ export const translations: Translations = {
   ...aiTranslations,
 };
 
-const lazyNamespaces: Promise<void> = Promise.all([
-  import('./translations/settings').then(m => { Object.assign(translations, m.settingsTranslations); }),
-  import('./translations/archive').then(m => { Object.assign(translations, m.archiveTranslations); }),
-  import('./translations/profile').then(m => { Object.assign(translations, m.profileTranslations); }),
-  import('./translations/lifelog').then(m => { Object.assign(translations, m.lifelogTranslations); }),
-  import('./translations/admin').then(m => { Object.assign(translations, m.adminTranslations); }),
-  import('./translations/activity').then(m => { Object.assign(translations, m.activityTranslations); }),
-]).then(() => undefined);
+export type NamespaceLoader = () => Promise<Translations>;
 
-/** Резолвится, когда все переводы на месте. Провайдер ждёт его до рендера,
- * чтобы t() никогда не вернул ключ вместо строки из-за гонки с чанками. */
+export interface LazyNamespaceDef {
+  name: string;
+  load: NamespaceLoader;
+}
+
+export const LAZY_NAMESPACES: LazyNamespaceDef[] = [
+  { name: 'settings', load: () => import('./translations/settings').then(m => m.settingsTranslations) },
+  { name: 'archive', load: () => import('./translations/archive').then(m => m.archiveTranslations) },
+  { name: 'profile', load: () => import('./translations/profile').then(m => m.profileTranslations) },
+  { name: 'lifelog', load: () => import('./translations/lifelog').then(m => m.lifelogTranslations) },
+  { name: 'admin', load: () => import('./translations/admin').then(m => m.adminTranslations) },
+  { name: 'activity', load: () => import('./translations/activity').then(m => m.activityTranslations) },
+];
+
+const loadedNamespaces = new Set<string>();
+const failedNamespaces = new Map<string, { def: LazyNamespaceDef; attempts: number }>();
+const reportedNamespaces = new Set<string>();
+const updateListeners = new Set<() => void>();
+
+export function subscribeToTranslationUpdates(listener: () => void): () => void {
+  updateListeners.add(listener);
+  return () => { updateListeners.delete(listener); };
+}
+
+function notifyTranslationUpdates() {
+  updateListeners.forEach(l => l());
+}
+
+async function loadSingleNamespace(def: LazyNamespaceDef): Promise<boolean> {
+  try {
+    const data = await def.load();
+    Object.assign(translations, data);
+    loadedNamespaces.add(def.name);
+    failedNamespaces.delete(def.name);
+    notifyTranslationUpdates();
+    return true;
+  } catch (err) {
+    if (!reportedNamespaces.has(def.name)) {
+      reportedNamespaces.add(def.name);
+      reportError(err, { action: `[i18n] Failed to load namespace chunk "${def.name}"` });
+    }
+    const current = failedNamespaces.get(def.name);
+    failedNamespaces.set(def.name, {
+      def,
+      attempts: (current?.attempts ?? 0) + 1,
+    });
+    return false;
+  }
+}
+
+async function retryFailedNamespace(name: string) {
+  const item = failedNamespaces.get(name);
+  if (!item || loadedNamespaces.has(name)) return;
+
+  const maxAttempts = 3;
+  while (item.attempts < maxAttempts) {
+    const backoffMs = Math.min(1000 * Math.pow(2, item.attempts - 1), 5000);
+    await new Promise(resolve => setTimeout(resolve, backoffMs));
+    if (loadedNamespaces.has(name)) return;
+    const ok = await loadSingleNamespace(item.def);
+    if (ok) return;
+  }
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('online', () => {
+    for (const [name, item] of failedNamespaces.entries()) {
+      if (!loadedNamespaces.has(name)) {
+        item.attempts = 0;
+        void loadSingleNamespace(item.def).then(ok => {
+          if (!ok) void retryFailedNamespace(name);
+        });
+      }
+    }
+  });
+}
+
+let _readyPromise: Promise<void> | null = null;
+
+export function initLazyNamespaces(namespaces: LazyNamespaceDef[] = LAZY_NAMESPACES): Promise<void> {
+  const promises = namespaces.map(async def => {
+    const ok = await loadSingleNamespace(def);
+    if (!ok) {
+      void retryFailedNamespace(def.name);
+    }
+  });
+  _readyPromise = Promise.allSettled(promises).then(() => undefined);
+  return _readyPromise;
+}
+
+if (!import.meta.env.VITEST) {
+  _readyPromise = initLazyNamespaces();
+}
+
+/** Резолвится, когда все переводы на месте либо завершились ошибкой.
+ * Провайдер ждёт его до рендера, но при ошибке чанка рендерит ядро переводов. */
 export function whenTranslationsReady(): Promise<void> {
-  return lazyNamespaces;
+  if (!_readyPromise) {
+    _readyPromise = initLazyNamespaces();
+  }
+  return _readyPromise;
+}
+
+let _forceAsyncReadyForTesting = false;
+export function _setForceAsyncReadyForTesting(val: boolean) {
+  _forceAsyncReadyForTesting = val;
+}
+
+export function _resetTranslationsForTesting(customNamespaces?: LazyNamespaceDef[]): Promise<void> | undefined {
+  for (const k of Object.keys(translations)) {
+    if (!(k in commonTranslations) && !(k in writingTranslations) && !(k in authTranslations) && !(k in aiTranslations)) {
+      delete translations[k];
+    }
+  }
+  loadedNamespaces.clear();
+  failedNamespaces.clear();
+  reportedNamespaces.clear();
+  _readyPromise = null;
+  if (customNamespaces) {
+    return initLazyNamespaces(customNamespaces);
+  }
+}
+
+export function _retryNamespaceForTesting(name: string): Promise<boolean> {
+  const item = failedNamespaces.get(name);
+  if (!item) return Promise.resolve(false);
+  return loadSingleNamespace(item.def);
 }
 
 // В тестах переводы нужны синхронно: компонентные тесты рендерят провайдер
@@ -80,7 +198,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.APP_LANGUAGE, lang);
   }, []);
 
+  const [transVersion, setTransVersion] = useState(0);
+
+  React.useEffect(() => {
+    return subscribeToTranslationUpdates(() => {
+      setTransVersion(v => v + 1);
+    });
+  }, []);
+
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
+    void transVersion;
     if (import.meta.env.DEV && !(key in translations) && !_missingKeyWarned.has(key)) {
       if (_missingKeyWarned.size < MAX_MISSING_KEYS) _missingKeyWarned.add(key);
       console.warn(`[i18n] Missing translation key: "${key}"`);
@@ -92,9 +219,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       });
     }
     return str;
-  }, [language]);
+  }, [language, transVersion]);
 
   const tp = useCallback((key: string, count: number): string => {
+    void transVersion;
     const getPluralSuffix = (n: number, lang: Language): string => {
       if (lang === 'ru') {
         const mod10 = n % 10;
@@ -115,16 +243,18 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       ?? translations[key]?.[language] 
       ?? key;
     return str.replace('{count}', () => String(count));
-  }, [language]);
+  }, [language, transVersion]);
 
 
   const tpFn = useCallback((key: string, count: number) => tp(key, count), [tp]);
 
-  const [ready, setReady] = useState(import.meta.env.VITEST);
+  const [ready, setReady] = useState(() => Boolean(import.meta.env.VITEST && !_forceAsyncReadyForTesting));
 
   React.useEffect(() => {
     let cancelled = false;
-    whenTranslationsReady().then(() => { if (!cancelled) setReady(true); }).catch(() => { /* чанк не догрузился — останемся на ядре переводов */ });
+    void whenTranslationsReady().then(() => {
+      if (!cancelled) setReady(true);
+    });
     return () => { cancelled = true; };
   }, []);
 
