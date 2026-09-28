@@ -10,6 +10,7 @@ import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import { isDayLimitError, type AIErrorCode } from '../types/aiErrors';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { localDayKey } from '../../../core/utils/dateUtils';
+import { persistPendingAnalysisDelete, forgetPendingAnalysisDelete } from './pendingAnalysisDeletes';
 
 /**
  * Разбор одной заметки — по явному нажатию, и только по нему.
@@ -396,8 +397,10 @@ export const NoteAnalysisService = {
     try {
       await DataProvider.deleteSummary(uid, canonicalId);
       await DataProvider.deleteEmbedding(uid, canonicalId);
+      forgetPendingAnalysisDelete(uid, canonicalId);
     } catch (e) {
       reportError(e, { action: 'noteAnalysis_clearCloud', documentId });
+      persistPendingAnalysisDelete(uid, canonicalId);
     }
   },
 };

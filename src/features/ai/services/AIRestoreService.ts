@@ -20,6 +20,7 @@ import { decodeCloudEmbedding } from './AIEmbeddingService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { writeFacetStore } from '../../../core/services/facetLock';
 import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
+import { getPendingAnalysisDeleteKeys } from './pendingAnalysisDeletes';
 
 const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
 const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
@@ -113,6 +114,8 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
+  const pendingAnalysisDeletes = getPendingAnalysisDeleteKeys(userId);
+
   try {
     const docs = await DataProvider.getUserSummaries(userId, sinceMs);
     if (docs.length > 0) {
@@ -122,9 +125,11 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
       for (const d of docs) {
         const cloudKey = d.id as string;
+        if (pendingAnalysisDeletes.has(cloudKey)) continue;
         try {
           const decoded = await decodeCloudSummary(d, cloudKey);
           const uuid = decoded.documentUuid ?? cloudKey;
+          if (pendingAnalysisDeletes.has(uuid) || (decoded.documentId && pendingAnalysisDeletes.has(decoded.documentId))) continue;
           const localDoc = localDocByUuid.get(uuid);
           const existing = (localDoc && localSummaries.get(localDoc.id))
             ?? localSummaries.get(decoded.documentId) ?? localSummaries.get(cloudKey);
@@ -412,6 +417,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
       for (const d of docsPage) {
         const dId = d.id as string;
+        if (pendingAnalysisDeletes.has(dId)) continue;
         const alreadyLocal = existingEmbeddings.has(dId);
         // Decoding an already-local record is pure CPU, no extra quota — worth it
         // only when there is something to repair.

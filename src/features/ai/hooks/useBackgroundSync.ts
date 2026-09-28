@@ -125,6 +125,14 @@ export function useBackgroundSync(): void {
       const { LocalStoreSyncService } = await import('../../../core/services/LocalStoreSyncService');
       LocalStoreSyncService.retryOversizedRecords();
       await LocalStoreSyncService.flushPending();
+
+      // Повторить накопившиеся удаления анализа заметок в облаке (F-008)
+      try {
+        const { retryPendingAnalysisDeletes } = await import('../services/pendingAnalysisDeletes');
+        await retryPendingAnalysisDeletes(uid);
+      } catch (e) {
+        reportError(e, { action: 'backgroundSync_retryPendingAnalysisDeletes' });
+      }
     } catch (e) {
       reportError(e, { action: 'backgroundSync_pass' });
     } finally {
