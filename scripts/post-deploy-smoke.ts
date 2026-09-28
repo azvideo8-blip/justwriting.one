@@ -1,5 +1,5 @@
 import { chromium, type Browser, type Page } from '@playwright/test';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage, ClientRequest } from 'node:http';
@@ -18,6 +18,7 @@ export function requestFor(url: string): typeof httpRequest {
 interface SmokeCheckOptions {
   baseUrl: string;
   expectedVersion?: string;
+  expectedIndexSha256?: string | undefined;
   timeoutMs?: number;
 }
 
@@ -25,6 +26,64 @@ interface SmokeCheckResult {
   success: boolean;
   actualVersion?: string | undefined;
   errors: string[];
+}
+
+export function sha256Hex(bytes: Uint8Array | string): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+/**
+ * F-002 / F-055: версия на странице не доказывает, что на сервер лёг именно
+ * собранный файл. Перевыкатка той же версии после неудачного копирования
+ * выглядит целой — сверяем байты index.html.
+ *
+ * Ничего не вырезаем и не нормализуем: sub_filter и SSI в deploy/nginx.conf
+ * отсутствуют, значит отданное тело обязано быть собранным телом один в один.
+ */
+export function indexHashErrors(servedHex: string, expectedHex: string): string[] {
+  if (servedHex === expectedHex) return [];
+  return [
+    `index.html на сервере != собранный: sha256 собранного ${expectedHex}, отданного ${servedHex}. ` +
+    'Версия при этом может совпадать — при перевыкатке того же номера неудачное копирование не видно.',
+  ];
+}
+
+/** Хэш из вывода `sha256sum`: он с суффиксом `sha256:` и именем файла. */
+export function normalizeSha256(raw: string): string {
+  return raw.trim().replace(/^sha256:/, '').split(/\s+/)[0]!.toLowerCase();
+}
+
+export async function checkIndexHtmlHash(options: {
+  baseUrl: string;
+  expectedIndexSha256: string | undefined;
+  timeoutMs?: number;
+  fetchImpl?: (url: string, init?: RequestInit) => Promise<Pick<Response, 'status' | 'arrayBuffer'>>;
+}): Promise<string[]> {
+  const { baseUrl, expectedIndexSha256, timeoutMs = 20_000 } = options;
+  if (!expectedIndexSha256) {
+    console.log('⏭️  Сверка index.html по sha256 ПРОПУЩЕНА: нет EXPECTED_INDEX_SHA256 — в этом прогоне клиент не выкатывался.');
+    return [];
+  }
+
+  const expected = normalizeSha256(expectedIndexSha256);
+  const url = new URL('/index.html', baseUrl).toString();
+  const doFetch = options.fetchImpl ?? fetch;
+  let response: Pick<Response, 'status' | 'arrayBuffer'>;
+  try {
+    response = await doFetch(url, {
+      headers: { 'accept-encoding': 'identity', 'cache-control': 'no-cache', Pragma: 'no-cache' },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    return [`Не удалось получить ${url} для сверки sha256: ${String(err)}`];
+  }
+
+  if (response.status !== 200) {
+    return [`index.html вернул HTTP ${response.status} вместо 200`];
+  }
+
+  const served = sha256Hex(new Uint8Array(await response.arrayBuffer()));
+  return indexHashErrors(served, expected);
 }
 
 export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCheckResult> {
@@ -187,6 +246,14 @@ export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCh
       await browser.close().catch(() => {});
     }
   }
+
+  // 4. Байты index.html против собранных. Отдельно от браузера: тут важен
+  // не отрисованный DOM, а ровно то, что отдал сервер.
+  errors.push(...await checkIndexHtmlHash({
+    baseUrl,
+    expectedIndexSha256: options.expectedIndexSha256,
+    timeoutMs,
+  }));
 
   return {
     success: errors.length === 0,
@@ -423,13 +490,17 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
 async function main() {
   const targetUrl = process.argv[2] || process.env.SMOKE_URL || 'https://justwriting.ru/';
   const expectedVersion = process.env.EXPECTED_VERSION || APP_VERSION;
+  const expectedIndexSha256 = process.env.EXPECTED_INDEX_SHA256;
 
   console.log(`\n🔍 Запуск проверки после выкатки: ${targetUrl}`);
-  console.log(`📌 Ожидаемая версия приложения: v${expectedVersion}\n`);
+  console.log(`📌 Ожидаемая версия приложения: v${expectedVersion}`);
+  console.log(`📌 Ожидаемый sha256 index.html: ${expectedIndexSha256 ? normalizeSha256(expectedIndexSha256) : 'не передан'}`);
+  console.log('');
 
   const result = await runSmokeCheck({
     baseUrl: targetUrl,
     expectedVersion,
+    expectedIndexSha256,
   });
 
   const refundErrors = await checkChatStreamRefund(targetUrl);

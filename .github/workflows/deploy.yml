@@ -123,6 +123,19 @@ jobs:
             exit 1
           fi
           echo "настройки базы в бандле на месте"
+          # G-4 / F-002: хэш собранного index.html. Им сверяется проверка после
+          # выкатки: номер версии не отличает удачную копию от неудачной при
+          # перевыкатке того же номера.
+          INDEX_SHA256=$(sha256sum dist/index.html 2>/dev/null | cut -d' ' -f1)
+          if [ -z "$INDEX_SHA256" ]; then
+            INDEX_SHA256=$(shasum -a 256 dist/index.html | cut -d' ' -f1)
+          fi
+          if [ -z "$INDEX_SHA256" ]; then
+            echo "не удалось посчитать sha256 dist/index.html" >&2
+            exit 1
+          fi
+          echo "sha256 dist/index.html = $INDEX_SHA256"
+          echo "INDEX_SHA256=$INDEX_SHA256" >> "$GITHUB_ENV"
 
       - name: Выкатка клиента
         if: inputs.what != 'api'
@@ -209,6 +222,9 @@ jobs:
         env:
           SMOKE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
           SMOKE_UID: ${{ secrets.SMOKE_UID }}
+          # Пусто, если клиент в этом прогоне не выкатывался (what = api):
+          # проверка тогда не молчит, а явно пишет, что сверку пропустили.
+          EXPECTED_INDEX_SHA256: ${{ env.INDEX_SHA256 }}
         run: npx tsx scripts/post-deploy-smoke.ts https://justwriting.ru/
 
       # TB-17: настоящий вход служебным аккаунтом — неверный пароль отклонён,
