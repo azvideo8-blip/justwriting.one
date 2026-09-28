@@ -191,7 +191,12 @@ export const NoteAnalysisService = {
     if (res.summary.eventDate !== undefined) summary.eventDate = res.summary.eventDate;
     await AISummaryService.save(summary);
 
-    if (doc) await db.put('documents', { ...doc, aiProcessed: true });
+    const tx = db.transaction('documents', 'readwrite');
+    const fresh = await tx.store.get(documentId);
+    if (fresh) {
+      await tx.store.put({ ...fresh, aiProcessed: true });
+    }
+    await tx.done;
 
     // Темы заметки складываются в очередь реестра тем. Разбирает очередь
     // «Обновить профиль» — здесь её трогать нельзя: touchThemes не идемпотентен
@@ -378,12 +383,18 @@ export const NoteAnalysisService = {
     await AIEmbeddingService.delete(documentId);
 
     const db = await getLocalDb();
-    const doc = await db.get('documents', documentId);
-    if (doc?.aiProcessed) {
-      const { aiProcessed: _dropped, ...rest } = doc;
-      await db.put('documents', rest);
+    let uuid: string | undefined;
+    const tx = db.transaction('documents', 'readwrite');
+    const fresh = await tx.store.get(documentId);
+    if (fresh) {
+      uuid = fresh.uuid;
+      if (fresh.aiProcessed) {
+        const { aiProcessed: _dropped, ...rest } = fresh;
+        await tx.store.put(rest);
+      }
     }
-    await purgeNoteDerivatives([...new Set([documentId, doc?.uuid].filter((x): x is string => !!x))]);
+    await tx.done;
+    await purgeNoteDerivatives([...new Set([documentId, uuid].filter((x): x is string => !!x))]);
 
     // Облачные копии: «удалить разбор» без этого оставляло бы сводку и вектор
     // лежать в базе, то есть ничего по сути не удаляло.
@@ -393,7 +404,7 @@ export const NoteAnalysisService = {
     // кнопка снова врала бы — только тише, чем раньше.
     const uid = getCurrentUser()?.uid;
     if (!uid || uid.startsWith('guest_')) return;
-    const canonicalId = doc?.uuid ?? documentId;
+    const canonicalId = uuid ?? documentId;
     try {
       await DataProvider.deleteSummary(uid, canonicalId);
       await DataProvider.deleteEmbedding(uid, canonicalId);

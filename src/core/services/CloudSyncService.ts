@@ -874,8 +874,10 @@ export const CloudSyncService = {
           const syncdVer = Math.max(metaDoc.currentVersion, existingDoc.currentVersion);
           try {
             const db = await getLocalDb(userId);
-            const cur = await db.get('documents', localDocumentId);
-            if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: syncdVer, lastSeenCloudUpdatedAt: new Date().toISOString() });
+            const tx = db.transaction('documents', 'readwrite');
+            const cur = await tx.store.get(localDocumentId);
+            if (cur) await tx.store.put({ ...cur, lastSyncedCloudVersion: syncdVer, lastSeenCloudUpdatedAt: new Date().toISOString() });
+            await tx.done;
           } catch { /* ignore */ }
           return cloudId;
         }
@@ -1062,8 +1064,10 @@ export const CloudSyncService = {
       await LocalStorageService.migrateDocumentOwner(localDocumentId, userId, userId);
       try {
         const db = await getLocalDb(userId);
-        const cur = await db.get('documents', localDocumentId);
-        if (cur) await db.put('documents', { ...cur, lastSyncedCloudVersion: cur.currentVersion, lastSeenCloudUpdatedAt: new Date().toISOString() });
+        const tx = db.transaction('documents', 'readwrite');
+        const cur = await tx.store.get(localDocumentId);
+        if (cur) await tx.store.put({ ...cur, lastSyncedCloudVersion: cur.currentVersion, lastSeenCloudUpdatedAt: new Date().toISOString() });
+        await tx.done;
       } catch (e) {
         // Заметка в облаке есть; не записалась только отметка «до какой версии
         // выгружено» — следующий проход выгрузит лишний раз. Не сбой, но видно.
@@ -1332,11 +1336,13 @@ export const CloudSyncService = {
 
       // AUDIT-MH1: успешный push фиксирует base для следующего конфликта-чекa.
       try {
-        const localDoc = await LocalStorageService.getDocument(documentId, userId);
-        if (localDoc) {
-          const db = await getLocalDb(userId);
-          await db.put('documents', { ...localDoc, lastSyncedCloudVersion: newVersion });
+        const db = await getLocalDb(userId);
+        const tx = db.transaction('documents', 'readwrite');
+        const fresh = await tx.store.get(documentId);
+        if (fresh) {
+          await tx.store.put({ ...fresh, lastSyncedCloudVersion: newVersion });
         }
+        await tx.done;
       } catch { /* некритично: без поля сработает legacy-сравнение контента */ }
 
       useActivityLogStore.getState().addActivity(

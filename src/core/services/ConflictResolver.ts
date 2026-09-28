@@ -229,15 +229,21 @@ export const ConflictResolver = {
       }, userId);
 
       try {
-        const updatedOrig = await LocalStorageService.getDocument(documentId, userId);
-        if (updatedOrig) {
-          const udb = await getLocalDb(userId);
+        const udb = await getLocalDb(userId);
+        const tx = udb.transaction('documents', 'readwrite');
+        const fresh = await tx.store.get(documentId);
+        if (fresh) {
           // N2-7: оригинал приводится к облаку целиком — и корзина тоже. Иначе
           // заметка, удалённая в корзину на другом устройстве, здесь оставалась
           // живой: сверка после этого уже не видит облако «новее».
           const cloudTrashedMs = toDate(cloudDoc.trashedAt)?.getTime();
-          await udb.put('documents', { ...updatedOrig, lastSyncedCloudVersion: maxCloudVersion, ...(cloudTrashedMs ? { trashedAt: cloudTrashedMs } : {}) });
+          await tx.store.put({
+            ...fresh,
+            lastSyncedCloudVersion: maxCloudVersion,
+            ...(cloudTrashedMs ? { trashedAt: cloudTrashedMs } : {}),
+          });
         }
+        await tx.done;
       } catch { /* ignore */ }
     } catch (reconcileErr) {
       reportError(reconcileErr, { action: 'resolveConflict_reconcileOriginal', documentId, linkedCloudId });

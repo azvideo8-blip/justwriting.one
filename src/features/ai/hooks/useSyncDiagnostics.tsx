@@ -370,10 +370,12 @@ export function useSyncDiagnostics({ userId }: { userId: string }) {
         };
         await AISummaryService.save(summary);
 
-        const doc = await db.get('documents', item.localId);
-        if (doc) {
-          await db.put('documents', { ...doc, aiProcessed: true });
+        const tx = db.transaction('documents', 'readwrite');
+        const fresh = await tx.store.get(item.localId);
+        if (fresh) {
+          await tx.store.put({ ...fresh, aiProcessed: true });
         }
+        await tx.done;
 
         showToast('Анализ ИИ завершен успешно', 'success');
         await loadAIStatus();

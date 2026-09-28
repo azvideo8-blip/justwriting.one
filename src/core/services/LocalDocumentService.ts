@@ -531,9 +531,14 @@ export const LocalDocumentService = {
    */
   async clearLocalOnlyForUpload(id: string, ownerId?: string): Promise<boolean> {
     const db = await getLocalDb(ownerId);
-    const existing = await db.get('documents', id);
-    if (!existing || !existing.localOnly || existing.unlinkedByTombstone) return false;
-    await db.put('documents', { ...existing, localOnly: false });
+    const tx = db.transaction('documents', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing || !existing.localOnly || existing.unlinkedByTombstone) {
+      await tx.done;
+      return false;
+    }
+    await tx.store.put({ ...existing, localOnly: false });
+    await tx.done;
     return true;
   },
 

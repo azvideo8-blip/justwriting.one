@@ -170,9 +170,11 @@ export const SyncService = {
           const db = await getLocalDb(userId);
           const tx = db.transaction('documents', 'readwrite');
           for (const d of unresolvedDocs) {
-            const cloudVer = cloudDocVersions.get(d.linkedCloudId!) ?? 0;
-            d.lastSyncedCloudVersion = cloudVer;
-            await tx.store.put(d);
+            const fresh = await tx.store.get(d.id);
+            if (fresh && fresh.lastSyncedCloudVersion === undefined) {
+              const cloudVer = cloudDocVersions.get(d.linkedCloudId!) ?? 0;
+              await tx.store.put({ ...fresh, lastSyncedCloudVersion: cloudVer });
+            }
           }
           await tx.done;
         } catch (err) {

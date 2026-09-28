@@ -176,12 +176,14 @@ export function AccountAISection({ userId, onIndexPending }: AccountAISectionPro
       clearAiDerivedLocalCaches(userId);
 
       // Reset aiProcessed on local documents
-      const allDocs = await db.getAll('documents');
+      const tx = db.transaction('documents', 'readwrite');
+      const allDocs = await tx.store.getAll();
       for (const doc of allDocs) {
         if (doc.aiProcessed) {
-          await db.put('documents', { ...doc, aiProcessed: false });
+          await tx.store.put({ ...doc, aiProcessed: false });
         }
       }
+      await tx.done;
 
       showToast(t('settings_ai_data_cleared'), 'success');
     } catch (e) {
