@@ -482,7 +482,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             // to avoid losing the user's message, but this means fallback costs 2 quota.
             // AUDIT-M2: если стрим успел отдать существенный partial — не
             // перегенерируем (двойная оплата + потеря уже показанного текста).
-            const lastPartial = streamingMessage ?? '';
+            const lastPartial = shownPartial;
             if (lastPartial.trim().length > 200) {
               fullText = lastPartial;
             } else {
