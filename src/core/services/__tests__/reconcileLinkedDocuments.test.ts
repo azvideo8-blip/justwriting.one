@@ -725,4 +725,59 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     expect(new Set(versionNumbers).size).toBe(versionNumbers.length);
     expect(versionNumbers.sort((a, b) => a - b)).toEqual([1, 2, 3]);
   });
+
+  it('A-2.4 nit: counters ahead of the version rows (5 with only row 1) — the pending branch must not move currentVersion backwards', async () => {
+    const db = await getLocalDb(userId);
+    await db.put('documents', {
+      id: localDocId,
+      guestId: userId,
+      title: 'Local Doc',
+      currentVersion: 5,
+      lastSyncedCloudVersion: 4,
+      totalWords: 10,
+      totalDuration: 10,
+      sessionsCount: 1,
+      firstSessionAt: 1000,
+      lastSessionAt: 1000,
+      tags: [],
+      linkedCloudId: cloudDocId,
+      lastSeenCloudUpdatedAt: '2026-09-19T10:00:00.000Z',
+    });
+    await db.put('versions', {
+      id: 'ver_loc_1',
+      documentId: localDocId,
+      guestId: userId,
+      version: 1,
+      content: 'Initial v1',
+      wordCount: 2,
+      duration: 10,
+      wpm: 20,
+      sessionStartedAt: 1000,
+    } as never);
+
+    vi.spyOn(DocumentService, 'getUserDocuments').mockResolvedValue([{
+      id: cloudDocId,
+      title: 'Cloud Doc',
+      currentVersion: 6,
+      updatedAt: new Date('2026-09-20T10:00:00.000Z'),
+    } as any]);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([{
+      id: 'ver_c6',
+      version: 6,
+      content: 'Cloud v6 text',
+      wordCount: 3,
+      duration: 10,
+      wpm: 20,
+      sessionStartedAt: new Date('2026-09-20T10:00:00.000Z'),
+    }] as any);
+
+    await SyncService.reconcileLinkedDocuments(userId);
+
+    const doc = await db.get('documents', localDocId);
+    expect(doc?.currentVersion).toBeGreaterThanOrEqual(5);
+
+    const versions = await db.getAllFromIndex('versions', 'by-document', localDocId);
+    const nums = versions.map(v => v.version).sort((a, b) => a - b);
+    expect(new Set(nums).size).toBe(nums.length);
+  });
 });

@@ -205,15 +205,12 @@ export const CloudSyncService = {
     if (active) return active;
 
     const run = async () => {
-      const pendingDocIds = new Set<string>();
       try {
         const db = await getLocalDb(userId);
-        const queue = await db.getAll('syncQueue');
-        for (const item of queue) {
-          if (item.documentId && !item.id.startsWith('lock_cloud_')) {
-            pendingDocIds.add(item.documentId);
-          }
-        }
+        // Результат здесь не нужен: список ожидающих заметок перечитывается под
+        // локамом каждой заметки (A-2.3). Само чтение обязательно — бросок
+        // означает "очередь не видна", и по невидимой очереди ничего не сверяем.
+        await db.getAll('syncQueue');
       } catch (err) {
         reportError(err, { action: 'reconcileLinkedDocuments_syncQueue' });
         return { reconciled: 0, skipped: 0, failed: 1 };
@@ -309,13 +306,18 @@ export const CloudSyncService = {
                 const verStore = tx.objectStore('versions');
 
                 const cur = await docStore.get(localDoc.id);
+                // Номер берётся и по строкам истории, и по счётчику заметки: строки
+                // могут отстать (историю чистят LocalVersionService.deleteVersions), и
+                // тогда nextVersionNo откатил бы currentVersion назад — вместе с
+                // признаком "есть что отправить" из A-2.3.
+                const versionNo = Math.max(nextVersionNo, cur?.currentVersion ?? 0);
                 const verId = 'ver_' + randomUUID();
 
                 await verStore.put({
                   id: verId,
                   documentId: localDoc.id,
                   guestId: userId,
-                  version: nextVersionNo,
+                  version: versionNo,
                   content: plainContent,
                   wordCount: latestCloudVer.wordCount ?? 0,
                   wordsAdded: 0,
@@ -333,7 +335,7 @@ export const CloudSyncService = {
                 if (cur) {
                   await docStore.put({
                     ...cur,
-                    currentVersion: nextVersionNo,
+                    currentVersion: versionNo,
                     lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
                   });
                 }
