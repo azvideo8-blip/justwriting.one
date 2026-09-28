@@ -9,6 +9,7 @@ import { lifelogTranslations } from './translations/lifelog';
 import { aiTranslations } from './translations/ai';
 import { adminTranslations } from './translations/admin';
 import { activityTranslations } from './translations/activity';
+import { authScreensTranslations } from './translations/authScreens';
 import { Language, Translations } from './types';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 
@@ -42,6 +43,7 @@ export const LAZY_NAMESPACES: LazyNamespaceDef[] = [
   { name: 'lifelog', load: () => import('./translations/lifelog').then(m => m.lifelogTranslations) },
   { name: 'admin', load: () => import('./translations/admin').then(m => m.adminTranslations) },
   { name: 'activity', load: () => import('./translations/activity').then(m => m.activityTranslations) },
+  { name: 'authScreens', load: () => import('./translations/authScreens').then(m => m.authScreensTranslations) },
 ];
 
 const loadedNamespaces = new Set<string>();
@@ -174,6 +176,7 @@ if (import.meta.env.VITEST) {
     lifelogTranslations,
     adminTranslations,
     activityTranslations,
+    authScreensTranslations,
   );
 }
 

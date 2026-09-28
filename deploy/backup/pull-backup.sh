@@ -38,10 +38,10 @@ fi
 # Имя попадает внутрь root-shell на сервере. Допускаем только формат,
 # который генерирует pg-backup.sh (justwriting-<stamp>.dump): всё остальное —
 # сигнал компрометации, а не данные.
-case "$NAME" in
-  justwriting-[A-Za-z0-9._-]*.dump) ;;
-  *) echo "неожиданное имя дампа: '$NAME' — обрываю" >&2; exit 1;;
-esac
+# Regex, а не case-glob: `*` в шаблоне case пропускал бы пробел, `;` и `$(`.
+if ! [[ "$NAME" =~ ^justwriting-[A-Za-z0-9._-]+\.dump$ ]]; then
+    echo "неожиданное имя дампа: '$NAME' — обрываю" >&2; exit 1
+fi
 
 echo "3/4 · забираю ${NAME}…"
 # Через sudo cat, а не scp: файлы принадлежат root (права 600, каталог 700),
