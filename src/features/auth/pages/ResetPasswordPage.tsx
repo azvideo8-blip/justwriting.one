@@ -5,6 +5,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { InviteWizard } from '../components/InviteWizard';
 import { isAccountReloadPending, reloadForAccountChange } from '../../../core/auth/accountReload';
+import { useLanguage } from '../../../shared/i18n';
 
 // Смена аккаунта перезагружает страницу (accountReload.ts). Две отметки на
 // время вкладки переживают эту перезагрузку: ссылка уже обменена (второй
@@ -22,6 +23,7 @@ const RESET_DONE_KEY = 'jw_password_reset_done';
  * трогать useEncryptionStore здесь запрещено.
  */
 export function ResetPasswordPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   // Ссылка в адресе ещё не разобрана — кто сейчас вошёл, ничего не значит:
@@ -92,7 +94,7 @@ export function ResetPasswordPage() {
             const { getSupabase } = await import('../../../core/supabase/client');
             const { data } = await getSupabase().auth.getSession();
             const signedIn = data.session?.user ?? null;
-            setSwitchFrom(signedIn ? (signedIn.email ?? 'другой аккаунт') : null);
+            setSwitchFrom(signedIn ? (signedIn.email ?? 'other') : null);
             if (!signedIn) setSwitchConfirmed(true);
           } catch (e) {
             // N-37: не смогли проверить — не значит «никто не вошёл». Спрашиваем.
@@ -172,11 +174,11 @@ export function ResetPasswordPage() {
     e.preventDefault();
     setError(null);
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Минимум ${MIN_PASSWORD_LENGTH} символов`);
+      setError(t('reset_pw_min_length', { count: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (password !== confirm) {
-      setError('Пароли не совпадают');
+      setError(t('reset_pw_mismatch'));
       return;
     }
     setBusy(true);
@@ -205,9 +207,9 @@ export function ResetPasswordPage() {
     } catch (err) {
       reportError(err, { action: 'resetPassword' });
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        setError('Нет соединения с сетью. Проверьте подключение и попробуйте снова.');
+        setError(t('reset_pw_offline'));
       } else {
-        setError('Не удалось изменить пароль. Ссылка могла устареть — запросите новую.');
+        setError(t('reset_pw_failed'));
       }
     } finally {
       setBusy(false);
@@ -254,7 +256,7 @@ export function ResetPasswordPage() {
 
   if (isInvite && searchParams.get('token_hash') && !switchConfirmed) {
     if (switchFrom === undefined) {
-      return <div className="min-h-screen bg-surface-base"><p role="status" className="sr-only">Проверяю, выполнен ли вход…</p></div>;
+      return <div className="min-h-screen bg-surface-base"><p role="status" className="sr-only">{t('reset_pw_checking_signin')}</p></div>;
     }
     return (
       <div className="min-h-screen w-full flex items-center justify-center px-4 py-10 bg-surface-base">
@@ -262,22 +264,21 @@ export function ResetPasswordPage() {
             вкладках, — диалог для скринридера, фокус сразу на безопасном «Остаться». */}
         <div role="alertdialog" aria-modal="true" aria-labelledby="invite-switch-title" aria-describedby="invite-switch-desc"
           className="w-full max-w-md p-6 sm:p-8 rounded-3xl border bg-surface-card border-border-subtle shadow-xl space-y-5" data-testid="invite-switch-account">
-          <h1 id="invite-switch-title" className="text-xl font-bold text-text-main">{switchFrom ? 'Сейчас выполнен вход в другой аккаунт' : 'Возможно, выполнен вход в другой аккаунт'}</h1>
+          <h1 id="invite-switch-title" className="text-xl font-bold text-text-main">{switchFrom ? t('reset_pw_switch_title_signed_in') : t('reset_pw_switch_title_unknown')}</h1>
           <p id="invite-switch-desc" className="text-sm leading-relaxed text-text-main/70">
             {switchFrom
-              ? <>В этом браузере открыт аккаунт <strong className="text-text-main">{switchFrom}</strong>. </>
-              : <>Не удалось проверить, открыт ли в этом браузере другой аккаунт. </>}
-            Приглашение создаёт новый аккаунт, и из текущего придётся выйти — во всех вкладках. Ваши
-            заметки и черновик останутся в нём, войти обратно можно в любой момент.
+              ? <>{t('reset_pw_switch_desc_account_before')}<strong className="text-text-main">{switchFrom === 'other' ? t('reset_pw_other_account') : switchFrom}</strong>{t('reset_pw_switch_desc_account_after')}</>
+              : <>{t('reset_pw_switch_desc_unknown')}</>}
+            {t('reset_pw_switch_desc_body')}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button ref={stayBtnRef} type="button" autoFocus onClick={() => { void navigate('/', { replace: true }); }}
               className="w-full py-3 rounded-xl text-sm font-medium border border-border-subtle text-text-main/80 hover:text-text-main hover:bg-text-main/5 transition-colors">
-              Остаться
+              {t('reset_pw_switch_btn_stay')}
             </button>
             <button ref={continueBtnRef} type="button" onClick={confirmSwitch}
               className="w-full py-3 rounded-xl font-bold text-sm text-surface-base bg-brand-soft hover:brightness-110 transition-colors">
-              Продолжить
+              {t('reset_pw_switch_btn_continue')}
             </button>
           </div>
         </div>
@@ -294,19 +295,19 @@ export function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold">{isInvite ? 'Задайте пароль' : 'Восстановление пароля'}</h1>
+        <h1 className="text-xl font-semibold">{isInvite ? t('reset_pw_title_invite') : t('reset_pw_title_recovery')}</h1>
 
         {legacyHash && !done && (
           <div className="space-y-3">
             <p className="text-sm text-accent-warning">
-              Ссылка из письма имеет устаревший формат (implicit hash). Запросите новую ссылку или откройте её повторно.
+              {t('reset_pw_legacy_hash_warning')}
             </p>
             <button
               type="button"
               onClick={() => { void navigate('/login'); }}
               className="rounded-lg px-3 py-2 bg-accent text-white text-sm"
             >
-              Перейти ко входу
+              {t('reset_pw_btn_go_to_login')}
             </button>
           </div>
         )}
@@ -314,22 +315,21 @@ export function ResetPasswordPage() {
         {!legacyHash && linkExpired && !done && (
           <div className="space-y-3">
             <p className="text-sm text-accent-danger">
-              Ссылка уже использована или устарела — запросите новую
+              {t('reset_pw_link_expired_message')}
             </p>
             <button
               type="button"
               onClick={() => { void navigate('/login'); }}
               className="rounded-lg px-3 py-2 bg-accent text-white text-sm"
             >
-              Запросить новую ссылку
+              {t('reset_pw_btn_request_new_link')}
             </button>
           </div>
         )}
 
         {!recoveryMode && !done && !linkExpired && !legacyHash && (
           <p className="text-sm opacity-70">
-            Откройте эту страницу по ссылке из письма. Если вы перешли напрямую —
-            запросите восстановление пароля на странице входа.
+            {t('reset_pw_direct_visit_hint')}
           </p>
         )}
 
@@ -337,17 +337,14 @@ export function ResetPasswordPage() {
           <form onSubmit={e => { void submit(e); }} className="space-y-3">
             <div className="p-3 rounded-lg bg-accent-warning/10 border border-accent-warning/30 text-accent-warning text-xs leading-relaxed">
               {/* D-23/D-28: код восстановления показывается один раз — в настройках его нет. */}
-              <strong>Важно:</strong> заметки зашифрованы прежним паролем. После входа с новым паролем
-              приложение один раз попросит прежний пароль или код восстановления, который вы сохранили при
-              первом входе, — и дальше у вас снова будет один пароль. Без прежнего пароля и кода
-              зашифрованные заметки не открыть.
+              <strong>{t('reset_pw_encryption_important')}</strong>{t('reset_pw_encryption_warning_text')}
             </div>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Новый пароль"
-              aria-label="Новый пароль"
+              placeholder={t('reset_pw_input_placeholder')}
+              aria-label={t('reset_pw_input_placeholder')}
               autoComplete="new-password"
               minLength={MIN_PASSWORD_LENGTH}
               required
@@ -357,8 +354,8 @@ export function ResetPasswordPage() {
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Повторите пароль"
-              aria-label="Повторите пароль"
+              placeholder={t('reset_pw_confirm_placeholder')}
+              aria-label={t('reset_pw_confirm_placeholder')}
               autoComplete="new-password"
               required
               className="w-full rounded-lg border px-3 py-2 bg-transparent"
@@ -369,20 +366,20 @@ export function ResetPasswordPage() {
               disabled={busy || password.length < MIN_PASSWORD_LENGTH}
               className="w-full rounded-lg px-3 py-2 bg-accent text-white disabled:opacity-50"
             >
-              {busy ? 'Сохраняю…' : 'Сменить пароль'}
+              {busy ? t('reset_pw_saving') : t('reset_pw_submit')}
             </button>
           </form>
         )}
 
         {done && (
           <div className="space-y-3">
-            <p className="text-sm">Пароль изменён. Войдите с новым паролем.</p>
+            <p className="text-sm">{t('reset_pw_done_message')}</p>
             <button
               type="button"
               onClick={() => { void navigate('/login', email ? { state: { email } } : undefined); }}
               className="rounded-lg px-3 py-2 bg-accent text-white"
             >
-              Перейти ко входу
+              {t('reset_pw_btn_go_to_login')}
             </button>
           </div>
         )}

@@ -4,6 +4,7 @@ import { countLocalDataInventory, type LocalDataInventory } from '../services/lo
 import { ModalWrapper } from '../../../shared/components/ModalWrapper';
 import { Button } from '../../../shared/components/Button';
 import { LogOut, Trash2, AlertTriangle, ShieldCheck, Database, Loader2 } from 'lucide-react';
+import { useLanguage } from '../../../shared/i18n';
 
 export interface SignOutConfirmModalProps {
   open: boolean;
@@ -12,6 +13,7 @@ export interface SignOutConfirmModalProps {
 }
 
 export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirmModalProps) {
+  const { t } = useLanguage();
   const { user } = useAuthStatus();
 
   const [clearLocalData, setClearLocalData] = useState(false);
@@ -53,7 +55,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
       }
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('Unsynced') || msg.includes('несинхронизирован')) {
-        setErrorMsg('Есть несинхронизированные данные. Подтвердите принудительное удаление или отмените выход.');
+        setErrorMsg(t('signout_unsynced_error'));
       } else {
         setErrorMsg(msg);
       }
@@ -76,7 +78,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
           </div>
           <div>
             <h2 id="signout-modal-title" className="text-base font-semibold text-text-main">
-              Выход из аккаунта
+              {t('signout_title')}
             </h2>
           </div>
         </div>
@@ -95,10 +97,10 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
             <div className="space-y-1">
               <div className="text-xs font-semibold text-text-main flex items-center gap-1.5">
                 <Trash2 className="w-3.5 h-3.5 text-text-muted" />
-                Это чужой компьютер — удалить все данные
+                {t('signout_clear_checkbox_label')}
               </div>
               <div className="text-[11px] text-text-main/60 leading-relaxed">
-                Полностью очистить браузерное хранилище (IndexedDB) на этом устройстве.
+                {t('signout_clear_checkbox_hint')}
               </div>
             </div>
           </label>
@@ -107,10 +109,10 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
             <div className="p-3.5 rounded-xl bg-surface-base/50 border border-border-subtle/60 text-xs text-text-main/70 space-y-2">
               <div className="flex items-center gap-1.5 font-medium text-text-main">
                 <ShieldCheck className="w-4 h-4 text-accent-success" />
-                Локальные записи сохраняются
+                {t('signout_local_preserved_title')}
               </div>
               <p className="leading-relaxed text-[11px] text-text-main/60">
-                Заметки останутся в браузере на этом устройстве. Ключ сейфа выгружен из памяти, сессия завершена. При следующем входе потребуется пароль для расшифровки.
+                {t('signout_local_preserved_desc')}
               </p>
             </div>
           ) : (
@@ -118,23 +120,23 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
               <div className="p-3 rounded-xl bg-surface-base border border-border-subtle space-y-2 text-xs">
                 <div className="flex items-center gap-1.5 font-medium text-text-main">
                   <Database className="w-4 h-4 text-accent-warning" />
-                  Будет удалено с этого устройства:
+                  {t('signout_wipe_inventory_title')}
                 </div>
                 {loading ? (
                   <div className="flex items-center gap-2 py-2 text-text-muted">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Подсчет локальных данных...
+                    {t('signout_counting_inventory')}
                   </div>
                 ) : inventory ? (
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-text-main/60 text-[11px] pt-1">
-                    <div>Заметок: <strong className="text-text-main">{inventory.notesCount}</strong></div>
-                    <div>Версий: <strong className="text-text-main">{inventory.versionsCount}</strong></div>
-                    <div>Диалогов: <strong className="text-text-main">{inventory.dialoguesCount}</strong></div>
-                    <div>Граней профиля: <strong className="text-text-main">{inventory.facetsCount}</strong></div>
-                    <div>История жизни: <strong className="text-text-main">{inventory.lifeStoryCount}</strong></div>
-                    <div>Реестр тем: <strong className="text-text-main">{inventory.themeCount}</strong></div>
-                    <div>Убеждений: <strong className="text-text-main">{inventory.beliefsCount}</strong></div>
-                    <div>Портрет: <strong className="text-text-main">{inventory.hasPortrait ? 'да' : 'нет'}</strong></div>
+                    <div>{t('signout_inv_notes')}<strong className="text-text-main">{inventory.notesCount}</strong></div>
+                    <div>{t('signout_inv_versions')}<strong className="text-text-main">{inventory.versionsCount}</strong></div>
+                    <div>{t('signout_inv_dialogues')}<strong className="text-text-main">{inventory.dialoguesCount}</strong></div>
+                    <div>{t('signout_inv_facets')}<strong className="text-text-main">{inventory.facetsCount}</strong></div>
+                    <div>{t('signout_inv_life_story')}<strong className="text-text-main">{inventory.lifeStoryCount}</strong></div>
+                    <div>{t('signout_inv_themes')}<strong className="text-text-main">{inventory.themeCount}</strong></div>
+                    <div>{t('signout_inv_beliefs')}<strong className="text-text-main">{inventory.beliefsCount}</strong></div>
+                    <div>{t('signout_inv_portrait')}<strong className="text-text-main">{inventory.hasPortrait ? t('signout_yes') : t('signout_no')}</strong></div>
                   </div>
                 ) : null}
               </div>
@@ -143,10 +145,10 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
                 <div className="p-3 bg-accent-warning/10 border border-accent-warning/20 rounded-xl text-xs space-y-2">
                   <div className="flex items-center gap-1.5 font-medium text-accent-warning">
                     <AlertTriangle className="w-4 h-4" />
-                    Внимание: несинхронизированные данные
+                    {t('signout_unsynced_warning_title')}
                   </div>
                   <p className="text-text-main/70 text-[11px] leading-relaxed">
-                    Найдено <strong>{inventory.unsyncedNotesCount}</strong> несинхронизированных правок. При удалении локальных данных они будут потеряны навсегда.
+                    {t('signout_unsynced_warning_desc_before')}<strong>{inventory.unsyncedNotesCount}</strong>{t('signout_unsynced_warning_desc_after')}
                   </p>
                   <label className="flex items-center gap-2 pt-1 cursor-pointer">
                     <input
@@ -156,7 +158,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
                       className="rounded border-border-subtle text-accent-warning"
                     />
                     <span className="text-[11px] text-accent-warning font-medium">
-                      Я понимаю риски и хочу удалить данные без отправки в облако
+                      {t('signout_force_wipe_label')}
                     </span>
                   </label>
                 </div>
@@ -174,7 +176,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
 
         <div className="flex items-center justify-between gap-2 pt-3 border-t border-border-subtle">
           <Button onClick={onClose} disabled={signingOut} className="px-4 py-2 text-xs text-text-main/60 hover:text-text-main">
-            Отмена
+            {t('common_cancel')}
           </Button>
           <Button
             onClick={() => void handleSignOut()}
@@ -190,7 +192,7 @@ export function SignOutConfirmModal({ open, onClose, onConfirm }: SignOutConfirm
             ) : (
               <LogOut className="w-3.5 h-3.5" />
             )}
-            {clearLocalData ? 'Выйти и удалить всё' : 'Выйти'}
+            {clearLocalData ? t('signout_btn_wipe') : t('signout_btn')}
           </Button>
         </div>
       </div>

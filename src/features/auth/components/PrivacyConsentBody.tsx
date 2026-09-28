@@ -1,6 +1,7 @@
 import React from 'react';
 import { DataProvider } from '../../../core/data';
 import { PRIVACY_VERSION } from '../../../core/constants/privacyVersion';
+import { useLanguage } from '../../../shared/i18n';
 
 /**
  * Текст согласия и две галочки — одни и те же в окне при первом входе
@@ -13,10 +14,12 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
   aiConsent: boolean;
   onAiConsent: (v: boolean) => void;
 }) {
+  const { t } = useLanguage();
+
   return (
     <>
     <p className="text-xs text-text-main/60 mb-4">
-      justwriting — приватный редактор для свободного письма. Вот как мы обращаемся с вашими данными:
+      {t('privacy_consent_intro')}
     </p>
 
     {/* Текст обязан совпадать с тем, что приложение делает на самом деле:
@@ -24,21 +27,21 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
         Меняется поведение — правится и этот текст, в том же коммите. */}
     <div className="space-y-4 text-sm text-text-main/70 leading-relaxed">
       <div className="space-y-2">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">Как хранятся данные</h3>
-        <p>Заметки хранятся на вашем устройстве. Если включена синхронизация, копия уезжает на наш сервер в России — <strong>содержимое, заголовки и теги зашифрованы</strong> ключом, который выводится из вашего пароля и на сервер не попадает. Открытыми остаются только даты, длительность сессий и счётчики слов.</p>
-        <p>Аналитики, счётчиков и отправки ошибок посторонним сервисам нет.</p>
-        <p>Удаление аккаунта удаляет заметки, историю и всё, что было по ним посчитано.</p>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">{t('privacy_consent_storage_title')}</h3>
+        <p>{t('privacy_consent_storage_p1_before')}<strong>{t('privacy_consent_storage_p1_strong')}</strong>{t('privacy_consent_storage_p1_after')}</p>
+        <p>{t('privacy_consent_storage_p2')}</p>
+        <p>{t('privacy_consent_storage_p3')}</p>
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">Что уходит третьим лицам</h3>
-        <p>Текст уходит поставщику ИИ <strong>только когда вы пользуетесь ИИ</strong>: нажимаете разбор у заметки, отправляете сообщение в чате или просите ИИ-помощника. Вместе с ответом в чате приложение делает несколько служебных запросов с тем же разговором — придумывает название диалога, предлагает подсказки и сохраняет факты в «Память ИИ» (подсказки и память можно выключить в настройках). Без ваших действий тексты не отправляются.</p>
-        <p>Поставщик — RouterAI (Россия). Он не хранит содержимое запросов, но по умолчанию может передать запрос зарубежному сервису, который вычисляет ответ и таких гарантий не даёт.</p>
-        <p>Голосовой ввод (диктовка) использует встроенное распознавание речи браузера: аудиозапись передаётся серверам вендора браузера (Google или Apple) для перевода в текст.</p>
-        <p>Если в заметке упомянуты другие люди, их слова и обстоятельства уходят вместе с текстом. Отдельной картотеки упомянутых людей приложение не ведёт.</p>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">{t('privacy_consent_third_party_title')}</h3>
+        <p>{t('privacy_consent_third_party_p1_before')}<strong>{t('privacy_consent_third_party_p1_strong')}</strong>{t('privacy_consent_third_party_p1_after')}</p>
+        <p>{t('privacy_consent_third_party_p2')}</p>
+        <p>{t('privacy_consent_third_party_p3')}</p>
+        <p>{t('privacy_consent_third_party_p4')}</p>
       </div>
 
-      <p className="text-xs pt-1">Подробнее: <a href="/privacy" className="text-brand-soft underline">Политика конфиденциальности</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>.</p>
+      <p className="text-xs pt-1">{t('privacy_consent_links_prefix')}<a href="/privacy" className="text-brand-soft underline">{t('privacy_consent_privacy_policy')}</a>{t('privacy_consent_and')}<a href="/terms" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>.</p>
     </div>
 
     <div className="pt-4 border-t border-border-subtle/50 space-y-3 mt-4">
@@ -50,8 +53,8 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
           className="mt-0.5 accent-brand-soft shrink-0"
         />
         <span className="text-xs text-text-main/70">
-          <span className="font-semibold text-text-main">Обязательно: </span>
-          Я прочитал и принимаю <a href="/privacy" className="text-brand-soft underline">Политику обработки персональных данных</a> и <a href="/terms" className="text-brand-soft underline">Условия использования</a>
+          <span className="font-semibold text-text-main">{t('privacy_consent_required_label')}</span>
+          {t('privacy_consent_accept_before')}<a href="/privacy" className="text-brand-soft underline">{t('privacy_consent_data_policy')}</a>{t('privacy_consent_and')}<a href="/terms" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>
         </span>
       </label>
 
@@ -68,8 +71,8 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
           className="mt-0.5 accent-brand-soft shrink-0"
         />
         <span className="text-xs text-text-main/70">
-          <span className="font-semibold text-text-main">Необязательно, для функций ИИ: </span>
-          Я даю <a href="/consent" className="text-brand-soft underline">согласие на обработку специальных категорий персональных данных</a> — сведений о состоянии здоровья, психоэмоциональном состоянии и личной жизни, которые могут содержаться в моих записях, — для работы функций ИИ. Без этого согласия письмо и хранение записей остаются доступными, функции ИИ — нет
+          <span className="font-semibold text-text-main">{t('privacy_consent_ai_label')}</span>
+          {t('privacy_consent_ai_text_before')}<a href="/consent" className="text-brand-soft underline">{t('privacy_consent_ai_link')}</a>{t('privacy_consent_ai_text_after')}
         </span>
       </label>
     </div>
