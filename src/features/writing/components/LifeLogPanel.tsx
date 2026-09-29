@@ -23,13 +23,14 @@ interface SessionItemProps {
   onClick: () => void;
   onDelete?: ((session: Session) => void) | undefined;
   t: (key: string) => string;
+  tp: (key: string, count: number) => string;
   language: string;
   userId: string;
   onStorageChange: () => void;
   searchQuery?: string | undefined;
 }
 
-const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActive, onClick, onDelete, t, language, userId: _userId, onStorageChange: _onStorageChange, searchQuery }: SessionItemProps) {
+const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActive, onClick, onDelete, t, tp, language, userId: _userId, onStorageChange: _onStorageChange, searchQuery }: SessionItemProps) {
   const date = parseCloudDate(session.createdAt);
   const timeStr = date
     ? date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
@@ -83,7 +84,7 @@ const SessionItem = React.memo(function SessionItem({ session, doc: _doc, isActi
       </div>
       <div className="flex items-center gap-1.5">
           <span className="text-xs text-text-muted">
-            {session.wordCount} {t('lifelog_words_short')} · {(() => {
+            {tp('archive_word_count', session.wordCount)} · {(() => {
               const mins = Math.round((session.duration || 0) / 60);
               return mins < 1 ? `<1${t('goal_time_min')}` : `${mins}${t('goal_time_min')}`;
             })()}
@@ -130,7 +131,7 @@ export function LifeLogPanel({
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const { showToast } = useToast();
   const { execute } = useServiceAction();
   const { isGuest } = useAuthStatus();
@@ -325,7 +326,7 @@ export function LifeLogPanel({
                       <div className="px-4 py-2 text-label text-text-subtle font-bold uppercase tracking-wider sticky top-0 bg-surface-card z-10 border-b border-border-subtle/30 flex items-center justify-between">
                         <span>{group.label}</span>
                         <span className="font-mono font-normal normal-case tracking-normal text-text-main/60">
-                          {groupWords.toLocaleString()} {t('lifelog_words_short')}
+                          {tp('archive_word_count', groupWords)}
                         </span>
                       </div>
                       {group.sessions.map(session => (
@@ -337,6 +338,7 @@ export function LifeLogPanel({
                           onClick={() => onContinueSession(docMap.get(session.id) || session)}
                           onDelete={(s) => setDeleteTarget(s)}
                           t={t}
+                          tp={tp}
                           language={language}
                           userId={userId}
                           onStorageChange={() => { void refresh(); void onRefreshDocuments?.(); }}
@@ -388,7 +390,9 @@ export function LifeLogPanel({
               {
                 errorMessage: t('error_delete_failed'),
                 onSuccess: (res) => {
-                  if (res?.cloudSynced) {
+                  if (!res?.applied) {
+                    showToast(t('delete_not_applied_uploading'));
+                  } else if (res?.cloudSynced) {
                     showToast(t('session_deleted'), 'success');
                   } else {
                     showToast(t('delete_local_only_queued'));

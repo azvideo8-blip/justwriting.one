@@ -51,7 +51,7 @@ export function MobileHomeScreen({
   discardDraft,
   onRefresh,
 }: MobileHomeScreenProps) {
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const navigate = useNavigate();
   const { openSettings } = useSettings();
   const greeting = getGreeting(t);
@@ -298,7 +298,7 @@ export function MobileHomeScreen({
                     {session.title || t('common_untitled')}
                   </div>
                   <div className="text-[11px] text-[var(--text-subtle)] font-mono">
-                    {session.wordCount} {t('home_words_short')} ·{' '}
+                    {tp('archive_word_count', session.wordCount)} ·{' '}
                     {Math.floor(session.duration / 60)}{t('goal_time_min')}
                   </div>
                 </Button>

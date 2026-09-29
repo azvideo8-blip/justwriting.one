@@ -114,7 +114,7 @@ export const profileTranslations: Translations = {
   me_stat_streak_few:  { ru: 'дня подряд',  en: 'days in a row' },
   me_stat_streak_many: { ru: 'дней подряд', en: 'days in a row' },
   me_stat_total_time: { ru: 'в потоке',            en: 'in flow' },
-  me_stat_avg_wpm:   { ru: 'сл/мин средн.',        en: 'avg wpm' },
+  me_stat_avg_wpm:   { ru: 'слов в минуту в среднем',        en: 'avg wpm' },
   me_stat_avg_session: { ru: 'слов/сессия',        en: 'words/session' },
   me_anonymous:      { ru: 'Аноним',               en: 'Anonymous' },
   account_local_title: { ru: 'Локальный аккаунт',  en: 'Local Account' },

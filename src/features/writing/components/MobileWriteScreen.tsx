@@ -30,7 +30,7 @@ interface MobileWriteScreenProps {
 export function MobileWriteScreen({
   onPlay, onPause, onStop, onNew, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel
 }: MobileWriteScreenProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   const { content, setContent, title, setTitle, wordCount, wpm } = useContentStore(
     useShallow(s => ({
       content: s.content,
@@ -324,7 +324,7 @@ export function MobileWriteScreen({
           borderTop: '1px solid rgba(165, 131, 232, 0.08)',
         }}>
           <span className="font-mono text-[11px] text-[rgba(240,235,250,0.6)] tabular-nums">
-            {sessionWords} {t('home_words_short')}
+            {tp('archive_word_count', sessionWords)}
           </span>
           <span className="w-px h-3 bg-[rgba(165,131,232,0.2)]" />
           <span className="font-mono text-[11px] text-[rgba(240,235,250,0.6)] tabular-nums">

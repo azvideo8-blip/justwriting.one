@@ -43,7 +43,7 @@ export const writingTranslations: Translations = {
   header_sessionTime:  { ru: 'Время сессии',     en: 'Session time' },
   header_sessionWords: { ru: 'Слов в сессии',    en: 'Session words' },
   header_totalWords:   { ru: 'Всего слов',        en: 'Total words' },
-  header_wpm:          { ru: 'сл/мин',             en: 'wpm' },
+  header_wpm:          { ru: 'слов в минуту',      en: 'wpm' },
   header_sessionWords_hint: { ru: 'слов в сессии · цель', en: 'session words · set goal' },
   header_time_hint:         { ru: 'время · цель',          en: 'time · set goal' },
   header_time:              { ru: 'Время',                  en: 'Time' },
@@ -61,7 +61,9 @@ export const writingTranslations: Translations = {
   goal_popup_time_title:  { ru: 'Цель по времени', en: 'Time goal' },
   goal_popup_clear:       { ru: 'Убрать',          en: 'Clear' },
   goal_time_short:        { ru: 'мин',           en: 'mins' },
-  writing_goal_words_preset: { ru: '{count} сл.', en: '{count} words' },
+  writing_goal_words_preset_one: { ru: '{count} слово', en: '{count} word' },
+  writing_goal_words_preset_few: { ru: '{count} слова', en: '{count} words' },
+  writing_goal_words_preset_many: { ru: '{count} слов', en: '{count} words' },
   writing_goal_mins_preset: { ru: '{count} мин.', en: '{count} min.' },
 
   finish_congrats: { ru: 'Сессия завершена.', en: 'Session complete.' },
@@ -115,7 +117,7 @@ export const writingTranslations: Translations = {
 
   wpm_peak: { ru: 'пик', en: 'peak' },
   wpm_avg:  { ru: 'средн.', en: 'avg' },
-  wpm_unit: { ru: 'сл/мин', en: 'wpm' },
+  wpm_unit: { ru: 'слов в минуту', en: 'wpm' },
 
   ai_panel_title: { ru: 'ИИ-помощник', en: 'AI Assistant' },
   ai_toggle: { ru: 'ИИ-помощник', en: 'AI Assistant' },

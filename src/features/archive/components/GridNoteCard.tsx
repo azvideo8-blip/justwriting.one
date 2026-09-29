@@ -39,7 +39,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   aiLoading: _aiLoading,
   onAIClick: _onAIClick,
 }) => {
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const { tags: _tags } = useSessionTags(session.tags || []);
   const sessionTime = session.sessionStartTime
     ? new Date(session.sessionStartTime)
@@ -132,7 +132,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
       </div>
 
       <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/60 pt-3 mt-auto border-t border-border-subtle">
-        <span>{session.wordCount.toLocaleString()} {t('home_words_short')}</span>
+        <span>{tp('archive_word_count', session.wordCount)}</span>
         <span className="text-text-main/60">·</span>
         <span>{Math.floor(session.duration / 60)} {t('goal_time_short')}</span>
         {labels && onLabelChange && (

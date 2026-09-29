@@ -10,7 +10,6 @@ export const lifelogTranslations: Translations = {
   lifelog_words:         { ru: 'слов',          en: 'words' },
   lifelog_time:          { ru: 'в потоке',      en: 'in flow' },
   lifelog_loading:       { ru: 'Загрузка...',   en: 'Loading...' },
-  lifelog_words_short:  { ru: 'сл',      en: 'w' },
   lifelog_group_today:  { ru: 'Сегодня', en: 'Today' },
   lifelog_group_yesterday: { ru: 'Вчера', en: 'Yesterday' },
   lifelog_empty:        { ru: 'Сессий пока нет', en: 'No sessions yet' },
@@ -36,7 +35,6 @@ export const lifelogTranslations: Translations = {
   home_today_words:   { ru: 'слов сегодня',    en: 'words today' },
   home_today_flow:    { ru: 'в потоке',        en: 'in flow' },
   home_recent:        { ru: 'Недавние',        en: 'Recent' },
-  home_words_short:   { ru: 'сл',             en: 'w' },
 
   focus_exit_hint:   { ru: 'свайп вверх — выйти', en: 'swipe up to exit' },
 

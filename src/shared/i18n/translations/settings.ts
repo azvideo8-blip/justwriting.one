@@ -10,7 +10,7 @@ export const settingsTranslations: Translations = {
   settings_font_size: { ru: 'Размер шрифта', en: 'Font Size' },
   settings_line_height: { ru: 'Межстрочный интервал', en: 'Line Height' },
   settings_silence_mode: { ru: 'Режим тишины (бета)', en: 'Silence Mode (beta)' },
-  settings_silence_mode_desc: { ru: 'Минималистичное окружение: мгновенный дзен, скрытие HUD, отключение фоновых анимаций и сияния', en: 'Minimal environment: instant zen, quiet HUD, paused animations' },
+  settings_silence_mode_desc: { ru: 'Минималистичное окружение: мгновенный дзен, скрытие панели показателей, отключение фоновых анимаций и сияния', en: 'Minimal environment: instant zen, quiet stats panel, paused animations' },
   settings_typography: { ru: 'Типографика', en: 'Typography' },
   settings_typography_desc: { ru: 'Автозамена "кавычек", -- тире и ... многоточий при наборе', en: 'Smart quotes, dashes, and ellipsis on typing' },
   settings_zen_mode: { ru: 'Дзен-режим', en: 'Zen Mode' },
@@ -146,7 +146,7 @@ export const settingsTranslations: Translations = {
   settings_passwords_dont_match: { ru: 'Пароли не совпадают.', en: 'Passwords do not match.' },
   settings_export_all_desc: { ru: 'Скачать все заметки одним ZIP-архивом (отдельные .txt файлы без разметки).', en: 'Download all notes as a single ZIP archive (separate .txt files without markup).' },
   settings_export_all_button: { ru: 'Экспортировать всё в ZIP', en: 'Export all to ZIP' },
-  settings_export_json_button: { ru: 'Экспортировать в JSON (GDPR)', en: 'Export as JSON (GDPR)' },
+  settings_export_json_button: { ru: 'Скачать копию всех своих данных (JSON, по GDPR — закону ЕС о персональных данных)', en: 'Export as JSON (GDPR)' },
   settings_export_all_progress: { ru: 'Готовлю архив...', en: 'Preparing archive...' },
   settings_export_all_done: { ru: 'Экспортировано заметок: {count}', en: 'Exported notes: {count}' },
   settings_export_all_skipped: { ru: 'Пропущено (заблокировано): {count}', en: 'Skipped (locked): {count}' },
@@ -488,7 +488,7 @@ export const settingsTranslations: Translations = {
     en: 'Terms of Service',
   },
   about_do_not_sell: {
-    ru: 'Не продавать мои данные (CCPA)',
+    ru: 'Не продавать мои данные (CCPA — калифорнийский закон о защите данных)',
     en: 'Do Not Sell My Personal Information',
   },
 };

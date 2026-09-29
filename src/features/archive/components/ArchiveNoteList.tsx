@@ -316,9 +316,10 @@ export function ArchiveNoteList({
                   <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
                 </div>
                 <span className="font-mono text-label-sm text-text-main/60 whitespace-nowrap">
-                  {sessions
-                    .reduce((sum, s) => sum + (s.wordCount || 0), 0)
-                    .toLocaleString()} {t('home_words_short')}
+                  {tp(
+                    'archive_word_count',
+                    sessions.reduce((sum, s) => sum + (s.wordCount || 0), 0)
+                  )}
                 </span>
               </div>
               <div className="grid gap-4 archive-grid-list">
@@ -370,9 +371,10 @@ export function ArchiveNoteList({
                 <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
               </div>
               <span className="font-mono text-label-sm text-text-main/60 whitespace-nowrap">
-                {sessions
-                  .reduce((sum: number, s: ArchiveSession) => sum + (s.wordCount || 0), 0)
-                  .toLocaleString()} {t('home_words_short')}
+                {tp(
+                  'archive_word_count',
+                  sessions.reduce((sum: number, s: ArchiveSession) => sum + (s.wordCount || 0), 0)
+                )}
               </span>
             </div>
             {sessions.map(session => (

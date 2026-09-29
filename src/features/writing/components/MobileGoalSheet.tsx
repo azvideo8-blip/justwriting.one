@@ -17,7 +17,7 @@ const WORD_PRESETS = [0, 100, 250, 500, 750, 1000, 1500, 2000];
 const TIME_PRESETS = [0, 5, 10, 15, 25, 45, 60];
 
 export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   const { wordGoal, setWordGoal, timerDuration, setTimerDuration } = useTimerStore();
 
   const [customWords, setCustomWords] = useState(wordGoal > 0 ? String(wordGoal) : '');
@@ -105,7 +105,7 @@ export function MobileGoalSheet({ isOpen, onClose }: MobileGoalSheetProps) {
                       : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
                   )}
                 >
-                  {words === 0 ? t('archive_stats_reset') : t('writing_goal_words_preset', { count: words })}
+                  {words === 0 ? t('archive_stats_reset') : tp('writing_goal_words_preset', words)}
                 </Button>
               ))}
             </div>

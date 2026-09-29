@@ -36,7 +36,7 @@ interface HoveredCellState {
 }
 
 export function Heatmap({ sessions }: { sessions: Session[] }) {
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const [offset, setOffset] = useState(0);
   const [hoveredCell, setHoveredCell] = useState<HoveredCellState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -243,7 +243,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                           di,
                           x: rect.left - parentRect.left + rect.width / 2,
                           y: rect.top - parentRect.top,
-                          text: `${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`
+                          text: `${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`
                         });
                       }
                     }}
@@ -258,13 +258,13 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                           di,
                           x: rect.left - parentRect.left + rect.width / 2,
                           y: rect.top - parentRect.top,
-                          text: `${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`
+                          text: `${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`
                         });
                       }
                     }}
                     tabIndex={0}
                     role="button"
-                    aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`}
+                    aria-label={`${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -276,7 +276,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                             di,
                             x: rect.left - parentRect.left + rect.width / 2,
                             y: rect.top - parentRect.top,
-                            text: `${day.date.toLocaleDateString(language)} — ${day.words} ${t('home_words_short')}`
+                            text: `${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`
                           });
                         }
                       }

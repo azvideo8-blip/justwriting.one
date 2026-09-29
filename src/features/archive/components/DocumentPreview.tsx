@@ -447,7 +447,7 @@ export function DocumentPreview({
           <div className="font-mono text-label-sm text-text-main/60 uppercase tracking-wider">
             {format(date, 'd MMMM yyyy', { locale: dateLocale })}
             {' · '}
-            {session.wordCount?.toLocaleString()} {t('home_words_short')}
+            {tp('archive_word_count', session.wordCount || 0)}
             {' · '}
             {t('reading_time', { n: readingTimeMinutes(session.wordCount || 0) })}
             {' · '}

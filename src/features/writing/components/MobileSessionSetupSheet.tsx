@@ -23,7 +23,7 @@ export function MobileSessionSetupSheet({
   startCountdown,
   countdown,
 }: MobileSessionSetupSheetProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   const timerDuration = useTimerStore(s => s.timerDuration);
   const setTimerDuration = useTimerStore(s => s.setTimerDuration);
   const wordGoal = useTimerStore(s => s.wordGoal);
@@ -250,7 +250,7 @@ export function MobileSessionSetupSheet({
                                     : "bg-white/[0.02] border-white/[0.06] text-text-main/60"
                                 )}
                               >
-                                {words} {t('home_words_short')}
+                                {tp('archive_word_count', words)}
                               </Button>
                             ))}
                           </div>
