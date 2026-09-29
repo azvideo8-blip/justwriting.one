@@ -42,6 +42,9 @@ interface WritingSettingsContextType {
   setLifeLogPinned: (enabled: boolean) => void;
   headerVisibility: HeaderVisibility;
   toggleVisibility: (key: keyof HeaderVisibility) => void;
+  quietStats: boolean;
+  setQuietStats: (enabled: boolean) => void;
+  effectiveHeaderVisibility: HeaderVisibility;
   typewriterScrolling: boolean;
   setTypewriterScrolling: (enabled: boolean) => void;
   focusModeEnabled: boolean;
@@ -183,6 +186,14 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     setHeaderVisibility((prev: HeaderVisibility) => ({ ...prev, [key]: !prev[key] }));
   }, [setHeaderVisibility]);
 
+  const [quietStats, setQuietStats] = useLocalStorage<boolean>('v1_quietStats', false, z.boolean());
+  const effectiveHeaderVisibility = useMemo<HeaderVisibility>(
+    () => quietStats
+      ? { sessionTime: false, sessionWords: false, totalWords: false, wpm: false }
+      : headerVisibility,
+    [quietStats, headerVisibility]
+  );
+
   const contextValue = useMemo(() => ({
     silenceMode, setSilenceMode,
     typographyEnabled, setTypographyEnabled,
@@ -199,6 +210,8 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     fontSize, setFontSize,
     lifeLogPinned, setLifeLogPinned,
     headerVisibility, toggleVisibility,
+    quietStats, setQuietStats,
+    effectiveHeaderVisibility,
     typewriterScrolling, setTypewriterScrolling,
     focusModeEnabled, setFocusModeEnabled,
     autoHideCursor, setAutoHideCursor,
@@ -206,7 +219,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     aiPanelOpen, setAiPanelOpen,
     isAttachmentActive, setIsAttachmentActive,
     dismissRightPanel,
-  }), [silenceMode, setSilenceMode, typographyEnabled, setTypographyEnabled, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isAttachmentActive, setIsAttachmentActive, dismissRightPanel, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
+  }), [silenceMode, setSilenceMode, typographyEnabled, setTypographyEnabled, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isAttachmentActive, setIsAttachmentActive, dismissRightPanel, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, quietStats, setQuietStats, effectiveHeaderVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>

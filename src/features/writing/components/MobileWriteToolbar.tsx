@@ -74,7 +74,7 @@ export function MobileWriteToolbar({
   onPlay, onPause, onStop, onGoalClick, streamMode, onToggleStreamMode, onNew, keyboardHeight
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
-  const { headerVisibility = { sessionTime: true, sessionWords: true, totalWords: true, wpm: true }, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
+  const { effectiveHeaderVisibility, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
   const { wordCount, wpm, wpmHistory, setContent } = useContentStore(
     useShallow(s => ({
       wordCount: s.wordCount,
@@ -156,7 +156,7 @@ export function MobileWriteToolbar({
         </div>
       )}
       <div className="flex-1 flex gap-0">
-        {headerVisibility.sessionWords && (
+        {effectiveHeaderVisibility.sessionWords && (
           <div
             onClick={onGoalClick}
             className="flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
@@ -185,7 +185,7 @@ export function MobileWriteToolbar({
           </div>
         )}
 
-        {headerVisibility.sessionTime && (
+        {effectiveHeaderVisibility.sessionTime && (
           <div
             onClick={onGoalClick}
             className="flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
@@ -205,7 +205,7 @@ export function MobileWriteToolbar({
           </div>
         )}
 
-        {headerVisibility.wpm && (
+        {effectiveHeaderVisibility.wpm && (
           <div className="flex-1 flex flex-col gap-px" >
             <div className="flex items-center gap-1.25 leading-none">
               <div

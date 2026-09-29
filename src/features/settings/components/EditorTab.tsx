@@ -30,6 +30,7 @@ export function EditorTab() {
     zenModeEnabled, setZenModeEnabled,
     streamMode, toggleStreamMode,
     headerVisibility, toggleVisibility,
+    quietStats, setQuietStats,
     typewriterScrolling, setTypewriterScrolling,
     focusModeEnabled, setFocusModeEnabled,
     autoHideCursor, setAutoHideCursor,
@@ -133,7 +134,14 @@ export function EditorTab() {
       </Section>
 
       <Section title={t('settings_show_in_panel')}>
-        <div className="grid grid-cols-2 gap-2">
+        <ToggleRow
+          icon={<Gauge size={16} />}
+          label={t('settings_quiet_stats')}
+          hint={t('settings_quiet_stats_desc')}
+          value={quietStats}
+          onChange={() => setQuietStats(!quietStats)}
+        />
+        <div className={cn("grid grid-cols-2 gap-2", quietStats && "opacity-50")}>
           {([
             { key: 'sessionTime',  label: t('header_sessionTime'),  icon: <Timer size={16} /> },
             { key: 'sessionWords', label: t('header_sessionWords'), icon: <FileText size={16} /> },
@@ -143,6 +151,7 @@ export function EditorTab() {
             <Button
               key={item.key}
               aria-pressed={headerVisibility[item.key]}
+              disabled={quietStats}
               onClick={() => toggleVisibility(item.key)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors",

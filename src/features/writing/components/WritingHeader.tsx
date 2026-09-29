@@ -37,9 +37,9 @@ export const WritingHeader = React.memo(function WritingHeader({
 }: WritingHeaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { t } = useLanguage();
-  const { 
-    isZenActive, zenModeEnabled, 
-    headerVisibility,
+  const {
+    isZenActive, zenModeEnabled,
+    effectiveHeaderVisibility,
     lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab,
     dismissRightPanel,
   } = useWritingSettings();
@@ -191,7 +191,7 @@ export const WritingHeader = React.memo(function WritingHeader({
                 wordCount={wordCount}
                 wpm={wpm}
                 status={status}
-                visibility={headerVisibility}
+                visibility={effectiveHeaderVisibility}
               />
               <AnimatePresence>
                 {saveStatus === 'saving' && (

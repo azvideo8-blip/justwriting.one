@@ -10,6 +10,7 @@ import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useNavigate } from 'react-router-dom';
 import { FinishModalStats } from './FinishModalStats';
@@ -235,6 +236,7 @@ function WritingFinishModalBody({
 }: WritingFinishModalProps & { editTitle: string; setEditTitle: (v: string) => void }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { quietStats } = useWritingSettings();
   const navigate = useNavigate();
   const { execute, isLoading: isSaving } = useServiceAction();
   const { layoutMode } = useLayoutMode();
@@ -570,6 +572,7 @@ function WritingFinishModalBody({
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
+              {!quietStats && (
               <FinishModalStats
                 animWords={animWords}
                 animSeconds={animSeconds}
@@ -588,6 +591,7 @@ function WritingFinishModalBody({
                 totalWords={wordCount}
                 totalDuration={totalAccumulatedSeconds}
               />
+              )}
               <FinishModalTags
                 tags={tags}
                 setTags={setTags}
@@ -660,6 +664,7 @@ function WritingFinishModalBody({
             <h3 id="finish-modal-title" className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
           </div>
 
+          {!quietStats && (
           <FinishModalStats
             animWords={animWords}
             animSeconds={animSeconds}
@@ -678,6 +683,7 @@ function WritingFinishModalBody({
             totalWords={wordCount}
             totalDuration={totalAccumulatedSeconds}
           />
+          )}
 
           <FinishModalTags
             tags={tags}

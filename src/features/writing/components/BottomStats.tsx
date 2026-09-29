@@ -34,7 +34,7 @@ interface BottomStatsProps {
 
 export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsProps) {
   const { t } = useLanguage();
-  const { isZenActive, zenModeEnabled, headerVisibility } = useWritingSettings();
+  const { isZenActive, zenModeEnabled, effectiveHeaderVisibility } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const reducedMotion = useReducedMotion();
   const { wordCount, wpm } = useContentStore(
@@ -125,7 +125,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
     >
 
       <div className="flex items-center gap-0 flex-1 min-w-0 overflow-hidden">
-        {headerVisibility.totalWords && (
+        {effectiveHeaderVisibility.totalWords && (
         <div className={cn("flex flex-col", compact ? "pr-3 mr-3" : "pr-5 mr-5")}>
           <span className="text-lg font-medium text-text-main leading-none tabular-nums whitespace-nowrap">
             {wordCount.toLocaleString()}
@@ -138,11 +138,11 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         </div>
         )}
 
-        {headerVisibility.totalWords && headerVisibility.sessionWords && (
+        {effectiveHeaderVisibility.totalWords && effectiveHeaderVisibility.sessionWords && (
           <div className="w-px self-stretch bg-border-subtle" />
         )}
 
-        {headerVisibility.sessionWords && (
+        {effectiveHeaderVisibility.sessionWords && (
         <Button
           ref={wordRef}
           variant="ghost"
@@ -197,11 +197,11 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         </Button>
         )}
 
-        {headerVisibility.sessionWords && headerVisibility.sessionTime && (
+        {effectiveHeaderVisibility.sessionWords && effectiveHeaderVisibility.sessionTime && (
           <div className="w-px self-stretch bg-border-subtle" />
         )}
 
-        {headerVisibility.sessionTime && (
+        {effectiveHeaderVisibility.sessionTime && (
         <Button
           ref={timeRef}
           variant="ghost"
@@ -245,11 +245,11 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         </Button>
         )}
 
-        {headerVisibility.sessionTime && headerVisibility.wpm && (
+        {effectiveHeaderVisibility.sessionTime && effectiveHeaderVisibility.wpm && (
           <div className="w-px self-stretch bg-border-subtle" />
         )}
 
-        {headerVisibility.wpm && (
+        {effectiveHeaderVisibility.wpm && (
         <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
           <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
             <div

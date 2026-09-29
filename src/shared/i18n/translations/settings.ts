@@ -20,6 +20,8 @@ export const settingsTranslations: Translations = {
   settings_tab_editor:   { ru: 'Редактор',    en: 'Editor' },
   settings_language:     { ru: 'Язык',         en: 'Language' },
   settings_show_in_panel: { ru: 'Показывать в панели',  en: 'Show in panel' },
+  settings_quiet_stats: { ru: 'Писать без цифр', en: 'Write without numbers' },
+  settings_quiet_stats_desc: { ru: 'Прячет счётчики, скорость и таймер во время письма и в итогах сессии. Таймер продолжает идти.', en: 'Hides counters, speed and timer while writing and in the session summary. The timer keeps running.' },
   settings_auto_sync: { ru: 'Автосинхронизация с облаком', en: 'Auto-sync to cloud' },
   settings_auto_sync_hint: { ru: 'Когда выключено, данные остаются только на устройстве — в облако не уходит ничего: ни заметки, ни разбор, ни разговоры', en: 'When off, data remains on this device only — nothing leaves for the cloud: no notes, no analysis, no conversations' },
   settings_sync_derived_button: { ru: 'Отправить разбор и диалоги в облако', en: 'Upload analysis and dialogues to cloud' },
