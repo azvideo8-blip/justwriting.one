@@ -13,11 +13,11 @@ import { Button } from '../../shared/components/Button';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../../features/archive/components/ArchiveHeader';
 import { useToast } from '../../shared/components/Toast';
-import { Upload } from 'lucide-react';
 import { ArchiveTagBar } from '../../features/archive/components/ArchiveTagBar';
 import { ArchiveLabelBar } from '../../features/archive/components/ArchiveLabelBar';
 import { isSearchShortcut } from '../../features/archive/utils/searchShortcut';
 import { ArchiveNoteList } from '../../features/archive/components/ArchiveNoteList';
+import { ImportDropOverlay } from '../../features/archive/components/ImportDropOverlay';
 import { OnThisDayCard } from '../../features/archive/components/OnThisDayCard';
 import { ArchiveConfirmModals } from '../../features/archive/components/ArchiveConfirmModals';
 import { MobileArchiveSidebarSheet } from '../../features/archive/components/MobileArchiveSidebarSheet';
@@ -437,23 +437,12 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
         </div>
 
         {dragActive && (
-          <div 
-            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-surface-base/85 backdrop-blur-sm border-2 border-dashed border-brand-soft m-4 rounded-3xl"
+          <ImportDropOverlay
             onDragEnter={handleDrag}
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
-          >
-            <div className="flex flex-col items-center gap-4 text-center pointer-events-none">
-              <div className="w-16 h-16 rounded-full bg-brand-soft/10 flex items-center justify-center text-brand-soft animate-bounce">
-                <Upload size={32} />
-              </div>
-              <div>
-                <p className="text-lg font-bold text-text-main">{t('archive_import_drop_title')}</p>
-                <p className="text-sm text-text-main/60 mt-1">{t('archive_import_drop_hint')}</p>
-              </div>
-            </div>
-          </div>
+          />
         )}
       </motion.div>
     </AdaptiveContainer>
