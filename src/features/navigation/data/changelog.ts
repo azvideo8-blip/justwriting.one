@@ -14,6 +14,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.17',
+    date: '2026-09-29',
+    items: [
+      { category: 'fix', ru: 'Запись ИИ, которую вернули после удаления (или которая снова появилась), больше не стирается в облаке следующей синхронизацией.', en: 'An AI record that came back after a delete is no longer erased from the cloud by the next sync.' },
+      { category: 'fix', ru: 'Удаление заметки больше не обгоняет её выгрузку: раньше через 10 секунд ожидания заметка удалялась в обход блокировки и возвращалась из облака.', en: 'Deleting a note no longer races its upload: after a 10-second wait it used to bypass the lock and the note came back from the cloud.' },
+      { category: 'fix', ru: 'Сейф, созданный до усиления шифрования, теперь перешифровывается и при обычном входе по паролю, а не только при ручной разблокировке.', en: 'A vault created before the stronger key derivation is now re-wrapped on a regular password sign-in too, not only on manual unlock.' },
+      { category: 'fix', ru: 'Счётчик неотправленного показывает только задачи текущего аккаунта и не ошибается на единицу, если сохранение пришлось на середину подсчёта.', en: 'The unsent counter shows only this account’s tasks and is no longer off by one when a save lands mid-count.' },
+      { category: 'improvement', ru: 'Если облачную версию заметки не удалось прочитать при сверке, это попадает в журнал событий, а не проходит молча.', en: 'A cloud version that cannot be read during reconcile is now written to the activity log instead of passing silently.' },
+      { category: 'improvement', ru: 'Приложение больше не остаётся на пустом экране, если часть текстов интерфейса грузится слишком долго.', en: 'The app no longer stays on a blank screen when part of the interface text takes too long to load.' },
+      { category: 'improvement', ru: 'Уведомления о выходе из аккаунта и этапы восстановления из облака переведены на английский.', en: 'Sign-out notices and restore-from-cloud stages are now translated to English.' },
+    ],
+  },
+  {
     version: '0.9.16',
     date: '2026-09-29',
     items: [

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9.17 — 2026-09-29
+
+- **[RU]** Запись ИИ, которую вернули после удаления (или которая снова появилась), больше не стирается в облаке следующей синхронизацией.
+- **[EN]** An AI record that came back after a delete is no longer erased from the cloud by the next sync.
+- **[RU]** Удаление заметки больше не обгоняет её выгрузку: раньше через 10 секунд ожидания заметка удалялась в обход блокировки и возвращалась из облака.
+- **[EN]** Deleting a note no longer races its upload: after a 10-second wait it used to bypass the lock and the note came back from the cloud.
+- **[RU]** Сейф, созданный до усиления шифрования, теперь перешифровывается и при обычном входе по паролю, а не только при ручной разблокировке.
+- **[EN]** A vault created before the stronger key derivation is now re-wrapped on a regular password sign-in too, not only on manual unlock.
+- **[RU]** Счётчик неотправленного показывает только задачи текущего аккаунта и не ошибается на единицу, если сохранение пришлось на середину подсчёта.
+- **[EN]** The unsent counter shows only this account’s tasks and is no longer off by one when a save lands mid-count.
+- **[RU]** Если облачную версию заметки не удалось прочитать при сверке, это попадает в журнал событий, а не проходит молча.
+- **[EN]** A cloud version that cannot be read during reconcile is now written to the activity log instead of passing silently.
+- **[RU]** Приложение больше не остаётся на пустом экране, если часть текстов интерфейса грузится слишком долго.
+- **[EN]** The app no longer stays on a blank screen when part of the interface text takes too long to load.
+- **[RU]** Уведомления о выходе из аккаунта и этапы восстановления из облака переведены на английский.
+- **[EN]** Sign-out notices and restore-from-cloud stages are now translated to English.
+
 ## 0.9.16 — 2026-09-29
 
 - **[RU]** Нижнее меню на телефоне снова подсвечивает текущую вкладку при переходах.
