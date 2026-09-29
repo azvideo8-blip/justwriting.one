@@ -170,9 +170,9 @@ describe('SYNC-CURSOR-2: changeCursor', () => {
 
     // EA-4: проходы сообщают о сбоях значением, а не исключением.
     it.each([
-      ['locked vault', { downloaded: 0, skipped: 0, failed: 0, locked: true }, { reconciled: 0, skipped: 0, failed: 0 }],
-      ['a failed download', { downloaded: 3, skipped: 0, failed: 1 }, { reconciled: 0, skipped: 0, failed: 0 }],
-      ['a failed reconcile', { downloaded: 0, skipped: 0, failed: 0 }, { reconciled: 0, skipped: 0, failed: 2 }],
+      ['locked vault', { downloaded: 0, skipped: 0, failed: 0, locked: true }, { reconciled: 0, skipped: 0, failed: 0, corrupted: 0 }],
+      ['a failed download', { downloaded: 3, skipped: 0, failed: 1 }, { reconciled: 0, skipped: 0, failed: 0, corrupted: 0 }],
+      ['a failed reconcile', { downloaded: 0, skipped: 0, failed: 0 }, { reconciled: 0, skipped: 0, failed: 2, corrupted: 0 }],
     ])('does not advance the cursor after %s', async (_name, down, rec) => {
       const oldTs = '2026-09-19T10:00:00.000Z';
       setStoredCursor(userId, oldTs);

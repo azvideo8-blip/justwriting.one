@@ -105,7 +105,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
 
     const result = await SyncService.reconcileLinkedDocuments(userId);
 
-    expect(result).toEqual({ reconciled: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual({ reconciled: 1, skipped: 0, failed: 0, corrupted: 0 });
 
     // Silent — no toast, no confirmation
     expect(addActivitySpy).not.toHaveBeenCalledWith(
@@ -211,7 +211,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
 
     // First reconciliation run
     const result1 = await SyncService.reconcileLinkedDocuments(userId);
-    expect(result1).toEqual({ reconciled: 1, skipped: 0, failed: 0 });
+    expect(result1).toEqual({ reconciled: 1, skipped: 0, failed: 0, corrupted: 0 });
 
     // Content on screen is preserved, currentVersion is raised to nextVersionNo (A-2.4)
     const docAfter1 = await db.get('documents', localDocId);
@@ -235,7 +235,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     // Second reconciliation run with nothing new: does NOT log a second entry
     addActivitySpy.mockClear();
     const result2 = await SyncService.reconcileLinkedDocuments(userId);
-    expect(result2).toEqual({ reconciled: 0, skipped: 1, failed: 0 });
+    expect(result2).toEqual({ reconciled: 0, skipped: 1, failed: 0, corrupted: 0 });
     expect(addActivitySpy).not.toHaveBeenCalled();
   });
 
@@ -308,7 +308,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions);
 
     const result = await SyncService.reconcileLinkedDocuments(userId);
-    expect(result).toEqual({ reconciled: 1, skipped: 0, failed: 0 });
+    expect(result).toEqual({ reconciled: 1, skipped: 0, failed: 0, corrupted: 0 });
 
     // Document currentVersion is raised to nextVersionNo (A-2.4), title and on-screen content preserved
     const docAfter = await db.get('documents', localDocId);
@@ -369,7 +369,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
 
     const result = await SyncService.reconcileLinkedDocuments(userId);
 
-    expect(result).toEqual({ reconciled: 0, skipped: 0, failed: 0, locked: true });
+    expect(result).toEqual({ reconciled: 0, skipped: 0, failed: 0, corrupted: 0, locked: true });
     expect(getUserDocsSpy).not.toHaveBeenCalled();
   });
 
@@ -409,8 +409,8 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
       SyncService.reconcileLinkedDocuments(userId),
     ]);
 
-    expect(res1).toEqual({ reconciled: 1, skipped: 0, failed: 0 });
-    expect(res2).toEqual({ reconciled: 1, skipped: 0, failed: 0 });
+    expect(res1).toEqual({ reconciled: 1, skipped: 0, failed: 0, corrupted: 0 });
+    expect(res2).toEqual({ reconciled: 1, skipped: 0, failed: 0, corrupted: 0 });
     expect(getUserDocsSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -478,7 +478,7 @@ describe('SYNC-CURSOR-3: reconcileLinkedDocuments (Policy B)', () => {
     const reconcileResult = await SyncService.reconcileLinkedDocuments(userId);
     await syncPromise;
 
-    expect(reconcileResult).toEqual({ reconciled: 0, skipped: 1, failed: 0 });
+    expect(reconcileResult).toEqual({ reconciled: 0, skipped: 1, failed: 0, corrupted: 0 });
   });
   it('R3-5: trashing on another device moves the linked note to the trash here, restoring takes it back out', async () => {
     const db = await getLocalDb(userId);

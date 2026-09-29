@@ -28,7 +28,17 @@ import pLimit from 'p-limit';
 import { getActiveEditorDocumentId } from '../sync/activeEditor';
 
 const _activeDownloadPromises = new Map<string, Promise<{ downloaded: number; skipped: number; failed: number; locked?: boolean }>>();
-const _activeReconcilePromises = new Map<string, Promise<{ reconciled: number; skipped: number; failed: number; locked?: boolean }>>();
+// Итог сверки связанных заметок. `corrupted` — сколько облачных версий не
+// прочитались; это НЕ `failed`: на `failed` встаёт курсор изменений.
+export interface ReconcileSummary {
+  reconciled: number;
+  skipped: number;
+  failed: number;
+  corrupted: number;
+  locked?: boolean;
+}
+
+const _activeReconcilePromises = new Map<string, Promise<ReconcileSummary>>();
 const downloadLimit = pLimit(5);
 
 export interface RelinkResult {
@@ -200,9 +210,9 @@ export const CloudSyncService = {
   async reconcileLinkedDocuments(
     userId: string,
     opts?: { getActiveDocumentId?: () => string | null }
-  ): Promise<{ reconciled: number; skipped: number; failed: number; locked?: boolean }> {
+  ): Promise<ReconcileSummary> {
     if (getEncryptionEnabled(userId) && !getSessionKey()) {
-      return { reconciled: 0, skipped: 0, failed: 0, locked: true };
+      return { reconciled: 0, skipped: 0, failed: 0, corrupted: 0, locked: true };
     }
 
     const active = _activeReconcilePromises.get(userId);
@@ -217,7 +227,7 @@ export const CloudSyncService = {
         await db.getAll('syncQueue');
       } catch (err) {
         reportError(err, { action: 'reconcileLinkedDocuments_syncQueue' });
-        return { reconciled: 0, skipped: 0, failed: 1 };
+        return { reconciled: 0, skipped: 0, failed: 1, corrupted: 0 };
       }
 
       const [localDocs, cloudDocs] = await Promise.all([
@@ -231,6 +241,10 @@ export const CloudSyncService = {
       let reconciled = 0;
       let skipped = 0;
       let failed = 0;
+      // A-4 (R2-004): сколько облачных версий не удалось прочитать при сверке.
+      // Заметка при этом остаётся читаемой, поэтому это НЕ failed: курсор
+      // изменений (changeCursor) на failed встаёт намертво.
+      let corrupted = 0;
 
       for (const localDoc of linkedLocalDocs) {
         const cloudDoc = cloudDocMap.get(localDoc.linkedCloudId!)!;
@@ -360,6 +374,7 @@ export const CloudSyncService = {
 
               const sortedCloudVersions = [...cloudVersions].sort((a, b) => a.version - b.version);
               let prevContent = '';
+              const corruptedVersions: number[] = [];
               for (const cv of sortedCloudVersions) {
                 let cContent: string | null = null;
                 let cMood: string | undefined = undefined;
@@ -370,6 +385,7 @@ export const CloudSyncService = {
                 } catch (decErr) {
                   if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
                   if (!(decErr instanceof DecryptionError)) throw decErr;
+                  corruptedVersions.push(cv.version);
                 }
 
                 if (cContent !== null) {
@@ -410,6 +426,30 @@ export const CloudSyncService = {
                 trashedAt: toDate((cloudDoc as { trashedAt?: unknown }).trashedAt)?.getTime() ?? null,
               }, userId);
 
+              // A-4 (R2-004): версия не читается — в локальную историю её дыра.
+              // Воду метку всё равно поднимаем (иначе эта версия не прочитается
+              // никогда), но молчать нельзя: без записи заметка выглядит
+              // синхронизированной целиком.
+              if (corruptedVersions.length > 0) {
+                corrupted += corruptedVersions.length;
+                reportError(
+                  new Error(`Skipped ${corruptedVersions.length} unreadable version(s) while reconciling a note`),
+                  {
+                    action: 'reconcileLinkedDocuments_corruptedVersions',
+                    documentId: localDoc.id,
+                    cloudDocumentId: localDoc.linkedCloudId,
+                    versions: corruptedVersions.join(','),
+                  },
+                  'warning',
+                );
+                useActivityLogStore.getState().addActivity(
+                  'activity_cloud_corrupted_versions',
+                  { action: 'reconcileLinkedDocuments_corruptedVersions', cloudDocumentId: localDoc.linkedCloudId, count: corruptedVersions.length },
+                  'warning',
+                  'sync',
+                );
+              }
+
               reconciled++;
             }
           }, { queueOnHeld: false, ownerId: userId });
@@ -424,7 +464,7 @@ export const CloudSyncService = {
         }
       }
 
-      return { reconciled, skipped, failed };
+      return { reconciled, skipped, failed, corrupted };
     };
 
     const promise = run();

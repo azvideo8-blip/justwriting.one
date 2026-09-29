@@ -4,7 +4,7 @@ import { reportError } from '../../shared/errors/reportError';
 import { StorageService } from './StorageService';
 import { LocalDocumentService } from './LocalDocumentService';
 import { DocumentService } from './DocumentService';
-import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE } from './CloudSyncService';
+import { CloudSyncService, CLOUD_COPY_LOCAL_ONLY, CLOUD_COPY_TOMBSTONE, type ReconcileSummary } from './CloudSyncService';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { syncStatusOf } from '../sync/syncStatus';
 import { isPoisonSyncError, isRevivableOnUnlock, classifySyncError } from '../sync/classifySyncError';
@@ -411,7 +411,7 @@ export const SyncService = {
   async reconcileLinkedDocuments(
     userId: string,
     opts?: { getActiveDocumentId?: () => string | null }
-  ): Promise<{ reconciled: number; skipped: number; failed: number; locked?: boolean }> {
+  ): Promise<ReconcileSummary> {
     const res = await CloudSyncService.reconcileLinkedDocuments(userId, opts);
     if (res.reconciled > 0) announceQueueChange();
     return res;

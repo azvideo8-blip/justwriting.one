@@ -737,6 +737,17 @@
   ]
  },
  {
+  "id": "csc-37",
+  "file": "src/core/services/CloudSyncService.ts",
+  "line": 378,
+  "old": "                  corruptedVersions.push(cv.version);\n",
+  "new": "",
+  "why": "An unreadable cloud version stays silent: the watermark still advances over the hole in local history and nothing tells the user the note is only partly synced (R2-004).",
+  "tests": [
+   "src/core/services/__tests__/reconcileCorruptedVersions.test.ts"
+  ]
+ },
+ {
   "id": "ld-01",
   "file": "src/core/services/LocalDocumentService.ts",
   "line": 36,
