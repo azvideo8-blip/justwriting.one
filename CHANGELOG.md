@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.18 — 2026-09-29
+
+- **[RU]** Разбор приложенной заметки в чате опирается только на неё: ИИ больше не выдаёт цитаты из других записей за её текст и называет правильную дату.
+- **[EN]** Analysing an attached note in the chat uses only that note: the AI no longer passes quotes from other entries off as its text, and it gets the date right.
+- **[RU]** Если приложить заметку без вопроса, приложение спросит, что с ней сделать: разобрать или связать с другими записями. После разбора можно одним нажатием посмотреть в других записях.
+- **[EN]** Attach a note without a question and the app asks what to do: analyse it or relate it to other entries. After an analysis, one tap looks in other entries.
+- **[RU]** Чат снова предлагает контакты службы поддержки, когда в тексте прямо сказано, что человек не хочет жить.
+- **[EN]** The chat again offers crisis support contacts when a message says plainly that the person does not want to live.
+- **[RU]** Большие диалоги с ИИ больше не отказываются восстанавливаться на другом устройстве, если чтение совпало с их выгрузкой.
+- **[EN]** Large AI dialogues no longer refuse to restore on another device when the read lands in the middle of their upload.
+- **[RU]** Удаление, которое не выполнилось, потому что заметка ещё выгружается, больше не выдаётся за выполненное: заметка остаётся в списке, а приложение просит попробовать через минуту.
+- **[EN]** A delete that did not happen because the note is still uploading is no longer reported as done: the note stays in the list and the app asks to try again in a minute.
+- **[RU]** Повреждённый журнал удалений ИИ-данных восстанавливается сам и больше не останавливает их синхронизацию.
+- **[EN]** A corrupted journal of AI-data deletions now repairs itself instead of stopping their sync.
+- **[RU]** Письмо: режим «Писать без цифр» прячет счётчики; статус сохранения всегда виден внизу экрана, в том числе в дзене.
+- **[EN]** Writing: «Write without numbers» hides the counters; the save status is always visible at the bottom of the screen, zen mode included.
+- **[RU]** Письмо: скорость подписана словом, а не только цветом; дзен не сдвигает текст; итоги сессии — одна строка и настроение в том же шаге, есть «Сохраню позже»; начало сессии без вспышки на весь экран.
+- **[EN]** Writing: speed is labelled with a word, not only a colour; zen no longer shifts the text; the session summary is one line with the mood in the same step, plus «Save later»; starting a session no longer flashes the whole screen.
+- **[RU]** Архив: в строке заметки сначала заголовок, все действия — в меню «⋯» (и по правому клику); подписи счётчиков согласованы с числом; пустой архив не показывает «0 дней подряд»; без тегов нет плашки «+ тег»; зона импорта без прыгающей иконки.
+- **[EN]** Archive: a note row leads with the title and keeps every action in the «⋯» menu (right click too); counter labels agree with the number; an empty archive no longer shows «0 days in a row»; notes without tags no longer show a «+ tag» chip; the import zone has no bouncing icon.
+- **[RU]** Тексты без жаргона; кнопки-переключатели сообщают своё состояние экранному диктору; стрелки календаря подписаны.
+- **[EN]** Plain wording instead of jargon; toggle buttons announce their state to screen readers; calendar arrows are labelled.
+- **[RU]** В меню вложений чата убран пункт «Загрузить файл».
+- **[EN]** The «Upload file» item is removed from the chat attach menu.
+
 ## 0.9.17 — 2026-09-29
 
 - **[RU]** Запись ИИ, которую вернули после удаления (или которая снова появилась), больше не стирается в облаке следующей синхронизацией.
