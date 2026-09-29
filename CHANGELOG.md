@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.16 — 2026-09-29
+
+- **[RU]** Нижнее меню на телефоне снова подсвечивает текущую вкладку при переходах.
+- **[EN]** The phone’s bottom tab bar highlights the current tab again when you navigate.
+- **[RU]** Интерфейс переведён на английский целиком: диалоги восстановления и приглашения, настройки, панель ИИ и экраны диагностики больше не показывают русский текст при английском языке.
+- **[EN]** The whole interface is now translated to English: restore and invite dialogs, settings, the AI panel and diagnostics no longer show Russian text when English is selected.
+- **[RU]** Приложение стартует быстрее при обновлениях: React вынесен в отдельный файл, который браузер держит в кэше между выпусками.
+- **[EN]** The app starts faster after updates: React ships in its own file that the browser keeps cached between releases.
+- **[RU]** Обновлены зависимости (React 19.3 и другие минорные и патч-версии).
+- **[EN]** Dependencies updated (React 19.3 and other minor and patch releases).
+
 ## 0.9.15 — 2026-09-28
 
 - **[RU]** Правка, сделанная пока предыдущая версия уезжала в облако, или заметка, у которой потерялась задача синхронизации, больше не остаются невыгруженными: сверка с облаком не сбрасывает счётчики заметки, пока на устройстве есть невыгруженное.

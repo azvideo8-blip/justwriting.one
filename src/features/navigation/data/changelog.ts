@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.16',
+    date: '2026-09-29',
+    items: [
+      { category: 'fix', ru: 'Нижнее меню на телефоне снова подсвечивает текущую вкладку при переходах.', en: 'The phone’s bottom tab bar highlights the current tab again when you navigate.' },
+      { category: 'improvement', ru: 'Интерфейс переведён на английский целиком: диалоги восстановления и приглашения, настройки, панель ИИ и экраны диагностики больше не показывают русский текст при английском языке.', en: 'The whole interface is now translated to English: restore and invite dialogs, settings, the AI panel and diagnostics no longer show Russian text when English is selected.' },
+      { category: 'improvement', ru: 'Приложение стартует быстрее при обновлениях: React вынесен в отдельный файл, который браузер держит в кэше между выпусками.', en: 'The app starts faster after updates: React ships in its own file that the browser keeps cached between releases.' },
+      { category: 'improvement', ru: 'Обновлены зависимости (React 19.3 и другие минорные и патч-версии).', en: 'Dependencies updated (React 19.3 and other minor and patch releases).' },
+    ],
+  },
+  {
     version: '0.9.15',
     date: '2026-09-28',
     items: [
