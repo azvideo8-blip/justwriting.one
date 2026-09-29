@@ -33,3 +33,6 @@ scripts/ai-bench/*-real.*
 corpus-real.json
 .postulates-results*.json
 
+
+# impeccable critique snapshots (local)
+.impeccable/
