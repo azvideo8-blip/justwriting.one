@@ -105,8 +105,9 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       await db.put('aiDialogues', largeDialogue as never);
 
       const savedRecords: Array<{ key: string; payload: Record<string, unknown> }> = [];
-      vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockImplementation(async (_u, _s, key, payload) => {
-        savedRecords.push({ key, payload: payload as Record<string, unknown> });
+      const singleSaveSpy = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockResolvedValue(undefined);
+      const pagesSaveSpy = vi.spyOn(DataProvider, 'saveLocalStoreRecordPages').mockImplementation(async (_u, _s, pages) => {
+        for (const p of pages) savedRecords.push({ key: p.key, payload: p.payload as Record<string, unknown> });
       });
       const deleteExactSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreExactRecord').mockResolvedValue(undefined as never);
       const deletePagedSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
@@ -117,6 +118,10 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       expect(synced).toBe(1);
       expect(failed).toBe(0);
       expect(savedRecords.length).toBeGreaterThanOrEqual(2);
+      // Все страницы версии — одним запросом: по одной другое устройство видело
+      // новую страницу 0 рядом со старой страницей 1 и отказывалось собирать запись.
+      expect(pagesSaveSpy).toHaveBeenCalledTimes(1);
+      expect(singleSaveSpy).not.toHaveBeenCalled();
 
       const totalPages = savedRecords.length;
       for (let i = 0; i < totalPages; i++) {

@@ -38,6 +38,8 @@ export const PAGE_SPLIT_THRESHOLD_BYTES = 500 * 1024; // 500 KB
  * SYNC-4: Maximum total size across all pages for a single local store record.
  * Set to 10 MB (10 * 1024 * 1024 bytes) of plaintext.
  */
+/** Страниц в одном запросе: 8 × 500 КБ после шифрования (~×1.4) ≈ 5.6 МБ < 10 МБ nginx. */
+const PAGES_PER_REQUEST = 8;
 export const MAX_LOCAL_RECORD_BYTES = 10 * 1024 * 1024;
 
 export function splitStringIntoChunks(str: string, maxBytesPerChunk = PAGE_SPLIT_THRESHOLD_BYTES): string[] {
@@ -727,25 +729,31 @@ export class LocalStoreSyncManager {
             const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
             const totalPages = chunks.length;
 
+            // Сначала шифруем все страницы, потом пишем их одним запросом: запись
+            // по одной давала другому устройству увидеть половину новой версии
+            // рядом со старой, и восстановление отказывалось её собирать.
+            const pages: Array<{ key: string; payload: Awaited<ReturnType<typeof maybeEncrypt>> }> = [];
             for (let i = 0; i < totalPages; i++) {
-              const pageKey = `${item.key}#${i}`;
-              const encrypted = await maybeEncrypt(
-                {
-                  data: chunks[i],
-                  updatedAt: recordTs,
-                  page: i,
-                  totalPages,
-                },
-                ['data'],
-                [],
-                uid,
-              );
-              await DataProvider.saveLocalStoreRecord(
-                uid,
-                item.store,
-                pageKey,
-                encrypted,
-              );
+              pages.push({
+                key: `${item.key}#${i}`,
+                payload: await maybeEncrypt(
+                  {
+                    data: chunks[i],
+                    updatedAt: recordTs,
+                    page: i,
+                    totalPages,
+                  },
+                  ['data'],
+                  [],
+                  uid,
+                ),
+              });
+            }
+            // ponytail: атомарно только до PAGES_PER_REQUEST страниц (~4 МБ записи):
+            // тело запроса режет nginx (client_max_body_size 10m). Запись крупнее
+            // уходит несколькими запросами; если такие появятся — версионные ключи.
+            for (let i = 0; i < pages.length; i += PAGES_PER_REQUEST) {
+              await DataProvider.saveLocalStoreRecordPages(uid, item.store, pages.slice(i, i + PAGES_PER_REQUEST));
             }
             // Хвост прежней, более длинной версии: иначе в облаке смесь версий.
             if (DataProvider.deleteLocalStorePagedRecords) {

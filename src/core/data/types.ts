@@ -77,6 +77,7 @@ export interface IDataProvider {
 
   // --- Local Store Records Operations ---
   saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void>;
+  saveLocalStoreRecordPages(userId: string, store: string, pages: Array<{ key: string; payload: ProviderRecord }>): Promise<void>;
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;

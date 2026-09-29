@@ -16,6 +16,17 @@ export async function saveLocalStoreRecord(userId: string, store: string, key: s
   if (error != null) throw error;
 }
 
+/** Страницы одной версии записи `key#N` — одним запросом. Upsert массивом — это
+ *  один INSERT … ON CONFLICT, то есть одна транзакция: другое устройство не увидит
+ *  новую страницу 0 рядом со старой страницей 1 («Newest version … is incomplete»),
+ *  как было при записи по одной странице. */
+export async function saveLocalStoreRecordPages(userId: string, store: string, pages: Array<{ key: string; payload: ProviderRecord }>): Promise<void> {
+  const { error } = await getSupabase()
+    .from('local_store_records')
+    .upsert(pages.map(p => ({ user_id: userId, store, key: p.key, payload: p.payload, checksum: null })));
+  if (error != null) throw error;
+}
+
 export async function getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null> {
   const { data, error } = await getSupabase()
     .from('local_store_records')

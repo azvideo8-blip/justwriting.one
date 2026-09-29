@@ -16,6 +16,11 @@ const mockGetRecords = vi.fn();
 vi.mock('../../data', () => ({
   DataProvider: {
     saveLocalStoreRecord: (...args: unknown[]) => mockSaveRecord(...args),
+    // Страницы уходят одним запросом (атомарность проверяет localStoreSyncPaging);
+    // здесь каждая страница видна тем же mockSaveRecord, что и одиночная запись.
+    saveLocalStoreRecordPages: async (u: string, s: string, pages: Array<{ key: string; payload: unknown }>) => {
+      for (const p of pages) await mockSaveRecord(u, s, p.key, p.payload);
+    },
     deleteLocalStoreRecord: (...args: unknown[]) => mockDeleteRecord(...args),
     getLocalStoreRecords: (...args: unknown[]) => mockGetRecords(...args),
   },
