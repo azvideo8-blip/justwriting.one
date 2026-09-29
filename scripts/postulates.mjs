@@ -227,14 +227,24 @@ export async function runLifecycleMatrix(maxUnmeasured = null) {
   try {
     // Один файл — один форк: вложенный прогон не должен плодить воркеры рядом
     // с внешним vitest (тест postulatesCommand запускает его изнутри прогона).
-    execSync(`npx vitest run -c vitest.runner.config.ts --silent --maxWorkers=1`, {
-      cwd: rootDir,
-      env: {
-        ...process.env,
-        POSTULATES_RESULTS_PATH: tmpOut,
-      },
-      stdio: 'pipe',
-    });
+    try {
+      execSync(`npx vitest run -c vitest.runner.config.ts --silent --maxWorkers=1`, {
+        cwd: rootDir,
+        env: {
+          ...process.env,
+          POSTULATES_RESULTS_PATH: tmpOut,
+        },
+        encoding: 'utf8',
+        stdio: 'pipe',
+      });
+    } catch (err) {
+      console.error('\n[!] Nested matrix vitest runner failed:');
+      const stdout = typeof err.stdout === 'string' ? err.stdout : err.stdout?.toString('utf8');
+      const stderr = typeof err.stderr === 'string' ? err.stderr : err.stderr?.toString('utf8');
+      if (stdout) console.error(stdout);
+      if (stderr) console.error(stderr);
+      throw err;
+    }
 
     if (!fs.existsSync(tmpOut)) {
       throw new Error('Matrix runner failed to produce results file');

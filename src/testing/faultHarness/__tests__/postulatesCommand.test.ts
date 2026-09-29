@@ -11,6 +11,12 @@ import {
 const rootDir = path.resolve(__dirname, '../../../..');
 const postulatesScript = path.join(rootDir, 'scripts/postulates.mjs');
 
+function tail(text: string | null | undefined, lines = 80): string {
+  if (!text) return '';
+  const arr = text.trimEnd().split('\n');
+  return arr.length <= lines ? arr.join('\n') : arr.slice(-lines).join('\n');
+}
+
 describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs runs cleanly and passes all postulates', () => {
     // N-3: этот тест про матрицу без базы; живой обход базы — отдельный запуск
@@ -25,7 +31,8 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
       env,
     });
 
-    expect(res.status).toBe(0);
+    const output = [tail(res.stdout), tail(res.stderr)].filter(Boolean).join('\n');
+    expect(res.status, output).toBe(0);
     expect(res.stdout).toContain('RESULT: NO VIOLATIONS FOUND');
     expect(res.stdout).toContain('PART 1: LIFECYCLE MATRIX RUNNER');
     expect(res.stdout).toContain('PART 2: DATABASE PRIVACY SWEEP');
