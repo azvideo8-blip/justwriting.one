@@ -7,6 +7,8 @@
 #   bash scripts/sync-mutation-sweep.sh ss-01 cr-03 # только эти id
 #
 # Выживший = все тесты зелёные при сломанном коде. Это главный результат.
+# Неприменившаяся поломка — тоже провал: её якорь устарел, и участок кода
+# сейчас не проверяет ни один тест (R2-015).
 set -eu
 # На раннере VPS (4 ядра, ~3 ГБ свободных) базовый прогон с 4 форками плюс
 # вложенный vitest из postulatesCommand.test.ts не давали воркеру стартовать
@@ -36,6 +38,18 @@ PY
 
 ids=$(python3 -c "import json;print(' '.join(m['id'] for m in json.load(open('$LIST'))))")
 [ -n "$only" ] && ids="$only"
+
+# Метаданные (файл:строка, описание) — заранее, для строк отчёта о поломках,
+# которые не применились: сама команда применения в этот момент падает.
+meta_file=$(mktemp)
+trap 'rm -f "$meta_file"' EXIT
+python3 - "$LIST" > "$meta_file" <<'PY'
+import json, sys
+for m in json.load(open(sys.argv[1])):
+    print('\t'.join([m['id'], f"{m.get('file','?')}:{m.get('line','?')}", m.get('why','?')]))
+PY
+meta() { awk -F'\t' -v id="$1" '$1==id {print $2; exit}' "$meta_file"; }
+meta_why() { awk -F'\t' -v id="$1" '$1==id {print $3; exit}' "$meta_file"; }
 
 for f in $(python3 -c "import json;print(' '.join(sorted({m['file'] for m in json.load(open('$LIST'))})))"); do
   if ! git diff --quiet -- "$f"; then echo "❌ $f с незакоммиченными правками — прогон не начинаю" >&2; exit 2; fi
@@ -73,9 +87,8 @@ echo "# Sync mutation sweep — ${date_str} (${commit})" >> "$OUT"
 echo "" >> "$OUT"
 echo "| id | файл:строка | что сломано | упало | вердикт |" >> "$OUT"
 echo "|---|---|---|---|---|" >> "$OUT"
-survived=0; total=0
+survived=0; total=0; unapplied=0
 for id in $ids; do
-  total=$((total+1))
   mutation_info=$(python3 - "$LIST" "$id" <<'PY'
 import json,sys
 m=next(x for x in json.load(open(sys.argv[1])) if x['id']==sys.argv[2])
@@ -86,7 +99,14 @@ open(m['file'],'w').write(s.replace(m['old'],m['new'],1))
 tests_str = ' '.join(m['tests'])
 print(f"{m['file']}:{m.get('line','?')}\t{m['why']}\t{tests_str}")
 PY
-  ) || { echo "❌ $id: не применилась" >&2; continue; }
+  ) || {
+    # Поломка не применилась — значит её якорь устарел, и этот участок кода
+    # сейчас не проверяет ни один тест. Это провал гейта, а не «просто пропуск».
+    echo "❌ $id: не применилась" >&2
+    unapplied=$((unapplied+1))
+    echo "| $id | $(meta "$id") | $(meta_why "$id") | — | ❌ не применилась |" >> "$OUT"
+    continue; }
+  total=$((total+1))
 
   file=$(echo "$mutation_info" | cut -f1 | cut -d: -f1)
   location=$(echo "$mutation_info" | cut -f1)
@@ -95,6 +115,7 @@ PY
 
   if git diff --quiet -- "$file"; then
     echo "❌ $id: мутация пустая" >&2
+    unapplied=$((unapplied+1))
     echo "| $id | $location | $why | — | ❌ пустая |" >> "$OUT"
     continue
   fi
@@ -117,9 +138,9 @@ PY
   echo "$id → failed=${failed:-0} ($verdict)"
 done
 echo "" >> "$OUT"
-echo "Итого: $total поломок, выжило $survived." >> "$OUT"
-echo "Итого: $total поломок, выжило $survived."
+echo "Итого: $total поломок, выжило $survived, не применилось $unapplied." >> "$OUT"
+echo "Итого: $total поломок, выжило $survived, не применилось $unapplied."
 
-if [ $survived -ne 0 ]; then
+if [ $survived -ne 0 ] || [ $unapplied -ne 0 ]; then
   exit 1
 fi

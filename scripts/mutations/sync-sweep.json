@@ -24,9 +24,9 @@
  {
   "id": "ss-03",
   "file": "src/core/services/SyncService.ts",
-  "line": 173,
-  "old": "            const cloudVer = cloudDocVersions.get(d.linkedCloudId!) ?? 0;",
-  "new": "            const cloudVer = d.currentVersion ?? 0;",
+  "line": 179,
+  "old": "            const known = fresh.lastSyncedCloudVersion ?? cloudDocVersions.get(d.linkedCloudId!) ?? 0;",
+  "new": "            const known = fresh.lastSyncedCloudVersion ?? fresh.currentVersion ?? 0;",
   "why": "Unresolved linked notes are stamped as fully synced: UI shows 0 behind and syncAllUnlinked never uploads their newer local versions (false synced).",
   "tests": [
    "src/core/services/__tests__/syncPhase2.test.ts",
@@ -70,9 +70,9 @@
  {
   "id": "ss-07",
   "file": "src/core/services/SyncService.ts",
-  "line": 548,
-  "old": "    await _clearQueueItems(syncedIds, userId);\n    announceQueueChange();",
-  "new": "    await _clearQueueItems(syncedIds);\n    announceQueueChange();",
+  "line": 571,
+  "old": "    const { kept } = await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);",
+  "new": "    const { kept } = await _clearQueueItemsIfUnchanged(syncedIds, snapshot);",
   "why": "After an account switch mid-drain the completed tasks are deleted from the new account's DB, stay in the owner's queue and re-run on next login (repeat deletes/uploads under the old owner).",
   "tests": [
    "src/core/services/__tests__/vaultLockedSync.test.ts",
@@ -105,9 +105,9 @@
  {
   "id": "ss-10",
   "file": "src/core/services/SyncService.ts",
-  "line": 515,
-  "old": "      if (syncedIds.length > 0) await _clearQueueItems(syncedIds, userId);\n      return { drained: syncedIds.length, failed: docTasks.length };",
-  "new": "      if (syncedIds.length > 0) await _clearQueueItems(syncedIds, userId);",
+  "line": 537,
+  "old": "      if (syncedIds.length > 0) await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);\n      return { drained: syncedIds.length, failed: docTasks.length };",
+  "new": "      if (syncedIds.length > 0) await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);",
   "why": "If the relink check fails the drain uploads blind with an empty skip-set — orphaned notes become second cloud documents instead of waiting for the next pass.",
   "tests": [
    "src/core/services/__tests__/syncMutationSurvivors.test.ts"
@@ -159,9 +159,9 @@
  {
   "id": "st-02",
   "file": "src/core/services/StorageService.ts",
-  "line": 88,
-  "old": "        type: 'delete' as const,\n        createdAt: Date.now(),\n        ownerId: userId,",
-  "new": "        type: 'delete' as const,\n        createdAt: Date.now(),",
+  "line": 78,
+  "old": "    type: 'delete' as const,\n    createdAt: Date.now(),\n    ownerId: userId,",
+  "new": "    type: 'delete' as const,\n    createdAt: Date.now(),",
   "why": "A retried cloud delete has no owner stamp, so it is drained by whichever account signs in next on this device (delete task under the wrong owner).",
   "tests": [
    "src/core/services/__tests__/syncMutationSurvivors.test.ts"
@@ -274,9 +274,9 @@
  {
   "id": "cr-05",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 239,
-  "old": "...(cloudTrashedMs ? { trashedAt: cloudTrashedMs } : {}) });",
-  "new": "...(cloudTrashedMs ? {} : {}) });",
+  "line": 244,
+  "old": "...(cloudTrashedMs ? { trashedAt: cloudTrashedMs } : {}),",
+  "new": "...(cloudTrashedMs ? {} : {}),",
   "why": "A note trashed on another device stays alive here after the conflict; reconcile no longer sees the cloud as newer, so it never gets trashed locally (N2-7).",
   "tests": [
    "src/core/services/__tests__/syncMutationSurvivors.test.ts"
@@ -340,9 +340,9 @@
  {
   "id": "csc-03",
   "file": "src/core/services/CloudSyncService.ts",
-  "line": 213,
-  "old": "if (item.documentId && !item.id.startsWith('lock_cloud_')) {\n            pendingDocIds.add(item.documentId);",
-  "new": "if (item.documentId && item.id.startsWith('lock_cloud_')) {\n            pendingDocIds.add(item.documentId);",
+  "line": 259,
+  "old": "t => !t.id.startsWith('lock_cloud_') && (",
+  "new": "t => t.id.startsWith('lock_cloud_') && (",
   "why": "Queued (unsent) local edits are treated as clean: reconcile silently fast-forwards the note to the cloud state instead of preserving the pending edit in history — the next push forks or lands on a wrong version number.",
   "tests": [
    "src/core/services/__tests__/reconcileLinkedDocuments.test.ts"
@@ -637,9 +637,9 @@
  {
   "id": "csc-29",
   "file": "src/core/services/CloudSyncService.ts",
-  "line": 1299,
-  "old": "const db = await getLocalDb(userId);\n          await db.put('documents', { ...localDoc, lastSyncedCloudVersion: newVersion });",
-  "new": "const db = await getLocalDb();\n          await db.put('documents', { ...localDoc, lastSyncedCloudVersion: newVersion });",
+  "line": 1343,
+  "old": "        const db = await getLocalDb(userId);\n        const tx = db.transaction('documents', 'readwrite');\n        const fresh = await tx.store.get(documentId);\n        if (fresh) {\n          await tx.store.put({ ...fresh, lastSyncedCloudVersion: newVersion });",
+  "new": "        const db = await getLocalDb();\n        const tx = db.transaction('documents', 'readwrite');\n        const fresh = await tx.store.get(documentId);\n        if (fresh) {\n          await tx.store.put({ ...fresh, lastSyncedCloudVersion: newVersion });",
   "why": "Background push finishing after an account switch writes the previous owner's note row into the CURRENTLY signed-in user's IndexedDB — a note from account A appears in account B (cross-account leak).",
   "tests": [
    "src/core/services/__tests__/syncMutationSurvivors.test.ts"
@@ -786,9 +786,9 @@
  {
   "id": "ld-08",
   "file": "src/core/services/LocalDocumentService.ts",
-  "line": 505,
-  "old": "if (!existing || !existing.localOnly || existing.unlinkedByTombstone) return false;",
-  "new": "if (!existing || !existing.localOnly) return false;",
+  "line": 536,
+  "old": "    if (!existing || !existing.localOnly || existing.unlinkedByTombstone) {",
+  "new": "    if (!existing || !existing.localOnly) {",
   "why": "Upload clears localOnly on a tombstoned note — the note deleted in the cloud gets re-uploaded as a new copy (resurrection).",
   "tests": [
    "src/core/services/__tests__/localOnlyUpload.test.ts"
@@ -980,9 +980,9 @@
  {
   "id": "rq-01",
   "file": "src/core/sync/requeueDocumentTask.ts",
-  "line": 18,
-  "old": "...(existing ?? {}),\n    id,",
-  "new": "...{},\n    id,",
+  "line": 21,
+  "old": "  await tx.store.put({\n    ...(existing ?? {}),\n    id,\n    documentId,\n    type: 'document' as const,\n    createdAt: existing?.createdAt ?? Date.now(),\n    updatedAt: Date.now(),\n    ...(ownerId ? { ownerId } : existing?.ownerId ? { ownerId: existing.ownerId } : {}),\n  });",
+  "new": "  await tx.store.put({\n    id,\n    documentId,\n    type: 'document' as const,\n    createdAt: existing?.createdAt ?? Date.now(),\n    updatedAt: Date.now(),\n    dead: false,\n    attempts: 0,\n    ...(ownerId ? { ownerId } : existing?.ownerId ? { ownerId: existing.ownerId } : {}),\n  });",
   "why": "Requeue resets attempts/dead/lastError — an unfulfillable task (unreadable cloud version) retries forever and quarantine is lifted (R3-6 regression).",
   "tests": [
    "src/core/sync/__tests__/requeueDocumentTask.test.ts"
