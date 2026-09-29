@@ -53,36 +53,16 @@ jobs:
       with:
         node-version: '22'
         cache: 'npm'
-    # C-3 / F-042: каждый push в main проверяется на секреты. Полная история не
-    # сканируется намеренно: в ней лежит известный старый ключ Firebase (его
-    # отзывают отдельно), и гейт, красный всегда, — это гейт молча выключенный.
-    # Бинарник — зафиксированный релиз с проверкой sha256, не чужой action.
+    # C-3 / F-042: каждый push в main проверяется на секреты. Полную историю
+    # здесь не сканируют намеренно: диапазон выкладки дешёв, а полная история
+    # живёт отдельным джобом по расписанию (gates.yml, B-4 / R2-017).
+    # Версия gitleaks, sha256 и сам запуск — в scripts/gitleaks-scan.sh: один
+    # источник правды для обоих мест, иначе пин при подъёме разъезжается.
     - name: Secret scan (gitleaks)
       env:
         GL_RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.sha) || format('{0}..{1}', github.event.before, github.sha) }}
       run: |
         set -euo pipefail
-        GL_VERSION=8.30.1
-        case "$(uname -m)" in
-          x86_64|amd64)
-            GL_ARCH=linux_x64
-            GL_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
-            ;;
-          aarch64|arm64)
-            GL_ARCH=linux_arm64
-            GL_SHA256=e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080
-            ;;
-          *)
-            echo "::error::Нет зафиксированной сборки gitleaks для $GL_VERSION под $(uname -m)"
-            exit 1
-            ;;
-        esac
-        WORK=$(mktemp -d)
-        trap 'rm -rf "$WORK"' EXIT
-        curl -fsSL --retry 3 -o "$WORK/gitleaks.tar.gz" \
-          "https://github.com/gitleaks/gitleaks/releases/download/v${GL_VERSION}/gitleaks_${GL_VERSION}_${GL_ARCH}.tar.gz"
-        echo "${GL_SHA256}  $WORK/gitleaks.tar.gz" | sha256sum --check --status
-        tar -xzf "$WORK/gitleaks.tar.gz" -C "$WORK"
         ZERO=0000000000000000000000000000000000000000
         FROM="${GL_RANGE%%..*}"
         # Свежая ветка (before — нули) и force-push (before уже не предок) —
@@ -93,8 +73,7 @@ jobs:
         else
           LOG_OPTS="$GL_RANGE"
         fi
-        echo "Сканирую: $LOG_OPTS"
-        "$WORK/gitleaks" git --config .gitleaks.toml --log-opts="$LOG_OPTS" --redact --no-banner --exit-code 1
+        bash scripts/gitleaks-scan.sh "$LOG_OPTS"
     - run: npm ci
     - run: node scripts/prod-audit.mjs  # gate on shipped (prod) deps; fails on any high/critical advisory except the documented N/A exceptions in the script
     - run: npm run typecheck

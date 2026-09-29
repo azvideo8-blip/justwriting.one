@@ -1,19 +1,55 @@
 name: Testability Gates (Mutations, Proofs, Live DB)
 
-# TB-04: Ворота проверяемости. Запускаются только по требованию (workflow_dispatch)
-# или при пуше тега релиза (v*). Не используют schedule, чтобы не расходовать платные минуты.
+# TB-04: Ворота проверяемости. Запускаются по требованию (workflow_dispatch),
+# при пуше тега релиза (v*) и по расписанию — один джоб. Расписание только на
+# своём раннере (VPS): платные минуты GitHub для этого не расходуются.
 on:
   workflow_dispatch:
   push:
     tags:
       - 'v*'
+  schedule:
+    # B-4 (R2-017): полная история на секреты, раз в сутки. Push-гейт в ci.yml
+    # смотрит диапазон выкладки, и промежуточные коммиты force-push туда не
+    # попадают никогда. 03:17 UTC — не круглое время, чтобы не попадать в пик
+    # очередей раннера.
+    - cron: '17 3 * * *'
 
 permissions:
   contents: read
 
 jobs:
+  secrets_history:
+    name: Full-history secret scan (B-4 / R2-017)
+    # Тот же зафиксированный gitleaks, что и у push-гейта: версия, sha256 и
+    # запуск живут в scripts/gitleaks-scan.sh, чтобы пин при подъёме не
+    # разъезжался между двумя workflow.
+    #
+    # Сканируется вся история (`--all`), и сегодня она зелёная только потому,
+    # что две известные находки внесены в .gitleaksignore точечно —
+    # fingerprint’ом конкретного коммита и строки. Путь в allowlist заглушил бы
+    # и будущий настоящий ключ. Красный прогон = в истории появилось то, чего
+    # там быть не должно.
+    runs-on: [self-hosted, justwriting-vps]
+    timeout-minutes: 15
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Без полной истории нечего сканировать: на глубине 1 один коммит.
+          fetch-depth: 0
+
+      - name: gitleaks --all
+        run: bash scripts/gitleaks-scan.sh "--all"
+
   gates:
     name: Testability & Mutations Gates
+    # Расписание ходит только ради полной истории секретов: гонять сорокаминутный
+    # прогон мутаций и живых БД каждый день — это и ресурсы раннера, и шум в
+    # отчётах вместо сигнала.
+    if: github.event_name != 'schedule'
     runs-on: [self-hosted, justwriting-vps]
     timeout-minutes: 40
 
