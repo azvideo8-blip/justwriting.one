@@ -594,6 +594,27 @@ export const authScreensTranslations: Translations = {
     ru: 'Загрузка данных из облака',
     en: 'Downloading data from cloud',
   },
+  // C-4 (R2-007): стадии прогресса восстановления — их видно в модалке.
+  restore_cloud_stage_notes: {
+    ru: 'Загрузка заметок и версий...',
+    en: 'Loading notes and versions...',
+  },
+  restore_cloud_stage_notes_progress: {
+    ru: 'Загрузка заметок ({current} из {total})...',
+    en: 'Loading notes ({current} of {total})...',
+  },
+  restore_cloud_stage_derivatives: {
+    ru: 'Загрузка сводок и производных данных ИИ...',
+    en: 'Loading AI summaries and derived data...',
+  },
+  restore_cloud_stage_linking: {
+    ru: 'Привязка разбора к заметкам...',
+    en: 'Linking analysis to notes...',
+  },
+  restore_cloud_stage_done: {
+    ru: 'Восстановление завершено',
+    en: 'Restore complete',
+  },
   restore_cloud_desc_loading_zero: {
     ru: 'На этом устройстве пока нет ваших записей, а в облаке сохранено … Хотите загрузить их сейчас?',
     en: 'There are no entries on this device yet, and the cloud has … Would you like to download them now?',

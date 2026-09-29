@@ -1,7 +1,9 @@
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, writeFileSync } from 'fs';
 import { globSync } from 'glob';
 import { fileURLToPath } from 'url';
+import path from 'node:path';
 import ts from 'typescript';
+import { planBaseline } from './knip-ratchet.mjs';
 
 export function stripComments(code: string): string {
   let result = '';
@@ -230,6 +232,142 @@ export function isBlind(srcCount: number, tsxCount: number): boolean {
   return srcCount === 0 || tsxCount === 0;
 }
 
+// C-4 (R2-007): JSX — не единственный путь текста в рендер. showToast(...),
+// сеттеры вида setError(...), addActivity(...) и поля currentStage/message/label
+// уезжают в UI прямо из .ts, и в английском интерфейсе остаются русскими.
+// Список стоков — из кода, а не из фантазии: собиратели промптов (profilePrompt,
+// AIMemoryAssembler-ы), лог-вызовы (console.*, reportError) и поля text/content
+// (в них живут тексты промптов) сюда сознательно не входят.
+const UI_SINK_CALLEES = new Set(['showToast', 'addActivity', 'showDbOverlay', 'confirm', 'alert', 'prompt']);
+const UI_SINK_SETTER = /^(set|show)[A-Za-z0-9_]*(Error|Message|Hint|Notice|Toast|Status|Stage|Overlay)$/;
+const UI_TEXT_FIELDS = new Set(['currentStage', 'message', 'label', 'title', 'description', 'error', 'errors', 'hint', 'subtitle']);
+// Аргументы этих вызовов — журнал или телеметрия, их никто не показывает юзеру.
+const LOG_CALLEES = new Set(['reportError', 'addError', 'logEvent', 'track', 'captureException']);
+
+export interface UiSinkHit {
+  file: string;
+  /** Имя стока: вызов (`showToast`) или поле (`currentStage`). */
+  sink: string;
+  /** Текст с подстановками, свёрнутый до одной строки — он же ключ храповика. */
+  match: string;
+}
+
+export function findHardcodedUiText(src: string, file = ''): UiSinkHit[] {
+  // ScriptKind не форсируется: в .ts стрелочная дженерик-функция (`<T>(x) => x`)
+  // под TSX распарсилась бы как JSX.
+  const sourceFile = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true);
+  const seen = new Set<string>();
+  const hits: UiSinkHit[] = [];
+
+  const literalText = (node: ts.Node): string | null => {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      return CYRILLIC.test(node.text) ? node.text : null;
+    }
+    if (ts.isTemplateExpression(node)) {
+      const parts = [node.head.text, ...node.templateSpans.map(span => span.literal.text)];
+      return parts.some(part => CYRILLIC.test(part)) ? parts.join('${…}') : null;
+    }
+    return null;
+  };
+  const collapse = (value: string) => value.replace(/\s+/g, ' ').trim().slice(0, 80);
+
+  const push = (sink: string, value: string) => {
+    const match = collapse(value);
+    const key = `${file}:${sink}:${match}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    hits.push({ file, sink, match });
+  };
+
+  const calleeName = (call: ts.CallExpression): string => {
+    const expr = call.expression;
+    if (ts.isPropertyAccessExpression(expr)) {
+      // console.log / console.warn — журнал, чем бы ни был аргумент.
+      return ts.isIdentifier(expr.expression) && expr.expression.text === 'console'
+        ? 'console'
+        : expr.name.text;
+    }
+    if (ts.isIdentifier(expr)) return expr.text;
+    return '';
+  };
+
+  const uiSinkOf = (call: ts.CallExpression): string | null => {
+    const name = calleeName(call);
+    if (!name || LOG_CALLEES.has(name) || name === 'console') return null;
+    return UI_SINK_CALLEES.has(name) || UI_SINK_SETTER.test(name) ? name : null;
+  };
+
+  const enclosingCall = (node: ts.Node): ts.CallExpression | null => {
+    for (let p = node.parent; p; p = p.parent) {
+      if (ts.isCallExpression(p)) return p;
+      if (ts.isFunctionDeclaration(p) || ts.isSourceFile(p)) return null;
+    }
+    return null;
+  };
+
+  const isLogArg = (node: ts.Node): boolean => {
+    const call = enclosingCall(node);
+    if (!call) return false;
+    const name = calleeName(call);
+    return LOG_CALLEES.has(name) || name === 'console';
+  };
+
+  const collectFields = (obj: ts.ObjectLiteralExpression): void => {
+    for (const prop of obj.properties) {
+      if (!ts.isPropertyAssignment(prop)) continue;
+      const name = prop.name.getText(sourceFile).replace(/['"]/g, '');
+      if (!UI_TEXT_FIELDS.has(name)) continue;
+      const lit = literalText(prop.initializer);
+      if (lit) push(name, lit);
+    }
+  };
+
+  const walk = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const sink = uiSinkOf(node);
+      if (sink) {
+        for (const arg of node.arguments) {
+          const lit = literalText(arg);
+          if (lit) push(sink, lit);
+          else if (ts.isObjectLiteralExpression(arg)) collectFields(arg);
+        }
+      }
+    }
+    // Поля вне сток-вызовов — тоже кандидат в рендер: константы-контент
+    // (секции политики, LIFE_DOMAINS), объекты в модалках. Лог-аргументы
+    // пропускаем: их message никто пользователю не показывает.
+    if (ts.isObjectLiteralExpression(node) && !isLogArg(node)) collectFields(node);
+    ts.forEachChild(node, walk);
+  };
+
+  walk(sourceFile);
+  return hits;
+}
+
+export const I18N_BASELINE_HEADER = [
+  '# C-4 (R2-007): кириллица, уходящая в UI мимо JSX (showToast/сеттеры/addActivity и',
+  '# поля title/label/currentStage/…). Строка = файл:сток:текст.',
+  '# Убирать строку — когда текст переехал в t(); добавлять — только вместе с тикетом.',
+].join('\n');
+
+export function uiSinkKey(hit: UiSinkHit): string {
+  return `${hit.file}:${hit.sink}:${hit.match}`;
+}
+
+const UI_BASELINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'i18n-baseline.txt');
+
+function readUiBaseline(): string[] {
+  try {
+    return readFileSync(UI_BASELINE, 'utf8')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'));
+  } catch {
+    return [];
+  }
+}
+
+
 export function runAudit() {
   const translationFiles = readdirSync('src/shared/i18n/translations')
     .filter(f => f.endsWith('.ts'));
@@ -313,6 +451,28 @@ export function runAudit() {
   const missing = [...usedKeys].filter(k => !definedKeys.has(k));
   const unused = [...definedKeys].filter(k => !usedKeys.has(k));
 
+  // C-4: стоки ищутся и в .ts, и в .tsx — текст в UI попадает не только из JSX.
+  const uiHits = srcFiles.flatMap(file => findHardcodedUiText(readFileSync(file, 'utf-8'), file));
+  const uiKeys = [...new Set(uiHits.map(uiSinkKey))].sort();
+  const uiBaseline = readUiBaseline();
+  const uiPlan = planBaseline(uiBaseline, uiKeys, {
+    grow: process.argv.includes('--grow-baseline'),
+    header: I18N_BASELINE_HEADER,
+  });
+
+  if (process.argv.includes('--update-baseline') || process.argv.includes('--grow-baseline')) {
+    if (!uiPlan.mayWrite) {
+      console.error(`::error::i18n-baseline не записан: новых строк ${uiPlan.added.length}`);
+      uiPlan.added.forEach(key => console.error(`  ${key}`));
+      console.error('Долг уменьшается: перенесите текст в t() либо обновите осознанно — --grow-baseline.');
+      process.exit(1);
+    }
+    writeFileSync(UI_BASELINE, uiPlan.contents);
+    console.log(`i18n-baseline: записано ${uiKeys.length} строк (было ${uiBaseline.length}, вычеркнуто ${uiPlan.removed.length}, добавлено ${uiPlan.added.length})`);
+    uiPlan.added.forEach(key => console.log(`  + ${key}`));
+    process.exit(0);
+  }
+
   console.log('\n=== MISSING KEYS (used in code, not in translations) ===');
   missing.forEach(k => console.log(`  ❌ ${k}`));
 
@@ -344,10 +504,19 @@ export function runAudit() {
 
   const hardcodedJsxTotal = jsxText.length + jsxAttr.length + jsxExpr.length;
 
+  console.log('\n=== CYRILLIC IN UI SINKS (C-4) ===');
+  console.log(`  разобрано файлов: ${srcFiles.length} (ts+tsx без i18n и тестов), в baseline ${uiBaseline.length}`);
+  if (uiPlan.added.length > 0) {
+    console.log('  ❌ новое мимо t() (нет в baseline):');
+    uiPlan.added.forEach(key => console.log(`     ${key}`));
+    console.log(`  обновить долг нельзя: перенесите текст в t(); --update-baseline только укорачивает список`);
+  }
+
   console.log(`\nTotal defined: ${definedKeys.size}`);
   console.log(`Total used: ${usedKeys.size}`);
   console.log(`Missing: ${missing.length}, Unused: ${unused.length}, Incomplete: ${missingLocale.length}, ` +
-    `Hardcoded Dialogs: ${hardcodedConfirmDialogs.length}, Hardcoded JSX: ${hardcodedJsxTotal}`);
+    `Hardcoded Dialogs: ${hardcodedConfirmDialogs.length}, Hardcoded JSX: ${hardcodedJsxTotal}, ` +
+    `UI sinks: ${uiHits.length} (новых ${uiPlan.added.length})`);
 
   if (isBlind(srcFiles.length, tsxFiles.length)) {
     console.error('смёржено 0 файлов — аудит не видит кода, результат не считается');
@@ -356,7 +525,7 @@ export function runAudit() {
 
   if (
     missing.length > 0 || missingLocale.length > 0 || hardcodedConfirmDialogs.length > 0 ||
-    unused.length > 0 || hardcodedJsxTotal > 0
+    unused.length > 0 || hardcodedJsxTotal > 0 || uiPlan.added.length > 0
   ) {
     process.exit(1);
   }

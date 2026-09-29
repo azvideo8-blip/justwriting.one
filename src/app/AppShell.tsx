@@ -72,9 +72,9 @@ export function AppShell() {
   // Выход перезагружает страницу — сообщение о нём показывает уже новая.
   useEffect(() => {
     const notice = takeAccountChangeNotice();
-    if (notice === 'signed_out') showToast('Вы вышли из аккаунта', 'success');
-    else if (notice === 'signed_out_wiped') showToast('Вы вышли, локальные данные удалены', 'success');
-    else if (notice === 'wipe_failed') showToast('Вы вышли, но очистить локальные данные не удалось. Очистите данные сайта в браузере вручную.', 'error');
+    if (notice === 'signed_out') showToast(t('settings_sign_out_notice'), 'success');
+    else if (notice === 'signed_out_wiped') showToast(t('settings_sign_out_notice_wiped'), 'success');
+    else if (notice === 'wipe_failed') showToast(t('settings_sign_out_notice_wipe_failed'), 'error');
     else if (notice === 'account_deleted') showToast(t('settings_delete_account_success'), 'success');
   }, [showToast, t]);
 

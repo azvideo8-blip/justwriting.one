@@ -1,0 +1,137 @@
+# C-4 (R2-007): кириллица, уходящая в UI мимо JSX (showToast/сеттеры/addActivity и
+# поля title/label/currentStage/…). Строка = файл:сток:текст.
+# Убирать строку — когда текст переехал в t(); добавлять — только вместе с тикетом.
+src/app/pages/DiagnosticsPage.tsx:showToast:Все заметки уже проанализированы
+src/app/pages/DiagnosticsPage.tsx:showToast:Данная функция работает только при подключении к сети
+src/app/pages/DiagnosticsPage.tsx:showToast:Достигнут дневной лимит бюджета ИИ (25/25)
+src/app/pages/DiagnosticsPage.tsx:showToast:Ошибка массового анализа
+src/app/pages/DiagnosticsPage.tsx:showToast:Пакетный анализ завершён
+src/app/pages/DiagnosticsPage.tsx:showToast:Превышен лимит запросов к ИИ
+src/app/pages/DiagnosticsPage.tsx:showToast:Хронология ИИ успешно перестроена. Записей: ${…}
+src/app/pages/MobileMePage.tsx:showToast:Не удалось выйти из аккаунта
+src/core/services/LocalStoreSyncService.ts:addActivity:Запись ${…}/${…} (${…} КБ) превышает лимит размера 10 МБ и остаётся только на ус
+src/core/services/LocalStoreSyncService.ts:addActivity:Запись ${…}/${…} не принята облаком ${…} раз и осталась только на устройстве
+src/core/storage/localDb.ts:showDbOverlay:Закройте другие вкладки justwriting и обновите страницу — база данных ожидает об
+src/core/storage/localDb.ts:showDbOverlay:Приложение обновилось в другой вкладке. Обновите страницу — данные на месте.
+src/core/storage/localDb.ts:showDbOverlay:Приложение обновилось в другой вкладке. Обновите страницу — сохранённое на месте
+src/features/ai/components/ArchiveAnalysisButton.tsx:errors:три отказа подряд — похоже, связь или сервис недоступны
+src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Не удалось посчитать, сколько заметок ждёт разбора
+src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разбирать было нечего
+src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разбор не удался
+src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разобрано ${…}, проход остановлен: ${…}
+src/features/ai/components/ArchiveAnalysisButton.tsx:showToast:Разобрано заметок: ${…}${…}. Теперь можно обновить профиль
+src/features/ai/components/AuthorPortrait.tsx:showToast:Данная функция работает только при подключении к сети
+src/features/ai/components/AuthorPortrait.tsx:showToast:Достигнут дневной лимит ИИ — сбросьте счётчик и попробуйте снова
+src/features/ai/components/AuthorPortrait.tsx:showToast:Не удалось создать портрет: ${…}
+src/features/ai/components/AuthorPortrait.tsx:showToast:Нужно минимум 3 проанализированных заметки
+src/features/ai/components/AuthorPortrait.tsx:showToast:Ошибка при создании портрета
+src/features/ai/components/AuthorPortrait.tsx:showToast:Психологический портрет обновлён
+src/features/ai/components/DatabaseExplorer.tsx:showToast:Документ удален из облака
+src/features/ai/components/DatabaseExplorer.tsx:showToast:Запись удалена из IndexedDB
+src/features/ai/components/DatabaseExplorer.tsx:showToast:Не удалось загрузить данные таблиц
+src/features/ai/components/DatabaseExplorer.tsx:showToast:Ошибка при удалении записи
+src/features/ai/components/DatabaseExplorer.tsx:showToast:Удаление для этой коллекции не поддерживается клиентом
+src/features/ai/components/ProfileFacets.tsx:label:активна
+src/features/ai/components/ProfileFacets.tsx:label:затихла
+src/features/ai/components/ProfileFacets.tsx:label:новая
+src/features/ai/components/ProfileFacets.tsx:showToast:Не удалось выделить темы — мало заметок
+src/features/ai/components/ProfileFacets.tsx:showToast:Не удалось скопировать
+src/features/ai/components/ProfileFacets.tsx:showToast:Нужен реиндекс: «База данных» → «Переиндексировать всё» (обновлён формат эмбедди
+src/features/ai/components/ProfileFacets.tsx:showToast:Ошибка обновления тем
+src/features/ai/components/ProfileFacets.tsx:showToast:Ошибка построения тем
+src/features/ai/components/ProfileFacets.tsx:showToast:Ошибка проверки тем
+src/features/ai/components/ProfileFacets.tsx:showToast:Сначала проиндексируйте заметки (вкладка «База данных»)
+src/features/ai/components/ProfileFacets.tsx:showToast:Темы профиля построены: ${…}
+src/features/ai/components/ProfileFacets.tsx:showToast:Темы скопированы в буфер
+src/features/ai/components/ProfileRefreshButton.tsx:showToast:Не удалось посчитать объём обновления
+src/features/ai/components/ProfileRefreshButton.tsx:showToast:Обновление не удалось
+src/features/ai/components/ProfileRefreshButton.tsx:showToast:Обновлено частично: не вышло — ${…}
+src/features/ai/components/ProfileRefreshButton.tsx:showToast:Профиль обновлён
+src/features/ai/components/chat/noteActions.ts:showToast:Заметка не найдена
+src/features/ai/components/chat/noteActions.ts:showToast:Заметка обновлена новым вариантом
+src/features/ai/components/chat/noteActions.ts:showToast:Заметка успешно создана
+src/features/ai/components/chat/noteActions.ts:showToast:Не удалось обновить заметку
+src/features/ai/components/chat/noteActions.ts:showToast:Не удалось создать заметку
+src/features/ai/components/chat/noteActions.ts:showToast:Нет связанной заметки
+src/features/ai/hooks/useAIChat.ts:setError:Не удалось загрузить документ из-за ошибки доступа
+src/features/ai/hooks/useAIChat.ts:setError:Не удалось прикрепить документ
+src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите ${…} сек. перед следующей отправкой.
+src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите немного перед следующей отправкой.
+src/features/ai/hooks/useAIChat.ts:title:Новый диалог
+src/features/ai/hooks/useAIPageData.ts:setProactiveHint:Тема «${…}» была активна ${…} дн. назад — хочешь вернуться к ней?
+src/features/ai/hooks/useAIPageData.ts:showToast:Учту — продолжу в этом стиле
+src/features/ai/hooks/useAttachmentManager.ts:title:Вставленный текст
+src/features/ai/hooks/useBackgroundSync.ts:addActivity:Восстановлено заметок из облака: ${…}
+src/features/ai/hooks/useDiagnosticsData.ts:error:Некорректный email
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Все локальные заметки выгружены в облако
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Данная функция работает только при подключении к сети
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Достигнут дневной лимит ИИ — сбросьте счётчик и попробуйте снова
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Импорт завершен: скачано ${…} из ${…} заметок. Ошибок: ${…}
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Индекс будет догружаться частями в фоне, по мере дневного лимита чтений
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось выгрузить заметки в облако
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось загрузить данные администратора. Убедитесь, что сессия активна.
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось загрузить события пользователя
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось загрузить статистику AI
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось импортировать заметки из облака
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось очистить память ИИ
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось сбросить лимит: ${…}
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Не удалось создать портрет: ${…}
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Нужно минимум 3 проанализированных заметки
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Ошибка при создании портрета
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Память ИИ очищена
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Пользователь не авторизован
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Портрет ещё не создан
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Психологический портрет обновлён
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Синхронизация завершена с ошибками: не удалось выгрузить ${…} заметок
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Суточный счетчик для ${…} успешно сброшен
+src/features/ai/hooks/useDiagnosticsData.ts:showToast:Счетчик использования AI сброшен в БД и локально
+src/features/ai/pages/RerankBenchPage.tsx:confirm:Стереть результаты и оценки?
+src/features/ai/pages/RerankBenchPage.tsx:showToast:Введите хотя бы один запрос
+src/features/ai/pages/RerankBenchPage.tsx:showToast:Ошибка при прогоне
+src/features/ai/pages/RerankBenchPage.tsx:showToast:Поиск по смыслу выключен: оба пути вернут одно и то же. Включите его в настройка
+src/features/ai/pages/RerankBenchPage.tsx:showToast:Прогон завершён: ${…} запросов
+src/features/ai/pages/RerankBenchPage.tsx:showToast:Сводка скопирована
+src/features/ai/services/AIConsolidationService.ts:addActivity:Убеждение опубликовано
+src/features/ai/services/AIConsolidationService.ts:addActivity:Убеждение отклонено (судья не пропустил)
+src/features/ai/services/AIFacetJudgeService.ts:title:(фрагмент)
+src/features/ai/services/AIProfileFacetSummarizer.ts:title:(фрагмент)
+src/features/ai/services/AIProfileService.ts:title:Зоны роста
+src/features/ai/services/AIProfileService.ts:title:Сильные стороны
+src/features/ai/services/AIProfileService.ts:title:Стиль общения
+src/features/ai/services/AIProfileService.ts:title:Темы и интересы
+src/features/ai/services/AIProfileService.ts:title:Эмоциональные паттерны
+src/features/ai/services/AIRestoreService.ts:addActivity:Анализ привязан к заметкам (сводок: ${…}, эмбеддингов: ${…})
+src/features/ai/services/AIRestoreService.ts:addActivity:Запись ${…}/${…} (${…} КБ) в облаке превышает лимит размера 10 МБ и не может быт
+src/features/ai/services/AIThemeLedgerService.ts:addActivity:Тема затронута: ${…}
+src/features/ai/utils/lifeDomains.ts:label:Внутренняя работа
+src/features/ai/utils/lifeDomains.ts:label:Деньги
+src/features/ai/utils/lifeDomains.ts:label:Отношения с детьми
+src/features/ai/utils/lifeDomains.ts:label:Отношения с партнёром по браку
+src/features/ai/utils/lifeDomains.ts:label:Отношения с родителями
+src/features/ai/utils/lifeDomains.ts:label:Практика психолога
+src/features/ai/utils/lifeDomains.ts:label:Призвание и смысл
+src/features/ai/utils/lifeDomains.ts:label:Творчество и проекты
+src/features/navigation/pages/legalContent.ts:title:1. О чём договор
+src/features/navigation/pages/legalContent.ts:title:1. Общие положения
+src/features/navigation/pages/legalContent.ts:title:2. Категории субъектов и состав данных
+src/features/navigation/pages/legalContent.ts:title:2. Что сервис делает
+src/features/navigation/pages/legalContent.ts:title:3. Цели обработки
+src/features/navigation/pages/legalContent.ts:title:3. Это не медицинская и не психологическая помощь
+src/features/navigation/pages/legalContent.ts:title:4. Ваши записи
+src/features/navigation/pages/legalContent.ts:title:4. Правовые основания
+src/features/navigation/pages/legalContent.ts:title:5. Порядок и условия обработки
+src/features/navigation/pages/legalContent.ts:title:5. Упоминание других людей
+src/features/navigation/pages/legalContent.ts:title:6. Допустимое использование
+src/features/navigation/pages/legalContent.ts:title:6. Сроки хранения
+src/features/navigation/pages/legalContent.ts:title:7. Ответственность
+src/features/navigation/pages/legalContent.ts:title:7. Права субъекта персональных данных
+src/features/navigation/pages/legalContent.ts:title:8. Возраст
+src/features/navigation/pages/legalContent.ts:title:8. Изменение Политики
+src/features/navigation/pages/legalContent.ts:title:9. Прекращение и изменения
+src/features/navigation/pages/legalContent.ts:title:Какие действия разрешаются
+src/features/navigation/pages/legalContent.ts:title:Кому и от кого
+src/features/navigation/pages/legalContent.ts:title:На обработку каких данных
+src/features/navigation/pages/legalContent.ts:title:Отдельно — на специальные категории
+src/features/navigation/pages/legalContent.ts:title:С какой целью
+src/features/navigation/pages/legalContent.ts:title:Срок и отзыв
+src/features/navigation/pages/legalContent.ts:title:Четыре обещания

@@ -147,7 +147,7 @@ export function RestoreFromCloudModal({
       // Step 1: Notes & Versions
       if (includeNotes) {
         setProgress({
-          currentStage: 'Загрузка заметок и версий...',
+          currentStage: t('restore_cloud_stage_notes'),
           notesCurrent: 0,
           notesTotal: cloudCount,
           summariesCount: 0,
@@ -161,7 +161,7 @@ export function RestoreFromCloudModal({
           onProgress: (current, total) => {
             setProgress(prev => ({
               ...prev,
-              currentStage: `Загрузка заметок (${current} из ${total})...`,
+              currentStage: t('restore_cloud_stage_notes_progress', { current, total }),
               notesCurrent: current,
               notesTotal: total,
               percent: Math.min(60, 10 + Math.round((current / (total || 1)) * 50)),
@@ -176,7 +176,7 @@ export function RestoreFromCloudModal({
       if (includeSummaries || includeAIData) {
         setProgress(prev => ({
           ...prev,
-          currentStage: 'Загрузка сводок и производных данных ИИ...',
+          currentStage: t('restore_cloud_stage_derivatives'),
           percent: 70,
         }));
 
@@ -194,7 +194,7 @@ export function RestoreFromCloudModal({
 
         setProgress(prev => ({
           ...prev,
-          currentStage: 'Привязка разбора к заметкам...',
+          currentStage: t('restore_cloud_stage_linking'),
           summariesCount: resultSummary.restoredSummaries,
           embeddingsCount: resultSummary.restoredEmbeddings,
           localStoreCount: resultSummary.restoredAIStoreRecords,
@@ -204,7 +204,7 @@ export function RestoreFromCloudModal({
 
       setProgress(prev => ({
         ...prev,
-        currentStage: 'Восстановление завершено',
+        currentStage: t('restore_cloud_stage_done'),
         percent: 100,
       }));
 

@@ -60,10 +60,11 @@ const keyType = key => key.slice(0, key.indexOf('\t'));
 
 /**
  * @param {string[]} baseline ключи текущего baseline-файла
- * @param {string[]} current ключи, которые knip нашёл сейчас
- * @param {{ grow?: boolean }} [options]
+ * @param {string[]} current ключи, которые прогон нашёл сейчас (knip или i18n-аудит)
+ * @param {{ grow?: boolean, header?: string }} [options] `header` — шапка файла
+ *   (у каждого храповика своя); `grow` — разрешить рост
  */
-export function planBaseline(baseline, current, { grow = false } = {}) {
+export function planBaseline(baseline, current, { grow = false, header = BASELINE_HEADER } = {}) {
   const inBaseline = new Set(baseline);
   const stillThere = new Set(current);
   const added = current.filter(key => !inBaseline.has(key));
@@ -74,6 +75,6 @@ export function planBaseline(baseline, current, { grow = false } = {}) {
     removed,
     blocked,
     mayWrite: (grow || added.length === 0) && blocked.length === 0,
-    contents: BASELINE_HEADER + '\n' + current.join('\n') + '\n',
+    contents: header + '\n' + current.join('\n') + '\n',
   };
 }

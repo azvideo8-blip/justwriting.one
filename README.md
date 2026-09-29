@@ -150,7 +150,7 @@ npm run lint:changed # only files changed against origin/main
 npm run test:ci      # vitest run --coverage
 npm run ci           # typecheck + lint + tests
 npm run build        # vite build + prerender
-npm run i18n:audit   # missing / unused / incomplete translation keys
+npm run i18n:audit   # translation keys + hardcoded Cyrillic in the UI
 npm run postulates   # verify the 4 postulates + database plaintext sweep
 ```
 
@@ -166,6 +166,13 @@ npm run postulates   # verify the 4 postulates + database plaintext sweep
 - `scripts/knip-check.mjs` — a ratchet on dead code (`knip`), against
   `scripts/knip-baseline.txt`; it also blocks `unresolved` and `unlisted`
   imports, which are not baselinable at all (a clean `npm ci` breaks on them);
+- `npm run i18n:audit` — missing, unused and half-translated keys, plus Cyrillic
+  that reaches the UI without going through `t()`: JSX text and attributes, and
+  since C-4 non-JSX sinks too — `showToast`/`confirm`/`alert`, `setError`-style
+  setters, `addActivity` and object fields like `currentStage`/`message`/`label`,
+  in `.ts` as well as `.tsx`. Log calls and prompt text are not sinks. The
+  existing hits sit in `scripts/i18n-baseline.txt`, keyed by
+  `file:sink:text`, so moving a string into `t()` crosses its line off;
 - bundle size ceilings on the index chunk, raw and gzipped;
 - Supabase RLS tests.
 
@@ -173,6 +180,7 @@ Ratchets have baselines that only go down. If a change raises one, the fix is
 the change, not the baseline. `knip-check.mjs --update` therefore refuses to
 write a baseline with a key that was not there before (exit 1); a deliberate,
 ticketed increase needs `--update --grow`, which prints the keys it added.
+`i18n-audit` works the same way with `--update-baseline` / `--grow-baseline`.
 
 The raw index-chunk ceiling went 700000 → 750000 → 760000 in a week, and the
 note left at the third raise said the next step was to move the Supabase client

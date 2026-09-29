@@ -247,6 +247,10 @@ export const settingsTranslations: Translations = {
   },
   settings_delete_account_success: { ru: 'Аккаунт удалён', en: 'Account deleted' },
   settings_delete_account_error: { ru: 'Не удалось удалить аккаунт', en: 'Failed to delete account' },
+  // C-4 (R2-007): тосты после выхода — их показывает уже новая загрузка страницы.
+  settings_sign_out_notice: { ru: 'Вы вышли из аккаунта', en: 'Signed out' },
+  settings_sign_out_notice_wiped: { ru: 'Вы вышли, локальные данные удалены', en: 'Signed out — local data deleted' },
+  settings_sign_out_notice_wipe_failed: { ru: 'Вы вышли, но очистить локальные данные не удалось. Очистите данные сайта в браузере вручную.', en: 'Signed out, but local data could not be cleared. Clear this site’s data in your browser manually.' },
   settings_delete_account_password_prompt: {
     ru: 'Введите пароль, чтобы подтвердить удаление аккаунта. Это необратимо.',
     en: 'Enter your password to confirm account deletion. This cannot be undone.',
