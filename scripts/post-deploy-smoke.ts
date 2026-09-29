@@ -487,13 +487,22 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
   return errors;
 }
 
+/** Какую версию клиента ждать на странице. Пусто — сверка версии пропускается:
+ *  при выкатке одной службы (what = api) на сервере законно лежит прежний клиент. */
+export function resolveExpectedVersion(env: Record<string, string | undefined>): string {
+  if (env.SMOKE_CLIENT_DEPLOYED === 'false') return '';
+  return env.EXPECTED_VERSION || APP_VERSION;
+}
+
 async function main() {
   const targetUrl = process.argv[2] || process.env.SMOKE_URL || 'https://justwriting.ru/';
-  const expectedVersion = process.env.EXPECTED_VERSION || APP_VERSION;
+  const expectedVersion = resolveExpectedVersion(process.env);
   const expectedIndexSha256 = process.env.EXPECTED_INDEX_SHA256;
 
   console.log(`\n🔍 Запуск проверки после выкатки: ${targetUrl}`);
-  console.log(`📌 Ожидаемая версия приложения: v${expectedVersion}`);
+  console.log(expectedVersion
+    ? `📌 Ожидаемая версия приложения: v${expectedVersion}`
+    : '⏭️  Сверка версии клиента ПРОПУЩЕНА: в этом прогоне клиент не выкатывался.');
   console.log(`📌 Ожидаемый sha256 index.html: ${expectedIndexSha256 ? normalizeSha256(expectedIndexSha256) : 'не передан'}`);
   console.log('');
 

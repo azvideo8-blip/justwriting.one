@@ -135,6 +135,7 @@ jobs:
           echo "INDEX_SHA256=$INDEX_SHA256" >> "$GITHUB_ENV"
 
       - name: Выкатка клиента
+        id: deploy_client
         if: inputs.what != 'api'
         run: |
           # R4-8: карты исходников (sourcesContent) на сервер не едут вовсе — раньше
@@ -164,6 +165,7 @@ jobs:
           REMOTE
 
       - name: Сборка и выкатка службы
+        id: deploy_api
         if: inputs.what != 'client'
         run: |
           npx esbuild api/server.ts --bundle --platform=node --format=esm \
@@ -240,6 +242,9 @@ jobs:
           # Пусто, если клиент в этом прогоне не выкатывался (what = api):
           # проверка тогда не молчит, а явно пишет, что сверку пропустили.
           EXPECTED_INDEX_SHA256: ${{ env.INDEX_SHA256 }}
+          # what = api: клиент не выкатывался, на странице прежняя версия — сверять
+          # её с src/version.ts этого прогона значит уронить и откатить здоровый API.
+          SMOKE_CLIENT_DEPLOYED: ${{ inputs.what != 'api' }}
         run: npx tsx scripts/post-deploy-smoke.ts https://justwriting.ru/
 
       # TB-17: настоящий вход служебным аккаунтом — неверный пароль отклонён,
@@ -261,8 +266,10 @@ jobs:
 
       # Если служба не поднялась или проверка после выкатки упала — возвращаем
       # предыдущий бандл службы, а не оставляем сервис лежать.
+      # Только если выкатка службы реально запускалась: упавшие «Типы» или «Тесты»
+      # до неё раньше тоже поднимали откат и возвращали прод на .prev.
       - name: Откат службы при сбое
-        if: failure() && inputs.what != 'client'
+        if: failure() && inputs.what != 'client' && steps.deploy_api.outcome != 'skipped' && steps.deploy_api.outcome != ''
         run: |
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             if [ -f /opt/justwriting/api/server.mjs.prev ]; then
@@ -274,7 +281,7 @@ jobs:
       # Старые бандлы в assets сохранены благодаря ротации по возрасту, поэтому
       # откат index.html и sw.js мгновенно возвращает работоспособную версию для людей.
       - name: Откат клиента при сбое
-        if: failure() && inputs.what != 'api'
+        if: failure() && inputs.what != 'api' && steps.deploy_client.outcome != 'skipped' && steps.deploy_client.outcome != ''
         run: |
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             if [ -f /var/www/justwriting/index.html.prev ]; then

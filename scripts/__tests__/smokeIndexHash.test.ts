@@ -9,6 +9,7 @@
 // не заметит, поэтому проверяется только результат разбора тела.
 import { describe, it, expect, vi } from 'vitest';
 import {
+  resolveExpectedVersion,
   checkIndexHtmlHash,
   indexHashErrors,
   normalizeSha256,
@@ -101,5 +102,17 @@ describe('AG-INDEX-HASH — сверка index.html после выкатки', 
       fetchImpl: async () => stubResponse(500, ''),
     });
     expect(errors).toEqual(['index.html вернул HTTP 500 вместо 200']);
+  });
+});
+
+// Аудит round 2, #3: при what = api клиент не выкатывался, и сверка версии
+// страницы с src/version.ts этого прогона роняла проверку и откатывала здоровый API.
+describe('resolveExpectedVersion', () => {
+  it('skips the client-version check when the client was not deployed', () => {
+    expect(resolveExpectedVersion({ SMOKE_CLIENT_DEPLOYED: 'false', EXPECTED_VERSION: '9.9.9' })).toBe('');
+  });
+  it('checks the explicit or built-in version when the client was deployed', () => {
+    expect(resolveExpectedVersion({ SMOKE_CLIENT_DEPLOYED: 'true', EXPECTED_VERSION: '9.9.9' })).toBe('9.9.9');
+    expect(resolveExpectedVersion({})).not.toBe('');
   });
 });
