@@ -56,6 +56,7 @@ export function AIPage() {
     messagesEndRef, fileInputRef, attachMenuRef,
     isLoading, streamingMessage, streamingReasoning, error, clearError,
     stop, pendingAttachments, removePendingAttachment, handlePasteAsNote,
+    lastTurnScope, handleAnalyzeNote, handleRelateNote, handleLookWider,
     handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
     crisisActive, dismissCrisis,
     dialogue,
@@ -181,6 +182,9 @@ export function AIPage() {
           pendingAttachments={pendingAttachments}
           removePendingAttachment={removePendingAttachment}
           onPasteAsNote={handlePasteAsNote}
+          onAnalyzeNote={handleAnalyzeNote}
+          onRelateNote={handleRelateNote}
+          onLookWider={lastTurnScope === 'note' ? handleLookWider : undefined}
           attachMenuOpen={attachMenuOpen}
           setAttachMenuOpen={setAttachMenuOpen}
           attachMenuRef={attachMenuRef}

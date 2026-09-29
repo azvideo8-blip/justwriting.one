@@ -103,6 +103,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     dismissCrisis,
     clearError,
     triggerForcedSearch,
+    lastTurnScope,
   } = useAIChat(activeDialogueId, selectedPersonaId, responseLength, reasoning);
 
   const attachmentManager = useAttachmentManager({
@@ -418,6 +419,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
   const handleSuggestion = (text: string) => { void handleSendMessage(text); };
 
+  // Кнопки при приложенной заметке и под строгим ответом. «Связать…» и
+  // «Посмотреть в других записях» открывают широкий ход (turnScope).
+  const handleAnalyzeNote = () => { void handleSendMessage('Разбери эту заметку'); };
+  const handleRelateNote = () => { void handleSendMessage('Как эта заметка связана с другими моими записями?', { forceWide: true }); };
+  const handleLookWider = () => { void handleSendMessage('Посмотри в других моих записях — как это связано?', { forceWide: true }); };
+
   const handleFeedback = async (value: 'up' | 'down') => {
     if (value === 'up') {
       await AIChatMemoryService.addManual('preference', 'Пользователю понравился такой ответ (тон/подход) — продолжать в этом духе.', activeDialogueId ?? undefined);
@@ -583,6 +590,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     clearError,
     stop,
     pendingAttachments, removePendingAttachment, handlePasteAsNote,
+    lastTurnScope, handleAnalyzeNote, handleRelateNote, handleLookWider,
     handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
     crisisActive, dismissCrisis,
     dailyLimit,

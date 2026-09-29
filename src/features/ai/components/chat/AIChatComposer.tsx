@@ -8,6 +8,7 @@ import { cn } from '../../../../core/utils/utils';
 
 export interface PendingAttachment {
   title: string;
+  lastSessionAt?: number | undefined;
 }
 
 export interface AIChatComposerProps {
@@ -20,6 +21,12 @@ export interface AIChatComposerProps {
   pendingAttachments: PendingAttachment[];
   removePendingAttachment: (idx: number) => void;
   onPasteAsNote: () => void;
+  /** Заметка приложена, вопроса нет: «Разобрать» — строгий ход по ней. */
+  onAnalyzeNote?: (() => void) | undefined;
+  /** «Связать с другими записями» — широкий ход. */
+  onRelateNote?: (() => void) | undefined;
+  /** Есть, если последний ответ был строгим: кнопка «Посмотреть в других записях». */
+  onLookWider?: (() => void) | undefined;
   attachMenuOpen: boolean;
   setAttachMenuOpen: (v: boolean) => void;
   attachMenuRef: RefObject<HTMLDivElement | null>;
@@ -79,6 +86,9 @@ export function AIChatComposer(props: AIChatComposerProps) {
     pendingAttachments,
     removePendingAttachment,
     onPasteAsNote,
+    onAnalyzeNote,
+    onRelateNote,
+    onLookWider,
     attachMenuOpen,
     setAttachMenuOpen,
     attachMenuRef,
@@ -96,7 +106,19 @@ export function AIChatComposer(props: AIChatComposerProps) {
     crisisActive,
     dismissCrisis,
   } = props;
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  // Заметка приложена, вопроса нет — приложение само спрашивает, что с ней
+  // сделать; модель не зовём, пока человек не выбрал.
+  const askNoteAction = pendingAttachments.length > 0 && !inputText.trim() && !isLoading && !!onAnalyzeNote;
+  const single = pendingAttachments.length === 1 ? pendingAttachments[0] : undefined;
+  const noteQuestion = single?.lastSessionAt
+    ? t('ai_note_what_to_do', {
+        title: single.title,
+        date: new Date(single.lastSessionAt).toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' }),
+      })
+    : t('ai_note_what_to_do_plain');
+  const chipClass = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-brand-soft/10 border border-brand-soft/30 text-xs text-brand-soft hover:bg-brand-soft/20 transition-colors';
 
   const chatUsed = Math.max(0, dailyLimitTotal - dailyLimitRemaining);
   const chatWarning = dailyLimitRemaining > 0 && dailyLimitRemaining <= 2;
@@ -157,6 +179,20 @@ export function AIChatComposer(props: AIChatComposerProps) {
             >
               <Paperclip size={12} />
               {t('ai_composer_paste_as_note')}
+            </button>
+          )}
+          {askNoteAction && (
+            <div className="mb-2 flex flex-wrap items-center gap-1.5" role="group" aria-label={noteQuestion}>
+              <span className="text-xs text-text-main/70 mr-1">{noteQuestion}</span>
+              <button type="button" onClick={onAnalyzeNote} className={chipClass}>{t('ai_note_do_analyze')}</button>
+              {onRelateNote && (
+                <button type="button" onClick={onRelateNote} className={chipClass}>{t('ai_note_do_relate')}</button>
+              )}
+            </div>
+          )}
+          {onLookWider && pendingAttachments.length === 0 && !isLoading && (
+            <button type="button" onClick={onLookWider} className={cn(chipClass, 'mb-2')}>
+              {t('ai_note_look_wider')}
             </button>
           )}
           {pendingAttachments.length > 0 && (

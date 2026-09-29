@@ -19,6 +19,11 @@ export const aiTranslations: Translations = {
   ai_attach_note: { ru: 'Прикрепить заметку', en: 'Attach note' },
   // Пункт меню в AIChatComposer скрыт 2026-09-29; ключ остаётся для возврата.
   ai_upload_file: { ru: 'Загрузить файл', en: 'Upload file' },
+  ai_note_what_to_do: { ru: 'Что сделать с заметкой «{title}» от {date}?', en: 'What should I do with «{title}» from {date}?' },
+  ai_note_what_to_do_plain: { ru: 'Что сделать с приложенным?', en: 'What should I do with the attachment?' },
+  ai_note_do_analyze: { ru: 'Разобрать', en: 'Analyze' },
+  ai_note_do_relate: { ru: 'Связать с другими записями', en: 'Relate to other entries' },
+  ai_note_look_wider: { ru: 'Посмотреть в других записях', en: 'Look in other entries' },
   ai_write_placeholder: { ru: 'Сообщение для: {name}…', en: 'Message for {name}…' },
   ai_send: { ru: 'Отправить', en: 'Send' },
   ai_processing: { ru: 'Обработка…', en: 'Processing…' },

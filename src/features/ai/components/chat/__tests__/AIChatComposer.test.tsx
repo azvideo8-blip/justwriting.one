@@ -92,3 +92,34 @@ describe('AIChatComposer quota indicator', () => {
     expect(warningBar).toBeInTheDocument();
   });
 });
+
+describe('AIChatComposer — приложенная заметка без вопроса', () => {
+  const noteProps = {
+    ...defaultProps,
+    inputText: '',
+    pendingAttachments: [{ title: 'Аскеза 6', lastSessionAt: new Date(2026, 8, 29, 12).getTime() }],
+    onAnalyzeNote: vi.fn(),
+    onRelateNote: vi.fn(),
+  };
+
+  it('спрашивает, что сделать, с названием и датой заметки, и зовёт выбранное', () => {
+    renderWithProviders(<AIChatComposer {...noteProps} />);
+    expect(screen.getByRole('group').getAttribute('aria-label')).toMatch(/Аскеза 6.*29 (сентября|September)/);
+    screen.getByRole('button', { name: /Разобрать|Analyze/ }).click();
+    expect(noteProps.onAnalyzeNote).toHaveBeenCalledTimes(1);
+    screen.getByRole('button', { name: /Связать|Relate/ }).click();
+    expect(noteProps.onRelateNote).toHaveBeenCalledTimes(1);
+  });
+
+  it('с вопросом в поле — не спрашивает', () => {
+    renderWithProviders(<AIChatComposer {...noteProps} inputText="почему так?" />);
+    expect(screen.queryByRole('button', { name: /Разобрать|Analyze/ })).toBeNull();
+  });
+
+  it('после строгого ответа предлагает посмотреть в других записях', () => {
+    const onLookWider = vi.fn();
+    renderWithProviders(<AIChatComposer {...defaultProps} onLookWider={onLookWider} />);
+    screen.getByRole('button', { name: /Посмотреть в других записях|Look in other entries/ }).click();
+    expect(onLookWider).toHaveBeenCalledTimes(1);
+  });
+});
