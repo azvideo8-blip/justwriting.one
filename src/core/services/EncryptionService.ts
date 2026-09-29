@@ -196,61 +196,92 @@ export async function unlockVault(userId: string, password: string): Promise<voi
 
   // C-1 (F-017): Re-wrap legacy vaults (unwrapped with < PBKDF2_ITERATIONS)
   // to PBKDF2_ITERATIONS (600k) on unlock, if password convergence did not already re-wrap.
-  if (usedLegacyIterations && !passwordConverged) {
-    try {
-      const newSalt = generateSalt();
-      const newMasterKey = await deriveMasterKey(password, newSalt, PBKDF2_ITERATIONS);
-      const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
-
-      // Проверка обязательна до записи: перевёрнутый wrap в базе — это сейф,
-      // который больше не открывается. Кандидат разворачивается тем же ключом,
-      // которым был свёрнут (вторая деривация детерминирована и ничего не
-      // доказывает), и сравнивается с ключом сессии; verification-строка, если
-      // она есть, проверяется поверх. Без verification сравнение с ключом
-      // сессии — единственное доступное доказательство.
-      const unwrappedCandidate = await unwrapDataKey(newWrappedDataKey, newMasterKey);
-      const sameKey = await keysEquivalent(unwrappedCandidate, dataKey);
-      const matchesVerification = meta.verification
-        ? await verifyKey(unwrappedCandidate, meta.verification)
-        : true;
-      if (!sameKey || !matchesVerification) {
-        throw new Error('Re-wrap verification failed');
-      }
-
-      // Мету перечитывают: пока мы деривали ключ, её могла переписать другая
-      // вкладка (смена пароля, миграция ключа). Затирать чужую запись своим
-      // wrap безопасно только пока тот же data key — иначе заметки теряются.
-      const latest = await getEncryptionMeta(userId);
-      const stale = !latest
-        || latest.wrappedDataKey !== meta.wrappedDataKey
-        || latest.salt !== meta.salt;
-      if (stale) {
-        reportError(
-          new Error('vault meta changed during re-wrap'),
-          { action: 'unlockVault_legacyRewrapSkipped', userId },
-          'warning',
-        );
-      } else {
-        await saveEncryptionMeta(userId, {
-          salt: saltToBase64(newSalt),
-          version: meta.version ?? ENCRYPTION_META_VERSION,
-          wrappedDataKey: newWrappedDataKey,
-          verification: meta.verification,
-          recoveryWrappedDataKey: meta.recoveryWrappedDataKey,
-          recoverySalt: meta.recoverySalt,
-          iterations: PBKDF2_ITERATIONS,
-          autoCreated: meta.autoCreated,
-        });
-      }
-    } catch (e) {
-      reportError(e, { action: 'unlockVault_legacyRewrap', userId }, 'warning');
-    }
-  }
+  await rewrapLegacyVaultIterations(
+    userId,
+    password,
+    dataKey,
+    { salt: meta.salt, wrappedDataKey: meta.wrappedDataKey, verification: meta.verification },
+    usedLegacyIterations && !passwordConverged,
+  );
 
   try {
     await SyncService.reviveLockedTasks(userId);
     void SyncService.syncPending(userId);
   } catch { /* non-critical */ }
+}
+
+/**
+ * B-1 (R2-006): единственный переворот 300k-обёртки на 600k. Вызывается из
+ * `unlockVault` и из пути входа по паролю (`AuthService.unlockVaultFromProfile`)
+ * — раньше только из ручной разблокировки, и пользователь, который всегда
+ * входит по паролю, держал сейф на 300k вечно, несмотря на обещание SECURITY.md.
+ *
+ * Ошибка не роняет вход: сейф уже открыт, и попытка повторится в следующий раз.
+ *
+ * `opened` — то, чем сейф реально открыли. Поля записи берутся из
+ * перечитанной `latest`, поэтому вызывающему не обязательно знать recovery
+ * или autoCreated: неполная проекция не может стереть код восстановления.
+ */
+export async function rewrapLegacyVaultIterations(
+  userId: string,
+  password: string,
+  dataKey: CryptoKey,
+  opened: { salt: string; wrappedDataKey: string; verification?: string | undefined },
+  usedLegacyIterations: boolean,
+): Promise<void> {
+  if (!usedLegacyIterations) return;
+  try {
+    const newSalt = generateSalt();
+    const newMasterKey = await deriveMasterKey(password, newSalt, PBKDF2_ITERATIONS);
+    const newWrappedDataKey = await wrapDataKey(dataKey, newMasterKey);
+
+    // Проверка обязательна до записи: перевёрнутый wrap в базе — это сейф,
+    // который больше не открывается. Кандидат разворачивается тем же ключом,
+    // которым был свёрнут (вторая деривация детерминирована и ничего не
+    // доказывает), и сравнивается с ключом сессии; verification-строка, если
+    // она есть, проверяется поверх. Без verification сравнение с ключом
+    // сессии — единственное доступное доказательство.
+    const unwrappedCandidate = await unwrapDataKey(newWrappedDataKey, newMasterKey);
+    const sameKey = await keysEquivalent(unwrappedCandidate, dataKey);
+    const matchesVerification = opened.verification
+      ? await verifyKey(unwrappedCandidate, opened.verification)
+      : true;
+    if (!sameKey || !matchesVerification) {
+      throw new Error('Re-wrap verification failed');
+    }
+
+    // Мету перечитывают: пока мы деривали ключ, её могла переписать другая
+    // вкладка (смена пароля, миграция ключа). Затирать чужую запись своим
+    // wrap безопасно только пока тот же data key — иначе заметки теряются.
+    const latest = await getEncryptionMeta(userId);
+    const stale = !latest
+      || latest.wrappedDataKey !== opened.wrappedDataKey
+      || latest.salt !== opened.salt;
+    if (!latest || stale) {
+      reportError(
+        new Error('vault meta changed during re-wrap'),
+        { action: 'unlockVault_legacyRewrapSkipped', userId },
+        'warning',
+      );
+      return;
+    }
+
+    // Пишем из перечитанной меты, а не из проекции вызывающего: recovery code
+    // и флаг авто-создания переживают переворот (урок 0.9.14 — потеря
+    // `autoCreated`).
+    await saveEncryptionMeta(userId, {
+      salt: saltToBase64(newSalt),
+      version: latest.version ?? ENCRYPTION_META_VERSION,
+      wrappedDataKey: newWrappedDataKey,
+      verification: latest.verification || opened.verification || '',
+      recoveryWrappedDataKey: latest.recoveryWrappedDataKey,
+      recoverySalt: latest.recoverySalt,
+      iterations: PBKDF2_ITERATIONS,
+      autoCreated: latest.autoCreated,
+    });
+  } catch (e) {
+    reportError(e, { action: 'unlockVault_legacyRewrap', userId }, 'warning');
+  }
 }
 
 export const VAULT_PASSWORD_CONVERGED_EVENT = 'vault-password-converged';

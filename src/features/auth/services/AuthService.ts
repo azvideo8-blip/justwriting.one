@@ -235,13 +235,27 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
       // Falls back to the pre-SEC-36 iteration count: vaults wrapped at 300k
       // cannot be opened with a key derived at 600k, and the user just sees
       // "wrong password" for a password that is correct.
-      const { dataKey } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt, undefined, undefined, meta.iterations);
+      const { dataKey, usedLegacyIterations } = await unwrapDataKeyWithPassword(meta.wrappedDataKey, password, salt, undefined, undefined, meta.iterations);
       if (meta.verification) {
         const isValid = await verifyKey(dataKey, meta.verification);
         if (!isValid) return false;
       }
       setSessionKey(dataKey);
       setEncryptionEnabled(userId, true);
+      // B-1 (R2-006): вход по паролю обязан переворачивать 300k-обёртку на
+      // 600k, как это делает ручная разблокировка, — иначе обещание
+      // SECURITY.md выполняется только для тех, кто разблокирует сейф вручную.
+      // Тот же helper, что и в EncryptionService: вторая реализация переворота
+      // расходится с первой в проверках и в потере полей меты. Сам helper
+      // ошибок не отдаёт — переворот не может уронить вход.
+      const { rewrapLegacyVaultIterations } = await import('../../../core/services/EncryptionService');
+      await rewrapLegacyVaultIterations(
+        userId,
+        password,
+        dataKey,
+        { salt: meta.salt, wrappedDataKey: meta.wrappedDataKey, verification: meta.verification },
+        usedLegacyIterations,
+      );
       return true;
     } catch (e) {
       if (e instanceof DOMException && e.name === 'OperationError') {
@@ -253,6 +267,13 @@ async function unlockVaultFromProfile(profileData: VaultProfileData, password: s
     }
   }
 
+  // Профиль старой формы (encryption_salt + encrypted_data_key, меты сейфа
+  // нет): переворачивать нечего — `iterations` и recovery code живут в мете,
+  // а создать мету молча означало бы сейф без кода восстановления (AUD-14).
+  // Для этого вида есть интерактивная миграция: EncryptionPasswordModal →
+  // `migrateFromLegacy`, которая фиксирует `iterations` и выдаёт код.
+  // `unlockVaultFromPendingKeys` ниже — та же старая форма, восстановленная из
+  // sessionStorage, поэтому и тот же путь.
   if (profileData.encryptionSalt && profileData.encryptedDataKey) {
     const salt = fromBase64(profileData.encryptionSalt);
     try {

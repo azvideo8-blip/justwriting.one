@@ -30,9 +30,11 @@ vi.mock('../../../core/data', () => ({
 
 const mockInitializeEncryption = vi.fn();
 const mockRecoverVaultWithCode = vi.fn();
+const mockRewrapLegacyVaultIterations = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../../core/services/EncryptionService', () => ({
   initializeEncryption: (...args: unknown[]) => mockInitializeEncryption(...args),
   recoverVaultWithCode: (...args: unknown[]) => mockRecoverVaultWithCode(...args),
+  rewrapLegacyVaultIterations: (...args: unknown[]) => mockRewrapLegacyVaultIterations(...args),
   WrongPasswordError: class WrongPasswordError extends Error {},
   WrongRecoveryCodeError: class WrongRecoveryCodeError extends Error {},
 }));
