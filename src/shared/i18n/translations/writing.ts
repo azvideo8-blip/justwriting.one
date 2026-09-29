@@ -45,6 +45,15 @@ export const writingTranslations: Translations = {
   header_sessionWords: { ru: 'Слов в сессии',    en: 'Session words' },
   header_totalWords:   { ru: 'Всего слов',        en: 'Total words' },
   header_wpm:          { ru: 'слов в минуту',      en: 'wpm' },
+  // DC-W6: скорость не должна читаться только цветом; стрелки — глифы в разметке.
+  wpm_speed_slow:    { ru: 'медленно', en: 'slow' },
+  wpm_speed_steady:  { ru: 'ровно',    en: 'steady' },
+  wpm_speed_fast:    { ru: 'быстро',   en: 'fast' },
+  wpm_speed_thresholds: {
+    ru: 'меньше 15 — медленно, 15–49 — ровно, от 50 — быстро',
+    en: 'under 15 — slow, 15–49 — steady, 50 or more — fast',
+  },
+  wpm_speed_aria: { ru: 'Скорость: {words} в минуту, {level}', en: 'Speed: {words} per minute, {level}' },
   header_sessionWords_hint: { ru: 'слов в сессии · цель', en: 'session words · set goal' },
   header_time_hint:         { ru: 'время · цель',          en: 'time · set goal' },
   header_time:              { ru: 'Время',                  en: 'Time' },

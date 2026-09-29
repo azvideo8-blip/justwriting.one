@@ -10,7 +10,7 @@ const settings = {
 };
 
 vi.mock('../../../../shared/i18n', () => ({
-  useLanguage: () => ({ t: (k: string) => k, language: 'ru' }),
+  useLanguage: () => ({ t: (k: string) => k, tp: (k: string) => k, language: 'ru' }),
 }));
 
 vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
