@@ -36,7 +36,7 @@
  {
   "id": "ss-04",
   "file": "src/core/services/SyncService.ts",
-  "line": 225,
+  "line": 243,
   "old": "    if (!opts?.force && !cloudSyncEnabled(userId)) {",
   "new": "    if (opts?.force && !cloudSyncEnabled(userId)) {",
   "why": "Background drains (network return, save) upload the queue while cloud sync is switched off — data leaves the device without consent (SEC-8).",
@@ -48,7 +48,7 @@
  {
   "id": "ss-05",
   "file": "src/core/services/SyncService.ts",
-  "line": 268,
+  "line": 286,
   "old": "        if (skippedSet.has(d.id)) return false;\n        if (status === 'unlinked-new') return true;",
   "new": "        if (skippedSet.has(d.id)) return true;\n        if (status === 'unlinked-new') return true;",
   "why": "A note whose relink was skipped (lock held) is uploaded as unlinked on the same pass — duplicate cloud document (L-2).",
@@ -59,7 +59,7 @@
  {
   "id": "ss-06",
   "file": "src/core/services/SyncService.ts",
-  "line": 369,
+  "line": 389,
   "old": "    if (!cloudId || cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) return false;\n    const db = await getLocalDb(userId);",
   "new": "    if (cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) return false;\n    const db = await getLocalDb(userId);",
   "why": "When a concurrent sync holds the lock (addCloudCopy returns ''), the doc's queue tasks are deleted anyway and the manual sync reports success — the pending edit is never retried.",
@@ -70,7 +70,7 @@
  {
   "id": "ss-07",
   "file": "src/core/services/SyncService.ts",
-  "line": 571,
+  "line": 582,
   "old": "    const { kept } = await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);",
   "new": "    const { kept } = await _clearQueueItemsIfUnchanged(syncedIds, snapshot);",
   "why": "After an account switch mid-drain the completed tasks are deleted from the new account's DB, stay in the owner's queue and re-run on next login (repeat deletes/uploads under the old owner).",
@@ -83,7 +83,7 @@
  {
   "id": "ss-08",
   "file": "src/core/services/SyncService.ts",
-  "line": 432,
+  "line": 456,
   "old": "    if (item.dead) return false; // AUDIT-H4: карантинные задачи не дренируются\n    if (item.ownerId !== undefined && item.ownerId !== userId) return false;",
   "new": "    if (item.dead) return false; // AUDIT-H4: карантинные задачи не дренируются",
   "why": "Another account's queued tasks are drained under the current user — their cloud documents get uploaded or DELETED under this account.",
@@ -94,7 +94,7 @@
  {
   "id": "ss-09",
   "file": "src/core/services/SyncService.ts",
-  "line": 481,
+  "line": 506,
   "old": "        if (task.documentId !== userId) {",
   "new": "        if (task.documentId === userId) {",
   "why": "Own portrait tasks are skipped (never synced) and a foreign-user portrait task is pushed to the cloud under this session.",
@@ -105,7 +105,7 @@
  {
   "id": "ss-10",
   "file": "src/core/services/SyncService.ts",
-  "line": 537,
+  "line": 548,
   "old": "      if (syncedIds.length > 0) await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);\n      return { drained: syncedIds.length, failed: docTasks.length };",
   "new": "      if (syncedIds.length > 0) await _clearQueueItemsIfUnchanged(syncedIds, snapshot, userId);",
   "why": "If the relink check fails the drain uploads blind with an empty skip-set — orphaned notes become second cloud documents instead of waiting for the next pass.",
@@ -116,7 +116,7 @@
  {
   "id": "ss-11",
   "file": "src/core/services/SyncService.ts",
-  "line": 529,
+  "line": 562,
   "old": "        if (!cloudId || cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) return [];",
   "new": "        if (cloudId === CLOUD_COPY_LOCAL_ONLY || cloudId === CLOUD_COPY_TOMBSTONE) return [];",
   "why": "A lock-held no-op ('' cloudId) counts as synced: the doc's queue tasks are cleared and the queued edit never reaches the cloud.",
@@ -127,7 +127,7 @@
  {
   "id": "ss-12",
   "file": "src/core/services/SyncService.ts",
-  "line": 519,
+  "line": 552,
   "old": "    const eligibleDocTasks = docTasks.filter(p => !skippedSet.has(p.documentId));",
   "new": "    const eligibleDocTasks = docTasks;",
   "why": "Drain uploads notes whose relink was skipped because the lock was held — a second cloud copy of an existing note.",
@@ -138,7 +138,7 @@
  {
   "id": "ss-13",
   "file": "src/core/services/SyncService.ts",
-  "line": 339,
+  "line": 348,
   "old": "    const queuedDocIds = new Set(queue.filter(q => !q.id.startsWith('lock_cloud_')).map(q => q.documentId).filter(Boolean));",
   "new": "    const queuedDocIds = new Set(queue.map(q => q.documentId).filter(Boolean));",
   "why": "A lock row left by a closed tab counts as a queued task, so the note never reaches the orphan sweep and its edits stay local forever (R2-010).",
@@ -149,7 +149,7 @@
  {
   "id": "st-01",
   "file": "src/core/services/StorageService.ts",
-  "line": 51,
+  "line": 50,
   "old": "    return { cloudId: undefined, failed: true };",
   "new": "    return { cloudId: undefined, failed: false };",
   "why": "A failed local read is treated as 'no cloud copy': delete/trash report cloudSynced=true, nothing is queued, and the cloud copy survives to be restored later (failed read read as data).",
@@ -181,7 +181,7 @@
  {
   "id": "st-03",
   "file": "src/core/services/StorageService.ts",
-  "line": 154,
+  "line": 175,
   "old": "        reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });\n        if (localId) await queueMetadataRetry(userId, localId);",
   "new": "        reportError(e, { action: 'restoreDocument_cloud', documentId: targetCloudId });",
   "why": "Restore-from-trash that fails in the cloud is never retried: the note is live locally but stays trashed in the cloud (and on other devices) until purge.",
@@ -192,7 +192,7 @@
  {
   "id": "st-04",
   "file": "src/core/services/StorageService.ts",
-  "line": 133,
+  "line": 154,
   "old": "        reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });\n        if (localId) await queueMetadataRetry(userId, localId);",
   "new": "        reportError(e, { action: 'trashDocument_cloud', documentId: targetCloudId });",
   "why": "A cloud trash that fails offline is never retried: the note looks trashed here but stays live in the cloud and reappears on the next download/reconcile.",
@@ -215,7 +215,7 @@
  {
   "id": "st-06",
   "file": "src/core/services/StorageService.ts",
-  "line": 234,
+  "line": 279,
   "old": "      await addToSyncQueue(documentId, userId);\n      return { forked: false, cloudSynced: false };",
   "new": "      await addToSyncQueue(documentId, userId);\n      return { forked: false, cloudSynced: true };",
   "why": "With cloud sync switched off every save reports 'synced' although the version only went into the local queue (false synced).",
@@ -227,7 +227,7 @@
  {
   "id": "st-07",
   "file": "src/core/services/StorageService.ts",
-  "line": 244,
+  "line": 290,
   "old": "    if (result.forked) return { forked: true, forkTitle: result.forkTitle, cloudSynced: false };",
   "new": "    if (result.forked) return { forked: false, cloudSynced: true };",
   "why": "A conflict fork is hidden from the editor: the UI shows the save as synced while the text actually lives in a new 'conflict' note the user is never told about.",
@@ -239,7 +239,7 @@
  {
   "id": "cr-01",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 110,
+  "line": 112,
   "old": "        .filter(v => readableCloudContent.get(v.version) !== v.content) // EA-3: в облаке с тем же текстом — не копируем",
   "new": "        .filter(v => !readableCloudContent.has(v.version)) // EA-3: в облаке с тем же текстом — не копируем",
   "why": "Local versions whose number exists in the cloud with DIFFERENT text are not copied to the fork, then pass 2 deletes them from the original — the divergent text is gone.",
@@ -250,7 +250,7 @@
  {
   "id": "cr-02",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 128,
+  "line": 130,
   "old": "      if (!toCopy.some(v => v.content === data.content)) {\n        await LocalVersionService.addVersion(userId, forkedDocId, {",
   "new": "      if (toCopy.some(v => v.content === data.content)) {\n        await LocalVersionService.addVersion(userId, forkedDocId, {",
   "why": "The edit that triggered the conflict (the newest text, not yet a local version) is left out of the fork while the original is reset to the cloud — the newest text is discarded.",
@@ -264,7 +264,7 @@
  {
   "id": "cr-03",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 173,
+  "line": 175,
   "old": "    if (!cloudFetched || !forkCopied) {",
   "new": "    if (!cloudFetched && !forkCopied) {",
   "why": "With the cloud unread or the fork incomplete, pass 2 still deletes divergent versions from the original — versions that never made it into the fork are lost.",
@@ -275,7 +275,7 @@
  {
   "id": "cr-04",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 198,
+  "line": 199,
   "old": "        if (comparison.comparable && !comparison.same) {\n          await tx.store.delete(lv.id);",
   "new": "        if (!comparison.same) {\n          await tx.store.delete(lv.id);",
   "why": "An unreadable cloud version ('unknown') now deletes the local version from the original; the local plaintext survives only in the fork, the original loses that version for good (CHOKE-1).",
@@ -297,7 +297,7 @@
  {
   "id": "cr-06",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 57,
+  "line": 60,
   "old": "      const cloudVersions = await VersionService.getVersions(userId, linkedCloudId);",
   "new": "      const cloudVersions = await VersionService.getVersions(userId, documentId);",
   "why": "Cloud versions are fetched for the wrong id (empty list, cloudFetched=true): pass 2 deletes every local version of the original and adds none back — the original is emptied.",
@@ -308,7 +308,7 @@
  {
   "id": "cr-07",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 252,
+  "line": 259,
   "old": "    await requeueDocumentTask(forkedDocId, userId);\n    return { forked: true, forkTitle: conflictTitle };",
   "new": "    return { forked: true, forkTitle: conflictTitle };",
   "why": "The conflict fork is never queued for upload: it exists only on this device although the user is told the conflict was resolved into a new note.",
@@ -319,7 +319,7 @@
  {
   "id": "cr-08",
   "file": "src/core/services/ConflictResolver.ts",
-  "line": 111,
+  "line": 113,
   "old": "        .sort((a, b) => a.version - b.version);",
   "new": "        .sort((a, b) => b.version - a.version);",
   "why": "Fork versions are renumbered newest-first: forkHead (currentVersion) points at the OLDEST unsynced text, so the fork opens on stale content and the newest edit is buried.",
@@ -773,7 +773,7 @@
  {
   "id": "ld-03",
   "file": "src/core/services/LocalDocumentService.ts",
-  "line": 180,
+  "line": 204,
   "old": "      docStore.delete(id),\n      tx.done,",
   "new": "      docStore.get(id),\n      tx.done,",
   "why": "Delete removes all versions but leaves the document row — the 'deleted' note stays in the list as an empty shell.",
@@ -909,7 +909,7 @@
  {
   "id": "cc-03",
   "file": "src/core/sync/changeCursor.ts",
-  "line": 86,
+  "line": 88,
   "old": "  ownRow(docRes.data, userId);\n  ownRow(verRes.data, userId);",
   "new": "  void docRes.data;\n  void verRes.data;",
   "why": "A foreign row's newer timestamp moves the cursor ahead — the user's own older changes are skipped (N-35 regression).",
