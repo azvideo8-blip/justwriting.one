@@ -159,7 +159,8 @@ npm run postulates   # verify the 4 postulates + database plaintext sweep
 - `typecheck`, `lint`, the full test suite;
 - `npm run postulates` — verifies the four postulates across the lifecycle fault matrix;
 - `scripts/prod-audit.mjs` — blocks on any production dependency advisory of
-  moderate severity or above;
+  moderate severity or above, for both shipped sets: the client bundle at the repo
+  root and the API service in `deploy/api`;
 - `scripts/cross-feature-check.sh` — a ratchet on cross-feature imports, at 0;
 - `scripts/raw-overlay-check.sh` — a ratchet on raw overlay usage;
 - bundle size ceilings on the index chunk, raw and gzipped;

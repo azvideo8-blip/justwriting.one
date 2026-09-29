@@ -24,43 +24,73 @@ const ALLOW = {
   'GHSA-28wg-ghj8-5hjv': 'nanoid negative size loop via docx — N/A (docx only uses standard positive-size ID generation)',
 };
 
-let raw;
-try {
-  raw = execFileSync('npm', ['audit', '--omit=dev', '--audit-level=moderate', '--json'], { encoding: 'utf8' });
-} catch (e) {
-  // npm audit exits non-zero when advisories exist; the JSON report is still on stdout.
-  raw = e.stdout?.toString() ?? '';
-}
+// B-3 (R2-018): набор зависимостей службы — отдельный. `deploy/api/package.json` +
+// лок раскатываются на VPS, и корень их не покрывает (workspaces в корневом
+// манифесте нет): гейт, который смотрит только в корень, аудится то, что на сервер
+// не едет. Те же порог и тот же allowlist для обоих наборов; в строке findings
+// указано, откуда набор.
+const SETS = [
+  { cwd: '.', label: 'root (client bundle)' },
+  { cwd: 'deploy/api', label: 'deploy/api (API service)' },
+];
 
-// Пустой stdout значит, что команда не отработала, а не что уязвимостей нет.
-// execFileSync кидает и при найденных уязвимостях (отчёт на stdout), и при
-// настоящем сбое — нет сети, недоступен реестр. Различать обязательно: это
-// первый гейт в CI, и «проверить не смогли» не равно «проверили, чисто».
-if (!raw.trim()) {
-  console.error('prod-audit: npm audit не дал вывода — проверка не выполнена, а не пройдена.');
+function fail(message) {
+  console.error(`prod-audit: ${message}`);
   process.exit(1);
 }
 
-let report;
-try {
-  report = JSON.parse(raw);
-} catch (e) {
-  console.error('prod-audit: не удалось разобрать вывод npm audit:', e instanceof Error ? e.message : e);
-  process.exit(1);
+function auditSet(set) {
+  let raw;
+  try {
+    raw = execFileSync(
+      'npm',
+      ['audit', '--omit=dev', '--audit-level=moderate', '--json'],
+      { cwd: set.cwd, encoding: 'utf8' },
+    );
+  } catch (e) {
+    // npm audit exits non-zero when advisories exist; the JSON report is still on stdout.
+    raw = e.stdout?.toString() ?? '';
+  }
+
+  // Пустой stdout значит, что команда не отработала, а не что уязвимостей нет.
+  // execFileSync кидает и при найденных уязвимостях (отчёт на stdout), и при
+  // настоящем сбое — нет сети, недоступен реестр. Различать обязательно: это
+  // первый гейт в CI, и «проверить не смогли» не равно «проверили, чисто».
+  if (!raw.trim()) fail(`${set.label}: npm audit не дал вывода — проверка не выполнена, а не пройдена.`);
+
+  let report;
+  try {
+    report = JSON.parse(raw);
+  } catch (e) {
+    fail(`${set.label}: не удалось разобрать вывод npm audit: ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Тот же разбор «не равно» для отчёта, который пришёл, но не является отчётом:
+  // сбой реестра npm печатает JSON с `message`/`error` и без `vulnerabilities`,
+  // и без этой строки такой вывод читался бы как «наборов проверено, чисто».
+  if (!report || typeof report.vulnerabilities !== 'object' || report.vulnerabilities === null) {
+    fail(`${set.label}: вывод npm audit не содержит раздела уязвимостей — проверка не выполнена.`);
+  }
+
+  return report;
 }
+
 const blocking = new Set();
 const allowed = new Set();
 
-for (const pkg of Object.values(report.vulnerabilities ?? {})) {
-  // Порог был 'high', и уязвимость DOMPurify (moderate) до гейта не доходила
-  // вовсе — при том что DOMPurify чистит весь вывод модели. Для несущей
-  // защиты 'moderate' — не тот уровень, который можно не заметить.
-  if (pkg.severity === 'low' || pkg.severity === 'info') continue;
-  for (const via of pkg.via ?? []) {
-    if (typeof via !== 'object' || !via.url) continue; // string vias are transitive edges
-    const ghsa = via.url.split('/advisories/')[1] ?? via.url;
-    const line = `${ghsa}  [${pkg.severity}] ${via.name ?? pkg.name}: ${via.title ?? ''}`;
-    (ALLOW[ghsa] ? allowed : blocking).add(line);
+for (const set of SETS) {
+  const report = auditSet(set);
+  for (const pkg of Object.values(report.vulnerabilities ?? {})) {
+    // Порог был 'high', и уязвимость DOMPurify (moderate) до гейта не доходила
+    // вовсе — при том что DOMPurify чистит весь вывод модели. Для несущей
+    // защиты 'moderate' — не тот уровень, который можно не заметить.
+    if (pkg.severity === 'low' || pkg.severity === 'info') continue;
+    for (const via of pkg.via ?? []) {
+      if (typeof via !== 'object' || !via.url) continue; // string vias are transitive edges
+      const ghsa = via.url.split('/advisories/')[1] ?? via.url;
+      const line = `${ghsa}  [${pkg.severity}] ${via.name ?? pkg.name}: ${via.title ?? ''}`;
+      (ALLOW[ghsa] ? allowed : blocking).add(`[${set.label}] ${line}`);
+    }
   }
 }
 
@@ -73,4 +103,4 @@ if (blocking.size > 0) {
   process.exit(1);
 }
 
-console.log('\n✔ No blocking advisories (allowlisted exceptions are documented in scripts/prod-audit.mjs).');
+console.log(`\n✔ No blocking advisories in ${SETS.map(s => s.cwd).join(', ')} (allowlisted exceptions are documented in scripts/prod-audit.mjs).`);
