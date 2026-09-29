@@ -387,6 +387,11 @@ export class LocalStoreSyncManager {
           if (uid) {
             persistUpserts(uid, [{ store, key }]);
             forgetDeadUpserts(uid, [{ store, key }]);
+            // A-1 (R2-003): запись снова жива — обязательство «снести её в
+            // облаке» снято здесь же, где поставлено обязательство «доехать как
+            // обновление». Иначе следующий дренаж перечитает маркер с диска,
+            // сожмёт pending как удаление и снесёт облачный ряд живой записи.
+            forgetPersistedDelete(uid, store, key);
           }
           this.resetTimer();
         } catch (err) {
