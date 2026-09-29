@@ -37,16 +37,28 @@ export interface RiskResult {
   matchedPattern?: string;
 }
 
+// Исключение считается, только если оно не лежит целиком внутри найденной
+// фразы: «не хочу» внутри «не хочу жить» гасило сам риск. Перекрытие с началом
+// фразы — законное отрицание («я не думал о смерти»: «не » до неё, «думал» в ней).
+function hasSafeContextAround(lower: string, start: number, end: number): boolean {
+  const from = Math.max(0, start - 40);
+  const to = end + 40;
+  for (const safe of SAFE_CONTEXT) {
+    for (let i = lower.indexOf(safe, from); i !== -1 && i + safe.length <= to; i = lower.indexOf(safe, i + 1)) {
+      const insideMatch = i >= start && i + safe.length <= end;
+      if (!insideMatch) return true;
+    }
+  }
+  return false;
+}
+
 export function detectRisk(text: string): RiskResult {
   const lower = text.toLowerCase();
 
   for (const pattern of RISK_PATTERNS) {
     const match = pattern.exec(lower);
     if (match) {
-      // Check for false-positive context
-      const context = lower.slice(Math.max(0, match.index! - 40), match.index! + match[0].length + 40);
-      const hasSafeContext = SAFE_CONTEXT.some(s => context.includes(s));
-      if (hasSafeContext) {
+      if (hasSafeContextAround(lower, match.index, match.index + match[0].length)) {
         return { isRisk: false, severity: 'none' };
       }
       return { isRisk: true, severity: 'acute', matchedPattern: match[0] };
