@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { reportError } from '../../errors/reportError';
 
 vi.mock('../../errors/reportError', () => ({
@@ -118,19 +118,12 @@ describe('B-3.1 (F-018) Failed lazy translation chunk does not block render and 
       expect(screen.getByTestId('child-content')).toHaveTextContent('First screen child content');
     }, { timeout: 2000 });
 
-    // Key falls back to key name since settings failed
+    // Ключ остаётся ключом: чанк не дошёл.
     expect(screen.getByTestId('lazy-key')).toHaveTextContent('test_lazy_key');
-
-    // reportError was called for the failed namespace
-    expect(reportError).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('failed to fetch chunk') }),
-      expect.objectContaining({ action: expect.stringContaining('settings') }),
-    );
 
     // 2. Retry succeeds
     failFirstAttempt = false;
     let retryOk = false;
-    const { act } = await import('@testing-library/react');
     await act(async () => {
       retryOk = await _retryNamespaceForTesting('settings');
     });

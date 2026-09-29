@@ -20,8 +20,8 @@ export type { Language, Translations };
 // DEBT-1 (#55): index-чанк не влезал в бюджет (806 933 при пороге 810 000).
 // Переводы второстепенных пространств имён (~35 КБ минифицированного кода)
 // вынесены в отдельные чанки: они догружаются параллельно при старте и
-// доливаются в тот же объект до первого рендера детей провайдера. Ядро
-// (common/writing/auth/ai) остаётся eager — оно нужно первому экрану.
+// доливаются в тот же объект. Ядро (common/writing/auth) остаётся eager — оно
+// нужно первому экрану; `ai` при этом lazy (прежний комментарий в это не верил).
 export const translations: Translations = {
   ...commonTranslations,
   ...writingTranslations,
@@ -47,9 +47,25 @@ export const LAZY_NAMESPACES: LazyNamespaceDef[] = [
 ];
 
 const loadedNamespaces = new Set<string>();
-const failedNamespaces = new Map<string, { def: LazyNamespaceDef; attempts: number }>();
+const failedNamespaces = new Map<string, FailedNamespace>();
 const reportedNamespaces = new Set<string>();
+// D-1 (R2-014): `online` сбрасывает счётчик попыток не больше одного раза на
+// пространство за загрузку страницы, иначе каждое событие сети заново открывает
+// три попытки и счётчик теряет смысл.
+const onlineResetDone = new Set<string>();
 const updateListeners = new Set<() => void>();
+
+/** Сколько раз всего попробовать достать чанк до того, сдаться и сообщить. */
+export const MAX_LOAD_ATTEMPTS = 3;
+/** D-1 (R2-013): столько ждать первого чанка, после чего приложение рендерит
+ * ядро переводов, а догрузка идёт фоном. */
+export const FIRST_LOAD_TIMEOUT_MS = 5000;
+
+interface FailedNamespace {
+  def: LazyNamespaceDef;
+  attempts: number;
+  lastError: unknown;
+}
 
 export function subscribeToTranslationUpdates(listener: () => void): () => void {
   updateListeners.add(listener);
@@ -69,27 +85,42 @@ async function loadSingleNamespace(def: LazyNamespaceDef): Promise<boolean> {
     notifyTranslationUpdates();
     return true;
   } catch (err) {
-    if (!reportedNamespaces.has(def.name)) {
-      reportedNamespaces.add(def.name);
-      reportError(err, { action: `[i18n] Failed to load namespace chunk "${def.name}"` });
-    }
     const current = failedNamespaces.get(def.name);
     failedNamespaces.set(def.name, {
       def,
       attempts: (current?.attempts ?? 0) + 1,
+      lastError: err,
     });
     return false;
   }
 }
 
+// D-1 (R2-013): раньше ошибка уходила на первом же провале — человек видел её в
+// журнале, пока фон ещё добирали, и видел её трижды. Теперь сигнал один, когда
+// попытки кончились: до этого момента состояние «ещё пробуем», а не «сломалось».
+function reportExhausted(name: string) {
+  if (reportedNamespaces.has(name)) return;
+  const item = failedNamespaces.get(name);
+  if (!item) return;
+  reportedNamespaces.add(name);
+  reportError(item.lastError, {
+    action: 'i18n_lazyNamespace_load_failed',
+    namespace: name,
+    attempts: item.attempts,
+  });
+}
+
 async function retryFailedNamespace(name: string) {
-  const maxAttempts = 3;
   for (;;) {
     // Счётчик читается из карты на каждом шаге: loadSingleNamespace при провале
     // кладёт в карту новый объект, и прежняя ссылка навсегда осталась бы с
     // attempts = 1 — то есть бесконечный опрос сети вместо трёх попыток.
     const item = failedNamespaces.get(name);
-    if (!item || loadedNamespaces.has(name) || item.attempts >= maxAttempts) return;
+    if (!item || loadedNamespaces.has(name)) return;
+    if (item.attempts >= MAX_LOAD_ATTEMPTS) {
+      reportExhausted(name);
+      return;
+    }
 
     const backoffMs = Math.min(1000 * Math.pow(2, item.attempts - 1), 5000);
     await new Promise(resolve => setTimeout(resolve, backoffMs));
@@ -102,26 +133,32 @@ async function retryFailedNamespace(name: string) {
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('online', () => {
     for (const [name, item] of failedNamespaces.entries()) {
-      if (!loadedNamespaces.has(name)) {
-        item.attempts = 0;
-        void loadSingleNamespace(item.def).then(ok => {
-          if (!ok) void retryFailedNamespace(name);
-        });
-      }
+      if (loadedNamespaces.has(name) || onlineResetDone.has(name)) continue;
+      onlineResetDone.add(name);
+      item.attempts = 0;
+      void loadSingleNamespace(item.def).then(ok => {
+        if (!ok) void retryFailedNamespace(name);
+      });
     }
   });
 }
 
 let _readyPromise: Promise<void> | null = null;
 
+const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
 export function initLazyNamespaces(namespaces: LazyNamespaceDef[] = LAZY_NAMESPACES): Promise<void> {
-  const promises = namespaces.map(async def => {
-    const ok = await loadSingleNamespace(def);
-    if (!ok) {
-      void retryFailedNamespace(def.name);
-    }
-  });
-  _readyPromise = Promise.allSettled(promises).then(() => undefined);
+  // Гейт готовности race'ится с таймаутом: чанк, который никогда не резолвится
+  // (мёртвое соединение без RST, captive portal), раньше оставлял приложение с
+  // пустым экраном навсегда. Загрузка при этом не бросается — она дойдёт до
+  // Object.assign и notifyTranslationUpdates, и_children перерисуются.
+  const gates = namespaces.map(def => Promise.race([
+    loadSingleNamespace(def).then(ok => {
+      if (!ok) void retryFailedNamespace(def.name);
+    }),
+    wait(FIRST_LOAD_TIMEOUT_MS),
+  ]));
+  _readyPromise = Promise.allSettled(gates).then(() => undefined);
   return _readyPromise;
 }
 
@@ -152,6 +189,7 @@ export function _resetTranslationsForTesting(customNamespaces?: LazyNamespaceDef
   loadedNamespaces.clear();
   failedNamespaces.clear();
   reportedNamespaces.clear();
+  onlineResetDone.clear();
   _readyPromise = null;
   if (customNamespaces) {
     return initLazyNamespaces(customNamespaces);
