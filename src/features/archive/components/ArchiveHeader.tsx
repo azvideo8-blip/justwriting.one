@@ -183,7 +183,7 @@ export function ArchiveHeader({
                 ? "bg-text-main/10 border-border-subtle/60 text-text-main"
                 : sortMode !== 'newest'
                   ? "bg-brand-soft/20 border-brand-soft/40 text-brand-soft"
-                  : "bg-text-main/[0.03] border-border-subtle text-text-main/60 hover:text-text-main/60"
+                  : "bg-text-main/[0.03] border-border-subtle text-text-main/60 hover:text-text-main"
             )}
             title={sortLabels[sortMode]}
           >
@@ -217,7 +217,7 @@ export function ArchiveHeader({
               "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-sm transition-colors border",
               showFilters
                 ? "bg-brand-soft/20 border-brand-soft/40 text-brand-soft"
-                : "bg-text-main/[0.03] border-border-subtle text-text-main/60 hover:text-text-main/60"
+                : "bg-text-main/[0.03] border-border-subtle text-text-main/60 hover:text-text-main"
             )}
           >
             <Tag size={14} aria-hidden="true" />
@@ -236,7 +236,7 @@ export function ArchiveHeader({
         {onFilterClick && (
           <IconButton
             onClick={onFilterClick}
-            className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/60 hover:text-text-main/60 active:scale-[0.98] transition-colors cursor-pointer"
+            className="md:hidden h-8 px-2.5 rounded-lg flex items-center justify-center border border-border-subtle bg-text-main/[0.03] text-text-main/60 hover:text-text-main active:scale-[0.98] transition-colors cursor-pointer"
             label={t('archive_filters')}
             icon={<SlidersHorizontal size={14} aria-hidden="true" />}
           />

@@ -160,7 +160,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                 <Button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main/60 transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main transition-colors"
                 >
                   {t('common_cancel')}
                 </Button>
@@ -233,7 +233,7 @@ export function UnlockPrompt({ uid, onUnlocked, onClose }: UnlockPromptProps) {
                     setIsRecovering(false);
                     setError(null);
                   }}
-                  className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main/60 transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main transition-colors"
                 >
                   {t('enc_recovery_back_to_password')}
                 </Button>

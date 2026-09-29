@@ -126,7 +126,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="text-2xl font-bold text-text-main">{t('error_generic')}</h2>
             <p className="font-mono text-xs text-text-muted">ERR-{code}</p>
-            <Button type="button" onClick={this.toggleStack} className="text-label-sm text-text-main/60 hover:text-text-main/60 transition-colors">{this.state.showStack ? t('error_hide_details') : t('error_show_details')}</Button>
+            <Button type="button" onClick={this.toggleStack} className="text-label-sm text-text-main/60 hover:text-text-main transition-colors">{this.state.showStack ? t('error_hide_details') : t('error_show_details')}</Button>
             {this.state.showStack && import.meta.env.DEV && <pre className="text-left text-accent-danger text-[12px] whitespace-pre-wrap break-all max-h-40 overflow-auto bg-black/30 p-3 rounded-lg">{this.state.errorMessage}
 
 {this.state.errorStack?.slice(0, 500)}</pre>}

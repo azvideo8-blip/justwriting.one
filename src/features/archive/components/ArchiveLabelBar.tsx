@@ -82,7 +82,7 @@ export function ArchiveLabelBar({
                 className="text-label font-medium text-text-main/60 hover:text-text-main disabled:opacity-30">
                 {t('common_save')}
               </Button>
-              <Button onClick={() => setEditingLabelId(null)} className="text-label text-text-main/60 hover:text-text-main/60">✕</Button>
+              <Button onClick={() => setEditingLabelId(null)} className="text-label text-text-main/60 hover:text-text-main">✕</Button>
             </div>
           );
         }
@@ -125,7 +125,7 @@ export function ArchiveLabelBar({
       {selectedLabels.length > 0 && (
         <Button
           onClick={() => selectedLabels.forEach(id => onToggleLabel(id))}
-           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
+           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main transition-colors"
         >
           {t('archive_tags_reset')} ✕
         </Button>
@@ -133,7 +133,7 @@ export function ArchiveLabelBar({
       {showControls && !addingLabel && !editingLabelId && (
         <Button
           onClick={() => setAddingLabel(true)}
-           className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-text-main/60 hover:text-text-main/60 border border-dashed border-border-subtle transition-colors"
+           className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-text-main/60 hover:text-text-main border border-dashed border-border-subtle transition-colors"
         >
           + {t('archive_add_label')}
         </Button>
@@ -182,7 +182,7 @@ export function ArchiveLabelBar({
             {t('common_save')}
           </Button>
           <Button onClick={() => { setAddingLabel(false); setNewLabelName(''); }}
-            className="text-label-sm text-text-main/60 hover:text-text-main/60 transition-colors">
+            className="text-label-sm text-text-main/60 hover:text-text-main transition-colors">
             ✕
           </Button>
         </div>

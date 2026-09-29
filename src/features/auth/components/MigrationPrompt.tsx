@@ -84,7 +84,7 @@ export function MigrationPrompt({ userId, docCount, onDone, onCloudSynced }: Mig
             </Button>
             <Button
               onClick={() => onDone(false)}
-              className="w-full py-2.5 rounded-xl text-text-main/60 text-sm hover:text-text-main/60 transition-colors"
+              className="w-full py-2.5 rounded-xl text-text-main/60 text-sm hover:text-text-main transition-colors"
             >
               {t('migration_keep_local')}
             </Button>

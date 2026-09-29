@@ -220,7 +220,7 @@ export function AIPage() {
                   </Button>
                   <IconButton
                     onClick={e => { e.stopPropagation(); openPersonaDetail(p); }}
-                    className="w-5 h-5 rounded-full text-text-main/60 hover:text-text-main/60 flex items-center justify-center"
+                    className="w-5 h-5 rounded-full text-text-main/60 hover:text-text-main flex items-center justify-center"
                     label={t('ai_description_prompt')}
                     icon={<Info size={12} />}
                   />

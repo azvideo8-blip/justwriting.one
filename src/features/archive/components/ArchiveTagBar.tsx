@@ -54,7 +54,7 @@ export function ArchiveTagBar({
                    if (e.key === 'Escape') onRenameCancel();
                  }}
                />
-              <Button onClick={onRenameCancel} className="text-label text-text-main/60 hover:text-text-main/60">✕</Button>
+              <Button onClick={onRenameCancel} className="text-label text-text-main/60 hover:text-text-main">✕</Button>
             </div>
           );
         }
@@ -68,7 +68,7 @@ export function ArchiveTagBar({
                  "px-2 py-0.5 rounded-full text-[10px] font-mono transition-colors border flex items-center gap-1",
                 active
                   ? "bg-brand-soft/15 border-brand-soft/40 text-brand-soft"
-                  : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main/60"
+                  : "bg-transparent border-border-subtle text-text-main/60 hover:text-text-main"
               )}
             >
               <span>#{tag}</span>
@@ -98,7 +98,7 @@ export function ArchiveTagBar({
       {selectedTags.length > 0 && (
         <Button
           onClick={onResetTags}
-           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
+           className="px-2 py-0.5 rounded-full text-[10px] font-mono border border-dashed border-border-subtle text-text-main/60 hover:text-text-main transition-colors"
         >
           {t('archive_tags_reset')} ✕
         </Button>

@@ -150,7 +150,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
                 });
                 setLabelPopupOpen(v => !v);
               }}
-              className="flex items-center gap-1 font-mono text-label-sm text-text-main/60 hover:text-text-main/60 transition-colors"
+              className="flex items-center gap-1 font-mono text-label-sm text-text-main/60 hover:text-text-main transition-colors"
             >
               <span
                 className="w-2.5 h-2.5 rounded-full border border-text-main/20 shrink-0"

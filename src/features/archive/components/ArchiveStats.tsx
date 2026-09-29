@@ -35,7 +35,7 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
         {onReset && (
           <IconButton
             onClick={onReset}
-            className="w-5 h-5 flex items-center justify-center rounded text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5 transition-colors shrink-0 ml-2"
+            className="w-5 h-5 flex items-center justify-center rounded text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors shrink-0 ml-2"
             label={t('archive_stats_reset')}
             icon={<X size={12} />}
           />

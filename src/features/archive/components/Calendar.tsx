@@ -99,7 +99,7 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
                   ? "text-surface-base font-semibold"
                   : hasSessions
                     ? "text-text-main font-medium"
-                    : "text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5",
+                    : "text-text-main/60 hover:text-text-main hover:bg-text-main/5",
                 today && "ring-1 ring-text-main/40",
                 isSelected && "ring-2 ring-text-main/50"
               )}

@@ -319,7 +319,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             <Button
               type="button"
               onClick={() => { setForgotEmail(email); setShowForgotPassword(true); setForgotSent(false); setForgotError(null); }}
-              className="text-xs transition-colors text-text-main/60 hover:text-text-main/60"
+              className="text-xs transition-colors text-text-main/60 hover:text-text-main"
             >
               {t('auth_forgot_password')}
             </Button>
@@ -421,7 +421,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
                     <Button
                       type="button"
                       onClick={() => setShowForgotPassword(false)}
-                      className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main/60 transition-colors"
+                      className="px-4 py-2.5 rounded-xl text-sm text-text-main/60 hover:text-text-main transition-colors"
                     >
                       {t('writing_cancel')}
                     </Button>

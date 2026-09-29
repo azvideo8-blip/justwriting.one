@@ -473,7 +473,7 @@ export function DocumentPreview({
                     borderColor: currentLabel?.color ?? 'rgba(255,255,255,0.2)',
                   }}
                 />
-                <span className="text-text-main/60 hover:text-text-main/60 transition-colors">
+                <span className="text-text-main/60 hover:text-text-main transition-colors">
                   {currentLabel?.name ?? t('archive_assign_label')}
                 </span>
               </Button>
@@ -514,7 +514,7 @@ export function DocumentPreview({
               {onAddLabel && !creatingLabel && (
                 <Button
                   onClick={() => setCreatingLabel(true)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors border-t border-border-subtle mt-1 pt-2.5"
                 >
                   + {t('archive_add_label')}
                 </Button>
@@ -551,7 +551,7 @@ export function DocumentPreview({
                   >
                     {t('common_save')}
                   </Button>
-                  <Button onClick={() => setCreatingLabel(false)} className="text-label text-text-main/60 hover:text-text-main/60">✕</Button>
+                  <Button onClick={() => setCreatingLabel(false)} className="text-label text-text-main/60 hover:text-text-main">✕</Button>
                 </div>
               )}
                 </div>

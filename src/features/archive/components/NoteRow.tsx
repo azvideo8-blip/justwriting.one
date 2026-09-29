@@ -174,7 +174,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           <div className="font-mono text-label-sm text-text-main/60 uppercase tracking-wide leading-tight hover:text-text-main/70 tabular-nums">
             {dateLabel}
           </div>
-          <div className="font-mono text-label-sm text-text-main/60 mt-0.5 hover:text-text-main/60 tabular-nums">
+          <div className="font-mono text-label-sm text-text-main/60 mt-0.5 hover:text-text-main tabular-nums">
             {timeStr}
           </div>
           {!session._isLocal && session._hasCloudCopy && (
@@ -222,7 +222,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               </Button>
               <Button
                 onClick={() => setEditingDateTime(false)}
-                className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg border border-border-subtle text-text-main/60 hover:text-text-main/60 transition-colors"
+                className="flex-1 text-label-sm font-medium px-2 py-1.5 rounded-lg border border-border-subtle text-text-main/60 hover:text-text-main transition-colors"
               >
                 {t('common_cancel')}
               </Button>
@@ -414,12 +414,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               )}
             </div>
             <IconButton onClick={e => { e.stopPropagation(); setTitleDraft(session.title || ''); setEditingTitle(true); }}
-              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/60 md:text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/60 md:text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_rename_title')}
               icon={<Pencil size={14} aria-hidden="true" />}
             />
             <IconButton onClick={e => { e.stopPropagation(); onOpen(); }}
-              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/60 md:text-text-main/60 hover:text-text-main/60 hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+              className="w-9 h-9 md:w-7 md:h-7 flex items-center justify-center rounded-lg text-text-main/60 md:text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
               label={t('archive_preview')}
               icon={<ExternalLink size={14} aria-hidden="true" />}
             />

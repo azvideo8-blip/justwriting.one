@@ -19,7 +19,7 @@ export function AboutPage() {
       />
       <Button
         onClick={() => void navigate(-1)}
-        className="flex items-center gap-2 text-text-main/60 hover:text-text-main/60 text-sm mb-8 transition-colors"
+        className="flex items-center gap-2 text-text-main/60 hover:text-text-main text-sm mb-8 transition-colors"
       >
         <ArrowLeft size={16} />
         {t('writing_back')}

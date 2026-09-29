@@ -147,7 +147,7 @@ export function ProfilePage({ user, profile }: ProfilePageProps) {
                 <Button onClick={handleResetAchievements} className="text-label-sm font-medium text-accent-danger hover:text-accent-danger/80 transition-colors uppercase tracking-widest">
                   {t('profile_ach_reset')}
                 </Button>
-                <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/60 hover:text-text-main/60 transition-colors uppercase tracking-widest">
+                <Button onClick={() => setShowResetConfirm(false)} className="text-label-sm font-medium text-text-main/60 hover:text-text-main transition-colors uppercase tracking-widest">
                   ✕
                 </Button>
               </div>

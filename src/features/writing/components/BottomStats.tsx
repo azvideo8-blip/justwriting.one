@@ -174,7 +174,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
             )}
             {!compact && (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
-                className="text-text-main/60 group-hover:text-text-main/60 transition-colors self-center mb-0.5">
+                className="text-text-main/60 group-hover:text-text-main transition-colors self-center mb-0.5">
                 <path d="M5 2v4M3 4l2 2 2-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
               </svg>
             )}

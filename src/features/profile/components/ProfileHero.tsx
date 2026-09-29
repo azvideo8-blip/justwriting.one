@@ -102,7 +102,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             )}
             {!isGuest && (
               <IconButton onClick={() => setEditingName(true)}
-                className="text-text-main/60 hover:text-text-main/60 transition-colors"
+                className="text-text-main/60 hover:text-text-main transition-colors"
                 label="Edit name"
                 icon={<Pencil size={14} />}
               />

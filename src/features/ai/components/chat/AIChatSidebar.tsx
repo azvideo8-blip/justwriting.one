@@ -129,13 +129,13 @@ export function AIChatSidebar(props: AIChatSidebarProps) {
             <div className="flex gap-1 px-4 pb-3.5">
               <Button
                 onClick={() => setShowArchived(false)}
-                className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
+                className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", !showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main")}
               >
                 {t('ai_active')}
               </Button>
               <Button
                 onClick={() => setShowArchived(true)}
-                className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main/60")}
+                className={cn("flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors", showArchived ? "bg-surface-elevated text-text-main" : "text-text-main/60 hover:text-text-main")}
               >
                 {t('ai_archive')}
               </Button>

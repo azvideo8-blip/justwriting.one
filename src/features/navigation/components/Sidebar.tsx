@@ -100,7 +100,7 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
         "relative group flex items-center gap-3 px-3 py-3 rounded-xl transition-colors duration-200 text-left w-full overflow-hidden",
         accent
           ? "text-text-main/70 hover:text-text-main hover:bg-text-main/25"
-          : "text-text-main/60 hover:text-text-main/60 hover:bg-text-main/8"
+          : "text-text-main/60 hover:text-text-main hover:bg-text-main/8"
       )}
     >
       <span className="shrink-0">{icon}</span>
@@ -376,14 +376,14 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
         )}>
           <button
             onClick={() => void navigate('/about')}
-            className="hover:text-text-main/60 transition-colors underline underline-offset-2 decoration-dotted min-h-[44px] flex items-center clickable-target-expansion"
+            className="text-text-main/60 hover:text-text-main transition-colors underline underline-offset-2 decoration-dotted min-h-[44px] flex items-center clickable-target-expansion"
           >
             {t('nav_about')}
           </button>
           <button
             type="button"
             onClick={() => void navigate('/changelog')}
-            className="hover:text-text-main/60 transition-colors min-h-[44px] flex items-center gap-1.5 clickable-target-expansion"
+            className="text-text-main/60 hover:text-text-main transition-colors min-h-[44px] flex items-center gap-1.5 clickable-target-expansion"
           >
             v{APP_VERSION}
             {hasUnseenChangelog && (
