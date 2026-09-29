@@ -49,10 +49,9 @@ export const settingsTranslations: Translations = {
 
   storage_remove_local: { ru: 'Удалить локальную копию', en: 'Remove local copy' },
   storage_remove_cloud: { ru: 'Удалить облачную копию', en: 'Remove cloud copy' },
-  storage_no_local: { ru: 'Нет локальной копии', en: 'No local copy' },
-  storage_no_cloud: { ru: 'Нет облачной копии', en: 'No cloud copy' },
   storage_upload_to_cloud: { ru: 'Загрузить на облако', en: 'Upload to cloud' },
-  storage_sync_pending: { ru: 'Есть неотправленные изменения (кликни для отправки)', en: 'Pending changes (click to sync)' },
+  // DC-A3: в меню строки это действие, а не подпись к пиктограмме.
+  storage_sync_now: { ru: 'Отправить изменения', en: 'Sync changes' },
   storage_confirm_delete_local: { ru: 'Удалить локальную копию?', en: 'Remove local copy?' },
   storage_confirm_delete_cloud: { ru: 'Удалить облачную копию?', en: 'Remove cloud copy?' },
   storage_confirm_delete_only: { ru: 'Переместить документ в корзину?', en: 'Move document to trash?' },
@@ -82,7 +81,6 @@ export const settingsTranslations: Translations = {
   storage_confirm_download_local_hint: { ru: 'Текст заметки будет загружен из облака и сохранён локально', en: 'The note text will be downloaded from the cloud and saved locally' },
   storage_download_confirm: { ru: 'Скачать', en: 'Download' },
   storage_downloaded_local: { ru: 'Загружено на устройство', en: 'Downloaded to device' },
-  storage_downloading: { ru: 'Загрузка…', en: 'Downloading…' },
   storage_download_in_progress: { ru: 'Заметка уже загружается', en: 'This note is already being downloaded' },
 
   offline_working_locally: { ru: 'Нет соединения — работаем локально', en: 'Offline — working locally' },

@@ -4,8 +4,8 @@ import { NoteRow } from '../NoteRow';
 import { ArchiveTrashView } from '../ArchiveTrashView';
 import type { ArchiveSession } from '../../types';
 
-vi.mock('../StorageIcons', () => ({
-  StorageIcons: () => <div data-testid="storage-icons" />,
+vi.mock('../StorageStatus', () => ({
+  StorageStatus: () => <div data-testid="storage-icons" />,
 }));
 
 vi.mock('../../../../shared/i18n', () => ({
@@ -14,6 +14,14 @@ vi.mock('../../../../shared/i18n', () => ({
 
 vi.mock('../../../../app/components/MobileNoteActionsSheet', () => ({
   MobileNoteActionsSheet: () => null,
+}));
+
+vi.mock('../../../../shared/components/Toast', () => ({
+  useToast: () => ({ showToast: vi.fn() }),
+}));
+
+vi.mock('../../../../app/useAuthStatus', () => ({
+  useAuthStatus: () => ({ profile: null, user: null }),
 }));
 
 const translations: Record<string, string> = {

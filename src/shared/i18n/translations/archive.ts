@@ -153,6 +153,10 @@ export const archiveTranslations: Translations = {
   archive_on_this_day_month: { ru: 'месяц назад', en: 'a month ago' },
   archive_untitled: { ru: 'Без названия', en: 'Untitled' },
   archive_cloud_only: { ru: 'только в облаке', en: 'cloud only' },
+  // DC-A3: пиктограммы статуса копий — подписи к ним, сами они не кнопки.
+  archive_status_local: { ru: 'Копия на устройстве', en: 'Copy on this device' },
+  archive_status_cloud: { ru: 'Копия в облаке', en: 'Copy in the cloud' },
+  archive_status_pending_sync: { ru: 'Есть неотправленные изменения', en: 'Unsent changes' },
   archive_cloud_only_note: { ru: 'Заметка из облака', en: 'Cloud note' },
   archive_cloud_sync_failed: { ru: 'Облачная копия не синхронизирована', en: 'Cloud copy did not sync' },
   reading_time: { ru: '~{n} мин чтения', en: '~{n} min read' },

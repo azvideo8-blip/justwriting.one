@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { Lock, AlertCircle } from 'lucide-react';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { cn } from '../../../core/utils/utils';
-import { getDateLocale } from '../../../core/utils/dateUtils';
+import { getDateLocale, formatDateTimeLabel } from '../../../core/utils/dateUtils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
 import { useLanguage } from '../../../shared/i18n';
@@ -70,9 +70,8 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
     };
   }, [labelPopupOpen]);
 
-  const formattedDate = format(sessionTime, 'd MMM yy • HH:mm', {
-    locale: getDateLocale(language),
-  }).toUpperCase();
+  // DC-A3: та же метка, что в списке — sentence case, одна строка, без mono.
+  const formattedDate = formatDateTimeLabel(sessionTime, language);
 
   const relativeDate = formatDistanceToNow(sessionTime, {
     locale: getDateLocale(language),
@@ -88,14 +87,8 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
       className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
                  hover:border-text-main/20 hover:bg-text-main/[0.07] hover:shadow-lg transition-colors
                  flex flex-col gap-3"
-      style={label ? {
-        borderLeftWidth: 2,
-        borderLeftColor: label.color,
-        background: `color-mix(in srgb, ${label.color} 5%, var(--color-surface-card))`,
-        boxShadow: `inset 3px 0 10px color-mix(in srgb, ${label.color} 12%, transparent)`,
-      } : {}}
     >
-      <div className="text-label-sm font-medium tracking-wider text-text-main/60 font-mono">
+      <div className="text-[13px] font-medium text-text-main/60 tabular-nums">
         {formattedDate}
         <span className="text-text-main/60 ml-1.5">{relativeDate}</span>
       </div>
@@ -112,6 +105,15 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         </h4>
       ) : session.title ? (
         <h4 className="text-[17px] font-semibold text-text-main leading-snug">
+          {label && (
+            <span
+              role="img"
+              aria-label={label.name}
+              title={label.name}
+              className="inline-block w-2 h-2 rounded-full align-middle mr-1.5"
+              style={{ background: label.color }}
+            />
+          )}
           {highlightText(session.title, searchQuery)}
         </h4>
       ) : null}

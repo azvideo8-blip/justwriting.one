@@ -20,6 +20,19 @@ export function getDateLocale(lang: string): DateFnsLocale {
   return lang === 'ru' ? ru : enUS;
 }
 
+/** DC-A3: дата строки архива — одной строкой, в sentence case, без года, если год
+ *  текущий («29 сент., 11:32» / «29 сент. 2025, 11:32»). До этого строка собиралась
+ *  из `d MMM yy` + uppercase + отдельного div со временем и в mono-шрифте
+ *  распадалась на «29 СЕНТ. / 26 / 11:32». */
+export function formatDateTimeLabel(date: Date, lang: string): string {
+  const loc = getDateLocale(lang);
+  const withYear = date.getFullYear() !== new Date().getFullYear();
+  const pattern = lang === 'ru'
+    ? (withYear ? 'd MMM yyyy' : 'd MMM')
+    : (withYear ? 'MMM d yyyy' : 'MMM d');
+  return `${format(date, pattern, { locale: loc })}, ${format(date, 'HH:mm')}`;
+}
+
 const LOCALIZED_DATE_FORMATS: { fmt: string; loc: DateFnsLocale }[] = [
   { fmt: "d MMMM yyyy 'г.'", loc: ru },
   { fmt: "d MMMM yyyy 'г'", loc: ru },
