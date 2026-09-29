@@ -192,12 +192,13 @@
  {
   "id": "st-05",
   "file": "src/core/services/StorageService.ts",
-  "line": 169,
-  "old": "    for (let i = 0; i < 20; i++) {\n      const res = await withDocumentLock(localId, () => deleteDocumentUnlocked(userId, localId, cloudId), {",
-  "new": "    for (let i = 0; i < 0; i++) {\n      const res = await withDocumentLock(localId, () => deleteDocumentUnlocked(userId, localId, cloudId), {",
-  "why": "Delete no longer waits for an in-flight first upload: the cloud row lands after the local delete and downloadAllFromCloud brings the deleted note back (R3-10).",
+  "line": 202,
+  "old": "      if (Date.now() - startedAt >= LOCK_TTL_MS * 2) break;",
+  "new": "      if (Date.now() - startedAt >= 0) break;",
+  "why": "Delete stops waiting for a live first upload after the first try and applies to the cloud row the upload is still writing: the cloud row survives the delete and the note comes back.",
   "tests": [
-   "src/core/services/__tests__/deleteUnderLock.test.ts"
+   "src/core/services/__tests__/deleteUnderLock.test.ts",
+   "src/core/services/__tests__/deleteWaitsForLiveLock.test.ts"
   ]
  },
  {

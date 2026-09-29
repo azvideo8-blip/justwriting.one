@@ -1,4 +1,4 @@
-import { withDocumentLock } from '../sync/withDocumentLock';
+import { withDocumentLock, LOCK_TTL_MS } from '../sync/withDocumentLock';
 import { getLocalDb } from '../storage/localDb';
 import { LocalStorageService } from './LocalStorageService';
 import { LocalDocumentService } from './LocalDocumentService';
@@ -187,17 +187,41 @@ export const StorageService = {
     // R3-10: если дренаж как раз выгружает эту заметку впервые, облачный ряд
     // появится уже после удаления локальной — и downloadAllFromCloud её вернёт.
     // Ждём, пока выгрузка отпустит заметку, и удаляем под тем же замком.
-    // ponytail: ждём до ~10 с, дальше удаляем как раньше, без замка.
-    for (let i = 0; i < 20; i++) {
+    // A-2 (R2-005, R2-029): разблокированного выхода нет. Замок омолаживается
+    // heartbeat'ом каждые ttl/3, поэтому «занят» может означать «работает»
+    // сколько угодно долго; `withDocumentLock` сам перебивает протухший замок
+    // (старше ttlMs), так что потолок нужен только против зависшей вкладки.
+    const startedAt = Date.now();
+    for (;;) {
       const res = await withDocumentLock(localId, () => deleteDocumentUnlocked(userId, localId, cloudId), {
         queueOnHeld: false,
         onLockHeld: () => null,
         ownerId: userId,
       });
       if (res) return res;
+      if (Date.now() - startedAt >= LOCK_TTL_MS * 2) break;
       await new Promise(r => setTimeout(r, 500));
     }
-    return deleteDocumentUnlocked(userId, localId, cloudId);
+
+    // Потолок пройден: удалять в обход замка нельзя — облачная запись живущей
+    // выгрузки встала бы поверх нашего удаления. Фиксируем намерение: локальный
+    // ряд снимается вместе с меткой «снести облачный ряд» (одна транзакция, см.
+    // SB-2 в LocalDocumentService.deleteDocument), и дренаж доделает облако,
+    // когда заметка освободится.
+    const { cloudId: targetCloudId } = await resolveCloudId(userId, localId, cloudId);
+    if (!targetCloudId) {
+      // облачного ряда ещё нет — он как раз создаётся. Локальный ряд не трогаем:
+      // без ссылки нечего и ставить в очередь, а удаление локальной копии
+      // оставил бы в облаке сироту, который вернулся бы при следующем скачивании.
+      reportError(
+        new Error('Delete not applied: the note is still being uploaded and its cloud copy does not exist yet'),
+        { action: 'deleteDocument_lockTimeout', documentId: localId },
+        'warning',
+      );
+      return { cloudSynced: false, derivativesOk: false };
+    }
+    const derivativesOk = await LocalStorageService.deleteDocument(localId, userId, { remove: true, cloudId: targetCloudId });
+    return { cloudSynced: false, derivativesOk };
   },
 
   async getStorageState(userId: string, localId?: string, cloudId?: string): Promise<StorageState> {
