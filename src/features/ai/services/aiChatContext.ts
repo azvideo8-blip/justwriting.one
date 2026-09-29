@@ -73,6 +73,10 @@ export function useAIChatContext(personaId: string): {
     doorsCacheRef.current = null;
     messageCountRef.current = 0;
     recentContextInjectedRef.current = false;
+    // Заметка-тема принадлежит диалогу: без сброса она ехала в «Новый диалог»
+    // и делала его ходы строгими по чужой заметке (R3-005). Связанную заметку
+    // диалог поднимает сам (useAIChat, d.documentId).
+    attachedNoteRef.current = null;
   };
 
   const setAttachedNote = (note: AttachedNoteRef | null) => {
@@ -108,7 +112,7 @@ export function useAIChatContext(personaId: string): {
     // Строгий ход по заметке ничего не ищет — и вектор реплики ему не нужен.
     const strictNoteTurn = params.scope === 'note' && !!attached;
     // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
-    const riskText = attached ? `${text}\n${attached.content}` : text;
+    const crisis = detectRisk(attached ? `${text}\n${attached.content}` : text).isRisk;
     if (!strictNoteTurn && text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
@@ -175,8 +179,8 @@ export function useAIChatContext(personaId: string): {
     let searchContext: string | undefined;
     let attachedBlock: string | undefined;
 
+    let isAttachedExcluded = false;
     if (attached) {
-      let isAttachedExcluded = false;
       if (attached.documentId) {
         try {
           const doc = await db.get('documents', attached.documentId);
@@ -215,16 +219,20 @@ export function useAIChatContext(personaId: string): {
     // кризисе, телефоны помощи. Поиск, хронология, «недавнее» и память здесь
     // раньше запускались по тексту хода, и модель приписывала приложенной
     // заметке цитаты из других записей.
-    if (strictNoteTurn && attachedBlock) {
+    // Заметка скрыта от ИИ — её текста у модели нет вовсе (R3-004), а ход
+    // остаётся строгим: иначе вопрос ушёл бы искать по всему архиву.
+    if (strictNoteTurn) {
+      const noteBlock = attachedBlock ?? '[Заметка скрыта от ИИ пользователем — её текста у тебя нет. Скажи об этом и не додумывай содержание.]';
       return {
         userPortrait: userPortrait ?? null,
         customPersona: customSystemPrompt,
-        searchContext: detectRisk(riskText).isRisk ? `${CRISIS_RESOURCE_TEXT}\n\n${attachedBlock}` : attachedBlock,
+        searchContext: crisis ? `${CRISIS_RESOURCE_TEXT}\n\n${noteBlock}` : noteBlock,
         documentMood: mood,
         memoryContext: null,
         injectedDocumentIds: [...new Set(injectedDocumentIds)],
         allowedFirstSeenDates: [],
         degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
+        crisis,
       };
     }
 
@@ -644,8 +652,7 @@ export function useAIChatContext(personaId: string): {
       }
 
       // Crisis resources check
-      const isCrisis = detectRisk(riskText);
-      if (isCrisis.isRisk) {
+      if (crisis) {
         searchContext = searchContext ? `${CRISIS_RESOURCE_TEXT}\n\n${searchContext}` : CRISIS_RESOURCE_TEXT;
       }
 
@@ -714,8 +721,8 @@ export function useAIChatContext(personaId: string): {
       setAIStage('memory');
       memoryContext = await AIMemoryAssembler.assembleMemoryContext({
         query: text,
-        attachedDocumentId: params.attached?.documentId ?? null,
-        attachedContent: params.attached?.content ?? null,
+        attachedDocumentId: isAttachedExcluded ? null : (params.attached?.documentId ?? null),
+        attachedContent: isAttachedExcluded ? null : (params.attached?.content ?? null),
         userPortrait,
         proactiveBlock: searchContext,
         dialogueId: params.dialogueId ?? null,
@@ -761,6 +768,7 @@ export function useAIChatContext(personaId: string): {
       injectedDocumentIds: [...new Set(allInjectedDocIds)],
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
       degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
+      crisis,
     };
 
   };

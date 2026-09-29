@@ -68,3 +68,55 @@ describe('кризис в приложенной заметке', () => {
     expect(ctx.searchContext).toContain('8-800-333-44-34');
   });
 });
+
+describe('R3-001: кризис поднимает флаг для интерфейса', () => {
+  it('buildContext отдаёт crisis — useAIChat по нему показывает панель', async () => {
+    const db = await getLocalDb();
+    await db.put('documents', { id: 'doc_risk2', title: 'Ночь', currentVersion: 1, lastSessionAt: Date.now() } as never);
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    const base = { mood: undefined, messageHistory: [], isFirstTurn: true };
+    const risky = await result.current.buildContext({ ...base, text: 'не хочу жить', attached: null });
+    const calm = await result.current.buildContext({ ...base, text: 'как прошёл день', attached: null });
+    expect(risky.crisis).toBe(true);
+    expect(calm.crisis).toBe(false);
+  });
+});
+
+describe('R3-004: заметка, скрытая от ИИ, не уходит ни одним каналом', () => {
+  const HIDDEN_ID = 'doc_hidden_1';
+  const BODY = 'Секретный абзац про сестру';
+  // Производственная форма из useAIPageData: шапка `[#id · дата]` + маркер + тело.
+  const CONTENT = `[#${HIDDEN_ID} · 2026-09-29]\n[Прикреплена заметка: "Тайна"]\n${BODY}`;
+
+  beforeEach(async () => {
+    const db = await getLocalDb();
+    await db.put('documents', { id: HIDDEN_ID, title: 'Тайна', currentVersion: 1, lastSessionAt: Date.now(), excludedFromAI: true } as never);
+  });
+
+  it.each(['note', 'wide'] as const)('ход %s: тела нет ни в контексте, ни в памяти', async scope => {
+    const assemble = vi.spyOn(AIMemoryAssembler, 'assembleMemoryContext');
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    const ctx = await result.current.buildContext({
+      text: 'Разбери эту заметку',
+      attached: { documentId: HIDDEN_ID, content: CONTENT },
+      mood: undefined,
+      messageHistory: [],
+      isFirstTurn: true,
+      scope,
+    });
+    expect(ctx.searchContext ?? '').not.toContain(BODY);
+    expect(ctx.memoryContext ?? '').not.toContain(BODY);
+    for (const call of assemble.mock.calls) {
+      expect(call[0]?.attachedContent ?? null).toBeNull();
+    }
+  });
+});
+
+describe('R3-005: новый диалог не наследует заметку-тему', () => {
+  it('resetSession снимает приложенную заметку', () => {
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    result.current.setAttachedNote({ content: 'A', documentId: 'doc_a' });
+    result.current.resetSession();
+    expect(result.current.getAttachedNote()).toBeNull();
+  });
+});

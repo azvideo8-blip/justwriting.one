@@ -92,15 +92,36 @@ export function shouldRunFullSearch(text: string, hasAttachment: boolean): boole
   return !looksLikeNoteAnalysis(text) || ARCHIVE_SCOPE.test(text);
 }
 
-// A chat message sent to the API is capped at 10K chars. Small messages pass
-// through untouched (so an attached note that fits is delivered IN the message,
-// the most reliable channel — same as file upload). Only OVERSIZED attachment
-// messages are collapsed to their marker (the full note then travels via
-// documentContent), with a hard slice as the final safety net.
+// A chat message sent to the API is capped at 10K chars. An attached note is
+// always collapsed to its marker + question — its text travels via
+// documentContent — and a hard slice is the final safety net.
 export const API_MSG_CAP = 9_500;
 export const API_ASSISTANT_OLD_CAP = 1_500;
 
+const ATTACHED_HEAD = /^\[#[^\]\n]*\]\n\[Прикреплена заметка: "[^"\n]*"\]/;
+const ATTACHED_MARKER = /^\[Прикреплена заметка: "[^"\n]*"\]$/gm;
+const QUESTION_SEP = '\n\n— — —\nВопрос: ';
+
+/**
+ * Показанный ход с приложенной заметкой (`[#id · дата]` + маркер + тело +
+ * «Вопрос: …», см. useAIPageData) → маркеры и вопрос. null — обычное сообщение.
+ */
+export function splitAttachedMessage(content: string): { markers: string; question: string } | null {
+  if (!ATTACHED_HEAD.test(content)) return null;
+  const q = content.lastIndexOf(QUESTION_SEP);
+  const head = q === -1 ? content : content.slice(0, q);
+  return {
+    markers: (head.match(ATTACHED_MARKER) ?? []).join('\n'),
+    question: q === -1 ? '' : content.slice(q + QUESTION_SEP.length).trim(),
+  };
+}
+
 export function toApiContent(content: string, cap = API_MSG_CAP): string {
+  // Тело заметки в историю не идёт: модель читает её из documentContent (где
+  // её не пропускают, если она скрыта от ИИ), а дневниковое «забудь всё» в
+  // сообщении ловил фильтр инъекций и отбивал весь диалог (R3-004, R3-007).
+  const attached = splitAttachedMessage(content);
+  if (attached) return attached.question ? `${attached.markers}\n\n${attached.question}` : attached.markers;
   if (content.length <= cap) return content;
   const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
   if (noteMatch) return noteMatch[0];

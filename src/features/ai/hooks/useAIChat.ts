@@ -26,6 +26,7 @@ import {
   extractAnswer,
   prepareApiMessages,
   toApiContent,
+  splitAttachedMessage,
   API_MSG_CAP,
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
@@ -53,7 +54,6 @@ interface UseAIChatReturn {
   error: string | null;
   sendMessage: (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string, forcedSearchQuery?: string, options?: SendMessageOptions) => Promise<string | null>;
   lastTurnScope: TurnScope | null;
-  attachDocument: (documentId: string) => Promise<void>;
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
   stop: () => void;
   regenerateLast: () => Promise<void>;
@@ -123,8 +123,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
   useEffect(() => {
     context.resetSession();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: setCrisisActive пишется ещё и по ответу модели. Здесь сброс при смене диалога, а не вывод значения
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: setCrisisActive(true) пишет отправка по детекту риска. Здесь сброс при смене диалога, а не вывод значения
     setCrisisActive(false);
+    // Кнопка «Посмотреть в других записях» относится к ответу прошлого диалога.
+    setLastTurnScope(null);
     // Abort any in-flight stream from the previous dialogue
     abortRef.current?.abort();
     // context is a stable ref-backed wrapper (same underlying refs across renders);
@@ -427,6 +429,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         injectedDocumentIds,
         allowedFirstSeenDates,
         degradedReason,
+        crisis,
       } = await context.buildContext({
         text: question,
         scope,
@@ -442,6 +445,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         forcedSearchQuery,
         attachedIsSticky: stickyAttached,
       });
+
+      // Телефоны помощи показывает интерфейс, а не только модель в тексте ответа.
+      if (crisis) setCrisisActive(true);
 
       setAIStage('answer');
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
@@ -742,26 +748,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (!doc) return null;
       const content = await LocalVersionService.getLatestContent(documentId);
       if (!content) return null;
-      return { title: doc.title || 'Без названия', content, lastSessionAt: doc.lastSessionAt };
+      // Дата заметки для шапки и правила: без последней сессии — дата создания, не «сегодня».
+      return { title: doc.title || 'Без названия', content, lastSessionAt: doc.lastSessionAt ?? doc.firstSessionAt };
     } catch (e) {
       reportError(e, { action: 'prepareAttachment', documentId });
       throw new Error('Не удалось загрузить документ (ошибка доступа к БД).');
     }
   }, []);
-
-  // Attach + send in one step (used when opening chat from a note / facet draft).
-  // The note text goes via documentContent; the message is just the marker.
-  const attachDocument = useCallback(async (documentId: string) => {
-    try {
-      const prepared = await prepareAttachment(documentId);
-      if (!prepared) { setError('Не удалось прикрепить документ'); return; }
-      const marker = `[Прикреплена заметка: "${prepared.title}"]`;
-      await sendMessage(marker, { content: prepared.content });
-    } catch (e) {
-      reportError(e, { action: 'attachDocument_failed', documentId });
-      setError('Не удалось загрузить документ из-за ошибки доступа');
-    }
-  }, [prepareAttachment, sendMessage]);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -802,7 +795,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     // Truncate dialogue in memory (React state) so sendMessage appends userText as a replacement turn,
     // but DO NOT truncate in IndexedDB yet so failures leave the stored dialogue intact.
     setDialogue({ ...d, messages: d.messages.slice(0, userIdx) });
-    const newId = await sendMessage(userText, undefined, undefined, undefined, { replaceFromIndex: userIdx });
+    // Показанный текст хода — заметка + «Вопрос: …». Режим хода и поиск строятся
+    // по вопросу, иначе слово «раньше» в заметке делало ход широким (R3-006).
+    const attachedTurn = splitAttachedMessage(userText);
+    const newId = await sendMessage(userText, undefined, undefined, undefined, {
+      replaceFromIndex: userIdx,
+      ...(attachedTurn ? { question: attachedTurn.question || 'Разбери эту заметку' } : {}),
+    });
     // After the new response is saved, merge variants including the new response
     if (newId) {
       const updated = await AIDialogueService.get(newId);
@@ -822,5 +821,5 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     await sendMessage('', undefined, undefined, query);
   }, [sendMessage]);
 
-  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, lastTurnScope, attachDocument, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
+  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, lastTurnScope, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
 }

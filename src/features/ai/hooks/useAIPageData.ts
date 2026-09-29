@@ -24,7 +24,7 @@ import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
-import { looksLikeNoteSearch } from '../utils/aiChatTransport';
+import { looksLikeNoteSearch, splitAttachedMessage } from '../utils/aiChatTransport';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { noteMetaFor } from '../utils/noteMeta';
@@ -283,7 +283,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     })();
   }, [draftFacetId, prepareAttachment, handleNewDialogue, setSelectedPersonaId, setPendingAttachments]);
 
-  const executeSendMessage = useCallback(async (text: string, overrideText?: string, opts?: { forceWide?: boolean }) => {
+  const executeSendMessage = useCallback(async (text: string, overrideText?: string, opts?: { forceWide?: boolean; question?: string }) => {
     let attaches: { documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[] = [...pendingAttachments];
     if (attaches.length === 0 && text && NOTE_REF_RE.test(text) && NOTE_VERB_RE.test(text)) {
       try {
@@ -344,7 +344,9 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       }
     } else {
-      id = await sendMessage(text, undefined, undefined, undefined, opts?.forceWide ? { forceWide: true } : undefined);
+      id = await sendMessage(text, undefined, undefined, undefined, opts?.forceWide || opts?.question
+        ? { ...(opts.forceWide ? { forceWide: true } : {}), ...(opts.question ? { question: opts.question } : {}) }
+        : undefined);
     }
 
     if (id) {
@@ -398,7 +400,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (action) await action();
   }, []);
 
-  const handleSendMessage = useCallback(async (overrideText?: string, opts?: { forceWide?: boolean }) => {
+  const handleSendMessage = useCallback(async (overrideText?: string, opts?: { forceWide?: boolean; question?: string }) => {
     const text = (overrideText ?? inputText).trim();
     if ((!text && pendingAttachments.length === 0) || isLoading) return;
 
@@ -423,7 +425,15 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   // «Посмотреть в других записях» открывают широкий ход (turnScope).
   const handleAnalyzeNote = () => { void handleSendMessage('Разбери эту заметку'); };
   const handleRelateNote = () => { void handleSendMessage('Как эта заметка связана с другими моими записями?', { forceWide: true }); };
-  const handleLookWider = () => { void handleSendMessage('Посмотри в других моих записях — как это связано?', { forceWide: true }); };
+  // Широкий ход ищет по последнему вопросу человека, а не по тексту кнопки (R3-049).
+  const handleLookWider = () => {
+    const lastUser = [...(dialogue?.messages ?? [])].reverse().find(m => m.role === 'user' && m.type !== 'system');
+    const lastQuestion = lastUser ? (splitAttachedMessage(lastUser.content)?.question ?? lastUser.content) : '';
+    void handleSendMessage('Посмотри в других моих записях — как это связано?', {
+      forceWide: true,
+      ...(lastQuestion.trim() ? { question: lastQuestion.trim() } : {}),
+    });
+  };
 
   const handleFeedback = async (value: 'up' | 'down') => {
     if (value === 'up') {

@@ -11,6 +11,8 @@ export interface ChatContextResult {
   injectedDocumentIds?: string[];
   allowedFirstSeenDates?: string[];
   degradedReason?: 'daily_limit' | undefined;
+  /** Острый риск в реплике или приложенной заметке: UI показывает телефоны помощи. */
+  crisis?: boolean;
 }
 
 export interface BuildContextParams {
