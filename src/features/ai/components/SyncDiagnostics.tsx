@@ -14,7 +14,7 @@ interface SyncDiagnosticsProps {
 }
 
 export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   const { layoutMode } = useLayoutMode();
   const {
     loading, syncingId, items, queueCount, discrepancyCount,
@@ -86,7 +86,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
               <AlertTriangle size={11} />
               {t('admin_sync_discrepancy_alert', {
                 count: discrepancyCount,
-                noun: discrepancyCount === 1 ? t('admin_sync_noun_single') : t('admin_sync_noun_plural'),
+                noun: tp('admin_sync_noun', discrepancyCount),
               })}
             </div>
           )}

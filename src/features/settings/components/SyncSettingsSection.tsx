@@ -36,7 +36,7 @@ interface SyncSettingsSectionProps {
 }
 
 export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreModal, onFindOrphans, onDeleteOrphans }: SyncSettingsSectionProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   const { showToast } = useToast();
   const { isAuthenticated, isGuest } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
@@ -353,9 +353,7 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 <div className="text-[11px] text-accent-warning flex items-center gap-1 mt-1">
                   <AlertTriangle size={12} />
                   <span>
-                    {oversizedCount === 1
-                      ? t('settings_sync_oversized_single', { count: String(oversizedCount) })
-                      : t('settings_sync_oversized_plural', { count: String(oversizedCount) })}
+                    {tp('settings_sync_oversized', oversizedCount)}
                   </span>
                 </div>
               )}

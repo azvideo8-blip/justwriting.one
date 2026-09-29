@@ -352,8 +352,9 @@ export const adminTranslations: Translations = {
   admin_queue_toast_remove_error: { ru: 'Не удалось удалить элемент', en: 'Failed to delete item' },
   // SyncDiagnostics
   admin_sync_discrepancy_alert: { ru: 'Обнаружено расхождение версий в облаке: {count} {noun} (current_version ≠ числу версий)', en: 'Cloud version discrepancy detected: {count} {noun} (current_version ≠ version count)' },
-  admin_sync_noun_single: { ru: 'заметка', en: 'note' },
-  admin_sync_noun_plural: { ru: 'заметок', en: 'notes' },
+  admin_sync_noun_one: { ru: 'заметка', en: 'note' },
+  admin_sync_noun_few: { ru: 'заметки', en: 'notes' },
+  admin_sync_noun_many: { ru: 'заметок', en: 'notes' },
   admin_sync_search_placeholder: { ru: 'Поиск по названию…', en: 'Search by title…' },
   admin_sync_search_aria: { ru: 'Поиск по названию', en: 'Search by title' },
   admin_sync_cloud_unavailable_title: { ru: 'Облако недоступно — связь рвать нельзя, пока не ясно, есть ли копия', en: 'Cloud unavailable — cannot unlink until copy existence is verified' },

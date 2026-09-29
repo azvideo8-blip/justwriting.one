@@ -52,6 +52,9 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
   const isMountedRef = useRef(true);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
+  // Сохранение, пришедшее во время другого: раньше оно просто отбрасывалось, и
+  // «Сохранено» подтверждало текст без последнего абзаца (R3-019).
+  const rerunRef = useRef<{ saveFn: () => Promise<DraftSaveOutcome | void>; action: string } | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -61,7 +64,15 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     };
   }, []);
 
+  // Таймер «Сохранено → пусто» от прошлого сохранения не должен гасить
+  // «сохраняется» и «ошибку» нового (R3-018).
+  const clearStatusTimer = () => {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    statusTimerRef.current = null;
+  };
+
   const markSaving = useCallback(() => {
+    clearStatusTimer();
     if (isMountedRef.current) {
       setSaveStatus('saving');
       setSaveErrorKind(null);
@@ -87,6 +98,7 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
 
   const markError = useCallback((err: unknown, action: string) => {
     const isQuota = err instanceof DOMException && err.name === 'QuotaExceededError';
+    clearStatusTimer();
     if (isMountedRef.current) {
       setSaveStatus('error');
       setSaveErrorKind(isQuota ? 'quota' : 'unknown');
@@ -100,8 +112,11 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
     }
   }, [onError, userId]);
 
-  const wrapSave = useCallback(async (saveFn: () => Promise<DraftSaveOutcome | void>, action: string) => {
-    if (savingRef.current) return false;
+  const wrapSave = useCallback(async (saveFn: () => Promise<DraftSaveOutcome | void>, action: string): Promise<boolean> => {
+    if (savingRef.current) {
+      rerunRef.current = { saveFn, action };
+      return false;
+    }
     savingRef.current = true;
     try {
       markSaving();
@@ -148,8 +163,13 @@ export function useDraftCore({ userId, onError }: UseDraftCoreOptions) {
       return false;
     } finally {
       savingRef.current = false;
+      const rerun = rerunRef.current;
+      rerunRef.current = null;
+      if (rerun && isMountedRef.current) void wrapSaveRef.current(rerun.saveFn, rerun.action);
     }
   }, [markSaving, markSaved, markError]);
+  const wrapSaveRef = useRef(wrapSave);
+  useEffect(() => { wrapSaveRef.current = wrapSave; }, [wrapSave]);
 
   return {
     saveStatus,

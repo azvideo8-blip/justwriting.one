@@ -20,7 +20,7 @@ import { useCloudWritingSession } from '../../features/writing/hooks/useCloudWri
 import { WritingSessionProvider, useWritingSessionContext } from '../../features/writing/contexts/WritingSessionContext';
 import { useWritingSettings } from '../../core/settings/WritingSettingsContext';
 import { DesktopWritingLayout } from './DesktopWritingLayout';
-import { AIPanel } from '../../features/ai/components/AIPanel';
+import { LiveAIPanel } from './LiveAIPanel';
 import { useTimerStore } from '../../features/writing/store/useTimerStore';
 import { useContentStore } from '../../features/writing/store/useContentStore';
 
@@ -130,7 +130,7 @@ const WritingPageUI = React.memo(function WritingPageUI() {
           saveStatus={session.saveStatus}
           saveErrorKind={session.saveErrorKind}
           keystrokeTrackerRef={keystrokeTrackerRef}
-          renderAiPanel={(open, onClose) => <AIPanel open={open} onClose={onClose} />}
+          renderAiPanel={(open, onClose) => <LiveAIPanel open={open} onClose={onClose} />}
         />
       );
     }
