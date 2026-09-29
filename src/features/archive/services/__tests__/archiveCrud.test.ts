@@ -27,6 +27,10 @@ vi.mock('../../../../core/services/StorageService', () => ({
   },
 }));
 
+vi.mock('../../../../core/events/domainEvents', () => ({
+  emitDomainEvent: vi.fn(),
+}));
+
 vi.mock('../../../../core/services/SyncService', () => ({
   SyncService: {
     addToQueue: vi.fn().mockResolvedValue(undefined),
@@ -228,5 +232,26 @@ describe('deleteArchiveSession', () => {
     const { StorageService } = await import('../../../../core/services/StorageService');
     await deleteArchiveSession(makeSession({ _isLocal: true, _hasCloudCopy: true, _linkedCloudId: 'cloud1' }), 'user1');
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('user1', 's1', 'cloud1');
+  });
+
+  it('does NOT emit note.deleted or write activity when applied=false', async () => {
+    const { StorageService } = await import('../../../../core/services/StorageService');
+    const { emitDomainEvent } = await import('../../../../core/events/domainEvents');
+    const { useActivityLogStore } = await import('../../../../shared/activity/useActivityLogStore');
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({
+      cloudSynced: false,
+      derivativesOk: false,
+      applied: false,
+    });
+    useActivityLogStore.getState().clearLog();
+
+    const res = await deleteArchiveSession(makeSession({ _isLocal: true }), 'user1');
+
+    expect(res).toEqual({ cloudSynced: false, derivativesOk: false, applied: false });
+    expect(emitDomainEvent).not.toHaveBeenCalled();
+    const deleteActivities = useActivityLogStore.getState().entries.filter(
+      e => e.message === 'activity_note_deleted' || e.message === 'activity_note_deleted_derivatives'
+    );
+    expect(deleteActivities).toHaveLength(0);
   });
 });

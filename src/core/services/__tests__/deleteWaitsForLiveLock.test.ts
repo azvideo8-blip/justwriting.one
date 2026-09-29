@@ -93,7 +93,7 @@ describe('A-2: deleteDocument never deletes outside the document lock', () => {
 
     await lock.release();
     await vi.advanceTimersByTimeAsync(2_000);
-    await expect(deleting).resolves.toMatchObject({ derivativesOk: true });
+    await expect(deleting).resolves.toMatchObject({ derivativesOk: true, applied: true });
     // Удаление всё-таки дошло — но уже под нашим замком, а не в обход чужого.
     expect(lockOwnerAtDelete).toBeDefined();
     expect(lockOwnerAtDelete).not.toBe(UPLOADER_TOKEN);
@@ -105,7 +105,7 @@ describe('A-2: deleteDocument never deletes outside the document lock', () => {
     const deleting = StorageService.deleteDocument(USER, 'loc1');
 
     await vi.advanceTimersByTimeAsync(LOCK_TTL_MS * 2 + 5_000);
-    await expect(deleting).resolves.toEqual({ cloudSynced: false, derivativesOk: false });
+    await expect(deleting).resolves.toEqual({ cloudSynced: false, derivativesOk: false, applied: false });
 
     expect(LocalStorageService.deleteDocument).not.toHaveBeenCalled();
     expect(CloudSyncService.removeCloudCopy).not.toHaveBeenCalled();
@@ -123,7 +123,7 @@ describe('A-2: deleteDocument never deletes outside the document lock', () => {
     const deleting = StorageService.deleteDocument(USER, 'loc1');
 
     await vi.advanceTimersByTimeAsync(LOCK_TTL_MS * 2 + 5_000);
-    await expect(deleting).resolves.toEqual({ cloudSynced: false, derivativesOk: true });
+    await expect(deleting).resolves.toEqual({ cloudSynced: false, derivativesOk: true, applied: true });
 
     expect(LocalStorageService.deleteDocument).toHaveBeenCalledWith('loc1', USER, {
       remove: true,

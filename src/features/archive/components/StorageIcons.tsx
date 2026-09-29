@@ -261,6 +261,10 @@ export function StorageIcons({
   const isTooLarge = doc.isTooLargeForSync;
   const canUpload = !doc.hasCloud && !isTooLarge && !!doc.localId && !!userId && !userId.startsWith('guest_');
   const isUnsynced = doc.hasPendingSync && !isTooLarge;
+  // DC-X2: мёртвые состояния (гость, нет localId) не должны быть кнопками —
+  // клик всё равно ничего не делает.
+  const cloudDead = !isTooLarge && !doc.hasCloud && !canUpload;
+  const localDead = !doc.hasLocal && !(doc.hasCloud && doc.cloudId);
 
   const cloudTitle = isTooLarge
     ? t('storage_too_large_cloud')
@@ -276,6 +280,16 @@ export function StorageIcons({
 
   return (
     <div className="flex items-center gap-1.5 shrink-0">
+      {localDead ? (
+        <span
+          role="img"
+          aria-label={t('storage_no_local')}
+          title={t('storage_no_local')}
+          className="w-6 h-6 rounded-lg flex items-center justify-center text-text-main/40 cursor-default"
+        >
+          <HardDrive size={14} />
+        </span>
+      ) : (
       <IconButton
         icon={downloading ? <Loader2 size={14} className="animate-spin" /> : <HardDrive size={14} />}
         label={
@@ -298,7 +312,18 @@ export function StorageIcons({
           !downloading && !doc.hasLocal && !doc.hasCloud && "text-text-main/60 cursor-default"
         )}
       />
+      )}
 
+      {cloudDead ? (
+        <span
+          role="img"
+          aria-label={cloudTitle}
+          title={cloudTitle}
+          className="w-6 h-6 rounded-lg flex items-center justify-center text-text-main/40 cursor-default"
+        >
+          <Cloud size={14} />
+        </span>
+      ) : (
       <IconButton
         icon={uploading ? <Loader2 size={14} className="animate-spin" /> : <Cloud size={14} style={{
           ...(isUnsynced && !uploading ? {
@@ -320,6 +345,7 @@ export function StorageIcons({
           !uploading && !isTooLarge && !isUnsynced && !doc.hasCloud && !canUpload && "text-text-main/60 cursor-default"
         )}
       />
+      )}
 
       {exclusion && (
         <IconButton

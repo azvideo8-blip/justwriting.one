@@ -53,8 +53,8 @@ export function Calendar({ sessions, sessionsByDate, wordsByDate, selectedDate, 
       <div className="flex items-center justify-between">
         <Button onClick={() => onSelectMonth?.(currentMonth)} className="text-sm font-medium text-text-main px-1 capitalize transition-colors hover:text-text-main/70">{format(currentMonth, 'LLLL yyyy', { locale })}</Button>
         <div className="flex items-center gap-1">
-          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label="Previous month" icon={<ChevronLeft size={18} />} />
-          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label="Next month" icon={<ChevronRight size={18} />} />
+          <IconButton onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label={t('calendar_prev_month')} icon={<ChevronLeft size={18} />} />
+          <IconButton onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 rounded transition-colors text-text-main/60 hover:bg-text-main/5 hover:text-text-main" label={t('calendar_next_month')} icon={<ChevronRight size={18} />} />
         </div>
       </div>
 

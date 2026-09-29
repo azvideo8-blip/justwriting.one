@@ -31,7 +31,7 @@ vi.mock('../../../../core/services/StorageService', () => ({
   StorageService: {
     trashDocument: vi.fn().mockResolvedValue({ cloudSynced: true }),
     restoreDocument: vi.fn().mockResolvedValue({ cloudSynced: true }),
-    deleteDocument: vi.fn().mockResolvedValue({ cloudSynced: true }),
+    deleteDocument: vi.fn().mockResolvedValue({ cloudSynced: true, derivativesOk: true, applied: true }),
   },
 }));
 
@@ -109,7 +109,7 @@ describe('FEAT-5 Archive Trash Service', () => {
 
     const result = await deleteArchiveSession(session, 'u1');
 
-    expect(result).toEqual({ cloudSynced: true });
+    expect(result).toEqual({ cloudSynced: true, derivativesOk: true, applied: true });
     expect(StorageService.deleteDocument).toHaveBeenCalledWith('u1', 's1', 'c1');
     expect(domainEvents).toContainEqual({ type: 'note.deleted', documentId: 's1' });
     expect(addActivitySpy).toHaveBeenCalledWith('activity_note_deleted', undefined, 'info', 'archive');
@@ -155,7 +155,7 @@ describe('FEAT-5 Archive Trash Service', () => {
     const now = 1700000000000;
     const old = now - (11 * 24 * 60 * 60 * 1000);
     vi.mocked(StorageService.deleteDocument)
-      .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true })
+      .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true, applied: true })
       .mockRejectedValueOnce(new Error('idb'));
     const a = makeSession({ id: 'exp_ok', trashedAt: old });
     const b = makeSession({ id: 'exp_fail', trashedAt: old });
@@ -167,7 +167,7 @@ describe('FEAT-5 Archive Trash Service', () => {
   it('emptyTrash reports what was really deleted and says «not fully» on a failure', async () => {
     const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
     vi.mocked(StorageService.deleteDocument)
-      .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true })
+      .mockResolvedValueOnce({ cloudSynced: true, derivativesOk: true, applied: true })
       .mockRejectedValueOnce(new Error('idb'));
     const res = await emptyTrash([makeSession({ id: 's1' }), makeSession({ id: 's2' })], 'u1');
     expect(res).toEqual({ successCount: 1, failCount: 1, deletedIds: ['s1'] });
@@ -177,7 +177,7 @@ describe('FEAT-5 Archive Trash Service', () => {
   // N-51: заметка удалена, а производные — нет: «удалено навсегда» не пишется.
   it('deleteArchiveSession does not claim «deleted forever» when AI derivatives were left behind', async () => {
     const addActivitySpy = vi.spyOn(useActivityLogStore.getState(), 'addActivity');
-    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false });
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false, applied: true });
     await deleteArchiveSession(makeSession({ id: 's9' }), 'u1');
     expect(addActivitySpy).not.toHaveBeenCalledWith('activity_note_deleted', undefined, 'info', 'archive');
     expect(addActivitySpy).toHaveBeenCalledWith('activity_note_deleted_derivatives', expect.anything(), 'warning', 'archive');
@@ -185,7 +185,7 @@ describe('FEAT-5 Archive Trash Service', () => {
 
   // N-66: derivativesOk:false не попадает в deletedIds / prunedCount
   it('emptyTrash treats derivativesOk:false as failure (N-66)', async () => {
-    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false });
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false, applied: true });
     const res = await emptyTrash([makeSession({ id: 's_der_fail' })], 'u1');
     expect(res.failCount).toBe(1);
     expect(res.successCount).toBe(0);

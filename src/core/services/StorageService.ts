@@ -92,7 +92,7 @@ async function clearCloudRemovalTasks(userId: string, cloudId: string): Promise<
   await tx.done;
 }
 
-async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
+async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean; applied: boolean }> {
   const { cloudId: targetCloudId, failed: lookupFailed } = await resolveCloudId(userId, localId, cloudId);
   let derivativesOk = true;
   if (localId) {
@@ -111,7 +111,7 @@ async function deleteDocumentUnlocked(userId: string, localId?: string, cloudId?
       await queueCloudRemoval(userId, targetCloudId);
     }
   }
-  return { cloudSynced, derivativesOk };
+  return { cloudSynced, derivativesOk, applied: true };
 }
 
 export const StorageService = {
@@ -182,7 +182,7 @@ export const StorageService = {
     return { cloudSynced };
   },
 
-  async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
+  async deleteDocument(userId: string, localId?: string, cloudId?: string): Promise<{ cloudSynced: boolean; derivativesOk: boolean; applied: boolean }> {
     if (!localId) return deleteDocumentUnlocked(userId, localId, cloudId);
     // R3-10: если дренаж как раз выгружает эту заметку впервые, облачный ряд
     // появится уже после удаления локальной — и downloadAllFromCloud её вернёт.
@@ -218,10 +218,10 @@ export const StorageService = {
         { action: 'deleteDocument_lockTimeout', documentId: localId },
         'warning',
       );
-      return { cloudSynced: false, derivativesOk: false };
+      return { cloudSynced: false, derivativesOk: false, applied: false };
     }
     const derivativesOk = await LocalStorageService.deleteDocument(localId, userId, { remove: true, cloudId: targetCloudId });
-    return { cloudSynced: false, derivativesOk };
+    return { cloudSynced: false, derivativesOk, applied: true };
   },
 
   async getStorageState(userId: string, localId?: string, cloudId?: string): Promise<StorageState> {

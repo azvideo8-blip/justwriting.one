@@ -137,6 +137,10 @@ export const commonTranslations: Translations = {
     ru: 'Удалено на этом устройстве — из облака удалится позже',
     en: 'Deleted on this device — will be removed from the cloud later',
   },
+  delete_not_applied_uploading: {
+    ru: 'Заметка ещё выгружается в облако — удалить её не получилось. Попробуйте через минуту.',
+    en: 'The note is still uploading to the cloud, so it was not deleted. Try again in a minute.',
+  },
   save_status_saving: { ru: 'сохраняю…', en: 'saving…' },
   save_status_saved:  { ru: 'сохранено', en: 'saved' },
 

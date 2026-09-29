@@ -79,7 +79,7 @@ describe('BETA-2: Honest deletion feedback and queue tracking (LIFE-9)', () => {
     const result = await StorageService.deleteDocument(USER, localId, cloudId);
 
     // 1. Returns false, not claiming completed deletion
-    expect(result).toEqual({ cloudSynced: false, derivativesOk: true });
+    expect(result).toEqual({ cloudSynced: false, derivativesOk: true, applied: true });
 
     // 2. Local note is deleted
     const localDoc = await db.get('documents', localId);
@@ -111,7 +111,7 @@ describe('BETA-2: Honest deletion feedback and queue tracking (LIFE-9)', () => {
     vi.mocked(DocumentService.deleteDocument).mockResolvedValueOnce(undefined);
 
     const result = await StorageService.deleteDocument(USER, localId, cloudId);
-    expect(result).toEqual({ cloudSynced: true, derivativesOk: true });
+    expect(result).toEqual({ cloudSynced: true, derivativesOk: true, applied: true });
 
     const localDoc = await db.get('documents', localId);
     expect(localDoc).toBeUndefined();

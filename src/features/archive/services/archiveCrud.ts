@@ -243,7 +243,7 @@ export async function emptyTrash(
   for (const session of trashedSessions) {
     try {
       const res = await deleteArchiveSession(session, userId, { skipActivityLog: true });
-      if (res.derivativesOk === false) {
+      if (!res.applied || res.derivativesOk === false) {
         failCount++;
       } else {
         successCount++;
@@ -265,7 +265,7 @@ export async function deleteArchiveSession(
   session: ArchiveSession,
   userId: string,
   opts?: { skipActivityLog?: boolean }
-): Promise<{ cloudSynced: boolean; derivativesOk: boolean }> {
+): Promise<{ cloudSynced: boolean; derivativesOk: boolean; applied: boolean }> {
   const localId = session._isLocal ? session.id : undefined;
   let cloudId = session._hasCloudCopy ? (session._linkedCloudId || session.id) : undefined;
   // The snapshot above was captured when the confirm dialog opened; a background
@@ -278,6 +278,9 @@ export async function deleteArchiveSession(
     } catch { /* намеренно: берём снимок; StorageService повторит поиск и скажет, если не смог */ }
   }
   const result = await StorageService.deleteDocument(userId, localId, cloudId);
+  if (!result.applied) {
+    return result;
+  }
   emitDomainEvent({ type: 'note.deleted', documentId: session.id });
   if (result.derivativesOk === false) {
     // N-51: заметка удалена, а часть её разборов ИИ — нет. «Удалено навсегда»
@@ -316,7 +319,7 @@ export async function pruneExpiredTrash(
   if (expired.length > 0) {
     const results = await Promise.allSettled(expired.map(s => deleteArchiveSession(s, userId, { skipActivityLog: true })));
     results.forEach((r, i) => {
-      if (r.status === 'fulfilled' && r.value.derivativesOk !== false) {
+      if (r.status === 'fulfilled' && r.value.applied && r.value.derivativesOk !== false) {
         prunedCount++;
       } else {
         if (r.status === 'rejected') {

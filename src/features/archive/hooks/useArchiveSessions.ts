@@ -140,6 +140,10 @@ export function useArchiveSessions(user: AppUser | null, userId: string, t: (key
   const handlePermanentDeleteSession = async (s: ArchiveSession) => {
     try {
       const res = await deleteArchiveSession(s, userId);
+      if (!res.applied) {
+        showToast(t('delete_not_applied_uploading'));
+        return;
+      }
       setSessions(prev => prev.filter(x => x.id !== s.id));
       if (previewSession?.id === s.id) setPreviewSession(null);
       if (res.cloudSynced && res.derivativesOk !== false) {

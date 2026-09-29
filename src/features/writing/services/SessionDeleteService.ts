@@ -2,7 +2,7 @@ import { StorageService } from '../../../core/services/StorageService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { Session } from '../../../types';
 
-export async function deleteSession(userId: string, session: Session): Promise<{ cloudSynced: boolean }> {
+export async function deleteSession(userId: string, session: Session): Promise<{ cloudSynced: boolean; derivativesOk: boolean; applied: boolean }> {
   if (session._isLocal) {
     const doc = await LocalDocumentService.getDocument(session.id, userId);
     const cloudId = doc?.linkedCloudId || undefined;

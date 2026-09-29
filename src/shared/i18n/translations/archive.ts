@@ -76,6 +76,8 @@ export const archiveTranslations: Translations = {
   archive_label_delete_confirm: { ru: 'Удалить метку? Она будет снята со всех заметок.', en: 'Delete label? It will be removed from all notes.' },
   archive_labels_vault_locked: { ru: 'Сейф заперт. Откройте сейф в настройках для просмотра названий меток', en: 'Vault is locked. Unlock vault in settings to view label names' },
 
+  calendar_prev_month: { ru: 'Предыдущий месяц', en: 'Previous month' },
+  calendar_next_month: { ru: 'Следующий месяц', en: 'Next month' },
   calendar_mon: { ru: 'Пн', en: 'Mon' },
   calendar_tue: { ru: 'Вт', en: 'Tue' },
   calendar_wed: { ru: 'Ср', en: 'Wed' },

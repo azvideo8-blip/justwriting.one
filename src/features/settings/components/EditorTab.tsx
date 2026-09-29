@@ -48,6 +48,7 @@ export function EditorTab() {
           {fonts.map(font => (
             <Button
               key={font}
+              aria-pressed={fontFamily === font}
               onClick={() => setFontFamily(font)}
               className={cn(
                 "px-3 py-3 rounded-xl border text-left transition-colors",
@@ -141,6 +142,7 @@ export function EditorTab() {
           ] as const).map(item => (
             <Button
               key={item.key}
+              aria-pressed={headerVisibility[item.key]}
               onClick={() => toggleVisibility(item.key)}
               className={cn(
                 "flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors",
@@ -169,6 +171,7 @@ export function EditorTab() {
           {Object.values(themes).map(theme => (
             <Button
               key={theme.id}
+              aria-pressed={themeId === theme.id}
               onClick={() => setThemeId(theme.id)}
               className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
                 themeId === theme.id
@@ -186,6 +189,7 @@ export function EditorTab() {
             </Button>
           ))}
           <Button
+            aria-pressed={themeId === 'system'}
             onClick={() => setThemeId('system')}
             className={`px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
               themeId === 'system'
