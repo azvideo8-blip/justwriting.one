@@ -87,6 +87,6 @@ describe('A-5 (R2-012): an unreadable delete journal is unknown, not empty', () 
     expect(localStorage.getItem(DELETES_KEY)).toBe('[]');
     const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('ai_sync_pending_deletes.corrupt.'));
     expect(backupKeys).toHaveLength(1);
-    expect(localStorage.getItem(backupKeys[0])).toBe(CORRUPT);
+    expect(localStorage.getItem(backupKeys[0]!)).toBe(CORRUPT);
   });
 });

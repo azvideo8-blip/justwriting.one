@@ -56,7 +56,7 @@ describe('F-2: a corrupt delete journal heals instead of stopping uploads foreve
     // Verify backup key holds the raw string
     const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('ai_sync_pending_deletes.corrupt.'));
     expect(backupKeys).toHaveLength(1);
-    expect(localStorage.getItem(backupKeys[0])).toBe(rawCorrupt);
+    expect(localStorage.getItem(backupKeys[0]!)).toBe(rawCorrupt);
 
     // Verify journal is now '[]'
     expect(localStorage.getItem(DELETES_KEY)).toBe('[]');
@@ -102,7 +102,7 @@ describe('F-2: a corrupt delete journal heals instead of stopping uploads foreve
     // Backup holds the raw string
     const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('ai_sync_pending_deletes.corrupt.'));
     expect(backupKeys).toHaveLength(1);
-    expect(localStorage.getItem(backupKeys[0])).toBe(rawArray);
+    expect(localStorage.getItem(backupKeys[0]!)).toBe(rawArray);
 
     // Second drain executes the cloud delete for the salvaged item
     await tab.flushPending(true);

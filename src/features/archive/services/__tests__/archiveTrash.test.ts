@@ -195,7 +195,7 @@ describe('FEAT-5 Archive Trash Service', () => {
   it('pruneExpiredTrash keeps note when derivativesOk:false (N-66)', async () => {
     const now = 1700000000000;
     const old = now - (11 * 24 * 60 * 60 * 1000);
-    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false });
+    vi.mocked(StorageService.deleteDocument).mockResolvedValueOnce({ cloudSynced: true, derivativesOk: false, applied: true });
     const session = makeSession({ id: 'prune_der_fail', trashedAt: old });
     const { prunedCount, remainingSessions } = await pruneExpiredTrash([session], 'u1', now);
     expect(prunedCount).toBe(0);
