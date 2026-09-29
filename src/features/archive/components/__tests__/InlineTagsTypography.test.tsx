@@ -12,8 +12,8 @@ describe('D-26: InlineTags typography and localization', () => {
       </LanguageProvider>
     );
 
-    const button = screen.getByRole('button');
-    expect(button.textContent?.trim()).toBe('+ тег');
+    const button = screen.getByRole('button', { name: 'Добавить тег' });
+    expect(button.textContent?.trim()).toBe('+');
     expect(button.textContent).not.toContain('+ +');
   });
 

@@ -86,7 +86,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
       className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
                  hover:border-text-main/20 hover:bg-text-main/[0.07] hover:shadow-lg transition-colors
-                 flex flex-col gap-3"
+                 flex flex-col gap-3 group"
     >
       <div className="text-[13px] font-medium text-text-main/60 tabular-nums">
         {formattedDate}
@@ -126,6 +126,7 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
 
       <div onClick={e => e.stopPropagation()}>
         <InlineTags
+          variant="row"
           tags={session.tags || []}
           allTags={allTags}
           onChange={newTags => onTagsChange?.(session, newTags)}

@@ -70,7 +70,6 @@ export const archiveTranslations: Translations = {
   archive_assign_label: { ru: 'Назначить метку', en: 'Assign label' },
   archive_no_label: { ru: 'Без метки', en: 'No label' },
   archive_tag_placeholder_short: { ru: 'тег', en: 'tag' },
-  archive_tag_add_short: { ru: '+ тег', en: '+ tag' },
   archive_tag_remove: { ru: 'Удалить тег', en: 'Remove tag' },
   archive_tag_delete_confirm: { ru: 'Удалить тег #{tag}? Он будет снят со всех заметок.', en: 'Delete tag #{tag}? It will be removed from all notes.' },
   archive_label_delete_confirm: { ru: 'Удалить метку? Она будет снята со всех заметок.', en: 'Delete label? It will be removed from all notes.' },

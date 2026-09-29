@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
@@ -9,10 +9,27 @@ interface InlineTagsProps {
   tags: string[];
   onChange: (tags: string[]) => void;
   allTags?: string[] | undefined;
+  /** DC-A4: «row» — строка архива и карточка. Без тегов здесь ничего не
+   *  рисуется (пустая плашка «+ тег» занимала место в каждой строке), а «+»
+   *  появляется только на hover/focus строки. Поле ввода в этом режиме
+   *  открывается снаружи — пунктом меню «Добавить тег». */
+  variant?: 'row' | 'panel';
+  isAdding?: boolean | undefined;
+  onStartAdding?: (() => void) | undefined;
+  onStopAdding?: (() => void) | undefined;
 }
 
-export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
-  const [adding, setAdding] = useState(false);
+export function InlineTags({
+  tags,
+  onChange,
+  allTags,
+  variant = 'panel',
+  isAdding,
+  onStartAdding,
+  onStopAdding,
+}: InlineTagsProps) {
+  const [ownAdding, setOwnAdding] = useState(false);
+  const adding = isAdding ?? ownAdding;
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -20,6 +37,25 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(-1);
+
+  const openInput = () => {
+    if (onStartAdding) onStartAdding();
+    else setOwnAdding(true);
+  };
+
+  const closeInput = () => {
+    setOwnAdding(false);
+    onStopAdding?.();
+  };
+
+  // Поле открывает меню строки; оно возвращает фокус своей кнопке уже после
+  // монтирования ввода, поэтому фокус ставится ещё раз на следующем кадре.
+  useEffect(() => {
+    if (!adding) return;
+    inputRef.current?.focus();
+    const raf = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, [adding]);
 
   const removeTag = (e: React.MouseEvent, tag: string) => {
     e.stopPropagation();
@@ -42,8 +78,10 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
     setInput('');
     setSuggestions([]);
     setSelectedIdx(-1);
-    setAdding(false);
+    closeInput();
   };
+
+  if (variant === 'row' && tags.length === 0 && !adding) return null;
 
   return (
     <div className="flex flex-wrap gap-1.5 items-center" onClick={e => e.stopPropagation()}>
@@ -96,10 +134,9 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
                   addTag();
                 }
               }
-              if (e.key === 'Escape') { setAdding(false); setInput(''); setSuggestions([]); }
+              if (e.key === 'Escape') { closeInput(); setInput(''); setSuggestions([]); }
             }}
             onBlur={() => { blurTimerRef.current = setTimeout(() => { setSuggestions([]); setSelectedIdx(-1); addTag(); }, 0); }}
-            autoFocus
             placeholder={t('archive_tag_placeholder_short')}
             className="font-mono text-label text-text-main border border-text-main/20 rounded px-1.5 py-0.5 bg-transparent outline-none w-16"
           />
@@ -122,10 +159,16 @@ export function InlineTags({ tags, onChange, allTags }: InlineTagsProps) {
         </div>
       ) : (
         <Button
-          onClick={e => { e.stopPropagation(); setAdding(true); }}
-          className="font-mono text-label text-text-main/60 border border-dashed border-text-main/25 rounded px-1.5 py-0.5 hover:text-brand-soft hover:border-brand-soft/40 transition-colors flex items-center gap-0.5"
+          onClick={e => { e.stopPropagation(); openInput(); }}
+          aria-label={t('archive_add_tag_aria')}
+          className={cn(
+            "w-5 h-5 flex items-center justify-center rounded text-[13px] leading-none text-text-main/50 hover:text-brand-soft transition-[opacity,color]",
+            variant === 'row'
+              ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+              : "border border-border-subtle hover:border-brand-soft/40",
+          )}
         >
-          {t('archive_tag_add_short')}
+          +
         </Button>
       )}
     </div>

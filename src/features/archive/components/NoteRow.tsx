@@ -52,6 +52,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   const dtRef = React.useRef<HTMLDivElement>(null);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
+  const [tagInputOpen, setTagInputOpen] = useState(false);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -169,6 +170,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
     ...(onLabelChange ? { onLabelChange: (labelId: string | undefined) => onLabelChange(session, labelId) } : {}),
     onOpen,
     onRename: startRename,
+    onAddTag: () => setTagInputOpen(true),
     ...(onAIClick
       ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } }
       : {}),
@@ -340,9 +342,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           </p>
         )}
         <InlineTags
+          variant="row"
           tags={session.tags || []}
           onChange={(newTags) => onTagsChange?.(session, newTags)}
           allTags={allTags}
+          isAdding={tagInputOpen}
+          onStartAdding={() => setTagInputOpen(true)}
+          onStopAdding={() => setTagInputOpen(false)}
         />
 
       </div>
