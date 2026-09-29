@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 
 vi.mock('../../../../shared/i18n', () => ({
-  useLanguage: () => ({ t: (k: string) => k, language: 'ru' }),
+  useLanguage: () => ({ t: (k: string) => k, tp: (k: string, n: number) => `${n} ${k}`, language: 'ru' }),
 }));
 vi.mock('../../../../shared/hooks/useReducedMotion', () => ({
   useReducedMotion: () => false,

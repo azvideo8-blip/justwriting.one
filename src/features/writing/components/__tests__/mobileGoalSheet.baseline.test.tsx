@@ -6,6 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({
     t: (k: string, p?: Record<string, unknown>) => (p?.count !== undefined ? String(p.count) : k),
+    tp: (_k: string, n: number) => String(n),
   }),
 }));
 
