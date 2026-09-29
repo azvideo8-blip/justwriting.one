@@ -1,5 +1,6 @@
 import { useEffect, type RefObject, type ChangeEvent } from 'react';
-import { Paperclip, File, Plus, ArrowRight, Square, X } from 'lucide-react';
+// File — вернуть вместе с пунктом «Загрузить файл» ниже.
+import { Paperclip, Plus, ArrowRight, Square, X } from 'lucide-react';
 import { Button } from '../../../../shared/components/Button';
 import { IconButton } from '../../../../shared/components/IconButton';
 import { useLanguage } from '../../../../shared/i18n';
@@ -206,6 +207,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
                     <Paperclip size={14} />
                     {t('ai_attach_note')}
                   </Button>
+                  {/* Скрыто по решению владельца (2026-09-29): загрузка файла в чат убрана из меню.
                   <Button
                     onClick={() => { setAttachMenuOpen(false); fileInputRef.current?.click(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"
@@ -213,6 +215,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
                     <File size={14} />
                     {t('ai_upload_file')}
                   </Button>
+                  */}
                 </div>
               )}
             </div>
