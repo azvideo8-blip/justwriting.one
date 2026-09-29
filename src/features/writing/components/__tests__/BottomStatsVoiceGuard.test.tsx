@@ -35,6 +35,7 @@ vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
     isZenActive: false,
     zenModeEnabled: false,
     headerVisibility: { sessionTime: true, wpm: true },
+    effectiveHeaderVisibility: { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
   }),
 }));
 

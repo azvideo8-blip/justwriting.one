@@ -51,6 +51,7 @@ vi.mock('../../../core/settings/WritingSettingsContext', () => ({
     streamMode: true, // Enable streamMode to test locks
     toggleStreamMode: vi.fn(),
     headerVisibility: { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
+    effectiveHeaderVisibility: { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
   }),
 }));
 

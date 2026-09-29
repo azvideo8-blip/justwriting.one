@@ -29,6 +29,7 @@ vi.mock('../../../core/settings/WritingSettingsContext', () => ({
     streamMode: false,
     toggleStreamMode: vi.fn(),
     headerVisibility: { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
+    effectiveHeaderVisibility: { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
   }),
 }));
 
