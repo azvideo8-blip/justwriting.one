@@ -26,4 +26,14 @@ http.createServer((req, res) => {
   });
   up.on('error', () => sock.destroy());
   sock.on('error', () => up.destroy());
-}).listen(PORT, () => console.log(`proxy :${PORT}`));
+})
+// Только loopback: ворота гоняют стенд на VPS-раннере (gates.yml) до 40 минут,
+// и без хоста здесь прокси к стендовой Supabase висел бы на публичном
+// интерфейсе без аутентификации. Playwright и curl на стенде ходят по
+// localhost — наружу этот порт не нужен.
+//
+// 127.0.0.1, а не '::1': стенд поднимается ровно одним процессом, а Node на
+// ::1 слушает только IPv6 (без dual-stack) — curl/Chromium на localhost,
+// начав с A-записи, получили бы refused. Отдать оба адреса одним listen()
+// нельзя, поэтому выбираем вариант, который не рвёт сам подъём стенда.
+.listen(PORT, '127.0.0.1', () => console.log(`proxy :${PORT} (loopback)`));
