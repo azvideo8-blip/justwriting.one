@@ -1,9 +1,14 @@
+import React from 'react';
 // AUD-12: окно восстановления показывало «Восстановление завершено» даже когда
 // проход упал с исключением или вернул ноль. Теперь падение рисует состояние
 // ошибки, а не завершения. Фальсификация: вернуть setStep('completed') в catch —
 // тест краснеет.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent } from '@testing-library/react';
+import { LanguageProvider } from '../../../shared/i18n';
+
+// useLanguage вне провайдера бросает — компонент рендерится так же, как в приложении.
+const render = (ui: React.ReactElement) => rtlRender(ui, { wrapper: LanguageProvider });
 import { RestoreFromCloudModal } from '../RestoreFromCloudModal';
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { DocumentService } from '../../../core/services/DocumentService';

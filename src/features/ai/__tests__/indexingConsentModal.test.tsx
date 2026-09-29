@@ -1,6 +1,10 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
+import { LanguageProvider } from '../../../shared/i18n';
+
+// useLanguage вне провайдера бросает — компонент рендерится так же, как в приложении.
+const render = (ui: React.ReactElement) => rtlRender(ui, { wrapper: LanguageProvider });
 import { IndexingConsentModal } from '../components/IndexingConsentModal';
 
 describe('LIFE-7: IndexingConsentModal content & wording', () => {
