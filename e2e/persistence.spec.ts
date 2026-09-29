@@ -27,17 +27,20 @@ async function typeNote(page: import('@playwright/test').Page, text: string): Pr
 }
 
 /** Завершает сессию и сохраняет заметку.
- *  Флоу: Cmd/Ctrl+Enter → «Session complete.» → Save → mood-шаг → Finish. */
+ *  Флоу (с DC-W3 — один шаг, настроение внутри): Cmd/Ctrl+Enter → окно итогов → Save.
+ *  Заголовок итогов меняется от сессии к сессии («Written N words…»), поэтому
+ *  опора — окно и его кнопка, а не текст заголовка. */
 async function finishAndSave(page: import('@playwright/test').Page): Promise<void> {
   // Кнопка Stop на десктопе перекрыта контейнером редактора —
   // используем системный шорткат завершения сессии.
   await page.keyboard.press('ControlOrMeta+Enter');
-  await expect(page.getByText('Session complete.')).toBeVisible({ timeout: 10000 });
+  const dialog = page.locator('[role="dialog"]');
   // «Save» в тулбаре тоже так называется — берём кнопку из модалки.
-  await page.locator('[role="dialog"]').getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByRole('button', { name: 'Finish', exact: true }).click();
+  const save = dialog.getByRole('button', { name: 'Save', exact: true });
+  await expect(save).toBeVisible({ timeout: 10000 });
+  await save.click();
   // Ждать закрытия модалки = успешное сохранение (иначе остаётся с ошибкой).
-  await expect(page.getByText('Session complete.')).toBeHidden({ timeout: 20000 });
+  await expect(dialog).toBeHidden({ timeout: 20000 });
   await page.waitForTimeout(2000);
 }
 
