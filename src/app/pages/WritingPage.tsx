@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+
 import type { AppUser } from '../../core/auth/types';
 import { UserProfile } from '../../types';
 import { GoalToast } from '../../shared/components/GoalToast';
@@ -147,20 +147,6 @@ const WritingPageUI = React.memo(function WritingPageUI() {
         countdown={flow.countdown}
       />
       <GoalToast visible={flow.goalToastVisible} type={flow.goalToastType} />
-      <AnimatePresence>
-        {flow.sessionStartFlash && (
-          <>
-            {/* not-a-modal: session start flash animation */}
-            <motion.div
-              initial={{ opacity: 0.6 }}
-              animate={{ opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="fixed inset-0 z-[var(--z-auth)] bg-text-main pointer-events-none"
-            />
-          </>
-        )}
-      </AnimatePresence>
       <CancelConfirmModal
         isOpen={flow.showCancelConfirm}
         onConfirm={() => { void handleCancel(); setShowCancelConfirm(false); }}

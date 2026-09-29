@@ -1,6 +1,7 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {BrowserRouter} from 'react-router-dom';
+import { MotionConfig } from 'motion/react';
 import { z } from 'zod';
 import { reportError } from './shared/errors/reportError';
 import { chunkIsGone } from './shared/errors/chunkReload';
@@ -54,9 +55,11 @@ window.addEventListener('unhandledrejection', (event) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </MotionConfig>
   </StrictMode>,
 );
 

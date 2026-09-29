@@ -14,6 +14,7 @@ import { WritingEditor } from '../../features/writing/components/WritingEditor';
 import { WritingSetup } from '../../features/writing/components/WritingSetup';
 import { LifeLogPanel } from '../../features/writing/components/LifeLogPanel';
 import { BottomStats } from '../../features/writing/components/BottomStats';
+import { SessionGlow } from '../../features/writing/components/SessionGlow';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
 // каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
 function LiveAIPanelContent() {
@@ -190,6 +191,13 @@ export function DesktopWritingLayout() {
               onInput={handleEditorInput}
             />
             )}
+            <SessionGlow
+              phase={
+                session.status === 'writing'
+                  ? flow.sessionStartFlash ? 'breath' : 'ring'
+                  : 'off'
+              }
+            />
           </div>
         </div>
 
