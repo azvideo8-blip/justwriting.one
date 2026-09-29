@@ -89,8 +89,94 @@ export function splitStringIntoChunks(str: string, maxBytesPerChunk = PAGE_SPLIT
 // выключенной синхронизации — всю сессию), и ежедневное восстановление
 // возвращало удалённое. Поэтому ожидающие удаления лежат на диске до успеха.
 const PENDING_DELETES_LS_KEY = 'ai_sync_pending_deletes';
+const CORRUPT_DELETES_BACKUP_PREFIX = 'ai_sync_pending_deletes.corrupt.';
 
-interface PersistedDelete { uid: string; store: string; key: string }
+export interface PersistedDelete { uid: string; store: string; key: string }
+
+let hasReportedJournalUnknownThisPageLoad = false;
+
+export function _resetReportedForTests(): void {
+  hasReportedJournalUnknownThisPageLoad = false;
+}
+
+export function readPersistedDeletesRaw(): { raw: string | null } | { unavailable: true } {
+  try {
+    return { raw: localStorage.getItem(PENDING_DELETES_LS_KEY) };
+  } catch {
+    return { unavailable: true };
+  }
+}
+
+export function parseDeleteJournal(raw: string): { list: PersistedDelete[]; dropped: number } | { corrupt: true } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { corrupt: true };
+  }
+  if (!Array.isArray(parsed)) {
+    return { corrupt: true };
+  }
+  const list: PersistedDelete[] = [];
+  let dropped = 0;
+  for (const item of parsed) {
+    if (
+      item !== null &&
+      typeof item === 'object' &&
+      typeof (item as Record<string, unknown>).uid === 'string' &&
+      typeof (item as Record<string, unknown>).store === 'string' &&
+      typeof (item as Record<string, unknown>).key === 'string'
+    ) {
+      list.push({
+        uid: (item as PersistedDelete).uid,
+        store: (item as PersistedDelete).store,
+        key: (item as PersistedDelete).key,
+      });
+    } else {
+      dropped++;
+    }
+  }
+  return { list, dropped };
+}
+
+export function healCorruptDeleteJournal(
+  raw: string,
+  uid?: string,
+): { salvaged: PersistedDelete[]; dropped: number } {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(CORRUPT_DELETES_BACKUP_PREFIX)) {
+        keysToRemove.push(k);
+      }
+    }
+    for (const k of keysToRemove) {
+      localStorage.removeItem(k);
+    }
+    localStorage.setItem(`${CORRUPT_DELETES_BACKUP_PREFIX}${Date.now()}`, raw);
+  } catch (err) {
+    reportError(err, { action: 'healCorruptDeleteJournal_backup' }, 'warning');
+  }
+
+  const parsed = parseDeleteJournal(raw);
+  const salvaged = 'corrupt' in parsed ? [] : parsed.list;
+  const dropped = 'corrupt' in parsed ? 0 : parsed.dropped;
+
+  try {
+    localStorage.setItem(PENDING_DELETES_LS_KEY, JSON.stringify(salvaged));
+  } catch (err) {
+    reportError(err, { action: 'healCorruptDeleteJournal_writeSalvaged' }, 'warning');
+  }
+
+  reportDeleteJournalUnknown('flushPending_deleteJournalUnknown', uid, {
+    rawLength: raw.length,
+    salvaged: salvaged.length,
+    dropped,
+  });
+
+  return { salvaged, dropped };
+}
 
 // A-5 (R2-012): «пусто» и «не прочитано» — разные состояния. Пустой журнал
 // означает, что удалять в облаке нечего; нечитаемый (строка из другой версии
@@ -98,22 +184,32 @@ interface PersistedDelete { uid: string; store: string; key: string }
 // знаем. Сведение второго к первому через `catch { return [] }` позволяло
 // дренажу upsert'ом вернуть в облако запись, которую пользователь уже снёс:
 // `null` — «журнал не читается», `[]` — «прочитан и пуст».
-function readPersistedDeletes(): PersistedDelete[] | null {
-  try {
-    const raw = localStorage.getItem(PENDING_DELETES_LS_KEY);
-    if (raw === null) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : null;
-  } catch {
-    return null;
-  }
+// F-2: битый JSON в работающем storage исцеляется (бэкап + спасение валидных),
+// а на проходе обнаружения возвращается null (fail closed для этого прохода).
+export function readPersistedDeletes(): PersistedDelete[] | null {
+  const rawRes = readPersistedDeletesRaw();
+  if ('unavailable' in rawRes) return null;
+  if (rawRes.raw === null) return [];
+  const parsed = parseDeleteJournal(rawRes.raw);
+  if ('corrupt' in parsed || parsed.dropped > 0) return null;
+  return parsed.list;
 }
 
 /** Причина, по которой проход останавливает загрузки: её надо назвать вслух. */
-function reportDeleteJournalUnknown(action: string, uid?: string): void {
+function reportDeleteJournalUnknown(
+  action: string,
+  uid?: string,
+  counts?: { rawLength: number; salvaged: number; dropped: number },
+): void {
+  if (hasReportedJournalUnknownThisPageLoad) return;
+  hasReportedJournalUnknownThisPageLoad = true;
   reportError(
     new Error('Journal of pending AI-store deletions is unreadable — what must not be uploaded is unknown'),
-    { action, ...(uid ? { userId: uid } : {}) },
+    {
+      action,
+      ...(uid ? { userId: uid } : {}),
+      ...(counts ?? {}),
+    },
     'warning',
   );
 }
@@ -496,7 +592,12 @@ export class LocalStoreSyncManager {
       // Не знаем, какие из ожидающих отправки записей на самом деле удалены.
       // Один upsert воскрешает в облаке снесённый разбор, поэтому удаления
       // этот проход делает, а обновлений — нет (fail closed).
-      reportDeleteJournalUnknown('flushPending_deleteJournalUnknown', uid);
+      const rawRes = readPersistedDeletesRaw();
+      if (!('unavailable' in rawRes) && rawRes.raw !== null) {
+        healCorruptDeleteJournal(rawRes.raw, uid);
+      } else {
+        reportDeleteJournalUnknown('flushPending_deleteJournalUnknown', uid);
+      }
     } else {
       for (const d of persistedDeletes) {
         if (d.uid !== uid || !SUPPORTED_LOCAL_STORES.includes(d.store as SupportedLocalStoreName)) continue;

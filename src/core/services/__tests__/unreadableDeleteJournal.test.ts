@@ -69,7 +69,9 @@ describe('A-5 (R2-012): an unreadable delete journal is unknown, not empty', () 
       'warning',
     );
     // Отложено, а не исполнено: бейдж по-прежнему видит несданное.
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, unknown: true });
+    // F-2: первый дренаж исцелил битый журнал в [], поэтому unknown теперь false,
+    // но обязательство на отправку по-прежнему отложено (pending = 1).
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, unknown: false });
   });
 
   it('still runs deletions, and a finished one does not overwrite the unreadable journal', async () => {
@@ -80,6 +82,11 @@ describe('A-5 (R2-012): an unreadable delete journal is unknown, not empty', () 
     await tab.flushPending(true);
 
     expect(DataProvider.deleteLocalStoreRecord).toHaveBeenCalledWith(USER, 'aiPortrait', 'p2');
-    expect(localStorage.getItem(DELETES_KEY)).toBe(CORRUPT);
+    // F-2: битый журнал исцелился в [] (с бэкапом), поэтому в ключе лежит [],
+    // а сырой обрывок сохранён в ключе бэкапа.
+    expect(localStorage.getItem(DELETES_KEY)).toBe('[]');
+    const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('ai_sync_pending_deletes.corrupt.'));
+    expect(backupKeys).toHaveLength(1);
+    expect(localStorage.getItem(backupKeys[0])).toBe(CORRUPT);
   });
 });
