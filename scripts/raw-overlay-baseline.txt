@@ -5,7 +5,9 @@
 # помечаются маркером `{/* not-a-modal: ... */}` прямо в коде и исключаются.
 #
 # Базлайн содержит реальные диалоги, ожидающие миграции на ModalShell (4 шт.):
-src/features/archive/components/StorageIcons.tsx
+# DC-A3: диалог переехал из StorageIcons.tsx в useNoteStorageActions.tsx — путь
+# обновлён, долг тот же (миграция на ModalShell всё ещё впереди).
+src/features/archive/components/useNoteStorageActions.tsx
 src/features/auth/pages/LoginPage.tsx
 src/features/settings/components/AccountVaultSection.tsx
 src/features/writing/components/MobileWriteToolbar.tsx

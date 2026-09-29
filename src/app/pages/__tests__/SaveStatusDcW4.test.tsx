@@ -2,7 +2,7 @@
 // умолчанию (журнал включён → шапки нет) и в дзен (шапка размонтирована).
 // Раньше «Сохранено» жил только в шапке и в этих двух случаях исчезал.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { DesktopWritingLayout } from '../DesktopWritingLayout';
 import { LanguageProvider } from '../../../shared/i18n';
@@ -111,6 +111,50 @@ describe('DC-W4: SaveStatus на экране письма', () => {
     expect(el).toHaveTextContent('Недостаточно места на устройстве');
     expect(el.className).toContain('opacity-100');
     expect(el.className).toContain('text-accent-danger');
+  });
+
+  it('метка времени снимается в момент перехода в «Сохранено»', async () => {
+    state.saveStatus = 'saving';
+    const { rerender } = renderLayout();
+    expect(screen.getByTestId('save-status').textContent).not.toMatch(/Сохранено/);
+
+    state.saveStatus = 'saved';
+    rerender(
+      <LanguageProvider>
+        <DesktopWritingLayout />
+      </LanguageProvider>
+    );
+    await waitFor(
+      () => {
+        expect(screen.getByTestId('save-status').textContent).toMatch(/Сохранено · \d{1,2}[:.]\d{2}/);
+      },
+      { timeout: 3000 },
+    );
+  });
+
+  it('вспышка на полной яркости гаснет через секунду', () => {
+    vi.useFakeTimers();
+    let tree: ReturnType<typeof renderLayout> | null = null;
+    try {
+      state.saveStatus = 'saving';
+      tree = renderLayout();
+
+      state.saveStatus = 'saved';
+      tree.rerender(
+        <LanguageProvider>
+          <DesktopWritingLayout />
+        </LanguageProvider>
+      );
+      expect(screen.getByTestId('save-status').className).toContain('opacity-100');
+
+      act(() => { vi.advanceTimersByTime(1100); });
+      const el = screen.getByTestId('save-status');
+      expect(el.className).toContain('opacity-70');
+      expect(el.className).not.toContain('opacity-100');
+    } finally {
+      if (tree !== null) tree.unmount();
+      vi.useRealTimers();
+    }
   });
 
   it('в простое статуса нет', () => {

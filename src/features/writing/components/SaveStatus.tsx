@@ -19,17 +19,28 @@ export function SaveStatus({
   const { t, language } = useLanguage();
   const { isZenActive } = useWritingSettings();
   const reducedMotion = useReducedMotion();
+  const [prevStatus, setPrevStatus] = useState<SaveStatusKind>(saveStatus);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
 
+  // Метка времени снимается в момент перехода в 'saved' — во время рендера, по
+  // изменению пропа, а не в эффекте: эффект требует подавления в храповике
+  // set-state-in-effect, а показывать время, когда запись закончилась, надо сразу.
+  if (saveStatus !== prevStatus) {
+    setPrevStatus(saveStatus);
+    if (saveStatus === 'saved') {
+      setSavedAt(new Date().toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }));
+      setFlash(true);
+    } else {
+      setFlash(false);
+    }
+  }
+
   useEffect(() => {
-    if (saveStatus !== 'saved') return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- timestamp the moment the save completed
-    setSavedAt(new Date().toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }));
-    setFlash(true);
+    if (!flash) return;
     const timer = setTimeout(() => setFlash(false), 1000);
     return () => clearTimeout(timer);
-  }, [saveStatus, language]);
+  }, [flash]);
 
   if (saveStatus === 'idle') return null;
 
