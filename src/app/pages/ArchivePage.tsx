@@ -47,7 +47,7 @@ interface ArchiveViewProps {
 }
 
 export function ArchivePage({ user, profile }: ArchiveViewProps) {
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const navigate = useNavigate();
   const userId = useUserId(user);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -84,7 +84,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
     selectedTags, setSelectedTags, selectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
     sessionsByDate, wordsByDate, wordCloud, maxCount,
-    dateLocale, entriesLabel,
+    dateLocale,
   } = useArchiveData(user, userId, t, language, profileLabels);
 
   const filteredTrashedSessions = useMemo(() => {
@@ -248,7 +248,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
             <ArchiveHeader
               title={activeTab === 'notes' ? t('nav_notes') : t('archive_tab_trash')}
               count={activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length}
-              countLabel={t('archive_count')}
+              countLabel={tp('archive_count', activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length)}
               subtitle={activeTab === 'notes' ? t('archive_subtitle') : t('archive_trash_subtitle')}
               searchQuery={searchQuery} searchInputRef={searchInputRef} onSearchChange={setSearchQuery}
               searchPlaceholder={activeTab === 'notes' ? t('archive_search_placeholder') : t('archive_trash_search_placeholder')}
@@ -358,7 +358,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   onOpen={s => void openPreview(s)} onDelete={s => setDeleteConfirm(s)}
                   onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onTitleChange={(s, title) => void handleTitleChange(s, title)}
                   onDateChange={(s, date) => void handleDateChange(s, date)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
-                  onStorageChange={() => void fetchSessions()} t={t} language={language} entriesLabel={entriesLabel}
+                  onStorageChange={() => void fetchSessions()} t={t} language={language}
                   allTags={allTags} onClearSearch={() => setSearchQuery('')}
                   onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
                   onClearAnalysis={id => NoteAnalysisService.clear(id)}

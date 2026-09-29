@@ -92,13 +92,6 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
 
   const dateLocale = getDateLocale(language);
 
-  const entriesLabel = (n: number) =>
-    language === 'ru'
-      ? n === 1 ? t('archive_entry_1') :
-        n >= 2 && n <= 4 ? t('archive_entry_2') :
-        t('archive_entry_5')
-      : n === 1 ? t('archive_entry_1') : t('archive_entry_2');
-
   return {
     ...sessionsData,
     allTags, tagCounts, labelCounts, filteredByFilters, filteredSessions,
@@ -109,6 +102,6 @@ export function useArchiveData(user: AppUser | null, userId: string, t: (key: st
     selectedLabels, setSelectedLabels, toggleLabel,
     statsTitle, hasActiveFilter, resetStatsFilter,
     sessionsByDate, wordsByDate, wordCloud, maxCount,
-    groupedSessions, sortedDates, dateLocale, entriesLabel,
+    groupedSessions, sortedDates, dateLocale,
   };
 }

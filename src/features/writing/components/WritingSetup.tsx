@@ -85,7 +85,7 @@ export function WritingSetup({
   continueSession,
   onSetPromptTitle,
 }: WritingSetupProps) {
-  const { t, language } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const timerDuration = useTimerStore(s => s.timerDuration);
   const setTimerDuration = useTimerStore(s => s.setTimerDuration);
   const wordGoal = useTimerStore(s => s.wordGoal);
@@ -219,7 +219,7 @@ export function WritingSetup({
                             min="1"
                             autoFocus
                           />
-                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{t('writing_minutes')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{tp('writing_minutes', timerDuration / 60)}</div>
                         </div>
                       )}
                       {setupMode === 'words-config' && (
@@ -234,7 +234,7 @@ export function WritingSetup({
                             step="50"
                             autoFocus
                           />
-                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{t('writing_words')}</div>
+                          <div className="text-label-sm md:text-xs font-black uppercase tracking-[0.2em] mt-2 text-text-main/60">{tp('writing_words', wordGoal)}</div>
                         </div>
                       )}
                       {setupMode === 'finish-by-config' && (
@@ -333,7 +333,7 @@ export function WritingSetup({
                                   {session.title || t('common_untitled')}
                                 </div>
                                 <div className="text-label-sm font-bold uppercase tracking-wider text-text-main/60">
-                                  {session.totalWords} {t('writing_words')} · {formatTime(session.totalDuration)}
+                                  {session.totalWords} {tp('writing_words', session.totalWords)} · {formatTime(session.totalDuration)}
                                 </div>
                               </div>
                             </div>

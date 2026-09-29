@@ -77,7 +77,8 @@ export function ArchiveHeader({
           <h1 className="text-3xl font-medium tracking-tight text-text-main">
             {title}
           </h1>
-          <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest">
+          {/* DC-A5: счётчик читается как часть заголовка, а не как mono-подпись. */}
+          <span className="text-[13px] font-medium text-text-main/60 tabular-nums">
             {count} {countLabel}
           </span>
         </div>

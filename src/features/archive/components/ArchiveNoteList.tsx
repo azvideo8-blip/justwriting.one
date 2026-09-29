@@ -49,7 +49,6 @@ interface ArchiveNoteListProps {
   onStorageChange: () => void;
   t: (key: string, args?: Record<string, string | number>) => string;
   language: string;
-  entriesLabel: (n: number) => string;
   allTags?: string[];
   onClearSearch?: () => void;
   onAnalyzeNote?: (sessionId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -72,7 +71,7 @@ export function ArchiveNoteList({
   labels, userId, searchQuery, isGroupedByDate,
   onOpen, onDelete, onTagsChange, onTitleChange,
   onDateChange, onLabelChange, onStorageChange,
-  t, language, entriesLabel: _entriesLabel, allTags, onClearSearch,
+  t, language, allTags, onClearSearch,
   onAnalyzeNote, onClearAnalysis, loadAiProcessedMap,
 }: ArchiveNoteListProps) {
   const navigate = useNavigate();

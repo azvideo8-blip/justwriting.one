@@ -13,17 +13,21 @@ interface ArchiveStatsProps {
 }
 
 export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveStatsProps) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
 
   const totalWords = sessions.reduce((s, n) => s + (n.wordCount || 0), 0);
   const totalMins = Math.round(sessions.reduce((s, n) => s + (n.duration || 0), 0) / 60);
   const totalDocs = sessions.length;
 
   const stats = [
-    { label: t('archive_stat_docs'), value: totalDocs, isStreak: false },
-    { label: t('archive_stat_words'), value: totalWords.toLocaleString(), isStreak: false },
-    { label: t('archive_stat_mins'), value: totalMins, isStreak: false },
-    { label: t('archive_stat_streak'), value: streakDays, suffix: t('home_streak_days'), isStreak: true },
+    { label: tp('archive_stat_docs', totalDocs), value: totalDocs, isStreak: false },
+    { label: tp('archive_stat_words', totalWords), value: totalWords.toLocaleString(), isStreak: false },
+    { label: tp('archive_stat_mins', totalMins), value: totalMins, isStreak: false },
+    // DC-A5: нулевой стрик — не показатель. Плитка про нуль появлялась на
+    // пустом архиве и во время загрузки и читалась как «0 дней».
+    ...(streakDays > 0
+      ? [{ label: tp('archive_stat_streak', streakDays), value: streakDays, isStreak: true }]
+      : []),
   ];
 
   return (
@@ -63,7 +67,7 @@ export function ArchiveStats({ sessions, streakDays, title, onReset }: ArchiveSt
               className="text-base font-medium tabular-nums leading-none"
               style={stat.isStreak ? { color: 'var(--flow-pulse-color)' } : {}}
             >
-              {stat.value}{stat.suffix ? ' ' + stat.suffix : ''}
+              {stat.value}
             </div>
             <div className="text-label text-text-main/60 uppercase tracking-widest">
               {stat.label}

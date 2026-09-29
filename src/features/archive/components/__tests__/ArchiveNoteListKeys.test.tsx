@@ -55,7 +55,6 @@ describe("DEEP-15: ArchiveNoteList item keys", () => {
     onStorageChange: vi.fn(),
     t: (k: string) => k,
     language: "en",
-    entriesLabel: (n: number) => String(n),
   };
 
   it("passes computeItemKey with s.id to Virtuoso in list mode", () => {
