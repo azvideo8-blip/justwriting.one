@@ -140,6 +140,7 @@ vi.mock('../../features/writing/components/WritingEditor', () => ({ WritingEdito
 vi.mock('../../features/writing/components/WritingSetup', () => ({ WritingSetup: () => <div data-testid="writing-setup" /> }));
 vi.mock('../../features/writing/components/LifeLogPanel', () => ({ LifeLogPanel: () => <div data-testid="life-log-panel" /> }));
 vi.mock('../../features/writing/components/BottomStats', () => ({ BottomStats: () => <div data-testid="bottom-stats" /> }));
+vi.mock('../../features/writing/components/SaveStatus', () => ({ SaveStatus: () => null }));
 vi.mock('../../features/ai/components/AIPanel', () => ({ AIPanelContent: () => null }));
 
 // Mock MobileWriteScreen children
