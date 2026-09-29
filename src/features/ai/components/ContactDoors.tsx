@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { getCurrentUser } from '../../../core/auth';
-import { analyzeDoors, aggregateDoors, doorLabel, type AggregatedDoors } from '../utils/contactDoors';
+import { analyzeDoors, aggregateDoors, type AggregatedDoors } from '../utils/contactDoors';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
 import { useLanguage } from '../../../shared/i18n';

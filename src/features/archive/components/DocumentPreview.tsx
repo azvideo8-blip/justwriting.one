@@ -227,7 +227,7 @@ export function DocumentPreview({
     } catch (e) {
       console.error('[DocumentPreview] failed to load related note:', e);
     }
-  }, []);
+  }, [t]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isMobile) return;

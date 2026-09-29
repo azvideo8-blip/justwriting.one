@@ -118,7 +118,11 @@ export function LifeStoryTimeline() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch from localDb on mount
     void loadData();
-  }, []);
+    // loadData вшивает переведённые подписи («без названия», «вручную
+    // добавленное событие») прямо в состояние — при смене языка перечитываем.
+    // Саму функцию в зависимости не кладём: она пересоздаётся на каждом рендере.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
 
   if (loading) {
     return (

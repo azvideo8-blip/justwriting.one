@@ -32,6 +32,9 @@ export function BeliefsDiagnostics() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetching from IndexedDB on mount
     void refreshData();
+    // Загрузка один раз при монтировании: refreshData читает t только для текста
+    // ошибки, повторять выборку из базы при смене языка незачем.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClearRejections = async () => {
