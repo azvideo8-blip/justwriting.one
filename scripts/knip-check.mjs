@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { planBaseline } from './knip-ratchet.mjs';
+import { issueKeys, planBaseline } from './knip-ratchet.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const BASELINE = path.join(ROOT, 'scripts/knip-baseline.txt');
@@ -47,34 +47,6 @@ function knipIssues() {
   return parsed.issues;
 }
 
-const TYPES = ['files', 'exports', 'types', 'enumMembers', 'duplicates', 'dependencies', 'devDependencies'];
-
-// Мёртвый файл knip описывает самой записью (файл == предмет), у остального
-// предмет — элемент с именем. Дублирующиеся экспорты идут списком списков: там
-// имена — у вложенных элементов, а не у внешнего.
-function currentKeys(issues) {
-  const keys = [];
-  for (const entry of issues) {
-    const file = path.relative(ROOT, entry.file).replaceAll(path.sep, '/');
-    for (const type of TYPES) {
-      const items = (entry[type] ?? []).flatMap(item => (Array.isArray(item) ? item : [item]));
-      for (const item of items) {
-        if (type === 'files') {
-          keys.push(`files\t${file}`);
-          continue;
-        }
-        const name = typeof item === 'string' ? item : (item?.name ?? item?.symbol ?? '');
-        if (!name) {
-          console.error(`::error::knip выдал ${type} без имени в ${file} — ключ не построить`);
-          process.exit(1);
-        }
-        keys.push(`${type}\t${file}:${name}`);
-      }
-    }
-  }
-  return keys.sort();
-}
-
 function readBaseline() {
   try {
     return readFileSync(BASELINE, 'utf8')
@@ -87,7 +59,7 @@ function readBaseline() {
 }
 
 const issues = knipIssues();
-const current = currentKeys(issues);
+const current = issueKeys(issues, ROOT);
 const baseline = readBaseline();
 const grow = process.argv.includes('--grow');
 const update = process.argv.includes('--update');
@@ -95,10 +67,15 @@ const plan = planBaseline(baseline, current, { grow });
 
 if (update || grow) {
   if (!plan.mayWrite) {
-    console.error(`::error::--update не расширяет baseline: новых нарушений ${plan.added.length}`);
+    console.error(`::error::baseline не записан: новых ключей ${plan.added.length}`);
     plan.added.forEach(key => console.error(`  ${key.replace('\t', '  ')}`));
-    console.error('Долг уменьшается, а не растёт: удалите экспорт/файл или используйте его.');
-    console.error('Если рост осознанный (новый мёртвый код под тикет) — перезапустите с --grow.');
+    if (plan.blocked.length > 0) {
+      // R2-021: это не долг, который можно признать, а сломанная сборка.
+      console.error('unresolved/unlisted в baseline не вписываются даже с --grow: объявите пакет в package.json (для API — ещё и в deploy/api) или почините путь импорта.');
+    } else {
+      console.error('Долг уменьшается, а не растёт: удалите экспорт/файл или используйте его.');
+      console.error('Если рост осознанный (новый мёртвый код под тикет) — перезапустите с --grow.');
+    }
     process.exit(1);
   }
   writeFileSync(BASELINE, plan.contents);
@@ -113,9 +90,10 @@ if (update || grow) {
 console.log(`knip: нарушений ${current.length}, в baseline ${baseline.length}`);
 
 if (plan.added.length > 0) {
-  console.error(`::error::новый мёртвый код (${plan.added.length}):`);
+  console.error(`::error::новый долг (${plan.added.length}):`);
   plan.added.forEach(key => console.error(`  ${key.replace('\t', '  ')}`));
-  console.error('Удалите экспорт/файл или используйте его. Вписать в baseline нельзя: он только укорачивается.');
+  console.error('Мёртвый экспорт — удалить или использовать; unlisted — пакет не объявлен в package.json (на чистом npm ci прод-сборка падает); unresolved — пути нет.');
+  console.error('Вписать в baseline нельзя: он только укорачивается.');
   process.exit(1);
 }
 

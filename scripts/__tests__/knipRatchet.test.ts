@@ -1,5 +1,46 @@
 import { describe, it, expect } from 'vitest';
-import { BASELINE_HEADER, planBaseline } from '../knip-ratchet.mjs';
+import { BASELINE_HEADER, issueKeys, planBaseline } from '../knip-ratchet.mjs';
+
+const ROOT = process.cwd();
+
+// C-3 (R2-021). Ключи строятся из вывода knip; пока `unresolved` и `unlisted` не
+// были в TYPES, гейт не видел ни импорта по битому пути, ни импорта пакета,
+// которого нет в package.json, — а второй как раз рвёт прод-сборку на чистом
+// `npm ci`.
+describe('issueKeys', () => {
+  it('builds keys for unlisted and unresolved imports', () => {
+    const keys = issueKeys([
+      {
+        file: 'src/main.tsx',
+        unlisted: [{ name: 'ms', line: 75, col: 16 }],
+        unresolved: [{ name: './definitely-missing', line: 76, col: 22 }],
+      },
+    ], ROOT);
+    expect(keys).toEqual([
+      'unlisted\tsrc/main.tsx:ms',
+      'unresolved\tsrc/main.tsx:./definitely-missing',
+    ]);
+  });
+
+  it('still builds keys for the categories it already covered', () => {
+    const keys = issueKeys([
+      {
+        file: 'src/a.ts',
+        files: [{}],
+        exports: [{ name: 'deadExport' }],
+        duplicates: [[{ name: 'x' }, { name: 'y' }]],
+        dependencies: [{ name: 'left-pad' }],
+      },
+    ], ROOT);
+    expect(keys).toEqual([
+      'dependencies\tsrc/a.ts:left-pad',
+      'duplicates\tsrc/a.ts:x',
+      'duplicates\tsrc/a.ts:y',
+      'exports\tsrc/a.ts:deadExport',
+      'files\tsrc/a.ts',
+    ]);
+  });
+});
 
 // C-2 (R2-020). До этого `--update` писал весь текущий набор и выходил 0, то
 // есть один прогон легализовал сколько угодно нового мёртвого кода — храповик,
@@ -41,5 +82,11 @@ describe('planBaseline', () => {
     expect(plan.mayWrite).toBe(true);
     expect(plan.added).toEqual([dead]);
     expect(plan.contents).toContain('deadExport');
+  });
+
+  it('will not baseline unlisted/unresolved even with --grow', () => {
+    const plan = planBaseline([], ['unlisted\tsrc/main.tsx:ms', dead], { grow: true });
+    expect(plan.blocked).toEqual(['unlisted\tsrc/main.tsx:ms']);
+    expect(plan.mayWrite).toBe(false);
   });
 });

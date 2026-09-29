@@ -164,7 +164,8 @@ npm run postulates   # verify the 4 postulates + database plaintext sweep
 - `scripts/cross-feature-check.sh` — a ratchet on cross-feature imports, at 0;
 - `scripts/raw-overlay-check.sh` — a ratchet on raw overlay usage;
 - `scripts/knip-check.mjs` — a ratchet on dead code (`knip`), against
-  `scripts/knip-baseline.txt`;
+  `scripts/knip-baseline.txt`; it also blocks `unresolved` and `unlisted`
+  imports, which are not baselinable at all (a clean `npm ci` breaks on them);
 - bundle size ceilings on the index chunk, raw and gzipped;
 - Supabase RLS tests.
 
