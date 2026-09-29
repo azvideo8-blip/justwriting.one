@@ -21,7 +21,7 @@
 - certbot (for TLS)
 - A non-root `justwriting` user
 
-## Setup
+## Первая установка (первый деплой)
 
 ```bash
 # 1. Create user and app directory
@@ -87,6 +87,74 @@ curl -I https://yourdomain.com/assets/index.js.map  # → 404
 
 Обычная выкатка — не эти шаги, а ручной запуск workflow `Выкатка на сервер` (`.github/workflows/deploy.yml`): сборка, выкладка, перезапуск службы, `scripts/post-deploy-smoke.ts`, откат при сбое.
 
+## Обновление вручную
+
+То же, что делает `deploy.yml`, командами — на случай, когда Actions недоступен.
+Пути, имена сервисов и последовательность взяты из workflow.
+
+Клиент:
+
+```bash
+# 0. npm run build; карты исходников на сервер не едут
+find dist -name '*.map' -delete
+REMOTE_DIR=$(ssh justwriting 'mktemp -d /tmp/jw-dist.XXXXXX')
+trap 'ssh justwriting "rm -rf $REMOTE_DIR"' EXIT
+rsync -az --delete dist/ justwriting:$REMOTE_DIR/
+ssh justwriting "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
+set -euo pipefail
+trap 'rm -rf "$REMOTE_DIR"' EXIT
+# .prev — опора для отката
+if [ -f /var/www/justwriting/index.html ]; then sudo cp /var/www/justwriting/index.html /var/www/justwriting/index.html.prev; fi
+if [ -f /var/www/justwriting/sw.js ]; then sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev; fi
+# БЕЗ --delete: страница, открытая до выкатки, продолжает подгружать куски своего бандла
+sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/
+sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/
+sudo chown -R www-data:www-data /var/www/justwriting
+REMOTE
+```
+
+Служба:
+
+```bash
+# 0. сборка одного бандла (тот же esbuild, что в workflow)
+npx esbuild api/server.ts --bundle --platform=node --format=esm \
+  --target=node20 --packages=external --outfile=/tmp/jw-server.mjs
+REMOTE_DIR=$(ssh justwriting 'mktemp -d /tmp/jw-api.XXXXXX')
+trap 'ssh justwriting "rm -rf $REMOTE_DIR"' EXIT
+scp /tmp/jw-server.mjs justwriting:$REMOTE_DIR/server.mjs
+scp deploy/api/package.json justwriting:$REMOTE_DIR/api-package.json
+scp deploy/api/package-lock.json justwriting:$REMOTE_DIR/api-package-lock.json
+ssh justwriting "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
+set -euo pipefail
+trap 'rm -rf "$REMOTE_DIR"' EXIT
+sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev
+# npm ci — в отдельный staging-каталог: ci сначала сносит node_modules,
+# провал установки прямо на месте оставил бы службу без зависимостей
+mkdir -p "$REMOTE_DIR"/stage
+cp "$REMOTE_DIR"/api-package.json "$REMOTE_DIR"/stage/package.json
+cp "$REMOTE_DIR"/api-package-lock.json "$REMOTE_DIR"/stage/package-lock.json
+env npm_config_cache="$HOME/.npm-cache-jw-api" npm ci --prefix "$REMOTE_DIR"/stage --omit=dev --no-audit --no-fund
+# готовое дерево подменяется на место, когда установка уже прошла
+sudo rsync -a --delete "$REMOTE_DIR"/stage/node_modules/ /opt/justwriting/api/node_modules/
+sudo cp "$REMOTE_DIR"/stage/package.json "$REMOTE_DIR"/stage/package-lock.json /opt/justwriting/api/
+sudo cp "$REMOTE_DIR"/server.mjs /opt/justwriting/api/server.mjs
+sudo chown -R justwriting:justwriting /opt/justwriting/api/node_modules /opt/justwriting/api/package.json /opt/justwriting/api/package-lock.json /opt/justwriting/api/server.mjs
+# перезапуск и проверка, что служба жива
+sudo systemctl restart justwriting && sleep 5 && systemctl is-active --quiet justwriting
+REMOTE
+```
+
+Smoke-проверки (как шаги «Проверка после выкатки», нужны соответствующие секреты):
+
+```bash
+npx tsx scripts/post-deploy-smoke.ts https://justwriting.ru/
+npx tsx scripts/post-deploy-login.ts https://justwriting.ru/
+```
+
+Если проверка упала — откат руками: вернуть `index.html.prev`/`sw.js.prev` в
+`/var/www/justwriting/` (и `chown www-data`), для службы —
+`server.mjs.prev` в `server.mjs` и `sudo systemctl restart justwriting`.
+
 ## Внешняя проверка сайта (на ноутбуке)
 
 `monitor/ru.justwriting.sitecheck.plist` — шаблон: launchd не раскрывает `~`, поэтому пути
@@ -108,7 +176,9 @@ launchctl load ~/Library/LaunchAgents/ru.justwriting.sitecheck.plist
 1. **Nginx Layer (`deploy/nginx.conf`)**:
    - `/auth/`: strictly rate limited with `limit_req zone=auth_limit burst=5 nodelay` (5 req/min per IP) to prevent password brute-force and credential stuffing.
    - `/api/`: rate limited with `limit_req zone=api_limit burst=30 nodelay` (60 req/min per IP) with high burst to allow batch operations while preventing DoS and runaway AI spending.
-   - `/rest/`, `/realtime/`, `/storage/`: not subject to strict auth throttling so regular note synchronization operates smoothly.
+   - `/rest/`: `limit_req zone=rest_limit burst=100 nodelay` (1000 req/min per IP — потолок по замеру пика прогонов индексации эмбеддингов, SA-3 в `nginx.conf`).
+   - `/realtime/`: `limit_req zone=realtime_limit burst=5 nodelay` (10 req/min per IP — только рукопожатия websocket) плюс `limit_conn realtime_conn 10`.
+   - `/storage/`: наружу не открыт — приложение не использует хранилище (0 бакетов).
 
 2. **Supabase / GoTrue Layer (`/opt/justwriting/supabase/.env`)**:
    - `GOTRUE_DISABLE_SIGNUP=true` (registration closed, invites only)

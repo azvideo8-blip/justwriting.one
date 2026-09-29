@@ -152,6 +152,8 @@ jobs:
           # Перед копированием сохраняем index.html и sw.js для полного отката.
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
             set -euo pipefail
+            # Падение шага не должно оставлять каталог в /tmp на сервере.
+            trap 'rm -rf "$REMOTE_DIR"' EXIT
             if [ -f /var/www/justwriting/index.html ]; then
               sudo cp /var/www/justwriting/index.html /var/www/justwriting/index.html.prev
             fi
@@ -159,7 +161,7 @@ jobs:
               sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev
             fi
             sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/
-            sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || echo "email templates not synced"
+            sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || echo "::warning::email templates not synced"
             sudo chown -R www-data:www-data /var/www/justwriting
             rm -rf "$REMOTE_DIR"
           REMOTE
@@ -212,6 +214,9 @@ jobs:
           $DEPLOY_SCP deploy/api/package-lock.json \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package-lock.json
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
+            # Падение шага не должно оставлять каталог (и staging с npm-деревом)
+            # в /tmp на сервере.
+            trap 'rm -rf "$REMOTE_DIR"' EXIT
             sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev &&
             # npm ci, а не npm install: ставит ровно то, что записано в локе, и
             # падает, если лок и манифест расходятся. Ставится в отдельный каталог:

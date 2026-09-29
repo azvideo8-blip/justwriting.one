@@ -4,10 +4,9 @@ import { matchRule } from './classifySyncError';
 /**
  * A-2.1 / R3-6: перепостановка заметки в очередь выгрузки на новую правку.
  *
- * Сохраняет createdAt (жизненный цикл исходной постановки), но обновляет updatedAt
- * (чтобы задача пережила снимок дренажа _clearQueueItemsIfUnchanged), сбрасывает
- * dead: false, attempts: 0 и очищает lastError, давая новой правке свежий бюджет
- * попыток.
+ * Сохраняет createdAt (жизненный цикл исходной постановки) и всю историю
+ * задачи (attempts/dead/lastError) — ничего из этого не сбрасывается;
+ * поднимается только updatedAt. Почему так — комментарий в теле функции.
  */
 export async function requeueDocumentTask(documentId: string, ownerId?: string | null): Promise<void> {
   const db = await getLocalDb(ownerId ?? undefined);
