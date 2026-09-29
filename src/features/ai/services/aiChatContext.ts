@@ -32,11 +32,24 @@ import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
+/** Заметка-тема диалога. title/date идут в правило строгого хода (noteScope). */
+export interface AttachedNoteRef {
+  content: string;
+  documentId?: string;
+  title?: string;
+  date?: string;
+}
+
+const CRISIS_RESOURCE_TEXT =
+  `Пользователь находится в кризисном состоянии. Интегрируй в свой ответ контакты служб поддержки:\n` +
+  `Единый телефон доверия: 8-800-333-44-34, горячая линия психологической помощи: 051 (с городского) или +7 (495) 051.\n` +
+  `Отвечай тепло, эмпатично, не давай советов, поддерживай.`;
+
 export function useAIChatContext(personaId: string): {
   buildContext(params: BuildContextParams): Promise<ChatContextResult>;
   resetSession(): void;
-  setAttachedNote(note: { content: string; documentId?: string } | null): void;
-  getAttachedNote(): { content: string; documentId?: string } | null;
+  setAttachedNote(note: AttachedNoteRef | null): void;
+  getAttachedNote(): AttachedNoteRef | null;
   incrementMessageCount(): void;
   getMessageCount(): number;
 } {
@@ -45,7 +58,7 @@ export function useAIChatContext(personaId: string): {
   const docsCacheRef = useRef<Map<string, { id: string; title?: string; lastSessionAt?: number; firstSessionAt?: number }> | null>(null);
   const doorsCacheRef = useRef<{ hint: string } | null>(null);
   const messageCountRef = useRef(0);
-  const attachedNoteRef = useRef<{ content: string; documentId?: string } | null>(null);
+  const attachedNoteRef = useRef<AttachedNoteRef | null>(null);
   const stickyTurnsRef = useRef(0);
   const lastSearchQueryRef = useRef('');
   const lastSearchNamesRef = useRef<string[]>([]);
@@ -62,7 +75,7 @@ export function useAIChatContext(personaId: string): {
     recentContextInjectedRef.current = false;
   };
 
-  const setAttachedNote = (note: { content: string; documentId?: string } | null) => {
+  const setAttachedNote = (note: AttachedNoteRef | null) => {
     attachedNoteRef.current = note;
   };
 
@@ -92,7 +105,11 @@ export function useAIChatContext(personaId: string): {
       text,
       onDailyLimitError: () => { degradedDueToDailyLimit = true; },
     });
-    if (text.trim().length > 0 && hasIndexingConsent(uid)) {
+    // Строгий ход по заметке ничего не ищет — и вектор реплики ему не нужен.
+    const strictNoteTurn = params.scope === 'note' && !!attached;
+    // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
+    const riskText = attached ? `${text}\n${attached.content}` : text;
+    if (!strictNoteTurn && text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
@@ -192,6 +209,23 @@ export function useAIChatContext(personaId: string): {
         );
         injectedDocumentIds.push(...citedIds);
       }
+    }
+
+    // Строгий ход: заметка, портрет (фон — правило в системном промпте) и, при
+    // кризисе, телефоны помощи. Поиск, хронология, «недавнее» и память здесь
+    // раньше запускались по тексту хода, и модель приписывала приложенной
+    // заметке цитаты из других записей.
+    if (strictNoteTurn && attachedBlock) {
+      return {
+        userPortrait: userPortrait ?? null,
+        customPersona: customSystemPrompt,
+        searchContext: detectRisk(riskText).isRisk ? `${CRISIS_RESOURCE_TEXT}\n\n${attachedBlock}` : attachedBlock,
+        documentMood: mood,
+        memoryContext: null,
+        injectedDocumentIds: [...new Set(injectedDocumentIds)],
+        allowedFirstSeenDates: [],
+        degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
+      };
     }
 
     if (!noteIntentNoText) {
@@ -610,13 +644,9 @@ export function useAIChatContext(personaId: string): {
       }
 
       // Crisis resources check
-      const isCrisis = detectRisk(text);
+      const isCrisis = detectRisk(riskText);
       if (isCrisis.isRisk) {
-        const crisisResourceText =
-          `Пользователь находится в кризисном состоянии. Интегрируй в свой ответ контакты служб поддержки:\n` +
-          `Единый телефон доверия: 8-800-333-44-34, горячая линия психологической помощи: 051 (с городского) или +7 (495) 051.\n` +
-          `Отвечай тепло, эмпатично, не давай советов, поддерживай.`;
-        searchContext = searchContext ? `${crisisResourceText}\n\n${searchContext}` : crisisResourceText;
+        searchContext = searchContext ? `${CRISIS_RESOURCE_TEXT}\n\n${searchContext}` : CRISIS_RESOURCE_TEXT;
       }
 
       // Contact Doors check

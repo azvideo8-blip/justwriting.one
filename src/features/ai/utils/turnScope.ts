@@ -12,7 +12,7 @@ export type TurnScope = 'note' | 'wide';
 // предлагает посмотреть в других записях (кнопка под ответом).
 const RELATION_MARKERS = /связ[аиоьы]|сравн|раньше|как обычно|в других (?:записях|заметках)|повторя|паттерн/i;
 
-export function turnScope(question: string, opts?: { forceWide?: boolean }): TurnScope {
+export function turnScope(question: string, opts?: { forceWide?: boolean | undefined }): TurnScope {
   if (opts?.forceWide) return 'wide';
   return RELATION_MARKERS.test(question) ? 'wide' : 'note';
 }

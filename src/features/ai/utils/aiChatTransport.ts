@@ -1,5 +1,6 @@
 import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { AIMessage } from '../services/AIService';
+import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 
@@ -160,6 +161,7 @@ export async function streamChat(params: {
   documentMood?: string | undefined;
   userPortrait?: string | null | undefined;
   memoryContext?: string | null | undefined;
+  noteScope?: NoteScope | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   signal?: AbortSignal | undefined;
@@ -193,6 +195,7 @@ export async function streamChat(params: {
       documentMood: params.documentMood,
       userPortrait: params.userPortrait,
       memoryContext: params.memoryContext,
+      noteScope: params.noteScope,
       responseLength: params.responseLength,
       reasoning: params.reasoning,
     }),
@@ -342,6 +345,7 @@ export async function callableChat(params: {
   documentContent?: string | undefined;
   userPortrait?: string | null | undefined;
   memoryContext?: string | null | undefined;
+  noteScope?: NoteScope | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
@@ -355,6 +359,7 @@ export async function callableChat(params: {
     documentContent: params.documentContent,
     userPortrait: params.userPortrait,
     memoryContext: params.memoryContext,
+    noteScope: params.noteScope,
     responseLength: params.responseLength,
     reasoning: params.reasoning,
     callType: params.callType,

@@ -27,6 +27,7 @@ import { indexPending } from '../utils/embeddingIndexer';
 import { looksLikeNoteSearch } from '../utils/aiChatTransport';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
+import { noteMetaFor } from '../utils/noteMeta';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -227,7 +228,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       }
     }, 0);
     if (linkedDocId) void prepareAttachment(linkedDocId).then(p => {
-      if (p) setPendingAttachments([{ documentId: linkedDocId, title: p.title, content: p.content }]);
+      // Дата заметки обязана доехать: без неё ссылка в запросе получала сегодняшнюю.
+      if (p) setPendingAttachments([{ documentId: linkedDocId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt }]);
     }).catch(e => reportError(e, { action: 'useAIPageData/prepareAttachment', documentId: linkedDocId }));
   }, [loadDialogues, loadCustomPersonas, linkedDocId, prepareAttachment, setPendingAttachments]);
 
@@ -280,7 +282,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     })();
   }, [draftFacetId, prepareAttachment, handleNewDialogue, setSelectedPersonaId, setPendingAttachments]);
 
-  const executeSendMessage = useCallback(async (text: string, overrideText?: string) => {
+  const executeSendMessage = useCallback(async (text: string, overrideText?: string, opts?: { forceWide?: boolean }) => {
     let attaches: { documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[] = [...pendingAttachments];
     if (attaches.length === 0 && text && NOTE_REF_RE.test(text) && NOTE_VERB_RE.test(text)) {
       try {
@@ -299,6 +301,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       } catch { /* ignore fallback */ }
     }
 
+    // Заметка без вопроса: модель не зовём — над полем ввода приложение само
+    // спрашивает, что с ней сделать (кнопки «Разобрать» / «Связать…»).
+    if (attaches.length > 0 && !text.trim()) return;
+
     const prevPending = pendingAttachments;
     if (overrideText === undefined) setInputText('');
     setPendingAttachments([]);
@@ -312,6 +318,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         const yyyymmdd = localDayKey(a.lastSessionAt ?? Date.now()); // N-17: день по местному времени, как везде
         return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${a.title}"]\n${a.content}`;
       };
+      // Вопрос уходит отдельно от текста заметки (режим хода и контекст строятся
+      // по нему), название и дата — в правило строгого хода.
+      const noteMeta = attaches.length === 1
+        ? noteMetaFor(attaches[0]!)
+        : { title: attaches.map(a => a.title).join('», «'), date: '' };
+      const sendOpts = { question: text, noteMeta, ...(opts?.forceWide ? { forceWide: true } : {}) };
 
       const totalContent = attaches.map(formatRefTag).join('\n\n---\n\n');
       const totalChars = attaches.reduce((s, a) => s + a.content.length, 0);
@@ -323,15 +335,15 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         const display = fits
           ? `${formatRefTag(a)}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
           : (text ? `${marker}\n\n${text}` : marker);
-        id = await sendMessage(display, { content: formatRefTag(a), ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits });
+        id = await sendMessage(display, { content: formatRefTag(a), ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       } else {
         const display = fits
           ? `${totalContent}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
           : `${markers.join('\n')}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`;
-        id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits });
+        id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       }
     } else {
-      id = await sendMessage(text);
+      id = await sendMessage(text, undefined, undefined, undefined, opts?.forceWide ? { forceWide: true } : undefined);
     }
 
     if (id) {
@@ -385,16 +397,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (action) await action();
   }, []);
 
-  const handleSendMessage = useCallback(async (overrideText?: string) => {
+  const handleSendMessage = useCallback(async (overrideText?: string, opts?: { forceWide?: boolean }) => {
     const text = (overrideText ?? inputText).trim();
     if ((!text && pendingAttachments.length === 0) || isLoading) return;
 
-    if (looksLikeNoteSearch(text)) {
+    if (looksLikeNoteSearch(text) || opts?.forceWide) {
       await checkIndexingConsentOrProceed(async () => {
-        await executeSendMessage(text, overrideText);
+        await executeSendMessage(text, overrideText, opts);
       }, text);
     } else {
-      await executeSendMessage(text, overrideText);
+      await executeSendMessage(text, overrideText, opts);
     }
   }, [inputText, pendingAttachments, isLoading, executeSendMessage, checkIndexingConsentOrProceed]);
 

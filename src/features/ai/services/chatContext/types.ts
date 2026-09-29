@@ -22,4 +22,6 @@ export interface BuildContextParams {
   dialogueId?: string | null;
   forcedSearchQuery?: string | undefined;
   attachedIsSticky?: boolean | undefined;
+  /** Режим хода при заметке-теме (turnScope). 'note' — в контекст идёт только она. */
+  scope?: 'note' | 'wide' | undefined;
 }

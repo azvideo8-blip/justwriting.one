@@ -1,4 +1,5 @@
 import { getCurrentUser, getIdToken } from '../../../core/auth';
+import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { reportError } from '../../../shared/errors/reportError';
 import { withTimeout } from '../../../shared/utils/withTimeout';
 import { callAi, type CallAiOptions } from '../../../core/ai/callAi';
@@ -137,6 +138,7 @@ export const AIService = {
     documentMood?: string | undefined;
     userPortrait?: string | null | undefined;
     memoryContext?: string | null | undefined;
+    noteScope?: NoteScope | undefined;
     responseLength?: 'short' | 'standard' | 'detailed' | undefined;
     reasoning?: boolean | undefined;
     callType?: 'auto_name' | 'follow_up' | 'query_expand' | 'system_task' | undefined;

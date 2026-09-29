@@ -16,7 +16,9 @@ import { LocalVersionService } from '../../../core/services/LocalVersionService'
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
 
-import { useAIChatContext } from '../services/aiChatContext';
+import { useAIChatContext, type AttachedNoteRef } from '../services/aiChatContext';
+import { turnScope, type TurnScope } from '../utils/turnScope';
+import { noteMetaFor } from '../utils/noteMeta';
 import {
   streamChat,
   callableChat,
@@ -33,13 +35,24 @@ import { setAIStage } from '../store/useAIStageStore';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 export { API_MSG_CAP };
 
+export interface SendMessageOptions {
+  replaceFromIndex?: number;
+  /** Вопрос хода без текста заметки: по нему решается режим и строится контекст. */
+  question?: string;
+  /** Кнопки «Связать с другими записями» / «Посмотреть в других записях». */
+  forceWide?: boolean;
+  /** Название и дата приложенной заметки — для правила строгого хода. */
+  noteMeta?: { title: string; date: string };
+}
+
 interface UseAIChatReturn {
   dialogue: AIDialogue | null;
   isLoading: boolean;
   streamingMessage: string | null;
   streamingReasoning: string | null;
   error: string | null;
-  sendMessage: (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string) => Promise<string | null>;
+  sendMessage: (text: string, attached?: { content: string; documentId?: string; inline?: boolean }, mood?: string, forcedSearchQuery?: string, options?: SendMessageOptions) => Promise<string | null>;
+  lastTurnScope: TurnScope | null;
   attachDocument: (documentId: string) => Promise<void>;
   prepareAttachment: (documentId: string) => Promise<{ title: string; content: string; lastSessionAt?: number | undefined } | null>;
   stop: () => void;
@@ -88,6 +101,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const { language, t } = useLanguage();
   const [dialogue, setDialogue] = useState<AIDialogue | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Режим последнего ответа: под строгим — кнопка «Посмотреть в других записях».
+  const [lastTurnScope, setLastTurnScope] = useState<TurnScope | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [streamingReasoning, setStreamingReasoning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +164,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         if (d?.documentId && !context.getAttachedNote()) {
           try {
             const content = await LocalVersionService.getLatestContent(d.documentId);
-            if (content) context.setAttachedNote({ content, documentId: d.documentId });
+            const doc = await LocalDocumentService.getDocument(d.documentId);
+            if (content) context.setAttachedNote({ content, documentId: d.documentId, ...(doc ? noteMetaFor(doc) : {}) });
           } catch { /* non-critical */ }
         }
       });
@@ -218,7 +234,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     attached?: { content: string; documentId?: string; inline?: boolean },
     mood?: string,
     forcedSearchQuery?: string,
-    options?: { replaceFromIndex?: number },
+    options?: SendMessageOptions,
   ): Promise<string | null> => {
     if (!text.trim() && !forcedSearchQuery) return null;
     // R-1: Synchronous re-entrancy guard — prevents two calls in the same tick
@@ -324,9 +340,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             // Sticky note: remember a freshly attached note, and reuse it on follow-up
       // turns that don't re-attach so the note stays the subject of the dialogue.
       if (attached) {
-        const note: { content: string; documentId?: string } = { content: attached.content };
+        const note: AttachedNoteRef = { content: attached.content };
         if (attached.documentId !== undefined) {
           note.documentId = attached.documentId;
+        }
+        if (options?.noteMeta) {
+          note.title = options.noteMeta.title;
+          note.date = options.noteMeta.date;
         }
         context.setAttachedNote(note);
       }
@@ -335,6 +355,15 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // "in the note you attached…" about a note the user never sent.
       const stickyAttached = !attached && !!context.getAttachedNote();
       const effectiveAttached = attached ?? context.getAttachedNote() ?? undefined;
+      // Заметка-тема есть — ход строгий, пока вопрос не про связи (turnScope).
+      // Раньше контекст строился по тексту, склеенному с заметкой, и в ответ
+      // попадали цитаты из других записей под видом этой.
+      const question = options?.question ?? text;
+      const scope = effectiveAttached ? turnScope(question, { forceWide: options?.forceWide }) : undefined;
+      const subjectNote = context.getAttachedNote();
+      const noteScope = scope
+        ? { mode: scope, title: subjectNote?.title ?? 'приложенная заметка', date: subjectNote?.date ?? '' }
+        : undefined;
 
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
@@ -399,7 +428,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         allowedFirstSeenDates,
         degradedReason,
       } = await context.buildContext({
-        text,
+        text: question,
+        scope,
         attached: effectiveAttached ? (
           effectiveAttached.documentId !== undefined
             ? { content: effectiveAttached.content, documentId: effectiveAttached.documentId }
@@ -444,7 +474,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       let fullText: string;
 
       if (Date.now() < _streamUnavailableUntil) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
       } else {
         try {
           fullText = await streamChat({
@@ -455,6 +485,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             documentMood: mood,
             userPortrait: safePortrait,
             memoryContext,
+            noteScope,
             responseLength: effectiveResponseLength,
             reasoning: effectiveReasoning,
 
@@ -499,7 +530,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (lastPartial.trim().length > 200) {
               fullText = lastPartial;
             } else {
-              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
+              fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
             }
             // RSN-4: Parse reasoning and answer unconditionally from callable fallback
             const cleanReasoning = extractReasoning(fullText);
@@ -588,6 +619,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
       }
       turnSaved = true;
+      setLastTurnScope(scope ?? null);
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
         await AIDialogueService.setDocumentId(currentDialogue.id, attached.documentId);
@@ -790,5 +822,5 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     await sendMessage('', undefined, undefined, query);
   }, [sendMessage]);
 
-  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, attachDocument, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
+  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, lastTurnScope, attachDocument, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
 }
