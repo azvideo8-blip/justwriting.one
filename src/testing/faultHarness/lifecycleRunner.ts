@@ -103,13 +103,14 @@ export class LifecycleRunner {
     const versions = doc ? await db.getAllFromIndex('versions', 'by-document', actualLocalId) : [];
     const queue = await db.getAll('syncQueue');
 
+    // Строка замка — не задача (тот же класс, что A-3 закрыла в продукте, R3-022).
     const relevantTasks = queue.filter(
-      q => q.documentId === actualLocalId ||
+      q => !q.id.startsWith('lock_cloud_') && (q.documentId === actualLocalId ||
            q.documentId === documentIdOrCloudId ||
            (Boolean(targetCloudId) && q.documentId === targetCloudId) ||
            q.id === `sync_${actualLocalId}` ||
            q.id.includes(actualLocalId) ||
-           (Boolean(targetCloudId) && (q.id === `delete_${targetCloudId}` || (targetCloudId !== undefined && q.id.includes(targetCloudId))))
+           (Boolean(targetCloudId) && (q.id === `delete_${targetCloudId}` || (targetCloudId !== undefined && q.id.includes(targetCloudId)))))
     );
 
     const latestVer = versions.sort((a, b) => b.version - a.version)[0];

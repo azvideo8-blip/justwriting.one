@@ -1038,13 +1038,13 @@
  {
   "id": "lss-01",
   "file": "src/core/services/LocalStoreSyncService.ts",
-  "line": 106,
-  "old": "    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : null;\n  } catch {\n    return null;\n  }\n",
-  "new": "    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : [];\n  } catch {\n    return [];\n  }\n",
-  "why": "An unreadable pending-deletion journal reads as «no deletions»: the next drain upserts a record the user already deleted in the cloud (R2-012).",
+  "line": 200,
+  "old": "  if ('unavailable' in rawRes) return null;\n",
+  "new": "  if ('unavailable' in rawRes) return [];\n",
+  "why": "An unreadable pending-deletion journal (storage throws) reads as «no deletions»: the next drain upserts a record the user already deleted in the cloud (R2-012; re-anchored after F-2, R3-016).",
   "tests": [
-   "src/core/services/__tests__/unreadableDeleteJournal.test.ts",
-   "src/features/ai/services/__tests__/AIRestoreService.test.ts"
+   "src/core/services/__tests__/corruptDeleteJournalHeal.test.ts",
+   "src/core/services/__tests__/unreadableDeleteJournal.test.ts"
   ]
  },
  {

@@ -76,6 +76,9 @@ let sharedCounts: SharedCounts = {
 };
 let activeSubscribers = 0;
 let currentSubscribedUserId: string | null = null;
+// Чей снимок в sharedCounts: после смены учётки UI показывал чужие счётчики,
+// пока не придёт событие очереди (R3-024).
+let sharedCountsUserId: string | null | undefined;
 const statusListeners = new Set<(counts: SharedCounts) => void>();
 
 async function pollSyncStatus(userId: string | null) {
@@ -106,6 +109,9 @@ async function pollSyncStatus(userId: string | null) {
               : Promise.resolve(null))
         : Promise.resolve(null),
     ]);
+    // Ответ по прежней учётке, пришедший после смены, чужой — не публиковать.
+    if (userId !== currentSubscribedUserId) return;
+    sharedCountsUserId = userId;
     sharedCounts = {
       pending,
       pendingDeletions,
@@ -113,7 +119,9 @@ async function pollSyncStatus(userId: string | null) {
       behind: summary?.behindCount ?? 0,
       unlinked: summary?.unlinkedCount ?? 0,
       deviceOnly: summary?.deviceOnlyCount ?? 0,
-      hasUnknown: summary?.hasUnknown ?? false,
+      // Журнал удалений ИИ-сторов не читается — загрузки ИИ стоят, и
+      // «синхронизировано» было бы неправдой (R3-011).
+      hasUnknown: (summary?.hasUnknown ?? false) || (storeSummary?.unknown ?? false),
       deadCount: summary?.deadCount ?? 0,
       aiStorePending: storeSummary?.pending ?? 0,
       aiStoreDead: storeSummary?.dead ?? 0,
@@ -142,8 +150,10 @@ async function pollSyncStatus(userId: string | null) {
 function subscribeSyncStatus(userId: string | null, listener: (counts: SharedCounts) => void): () => void {
   statusListeners.add(listener);
   activeSubscribers++;
+  const userChanged = currentSubscribedUserId !== userId;
   currentSubscribedUserId = userId;
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
+  if (activeSubscribers > 1 && userChanged) void pollSyncStatus(userId);
   if (activeSubscribers === 1) {
     void pollSyncStatus(userId);
     const onQueueEvent = () => {
@@ -236,6 +246,7 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     }
 
     const t = setTimeout(() => {
+      if (sharedCountsUserId !== userId) return;
       setPendingCount(sharedCounts.pending);
       setPendingDeletionsCount(sharedCounts.pendingDeletions);
       setUnsyncedCount(sharedCounts.unsynced);

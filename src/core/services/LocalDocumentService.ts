@@ -180,10 +180,13 @@ export const LocalDocumentService = {
     const allQueue = await queueStore.getAll();
     const docUuid = doc?.uuid;
     const linkedCloudId = doc?.linkedCloudId;
+    // Строку живого замка не трогаем: её снимает владелец. Удалённая, она
+    // гасила heartbeat чужой выгрузки и отдавала документ второму писателю (R3-008).
     const matchingTasks = allQueue.filter(
-      t => t.documentId === id ||
+      t => !t.id.startsWith('lock_cloud_') && (
+           t.documentId === id ||
            (Boolean(docUuid) && t.documentId === docUuid) ||
-           (Boolean(linkedCloudId) && t.documentId === linkedCloudId)
+           (Boolean(linkedCloudId) && t.documentId === linkedCloudId))
     );
 
     const targetCloudId = cloud?.remove ? (cloud.cloudId ?? doc?.linkedCloudId) : undefined;

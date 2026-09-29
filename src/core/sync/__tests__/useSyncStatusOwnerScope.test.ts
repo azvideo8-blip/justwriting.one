@@ -16,11 +16,11 @@ vi.mock('../../auth', () => ({
 const { useSyncStatus } = await import('../useSyncStatus');
 const { getLocalDb } = await import('../../storage/localDb');
 
-// R2-027: соседи по тому же Promise.all в pollSyncStatus передают userId, а
+// R2-028: соседи по тому же Promise.all в pollSyncStatus передают userId, а
 // getPendingCount — нет. В базе одного пользователя лежат задачи, приехавшие из
 // общей легаси-базы и от переключения аккаунта; без фильтра по владельцу они
 // попадали в бейдж текущего. Красен без аргумента: 3 вместо 2.
-describe('A-6 (R2-027): the queue badge counts this account, not this browser', () => {
+describe('A-6 (R2-028): the queue badge counts this account, not this browser', () => {
   beforeEach(async () => {
     localStorage.clear();
     const db = await getLocalDb(USER);
@@ -37,5 +37,17 @@ describe('A-6 (R2-027): the queue badge counts this account, not this browser', 
   it('показывает только задачи своего владельца', async () => {
     const { result } = renderHook(() => useSyncStatus(USER));
     await waitFor(() => expect(result.current.pendingCount).toBe(2));
+  });
+});
+
+// R3-011: журнал удалений ИИ-сторов не читается — загрузки ИИ стоят. Флаг
+// unknown у сводки был, но бейдж его не читал и показывал «синхронизировано».
+describe('R3-011: unreadable AI-store delete journal is not «synced»', () => {
+  it('битый журнал удалений ИИ даёт hasUnknown', async () => {
+    const db = await getLocalDb(USER);
+    for (const r of await db.getAll('syncQueue')) await db.delete('syncQueue', (r as { id: string }).id);
+    localStorage.setItem('ai_sync_pending_deletes', '{not json');
+    const { result } = renderHook(() => useSyncStatus(USER));
+    await waitFor(() => expect(result.current.hasUnknown).toBe(true));
   });
 });

@@ -78,6 +78,13 @@ export function splitStringIntoChunks(str: string, maxBytesPerChunk = PAGE_SPLIT
       }
     }
 
+    // Не резать суррогатную пару: половинка эмодзи на краю страницы становится
+    // U+FFFD уже при шифровании, и облачная копия теряет символ (R3-014).
+    if (endChar < str.length && endChar - startChar > 1 && /[\uD800-\uDBFF]/.test(str[endChar - 1] ?? '')) {
+      endChar--;
+      chunk = str.slice(startChar, endChar);
+    }
+
     chunks.push(chunk);
     startChar = endChar;
   }
@@ -262,14 +269,24 @@ const PENDING_UPSERTS_LS_KEY = 'ai_sync_pending_upserts';
 
 interface PersistedUpsert { uid: string; store: string; key: string; attempts?: number }
 
+let reportedUpsertsUnreadable = false;
+
+// ponytail: нечитаемый журнал загрузок читается как пустой — в отличие от
+// удалений, загрузку можно вывести заново («Отправить всё» перечитывает сторы).
+// Но битое содержимое молча не проходит (R3-012): сказать один раз за загрузку
+// страницы. Недоступный storage уже называет журнал удалений — второй отчёт лишний.
 function readPersistedUpserts(): PersistedUpsert[] {
+  let raw: string | null;
+  try { raw = localStorage.getItem(PENDING_UPSERTS_LS_KEY); } catch { return []; }
   try {
-    const raw = localStorage.getItem(PENDING_UPSERTS_LS_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as PersistedUpsert[]) : [];
-  } catch {
-    return [];
+    if (Array.isArray(parsed)) return parsed as PersistedUpsert[];
+  } catch { /* ниже */ }
+  if (!reportedUpsertsUnreadable) {
+    reportedUpsertsUnreadable = true;
+    reportError(new Error('Journal of pending AI-store uploads is unreadable — read as empty'), { action: 'readPersistedUpserts' }, 'warning');
   }
+  return [];
 }
 
 function writePersistedUpserts(list: PersistedUpsert[]): void {

@@ -64,9 +64,9 @@ describe('A-3.3 (F-008): note analysis delete retry and restore suppression', ()
     // Assert 1: Marker exists
     const markers = readPersistedAnalysisDeletes();
     expect(markers).toHaveLength(1);
-    expect(markers[0]!.uid).toBe(USER);
-    expect(markers[0]!.canonicalId).toBe(CANON_UUID);
-    expect(getPendingAnalysisDeleteKeys(USER).has(CANON_UUID)).toBe(true);
+    expect(markers![0]!.uid).toBe(USER);
+    expect(markers![0]!.canonicalId).toBe(CANON_UUID);
+    expect(getPendingAnalysisDeleteKeys(USER)?.has(CANON_UUID)).toBe(true);
 
     // 2. Daily restore runs: cloud still has the summary
     vi.mocked(DataProvider.getUserSummaries).mockResolvedValueOnce([

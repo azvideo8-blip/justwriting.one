@@ -115,7 +115,9 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
   const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
-  const pendingAnalysisDeletes = getPendingAnalysisDeleteKeys(userId);
+  // Журнал удалений разборов не читается — не знаем, какие разборы удалены:
+  // вернуть удалённое хуже, чем не вернуть ничего (как у AI-сторов ниже).
+  const pendingAnalysisDeletes = getPendingAnalysisDeleteKeys(userId) ?? { has: () => true };
 
   try {
     const docs = await DataProvider.getUserSummaries(userId, sinceMs);
