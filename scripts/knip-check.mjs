@@ -5,11 +5,17 @@
 // краснеет только на НОВОЕ нарушение — и подсказывает, когда список можно
 // укоротить.
 //
+// R2-020: раньше --update писал что угодно и выходил зелёным, то есть один
+// прогон легализовал любой новый долг. Теперь --update обязан краснеть на
+// любом ключе вне старого baseline; рост — только через явный --grow.
+//
 // Запуск: node scripts/knip-check.mjs       (шаг в CI)
 //         node scripts/knip-check.mjs --update   (после того как долг реально сократили)
+//         node scripts/knip-check.mjs --grow     (долг осознанно вырос — вместе с тикетом)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { planBaseline } from './knip-ratchet.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const BASELINE = path.join(ROOT, 'scripts/knip-baseline.txt');
@@ -83,33 +89,39 @@ function readBaseline() {
 const issues = knipIssues();
 const current = currentKeys(issues);
 const baseline = readBaseline();
+const grow = process.argv.includes('--grow');
+const update = process.argv.includes('--update');
+const plan = planBaseline(baseline, current, { grow });
 
-if (process.argv.includes('--update')) {
-  const header = [
-    '# G-2: известный долг по мёртвому коду (knip). Строка = тип + файл[:имя].',
-    '# Убирать строку — когда код стал живым; добавлять — только вместе с тикетом.',
-  ].join('\n');
-  writeFileSync(BASELINE, header + '\n' + current.join('\n') + '\n');
-  console.log(`knip-baseline: записано ${current.length} строк`);
+if (update || grow) {
+  if (!plan.mayWrite) {
+    console.error(`::error::--update не расширяет baseline: новых нарушений ${plan.added.length}`);
+    plan.added.forEach(key => console.error(`  ${key.replace('\t', '  ')}`));
+    console.error('Долг уменьшается, а не растёт: удалите экспорт/файл или используйте его.');
+    console.error('Если рост осознанный (новый мёртвый код под тикет) — перезапустите с --grow.');
+    process.exit(1);
+  }
+  writeFileSync(BASELINE, plan.contents);
+  console.log(`knip-baseline: записано ${current.length} строк (было ${baseline.length}, вычеркнуто ${plan.removed.length}, добавлено ${plan.added.length})`);
+  if (plan.added.length > 0) {
+    console.log('добавлено в baseline (--grow):');
+    plan.added.forEach(key => console.log(`  ${key.replace('\t', '  ')}`));
+  }
   process.exit(0);
 }
 
-const set = new Set(baseline);
-const fresh = current.filter(key => !set.has(key));
-const resolved = baseline.filter(key => !new Set(current).has(key));
-
 console.log(`knip: нарушений ${current.length}, в baseline ${baseline.length}`);
 
-if (fresh.length > 0) {
-  console.error(`::error::новый мёртвый код (${fresh.length}):`);
-  fresh.forEach(key => console.error(`  ${key.replace('\t', '  ')}`));
+if (plan.added.length > 0) {
+  console.error(`::error::новый мёртвый код (${plan.added.length}):`);
+  plan.added.forEach(key => console.error(`  ${key.replace('\t', '  ')}`));
   console.error('Удалите экспорт/файл или используйте его. Вписать в baseline нельзя: он только укорачивается.');
   process.exit(1);
 }
 
-if (resolved.length > 0) {
-  console.log(`можно вычеркнуть из baseline (${resolved.length}) — этих нарушений больше нет:`);
-  resolved.forEach(key => console.log(`  ${key.replace('\t', '  ')}`));
+if (plan.removed.length > 0) {
+  console.log(`можно вычеркнуть из baseline (${plan.removed.length}) — этих нарушений больше нет:`);
+  plan.removed.forEach(key => console.log(`  ${key.replace('\t', '  ')}`));
   console.log(`node scripts/knip-check.mjs --update`);
 }
 

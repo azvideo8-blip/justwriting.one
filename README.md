@@ -163,11 +163,15 @@ npm run postulates   # verify the 4 postulates + database plaintext sweep
   root and the API service in `deploy/api`;
 - `scripts/cross-feature-check.sh` — a ratchet on cross-feature imports, at 0;
 - `scripts/raw-overlay-check.sh` — a ratchet on raw overlay usage;
+- `scripts/knip-check.mjs` — a ratchet on dead code (`knip`), against
+  `scripts/knip-baseline.txt`;
 - bundle size ceilings on the index chunk, raw and gzipped;
 - Supabase RLS tests.
 
 Ratchets have baselines that only go down. If a change raises one, the fix is
-the change, not the baseline.
+the change, not the baseline. `knip-check.mjs --update` therefore refuses to
+write a baseline with a key that was not there before (exit 1); a deliberate,
+ticketed increase needs `--update --grow`, which prints the keys it added.
 
 The raw index-chunk ceiling went 700000 → 750000 → 760000 in a week, and the
 note left at the third raise said the next step was to move the Supabase client
