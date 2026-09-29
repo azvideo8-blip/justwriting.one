@@ -13,9 +13,16 @@ const MOOD_META: Record<string, { key: string; tone: 'pos' | 'neu' | 'neg' }> = 
   '😨': { key: 'mood_fear', tone: 'neg' },
   '😠': { key: 'mood_anger', tone: 'neg' },
   '🤢': { key: 'mood_disgust', tone: 'neg' },
+  '😖': { key: 'mood_disgust', tone: 'neg' },
   '😢': { key: 'mood_sad', tone: 'neg' },
 };
-const ORDER = ['😊', '🤔', '😨', '😠', '🤢', '😢'];
+// В выборе настроения 😖 сменил 🤢; старые заметки остаются валидными и
+// считаются тем же «Отвращением», а не выпадают из тренда.
+export const MOOD_ALIASES: Record<string, string> = { '🤢': '😖' };
+export function normalizeMood(mood: string): string {
+  return MOOD_ALIASES[mood] ?? mood;
+}
+const ORDER = ['😊', '🤔', '😨', '😠', '😖', '😢'];
 const TONE_CLASS: Record<string, string> = {
   pos: 'bg-accent-success/15 border-accent-success/30',
   neu: 'bg-accent-warning/15 border-accent-warning/30',
@@ -35,7 +42,7 @@ export function MoodTrend({ userId, className }: { userId: string; className?: s
       const cutoff = Date.now() - 60 * 86_400_000; // last ~2 months
       const withMood = docs
         .filter(d => typeof d.mood === 'string' && MOOD_META[d.mood] !== undefined && (d.lastSessionAt ?? 0) >= cutoff)
-        .map(d => ({ mood: d.mood as string, date: d.lastSessionAt ?? 0 }))
+        .map(d => ({ mood: normalizeMood(d.mood as string), date: d.lastSessionAt ?? 0 }))
         .sort((a, b) => a.date - b.date);
       setEntries(withMood);
     }).catch(e => {

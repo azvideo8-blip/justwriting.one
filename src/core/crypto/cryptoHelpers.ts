@@ -106,7 +106,9 @@ function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
-export const VALID_MOOD_EMOJIS = new Set(['😊', '😢', '😠', '😨', '🤢', '🤔']);
+// 🤢 остаётся валидным: старые заметки синхронизированы с ним, и ни одна не
+// должна стать «неизвестным настроением» после того, как в выборе появился 😖.
+export const VALID_MOOD_EMOJIS = new Set(['😊', '😢', '😠', '😨', '🤢', '😖', '🤔']);
 
 export function isKnownMoodEmoji(val: unknown): val is string {
   return typeof val === 'string' && VALID_MOOD_EMOJIS.has(val);

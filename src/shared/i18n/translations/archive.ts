@@ -118,7 +118,6 @@ export const archiveTranslations: Translations = {
   archive_trash_search_placeholder: { ru: 'Поиск по корзине...', en: 'Search trash...' },
 
   session_untitled: { ru: 'Без названия', en: 'Untitled' },
-  session_export: { ru: 'Экспорт', en: 'Export' },
   session_delete: { ru: 'Удалить', en: 'Delete' },
   session_delete_confirm: { ru: 'Подтвердить удаление', en: 'Confirm deletion' },
 

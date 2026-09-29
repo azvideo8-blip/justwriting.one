@@ -14,7 +14,17 @@ vi.mock('../../../../shared/components/Toast', () => ({
 vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({
     t: (k: string) => k,
+    tp: (k: string) => k,
     language: 'ru',
+  }),
+}));
+
+// DC-W2: тело окна читает настройку «Писать без цифр».
+vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
+  useWritingSettings: () => ({
+    quietStats: false,
+    setQuietStats: vi.fn(),
+    effectiveHeaderVisibility: { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
   }),
 }));
 
@@ -79,16 +89,8 @@ describe('F-2: WritingFinishModal toast on too large note save', () => {
       />
     );
 
-    // Click "Сохранить" in form step to go to mood step
-    const saveButton = screen.getByText('common_save');
-    fireEvent.click(saveButton);
-
-    // Now in mood step, click a mood button (e.g. 😊)
-    const moodButton = screen.getByText('😊');
-    fireEvent.click(moodButton);
-
-    const doneButton = screen.getByText('finish_done');
-    fireEvent.click(doneButton);
+    // Click "Сохранить" — DC-W3: окно сохраняется сразу, второго шага нет.
+    fireEvent.click(screen.getByText('common_save'));
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalled();
@@ -113,14 +115,7 @@ describe('F-2: WritingFinishModal toast on too large note save', () => {
       />
     );
 
-    const saveButton = screen.getByText('common_save');
-    fireEvent.click(saveButton);
-
-    const moodButton = screen.getByText('😊');
-    fireEvent.click(moodButton);
-
-    const doneButton = screen.getByText('finish_done');
-    fireEvent.click(doneButton);
+    fireEvent.click(screen.getByText('common_save'));
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalled();
@@ -128,6 +123,43 @@ describe('F-2: WritingFinishModal toast on too large note save', () => {
       expect(mockShowToast).not.toHaveBeenCalledWith('save_local_only_queued');
       expect(onCancel).toHaveBeenCalled();
     });
+  });
+
+  // DC-W3: настроение — необязательная строка в том же шаге, «Сохранить» отдаёт
+  // его вместе с заметкой и делает это ровно один раз.
+  it('saves once with the selected mood and renders no second mood step', async () => {
+    const onSave = vi.fn().mockResolvedValue({ docId: 'doc_3', cloudSynced: true, isTooLarge: false });
+    render(<WritingFinishModal isOpen={true} onCancel={vi.fn()} onSave={onSave} />);
+
+    expect(screen.queryByText('finish_done')).toBeNull();
+    expect(screen.queryByText('finish_skip_save')).toBeNull();
+    // DC-W3: в строке настроения вместо 🤢 теперь 😖.
+    expect(screen.getByRole('button', { name: 'mood_disgust' })).toHaveTextContent('😖');
+    expect(screen.queryByText('🤢')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'mood_happy' }));
+    fireEvent.click(screen.getByText('common_save'));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ mood: '😊' }));
+    });
+  });
+
+  it('repeats a mood tap to clear it and offers «Сохраню позже» without saving', () => {
+    const onSave = vi.fn();
+    const onSkipSave = vi.fn();
+    render(<WritingFinishModal isOpen={true} onCancel={vi.fn()} onSave={onSave} onSkipSave={onSkipSave} />);
+
+    const happy = screen.getByRole('button', { name: 'mood_happy' });
+    fireEvent.click(happy);
+    expect(happy).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(happy);
+    expect(happy).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(screen.getByText('finish_save_later'));
+    expect(onSkipSave).toHaveBeenCalledTimes(1);
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   // EA-9: закрытое окно не монтирует тело (оно было подписано на текст и таймер

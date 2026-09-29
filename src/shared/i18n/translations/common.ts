@@ -55,7 +55,6 @@ export const commonTranslations: Translations = {
   error_delete_failed:  { ru: 'Не удалось удалить.', en: 'Failed to delete.' },
   error_load_failed:    { ru: 'Не удалось загрузить данные.', en: 'Failed to load data.' },
   error_nickname_failed:{ ru: 'Не удалось обновить никнейм.', en: 'Failed to update nickname.' },
-  error_export_failed:  { ru: 'Не удалось экспортировать.', en: 'Failed to export.' },
   error_signout_failed: { ru: 'Не удалось выйти из аккаунта.', en: 'Failed to sign out.' },
   error_continue_session: { ru: 'Ошибка при продолжении сессии', en: 'Error continuing session' },
   error_reload: { ru: 'Перезагрузить', en: 'Reload' },

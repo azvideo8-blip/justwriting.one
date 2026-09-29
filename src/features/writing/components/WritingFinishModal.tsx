@@ -15,7 +15,6 @@ import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { useNavigate } from 'react-router-dom';
 import { FinishModalStats } from './FinishModalStats';
 import { FinishModalTags } from './FinishModalTags';
-import { FinishModalExport } from './FinishModalExport';
 import { Button } from '../../../shared/components/Button';
 import { useToast } from '../../../shared/components/Toast';
 import { ModalShell } from '../../../shared/components/ModalShell';
@@ -208,6 +207,159 @@ export function calculateSessionFinishStats(input: SessionFinishStatsInput): Ses
   };
 }
 
+// DC-W3: заголовок итогов — одна строка о том, что получилось, а не «Сессия
+// завершена». В «Писать без цифр» (DC-W2) и при нуле слов — только «Записано.».
+export function buildFinishHeading(input: {
+  sessionWords: number;
+  sessionSeconds: number;
+  quietStats: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  tp: (key: string, count: number) => string;
+}): string {
+  if (input.quietStats || input.sessionWords <= 0) return input.t('finish_written_bare');
+  const minutes = Math.floor(input.sessionSeconds / 60);
+  const time = minutes < 1
+    ? input.t('finish_duration_under_minute')
+    : input.tp('duration_minutes', minutes);
+  return input.t('finish_written_heading', {
+    words: input.tp('archive_word_count', input.sessionWords),
+    time,
+  });
+}
+
+// 😖 вместо 🤢: старые заметки хранят 🤢, он остался валидным (VALID_MOOD_EMOJIS)
+// и считается тем же настроением в MoodTrend.
+const MOOD_OPTIONS: { emoji: string; key: string }[] = [
+  { emoji: '😊', key: 'mood_happy' },
+  { emoji: '😢', key: 'mood_sad' },
+  { emoji: '😠', key: 'mood_anger' },
+  { emoji: '😨', key: 'mood_fear' },
+  { emoji: '😖', key: 'mood_disgust' },
+  { emoji: '🤔', key: 'mood_interest' },
+];
+
+function MoodRow({
+  selectedMood,
+  onSelect,
+  disabled,
+  echoText,
+  t,
+}: {
+  selectedMood: string | undefined;
+  onSelect: (mood: string | undefined) => void;
+  disabled: boolean;
+  echoText: string;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-baseline justify-center gap-1.5 text-label-sm text-text-main/60">
+        <span>{t('mood_checkin_title')}</span>
+        <span className="text-text-main/40">· {t('mood_optional_hint')}</span>
+      </div>
+      <div className="flex justify-center gap-1">
+        {MOOD_OPTIONS.map((item) => {
+          const active = selectedMood === item.emoji;
+          return (
+            <button
+              key={item.emoji}
+              type="button"
+              aria-label={t(item.key)}
+              aria-pressed={active}
+              disabled={disabled}
+              onClick={() => onSelect(active ? undefined : item.emoji)}
+              className={cn(
+                'flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 transition-colors hover:bg-text-main/5',
+                disabled && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              <span
+                className={cn(
+                  'text-2xl leading-none transition-all',
+                  active ? 'scale-110 drop-shadow-[0_0_10px_var(--brand-soft)]' : selectedMood ? 'opacity-40' : ''
+                )}
+              >
+                {item.emoji}
+              </span>
+              <span className={cn('text-[10px] whitespace-nowrap', active ? 'text-text-main' : 'text-text-main/50')}>
+                {t(item.key)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Echo — only rendered when there's a genuine match with past notes */}
+      {echoText && (
+        <div className="flex items-center gap-2.5 text-left max-w-sm mx-auto bg-surface-base/10 border border-border-subtle/50 px-4 py-3 rounded-2xl">
+          <Sparkles className="text-brand-soft shrink-0" size={16} />
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-brand-soft/80">{t('finish_echo_title')}</div>
+            <div className="text-xs text-text-main/80 leading-relaxed italic">{echoText}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FinishActions({
+  isSaving,
+  canSave,
+  isMobile,
+  onSave,
+  onDiscuss,
+  onBack,
+  onLater,
+  t,
+}: {
+  isSaving: boolean;
+  canSave: boolean;
+  isMobile: boolean;
+  onSave: () => void;
+  onDiscuss: () => void;
+  onBack: () => void;
+  onLater: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}) {
+  const ghost = isMobile
+    ? 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px] text-sm font-bold'
+    : 'flex-1 px-3 py-3.5 rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 text-sm font-bold';
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="ghost" size="md" onClick={onBack} className={ghost}>
+        {t('finish_back')}
+      </Button>
+      <Button variant="ghost" size="md" onClick={onLater} title={t('finish_save_later_hint')} className={cn(ghost, 'text-text-main/70')}>
+        {t('finish_save_later')}
+      </Button>
+      <Button
+        variant="ghost"
+        size="md"
+        disabled={isSaving}
+        onClick={onDiscuss}
+        className={cn(ghost, 'flex items-center justify-center gap-2 bg-brand-soft/10 text-brand-soft border-brand-soft/20 hover:bg-brand-soft/20')}
+      >
+        <Sparkles size={14} />
+        {t('finish_discuss_ai')}
+      </Button>
+      <Button
+        variant="primary"
+        size="md"
+        onClick={onSave}
+        isLoading={isSaving}
+        disabled={!canSave}
+        className={cn(
+          'flex-[1.4] px-3 py-3.5 font-bold rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 text-sm',
+          isMobile && 'min-h-[44px]'
+        )}
+      >
+        {isSaving ? t('finish_saving') : t('common_save')}
+      </Button>
+    </div>
+  );
+}
+
 // Закрытое окно не монтирует тело: иначе оно подписано на текст, таймер и
 // счётчики и крутит анимацию цифр на каждой секунде и каждом слове — лишние
 // перерисовки экрана письма (EA-9). Черновик заголовка живёт здесь, чтобы, как
@@ -234,7 +386,7 @@ function WritingFinishModalBody({
   sessionGroups = [],
   savedDocumentId,
 }: WritingFinishModalProps & { editTitle: string; setEditTitle: (v: string) => void }) {
-  const { t } = useLanguage();
+  const { t, tp } = useLanguage();
   const { showToast } = useToast();
   const { quietStats } = useWritingSettings();
   const navigate = useNavigate();
@@ -282,19 +434,17 @@ function WritingFinishModalBody({
   const animWpm = useCountUp(avgWpm);
 
   const tagInputRef = React.useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'form' | 'mood'>('form');
-  const [saveDataState, setSaveDataState] = useState<SaveData | null>(null);
   const [selectedMood, setSelectedMood] = useState<string | undefined>(undefined);
   const [echoText, setEchoText] = useState('');
   const savedDocIdRef = useRef<string | null>(null);
   const savedCloudSyncedRef = useRef<boolean>(true);
   const savedIsTooLargeRef = useRef<boolean>(false);
 
-  // Echo ("Связь мыслей") is computed locally from the draft when we reach the
-  // mood step, and only shown when there is a genuine semantic match with past
-  // notes — otherwise nothing (no fabricated "перекликается" line).
+  // Echo ("Связь мыслей") считается локально по черновику и показывается, только
+  // когда есть настоящее смысловое совпадение с прошлыми заметками — иначе ничего
+  // (никаких выдуманных «перекликается»).
   React.useEffect(() => {
-    if (step !== 'mood') return;
+    if (!isOpen) return;
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- clear previous echo before asynchronous computation
     setEchoText('');
@@ -307,18 +457,15 @@ function WritingFinishModalBody({
       }
     })();
     return () => { cancelled = true; };
-  }, [step, content, savedDocumentId, t]);
+  }, [isOpen, content, savedDocumentId, t]);
 
   const [statsExpanded, setStatsExpanded] = useState(true);
   const [formExpanded, setFormExpanded] = useState(true);
   const [tagsExpanded, setTagsExpanded] = useState(true);
-  const [exportExpanded, setExportExpanded] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset modal steps and mood selection on open
-      setStep('form');
-      setSaveDataState(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset mood selection on open
       setSelectedMood(undefined);
     }
   }, [isOpen]);
@@ -402,8 +549,11 @@ function WritingFinishModalBody({
   if (!isOpen) return null;
 
   const finalTitle = titleInputValue.trim() || title || '';
+  const heading = buildFinishHeading({ sessionWords, sessionSeconds, quietStats, t, tp });
 
-  const handleSaveClick = () => {
+  // Одно действие на все кнопки: сохранить (с выбранным настроением) и, по желанию,
+  // сразу уйти обсуждать заметку в чат. Второго шага с настроением больше нет.
+  const finishSave = (discuss: boolean) => {
     const pendingTag = tagInputRef.current?.value.trim();
     const finalTags = pendingTag && !tags.includes(pendingTag)
       ? [...tags, pendingTag]
@@ -415,21 +565,9 @@ function WritingFinishModalBody({
       setTitle(finalTitle);
     }
 
-    setSaveDataState({
-      title: finalTitle,
-      tags: finalTags,
-      labelId,
-    });
-    setStep('mood');
-  };
-
-  // Terminal action for the combined mood+echo step: saves with the chosen mood,
-  // then either closes or hops into the chat with the note attached.
-  const handleFinish = (discuss: boolean) => {
-    if (!saveDataState) return;
     void execute(
       async () => {
-        const saveRes = await onSave({ ...saveDataState, mood: selectedMood });
+        const saveRes = await onSave({ title: finalTitle, tags: finalTags, labelId, mood: selectedMood });
         const docId = typeof saveRes === 'object' && saveRes !== null ? saveRes.docId : saveRes;
         const cloudSynced = typeof saveRes === 'object' && saveRes !== null ? saveRes.cloudSynced : true;
         const isTooLarge = typeof saveRes === 'object' && saveRes !== null && 'isTooLarge' in saveRes ? Boolean(saveRes.isTooLarge) : false;
@@ -480,84 +618,7 @@ function WritingFinishModalBody({
       )}
     >
         <AnimatePresence mode="wait" initial={false}>
-        {step === 'mood' ? (
-          <motion.div
-            key="mood"
-            initial={reducedMotion ? {} : { opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={reducedMotion ? {} : { opacity: 0, x: -40 }}
-            transition={slideTransition}
-            className="text-center space-y-6 py-6 flex-1 flex flex-col justify-center p-6"
-          >
-            <div>
-              <div className="text-xl font-bold text-text-main">{t('mood_checkin_title')}</div>
-              <div className="text-sm text-text-main/60 mt-1">{t('mood_checkin_subtitle')}</div>
-            </div>
-            <div className="flex justify-center gap-4">
-              {([
-                { emoji: '😊', key: 'mood_happy' },
-                { emoji: '😢', key: 'mood_sad' },
-                { emoji: '😠', key: 'mood_anger' },
-                { emoji: '😨', key: 'mood_fear' },
-                { emoji: '🤢', key: 'mood_disgust' },
-                { emoji: '🤔', key: 'mood_interest' },
-              ]).map((item, i) => (
-                <motion.button
-                  key={item.key}
-                  aria-label={t(item.key)}
-                  aria-pressed={selectedMood === item.emoji}
-                  whileHover={reducedMotion ? {} : { scale: 1.3 }}
-                  whileTap={reducedMotion ? {} : { scale: 0.85 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                  initial={reducedMotion ? {} : { opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0, transition: { delay: i * 0.06 } }}
-                  disabled={isSaving}
-                  onClick={() => setSelectedMood(m => m === item.emoji ? undefined : item.emoji)}
-                  className={cn(
-                    "text-4xl rounded-full transition-all",
-                    selectedMood === item.emoji ? "scale-110 drop-shadow-[0_0_10px_var(--brand-soft)]" : selectedMood ? "opacity-40" : "",
-                    isSaving && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {item.emoji}
-                </motion.button>
-              ))}
-            </div>
-
-            {/* Echo — only rendered when there's a genuine match with past notes */}
-            {echoText && (
-              <div className="flex items-center gap-2.5 text-left max-w-sm mx-auto bg-surface-base/10 border border-border-subtle/50 px-4 py-3 rounded-2xl">
-                <Sparkles className="text-brand-soft shrink-0" size={16} />
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-brand-soft/80">{t('finish_echo_title')}</div>
-                  <div className="text-xs text-text-main/80 leading-relaxed italic">{echoText}</div>
-                </div>
-              </div>
-            )}
-
-            <div className="pt-2 flex flex-col gap-2.5">
-              <Button
-                variant="primary"
-                size="md"
-                isLoading={isSaving}
-                onClick={() => handleFinish(false)}
-                className="w-full max-w-xs mx-auto"
-              >
-                {isSaving ? t('finish_saving') : t('finish_done')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                disabled={isSaving}
-                onClick={() => handleFinish(true)}
-                className="w-full max-w-xs mx-auto flex items-center justify-center gap-2 bg-brand-soft/10 text-brand-soft border border-brand-soft/20 hover:bg-brand-soft/20 font-bold"
-              >
-                <Sparkles size={14} />
-                {t('finish_discuss_ai')}
-              </Button>
-            </div>
-          </motion.div>
-        ) : isMobile ? (
+        {isMobile ? (
           <motion.div
             key="form"
             initial={reducedMotion ? {} : { opacity: 0, y: 40 }}
@@ -568,7 +629,7 @@ function WritingFinishModalBody({
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
               {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
-              <h3 id="finish-modal-title" className="text-lg font-bold text-text-main">{t('finish_congrats')}</h3>
+              <h3 id="finish-modal-title" className="text-lg font-bold text-text-main">{heading}</h3>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
@@ -609,45 +670,26 @@ function WritingFinishModalBody({
                 titleInputValue={titleInputValue}
                 setEditTitle={setEditTitle}
               />
-              <FinishModalExport
-                title={title || 'Untitled'}
-                content={content}
+              <MoodRow
+                selectedMood={selectedMood}
+                onSelect={setSelectedMood}
+                disabled={isSaving}
+                echoText={echoText}
                 t={t}
-                isMobile={isMobile}
-                exportExpanded={exportExpanded}
-                setExportExpanded={setExportExpanded}
               />
             </div>
 
             <div className="px-4 pt-3 border-t border-border-subtle bg-surface-card shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="md"
-                  onClick={onCancel}
-                  className="flex-1 px-3 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 min-h-[44px] text-sm"
-                >
-                  {t('finish_back')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="md"
-                  onClick={onSkipSave}
-                  className="flex-1 px-3 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 min-h-[44px] text-sm"
-                >
-                  {t('finish_skip_save')}
-                </Button>
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={handleSaveClick}
-                  isLoading={isSaving}
-                  disabled={wordCount === 0}
-                  className="flex-[2] px-3 py-3.5 font-bold rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 min-h-[44px] text-sm"
-                >
-                  {isSaving ? t('finish_saving') : t('common_save')}
-                </Button>
-              </div>
+              <FinishActions
+                isSaving={isSaving}
+                canSave={wordCount > 0}
+                isMobile={isMobile}
+                onSave={() => finishSave(false)}
+                onDiscuss={() => finishSave(true)}
+                onBack={onCancel}
+                onLater={onSkipSave}
+                t={t}
+              />
             </div>
           </motion.div>
         ) : (
@@ -661,7 +703,7 @@ function WritingFinishModalBody({
           >
           <div className="text-center">
             {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
-            <h3 id="finish-modal-title" className="text-2xl font-bold text-text-main">{t('finish_congrats')}</h3>
+            <h3 id="finish-modal-title" className="text-2xl font-bold text-text-main">{heading}</h3>
           </div>
 
           {!quietStats && (
@@ -703,43 +745,24 @@ function WritingFinishModalBody({
             setEditTitle={setEditTitle}
           />
 
-          <FinishModalExport
-            title={title || 'Untitled'}
-            content={content}
+          <MoodRow
+            selectedMood={selectedMood}
+            onSelect={setSelectedMood}
+            disabled={isSaving}
+            echoText={echoText}
             t={t}
-            isMobile={isMobile}
-            exportExpanded={exportExpanded}
-            setExportExpanded={setExportExpanded}
           />
 
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={onCancel}
-              className="flex-1 px-4 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main hover:bg-white/5 text-sm"
-            >
-              {t('finish_back')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={onSkipSave}
-              className="flex-1 px-4 py-3.5 font-bold rounded-2xl border border-border-subtle text-text-main/60 hover:text-text-main hover:bg-white/5 text-sm"
-            >
-              {t('finish_skip_save')}
-            </Button>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handleSaveClick}
-              isLoading={isSaving}
-              disabled={wordCount === 0}
-              className="flex-[2] px-4 py-3.5 font-bold rounded-2xl shadow-[0_0_20px_var(--brand-soft)]/30 text-sm"
-            >
-              {isSaving ? t('finish_saving') : t('common_save')}
-            </Button>
-          </div>
+          <FinishActions
+            isSaving={isSaving}
+            canSave={wordCount > 0}
+            isMobile={isMobile}
+            onSave={() => finishSave(false)}
+            onDiscuss={() => finishSave(true)}
+            onBack={onCancel}
+            onLater={onSkipSave}
+            t={t}
+          />
         </motion.div>
         )}
         </AnimatePresence>
