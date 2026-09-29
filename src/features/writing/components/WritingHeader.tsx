@@ -21,8 +21,6 @@ interface WritingHeaderProps {
   onStop?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
-  saveStatus?: 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
-  saveErrorKind?: 'quota' | 'unknown' | null;
 }
 
 export const WritingHeader = React.memo(function WritingHeader({
@@ -32,8 +30,6 @@ export const WritingHeader = React.memo(function WritingHeader({
   onStop,
   onPlay,
   onPause,
-  saveStatus,
-  saveErrorKind,
 }: WritingHeaderProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { t } = useLanguage();
@@ -193,63 +189,6 @@ export const WritingHeader = React.memo(function WritingHeader({
                 status={status}
                 visibility={effectiveHeaderVisibility}
               />
-              <AnimatePresence>
-                {saveStatus === 'saving' && (
-                  <motion.span
-                    key="saving"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="font-mono text-label text-text-main/60 tracking-widest uppercase ml-3"
-                  >
-                    {t('editor_saving')}
-                  </motion.span>
-                )}
-                {saveStatus === 'saved' && (
-                  <motion.span
-                    key="saved"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex items-center gap-1 font-mono text-label text-text-main/60 tracking-widest uppercase ml-3"
-                  >
-                    <motion.svg viewBox="0 0 12 10" width={12} height={10}>
-                      <motion.path
-                        d="M1 5 L4.5 8.5 L11 1"
-                        stroke="currentColor" strokeWidth={1.5} fill="none" strokeLinecap="round"
-                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.4, ease: 'easeOut' }}
-                      />
-                    </motion.svg>
-                    {t('editor_saved')}
-                  </motion.span>
-                )}
-                {saveStatus === 'cloud-stale' && (
-                  <motion.span
-                    key="cloud-stale"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex items-center gap-1 font-mono text-label text-accent-warning tracking-widest uppercase ml-3"
-                  >
-                    {t('editor_cloud_stale')}
-                  </motion.span>
-                )}
-                {saveStatus === 'error' && (
-                  <motion.span
-                    key="error"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex items-center gap-1 font-mono text-label text-accent-danger tracking-widest uppercase ml-3"
-                  >
-                    {saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}
-                  </motion.span>
-                )}
-              </AnimatePresence>
             </div>
           )}
         </motion.div>

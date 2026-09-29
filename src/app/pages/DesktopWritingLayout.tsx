@@ -15,6 +15,7 @@ import { WritingSetup } from '../../features/writing/components/WritingSetup';
 import { LifeLogPanel } from '../../features/writing/components/LifeLogPanel';
 import { BottomStats } from '../../features/writing/components/BottomStats';
 import { SessionGlow } from '../../features/writing/components/SessionGlow';
+import { SaveStatus } from '../../features/writing/components/SaveStatus';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
 // каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
 function LiveAIPanelContent() {
@@ -134,8 +135,6 @@ export function DesktopWritingLayout() {
             onPlay={handlePlay}
             onPause={handlePause}
             onStop={handleStop}
-            saveStatus={session.saveStatus}
-            saveErrorKind={session.saveErrorKind}
           />
         </div>
 
@@ -197,6 +196,12 @@ export function DesktopWritingLayout() {
                   ? flow.sessionStartFlash ? 'breath' : 'ring'
                   : 'off'
               }
+            />
+          </div>
+          <div className="absolute bottom-2 right-3 z-20 flex justify-end pointer-events-none">
+            <SaveStatus
+              saveStatus={session.saveStatus}
+              saveErrorKind={session.saveErrorKind}
             />
           </div>
         </div>
