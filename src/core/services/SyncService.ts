@@ -190,7 +190,16 @@ export const SyncService = {
       }
     }
 
-    for (const d of localDocs) {
+    // R2-028: счёт берётся по тем же строкам, откуда взята отметка
+    // синхронизации. localDocs прочитан до сетевого вызова выше, и сохранение
+    // в его середине давало сравнение currentVersion из старого снимка с
+    // последней отметкой — счётчик врал на единицу. Когда разрешения не было,
+    // между чтением и циклом нет ни одного await, и снимок свеж сам по себе.
+    const docs = unresolvedDocs.length > 0
+      ? await LocalDocumentService.getDocumentsByOwner(userId)
+      : localDocs;
+
+    for (const d of docs) {
       if (d.localOnly || d.isTooLargeForSync) {
         deviceOnlyCount++;
         continue;

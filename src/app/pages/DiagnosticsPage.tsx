@@ -153,7 +153,9 @@ export function DiagnosticsPage() {
 
   const handleDownloadDiagnostics = async () => {
     try {
-      const pendingCount = await SyncService.getPendingCount();
+      // Задачи этого аккаунта, а не всего браузера: в дампе диагностики чужие
+      // задачи выглядят как долг текущего пользователя.
+      const pendingCount = await SyncService.getPendingCount(profile?.uid);
       const cloudConnected = navigator.onLine;
       
       const report = {

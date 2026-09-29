@@ -84,7 +84,10 @@ async function pollSyncStatus(userId: string | null) {
     // про заметки, и потерянная облачная копия разбора для него отсутствовала.
     const storeSummary = userId ? getLocalStoreSyncSummary(userId) : null;
     const [pending, pendingDeletions, summary] = await Promise.all([
-      SyncService.getPendingCount(),
+      // Рядом с соседними вызовами: без userId считается чужая работа этого
+      // браузера — задачи другого аккаунта в той же базе (миграция общей
+      // легаси-базы, переключение аккаунта) попадали в бейдж текущего.
+      SyncService.getPendingCount(userId ?? undefined),
       typeof SyncService.getPendingDeletionsCount === 'function'
         ? SyncService.getPendingDeletionsCount(userId ?? undefined)
         : Promise.resolve(0),

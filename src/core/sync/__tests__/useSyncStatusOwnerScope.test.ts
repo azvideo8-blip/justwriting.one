@@ -1,0 +1,41 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import 'fake-indexeddb/auto';
+import { renderHook, waitFor } from '@testing-library/react';
+
+const USER = 'user_a6_owner';
+const OTHER = 'user_a6_other';
+
+// getLocalDb() без аргумента берёт владельца из сессии — как в настоящем
+// приложении. Без этой моки тест читал бы другую базу и краснел бы не по той
+// причине.
+vi.mock('../../auth', () => ({
+  getCurrentUser: () => ({ uid: USER }),
+  getCurrentUserId: () => USER,
+}));
+
+const { useSyncStatus } = await import('../useSyncStatus');
+const { getLocalDb } = await import('../../storage/localDb');
+
+// R2-027: соседи по тому же Promise.all в pollSyncStatus передают userId, а
+// getPendingCount — нет. В базе одного пользователя лежат задачи, приехавшие из
+// общей легаси-базы и от переключения аккаунта; без фильтра по владельцу они
+// попадали в бейдж текущего. Красен без аргумента: 3 вместо 2.
+describe('A-6 (R2-027): the queue badge counts this account, not this browser', () => {
+  beforeEach(async () => {
+    localStorage.clear();
+    const db = await getLocalDb(USER);
+    for (const r of await db.getAll('syncQueue')) await db.delete('syncQueue', (r as { id: string }).id);
+    await db.put('syncQueue', { id: 'sync_mine', documentId: 'doc_mine', createdAt: 1, ownerId: USER } as never);
+    await db.put('syncQueue', { id: 'sync_theirs', documentId: 'doc_theirs', createdAt: 1, ownerId: OTHER } as never);
+    // Задача старше поля владельца: она ничья и считается этой — иначе счётчик
+    // потерял бы долг.
+    await db.put('syncQueue', { id: 'sync_legacy', documentId: 'doc_legacy', createdAt: 1 } as never);
+    // Строка замка задачей не является ни у кого.
+    await db.put('syncQueue', { id: 'lock_cloud_mine', documentId: 'doc_mine', createdAt: 1, ownerId: USER } as never);
+  });
+
+  it('показывает только задачи своего владельца', async () => {
+    const { result } = renderHook(() => useSyncStatus(USER));
+    await waitFor(() => expect(result.current.pendingCount).toBe(2));
+  });
+});

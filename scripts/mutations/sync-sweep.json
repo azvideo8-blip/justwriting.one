@@ -1068,5 +1068,27 @@
   "tests": [
    "src/core/services/__tests__/unreadableDeleteJournal.test.ts"
   ]
+ },
+ {
+  "id": "ss-14",
+  "file": "src/core/services/SyncService.ts",
+  "line": 202,
+  "old": "    for (const d of docs) {\n",
+  "new": "    for (const d of localDocs) {\n",
+  "why": "The counter compares a currentVersion read before the cloud request with a watermark written after it, so a save during the pass hides one behind-version (R2-028).",
+  "tests": [
+   "src/core/services/__tests__/getUnsyncedSummaryFreshRows.test.ts"
+  ]
+ },
+ {
+  "id": "us-02",
+  "file": "src/core/sync/useSyncStatus.ts",
+  "line": 90,
+  "old": "      SyncService.getPendingCount(userId ?? undefined),\n",
+  "new": "      SyncService.getPendingCount(),\n",
+  "why": "The queue badge counts tasks of every owner in this browser — another account's leftovers from the shared legacy database land on this user's counter (R2-027).",
+  "tests": [
+   "src/core/sync/__tests__/useSyncStatusOwnerScope.test.ts"
+  ]
  }
 ]
