@@ -55,15 +55,29 @@ describe('primary button contrast in every theme', () => {
 });
 
 describe('DC-A1: cascade layering and day-group count markup', () => {
-  it(':root defaults live inside @layer base, before the themes', () => {
-    const layerAt = css.indexOf('@layer base {');
-    const rootAt = css.indexOf(':root {');
-    expect(layerAt).toBeGreaterThan(-1);
-    expect(rootAt).toBeGreaterThan(layerAt);
-    // между :root и следующим за ним блоком тем не должно быть закрывающих
-    // скобок слоя: :root обязан быть первым правилом внутри @layer base
-    const afterRoot = css.slice(rootAt, css.indexOf('.theme-'));
-    expect(afterRoot).not.toContain('}');
+  it(':root defaults of theme variables live inside @layer base', () => {
+    // Блоки считаются по скобкам, комментарии вырезаны: два indexOf попадали в
+    // комментарий, слайс выходил пустым, и проверка не могла покраснеть (R3-015).
+    const clean = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const blocks: { sel: string; ctx: string[]; body: string }[] = [];
+    const stack: { sel: string; start: number }[] = [];
+    let sel = '';
+    for (let i = 0; i < clean.length; i++) {
+      const ch = clean[i];
+      if (ch === '{') { stack.push({ sel: sel.trim(), start: i + 1 }); sel = ''; }
+      else if (ch === '}') {
+        const top = stack.pop();
+        if (top) blocks.push({ sel: top.sel, ctx: stack.map(b => b.sel), body: clean.slice(top.start, i) });
+        sel = '';
+      } else if (ch === ';') sel = '';
+      else sel += ch;
+    }
+    const varsOf = (body: string) => [...body.matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]!);
+    const themeVars = new Set(blocks.filter(b => b.sel.startsWith('.theme-')).flatMap(b => varsOf(b.body)));
+    expect(themeVars.size).toBeGreaterThan(0);
+    const roots = blocks.filter(b => b.sel === ':root' && varsOf(b.body).some(v => themeVars.has(v)));
+    expect(roots.length).toBeGreaterThan(0);
+    for (const r of roots) expect(r.ctx).toContain('@layer base');
   });
 
   it('day-group count uses the token class, no arbitrary var() and no opacity', () => {

@@ -35,7 +35,8 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 curl -fsSL --retry 3 -o "$WORK/gitleaks.tar.gz" \
   "https://github.com/gitleaks/gitleaks/releases/download/v${GL_VERSION}/gitleaks_${GL_VERSION}_${GL_ARCH}.tar.gz"
-echo "${GL_SHA256}  $WORK/gitleaks.tar.gz" | sha256sum --check --status
+# shasum (perl) одинаков на Linux и macOS; у BSD sha256sum нет --status (R3-038).
+echo "${GL_SHA256}  $WORK/gitleaks.tar.gz" | shasum -a 256 -c --status
 tar -xzf "$WORK/gitleaks.tar.gz" -C "$WORK"
 
 echo "Сканирую: $LOG_OPTS"

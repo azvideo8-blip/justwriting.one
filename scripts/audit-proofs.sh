@@ -40,7 +40,13 @@ echo "  SKIP: live check — see TB-16"
 
 echo ""
 echo "### 3.5 i18n zero-state"
-npm run i18n:audit 2>/dev/null | tail -1 | sed 's/^/  /'
+# F-045: код пайпа был кодом sed — красный аудит этот пункт не ронял.
+if I18N_OUT=$(npm run i18n:audit 2>&1); then
+  echo "$I18N_OUT" | tail -1 | sed 's/^/  /'
+else
+  echo "$I18N_OUT" | tail -5 | sed 's/^/  /'
+  fail "i18n audit is red"
+fi
 
 echo ""
 echo "### 3.6 Firebase mentions left in src/"

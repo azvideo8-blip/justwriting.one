@@ -17,6 +17,22 @@ function tail(text: string | null | undefined, lines = 80): string {
   return arr.length <= lines ? arr.join('\n') : arr.slice(-lines).join('\n');
 }
 
+// У spawnSync три канала отказа: код, сигнал и error (тайм-аут, ENOENT). Под
+// нагрузкой полного прогона ребёнка убивал тайм-аут, а сообщение печатало
+// только stdout с «NO VIOLATIONS FOUND» — причину не видел никто (F-4, R3 §4.3).
+function why(res: ReturnType<typeof spawnSync>): string {
+  return [
+    res.error ? `spawn error: ${res.error.message}` : '',
+    res.signal ? `signal: ${res.signal}` : '',
+    tail(res.stdout as string | null),
+    tail(res.stderr as string | null),
+  ].filter(Boolean).join('\n');
+}
+
+// Обход матрицы спокойно — 2–3 с, под нагрузкой полного прогона замерено
+// 71–218 с (аудит R3 §4.3). Потолок — с запасом над худшим замером.
+const MATRIX_SPAWN_TIMEOUT_MS = 300_000;
+
 describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs runs cleanly and passes all postulates', () => {
     // N-3: этот тест про матрицу без базы; живой обход базы — отдельный запуск
@@ -27,12 +43,11 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     const res = spawnSync('node', [postulatesScript, '--max-unmeasured', '0'], {
       cwd: rootDir,
       encoding: 'utf8',
-      timeout: 60000,
+      timeout: MATRIX_SPAWN_TIMEOUT_MS,
       env,
     });
 
-    const output = [tail(res.stdout), tail(res.stderr)].filter(Boolean).join('\n');
-    expect(res.status, output).toBe(0);
+    expect(res.status, why(res)).toBe(0);
     expect(res.stdout).toContain('RESULT: NO VIOLATIONS FOUND');
     expect(res.stdout).toContain('PART 1: LIFECYCLE MATRIX RUNNER');
     expect(res.stdout).toContain('PART 2: DATABASE PRIVACY SWEEP');
@@ -43,21 +58,21 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(res.stdout, 'счёт по каждому постулату отдельно').toMatch(/P2 .*held +\d+ +not measured +\d+ +violated \d+/);
     expect(res.stdout, 'пропущенный обход базы обязан быть назван').toContain('Database sweep: NOT RUN');
     expect(res.stdout).not.toContain('All four postulates hold');
-  }, 80000);
+  }, MATRIX_SPAWN_TIMEOUT_MS + 20_000);
 
   it('N-76: --help / -h exits 0 and prints usage (does not run the matrix)', () => {
     const { DATABASE_URL: _db, ...env } = process.env;
     for (const flag of ['--help', '-h']) {
       const res = spawnSync('node', [postulatesScript, flag], {
-        cwd: rootDir, encoding: 'utf8', timeout: 10000, env,
+        cwd: rootDir, encoding: 'utf8', timeout: 30000, env,
       });
-      expect(res.status, `${flag} should exit 0`).toBe(0);
+      expect(res.status, `${flag} should exit 0\n${why(res)}`).toBe(0);
       expect(res.stdout, `${flag} should print Usage`).toContain('Usage: node scripts/postulates.mjs');
       expect(res.stdout, `${flag} should explain --max-unmeasured`).toContain('--max-unmeasured');
       expect(res.stdout, `${flag} should describe cells`).toContain('cells');
       expect(res.stdout, `${flag} should NOT run matrix`).not.toContain('LIFECYCLE MATRIX RUNNER');
     }
-  });
+  }, 60_000);
 
   it('scripts/postulates.mjs --max-unmeasured ratchet works (TB-11)', () => {
     const { DATABASE_URL: _db, ...env } = process.env;
@@ -66,10 +81,10 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     const res99 = spawnSync('node', [postulatesScript, '--max-unmeasured', '-1'], {
       cwd: rootDir,
       encoding: 'utf8',
-      timeout: 60000,
+      timeout: MATRIX_SPAWN_TIMEOUT_MS,
       env,
     });
-    expect(res99.status).toBe(1);
+    expect(res99.status, why(res99)).toBe(1);
     expect(res99.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED: 0 > -1');
 
     // 3. evaluateMatrixResults directly unit test
@@ -107,7 +122,7 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     const seq9 = { ...cell2, sequence: 'seq9_enable_encryption_sync_restore', vaultEnabled: false, faultFired: 1, told: { status: 'restored' } };
     expect(evaluateMatrixResults([cell1, seq9], 0).totalUnmeasured).toBe(2);
     expect(evaluateMatrixResults([cell1, { ...seq9, told: { status: 'error_thrown' } }], 0).totalUnmeasured).toBe(0);
-  }, 120000);
+  }, MATRIX_SPAWN_TIMEOUT_MS + 20_000);
 
   // EA-7: «NO VIOLATIONS» без единого измерения — не зелёный вердикт.
   it('evaluateMatrixResults fails an empty, broken or never-measured matrix', () => {
