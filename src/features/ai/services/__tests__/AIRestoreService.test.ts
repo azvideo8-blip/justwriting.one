@@ -221,8 +221,35 @@ describe('restoreAIDataFromCloud', () => {
     expect(localStore.aiPortrait.get('singleton')).toMatchObject({ portrait: 'Cloud Newer' });
   });
 
-  it('restores assembled record just under MAX_LOCAL_RECORD_BYTES (AG-RESTORE-4)', async () => {
-    // Large synthetic payload (~9.5 MB)
+  // A-5 (R2-012): журнал незакрытых облачных удалений не читается — не знаем,
+  // какие из облачных записей уже снесены. Вернуть удалённое хуже, чем не
+  // вернуть ничего, поэтому раздел ИИ-записей пропускается целиком.
+  it('skips the whole AI-store section when the pending-deletion journal is unreadable', async () => {
+    localStorage.setItem('ai_sync_pending_deletes', '{обрывок без закрывающей скобки');
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait',
+      key: 'singleton',
+      payload: { data: JSON.stringify({ id: 'singleton', portrait: 'Cloud Portrait', updatedAt: 6000 }) },
+    });
+
+    try {
+      const res = await restoreAIDataFromCloud('user_1');
+
+      expect(localStore.aiPortrait.size).toBe(0);
+      expect(res.localStoreRecords).toBe(0);
+      expect(res.sectionFailed).toBe(true);
+      expect(reportError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({ action: 'restoreAIData_deleteJournalUnknown', userId: 'user_1' }),
+        'warning',
+      );
+    } finally {
+      // Остальные кейсы файла читают этот же журнал — оставить его чистым.
+      localStorage.removeItem('ai_sync_pending_deletes');
+    }
+  });
+
+  it('restores assembled record just under MAX_LOCAL_RECORD_BYTES (AG-RESTORE-4)', async () => {    // Large synthetic payload (~9.5 MB)
     const paddingSize = 9.5 * 1024 * 1024;
     const padding = 'x'.repeat(paddingSize);
     const largeObj = { id: 'large-dlg', pad: padding, updatedAt: 3000 };

@@ -728,7 +728,7 @@
  {
   "id": "csc-36",
   "file": "src/core/services/CloudSyncService.ts",
-  "line": 60,
+  "line": 70,
   "old": "      if (t.id.startsWith('lock_cloud_')) continue;\n",
   "new": "",
   "why": "dropQueueTasksFor inside the critical section deletes the holder's own lock row: the heartbeat cannot bring it back, so a second tab enters the same document while the first is still inside (R2-009).",
@@ -739,7 +739,7 @@
  {
   "id": "csc-37",
   "file": "src/core/services/CloudSyncService.ts",
-  "line": 378,
+  "line": 388,
   "old": "                  corruptedVersions.push(cv.version);\n",
   "new": "",
   "why": "An unreadable cloud version stays silent: the watermark still advances over the hole in local history and nothing tells the user the note is only partly synced (R2-004).",
@@ -1033,6 +1033,40 @@
    "src/core/sync/__tests__/syncStatusTruth.test.ts",
    "src/core/services/__tests__/syncAllUnlinkedRetry.test.ts",
    "src/core/services/__tests__/syncPhase3.test.ts"
+  ]
+ },
+ {
+  "id": "lss-01",
+  "file": "src/core/services/LocalStoreSyncService.ts",
+  "line": 106,
+  "old": "    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : null;\n  } catch {\n    return null;\n  }\n",
+  "new": "    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : [];\n  } catch {\n    return [];\n  }\n",
+  "why": "An unreadable pending-deletion journal reads as «no deletions»: the next drain upserts a record the user already deleted in the cloud (R2-012).",
+  "tests": [
+   "src/core/services/__tests__/unreadableDeleteJournal.test.ts",
+   "src/features/ai/services/__tests__/AIRestoreService.test.ts"
+  ]
+ },
+ {
+  "id": "lss-02",
+  "file": "src/core/services/LocalStoreSyncService.ts",
+  "line": 543,
+  "old": "        if (deleteJournalUnknown && !item.isDelete) {\n",
+  "new": "        if (deleteJournalUnknown && item.isDelete) {\n",
+  "why": "The drain fails open on an unknown journal: upserts go out (resurrecting deletions) while the deletions it does know about are held back (R2-012).",
+  "tests": [
+   "src/core/services/__tests__/unreadableDeleteJournal.test.ts"
+  ]
+ },
+ {
+  "id": "lss-03",
+  "file": "src/core/services/LocalStoreSyncService.ts",
+  "line": 280,
+  "old": "unknown: deletes === null",
+  "new": "unknown: false",
+  "why": "Nothing tells the badge layer that the deletion count is unknown, so a corrupt journal looks like a clean one (R2-012).",
+  "tests": [
+   "src/core/services/__tests__/unreadableDeleteJournal.test.ts"
   ]
  }
 ]

@@ -92,14 +92,30 @@ const PENDING_DELETES_LS_KEY = 'ai_sync_pending_deletes';
 
 interface PersistedDelete { uid: string; store: string; key: string }
 
-function readPersistedDeletes(): PersistedDelete[] {
+// A-5 (R2-012): «пусто» и «не прочитано» — разные состояния. Пустой журнал
+// означает, что удалять в облаке нечего; нечитаемый (строка из другой версии
+// приложения, отключённый storage, Safari в приватном режиме) — что мы этого не
+// знаем. Сведение второго к первому через `catch { return [] }` позволяло
+// дренажу upsert'ом вернуть в облако запись, которую пользователь уже снёс:
+// `null` — «журнал не читается», `[]` — «прочитан и пуст».
+function readPersistedDeletes(): PersistedDelete[] | null {
   try {
     const raw = localStorage.getItem(PENDING_DELETES_LS_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : [];
+    if (raw === null) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PersistedDelete[]) : null;
   } catch {
-    return [];
+    return null;
   }
+}
+
+/** Причина, по которой проход останавливает загрузки: её надо назвать вслух. */
+function reportDeleteJournalUnknown(action: string, uid?: string): void {
+  reportError(
+    new Error('Journal of pending AI-store deletions is unreadable — what must not be uploaded is unknown'),
+    { action, ...(uid ? { userId: uid } : {}) },
+    'warning',
+  );
 }
 
 function writePersistedDeletes(list: PersistedDelete[]): void {
@@ -110,6 +126,9 @@ function writePersistedDeletes(list: PersistedDelete[]): void {
 
 function persistDelete(uid: string, store: string, key: string): void {
   const list = readPersistedDeletes();
+  // Перечитать нечего — значит и дописать нельзя: запись одного нового
+  // обязательства стёрла бы все прежние, а их нельзя вывести заново.
+  if (list === null) return reportDeleteJournalUnknown('persistDelete_deleteJournalUnknown', uid);
   if (!list.some(d => d.uid === uid && d.store === store && d.key === key)) {
     list.push({ uid, store, key });
     writePersistedDeletes(list);
@@ -117,12 +136,18 @@ function persistDelete(uid: string, store: string, key: string): void {
 }
 
 function forgetPersistedDelete(uid: string, store: string, key: string): void {
-  writePersistedDeletes(readPersistedDeletes().filter(d => !(d.uid === uid && d.store === store && d.key === key)));
+  const list = readPersistedDeletes();
+  // То же: снимали бы один маркер, перезаписав нечитаемый журнал пустым списком.
+  // Удаление просто уедет в облако ещё раз — это идемпотентно.
+  if (list === null) return;
+  writePersistedDeletes(list.filter(d => !(d.uid === uid && d.store === store && d.key === key)));
 }
 
-/** Ключи `store:key`, облачное удаление которых ещё не дошло — восстановлению их не трогать. */
-export function getPendingStoreDeleteKeys(uid: string): Set<string> {
-  return new Set(readPersistedDeletes().filter(d => d.uid === uid).map(d => `${d.store}:${d.key}`));
+/** Ключи `store:key`, облачное удаление которых ещё не дошло — восстановлению их не трогать. `null` — журнал не читается. */
+export function getPendingStoreDeleteKeys(uid: string): Set<string> | null {
+  const list = readPersistedDeletes();
+  if (list === null) return null;
+  return new Set(list.filter(d => d.uid === uid).map(d => `${d.store}:${d.key}`));
 }
 
 // SA-1: ожидающее обновление жило только в памяти. Окно потери — дебаунс
@@ -247,11 +272,12 @@ function forgetDeadUpserts(uid: string, entries: Array<{ store: string; key: str
   writeDeadUpserts(next);
 }
 
-/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. */
-export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: number } {
+/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. `unknown` — журнал удалений не читается, и pending поэтому нижняя граница. */
+export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: number; unknown: boolean } {
+  const deletes = readPersistedDeletes();
   const pending = getPendingStoreUpserts(uid).length
-    + readPersistedDeletes().filter(d => d.uid === uid).length;
-  return { pending, dead: getDeadStoreUpserts(uid).length };
+    + (deletes === null ? 0 : deletes.filter(d => d.uid === uid).length);
+  return { pending, dead: getDeadStoreUpserts(uid).length, unknown: deletes === null };
 }
 
 const OVERSIZED_LS_KEY = 'ai_sync_oversized_records';
@@ -368,9 +394,13 @@ export class LocalStoreSyncManager {
     const pendingItem = this.pending.get(itemKey);
     const hasPendingDelete = pendingItem?.isDelete === true;
     const uid = getCurrentUser()?.uid;
-    const hasPersistedDelete = uid
-      ? readPersistedDeletes().some(d => d.uid === uid && d.store === store && d.key === key)
-      : false;
+    // Журнал не читается — считаем, что удаление возможно: ветка ниже сама
+    // решает по наличию записи в IndexedDB, а дренаж на неизвестном журнале
+    // ни одного upsert не отправит.
+    const deletes = uid ? readPersistedDeletes() : [];
+    const hasPersistedDelete = !uid
+      ? false
+      : (deletes === null ? true : deletes.some(d => d.uid === uid && d.store === store && d.key === key));
 
     // A-3.2 (F-007): если у записи есть ожидающее или персистентное удаление,
     // а самой записи в IndexedDB уже нет (запоздалый ответ ИИ или фоновой задачи),
@@ -460,10 +490,19 @@ export class LocalStoreSyncManager {
     }
 
     // Удаления, пережившие закрытие вкладки, возвращаются в очередь.
-    for (const d of readPersistedDeletes()) {
-      if (d.uid !== uid || !SUPPORTED_LOCAL_STORES.includes(d.store as SupportedLocalStoreName)) continue;
-      const k = `${d.store}:${d.key}`;
-      if (!this.pending.has(k)) this.pending.set(k, { store: d.store as SupportedLocalStoreName, key: d.key, isDelete: true });
+    const persistedDeletes = readPersistedDeletes();
+    const deleteJournalUnknown = persistedDeletes === null;
+    if (deleteJournalUnknown) {
+      // Не знаем, какие из ожидающих отправки записей на самом деле удалены.
+      // Один upsert воскрешает в облаке снесённый разбор, поэтому удаления
+      // этот проход делает, а обновлений — нет (fail closed).
+      reportDeleteJournalUnknown('flushPending_deleteJournalUnknown', uid);
+    } else {
+      for (const d of persistedDeletes) {
+        if (d.uid !== uid || !SUPPORTED_LOCAL_STORES.includes(d.store as SupportedLocalStoreName)) continue;
+        const k = `${d.store}:${d.key}`;
+        if (!this.pending.has(k)) this.pending.set(k, { store: d.store as SupportedLocalStoreName, key: d.key, isDelete: true });
+      }
     }
 
     // SA-1: то же для обновлений — маркер переживает и закрытие вкладки, и
@@ -501,6 +540,12 @@ export class LocalStoreSyncManager {
 
       for (const item of items) {
         const itemKey = `${item.store}:${item.key}`;
+        if (deleteJournalUnknown && !item.isDelete) {
+          // Отложить, а не исполнить: маркер на диске остаётся, обязательство
+          // не считается закрытым, и бейдж по-прежнему показывает несданное.
+          if (!this.pending.has(itemKey)) this.pending.set(itemKey, item);
+          continue;
+        }
         try {
           if (item.isDelete) {
             await DataProvider.deleteLocalStoreRecord(uid, item.store, item.key);

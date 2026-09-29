@@ -44,7 +44,7 @@ describe('A-1 (R2-003): a record that exists again drops its persisted delete ma
     // Настоящий маркер на диске — его не снимаем после сидинга, иначе тест
     // проверял бы пустой журнал.
     localStorage.setItem('ai_sync_pending_deletes', JSON.stringify([{ uid: USER, store: 'aiPortrait', key: 'p1' }]));
-    expect(getPendingStoreDeleteKeys(USER).has('aiPortrait:p1')).toBe(true);
+    expect(getPendingStoreDeleteKeys(USER)?.has('aiPortrait:p1')).toBe(true);
 
     const tab = new LocalStoreSyncManager();
     tab.scheduleStoreSync('aiPortrait', 'p1');
@@ -57,7 +57,7 @@ describe('A-1 (R2-003): a record that exists again drops its persisted delete ma
     expect(DataProvider.deleteLocalStoreRecord, 'живая запись не должна быть удалена в облаке')
       .not.toHaveBeenCalledWith(USER, 'aiPortrait', 'p1');
     expect(DataProvider.saveLocalStoreRecord).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything());
-    expect(getPendingStoreDeleteKeys(USER).size).toBe(0);
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0 });
+    expect(getPendingStoreDeleteKeys(USER)?.size).toBe(0);
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, unknown: false });
   });
 });

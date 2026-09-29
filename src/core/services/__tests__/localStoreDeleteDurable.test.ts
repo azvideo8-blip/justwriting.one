@@ -29,7 +29,7 @@ describe('LocalStoreSyncService: cloud deletes survive closing the tab (EA-5)', 
     LocalStoreSyncService.scheduleStoreDelete('aiDialogues', 'dialog_of_deleted_note');
     await LocalStoreSyncService.flushPending(); // синхронизация выключена — ничего не уходит
     expect(del).not.toHaveBeenCalled();
-    expect(getPendingStoreDeleteKeys(USER).has('aiDialogues:dialog_of_deleted_note')).toBe(true);
+    expect(getPendingStoreDeleteKeys(USER)?.has('aiDialogues:dialog_of_deleted_note')).toBe(true);
 
     // «Закрыли вкладку»: очередь в памяти пропала.
     (LocalStoreSyncService as unknown as { pending: Map<string, unknown> }).pending.clear();
@@ -37,6 +37,6 @@ describe('LocalStoreSyncService: cloud deletes survive closing the tab (EA-5)', 
     syncOn = true;
     await LocalStoreSyncService.flushPending();
     expect(del).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialog_of_deleted_note');
-    expect(getPendingStoreDeleteKeys(USER).size).toBe(0);
+    expect(getPendingStoreDeleteKeys(USER)?.size).toBe(0);
   });
 });

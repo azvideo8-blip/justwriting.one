@@ -160,7 +160,18 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
   }
 
   // --- Restore local_store_records (allowlisted AI stores) ---
-  try {
+  const pendingDeletes = getPendingStoreDeleteKeys(userId);
+  if (pendingDeletes === null) {
+    // A-5 (R2-012): журнал незакрытых облачных удалений не читается — не знаем,
+    // какие из облачных записей пользователь уже снёс. Вернуть удалённое хуже,
+    // чем не вернуть ничего, поэтому весь раздел пропускаем.
+    result.sectionFailed = true;
+    reportError(
+      new Error('Journal of pending AI-store deletions is unreadable — AI-store restore skipped'),
+      { action: 'restoreAIData_deleteJournalUnknown', userId },
+      'warning',
+    );
+  } else try {
     const cloudRecords = await DataProvider.getLocalStoreRecords(userId, undefined, sinceMs);
 
     // Group cloud records by (store, baseKey)
@@ -202,7 +213,6 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     }
 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
-    const pendingDeletes = getPendingStoreDeleteKeys(userId);
     for (const { store, baseKey, items } of grouped.values()) {
       if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
       try {
