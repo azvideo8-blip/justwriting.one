@@ -15,6 +15,24 @@ export interface ChatPromptParams {
   documentContent?: string | null | undefined;
   documentMood?: string | null | undefined;
   memoryContext?: string | null | undefined;
+  noteScope?: NoteScope | null | undefined;
+}
+
+/** Заметка-тема диалога и режим хода (см. src/features/ai/utils/turnScope.ts). */
+export interface NoteScope {
+  mode: 'note' | 'wide';
+  title: string;
+  date: string;
+}
+
+/** Правило о заметке-теме: строгий ход — только она; широкий — найденное не выдавать за неё. */
+export function noteScopeRule(scope: NoteScope): string {
+  if (scope.mode === 'wide') {
+    return 'Блоки поиска, «недавнее» и память — ДРУГИЕ заметки со своими датами; не выдавай их за текст приложенной заметки.';
+  }
+  return `АНАЛИЗИРУЙ ТОЛЬКО заметку «${scope.title}» от ${scope.date}. Цитаты вида «ты пишешь…» бери только из неё. ` +
+    'Данные профиля — фон о человеке и о том, как с ним говорить: не приписывай их этой заметке и не цитируй. ' +
+    'Если ответа в заметке нет — так и скажи и предложи посмотреть в других записях.';
 }
 
 // Режим рассуждений: deepseek думает по-английски или по-китайски, если не
@@ -33,13 +51,14 @@ export function withReasoningLanguage<M extends { role: string; content: string 
 }
 
 export function buildChatSystemPrompt(params: ChatPromptParams): string {
-  const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood, memoryContext } = params;
+  const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood, memoryContext, noteScope } = params;
 
   // `reasoning` = the request runs with provider-side reasoning on. The model
   // is never asked to write its reasoning into the answer: callers read it from
   // the reasoning channel and add the ХОД МЫСЛИ:/ОТВЕТ: headers themselves.
   const hasSearch = Boolean(documentContent && (documentContent.includes('Результаты поиска') || documentContent.includes('[#')));
-  const notesGuard = hasSearch ? `${NOTES_GUARD_BASE}\n\n${NOTES_SEARCH_GUARD}` : NOTES_GUARD_BASE;
+  const baseNotesGuard = hasSearch ? `${NOTES_GUARD_BASE}\n\n${NOTES_SEARCH_GUARD}` : NOTES_GUARD_BASE;
+  const notesGuard = noteScope ? `${baseNotesGuard}\n\n${noteScopeRule(noteScope)}` : baseNotesGuard;
 
   // SEC-24: Move custom system prompt AFTER system guards so custom instructions cannot override guards
   let base = personaId === 'custom'
@@ -213,6 +232,11 @@ export const chatInputSchema = z.object({
   responseLength: z.enum(['short', 'standard', 'detailed']).nullish(),
   reasoning: z.boolean().nullish(),
   callType: z.enum(['auto_name', 'follow_up', 'query_expand', 'system_task']).nullish(),
+  noteScope: z.object({
+    mode: z.enum(['note', 'wide']),
+    title: z.string().max(300),
+    date: z.string().max(60),
+  }).nullish(),
 });
 
 export interface ChatPromptInput {
@@ -224,6 +248,7 @@ export interface ChatPromptInput {
   memoryContext?: string | null | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | null | undefined;
   reasoning?: boolean | null | undefined;
+  noteScope?: NoteScope | null | undefined;
 }
 
 /**
@@ -240,6 +265,9 @@ export function assembleChatPromptParams(input: ChatPromptInput): ChatPromptPara
     reasoning: input.reasoning ?? false,
     documentContent: input.documentContent ? sanitizeAiInputShared(input.documentContent) : undefined,
     documentMood: input.documentMood ? sanitizeAiInputShared(input.documentMood) : undefined,
+    noteScope: input.noteScope
+      ? { mode: input.noteScope.mode, title: sanitizeAiInputShared(input.noteScope.title), date: sanitizeAiInputShared(input.noteScope.date) }
+      : undefined,
   };
 }
 
