@@ -135,4 +135,19 @@ describe('AG-BG-2: Activity Log Triggers (Sidebar & BottomNav)', () => {
     expect(updatedTrigger).toHaveTextContent(/активность/i);
     expect(updatedTrigger.className).toContain('text-accent-success');
   });
+
+  // T-1b удалил `const location = useLocation()`, а код ниже продолжал читать
+  // `location.pathname` — то есть глобальный window.location. Вкладка тогда
+  // подсвечивается по адресу страницы, а не по маршруту роутера.
+  it('BottomNav marks the tab of the router location, not of window.location', () => {
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/archive']}>
+        <BottomNav isAdmin={false} />
+      </MemoryRouter>
+    );
+    const current = screen.getAllByRole('button').filter(b => b.getAttribute('aria-current') === 'page');
+    expect(current).toHaveLength(1);
+    // Активна вкладка архива (маршрут роутера), а не «Писать» (window.location = '/').
+    expect(current[0]).toHaveTextContent(/заметки|notes/i);
+  });
 });

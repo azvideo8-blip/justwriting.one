@@ -9,7 +9,6 @@ import { AboutPage } from '../pages/AboutPage';
 import { LandingPage } from '../pages/LandingPage';
 import { LegalPage } from '../pages/LegalPage';
 import { MobileGoalSheet } from '../../writing/components/MobileGoalSheet';
-import { ErrorBoundary } from '../../../shared/components/ErrorBoundary';
 import { ArchiveHeader } from '../../archive/components/ArchiveHeader';
 
 vi.mock('../../../shared/components/Toast', () => ({

@@ -42,6 +42,9 @@ interface BottomNavProps {
 
 export function BottomNav({ isAdmin }: BottomNavProps) {
   const navigate = useNavigate();
+  // Без этой подписки `location` ниже — глобальный window.location: подсветка
+  // вкладки не пересчитывалась бы при переходах (T-1b это и сломал).
+  const location = useLocation();
   const { t, tp: rawTp } = useLanguage();
   const tp = typeof rawTp === 'function' ? rawTp : ((k: string, count: number) => t(k, { count: String(count) }));
   const { isGuest, user } = useAuthStatus();

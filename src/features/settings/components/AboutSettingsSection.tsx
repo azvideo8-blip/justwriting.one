@@ -10,7 +10,7 @@ import { Button } from '../../../shared/components/Button';
 import { useChangelogSeenStore } from '../../../shared/changelog/useChangelogSeenStore';
 
 export function AboutSettingsSection() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { isAdmin } = useAdminStatus();
