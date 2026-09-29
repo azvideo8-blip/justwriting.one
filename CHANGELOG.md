@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.19 — 2026-09-30
+
+- **[RU]** Панель с телефонами помощи снова появляется в чате при острых формулировках — в 0.9.18 её обещали, но интерфейс её не показывал. Детектор ловит больше формулировок («раньше думал…, а сейчас…», невидимые символы, «ё») и не срабатывает на слова вроде «порядок».
+- **[EN]** The panel with crisis help lines shows up in the chat again on acute wording — 0.9.18 promised it, but the interface never displayed it. The detector catches more phrasings (a later acute phrase after a past-tense one, invisible characters, «ё») and no longer fires on words like «порядок».
+- **[RU]** Заметка, скрытая от ИИ, больше не уходит модели через память диалога и историю сообщений.
+- **[EN]** A note hidden from the AI no longer reaches the model through dialogue memory or message history.
+- **[RU]** Разбор заметки в чате: новый диалог не наследует заметку из прошлого; «Ответить иначе» опирается на вопрос, а не на текст заметки; обычная фраза в заметке («забудь всё») больше не блокирует диалог; дата заметки без сессий берётся из заметки.
+- **[EN]** Note analysis in the chat: a new dialogue no longer inherits the previous note; «Answer differently» works from the question, not the note text; an ordinary phrase in the note («forget everything») no longer blocks the dialogue; a note with no sessions gets its own date.
+- **[RU]** ИИ-панель в редакторе на телефоне снова работает — все её действия были выключены.
+- **[EN]** The AI panel in the phone editor works again — all its actions were disabled.
+- **[RU]** Ошибка сохранения больше не исчезает через секунду, а правка, сделанная во время сохранения, сохраняется сразу за ним, а не при следующем нажатии.
+- **[EN]** A save error no longer disappears after a second, and an edit made during a save is saved right after it instead of on the next keystroke.
+- **[RU]** Эмодзи в больших записях ИИ больше не портятся в облачной копии.
+- **[EN]** Emoji in large AI records are no longer corrupted in the cloud copy.
+- **[RU]** Удаление заметки больше не снимает блокировку её выгрузки в другой вкладке.
+- **[EN]** Deleting a note no longer releases the upload lock held by another tab.
+- **[RU]** Индикатор синхронизации показывает паузу, когда выгрузка ИИ-данных остановлена, и не показывает счётчики прошлого аккаунта после смены.
+- **[EN]** The sync indicator shows a pause when AI-data uploads are stopped, and no longer shows the previous account’s counts after switching.
+- **[RU]** Подписи «2 диалога», «2 заметки» согласованы с числом.
+- **[EN]** Labels like «2 dialogues», «2 notes» agree with the number.
+
 ## 0.9.18 — 2026-09-29
 
 - **[RU]** Разбор приложенной заметки в чате опирается только на неё: ИИ больше не выдаёт цитаты из других записей за её текст и называет правильную дату.
