@@ -103,7 +103,7 @@ export function DesktopWritingLayout() {
     };
   }, []);
 
-  const { lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned } = useWritingSettings();
+  const { lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, lifeLogPinned, setLifeLogPinned, silenceMode } = useWritingSettings();
 
   return (
     <motion.div
@@ -115,14 +115,15 @@ export function DesktopWritingLayout() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `${showZen ? '0px' : '64px'} 1fr${lifeLogPinned && lifeLogVisible ? ' 380px' : ''}`,
+          // DC-W5: колонка-спейсер не меняется в дзен — иначе каждый переход
+          // сдвигает центрованный текст на 64 px вбок.
+          gridTemplateColumns: `64px 1fr${lifeLogPinned && lifeLogVisible ? ' 380px' : ''}`,
           gridTemplateRows: '48px 1fr 64px',
           height: '100vh',
           width: '100vw',
           position: 'fixed',
           inset: 0,
           zIndex: 20,
-          transition: 'grid-template-columns 0.25s cubic-bezier(.4,.2,.2,1)',
           overflow: 'hidden',
         }}
       >
@@ -260,7 +261,7 @@ export function DesktopWritingLayout() {
             exit={{ opacity: 0 }}
             className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-surface-card/60 backdrop-blur-xl text-xs text-text-main/70 pointer-events-none"
           >
-            {t('zen_hint')}
+            {t(silenceMode ? 'zen_hint_silence' : 'zen_hint')}
           </motion.div>
         )}
       </AnimatePresence>

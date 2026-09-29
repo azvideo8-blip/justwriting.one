@@ -31,6 +31,7 @@ interface WritingSettingsContextType {
   setIsAttachmentActive: (active: boolean) => void;
   dismissRightPanel: (options?: { ignoreIfAttaching?: boolean }) => void;
   isZenActive: boolean;
+  revealUI: () => void;
   zenSeenOnce: boolean;
   status: TimerStatus;
   setStatus: (status: TimerStatus) => void;
@@ -123,6 +124,13 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     _setAiPanelOpen(false);
   }, []);
 
+  // Показать UI и заново запустить таймер скрытия (мышь, фокус в шапке).
+  const revealUI = useCallback(() => {
+    setIsZenActive(false);
+    if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+    zenTimerRef.current = setTimeout(() => setIsZenActive(true), 3000);
+  }, []);
+
   useEffect(() => {
     if (status !== 'writing' || !zenModeEnabled) {
       guardRef.current = false;
@@ -155,15 +163,17 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
         if (!isNearEdge) return;
       }
 
-      setIsZenActive(false);
-      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
-      zenTimerRef.current = setTimeout(() => setIsZenActive(true), 3000);
+      revealUI();
     };
 
-     const hideUI = () => {
-       setIsZenActive(true);
-       if (!zenSeenOnceRef.current) setZenSeenOnce(true);
-       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
+    const HIDDEN_KEYS = new Set(['Tab', 'Shift', 'Alt', 'Control', 'Meta']);
+    const hideUI = (e: KeyboardEvent) => {
+      // Tab и модификаторы — это навигация с клавиатуры, а не набор текста:
+      // иначе в дзене нельзя дойти до кнопок шапки (DC-W5).
+      if (HIDDEN_KEYS.has(e.key)) return;
+      setIsZenActive(true);
+      if (!zenSeenOnceRef.current) setZenSeenOnce(true);
+      if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };
 
     window.addEventListener('mousemove', showUI);
@@ -179,7 +189,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
       clearTimeout(timer);
       if (zenTimerRef.current) clearTimeout(zenTimerRef.current);
     };
-  }, [status, zenModeEnabled, silenceMode, setZenSeenOnce]);
+  }, [status, zenModeEnabled, silenceMode, setZenSeenOnce, revealUI]);
 
   const toggleStreamMode = useCallback(() => setStreamMode(prev => !prev), [setStreamMode]);
   const toggleVisibility = useCallback((key: keyof HeaderVisibility) => {
@@ -204,6 +214,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     lifeLogVisible, setLifeLogVisible,
     lifeLogTab, setLifeLogTab,
     isZenActive,
+    revealUI,
     zenSeenOnce,
     status, setStatus,
     fontFamily, setFontFamily,
@@ -219,7 +230,7 @@ export function WritingSettingsProvider({ children }: { children: React.ReactNod
     aiPanelOpen, setAiPanelOpen,
     isAttachmentActive, setIsAttachmentActive,
     dismissRightPanel,
-  }), [silenceMode, setSilenceMode, typographyEnabled, setTypographyEnabled, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isAttachmentActive, setIsAttachmentActive, dismissRightPanel, isZenActive, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, quietStats, setQuietStats, effectiveHeaderVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
+  }), [silenceMode, setSilenceMode, typographyEnabled, setTypographyEnabled, streamMode, toggleStreamMode, zenModeEnabled, setZenModeEnabled, editorWidth, setEditorWidth, lifeLogEnabled, setLifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab, isAttachmentActive, setIsAttachmentActive, dismissRightPanel, isZenActive, revealUI, zenSeenOnce, status, setStatus, fontFamily, setFontFamily, fontSize, setFontSize, lifeLogPinned, setLifeLogPinned, headerVisibility, toggleVisibility, quietStats, setQuietStats, effectiveHeaderVisibility, typewriterScrolling, setTypewriterScrolling, focusModeEnabled, setFocusModeEnabled, autoHideCursor, setAutoHideCursor, lineHeight, setLineHeight, aiPanelOpen, setAiPanelOpen]);
 
   return (
     <WritingSettingsContext.Provider value={contextValue}>

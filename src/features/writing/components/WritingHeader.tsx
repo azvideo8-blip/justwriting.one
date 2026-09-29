@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen, Sparkles, SlidersHorizontal
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
@@ -34,7 +34,7 @@ export const WritingHeader = React.memo(function WritingHeader({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { t } = useLanguage();
   const {
-    isZenActive, zenModeEnabled,
+    isZenActive, zenModeEnabled, revealUI,
     effectiveHeaderVisibility,
     lifeLogEnabled, lifeLogVisible, setLifeLogVisible, lifeLogTab, setLifeLogTab,
     dismissRightPanel,
@@ -83,16 +83,15 @@ export const WritingHeader = React.memo(function WritingHeader({
   };
 
   return (
-    <AnimatePresence>
-      {!showZen && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, y: 0, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
+          initial={false}
+          animate={{ opacity: showZen ? 0 : 1 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
+          onFocusCapture={() => { if (showZen) revealUI(); }}
           className={cn(
             "w-full z-40 shrink-0",
-            lifeLogEnabled ? "overflow-hidden" : "px-4 py-3 overflow-visible"
+            lifeLogEnabled ? "overflow-hidden" : "px-4 py-3 overflow-visible",
+            showZen && "pointer-events-none"
           )}
         >
           {lifeLogEnabled ? (
@@ -192,7 +191,5 @@ export const WritingHeader = React.memo(function WritingHeader({
             </div>
           )}
         </motion.div>
-      )}
-    </AnimatePresence>
   );
 });
