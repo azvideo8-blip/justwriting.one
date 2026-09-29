@@ -33,6 +33,13 @@ describe('primary button contrast in every theme', () => {
       const brand = varIn(block!, 'color-brand-soft') ?? varIn(block!, 'brand-soft') ?? rootBrand;
       expect(ratio(brand, varIn(block!, 'bg-base')!)).toBeGreaterThanOrEqual(4.5);
     });
+
+    // DC-A1: счётчик дней в группе архива красится в --brand-soft темы.
+    // Старый цвет — корневой #A583E8 с opacity-50: на светлом «Тёплом» ≈ 1.7:1.
+    it(`${name}: day-group count (brand-soft on bg-base) ≥ 4.5:1`, () => {
+      const brand = varIn(block!, 'brand-soft') ?? rootBrand;
+      expect(ratio(brand, varIn(block!, 'bg-base')!)).toBeGreaterThanOrEqual(4.5);
+    });
   }
 
   // Белый текст на фиолетовом давал 3.0:1 во всех тёмных темах — такие кнопки
@@ -44,5 +51,34 @@ describe('primary button contrast in every theme', () => {
       { encoding: 'utf8' }
     ).trim();
     expect(hits).toBe('');
+  });
+});
+
+describe('DC-A1: cascade layering and day-group count markup', () => {
+  it(':root defaults live inside @layer base, before the themes', () => {
+    const layerAt = css.indexOf('@layer base {');
+    const rootAt = css.indexOf(':root {');
+    expect(layerAt).toBeGreaterThan(-1);
+    expect(rootAt).toBeGreaterThan(layerAt);
+    // между :root и следующим за ним блоком тем не должно быть закрывающих
+    // скобок слоя: :root обязан быть первым правилом внутри @layer base
+    const afterRoot = css.slice(rootAt, css.indexOf('.theme-'));
+    expect(afterRoot).not.toContain('}');
+  });
+
+  it('day-group count uses the token class, no arbitrary var() and no opacity', () => {
+    const hits = execSync(
+      `grep -rn --include='*.tsx' -E 'text-\\[var\\(--brand-soft\\)\\]' ${resolve(__dirname, '..')} || true`,
+      { encoding: 'utf8' }
+    ).trim();
+    expect(hits).toBe('');
+    const list = readFileSync(
+      resolve(__dirname, '../features/archive/components/ArchiveNoteList.tsx'),
+      'utf8'
+    );
+    for (const line of list.split('\n').filter(l => l.includes('text-brand-soft'))) {
+      expect(line).not.toContain('opacity-');
+      expect(line).not.toContain('font-mono');
+    }
   });
 });

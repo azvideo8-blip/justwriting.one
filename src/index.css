@@ -1,13 +1,5 @@
 @import "tailwindcss";
 
-:root {
-  --brand-primary: #7D4FD1;
-  --brand-soft: #A583E8;
-  --brand-deep: #4A2A8A;
-  --brand-bg: #0E0A18;
-  --flow-pulse-color: var(--brand-soft);
-}
-
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Lora", Georgia, serif;
@@ -77,6 +69,17 @@
 }
 
 @layer base {
+  /* DC-A1: значения по умолчанию обязаны жить в @layer base — вне слоя они
+     бьют каскадом темы (.theme-*), и переопределения вроде --brand-soft в
+     «Тёплом» не работали. */
+  :root {
+    --brand-primary: #7D4FD1;
+    --brand-soft: #A583E8;
+    --brand-deep: #4A2A8A;
+    --brand-bg: #0E0A18;
+    --flow-pulse-color: var(--brand-soft);
+  }
+
   /* ─── AMETHYST (Флагманский эталон — глубокий фиолетовый) ─── */
   .theme-amethyst {
     color-scheme: dark;

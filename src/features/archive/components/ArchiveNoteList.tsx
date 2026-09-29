@@ -310,7 +310,7 @@ export function ArchiveNoteList({
                 </span>
                 <div className="flex-1 flex items-center gap-2">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[var(--border-subtle)]" />
-                  <span className="font-mono text-label-sm text-[var(--brand-soft)] opacity-50">
+                  <span className="text-label-sm text-brand-soft">
                     {tp('archive_note_count', sessions.length)}
                   </span>
                   <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />
@@ -364,7 +364,7 @@ export function ArchiveNoteList({
               </span>
               <div className="flex-1 flex items-center gap-2">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-[var(--border-subtle)]" />
-                <span className="font-mono text-label-sm text-[var(--brand-soft)] opacity-50">
+                <span className="text-label-sm text-brand-soft">
                   {tp('archive_note_count', sessions.length)}
                 </span>
                 <div className="flex-1 h-px bg-gradient-to-l from-transparent to-[var(--border-subtle)]" />

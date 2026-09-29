@@ -168,7 +168,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                 <div className="flex flex-wrap gap-2 pt-1">
                   {isSyncing ? (
                     <div className="flex items-center justify-center w-full py-2">
-                      <Loader2 size={16} className="animate-spin text-[var(--brand-soft)]" />
+                      <Loader2 size={16} className="animate-spin text-brand-soft" />
                     </div>
                   ) : (
                     <>
@@ -340,7 +340,7 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
                     <td className="py-2.5 px-3 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         {isSyncing ? (
-                          <Loader2 size={12} className="animate-spin text-[var(--brand-soft)]" />
+                          <Loader2 size={12} className="animate-spin text-brand-soft" />
                         ) : (
                           <>
                             {item.status === 'local_only' && (
