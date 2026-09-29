@@ -136,6 +136,17 @@
   ]
  },
  {
+  "id": "ss-13",
+  "file": "src/core/services/SyncService.ts",
+  "line": 339,
+  "old": "    const queuedDocIds = new Set(queue.filter(q => !q.id.startsWith('lock_cloud_')).map(q => q.documentId).filter(Boolean));",
+  "new": "    const queuedDocIds = new Set(queue.map(q => q.documentId).filter(Boolean));",
+  "why": "A lock row left by a closed tab counts as a queued task, so the note never reaches the orphan sweep and its edits stay local forever (R2-010).",
+  "tests": [
+   "src/core/services/__tests__/lockRowIsNotATask.test.ts"
+  ]
+ },
+ {
   "id": "st-01",
   "file": "src/core/services/StorageService.ts",
   "line": 51,
@@ -712,6 +723,17 @@
   "why": "Only notes whose titles CONTRADICT the cloud doc get re-linked: the wrong pairing pushes one note's text into another note's cloud history, while correct matches are left to upload as duplicates.",
   "tests": [
    "src/core/services/__tests__/CloudSyncService.test.ts"
+  ]
+ },
+ {
+  "id": "csc-36",
+  "file": "src/core/services/CloudSyncService.ts",
+  "line": 60,
+  "old": "      if (t.id.startsWith('lock_cloud_')) continue;\n",
+  "new": "",
+  "why": "dropQueueTasksFor inside the critical section deletes the holder's own lock row: the heartbeat cannot bring it back, so a second tab enters the same document while the first is still inside (R2-009).",
+  "tests": [
+   "src/core/services/__tests__/lockRowIsNotATask.test.ts"
   ]
  },
  {

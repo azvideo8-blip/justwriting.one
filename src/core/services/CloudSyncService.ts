@@ -54,6 +54,10 @@ async function dropQueueTasksFor(localDocumentId: string, ownerId?: string): Pro
     const tx = db.transaction('syncQueue', 'readwrite');
     const all = await tx.store.getAll();
     for (const t of all) {
+      // Строка замка — не задача очереди. Снять её внутри критической секции
+      // значит выпустить в неё вторую вкладку: heartbeat обновляет только строку
+      // со своим ownerToken, так что замок назад не появится.
+      if (t.id.startsWith('lock_cloud_')) continue;
       if (t.documentId === localDocumentId || t.id === `sync_${localDocumentId}`) {
         await tx.store.delete(t.id);
       }

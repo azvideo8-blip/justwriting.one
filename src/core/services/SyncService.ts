@@ -334,7 +334,9 @@ export const SyncService = {
 
     const db = await getLocalDb(userId);
     const queue = await db.getAll('syncQueue');
-    const queuedDocIds = new Set(queue.map(q => q.documentId).filter(Boolean));
+    // Строка замка — не задача: заметка «в очереди» только пока её правда ждут.
+    // Иначе осколок замка от закрытой вкладки держал бы заметку вне ссыпа.
+    const queuedDocIds = new Set(queue.filter(q => !q.id.startsWith('lock_cloud_')).map(q => q.documentId).filter(Boolean));
 
     const localDocs = await LocalDocumentService.getDocumentsByOwner(userId);
     const now = Date.now();
