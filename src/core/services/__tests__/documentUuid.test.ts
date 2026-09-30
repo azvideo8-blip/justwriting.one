@@ -67,3 +67,33 @@ describe('a note gets a canonical uuid', () => {
     expect(await LocalDocumentService.backfillDocumentUuids('u1')).toBe(0);
   });
 });
+
+// LIFE-10: новая облачная копия под новым номером. Производные ИИ несут номер
+// в documentUuid, и при выгрузке он главнее номера заметки: останься там
+// старый — база (0035) вечно отвергала бы их как запись под надгробием.
+describe('a note that gets a new uuid', () => {
+  beforeEach(clear);
+
+  it('moves its local summary and embedding to the new uuid', async () => {
+    const db = await getLocalDb('u1');
+    await db.put('documents', {
+      id: 'local_re', guestId: 'u1', uuid: 'buried', title: 'n', currentVersion: 1,
+      totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1,
+      lastSessionAt: 1, tags: [],
+    } as never);
+    await db.put('aiSummaries', {
+      documentId: 'local_re', documentUuid: 'buried', tone: '', frequentWords: [],
+      insights: [], themes: [], extractedFacts: [], processedAt: 1,
+    });
+    await db.put('aiEmbeddings', {
+      documentId: 'local_re', documentUuid: 'buried', vectors: [[1]], model: 'm',
+      dim: 1, contentHash: 'h', processedAt: 1,
+    });
+
+    await LocalDocumentService.updateDocumentUuid('local_re', 'fresh', 'u1');
+
+    expect((await db.get('documents', 'local_re'))!.uuid).toBe('fresh');
+    expect((await db.get('aiSummaries', 'local_re'))!.documentUuid).toBe('fresh');
+    expect((await db.get('aiEmbeddings', 'local_re'))!.documentUuid).toBe('fresh');
+  });
+});

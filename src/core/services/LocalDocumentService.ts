@@ -497,17 +497,24 @@ export const LocalDocumentService = {
    *
    * Нужно ровно в одном случае (LIFE-10): прежний номер занят надгробием, а
    * надгробие неизменяемо, — и человек осознанно просит новую облачную копию.
-   * Производные ИИ хранятся локально по id заметки, а в облако уходят с
-   * номером, который берётся в момент выгрузки, так что смена номера их не
-   * рвёт; облачных производных у похороненного номера не осталось — их сносит
-   * удаление, до того как поставит надгробие.
+   * Производные ИИ хранятся локально по id заметки, но номер несут в своём
+   * `documentUuid`, и при выгрузке он главнее номера заметки
+   * (`canonicalDocumentId`). Оставь там старый — разбор и векторы вечно
+   * стучались бы под надгробие, а база с 0035 такую запись отвергает. Поэтому
+   * номер переписываем им в той же транзакции, что и заметке. Облачных
+   * производных у похороненного номера не осталось — их сносит удаление, до
+   * того как поставит надгробие.
    */
   async updateDocumentUuid(id: string, uuid: string, ownerId?: string): Promise<void> {
     const db = await getLocalDb(ownerId);
-    const tx = db.transaction('documents', 'readwrite');
-    const existing = await tx.store.get(id);
+    const tx = db.transaction(['documents', 'aiSummaries', 'aiEmbeddings'], 'readwrite');
+    const existing = await tx.objectStore('documents').get(id);
     if (!existing) { await tx.done; return; }
-    await tx.store.put({ ...existing, uuid });
+    await tx.objectStore('documents').put({ ...existing, uuid });
+    const summary = await tx.objectStore('aiSummaries').get(id);
+    if (summary) await tx.objectStore('aiSummaries').put({ ...summary, documentUuid: uuid });
+    const embedding = await tx.objectStore('aiEmbeddings').get(id);
+    if (embedding) await tx.objectStore('aiEmbeddings').put({ ...embedding, documentUuid: uuid });
     await tx.done;
   },
 
