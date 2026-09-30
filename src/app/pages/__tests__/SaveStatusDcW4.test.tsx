@@ -69,7 +69,14 @@ vi.mock('../../../features/writing/components/WritingHeader', () => ({ WritingHe
 vi.mock('../../../features/writing/components/WritingEditor', () => ({ WritingEditor: () => null }));
 vi.mock('../../../features/writing/components/WritingSetup', () => ({ WritingSetup: () => null }));
 vi.mock('../../../features/writing/components/LifeLogPanel', () => ({ LifeLogPanel: () => null }));
-vi.mock('../../../features/writing/components/BottomStats', () => ({ BottomStats: () => null }));
+// Дискета живёт в панели кнопок: мок панели рисует только её, из тех же пропсов.
+vi.mock('../../../features/writing/components/BottomStats', async () => {
+  const { SaveStatus } = await import('../../../features/writing/components/SaveStatus');
+  return {
+    BottomStats: (p: { saveStatus?: 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error'; saveErrorKind?: 'quota' | 'unknown' | null }) =>
+      <SaveStatus saveStatus={p.saveStatus ?? 'idle'} saveErrorKind={p.saveErrorKind ?? null} />,
+  };
+});
 vi.mock('../../../features/writing/components/SessionGlow', () => ({ SessionGlow: () => null }));
 
 describe('DC-W4: SaveStatus на экране письма', () => {
@@ -95,7 +102,7 @@ describe('DC-W4: SaveStatus на экране письма', () => {
     </LanguageProvider>
   );
 
-  // Дискета вместо надписей: почти прозрачна, на сохранении загорается и гаснет,
+  // Дискета в панели кнопок вместо надписей: почти прозрачна, на сохранении загорается и гаснет,
   // время — в подсказке. Ошибка — всегда видна и цветом, и голосом.
   it('иконка есть всегда, даже до первого сохранения', () => {
     renderLayout();

@@ -12,6 +12,7 @@ import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
 import { useGuardedSpeechInput } from '../hooks/useGuardedSpeechInput';
+import { SaveStatus, type SaveStatusKind } from './SaveStatus';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -29,12 +30,17 @@ interface BottomStatsProps {
   onPause: () => void;
   onStop: () => void;
   compact?: boolean;
+  saveStatus?: SaveStatusKind | undefined;
+  saveErrorKind?: 'quota' | 'unknown' | null | undefined;
 }
 
-export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsProps) {
+export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'idle', saveErrorKind }: BottomStatsProps) {
   const { t } = useLanguage();
   const { isZenActive, zenModeEnabled, effectiveHeaderVisibility } = useWritingSettings();
-  const showZen = isZenActive && zenModeEnabled;
+  // Ошибка сохранения и «только локально» не прячутся в дзене: дискета живёт
+  // в этой панели, и панель на 8% прозрачности съела бы сигнал (DC-W4).
+  const saveNeedsAttention = saveStatus === 'error' || saveStatus === 'cloud-stale';
+  const showZen = isZenActive && zenModeEnabled && !saveNeedsAttention;
   const reducedMotion = useReducedMotion();
   const { wordCount, wpm } = useContentStore(
     useShallow((s: ReturnType<typeof useContentStore.getState>) => ({
@@ -272,6 +278,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
       <div className="flex items-center gap-2 ml-2 shrink-0">
         <div className="w-px h-6 bg-border-subtle" />
         <div className="flex items-center gap-1 bg-text-main/[0.04] rounded-xl px-1 py-0.5">
+        <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} />
         {hasSupport && (
           <IconButton
             onClick={() => { void toggleListening(); }}

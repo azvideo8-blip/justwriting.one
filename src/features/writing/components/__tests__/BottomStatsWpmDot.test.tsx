@@ -8,11 +8,12 @@ import { LanguageProvider } from '../../../../shared/i18n';
 const state = vi.hoisted(() => ({
   wpm: 32,
   quietStats: false,
+  isZenActive: false,
 }));
 
 vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   useWritingSettings: () => ({
-    isZenActive: false,
+    isZenActive: state.isZenActive,
     zenModeEnabled: true,
     quietStats: state.quietStats,
     headerVisibility: { sessionTime: true, sessionWords: true, totalWords: true, wpm: true },
@@ -55,6 +56,7 @@ describe('скорость: цифра и фиолетовая точка', () =
   beforeEach(() => {
     state.wpm = 32;
     state.quietStats = false;
+    state.isZenActive = false;
   });
 
   it.each([7, 32, 60])('%i слов в минуту — без оценки словом, точка фирменного цвета', wpm => {
@@ -71,5 +73,23 @@ describe('скорость: цифра и фиолетовая точка', () =
     state.quietStats = true;
     renderStats();
     expect(screen.queryByText('32')).toBeNull();
+  });
+});
+
+describe('дискета в панели кнопок', () => {
+  beforeEach(() => { state.isZenActive = false; });
+
+  it('стоит в одной группе с паузой и стопом', () => {
+    render(<LanguageProvider><BottomStats onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} saveStatus="saved" /></LanguageProvider>);
+    const icon = screen.getByTestId('save-status');
+    expect(icon.closest('.rounded-xl')?.querySelector('[aria-label="Пауза"], [aria-label="Pause"]')).not.toBeNull();
+  });
+
+  it('в дзене панель гаснет, но не при ошибке сохранения', () => {
+    state.isZenActive = true;
+    const { container, rerender } = render(<LanguageProvider><BottomStats onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} saveStatus="saved" /></LanguageProvider>);
+    expect((container.firstChild as HTMLElement).className).toContain('opacity-[0.08]');
+    rerender(<LanguageProvider><BottomStats onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} saveStatus="error" saveErrorKind="unknown" /></LanguageProvider>);
+    expect((container.firstChild as HTMLElement).className).not.toContain('opacity-[0.08]');
   });
 });

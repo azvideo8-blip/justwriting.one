@@ -7,7 +7,7 @@ import { useWritingSettings } from '../../../core/settings/WritingSettingsContex
 
 export type SaveStatusKind = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
 
-// Дискета в левом нижнем углу вместо слов «Сохранение… / Сохранено»: мигающие
+// Дискета в панели кнопок справа внизу (рядом с микрофоном и паузой) вместо слов «Сохранение… / Сохранено»: мигающие
 // надписи отвлекали от письма. Иконка почти прозрачна, на сохранении плавно
 // загорается фирменным фиолетовым и гаснет; время — в подсказке по наведению.
 // Ошибка и «только локально» не гаснут: цветом и голосом для скринридера (DC-W4).
@@ -82,10 +82,11 @@ export function SaveStatus({
       >
         <Save size={14} aria-hidden="true" />
       </span>
+      {/* Слева от иконки, а не над ней: панель обрезает всё, что выше неё. */}
       <span
         id={tipId}
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-0 mb-1.5 whitespace-nowrap rounded-md border border-border-subtle bg-surface-popup px-2 py-1 text-xs text-text-main opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+        className="pointer-events-none absolute right-full top-1/2 -translate-y-1/2 mr-2 whitespace-nowrap rounded-md border border-border-subtle bg-surface-popup px-2 py-1 text-xs text-text-main opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
       >
         {tip}
       </span>
