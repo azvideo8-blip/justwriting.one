@@ -1630,6 +1630,32 @@ END $$;
 RESET role;
 RESET request.jwt.claims;
 
+-- ============================================================
+-- M-19 (R4-034): серверные таблицы без единого права у клиентских ролей.
+-- Deny-all политики их не читают, но право на таблицу оставалось —
+-- 0034 его отзывает. Без её revoke проверка красная: _auth_setup.sql
+-- выдаёт authenticated SELECT/INSERT/UPDATE/DELETE по умолчанию на все
+-- таблицы, которые миграции создают от postgres (на проде владелец тот же).
+-- anon в CI прав по умолчанию не получает, так что для него проверка
+-- здесь вакуумная; значима на стенде Supabase, где anon их получает.
+-- ============================================================
+DO $$
+DECLARE
+  tbl text;
+  rol text;
+  priv text;
+BEGIN
+  FOREACH tbl IN ARRAY ARRAY['public.applied_migrations', 'public.ai_global_daily', 'public.ai_cooldown', 'public.telemetry_cooldown'] LOOP
+    FOREACH rol IN ARRAY ARRAY['authenticated', 'anon'] LOOP
+      FOREACH priv IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
+        IF has_table_privilege(rol, tbl, priv) THEN
+          RAISE EXCEPTION 'FAIL: % has % on server-only table % (R4-034 revoke missing)', rol, priv, tbl;
+        END IF;
+      END LOOP;
+    END LOOP;
+  END LOOP;
+END $$;
+
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
 -- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),
