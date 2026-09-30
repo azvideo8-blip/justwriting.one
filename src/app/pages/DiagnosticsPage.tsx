@@ -653,7 +653,7 @@ export function DiagnosticsPage() {
                                         return (
                                           <tr key={ev.id} className="border-t border-border-subtle/20">
                                             <td className="py-1.5 pr-4 font-mono text-text-main/60">
-                                              {ev.ts ? new Date(ev.ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
+                                              {ev.ts ? new Date(ev.ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
                                             </td>
                                             <td className="py-1.5 pr-4 text-text-main/60">{fnLabel(ev.fn)}</td>
                                             <td className="py-1.5 pr-4 text-text-main/60">{modelLabel(ev.model)}</td>
@@ -719,7 +719,7 @@ export function DiagnosticsPage() {
                 <div className="divide-y divide-border-subtle/50 text-xs">
                   {summaryLogs.map(log => (
                     <div key={log.id} className="px-5 py-3 flex items-center gap-3 hover:bg-text-main/[0.01]">
-                      <span className="text-[10px] font-mono text-text-main/60">{new Date(log.processedAt).toLocaleString('ru-RU')}</span>
+                      <span className="text-[10px] font-mono text-text-main/60">{new Date(log.processedAt).toLocaleString(locale)}</span>
                       <span className="text-xs text-text-main/70 truncate flex-1 font-medium">«{log.title}»</span>
                       <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium bg-brand-soft/10 text-brand-soft">{log.tone}</span>
                     </div>

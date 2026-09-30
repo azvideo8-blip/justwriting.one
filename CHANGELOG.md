@@ -7,6 +7,8 @@
 
 ## 0.9.24 — 2026-09-30
 
+- **[RU]** Ссылка ИИ на заметку, номер которой модель сократила многоточием, снова открывается как ссылка, а не печатается сырым текстом.
+- **[EN]** An AI reference to a note whose id the model shortened with an ellipsis opens as a link again instead of printing as raw text.
 - **[RU]** Кризисная панель в чате появляется и тогда, когда фраза написана с невидимыми символами вместо пробелов, латинскими буквами-двойниками, по-английски или транслитом; на «I don't want to…» и «ne hochu umeret» она не срабатывает. В английском интерфейсе — те же российские номера помощи, что знает ИИ, и строка findahelpline.com для тех, кто не в России.
 - **[EN]** The crisis panel in the chat also appears when a phrase is written with invisible characters instead of spaces, Latin look-alike letters, in English or in transliteration; it does not fire on «I don't want to…» or «ne hochu umeret». The English interface shows the same Russian help lines the AI knows, plus findahelpline.com for those outside Russia.
 - **[RU]** Фраза вроде «забудь всё» в ответе ИИ больше не ломает диалог навсегда общей ошибкой — проверка на подмену инструкций смотрит только на последнее сообщение человека.
@@ -26,8 +28,6 @@
 
 ## 0.9.23 — 2026-09-30
 
-- **[RU]** Ссылка ИИ на заметку, номер которой модель сократила многоточием, снова открывается как ссылка, а не печатается сырым текстом.
-- **[EN]** An AI reference to a note whose id the model shortened with an ellipsis opens as a link again instead of printing as raw text.
 - **[RU]** Архив снова показывает состояние заметки с первого взгляда: цветная полоса метки, фиолетовые значки «на устройстве», «в облаке» и «разобрано ИИ»; жёлтое облако — есть неотправленные изменения. Нажатие на значок делает действие сразу — например, отправляет заметку в облако.
 - **[EN]** The archive shows a note’s state at a glance again: a coloured label stripe and violet «on device», «in the cloud» and «analysed by AI» icons; a yellow cloud means unsent changes. Clicking an icon acts right away — for example, sends the note to the cloud.
 - **[RU]** Карточки в сетке получили те же значки и меню «⋯»; меню заметки стало компактнее — метки выбираются цветными кружками в одну строку; «+ тег» виден без наведения.

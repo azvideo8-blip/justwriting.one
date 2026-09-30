@@ -296,6 +296,20 @@ describe('T-1 (d) Diagnostics components English localization (no Cyrillic chara
     checkNoCyrillicInNode(container);
   });
 
+  // R5-028: «даты следуют языку интерфейса» держалось только на машине с
+  // английской локалью — без языка в toLocaleDateString тест выше зелёный и на
+  // сломанном коде. Здесь проверяется сама локаль, а не текст.
+  it.each([['en', 'en-GB'], ['ru', 'ru-RU']] as const)('SyncDiagnostics форматирует дату в локали языка %s', (lang, locale) => {
+    const spy = vi.spyOn(Date.prototype, 'toLocaleDateString');
+    try {
+      renderInLanguage(<SyncDiagnostics userId="u123" />, lang);
+      expect(spy).toHaveBeenCalled();
+      for (const call of spy.mock.calls) expect(call[0]).toBe(locale);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('renders expected Russian Cyrillic strings when in Russian locale', () => {
     const { container } = renderInLanguage(<ActivityLogBadge />, 'ru');
     expect(cyrillicRegex.test(container.textContent || '')).toBe(true);
