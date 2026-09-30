@@ -277,20 +277,24 @@ export const AIDerivedDataSyncService = {
   /**
    * Returns counts of local derived data records across all 3 families.
    */
-  async getLocalDerivedCounts(): Promise<{ summaries: number; embeddings: number; stores: number; total: number }> {
+  async getLocalDerivedCounts(): Promise<{ summaries: number; embeddings: number; stores: number; total: number } | { unknown: true }> {
     try {
       const db = await getLocalDb();
       const summaries = await db.count('aiSummaries');
       const embeddings = await db.count('aiEmbeddings');
       const stores = await getLocalStoreRecordCounts();
+      // K-4/N-85: null — это отказ чтения, а не пусто; reportError уже вызван
+      // внутри getLocalStoreRecordCounts, второй раз не дублируем.
+      if (stores === null) return { unknown: true };
       return {
         summaries,
         embeddings,
         stores,
         total: summaries + embeddings + stores,
       };
-    } catch {
-      return { summaries: 0, embeddings: 0, stores: 0, total: 0 };
+    } catch (e) {
+      reportError(e, { action: 'getLocalDerivedCounts' }, 'warning');
+      return { unknown: true };
     }
   },
 };

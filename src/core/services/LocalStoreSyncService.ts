@@ -888,7 +888,7 @@ export class LocalStoreSyncManager {
   }
 }
 
-export async function getLocalStoreRecordCounts(): Promise<number> {
+export async function getLocalStoreRecordCounts(): Promise<number | null> {
   try {
     const db = await getLocalDb();
     let count = 0;
@@ -897,8 +897,11 @@ export async function getLocalStoreRecordCounts(): Promise<number> {
       count += await (db as unknown as { count(s: string): Promise<number> }).count(store);
     }
     return count;
-  } catch {
-    return 0;
+  } catch (e) {
+    // K-4/N-85: 0 интерфейс читает как «производных нет»; при отказе
+    // IndexedDB честнее сказать, что посчитать не удалось.
+    reportError(e, { action: 'getLocalStoreRecordCounts' }, 'warning');
+    return null;
   }
 }
 
