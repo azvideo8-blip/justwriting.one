@@ -39,10 +39,11 @@ describe('API health endpoints', () => {
     expect(typeof res.body.uptime).toBe('number');
   });
 
-  it('/ready reports readiness with active checks (POST-5)', async () => {
+  it('/ready reports active checks; unconfigured database means 503 (L-9 / R4-082)', async () => {
     const res = await get('/ready');
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('ready');
+    // Без DATABASE_URL прежний код изображал готовность 200 — теперь честно 503.
+    expect(res.status).toBe(503);
+    expect(res.body.status).toBe('not_ready');
     expect(Array.isArray(res.body.checks)).toBe(true);
     const checks = res.body.checks as Array<{ name: string; status: string }>;
     expect(checks.some(c => c.name === 'database')).toBe(true);

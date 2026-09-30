@@ -63,7 +63,7 @@ describe('/ready (SA-4)', () => {
       expect(wire).not.toContain(encodeURIComponent(secret));
     }
     expect(wire.toLowerCase()).not.toContain('embed.internal');
-  });
+  }, 15_000);
 
   it('база описана кодом ошибки и булевым флагом, а не текстом драйвера', async () => {
     QUERY.mockRejectedValue(Object.assign(new Error(PG_MESSAGE), { code: 'ECONNREFUSED' }));
@@ -91,13 +91,13 @@ describe('/ready (SA-4)', () => {
       .toEqual({ name: 'ai_embed_base_url', status: 'fallback_default' });
   });
 
-  it('без DATABASE_URL readiness не зависит от базы и остаётся зелёной', async () => {
+  it('без DATABASE_URL readiness честно 503 (L-9 / R4-082)', async () => {
     delete process.env.DATABASE_URL;
     QUERY.mockRejectedValue(new Error(PG_MESSAGE));
     const { status, body } = await ready();
 
-    expect(status).toBe(200);
-    expect(body.status).toBe('ready');
+    expect(status).toBe(503);
+    expect(body.status).toBe('not_ready');
     expect(body.checks.find(c => c.name === 'database')).toEqual({
       name: 'database', status: 'not_configured', ok: false,
     });

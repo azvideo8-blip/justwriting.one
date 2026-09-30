@@ -267,10 +267,16 @@ export function createCallReservation(
     },
     async recordUsage(tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) {
       if (usageRecorded) return;
-      // R4-053: защёлка только после успешного await — иначе один сбой БД
-      // навсегда блокировал повтор и резерв зависал в ai_global_daily.
-      await ctx.recordUsage(uid, tokensIn, tokensOut, opts, currentGlobal);
+      // R4-053: защёлка ставится сразу (защита от гонки с параллельным
+      // settle), но при сбое await снимается — один сбой БД больше не
+      // блокирует повтор навсегда и не зависает резерв в ai_global_daily.
       usageRecorded = true;
+      try {
+        await ctx.recordUsage(uid, tokensIn, tokensOut, opts, currentGlobal);
+      } catch (e) {
+        usageRecorded = false;
+        throw e;
+      }
     },
     async settle(reason: SettleReason, usage?: CallReservationUsage) {
       if (isSettled) return;
@@ -279,18 +285,7 @@ export function createCallReservation(
       try {
       if (reason === 'done') {
         if (usage && (!currentGlobal || !currentGlobal.refunded)) {
-          if (!usageRecorded) {
-            const meta: { model?: string; fn?: string } = { fn: 'chat-stream' };
-            if (usage.model) meta.model = usage.model;
-            await ctx.recordUsage(
-              uid,
-              usage.tokensIn ?? 0,
-              usage.tokensOut ?? 0,
-              meta,
-              currentGlobal,
-            );
-            usageRecorded = true;
-          }
+          await res.recordUsage(usage.tokensIn ?? 0, usage.tokensOut ?? 0, { fn: 'chat-stream', ...(usage.model ? { model: usage.model } : {}) });
         }
         return;
       }
@@ -322,20 +317,11 @@ export function createCallReservation(
         // the unconsumed remainder is refunded to ai_global_daily.
         // Prompt tokens (input) were genuinely consumed before upstream started producing;
         // fallback to estimatedInputTokens if usage.tokensIn is absent on abort.
-        if (!usageRecorded) {
-          const tokensIn = usage?.tokensIn ?? currentEstimatedInput ?? 0;
-          const tokensOut = usage?.tokensOut ?? Math.ceil(producedChars / 3);
-          const meta: { model?: string; fn?: string } = { fn: 'chat-stream-abort' };
-          if (usage?.model) meta.model = usage.model;
-          await ctx.recordUsage(
-            uid,
-            tokensIn,
-            tokensOut,
-            meta,
-            currentGlobal,
-          );
-          usageRecorded = true;
-        }
+        await res.recordUsage(
+          usage?.tokensIn ?? currentEstimatedInput ?? 0,
+          usage?.tokensOut ?? Math.ceil(producedChars / 3),
+          { fn: 'chat-stream-abort', ...(usage?.model ? { model: usage.model } : {}) },
+        );
       }
       } catch (e) {
         // R4-053: сбой внутри settle не должен защёлкивать резервацию —

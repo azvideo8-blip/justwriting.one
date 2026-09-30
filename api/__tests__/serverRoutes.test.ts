@@ -55,15 +55,15 @@ describe('production route smoke (server.ts)', () => {
     }
   });
 
-  it('ready endpoint returns status and checks on the production route (POST-5)', async () => {
+  it('ready endpoint reports checks; unconfigured database is 503 (POST-5, R4-082)', async () => {
     server = (await import('../server')).default;
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', () => resolve()));
     port = (server.address() as import('node:net').AddressInfo).port;
     try {
       const res = await fetch(`http://127.0.0.1:${port}/ready`);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(503);
       const data = (await res.json()) as { status: string; checks: Array<{ name: string; status: string; url?: string }> };
-      expect(data.status).toBe('ready');
+      expect(data.status).toBe('not_ready');
       expect(Array.isArray(data.checks)).toBe(true);
 
       const dbCheck = data.checks.find(c => c.name === 'database');
@@ -89,6 +89,9 @@ describe('production route smoke (server.ts)', () => {
     const script = [
       "process.env.NODE_ENV = 'production';",
       "process.env.PORT = '3098';",
+      // R4-082: без DATABASE_URL прод-процесс теперь падает на старте в db.ts,
+      // не доходя до uncaughtException-страховки — даём фиктивный DSN.
+      "process.env.DATABASE_URL = 'postgresql://narrow-3:test@127.0.0.1:1/db';",
       "process.env.SUPABASE_JWT_ISS = 'https://example.com/auth/v1';",
       `import(${JSON.stringify(serverUrl)}).then(() => {`,
       "  setTimeout(() => { throw new Error('narrow-3-test-error'); }, 10);",
