@@ -297,7 +297,8 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                     {syncStatus.status === 'pending' && t('sync_paused_pending', { count: String(syncStatus.pendingCount) })}
                     {syncStatus.status === 'unsynced' && t('sync_paused_unsynced', { count: String(syncStatus.unsyncedCount) })}
                     {syncStatus.status === 'ai_store_unsynced' && t('sync_ai_store_pending', { count: String(syncStatus.aiStorePendingCount + syncStatus.aiStoreDeadCount) })}
-                    {syncStatus.status === 'sync_off' && t('sync_off_all_uploaded')}
+                    {/* M-13: до первого замера «всё в облаке» — неправда */}
+                    {syncStatus.status === 'sync_off' && (syncStatus.loaded ? t('sync_off_all_uploaded') : t('sync_status_checking'))}
                   </span>
                 )}
               </div>

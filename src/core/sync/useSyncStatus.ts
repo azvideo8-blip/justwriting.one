@@ -37,6 +37,8 @@ export interface SyncStatusState {
   aiStoreDeadCount: number;
   /** false when user disabled auto-sync — indicator should be hidden */
   autoSyncEnabled: boolean;
+  /** M-13: первый опрос этой учётки ответил. До него «sync_off» — «ещё не знаем», а не «всё в облаке». */
+  loaded: boolean;
 }
 
 const PENDING_GRACE_MS = 30_000;
@@ -197,7 +199,12 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
   // Снимок помнит, чей он: после смены учётки прежние счётчики не попадают
   // даже в первый рендер новой — пока нет своих, показываются нули (R3-024).
-  const [snap, setSnap] = useState<{ owner: string | null; counts: SharedCounts; loaded: boolean }>({ owner: userId, counts: EMPTY_COUNTS, loaded: sharedCountsLoaded });
+  // M-13: флаг «замер есть» глобальный — без проверки владельца новая учётка
+  // наследовала его от прежней и сразу говорила «synced» на нулях.
+  const [snap, setSnap] = useState<{ owner: string | null; counts: SharedCounts; loaded: boolean }>(() => {
+    const own = sharedCountsUserId === userId;
+    return { owner: userId, counts: own ? sharedCounts : EMPTY_COUNTS, loaded: own && sharedCountsLoaded };
+  });
   const c = snap.owner === userId ? snap.counts : EMPTY_COUNTS;
   const loaded = snap.owner === userId ? snap.loaded : false;
   const pendingCount = c.pending;
@@ -345,5 +352,6 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
     aiStorePendingCount,
     aiStoreDeadCount,
     autoSyncEnabled,
+    loaded,
   };
 }

@@ -397,12 +397,14 @@ export function getDeadStoreUpserts(uid?: string): DeadStoreUpsert[] {
   return uid ? (list ?? []).filter(d => d.uid === uid) : (list ?? []);
 }
 
-function markDeadUpsert(uid: string, store: string, key: string, attempts: number, lastError: string): void {
+/** false — журнал не читается и отметка не записана: маркер загрузки снимать нельзя (M-11). */
+function markDeadUpsert(uid: string, store: string, key: string, attempts: number, lastError: string): boolean {
   const list = readDeadUpserts();
-  if (list === null) return;
+  if (list === null) return false;
   const next = list.filter(d => !(d.uid === uid && d.store === store && d.key === key));
   next.push({ uid, store, key, lastError, attempts, timestamp: Date.now() });
   writeDeadUpserts(next);
+  return true;
 }
 
 /** Снять отметку «отвергнуто» сразу с нескольких записей — одним перечнём. */
@@ -416,16 +418,18 @@ function forgetDeadUpserts(uid: string, entries: Array<{ store: string; key: str
   writeDeadUpserts(next);
 }
 
-/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. `unknown` — журнал удалений не читается, и pending поэтому нижняя граница. oversized — записи, живущие только на устройстве (R4-017). */
+/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. `unknown` — какой-то из журналов (удалений, отвергнутых, слишком больших) не читается, и счёт поэтому нижняя граница. oversized — записи, живущие только на устройстве (R4-017). */
 export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: number; oversized: number; unknown: boolean } {
   const deletes = readPersistedDeletes();
+  const dead = readDeadUpserts();
+  const oversized = readOversizedRecords(uid);
   const pending = getPendingStoreUpserts(uid).length
     + (deletes === null ? 0 : deletes.filter(d => d.uid === uid).length);
   return {
     pending,
-    dead: getDeadStoreUpserts(uid).length,
-    oversized: getOversizedRecords(uid).length,
-    unknown: deletes === null,
+    dead: (dead ?? []).filter(d => d.uid === uid).length,
+    oversized: (oversized ?? []).length,
+    unknown: deletes === null || dead === null || oversized === null,
   };
 }
 
@@ -515,15 +519,20 @@ export function getOversizedRecordCount(uid?: string): number {
   return getOversizedRecords(uid).length;
 }
 
-function setOversizedRecord(store: string, key: string, bytes: number): void {
+/** false — отметка не записана: маркер загрузки снимать нельзя (M-11). */
+function setOversizedRecord(store: string, key: string, bytes: number): boolean {
   const uid = getCurrentUser()?.uid;
   const list = readOversizedRecords(uid);
-  if (list === null) return;
+  if (list === null) return false;
   const next = list.filter(r => !(r.store === store && r.key === key));
   next.push({ store, key, bytes, timestamp: Date.now() });
   try {
     localStorage.setItem(oversizedKeyFor(uid), JSON.stringify(next));
-  } catch (e) { reportError(e, { action: 'setOversizedRecord' }, 'warning'); }
+    return true;
+  } catch (e) {
+    reportError(e, { action: 'setOversizedRecord' }, 'warning');
+    return false;
+  }
 }
 
 function removeOversizedRecord(store: string, key: string): void {
@@ -542,6 +551,9 @@ export class LocalStoreSyncManager {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private isSyncing = false;
   private hasRetriedOversized = false;
+  // M-10: поколение удалений по ключу. Растёт только в scheduleStoreDelete —
+  // flush, чистящий очередь, или подтянутое с диска удаление его не меняют.
+  private deleteGen = new Map<string, number>();
 
   /**
    * SYNC-2: Retry records previously marked as oversized if their recorded size is now <= MAX_LOCAL_RECORD_BYTES.
@@ -577,10 +589,11 @@ export class LocalStoreSyncManager {
     // а самой записи в IndexedDB уже нет (запоздалый ответ ИИ или фоновой задачи),
     // вызов игнорируется, чтобы не воскрешать удалённую строку в памяти и облаке.
     if (hasPendingDelete || hasPersistedDelete) {
-      // R4-075: снимок очереди — синхронно, до любых await. Между ним и resolve
+      // R4-075: поколение — синхронно, до любых await. Между ним и resolve
       // чтения синхронный scheduleStoreDelete успевает поставить удаление —
-      // перезаписывать его upsert'ом нельзя.
-      const before = this.pending.get(itemKey);
+      // перезаписывать его upsert'ом нельзя. Сравнивать саму запись очереди
+      // нельзя: её меняет и flush, и тогда живой upsert терялся (M-10).
+      const gen = this.deleteGen.get(itemKey) ?? 0;
       void (async () => {
         try {
           // База владельца маркера, а не «текущая»: между вызовом и чтением
@@ -590,7 +603,7 @@ export class LocalStoreSyncManager {
           if (!rec) {
             return;
           }
-          if (this.pending.get(itemKey) !== before) {
+          if ((this.deleteGen.get(itemKey) ?? 0) !== gen) {
             return;
           }
           this.pending.set(itemKey, { store, key, isDelete: false });
@@ -631,6 +644,7 @@ export class LocalStoreSyncManager {
       applyUpsertMarkerChanges(uid, { attempts: new Map(), dropped: new Set([itemKey]) }, () => false);
       forgetDeadUpserts(uid, [{ store, key }]);
     }
+    this.deleteGen.set(itemKey, (this.deleteGen.get(itemKey) ?? 0) + 1);
     this.pending.set(itemKey, { store, key, isDelete: true });
     this.resetTimer();
   }
@@ -769,10 +783,10 @@ export class LocalStoreSyncManager {
           // страницы не режет символ. Такая запись тоже не влезает в один запрос.
           const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
           if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) {
-            setOversizedRecord(item.store, item.key, recordBytes);
             // Для таких записей уже есть своя персистентная отметка — две на
-            // одну запись удваивали бы счёт в бейдже.
-            markerChanges.dropped.add(itemKey);
+            // одну запись удваивали бы счёт в бейдже. Не записалась — маркер
+            // загрузки остаётся, иначе запись не учтена нигде (M-11).
+            if (setOversizedRecord(item.store, item.key, recordBytes)) markerChanges.dropped.add(itemKey);
             result.skippedOversized++;
             logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
             useActivityLogStore.getState().addActivity(
@@ -871,8 +885,8 @@ export class LocalStoreSyncManager {
                 markerChanges.attempts.set(itemKey, attempts);
               } else {
                 // SA-1: раньше здесь запись исчезала молча.
-                markDeadUpsert(uid, item.store, item.key, attempts, msg.slice(0, 200));
-                markerChanges.dropped.add(itemKey);
+                // Отметка не записалась — маркер загрузки остаётся (M-11).
+                if (markDeadUpsert(uid, item.store, item.key, attempts, msg.slice(0, 200))) markerChanges.dropped.add(itemKey);
                 useActivityLogStore.getState().addActivity(
                   'activity_local_store_dead_upsert',
                   { action: 'localStoreSync_dead', store: item.store, key: item.key, attempts, error: msg.slice(0, 200) },

@@ -234,6 +234,7 @@ export const settingsTranslations: Translations = {
     en: 'Cloud upload error ({reason}): {queued} documents queued for retry',
   },
   sync_off_all_uploaded: { ru: 'Всё есть в облаке, но автоотправка выключена — новое туда само не поедет', en: 'Everything is in the cloud, but auto-upload is off — new writing will not go there by itself' },
+  sync_status_checking: { ru: 'Проверяю, что уже в облаке…', en: 'Checking what is already in the cloud…' },
   sync_paused_unsynced: {
     ru: 'Не синхронизировано заметок: {count}',
     en: 'Unsynced documents: {count}',

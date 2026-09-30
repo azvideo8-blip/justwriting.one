@@ -47,16 +47,22 @@ describe('R4-004: corrupt journals are not overwritten by writers', () => {
     save = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
   });
 
-  it('corrupt dead-upsert journal: a new dead mark does not overwrite the raw', async () => {
+  it('corrupt dead-upsert journal: a new dead mark does not overwrite the raw, the upload marker stays', async () => {
     localStorage.setItem('ai_sync_dead_upserts', '{corrupt');
     save.mockRejectedValue(new Error('Failed to fetch'));
+    // M-11: без записи в IDB проход снимал маркер раньше, чем доходил до markDeadUpsert.
+    const db = await getLocalDb();
+    await db.put('aiPortrait', { id: 'p1', portrait: '# x', updatedAt: 1, generatedAtDelta: 0 });
 
     const tab = new LocalStoreSyncManager();
     tab.scheduleStoreSync('aiPortrait', 'p1');
-    for (let i = 0; i < 6; i++) await tab.flushPending(true);
+    // Пятый отказ — предел попыток: проход доходит до markDeadUpsert.
+    for (let i = 0; i < 5; i++) await tab.flushPending(true);
 
+    expect(save).toHaveBeenCalledTimes(5);
     expect(localStorage.getItem('ai_sync_dead_upserts')).toBe('{corrupt');
-    expect(getLocalStoreSyncSummary(USER).dead).toBe(0);
+    // M-11: отметка не записалась — маркер загрузки остаётся, а сводка не говорит «синхронизировано».
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, oversized: 0, unknown: true });
     expect(reportError).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({ action: 'readDeadUpserts' }),
@@ -64,7 +70,7 @@ describe('R4-004: corrupt journals are not overwritten by writers', () => {
     );
   });
 
-  it('corrupt oversized journal: a new oversized mark does not overwrite the raw', async () => {
+  it('corrupt oversized journal: a new oversized mark does not overwrite the raw, the upload marker stays', async () => {
     localStorage.setItem(`ai_sync_oversized_records:${USER}`, '{corrupt');
     await putHugeDialogue('huge_dialogue');
 
@@ -74,6 +80,7 @@ describe('R4-004: corrupt journals are not overwritten by writers', () => {
 
     expect(res.skippedOversized).toBe(1);
     expect(localStorage.getItem(`ai_sync_oversized_records:${USER}`)).toBe('{corrupt');
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, oversized: 0, unknown: true });
   });
 });
 

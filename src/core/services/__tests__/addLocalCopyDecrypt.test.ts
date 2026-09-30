@@ -89,3 +89,31 @@ describe('addLocalCopy — a failed decrypt never becomes local text', () => {
     expect(createDoc).not.toHaveBeenCalled();
   });
 });
+
+// M-12: облачный ряд говорит currentVersion 2, а скачано три версии — отставший
+// счётчик прятал третью за «синхронизировано».
+describe('M-12: addLocalCopy takes the version counter from what it downloaded', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(LocalStorageService, 'getDocumentsByOwner').mockResolvedValue([]);
+    vi.spyOn(LocalStorageService, 'createDocument').mockResolvedValue('local_new');
+    vi.spyOn(LocalStorageService, 'updateLinkedCloudId').mockResolvedValue(undefined);
+    vi.spyOn(DocumentService, 'getDocument').mockResolvedValue({
+      id: 'cloud_1', title: 'n', tags: [], totalWords: 1, totalDuration: 0,
+      currentVersion: 2, sessionsCount: 1, firstSessionAt: new Date(1), lastSessionAt: new Date(2),
+    } as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue([cloudVersion(1), cloudVersion(2), cloudVersion(3)] as never);
+    vi.spyOn(CryptoHelpers, 'maybeDecrypt').mockImplementation(async (doc) => ({ ...(doc as object), content: 'текст' }) as never);
+    vi.spyOn(LocalVersionService, 'addVersion').mockResolvedValue(undefined as never);
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('a lagging cloud currentVersion does not hide the newest downloaded version', async () => {
+    const update = vi.spyOn(LocalStorageService, 'updateDocument').mockResolvedValue(undefined as never);
+
+    await CloudSyncService.addLocalCopy('user_1', 'cloud_1');
+
+    expect(update).toHaveBeenCalledWith('local_new', expect.objectContaining({ currentVersion: 3, lastSyncedCloudVersion: 3 }), 'user_1');
+  });
+});

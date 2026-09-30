@@ -15,13 +15,14 @@ import { renderHook, waitFor } from '@testing-library/react';
  */
 
 const getUnsyncedCount = vi.fn(async () => 0);
-const getUnsyncedSummary = vi.fn(async () => ({
+const defaultSummary = async () => ({
   unsyncedCount: await getUnsyncedCount(),
   behindCount: 0,
   unlinkedCount: await getUnsyncedCount(),
   deviceOnlyCount: 0,
   hasUnknown: false,
-}));
+});
+const getUnsyncedSummary = vi.fn(defaultSummary);
 const getPendingCount = vi.fn(async () => 0);
 
 vi.mock('../../services/SyncService', () => ({
@@ -36,6 +37,9 @@ describe('состояние синхронизации не выдаёт нез
     vi.clearAllMocks();
     localStorage.clear();
     getPendingCount.mockResolvedValue(0);
+    // clearAllMocks не снимает mockResolvedValue: hasUnknown из соседнего теста
+    // доезжал до следующего через общий снимок счётчиков (M-13).
+    getUnsyncedSummary.mockImplementation(defaultSummary);
   });
 
   it('при выключенной автоотправке незалитые заметки всё равно посчитаны и названы', async () => {

@@ -664,12 +664,15 @@ export const CloudSyncService = {
           );
         }
 
+        // M-12: как в R4-005 — отставший счётчик облачного ряда прятал хвост
+        // скачанной истории за «синхронизировано».
+        const seenMaxVersion = Math.max(cloudDoc.currentVersion, latestVersionNo);
         await LocalStorageService.updateDocument(localId, {
           totalWords: cloudDoc.totalWords,
           totalDuration: cloudDoc.totalDuration,
-          currentVersion: cloudDoc.currentVersion,
+          currentVersion: seenMaxVersion,
           sessionsCount: cloudDoc.sessionsCount ?? 1,
-          lastSyncedCloudVersion: cloudDoc.currentVersion,
+          lastSyncedCloudVersion: seenMaxVersion,
           lastSeenCloudUpdatedAt: cloudDoc.updatedAt ? new Date(cloudDoc.updatedAt).toISOString() : (cloudDoc.createdAt ? new Date(cloudDoc.createdAt).toISOString() : new Date().toISOString()),
         }, userId);
 
