@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.9.24 — 2026-09-30
+
+- **[RU]** Кризисная панель в чате появляется и тогда, когда фраза написана с невидимыми символами вместо пробелов, латинскими буквами-двойниками, по-английски или транслитом; на «I don't want to…» и «ne hochu umeret» она не срабатывает. В английском интерфейсе — те же российские номера помощи, что знает ИИ, и строка findahelpline.com для тех, кто не в России.
+- **[EN]** The crisis panel in the chat also appears when a phrase is written with invisible characters instead of spaces, Latin look-alike letters, in English or in transliteration; it does not fire on «I don't want to…» or «ne hochu umeret». The English interface shows the same Russian help lines the AI knows, plus findahelpline.com for those outside Russia.
+- **[RU]** Фраза вроде «забудь всё» в ответе ИИ больше не ломает диалог навсегда общей ошибкой — проверка на подмену инструкций смотрит только на последнее сообщение человека.
+- **[EN]** A phrase like «forget everything» in an AI reply no longer breaks the dialogue for good with a generic error — the instruction-injection check looks only at the person’s latest message.
+- **[RU]** Текст удалённой заметки больше не может остаться на сервере: если удаление совпало с выгрузкой из другой вкладки, сервер отказывает в записи версии удалённой заметки.
+- **[EN]** A deleted note’s text can no longer stay on the server: if the delete coincided with an upload from another tab, the server refuses to store a version of the deleted note.
+- **[RU]** Удаление записи ИИ не теряется, если в тот же момент пришёл запоздалый ответ модели; удалённый разбор и разбор скрытой от ИИ заметки не возвращаются при восстановлении из облака.
+- **[EN]** Deleting an AI record is not lost when a late model reply arrives at the same moment; a deleted analysis, or one of a note hidden from AI, does not come back on a restore from the cloud.
+- **[RU]** Индикатор синхронизации не говорит «всё в облаке», пока не посчитал; записи ИИ, которые слишком велики для облака или не читаются, больше не выглядят синхронизированными.
+- **[EN]** The sync indicator does not say «everything is in the cloud» before it has counted; AI records too large for the cloud or unreadable no longer look synced.
+- **[RU]** Письма о входе, смене пароля и приглашении — на русском и английском; строки «введите код вручную», для которого в приложении нет поля, больше нет.
+- **[EN]** Sign-in, password reset and invitation emails are in Russian and English; the «enter the code manually» line, which had no field in the app, is gone.
+- **[RU]** Руководство на сайте описывает текущий архив и окно завершения записи.
+- **[EN]** The on-site guide describes the current archive and the finish window.
+- **[RU]** Сервер больше не перенаправляет на чужой домен и не называет свою версию; проверка после выкатки следит за этим.
+- **[EN]** The server no longer redirects to a foreign domain or reveals its version; the post-deploy check watches for it.
+
 ## 0.9.23 — 2026-09-30
 
 - **[RU]** Ссылка ИИ на заметку, номер которой модель сократила многоточием, снова открывается как ссылка, а не печатается сырым текстом.
