@@ -6,20 +6,42 @@ import { classifyInvisibleCodePoint, CONFUSABLES_MAP, foldConfusables } from '..
 
 // Текст сравнивается после normalize(): нижний регистр, ё→е, без невидимых
 // символов — поэтому в паттернах только «е».
+
+// R5-016: «покончить с X» остро, только если X — «собой», «жизнью» или голое
+// «с этим / со всем (этим)» в конце клаузы. «покончить с прокрастинацией»,
+// «с этим бардаком» — быт. «Покончить» без «с …» остаётся острым.
+const POKONCHIT = String.raw`покончить(?:\s+со?\s+(?:собо[йю]|(?:[а-я]+\s+)?жизнью|(?:всем|этим)(?:\s+(?:всем|этим))?(?:\s+(?:раз\s+и\s+)?навсегда)?(?![^\S\n]*[а-я]))|(?!\s+со?\s))`;
+// R5-016: «умереть от смеха / со стыда / от скуки» — идиомы. Тоска, боль,
+// одиночество сюда нарочно не входят: «хочу умереть от тоски» — это уже про
+// состояние человека, а не фигура речи, и лишняя панель дешевле пропуска.
+const UMERET = String.raw`(?:умереть|умирать)(?!\s+(?:от|со)\s+(?:смех|стыд|скук|любопытств|завист|восторг|счасть|умилени|нетерпени))`;
+// R5-004: «не хочу жить в этом городе / у родителей / с ним / одна» — про место
+// и соседей, не острое. «в/на» с миром, светом, болью, страхом, одиночеством
+// и т. п. остаются острыми, «с» — только с людьми (с этой болью — острое).
+const ZHIT_WHERE = String.raw`(?:в|во|на)\s+(?!(?:[а-я]+\s+)?(?:мир|свет|жизн|ад[уе]?(?![а-я])|страх|бол|муч|одиночеств|тоск|пустот|отчаяни|депресс|тел[еоу]?(?![а-я])|темнот))[а-я]`;
+const ZHIT_WITH = String.raw`со?\s+(?:(?:ним|ней|ними|тобой|вами)(?![а-я])|родител|мам|пап|муж|жен|сосед|бывш|парн|девушк)`;
+const ZHIT_PLACE = String.raw`(?:у|под|за|возле|около|рядом|вместе|среди|здесь|тут|там|одн[аио]|один)(?![а-я])`;
+
 const RISK_PATTERNS: RegExp[] = [
   // Explicit suicidal intent
-  /хочу\s+(умереть|покончить|убить\s+себя)/,
+  new RegExp(String.raw`хочу\s+(?:${UMERET}|${POKONCHIT}|убить\s+себя)`),
   /покончить\s+с\s+собой/,
   /суицид/,
   /самоубийств/,
-  /не\s+хочу\s+жить/,
+  // «не хочу больше жить» — тот же канонический случай, что «не хочу жить».
+  new RegExp(String.raw`не\s+хочу\s+(?:больше\s+|дальше\s+|вообще\s+)?жить(?!\s+(?:${ZHIT_WHERE}|${ZHIT_WITH}|${ZHIT_PLACE}))`),
   /нет\s+смысла\s+(дальше\s+)?жить/,
   /лучше\s+бы\s+(я\s+)?(умер|погиб|не\s+родился)/,
-  /думал.{0,200}\s+(о\s+смерти|убить\s+себя|покончить)/,
+  new RegExp(String.raw`думал.{0,200}\s+(?:о\s+смерти|убить\s+себя|${POKONCHIT})`),
+  // R5-014: настоящее время. «думаю о смерти» сюда нарочно не входит — это
+  // чаще горе о ком-то, чем план.
+  new RegExp(String.raw`думаю.{0,200}\s+(?:убить\s+себя|${POKONCHIT})`),
   // Plan / means. Средства — целыми словами: «яд» сидит внутри «порядок», «наряд».
   // Средство и цель — в одной клаузе: без класса-границы «таблетки» из «врач
   // выписал таблетки, чтобы не умереть» дотягивался через запятую до «умереть».
-  /(?:^|[^а-я])(таблетк|нож|веревк|оруж|яд(?![а-я])|выброс\w*с\w*окн|выпрыгн|крыш|поезд|утоп)[^.,;:!?\n—–]*\s+(собой|себя|умереть|покончить)/,
+  // R5-015: разрыв ограничен {0,100} — с * строка «нож нож …» ×50k без знаков
+  // препинания бэктрекала квадратично (~22 с).
+  /(?:^|[^а-я])(таблетк|нож|веревк|оруж|яд(?![а-я])|выброс\w*с\w*окн|выпрыгн|крыш|поезд|утоп)[^.,;:!?\n—–]{0,100}\s+(собой|себя|умереть|покончить)/,
   // Self-harm intent
   /хочу\s+(порезать|навредить|причинить\s+боль)\s+(себе|себя)/,
   /режу\s+себя/,
@@ -71,12 +93,17 @@ function foldLatinLookalikes(text: string): string {
 const SAFE_CONTEXT = [
   'не хочу', 'не думал', 'не планирую', 'раньше думал', 'была мысль но',
   'не буду', 'справляюсь', 'преодол', 'прошло', 'в прошлом', 'не про меня',
+  // R5-014/R5-020: отрицание настоящего времени и «суицид не вариант» — в той
+  // же клаузе. «Не выход» не добавлен: он сидит внутри «ничего не выходит».
+  'не думаю', 'не вариант',
 ];
 
 // M-15: отрицание для EN/транслита — «I don't want to kill myself», «ne hochu umeret».
 // Только если оно управляет самой фразой, вплотную перед ней: «I'm not ok and
 // I want to die» — одна клауза, но «not» к «want to die» не относится.
-const FOREIGN_NEGATION_BEFORE = /(?:\bdo(?:n['’]?t| not)|\bnot|\bnever|\bwon['’]?t)\s+(?:want|going|plan(?:ning)?|gonna|wanna)\s+(?:to\s+)?$|\bne\s+$/;
+// R5-017: вспомогательный глагол с отрицанием управляет и самим «kill»:
+// «I won't / will not / wouldn't kill myself», «it's not that I want to die».
+const FOREIGN_NEGATION_BEFORE = /(?:\bdo(?:n['’]?t| not)|\bnot|\bnever|\bwon['’]?t)\s+(?:want|going|plan(?:ning)?|gonna|wanna)\s+(?:to\s+)?$|\b(?:won['’]?t|will\s+(?:not|never)|would(?:n['’]?t|\s+not|\s+never)|never|do(?:n['’]?t|\s+not)|not\s+that)\s+$|\bne\s+$/;
 
 // Граница клаузы: знак препинания или союз-поворот. Исключение из соседней
 // клаузы («не думал о смерти, но хочу покончить с собой») острое не гасит.
@@ -91,16 +118,18 @@ export interface RiskResult {
 const LETTER_RE = /[\p{L}\p{N}]/u;
 
 function baseNormalize(text: string): string {
-  const chars = Array.from(text);
   let out = '';
-  for (let i = 0; i < chars.length; i++) {
-    const ch = chars[i]!;
+  let dropped = false;
+  for (const ch of text) {
     const action = classifyInvisibleCodePoint(ch.codePointAt(0) ?? 0);
-    if (action === 'space') out += ' ';
-    else if (action === 'keep') out += ch;
+    if (action === 'drop') { dropped = true; continue; }
     // «drop»-символ между двумя буквами склеивал слова: «нехочужить» без
     // пробелов после выбрасывания нулевой ширины уходил мимо всех паттернов.
-    else if (LETTER_RE.test(chars[i - 1] ?? '') && LETTER_RE.test(chars[i + 1] ?? '')) out += ' ';
+    // R5-014: соседи — последняя выведенная буква и следующая настоящая, а не
+    // соседний невидимый символ: серия из двух ZWSP тоже даёт один пробел.
+    if (dropped && LETTER_RE.test(ch) && LETTER_RE.test(out[out.length - 1] ?? '')) out += ' ';
+    dropped = false;
+    out += action === 'space' ? ' ' : ch;
   }
   return out.toLowerCase().replace(/ё/g, 'е');
 }
@@ -156,7 +185,10 @@ export function detectRisk(text: string): RiskResult {
   const cyr = foldLatinLookalikes(lower);
   const cyrMatch = firstAcuteMatch(cyr, RISK_PATTERNS, (l, s, e) => hasSafeContextAround(l, s, e, SAFE_CONTEXT));
   if (cyrMatch) return { isRisk: true, severity: 'acute', matchedPattern: cyrMatch };
-  const latMatch = firstAcuteMatch(foldConfusables(lower), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore);
+  // R5-018: CONFUSABLES_MAP складывает кириллическую «у» в «y», а в EN/транслите
+  // она подменяет и «u» («sуicide», «hochу») — второй проход с «у»→«u».
+  const latMatch = firstAcuteMatch(foldConfusables(lower), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore)
+    ?? firstAcuteMatch(foldConfusables(lower.replace(/у/g, 'u')), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore);
   if (latMatch) return { isRisk: true, severity: 'acute', matchedPattern: latMatch };
 
   return { isRisk: false, severity: 'none' };

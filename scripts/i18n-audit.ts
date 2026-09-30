@@ -238,7 +238,9 @@ export function isBlind(srcCount: number, tsxCount: number): boolean {
 // Список стоков — из кода, а не из фантазии: собиратели промптов (profilePrompt,
 // AIMemoryAssembler-ы), лог-вызовы (console.*, reportError) и поля text/content
 // (в них живут тексты промптов) сюда сознательно не входят.
-const UI_SINK_CALLEES = new Set(['showToast', 'addActivity', 'showDbOverlay', 'confirm', 'alert', 'prompt']);
+// useState('…') — G-5: начальное значение состояния рендерится как {err}, и
+// JSX-проход его не видит.
+const UI_SINK_CALLEES = new Set(['useState', 'showToast', 'addActivity', 'showDbOverlay', 'confirm', 'alert', 'prompt']);
 const UI_SINK_SETTER = /^(set|show)[A-Za-z0-9_]*(Error|Message|Hint|Notice|Toast|Status|Stage|Overlay)$/;
 const UI_TEXT_FIELDS = new Set(['currentStage', 'message', 'label', 'title', 'description', 'error', 'errors', 'hint', 'subtitle']);
 // Аргументы этих вызовов — журнал или телеметрия, их никто не показывает юзеру.
@@ -267,9 +269,21 @@ export function findHardcodedUiText(src: string, file = ''): UiSinkHit[] {
       const parts = [node.head.text, ...node.templateSpans.map(span => span.literal.text)];
       return parts.some(part => CYRILLIC.test(part)) ? parts.join('${…}') : null;
     }
+    // G-5 (R5-023): тернар и склейка в аргументе стока — тот же вшитый текст.
+    if (ts.isParenthesizedExpression(node)) return literalText(node.expression);
+    if (ts.isConditionalExpression(node)) {
+      const parts = [literalText(node.whenTrue), literalText(node.whenFalse)].filter(Boolean);
+      return parts.length ? parts.join(' | ') : null;
+    }
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      const l = literalText(node.left), r = literalText(node.right);
+      return l || r ? `${l ?? '${…}'}${r ?? '${…}'}` : null;
+    }
     return null;
   };
-  const collapse = (value: string) => value.replace(/\s+/g, ' ').trim().slice(0, 80);
+  // Хвостовой пробел после обрезки до 80 — бейслайн читается с trim(), и такой
+  // ключ никогда бы не совпал.
+  const collapse = (value: string) => value.replace(/\s+/g, ' ').trim().slice(0, 80).trimEnd();
 
   const push = (sink: string, value: string) => {
     const match = collapse(value);

@@ -132,6 +132,9 @@ import { AiError } from './context.js';
 import { hasInjectionAttempt } from './injectionPatterns.js';
 import { isAllowedSystemTaskPrompt } from './systemTaskPrompts.js';
 
+// Маркер приложенной заметки: строка целиком (см. useAIPageData / aiChatTransport).
+const ATTACHED_NOTE_MARKER = /^\[Прикреплена заметка: ".*"\]$/gm;
+
 // AUDIT-MH8: Shared injection policy across streaming and non-streaming chat endpoints.
 // Hard-rejects only apply to direct instructions (last user message, customSystemPrompt).
 // Note-derived content (documentContent, userPortrait, memoryContext, documentMood)
@@ -157,7 +160,10 @@ export function assertNoSystemPromptInjection(params: {
 
   const isUserTurn = (m: { role?: string }) => m.role === 'user' || m.role === undefined;
   const lastUser = [...params.messages].reverse().find(isUserTurn);
-  if (lastUser && hasInjectionAttempt(lastUser.content)) {
+  // R5-022: заголовок приложенной заметки — данные из архива, как и её тело
+  // (тело клиент вырезает, aiChatTransport.toApiContent). «Забудь всё» в
+  // заголовке отбивало весь диалог 400-кой.
+  if (lastUser && hasInjectionAttempt(lastUser.content.replace(ATTACHED_NOTE_MARKER, ''))) {
     throw new AiError('invalid-argument', 'Disallowed patterns detected in messages.');
   }
   // История санитизируется у вызывающих: api/chat.ts и api/ai/chatWithAI.logic.ts (providerMessages).

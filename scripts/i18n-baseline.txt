@@ -5,6 +5,8 @@ src/app/pages/DiagnosticsPage.tsx:showToast:Все заметки уже про�
 src/app/pages/DiagnosticsPage.tsx:showToast:Данная функция работает только при подключении к сети
 src/app/pages/DiagnosticsPage.tsx:showToast:Достигнут дневной лимит бюджета ИИ (25/25)
 src/app/pages/DiagnosticsPage.tsx:showToast:Ошибка массового анализа
+src/app/pages/DiagnosticsPage.tsx:showToast:Ошибка пересбора хронологии: ${…}
+src/app/pages/DiagnosticsPage.tsx:showToast:Ошибка реконсиляции: ${…}
 src/app/pages/DiagnosticsPage.tsx:showToast:Пакетный анализ завершён
 src/app/pages/DiagnosticsPage.tsx:showToast:Превышен лимит запросов к ИИ
 src/app/pages/DiagnosticsPage.tsx:showToast:Хронология ИИ успешно перестроена. Записей: ${…}
@@ -34,7 +36,9 @@ src/features/ai/components/ProfileFacets.tsx:label:затихла
 src/features/ai/components/ProfileFacets.tsx:label:новая
 src/features/ai/components/ProfileFacets.tsx:showToast:Не удалось выделить темы — мало заметок
 src/features/ai/components/ProfileFacets.tsx:showToast:Не удалось скопировать
+src/features/ai/components/ProfileFacets.tsx:showToast:Нет тем для проверки | Проверено ${…} тем, исправлено ${…} | Проверено ${…} тем
 src/features/ai/components/ProfileFacets.tsx:showToast:Нужен реиндекс: «База данных» → «Переиндексировать всё» (обновлён формат эмбедди
+src/features/ai/components/ProfileFacets.tsx:showToast:Обновлено ${…} тем | Нет тем для обновления
 src/features/ai/components/ProfileFacets.tsx:showToast:Ошибка обновления тем
 src/features/ai/components/ProfileFacets.tsx:showToast:Ошибка построения тем
 src/features/ai/components/ProfileFacets.tsx:showToast:Ошибка проверки тем
@@ -51,11 +55,13 @@ src/features/ai/components/chat/noteActions.ts:showToast:Заметка успе
 src/features/ai/components/chat/noteActions.ts:showToast:Не удалось обновить заметку
 src/features/ai/components/chat/noteActions.ts:showToast:Не удалось создать заметку
 src/features/ai/components/chat/noteActions.ts:showToast:Нет связанной заметки
+src/features/ai/hooks/useAIChat.ts:setError:Лимит рассуждений исчерпан | Дневной лимит достигнут
 src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите ${…} сек. перед следующей отправкой.
 src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите немного перед следующей отправкой.
 src/features/ai/hooks/useAIChat.ts:title:Новый диалог
 src/features/ai/hooks/useAIPageData.ts:setProactiveHint:Тема «${…}» была активна ${…} дн. назад — хочешь вернуться к ней?
 src/features/ai/hooks/useAIPageData.ts:showToast:Учту — продолжу в этом стиле
+src/features/ai/hooks/useAIPageData.ts:showToast:Учту: меньше «${…}» | Учту — скорректирую стиль
 src/features/ai/hooks/useAttachmentManager.ts:title:Вставленный текст
 src/features/ai/hooks/useDiagnosticsData.ts:error:Некорректный email
 src/features/ai/hooks/useDiagnosticsData.ts:showToast:Все локальные заметки выгружены в облако
@@ -93,6 +99,7 @@ src/features/ai/services/AIProfileService.ts:title:Сильные стороны
 src/features/ai/services/AIProfileService.ts:title:Стиль общения
 src/features/ai/services/AIProfileService.ts:title:Темы и интересы
 src/features/ai/services/AIProfileService.ts:title:Эмоциональные паттерны
+src/features/ai/services/AIRestoreService.ts:addActivity:Получено с других устройств (${…}) | Анализ восстановлен из облака (${…})
 src/features/ai/utils/lifeDomains.ts:label:Внутренняя работа
 src/features/ai/utils/lifeDomains.ts:label:Деньги
 src/features/ai/utils/lifeDomains.ts:label:Отношения с детьми

@@ -97,4 +97,39 @@ describe('AG-I18N-SINKS-1 — findHardcodedUiText', () => {
     const [hit] = findHardcodedUiText(`export function C({ showToast }) { return showToast('Тест', 'info'); }`, 'src\\a\\C.tsx');
     expect(hit && uiSinkKey(hit)).toBe('src/a/C.tsx:showToast:Тест');
   });
+
+  // G-5 (R5-023): начальное значение useState, тернар и склейка в аргументе
+  // стока — тот же вшитый текст, гейт их раньше не видел.
+  it('10. ловит кириллицу в начальном значении useState', () => {
+    expect(scan(`
+      export function Form() {
+        const [err] = useState('Заполните поле');
+        return <div>{err}</div>;
+      }
+    `)).toEqual(['useState|Заполните поле']);
+  });
+
+  it('11. ловит обе ветки тернара, t() в ветке не считается', () => {
+    expect(scan(`
+      export function C({ showToast, t, ok }) {
+        showToast(ok ? 'Готово' : 'Ошибка', 'info');
+        showToast(ok ? t('done') : ('Не удалось'), 'info');
+        return null;
+      }
+    `)).toEqual(['showToast|Готово | Ошибка', 'showToast|Не удалось']);
+  });
+
+  it('12. ловит склейку строки с переменной', () => {
+    expect(scan(`
+      export function C({ setError, e }) {
+        setError('Ошибка: ' + e.message);
+        return null;
+      }
+    `)).toEqual(['setError|Ошибка: ${…}']);
+  });
+
+  it('13. ключ, обрезанный на пробеле, без хвостового пробела — иначе бейслайн (trim) не совпадёт', () => {
+    const [hit] = findHardcodedUiText(`showToast('${'а'.repeat(79)} б')`, 'src/a/C.ts');
+    expect(hit && uiSinkKey(hit)).toBe(`src/a/C.ts:showToast:${'а'.repeat(79)}`);
+  });
 });
