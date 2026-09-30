@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.20 — 2026-09-30
+
+- **[RU]** Заметка, связанная со старой версией приложения, больше не объявляется синхронизированной, если её текст расходится с облаком: облачный текст ложится сверху, а локальная правка остаётся в истории.
+- **[EN]** A note linked by an older app version is no longer declared synced when its text differs from the cloud: the cloud text goes on top, and the local edit stays in history.
+- **[RU]** Записи ИИ уходят в облако одной транзакцией: запись больше 4 МБ остаётся на устройстве с отметкой, а не выгружается частями.
+- **[EN]** AI records go to the cloud in one transaction: a record over 4 MB stays on the device, marked, instead of being uploaded in parts.
+- **[RU]** «Отправить всё» больше не удаляет в облаке запись ИИ, которую само же выгрузило; портрет, собранный до удаления заметки, не возвращается после него.
+- **[EN]** «Send everything» no longer deletes in the cloud an AI record it has just uploaded; a portrait built before a note was deleted no longer comes back after it.
+- **[RU]** После смены аккаунта индикатор синхронизации ни на мгновение не показывает счётчики прошлого аккаунта.
+- **[EN]** After switching accounts, the sync indicator never shows the previous account’s counts, even for a moment.
+
 ## 0.9.19 — 2026-09-30
 
 - **[RU]** Панель с телефонами помощи снова появляется в чате при острых формулировках — в 0.9.18 её обещали, но интерфейс её не показывал. Детектор ловит больше формулировок («раньше думал…, а сейчас…», невидимые символы, «ё») и не срабатывает на слова вроде «порядок».

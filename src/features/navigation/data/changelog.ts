@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.20',
+    date: '2026-09-30',
+    items: [
+      { category: 'fix', ru: 'Заметка, связанная со старой версией приложения, больше не объявляется синхронизированной, если её текст расходится с облаком: облачный текст ложится сверху, а локальная правка остаётся в истории.', en: 'A note linked by an older app version is no longer declared synced when its text differs from the cloud: the cloud text goes on top, and the local edit stays in history.' },
+      { category: 'fix', ru: 'Записи ИИ уходят в облако одной транзакцией: запись больше 4 МБ остаётся на устройстве с отметкой, а не выгружается частями.', en: 'AI records go to the cloud in one transaction: a record over 4 MB stays on the device, marked, instead of being uploaded in parts.' },
+      { category: 'fix', ru: '«Отправить всё» больше не удаляет в облаке запись ИИ, которую само же выгрузило; портрет, собранный до удаления заметки, не возвращается после него.', en: '«Send everything» no longer deletes in the cloud an AI record it has just uploaded; a portrait built before a note was deleted no longer comes back after it.' },
+      { category: 'fix', ru: 'После смены аккаунта индикатор синхронизации ни на мгновение не показывает счётчики прошлого аккаунта.', en: 'After switching accounts, the sync indicator never shows the previous account’s counts, even for a moment.' },
+    ],
+  },
+  {
     version: '0.9.19',
     date: '2026-09-30',
     items: [
