@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.21 — 2026-09-30
+
+- **[RU]** Телефоны помощи в чате — один список для интерфейса и для ИИ: первым идёт взрослая горячая линия 8-800-333-44-34, номер 112 подписан как экстренные службы.
+- **[EN]** Crisis help lines in the chat come from one list for both the interface and the AI; the Russian panel leads with the adult helpline, and 112 is labelled as emergency services.
+- **[RU]** Светлая тема «Тёплый» и «Системная» при светлой системе больше не мигают тёмным фоном при открытии приложения.
+- **[EN]** The light «Warm» theme and «System» on a light system no longer flash a dark background when the app opens.
+
 ## 0.9.20 — 2026-09-30
 
 - **[RU]** Заметка, связанная со старой версией приложения, больше не объявляется синхронизированной, если её текст расходится с облаком: облачный текст ложится сверху, а локальная правка остаётся в истории.
