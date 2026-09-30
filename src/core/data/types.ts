@@ -15,6 +15,7 @@ export interface IDataProvider {
       totalDuration: number;
       currentVersion: number;
       mood?: string | null;      // null implies field deletion
+      moodEncrypted?: boolean;   // mood is ciphertext: the row must be encrypted as a whole
       sessionsCount?: number;    // undefined implies incrementing by 1
       lastSessionAt?: Date;      // undefined implies using the current server time
     }

@@ -61,18 +61,68 @@ export async function getUserDocuments(userId: string): Promise<ProviderRecord[]
   return ownRows(allRows, userId).map(row => fromDb(DOCUMENT_REV, row as Record<string, unknown>));
 }
 
+// Поля строки заметки, которые уходят в облако шифротекстом.
+const SEALED_STRINGS = ['title', 'mood'];
+const SEALED_ARRAYS = ['tags'];
+
+/**
+ * Единственная запись правки в строку заметки.
+ *
+ * Признак `_encrypted` у строки один на все поля, а правки частичные: теги
+ * отдельно, заголовок отдельно, настроение отдельно. Правка с шифротекстом
+ * имеет право лечь только на строку, которая уже зашифрована целиком. Иначе
+ * получается строка-полукровка: например, теги зашифрованы и признак стоит, а
+ * заголовок остался открытым — чтение пытается его расшифровать и падает («Не
+ * удалось прочитать»), а миграция такую строку пропускает, потому что признак
+ * уже стоит. То же в обратную сторону: шифротекст настроения под признаком
+ * «не зашифровано».
+ *
+ * Поэтому правка с шифротекстом пишется с условием `_encrypted = true`. Если
+ * она ни во что не попала, а строка есть и лежит открытым текстом (создана до
+ * сейфа и не дошла до миграции), остальные её поля шифруются этим же запросом.
+ * На обычной, уже зашифрованной строке это по-прежнему один запрос.
+ */
+async function writeDocumentPatch(userId: string, documentId: string, payload: Record<string, unknown>): Promise<void> {
+  const update = (patch: Record<string, unknown>) => getSupabase()
+    .from('documents')
+    .update(patch)
+    .eq('user_id', userId)
+    .eq('uuid', documentId)
+    .is('deleted_at', null);
+
+  if (payload._encrypted !== true) {
+    const { error } = await update(payload);
+    if (error != null) throw error;
+    return;
+  }
+
+  const { data: touched, error } = await update(payload).eq('_encrypted', true).select('uuid');
+  if (error != null) throw error;
+  if (touched != null && touched.length > 0) return;
+
+  const row = await getDocument(userId, documentId);
+  // Строки нет или это надгробие: правка, как и раньше, ни во что не попадает.
+  if (!row) return;
+
+  let patch = payload;
+  if (row._encrypted !== true) {
+    const rest: Record<string, unknown> = {};
+    for (const f of [...SEALED_STRINGS, ...SEALED_ARRAYS]) {
+      if (!(f in payload) && row[f] !== undefined) rest[f] = row[f];
+    }
+    // required = true: открытым текстом остаток не уйдёт ни при каком раскладе.
+    patch = { ...toDb(DOCUMENT_FIELDS, await maybeEncrypt(rest, SEALED_STRINGS, SEALED_ARRAYS, true)), ...payload };
+  }
+  const { error: sealError } = await update(patch);
+  if (sealError != null) throw sealError;
+}
+
 export async function updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void> {
   const payload = toDb(DOCUMENT_FIELDS, data);
   delete payload.id;
   delete payload.uuid;
   delete payload.user_id;
-  const { error } = await getSupabase()
-    .from('documents')
-    .update(payload)
-    .eq('user_id', userId)
-    .eq('uuid', documentId)
-    .is('deleted_at', null);
-  if (error != null) throw error;
+  await writeDocumentPatch(userId, documentId, payload);
 }
 
 export async function updateDocumentSessionStats(
@@ -83,6 +133,8 @@ export async function updateDocumentSessionStats(
     totalDuration: number;
     currentVersion: number;
     mood?: string | null;
+    /** `mood` — шифротекст; без этого признака он лёг бы на открытую строку. */
+    moodEncrypted?: boolean;
     sessionsCount?: number;
     lastSessionAt?: Date;
   }
@@ -103,19 +155,13 @@ export async function updateDocumentSessionStats(
     lastSessionAt: stats.lastSessionAt !== undefined ? stats.lastSessionAt : new Date(),
   };
   if (stats.mood !== undefined) updateData.mood = stats.mood;
+  if (stats.moodEncrypted === true) updateData._encrypted = true;
 
   const payload = toDb(DOCUMENT_FIELDS, updateData);
   delete payload.id;
   delete payload.uuid;
   delete payload.user_id;
-
-  const { error } = await getSupabase()
-    .from('documents')
-    .update(payload)
-    .eq('user_id', userId)
-    .eq('uuid', documentId)
-    .is('deleted_at', null);
-  if (error != null) throw error;
+  await writeDocumentPatch(userId, documentId, payload);
 }
 
 export async function deleteDocument(userId: string, documentId: string): Promise<void> {

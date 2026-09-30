@@ -21,6 +21,34 @@ enforced now. `docs/AUDIT_PLAYBOOK.md` Section 1 is the checklist version of thi
 - **Enforcement:** `maybeEncrypt(doc, fields, arrayFields, userId)` is the single chokepoint — every cloud write of user content goes through it (every `maybeEncrypt(` call in `CloudSyncService.ts` passes `userId`). When `getEncryptionEnabled(userId)` is true and the session key is missing (vault locked), it throws `ENCRYPT_REQUIRED` instead of writing plaintext (`cryptoHelpers.ts`).
 - **Root cause of C-ENC-1:** `lockVault` called `setEncryptionEnabled(false)`, which made `maybeEncrypt` skip encryption. Fixed by removing that call — `encryptionEnabled` is now a persistent property, not a transient state.
 - **Test:** `src/core/__tests__/cryptoHelpers.test.ts` — "requires encryption when enabled for user and session key missing" asserts `ENCRYPT_REQUIRED` is thrown (reverting the `if (required) throw` branch turns it red).
+- **Row flag invariant (documents):** `_encrypted` is one flag for the whole row, so a row marked encrypted carries no plaintext in `title`, `tags`, `mood`, and a row not marked encrypted carries no ciphertext. Metadata edits are partial (tags alone, title alone, mood alone), so a patch with ciphertext may land only on a row that is already encrypted as a whole. **Enforcement:** `writeDocumentPatch` in `src/core/data/providers/documents.ts` — the only write path behind `updateDocument` and `updateDocumentSessionStats`. It writes with `_encrypted = true` as a condition; if nothing matched and the row is a plaintext one (created before the vault, never migrated), the rest of the row is encrypted in the same request. Before this, `updateTags` on such a row left the title in plaintext under an «encrypted» flag: the row read as «Не удалось прочитать», and the migration skipped it because the flag was already set. **Test:** `src/core/services/__tests__/partialMetadataOnPlaintextRow.test.ts` (rows are seeded by hand in their pre-vault shape; red on the old code).
+- **Finding rows that already break it** (read-only; AES-GCM ciphertext in base64 is at least 40 characters):
+
+  ```sql
+  with shape as (
+    select uuid, user_id, _encrypted,
+           title ~ '^[A-Za-z0-9+/]{38,}={0,2}$'                          as title_sealed,
+           jsonb_typeof(tags) = 'string'                                 as tags_sealed,
+           coalesce(mood ~ '^[A-Za-z0-9+/]{38,}={0,2}$', false)          as mood_sealed,
+           jsonb_typeof(tags) = 'array' and jsonb_array_length(tags) > 0 as tags_plain_text,
+           mood is not null and mood !~ '^[A-Za-z0-9+/]{38,}={0,2}$'     as mood_plain_text
+    from documents
+    where deleted_at is null
+  )
+  select uuid,
+         case
+           when _encrypted and not title_sealed                     then 'A-unreadable: title is not ciphertext on an encrypted row'
+           when _encrypted and (tags_plain_text or mood_plain_text) then 'A-leak: plaintext tags or mood on an encrypted row'
+           when _encrypted and not tags_sealed                      then 'A-benign: empty tags array on an encrypted row'
+           when not _encrypted and (title_sealed or tags_sealed or mood_sealed) then 'B-unreadable: ciphertext on a row not marked encrypted'
+         end as kind
+  from shape
+  where (_encrypted and (not title_sealed or not tags_sealed or mood_plain_text))
+     or (not _encrypted and (title_sealed or tags_sealed or mood_sealed))
+  order by kind, uuid;
+  ```
+
+  A plaintext emoji in `mood` on an encrypted row is a known older state that the read path tolerates (AG-ENC-1); the query reports it as `A-leak`. The fix does not repair rows that are already mixed.
 
 ## 3. Row-Level Security — `supabase/migrations/0002_rls.sql`
 

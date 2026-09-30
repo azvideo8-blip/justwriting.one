@@ -216,6 +216,7 @@ export const DocumentService = {
     if (data.mood) {
       const encrypted = await maybeEncrypt({ mood: data.mood }, ['mood'], [], userId);
       payload.mood = (encrypted.mood as string) ?? null;
+      if (encrypted._encrypted === true) payload.moodEncrypted = true;
     }
 
     await DataProvider.updateDocumentSessionStats(userId, documentId, payload);
