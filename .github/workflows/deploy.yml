@@ -168,6 +168,9 @@ jobs:
           find dist -name '*.map' -delete
           # EA-11: свой каталог (mktemp, 0700), а не общий предсказуемый /tmp/dist-new.
           REMOTE_DIR=$($DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mktemp -d /tmp/jw-dist.XXXXXX')
+          # Каталог создан — убирать его надо и при падении rsync, до heredoc с
+          # его собственной ловушкой (R3 §4.1.1 j).
+          trap '$DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "rm -rf $REMOTE_DIR" || true' EXIT
           rsync -az --delete -e "$DEPLOY_SSH" dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/
           # Без --delete: страница, открытая до выкатки, продолжает подгружать
@@ -186,7 +189,9 @@ jobs:
               sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev
             fi
             sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/
-            sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>/dev/null || echo "::warning::email templates not synced"
+            if ! mail_err=$(sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>&1); then
+              echo "::warning::email templates not synced: ${mail_err//$'\n'/ }"
+            fi
             sudo chown -R www-data:www-data /var/www/justwriting
             rm -rf "$REMOTE_DIR"
           REMOTE
@@ -232,6 +237,7 @@ jobs:
           # потому, что Dependabot смотрит на каталог, а не на отдельный файл.
           # EA-11: свой каталог (mktemp, 0700), а не общие /tmp/server.mjs и /tmp/api-package.json.
           REMOTE_DIR=$($DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'mktemp -d /tmp/jw-api.XXXXXX')
+          trap '$DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "rm -rf $REMOTE_DIR" || true' EXIT
           $DEPLOY_SCP "$RUNNER_TEMP/server.mjs" \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/server.mjs
           $DEPLOY_SCP deploy/api/package.json \
@@ -239,6 +245,7 @@ jobs:
           $DEPLOY_SCP deploy/api/package-lock.json \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package-lock.json
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
+            set -euo pipefail
             # Падение шага не должно оставлять каталог (и staging с npm-деревом)
             # в /tmp на сервере.
             trap 'rm -rf "$REMOTE_DIR"' EXIT

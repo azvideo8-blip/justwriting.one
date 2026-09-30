@@ -132,7 +132,11 @@ jobs:
         # упал с 601811 до 405021 (gzip 117163). Заодно react-dom 19.3 (+28 КБ)
         # перестал упираться в порог. Храповик опущен вслед за фактом.
         MAX_INDEX=420000   # index-*.js fail-порог (байты)
-        MAX_VENDOR=500000  # vendor-*.js warn-порог
+        # R3-045: vendor был только предупреждением, а суммы не мерил никто —
+        # новый чанк рос без гейта. 2026-09-30: самый большой vendor 363372
+        # (docx), весь JS 3783407 в 97 файлах. Потолки — с запасом ~5–10%.
+        MAX_VENDOR=400000  # vendor-*.js fail-порог
+        MAX_TOTAL_JS=4000000  # сумма dist/assets/*.js fail-порог
         MAX_CSS=185000     # *.css fail-порог (байты)
         fail=0
         for f in dist/assets/index-*.js; do
@@ -142,8 +146,11 @@ jobs:
         done
         for f in dist/assets/vendor-*.js; do
           sz=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
-          [ "$sz" -gt "$MAX_VENDOR" ] && echo "::warning::$f > $MAX_VENDOR ($sz)"
+          [ "$sz" -gt "$MAX_VENDOR" ] && { echo "::error::$f > $MAX_VENDOR ($sz)"; fail=1; }
         done
+        total_js=$(cat dist/assets/*.js | wc -c | tr -d ' ')
+        echo "total js: $total_js"
+        [ "$total_js" -gt "$MAX_TOTAL_JS" ] && { echo "::error::total js $total_js > $MAX_TOTAL_JS"; fail=1; }
         for f in dist/assets/*.css; do
           sz=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
           echo "css: $f = $sz"
