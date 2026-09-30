@@ -1,4 +1,6 @@
-<!-- Письмо восстановления пароля. См. комментарий в confirm.html. -->
+<!-- Письмо восстановления пароля. См. комментарий в confirm.html. Ниже — английский текст
+     того же письма: язык получателя сервер не знает, поэтому письмо двуязычное.
+     Кода для ручного ввода нет — поля для него в приложении нет (R4-042). -->
 <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #1a1a1a; max-width: 520px;">
   <p style="margin: 0 0 20px;">Здравствуйте!</p>
 
@@ -14,10 +16,6 @@
     </a>
   </p>
 
-  <p style="margin: 0 0 20px; color: #555;">
-    Код для ручного ввода: <strong>{{ .Token }}</strong>
-  </p>
-
   <p style="margin: 0 0 8px; color: #b00020;">
     Важно: пароль от аккаунта и пароль от сейфа шифрования — разные вещи.
     Смена пароля входа не открывает и не восстанавливает зашифрованные заметки.
@@ -25,6 +23,31 @@
 
   <p style="margin: 0 0 8px; color: #555;">
     Если вы этого не запрашивали, ничего делать не нужно — пароль останется прежним.
+  </p>
+
+
+  <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 28px 0 24px;">
+  <p style="margin: 0 0 20px;">Hello!</p>
+
+  <p style="margin: 0 0 20px;">
+    Someone asked to change the password for your <strong>justwriting</strong> account.
+    If it was you, set a new password with the link below.
+  </p>
+
+  <p style="margin: 0 0 28px;">
+    <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery"
+       style="display: inline-block; padding: 12px 24px; background: #6d5ce7; color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 600;">
+      Set a new password
+    </a>
+  </p>
+
+  <p style="margin: 0 0 8px; color: #b00020;">
+    Note: your account password and your encryption vault password are different things.
+    Changing the sign-in password does not open or recover encrypted notes.
+  </p>
+
+  <p style="margin: 0 0 8px; color: #555;">
+    If you did not ask for this, do nothing — your password stays the same.
   </p>
 
   <p style="margin: 24px 0 0; color: #888; font-size: 14px;">
