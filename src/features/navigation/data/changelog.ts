@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.25',
+    date: '2026-09-30',
+    items: [
+      { category: 'fix', ru: 'Кнопка «Посмотри в других моих записях — как это связано?» больше не прикрепляет к вопросу случайную заметку: приложение само заметки не прикрепляет, это делает только человек.', en: 'The «Look in my other entries — how is it connected?» button no longer attaches a random note to the question: the app never attaches notes on its own, only the person does.' },
+    ],
+  },
+  {
     version: '0.9.24',
     date: '2026-09-30',
     items: [
