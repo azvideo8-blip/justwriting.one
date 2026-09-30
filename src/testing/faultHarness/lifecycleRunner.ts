@@ -1622,9 +1622,8 @@ export class LifecycleRunner {
 
     // 2. Cloud receives version 2 from another device. Отметка времени — из
     // настоящих часов и с запасом вперёд: локальная запись стампит
-    // lastSeenCloudUpdatedAt реальным `now` (addCloudCopy), и облачная версия с
-    // эпохой «2000 мс» выглядела бы старее, чем всё локальное — reconcile тогда
-    // пропускает заметку, и ячейка краснеет от порядка таймеров, а не от кода.
+    // lastSeenCloudUpdatedAt реальным `now` (addCloudCopy), и облачная версия,
+    // не новее этой отметки, reconcile пропускает (ниже — как её донести).
     const cloudV2At = new Date(Date.now() + 60_000).toISOString();
     const cloudV2Text = 'Cloud version 2 content';
     const cloudV2Payload = this.vaultEnabled
@@ -1643,8 +1642,18 @@ export class LifecycleRunner {
     });
     this.interceptor.postgres.executeUpdate(
       'documents',
-      { current_version: 2, updated_at: cloudV2At },
+      { current_version: 2 },
       [{ type: 'eq', column: 'uuid', value: cloudId }]
+    );
+    // executeUpdate эмулирует триггер updated_at (0028) и ставит «сейчас» поверх
+    // переданного значения: запас в минуту до этой строки не доживал. Если
+    // локальная отметка addCloudCopy и эта запись попадали в одну миллисекунду
+    // (а облачная запись addCloudCopy — в более раннюю), облако выглядело
+    // не новее, reconcile пропускал заметку — красная ячейка от часов, не от кода.
+    // Правка «другого устройства» случилась позже — ставим её время явно.
+    this.interceptor.postgres.setRows(
+      'documents',
+      this.interceptor.postgres.getRows('documents').map(r => (r.uuid === cloudId ? { ...r, updated_at: cloudV2At } : r)),
     );
 
     // 3. Local edit to version 2 (local edit whose task is lost/cleared)
