@@ -12,10 +12,12 @@ JWT_SECRET=$(grep -m1 '^JWT_SECRET=' .env | cut -d= -f2-)
 A=11111111-1111-1111-1111-111111111111   # Алиса
 B=22222222-2222-2222-2222-222222222222   # Боб
 
+# L-8 (R4-048): секрет — в окружение процесса, не в argv (его видно в ps всем
+# пользователям машины).
 mint() {  # $1 = sub (uuid) → JWT роли authenticated
-  python3 - "$1" "$JWT_SECRET" <<'PY'
-import base64, hmac, hashlib, json, sys, time
-sub, secret = sys.argv[1], sys.argv[2]
+  JWT_SECRET="$JWT_SECRET" python3 - "$1" <<'PY'
+import base64, hmac, hashlib, json, os, sys, time
+sub, secret = sys.argv[1], os.environ["JWT_SECRET"]
 b64 = lambda b: base64.urlsafe_b64encode(b).rstrip(b'=').decode()
 now = int(time.time())
 h = b64(json.dumps({"alg":"HS256","typ":"JWT"},separators=(',',':')).encode())
@@ -24,6 +26,12 @@ p = b64(json.dumps({"sub":sub,"role":"authenticated","aud":"authenticated",
 sig = b64(hmac.new(secret.encode(), f"{h}.{p}".encode(), hashlib.sha256).digest())
 print(f"{h}.{p}.{sig}")
 PY
+}
+
+# Токен — в конфиг curl со stdin (как в deploy/invite.sh): в ps аргументы не светятся.
+req() {  # $1 = URL; JWT берётся из REQ_JWT, если задан
+  { [ -n "${REQ_JWT:-}" ] && printf 'header = "Authorization: Bearer %s"\n' "$REQ_JWT";
+    printf 'header = "apikey: %s"\n' "$ANON_KEY"; } | curl -sS --max-time 15 --config - "$@"
 }
 
 echo "=== засеваем: у Алисы и Боба по одной заметке ==="
@@ -38,12 +46,10 @@ SQL
 
 JWT_A=$(mint "$A")
 fail=0
-req() { curl -sS --max-time 15 -H "apikey: $ANON_KEY" "$@"; }
 
 echo
 echo "=== 1. Алиса запрашивает все документы ==="
-body=$(req -H "Authorization: Bearer $JWT_A" \
-  "http://127.0.0.1:8000/rest/v1/documents?select=uuid,title")
+body=$(REQ_JWT="$JWT_A" req "http://127.0.0.1:8000/rest/v1/documents?select=uuid,title")
 echo "ответ: $body"
 echo "$body" | grep -q 'e2e-alice-doc' \
   && echo "  ✓ свою заметку видит" || { echo "  ✗ свою заметку НЕ видит"; fail=1; }
@@ -52,7 +58,7 @@ echo "$body" | grep -q 'e2e-bob-doc' \
 
 echo
 echo "=== 2. Алиса адресно запрашивает заметку Боба ==="
-body=$(req -H "Authorization: Bearer $JWT_A" \
+body=$(REQ_JWT="$JWT_A" req \
   "http://127.0.0.1:8000/rest/v1/documents?uuid=eq.e2e-bob-doc&select=uuid,title")
 echo "ответ: $body"
 [ "$(echo "$body" | tr -d '[:space:]')" = "[]" ] \
@@ -68,10 +74,14 @@ echo "ответ: $body"
 echo
 echo "=== 4. Алиса пытается записать заметку от имени Боба ==="
 code=$(curl -sS -o /tmp/e2e-ins.txt -w '%{http_code}' --max-time 15 \
-  -X POST -H "apikey: $ANON_KEY" -H "Authorization: Bearer $JWT_A" \
-  -H 'Content-Type: application/json' \
+  -X POST -H 'Content-Type: application/json' \
   -d "{\"uuid\":\"e2e-forged\",\"user_id\":\"$B\",\"title\":\"подделка\"}" \
-  "http://127.0.0.1:8000/rest/v1/documents")
+  --config - <<CURLCFG
+header = "apikey: $ANON_KEY"
+header = "Authorization: Bearer $JWT_A"
+url = "http://127.0.0.1:8000/rest/v1/documents"
+CURLCFG
+)
 echo "HTTP $code — $(cat /tmp/e2e-ins.txt | head -c 160)"
 [ "$code" = "403" ] || [ "$code" = "401" ] \
   && echo "  ✓ запись отклонена" || { echo "  ✗ подделка прошла"; fail=1; }

@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
-# Live check of the VPS AI service: auth, limits, and whose uid is used.
-# Runs against the service on :3111 with Postgres tunnelled from the VPS.
+# Live check of the AI service: auth, limits, and whose uid is used.
+# По умолчанию — стенд (jw-stand-db из scripts/stand/up.sh, сервис на :3111).
+# Ход в боевую базу — только явно: bash e2e-ai.sh --prod (и тогда глобальный
+# счётчик ai_global_daily не трогается: вычитание gc1-gc0 вычитало бы и чужие
+# вызовы за минуту теста).
 set -uo pipefail
 BASE=http://127.0.0.1:3111
 UID_A=33333333-3333-3333-3333-333333333333
 UID_B=44444444-4444-4444-4444-444444444444
-PSQL() { ssh -o BatchMode=yes justwriting "cd /opt/justwriting/supabase && docker compose exec -T db psql -U postgres -d postgres -X -q -t -A -c \"$1\""; }
+
+MODE=stand
+for arg in "$@"; do case "$arg" in --prod) MODE=prod ;; esac; done
+
+if [ "$MODE" = "prod" ]; then
+  PSQL() { ssh -o BatchMode=yes justwriting "cd /opt/justwriting/supabase && docker compose exec -T db psql -U postgres -d postgres -X -q -t -A -c \"$1\""; }
+else
+  : "${STAND_DB:=jw-stand-db}"
+  PSQL() { docker exec -i "$STAND_DB" psql -U postgres -d postgres -X -q -t -A -c "$1"; }
+fi
 
 # R3-12: секрет — через окружение (аргумент виден в ps), iss — как у GoTrue на сервере.
 : "${SUPABASE_JWT_SECRET:?export SUPABASE_JWT_SECRET first}"
@@ -27,8 +39,11 @@ PSQL "insert into users (uid,email,nickname) values ('$UID_A','a@live.test','A')
 PSQL "delete from ai_daily_limit where uid in ('$UID_A','$UID_B'); delete from ai_cooldown where uid in ('$UID_A','$UID_B');" >/dev/null
 
 # R3-12: тест ходит в боевую базу — запоминаем общий дневной счётчик, чтобы
-# вернуть потраченное тестом (чужие вызовы за эту минуту тоже вычтутся — терпимо).
-GLOBAL0=$(PSQL "select coalesce(sum(call_count),0)||' '||coalesce(sum(tokens),0) from ai_global_daily;")
+# вернуть потраченное тестом. Только на стенде: на проде счётчик общий с чужими
+# вызовами — не трогаем (R4-049).
+if [ "$MODE" = "stand" ]; then
+  GLOBAL0=$(PSQL "select coalesce(sum(call_count),0)||' '||coalesce(sum(tokens),0) from ai_global_daily;")
+fi
 
 JWT_A=$(mint "$UID_A")
 fail=0
@@ -76,10 +91,14 @@ echo "HTTP $c — $(head -c 140 /tmp/lv.out)"
 echo
 echo "=== cleanup ==="
 PSQL "delete from ai_usage where uid in ('$UID_A','$UID_B'); delete from ai_daily_limit where uid in ('$UID_A','$UID_B'); delete from ai_cooldown where uid in ('$UID_A','$UID_B'); delete from users where uid in ('$UID_A','$UID_B');" >/dev/null
-read -r gc0 gt0 <<<"$GLOBAL0"
-read -r gc1 gt1 <<<"$(PSQL "select coalesce(sum(call_count),0)||' '||coalesce(sum(tokens),0) from ai_global_daily;")"
-PSQL "update ai_global_daily set call_count = greatest(0, call_count - $((gc1 - gc0))), tokens = greatest(0, tokens - $((gt1 - gt0))) where date = (select max(date) from ai_global_daily);" >/dev/null
-echo "test rows removed, global daily counter restored"
+if [ "$MODE" = "stand" ]; then
+  read -r gc0 gt0 <<<"$GLOBAL0"
+  read -r gc1 gt1 <<<"$(PSQL "select coalesce(sum(call_count),0)||' '||coalesce(sum(tokens),0) from ai_global_daily;")"
+  PSQL "update ai_global_daily set call_count = greatest(0, call_count - $((gc1 - gc0))), tokens = greatest(0, tokens - $((gt1 - gt0))) where date = (select max(date) from ai_global_daily);" >/dev/null
+  echo "test rows removed, global daily counter restored"
+else
+  echo "test rows removed; prod global daily counter left as is (R4-049)"
+fi
 echo
 [ "$fail" = "0" ] && echo "RESULT: all live checks passed" || echo "RESULT: FAILURES"
 exit "$fail"
