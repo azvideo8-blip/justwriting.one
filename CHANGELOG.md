@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.23 — 2026-09-30
+
+- **[RU]** Архив снова показывает состояние заметки с первого взгляда: цветная полоса метки, фиолетовые значки «на устройстве», «в облаке» и «разобрано ИИ»; жёлтое облако — есть неотправленные изменения. Нажатие на значок делает действие сразу — например, отправляет заметку в облако.
+- **[EN]** The archive shows a note’s state at a glance again: a coloured label stripe and violet «on device», «in the cloud» and «analysed by AI» icons; a yellow cloud means unsent changes. Clicking an icon acts right away — for example, sends the note to the cloud.
+- **[RU]** Карточки в сетке получили те же значки и меню «⋯»; меню заметки стало компактнее — метки выбираются цветными кружками в одну строку; «+ тег» виден без наведения.
+- **[EN]** Grid cards get the same icons and the «⋯» menu; the note menu is more compact — labels are picked from one row of colour dots; «+ tag» is visible without hovering.
+- **[RU]** Добавление тега или смена заголовка у старой заметки, созданной до включения шифрования, больше не делает её нечитаемой («Не удалось прочитать»).
+- **[EN]** Adding a tag or renaming an old note created before encryption was turned on no longer makes it unreadable («Could not read»).
+- **[RU]** В настройках синхронизации можно сравнить, сколько ИИ-данных (разборы, поисковые векторы, записи) лежит на устройстве и сколько в облаке.
+- **[EN]** Sync settings can compare how much AI data (analyses, search vectors, records) is on the device and how much is in the cloud.
+
 ## 0.9.22 — 2026-09-30
 
 - **[RU]** Сохранение — тихая иконка дискеты в панели кнопок справа внизу: на записи она плавно загорается фиолетовым и гаснет, время последнего сохранения — в подсказке. Мигающих надписей «Сохранение… / Сохранено» больше нет; ошибка сохранения по-прежнему видна сразу, даже в дзене.

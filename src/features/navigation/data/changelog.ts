@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.23',
+    date: '2026-09-30',
+    items: [
+      { category: 'improvement', ru: 'Архив снова показывает состояние заметки с первого взгляда: цветная полоса метки, фиолетовые значки «на устройстве», «в облаке» и «разобрано ИИ»; жёлтое облако — есть неотправленные изменения. Нажатие на значок делает действие сразу — например, отправляет заметку в облако.', en: 'The archive shows a note’s state at a glance again: a coloured label stripe and violet «on device», «in the cloud» and «analysed by AI» icons; a yellow cloud means unsent changes. Clicking an icon acts right away — for example, sends the note to the cloud.' },
+      { category: 'improvement', ru: 'Карточки в сетке получили те же значки и меню «⋯»; меню заметки стало компактнее — метки выбираются цветными кружками в одну строку; «+ тег» виден без наведения.', en: 'Grid cards get the same icons and the «⋯» menu; the note menu is more compact — labels are picked from one row of colour dots; «+ tag» is visible without hovering.' },
+      { category: 'fix', ru: 'Добавление тега или смена заголовка у старой заметки, созданной до включения шифрования, больше не делает её нечитаемой («Не удалось прочитать»).', en: 'Adding a tag or renaming an old note created before encryption was turned on no longer makes it unreadable («Could not read»).' },
+      { category: 'new', ru: 'В настройках синхронизации можно сравнить, сколько ИИ-данных (разборы, поисковые векторы, записи) лежит на устройстве и сколько в облаке.', en: 'Sync settings can compare how much AI data (analyses, search vectors, records) is on the device and how much is in the cloud.' },
+    ],
+  },
+  {
     version: '0.9.22',
     date: '2026-09-30',
     items: [
