@@ -130,15 +130,20 @@ export function estimateInputTokens(parts: Array<string | null | undefined>): nu
 import type { AiContext, GlobalReservation } from './context.js';
 import { AiError } from './context.js';
 import { hasInjectionAttempt } from './injectionPatterns.js';
+import { sanitizeAiInputShared } from './buildChatPrompt.js';
 import { isAllowedSystemTaskPrompt } from './systemTaskPrompts.js';
 
 // AUDIT-MH8: Shared injection policy across streaming and non-streaming chat endpoints.
-// Hard-rejects only apply to direct instructions (messages, customSystemPrompt).
+// Hard-rejects only apply to direct instructions (last user message, customSystemPrompt).
 // Note-derived content (documentContent, userPortrait, memoryContext, documentMood)
 // comes from the user's own notes/archive and must NOT cause a self-DoS.
 // Note-derived fields are fenced in DATA_CONTEXT_* blocks and sanitized via buildChatSystemPrompt.
+// L-2: историю (включая реплики ассистента) отклонять нельзя — одна неудачная
+// реплика внутри контекстного окна кирпичила весь диалог с generic 400.
+// Она санитизируется на месте; reject ловит только последний ход пользователя.
+// Сообщение без роли считается пользовательским (fail-closed).
 export function assertNoSystemPromptInjection(params: {
-  messages: Array<{ content: string }>;
+  messages: Array<{ role?: string; content: string }>;
   customSystemPrompt?: string | null | undefined;
   personaId?: string;
 }): void {
@@ -151,8 +156,13 @@ export function assertNoSystemPromptInjection(params: {
     }
   }
 
-  if (params.messages.some(m => hasInjectionAttempt(m.content))) {
+  const isUserTurn = (m: { role?: string }) => m.role === 'user' || m.role === undefined;
+  const lastUser = [...params.messages].reverse().find(isUserTurn);
+  if (lastUser && hasInjectionAttempt(lastUser.content)) {
     throw new AiError('invalid-argument', 'Disallowed patterns detected in messages.');
+  }
+  for (const m of params.messages) {
+    m.content = sanitizeAiInputShared(m.content);
   }
 }
 
