@@ -89,7 +89,7 @@ export function HourRhythm({ sessions }: { sessions: Session[] }) {
                 style={hoveredHour === h ? { filter: 'brightness(1.15)' } : undefined}
               />
               {hoveredHour === h && (
-                <div className="absolute bottom-full mb-1.5 whitespace-nowrap bg-[var(--surface-elevated)] border border-[var(--border-light)] rounded-md py-0.5 px-2 text-[10px] font-mono text-[var(--text-main)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none z-50" style={tooltipAlignStyle}>
+                <div className="absolute bottom-full mb-1.5 whitespace-nowrap bg-[var(--surface-elevated)] border border-[var(--border-light)] rounded-md py-0.5 px-2 text-[10px] font-mono text-[var(--text-main)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none z-[var(--z-panel)]" style={tooltipAlignStyle}>
                   {String(h).padStart(2, '0')}:00 · {counts[h]}
                 </div>
               )}

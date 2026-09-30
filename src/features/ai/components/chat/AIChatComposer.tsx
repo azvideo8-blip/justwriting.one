@@ -236,7 +236,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
                 onChange={onFileUpload}
               />
               {attachMenuOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-50 bg-surface-popup">
+                <div className="absolute bottom-full left-0 mb-2 w-48 border border-border-subtle rounded-xl shadow-xl overflow-hidden z-[var(--z-panel)] bg-surface-popup">
                   <Button
                     onClick={() => { setAttachMenuOpen(false); onOpenDocPicker(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-text-main/70 hover:text-text-main hover:bg-text-main/5 transition-colors flex items-center gap-2"

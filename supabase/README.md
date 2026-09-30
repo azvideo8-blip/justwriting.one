@@ -10,9 +10,9 @@ attempting to access Bob's data.
 docker run -d --name pg-rls-test -e POSTGRES_PASSWORD=test -p 5434:5432 postgres:16
 sleep 3
 docker exec -i pg-rls-test psql -U postgres < supabase/tests/_auth_setup.sql
-docker exec -i pg-rls-test psql -U postgres < supabase/migrations/0001_schema.sql
-docker exec -i pg-rls-test psql -U postgres < supabase/migrations/0002_rls.sql
-docker exec -i pg-rls-test psql -U postgres < supabase/migrations/0003_local_store_records.sql
+for f in supabase/migrations/*.sql; do
+  docker exec -i pg-rls-test psql -U postgres < "$f"
+done
 docker exec -i pg-rls-test psql -U postgres < supabase/tests/rls.test.sql
 docker stop pg-rls-test && docker rm pg-rls-test
 ```

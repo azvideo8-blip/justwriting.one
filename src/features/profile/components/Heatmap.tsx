@@ -292,7 +292,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
       {/* Tooltip */}
       {hoveredCell && (
         <div 
-          className="absolute mb-1 whitespace-nowrap bg-[var(--surface-elevated)] border border-[var(--border-light)] rounded-md py-0.5 px-2 text-[10px] font-mono text-[var(--text-main)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none z-50 transition-all duration-100"
+          className="absolute mb-1 whitespace-nowrap bg-[var(--surface-elevated)] border border-[var(--border-light)] rounded-md py-0.5 px-2 text-[10px] font-mono text-[var(--text-main)] shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none z-[var(--z-panel)] transition-all duration-100"
           style={{
             left: `${hoveredCell.x}px`,
             top: `${hoveredCell.y}px`,

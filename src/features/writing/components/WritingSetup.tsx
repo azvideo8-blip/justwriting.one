@@ -127,7 +127,7 @@ export function WritingSetup({
         </div>
       )}
 
-      <div className="relative z-50 flex items-start justify-center p-2 md:p-8 overflow-hidden bg-surface-base/80 backdrop-blur-2xl">
+      <div className="relative z-[var(--z-overlay)] flex items-start justify-center p-2 md:p-8 overflow-hidden bg-surface-base/80 backdrop-blur-2xl">
         {setupMode !== 'countdown' && (
           <motion.div 
             variants={containerVariants}

@@ -163,7 +163,6 @@ export const AIService = {
   async summarize(params: {
     content: string;
     mood?: string | undefined;
-    recentContext?: string | undefined;
     noteDate?: string | undefined;
   }): Promise<{ ok: true; summary: AISummaryPayload } | { ok: false; error: string }> {
     try {

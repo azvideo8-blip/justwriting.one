@@ -45,7 +45,9 @@ const TABLE_COLUMNS: Record<TableName, readonly string[]> = {
 // 0003_local_store_records.sql). Одни и те же кортежи принудительны и для
 // insert, и для upsert: раньше insert стерёг только documents.uuid и versions,
 // и подмена .upsert на .insert в провайдере проходила по матрице незамеченной.
-const UNIQUE_TUPLES: Partial<Record<TableName, (row: PostgresRow) => string>> = {
+// Счётчики квот харнес не пишет, но кортежи их держим для полноты схемы.
+type TupleTable = TableName | 'ai_cooldown' | 'ai_daily_limit' | 'ai_usage' | 'ai_global_daily';
+const UNIQUE_TUPLES: Partial<Record<TupleTable, (row: PostgresRow) => string>> = {
   users: r => `uid:${r.uid}`,
   documents: r => `uuid:${r.uuid}`,
   versions: r => `ver:${r.document_uuid}:${r.version}`,

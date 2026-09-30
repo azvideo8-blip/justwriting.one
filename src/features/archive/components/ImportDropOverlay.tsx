@@ -21,7 +21,7 @@ export function ImportDropOverlay({ onDragEnter, onDragOver, onDragLeave, onDrop
       initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15 }}
-      className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-surface-base/85 backdrop-blur-sm border-2 border-dashed border-brand-soft m-4 rounded-3xl"
+      className="absolute inset-0 z-[var(--z-overlay)] flex flex-col items-center justify-center bg-surface-base/85 backdrop-blur-sm border-2 border-dashed border-brand-soft m-4 rounded-3xl"
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}

@@ -380,7 +380,7 @@ export function DocumentPreview({
       animate={{ opacity: 1, transform: "translateX(0px) translateY(0px)" }}
       exit={{ opacity: 0, transform: isMobile ? "translateY(100%)" : "translateX(20px)" }}
       transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-      className="glass-panel custom-scrollbar fixed z-50 flex flex-col"
+      className="glass-panel custom-scrollbar fixed z-[var(--z-panel)] flex flex-col"
       style={isMobile ? {
         left: 0,
         right: 0,
@@ -481,7 +481,7 @@ export function DocumentPreview({
               {labelPopupOpen && (
                 <div
                   ref={labelPopupRef}
-                  className="absolute left-0 top-full z-50 mt-1 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[160px] backdrop-blur-xl bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
+                  className="absolute left-0 top-full z-[var(--z-panel)] mt-1 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[160px] backdrop-blur-xl bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
                   onClick={e => e.stopPropagation()}
                 >
               {currentLabel && (
@@ -788,7 +788,7 @@ export function DocumentPreview({
                 initial={{ opacity: 0, transform: "translateY(-4px) scale(0.97)" }}
                 animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
                 exit={{ opacity: 0, transform: "translateY(-4px) scale(0.97)" }}
-                className={cn("absolute bottom-full mb-2 right-0 border border-border-subtle rounded-xl shadow-xl overflow-hidden w-48 z-50", "bg-surface-popup")}
+                className={cn("absolute bottom-full mb-2 right-0 border border-border-subtle rounded-xl shadow-xl overflow-hidden w-48 z-[var(--z-panel)]", "bg-surface-popup")}
               >
                 {exportFormats.map(fmt => (
                   <Button

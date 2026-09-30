@@ -80,7 +80,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
                 {emoji}
               </Button>
               {showEmojiPicker && (
-                <div className="absolute top-full left-0 mt-2 p-2 bg-surface-card border border-border-subtle rounded-xl shadow-xl grid grid-cols-10 gap-1 z-50">
+                <div className="absolute top-full left-0 mt-2 p-2 bg-surface-card border border-border-subtle rounded-xl shadow-xl grid grid-cols-10 gap-1 z-[var(--z-panel)]">
                   {SUGGESTED_EMOJIS.map(e => (
                     <Button
                       key={e}

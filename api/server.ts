@@ -47,9 +47,12 @@ const server = http.createServer((req, res) => {
   void (async () => {
   const method = req.method ?? 'GET';
   const url = req.url ?? '/';
+  // R4-057: маршруты сверяются по пути без query — '/health?x' не должен
+  // падать в 404 или, хуже, в SPA-ответ.
+  const path = url.split('?')[0]!;
 
   // GET /health — liveness: "the process is alive"
-  if (method === 'GET' && url === '/health') {
+  if (method === 'GET' && path === '/health') {
     return json(res, 200, { status: 'ok', uptime: process.uptime() });
   }
 
@@ -60,7 +63,7 @@ const server = http.createServer((req, res) => {
   // for user "supabase_admin"»: внутренние адреса и форма строки подключения.
   // /ready наружу не проксируется (deploy/nginx.conf), но его читают с VPS —
   // а значит печатать в него env ровно так же плохо.
-  if (method === 'GET' && url === '/ready') {
+  if (method === 'GET' && path === '/ready') {
     let dbOk = false;
     let dbErrorCode: string | undefined;
     const databaseConfigured = Boolean(process.env.DATABASE_URL);
@@ -98,7 +101,7 @@ const server = http.createServer((req, res) => {
   // AUD-21: лимит стоит здесь, а не только в `api/csp-report.ts`. Прод ходит
   // этим маршрутом; фикс, положенный в вершеловский обработчик, приёмник на
   // VPS не защищал вовсе.
-  if (method === 'POST' && url === '/api/csp-report') {
+  if (method === 'POST' && path === '/api/csp-report') {
     if (rateLimited(clientIp(req as unknown as { headers: Record<string, unknown> }))) {
       res.writeHead(429);
       return res.end();
@@ -128,13 +131,13 @@ const server = http.createServer((req, res) => {
   }
 
   // POST /api/chat — streaming chat endpoint (must be above /api/* dispatcher)
-  if (method === 'POST' && url === '/api/chat') {
+  if (method === 'POST' && path === '/api/chat') {
     await handleChat(req, res);
     return;
   }
 
   // POST /api/* — route to AI dispatcher
-  if (method === 'POST' && url.startsWith('/api/')) {
+  if (method === 'POST' && path.startsWith('/api/')) {
     // Delegate to dispatcher which handles auth, rate limiting, and AI handlers
     await dispatch(req, res);
     return;

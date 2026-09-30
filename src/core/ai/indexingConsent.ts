@@ -1,8 +1,9 @@
 import { create } from 'zustand';
+import { INDEXING_CONSENT_VERSION } from '../../shared/ai/consentVersion';
+
+export { INDEXING_CONSENT_VERSION };
 
 export type IndexingConsentState = 'granted' | 'refused' | 'unanswered';
-
-export const INDEXING_CONSENT_VERSION = 1;
 
 const INDEXING_CONSENT_KEY = 'ai_indexing_consent';
 

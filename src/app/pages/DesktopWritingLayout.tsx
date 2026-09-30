@@ -254,7 +254,7 @@ export function DesktopWritingLayout() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-surface-card/60 backdrop-blur-xl text-xs text-text-main/70 pointer-events-none"
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[var(--z-panel)] px-4 py-2 rounded-xl bg-surface-card/60 backdrop-blur-xl text-xs text-text-main/70 pointer-events-none"
           >
             {t(silenceMode ? 'zen_hint_silence' : 'zen_hint')}
           </motion.div>

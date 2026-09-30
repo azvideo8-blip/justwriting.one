@@ -26,7 +26,7 @@ export function ConfirmModal({ isOpen, title, message, confirmLabel, cancelLabel
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl">
+    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-surface-base/80 backdrop-blur-2xl">
       <motion.div
         ref={modalRef}
         role="dialog"

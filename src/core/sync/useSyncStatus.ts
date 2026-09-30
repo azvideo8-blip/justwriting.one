@@ -76,6 +76,9 @@ const EMPTY_COUNTS: SharedCounts = {
 };
 
 let sharedCounts: SharedCounts = EMPTY_COUNTS;
+// R4-006: до первого завершившегося опроса счётчики — нули, и статус «synced»
+// был выдумкой, а не замером. Нейтральное состояние честнее.
+let sharedCountsLoaded = false;
 let activeSubscribers = 0;
 let currentSubscribedUserId: string | null = null;
 // Чей снимок в sharedCounts: после смены учётки UI показывал чужие счётчики,
@@ -128,6 +131,7 @@ async function pollSyncStatus(userId: string | null) {
       aiStorePending: (storeSummary?.pending ?? 0) + (storeSummary?.oversized ?? 0),
       aiStoreDead: storeSummary?.dead ?? 0,
     };
+    sharedCountsLoaded = true;
     statusListeners.forEach(fn => fn(sharedCounts));
   } catch {
     // SA-1: молчание здесь означало «бейдж держит прошлый снимок»: одно
@@ -145,6 +149,9 @@ async function pollSyncStatus(userId: string | null) {
       aiStorePending: 0,
       aiStoreDead: 0,
     };
+    // Это тоже замер: незнание показано как hasUnknown — висеть в нейтральном
+    // состоянии не нужно.
+    sharedCountsLoaded = true;
     statusListeners.forEach(fn => fn(sharedCounts));
   }
 }
@@ -190,8 +197,9 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
 
   // Снимок помнит, чей он: после смены учётки прежние счётчики не попадают
   // даже в первый рендер новой — пока нет своих, показываются нули (R3-024).
-  const [snap, setSnap] = useState<{ owner: string | null; counts: SharedCounts }>({ owner: userId, counts: EMPTY_COUNTS });
+  const [snap, setSnap] = useState<{ owner: string | null; counts: SharedCounts; loaded: boolean }>({ owner: userId, counts: EMPTY_COUNTS, loaded: sharedCountsLoaded });
   const c = snap.owner === userId ? snap.counts : EMPTY_COUNTS;
+  const loaded = snap.owner === userId ? snap.loaded : false;
   const pendingCount = c.pending;
   const pendingDeletionsCount = c.pendingDeletions;
   const unsyncedCount = c.unsynced;
@@ -236,14 +244,14 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   useEffect(() => {
     if (!userId) {
       // Defer to avoid synchronous setState in effect body
-      const t = setTimeout(() => setSnap({ owner: null, counts: EMPTY_COUNTS }), 0);
+      const t = setTimeout(() => setSnap({ owner: null, counts: EMPTY_COUNTS, loaded: false }), 0);
       return () => clearTimeout(t);
     }
 
     const t = setTimeout(() => {
-      if (sharedCountsUserId === userId) setSnap({ owner: userId, counts: sharedCounts });
+      if (sharedCountsUserId === userId) setSnap({ owner: userId, counts: sharedCounts, loaded: sharedCountsLoaded });
     }, 0);
-    const unsubscribe = subscribeSyncStatus(userId, counts => setSnap({ owner: userId, counts }));
+    const unsubscribe = subscribeSyncStatus(userId, () => setSnap({ owner: userId, counts: sharedCounts, loaded: sharedCountsLoaded }));
     return () => { clearTimeout(t); unsubscribe(); };
   }, [userId, autoSyncEnabled]);
 
@@ -304,9 +312,13 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   // «все данные синхронизированы» человеку, у которого четырнадцать заметок
   // лежали в одном браузере. «Мы не проверяем» — не то же самое, что «всё
   // хорошо», и путать их нельзя нигде.
-  let status: SyncStatus = 'synced';
+  // R4-006: пока первый опрос не ответил, ни «synced», ни «unsynced» сказать
+  // нельзя — показываем нейтральное «sync_off» (индикатор без обещаний).
+  let status: SyncStatus = loaded ? 'synced' : 'sync_off';
 
-  if (!isBrowserOnline) {
+  if (!loaded) {
+    // no-op: остаёмся в нейтральном состоянии до первого замера
+  } else if (!isBrowserOnline) {
     status = 'offline';
   } else if (hasUnknown) {
     status = 'cloud_unavailable';

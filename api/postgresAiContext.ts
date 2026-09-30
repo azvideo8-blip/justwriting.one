@@ -3,7 +3,7 @@
 // Uses the tables created in supabase/migrations/0004_ai_counters.sql and 0005_ai_global_daily_tokens.sql.
 
 import type { AiContext, GlobalReservation, LimitVerdict } from '../src/shared/ai/context.js';
-import { AI_CONSENT_VERSION_REQUIRED } from '../src/shared/ai/consentVersion.js';
+import { AI_CONSENT_VERSION_REQUIRED, INDEXING_CONSENT_VERSION } from '../src/shared/ai/consentVersion.js';
 // EA-10: ADMIN_DAILY_LIMIT — одно число с заголовками квоты, иначе админ видел x/60, а упирался в 20.
 import { DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
 
@@ -100,13 +100,6 @@ async function refundGlobalRequest(res: GlobalReservation | { error: 'unavailabl
 // ── Per-user daily limit ─────────────────────────────────────────────────────
 const PER_USER_LIMIT = envInt('AI_DAILY_LIMIT', DAILY_LIMIT);
 
-// Версии согласий. AI_CONSENT_VERSION_REQUIRED — общая с клиентом константа
-// (src/shared/ai/consentVersion.ts): сервер сверяет колонку версии, и собственное
-// число здесь означает расхождение, при котором человек либо получает отказ, уже
-// дав согласие, либо работает с ИИ на устаревшем тексте, который клиент
-// согласием не считает (D-6).
-const INDEXING_CONSENT_VERSION_REQUIRED = 1;
-
 // ── Согласие на обработку (AUD-2) ────────────────────────────────────────────
 // Клиентский гейт в callAi обходится прямым запросом к /api/chat — именно этим
 // путём идёт основной чат. Гарантия «без согласия текст не обрабатывается»
@@ -140,7 +133,7 @@ async function getIndexingConsent(uid: string): Promise<{ granted: boolean; erro
     const row = rows[0];
     return {
       granted: !!row?.indexing_consent_at
-        && (row.indexing_consent_version ?? 0) >= INDEXING_CONSENT_VERSION_REQUIRED,
+        && (row.indexing_consent_version ?? 0) >= INDEXING_CONSENT_VERSION,
     };
   } catch (e) {
     console.error('[postgresAiContext] getIndexingConsent error', e);

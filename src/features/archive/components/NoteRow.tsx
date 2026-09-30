@@ -174,7 +174,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         {editingDateTime && (
           <div
             ref={dtRef}
-            className={cn("absolute top-full left-0 z-50 mt-1 border border-border-subtle rounded-xl p-3 shadow-xl w-[200px]", "bg-[color-mix(in_srgb,var(--bg-base)_95%,var(--brand-primary)_5%)]")}
+            className={cn("absolute top-full left-0 z-[var(--z-panel)] mt-1 border border-border-subtle rounded-xl p-3 shadow-xl w-[200px]", "bg-[color-mix(in_srgb,var(--bg-base)_95%,var(--brand-primary)_5%)]")}
           >
             <div className="space-y-2">
               <div>

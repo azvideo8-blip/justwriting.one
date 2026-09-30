@@ -176,7 +176,7 @@ const WritingPageUI = React.memo(function WritingPageUI() {
         <ShortcutsModal onClose={() => setIsShortcutsModalOpen(false)} />
       )}
       {import.meta.env.DEV && devKpmStats && (
-        <div className="fixed bottom-2 left-2 text-label font-mono text-text-main/60 z-50 pointer-events-none">
+        <div className="fixed bottom-2 left-2 text-label font-mono text-text-main/60 z-[var(--z-panel)] pointer-events-none">
           KPM {devKpmStats.kpm} · IKI {devKpmStats.ikiMedian}ms · CV {devKpmStats.ikiCv}
         </div>
       )}

@@ -189,7 +189,7 @@ export function LifeLogPanel({
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className={cn(
         "glass-panel flex flex-col h-full border-l border-white/[0.04] bg-surface-card backdrop-blur-xl custom-scrollbar",
-        inGrid ? "w-full" : "fixed top-0 right-0 bottom-0 w-[380px] z-50 shadow-2xl"
+        inGrid ? "w-full" : "fixed top-0 right-0 bottom-0 w-[380px] z-[var(--z-panel)] shadow-2xl"
       )}
     >
       {/* Header */}

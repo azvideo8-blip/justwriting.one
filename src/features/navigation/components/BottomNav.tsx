@@ -113,7 +113,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe"
+      className="fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe"
     >
       <button
         type="button"

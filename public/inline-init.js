@@ -4,7 +4,9 @@
 // мигала тёмным фоном из index.html (R3-046). 'system' — как ThemeProvider.
 try {
   var d = document.documentElement;
-  d.lang = localStorage.getItem('app_language') || 'ru';
+  // R4-015: whitelist — в localStorage могло лежать что угодно.
+  var lang = localStorage.getItem('app_language');
+  d.lang = (lang === 'en' || lang === 'ru') ? lang : 'ru';
   var raw = localStorage.getItem('app-theme');
   var t = 'amethyst';
   if (raw) { try { t = JSON.parse(raw); } catch { t = raw; } }

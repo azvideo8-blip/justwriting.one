@@ -38,9 +38,12 @@ export default function handler(req: CspRequest, res: CspResponse) {
     ?? req.body
     ?? {}) as Record<string, unknown>;
   // AUDIT-L2: только origin+path — query params могут нести PII.
+  // R4-055: строка не из браузера (или кривой клиент) может раздуть журнал —
+  // каждая свобоная строка режется до 200 символов.
+  const clamp = (x: unknown) => String(x ?? '').slice(0, 200);
   const summary = {
     'document-uri': originOnly(report['document-uri'] as string | undefined),
-    'violated-directive': report['violated-directive'],
+    'violated-directive': clamp(report['violated-directive']),
     'blocked-uri': originOnly(report['blocked-uri'] as string | undefined),
   };
   console.warn('[csp-report]', JSON.stringify(summary));

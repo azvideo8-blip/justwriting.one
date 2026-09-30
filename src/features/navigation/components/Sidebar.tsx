@@ -67,7 +67,7 @@ function SidebarNavItem({ icon, label, isActive, expanded, onClick }: SidebarNav
               animate={{ opacity: 1, transform: "translateX(0px) translateY(-50%)" }}
               exit={{ opacity: 0, transform: "translateX(-6px) translateY(-50%)" }}
               transition={{ duration: 0.15 }}
-              className="pointer-events-none absolute left-full ml-3 top-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
+              className="pointer-events-none absolute left-full ml-3 top-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-[var(--z-sidebar)] bg-surface-card border border-border-subtle text-text-main shadow-lg"
             >
               {label}
             </motion.span>
@@ -118,7 +118,7 @@ function SidebarActionItem({ icon, label, expanded, onClick, accent }: SidebarAc
               animate={{ opacity: 1, transform: "translateX(0px) translateY(-50%)" }}
               exit={{ opacity: 0, transform: "translateX(-6px) translateY(-50%)" }}
               transition={{ duration: 0.15 }}
-              className="pointer-events-none absolute left-full ml-3 top-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-50 bg-surface-card border border-border-subtle text-text-main shadow-lg"
+              className="pointer-events-none absolute left-full ml-3 top-1/2 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap z-[var(--z-sidebar)] bg-surface-card border border-border-subtle text-text-main shadow-lg"
             >
               {label}
             </motion.span>
@@ -196,7 +196,7 @@ export function Sidebar({ isAdmin, onOpenSettings: _onOpenSettings }: SidebarPro
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-          "h-full z-50 flex flex-col py-4 sidebar-transition",
+          "h-full z-[var(--z-sidebar)] flex flex-col py-4 sidebar-transition",
           "fixed top-0 left-0 border-r border-border-subtle backdrop-blur-xl",
           expanded && "w-[220px]",
           !expanded && "w-16",

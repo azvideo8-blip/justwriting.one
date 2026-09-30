@@ -96,7 +96,6 @@ function repairTruncatedJson(raw: string): string {
 const inputSchema = z.object({
   content: z.string().min(50).max(MAX_AI_CONTENT_LENGTH),
   mood: z.string().max(50).nullish(),
-  recentContext: z.string().max(5000).optional(),
   noteDate: z.string().max(50).optional(),
 });
 
@@ -108,7 +107,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
 
   const { content, mood, noteDate } = parsed.data;
 
-  // SEC-4: User prose in personal diary entries (and mood/recentContext) must NOT
+  // SEC-4: User prose in personal diary entries (and mood) must NOT
   // be filtered with injection regexes. Defense is achieved via prompt isolation markers.
 
   const callRes = await chargeCall(ctx, uid, 'bulk', 'summarizeDocument');

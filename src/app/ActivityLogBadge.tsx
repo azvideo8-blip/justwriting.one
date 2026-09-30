@@ -94,7 +94,7 @@ export const ActivityLogBadge: React.FC = () => {
       {isOpen && (
         <>
           {/* not-a-modal: slide-out drawer */}
-          <div className="fixed inset-0 z-50 flex justify-start bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="fixed inset-0 z-[var(--z-sheet)] flex justify-start bg-black/40 backdrop-blur-xs animate-fadeIn">
             <div
             className="w-full max-w-md bg-surface-card border-r border-border-subtle shadow-2xl h-full flex flex-col overflow-hidden"
             role="dialog"

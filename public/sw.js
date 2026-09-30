@@ -50,7 +50,9 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE && k !== NAV_CACHE).map((k) => caches.delete(k)))
+      // R4-066: снести можно только свои кэши (префикс jw-), а не чужие
+      // записи Cache Storage, оставшиеся от других приложений на origin.
+      Promise.all(keys.filter((k) => k.startsWith('jw-') && k !== CACHE && k !== NAV_CACHE).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();

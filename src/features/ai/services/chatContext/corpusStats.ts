@@ -27,8 +27,10 @@ export async function getDocDate(docId: string): Promise<string> {
   try {
     const db = await getLocalDb();
     const doc = await db.get('documents', docId);
-    if (doc?.lastSessionAt) {
-      return formatDateYYYYMMDD(doc.lastSessionAt);
+    // R4-020: как в noteMetaFor — без последней сессии берём дату создания,
+    // а не «сегодня»: разбор заметки от 29 июля датировался днём запроса.
+    if (doc && (doc.lastSessionAt || doc.firstSessionAt)) {
+      return formatDateYYYYMMDD(doc.lastSessionAt ?? doc.firstSessionAt);
     }
   } catch { /* ignore */ }
   return formatDateYYYYMMDD(Date.now());

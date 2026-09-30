@@ -138,11 +138,17 @@ describe('F-2: a corrupt delete journal heals instead of stopping uploads foreve
     expect(r3.synced).toBe(0);
     expect(DataProvider.saveLocalStoreRecord).not.toHaveBeenCalled();
 
-    // Exactly one reportError across all 3 drains
-    expect(reportError).toHaveBeenCalledTimes(1);
+    // Ровно один отчёт на каждый журнал за загрузку страницы (R4-004 добавил
+    // второй журнал — oversized; повторов между дренами по-прежнему нет).
+    expect(reportError).toHaveBeenCalledTimes(2);
     expect(reportError).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({ action: 'flushPending_deleteJournalUnknown', userId: USER }),
+      'warning',
+    );
+    expect(reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ action: 'readOversizedRecords' }),
       'warning',
     );
   });

@@ -445,16 +445,25 @@ export const CloudSyncService = {
                 }
               }
 
+              // R4-005: у облачного ряда current_version мог отстать от
+              // фактически скачанных версий (расхождение счётчиков) —
+              // записывать отставший счётчик значило прятать хвост истории
+              // за «синхронизировано». Берём максимум из увиденного.
+              const seenMaxVersion = Math.max(
+                cloudDoc.currentVersion,
+                ...sortedCloudVersions.map(cv => cv.version),
+              );
+
               await LocalStorageService.updateDocument(localDoc.id, {
                 title: cloudDoc.title ?? localDoc.title,
                 tags: cloudDoc.tags ?? localDoc.tags,
                 labelId: cloudDoc.labelId !== undefined ? (cloudDoc.labelId ?? undefined) : localDoc.labelId,
                 mood: cloudDoc.mood ?? localDoc.mood,
-                currentVersion: cloudDoc.currentVersion,
+                currentVersion: seenMaxVersion,
                 totalWords: cloudDoc.totalWords ?? localDoc.totalWords,
                 totalDuration: cloudDoc.totalDuration ?? localDoc.totalDuration,
                 sessionsCount: cloudDoc.sessionsCount ?? localDoc.sessionsCount,
-                lastSyncedCloudVersion: cloudDoc.currentVersion,
+                lastSyncedCloudVersion: seenMaxVersion,
                 lastSeenCloudUpdatedAt: cloudUpdatedAtIso,
                 excludedFromAI: cloudDoc.excludedFromAI ?? localDoc.excludedFromAI,
                 // R3-5: корзина на другом устройстве (и восстановление из неё) —

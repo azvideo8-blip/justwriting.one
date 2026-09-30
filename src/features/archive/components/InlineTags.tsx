@@ -139,7 +139,7 @@ export function InlineTags({
             className="font-mono text-label text-text-main border border-text-main/20 rounded px-1.5 py-0.5 bg-transparent outline-none w-16"
           />
           {suggestions.length > 0 && (
-            <div className="absolute top-full left-0 mt-0.5 z-50 bg-surface-popup border border-border-subtle rounded-lg shadow-lg py-1 min-w-[120px]">
+            <div className="absolute top-full left-0 mt-0.5 z-[var(--z-panel)] bg-surface-popup border border-border-subtle rounded-lg shadow-lg py-1 min-w-[120px]">
               {suggestions.map((s, i) => (
                 <Button
                   key={s}

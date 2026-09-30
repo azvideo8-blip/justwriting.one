@@ -17,6 +17,9 @@ export function useServiceAction() {
   const { t } = useLanguage();
   const callIdRef = useRef(0);
   const abortedRef = useRef(false);
+  // R4-077: повторный клик по кнопке запускал вторую параллельную операцию,
+  // пока первая ещё летит.
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     // re-arm on mount: StrictMode runs mount → cleanup → mount, and without
@@ -29,6 +32,8 @@ export function useServiceAction() {
     action: (signal?: AbortSignal) => Promise<T>,
     options: ServiceActionOptions<T> = {}
   ): Promise<T | null> => {
+    if (inFlightRef.current) return null;
+    inFlightRef.current = true;
     const controller = new AbortController();
     setIsLoading(true);
     setError(null);
@@ -58,6 +63,7 @@ export function useServiceAction() {
       return null;
 
     } finally {
+      inFlightRef.current = false;
       if (callIdRef.current === callId && !abortedRef.current) setIsLoading(false);
     }
   }, [showToast, t]);
