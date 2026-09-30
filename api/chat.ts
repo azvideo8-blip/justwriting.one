@@ -19,7 +19,9 @@ function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Prom
     req.on('data', (c: Buffer) => {
       size += c.length;
       if (size > maxBytes) {
-        req.destroy();
+        // R4-051: destroy() рвал сокет до ответа — клиент получал EPIPE вместо
+        // 413. Чтение останавливается; ответ уходит с Connection: close.
+        req.pause();
         reject(new Error('PAYLOAD_TOO_LARGE'));
         return;
       }
@@ -403,7 +405,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     body = raw ? JSON.parse(raw) : {};
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
-      sendError(res, 413, 'PAYLOAD_TOO_LARGE');
+      // R4-051: Connection: close — сокет закрывается после ответа.
+      sendError(res, 413, 'PAYLOAD_TOO_LARGE', undefined, { Connection: 'close' });
     return;
     }
     sendError(res, 400, 'BAD_REQUEST');

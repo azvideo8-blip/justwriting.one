@@ -60,7 +60,7 @@ describe('JW-SEC-03: readBody payload size limits', () => {
     }
   });
 
-  it('rejects payload larger than 4MB with HTTP 413 and destroys stream', async () => {
+  it('rejects payload larger than 4MB with HTTP 413 without tearing the socket (R4-051)', async () => {
     const token = makeToken(secret);
     const chunk2MB = Buffer.alloc(2 * 1024 * 1024 + 100, 'a');
     const req = createMockRequest('/api/chatWithAI', { authorization: `Bearer ${token}` }, [
@@ -68,7 +68,7 @@ describe('JW-SEC-03: readBody payload size limits', () => {
       chunk2MB, // Total ~4.0002 MB > 4MB
     ]);
 
-    const destroySpy = vi.spyOn(req, 'destroy');
+    
 
     let responseStatus = 0;
     let responseBody = '';
@@ -87,7 +87,9 @@ describe('JW-SEC-03: readBody payload size limits', () => {
     expect(responseStatus).toBe(413);
     // AUDIT-7.1: единая форма ошибок через sendError
     expect(JSON.parse(responseBody)).toEqual({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'PAYLOAD_TOO_LARGE' } });
-    expect(destroySpy).toHaveBeenCalled();
+    // R4-051: readBody сам сокет больше не рвёт (stub-стрим с EOF всё равно
+    // авто-destroy'ится Node); живость проверяет реальный http.Server в
+    // callReservationLatches.test.ts.
   });
 
   it('returns HTTP 400 when body is malformed JSON and under 4MB', async () => {
@@ -179,14 +181,14 @@ describe('JW-SEC-03: readBody payload size limits', () => {
       );
     });
 
-    it('rejects csp-report larger than 32KB and safely ignores oversized payload', async () => {
+    it('rejects csp-report larger than 32KB with 413, not a silent 204 (R4-051)', async () => {
       const serverModule = await import('../server');
       const server = serverModule.default;
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const largeChunk = 'x'.repeat(35 * 1024); // 35 KB > 32 KB limit
       const req = createMockRequest('/api/csp-report', {}, [largeChunk]);
-      const destroySpy = vi.spyOn(req, 'destroy');
+      
 
       let responseStatus = 0;
       const res = {
@@ -199,8 +201,7 @@ describe('JW-SEC-03: readBody payload size limits', () => {
       server.emit('request', req, res);
       await new Promise(r => setTimeout(r, 50));
 
-      expect(responseStatus).toBe(204);
-      expect(destroySpy).toHaveBeenCalled();
+      expect(responseStatus).toBe(413);
       expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining(largeChunk));
     });
   });

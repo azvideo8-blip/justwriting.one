@@ -82,7 +82,7 @@ export async function judgeFacetsLogic(ctx: AiContext, uid: string, data: unknow
     });
     callRes.markProduced(result.text.length);
     await callRes.settle('done');
-    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judge' }, reservation).catch(() => {});
+    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judge' }, reservation).catch(e => console.error('[ai] recordUsage failed (judge)', e));
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) txt = txt.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');

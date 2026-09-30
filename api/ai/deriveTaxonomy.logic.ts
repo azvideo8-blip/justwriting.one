@@ -155,7 +155,7 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
     if (settled) {
       // DA-18: через callRes — у него защёлка usageRecorded; прямой ctx.recordUsage
       // писал расход второй раз, если settle('failed') уже его записал.
-      callRes.recordUsage(tokensIn, tokensOut, { model: usedModel, fn: 'taxonomy' }).catch(() => {});
+      callRes.recordUsage(tokensIn, tokensOut, { model: usedModel, fn: 'taxonomy' }).catch(e => console.error('[ai] recordUsage failed (taxonomy)', e));
     }
   }
 }

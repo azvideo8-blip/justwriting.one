@@ -29,7 +29,9 @@ function readBody(req: http.IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES):
     req.on('data', (c: Buffer) => {
       size += c.length;
       if (size > maxBytes) {
-        req.destroy();
+        // R4-051: destroy() рвал сокет до ответа — клиент получал EPIPE вместо
+        // 413. Чтение останавливается; ответ уходит с Connection: close.
+        req.pause();
         reject(new Error('PAYLOAD_TOO_LARGE'));
         return;
       }
@@ -85,7 +87,7 @@ const server = http.createServer((req, res) => {
       },
     ];
 
-    const isReady = !databaseConfigured || dbOk;
+    const isReady = databaseConfigured && dbOk;
     return json(res, isReady ? 200 : 503, {
       status: isReady ? 'ready' : 'not_ready',
       checks,
@@ -112,7 +114,15 @@ const server = http.createServer((req, res) => {
         'blocked-uri': originOnly(report?.['blocked-uri']),
       };
       console.warn('[csp-report]', JSON.stringify(summary));
-    } catch { /* ignore malformed or payload too large */ }
+    } catch (err: unknown) {
+      // R4-051: раньше 413 здесь тонул в общем catch и уходил 204 — клиент
+      // не узнавал, что репорт не принят.
+      if (err instanceof Error && err.message === 'PAYLOAD_TOO_LARGE') {
+        sendError(res, 413, 'PAYLOAD_TOO_LARGE', undefined, { Connection: 'close' });
+        return;
+      }
+      /* ignore malformed */
+    }
     res.writeHead(204);
     return res.end();
   }

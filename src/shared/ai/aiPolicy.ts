@@ -267,17 +267,19 @@ export function createCallReservation(
     },
     async recordUsage(tokensIn: number, tokensOut: number, opts?: { model?: string; fn?: string }) {
       if (usageRecorded) return;
-      usageRecorded = true;
+      // R4-053: защёлка только после успешного await — иначе один сбой БД
+      // навсегда блокировал повтор и резерв зависал в ai_global_daily.
       await ctx.recordUsage(uid, tokensIn, tokensOut, opts, currentGlobal);
+      usageRecorded = true;
     },
     async settle(reason: SettleReason, usage?: CallReservationUsage) {
       if (isSettled) return;
       isSettled = true;
       outcome = reason;
+      try {
       if (reason === 'done') {
         if (usage && (!currentGlobal || !currentGlobal.refunded)) {
           if (!usageRecorded) {
-            usageRecorded = true;
             const meta: { model?: string; fn?: string } = { fn: 'chat-stream' };
             if (usage.model) meta.model = usage.model;
             await ctx.recordUsage(
@@ -287,6 +289,7 @@ export function createCallReservation(
               meta,
               currentGlobal,
             );
+            usageRecorded = true;
           }
         }
         return;
@@ -320,7 +323,6 @@ export function createCallReservation(
         // Prompt tokens (input) were genuinely consumed before upstream started producing;
         // fallback to estimatedInputTokens if usage.tokensIn is absent on abort.
         if (!usageRecorded) {
-          usageRecorded = true;
           const tokensIn = usage?.tokensIn ?? currentEstimatedInput ?? 0;
           const tokensOut = usage?.tokensOut ?? Math.ceil(producedChars / 3);
           const meta: { model?: string; fn?: string } = { fn: 'chat-stream-abort' };
@@ -332,7 +334,14 @@ export function createCallReservation(
             meta,
             currentGlobal,
           );
+          usageRecorded = true;
         }
+      }
+      } catch (e) {
+        // R4-053: сбой внутри settle не должен защёлкивать резервацию —
+        // повторный settle обязан вернуть резерв.
+        isSettled = false;
+        throw e;
       }
     },
   };

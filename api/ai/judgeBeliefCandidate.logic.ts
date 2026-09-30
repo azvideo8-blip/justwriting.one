@@ -107,7 +107,7 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
     callRes.markProduced(result.text.length);
     await callRes.settle('done');
 
-    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judgeBeliefCandidate' }, reservation).catch(() => {});
+    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judgeBeliefCandidate' }, reservation).catch(e => console.error('[ai] recordUsage failed (judgeBeliefCandidate)', e));
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) {
