@@ -297,11 +297,33 @@ export const CloudSyncService = {
               return;
             }
 
+            // R3-010: без отметки синхронизации (заметки, связанные старыми
+            // версиями приложения) правки нельзя ни подтвердить, ни исключить.
+            // Прежде такая заметка шла в перемотку: счётчики вставали на голову
+            // облака, а локальная v2 с другим текстом объявлялась синхронизированной.
+            // Перемотка безопасна, только если текст совпадает с головой облака;
+            // иначе — как при правках: облачная голова ложится поверх, локальная
+            // остаётся в истории.
+            let unknownWatermarkDiverged = false;
+            if (!isPending && fresh.lastSyncedCloudVersion === undefined) {
+              const head = cloudVersions.reduce((latest, v) => (v.version > latest.version ? v : latest), cloudVersions[0]!);
+              let headContent: string | null = null;
+              try {
+                const dec = await maybeDecrypt(head as unknown as Record<string, unknown>, ['content'], []);
+                headContent = typeof dec.content === 'string' ? dec.content : null;
+              } catch (decErr) {
+                if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
+                if (!(decErr instanceof DecryptionError)) throw decErr;
+              }
+              const localContent = await LocalVersionService.getLatestContent(localDoc.id, userId);
+              unknownWatermarkDiverged = localContent !== '' && localContent !== headContent;
+            }
+
             const cloudUpdatedAtIso = cloudDoc.updatedAt
               ? new Date(cloudDoc.updatedAt).toISOString()
               : new Date(cloudTime || Date.now()).toISOString();
 
-            if (isPending) {
+            if (isPending || unknownWatermarkDiverged) {
               const latestCloudVer = cloudVersions.reduce((latest, v) => (v.version > latest.version ? v : latest), cloudVersions[0]!);
 
               let plainContent: string | null = null;
@@ -313,6 +335,15 @@ export const CloudSyncService = {
               } catch (decErr) {
                 if (decErr instanceof Error && decErr.message.startsWith('LOCKED')) throw decErr;
                 if (!(decErr instanceof DecryptionError)) throw decErr;
+                // R3-023: голова облака не читается — счётчики не трогаем
+                // (ветка ниже пропускается), но и не молчим.
+                corrupted++;
+                reportError(decErr, {
+                  action: 'reconcileLinkedDocuments_unreadableHead',
+                  documentId: localDoc.id,
+                  cloudDocumentId: localDoc.linkedCloudId,
+                  version: latestCloudVer.version,
+                }, 'warning');
               }
 
               if (plainContent !== null) {
