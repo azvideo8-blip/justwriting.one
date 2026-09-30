@@ -3,11 +3,11 @@
 // тест crisisResources.test.ts — русские строки панели в интерфейсе. Три копии
 // разошлись: промпт знал только детскую линию, интерфейс звал 112 «телефоном
 // доверия» (R3-027).
-export const CRISIS_RESOURCES_RU: ReadonlyArray<{ number: string; label: string }> = [
-  { number: '8-800-333-44-34', label: 'горячая линия психологической поддержки, бесплатно и круглосуточно' },
-  { number: '051 (с мобильного: +7 495 051)', label: 'Московская служба психологической помощи населению' },
-  { number: '8-800-2000-122', label: 'телефон доверия для детей, подростков и их родителей' },
-  { number: '112', label: 'экстренные службы' },
+export const CRISIS_RESOURCES_RU: ReadonlyArray<{ number: string; who: string }> = [
+  { number: '8-800-333-44-34', who: 'горячая линия психологической поддержки, бесплатно и круглосуточно' },
+  { number: '051 (с мобильного: +7 495 051)', who: 'Московская служба психологической помощи населению' },
+  { number: '8-800-2000-122', who: 'телефон доверия для детей, подростков и их родителей' },
+  { number: '112', who: 'экстренные службы' },
 ];
 
-export const CRISIS_RESOURCES_LINE_RU = CRISIS_RESOURCES_RU.map(r => `${r.number} — ${r.label}`).join('; ');
+export const CRISIS_RESOURCES_LINE_RU = CRISIS_RESOURCES_RU.map(r => `${r.number} — ${r.who}`).join('; ');

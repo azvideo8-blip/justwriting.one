@@ -13,6 +13,6 @@ describe('crisis resources', () => {
 
   it('русская панель — ровно этот список, по порядку', () => {
     const ru = [1, 2, 3, 4].map(i => (aiTranslations as Record<string, { ru: string }>)[`ai_crisis_resource_${i}`]!.ru);
-    expect(ru).toEqual(CRISIS_RESOURCES_RU.map(r => `${r.number} — ${r.label}`));
+    expect(ru).toEqual(CRISIS_RESOURCES_RU.map(r => `${r.number} — ${r.who}`));
   });
 });
