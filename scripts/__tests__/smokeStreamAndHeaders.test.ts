@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createServer, type Server, type RequestListener } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
+  apiNoTokenErrors,
   checkChatStreamRefund,
   checkHostAndSwHeaders,
   countRawHeader,
@@ -118,5 +119,43 @@ describe('post-deploy smoke: чужой Host и content-type у sw.js', () => {
     expect(errors).toHaveLength(2);
     expect(errors[0]).toContain('evil.example.com');
     expect(errors[1]).toContain('2 раз');
+  });
+});
+
+// R5-011: 429 от общего api_limit — «не измерено», а не откат здоровой службы.
+// R5-012: извне :80 с чужим Host рвут соединение — обрыв не открытый
+// редиректор. Фальсификация: убрать ветку 429 или isNoResponse — краснеет.
+describe('post-deploy smoke: не измерено ≠ провал', () => {
+  it('401 — ок; 429 — громкое «не измерено»; прочее — провал', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(apiNoTokenErrors(401)).toEqual([]);
+    expect(warn).not.toHaveBeenCalled();
+    expect(apiNoTokenErrors(429)).toEqual([]);
+    expect(warn.mock.calls.flat().join('\n')).toContain('не измерено: 429');
+    for (const s of [200, 403, 502, 503]) expect(apiNoTokenErrors(s)).toHaveLength(1);
+  });
+
+  it('на проводе: обрыв на чужом Host — предупреждение, не ошибка', async () => {
+    ({ server } = await serve((req, res) => {
+      if (req.url === '/p') {
+        req.socket.destroy();
+      } else {
+        res.writeHead(200, { 'Content-Type': 'text/javascript' }).end('//');
+      }
+    }));
+    const base = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/`;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await checkHostAndSwHeaders(base, 5_000)).toEqual([]);
+    expect(warn.mock.calls.flat().join('\n')).toContain('не измерено');
+  });
+
+  it('на проводе: отказ в соединении на :80 — по-прежнему провал', async () => {
+    // Порт без слушателя: ECONNREFUSED — это не «ответа нет», это «:80 лежит».
+    ({ server } = await serve(() => {}));
+    const port = (server!.address() as AddressInfo).port;
+    await new Promise((r) => server!.close(r));
+    server = null;
+    const errors = await checkHostAndSwHeaders(`http://127.0.0.1:${port}/`, 5_000);
+    expect(errors[0]).toContain('с чужим Host');
   });
 });

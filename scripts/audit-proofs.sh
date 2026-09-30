@@ -5,6 +5,10 @@ cd "$(dirname "$0")/.."
 
 fails=()
 fail() { echo "  FAIL: $*"; fails+=("$*"); }
+# R5-006: защищаемая строка ищется только среди незакомментированных — иначе
+# закомментированный guard (или блок nginx, или строка отката) оставлял proof
+# зелёным, а защита при этом не работала.
+code_lines() { grep -v '^[[:space:]]*#' "$1"; }
 
 echo "### 3.1 Actions pinned by SHA (no mutable tags)"
 if grep -rE 'uses:.*@[0-9a-f]{40}' .github/workflows/ | grep -q checkout; then
@@ -28,7 +32,7 @@ echo "### 3.3 pull-backup.sh rejects a hostile dump name"
 # R4-069: раньше 3.3 проверяла собственный case-glob, а не regex в самом
 # pull-backup.sh — сдвиг источника оставался бы незамеченным. Извлекаем
 # настоящий regex и проверяем его им.
-GUARD_LINE=$(grep -F '[[ "$NAME" =~ ' deploy/backup/pull-backup.sh | head -1 || true)
+GUARD_LINE=$(code_lines deploy/backup/pull-backup.sh | grep -F '[[ "$NAME" =~ ' | head -1 || true)
 if [ -z "$GUARD_LINE" ]; then
   fail "guard regex not found in deploy/backup/pull-backup.sh"
 else
@@ -55,8 +59,8 @@ fi
 
 echo ""
 echo "### 3.4 nginx dotfiles/.prev denylist present in config"
-grep -q 'location ~ /\\.' deploy/nginx.conf && echo "  OK dotfiles location present" || fail "dotfiles location missing"
-grep -q '\\.(prev|bak|old|orig|save|swp|log|sha256)\$' deploy/nginx.conf && echo "  OK prev/bak block present" || fail "prev/bak block missing"
+code_lines deploy/nginx.conf | grep -q 'location ~ /\\.' && echo "  OK dotfiles location present" || fail "dotfiles location missing"
+code_lines deploy/nginx.conf | grep -q '\\.(prev|bak|old|orig|save|swp|log|sha256)\$' && echo "  OK prev/bak block present" || fail "prev/bak block missing"
 echo "  SKIP: live check — see TB-16"
 
 echo ""
@@ -71,7 +75,12 @@ fi
 
 echo ""
 echo "### 3.6 Firebase mentions left in src/"
-COUNT=$(rg -c "Firebase|Firestore" src/ -g '!*test*' 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
+# R5-007: rg на раннере нет, а `2>/dev/null` прятал «command not found» — счёт
+# был 0 всегда. grep есть везде; ноль просмотренных файлов — провал, а не ноль.
+FB_COUNTS=$(grep -rEc "Firebase|Firestore" src/ --exclude='*test*' --exclude-dir='*test*' || true)
+FB_FILES=$(printf '%s\n' "$FB_COUNTS" | grep -c ':' || true)
+COUNT=$(printf '%s\n' "$FB_COUNTS" | awk -F: '{s+=$NF} END {print s+0}')
+[ "$FB_FILES" -gt 0 ] || fail "Firebase scan saw 0 files in src/ — nothing was measured"
 # R4-069: раньше 3.6 не умела падать. Храповик: фактический остаток 29 —
 # потолок; рост или новая упоминание в коде красит гейт, сдвиг вниз двигает и его.
 FIREBASE_RATCHET=29
@@ -79,7 +88,7 @@ echo "  remaining mentions: $COUNT (ratchet ceiling: $FIREBASE_RATCHET — only 
 if [ "$COUNT" -gt "$FIREBASE_RATCHET" ]; then
   fail "Firebase/Firestore mentions grew: $COUNT > $FIREBASE_RATCHET"
 fi
-rg -n "Firebase|Firestore" src/ -g '!*test*' 2>/dev/null | head -5 | sed 's/^/    /'
+grep -rnE "Firebase|Firestore" src/ --exclude='*test*' --exclude-dir='*test*' | head -5 | sed 's/^/    /'
 
 echo ""
 echo "### 3.7 manifest/icon references exist on disk"
@@ -95,10 +104,10 @@ echo "### 3.8 deploy.yml rollback restores node_modules (L-9 / R4-064)"
 # rsync --delete заменяет зависимости до запуска службы; откат, возвращающий
 # только server.mjs, оставляет службу без её пакетов. Ищем сами строки снимка
 # и восстановления, а не имя где угодно: удалённый блок отката красит гейт.
-grep -qF 'cp -al /opt/justwriting/api/node_modules /opt/justwriting/api/node_modules.prev' .github/workflows/deploy.yml \
+code_lines .github/workflows/deploy.yml | grep -qF 'cp -al /opt/justwriting/api/node_modules /opt/justwriting/api/node_modules.prev' \
   && echo "  OK: node_modules snapshot present in deploy" \
   || fail "deploy.yml has no node_modules snapshot"
-grep -qF 'rsync -a --delete /opt/justwriting/api/node_modules.prev/ /opt/justwriting/api/node_modules/' .github/workflows/deploy.yml \
+code_lines .github/workflows/deploy.yml | grep -qF 'rsync -a --delete /opt/justwriting/api/node_modules.prev/ /opt/justwriting/api/node_modules/' \
   && echo "  OK: node_modules restore present in rollback" \
   || fail "deploy.yml rollback does not restore node_modules"
 

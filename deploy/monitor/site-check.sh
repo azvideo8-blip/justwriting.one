@@ -17,7 +17,9 @@ set -uo pipefail
 STATE="$HOME/.justwriting-site-check"
 
 for URL in https://justwriting.ru/ https://justwriting.ru/ready; do
-    CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL" || echo 000)
+    # R5-010: без `|| echo 000` — curl при сбое сам печатает 000 и выходит не
+    # нулём; приписка давала в алерт несуществующий код 000000.
+    CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL")
     [ "$CODE" = "200" ] || break
 done
 FAILS=$(cat "$STATE" 2>/dev/null || echo 0)

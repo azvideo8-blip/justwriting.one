@@ -74,6 +74,10 @@ jobs:
           LOG_OPTS="$GL_RANGE"
         fi
         bash scripts/gitleaks-scan.sh "$LOG_OPTS"
+    # R5-003: deploy/nginx.conf едет на сервер руками — `nginx -t` здесь, а не
+    # на живом nginx. Контейнер nginx той же версии, что на проде.
+    - name: nginx -t (deploy/nginx.conf)
+      run: bash scripts/ci/nginx-check.sh
     - run: npm ci
     - run: node scripts/prod-audit.mjs  # gate on shipped (prod) deps; fails on any high/critical advisory except the documented N/A exceptions in the script
     - run: npm run typecheck
@@ -206,6 +210,11 @@ jobs:
         { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql; do cat "$f"; echo; done; } \
           | docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -v ON_ERROR_STOP=1
 
+  # R5-008: джоб только для PR не от Dependabot. Сегодня таких нет (владелец
+  # пушит в main), поэтому он не исполнялся ни разу — но и не мёртв: первый
+  # же PR человека (репозиторий готовится к публичности) его запустит.
+  # Размерный гейт каждого push — «Bundle size budget» в build; здесь лишь
+  # сравнение с базой PR.
   bundle-size:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'

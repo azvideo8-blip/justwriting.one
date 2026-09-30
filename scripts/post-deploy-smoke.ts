@@ -112,6 +112,29 @@ export function foreignHostRedirectErrors(status: number, location: string | und
   return [];
 }
 
+/** Проверка #3: POST /api/chatWithAI без токена обязан дать 401.
+ *  R5-011: 429 — лимит nginx `api_limit`, общий для /api/ и /ready, а раннер
+ *  бьёт с одного адреса вместе с монитором и проверкой входа. Это «не
+ *  измерено» (громко, как M-2 для стрима), а не провал: провал откатывает
+ *  здоровую службу. 502/503/200 и прочее — провал, как и было. */
+export function apiNoTokenErrors(status: number): string[] {
+  if (status === 401) return [];
+  if (status === 429) {
+    console.warn('::warning::/api/chatWithAI без токена: не измерено: 429 (лимит api_limit) — 401 не проверен.');
+    return [];
+  }
+  return [`/api/chatWithAI без токена вернул HTTP ${status} вместо 401`];
+}
+
+/** R5-012: извне :80 с чужим Host соединение рвут до nginx (curl: «Empty reply
+ *  from server»). Сегодня раннер стоит на самом сервере и ответ приходит, но
+ *  обрыв/тайм-аут — это «ответа нет», а не открытый редиректор: громкое «не
+ *  измерено». Любой полученный ответ по-прежнему обязан вести на origin. */
+export function isNoResponse(err: unknown): boolean {
+  const e = err as { code?: string; message?: string };
+  return e?.code === 'ECONNRESET' || e?.message === 'timeout';
+}
+
 export function swContentTypeErrors(status: number, rawHeaders: string[]): string[] {
   if (status !== 200) return [`sw.js вернул HTTP ${status} вместо 200`];
   const n = countRawHeader(rawHeaders, 'content-type');
@@ -142,7 +165,11 @@ export async function checkHostAndSwHeaders(baseUrl: string, timeoutMs = 20_000)
     const r = await rawGet(plain.toString(), { Host: 'evil.example.com' }, timeoutMs);
     errors.push(...foreignHostRedirectErrors(r.status, r.location, origin));
   } catch (err) {
-    errors.push(`Не удалось запросить ${plain} с чужим Host: ${String(err)}`);
+    if (isNoResponse(err)) {
+      console.warn(`::warning::${plain} с чужим Host: не измерено — ответа нет (${String(err)}).`);
+    } else {
+      errors.push(`Не удалось запросить ${plain} с чужим Host: ${String(err)}`);
+    }
   }
 
   const sw = new URL('/sw.js', baseUrl).toString();
@@ -302,9 +329,7 @@ export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCh
         body: JSON.stringify({ data: {} }),
         signal: AbortSignal.timeout(10_000),
       });
-      if (apiResp.status !== 401) {
-        errors.push(`/api/chatWithAI без токена вернул HTTP ${apiResp.status} вместо 401`);
-      }
+      errors.push(...apiNoTokenErrors(apiResp.status));
     } catch (err) {
       errors.push(`Не удалось выполнить запрос к API ${apiUrl}: ${String(err)}`);
     }
