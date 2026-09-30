@@ -52,6 +52,34 @@ export const activityTranslations: Translations = {
     ru: 'Часть истории заметки не читается и пропущена (версий: {count})',
     en: 'Part of note history is unreadable and was skipped ({count} versions)',
   },
+  activity_local_store_dead_upsert: {
+    ru: 'Запись {store}/{key} не принята облаком {attempts} раз и осталась только на устройстве',
+    en: 'Record {store}/{key} was rejected by the cloud {attempts} times and stays on this device only',
+  },
+  activity_cloud_restored_notes: {
+    ru: 'Восстановлено заметок из облака: {restored}',
+    en: 'Notes restored from the cloud: {restored}',
+  },
+  activity_belief_rejected: {
+    ru: 'Убеждение отклонено (судья не пропустил)',
+    en: 'Belief rejected (judge did not pass it)',
+  },
+  activity_belief_published: {
+    ru: 'Убеждение опубликовано',
+    en: 'Belief published',
+  },
+  activity_restore_oversized_record: {
+    ru: 'Запись {store}/{key} ({kb} КБ) в облаке превышает лимит размера 10 МБ и не может быть загружена на устройство',
+    en: 'Cloud record {store}/{key} ({kb} KB) exceeds the 10 MB limit and cannot be downloaded to this device',
+  },
+  activity_analysis_reattached: {
+    ru: 'Анализ привязан к заметкам (сводок: {summaries}, эмбеддингов: {embeddings})',
+    en: 'Analysis re-attached to notes ({summaries} summaries, {embeddings} embeddings)',
+  },
+  activity_themes_touched: {
+    ru: 'Тема затронута: {themes}',
+    en: 'Themes touched: {themes}',
+  },
   activity_cloud_note_downloaded: {
     ru: 'Заметка загружена из облака',
     en: 'Note downloaded from cloud',

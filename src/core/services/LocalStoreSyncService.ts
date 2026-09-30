@@ -823,7 +823,7 @@ export class LocalStoreSyncManager {
                 markDeadUpsert(uid, item.store, item.key, attempts, msg.slice(0, 200));
                 markerChanges.dropped.add(itemKey);
                 useActivityLogStore.getState().addActivity(
-                  `Запись ${item.store}/${item.key} не принята облаком ${attempts} раз и осталась только на устройстве`,
+                  'activity_local_store_dead_upsert',
                   { action: 'localStoreSync_dead', store: item.store, key: item.key, attempts, error: msg.slice(0, 200) },
                   'warning',
                   'sync'

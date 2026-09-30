@@ -294,8 +294,8 @@ export const AIThemeLedgerService = {
       
       if (resolved.length > 0) {
         useActivityLogStore.getState().addActivity(
-          `Тема затронута: ${resolved.map(r => r.cleanedTheme).join(', ')}`,
-          { action: 'touchThemes', documentId, themes: resolved.map(r => r.cleanedTheme) },
+          'activity_themes_touched',
+          { action: 'touchThemes', documentId, themes: resolved.map(r => r.cleanedTheme).join(', ') },
           'info',
           'ai'
         );

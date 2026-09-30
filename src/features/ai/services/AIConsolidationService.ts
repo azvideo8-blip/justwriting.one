@@ -471,7 +471,7 @@ export const AIConsolidationService = {
       await this.saveRejection(rejectionRecord);
       
       useActivityLogStore.getState().addActivity(
-        'Убеждение отклонено (судья не пропустил)',
+        'activity_belief_rejected',
         { action: 'belief_rejected', clusterSize: cluster.units.length },
         'warning',
         'ai'
@@ -500,7 +500,7 @@ export const AIConsolidationService = {
     await this.saveBelief(publishedBelief);
     
     useActivityLogStore.getState().addActivity(
-      'Убеждение опубликовано',
+      'activity_belief_published',
       { action: 'belief_published', beliefId: publishedBelief.id, clusterSize: publishedBelief.clusterSize },
       'success',
       'ai'

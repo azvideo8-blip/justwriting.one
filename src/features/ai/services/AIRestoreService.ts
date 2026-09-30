@@ -322,8 +322,8 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
             'warning'
           );
           useActivityLogStore.getState().addActivity(
-            `Запись ${store}/${baseKey} (${Math.round(recordBytes / 1024)} КБ) в облаке превышает лимит размера 10 МБ и не может быть загружена на устройство`,
-            { action: 'restoreAIData_oversized', store, key: baseKey, bytes: recordBytes, limit: MAX_RESTORE_RECORD_BYTES },
+            'activity_restore_oversized_record',
+            { action: 'restoreAIData_oversized', store, key: baseKey, bytes: recordBytes, limit: MAX_RESTORE_RECORD_BYTES, kb: Math.round(recordBytes / 1024) },
             'warning',
             'ai'
           );
@@ -635,7 +635,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
   if (out.summaries || out.embeddings) {
     logger.info('AIRestoreService', 'Re-attached orphaned analysis', { ...out });
     useActivityLogStore.getState().addActivity(
-      `Анализ привязан к заметкам (сводок: ${out.summaries}, эмбеддингов: ${out.embeddings})`,
+      'activity_analysis_reattached',
       { action: 'reattachOrphanedAnalysis', ...out },
       'info',
       'ai'

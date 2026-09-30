@@ -68,7 +68,7 @@ export function useBackgroundSync(): void {
           const { restored, hasMore, throttled } = await CloudSyncService.restoreMissingDocuments(uid);
           if (restored > 0) {
             useActivityLogStore.getState().addActivity(
-              `Восстановлено заметок из облака: ${restored}`,
+              'activity_cloud_restored_notes',
               { action: 'restoreMissingDocuments', restored, hasMore },
               'info',
               'sync',

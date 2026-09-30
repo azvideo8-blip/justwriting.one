@@ -9,7 +9,6 @@ src/app/pages/DiagnosticsPage.tsx:showToast:Пакетный анализ зав
 src/app/pages/DiagnosticsPage.tsx:showToast:Превышен лимит запросов к ИИ
 src/app/pages/DiagnosticsPage.tsx:showToast:Хронология ИИ успешно перестроена. Записей: ${…}
 src/app/pages/MobileMePage.tsx:showToast:Не удалось выйти из аккаунта
-src/core/services/LocalStoreSyncService.ts:addActivity:Запись ${…}/${…} не принята облаком ${…} раз и осталась только на устройстве
 src/core/storage/localDb.ts:showDbOverlay:Закройте другие вкладки justwriting и обновите страницу — база данных ожидает об
 src/core/storage/localDb.ts:showDbOverlay:Приложение обновилось в другой вкладке. Обновите страницу — данные на месте.
 src/core/storage/localDb.ts:showDbOverlay:Приложение обновилось в другой вкладке. Обновите страницу — сохранённое на месте
@@ -58,7 +57,6 @@ src/features/ai/hooks/useAIChat.ts:title:Новый диалог
 src/features/ai/hooks/useAIPageData.ts:setProactiveHint:Тема «${…}» была активна ${…} дн. назад — хочешь вернуться к ней?
 src/features/ai/hooks/useAIPageData.ts:showToast:Учту — продолжу в этом стиле
 src/features/ai/hooks/useAttachmentManager.ts:title:Вставленный текст
-src/features/ai/hooks/useBackgroundSync.ts:addActivity:Восстановлено заметок из облака: ${…}
 src/features/ai/hooks/useDiagnosticsData.ts:error:Некорректный email
 src/features/ai/hooks/useDiagnosticsData.ts:showToast:Все локальные заметки выгружены в облако
 src/features/ai/hooks/useDiagnosticsData.ts:showToast:Данная функция работает только при подключении к сети
@@ -88,8 +86,6 @@ src/features/ai/pages/RerankBenchPage.tsx:showToast:Ошибка при прог
 src/features/ai/pages/RerankBenchPage.tsx:showToast:Поиск по смыслу выключен: оба пути вернут одно и то же. Включите его в настройка
 src/features/ai/pages/RerankBenchPage.tsx:showToast:Прогон завершён: ${…} запросов
 src/features/ai/pages/RerankBenchPage.tsx:showToast:Сводка скопирована
-src/features/ai/services/AIConsolidationService.ts:addActivity:Убеждение опубликовано
-src/features/ai/services/AIConsolidationService.ts:addActivity:Убеждение отклонено (судья не пропустил)
 src/features/ai/services/AIFacetJudgeService.ts:title:(фрагмент)
 src/features/ai/services/AIProfileFacetSummarizer.ts:title:(фрагмент)
 src/features/ai/services/AIProfileService.ts:title:Зоны роста
@@ -97,9 +93,6 @@ src/features/ai/services/AIProfileService.ts:title:Сильные стороны
 src/features/ai/services/AIProfileService.ts:title:Стиль общения
 src/features/ai/services/AIProfileService.ts:title:Темы и интересы
 src/features/ai/services/AIProfileService.ts:title:Эмоциональные паттерны
-src/features/ai/services/AIRestoreService.ts:addActivity:Анализ привязан к заметкам (сводок: ${…}, эмбеддингов: ${…})
-src/features/ai/services/AIRestoreService.ts:addActivity:Запись ${…}/${…} (${…} КБ) в облаке превышает лимит размера 10 МБ и не может быт
-src/features/ai/services/AIThemeLedgerService.ts:addActivity:Тема затронута: ${…}
 src/features/ai/utils/lifeDomains.ts:label:Внутренняя работа
 src/features/ai/utils/lifeDomains.ts:label:Деньги
 src/features/ai/utils/lifeDomains.ts:label:Отношения с детьми
