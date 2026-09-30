@@ -88,6 +88,7 @@ vi.mock('../../../../core/crypto/cryptoHelpers', () => ({
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/errors/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
+vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u_reattach' }) }));
 
 const decodeCloudSummary = vi.fn(async (d: Record<string, unknown>, id: string) => ({ documentId: id, tone: d.tone }));
 vi.mock('../AISummaryService', () => ({
@@ -725,5 +726,72 @@ describe('reattachOrphanedAnalysis', () => {
     // Вторая страница запрошена — значит, первая, прореженная фильтром, конец не объявила.
     expect(spy.mock.calls.some(([, , cursor]) => cursor === 'e9')).toBe(true);
     spy.mockRestore();
+  });
+});
+
+// ── L-5 (R4-076): привязка сироты не возвращает удалённое и не трогает
+// исключённое из AI ──────────────────────────────────────────────────────
+
+const PENDING_ANALYSIS_DELETES_KEY = 'ai_sync_pending_analysis_deletes';
+
+describe('reattachOrphanedAnalysis — L-5 guards', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStore.aiSummaries = new Map();
+    localStore.aiEmbeddings = new Map();
+    localStore.aiTimeline = new Map();
+    localStore.documents = new Map();
+    latestContent.clear();
+  });
+
+  const addGuardedNote = (id: string, text: string, uuid: string, extra?: Record<string, unknown>) => {
+    localStore.documents.set(id, { id, uuid, lastSessionAt: Date.parse('2026-07-01'), ...extra });
+    latestContent.set(id, text);
+  };
+
+  const seedOrphan = (key: string, uuid: string) => {
+    localStore.aiSummaries.set(key, {
+      documentId: key,
+      ...(uuid ? { documentUuid: uuid } : {}),
+      contentHash: 'hash-of:the note text',
+      tone: 'calm', themes: [], extractedFacts: [], insights: [],
+    });
+  };
+
+  it('a summary whose uuid is in pending analysis deletes is not attached', async () => {
+    localStorage.setItem(PENDING_ANALYSIS_DELETES_KEY, JSON.stringify([
+      { uid: 'u_reattach', canonicalId: 'note-uuid-1' },
+    ]));
+    addGuardedNote('local_new', 'the note text', 'note-uuid-1');
+    seedOrphan('local_dead', 'note-uuid-1');
+
+    const res = await reattachOrphanedAnalysis();
+
+    expect(res.summaries).toBe(0);
+    expect(localStore.aiSummaries.has('local_dead')).toBe(true);
+    expect(localStore.aiSummaries.has('local_new')).toBe(false);
+  });
+
+  it('a summary is not attached to a note excluded from AI', async () => {
+    addGuardedNote('local_new', 'the note text', 'note-uuid-2', { excludedFromAI: true });
+    seedOrphan('local_dead', 'note-uuid-2');
+
+    const res = await reattachOrphanedAnalysis();
+
+    expect(res.summaries).toBe(0);
+    expect(localStore.aiSummaries.has('local_dead')).toBe(true);
+    expect(localStore.aiSummaries.has('local_new')).toBe(false);
+  });
+
+  it('an unreadable delete-journal skips the whole pass (fail-closed)', async () => {
+    localStorage.setItem(PENDING_ANALYSIS_DELETES_KEY, '{corrupt');
+    addGuardedNote('local_new', 'the note text', 'note-uuid-3');
+    seedOrphan('local_dead', 'note-uuid-3');
+
+    const res = await reattachOrphanedAnalysis();
+
+    expect(res.summaries).toBe(0);
+    expect(localStore.aiSummaries.has('local_dead')).toBe(true);
+    expect(localStore.aiSummaries.has('local_new')).toBe(false);
   });
 });

@@ -21,6 +21,8 @@ import { useActivityLogStore } from '../../../shared/activity/useActivityLogStor
 import { writeFacetStore } from '../../../core/services/facetLock';
 import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 import { getPendingAnalysisDeleteKeys } from './pendingAnalysisDeletes';
+import { getCurrentUser } from '../../../core/auth';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
 const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
@@ -515,6 +517,13 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
   const out: ReattachResult = { summaries: 0, embeddings: 0 };
   const db = await getLocalDb();
 
+  // L-5 (R4-076): привязка сироты к заново скачанной заметке не смотрела ни в
+  // журнал удалений разборов, ни в исключение заметки из AI — разбор, который
+  // пользователь уже снёс, возвращался. Журнал не читается — проход отменяется
+  // (fail-closed), как в restoreAIDataFromCloud.
+  const pendingAnalysisDeletes = getPendingAnalysisDeleteKeys(getCurrentUser()?.uid ?? '');
+  if (pendingAnalysisDeletes === null) return out;
+
   const [docs, summaries, embeddings] = await Promise.all([
     db.getAll('documents'),
     db.getAll('aiSummaries'),
@@ -565,6 +574,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
 
   for (const doc of docs) {
     if (!doc.uuid) continue;
+    if ((doc.uuid && pendingAnalysisDeletes.has(doc.uuid)) || isExcludedFromAI(doc)) continue;
     const needsSummary = !hasSummary.has(doc.id);
     const needsEmbedding = !hasEmbedding.has(doc.id);
     if (!needsSummary && !needsEmbedding) continue;
@@ -600,6 +610,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
   // "two notes with identical text" remains for these legacy records.
   for (const doc of docs) {
     if (orphanSummariesByHash.size === 0 && orphanEmbeddingsByHash.size === 0) break;
+    if ((doc.uuid && pendingAnalysisDeletes.has(doc.uuid)) || isExcludedFromAI(doc)) continue;
 
     const needsSummary = !hasSummary.has(doc.id) && orphanSummariesByHash.size > 0;
     const needsEmbedding = !hasEmbedding.has(doc.id) && orphanEmbeddingsByHash.size > 0;
