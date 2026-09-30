@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { useEffect, useId, useState } from 'react';
+import { Save } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 
 export type SaveStatusKind = 'idle' | 'saving' | 'saved' | 'cloud-stale' | 'error';
 
-// DC-W4: статус сохранения живёт внизу экрана письма, а не в шапке — при
-// настройках по умолчанию шапка скрыта панелью журнала, а в дзен размонтируется,
-// и сигнал «сохранено» до писателя не доходил вовсе.
+// Дискета в левом нижнем углу вместо слов «Сохранение… / Сохранено»: мигающие
+// надписи отвлекали от письма. Иконка почти прозрачна, на сохранении плавно
+// загорается фирменным фиолетовым и гаснет; время — в подсказке по наведению.
+// Ошибка и «только локально» не гаснут: цветом и голосом для скринридера (DC-W4).
+const LIT_MS = 900;
+
 export function SaveStatus({
   saveStatus,
   saveErrorKind,
@@ -19,103 +23,77 @@ export function SaveStatus({
   const { t, language } = useLanguage();
   const { isZenActive } = useWritingSettings();
   const reducedMotion = useReducedMotion();
+  const tipId = useId();
   const [prevStatus, setPrevStatus] = useState<SaveStatusKind>(saveStatus);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [flash, setFlash] = useState(false);
+  const [lit, setLit] = useState(saveStatus === 'saving');
 
-  // Метка времени снимается в момент перехода в 'saved' — во время рендера, по
-  // изменению пропа, а не в эффекте: эффект требует подавления в храповике
-  // set-state-in-effect, а показывать время, когда запись закончилась, надо сразу.
+  // Переход статуса ловится во время рендера, а не в эффекте (храповик
+  // set-state-in-effect): время записи и вспышка нужны сразу.
   if (saveStatus !== prevStatus) {
     setPrevStatus(saveStatus);
     if (saveStatus === 'saved') {
       setSavedAt(new Date().toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }));
-      setFlash(true);
-    } else {
-      setFlash(false);
     }
+    if (saveStatus === 'saving' || saveStatus === 'saved') setLit(true);
   }
 
+  // Короткое сохранение (десятки миллисекунд) иначе мигнуло бы незаметно:
+  // иконка держит свет LIT_MS после конца записи и гаснет переходом.
   useEffect(() => {
-    if (!flash) return;
-    const timer = setTimeout(() => setFlash(false), 1000);
+    if (!lit || saveStatus === 'saving') return;
+    const timer = setTimeout(() => setLit(false), LIT_MS);
     return () => clearTimeout(timer);
-  }, [flash]);
-
-  if (saveStatus === 'idle') return null;
+  }, [lit, saveStatus]);
 
   const isError = saveStatus === 'error';
-  const opacity = isError || flash ? 'opacity-100' : isZenActive ? 'opacity-40' : 'opacity-70';
+  const isStale = saveStatus === 'cloud-stale';
+  const tip = isError
+    ? (saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save'))
+    : isStale
+      ? t('editor_cloud_stale')
+      : saveStatus === 'saving'
+        ? t('editor_saving')
+        : savedAt
+          ? t('editor_saved_at', { time: savedAt })
+          : t('editor_not_saved_yet');
 
   return (
-    <div
-      data-testid="save-status"
-      className={cn(
-        'font-mono text-label tracking-widest uppercase whitespace-nowrap transition-opacity duration-300',
-        reducedMotion && 'duration-0',
-        opacity,
-        isError ? 'text-accent-danger' : saveStatus === 'cloud-stale' ? 'text-accent-warning' : 'text-text-main',
-      )}
-      aria-live="polite"
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        {saveStatus === 'saving' && (
-          <motion.span
-            key="saving"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {t('editor_saving')}
-          </motion.span>
+    <span className="group relative inline-flex pointer-events-auto">
+      <span
+        data-testid="save-status"
+        data-lit={lit || undefined}
+        tabIndex={0}
+        role="img"
+        aria-label={tip}
+        aria-describedby={tipId}
+        className={cn(
+          'w-8 h-8 flex items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand-soft/50',
+          'transition-[color,opacity,filter] ease-in-out',
+          reducedMotion ? 'duration-0' : 'duration-700',
+          isError
+            ? 'text-accent-danger opacity-100'
+            : isStale
+              ? 'text-accent-warning opacity-100'
+              : lit
+                ? 'text-brand-soft opacity-100 [filter:drop-shadow(0_0_6px_var(--brand-soft))]'
+                : cn('text-text-main', isZenActive ? 'opacity-15' : 'opacity-30'),
         )}
-        {saveStatus === 'saved' && (
-          <motion.span
-            key="saved"
-            className="flex items-center gap-1"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.3 }}
-          >
-            <motion.svg viewBox="0 0 12 10" width={12} height={10} aria-hidden="true">
-              <motion.path
-                d="M1 5 L4.5 8.5 L11 1"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                fill="none"
-                strokeLinecap="round"
-                initial={{ pathLength: reducedMotion ? 1 : 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: reducedMotion ? 0 : 0.4, ease: 'easeOut' }}
-              />
-            </motion.svg>
-            {savedAt ? `${t('editor_saved')} · ${savedAt}` : t('editor_saved')}
-          </motion.span>
-        )}
-        {saveStatus === 'cloud-stale' && (
-          <motion.span
-            key="cloud-stale"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.3 }}
-          >
-            {t('editor_cloud_stale')}
-          </motion.span>
-        )}
-        {saveStatus === 'error' && (
-          <motion.span
-            key="error"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.3 }}
-          >
-            {saveErrorKind === 'quota' ? t('editor_error_quota') : t('editor_error_save')}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </div>
+      >
+        <Save size={14} aria-hidden="true" />
+      </span>
+      <span
+        id={tipId}
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-0 mb-1.5 whitespace-nowrap rounded-md border border-border-subtle bg-surface-popup px-2 py-1 text-xs text-text-main opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {tip}
+      </span>
+      {/* Голосом — только то, что требует действия: каждое автосохранение
+          вслух мешало бы так же, как мигающая надпись. */}
+      <span className="sr-only" aria-live="polite">
+        {isError || isStale ? tip : ''}
+      </span>
+    </span>
   );
 }

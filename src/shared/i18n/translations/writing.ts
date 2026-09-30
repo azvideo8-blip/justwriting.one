@@ -43,7 +43,8 @@ export const writingTranslations: Translations = {
 
   editor_title_placeholder: { ru: 'Заголовок...', en: 'Title...' },
   editor_saving: { ru: 'Сохранение...', en: 'Saving...' },
-  editor_saved: { ru: 'Сохранено', en: 'Saved' },
+  editor_saved_at: { ru: 'Сохранено в {time}', en: 'Saved at {time}' },
+  editor_not_saved_yet: { ru: 'Ещё не сохранялось', en: 'Not saved yet' },
   editor_cloud_stale: { ru: 'Только локально', en: 'Local only' },
   editor_error_quota: { ru: 'Недостаточно места на устройстве', en: 'Not enough device storage' },
   editor_error_save: { ru: 'Ошибка сохранения', en: 'Save error' },
@@ -53,14 +54,6 @@ export const writingTranslations: Translations = {
   header_totalWords:   { ru: 'Всего слов',        en: 'Total words' },
   header_wpm:          { ru: 'слов в минуту',      en: 'wpm' },
   // DC-W6: скорость не должна читаться только цветом; стрелки — глифы в разметке.
-  wpm_speed_slow:    { ru: 'медленно', en: 'slow' },
-  wpm_speed_steady:  { ru: 'ровно',    en: 'steady' },
-  wpm_speed_fast:    { ru: 'быстро',   en: 'fast' },
-  wpm_speed_thresholds: {
-    ru: 'меньше 15 — медленно, 15–49 — ровно, от 50 — быстро',
-    en: 'under 15 — slow, 15–49 — steady, 50 or more — fast',
-  },
-  wpm_speed_aria: { ru: 'Скорость: {words} в минуту, {level}', en: 'Speed: {words} per minute, {level}' },
   header_sessionWords_hint: { ru: 'слов в сессии · цель', en: 'session words · set goal' },
   header_time_hint:         { ru: 'время · цель',          en: 'time · set goal' },
   header_time:              { ru: 'Время',                  en: 'Time' },

@@ -89,76 +89,79 @@ describe('DC-W4: SaveStatus на экране письма', () => {
     </LanguageProvider>
   );
 
-  it('показывает «Сохранено» при настройках по умолчанию', () => {
-    state.saveStatus = 'saved';
+  const rerenderLayout = (tree: ReturnType<typeof renderLayout>) => tree.rerender(
+    <LanguageProvider>
+      <DesktopWritingLayout />
+    </LanguageProvider>
+  );
+
+  // Дискета вместо надписей: почти прозрачна, на сохранении загорается и гаснет,
+  // время — в подсказке. Ошибка — всегда видна и цветом, и голосом.
+  it('иконка есть всегда, даже до первого сохранения', () => {
     renderLayout();
-    expect(screen.getByText(/Сохранено/)).toBeInTheDocument();
+    expect(screen.getByTestId('save-status')).toHaveAttribute('aria-label', 'Ещё не сохранялось');
   });
 
   it('остаётся в документе в дзене', () => {
     state.saveStatus = 'saved';
     state.isZenActive = true;
     renderLayout();
-    expect(screen.getByText(/Сохранено/)).toBeInTheDocument();
+    expect(screen.getByTestId('save-status')).toBeInTheDocument();
   });
 
-  it('ошибка — всегда на полной яркости и цветом опасности', () => {
-    state.saveStatus = 'error';
-    state.saveErrorKind = 'quota';
-    state.isZenActive = true;
-    renderLayout();
-    const el = screen.getByTestId('save-status');
-    expect(el).toHaveTextContent('Недостаточно места на устройстве');
-    expect(el.className).toContain('opacity-100');
-    expect(el.className).toContain('text-accent-danger');
-  });
-
-  it('метка времени снимается в момент перехода в «Сохранено»', async () => {
+  it('подсказка называет время сохранения', async () => {
     state.saveStatus = 'saving';
-    const { rerender } = renderLayout();
-    expect(screen.getByTestId('save-status').textContent).not.toMatch(/Сохранено/);
+    const tree = renderLayout();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Сохранение');
 
     state.saveStatus = 'saved';
-    rerender(
-      <LanguageProvider>
-        <DesktopWritingLayout />
-      </LanguageProvider>
-    );
-    await waitFor(
-      () => {
-        expect(screen.getByTestId('save-status').textContent).toMatch(/Сохранено · \d{1,2}[:.]\d{2}/);
-      },
-      { timeout: 3000 },
-    );
+    rerenderLayout(tree);
+    await waitFor(() => {
+      expect(screen.getByRole('tooltip').textContent).toMatch(/Сохранено в \d{1,2}[:.]\d{2}/);
+    });
+    expect(screen.queryByText(/^Сохранено$/)).toBeNull();
   });
 
-  it('вспышка на полной яркости гаснет через секунду', () => {
+  it('загорается на сохранении и плавно гаснет после', () => {
     vi.useFakeTimers();
     let tree: ReturnType<typeof renderLayout> | null = null;
     try {
       state.saveStatus = 'saving';
       tree = renderLayout();
+      expect(screen.getByTestId('save-status')).toHaveAttribute('data-lit', 'true');
+      expect(screen.getByTestId('save-status').className).toContain('text-brand-soft');
 
       state.saveStatus = 'saved';
-      tree.rerender(
-        <LanguageProvider>
-          <DesktopWritingLayout />
-        </LanguageProvider>
-      );
-      expect(screen.getByTestId('save-status').className).toContain('opacity-100');
+      rerenderLayout(tree);
+      // Короткое сохранение не должно мигнуть незаметно — свет держится.
+      act(() => { vi.advanceTimersByTime(400); });
+      expect(screen.getByTestId('save-status')).toHaveAttribute('data-lit', 'true');
 
-      act(() => { vi.advanceTimersByTime(1100); });
+      act(() => { vi.advanceTimersByTime(700); });
       const el = screen.getByTestId('save-status');
-      expect(el.className).toContain('opacity-70');
-      expect(el.className).not.toContain('opacity-100');
+      expect(el).not.toHaveAttribute('data-lit');
+      expect(el.className).toContain('opacity-30');
     } finally {
       if (tree !== null) tree.unmount();
       vi.useRealTimers();
     }
   });
 
-  it('в простое статуса нет', () => {
+  it('ошибка — на полной яркости, цветом опасности и вслух', () => {
+    state.saveStatus = 'error';
+    state.saveErrorKind = 'quota';
+    state.isZenActive = true;
     renderLayout();
-    expect(screen.queryByTestId('save-status')).toBeNull();
+    const el = screen.getByTestId('save-status');
+    expect(el).toHaveAttribute('aria-label', 'Недостаточно места на устройстве');
+    expect(el.className).toContain('opacity-100');
+    expect(el.className).toContain('text-accent-danger');
+    expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent('Недостаточно места на устройстве');
+  });
+
+  it('обычное сохранение вслух не объявляется', () => {
+    state.saveStatus = 'saved';
+    renderLayout();
+    expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('');
   });
 });

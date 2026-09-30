@@ -199,7 +199,7 @@ export function DesktopWritingLayout() {
               }
             />
           </div>
-          <div className="absolute bottom-2 right-3 z-20 flex justify-end pointer-events-none">
+          <div className="absolute bottom-2 left-3 z-20 flex pointer-events-none">
             <SaveStatus
               saveStatus={session.saveStatus}
               saveErrorKind={session.saveErrorKind}
