@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.22 — 2026-09-30
+
+- **[RU]** Сохранение — тихая иконка дискеты в панели кнопок справа внизу: на записи она плавно загорается фиолетовым и гаснет, время последнего сохранения — в подсказке. Мигающих надписей «Сохранение… / Сохранено» больше нет; ошибка сохранения по-прежнему видна сразу, даже в дзене.
+- **[EN]** Saving is a quiet floppy-disk icon in the bottom-right control panel: it fades to violet while saving and back, and the tooltip shows the last save time. No more flickering «Saving… / Saved» text; a save error is still shown at once, even in zen.
+- **[RU]** Скорость письма — просто число и фиолетовая точка, без оценок «медленно/быстро».
+- **[EN]** Writing speed is just a number and a violet dot, without «slow/fast» grades.
+- **[RU]** У всех полей ввода есть подписи для экранного диктора — включая поля паролей, тегов и поиска.
+- **[EN]** Every input field has a label for screen readers, including password, tag and search fields.
+- **[RU]** Журнал активности переведён на английский; даты в диагностике следуют языку интерфейса, а не языку системы.
+- **[EN]** The activity log is translated to English; dates in diagnostics follow the interface language, not the system one.
+
 ## 0.9.21 — 2026-09-30
 
 - **[RU]** Телефоны помощи в чате — один список для интерфейса и для ИИ: первым идёт взрослая горячая линия 8-800-333-44-34, номер 112 подписан как экстренные службы.

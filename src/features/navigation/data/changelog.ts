@@ -14,6 +14,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.22',
+    date: '2026-09-30',
+    items: [
+      { category: 'improvement', ru: 'Сохранение — тихая иконка дискеты в панели кнопок справа внизу: на записи она плавно загорается фиолетовым и гаснет, время последнего сохранения — в подсказке. Мигающих надписей «Сохранение… / Сохранено» больше нет; ошибка сохранения по-прежнему видна сразу, даже в дзене.', en: 'Saving is a quiet floppy-disk icon in the bottom-right control panel: it fades to violet while saving and back, and the tooltip shows the last save time. No more flickering «Saving… / Saved» text; a save error is still shown at once, even in zen.' },
+      { category: 'improvement', ru: 'Скорость письма — просто число и фиолетовая точка, без оценок «медленно/быстро».', en: 'Writing speed is just a number and a violet dot, without «slow/fast» grades.' },
+      { category: 'accessibility', ru: 'У всех полей ввода есть подписи для экранного диктора — включая поля паролей, тегов и поиска.', en: 'Every input field has a label for screen readers, including password, tag and search fields.' },
+      { category: 'improvement', ru: 'Журнал активности переведён на английский; даты в диагностике следуют языку интерфейса, а не языку системы.', en: 'The activity log is translated to English; dates in diagnostics follow the interface language, not the system one.' },
+    ],
+  },
+  {
     version: '0.9.21',
     date: '2026-09-30',
     items: [
