@@ -244,11 +244,17 @@ jobs:
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package.json
           $DEPLOY_SCP deploy/api/package-lock.json \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:$REMOTE_DIR/api-package-lock.json
+          # M-4: откат ниже только после этой отметки. Сбой раньше (сборка, scp)
+          # не трогал прод, а server.mjs.prev там — версия старше живой.
+          echo "swapped=1" >> "$GITHUB_OUTPUT"
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "REMOTE_DIR=$REMOTE_DIR bash -s" <<'REMOTE'
             set -euo pipefail
             # Падение шага не должно оставлять каталог (и staging с npm-деревом)
             # в /tmp на сервере.
             trap 'rm -rf "$REMOTE_DIR"' EXIT
+            # M-3: снимок прошлого прогона (не дошёл до очистки) убираем первым:
+            # провал npm ci ниже иначе откатил бы живые зависимости на него.
+            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev &&
             sudo cp /opt/justwriting/api/server.mjs /opt/justwriting/api/server.mjs.prev &&
             # npm ci, а не npm install: ставит ровно то, что записано в локе, и
             # падает, если лок и манифест расходятся. Ставится в отдельный каталог:
@@ -266,7 +272,6 @@ jobs:
             # ссылки, тот же том). Откат ниже восстанавливает и зависимости:
             # rsync --delete уже снёс прежние, а server.mjs без своих пакетов
             # не поднимется.
-            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev &&
             sudo cp -al /opt/justwriting/api/node_modules /opt/justwriting/api/node_modules.prev &&
             sudo cp /opt/justwriting/api/package.json /opt/justwriting/api/package.json.prev &&
             sudo cp /opt/justwriting/api/package-lock.json /opt/justwriting/api/package-lock.json.prev &&
@@ -277,8 +282,7 @@ jobs:
             sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
             rm -rf "$REMOTE_DIR" &&
             sudo systemctl restart justwriting && sleep 5 &&
-            systemctl is-active --quiet justwriting &&
-            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev
+            systemctl is-active --quiet justwriting
           REMOTE
 
       - name: Проверка после выкатки
@@ -301,6 +305,14 @@ jobs:
           SMOKE_LOGIN_PASSWORD: ${{ secrets.SMOKE_LOGIN_PASSWORD }}
         run: npx tsx scripts/post-deploy-login.ts https://justwriting.ru/
 
+      # M-3: снимок зависимостей удаляется только после проверки входа — откат
+      # после упавшей проверки иначе остаётся без node_modules.prev.
+      - name: Очистка снимка службы
+        if: success() && inputs.what != 'client'
+        run: |
+          $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev'
+
       # F-047: старые ассеты удаляются только после того, как релиз прошёл проверку входа.
       # Если проверка упадёт и сработает откат к index.html.prev, его бандлы старше 14 дней
       # останутся на месте и пользователи не получат 404.
@@ -312,10 +324,11 @@ jobs:
 
       # Если служба не поднялась или проверка после выкатки упала — возвращаем
       # предыдущий бандл службы, а не оставляем сервис лежать.
-      # Только если выкатка службы реально запускалась: упавшие «Типы» или «Тесты»
-      # до неё раньше тоже поднимали откат и возвращали прод на .prev.
+      # Только если подмена службы реально начиналась (swapped=1): упавшие
+      # «Типы», «Тесты» или сборка до неё раньше тоже поднимали откат и
+      # возвращали прод на .prev.
       - name: Откат службы при сбое
-        if: failure() && inputs.what != 'client' && steps.deploy_api.outcome != 'skipped' && steps.deploy_api.outcome != ''
+        if: failure() && inputs.what != 'client' && steps.deploy_api.outputs.swapped == '1'
         run: |
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             if [ -f /opt/justwriting/api/server.mjs.prev ]; then

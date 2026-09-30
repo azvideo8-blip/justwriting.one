@@ -105,8 +105,10 @@ function compareChunks(base: ChunkReport[], current: ChunkReport[]) {
 }
 
 // CLI — guarded so importing stripHash for tests doesn't run the CLI.
+// M-6: argv[1] — путь как вызвали; через симлинк он не равен пути модуля, и
+// CLI молча не запускался (выход 0). Сравниваем реальные пути.
 import { fileURLToPath } from 'url';
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   const [,, baseDir, currentDir] = process.argv;
 
   if (!baseDir || !currentDir) {

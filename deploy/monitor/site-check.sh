@@ -10,13 +10,16 @@
 # быстро научит его игнорировать.
 set -uo pipefail
 
-# Проверяется /ready (L-7, R4-062): он проксируется к API и отвечает 200, только
-# когда живы зависимости (БД). «/» отвечал 200 текстом SPA даже при зависшем
-# пуле БД — поломка была невидима.
-URL=https://justwriting.ru/ready
+# Проверяются оба адреса. /ready (L-7, R4-062) проксируется к API и отвечает
+# 200, только когда живы зависимости (БД): «/» отвечал 200 текстом SPA даже при
+# зависшем пуле БД. «/» (M-8) — статика: без него сломанная выкатка клиента
+# оставалась зелёной, пока жив API.
 STATE="$HOME/.justwriting-site-check"
 
-CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL" || echo 000)
+for URL in https://justwriting.ru/ https://justwriting.ru/ready; do
+    CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL" || echo 000)
+    [ "$CODE" = "200" ] || break
+done
 FAILS=$(cat "$STATE" 2>/dev/null || echo 0)
 
 if [ "$CODE" = "200" ]; then
@@ -32,7 +35,7 @@ FAILS=$((FAILS + 1))
 echo "$FAILS" > "$STATE"
 
 if [ "$FAILS" -eq 2 ]; then
-    osascript -e "display notification \"justwriting.ru не отвечает (код $CODE). Проверено дважды подряд.\" with title \"justwriting: сайт недоступен\" sound name \"Basso\"" 2>/dev/null || true
+    osascript -e "display notification \"$URL не отвечает (код $CODE). Проверено дважды подряд.\" with title \"justwriting: сайт недоступен\" sound name \"Basso\"" 2>/dev/null || true
 fi
 
-echo "$(date '+%F %T') код $CODE, неудач подряд: $FAILS"
+echo "$(date '+%F %T') $URL: код $CODE, неудач подряд: $FAILS"

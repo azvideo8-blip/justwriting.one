@@ -33,13 +33,17 @@ if [ -z "$GUARD_LINE" ]; then
   fail "guard regex not found in deploy/backup/pull-backup.sh"
 else
   RE=${GUARD_LINE#* =~ }
-  RE=${RE%%\]\]*}
-  NAME='; touch /tmp/jw-pwned'
-  if [[ "$NAME" =~ $RE ]]; then
-    fail "hostile name passed the real guard regex ($RE)"
-  else
-    echo "  OK: hostile name rejected by the guard regex from pull-backup.sh"
-  fi
+  # Пробел перед ]] срезается вместе с ним: иначе regex кончается на '$ ' и не
+  # совпадает ни с чем — 3.3 краснела на чистом дереве.
+  RE=${RE%% \]\]*}
+  # Несколько имён: без '/' ловит ослабление до ^[^/]+$, с хвостом — снятый '$'.
+  for NAME in '; touch /tmp/jw-pwned' '$(id).dump' 'justwriting-x.dump; id'; do
+    if [[ "$NAME" =~ $RE ]]; then
+      fail "hostile name '$NAME' passed the real guard regex ($RE)"
+    else
+      echo "  OK: hostile name '$NAME' rejected by the guard regex from pull-backup.sh"
+    fi
+  done
   GOOD='justwriting-20260930-120000.dump'
   if [[ "$GOOD" =~ $RE ]]; then
     echo "  OK: legal dump name passes the same regex"
@@ -89,11 +93,14 @@ done
 echo ""
 echo "### 3.8 deploy.yml rollback restores node_modules (L-9 / R4-064)"
 # rsync --delete заменяет зависимости до запуска службы; откат, возвращающий
-# только server.mjs, оставляет службу без её пакетов. Красный на выкатке без
-# снимка: grep не находит node_modules.prev.
-grep -q 'node_modules.prev' .github/workflows/deploy.yml \
-  && echo "  OK: node_modules snapshot + restore present in deploy/rollback" \
-  || fail "deploy.yml has no node_modules snapshot/restore"
+# только server.mjs, оставляет службу без её пакетов. Ищем сами строки снимка
+# и восстановления, а не имя где угодно: удалённый блок отката красит гейт.
+grep -qF 'cp -al /opt/justwriting/api/node_modules /opt/justwriting/api/node_modules.prev' .github/workflows/deploy.yml \
+  && echo "  OK: node_modules snapshot present in deploy" \
+  || fail "deploy.yml has no node_modules snapshot"
+grep -qF 'rsync -a --delete /opt/justwriting/api/node_modules.prev/ /opt/justwriting/api/node_modules/' .github/workflows/deploy.yml \
+  && echo "  OK: node_modules restore present in rollback" \
+  || fail "deploy.yml rollback does not restore node_modules"
 
 echo ""
 echo "### 3.11 api tests run from the api/ directory"

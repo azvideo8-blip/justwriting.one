@@ -218,10 +218,12 @@ jobs:
         node-version: '22'   # тот же мажор, что и в job build
         cache: 'npm'
 
+    # M-5: без playwright предрендер в CI бросает (prerender.ts, L-9). Здесь он
+    # не нужен — сравниваются только dist/assets, их предрендер не меняет.
     - name: Build PR
       run: |
         npm ci
-        npm run build
+        CI= npm run build
         mkdir -p /tmp/current-dist
         cp -r dist/assets/* /tmp/current-dist/
 
@@ -230,7 +232,7 @@ jobs:
         git worktree add /tmp/base "origin/${{ github.base_ref }}"
         cd /tmp/base
         npm ci
-        npm run build
+        CI= npm run build
         mkdir -p /tmp/base-dist
         cp -r /tmp/base/dist/assets/* /tmp/base-dist/
 

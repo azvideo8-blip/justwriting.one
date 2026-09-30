@@ -1,5 +1,6 @@
 import { chromium, type Browser, type Page } from '@playwright/test';
 import { createHash, createHmac } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage, ClientRequest } from 'node:http';
@@ -85,6 +86,73 @@ export async function checkIndexHtmlHash(options: {
 
   const served = sha256Hex(new Uint8Array(await response.arrayBuffer()));
   return indexHashErrors(served, expected);
+}
+
+// ── M-9 (L-7): чужой Host на :80 и один content-type у sw.js ────────────────
+
+/** Сколько раз заголовок пришёл в ответе. rawHeaders — [имя, значение, …]
+ *  как на проводе; fetch и res.headers склеивают дубли, поэтому считаем здесь. */
+export function countRawHeader(rawHeaders: string[], name: string): number {
+  let n = 0;
+  for (let i = 0; i < rawHeaders.length; i += 2) {
+    if (rawHeaders[i]!.toLowerCase() === name) n++;
+  }
+  return n;
+}
+
+/** Редирект с чужим Host обязан вести на канонический адрес, а не на Host
+ *  (R4-059: иначе :80 — открытый редиректор). */
+export function foreignHostRedirectErrors(status: number, location: string | undefined, origin: string): string[] {
+  if (![301, 302, 307, 308].includes(status)) {
+    return [`http:// с чужим Host вернул HTTP ${status} вместо редиректа на ${origin}/`];
+  }
+  if (!location?.startsWith(`${origin}/`)) {
+    return [`http:// с чужим Host редиректит на «${location ?? ''}», а не на ${origin}/ — открытый редиректор`];
+  }
+  return [];
+}
+
+export function swContentTypeErrors(status: number, rawHeaders: string[]): string[] {
+  if (status !== 200) return [`sw.js вернул HTTP ${status} вместо 200`];
+  const n = countRawHeader(rawHeaders, 'content-type');
+  return n === 1 ? [] : [`sw.js отдаёт content-type ${n} раз(а) вместо одного`];
+}
+
+/** GET без следования редиректам; тело не читаем. */
+function rawGet(url: string, headers: Record<string, string>, timeoutMs: number):
+  Promise<{ status: number; rawHeaders: string[]; location: string | undefined }> {
+  return new Promise((resolve, reject) => {
+    const req = requestFor(url)(url, { method: 'GET', headers, timeout: timeoutMs }, (res) => {
+      res.resume();
+      resolve({ status: res.statusCode ?? 0, rawHeaders: res.rawHeaders, location: res.headers.location });
+    });
+    req.on('timeout', () => { req.destroy(new Error('timeout')); });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+export async function checkHostAndSwHeaders(baseUrl: string, timeoutMs = 20_000): Promise<string[]> {
+  const origin = new URL(baseUrl).origin;
+  const errors: string[] = [];
+
+  const plain = new URL('/p', baseUrl);
+  plain.protocol = 'http:';
+  try {
+    const r = await rawGet(plain.toString(), { Host: 'evil.example.com' }, timeoutMs);
+    errors.push(...foreignHostRedirectErrors(r.status, r.location, origin));
+  } catch (err) {
+    errors.push(`Не удалось запросить ${plain} с чужим Host: ${String(err)}`);
+  }
+
+  const sw = new URL('/sw.js', baseUrl).toString();
+  try {
+    const r = await rawGet(sw, { 'cache-control': 'no-cache' }, timeoutMs);
+    errors.push(...swContentTypeErrors(r.status, r.rawHeaders));
+  } catch (err) {
+    errors.push(`Не удалось запросить ${sw}: ${String(err)}`);
+  }
+  return errors;
 }
 
 export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCheckResult> {
@@ -256,6 +324,10 @@ export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCh
     timeoutMs,
   }));
 
+  // 5. M-9: заголовки на проводе, мимо браузера — он склеивает дубли и сам
+  // идёт по редиректам.
+  errors.push(...await checkHostAndSwHeaders(baseUrl, timeoutMs));
+
   return {
     success: errors.length === 0,
     actualVersion,
@@ -372,11 +444,21 @@ async function fetchDailyUsed(
   return usedFromStatsBody(res.json);
 }
 
+/** Код ошибки из тела sendError (`{ error: { code } }`); пусто — не JSON. */
+export function errorCodeFromBody(raw: string): string {
+  try {
+    const code = (JSON.parse(raw) as { error?: { code?: unknown } } | null)?.error?.code;
+    return typeof code === 'string' ? code : '';
+  } catch {
+    return '';
+  }
+}
+
 function openChatStreamThenDestroy(
   origin: string,
   token: string,
   reasoning = false,
-): Promise<void> {
+): Promise<{ status: number; code: string }> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       personaId: 'coach',
@@ -398,23 +480,32 @@ function openChatStreamThenDestroy(
       },
       (res: IncomingMessage) => {
         // L-10 (R4-072): 401/429/5xx — стрима не было, «возврат слота»
-        // измерялся на пустом месте и рапортовал успех. Не-200 — провал кейса.
+        // измерялся на пустом месте и рапортовал успех.
+        // M-2: но и провалом это не делаем — 403 согласия, 429 лимитов (включая
+        // глобальный потолок) и 502/504 откатили бы здоровую службу. Отдаём
+        // статус и код наверх: там громкое «не измерено».
         if (res.statusCode !== 200) {
-          res.destroy();
-          reject(new Error(`обрыв стрима: HTTP ${res.statusCode} вместо 200 — кейс не тарифицировался`));
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () => resolve({
+            status: res.statusCode ?? 0,
+            code: errorCodeFromBody(Buffer.concat(chunks).toString()),
+          }));
           return;
         }
         // Заголовки пришли. Уничтожаем сокет до первого байта контента —
         // ровно тот случай, на который рассчитан res.on('close') в api/chat.ts.
         res.destroy();
-        resolve();
+        resolve({ status: 200, code: '' });
       },
     );
     req.on('timeout', () => { req.destroy(new Error('chat stream timeout')); });
     req.on('error', (e) => {
-      // destroy() выше вызывает ECONNRESET / socket hang up на клиенте — норма.
+      // destroy() выше вызывает ECONNRESET / socket hang up на клиенте — норма:
+      // промис к этому моменту уже разрешён со статусом 200. Сюда без него —
+      // сброс до заголовков, стрима не было: тоже «не измерено».
       const msg = String((e as NodeJS.ErrnoException).code ?? e);
-      if (/ECONNRESET|ERR_STREAM_PREMATURE_CLOSE|socket hang up/.test(msg)) resolve();
+      if (/ECONNRESET|ERR_STREAM_PREMATURE_CLOSE|socket hang up/.test(msg)) resolve({ status: 0, code: msg });
       else reject(e);
     });
     req.end(body);
@@ -452,7 +543,15 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
     try {
       const before = await fetchDailyUsed(origin, token, uid);
 
-      await openChatStreamThenDestroy(origin, token, c.reasoning);
+      const stream = await openChatStreamThenDestroy(origin, token, c.reasoning);
+      if (stream.status !== 200) {
+        // M-2: громко, но не провал выкатки — слот не измерен, и только.
+        console.warn(
+          `::warning::Обрыв стрима (${c.name}): не измерено: ${stream.status} ${stream.code || '-'} — ` +
+          'стрим не открылся, проверка возврата слота пропущена.',
+        );
+        continue;
+      }
 
       // Даём серверу время получить RST и исполнить res.on('close').
       // Пауза больше кулдауна (COOLDOWN_MS = 10 с): иначе второй запрос
@@ -544,7 +643,8 @@ async function main() {
 
 // L-10 (R4-073): сравнение через `file://${argv[1]}` ложно при пробеле или
 // симлинке в пути — main() молча не запускался и скрипт выходил 0.
-if (process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
+// M-6: argv[1] — путь как вызвали, симлинк не раскрыт; сравниваем реальные пути.
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   main().catch((err) => {
     console.error('Фатальная ошибка проверки:', err);
     process.exit(1);
