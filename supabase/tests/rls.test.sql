@@ -367,11 +367,16 @@ END $$;
 
 -- ============================================================
 -- ai_cooldown: no client access at all
+-- (0034: grant revoked — permission denied counts as denied too)
 -- ============================================================
 DO $$
 DECLARE cnt int;
 BEGIN
-  SELECT count(*) INTO cnt FROM public.ai_cooldown;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.ai_cooldown;
+  EXCEPTION
+    WHEN insufficient_privilege THEN cnt := 0;
+  END;
   IF cnt > 0 THEN
     RAISE EXCEPTION 'FAIL: client read ai_cooldown (% rows)', cnt;
   END IF;
@@ -411,11 +416,16 @@ END $$;
 
 -- ============================================================
 -- ai_global_daily: no client access at all
+-- (0034: grant revoked — permission denied counts as denied too)
 -- ============================================================
 DO $$
 DECLARE cnt int;
 BEGIN
-  SELECT count(*) INTO cnt FROM public.ai_global_daily;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.ai_global_daily;
+  EXCEPTION
+    WHEN insufficient_privilege THEN cnt := 0;
+  END;
   IF cnt > 0 THEN
     RAISE EXCEPTION 'FAIL: client read ai_global_daily (% rows)', cnt;
   END IF;
@@ -703,6 +713,7 @@ END $$;
 
 -- ============================================================
 -- applied_migrations: Deny all for clients (AG-SEC-B)
+-- (0034: grant revoked — permission denied counts as denied too)
 -- ============================================================
 SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
 SET role = 'authenticated';
@@ -710,7 +721,11 @@ SET role = 'authenticated';
 DO $$
 DECLARE cnt int;
 BEGIN
-  SELECT count(*) INTO cnt FROM public.applied_migrations;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.applied_migrations;
+  EXCEPTION
+    WHEN insufficient_privilege THEN cnt := 0;
+  END;
   IF cnt > 0 THEN
     RAISE EXCEPTION 'FAIL: Alice read applied_migrations (% rows)', cnt;
   END IF;
@@ -1362,6 +1377,7 @@ END $$;
 
 -- ============================================================
 -- RLS-TEST-1: telemetry_cooldown: deny-all table (select & insert)
+-- (0034: grant revoked — permission denied counts as denied too)
 -- ============================================================
 RESET ROLE;
 INSERT INTO public.telemetry_cooldown (uid, last_sent_at)
@@ -1373,7 +1389,11 @@ SET role = 'authenticated';
 DO $$
 DECLARE cnt int;
 BEGIN
-  SELECT count(*) INTO cnt FROM public.telemetry_cooldown;
+  BEGIN
+    SELECT count(*) INTO cnt FROM public.telemetry_cooldown;
+  EXCEPTION
+    WHEN insufficient_privilege THEN cnt := 0;
+  END;
   IF cnt > 0 THEN
     RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice read telemetry_cooldown (% rows)', cnt;
   END IF;
@@ -1499,6 +1519,82 @@ BEGIN
     RAISE EXCEPTION 'FAIL: sessions RPC wrote into a tombstone (% -> %)', c1, c2;
   END IF;
 END $$;
+RESET role;
+RESET request.jwt.claims;
+
+-- ============================================================
+-- L-3 (R4-001): the owner cannot write versions under a tombstone.
+-- Positive controls prove the policies are not deny-all: the same owner
+-- inserts/updates a version of a live document just fine.
+-- ============================================================
+SET role = 'postgres';
+INSERT INTO public.documents (uuid, user_id, title, current_version, deleted_at) VALUES
+  ('bob-tomb-001', '00000000-0000-0000-0000-000000000002', 'Bob''s deleted note', 1, now())
+ON CONFLICT DO NOTHING;
+INSERT INTO public.versions (document_uuid, user_id, version, content, word_count) VALUES
+  ('bob-tomb-001', '00000000-0000-0000-0000-000000000002', 1, 'should vanish', 2)
+ON CONFLICT DO NOTHING;
+RESET role;
+
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002"}';
+
+-- L-3: Bob cannot insert a version for his own tombstoned document.
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.versions (document_uuid, user_id, version, content, word_count)
+    VALUES ('bob-tomb-001', '00000000-0000-0000-0000-000000000002', 2, 'smuggled under tombstone', 3);
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Bob inserted a version under his own tombstone';
+  END IF;
+END $$;
+
+-- L-3 positive control: Bob CAN insert a version for his live document.
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.versions (document_uuid, user_id, version, content, word_count)
+    VALUES ('bob-doc-001', '00000000-0000-0000-0000-000000000002', 99, 'live insert ok', 3);
+    ok := true;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := false;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: positive control — Bob could not insert a version for a live document';
+  END IF;
+END $$;
+
+-- L-3: Bob cannot update versions under his tombstoned document.
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.versions SET content = 'hacked under tombstone'
+   WHERE document_uuid = 'bob-tomb-001';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: Bob updated versions under his own tombstone (% rows)', affected;
+  END IF;
+END $$;
+
+-- L-3 positive control: Bob CAN update a version of his live document.
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.versions SET content = 'live update ok'
+   WHERE document_uuid = 'bob-doc-001' AND version = 99;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 1 THEN
+    RAISE EXCEPTION 'FAIL: positive control — Bob could not update a live version (% rows)', affected;
+  END IF;
+END $$;
+
 RESET role;
 RESET request.jwt.claims;
 
