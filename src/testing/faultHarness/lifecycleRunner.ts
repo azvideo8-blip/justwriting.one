@@ -870,10 +870,16 @@ export class LifecycleRunner {
     let told: ToldState = { status: 'deleted', cloudSynced: false };
     try {
       const delRes = await StorageService.deleteDocument(this.userId, localDocId, cloudId);
-      told = {
-        status: delRes.cloudSynced ? 'deleted' : 'deleted_local_queued',
-        cloudSynced: delRes.cloudSynced,
-      };
+      // R4-009: applied:false — удаление не исполнилось вовсе (потолок замка,
+      // локальный ряд не тронут, задачи в очереди нет). Сводить его к
+      // deleted_local_queued значило бы измерять выдумку, а не то, что слышал
+      // человек.
+      told = delRes.applied === false
+        ? { status: 'not_applied', cloudSynced: false }
+        : {
+            status: delRes.cloudSynced ? 'deleted' : 'deleted_local_queued',
+            cloudSynced: delRes.cloudSynced,
+          };
     } catch (e: unknown) {
       told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
       notes.push(`Error during deleteDocument: ${(e as Error).message}`);
@@ -1013,10 +1019,13 @@ export class LifecycleRunner {
     let told: ToldState = { status: 'deleted', cloudSynced: true };
     try {
       const delRes = await StorageService.deleteDocument(this.userId, localDocId, undefined);
-      told = {
-        status: delRes.cloudSynced ? 'deleted' : 'deleted_local_queued',
-        cloudSynced: delRes.cloudSynced,
-      };
+      // R4-009: applied:false измеряется отдельно — см. seq4.
+      told = delRes.applied === false
+        ? { status: 'not_applied', cloudSynced: false }
+        : {
+            status: delRes.cloudSynced ? 'deleted' : 'deleted_local_queued',
+            cloudSynced: delRes.cloudSynced,
+          };
     } catch (e: unknown) {
       told = { status: 'error_thrown', cloudSynced: false, error: (e as Error).message };
       notes.push(`Error during deleteDocument: ${(e as Error).message}`);

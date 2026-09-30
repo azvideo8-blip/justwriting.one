@@ -41,6 +41,34 @@ const TABLE_COLUMNS: Record<TableName, readonly string[]> = {
   local_store_records: ['id', 'user_id', 'store', 'key', 'payload', 'created_at', 'updated_at'],
 };
 
+// R4-029: уникальные кортежи — по реальной схеме (0001_schema.sql,
+// 0003_local_store_records.sql). Одни и те же кортежи принудительны и для
+// insert, и для upsert: раньше insert стерёг только documents.uuid и versions,
+// и подмена .upsert на .insert в провайдере проходила по матрице незамеченной.
+const UNIQUE_TUPLES: Partial<Record<TableName, (row: PostgresRow) => string>> = {
+  users: r => `uid:${r.uid}`,
+  documents: r => `uuid:${r.uuid}`,
+  versions: r => `ver:${r.document_uuid}:${r.version}`,
+  drafts: r => `draft:${r.user_id}`,
+  ai_cooldown: r => `cd:${r.uid}`,
+  ai_daily_limit: r => `dl:${r.uid}:${r.date}`,
+  ai_usage: r => `au:${r.uid}:${r.date}`,
+  ai_global_daily: r => `gd:${r.date}`,
+  ai_summaries: r => `sum:${r.user_id}:${r.document_id}`,
+  ai_embeddings: r => `emb:${r.user_id}:${r.document_id}`,
+  local_store_records: r => `lsr:${r.user_id}:${r.store ?? r.store_name}:${r.key ?? r.record_key}`,
+};
+
+function duplicateError(table: TableName) {
+  return {
+    data: null as null,
+    error: {
+      message: `duplicate key value violates unique constraint "${table}_key"`,
+      code: '23505',
+    },
+  };
+}
+
 export class InMemoryPostgres {
   public tables: Map<TableName, PostgresRow[]> = new Map();
   private sequences: Map<string, number> = new Map();
@@ -131,35 +159,12 @@ export class InMemoryPostgres {
       if (!row.created_at) row.created_at = new Date().toISOString();
       if (table === 'documents' && !row.updated_at) row.updated_at = this.stamp();
 
-      // Check unique constraints:
-      // 1. documents: unique (uuid, user_id) or uuid
-      if (table === 'documents' && row.uuid) {
-        const conflict = current.find(r => r.uuid === row.uuid);
-        if (conflict) {
-          return {
-            data: null,
-            error: {
-              message: 'duplicate key value violates unique constraint "documents_uuid_key"',
-              code: '23505',
-            },
-          };
-        }
-      }
-
-      // 2. versions: unique (document_uuid, version, user_id)
-      if (table === 'versions' && row.document_uuid && row.version !== undefined) {
-        const conflict = current.find(
-          r => r.document_uuid === row.document_uuid && r.version === row.version
-        );
-        if (conflict) {
-          return {
-            data: null,
-            error: {
-              message: 'duplicate key value violates unique constraint "versions_doc_ver_key"',
-              code: '23505',
-            },
-          };
-        }
+      // Уникальный кортеж (R4-029): enforced на insert так же, как на upsert.
+      const tupleFn = UNIQUE_TUPLES[table];
+      if (tupleFn) {
+        const tuple = tupleFn(row);
+        const conflict = current.find(r => tupleFn(r) === tuple);
+        if (conflict) return duplicateError(table);
       }
 
       current.push(row);
@@ -183,29 +188,12 @@ export class InMemoryPostgres {
       if (!row.id) row.id = this.nextId(table);
       if (!row.created_at) row.created_at = new Date().toISOString();
 
+      // Сопоставление по тому же уникальному кортежу, что стережёт insert (R4-029).
+      const tupleFn = UNIQUE_TUPLES[table];
       let matchIndex = -1;
-      if (table === 'documents' && row.uuid) {
-        matchIndex = current.findIndex(r => r.uuid === row.uuid);
-      } else if (table === 'versions' && row.document_uuid && row.version !== undefined) {
-        matchIndex = current.findIndex(
-          r => r.document_uuid === row.document_uuid && r.version === row.version
-        );
-      } else if (table === 'drafts' && row.user_id) {
-        matchIndex = current.findIndex(r => r.user_id === row.user_id);
-      } else if (table === 'users' && row.uid) {
-        matchIndex = current.findIndex(r => r.uid === row.uid);
-      } else if (table === 'ai_summaries' && row.document_id) {
-        matchIndex = current.findIndex(r => r.document_id === row.document_id);
-      } else if (table === 'ai_embeddings' && row.document_id) {
-        matchIndex = current.findIndex(r => r.document_id === row.document_id);
-      } else if (table === 'local_store_records' && (row.store || row.store_name) && (row.key || row.record_key)) {
-        const rowStore = row.store || row.store_name;
-        const rowKey = row.key || row.record_key;
-        matchIndex = current.findIndex(
-          r => (r.store === rowStore || r.store_name === rowStore) &&
-               (r.key === rowKey || r.record_key === rowKey) &&
-               r.user_id === row.user_id
-        );
+      if (tupleFn) {
+        const tuple = tupleFn(row);
+        matchIndex = current.findIndex(r => tupleFn(r) === tuple);
       }
 
       if (matchIndex >= 0) {

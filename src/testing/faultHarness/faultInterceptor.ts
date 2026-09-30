@@ -10,7 +10,7 @@ import * as supabaseClientModule from '../../core/supabase/client';
 import * as callAiModule from '../../core/ai/callAi';
 import * as authModule from '../../core/auth';
 import * as aiConsentModule from '../../core/ai/aiConsent';
-import { clearSessionKey, encryptContent, generateDataKey } from '../../core/crypto/encrypt';
+import { clearSessionKey, encryptContent, generateDataKey, getSessionKey } from '../../core/crypto/encrypt';
 import { getLocalDb } from '../../core/storage/localDb';
 import { IDBObjectStore } from 'fake-indexeddb';
 
@@ -34,8 +34,10 @@ export class FaultInterceptor {
   // запрос выполнен с сессией прежнего человека, а ответ приходит уже к новому.
   public onRequest?: ((table: TableName) => void | Promise<void>) | undefined;
   // Как RLS на проде: запрос видит и пишет только строки того, чья сейчас сессия.
-  // Выключено по умолчанию — остальные сценарии пишут строки руками.
-  public rls = false;
+  // R4-030: включён по умолчанию — ячейки матрицы ходят в базу через клиента,
+  // как прод, и не видят чужие строки. Явно выключить может только тест,
+  // который сам seeding'ит чужие строки (accountSwitch).
+  public rls = true;
   private originalDateNow = Date.now;
   public faultFiredCount: number = 0;
   private clockBackwardsFired: boolean = false;
@@ -197,8 +199,7 @@ export class FaultInterceptor {
     };
     if (this.currentStep === step) {
       if (fault === 'vault_locked') {
-        clearSessionKey();
-        this.recordFaultFired();
+        this.armVaultLock();
       } else if (fault === 'clock_backwards') {
         this.clockOffsetMs = -600_000;
       } else if (fault === 'decrypt_corrupt_single') {
@@ -208,6 +209,16 @@ export class FaultInterceptor {
       } else if (fault === 'idb_tx_autoclose') {
         this.applyIdbAutoclosePatch();
       }
+    }
+  }
+
+  // R4-031: пожар vault_locked считается, только когда сейф реально был
+  // разлочен — был ключ, который сброс меняет. В ячейках без сейфа
+  // clearSessionKey — no-op, и «сработавший» сбой был фикцией GT-2.
+  private armVaultLock(): void {
+    if (getSessionKey()) {
+      clearSessionKey();
+      this.recordFaultFired();
     }
   }
 
@@ -223,8 +234,7 @@ export class FaultInterceptor {
     this.currentStep = step;
     if (this.armedFault && this.armedFault.step === step) {
       if (this.armedFault.fault === 'vault_locked') {
-        clearSessionKey();
-        this.recordFaultFired();
+        this.armVaultLock();
       } else if (this.armedFault.fault === 'clock_backwards') {
         this.clockOffsetMs = -600_000; // Jump 10 minutes into the past
       } else if (this.armedFault.fault === 'decrypt_corrupt_single') {
@@ -341,9 +351,11 @@ export class FaultInterceptor {
       if (name === 'deleteAccount') {
         const fault = this.shouldTriggerFault();
         if (fault === 'network_pre') {
+          this.fireFault();
           throw new TypeError('Failed to fetch (deleteAccount server call failed)');
         }
         if (fault === 'postgres_500') {
+          this.fireFault();
           throw new Error('500 Internal Server Error');
         }
         if (u) {
@@ -443,10 +455,19 @@ export class FaultInterceptor {
     if (!this.armedFault) return null;
     if (this.armedFault.step !== this.currentStep) return null;
     if (this.armedFault.table && table && this.armedFault.table !== table) return null;
-
-    this.recordFaultFired();
-    this.armedFault.currentCount = (this.armedFault.currentCount || 0) + 1;
+    // R4-031: решение «триггернуть» больше не считается «сработать». Счёт
+    // пожаров растёт только там, где сбой реально изменил исход операции
+    // (ветки с ошибками ниже, network_post/mid после записи, патчи IDB, замок
+    // concurrent_tab при чтении lock-строки) — иначе GT-2 проходила на пустом
+    // месте: любой запрос в вооружённом шаге «срабатывал» сбой.
     return this.armedFault.fault;
+  }
+
+  private fireFault(): void {
+    this.recordFaultFired();
+    if (this.armedFault) {
+      this.armedFault.currentCount = (this.armedFault.currentCount || 0) + 1;
+    }
   }
 
   public createMockSupabaseClient() {
@@ -454,11 +475,13 @@ export class FaultInterceptor {
       from: (table: TableName) => this.createQueryBuilder(table),
       rpc: (fnName: string, _args: unknown) => {
         const fault = this.shouldTriggerFault();
-        if (fault === 'postgres_500') {
-          return Promise.resolve({ data: null, error: { message: `RPC ${fnName} failed`, code: '500' } });
-        }
         if (fault === 'network_pre') {
+          this.fireFault();
           return Promise.reject(new TypeError('Failed to fetch'));
+        }
+        if (fault === 'postgres_500') {
+          this.fireFault();
+          return Promise.resolve({ data: null, error: { message: `RPC ${fnName} failed`, code: '500' } });
         }
         return Promise.resolve({ data: null, error: null });
       },
@@ -583,17 +606,21 @@ export class FaultInterceptor {
         const execute = async () => {
           const fault = this.shouldTriggerFault(table);
 
-          // 1. Fault before execution
+          // 1. Fault before execution — сбой изменил исход: считать пожар.
           if (fault === 'network_pre') {
+            this.fireFault();
             throw new TypeError('Failed to fetch (offline before request)');
           }
           if (fault === 'abort') {
+            this.fireFault();
             throw new DOMException('The user aborted a request.', 'AbortError');
           }
           if (fault === 'postgres_500') {
+            this.fireFault();
             return { data: null, error: { message: 'Internal Server Error', code: '500' } };
           }
           if (fault === 'postgres_409') {
+            this.fireFault();
             return {
               data: null,
               error: {
@@ -603,9 +630,11 @@ export class FaultInterceptor {
             };
           }
           if (fault === 'postgres_429') {
+            this.fireFault();
             return { data: null, error: { message: 'Too many requests', code: '429' } };
           }
           if (fault === 'decrypt_corrupt_single') {
+            this.fireFault();
             await this.corruptSingleCloudVersion();
           }
 
@@ -655,11 +684,14 @@ export class FaultInterceptor {
           if (this.onRequest) await this.onRequest(table);
 
           // 3. Phantom Write (network_post & network_mid):
-          // Write succeeded in Postgres, BUT network drops before client gets ACK!
+          // Write succeeded in Postgres, BUT network drops before client gets ACK.
+          // Запись уже прошла — сбой изменил исход доставки ACK: считать пожар.
           if (fault === 'network_post') {
+            this.fireFault();
             throw new TypeError('Failed to fetch (write committed, ACK dropped by network)');
           }
           if (fault === 'network_mid') {
+            this.fireFault();
             throw new Error('Connection aborted by peer (mid-request: write committed to cloud, stream broken)');
           }
 

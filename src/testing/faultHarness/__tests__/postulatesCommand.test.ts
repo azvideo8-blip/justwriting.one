@@ -84,15 +84,18 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
   it('scripts/postulates.mjs --max-unmeasured ratchet works (TB-11)', () => {
     const { DATABASE_URL: _db, ...env } = process.env;
 
-    // 1. --max-unmeasured -1 (1 less than fact 0) fails with exit 1
-    const res99 = spawnSync('node', [postulatesScript, '--max-unmeasured', '-1'], {
+    // 1. --max-unmeasured -1: отрицательное — не «жёстче храповик», а мусор
+    // во входе. R4-033: раньше -1 парсился в -1 и ронял матрицу честно, но
+    // NaN из `--max-unmeasured --require-db` молча выключал храповик —
+    // нецелое значение теперь exit 2 до запуска матрицы.
+    const resNeg = spawnSync('node', [postulatesScript, '--max-unmeasured', '-1'], {
       cwd: rootDir,
       encoding: 'utf8',
       timeout: MATRIX_SPAWN_TIMEOUT_MS,
       env,
     });
-    expect(res99.status, why(res99)).toBe(1);
-    expect(res99.stdout).toContain('UNMEASURED CELLS LIMIT EXCEEDED: 0 > -1');
+    expect(resNeg.status, why(resNeg)).toBe(2);
+    expect(resNeg.stderr).toContain('неотрицательное целое');
 
     // 3. evaluateMatrixResults directly unit test
     const cell1 = {

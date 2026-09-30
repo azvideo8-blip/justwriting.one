@@ -1123,5 +1123,16 @@
   "tests": [
    "src/core/sync/__tests__/useSyncStatusOwnerScope.test.ts"
   ]
+ },
+ {
+  "id": "ss-39",
+  "file": "src/core/services/StorageService.ts",
+  "line": 221,
+  "old": "      return { cloudSynced: false, derivativesOk: false, applied: false };",
+  "new": "      return { cloudSynced: false, derivativesOk: false, applied: true };",
+  "why": "Delete that gave up on the lock reports 'applied' — the caller (and the harness told-state) counts the note as deleted while nothing was deleted at all.",
+  "tests": [
+   "src/core/services/__tests__/deleteWaitsForLiveLock.test.ts"
+  ]
  }
 ]
