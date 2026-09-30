@@ -17,8 +17,6 @@ import { reportError } from '../../../shared/errors/reportError';
 import { useDialogueManager } from './useDialogueManager';
 import { usePersonaManager } from './usePersonaManager';
 import { useAttachmentManager } from './useAttachmentManager';
-import { NOTE_REF_RE, NOTE_VERB_RE } from '../utils/noteAutoAttacher';
-import { searchNotes } from '../utils/noteRetriever';
 import { getCurrentUser } from '../../../core/auth';
 import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { DataProvider } from '../../../core/data';
@@ -284,23 +282,10 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   }, [draftFacetId, prepareAttachment, handleNewDialogue, setSelectedPersonaId, setPendingAttachments]);
 
   const executeSendMessage = useCallback(async (text: string, overrideText?: string, opts?: { forceWide?: boolean; question?: string }) => {
-    let attaches: { documentId: string; title: string; content: string; lastSessionAt?: number | undefined }[] = [...pendingAttachments];
-    if (attaches.length === 0 && text && NOTE_REF_RE.test(text) && NOTE_VERB_RE.test(text)) {
-      try {
-        const matches = text.match(NOTE_REF_RE);
-        const term = matches?.[1] || '';
-        const index = await searchNotes(term, 1);
-        if (index[0]) {
-          const docId = index[0].documentId;
-          try {
-            const p = await prepareAttachment(docId);
-            if (p) attaches = [{ documentId: docId, title: p.title, content: p.content, lastSessionAt: p.lastSessionAt }];
-          } catch (e) {
-            console.error('useAIPageData/prepareAttachment failed for', docId, e);
-          }
-        }
-      } catch { /* ignore fallback */ }
-    }
+    // Прикрепляет заметку только человек. Автоприкрепление по словам «посмотри…
+    // записи» искало по самому корню («запис») и цепляло случайную заметку —
+    // в том числе к кнопке «Посмотри в других моих записях» (удалено в 0.9.25).
+    const attaches = [...pendingAttachments];
 
     // Заметка без вопроса: модель не зовём — над полем ввода приложение само
     // спрашивает, что с ней сделать (кнопки «Разобрать» / «Связать…»).
@@ -356,7 +341,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       if (overrideText === undefined) setInputText(text);
       if (prevPending.length > 0) setPendingAttachments(prevPending);
     }
-  }, [pendingAttachments, prepareAttachment, sendMessage, activeDialogueId, setActiveDialogueId, loadDialogues, setInputText, setPendingAttachments]);
+  }, [pendingAttachments, sendMessage, activeDialogueId, setActiveDialogueId, loadDialogues, setInputText, setPendingAttachments]);
 
   const [indexingModalOpen, setIndexingModalOpen] = useState(false);
   const pendingSearchActionRef = useRef<(() => Promise<void>) | null>(null);
