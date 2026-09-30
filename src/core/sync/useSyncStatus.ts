@@ -62,7 +62,7 @@ export interface SharedCounts {
 
 // Shared across all useSyncStatus() instances (Sidebar, BottomNav, AppShell, AppTab
 // can all be mounted at once) so they don't each run their own IndexedDB read.
-let sharedCounts: SharedCounts = {
+const EMPTY_COUNTS: SharedCounts = {
   pending: 0,
   pendingDeletions: 0,
   unsynced: 0,
@@ -74,6 +74,8 @@ let sharedCounts: SharedCounts = {
   aiStorePending: 0,
   aiStoreDead: 0,
 };
+
+let sharedCounts: SharedCounts = EMPTY_COUNTS;
 let activeSubscribers = 0;
 let currentSubscribedUserId: string | null = null;
 // Чей снимок в sharedCounts: после смены учётки UI показывал чужие счётчики,
@@ -186,16 +188,20 @@ let subscribeSyncStatusCleanup: (() => void) | null = null;
 export function useSyncStatus(userId: string | null): SyncStatusState {
   const isBrowserOnline = useOnlineStatus();
 
-  const [pendingCount, setPendingCount] = useState(0);
-  const [pendingDeletionsCount, setPendingDeletionsCount] = useState(0);
-  const [unsyncedCount, setUnsyncedCount] = useState(0);
-  const [behindCount, setBehindCount] = useState(0);
-  const [unlinkedCount, setUnlinkedCount] = useState(0);
-  const [deviceOnlyCount, setDeviceOnlyCount] = useState(0);
-  const [hasUnknown, setHasUnknown] = useState(false);
-  const [deadCount, setDeadCount] = useState(0);
-  const [aiStorePendingCount, setAiStorePendingCount] = useState(0);
-  const [aiStoreDeadCount, setAiStoreDeadCount] = useState(0);
+  // Снимок помнит, чей он: после смены учётки прежние счётчики не попадают
+  // даже в первый рендер новой — пока нет своих, показываются нули (R3-024).
+  const [snap, setSnap] = useState<{ owner: string | null; counts: SharedCounts }>({ owner: userId, counts: EMPTY_COUNTS });
+  const c = snap.owner === userId ? snap.counts : EMPTY_COUNTS;
+  const pendingCount = c.pending;
+  const pendingDeletionsCount = c.pendingDeletions;
+  const unsyncedCount = c.unsynced;
+  const behindCount = c.behind;
+  const unlinkedCount = c.unlinked;
+  const deviceOnlyCount = c.deviceOnly;
+  const hasUnknown = c.hasUnknown;
+  const deadCount = c.deadCount;
+  const aiStorePendingCount = c.aiStorePending;
+  const aiStoreDeadCount = c.aiStoreDead;
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(
     () => (userId ? cloudSyncEnabled(userId) : false)
   );
@@ -230,46 +236,14 @@ export function useSyncStatus(userId: string | null): SyncStatusState {
   useEffect(() => {
     if (!userId) {
       // Defer to avoid synchronous setState in effect body
-      const t = setTimeout(() => {
-        setPendingCount(0);
-        setPendingDeletionsCount(0);
-        setUnsyncedCount(0);
-        setBehindCount(0);
-        setUnlinkedCount(0);
-        setDeviceOnlyCount(0);
-        setHasUnknown(false);
-        setDeadCount(0);
-        setAiStorePendingCount(0);
-        setAiStoreDeadCount(0);
-      }, 0);
+      const t = setTimeout(() => setSnap({ owner: null, counts: EMPTY_COUNTS }), 0);
       return () => clearTimeout(t);
     }
 
     const t = setTimeout(() => {
-      if (sharedCountsUserId !== userId) return;
-      setPendingCount(sharedCounts.pending);
-      setPendingDeletionsCount(sharedCounts.pendingDeletions);
-      setUnsyncedCount(sharedCounts.unsynced);
-      setBehindCount(sharedCounts.behind);
-      setUnlinkedCount(sharedCounts.unlinked);
-      setDeviceOnlyCount(sharedCounts.deviceOnly);
-      setHasUnknown(sharedCounts.hasUnknown);
-      setDeadCount(sharedCounts.deadCount);
-      setAiStorePendingCount(sharedCounts.aiStorePending);
-      setAiStoreDeadCount(sharedCounts.aiStoreDead);
+      if (sharedCountsUserId === userId) setSnap({ owner: userId, counts: sharedCounts });
     }, 0);
-    const unsubscribe = subscribeSyncStatus(userId, c => {
-      setPendingCount(c.pending);
-      setPendingDeletionsCount(c.pendingDeletions);
-      setUnsyncedCount(c.unsynced);
-      setBehindCount(c.behind);
-      setUnlinkedCount(c.unlinked);
-      setDeviceOnlyCount(c.deviceOnly);
-      setHasUnknown(c.hasUnknown);
-      setDeadCount(c.deadCount);
-      setAiStorePendingCount(c.aiStorePending);
-      setAiStoreDeadCount(c.aiStoreDead);
-    });
+    const unsubscribe = subscribeSyncStatus(userId, counts => setSnap({ owner: userId, counts }));
     return () => { clearTimeout(t); unsubscribe(); };
   }, [userId, autoSyncEnabled]);
 

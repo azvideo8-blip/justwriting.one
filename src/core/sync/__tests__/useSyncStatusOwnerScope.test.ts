@@ -51,3 +51,27 @@ describe('R3-011: unreadable AI-store delete journal is not «synced»', () => {
     await waitFor(() => expect(result.current.hasUnknown).toBe(true));
   });
 });
+
+// R3-024: снимок счётчиков общий для всех экземпляров хука. После смены учётки
+// хук копировал в себя снимок прежней, пока не приходил ответ по новой.
+describe('R3-024: account switch never shows the previous account counts', () => {
+  it('ни один рендер новой учётки не видит счётчики старой', async () => {
+    const db = await getLocalDb(USER);
+    for (const r of await db.getAll('syncQueue')) await db.delete('syncQueue', (r as { id: string }).id);
+    await db.put('syncQueue', { id: 'sync_a', documentId: 'doc_a', createdAt: 1, ownerId: USER } as never);
+    await db.put('syncQueue', { id: 'sync_b', documentId: 'doc_b', createdAt: 1, ownerId: USER } as never);
+    localStorage.removeItem('ai_sync_pending_deletes');
+
+    const seen: Array<{ uid: string; pending: number }> = [];
+    const { result, rerender } = renderHook(({ uid }) => {
+      const s = useSyncStatus(uid);
+      seen.push({ uid, pending: s.pendingCount });
+      return s;
+    }, { initialProps: { uid: USER } });
+    await waitFor(() => expect(result.current.pendingCount).toBe(2));
+
+    rerender({ uid: OTHER });
+    await new Promise(r => setTimeout(r, 300));
+    expect(seen.filter(x => x.uid === OTHER).map(x => x.pending)).not.toContain(2);
+  });
+});
