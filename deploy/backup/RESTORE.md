@@ -26,13 +26,21 @@ sudo bash /opt/justwriting/backup/restore-drill.sh
 совпали.
 
 `--verify-only` прогоняет проверки по уже поднятому контейнеру `jw-restore-drill`
-без нового восстановления — им и проверяют, что гейт краснеет:
+без нового восстановления — им и проверяют, что гейт краснеет. Обычный прогон
+удаляет контейнер на выходе, поэтому первый прогон — с `--keep-container`, а
+контейнер (в нём копия данных) после проверки удаляется руками:
 
 ```bash
+sudo bash /opt/justwriting/backup/restore-drill.sh --keep-container   # → exit 0
 sudo docker exec jw-restore-drill psql -U supabase_admin -h localhost -d postgres \
   -c 'revoke select on public.versions from authenticated'
 sudo bash /opt/justwriting/backup/restore-drill.sh --verify-only   # → exit 1
+sudo docker rm -f jw-restore-drill
 ```
+
+Прогон 2026-09-30 (0.9.23, дамп 03:42 UTC): полный — exit 0, счётчики сошлись,
+408 грантов совпали; после `revoke` — exit 1, «гранты разошлись», одна строка
+`versions authenticated SELECT`.
 
 ## Восстановление всего
 
