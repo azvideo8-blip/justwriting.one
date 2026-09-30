@@ -241,8 +241,8 @@ describe('R10-2: accountReload insurance and beforeunload veto prevention', () =
             node.arguments[0].text === 'beforeunload' &&
             node.arguments[1]) {
           listenerCount++;
-          const handler = handlerOf(node.arguments[1]);
-          if (handler && vetoes(handler.body) && !guardsPending(handler.body)) {
+          const handler = handlerOf(node.arguments[1]) as ts.FunctionLikeDeclaration | undefined;
+          if (handler && handler.body && vetoes(handler.body) && !guardsPending(handler.body)) {
             const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
             offenders.push(`${path.relative(srcDir, file).split(path.sep).join('/')}:${line + 1}`);
           }
