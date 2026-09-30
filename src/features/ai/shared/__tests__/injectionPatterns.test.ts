@@ -31,7 +31,7 @@ describe('hasInjectionAttempt', () => {
   });
 
   it('INJECTION_PATTERNS array matches expected count', () => {
-    expect(INJECTION_PATTERNS.length).toBe(21);
+    expect(INJECTION_PATTERNS.length).toBe(22); // L-2: +кириллический «игнорируй предыдущие инструкции»
   });
 
   it('catches a homoglyph-spoofed English injection phrase', () => {

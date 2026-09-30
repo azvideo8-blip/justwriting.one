@@ -72,6 +72,8 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     `ai_pull_since_${uid}`,
     // выключатель подсказок и памяти ИИ (EA-18)
     `ai_chat_extras_${uid}`,
+    // отметки «слишком большая для облака» запись ИИ-стора — на учётку (L-4, R4-017)
+    `ai_sync_oversized_records:${uid}`,
     // отметка сознательного выхода — гасит ложное «сессия оборвалась» (N-60)
     `jw_voluntary_signout_at_${uid}`,
   ];
