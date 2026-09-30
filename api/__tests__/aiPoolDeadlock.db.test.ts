@@ -27,20 +27,18 @@ describe.skipIf(!throwawayDb)('пул не виснет под одноврем�
       await pool.query('INSERT INTO auth.users (id, email) VALUES ($1, $2)', [uid, `n77_${uid.slice(0, 8)}@example.com`]);
     }
 
-    const started = Date.now();
     const verdicts = await Promise.all(uids.map((uid) => postgresAiContext.checkDailyLimit(uid)));
-    const elapsed = Date.now() - started;
 
     try {
       // 'unavailable' здесь — не «базы нет», а ожидание свободного соединения.
       expect(verdicts.map((v) => v.reason).filter(Boolean)).toEqual([]);
-      expect(elapsed).toBeLessThan(BUDGET_MS);
 
-      // Весь пул был бы занят навсегда — этот запрос не ответил бы никогда.
-      const pingStarted = Date.now();
+      // R4-023: замеры wall-clock (elapsed < BUDGET_MS) убраны — под нагрузкой
+      // они красили здоровый пул. Достаточно структурного сигнала: если пул
+      // заклинило, запрос ниже не ответил бы никогда, и тест упал бы по
+      // таймауту сам, без секундных порогов.
       const ping = await pool.query('select 1 as ok');
       expect(Number(ping.rows[0]?.ok)).toBe(1);
-      expect(Date.now() - pingStarted).toBeLessThan(BUDGET_MS);
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id = ANY($1::uuid[])', [uids]);
     }

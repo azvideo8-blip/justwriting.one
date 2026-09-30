@@ -1598,6 +1598,38 @@ END $$;
 RESET role;
 RESET request.jwt.claims;
 
+-- ============================================================
+-- R4-035: позитивные контролы — владелец видит СВОИ строки. Денай-ол
+-- политика проходит все негативные проверки; эти контролы её ловят.
+-- ============================================================
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002"}';
+
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.documents WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  IF cnt < 1 THEN RAISE EXCEPTION 'FAIL: positive control — Bob sees no own documents (deny-all policy?)'; END IF;
+
+  SELECT count(*) INTO cnt FROM public.versions WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  IF cnt < 1 THEN RAISE EXCEPTION 'FAIL: positive control — Bob sees no own versions (deny-all policy?)'; END IF;
+
+  SELECT count(*) INTO cnt FROM public.drafts WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  IF cnt < 1 THEN RAISE EXCEPTION 'FAIL: positive control — Bob sees no own drafts (deny-all policy?)'; END IF;
+
+  SELECT count(*) INTO cnt FROM public.ai_summaries WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  IF cnt < 1 THEN RAISE EXCEPTION 'FAIL: positive control — Bob sees no own ai_summaries (deny-all policy?)'; END IF;
+
+  SELECT count(*) INTO cnt FROM public.ai_embeddings WHERE user_id = '00000000-0000-0000-0000-000000000002';
+  IF cnt < 1 THEN RAISE EXCEPTION 'FAIL: positive control — Bob sees no own ai_embeddings (deny-all policy?)'; END IF;
+
+  SELECT count(*) INTO cnt FROM public.users WHERE uid = '00000000-0000-0000-0000-000000000002';
+  IF cnt <> 1 THEN RAISE EXCEPTION 'FAIL: positive control — Bob does not see his own profile (deny-all policy?)'; END IF;
+END $$;
+
+RESET role;
+RESET request.jwt.claims;
+
 -- Итоговое сообщение стоит последним не для красоты: до этой правки
 -- «All RLS checks passed» печаталось на 709-й строке, а сто семьдесят восемь
 -- строк проверок из TEST-1 шли после него. Набор при их провале падал (код 3),

@@ -16,13 +16,8 @@ describe('AG-GATE-1 — Raw Overlay Gate (scripts/raw-overlay-check.sh)', () => 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('proves old gate (filename regex) missed arbitrary filenames with raw overlays (falsification)', () => {
-    // Old gate logic from CI:
-    // grep -rl "fixed inset-0" ... | grep -iE "(modal|sheet|prompt|overlay)"
-    const arbitraryFile = 'src/features/writing/components/CustomEditorView.tsx';
-    const oldRegex = /(modal|sheet|prompt|overlay)/i;
-    expect(oldRegex.test(arbitraryFile)).toBe(false); // Old gate was blind to this file!
-  });
+  // R4-024: прежний первый тест «proves old gate was blind» сравнивал regex с
+  // самим собой — его удалили: он не проверял ни скрипт, ни кодовую базу.
 
   it('fails when an arbitrarily named file has a raw fixed inset-0 overlay', () => {
     const testFeatureDir = path.join(tmpDir, 'src/features/dummy');

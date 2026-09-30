@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { saveGuestDraftToStorage, loadGuestDraftFromStorage, deleteGuestDraftFromStorage } from '../GuestDraftService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { reportError } from '../../../../shared/errors/reportError';
+import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 
 vi.mock('../../../../core/storage/localDb', () => ({
   getLocalDb: vi.fn(),
@@ -10,12 +11,6 @@ vi.mock('../../../../core/storage/localDb', () => ({
 
 vi.mock('../../../../shared/errors/reportError', () => ({
   reportError: vi.fn(),
-}));
-
-vi.mock('../../../../shared/constants/storageKeys', () => ({
-  STORAGE_KEYS: {
-    GUEST_DRAFT: 'jw_guest_draft',
-  },
 }));
 
 function mockDb(overrides: Record<string, unknown> = {}) {
@@ -43,7 +38,7 @@ describe('saveGuestDraftToStorage', () => {
     const draft = { content: 'hello', title: 'Test' };
     await saveGuestDraftToStorage(draft);
     expect(db.put).toHaveBeenCalled();
-    expect(localStorage.getItem('jw_guest_draft')).not.toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).not.toBeNull();
   });
 
   it('throws when both IDB and localStorage fail', async () => {
@@ -64,7 +59,7 @@ describe('saveGuestDraftToStorage', () => {
     });
     const draft = { content: 'hello' };
     await saveGuestDraftToStorage(draft);
-    expect(localStorage.getItem('jw_guest_draft')).not.toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).not.toBeNull();
   });
 });
 
@@ -77,7 +72,7 @@ describe('loadGuestDraftFromStorage', () => {
   it('returns IDB draft when IDB is newer', async () => {
     const idbDraft = { content: 'idb', updatedAt: 2000 };
     mockDb({ get: vi.fn().mockResolvedValue({ ...idbDraft, userId: 'guest_draft' }) });
-    localStorage.setItem('jw_guest_draft', JSON.stringify({ content: 'ls', updatedAt: 1000 }));
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'ls', updatedAt: 1000 }));
     const result = await loadGuestDraftFromStorage();
     expect(result).toEqual(expect.objectContaining({ content: 'idb' }));
   });
@@ -85,7 +80,7 @@ describe('loadGuestDraftFromStorage', () => {
   it('returns localStorage draft when LS is newer and syncs back to IDB', async () => {
     const lsDraft = { content: 'ls', updatedAt: 3000 };
     const db = mockDb({ get: vi.fn().mockResolvedValue({ content: 'idb', updatedAt: 2000, userId: 'guest_draft' }) });
-    localStorage.setItem('jw_guest_draft', JSON.stringify(lsDraft));
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify(lsDraft));
     const result = await loadGuestDraftFromStorage();
     expect(result).toEqual(expect.objectContaining({ content: 'ls' }));
     expect(db.put).toHaveBeenCalledWith(
@@ -97,7 +92,7 @@ describe('loadGuestDraftFromStorage', () => {
   it('restores localStorage draft to IDB when IDB is missing', async () => {
     const lsDraft = { content: 'ls', updatedAt: 1000 };
     const db = mockDb({ get: vi.fn().mockResolvedValue(undefined) });
-    localStorage.setItem('jw_guest_draft', JSON.stringify(lsDraft));
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify(lsDraft));
     const result = await loadGuestDraftFromStorage();
     expect(result).toEqual(expect.objectContaining({ content: 'ls' }));
     expect(db.put).toHaveBeenCalledWith(
@@ -121,10 +116,10 @@ describe('loadGuestDraftFromStorage', () => {
 
   it('clears localStorage on JSON parse error', async () => {
     mockDb();
-    localStorage.setItem('jw_guest_draft', 'not-json');
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, 'not-json');
     const result = await loadGuestDraftFromStorage();
     expect(result).toBeNull();
-    expect(localStorage.getItem('jw_guest_draft')).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).toBeNull();
   });
 });
 
@@ -136,9 +131,9 @@ describe('deleteGuestDraftFromStorage', () => {
 
   it('removes from localStorage and IDB', async () => {
     const db = mockDb();
-    localStorage.setItem('jw_guest_draft', JSON.stringify({ content: 'x' }));
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'x' }));
     await deleteGuestDraftFromStorage();
-    expect(localStorage.getItem('jw_guest_draft')).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).toBeNull();
     expect(db.delete).toHaveBeenCalledWith('drafts', 'guest_draft');
   });
 

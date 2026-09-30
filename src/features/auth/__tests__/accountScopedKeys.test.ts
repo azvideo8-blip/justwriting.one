@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { clearAccountScopedStorage, accountScopedLocalStorageKeys } from '../services/accountScopedKeys';
 
 const A = 'user-aaa';
@@ -29,13 +30,13 @@ describe('clearAccountScopedStorage (AUD-4)', () => {
   });
 
   it('общие настройки (тема, язык) переживают стирание', () => {
-    localStorage.setItem('app-theme', 'amethyst');
+    localStorage.setItem(STORAGE_KEYS.APP_THEME, 'amethyst');
     localStorage.setItem('app_language', 'ru');
     localStorage.setItem(`enc_enabled_${A}`, '1');
 
     clearAccountScopedStorage(A);
 
-    expect(localStorage.getItem('app-theme')).toBe('amethyst');
+    expect(localStorage.getItem(STORAGE_KEYS.APP_THEME)).toBe('amethyst');
     expect(localStorage.getItem('app_language')).toBe('ru');
     expect(localStorage.getItem(`enc_enabled_${A}`)).toBeNull();
   });

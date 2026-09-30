@@ -1,6 +1,7 @@
 // R3-046: скрипт до первой отрисовки ставит класс и фон темы. Тема лежит в
 // localStorage JSON-строкой; прежде её искали сырым значением и не находили.
 import { describe, it, expect, beforeEach } from 'vitest';
+import { STORAGE_KEYS } from '../shared/constants/storageKeys';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { THEMES } from '../core/theme/ThemeProvider';
@@ -14,6 +15,11 @@ function setSystemDark(dark: boolean) {
 }
 
 describe('inline-init.js', () => {
+  // R4-027: ключ темы в скрипте и в приложении — одна константа, а не две копии.
+  it('использует значение STORAGE_KEYS.APP_THEME, а не свою копию', () => {
+    expect(script).toContain(`localStorage.getItem('${STORAGE_KEYS.APP_THEME}')`);
+  });
+
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.className = '';
@@ -21,7 +27,7 @@ describe('inline-init.js', () => {
   });
 
   it('читает тему, сохранённую useLocalStorage (JSON)', () => {
-    localStorage.setItem('app-theme', JSON.stringify('notion'));
+    localStorage.setItem(STORAGE_KEYS.APP_THEME, JSON.stringify('notion'));
     run();
     expect(document.documentElement.classList.contains('theme-notion')).toBe(true);
     expect(document.documentElement.style.colorScheme).toBe('light');
@@ -29,7 +35,7 @@ describe('inline-init.js', () => {
 
   it("'system' при светлой системе — светлая тема", () => {
     setSystemDark(false);
-    localStorage.setItem('app-theme', JSON.stringify('system'));
+    localStorage.setItem(STORAGE_KEYS.APP_THEME, JSON.stringify('system'));
     run();
     expect(document.documentElement.classList.contains('theme-notion')).toBe(true);
   });
@@ -37,7 +43,7 @@ describe('inline-init.js', () => {
   it('фон каждой темы совпадает с её --bg-base в index.css', () => {
     for (const th of Object.values(THEMES)) {
       document.documentElement.className = '';
-      localStorage.setItem('app-theme', JSON.stringify(th.id));
+      localStorage.setItem(STORAGE_KEYS.APP_THEME, JSON.stringify(th.id));
       run();
       const block = css.slice(css.indexOf(`.${th.cssClass} {`));
       const bgBase = /--bg-base:\s*(#[0-9A-Fa-f]{6})/.exec(block)![1]!;

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { clearAccountScopedStorage } from '../services/accountScopedKeys';
 
 /**
@@ -42,14 +43,14 @@ describe('стирание при выходе не оставляет данн�
   });
 
   it('настройки устройства остаются: это не данные человека', () => {
-    localStorage.setItem('app-theme', 'amethyst');
+    localStorage.setItem(STORAGE_KEYS.APP_THEME, 'amethyst');
     localStorage.setItem('app_language', 'ru');
     localStorage.setItem('preview_width', '420');
     localStorage.setItem('layout-mode', 'zen');
 
     clearAccountScopedStorage(UID);
 
-    expect(localStorage.getItem('app-theme')).toBe('amethyst');
+    expect(localStorage.getItem(STORAGE_KEYS.APP_THEME)).toBe('amethyst');
     expect(localStorage.getItem('app_language')).toBe('ru');
     expect(localStorage.getItem('preview_width')).toBe('420');
     expect(localStorage.getItem('layout-mode')).toBe('zen');

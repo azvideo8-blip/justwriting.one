@@ -24,6 +24,22 @@ describe('AG-VERSION-1 — версия в четырёх местах одна'
     expect(APP_VERSION).toBe(packageJson.version);
   });
 
+  // R4-086: голова CHANGELOG.md и changelog[0].version не были пришиты к
+  // APP_VERSION — релиз можно было собрать с разъехавшейся историей.
+  it('голова CHANGELOG.md — текущая версия', () => {
+    const changelog = readFileSync(path.join(ROOT_DIR, 'CHANGELOG.md'), 'utf-8');
+    const head = /^##\s*\[?([0-9]+\.[0-9]+\.[0-9]+)\]?/m.exec(changelog);
+    expect(head, 'в CHANGELOG.md нет заголовка версии').not.toBeNull();
+    expect(head?.[1]).toBe(APP_VERSION);
+  });
+
+  it('changelog[0].version — текущая версия', () => {
+    const changelog = readFileSync(path.join(ROOT_DIR, 'src/features/navigation/data/changelog.ts'), 'utf-8');
+    const head = /version:\s*'([0-9]+\.[0-9]+\.[0-9]+)'/.exec(changelog);
+    expect(head, 'в changelog.ts не найдена первая версия').not.toBeNull();
+    expect(head?.[1]).toBe(APP_VERSION);
+  });
+
   it('package-lock.json описывает ту же версию (обе записи)', () => {
     const lock = JSON.parse(readFileSync(path.join(ROOT_DIR, 'package-lock.json'), 'utf-8')) as {
       version: string; packages: Record<string, { version?: string }>;
