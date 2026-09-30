@@ -34,6 +34,12 @@ describe('detectRisk', () => {
     'ne hochu zhit',
     'hochu umeret',
     'pokonchit s soboj',
+    'pokonchit s soboi',
+    // M-14: латиница складывается в русские буквы (H→Н), а не в «һ».
+    'HE XOЧУ ЖИТЬ',
+    'Hе хочу жить',
+    // M-15: «not» в той же клаузе, но не при самой фразе — риск остаётся.
+    'I am not ok and I want to die',
   ])('риск: %s', text => {
     expect(detectRisk(text).isRisk).toBe(true);
   });
@@ -49,7 +55,20 @@ describe('detectRisk', () => {
     'навести порядок в голове и перестать ругать себя',
     // L-1: средство и цель в разных клаузах — means-паттерн не переходит запятую.
     'врач выписал таблетки, чтобы не умереть',
+    // M-15: границы слов и отрицание в EN/транслите.
+    'i want to diet',
+    "I don't want to kill myself",
+    "I'm not going to kill myself",
+    'ne hochu umeret',
   ])('не риск: %s', text => {
     expect(detectRisk(text).isRisk).toBe(false);
+  });
+
+  // M-16: .* между группами бэктрекал минуты на вырожденном вводе.
+  it('вырожденный ввод ~50k символов — без катастрофического бэктрекинга', () => {
+    const text = 'никто не заметит если когда '.repeat(1800);
+    const t0 = performance.now();
+    detectRisk(text);
+    expect(performance.now() - t0).toBeLessThan(1500);
   });
 });

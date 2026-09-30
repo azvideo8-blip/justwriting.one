@@ -130,7 +130,6 @@ export function estimateInputTokens(parts: Array<string | null | undefined>): nu
 import type { AiContext, GlobalReservation } from './context.js';
 import { AiError } from './context.js';
 import { hasInjectionAttempt } from './injectionPatterns.js';
-import { sanitizeAiInputShared } from './buildChatPrompt.js';
 import { isAllowedSystemTaskPrompt } from './systemTaskPrompts.js';
 
 // AUDIT-MH8: Shared injection policy across streaming and non-streaming chat endpoints.
@@ -140,7 +139,7 @@ import { isAllowedSystemTaskPrompt } from './systemTaskPrompts.js';
 // Note-derived fields are fenced in DATA_CONTEXT_* blocks and sanitized via buildChatSystemPrompt.
 // L-2: историю (включая реплики ассистента) отклонять нельзя — одна неудачная
 // реплика внутри контекстного окна кирпичила весь диалог с generic 400.
-// Она санитизируется на месте; reject ловит только последний ход пользователя.
+// Её санитизируют вызывающие; reject ловит только последний ход пользователя.
 // Сообщение без роли считается пользовательским (fail-closed).
 export function assertNoSystemPromptInjection(params: {
   messages: Array<{ role?: string; content: string }>;
@@ -161,9 +160,7 @@ export function assertNoSystemPromptInjection(params: {
   if (lastUser && hasInjectionAttempt(lastUser.content)) {
     throw new AiError('invalid-argument', 'Disallowed patterns detected in messages.');
   }
-  for (const m of params.messages) {
-    m.content = sanitizeAiInputShared(m.content);
-  }
+  // История санитизируется у вызывающих: api/chat.ts и api/ai/chatWithAI.logic.ts (providerMessages).
 }
 
 export type ChargeTarget = 'bulk' | 'user';

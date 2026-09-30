@@ -181,6 +181,31 @@ describe('JW-SEC-03: readBody payload size limits', () => {
       );
     });
 
+    // M-18: свободные поля клампятся до 200 символов на проде (server.ts).
+    it('clamps free-form csp-report fields to 200 chars in the log', async () => {
+      const server = (await import('../server')).default;
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      warnSpy.mockClear();
+      const long = 'd'.repeat(5000);
+      const req = createMockRequest('/api/csp-report', {}, [JSON.stringify({
+        'csp-report': {
+          'document-uri': `https://justwriting.ru/${long}`,
+          'violated-directive': long,
+          'blocked-uri': long,
+        },
+      })]);
+      const res = { writeHead: vi.fn(), end: vi.fn() } as unknown as ServerResponse;
+
+      server.emit('request', req, res);
+      await new Promise(r => setTimeout(r, 50));
+
+      const logged = warnSpy.mock.calls.find(c => c[0] === '[csp-report]');
+      const summary = JSON.parse(String(logged?.[1])) as Record<string, string>;
+      expect(summary['violated-directive']).toHaveLength(200);
+      expect(summary['document-uri']!.length).toBeLessThanOrEqual(200);
+      expect(summary['blocked-uri']!.length).toBeLessThanOrEqual(200);
+    });
+
     it('rejects csp-report larger than 32KB with 413, not a silent 204 (R4-051)', async () => {
       const serverModule = await import('../server');
       const server = serverModule.default;

@@ -61,8 +61,8 @@ const server = http.createServer((req, res) => {
   // SA-4: наружу уходят только коды и флаги. Сообщение драйвера — это
   // «connect ECONNREFUSED 10.0.0.7:5432» или «password authentication failed
   // for user "supabase_admin"»: внутренние адреса и форма строки подключения.
-  // /ready наружу не проксируется (deploy/nginx.conf), но его читают с VPS —
-  // а значит печатать в него env ровно так же плохо.
+  // /ready проксируется наружу (deploy/nginx.conf, L-7) — его читает внешний
+  // монитор, а значит печатать в него env нельзя тем более.
   if (method === 'GET' && path === '/ready') {
     let dbOk = false;
     let dbErrorCode: string | undefined;
@@ -110,11 +110,13 @@ const server = http.createServer((req, res) => {
       const raw = await readBody(req, 32 * 1024);
       const body = JSON.parse(raw);
       const report = body?.['csp-report'] ?? body;
+      // M-18: поля свободные и от клиента — в журнал не больше 200 символов.
+      const clamp = (x: unknown) => String(x ?? '').slice(0, 200);
       const summary = {
         // Полный URI несёт query-параметры страницы — в журнал уходит форма.
-        'document-uri': originOnly(report?.['document-uri']),
-        'violated-directive': report?.['violated-directive'],
-        'blocked-uri': originOnly(report?.['blocked-uri']),
+        'document-uri': clamp(originOnly(report?.['document-uri'])),
+        'violated-directive': clamp(report?.['violated-directive']),
+        'blocked-uri': clamp(originOnly(report?.['blocked-uri'])),
       };
       console.warn('[csp-report]', JSON.stringify(summary));
     } catch (err: unknown) {

@@ -15,7 +15,7 @@ const RISK_PATTERNS: RegExp[] = [
   /не\s+хочу\s+жить/,
   /нет\s+смысла\s+(дальше\s+)?жить/,
   /лучше\s+бы\s+(я\s+)?(умер|погиб|не\s+родился)/,
-  /думал.*\s+(о\s+смерти|убить\s+себя|покончить)/,
+  /думал.{0,200}\s+(о\s+смерти|убить\s+себя|покончить)/,
   // Plan / means. Средства — целыми словами: «яд» сидит внутри «порядок», «наряд».
   // Средство и цель — в одной клаузе: без класса-границы «таблетки» из «врач
   // выписал таблетки, чтобы не умереть» дотягивался через запятую до «умереть».
@@ -24,34 +24,37 @@ const RISK_PATTERNS: RegExp[] = [
   /хочу\s+(порезать|навредить|причинить\s+боль)\s+(себе|себя)/,
   /режу\s+себя/,
   /самоповрежд/,
-  /наказать\s+себя.*\s+(физическ|боль|травм)/,
+  /наказать\s+себя.{0,200}\s+(физическ|боль|травм)/,
   // Goodbye / finality
   /прощайте|прощай\s+всем|это\s+мое\s+последнее/,
-  /никто\s+не\s+заметит.*(если|когда).*\s+(меня\s+не\s+будет|я\s+умру)/,
+  /никто\s+не\s+заметит.{0,200}(если|когда).{0,200}\s+(меня\s+не\s+будет|я\s+умру)/,
 ];
+// M-16: разрывы между группами ограничены .{0,200} — с .* вырожденный ввод
+// («никто не заметит если когда …» ×50k) бэктрекал минуты.
 
 // L-1: короткие списки EN и транслита. Совпадают с латинским вариантом текста
 // (кириллица сложена в латиницу), а не с кириллическим.
+// M-15: \b — иначе «i want to diet» ловилось как «die».
 const FOREIGN_RISK_PATTERNS: RegExp[] = [
   // English
-  /i\s+want\s+to\s+(die|kill\s+myself|end\s+my\s+life)/,
-  /kill\s+myself/,
-  /suicid(?:e|al)/,
+  /\bi\s+want\s+to\s+(die|kill\s+myself|end\s+my\s+life)\b/,
+  /\bkill\s+myself\b/,
+  /\bsuicid(?:e|al)/,
   // Translit
-  /ne\s+hochu\s+zhit/,
-  /hochu\s+umeret/,
-  /pokonchit\s+s\s+soboj/,
-  /net\s+smysla\s+(dalshe\s+)?zhit/,
+  /\bne\s+hochu\s+zhit/,
+  /\bhochu\s+umeret/,
+  /\bpokonchit\s+s\s+sobo[jiy]/,
+  /\bnet\s+smysla\s+(dalshe\s+)?zhit/,
 ];
 
 // Инверсия CONFUSABLES_MAP (кириллица→латиница): латинская буква-двойник
 // складывается в кириллицу. Дубликаты («А»→A и «а»→a) разрешаются в пользу
-// первой записи; греческие двойники не годятся — паттерны кириллические.
+// первой записи. Только русские буквы: греческие и «і/ѕ/һ» паттерны не знают —
+// h→һ прятал «Hе хочу жить» (M-14).
 const LATIN_LOOKALIKE_TO_CYRILLIC: Record<string, string> = (() => {
   const map: Record<string, string> = {};
   for (const [cyr, lat] of Object.entries(CONFUSABLES_MAP)) {
-    const code = cyr.codePointAt(0) ?? 0;
-    if (code >= 0x370 && code < 0x400) continue;
+    if (!/^[а-яА-Я]$/.test(cyr)) continue;
     const low = lat.toLowerCase();
     if (!(low in map)) map[low] = cyr.toLowerCase();
   }
@@ -70,9 +73,14 @@ const SAFE_CONTEXT = [
   'не буду', 'справляюсь', 'преодол', 'прошло', 'в прошлом', 'не про меня',
 ];
 
+// M-15: отрицание для EN/транслита — «I don't want to kill myself», «ne hochu umeret».
+// Только если оно управляет самой фразой, вплотную перед ней: «I'm not ok and
+// I want to die» — одна клауза, но «not» к «want to die» не относится.
+const FOREIGN_NEGATION_BEFORE = /(?:\bdo(?:n['’]?t| not)|\bnot|\bnever|\bwon['’]?t)\s+(?:want|going|plan(?:ning)?|gonna|wanna)\s+(?:to\s+)?$|\bne\s+$/;
+
 // Граница клаузы: знак препинания или союз-поворот. Исключение из соседней
 // клаузы («не думал о смерти, но хочу покончить с собой») острое не гасит.
-const CLAUSE_BREAK = /[.,;:!?\n—–]|\s(?:но|а|однако)\s/g;
+const CLAUSE_BREAK = /[.,;:!?\n—–]|\s(?:но|а|однако|but)\s/g;
 
 export interface RiskResult {
   isRisk: boolean;
@@ -111,9 +119,9 @@ function clauseBounds(lower: string, start: number, end: number): [number, numbe
 // Исключение считается, только если оно в той же клаузе и не лежит целиком
 // внутри найденной фразы: «не хочу» внутри «не хочу жить» гасило сам риск.
 // Перекрытие с началом фразы — законное отрицание («я не думал о смерти»).
-function hasSafeContextAround(lower: string, start: number, end: number): boolean {
+function hasSafeContextAround(lower: string, start: number, end: number, safeContext: string[]): boolean {
   const [from, to] = clauseBounds(lower, start, end);
-  for (const safe of SAFE_CONTEXT) {
+  for (const safe of safeContext) {
     for (let i = lower.indexOf(safe, from); i !== -1 && i + safe.length <= to; i = lower.indexOf(safe, i + 1)) {
       const insideMatch = i >= start && i + safe.length <= end;
       if (!insideMatch) return true;
@@ -122,10 +130,15 @@ function hasSafeContextAround(lower: string, start: number, end: number): boolea
   return false;
 }
 
-function firstAcuteMatch(text: string, patterns: RegExp[]): string | null {
+function hasForeignNegationBefore(lower: string, start: number, end: number): boolean {
+  const [from] = clauseBounds(lower, start, end);
+  return FOREIGN_NEGATION_BEFORE.test(lower.slice(from, start));
+}
+
+function firstAcuteMatch(text: string, patterns: RegExp[], isSafe: (lower: string, start: number, end: number) => boolean): string | null {
   for (const pattern of patterns) {
     for (const match of text.matchAll(new RegExp(pattern.source, 'g'))) {
-      if (!hasSafeContextAround(text, match.index, match.index + match[0].length)) {
+      if (!isSafe(text, match.index, match.index + match[0].length)) {
         return match[0];
       }
     }
@@ -141,9 +154,9 @@ export function detectRisk(text: string): RiskResult {
   // Кириллические паттерны — против латинских букв-двойников; EN/транслит —
   // против кириллицы, сложенной в латиницу.
   const cyr = foldLatinLookalikes(lower);
-  const cyrMatch = firstAcuteMatch(cyr, RISK_PATTERNS);
+  const cyrMatch = firstAcuteMatch(cyr, RISK_PATTERNS, (l, s, e) => hasSafeContextAround(l, s, e, SAFE_CONTEXT));
   if (cyrMatch) return { isRisk: true, severity: 'acute', matchedPattern: cyrMatch };
-  const latMatch = firstAcuteMatch(foldConfusables(lower), FOREIGN_RISK_PATTERNS);
+  const latMatch = firstAcuteMatch(foldConfusables(lower), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore);
   if (latMatch) return { isRisk: true, severity: 'acute', matchedPattern: latMatch };
 
   return { isRisk: false, severity: 'none' };
