@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ReactNode } from 'react';
 import { renderHook } from '@testing-library/react';
 import { LanguageProvider, useLanguage } from '../index';
 
@@ -6,7 +7,7 @@ import { LanguageProvider, useLanguage } from '../index';
 // классические ловушки русской плюрализации (mod100 против mod10).
 describe('ru plurals at 11–14 and 21–22 (R4-022)', () => {
   localStorage.setItem('language', 'ru');
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
+  const wrapper = ({ children }: { children: ReactNode }) => (
     <LanguageProvider>{children}</LanguageProvider>
   );
 
