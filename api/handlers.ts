@@ -116,6 +116,8 @@ export async function handleAiEndpoint(
   } catch (e) {
     if (e instanceof AiError) {
       const status = CODE_TO_HTTP[e.code] ?? 500;
+      // R5-058: 5xx от AiError уходил клиенту без строки в журнале службы.
+      if (status >= 500) console.error(`[api/handlers] ${status} ${e.code} in ${endpoint}: ${e.message}`);
       return { status, body: { error: { code: e.code, message: e.message } } };
     }
     console.error(`[api/handlers] unhandled error in ${endpoint}:`, e);
