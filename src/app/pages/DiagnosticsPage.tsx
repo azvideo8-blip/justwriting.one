@@ -104,7 +104,9 @@ function RebuildTimelineButton() {
 }
 
 export function DiagnosticsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // K-2/N-89: без явной локали числа и даты берут локаль машины, а не языка UI.
+  const locale = language === 'en' ? 'en-GB' : 'ru-RU';
   const navigate = useNavigate();
   const { profile, loading: authLoading } = useAuthStatus();
   const dailyLimit = useDailyLimit();
@@ -527,7 +529,7 @@ export function DiagnosticsPage() {
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-text-main/60">{m.label}</span>
                             <span className="font-mono text-text-main/70">
-                              {m.used.toLocaleString()} / {m.cap.toLocaleString()}{' '}
+                              {m.used.toLocaleString(locale)} / {m.cap.toLocaleString(locale)}{' '}
                               <span className={cn(over ? 'text-accent-danger' : warn ? 'text-accent-warning' : 'text-text-main/60')}>
                                 ({pct < 10 ? pct.toFixed(1) : pct.toFixed(0)}%{over ? ' !' : ''})
                               </span>
@@ -610,8 +612,8 @@ export function DiagnosticsPage() {
                             </td>
                             <td className="py-2.5 px-4 text-text-main/80 font-medium" title={row.uid}>{displayName}</td>
                             <td className="py-2.5 px-4 text-right text-text-main/60">{row.requests}</td>
-                            <td className="py-2.5 px-4 text-right text-text-main/60">{row.promptTokens.toLocaleString()}</td>
-                            <td className="py-2.5 px-4 text-right text-text-main/60">{row.completionTokens.toLocaleString()}</td>
+                            <td className="py-2.5 px-4 text-right text-text-main/60">{row.promptTokens.toLocaleString(locale)}</td>
+                            <td className="py-2.5 px-4 text-right text-text-main/60">{row.completionTokens.toLocaleString(locale)}</td>
                             <td className="py-2.5 px-4 text-right font-mono text-text-main/80">{cost.toFixed(2)}₽</td>
                             <td className="py-2.5 px-4 text-center" onClick={e => e.stopPropagation()}>
                               <Button
@@ -655,8 +657,8 @@ export function DiagnosticsPage() {
                                             </td>
                                             <td className="py-1.5 pr-4 text-text-main/60">{fnLabel(ev.fn)}</td>
                                             <td className="py-1.5 pr-4 text-text-main/60">{modelLabel(ev.model)}</td>
-                                            <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensIn.toLocaleString()}</td>
-                                            <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensOut.toLocaleString()}</td>
+                                            <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensIn.toLocaleString(locale)}</td>
+                                            <td className="py-1.5 pr-4 text-right font-mono text-text-main/60">{ev.tokensOut.toLocaleString(locale)}</td>
                                             <td className="py-1.5 text-right font-mono text-text-main/70">${evCost.toFixed(5)}</td>
                                           </tr>
                                         );
@@ -677,8 +679,8 @@ export function DiagnosticsPage() {
                         <td className="py-3 px-4"></td>
                         <td className="py-3 px-4">{t('admin_th_total')}</td>
                         <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.requests, 0)}</td>
-                        <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.promptTokens, 0).toLocaleString()}</td>
-                        <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.completionTokens, 0).toLocaleString()}</td>
+                        <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.promptTokens, 0).toLocaleString(locale)}</td>
+                        <td className="py-3 px-4 text-right">{filtered.reduce((s, r) => s + r.completionTokens, 0).toLocaleString(locale)}</td>
                         <td className="py-3 px-4 text-right font-mono">{totalCost.toFixed(2)}₽</td>
                         <td className="py-3 px-4"></td>
                       </tr>

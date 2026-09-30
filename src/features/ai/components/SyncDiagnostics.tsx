@@ -14,7 +14,7 @@ interface SyncDiagnosticsProps {
 }
 
 export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
-  const { t, tp } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const { layoutMode } = useLayoutMode();
   const {
     loading, syncingId, items, queueCount, discrepancyCount,
@@ -65,8 +65,9 @@ export function SyncDiagnostics({ userId }: SyncDiagnosticsProps) {
     });
   }, [items, search, sortKey, sortDir, processedDocs]);
 
+  // K-2/N-89: `undefined` даёт локаль машины, а не языка интерфейса.
   const formatDate = (ms?: number) =>
-    ms ? new Date(ms).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+    ms ? new Date(ms).toLocaleDateString(language === 'en' ? 'en-GB' : 'ru-RU', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
 
   return (
     <div className="space-y-4 p-4 rounded-xl border border-border-subtle bg-surface-card/30">
