@@ -113,7 +113,7 @@ describe('AG-I18N-SINKS-1 — findHardcodedUiText', () => {
     expect(scan(`
       export function C({ showToast, t, ok }) {
         showToast(ok ? 'Готово' : 'Ошибка', 'info');
-        showToast(ok ? t('done') : ('Не удалось'), 'info');
+        showToast(ok ? t('common_loading') : ('Не удалось'), 'info');
         return null;
       }
     `)).toEqual(['showToast|Готово | Ошибка', 'showToast|Не удалось']);
