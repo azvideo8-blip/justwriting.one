@@ -169,6 +169,10 @@ export const archiveTranslations: Translations = {
   // DC-A3: пиктограммы статуса копий — подписи к ним, сами они не кнопки.
   archive_status_local: { ru: 'Копия на устройстве', en: 'Copy on this device' },
   archive_status_cloud: { ru: 'Копия в облаке', en: 'Copy in the cloud' },
+  archive_status_no_local: { ru: 'Копии на устройстве нет', en: 'No copy on this device' },
+  archive_status_no_cloud: { ru: 'Копии в облаке нет', en: 'No copy in the cloud' },
+  archive_status_ai_done: { ru: 'Разобрано ИИ', en: 'Analysed by AI' },
+  archive_status_ai_none: { ru: 'Не разобрано ИИ', en: 'Not analysed by AI' },
   archive_status_pending_sync: { ru: 'Есть неотправленные изменения', en: 'Unsent changes' },
   archive_cloud_only_note: { ru: 'Заметка из облака', en: 'Cloud note' },
   archive_cloud_sync_failed: { ru: 'Облачная копия не синхронизирована', en: 'Cloud copy did not sync' },
@@ -206,6 +210,7 @@ export const archiveTranslations: Translations = {
     ru: 'Прикрепить к ИИ',
     en: 'Attach to AI',
   },
+  archive_tag_add_short: { ru: '+ тег', en: '+ tag' },
   archive_add_tag_aria: {
     ru: 'Добавить тег',
     en: 'Add tag',

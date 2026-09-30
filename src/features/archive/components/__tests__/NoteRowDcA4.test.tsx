@@ -41,7 +41,7 @@ const session: ArchiveSession = {
 };
 
 describe('DC-A4 строка: тег добавляется из меню «⋯»', () => {
-  it('без тегов в строке нет плашки, «Добавить тег» из меню открывает поле с фокусом, Enter пишет тег', async () => {
+  it('без тегов в строке видна плашка «+ тег»; «Добавить тег» из меню открывает поле с фокусом, Enter пишет тег', async () => {
     vi.mocked(getSessionKey).mockReturnValue({ key: 'k' } as never);
     const onTagsChange = vi.fn();
     render(
@@ -55,7 +55,7 @@ describe('DC-A4 строка: тег добавляется из меню «⋯�
       />,
     );
 
-    expect(screen.queryByRole('button', { name: 'archive_add_tag_aria' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'archive_add_tag_aria' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'archive_note_actions' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'archive_add_tag_aria' }));

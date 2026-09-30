@@ -1,74 +1,80 @@
-import { useState, useRef, useEffect, memo } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, memo } from 'react';
 import { motion } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle, MoreHorizontal } from 'lucide-react';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
-import { cn } from '../../../core/utils/utils';
 import { getDateLocale, formatDateTimeLabel } from '../../../core/utils/dateUtils';
 import { highlightText } from '../../../shared/utils/highlightText';
 import { InlineTags } from './InlineTags';
 import { useLanguage } from '../../../shared/i18n';
-import { useSessionTags } from '../../../shared/hooks/useSessionTags';
-
-import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
+import { Menu } from '../../../shared/components/Menu';
+import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { StorageButtons } from './StorageButtons';
+import { useNoteMenu } from './useNoteMenu';
 
 interface GridNoteCardProps {
   session: ArchiveSession;
   onClick: () => void;
+  userId: string;
   searchQuery?: string | undefined;
   labels?: Label[] | undefined;
   allTags?: string[] | undefined;
   onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
   onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
+  onTitleChange?: ((session: ArchiveSession, title: string) => void) | undefined;
+  onDelete?: ((session: ArchiveSession) => void) | undefined;
+  onStorageChange?: (() => void) | undefined;
   aiProcessed?: boolean | undefined;
   aiLoading?: boolean | undefined;
   onAIClick?: (() => void) | undefined;
+  aiExclusionLoading?: boolean | undefined;
+  onAIExclusionClick?: (() => void) | undefined;
 }
 
+// Карточка показывает то же, что строка списка: полосу метки, цветные иконки
+// копий и разбора и меню «⋯» (и по правому клику) — владелец видит состояние
+// заметки с первого взгляда в обоих видах.
 export const GridNoteCard = memo<GridNoteCardProps>(({
   session,
   onClick,
+  userId,
   searchQuery = '',
   labels,
   allTags,
   onTagsChange,
   onLabelChange,
-  aiProcessed: _aiProcessed,
-  aiLoading: _aiLoading,
-  onAIClick: _onAIClick,
+  onTitleChange,
+  onDelete,
+  onStorageChange,
+  aiProcessed,
+  aiLoading,
+  onAIClick,
+  aiExclusionLoading,
+  onAIExclusionClick,
 }) => {
   const { t, tp, language } = useLanguage();
-  const { tags: _tags } = useSessionTags(session.tags || []);
+  const { prompt } = useConfirmDialog();
+  const [tagInputOpen, setTagInputOpen] = useState(false);
   const sessionTime = session.sessionStartTime
     ? new Date(session.sessionStartTime)
     : session.createdAt instanceof Date ? session.createdAt : new Date();
-  const [labelPopupOpen, setLabelPopupOpen] = useState(false);
-  // fixed-position coords: popup renders in a portal so the archive scroll
-  // container (overflow-y-auto) can't clip it
-  const [labelPopupPos, setLabelPopupPos] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
-  const labelPopupRef = useRef<HTMLDivElement>(null);
 
   const label = labels?.find(l => l.id === session.labelId);
 
-  useEffect(() => {
-    if (!labelPopupOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (labelPopupRef.current && !labelPopupRef.current.contains(e.target as Node)) {
-        setLabelPopupOpen(false);
-      }
-    };
-    const close = () => setLabelPopupOpen(false);
-    document.addEventListener('mousedown', handleClick);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [labelPopupOpen]);
+  const rename = async () => {
+    const next = (await prompt({ title: t('archive_rename_title'), defaultValue: session.title ?? '' }))?.trim();
+    if (next && next !== session.title) onTitleChange?.(session, next);
+  };
+
+  const menu = useNoteMenu({
+    session, userId, t, labels, onOpen: onClick,
+    onRename: () => { void rename(); },
+    onAddTag: () => setTagInputOpen(true),
+    onDelete, onLabelChange, onStorageChange,
+    aiProcessed, aiLoading, onAIClick, aiExclusionLoading, onAIExclusionClick,
+  });
 
   // DC-A3: та же метка, что в списке — sentence case, одна строка, без mono.
   const formattedDate = formatDateTimeLabel(sessionTime, language);
@@ -81,12 +87,17 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
   return (
     <motion.div
       onClick={onClick}
+      onContextMenu={e => {
+        e.preventDefault();
+        menu.setAnchor({ kind: 'point', x: e.clientX, y: e.clientY });
+      }}
       whileHover={{ y: -3, scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-      className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
+      className="cursor-pointer rounded-2xl p-5 bg-surface-card border border-border-subtle border-l-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-main/30
                  hover:border-text-main/20 hover:bg-text-main/[0.07] hover:shadow-lg transition-colors
                  flex flex-col gap-3 group"
+      {...(label ? { style: { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, var(--surface-card))`, boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)` } } : {})}
     >
       <div className="text-[13px] font-medium text-text-main/60 tabular-nums">
         {formattedDate}
@@ -105,15 +116,6 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
         </h4>
       ) : session.title ? (
         <h4 className="text-[17px] font-semibold text-text-main leading-snug">
-          {label && (
-            <span
-              role="img"
-              aria-label={label.name}
-              title={label.name}
-              className="inline-block w-2 h-2 rounded-full align-middle mr-1.5"
-              style={{ background: label.color }}
-            />
-          )}
           {highlightText(session.title, searchQuery)}
         </h4>
       ) : null}
@@ -130,71 +132,56 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
           tags={session.tags || []}
           allTags={allTags}
           onChange={newTags => onTagsChange?.(session, newTags)}
+          isAdding={tagInputOpen}
+          onStartAdding={() => setTagInputOpen(true)}
+          onStopAdding={() => setTagInputOpen(false)}
         />
-
       </div>
 
-      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/60 pt-3 mt-auto border-t border-border-subtle">
+      <div className="flex items-center gap-2 text-[12px] font-mono text-text-main/60 pt-3 mt-auto border-t border-border-subtle flex-wrap">
         <span>{tp('archive_word_count', session.wordCount)}</span>
         <span className="text-text-main/60">·</span>
         <span>{Math.floor(session.duration / 60)} {t('goal_time_short')}</span>
-        {labels && onLabelChange && (
-          <div className="relative ml-auto" onClick={e => e.stopPropagation()}>
-            <Button
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const spaceBelow = window.innerHeight - rect.bottom;
-                const openUp = spaceBelow < 220 && rect.top > spaceBelow;
-                setLabelPopupPos({
-                  left: Math.max(8, Math.min(rect.left, window.innerWidth - 166)),
-                  ...(openUp
-                    ? { bottom: window.innerHeight - rect.top + 4, maxHeight: rect.top - 12 }
-                    : { top: rect.bottom + 4, maxHeight: spaceBelow - 12 }),
-                });
-                setLabelPopupOpen(v => !v);
-              }}
-              className="flex items-center gap-1 font-mono text-label-sm text-text-main/60 hover:text-text-main transition-colors"
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-full border border-text-main/20 shrink-0"
-                style={label ? { background: label.color, borderColor: label.color } : {}}
-              />
-              {label?.name ?? t('archive_assign_label')}
-            </Button>
-            {labelPopupOpen && labelPopupPos && createPortal(
-              <div
-                ref={labelPopupRef}
-                style={{ position: 'fixed', ...labelPopupPos }}
-                className={cn(
-                  "z-50 border border-border-subtle rounded-xl p-1.5 shadow-xl min-w-[150px] backdrop-blur-xl overflow-y-auto",
-                  "bg-[color-mix(in_srgb,var(--bg-base)_92%,var(--brand-primary)_8%)]"
-                )}
-                onClick={e => e.stopPropagation()}
-              >
-                {session.labelId && (
-                  <Button
-                    onClick={() => { onLabelChange(session, undefined); setLabelPopupOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap text-text-main/60 hover:bg-text-main/5 transition-colors"
-                  >
-                    <div className="w-3 h-3 rounded-full border border-dashed border-text-main/20 shrink-0" />
-                    {t('archive_no_label')}
-                  </Button>
-                )}
-                {labels.map(l => (
-                  <Button
-                    key={l.id}
-                    onClick={() => { onLabelChange(session, session.labelId === l.id ? undefined : l.id); setLabelPopupOpen(false); }}
-                    className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-left justify-start whitespace-nowrap transition-colors", session.labelId === l.id ? "bg-text-main/10 text-text-main" : "text-text-main/60 hover:bg-text-main/5")}
-                  >
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ background: l.color }} />
-                    {l.name}
-                  </Button>
-                ))}
-              </div>,
-              document.body
-            )}
-          </div>
+        {label && (
+          <span className="flex items-center gap-1 font-mono text-label-sm text-text-main/60 min-w-0 truncate">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: label.color }} aria-hidden="true" />
+            {label.name}
+          </span>
         )}
+        {/* Иконки копий и разбора и «⋯» — в подвале: в узкой колонке шапка
+            сжимала дату в столбик. */}
+        <div className="ml-auto flex items-center gap-0.5 -mr-2 -my-1 shrink-0" onClick={e => e.stopPropagation()}>
+          <StorageButtons doc={menu.doc} userId={userId} storage={menu.storage} ai={menu.ai} exclusion={menu.exclusion} />
+          <IconButton
+            size="sm"
+            onClick={e => {
+              e.stopPropagation();
+              const el = e.currentTarget;
+              const r = el.getBoundingClientRect();
+              menu.setAnchor({ kind: 'trigger', rect: { top: r.top, bottom: r.bottom, left: r.left, right: r.right }, trigger: el });
+            }}
+            aria-haspopup="menu"
+            aria-expanded={menu.anchor !== null}
+            className="w-7 h-7 group-hover:text-text-main group-focus-within:text-text-main"
+            label={t('archive_note_actions')}
+            title={t('archive_note_actions')}
+            icon={<MoreHorizontal size={16} aria-hidden="true" />}
+          />
+        </div>
+      </div>
+
+      {/* Меню и диалоги — порталы, но события из них всплывают по дереву React:
+          без этой обёртки клик по пункту меню ещё и открывал заметку. */}
+      <div onClick={e => e.stopPropagation()} onContextMenu={e => e.stopPropagation()} className="contents">
+        {menu.anchor !== null && (
+          <Menu
+            entries={menu.entries}
+            anchor={menu.anchor}
+            onClose={() => menu.setAnchor(null)}
+            label={t('archive_note_actions')}
+          />
+        )}
+        {menu.storage.dialogs}
       </div>
     </motion.div>
   );

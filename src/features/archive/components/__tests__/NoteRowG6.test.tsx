@@ -83,11 +83,11 @@ describe('G-6: строка архива', () => {
 
   // R3-035: «+» был 20×20 и виден только по hover — на тач-экране невидим, но
   // объявляется и ловит фокус.
-  it('«+» тега: цель нажатия 44px и виден там, где hover нет', () => {
+  it('«+» тега: цель нажатия 44px и виден всегда, без наведения', () => {
     renderRow();
     const cls = screen.getByRole('button', { name: 'archive_add_tag_aria' }).className;
     expect(cls).toContain('clickable-target-expansion');
-    expect(cls).toContain('[@media(hover:none)]:opacity-100');
+    expect(cls).not.toContain('opacity-0');
   });
 
   // R3-032: список строит общая функция, но «Добавить тег» передавал только

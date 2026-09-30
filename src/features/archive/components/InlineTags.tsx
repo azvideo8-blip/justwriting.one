@@ -9,10 +9,10 @@ interface InlineTagsProps {
   tags: string[];
   onChange: (tags: string[]) => void;
   allTags?: string[] | undefined;
-  /** DC-A4: «row» — строка архива и карточка. Без тегов здесь ничего не
-   *  рисуется (пустая плашка «+ тег» занимала место в каждой строке), а «+»
-   *  появляется только на hover/focus строки. Поле ввода в этом режиме
-   *  открывается снаружи — пунктом меню «Добавить тег». */
+  /** «row» — строка архива и карточка: без тегов — приглушённая плашка
+   *  «+ тег», с тегами — «+» после них; видны всегда (владелец, 2026-09-30,
+   *  отменил скрытие до hover из DC-A4). Поле ввода можно открыть и снаружи —
+   *  пунктом меню «Добавить тег». */
   variant?: 'row' | 'panel';
   isAdding?: boolean | undefined;
   onStartAdding?: (() => void) | undefined;
@@ -80,8 +80,6 @@ export function InlineTags({
     setSelectedIdx(-1);
     closeInput();
   };
-
-  if (variant === 'row' && tags.length === 0 && !adding) return null;
 
   return (
     <div className="flex flex-wrap gap-1.5 items-center" onClick={e => e.stopPropagation()}>
@@ -166,12 +164,14 @@ export function InlineTags({
             // hover нет (тач), «+» виден сразу: иначе он невидим, но объявляется.
             // p-0: без него отступы Button растягивали кнопку до 32×20.
             "clickable-target-expansion w-5 h-5 p-0 flex items-center justify-center rounded text-[13px] leading-none text-text-main/50 hover:text-brand-soft transition-[opacity,color]",
+            // «+ тег» виден всегда, без наведения — владелец не находил его
+            // (DC-A4 прятал плашку до hover). Приглушён, пунктирной рамкой.
             variant === 'row'
-              ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+              ? cn("border border-dashed border-text-main/20 hover:border-brand-soft/40", tags.length === 0 && "w-auto px-1.5 font-mono text-label")
               : "border border-border-subtle hover:border-brand-soft/40",
           )}
         >
-          +
+          {variant === 'row' && tags.length === 0 ? t('archive_tag_add_short') : '+'}
         </Button>
       )}
     </div>

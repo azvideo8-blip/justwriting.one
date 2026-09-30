@@ -22,7 +22,9 @@ export type MenuEntry =
       checked: boolean;
       onSelect: () => void;
     }
-  | { kind: 'heading'; key: string; label: string }
+  /** inline — радиопункты группы рисуются одной строкой кружков рядом с
+   *  заголовком (метки заметки): столбец из пяти пунктов раздувал меню. */
+  | { kind: 'heading'; key: string; label: string; inline?: boolean }
   | { kind: 'separator'; key: string };
 
 export type MenuRect = { top: number; bottom: number; left: number; right: number };
@@ -164,10 +166,10 @@ export function Menu({
       return;
     }
     const current = Number(e.currentTarget.getAttribute('data-index'));
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       e.preventDefault();
       moveFocus(current, 1);
-    } else if (e.key === 'ArrowUp') {
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
       e.preventDefault();
       moveFocus(current, -1);
     } else if (e.key === 'Home') {
@@ -207,7 +209,7 @@ export function Menu({
           onClose();
         }}
         className={cn(
-          'w-full justify-start gap-2.5 rounded-lg px-3 py-2 text-sm text-left whitespace-nowrap',
+          'w-full justify-start gap-2.5 rounded-lg px-3 py-1.5 text-sm text-left whitespace-nowrap',
           isRadio && entry.checked ? 'bg-text-main/10 text-text-main' : 'text-text-main/80 hover:bg-text-main/5',
           !isRadio && entry.destructive && 'text-accent-danger hover:bg-accent-danger/10',
         )}
@@ -216,6 +218,38 @@ export function Menu({
         <span className="flex-1 truncate">{entry.label}</span>
         {!isRadio && entry.hint !== undefined && <span className="text-xs text-text-main/40">{entry.hint}</span>}
         {isRadio && entry.checked && <Check size={14} aria-hidden="true" className="shrink-0" />}
+      </Button>
+    );
+  };
+
+  const renderSwatch = (entry: MenuEntry, i: number) => {
+    if (entry.kind !== 'radio') return null;
+    return (
+      <Button
+        key={entry.key}
+        ref={(node) => {
+          if (node) itemRefs.current.set(i, node);
+          else itemRefs.current.delete(i);
+        }}
+        type="button"
+        role="menuitemradio"
+        aria-checked={entry.checked}
+        aria-label={entry.label}
+        title={entry.label}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        data-index={i}
+        onClick={() => {
+          restoreFocus();
+          entry.onSelect();
+          onClose();
+        }}
+        className={cn(
+          'w-7 h-7 p-0 rounded-full flex items-center justify-center hover:bg-text-main/10 [&_span]:w-3.5 [&_span]:h-3.5',
+          entry.checked && 'ring-2 ring-brand-soft ring-offset-1 ring-offset-surface-popup',
+        )}
+      >
+        {entry.icon}
       </Button>
     );
   };
@@ -253,6 +287,16 @@ export function Menu({
       {units.map(({ entry, index, radios }) => {
         if (entry.kind !== 'heading') return renderItem(entry, index);
         const headingId = `${menuId}-${entry.key}`;
+        if (entry.inline === true) {
+          return (
+            <div key={entry.key} role="group" aria-labelledby={headingId} className="flex items-center gap-2 px-3 py-1">
+              <div id={headingId} className="text-xs text-text-main/70 shrink-0">{entry.label}</div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {radios.map(r => renderSwatch(r.entry, r.index))}
+              </div>
+            </div>
+          );
+        }
         return (
           <div key={entry.key} role="group" aria-labelledby={headingId} className="flex flex-col">
             {/* /70, не /40: это текст, и на 40% он давал 2.5–3.7:1 во всех четырёх

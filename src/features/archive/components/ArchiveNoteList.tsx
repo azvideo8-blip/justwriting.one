@@ -251,9 +251,15 @@ export function ArchiveNoteList({
               allTags={allTags}
               onTagsChange={onTagsChange}
               onLabelChange={onLabelChange}
+              onTitleChange={onTitleChange}
+              onDelete={(s) => onDelete(s)}
+              onStorageChange={onStorageChange}
+              userId={userId}
               aiProcessed={!!aiProcessedMap[session.id]}
               aiLoading={!!aiLoadingMap[session.id]}
               onAIClick={() => void handleAIClick(session)}
+              aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+              onAIExclusionClick={() => void handleAIExclusionClick(session)}
             />
           )}
         />
@@ -332,9 +338,15 @@ export function ArchiveNoteList({
                       allTags={allTags}
                       onTagsChange={onTagsChange}
                       onLabelChange={onLabelChange}
+                      onTitleChange={onTitleChange}
+                      onDelete={(s) => onDelete(s)}
+                      onStorageChange={onStorageChange}
+                      userId={userId}
                       aiProcessed={!!aiProcessedMap[session.id]}
                       aiLoading={!!aiLoadingMap[session.id]}
                       onAIClick={() => void handleAIClick(session)}
+                      aiExclusionLoading={!!aiExclusionLoadingMap[session.id]}
+                      onAIExclusionClick={() => void handleAIExclusionClick(session)}
                     />
                   </div>
                 ))}

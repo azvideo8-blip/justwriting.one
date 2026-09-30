@@ -4,8 +4,8 @@ import { NoteRow } from '../NoteRow';
 import { ArchiveTrashView } from '../ArchiveTrashView';
 import type { ArchiveSession } from '../../types';
 
-vi.mock('../StorageStatus', () => ({
-  StorageStatus: () => <div data-testid="storage-icons" />,
+vi.mock('../StorageButtons', () => ({
+  StorageButtons: () => <div data-testid="storage-icons" />,
 }));
 
 vi.mock('../../../../shared/i18n', () => ({

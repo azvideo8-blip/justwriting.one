@@ -174,7 +174,7 @@ export function sectionsToMenuEntries(sections: NoteMenuSection[], iconSize = 15
     }
     prevGroup = section.group;
     if (section.kind === 'labels') {
-      entries.push({ kind: 'heading', key: 'labels', label: section.heading });
+      entries.push({ kind: 'heading', key: 'labels', label: section.heading, inline: true });
       for (const option of section.options) {
         entries.push({
           kind: 'radio',

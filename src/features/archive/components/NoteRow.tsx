@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Lock, AlertCircle, EyeOff, MoreHorizontal, MoreVertical } from 'lucide-react';
+import { Lock, AlertCircle, MoreHorizontal, MoreVertical } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { toDate, formatDateTimeLabel } from '../../../core/utils/dateUtils';
 import { InlineTags } from './InlineTags';
-import { StorageStatus } from './StorageStatus';
-import { useNoteStorageActions } from './useNoteStorageActions';
-import { buildNoteActions, sectionsToMenuEntries } from './noteActions';
-import { Menu, type MenuAnchor } from '../../../shared/components/Menu';
+import { StorageButtons } from './StorageButtons';
+import { useNoteMenu } from './useNoteMenu';
+import { Menu } from '../../../shared/components/Menu';
 import { ArchiveSession } from '../types';
 import { Label } from '../../../types';
 import { highlightText, getSearchContext } from '../../../shared/utils/highlightText';
@@ -51,7 +50,6 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   const [timeDraft, setTimeDraft] = useState('');
   const dtRef = React.useRef<HTMLDivElement>(null);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -136,53 +134,26 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
 
   const label = labels?.find(l => l.id === session.labelId);
 
-  const storageDoc = {
-    localId: session._isLocal ? session.id : undefined,
-    cloudId: session._linkedCloudId,
-    hasLocal: !!session._isLocal,
-    hasCloud: !!session._hasCloudCopy,
-    hasPendingSync: !!session._hasPendingSync,
-    isTooLargeForSync: !!session._isTooLargeForSync,
-    localOnly: !!session._localOnly,
-  };
-
-  const storage = useNoteStorageActions({
-    doc: storageDoc,
-    userId,
-    onStorageChange: () => onStorageChange?.(),
-    ...(onAIExclusionClick
-      ? { exclusion: { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick } }
-      : {}),
-  });
-
   const startRename = () => {
     setTitleDraft(session.title || '');
     setEditingTitle(true);
   };
 
-  const menuEntries = sectionsToMenuEntries(buildNoteActions({
-    t,
-    doc: storageDoc,
-    userId,
-    storage,
-    labels,
-    currentLabelId: session.labelId,
-    ...(onLabelChange ? { onLabelChange: (labelId: string | undefined) => onLabelChange(session, labelId) } : {}),
-    onOpen,
-    onRename: startRename,
+  const menu = useNoteMenu({
+    session, userId, t, labels, onOpen, onRename: startRename,
     onAddTag: () => setTagInputOpen(true),
-    ...(onAIClick
-      ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } }
-      : {}),
-    ...(onAIExclusionClick
-      ? { exclusion: { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick } }
-      : {}),
-    onDelete: () => onDelete?.(session),
-  }));
+    onDelete, onLabelChange, onStorageChange,
+    aiProcessed, aiLoading, onAIClick, aiExclusionLoading, onAIExclusionClick,
+  });
+  const menuAnchor = menu.anchor;
+  const setMenuAnchor = menu.setAnchor;
 
   return (
     <div
-      className="grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle grid-cols-[auto_1fr_auto]"
+      // Полоса метки слева и лёгкая подкраска строки её цветом — вернули по
+      // просьбе владельца: метку видно краем глаза, точка терялась.
+      className={cn("grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2 grid-cols-[auto_1fr_auto]", label ? "" : "border-l-transparent")}
+      style={label ? { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, transparent)`, boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)` } : undefined}
       onContextMenu={e => {
         if (isMobile) return;
         e.preventDefault();
@@ -282,21 +253,6 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             onTouchEnd={handleTouchEnd}
             title={session._locked || session._decryptionError ? undefined : t('archive_edit_title_hint')}
           >
-            {/* DC-A3: метка — 8px точка перед заголовком, вместо цветной полосы слева. */}
-            {label && (
-              <span
-                role="img"
-                aria-label={label.name}
-                title={label.name}
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ background: label.color }}
-              />
-            )}
-            {session.excludedFromAI && (
-              <span title={t('ai_note_excluded')} className="inline-flex shrink-0 text-accent-danger/80">
-                <EyeOff size={13} aria-label={t('ai_note_excluded')} />
-              </span>
-            )}
             {!session._isLocal && session._hasCloudCopy && (
               <span className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-soft/10 text-brand-soft shrink-0 border border-brand-soft/20">
                 {t('archive_cloud_only')}
@@ -388,7 +344,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           </>
         ) : (
           <>
-            <StorageStatus doc={storageDoc} downloading={storage.downloading} />
+            <StorageButtons doc={menu.doc} userId={userId} storage={menu.storage} ai={menu.ai} exclusion={menu.exclusion} />
             <IconButton
               size="sm"
               onClick={e => {
@@ -415,13 +371,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
 
       {menuAnchor !== null && (
         <Menu
-          entries={menuEntries}
+          entries={menu.entries}
           anchor={menuAnchor}
           onClose={() => setMenuAnchor(null)}
           label={t('archive_note_actions')}
         />
       )}
-      {storage.dialogs}
+      {menu.storage.dialogs}
     </div>
   );
 }

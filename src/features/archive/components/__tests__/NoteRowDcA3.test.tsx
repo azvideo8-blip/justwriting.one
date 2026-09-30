@@ -74,7 +74,7 @@ function renderRow(session: ArchiveSession, handlers: Record<string, unknown> = 
   );
 }
 
-describe('DC-A3 строка архива: заголовок первый, действия в «⋯»', () => {
+describe('DC-A3 строка архива (с поправками владельца 2026-09-30): заголовок первый, меню «⋯», полоса метки и цветные копии', () => {
   beforeEach(() => {
     cleanup();
     vi.mocked(getSessionKey).mockReturnValue({ key: 'k' } as never);
@@ -100,20 +100,36 @@ describe('DC-A3 строка архива: заголовок первый, де
     expect(screen.getAllByText('archive_cloud_only')).toHaveLength(1);
   });
 
-  it('метка — точка перед заголовком, без цветной полосы слева', () => {
+  // 2026-09-30: владелец вернул полосу метки и цветные кнопки копий (отмена
+  // части DC-A3): состояние заметки должно читаться с первого взгляда.
+  it('метка — цветная полоса слева, без точки у заголовка', () => {
     const { container } = renderRow(sessionOf({ labelId: 'lbl_1' }));
-    expect(screen.getByRole('img', { name: 'Работа' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Работа' })).not.toBeInTheDocument();
 
     const row = container.querySelector('div.grid') as HTMLElement;
-    expect(row.getAttribute('style')).toBeNull();
-    expect(row.className).not.toContain('border-l-2');
+    expect(row.className).toContain('border-l-2');
+    expect(row.style.borderLeftColor).not.toBe('');
   });
 
-  it('статус копий — инертные пиктограммы, не кнопки', () => {
+  it('копии — цветные кнопки: есть копия — фиолетовая, нет — приглушена', () => {
     renderRow(sessionOf({ _hasCloudCopy: true, _linkedCloudId: 'cloud_1' }));
-    expect(screen.getByRole('img', { name: 'archive_status_local' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'archive_status_cloud' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'archive_status_local' })).not.toBeInTheDocument();
+    const local = screen.getByRole('button', { name: 'archive_status_local · storage_remove_local' });
+    const cloud = screen.getByRole('button', { name: 'archive_status_cloud · storage_remove_cloud' });
+    expect(local.classList.contains('text-brand-soft')).toBe(true);
+    expect(cloud.classList.contains('text-brand-soft')).toBe(true);
+    cleanup();
+
+    renderRow(sessionOf({ _isLocal: true, _hasCloudCopy: false }));
+    const upload = screen.getByRole('button', { name: 'archive_status_no_cloud · storage_upload_to_cloud' });
+    expect(upload.classList.contains('text-brand-soft')).toBe(false);
+  });
+
+  it('нажал на облако — ушло в облако: тот же запрос, что у пункта меню', async () => {
+    const { StorageService } = await import('../../../../core/services/StorageService');
+    vi.mocked(StorageService.addCloudCopy).mockResolvedValueOnce('cloud_new' as never);
+    renderRow(sessionOf({ _isLocal: true, _hasCloudCopy: false }));
+    fireEvent.click(screen.getByRole('button', { name: 'archive_status_no_cloud · storage_upload_to_cloud' }));
+    await waitFor(() => expect(StorageService.addCloudCopy).toHaveBeenCalledWith('user_1', 'doc_1'));
   });
 
   it('клик по «⋯» открывает меню; пункт удаляет заметку тем же обработчиком', () => {
@@ -143,15 +159,16 @@ describe('DC-A3 строка архива: заголовок первый, де
     renderRow(sessionOf({ labelId: 'lbl_1' }), { onLabelChange: vi.fn(), onDelete: vi.fn() });
     fireEvent.click(screen.getByRole('button', { name: 'archive_note_actions' }));
     const menu = screen.getByRole('menu', { name: 'archive_note_actions' });
+    // Метки — строкой кружков: имя у каждого в aria-label, а не в тексте.
     const radios = within(menu).getAllByRole('menuitemradio');
-    expect(radios.map(r => r.textContent)).toEqual(['archive_no_label', 'Работа']);
+    expect(radios.map(r => r.getAttribute('aria-label'))).toEqual(['archive_no_label', 'Работа']);
     expect(within(menu).getByText('archive_assign_label')).toBeInTheDocument();
 
     cleanup();
     renderRow(sessionOf(), { onLabelChange: vi.fn(), onDelete: vi.fn() });
     fireEvent.click(screen.getByRole('button', { name: 'archive_note_actions' }));
     const plain = screen.getByRole('menu', { name: 'archive_note_actions' });
-    expect(within(plain).getAllByRole('menuitemradio').map(r => r.textContent)).toEqual(['Работа']);
+    expect(within(plain).getAllByRole('menuitemradio').map(r => r.getAttribute('aria-label'))).toEqual(['Работа']);
   });
 
   it('недоступные действия хранения отсутствуют: у облачной заметки нет загрузки, у локальной — скачивания', () => {
