@@ -69,7 +69,16 @@ export function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
   const UNRECOGNISED_MARKER = '\uE000';
 
-  let cleaned = text.replace(CITATION_RE, (match, g1, g2) => {
+  // Модель иногда сокращает номер: «[#local_d5751490…]». Такой не совпадал ни
+  // с одним шаблоном и печатался сырым текстом вместо ссылки. Начало, которое
+  // однозначно указывает на заметку из этого хода, достраивается до полного
+  // номера; неоднозначное или чужое — убирается, как любая непризнанная ссылка.
+  let cleaned = text.replace(/\[#?([a-zA-Z0-9_.-]{6,}?)(?:…|\.{2,3})\]/g, (_match, prefix: string) => {
+    const hits = injectedIds.filter(id => id.startsWith(prefix));
+    return hits.length === 1 ? `[#${hits[0]}]` : UNRECOGNISED_MARKER;
+  });
+
+  cleaned = cleaned.replace(CITATION_RE, (match, g1, g2) => {
     const id = g2 || g1 || '';
     if (isRecognisedCitation(match, id, allowed)) {
       return match.startsWith('[#') ? match : `[#${id}]`;
