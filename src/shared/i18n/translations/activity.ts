@@ -44,6 +44,10 @@ export const activityTranslations: Translations = {
     ru: 'заметка изменилась на другом устройстве',
     en: 'note changed on another device',
   },
+  activity_ai_record_oversized: {
+    ru: 'Запись ИИ {store}/{key} ({kb} КБ) больше 4 МБ и остаётся только на устройстве',
+    en: 'AI record {store}/{key} ({kb} KB) is over 4 MB and stays on this device only',
+  },
   activity_cloud_corrupted_versions: {
     ru: 'Часть истории заметки не читается и пропущена (версий: {count})',
     en: 'Part of note history is unreadable and was skipped ({count} versions)',

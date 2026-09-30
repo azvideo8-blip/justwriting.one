@@ -60,4 +60,16 @@ describe('A-1 (R2-003): a record that exists again drops its persisted delete ma
     expect(getPendingStoreDeleteKeys(USER)?.size).toBe(0);
     expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, unknown: false });
   });
+
+  // R3 §4.1.1 (a): ручной «Отправить всё» выгружал живую запись, а маркер
+  // удаления оставлял — следующий дренаж сносил облачный ряд этой же записи.
+  it('syncAllLocalStores drops the marker of a record it uploads', async () => {
+    localStorage.setItem('ai_sync_pending_deletes', JSON.stringify([{ uid: USER, store: 'aiPortrait', key: 'p1' }]));
+    const tab = new LocalStoreSyncManager();
+    await tab.syncAllLocalStores(USER);
+    await tab.flushPending(true);
+
+    expect(DataProvider.deleteLocalStoreRecord).not.toHaveBeenCalledWith(USER, 'aiPortrait', 'p1');
+    expect(getPendingStoreDeleteKeys(USER)?.size).toBe(0);
+  });
 });

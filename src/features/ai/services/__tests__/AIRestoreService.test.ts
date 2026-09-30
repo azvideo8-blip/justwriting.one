@@ -102,7 +102,7 @@ vi.mock('../AIEmbeddingService', () => ({
 import { restoreAIDataFromCloud, reattachOrphanedAnalysis, requestEmbeddingRestore } from '../AIRestoreService';
 import { reportError } from '../../../../shared/errors/reportError';
 import { logger } from '../../../../shared/errors/logger';
-import { MAX_LOCAL_RECORD_BYTES } from '../../../../core/services/LocalStoreSyncService';
+import { MAX_RESTORE_RECORD_BYTES } from '../../../../core/services/LocalStoreSyncService';
 
 describe('restoreAIDataFromCloud', () => {
   beforeEach(() => {
@@ -249,13 +249,13 @@ describe('restoreAIDataFromCloud', () => {
     }
   });
 
-  it('restores assembled record just under MAX_LOCAL_RECORD_BYTES (AG-RESTORE-4)', async () => {    // Large synthetic payload (~9.5 MB)
+  it('restores assembled record just under MAX_RESTORE_RECORD_BYTES (AG-RESTORE-4)', async () => {    // Large synthetic payload (~9.5 MB)
     const paddingSize = 9.5 * 1024 * 1024;
     const padding = 'x'.repeat(paddingSize);
     const largeObj = { id: 'large-dlg', pad: padding, updatedAt: 3000 };
     const jsonStr = JSON.stringify(largeObj);
     const byteLen = new TextEncoder().encode(jsonStr).length;
-    expect(byteLen).toBeLessThan(MAX_LOCAL_RECORD_BYTES);
+    expect(byteLen).toBeLessThan(MAX_RESTORE_RECORD_BYTES);
 
     localStoreRecordsDocs.push({
       store: 'aiDialogues',
@@ -271,13 +271,13 @@ describe('restoreAIDataFromCloud', () => {
     expect(localStore.aiDialogues.get('large-dlg')).toMatchObject({ id: 'large-dlg', pad: padding });
   });
 
-  it('rejects record exceeding MAX_LOCAL_RECORD_BYTES, reports oversized with both numbers and never malformed (AG-RESTORE-4)', async () => {
-    // Payload slightly above MAX_LOCAL_RECORD_BYTES (10 MB)
-    const padding = 'y'.repeat(MAX_LOCAL_RECORD_BYTES + 1024);
+  it('rejects record exceeding MAX_RESTORE_RECORD_BYTES, reports oversized with both numbers and never malformed (AG-RESTORE-4)', async () => {
+    // Payload slightly above MAX_RESTORE_RECORD_BYTES (10 MB)
+    const padding = 'y'.repeat(MAX_RESTORE_RECORD_BYTES + 1024);
     const oversizedObj = { id: 'huge-dlg', pad: padding, updatedAt: 3000 };
     const jsonStr = JSON.stringify(oversizedObj);
     const recordBytes = new TextEncoder().encode(jsonStr).length;
-    expect(recordBytes).toBeGreaterThan(MAX_LOCAL_RECORD_BYTES);
+    expect(recordBytes).toBeGreaterThan(MAX_RESTORE_RECORD_BYTES);
 
     localStoreRecordsDocs.push({
       store: 'aiDialogues',
@@ -295,9 +295,9 @@ describe('restoreAIDataFromCloud', () => {
     // Verify reportError was called with warning level, recordBytes, and limit
     expect(reportError).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringMatching(new RegExp(`oversized local_store_record \\(${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes\\)`)),
+        message: expect.stringMatching(new RegExp(`oversized local_store_record \\(${recordBytes} bytes, limit ${MAX_RESTORE_RECORD_BYTES} bytes\\)`)),
       }),
-      { store: 'aiDialogues', key: 'huge-dlg', bytes: recordBytes, limit: MAX_LOCAL_RECORD_BYTES },
+      { store: 'aiDialogues', key: 'huge-dlg', bytes: recordBytes, limit: MAX_RESTORE_RECORD_BYTES },
       'warning'
     );
 
@@ -311,7 +311,7 @@ describe('restoreAIDataFromCloud', () => {
     // Verify logger.warn was called with size and limit
     expect(logger.warn).toHaveBeenCalledWith(
       'AIRestoreService',
-      expect.stringContaining(`Record too large to restore (${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes): aiDialogues/huge-dlg`)
+      expect.stringContaining(`Record too large to restore (${recordBytes} bytes, limit ${MAX_RESTORE_RECORD_BYTES} bytes): aiDialogues/huge-dlg`)
     );
   });
 

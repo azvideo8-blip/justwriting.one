@@ -1,4 +1,5 @@
 import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
+import { invalidatePortrait } from '../ai/portraitEpoch';
 import { reportError } from '../../shared/errors/reportError';
 import { writeFacetStore } from './facetLock';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
@@ -363,6 +364,7 @@ export const LocalDocumentService = {
 
       if (facetsChanged) {
         try {
+          invalidatePortrait();
           await db.delete('aiPortrait', 'singleton');
           LocalStoreSyncService.scheduleStoreDelete('aiPortrait', 'singleton');
           if (typeof localStorage !== 'undefined') {

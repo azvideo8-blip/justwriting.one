@@ -34,13 +34,18 @@ export type SupportedLocalStoreName = typeof SUPPORTED_LOCAL_STORES[number];
  */
 export const PAGE_SPLIT_THRESHOLD_BYTES = 500 * 1024; // 500 KB
 
-/**
- * SYNC-4: Maximum total size across all pages for a single local store record.
- * Set to 10 MB (10 * 1024 * 1024 bytes) of plaintext.
- */
 /** Страниц в одном запросе: 8 × 500 КБ после шифрования (~×1.4) ≈ 5.6 МБ < 10 МБ nginx. */
-const PAGES_PER_REQUEST = 8;
-export const MAX_LOCAL_RECORD_BYTES = 10 * 1024 * 1024;
+export const PAGES_PER_REQUEST = 8;
+/**
+ * SYNC-4: предел записи — столько, сколько уходит ОДНИМ запросом (8 × 500 КБ ≈ 4 МБ
+ * открытого текста). Все страницы записи пишутся одной транзакцией; при
+ * пределе 10 МБ запись крупнее уходила несколькими, и сбой между ними
+ * оставлял в облаке смесь версий (R3-013). На проде 2026-09-30 самая большая
+ * запись — 3 страницы. Крупнее — остаётся на устройстве с отметкой.
+ */
+export const MAX_LOCAL_RECORD_BYTES = PAGES_PER_REQUEST * PAGE_SPLIT_THRESHOLD_BYTES;
+/** Восстановление принимает и то, что прежние версии выгрузили с пределом 10 МБ. */
+export const MAX_RESTORE_RECORD_BYTES = 10 * 1024 * 1024;
 
 export function splitStringIntoChunks(str: string, maxBytesPerChunk = PAGE_SPLIT_THRESHOLD_BYTES): string[] {
   const encoder = new TextEncoder();
@@ -241,11 +246,18 @@ function persistDelete(uid: string, store: string, key: string): void {
 }
 
 function forgetPersistedDelete(uid: string, store: string, key: string): void {
+  forgetPersistedDeletes(uid, [{ store, key }]);
+}
+
+function forgetPersistedDeletes(uid: string, entries: Array<{ store: string; key: string }>): void {
+  if (entries.length === 0) return;
   const list = readPersistedDeletes();
-  // То же: снимали бы один маркер, перезаписав нечитаемый журнал пустым списком.
+  // То же: снимали бы маркеры, перезаписав нечитаемый журнал пустым списком.
   // Удаление просто уедет в облако ещё раз — это идемпотентно.
   if (list === null) return;
-  writePersistedDeletes(list.filter(d => !(d.uid === uid && d.store === store && d.key === key)));
+  const doomed = new Set(entries.map(e => upsertKey(e.store, e.key)));
+  const next = list.filter(d => !(d.uid === uid && doomed.has(upsertKey(d.store, d.key))));
+  if (next.length !== list.length) writePersistedDeletes(next);
 }
 
 /** Ключи `store:key`, облачное удаление которых ещё не дошло — восстановлению их не трогать. `null` — журнал не читается. */
@@ -523,7 +535,9 @@ export class LocalStoreSyncManager {
     if (hasPendingDelete || hasPersistedDelete) {
       void (async () => {
         try {
-          const db = await getLocalDb();
+          // База владельца маркера, а не «текущая»: между вызовом и чтением
+          // учётка могла смениться (R3-009).
+          const db = await getLocalDb(uid);
           const rec = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, key);
           if (!rec) {
             return;
@@ -700,7 +714,10 @@ export class LocalStoreSyncManager {
           const jsonString = JSON.stringify(rawRecord);
           const recordBytes = new TextEncoder().encode(jsonString).length;
 
-          if (recordBytes > MAX_LOCAL_RECORD_BYTES) {
+          // Страниц может выйти на одну больше, чем байт на 8 страниц: край
+          // страницы не режет символ. Такая запись тоже не влезает в один запрос.
+          const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
+          if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) {
             setOversizedRecord(item.store, item.key, recordBytes);
             // Для таких записей уже есть своя персистентная отметка — две на
             // одну запись удваивали бы счёт в бейдже.
@@ -708,8 +725,8 @@ export class LocalStoreSyncManager {
             result.skippedOversized++;
             logger.warn('LocalStoreSyncService', `Record too large to sync (${recordBytes} bytes): ${item.store}/${item.key}`);
             useActivityLogStore.getState().addActivity(
-              `Запись ${item.store}/${item.key} (${Math.round(recordBytes / 1024)} КБ) превышает лимит размера 10 МБ и остаётся только на устройстве`,
-              { action: 'localStoreSync_oversized', store: item.store, key: item.key, bytes: recordBytes },
+              'activity_ai_record_oversized',
+              { action: 'localStoreSync_oversized', store: item.store, key: item.key, bytes: recordBytes, kb: Math.round(recordBytes / 1024) },
               'warning',
               'sync'
             );
@@ -743,7 +760,6 @@ export class LocalStoreSyncManager {
             }
           } else {
             // SYNC-4: Multi-page split upload
-            const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
             const totalPages = chunks.length;
 
             // Сначала шифруем все страницы, потом пишем их одним запросом: запись
@@ -766,12 +782,8 @@ export class LocalStoreSyncManager {
                 ),
               });
             }
-            // ponytail: атомарно только до PAGES_PER_REQUEST страниц (~4 МБ записи):
-            // тело запроса режет nginx (client_max_body_size 10m). Запись крупнее
-            // уходит несколькими запросами; если такие появятся — версионные ключи.
-            for (let i = 0; i < pages.length; i += PAGES_PER_REQUEST) {
-              await DataProvider.saveLocalStoreRecordPages(uid, item.store, pages.slice(i, i + PAGES_PER_REQUEST));
-            }
+            // Одна транзакция: страниц не больше PAGES_PER_REQUEST (проверено выше).
+            await DataProvider.saveLocalStoreRecordPages(uid, item.store, pages);
             // Хвост прежней, более длинной версии: иначе в облаке смесь версий.
             if (DataProvider.deleteLocalStorePagedRecords) {
               await DataProvider.deleteLocalStorePagedRecords(uid, item.store, item.key, totalPages);
@@ -865,6 +877,10 @@ export class LocalStoreSyncManager {
     }
     persistUpserts(userId, batch);
     forgetDeadUpserts(userId, batch);
+    // Записи живы — обязательство «снести в облаке» по ним снимается, как в
+    // плановом входе (A-1). Иначе следующий дренаж удалял облачный ряд живой
+    // записи, только что выгруженной этим же проходом (R3 §4.1.1 a).
+    forgetPersistedDeletes(userId, batch);
 
     // SEC-8 / SEC-6: syncAllLocalStores is a manual/backfill pass, so it runs
     // regardless of the background auto-sync toggle.

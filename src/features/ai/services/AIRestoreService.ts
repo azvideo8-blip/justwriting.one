@@ -9,7 +9,7 @@ import {
   extractRecordTimestamp,
   SUPPORTED_LOCAL_STORES,
   SupportedLocalStoreName,
-  MAX_LOCAL_RECORD_BYTES,
+  MAX_RESTORE_RECORD_BYTES,
   getPendingStoreDeleteKeys,
 } from '../../../core/services/LocalStoreSyncService';
 
@@ -306,24 +306,24 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           cloudTs = expectedUpdatedAt;
         }
 
-        // AG-RESTORE-4: Limit is MAX_LOCAL_RECORD_BYTES (10 MB), aligned with LocalStoreSyncService.
-        // Oversized records (> 10 MB) are refused and reported separately with size and limit.
+        // AG-RESTORE-4: Limit is MAX_RESTORE_RECORD_BYTES (10 MB) — above the upload cap,
+        // so records uploaded by older versions still restore. Oversized records are refused and reported separately with size and limit.
         // Malformed records (corrupted JSON or non-object) are reported as malformed.
         const recordBytes = new TextEncoder().encode(fullJson).length;
-        if (recordBytes > MAX_LOCAL_RECORD_BYTES) {
+        if (recordBytes > MAX_RESTORE_RECORD_BYTES) {
           result.oversized++;
           logger.warn(
             'AIRestoreService',
-            `Record too large to restore (${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes): ${store}/${baseKey}`
+            `Record too large to restore (${recordBytes} bytes, limit ${MAX_RESTORE_RECORD_BYTES} bytes): ${store}/${baseKey}`
           );
           reportError(
-            new Error(`restoreAIData: oversized local_store_record (${recordBytes} bytes, limit ${MAX_LOCAL_RECORD_BYTES} bytes)`),
-            { store, key: baseKey, bytes: recordBytes, limit: MAX_LOCAL_RECORD_BYTES },
+            new Error(`restoreAIData: oversized local_store_record (${recordBytes} bytes, limit ${MAX_RESTORE_RECORD_BYTES} bytes)`),
+            { store, key: baseKey, bytes: recordBytes, limit: MAX_RESTORE_RECORD_BYTES },
             'warning'
           );
           useActivityLogStore.getState().addActivity(
             `Запись ${store}/${baseKey} (${Math.round(recordBytes / 1024)} КБ) в облаке превышает лимит размера 10 МБ и не может быть загружена на устройство`,
-            { action: 'restoreAIData_oversized', store, key: baseKey, bytes: recordBytes, limit: MAX_LOCAL_RECORD_BYTES },
+            { action: 'restoreAIData_oversized', store, key: baseKey, bytes: recordBytes, limit: MAX_RESTORE_RECORD_BYTES },
             'warning',
             'ai'
           );

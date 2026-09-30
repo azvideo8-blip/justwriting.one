@@ -5,7 +5,8 @@ import {
   LocalStoreSyncService,
   splitStringIntoChunks,
   PAGE_SPLIT_THRESHOLD_BYTES,
-  MAX_LOCAL_RECORD_BYTES,
+  MAX_RESTORE_RECORD_BYTES,
+  PAGES_PER_REQUEST,
 } from '../LocalStoreSyncService';
 import { DataProvider } from '../../data';
 import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreService';
@@ -135,6 +136,33 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       expect(deleteExactSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large');
       // Хвост прежней, более длинной версии (страницы ≥ totalPages) удаляется.
       expect(deletePagedSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large', totalPages);
+    });
+
+    // R3-013: запись крупнее одного запроса (8 страниц) уходила несколькими —
+    // сбой между ними оставлял в облаке смесь версий. Теперь она остаётся на
+    // устройстве с отметкой, а не уходит по частям.
+    it.each([
+      ['~3.8 MB (8 pages) goes in one request', 3.8, 1],
+      ['~4.5 MB stays on the device, never split across requests', 4.5, 0],
+    ])('%s', async (_name, mb, calls) => {
+      const db = await getLocalDb();
+      const target = Math.floor(mb * 1024 * 1024);
+      await db.put('aiDialogues', {
+        id: 'dialogue_big', guestId: USER, title: 'Большой',
+        messages: [{ id: 'm1', role: 'assistant', content: 'x'.repeat(target), createdAt: 1 }],
+        updatedAt: 3000,
+      } as never);
+      vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockResolvedValue(undefined);
+      const pagesSaveSpy = vi.spyOn(DataProvider, 'saveLocalStoreRecordPages').mockResolvedValue(undefined);
+      vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreExactRecord').mockResolvedValue(undefined as never);
+      vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
+
+      LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_big');
+      const res = await LocalStoreSyncService.flushPending(true);
+
+      expect(pagesSaveSpy).toHaveBeenCalledTimes(calls);
+      for (const call of pagesSaveSpy.mock.calls) expect(call[2].length).toBeLessThanOrEqual(PAGES_PER_REQUEST);
+      expect(res.skippedOversized ?? 0).toBe(calls === 0 ? 1 : 0);
     });
 
     it('deleting a record removes exact key and all paged records', async () => {
@@ -372,7 +400,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       );
     });
 
-    it('restores a record assembled from pages to just under MAX_LOCAL_RECORD_BYTES (~9.5 MB)', async () => {
+    it('restores a record assembled from pages to just under MAX_RESTORE_RECORD_BYTES (~9.5 MB)', async () => {
       const db = await getLocalDb();
       const targetBytes = 9.5 * 1024 * 1024;
       const basePayload = '{"id":"dialogue_near_max","guestId":"' + USER + '","title":"Max Size","content":"';
@@ -381,7 +409,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       const jsonString = basePayload + 'A'.repeat(paddingLength) + suffix;
 
       const recordBytes = new TextEncoder().encode(jsonString).length;
-      expect(recordBytes).toBeLessThan(MAX_LOCAL_RECORD_BYTES);
+      expect(recordBytes).toBeLessThan(MAX_RESTORE_RECORD_BYTES);
       expect(recordBytes).toBeGreaterThan(9 * 1024 * 1024);
 
       const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
@@ -411,11 +439,11 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       expect(restored.id).toBe('dialogue_near_max');
     });
 
-    it('reports oversized, never malformed, carrying both numbers for a record exceeding MAX_LOCAL_RECORD_BYTES', async () => {
+    it('reports oversized, never malformed, carrying both numbers for a record exceeding MAX_RESTORE_RECORD_BYTES', async () => {
       const db = await getLocalDb();
       const reportErrorSpy = vi.spyOn(reportErrorModule, 'reportError');
 
-      // Target: 10.5 MB (> MAX_LOCAL_RECORD_BYTES)
+      // Target: 10.5 MB (> MAX_RESTORE_RECORD_BYTES)
       const targetBytes = 10.5 * 1024 * 1024;
       const basePayload = '{"id":"dialogue_too_large","title":"Too Large","content":"';
       const suffix = '","updatedAt":8000}';
@@ -423,7 +451,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       const jsonString = basePayload + 'B'.repeat(paddingLength) + suffix;
 
       const recordBytes = new TextEncoder().encode(jsonString).length;
-      expect(recordBytes).toBeGreaterThan(MAX_LOCAL_RECORD_BYTES);
+      expect(recordBytes).toBeGreaterThan(MAX_RESTORE_RECORD_BYTES);
 
       const chunks = splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES);
       const cloudRecords = chunks.map((chunk, i) => ({
@@ -447,13 +475,13 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       // Verify reportError call carries both measured size and limit
       expect(reportErrorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: expect.stringMatching(new RegExp(`oversized.*${recordBytes}.*${MAX_LOCAL_RECORD_BYTES}`)),
+          message: expect.stringMatching(new RegExp(`oversized.*${recordBytes}.*${MAX_RESTORE_RECORD_BYTES}`)),
         }),
         expect.objectContaining({
           store: 'aiDialogues',
           key: 'dialogue_too_large',
           bytes: recordBytes,
-          limit: MAX_LOCAL_RECORD_BYTES,
+          limit: MAX_RESTORE_RECORD_BYTES,
         }),
         'warning'
       );

@@ -9,7 +9,6 @@ src/app/pages/DiagnosticsPage.tsx:showToast:Пакетный анализ зав
 src/app/pages/DiagnosticsPage.tsx:showToast:Превышен лимит запросов к ИИ
 src/app/pages/DiagnosticsPage.tsx:showToast:Хронология ИИ успешно перестроена. Записей: ${…}
 src/app/pages/MobileMePage.tsx:showToast:Не удалось выйти из аккаунта
-src/core/services/LocalStoreSyncService.ts:addActivity:Запись ${…}/${…} (${…} КБ) превышает лимит размера 10 МБ и остаётся только на ус
 src/core/services/LocalStoreSyncService.ts:addActivity:Запись ${…}/${…} не принята облаком ${…} раз и осталась только на устройстве
 src/core/storage/localDb.ts:showDbOverlay:Закройте другие вкладки justwriting и обновите страницу — база данных ожидает об
 src/core/storage/localDb.ts:showDbOverlay:Приложение обновилось в другой вкладке. Обновите страницу — данные на месте.
@@ -53,8 +52,6 @@ src/features/ai/components/chat/noteActions.ts:showToast:Заметка успе
 src/features/ai/components/chat/noteActions.ts:showToast:Не удалось обновить заметку
 src/features/ai/components/chat/noteActions.ts:showToast:Не удалось создать заметку
 src/features/ai/components/chat/noteActions.ts:showToast:Нет связанной заметки
-src/features/ai/hooks/useAIChat.ts:setError:Не удалось загрузить документ из-за ошибки доступа
-src/features/ai/hooks/useAIChat.ts:setError:Не удалось прикрепить документ
 src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите ${…} сек. перед следующей отправкой.
 src/features/ai/hooks/useAIChat.ts:setError:Слишком частые запросы. Подождите немного перед следующей отправкой.
 src/features/ai/hooks/useAIChat.ts:title:Новый диалог

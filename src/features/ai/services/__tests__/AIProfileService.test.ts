@@ -64,6 +64,7 @@ vi.mock('../AIService', () => ({
 
 import { AIProfileService } from '../AIProfileService';
 import { AIService } from '../AIService';
+import { invalidatePortrait } from '../../../../core/ai/portraitEpoch';
 
 describe('AIProfileService', () => {
   beforeEach(() => {
@@ -254,6 +255,26 @@ describe('AIProfileService', () => {
         personaId: 'custom',
       }));
       expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe(expectedMarkdown);
+    });
+
+    // R3-009: удаление заметки посреди прохода сносит портрет; проход, начатый
+    // до удаления, не должен дописать его обратно (и увезти в облако).
+    it('does not save a portrait when a note was deleted during generation', async () => {
+      mockGetAll
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce(dummySummaries);
+      mockGetAllFromIndex.mockResolvedValue([]);
+      vi.mocked(AIService.chat).mockImplementation(async () => {
+        invalidatePortrait();
+        return { ok: true, text: 'stale section' };
+      });
+
+      const res = await AIProfileService.generate();
+      expect(res).toEqual({ ok: false, error: 'invalidated_during_generation' });
+      expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBeNull();
+      expect(mockPut).not.toHaveBeenCalledWith('aiPortrait', expect.anything());
     });
 
     // Backlog "de-personalised portrait": all five section prompts must carry

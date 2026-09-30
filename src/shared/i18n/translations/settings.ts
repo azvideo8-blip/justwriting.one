@@ -432,16 +432,16 @@ export const settingsTranslations: Translations = {
     en: 'Sync state:',
   },
   settings_sync_oversized_one: {
-    ru: '{count} диалог / запись превышает лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
-    en: '{count} conversation / record exceeds the 10 MB limit and is saved only on this device (only exists in this browser)',
+    ru: '{count} диалог / запись превышает лимит размера 4 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
+    en: '{count} conversation / record exceeds the 4 MB limit and is saved only on this device (only exists in this browser)',
   },
   settings_sync_oversized_few: {
-    ru: '{count} диалога / записи превышают лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
-    en: '{count} conversations / records exceed the 10 MB limit and are saved only on this device (only exist in this browser)',
+    ru: '{count} диалога / записи превышают лимит размера 4 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
+    en: '{count} conversations / records exceed the 4 MB limit and are saved only on this device (only exist in this browser)',
   },
   settings_sync_oversized_many: {
-    ru: '{count} диалогов / записей превышают лимит размера 10 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
-    en: '{count} conversations / records exceed the 10 MB limit and are saved only on this device (only exist in this browser)',
+    ru: '{count} диалогов / записей превышают лимит размера 4 МБ и сохранены только на устройстве (эти диалоги существуют только в этом браузере)',
+    en: '{count} conversations / records exceed the 4 MB limit and are saved only on this device (only exist in this browser)',
   },
   settings_sync_download_from_cloud: {
     ru: 'Загрузить из облака',

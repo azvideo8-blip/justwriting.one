@@ -1,4 +1,5 @@
 import { getLocalDb } from '../../../core/storage/localDb';
+import { getPortraitEpoch } from '../../../core/ai/portraitEpoch';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
 import { AIService } from './AIService';
@@ -181,6 +182,7 @@ export const AIProfileService = {
   },
 
   async generate(opts?: CallAiOptions): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
+    const startEpoch = getPortraitEpoch();
     try {
       const db = await getLocalDb();
       const facets = await db.getAll('aiProfileFacets');
@@ -323,6 +325,11 @@ export const AIProfileService = {
             }
           }
         }
+      }
+
+      // Пока шёл проход, удалили заметку — портрет мог опираться на неё (R3-009).
+      if (getPortraitEpoch() !== startEpoch) {
+        return { ok: false, error: 'invalidated_during_generation' };
       }
 
       // Save sections cache (so successfully generated sections are preserved for cheap retry)

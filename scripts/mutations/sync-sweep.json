@@ -1070,6 +1070,39 @@
   ]
  },
  {
+  "id": "lss-04",
+  "file": "src/core/services/LocalStoreSyncService.ts",
+  "line": 548,
+  "old": "            forgetPersistedDelete(uid, store, key);\n",
+  "new": "",
+  "why": "A record that exists again keeps its persisted delete marker: the next drain deletes the cloud row of a live record (A-1 / R2-003).",
+  "tests": [
+   "src/features/ai/__tests__/persistedDeleteMarkerResurrection.test.ts"
+  ]
+ },
+ {
+  "id": "lss-05",
+  "file": "src/core/services/LocalStoreSyncService.ts",
+  "line": 880,
+  "old": "    forgetPersistedDeletes(userId, batch);\n",
+  "new": "",
+  "why": "«Send everything» uploads a live record but leaves its delete marker, and the next drain deletes that cloud row (R3 §4.1.1 a).",
+  "tests": [
+   "src/features/ai/__tests__/persistedDeleteMarkerResurrection.test.ts"
+  ]
+ },
+ {
+  "id": "csc-38",
+  "file": "src/core/services/CloudSyncService.ts",
+  "line": 326,
+  "old": "            if (isPending || unknownWatermarkDiverged) {\n",
+  "new": "            if (isPending) {\n",
+  "why": "A note without a sync watermark whose text differs from the cloud head is fast-forwarded and declared synced (R3-010).",
+  "tests": [
+   "src/core/services/__tests__/reconcileUnknownWatermark.test.ts"
+  ]
+ },
+ {
   "id": "ss-14",
   "file": "src/core/services/SyncService.ts",
   "line": 202,
