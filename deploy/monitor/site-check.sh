@@ -10,7 +10,10 @@
 # быстро научит его игнорировать.
 set -uo pipefail
 
-URL=https://justwriting.ru/
+# Проверяется /ready (L-7, R4-062): он проксируется к API и отвечает 200, только
+# когда живы зависимости (БД). «/» отвечал 200 текстом SPA даже при зависшем
+# пуле БД — поломка была невидима.
+URL=https://justwriting.ru/ready
 STATE="$HOME/.justwriting-site-check"
 
 CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$URL" || echo 000)
