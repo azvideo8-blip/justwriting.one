@@ -91,19 +91,23 @@ export const aiTranslations: Translations = {
   },
   ai_crisis_resource_1: {
     ru: '8-800-333-44-34 — горячая линия психологической поддержки, бесплатно и круглосуточно',
-    en: 'Suicide & Crisis Lifeline (free, 24/7): 988 (call or text, US & Canada)',
+    en: '8-800-333-44-34 — psychological support hotline, free and 24/7',
   },
   ai_crisis_resource_2: {
     ru: '051 (с мобильного: +7 495 051) — Московская служба психологической помощи населению',
-    en: 'Crisis Text Line: Text HOME to 741741',
+    en: '051 (from a mobile: +7 495 051) — Moscow psychological help service',
   },
   ai_crisis_resource_3: {
     ru: '8-800-2000-122 — телефон доверия для детей, подростков и их родителей',
-    en: 'Emergency services: 911 / 112',
+    en: '8-800-2000-122 — helpline for children, teenagers and their parents',
   },
   ai_crisis_resource_4: {
     ru: '112 — экстренные службы',
-    en: 'International resources: findahelpline.com',
+    en: '112 — emergency services',
+  },
+  ai_crisis_resource_abroad: {
+    ru: 'Если ты не в России — findahelpline.com',
+    en: 'Outside Russia: findahelpline.com',
   },
   ai_composer_paste_as_note: {
     ru: 'Это заметка? Разобрать как заметку (точнее по тексту)',

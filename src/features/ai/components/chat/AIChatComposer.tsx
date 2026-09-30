@@ -161,6 +161,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
                   t('ai_crisis_resource_2'),
                   t('ai_crisis_resource_3'),
                   t('ai_crisis_resource_4'),
+                  t('ai_crisis_resource_abroad'),
                 ].map((r, i) => <li key={i}>{r}</li>)}
               </ul>
             </div>
