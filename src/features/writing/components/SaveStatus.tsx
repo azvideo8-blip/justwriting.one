@@ -18,7 +18,7 @@ export function SaveStatus({
   saveErrorKind,
 }: {
   saveStatus: SaveStatusKind;
-  saveErrorKind?: 'quota' | 'unknown' | null;
+  saveErrorKind?: 'quota' | 'unknown' | null | undefined;
 }) {
   const { t, language } = useLanguage();
   const { isZenActive } = useWritingSettings();
