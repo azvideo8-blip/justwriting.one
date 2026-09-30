@@ -73,7 +73,12 @@ async function dropQueueTasksFor(localDocumentId: string, ownerId?: string): Pro
       }
     }
     await tx.done;
-  } catch { /* намеренно: очередь переживёт лишнюю задачу; потеря заметки — нет */ }
+  } catch (e) {
+    // Очередь переживёт лишнюю задачу, потеря заметки — нет, поэтому падение
+    // не роняет вызывающего. Но застрявшая задача должна быть видна, а не
+    // молча липнуть к следующей синхронизации.
+    reportError(e, { action: 'dropQueueTasksFor' }, 'warning');
+  }
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number = CLOUD_SYNC_TIMEOUT): Promise<T> {
