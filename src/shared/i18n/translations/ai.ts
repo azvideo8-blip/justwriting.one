@@ -148,6 +148,7 @@ export const aiTranslations: Translations = {
     en: 'Built-in persona prompt cannot be modified.',
   },
   ai_persona_field_name: { ru: 'Имя', en: 'Name' },
+  ai_persona_field_system_prompt: { ru: 'Системный промпт', en: 'System prompt' },
   ai_persona_field_emoji: { ru: 'Эмодзи', en: 'Emoji' },
   ai_persona_delete_btn: { ru: 'Удалить персону', en: 'Delete persona' },
   ai_persona_validating: { ru: 'Валидация…', en: 'Validating…' },

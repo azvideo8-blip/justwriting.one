@@ -84,6 +84,7 @@ export function DocumentPickerModal({ isOpen, onClose, onSelect }: DocumentPicke
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-main/60" />
             <Input
               ref={inputRef}
+              aria-label={t('ai_doc_picker_search_placeholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={t('ai_doc_picker_search_placeholder')}

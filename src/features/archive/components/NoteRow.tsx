@@ -252,6 +252,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
       <div className="min-w-0">
         {editingTitle ? (
            <Input
+             aria-label={t('editor_title_placeholder')}
              value={titleDraft}
              onChange={e => setTitleDraft(e.target.value)}
              onBlur={commitTitle}

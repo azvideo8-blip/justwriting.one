@@ -67,6 +67,7 @@ export function FinishModalTags({
               <div className="space-y-1.5">
                 <Input
                   type="text"
+                  aria-label={t('finish_title_label')}
                   value={titleInputValue}
                   onChange={e => setEditTitle(e.target.value)}
                   placeholder={t('editor_title_placeholder')}
@@ -146,6 +147,7 @@ export function FinishModalTags({
               <Input
                 ref={tagInputRef}
                 type="text"
+                aria-label={t('finish_add_tag')}
                 placeholder={t('finish_add_tag')}
                 className="px-4 py-2 rounded-xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main text-sm placeholder:text-text-main/60 focus:border-text-main/40 min-h-[44px]"
                 onBlur={(e) => {
@@ -181,6 +183,7 @@ export function FinishModalTags({
         </div>
         <Input
           type="text"
+          aria-label={t('finish_title_label')}
           value={titleInputValue}
           onChange={e => setEditTitle(e.target.value)}
           placeholder={t('editor_title_placeholder')}
@@ -245,6 +248,7 @@ export function FinishModalTags({
         <Input
           ref={tagInputRef}
           type="text"
+          aria-label={t('finish_add_tag')}
           placeholder={t('finish_add_tag')}
           className="px-4 py-2 rounded-2xl border outline-none transition-colors bg-surface-base border-border-subtle text-text-main placeholder:text-text-main/60 focus:border-text-main/40"
           onBlur={(e) => {

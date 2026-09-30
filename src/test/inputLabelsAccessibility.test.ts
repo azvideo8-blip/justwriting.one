@@ -1,9 +1,17 @@
 /**
  * N-71: Сканер `<input>` без подписи.
+ * K-3/N-86: раньше считались только литеральные `<input>` — обёртка
+ * `<Input>` из shared/components (форвардит aria-label) была невидима,
+ * и 17 её вызовов ходили с одним placeholder. Теперь считаются и
+ * `<Input`/`<Textarea` из shared/components; подписью считается
+ * aria-label/aria-labelledby, `id` + `<label htmlFor>`, или обёртка
+ * в `<FormField>`.
+ *
  * Правила:
  *   – exempt: type="hidden", className/class содержит "hidden" или "sr-only",
  *             style={{ display: 'none' }}
- *   – labeled: aria-label, aria-labelledby, или элемент вложен в <label>
+ *   – labeled: aria-label, aria-labelledby, элемент вложен в <label>,
+ *             (для Input/Textarea) id + <label htmlFor> или <FormField>
  *
  * Тест не слеп: падает, если не нашёл ни одного input-а в src/.
  */
@@ -87,6 +95,14 @@ function isInsideLabel(labelStack: string[]): boolean {
   return labelStack.includes('label');
 }
 
+const WRAPPED_COMPONENTS = new Set(['Input', 'Textarea']);
+
+/** Путь импорта обёртки должен вести в shared/components, иначе тег не считаем. */
+function importsSharedWrapper(src: string, tagName: string): boolean {
+  const re = new RegExp(`import[\\s\\S]{0,200}?\\b${tagName}\\b[\\s\\S]{0,200}?from\\s+['"][^'"]*shared/components/${tagName}['"]`);
+  return re.test(src);
+}
+
 function scanFile(filePath: string): UnlabeledInput[] {
   const src = fs.readFileSync(filePath, 'utf8');
   const sf = ts.createSourceFile(filePath, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -94,8 +110,19 @@ function scanFile(filePath: string): UnlabeledInput[] {
   const issues: UnlabeledInput[] = [];
   const labelStack: string[] = [];
 
+  // K-3: id → подпись через <label htmlFor>. Собираем htmlFor по всему файлу.
+  const htmlForIds = new Set<string>();
+  const walkForHtmlFor = (node: ts.Node) => {
+    if (ts.isJsxAttribute(node) && node.name.getText() === 'htmlFor') {
+      const val = attrStringValue(node, sf);
+      if (val && val !== '__expr__') htmlForIds.add(val);
+    }
+    ts.forEachChild(node, walkForHtmlFor);
+  };
+  walkForHtmlFor(sf);
+
   function visit(node: ts.Node) {
-    // Отслеживаем открытие/закрытие JSX-элементов для стека <label>
+    // Отслеживаем открытие/закрытие JSX-элементов для стека <label>/<FormField>
     if (ts.isJsxElement(node)) {
       const openTag = node.openingElement;
       const tagName = openTag.tagName.getText();
@@ -105,12 +132,32 @@ function scanFile(filePath: string): UnlabeledInput[] {
       return;
     }
 
-    // Самозакрывающийся тег <input ... />
+    // Самозакрывающийся тег <input ... /> или обёртка <Input ... /> / <Textarea ... />
     if (ts.isJsxSelfClosingElement(node)) {
       const tagName = node.tagName.getText();
-      if (tagName === 'input') {
+      const isNative = tagName === 'input';
+      const isWrapped = WRAPPED_COMPONENTS.has(tagName) && importsSharedWrapper(src, tagName);
+      if (isNative || isWrapped) {
         const attrs = node.attributes.properties;
-        if (!isExempt(attrs) && !hasAriaLabel(attrs) && !isInsideLabel(labelStack)) {
+        const hasId = attrs.some(
+          a => ts.isJsxAttribute(a) && a.name.getText() === 'id' && attrStringValue(a, sf),
+        );
+        const labeled =
+          isExempt(attrs) ||
+          hasAriaLabel(attrs) ||
+          isInsideLabel(labelStack) ||
+          (isWrapped &&
+            (labelStack.some(t => t === 'FormField' || t.startsWith('FormField.')) ||
+              (hasId && (() => {
+                for (const a of attrs) {
+                  if (ts.isJsxAttribute(a) && a.name.getText() === 'id') {
+                    const val = attrStringValue(a, sf);
+                    if (val && val !== '__expr__' && htmlForIds.has(val)) return true;
+                  }
+                }
+                return false;
+              })())));
+        if (!labeled) {
           const pos = sf.getLineAndCharacterOfPosition(node.getStart());
           const lineText = (lines[pos.line] || '').trim().slice(0, 120);
           issues.push({
@@ -140,7 +187,7 @@ describe('N-71: input accessibility labels scanner', () => {
     expect(files.length, `Expected >= 10 tsx files in ${SCAN_DIR}`).toBeGreaterThanOrEqual(10);
   });
 
-  it('all <input> elements in src/ have accessible labels (aria-label, aria-labelledby, or parent <label>)', () => {
+  it('all <input>/<Input>/<Textarea> elements in src/ have accessible labels (aria-label, aria-labelledby, parent <label>, id+htmlFor, or <FormField>)', () => {
     let totalInputs = 0;
     const allIssues: UnlabeledInput[] = [];
 
@@ -151,7 +198,7 @@ describe('N-71: input accessibility labels scanner', () => {
       }
       // Count the total inputs in file to ensure scan is non-trivial
       const src = fs.readFileSync(f, 'utf8');
-      const matches = src.match(/<input[\s/]/g);
+      const matches = src.match(/<(input|Input|Textarea)[\s/>]/g);
       if (matches) totalInputs += matches.length;
     }
 

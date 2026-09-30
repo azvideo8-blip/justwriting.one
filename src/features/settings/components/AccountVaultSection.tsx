@@ -227,6 +227,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
           <form onSubmit={(e) => { e.preventDefault(); void handleInitializeEncryption(e); }} className="space-y-3 pt-1">
             <Input
               type="password"
+              aria-label={t('settings_initialize_password')}
               value={vaultPassword}
               onChange={(e) => setVaultPassword(e.target.value)}
               placeholder={t('settings_initialize_password')}
@@ -235,6 +236,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
             />
             <Input
               type="password"
+              aria-label={t('settings_initialize_confirm')}
               value={confirmVaultPassword}
               onChange={(e) => setConfirmVaultPassword(e.target.value)}
               placeholder={t('settings_initialize_confirm')}
@@ -297,6 +299,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
           <form onSubmit={(e) => { e.preventDefault(); void handleUnlockVault(e); }} className="space-y-3 pt-1">
             <Input
               type="password"
+              aria-label={t('auth_password')}
               value={vaultPassword}
               onChange={(e) => setVaultPassword(e.target.value)}
               placeholder={t('auth_password')}
@@ -463,6 +466,7 @@ export function AccountVaultSection({ userId }: AccountVaultSectionProps) {
               <Input
                 type="password"
                 autoFocus
+                aria-label={t('auth_password')}
                 value={recoveryPromptPassword}
                 onChange={e => setRecoveryPromptPassword(e.target.value)}
                 placeholder={t('auth_password')}

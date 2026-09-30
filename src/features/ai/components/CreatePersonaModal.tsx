@@ -101,6 +101,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
               <span className="text-[10px] font-mono text-text-main/60">{name.length}/30</span>
             </div>
             <Input
+              aria-label={t('ai_persona_field_name')}
               value={name}
               onChange={e => setName(e.target.value.slice(0, 30))}
               placeholder={t('ai_create_persona_name_placeholder')}
@@ -114,6 +115,7 @@ export function CreatePersonaModal({ isOpen, onClose, onCreated }: CreatePersona
               <span className="text-[10px] font-mono text-text-main/60">{prompt.length}/500</span>
             </div>
             <Textarea
+              aria-label={t('ai_persona_field_system_prompt')}
               value={prompt}
               onChange={e => setPrompt(e.target.value.slice(0, 500))}
               placeholder={t('ai_create_persona_prompt_placeholder')}

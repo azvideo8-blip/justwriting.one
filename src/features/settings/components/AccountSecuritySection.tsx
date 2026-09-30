@@ -137,6 +137,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
                 <Input
                   type="password"
                   autoComplete="current-password"
+                  aria-label={t('settings_current_password')}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder={t('settings_current_password')}
@@ -145,6 +146,7 @@ export function AccountSecuritySection({ userId }: AccountSecuritySectionProps) 
                 <Input
                   type="password"
                   autoComplete="new-password"
+                  aria-label={t('settings_new_password')}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder={t('settings_new_password')}

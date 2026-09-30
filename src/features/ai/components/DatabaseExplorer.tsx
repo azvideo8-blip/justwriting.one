@@ -260,6 +260,7 @@ export function DatabaseExplorer({ userId }: DatabaseExplorerProps) {
           <label className="text-[10px] uppercase font-bold text-text-main/60 tracking-wider">{t('admin_db_search_label')}</label>
           <Input
             type="text"
+            aria-label={t('admin_db_search_label')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('admin_db_search_placeholder')}

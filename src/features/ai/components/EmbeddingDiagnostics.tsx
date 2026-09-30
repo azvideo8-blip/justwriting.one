@@ -213,6 +213,7 @@ export function EmbeddingDiagnostics() {
         <div className="flex items-center gap-2">
           <Input
             type="text"
+            aria-label={t('admin_embed_test_search_title')}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') void handleSearch(); }}

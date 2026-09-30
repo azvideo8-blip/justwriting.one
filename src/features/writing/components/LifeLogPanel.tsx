@@ -249,6 +249,7 @@ export function LifeLogPanel({
           <div className="px-3 py-2 border-b border-border-subtle">
             <Input
               type="text"
+              aria-label={t('lifelog_search_placeholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder={t('lifelog_search_placeholder')}
