@@ -75,7 +75,15 @@ describe('S-19: streak freeze user scoping and multi-device cloud sync', () => {
 
     expect(Array.from(merged)).toEqual(['2026-09-05']);
     expect(Array.from(getFrozenDates(userId))).toEqual(['2026-09-05']);
-    expect(wasFreezeUsedThisMonth(userId)).toBe(true);
+    // «В этом месяце» — относительно часов: без фиксированной даты тест
+    // краснел 1 октября на неизменном коде.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(2026, 8, 20, 12));
+      expect(wasFreezeUsedThisMonth(userId)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
 
     // No need to upload if cloud already had all local dates
     expect(mockSave).not.toHaveBeenCalled();
