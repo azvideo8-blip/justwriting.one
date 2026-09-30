@@ -1,4 +1,5 @@
-// DC-W6: скорость внизу экрана письма не должна читаться только цветом.
+// Скорость внизу экрана письма — цифра и одноцветная фиолетовая точка. Оценки
+// «медленно/ровно/быстро» словом и цветом (DC-W6) владелец убрал 2026-09-30.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BottomStats } from '../BottomStats';
@@ -50,46 +51,25 @@ const renderStats = () => render(
   </LanguageProvider>
 );
 
-describe('DC-W6: слово вместо цвета', () => {
+describe('скорость: цифра и фиолетовая точка', () => {
   beforeEach(() => {
     state.wpm = 32;
     state.quietStats = false;
   });
 
-  it('32 слова в минуту — «ровно», и так же в доступном имени', () => {
-    renderStats();
-    expect(screen.getByText('ровно')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Скорость: 32 слова в минуту, ровно' })).toBeInTheDocument();
-  });
-
-  it('7 слов в минуту — «↓ медленно», 60 — «↑ быстро»', () => {
-    state.wpm = 7;
-    const { unmount } = render(<LanguageProvider><BottomStats onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} /></LanguageProvider>);
-    expect(screen.getByText(/медленно/)).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Скорость: 7 слов в минуту, медленно' })).toBeInTheDocument();
-    unmount();
-
-    state.wpm = 60;
-    render(<LanguageProvider><BottomStats onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} /></LanguageProvider>);
-    expect(screen.getByText(/быстро/)).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Скорость: 60 слов в минуту, быстро' })).toBeInTheDocument();
-  });
-
-  it('пороги — в title блока', () => {
-    renderStats();
-    expect(screen.getByTitle('меньше 15 — медленно, 15–49 — ровно, от 50 — быстро')).toBeInTheDocument();
-  });
-
-  it('при нулевой скорости слова нет, но цифра на месте', () => {
-    state.wpm = 0;
-    renderStats();
+  it.each([7, 32, 60])('%i слов в минуту — без оценки словом, точка фирменного цвета', wpm => {
+    state.wpm = wpm;
+    const { container } = renderStats();
     expect(screen.queryByText(/медленно|ровно|быстро/)).toBeNull();
-    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText(String(wpm))).toBeInTheDocument();
+    const dot = container.querySelector('.rounded-full.w-2.h-2');
+    expect(dot?.className).toContain('bg-brand-soft');
+    expect(dot?.className).not.toMatch(/bg-accent-/);
   });
 
-  it('«Писать без цифр» прячет и слово (DC-W2)', () => {
+  it('«Писать без цифр» прячет и скорость (DC-W2)', () => {
     state.quietStats = true;
     renderStats();
-    expect(screen.queryByText('ровно')).toBeNull();
+    expect(screen.queryByText('32')).toBeNull();
   });
 });

@@ -4,7 +4,6 @@ import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { formatTime } from '../../../core/utils/formatTime';
 import { GoalPopup } from './GoalPopup';
-import { getWpmColor } from '../utils/wpmColors';
 import { HeaderVisibility } from '../../../core/settings/WritingSettingsContext';
 
 interface HeaderStatsProps {
@@ -178,7 +177,7 @@ export const HeaderStats = memo(function HeaderStats({
       {visibility.wpm && (
       <div className="flex flex-col shrink-0 px-4 py-3">
         <div className="flex items-center gap-1.5 leading-none">
-          <div className={cn("w-2 h-2 rounded-full transition-colors duration-500", getWpmColor(wpm))} />
+          <div className="w-2 h-2 rounded-full bg-brand-soft" />
           <span className="text-xl sm:text-2xl font-medium text-text-main leading-none tabular-nums">{wpm}</span>
         </div>
         <span className="text-label-sm text-text-muted mt-1">{t('header_wpm')}</span>

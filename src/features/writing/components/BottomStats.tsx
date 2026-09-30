@@ -7,7 +7,6 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { formatTime } from '../../../core/utils/formatTime';
 import { useLanguage } from '../../../shared/i18n';
-import { getWpmColor, getWpmHex, getWpmLevel } from '../utils/wpmColors';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
@@ -33,7 +32,7 @@ interface BottomStatsProps {
 }
 
 export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsProps) {
-  const { t, tp } = useLanguage();
+  const { t } = useLanguage();
   const { isZenActive, zenModeEnabled, effectiveHeaderVisibility } = useWritingSettings();
   const showZen = isZenActive && zenModeEnabled;
   const reducedMotion = useReducedMotion();
@@ -43,14 +42,6 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
       wpm: s.wpm,
     }))
   );
-
-  // DC-W6: цвет точки дублируется словом — скорость должна читаться и без цвета.
-  const wpmLevel = getWpmLevel(wpm);
-  const wpmLevelWord =
-    wpmLevel === 'slow' ? t('wpm_speed_slow')
-    : wpmLevel === 'steady' ? t('wpm_speed_steady')
-    : wpmLevel === 'fast' ? t('wpm_speed_fast')
-    : null;
 
   const { isListening, toggleListening, hasSupport } = useGuardedSpeechInput({
     onTranscript: (text) => {
@@ -258,24 +249,16 @@ export function BottomStats({ onPlay, onPause, onStop, compact }: BottomStatsPro
         )}
 
         {effectiveHeaderVisibility.wpm && (
-        <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")} title={t('wpm_speed_thresholds')}>
-          <div
-            role={wpmLevelWord ? 'img' : undefined}
-            aria-label={wpmLevelWord ? t('wpm_speed_aria', { words: tp('archive_word_count', wpm), level: wpmLevelWord }) : undefined}
-            className="flex items-center gap-1.5 leading-none whitespace-nowrap"
-          >
+        <div className={cn("flex flex-col", compact ? "ml-1" : "ml-2")}>
+          {/* Точка — просто отметка скорости, одного фирменного цвета: оценка
+              «медленно/быстро» словом и цветом владельцу не нужна. */}
+          <div className="flex items-center gap-1.5 leading-none whitespace-nowrap">
             <div
               aria-hidden="true"
-              className={cn("w-2 h-2 rounded-full transition-all duration-500 shrink-0", getWpmColor(wpm))}
-              style={{ boxShadow: status === 'writing' && wpm > 0 ? `0 0 10px ${getWpmHex(wpm)}` : 'none' }}
+              className="w-2 h-2 rounded-full shrink-0 bg-brand-soft transition-shadow duration-500"
+              style={{ boxShadow: status === 'writing' && wpm > 0 ? '0 0 10px var(--brand-soft)' : 'none' }}
             />
             <span className="text-lg font-medium text-text-main tabular-nums">{wpm}</span>
-            {wpmLevelWord && (
-              <span aria-hidden="true" className="text-xs text-text-main/60 tabular-nums">
-                {wpmLevel === 'slow' ? '↓ ' : wpmLevel === 'fast' ? '↑ ' : ''}
-                {wpmLevelWord}
-              </span>
-            )}
           </div>
           {!compact && (
             <span className="text-label text-text-main/60 tracking-wide mt-1 hidden sm:block">
