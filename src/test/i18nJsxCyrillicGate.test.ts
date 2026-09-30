@@ -8,12 +8,16 @@
 // 2 и 3 краснеют; заменить glob на несуществующий каталог — краснеет тест 8.
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 import path from 'node:path';
 import { findHardcodedJsxCyrillic, isBlind } from '../../scripts/i18n-audit';
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
+// K-1/N-88: `npx` на Windows падает с ENOENT из-под node; зовём tsx/cli напрямую
+// тем же интерпретатором, что и сам прогон.
+const require_ = createRequire(import.meta.url);
 
 const scan = (src: string) => findHardcodedJsxCyrillic(src, 'Test.tsx');
 
@@ -153,7 +157,7 @@ describe('AG-I18N-JSX-1 — findHardcodedJsxCyrillic', () => {
   // Под-процесс со своим бюджетом: в полном прогоне файл стартует на загрузке
   // процессора, и дефолтных 5 секунд ему не хватает (поймано на прогоне 28.09.26).
   it('10. сводка печатает число разобранных файлов и оно ненулевое', () => {
-    const out = execFileSync('npx', ['tsx', 'scripts/i18n-audit.ts'], {
+    const out = execFileSync(process.execPath, [require_.resolve('tsx/cli'), 'scripts/i18n-audit.ts'], {
       cwd: ROOT_DIR,
       encoding: 'utf8',
       timeout: 60_000,

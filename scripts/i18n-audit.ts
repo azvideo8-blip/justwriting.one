@@ -351,7 +351,9 @@ export const I18N_BASELINE_HEADER = [
 ].join('\n');
 
 export function uiSinkKey(hit: UiSinkHit): string {
-  return `${hit.file}:${hit.sink}:${hit.match}`;
+  // K-1/N-87: globSync на Windows отдаёт `src\…`, бейслайн хранится с `/`.
+  const file = hit.file.replace(/\\/g, '/');
+  return `${file}:${hit.sink}:${hit.match}`;
 }
 
 const UI_BASELINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'i18n-baseline.txt');

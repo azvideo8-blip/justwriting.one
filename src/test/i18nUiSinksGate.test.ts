@@ -92,4 +92,9 @@ describe('AG-I18N-SINKS-1 — findHardcodedUiText', () => {
       }
     `)).toHaveLength(1);
   });
+
+  it('9. ключ храповика нормализует виндовые разделители пути (K-1/N-87)', () => {
+    const [hit] = findHardcodedUiText(`export function C({ showToast }) { return showToast('Тест', 'info'); }`, 'src\\a\\C.tsx');
+    expect(hit && uiSinkKey(hit)).toBe('src/a/C.tsx:showToast:Тест');
+  });
 });

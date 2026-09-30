@@ -12,6 +12,7 @@ import { useTimerStore } from '../../../features/writing/store/useTimerStore';
 import { useSyncStatus } from '../../sync/useSyncStatus';
 import { SyncService } from '../../services/SyncService';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import ts from 'typescript';
 
 vi.mock('../../services/SyncService', () => ({
   SyncService: {
@@ -167,33 +168,93 @@ describe('R10-2: accountReload insurance and beforeunload veto prevention', () =
   });
 
   it('audits all beforeunload listeners in src/ to ensure they either do not veto or check isAccountReloadPending', async () => {
+    // K-1/N-90: прежняя проверка была сабстрингом всего файла — файл с одним
+    // гард-хендлером и одним вето-хендлером проходил. Теперь каждый
+    // addEventListener('beforeunload', …) разбирается через TypeScript AST:
+    // хендлер, который ветоирует (preventDefault / returnValue), сам обязан
+    // вызывать isAccountReloadPending.
     const fs = await import('node:fs');
     const path = await import('node:path');
     const glob = await import('glob');
 
     const srcDir = path.resolve(__dirname, '../../../');
     const files = glob.sync('**/*.{ts,tsx}', { cwd: srcDir, nodir: true, absolute: true })
+      .map(f => f.split(path.sep).join('/'))
       .filter(f => !f.includes('/__tests__/') && !f.includes('/test/'));
 
     // Non-blind gate: must find at least 50 source files in src/
     expect(files.length).toBeGreaterThan(50);
 
-    const beforeUnloadFiles: string[] = [];
+    const offenders: string[] = [];
+    let listenerCount = 0;
+
+    const isVetoCall = (node: ts.CallExpression): boolean =>
+      ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'preventDefault';
+
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf8');
-      if (content.includes('beforeunload')) {
-        beforeUnloadFiles.push(file);
-        const hasVeto = content.includes('preventDefault') || content.includes('returnValue');
-        if (hasVeto) {
-          expect(
-            content.includes('isAccountReloadPending'),
-            `${path.relative(srcDir, file)} has beforeunload veto (preventDefault/returnValue) but does not check isAccountReloadPending()`
-          ).toBe(true);
+      if (!content.includes('beforeunload')) continue;
+
+      const sf = ts.createSourceFile(
+        file,
+        content,
+        ts.ScriptTarget.Latest,
+        true,
+        file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      );
+
+      const namedHandlers = new Map<string, ts.Node>();
+      const indexNames = (node: ts.Node): void => {
+        if (ts.isFunctionDeclaration(node) && node.name) {
+          namedHandlers.set(node.name.text, node);
+        } else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) &&
+                   node.initializer && (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer))) {
+          namedHandlers.set(node.name.text, node.initializer);
         }
-      }
+        ts.forEachChild(node, indexNames);
+      };
+      indexNames(sf);
+
+      const handlerOf = (arg: ts.Expression): ts.Node | undefined => {
+        if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) return arg;
+        if (ts.isIdentifier(arg)) return namedHandlers.get(arg.text);
+        return undefined;
+      };
+
+      const vetoes = (node: ts.Node): boolean => {
+        if (ts.isCallExpression(node) && isVetoCall(node)) return true;
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+            ts.isPropertyAccessExpression(node.left) && node.left.name.text === 'returnValue') return true;
+        return ts.forEachChild(node, vetoes) ?? false;
+      };
+
+      const guardsPending = (node: ts.Node): boolean => {
+        if (ts.isIdentifier(node) && node.text === 'isAccountReloadPending') return true;
+        return ts.forEachChild(node, guardsPending) ?? false;
+      };
+
+      const visit = (node: ts.Node): void => {
+        if (ts.isCallExpression(node) &&
+            ts.isPropertyAccessExpression(node.expression) &&
+            node.expression.name.text === 'addEventListener' &&
+            node.arguments[0] && ts.isStringLiteral(node.arguments[0]) &&
+            node.arguments[0].text === 'beforeunload' &&
+            node.arguments[1]) {
+          listenerCount++;
+          const handler = handlerOf(node.arguments[1]);
+          if (handler && vetoes(handler.body) && !guardsPending(handler.body)) {
+            const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+            offenders.push(`${path.relative(srcDir, file).split(path.sep).join('/')}:${line + 1}`);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sf);
     }
 
-    // Non-blind gate: must have found all 4 known beforeunload files in src/
-    expect(beforeUnloadFiles.length).toBeGreaterThanOrEqual(4);
+    // Non-blind gate: must have found all 4 known beforeunload registrations in src/
+    expect(listenerCount).toBeGreaterThanOrEqual(4);
+
+    expect(offenders).toEqual([]);
   });
 });
