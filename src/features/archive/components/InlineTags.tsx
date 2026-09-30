@@ -162,9 +162,12 @@ export function InlineTags({
           onClick={e => { e.stopPropagation(); openInput(); }}
           aria-label={t('archive_add_tag_aria')}
           className={cn(
-            "w-5 h-5 flex items-center justify-center rounded text-[13px] leading-none text-text-main/50 hover:text-brand-soft transition-[opacity,color]",
+            // G-6 (R3-035): сама кнопка 20×20, цель нажатия — 44px. Там, где
+            // hover нет (тач), «+» виден сразу: иначе он невидим, но объявляется.
+            // p-0: без него отступы Button растягивали кнопку до 32×20.
+            "clickable-target-expansion w-5 h-5 p-0 flex items-center justify-center rounded text-[13px] leading-none text-text-main/50 hover:text-brand-soft transition-[opacity,color]",
             variant === 'row'
-              ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100"
+              ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
               : "border border-border-subtle hover:border-brand-soft/40",
           )}
         >

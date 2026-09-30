@@ -373,6 +373,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   labels={labels}
                   onOpen={onOpen}
                   onRename={startRename}
+                  onAddTag={() => setTagInputOpen(true)}
                   onDelete={() => onDelete?.(session)}
                   onLabelChange={(labelId) => onLabelChange?.(session, labelId)}
                   onStorageChange={() => onStorageChange?.()}
@@ -400,7 +401,11 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                   trigger: el,
                 });
               }}
-              className="w-7 h-7 text-text-main/40 opacity-60 group-hover:opacity-100 group-focus-within:opacity-100"
+              aria-haspopup="menu"
+              aria-expanded={menuAnchor !== null}
+              // G-6 (R3-035): приглушение одно — 60% из IconButton. Раньше /40
+              // умножалось на opacity-60 и давало ~24%, ниже порога 3:1.
+              className="w-7 h-7 group-hover:text-text-main group-focus-within:text-text-main"
               label={t('archive_note_actions')}
               icon={<MoreHorizontal size={16} aria-hidden="true" />}
             />

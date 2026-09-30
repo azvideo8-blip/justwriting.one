@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
 import { cn } from '../../shared/utils/cn';
@@ -12,7 +12,6 @@ export type MenuEntry =
       icon?: ReactNode;
       hint?: string;
       destructive?: boolean;
-      disabled?: boolean;
       onSelect: () => void;
     }
   | {
@@ -39,9 +38,7 @@ type Position = { left: number; top: number; maxHeight: number };
 
 function selectable(entries: MenuEntry[]): number[] {
   return entries.reduce<number[]>((acc, entry, i) => {
-    if (entry.kind !== 'item' && entry.kind !== 'radio') return acc;
-    if (entry.kind === 'item' && entry.disabled) return acc;
-    acc.push(i);
+    if (entry.kind === 'item' || entry.kind === 'radio') acc.push(i);
     return acc;
   }, []);
 }
@@ -68,6 +65,14 @@ export function Menu({
   const itemRefs = useRef(new Map<number, HTMLButtonElement>());
   const [pos, setPos] = useState<Position | null>(null);
   const focusFirst = useRef(true);
+  const menuId = useId();
+  // У контекстного меню триггера нет: запоминаем, где был фокус до открытия.
+  // Состояние, а не ref: значение читают обработчики, собранные при рендере.
+  const [opener] = useState(() =>
+    document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : null,
+  );
 
   const stops = selectable(entries);
 
@@ -108,7 +113,12 @@ export function Menu({
       if (anchor.kind === 'trigger' && anchor.trigger?.contains(target)) return;
       onClose();
     };
-    const onScroll = () => onClose();
+    const onScroll = (e: Event) => {
+      // Длинное меню прокручивается само (overflow-y-auto); слушатель стоит на
+      // window с capture и ловит и эту прокрутку — закрываться по ней нельзя.
+      if (e.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      onClose();
+    };
     document.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onScroll);
@@ -136,13 +146,21 @@ export function Menu({
     focusItem(stops[(at + dir + stops.length) % stops.length]);
   };
 
+  // Фокус возвращается открывшему: триггеру, а у контекстного меню — элементу,
+  // на котором он был. Иначе после закрытия он падает в body.
+  const restoreFocus = () => {
+    const target = anchor.kind === 'trigger' ? anchor.trigger : opener;
+    if (target?.isConnected === true) target.focus();
+  };
+
   const onKeyDown = (e: ReactKeyboardEvent) => {
-    if (e.key === 'Escape') {
+    // Tab закрывает меню, как и Esc: иначе фокус уходит на страницу за открытым
+    // меню (оно живёт в портале в конце body), а само меню остаётся висеть.
+    if (e.key === 'Escape' || e.key === 'Tab') {
       e.preventDefault();
       e.stopPropagation();
-      const trigger = anchor.kind === 'trigger' ? anchor.trigger : null;
       onClose();
-      trigger?.focus();
+      restoreFocus();
       return;
     }
     const current = Number(e.currentTarget.getAttribute('data-index'));
@@ -162,15 +180,9 @@ export function Menu({
   };
 
   const renderItem = (entry: MenuEntry, i: number) => {
+    if (entry.kind === 'heading') return null; // заголовок рисует группа ниже
     if (entry.kind === 'separator') {
       return <div key={entry.key} role="separator" className="my-1 h-px bg-border-subtle" />;
-    }
-    if (entry.kind === 'heading') {
-      return (
-        <div key={entry.key} className="px-3 pt-2 pb-1 text-xs text-text-main/40">
-          {entry.label}
-        </div>
-      );
     }
 
     const isRadio = entry.kind === 'radio';
@@ -184,11 +196,13 @@ export function Menu({
         type="button"
         role={isRadio ? 'menuitemradio' : 'menuitem'}
         aria-checked={isRadio ? entry.checked : undefined}
-        disabled={!isRadio && entry.disabled}
         tabIndex={0}
         onKeyDown={onKeyDown}
         data-index={i}
         onClick={() => {
+          // Сначала фокус, потом действие: действие вправе забрать его себе
+          // (поле переименования, поле тега, диалог).
+          restoreFocus();
           entry.onSelect();
           onClose();
         }}
@@ -206,6 +220,18 @@ export function Menu({
     );
   };
 
+  // Заголовок и идущие за ним радиопункты — одна группа с именем из заголовка:
+  // без неё скринридер объявляет «радиокнопка 1 из 2», не говоря, чего именно.
+  type Indexed = { entry: MenuEntry; index: number };
+  const units: Array<Indexed & { radios: Indexed[] }> = [];
+  entries.forEach((entry, index) => {
+    // Последняя единица — заголовок, значит после него шли только радиопункты:
+    // любой другой пункт открыл бы свою единицу.
+    const group = units[units.length - 1];
+    if (entry.kind === 'radio' && group?.entry.kind === 'heading') group.radios.push({ entry, index });
+    else units.push({ entry, index, radios: [] });
+  });
+
   return createPortal(
     <div
       ref={menuRef}
@@ -219,9 +245,26 @@ export function Menu({
         minWidth,
         visibility: pos ? 'visible' : 'hidden',
       }}
-      className="z-[var(--z-overlay)] overflow-y-auto rounded-xl border border-border-subtle bg-surface-popup p-1.5 shadow-card"
+      // flex-col обязателен: пункты — inline-flex с w-full, и в обычном блоке
+      // ширина «по содержимому» считалась как все пункты в одну строку — меню
+      // из восьми пунктов выходило шириной 840px (найдено проходом в браузере).
+      className="z-[var(--z-overlay)] flex flex-col overflow-y-auto rounded-xl border border-border-subtle bg-surface-popup p-1.5 shadow-card"
     >
-      {entries.map(renderItem)}
+      {units.map(({ entry, index, radios }) => {
+        if (entry.kind !== 'heading') return renderItem(entry, index);
+        const headingId = `${menuId}-${entry.key}`;
+        return (
+          <div key={entry.key} role="group" aria-labelledby={headingId} className="flex flex-col">
+            {/* /70, не /40: это текст, и на 40% он давал 2.5–3.7:1 во всех четырёх
+                темах при пороге 4.5:1 (замер в браузере). На 60% светлая тема
+                «Тёплый» всё ещё не дотягивает — 4.3:1. */}
+            <div id={headingId} className="px-3 pt-2 pb-1 text-xs text-text-main/70">
+              {entry.label}
+            </div>
+            {radios.map(r => renderItem(r.entry, r.index))}
+          </div>
+        );
+      })}
     </div>,
     document.body,
   );

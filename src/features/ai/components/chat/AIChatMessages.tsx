@@ -127,7 +127,10 @@ export function AIChatMessages(props: AIChatMessagesProps) {
       {/* not-a-modal: preview backdrop */}
       {previewSession && <div className="fixed inset-0 z-40 bg-black/20" onClick={onClosePreview} />}
 
-      <div className="relative z-[1] flex-1 overflow-y-auto px-6 py-7">
+      {/* z-0, не выше: шапка и поле ввода стоят на z-10, и их выпадающие
+          списки обязаны ложиться поверх сообщений. Фон-свечение — тоже z-0, но
+          раньше в DOM, поэтому остаётся под сообщениями. */}
+      <div className="relative z-0 flex-1 overflow-y-auto px-6 py-7">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-7" aria-live="polite">
           {proactiveHint && !activeDialogueId && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-brand-soft/10 border border-brand-soft/20 text-sm text-brand-soft">

@@ -28,6 +28,8 @@ interface MobileNoteActionsSheetProps {
   labels?: Label[] | undefined;
   onOpen: () => void;
   onRename: () => void;
+  /** Открывает поле тега в строке — то же, что пункт меню на десктопе. */
+  onAddTag?: (() => void) | undefined;
   onDelete: () => void;
   onLabelChange: (labelId: string | undefined) => void;
   onStorageChange: () => void;
@@ -50,6 +52,7 @@ export function MobileNoteActionsSheet({
   labels,
   onOpen,
   onRename,
+  onAddTag,
   onDelete,
   onLabelChange,
   onStorageChange,
@@ -91,6 +94,7 @@ export function MobileNoteActionsSheet({
     onLabelChange,
     onOpen: () => { onOpen(); onClose(); },
     onRename: () => { onRename(); onClose(); },
+    ...(onAddTag ? { onAddTag: () => { onAddTag(); onClose(); } } : {}),
     ...(onAIClick
       ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } }
       : {}),
@@ -152,7 +156,6 @@ export function MobileNoteActionsSheet({
                 <Button
                   key={section.id}
                   onClick={section.onSelect}
-                  disabled={section.disabled}
                   className={cn(
                     'w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left font-medium transition-colors border',
                     section.destructive

@@ -12,10 +12,6 @@ vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({ t: (k: string) => k, language: 'ru' }),
 }));
 
-vi.mock('../../../../app/components/MobileNoteActionsSheet', () => ({
-  MobileNoteActionsSheet: () => null,
-}));
-
 vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));

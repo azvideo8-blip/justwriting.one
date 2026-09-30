@@ -126,7 +126,7 @@ export function MobileHomeScreen({
       >
       {/* Pull to refresh indicator */}
       {pullOffset > 0 && (
-        <div className="absolute top-2.5 left-1/2 z-[100] flex items-center gap-1.5 bg-[var(--surface-card)] border border-[var(--border-light)] px-3 py-1.5 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none" style={{
+        <div className="absolute top-2.5 left-1/2 z-50 flex items-center gap-1.5 bg-[var(--surface-card)] border border-[var(--border-light)] px-3 py-1.5 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.3)] pointer-events-none" style={{
           transform: `translateX(-50%) translateY(${pullOffset - 20}px)`,
           opacity: pullOffset / 50,
         }}>

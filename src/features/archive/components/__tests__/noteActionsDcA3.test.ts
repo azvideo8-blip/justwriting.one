@@ -127,7 +127,9 @@ describe('DC-A3 buildNoteActions: один список для меню и ли�
     expect(ids(buildNoteActions({ ...base, doc, storage: storage(), onAddTag: vi.fn() }))).toContain('addTag');
   });
 
-  it('ИИ: разбор отключён, пока заметка скрыта; подпись переключается', () => {
+  // G-6 (R3-031): DESIGN.md — «действие, которое сейчас недоступно, не
+  // показывается вовсе, а не становится серым». Раньше тест утверждал серость.
+  it('ИИ: пока заметка скрыта, пункта разбора нет вовсе; подпись скрытия переключается', () => {
     const doc = { localId: 'l1', hasLocal: true, hasCloud: false };
     const excluded = buildNoteActions({
       ...base,
@@ -136,9 +138,7 @@ describe('DC-A3 buildNoteActions: один список для меню и ли�
       ai: { processed: false, loading: false, onClick: vi.fn() },
       exclusion: { excluded: true, loading: false, onClick: vi.fn() },
     });
-    const analyze = excluded.find(s => s.kind === 'action' && s.id === 'analyzeAi');
-    expect(analyze && analyze.kind === 'action' && analyze.disabled).toBe(true);
-    expect(analyze && analyze.kind === 'action' && analyze.label).toBe('ai_note_excluded');
+    expect(ids(excluded)).not.toContain('analyzeAi');
     const excludeItem = excluded.find(s => s.kind === 'action' && s.id === 'excludeAi');
     expect(excludeItem && excludeItem.kind === 'action' && excludeItem.label).toBe('ai_note_include');
 
@@ -146,10 +146,36 @@ describe('DC-A3 buildNoteActions: один список для меню и ли�
       ...base,
       doc,
       storage: storage(),
+      ai: { processed: false, loading: false, onClick: vi.fn() },
       exclusion: { excluded: false, loading: false, onClick: vi.fn() },
     });
+    expect(ids(visible)).toContain('analyzeAi');
     const item = visible.find(s => s.kind === 'action' && s.id === 'excludeAi');
     expect(item && item.kind === 'action' && item.label).toBe('ai_note_exclude');
+  });
+
+  it('действие, которое уже идёт, в списке не стоит мёртвой кнопкой', () => {
+    const cloudOnly = { cloudId: 'c1', hasLocal: false, hasCloud: true };
+    const localOnly = { localId: 'l1', hasLocal: true, hasCloud: false };
+    const ai = { processed: false, loading: false, onClick: vi.fn() };
+    const exclusion = { excluded: false, loading: false, onClick: vi.fn() };
+
+    expect(ids(buildNoteActions({ ...base, doc: cloudOnly, storage: storage() }))).toContain('download');
+    expect(ids(buildNoteActions({ ...base, doc: cloudOnly, storage: { ...storage(), downloading: true } }))).not.toContain('download');
+
+    expect(ids(buildNoteActions({ ...base, doc: localOnly, storage: storage() }))).toContain('upload');
+    expect(ids(buildNoteActions({ ...base, doc: localOnly, storage: { ...storage(), uploading: true } }))).not.toContain('upload');
+
+    expect(ids(buildNoteActions({ ...base, doc: localOnly, storage: storage(), ai, exclusion }))).toEqual(
+      expect.arrayContaining(['analyzeAi', 'excludeAi']),
+    );
+    expect(ids(buildNoteActions({ ...base, doc: localOnly, storage: storage(), ai: { ...ai, loading: true }, exclusion }))).not.toContain('analyzeAi');
+    expect(ids(buildNoteActions({ ...base, doc: localOnly, storage: storage(), ai, exclusion: { ...exclusion, loading: true } }))).not.toContain('excludeAi');
+
+    // Серых пунктов не бывает: ни у одного действия нет признака «отключено».
+    for (const s of buildNoteActions({ ...base, doc: localOnly, storage: storage(), ai, exclusion })) {
+      expect(s).not.toHaveProperty('disabled');
+    }
   });
 
   it('обработчики те же, что у строки: выбрать пункт — значит вызвать то, что вызывала кнопка', () => {

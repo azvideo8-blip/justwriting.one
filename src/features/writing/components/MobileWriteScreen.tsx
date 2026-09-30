@@ -319,7 +319,7 @@ export function MobileWriteScreen({
       </div>
 
       {keyboardHeight > 130 && !showZen && (
-        <div className="absolute left-0 right-0 flex items-center justify-center gap-4 h-7 bg-[rgba(14,10,24,0.85)] backdrop-blur-sm z-[35] px-4" style={{
+        <div className="absolute left-0 right-0 flex items-center justify-center gap-4 h-7 bg-[rgba(14,10,24,0.85)] backdrop-blur-sm z-30 px-4" style={{
           bottom: keyboardHeight,
           borderTop: '1px solid rgba(165, 131, 232, 0.08)',
         }}>

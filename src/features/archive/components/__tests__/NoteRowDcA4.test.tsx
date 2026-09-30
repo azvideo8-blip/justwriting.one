@@ -21,10 +21,6 @@ vi.mock('../../../../app/useAuthStatus', () => ({
   useAuthStatus: () => ({ profile: null, user: null }),
 }));
 
-vi.mock('../../../../app/components/MobileNoteActionsSheet', () => ({
-  MobileNoteActionsSheet: () => null,
-}));
-
 const t = (k: string) => k;
 
 const session: ArchiveSession = {

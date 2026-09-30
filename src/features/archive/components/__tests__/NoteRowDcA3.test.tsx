@@ -22,10 +22,6 @@ vi.mock('../../../../app/useAuthStatus', () => ({
   useAuthStatus: () => ({ profile: null, user: null }),
 }));
 
-vi.mock('../../../../app/components/MobileNoteActionsSheet', () => ({
-  MobileNoteActionsSheet: () => null,
-}));
-
 vi.mock('../../../../core/services/StorageService', () => ({
   StorageService: {
     addLocalCopy: vi.fn(),

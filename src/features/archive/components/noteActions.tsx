@@ -25,7 +25,6 @@ export interface NoteActionItem {
   label: string;
   icon: LucideIcon;
   destructive: boolean;
-  disabled: boolean;
   onSelect: () => void;
 }
 
@@ -85,7 +84,7 @@ export function buildNoteActions(input: NoteActionsInput): NoteMenuSection[] {
     label: string,
     icon: LucideIcon,
     onSelect: () => void,
-    opts: { destructive?: boolean; disabled?: boolean } = {},
+    opts: { destructive?: boolean } = {},
   ): void => {
     sections.push({
       kind: 'action',
@@ -94,7 +93,6 @@ export function buildNoteActions(input: NoteActionsInput): NoteMenuSection[] {
       label,
       icon,
       destructive: opts.destructive === true,
-      disabled: opts.disabled === true,
       onSelect,
     });
   };
@@ -131,11 +129,13 @@ export function buildNoteActions(input: NoteActionsInput): NoteMenuSection[] {
   const canUpload = !doc.hasCloud && !isTooLarge && !!doc.localId && !isGuest(userId);
   const canDownload = !doc.hasLocal && doc.hasCloud && !!doc.cloudId;
 
-  if (canDownload) {
-    action('download', 'storage', t('storage_download_to_local'), HardDrive, storage.requestLocal, { disabled: storage.downloading });
+  // G-6 (R3-031): недоступное сейчас действие не показывается вовсе, а не
+  // стоит серой кнопкой — в том числе то, которое уже идёт.
+  if (canDownload && !storage.downloading) {
+    action('download', 'storage', t('storage_download_to_local'), HardDrive, storage.requestLocal);
   }
-  if (canUpload || isUnsynced) {
-    action('upload', 'storage', isUnsynced ? t('storage_sync_now') : t('storage_upload_to_cloud'), Cloud, storage.requestCloud, { disabled: storage.uploading });
+  if ((canUpload || isUnsynced) && !storage.uploading) {
+    action('upload', 'storage', isUnsynced ? t('storage_sync_now') : t('storage_upload_to_cloud'), Cloud, storage.requestCloud);
   }
   if (doc.hasLocal && doc.hasCloud) {
     action('removeLocal', 'storage', t('storage_remove_local'), HardDrive, storage.requestLocal);
@@ -143,25 +143,19 @@ export function buildNoteActions(input: NoteActionsInput): NoteMenuSection[] {
   if (doc.hasCloud && !isUnsynced) {
     action('removeCloud', 'storage', t('storage_remove_cloud'), Cloud, storage.requestCloud);
   }
-  if (exclusion) {
+  if (exclusion && !exclusion.loading) {
     action(
       'excludeAi',
       'storage',
       exclusion.excluded ? t('ai_note_include') : t('ai_note_exclude'),
       EyeOff,
       storage.requestExclusion,
-      { disabled: exclusion.loading },
     );
   }
-  if (ai) {
-    action(
-      'analyzeAi',
-      'storage',
-      exclusion?.excluded ? t('ai_note_excluded') : ai.processed ? t('ai_note_clear') : t('ai_note_analyze'),
-      Sparkles,
-      ai.onClick,
-      { disabled: ai.loading || exclusion?.excluded === true },
-    );
+  // Скрытую от ИИ заметку разбирать нельзя: пункта нет, а о скрытии говорит
+  // сосед «Вернуть в ИИ» и значок в строке.
+  if (ai && !ai.loading && exclusion?.excluded !== true) {
+    action('analyzeAi', 'storage', ai.processed ? t('ai_note_clear') : t('ai_note_analyze'), Sparkles, ai.onClick);
   }
 
   action('delete', 'danger', t('archive_delete'), Trash2, onDelete, { destructive: true });
@@ -202,7 +196,6 @@ export function sectionsToMenuEntries(sections: NoteMenuSection[], iconSize = 15
       label: section.label,
       icon: <Icon size={iconSize} aria-hidden="true" />,
       destructive: section.destructive,
-      disabled: section.disabled,
       onSelect: section.onSelect,
     });
   }
