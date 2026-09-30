@@ -168,6 +168,11 @@ export function healCorruptDeleteJournal(
     for (const k of keysToRemove) {
       localStorage.removeItem(k);
     }
+    // R4-019: бэкап нигде не читается и затирался следующим heal молча. Остался
+    // вариант «удалить с названным числом» — пусть потеря хотя бы видна в отчёте.
+    if (keysToRemove.length > 0) {
+      reportError(new Error('Stale unreadable delete-journal backups wiped'), { action: 'healCorruptDeleteJournal_staleBackups', count: keysToRemove.length }, 'warning');
+    }
     localStorage.setItem(`${CORRUPT_DELETES_BACKUP_PREFIX}${Date.now()}`, raw);
   } catch (err) {
     reportError(err, { action: 'healCorruptDeleteJournal_backup' }, 'warning');
@@ -365,14 +370,22 @@ export interface DeadStoreUpsert {
   timestamp: number;
 }
 
-function readDeadUpserts(): DeadStoreUpsert[] {
+let reportedDeadUpsertsUnreadable = false;
+
+// R4-004: «пусто» и «не читается» — разные состояния. Битый JSON, прочитанный
+// как [], позволял markDeadUpsert затереть журнал: прежние отметки гибли молча.
+// null — «не читается»: писатели пропускают запись, читатели показывают нижнюю границу.
+function readDeadUpserts(): DeadStoreUpsert[] | null {
   try {
     const raw = localStorage.getItem(DEAD_UPSERTS_LS_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as DeadStoreUpsert[]) : [];
-  } catch {
-    return [];
+    if (Array.isArray(parsed)) return parsed as DeadStoreUpsert[];
+  } catch { /* ниже */ }
+  if (!reportedDeadUpsertsUnreadable) {
+    reportedDeadUpsertsUnreadable = true;
+    reportError(new Error('Journal of dead AI-store upserts is unreadable — new marks are not written'), { action: 'readDeadUpserts' }, 'warning');
   }
+  return null;
 }
 
 function writeDeadUpserts(list: DeadStoreUpsert[]): void {
@@ -380,31 +393,40 @@ function writeDeadUpserts(list: DeadStoreUpsert[]): void {
 }
 
 export function getDeadStoreUpserts(uid?: string): DeadStoreUpsert[] {
-  return uid ? readDeadUpserts().filter(d => d.uid === uid) : readDeadUpserts();
+  const list = readDeadUpserts();
+  return uid ? (list ?? []).filter(d => d.uid === uid) : (list ?? []);
 }
 
 function markDeadUpsert(uid: string, store: string, key: string, attempts: number, lastError: string): void {
-  const list = readDeadUpserts().filter(d => !(d.uid === uid && d.store === store && d.key === key));
-  list.push({ uid, store, key, lastError, attempts, timestamp: Date.now() });
-  writeDeadUpserts(list);
+  const list = readDeadUpserts();
+  if (list === null) return;
+  const next = list.filter(d => !(d.uid === uid && d.store === store && d.key === key));
+  next.push({ uid, store, key, lastError, attempts, timestamp: Date.now() });
+  writeDeadUpserts(next);
 }
 
 /** Снять отметку «отвергнуто» сразу с нескольких записей — одним перечнём. */
 function forgetDeadUpserts(uid: string, entries: Array<{ store: string; key: string }>): void {
   if (entries.length === 0) return;
   const list = readDeadUpserts();
+  if (list === null) return;
   const doomed = new Set(entries.map(e => recordId(uid, upsertKey(e.store, e.key))));
   const next = list.filter(d => !doomed.has(recordId(d.uid, upsertKey(d.store, d.key))));
   if (next.length === list.length) return;
   writeDeadUpserts(next);
 }
 
-/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. `unknown` — журнал удалений не читается, и pending поэтому нижняя граница. */
-export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: number; unknown: boolean } {
+/** Состояние ИИ-сторов для бейджа: pending — ждущие upsert + незакрытые удаления. `unknown` — журнал удалений не читается, и pending поэтому нижняя граница. oversized — записи, живущие только на устройстве (R4-017). */
+export function getLocalStoreSyncSummary(uid: string): { pending: number; dead: number; oversized: number; unknown: boolean } {
   const deletes = readPersistedDeletes();
   const pending = getPendingStoreUpserts(uid).length
     + (deletes === null ? 0 : deletes.filter(d => d.uid === uid).length);
-  return { pending, dead: getDeadStoreUpserts(uid).length, unknown: deletes === null };
+  return {
+    pending,
+    dead: getDeadStoreUpserts(uid).length,
+    oversized: getOversizedRecords(uid).length,
+    unknown: deletes === null,
+  };
 }
 
 const OVERSIZED_LS_KEY = 'ai_sync_oversized_records';
@@ -463,33 +485,55 @@ export function extractRecordTimestamp(val: unknown): number | null {
   return null;
 }
 
-export function getOversizedRecords(): OversizedRecordInfo[] {
-  try {
-    const raw = localStorage.getItem(OVERSIZED_LS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+let reportedOversizedUnreadable = false;
+
+// R4-017: ключ отмеченных «слишком большая» записей — на учётку, а не общий:
+// без скоупа чужие записи попадали в счётчик бейджа другой учётки.
+function oversizedKeyFor(uid?: string): string {
+  return uid ? `${OVERSIZED_LS_KEY}:${uid}` : OVERSIZED_LS_KEY;
 }
 
-export function getOversizedRecordCount(): number {
-  return getOversizedRecords().length;
+function readOversizedRecords(uid?: string): OversizedRecordInfo[] | null {
+  try {
+    const raw = localStorage.getItem(oversizedKeyFor(uid));
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as OversizedRecordInfo[];
+  } catch { /* ниже */ }
+  if (!reportedOversizedUnreadable) {
+    reportedOversizedUnreadable = true;
+    reportError(new Error('Journal of oversized AI-store records is unreadable — new marks are not written'), { action: 'readOversizedRecords' }, 'warning');
+  }
+  return null;
+}
+
+export function getOversizedRecords(uid?: string): OversizedRecordInfo[] {
+  return readOversizedRecords(uid ?? getCurrentUser()?.uid) ?? [];
+}
+
+export function getOversizedRecordCount(uid?: string): number {
+  return getOversizedRecords(uid).length;
 }
 
 function setOversizedRecord(store: string, key: string, bytes: number): void {
+  const uid = getCurrentUser()?.uid;
+  const list = readOversizedRecords(uid);
+  if (list === null) return;
+  const next = list.filter(r => !(r.store === store && r.key === key));
+  next.push({ store, key, bytes, timestamp: Date.now() });
   try {
-    const current = getOversizedRecords().filter(r => !(r.store === store && r.key === key));
-    current.push({ store, key, bytes, timestamp: Date.now() });
-    localStorage.setItem(OVERSIZED_LS_KEY, JSON.stringify(current));
-  } catch { /* ignore */ }
+    localStorage.setItem(oversizedKeyFor(uid), JSON.stringify(next));
+  } catch (e) { reportError(e, { action: 'setOversizedRecord' }, 'warning'); }
 }
 
 function removeOversizedRecord(store: string, key: string): void {
+  const uid = getCurrentUser()?.uid;
+  const list = readOversizedRecords(uid);
+  if (list === null) return;
+  const next = list.filter(r => !(r.store === store && r.key === key));
+  if (next.length === list.length) return;
   try {
-    const current = getOversizedRecords().filter(r => !(r.store === store && r.key === key));
-    localStorage.setItem(OVERSIZED_LS_KEY, JSON.stringify(current));
+    localStorage.setItem(oversizedKeyFor(uid), JSON.stringify(next));
   } catch { /* намеренно: лишняя пометка «слишком большой» ничего не теряет */ }
 }
 
@@ -533,6 +577,10 @@ export class LocalStoreSyncManager {
     // а самой записи в IndexedDB уже нет (запоздалый ответ ИИ или фоновой задачи),
     // вызов игнорируется, чтобы не воскрешать удалённую строку в памяти и облаке.
     if (hasPendingDelete || hasPersistedDelete) {
+      // R4-075: снимок очереди — синхронно, до любых await. Между ним и resolve
+      // чтения синхронный scheduleStoreDelete успевает поставить удаление —
+      // перезаписывать его upsert'ом нельзя.
+      const before = this.pending.get(itemKey);
       void (async () => {
         try {
           // База владельца маркера, а не «текущая»: между вызовом и чтением
@@ -540,6 +588,9 @@ export class LocalStoreSyncManager {
           const db = await getLocalDb(uid);
           const rec = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, key);
           if (!rec) {
+            return;
+          }
+          if (this.pending.get(itemKey) !== before) {
             return;
           }
           this.pending.set(itemKey, { store, key, isDelete: false });

@@ -125,7 +125,7 @@ async function pollSyncStatus(userId: string | null) {
       // «синхронизировано» было бы неправдой (R3-011).
       hasUnknown: (summary?.hasUnknown ?? false) || (storeSummary?.unknown ?? false),
       deadCount: summary?.deadCount ?? 0,
-      aiStorePending: storeSummary?.pending ?? 0,
+      aiStorePending: (storeSummary?.pending ?? 0) + (storeSummary?.oversized ?? 0),
       aiStoreDead: storeSummary?.dead ?? 0,
     };
     statusListeners.forEach(fn => fn(sharedCounts));

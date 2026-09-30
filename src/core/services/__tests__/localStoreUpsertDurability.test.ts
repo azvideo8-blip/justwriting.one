@@ -39,14 +39,14 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     const closedTab = new LocalStoreSyncManager();
     closedTab.scheduleStoreSync('aiPortrait', 'p1');
     // Вкладка закрылась в окне дебаунса: ни одного flush не было.
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, oversized: 0, unknown: false });
 
     const reopened = new LocalStoreSyncManager();
     const res = await reopened.flushPending(true);
 
     expect(res.synced).toBe(1);
     expect(save).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything());
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });
 
   it('counts attempts across instances, so a permanently rejected record still ends up dead', async () => {
@@ -65,7 +65,7 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     expect(dead.map(d => `${d.store}/${d.key}`)).toEqual(['aiPortrait/p1']);
     expect(dead[0]?.lastError).toContain('Failed to fetch');
     // Мёртвая запись больше не «в очереди»: она в отдельной, видимой отметке.
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, oversized: 0, unknown: false });
   });
 
   it('a rejected record stays visible as dead after a reload, not silently dropped', async () => {
@@ -81,7 +81,7 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     const afterReload = new LocalStoreSyncManager();
     await afterReload.flushPending(true);
     expect(save).toHaveBeenCalledTimes(5);
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, oversized: 0, unknown: false });
   });
 
   it('a new local change revives a rejected record and clears its mark', async () => {
@@ -89,12 +89,12 @@ describe('SA-1: pending AI-store upserts survive the tab closing', () => {
     const tab = new LocalStoreSyncManager();
     tab.scheduleStoreSync('aiPortrait', 'p1');
     for (let i = 0; i < 6; i++) await tab.flushPending(true);
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 1, oversized: 0, unknown: false });
 
     save.mockResolvedValue(undefined as never);
     tab.scheduleStoreSync('aiPortrait', 'p1');
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, oversized: 0, unknown: false });
     await tab.flushPending(true);
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });
 });

@@ -1,0 +1,120 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import 'fake-indexeddb/auto';
+import {
+  LocalStoreSyncManager,
+  getLocalStoreSyncSummary,
+  healCorruptDeleteJournal,
+  MAX_LOCAL_RECORD_BYTES,
+} from '../LocalStoreSyncService';
+import { DataProvider } from '../../data';
+import { getLocalDb } from '../../storage/localDb';
+import { reportError } from '../../../shared/errors/reportError';
+
+const USER = 'u_l4_journal';
+
+vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => true }));
+vi.mock('../../crypto/cryptoHelpers', async (orig) => ({
+  ...(await orig<object>()),
+  maybeEncrypt: async (x: unknown) => x,
+  getEncryptionEnabled: () => false,
+}));
+vi.mock('../../auth', () => ({
+  getCurrentUser: () => ({ uid: USER }),
+  getCurrentUserId: () => USER,
+}));
+
+async function putHugeDialogue(id: string): Promise<void> {
+  const db = await getLocalDb();
+  await db.put('aiDialogues', {
+    id,
+    title: 'Huge',
+    messages: [{ role: 'user', content: 'x'.repeat(MAX_LOCAL_RECORD_BYTES + 1024) }],
+    createdAt: 1,
+    updatedAt: 1,
+    personaId: 'default',
+    personaName: 'Assistant',
+    personaEmoji: '🤖',
+  });
+}
+
+describe('R4-004: corrupt journals are not overwritten by writers', () => {
+  let save: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    save = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+  });
+
+  it('corrupt dead-upsert journal: a new dead mark does not overwrite the raw', async () => {
+    localStorage.setItem('ai_sync_dead_upserts', '{corrupt');
+    save.mockRejectedValue(new Error('Failed to fetch'));
+
+    const tab = new LocalStoreSyncManager();
+    tab.scheduleStoreSync('aiPortrait', 'p1');
+    for (let i = 0; i < 6; i++) await tab.flushPending(true);
+
+    expect(localStorage.getItem('ai_sync_dead_upserts')).toBe('{corrupt');
+    expect(getLocalStoreSyncSummary(USER).dead).toBe(0);
+    expect(reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ action: 'readDeadUpserts' }),
+      'warning',
+    );
+  });
+
+  it('corrupt oversized journal: a new oversized mark does not overwrite the raw', async () => {
+    localStorage.setItem(`ai_sync_oversized_records:${USER}`, '{corrupt');
+    await putHugeDialogue('huge_dialogue');
+
+    const tab = new LocalStoreSyncManager();
+    tab.scheduleStoreSync('aiDialogues', 'huge_dialogue');
+    const res = await tab.flushPending(true);
+
+    expect(res.skippedOversized).toBe(1);
+    expect(localStorage.getItem(`ai_sync_oversized_records:${USER}`)).toBe('{corrupt');
+  });
+});
+
+describe('R4-017: oversized records are visible as not synced', () => {
+  beforeEach(async () => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('an oversized record lands in the summary under its own account key', async () => {
+    await putHugeDialogue('huge_dialogue');
+
+    const tab = new LocalStoreSyncManager();
+    tab.scheduleStoreSync('aiDialogues', 'huge_dialogue');
+    const res = await tab.flushPending(true);
+
+    expect(res.skippedOversized).toBe(1);
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 1, unknown: false });
+    expect(localStorage.getItem(`ai_sync_oversized_records:${USER}`)).not.toBeNull();
+    expect(localStorage.getItem('ai_sync_oversized_records')).toBeNull();
+  });
+});
+
+describe('R4-019: stale .corrupt backups are deleted with a logged count', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('the heal wipes old backups and names how many', () => {
+    localStorage.setItem('ai_sync_pending_deletes.corrupt.111', '[]');
+    localStorage.setItem('ai_sync_pending_deletes.corrupt.222', 'garbage');
+
+    healCorruptDeleteJournal('garbage', USER);
+
+    expect(localStorage.getItem('ai_sync_pending_deletes.corrupt.111')).toBeNull();
+    expect(localStorage.getItem('ai_sync_pending_deletes.corrupt.222')).toBeNull();
+    expect(reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ action: 'healCorruptDeleteJournal_staleBackups', count: 2 }),
+      'warning',
+    );
+  });
+});

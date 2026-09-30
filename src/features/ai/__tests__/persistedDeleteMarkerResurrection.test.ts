@@ -58,7 +58,7 @@ describe('A-1 (R2-003): a record that exists again drops its persisted delete ma
       .not.toHaveBeenCalledWith(USER, 'aiPortrait', 'p1');
     expect(DataProvider.saveLocalStoreRecord).toHaveBeenCalledWith(USER, 'aiPortrait', 'p1', expect.anything());
     expect(getPendingStoreDeleteKeys(USER)?.size).toBe(0);
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: false });
   });
 
   // R3 §4.1.1 (a): ручной «Отправить всё» выгружал живую запись, а маркер

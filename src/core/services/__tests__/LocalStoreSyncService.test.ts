@@ -236,7 +236,7 @@ describe('LocalStoreSyncService', () => {
 
     // Seed localStorage with one record that now fits (600 KB) and one that is still huge (12 MB)
     localStorage.setItem(
-      'ai_sync_oversized_records',
+      'ai_sync_oversized_records:test_user_123',
       JSON.stringify([
         { store: 'aiDialogues', key: 'old_oversized_dialogue', bytes: 600 * 1024, timestamp: Date.now() - 1000 },
         { store: 'aiDialogues', key: 'still_too_huge_dialogue', bytes: 12 * 1024 * 1024, timestamp: Date.now() - 1000 },

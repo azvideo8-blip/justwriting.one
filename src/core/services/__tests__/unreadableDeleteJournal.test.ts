@@ -48,7 +48,7 @@ describe('A-5 (R2-012): an unreadable delete journal is unknown, not empty', () 
   it('names the journal unreadable instead of reporting no pending deletions', () => {
     localStorage.setItem(DELETES_KEY, CORRUPT);
     expect(getPendingStoreDeleteKeys(USER)).toBeNull();
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, unknown: true });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 0, dead: 0, oversized: 0, unknown: true });
   });
 
   it('sends no upsert while the journal is unreadable, and keeps the obligation', async () => {
@@ -71,7 +71,7 @@ describe('A-5 (R2-012): an unreadable delete journal is unknown, not empty', () 
     // Отложено, а не исполнено: бейдж по-прежнему видит несданное.
     // F-2: первый дренаж исцелил битый журнал в [], поэтому unknown теперь false,
     // но обязательство на отправку по-прежнему отложено (pending = 1).
-    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, unknown: false });
+    expect(getLocalStoreSyncSummary(USER)).toEqual({ pending: 1, dead: 0, oversized: 0, unknown: false });
   });
 
   it('still runs deletions, and a finished one does not overwrite the unreadable journal', async () => {
