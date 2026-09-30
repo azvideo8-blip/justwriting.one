@@ -8,6 +8,7 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 import { canonicalDocumentId } from '../utils/canonicalDocumentId';
+import { canUploadDerivatives, LOCAL_ONLY_DOCUMENT } from './derivativeUpload';
 
 // summary стоит первым не случайно: это пересказ заметки своими словами —
 // «автор размышляет о разводе и долгах» — то есть её суть в сжатом виде. Он не
@@ -33,15 +34,15 @@ const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
  * и только для них: сводки ходят своей дорогой и остались с локальным номером.
  */
 export async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): Promise<void> {
+  // Заметку читаем всегда: снятую с облака выгружать нельзя, даже если номер
+  // у сводки уже есть.
+  const db = await getLocalDb(userId);
+  const docId = summary.documentId || (summary as unknown as { id?: string }).id;
+  const doc = docId ? await db.get('documents', docId) : undefined;
+  if (!canUploadDerivatives(doc)) throw new Error(`${LOCAL_ONLY_DOCUMENT}:${docId}`);
   // Старые строки писались до появления documentUuid — постоянный номер
   // берём у самой заметки и запоминаем, чтобы следующий проход не искал заново.
-  let doc: { uuid?: string | undefined } | undefined;
-  if (!summary.documentUuid) {
-    const db = await getLocalDb(userId);
-    const docId = summary.documentId || (summary as unknown as { id?: string }).id;
-    doc = docId ? await db.get('documents', docId) : undefined;
-    if (doc?.uuid) await db.put('aiSummaries', { ...summary, documentUuid: doc.uuid });
-  }
+  if (!summary.documentUuid && doc?.uuid) await db.put('aiSummaries', { ...summary, documentUuid: doc.uuid });
   const canonicalId = canonicalDocumentId(summary, doc);
   if (!canonicalId) {
     // Постоянного номера нет ни у сводки, ни у заметки: выгружать под локальным
@@ -192,6 +193,8 @@ export const AISummaryService = {
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
     if (uid && cloudSyncEnabled(uid)) {
       await saveSummaryToCloud(uid, withUuid).catch(e => {
+        // Заметка снята с облака — сводка остаётся здесь, это не сбой.
+        if (e instanceof Error && e.message.startsWith(LOCAL_ONLY_DOCUMENT)) return;
         reportError(e, { action: 'ai_summary_cloud_save' });
       });
     }

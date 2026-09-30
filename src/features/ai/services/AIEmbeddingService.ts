@@ -6,6 +6,7 @@ import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { canonicalDocumentId } from '../utils/canonicalDocumentId';
+import { canUploadDerivatives, LOCAL_ONLY_DOCUMENT } from './derivativeUpload';
 
 
 // Gentle pacing between consecutive cloud writes in a bulk sync loop —
@@ -92,6 +93,10 @@ function roundVectors(vectors: number[][]): number[][] {
 }
 
 export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedding): Promise<{ skipped: boolean }> {
+  // Заметка снята с облака — вектор остаётся на устройстве. Отказ отдельной
+  // меткой: вызывающие не пишут его в журнал и не держат запись в очереди.
+  const doc = await (await getLocalDb(userId)).get('documents', emb.documentId);
+  if (!canUploadDerivatives(doc)) throw new Error(`${LOCAL_ONLY_DOCUMENT}:${emb.documentId}`);
   const canonicalId = await resolveCanonicalId(emb);
   if (!canonicalId) {
     // За вектором не стоит заметки: под локальным номером база строку не
@@ -272,6 +277,9 @@ export const AIEmbeddingService = {
         } else if (isRlsDocumentNotReadyError(e)) {
           // Документ ещё не долетел до облака — запись остаётся pending без
           // отметки и без лога, syncPendingToCloud подхватит её позже.
+        } else if (msg.startsWith(LOCAL_ONLY_DOCUMENT)) {
+          // Заметка снята с облака: без отметки и без лога. Из очереди её
+          // убирает сам syncPendingToCloud, пока признак стоит.
         } else if (!msg.includes('ENCRYPT_REQUIRED')) {
           reportError(e, { action: 'ai_embedding_cloud_save' });
         }
@@ -294,6 +302,9 @@ export const AIEmbeddingService = {
     const pending: AIDocumentEmbedding[] = [];
     for (const key of keys) {
       if (ledger[String(key)]) continue;
+      // Заметка снята с облака — вектор не отставший, а местный. Не помечаем:
+      // вернётся заметка в облако — признак снимется, и запись снова в очереди.
+      if (!canUploadDerivatives(await db.get('documents', String(key)))) continue;
       const meta = await db.get('aiEmbeddings', key);
       if (meta && !meta.cloudSyncedAt && !meta.cloudSkipped) {
         pending.push(meta);

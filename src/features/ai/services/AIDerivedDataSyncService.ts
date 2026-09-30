@@ -10,6 +10,7 @@ import { saveEmbeddingToCloud } from './AIEmbeddingService';
 import { reportError } from '../../../shared/errors/reportError';
 import { canonicalDocumentId } from '../utils/canonicalDocumentId';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { canUploadDerivatives, LOCAL_ONLY_DOCUMENT } from './derivativeUpload';
 
 export interface DerivedSyncProgress {
   phase: 'summaries' | 'embeddings' | 'stores';
@@ -90,6 +91,8 @@ export const AIDerivedDataSyncService = {
           orphaned++;
           continue;
         }
+        // Заметка снята с облака — разбор остаётся на устройстве по её выбору.
+        if (msg.startsWith(LOCAL_ONLY_DOCUMENT)) continue;
         failed++;
         reportError(err, { action: 'syncAllSummaries_doc', docId: summary.documentId });
       }
@@ -139,6 +142,7 @@ export const AIDerivedDataSyncService = {
           orphaned++;
           continue;
         }
+        if (msg.startsWith(LOCAL_ONLY_DOCUMENT)) continue;
         failed++;
         reportError(err, { action: 'syncAllEmbeddings_doc', docId: emb.documentId });
       }
@@ -327,8 +331,11 @@ export const AIDerivedDataSyncService = {
           db.getAll('documents'), db.getAll('aiSummaries'), db.getAll('aiEmbeddings'),
         ]);
         const docById = new Map(documents.map(d => [d.id, d]));
-        const sendable = (r: { documentId: string; documentUuid?: string | undefined }) =>
-          canonicalDocumentId(r, docById.get(r.documentId)) !== null;
+        type Rec = { documentId: string; documentUuid?: string | undefined };
+        const orphan = (r: Rec) => canonicalDocumentId(r, docById.get(r.documentId)) === null;
+        // Производные заметок, снятых с облака, выгрузка пропускает — и здесь
+        // они не отправляемые и не сироты, а просто местные.
+        const sendable = (r: Rec) => !orphan(r) && canUploadDerivatives(docById.get(r.documentId));
 
         const sendableSummaries = summaries.filter(sendable).length;
         const sendableEmbeddings = embeddings.filter(sendable);
@@ -336,10 +343,10 @@ export const AIDerivedDataSyncService = {
         const oversized = sendableEmbeddings.filter(e => e.cloudSkipped).length;
         return {
           notes: documents.filter(d => !isExcludedFromAI(d)).length,
-          summaries: { local: sendableSummaries, orphaned: summaries.length - sendableSummaries },
+          summaries: { local: sendableSummaries, orphaned: summaries.filter(orphan).length },
           embeddings: {
             local: sendableEmbeddings.length - oversized,
-            orphaned: embeddings.length - sendableEmbeddings.length,
+            orphaned: embeddings.filter(orphan).length,
             oversized,
           },
         };
