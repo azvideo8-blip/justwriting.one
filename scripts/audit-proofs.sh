@@ -25,11 +25,28 @@ echo "### 3.2 Dependabot config present"
 
 echo ""
 echo "### 3.3 pull-backup.sh rejects a hostile dump name"
-NAME='; touch /tmp/jw-pwned'
-case "$NAME" in
-  justwriting-[A-Za-z0-9._-]*.dump) fail "hostile name passed the guard";;
-  *) echo "  OK: '$NAME' rejected by the case-guard";;
-esac
+# R4-069: раньше 3.3 проверяла собственный case-glob, а не regex в самом
+# pull-backup.sh — сдвиг источника оставался бы незамеченным. Извлекаем
+# настоящий regex и проверяем его им.
+GUARD_LINE=$(grep -F '[[ "$NAME" =~ ' deploy/backup/pull-backup.sh | head -1 || true)
+if [ -z "$GUARD_LINE" ]; then
+  fail "guard regex not found in deploy/backup/pull-backup.sh"
+else
+  RE=${GUARD_LINE#* =~ }
+  RE=${RE%%\]\]*}
+  NAME='; touch /tmp/jw-pwned'
+  if [[ "$NAME" =~ $RE ]]; then
+    fail "hostile name passed the real guard regex ($RE)"
+  else
+    echo "  OK: hostile name rejected by the guard regex from pull-backup.sh"
+  fi
+  GOOD='justwriting-20260930-120000.dump'
+  if [[ "$GOOD" =~ $RE ]]; then
+    echo "  OK: legal dump name passes the same regex"
+  else
+    fail "legal dump name rejected — guard regex is broken ($RE)"
+  fi
+fi
 [ -f /tmp/jw-pwned ] && fail "/tmp/jw-pwned created" || echo "  OK: no side effect file"
 
 echo ""
@@ -51,7 +68,13 @@ fi
 echo ""
 echo "### 3.6 Firebase mentions left in src/"
 COUNT=$(rg -c "Firebase|Firestore" src/ -g '!*test*' 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
-echo "  remaining mentions: $COUNT (target: only historical comments; list below)"
+# R4-069: раньше 3.6 не умела падать. Храповик: фактический остаток 29 —
+# потолок; рост или новая упоминание в коде красит гейт, сдвиг вниз двигает и его.
+FIREBASE_RATCHET=29
+echo "  remaining mentions: $COUNT (ratchet ceiling: $FIREBASE_RATCHET — only moves down)"
+if [ "$COUNT" -gt "$FIREBASE_RATCHET" ]; then
+  fail "Firebase/Firestore mentions grew: $COUNT > $FIREBASE_RATCHET"
+fi
 rg -n "Firebase|Firestore" src/ -g '!*test*' 2>/dev/null | head -5 | sed 's/^/    /'
 
 echo ""

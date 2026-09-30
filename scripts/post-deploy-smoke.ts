@@ -3,6 +3,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage, ClientRequest } from 'node:http';
+import { fileURLToPath } from 'node:url';
 import { APP_VERSION } from '../src/version';
 
 /**
@@ -396,6 +397,13 @@ function openChatStreamThenDestroy(
         timeout: 60_000,
       },
       (res: IncomingMessage) => {
+        // L-10 (R4-072): 401/429/5xx — стрима не было, «возврат слота»
+        // измерялся на пустом месте и рапортовал успех. Не-200 — провал кейса.
+        if (res.statusCode !== 200) {
+          res.destroy();
+          reject(new Error(`обрыв стрима: HTTP ${res.statusCode} вместо 200 — кейс не тарифицировался`));
+          return;
+        }
         // Заголовки пришли. Уничтожаем сокет до первого байта контента —
         // ровно тот случай, на который рассчитан res.on('close') в api/chat.ts.
         res.destroy();
@@ -534,7 +542,9 @@ async function main() {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// L-10 (R4-073): сравнение через `file://${argv[1]}` ложно при пробеле или
+// симлинке в пути — main() молча не запускался и скрипт выходил 0.
+if (process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error('Фатальная ошибка проверки:', err);
     process.exit(1);

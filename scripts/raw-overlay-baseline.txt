@@ -12,3 +12,11 @@ src/features/auth/pages/LoginPage.tsx
 src/features/settings/components/AccountVaultSection.tsx
 src/features/writing/components/MobileWriteToolbar.tsx
 
+# L-10 (R4-070): скан расширен на весь src/ — пять диалогов из src/shared,
+# раньше невидимых гейту. Долг тот же: миграция на ModalShell, записи убирать.
+src/shared/components/ConfirmDialog.tsx:190
+src/shared/components/ConfirmModal.tsx:29
+src/shared/components/CancelConfirmModal.tsx:47
+src/shared/components/RecoveryCodeDisplayModal.tsx:67
+src/shared/components/ModalWrapper.tsx:50
+

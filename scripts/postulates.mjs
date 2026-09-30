@@ -511,6 +511,12 @@ export async function main() {
         maxUnmeasured = parseInt(process.argv[idx + 1], 10);
       }
     }
+    // L-10 (R4-033): `--max-unmeasured --require-db` парсил undefined в NaN —
+    // сравнение с NaN всегда false, и храповик unmeasured молча выключался.
+    if (maxUnmeasured === null || !Number.isInteger(maxUnmeasured) || maxUnmeasured < 0) {
+      process.stderr.write('RESULT: FAILED\n  - --max-unmeasured требует неотрицательное целое\n');
+      process.exit(2);
+    }
   }
 
   const matrixRes = await runLifecycleMatrix(maxUnmeasured);
@@ -526,7 +532,13 @@ export async function main() {
   console.log('VERDICT');
   console.log('================================================================');
 
-  const passed = matrixRes.success && dbRes.success;
+  // L-10 (R4-033): пол был только `totalCells === 0` — матрица, потерявшая
+  // все сценарии, кроме одного, оставалась зелёной. Пол — фактический замер
+  // на 2026-09-30: 79 ячеек; уменьшать вниз разрешено, вверх — нет.
+  const EXPECTED_MIN_CELLS = 79;
+  const cellsMissing = matrixRes.totalCells < EXPECTED_MIN_CELLS;
+
+  const passed = matrixRes.success && dbRes.success && !cellsMissing;
 
   const POSTULATES = [
     'P1  nothing written locally is lost',
@@ -568,6 +580,9 @@ export async function main() {
         (matrixRes.unmeasured.length ? `, never measured: P${matrixRes.unmeasured.join(', P')}` : '') +
         (matrixRes.unmeasuredExceeded ? `, unmeasured limit exceeded: ${matrixRes.totalUnmeasured} > ${matrixRes.maxUnmeasured}` : '') +
         (matrixRes.totalCells === 0 ? ', empty matrix' : ''));
+    }
+    if (cellsMissing) {
+      console.log(`  - Matrix is thinner than the floor: ${matrixRes.totalCells} < ${EXPECTED_MIN_CELLS} cells`);
     }
     if (!dbRes.success) {
       console.log(!dbRes.checked

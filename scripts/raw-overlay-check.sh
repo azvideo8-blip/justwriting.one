@@ -17,7 +17,18 @@ fi
 if [ -n "${RAW_OVERLAY_TEST_MATCHES:-}" ]; then
   raw_matches="$RAW_OVERLAY_TEST_MATCHES"
 else
-  raw_matches=$(grep -rn "fixed inset-0" "$TARGET_DIR/src/features" "$TARGET_DIR/src/app" --include='*.tsx' 2>/dev/null || true)
+  # L-10 (R4-070): раньше сканировались только src/features и src/app —
+  # сырые оверлеи в src/shared и src/core не видил никто. ModalShell.tsx —
+  # сам эталон, из сканирования исключён.
+  raw_matches=$(grep -rn "fixed inset-0" "$TARGET_DIR/src" --include='*.tsx' 2>/dev/null \
+    | grep -v 'src/shared/components/ModalShell.tsx' || true)
+fi
+
+# L-10 (R4-070): пустой скан — не «чисто», а сломанный гейт (пустой glob
+# обязан падать, а не проходить).
+if [ -z "$raw_matches" ]; then
+  echo "::error::Raw overlay check scanned nothing — the grep found no files (empty glob is a failure, not a pass)" >&2
+  exit 1
 fi
 
 offenders=""

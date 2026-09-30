@@ -88,6 +88,7 @@ export function ThemeBackground({ silenceMode }: ThemeBackgroundProps) {
   });
 
   return (
+    // not-a-modal: декоративный фон темы, не диалог.
     <div
       className="fixed inset-0 pointer-events-none"
       style={baseStyle}

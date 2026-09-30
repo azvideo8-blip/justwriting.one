@@ -3,6 +3,8 @@
 # Usage: bash scripts/test-audit-mutations.sh
 # Output: docs/TEST1-protocol.md — one line per mutation, plus proofs.
 set -u
+# L-10 (sweep encoding): те же 40 mutation-скриптов на python — cp1251 нельзя.
+export PYTHONUTF8=1
 cd "$(dirname "$0")/.."
 
 CHECK_MODE=0
@@ -54,6 +56,12 @@ expect_fail() { # file test-name-filter mutation-label
 
 expect_pass() { # file test-name-filter mutation-label
   local res; res=$(run_vitest "$1" "$2")
+  # L-10 (R4-068): пустой вывод (крэш после restore) — не «GREEN», а провал.
+  if [ -z "$res" ]; then
+    log "❌ $3 — прогон после restore не дал вывода"
+    failures=$((failures + 1))
+    return
+  fi
   if echo "$res" | grep -qE "[1-9][0-9]* failed"; then
     log "❌ $3 — still failing after restore ($res)"
     failures=$((failures + 1))
@@ -328,6 +336,6 @@ fi
 log "- RLS suite: see docker command in docs/audit-cleanup-plan.md (requires Docker)"
 echo "Protocol written to $OUT"
 
-if [ "$CHECK_MODE" = "1" ]; then
-  [ $failures -eq 0 ]
-fi
+# L-10 (R4-068): протокол с провалами должен быть красным всегда, а не только
+# в --check — без этого скрипт-гейт рапортовал успех при любом исходе.
+exit $((failures > 0))

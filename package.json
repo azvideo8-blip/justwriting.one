@@ -15,7 +15,8 @@
     "test": "vitest",
     "test:ci": "vitest run --coverage",
     "i18n:audit": "tsx scripts/i18n-audit.ts",
-    "postulates": "node scripts/postulates.mjs",
+    "postulates": "node scripts/postulates.mjs --max-unmeasured 0",
+    "postulates:db": "node scripts/postulates.mjs --require-db --max-unmeasured 0",
     "ai:eval": "node scripts/ai/citation_faithfulness.mjs",
     "sweep:sync": "bash scripts/sync-mutation-sweep.sh",
     "ci": "npm run typecheck && npm run lint && npm run test:ci"
