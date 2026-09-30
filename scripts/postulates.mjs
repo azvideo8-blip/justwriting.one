@@ -130,6 +130,7 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
   );
 
 
+  let totalNotApplicable = 0;
   const darkCells = [];
   for (const r of results) {
     if (r.p1Held === false || r.p2Held === false || r.p3Held === false || r.p4Held === false) {
@@ -161,6 +162,10 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
         missing,
       });
     }
+    // N-76: неприменимые слоты — это не «не измерено». Считаем их отдельно,
+    // чтобы счёт в вердикте не пугал тем, что храповик не стережёт.
+    const notApplicable = ['P1', 'P2', 'P3', 'P4'].filter(p => !applies[p] && r[`p${p[1]}Held`] === undefined);
+    totalNotApplicable += notApplicable.length;
   }
 
   const tally = ['p1Held', 'p2Held', 'p3Held', 'p4Held'].map(k => {
@@ -189,6 +194,7 @@ export function evaluateMatrixResults(results, maxUnmeasured = null) {
     violations,
     tally,
     totalUnmeasured,
+    totalNotApplicable,
     unmeasuredExceeded,
     darkCells,
     maxUnmeasured,
@@ -199,9 +205,12 @@ const HELP_TEXT = `
 Usage: node scripts/postulates.mjs [options]
 
 Options:
-  --max-unmeasured <N>   Fail if the number of unmeasured matrix cells (cells
-                         where a postulate could not be evaluated) exceeds N.
-                         Default: no limit. Use 0 to enforce full coverage.
+  --max-unmeasured <N>   Fail if the number of unmeasured applicable matrix
+                         cells (applicable postulate slots that could not be
+                         evaluated) exceeds N. Not-applicable slots (P2/P4
+                         with the vault off) are printed separately and never
+                         count against N. Default: no limit. Use 0 to enforce
+                         full coverage of the applicable cells.
                          N counts individual cells (e.g. one sequence × vault
                          state × postulate slot), not postulate types.
   --require-db           Fail if DATABASE_URL is not set or if any DB check is
@@ -535,8 +544,10 @@ export async function main() {
       );
     });
     console.log('');
-    console.log('  "not measured" is not "held". P2 is measurable only with the vault on,');
-    console.log('  and P4 only when the legs it is built from were measured.');
+    console.log('  "not measured" is not "held". The --max-unmeasured gate counts');
+    console.log('  applicable cells only: P2 is measurable only with the vault on, and');
+    console.log('  P4 only when the legs it is built from were measured.');
+    console.log(`  not-applicable slots (P2/P4 with the vault off): ${matrixRes.totalNotApplicable}`);
     console.log('');
   }
   console.log(dbRes.checked

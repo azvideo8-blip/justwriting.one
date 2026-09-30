@@ -56,6 +56,10 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     // последнюю строку, а не на шестьдесят шесть предыдущих.
     expect(res.stdout).toContain('not measured');
     expect(res.stdout, 'счёт по каждому постулату отдельно').toMatch(/P2 .*held +\d+ +not measured +\d+ +violated \d+/);
+    // K-8/N-76: вердикт называет применимые ячейки применимыми и печатает
+    // неприменимые слоты отдельной строкой, а не прячет их в «not measured».
+    expect(res.stdout, 'вердикт говорит про applicable cells').toContain('applicable cells');
+    expect(res.stdout, 'неприменимые слоты посчитаны отдельно').toMatch(/not-applicable slots \(P2\/P4 with the vault off\): \d+/);
     expect(res.stdout, 'пропущенный обход базы обязан быть назван').toContain('Database sweep: NOT RUN');
     expect(res.stdout).not.toContain('All four postulates hold');
   }, MATRIX_SPAWN_TIMEOUT_MS + 20_000);
@@ -70,6 +74,9 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
       expect(res.stdout, `${flag} should print Usage`).toContain('Usage: node scripts/postulates.mjs');
       expect(res.stdout, `${flag} should explain --max-unmeasured`).toContain('--max-unmeasured');
       expect(res.stdout, `${flag} should describe cells`).toContain('cells');
+      // K-8/N-76: помощь честно говорит, что 0 — про применимые ячейки.
+      expect(res.stdout, `${flag} should say applicable cells`).toContain('applicable cells');
+      expect(res.stdout, `${flag} should mention the separate not-applicable count`).toContain('printed separately');
       expect(res.stdout, `${flag} should NOT run matrix`).not.toContain('LIFECYCLE MATRIX RUNNER');
     }
   }, 60_000);
@@ -116,6 +123,8 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     const vaultOff = { ...cell2, vaultEnabled: false };
     expect(evaluateMatrixResults([cell1, vaultOff], 0).totalUnmeasured).toBe(0);
     expect(evaluateMatrixResults([cell1, { ...vaultOff, p1Held: undefined }], 0).totalUnmeasured).toBe(1);
+    // K-8/N-76: неприменимые слоты считаются отдельным счётом, а не «не измерено».
+    expect(evaluateMatrixResults([cell1, vaultOff], 0).totalNotApplicable).toBe(2);
 
     // N-40: seq9 включает сейф сама — после удачного включения её P2/P4 применимы,
     // хоть ячейка и помечена «без сейфа». При сбое включения — неприменимы.
