@@ -90,19 +90,19 @@ export const aiTranslations: Translations = {
     en: 'If you are struggling — you are not alone. You can call someone right now:',
   },
   ai_crisis_resource_1: {
-    ru: 'Телефон доверия (бесплатно, круглосуточно): 8-800-2000-122 — для детей, подростков и их родителей',
+    ru: '8-800-333-44-34 — горячая линия психологической поддержки, бесплатно и круглосуточно',
     en: 'Suicide & Crisis Lifeline (free, 24/7): 988 (call or text, US & Canada)',
   },
   ai_crisis_resource_2: {
-    ru: 'Московская служба психологической помощи населению: 051 (с мобильного: +7 495 051)',
+    ru: '051 (с мобильного: +7 495 051) — Московская служба психологической помощи населению',
     en: 'Crisis Text Line: Text HOME to 741741',
   },
   ai_crisis_resource_3: {
-    ru: 'Телефон доверия emergencies: 112',
+    ru: '8-800-2000-122 — телефон доверия для детей, подростков и их родителей',
     en: 'Emergency services: 911 / 112',
   },
   ai_crisis_resource_4: {
-    ru: 'Горячая линия по вопросам суицида: 8-800-333-44-34',
+    ru: '112 — экстренные службы',
     en: 'International resources: findahelpline.com',
   },
   ai_composer_paste_as_note: {

@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { CRISIS_RESOURCES_LINE_RU } from '../../../shared/ai/crisisResources';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { AIProfileService } from './AIProfileService';
 import { AIPersonaService, PRESET_PERSONAS } from './AIPersonaService';
@@ -42,7 +43,7 @@ export interface AttachedNoteRef {
 
 const CRISIS_RESOURCE_TEXT =
   `Пользователь находится в кризисном состоянии. Интегрируй в свой ответ контакты служб поддержки:\n` +
-  `Единый телефон доверия: 8-800-333-44-34, горячая линия психологической помощи: 051 (с городского) или +7 (495) 051.\n` +
+  `${CRISIS_RESOURCES_LINE_RU}.\n` +
   `Отвечай тепло, эмпатично, не давай советов, поддерживай.`;
 
 export function useAIChatContext(personaId: string): {
