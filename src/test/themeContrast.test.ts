@@ -1,3 +1,4 @@
+import { THEMES } from '../core/theme/ThemeProvider';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -26,7 +27,13 @@ const rootBrand = varIn(css, 'brand-soft')!;
 const themes = [...css.matchAll(/\.theme-([a-z]+)\s*\{([^}]*)\}/g)].filter(m => varIn(m[2]!, 'bg-base'));
 
 describe('primary button contrast in every theme', () => {
-  it('finds the themes', () => { expect(themes.length).toBeGreaterThanOrEqual(5); });
+  // Каждая тема из реестра переключателя имеет свой блок, и блоков без темы нет:
+  // мёртвая .theme-stripe жила в CSS годами (R3-040).
+  it('css theme blocks match the theme registry', () => {
+    const cssIds = themes.map(m => m[1]).filter(id => id !== 'amethyst').sort();
+    const registry = Object.values(THEMES).map(th => th.cssClass.replace('theme-', '')).filter(id => id !== 'amethyst').sort();
+    expect(cssIds).toEqual(registry);
+  });
   for (const [, name, block] of themes) {
     it(`${name}: brand button text ≥ 4.5:1`, () => {
       // N-72: проверяем --color-brand-soft (его ест Tailwind) с фолбэком на --brand-soft

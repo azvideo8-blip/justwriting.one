@@ -187,31 +187,6 @@
     color: var(--text-main);
   }
 
-  /* ─── STRIPE — Elegant purple gradients ─────────────────── */
-  .theme-stripe {
-    color-scheme: dark;
-    --bg-base: #0a0514;
-    --bg-surface: #120924;
-    --bg-elevated: #171026;
-    --text-main: rgba(255, 255, 255, 0.9);
-    --border-light: rgba(255, 255, 255, 0.12);
-    --surface-card: rgba(255, 255, 255, 0.06);
-    --surface-elevated: rgba(255, 255, 255, 0.08);
-    --surface-popup: #171026;
-    --accent-success: #34d399;
-    --accent-warning: #fbbf24;
-    --accent-danger: #f87171;
-    --accent-info: #a78bfa;
-    --text-muted: rgba(255, 255, 255, 0.55);
-    --text-subtle: rgba(255, 255, 255, 0.60);
-    --flow-pulse-color: var(--brand-soft);
-  }
-
-  .theme-stripe body {
-    background-color: var(--bg-base);
-    color: var(--text-main);
-  }
-
   body {
     @apply bg-surface-base text-text-main antialiased transition-colors duration-300;
   }
