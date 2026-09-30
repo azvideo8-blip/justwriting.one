@@ -7,6 +7,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
+import { canonicalDocumentId } from '../utils/canonicalDocumentId';
 
 // summary стоит первым не случайно: это пересказ заметки своими словами —
 // «автор размышляет о разводе и долгах» — то есть её суть в сжатом виде. Он не
@@ -32,16 +33,16 @@ const ARRAY_FIELDS_LIST: string[] = [...ARRAY_FIELDS];
  * и только для них: сводки ходят своей дорогой и остались с локальным номером.
  */
 export async function saveSummaryToCloud(userId: string, summary: AIDocumentSummary): Promise<void> {
-  let canonicalId = summary.documentUuid;
-  if (!canonicalId) {
-    // Старые строки писались до появления documentUuid — постоянный номер
-    // берём у самой заметки.
+  // Старые строки писались до появления documentUuid — постоянный номер
+  // берём у самой заметки и запоминаем, чтобы следующий проход не искал заново.
+  let doc: { uuid?: string | undefined } | undefined;
+  if (!summary.documentUuid) {
     const db = await getLocalDb(userId);
     const docId = summary.documentId || (summary as unknown as { id?: string }).id;
-    const doc = docId ? await db.get('documents', docId) : undefined;
-    canonicalId = doc?.uuid;
-    if (canonicalId) await db.put('aiSummaries', { ...summary, documentUuid: canonicalId });
+    doc = docId ? await db.get('documents', docId) : undefined;
+    if (doc?.uuid) await db.put('aiSummaries', { ...summary, documentUuid: doc.uuid });
   }
+  const canonicalId = canonicalDocumentId(summary, doc);
   if (!canonicalId) {
     // Постоянного номера нет ни у сводки, ни у заметки: выгружать под локальным
     // бессмысленно — база всё равно откажет. Отказ громкий, чтобы проход

@@ -51,3 +51,17 @@ export async function getUserSummaries(userId: string, sinceMs?: number): Promis
   });
   return ownRows(allRows, userId).map(row => fromDb(AI_SUMMARY_REV, row as Record<string, unknown>));
 }
+
+/** Число сводок в облаке — head-запросом: тела нет, сервер отвечает одним
+ *  числом в заголовке. Считать длиной `getUserSummaries` нельзя: это
+ *  выкачивание всего архива ради одного числа (drift-1). */
+export async function countSummaries(userId: string): Promise<number> {
+  const { count, error } = await getSupabase()
+    .from('ai_summaries')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error != null) throw error;
+  // «Нет ответа» — не ноль: по нулю панель сказала бы «в облаке пусто».
+  if (count == null) throw new Error('COUNT_UNAVAILABLE: ai_summaries');
+  return count;
+}

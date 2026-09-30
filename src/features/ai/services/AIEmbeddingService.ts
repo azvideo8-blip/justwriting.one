@@ -5,6 +5,7 @@ import { DataProvider } from '../../../core/data';
 import { maybeEncrypt, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import { reportError } from '../../../shared/errors/reportError';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
+import { canonicalDocumentId } from '../utils/canonicalDocumentId';
 
 
 // Gentle pacing between consecutive cloud writes in a bulk sync loop —
@@ -146,18 +147,19 @@ export async function saveEmbeddingToCloud(userId: string, emb: AIDocumentEmbedd
  * Одно правило — одна реализация, в той функции, через которую идут все.
  */
 export async function resolveCanonicalId(emb: { documentId: string; documentUuid?: string | undefined }): Promise<string | null> {
-  if (emb.documentUuid) return emb.documentUuid;
+  if (emb.documentUuid) return canonicalDocumentId(emb, undefined);
   const db = await getLocalDb();
   const doc = await db.get('documents', emb.documentId);
-  if (!doc?.uuid) return null;
+  const canonicalId = canonicalDocumentId(emb, doc);
+  if (!canonicalId) return null;
   // Найденное запоминается: следующий проход не ищет заново.
   try {
     const existing = await db.get('aiEmbeddings', emb.documentId);
     if (existing) {
-      await db.put('aiEmbeddings', { ...existing, documentUuid: doc.uuid });
+      await db.put('aiEmbeddings', { ...existing, documentUuid: canonicalId });
     }
   } catch { /* ignore */ }
-  return doc.uuid;
+  return canonicalId;
 }
 
 function parseVectors(decrypted: Record<string, unknown>): number[][] {

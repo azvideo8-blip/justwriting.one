@@ -4,10 +4,12 @@ import { DataProvider } from '../../../core/data';
 import type { ProviderRecord } from '../../../core/data/types';
 import { getEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { getSessionKey } from '../../../core/crypto/encrypt';
-import { LocalStoreSyncService, getLocalStoreRecordCounts } from '../../../core/services/LocalStoreSyncService';
+import { LocalStoreSyncService, SUPPORTED_LOCAL_STORES, getLocalStoreRecordCounts } from '../../../core/services/LocalStoreSyncService';
 import { saveSummaryToCloud } from './AISummaryService';
 import { saveEmbeddingToCloud } from './AIEmbeddingService';
 import { reportError } from '../../../shared/errors/reportError';
+import { canonicalDocumentId } from '../utils/canonicalDocumentId';
+import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 
 export interface DerivedSyncProgress {
   phase: 'summaries' | 'embeddings' | 'stores';
@@ -31,6 +33,23 @@ export interface DerivedSyncResult {
   totalSynced: number;
   totalFailed: number;
   skippedLocked: boolean;
+}
+
+/** Одно семейство в сверке. `null` — не удалось посчитать; это не ноль. */
+export interface DriftFamily {
+  /** Записи на устройстве, которые выгрузка примет. */
+  local: number | null;
+  cloud: number | null;
+}
+
+export interface DerivedDrift {
+  /** Заметки, доступные ИИ: с чем сравнивать число векторов. */
+  notes: number | null;
+  /** `orphaned` — без заметки, отправке не подлежат. */
+  summaries: DriftFamily & { orphaned: number | null };
+  /** `oversized` — не влезли в строку облака и там не появятся. */
+  embeddings: DriftFamily & { orphaned: number | null; oversized: number | null };
+  stores: DriftFamily;
 }
 
 export const AIDerivedDataSyncService = {
@@ -275,26 +294,79 @@ export const AIDerivedDataSyncService = {
   },
 
   /**
-   * Returns counts of local derived data records across all 3 families.
+   * Сверка «на устройстве / в облаке» по трём семействам производных (drift-1).
+   *
+   * На устройстве считаются только ОТПРАВЛЯЕМЫЕ записи — тем же правилом, что
+   * и выгрузка (`canonicalDocumentId`). Разбор удалённой заметки отправить
+   * нельзя, и, посчитай мы его, панель вечно показывала бы расхождение, которое
+   * нечем закрыть, — такую панель перестают читать. Сироты идут своим числом.
+   *
+   * `null` везде значит «не удалось посчитать», а не ноль (K-4/N-85): ноль
+   * интерфейс читает как «данных нет». Каждое чтение отказывает отдельно —
+   * недоступное облако не прячет числа устройства, и наоборот.
+   *
+   * Только по явному действию человека, не по таймеру: опрос на таймере уже
+   * однажды выбрал дневную квоту чтений.
    */
-  async getLocalDerivedCounts(): Promise<{ summaries: number; embeddings: number; stores: number; total: number } | { unknown: true }> {
-    try {
-      const db = await getLocalDb();
-      const summaries = await db.count('aiSummaries');
-      const embeddings = await db.count('aiEmbeddings');
-      const stores = await getLocalStoreRecordCounts();
-      // K-4/N-85: null — это отказ чтения, а не пусто; reportError уже вызван
-      // внутри getLocalStoreRecordCounts, второй раз не дублируем.
-      if (stores === null) return { unknown: true };
-      return {
-        summaries,
-        embeddings,
-        stores,
-        total: summaries + embeddings + stores,
-      };
-    } catch (e) {
-      reportError(e, { action: 'getLocalDerivedCounts' }, 'warning');
-      return { unknown: true };
-    }
+  async getDerivedDrift(userId: string): Promise<DerivedDrift> {
+    const orNull = async (action: string, read: () => Promise<number>): Promise<number | null> => {
+      try {
+        return await read();
+      } catch (e) {
+        reportError(e, { action }, 'warning');
+        return null;
+      }
+    };
+
+    const readLocal = async () => {
+      try {
+        const db = await getLocalDb(userId);
+        // ponytail: getAll тянет векторы целиком (десятки МБ на больших архивах);
+        // если станет заметно — курсор по записям без удержания массива.
+        const [documents, summaries, embeddings] = await Promise.all([
+          db.getAll('documents'), db.getAll('aiSummaries'), db.getAll('aiEmbeddings'),
+        ]);
+        const docById = new Map(documents.map(d => [d.id, d]));
+        const sendable = (r: { documentId: string; documentUuid?: string | undefined }) =>
+          canonicalDocumentId(r, docById.get(r.documentId)) !== null;
+
+        const sendableSummaries = summaries.filter(sendable).length;
+        const sendableEmbeddings = embeddings.filter(sendable);
+        // Вектор, не влезший в строку облака, там и не появится — это не сбой.
+        const oversized = sendableEmbeddings.filter(e => e.cloudSkipped).length;
+        return {
+          notes: documents.filter(d => !isExcludedFromAI(d)).length,
+          summaries: { local: sendableSummaries, orphaned: summaries.length - sendableSummaries },
+          embeddings: {
+            local: sendableEmbeddings.length - oversized,
+            orphaned: embeddings.length - sendableEmbeddings.length,
+            oversized,
+          },
+        };
+      } catch (e) {
+        reportError(e, { action: 'getDerivedDrift_local' }, 'warning');
+        return {
+          notes: null,
+          summaries: { local: null, orphaned: null },
+          embeddings: { local: null, orphaned: null, oversized: null },
+        };
+      }
+    };
+
+    const [local, localStores, cloudSummaries, cloudEmbeddings, cloudStores] = await Promise.all([
+      readLocal(),
+      // Свой reportError внутри: отказ чтения возвращается как null.
+      getLocalStoreRecordCounts(),
+      orNull('getDerivedDrift_cloudSummaries', () => DataProvider.countSummaries(userId)),
+      orNull('getDerivedDrift_cloudEmbeddings', () => DataProvider.countEmbeddings(userId)),
+      orNull('getDerivedDrift_cloudStores', () => DataProvider.countLocalStoreRecords(userId, SUPPORTED_LOCAL_STORES)),
+    ]);
+
+    return {
+      notes: local.notes,
+      summaries: { ...local.summaries, cloud: cloudSummaries },
+      embeddings: { ...local.embeddings, cloud: cloudEmbeddings },
+      stores: { local: localStores, cloud: cloudStores },
+    };
   },
 };

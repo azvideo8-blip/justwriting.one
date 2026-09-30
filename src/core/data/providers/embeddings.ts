@@ -89,3 +89,13 @@ export async function getUserEmbeddings(userId: string): Promise<ProviderRecord[
   return ownRows(allRows, userId).map(row => fromDb(AI_EMBEDDING_REV, row as Record<string, unknown>));
 }
 
+/** Число векторов в облаке без выкачивания строк — см. `countSummaries`. */
+export async function countEmbeddings(userId: string): Promise<number> {
+  const { count, error } = await getSupabase()
+    .from('ai_embeddings')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error != null) throw error;
+  if (count == null) throw new Error('COUNT_UNAVAILABLE: ai_embeddings');
+  return count;
+}

@@ -50,6 +50,7 @@ export interface IDataProvider {
   getSummary(userId: string, documentId: string): Promise<ProviderRecord | null>;
   saveSummary(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
   getUserSummaries(userId: string, sinceMs?: number): Promise<ProviderRecord[]>;
+  countSummaries(userId: string): Promise<number>;
   deleteSummary(userId: string, documentId: string): Promise<void>;
   deleteAllSummaries(userId: string): Promise<void>;
 
@@ -61,6 +62,7 @@ export interface IDataProvider {
   getUserEmbeddings(userId: string): Promise<ProviderRecord[]>;
   getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }>;
   getEmbeddingsPage(userId: string, limitCount: number, startAfterId?: string): Promise<ProviderRecord[]>;
+  countEmbeddings(userId: string): Promise<number>;
 
   // --- AI Profile & Restore ---
   getAIProfile(userId: string): Promise<ProviderRecord | null>;
@@ -80,6 +82,7 @@ export interface IDataProvider {
   saveLocalStoreRecordPages(userId: string, store: string, pages: Array<{ key: string; payload: ProviderRecord }>): Promise<void>;
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
+  countLocalStoreRecords(userId: string, stores: readonly string[]): Promise<number>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStorePagedRecords?(userId: string, store: string, key: string, keepPages?: number): Promise<void>;

@@ -162,3 +162,19 @@ export async function deleteAllLocalStoreRecords(userId: string): Promise<void> 
     .eq('user_id', userId);
   if (error != null) throw error;
 }
+
+/** Число ЗАПИСЕЙ хранилищ в облаке без выкачивания строк — см. `countSummaries`.
+ *  Запись длиннее порога лежит страницами `key#N`, и номер страницы открыт в
+ *  payload: в счёт идёт нулевая страница либо запись без страниц, иначе одна
+ *  длинная запись считалась бы восемью. */
+export async function countLocalStoreRecords(userId: string, stores: readonly string[]): Promise<number> {
+  const { count, error } = await getSupabase()
+    .from('local_store_records')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .in('store', stores)
+    .or('payload->>page.is.null,payload->>page.eq.0');
+  if (error != null) throw error;
+  if (count == null) throw new Error('COUNT_UNAVAILABLE: local_store_records');
+  return count;
+}

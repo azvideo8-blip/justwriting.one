@@ -15,6 +15,7 @@ import { useToast } from '../../../shared/components/Toast';
 import { reportError } from '../../../shared/errors/reportError';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { getOversizedRecordCount } from '../../../core/services/LocalStoreSyncService';
+import { DerivedDriftPanel, type DerivedDriftView } from './DerivedDriftPanel';
 
 interface SyncSettingsSectionProps {
   userId: string;
@@ -33,9 +34,10 @@ interface SyncSettingsSectionProps {
   }) => ReactNode;
   onFindOrphans?: (userId: string) => Promise<{ summaries: string[]; embeddings: string[]; cloudChecked: boolean }>;
   onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number }>;
+  onLoadDerivedDrift?: (userId: string) => Promise<DerivedDriftView>;
 }
 
-export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreModal, onFindOrphans, onDeleteOrphans }: SyncSettingsSectionProps) {
+export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreModal, onFindOrphans, onDeleteOrphans, onLoadDerivedDrift }: SyncSettingsSectionProps) {
   const { t, tp } = useLanguage();
   const { showToast } = useToast();
   const { isAuthenticated, isGuest } = useAuthStatus();
@@ -389,6 +391,9 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
                 {t('settings_sync_download_from_cloud')}
               </Button>
             </div>
+
+            {/* Сверка стоит над кнопкой выгрузки: недостающее закрывает она. */}
+            {onLoadDerivedDrift && <DerivedDriftPanel userId={userId} onLoad={onLoadDerivedDrift} />}
 
             <Button
               onClick={() => void handleSyncDerived()}
