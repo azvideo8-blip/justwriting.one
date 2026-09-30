@@ -49,7 +49,12 @@ JWT_A=$(mint "$UID_A")
 fail=0
 BODY='{"data":{"personaId":"coach","messages":[{"role":"user","content":"скажи одно слово: тест"}]}}'
 
-code() { curl -sS -o /tmp/lv.out -w '%{http_code}' --max-time 90 "$@"; }
+# R5-002: токен — в конфиг curl со stdin (как в supabase/tests/e2e-rls.sh и
+# deploy/invite.sh): в argv его видно любому через ps. JWT — из REQ_JWT, если задан.
+code() {
+  { [ -n "${REQ_JWT:-}" ] && printf 'header = "Authorization: Bearer %s"\n' "$REQ_JWT"; } \
+    | curl -sS -o /tmp/lv.out -w '%{http_code}' --max-time 90 --config - "$@"
+}
 
 echo
 echo "=== 1. no token → expect 401 ==="
@@ -58,13 +63,13 @@ echo "HTTP $c"; [ "$c" = "401" ] && echo "  ok" || { echo "  FAIL"; fail=1; }
 
 echo
 echo "=== 2. valid token → expect 200 ==="
-c=$(code -X POST -H "Authorization: Bearer $JWT_A" -H 'Content-Type: application/json' -d "$BODY" "$BASE/api/chatWithAI")
+c=$(REQ_JWT="$JWT_A" code -X POST -H 'Content-Type: application/json' -d "$BODY" "$BASE/api/chatWithAI")
 echo "HTTP $c — $(head -c 140 /tmp/lv.out)"
 [ "$c" = "200" ] && echo "  ok" || { echo "  FAIL"; fail=1; }
 
 echo
 echo "=== 3. immediate second call → expect 429 (cooldown) ==="
-c=$(code -X POST -H "Authorization: Bearer $JWT_A" -H 'Content-Type: application/json' -d "$BODY" "$BASE/api/chatWithAI")
+c=$(REQ_JWT="$JWT_A" code -X POST -H 'Content-Type: application/json' -d "$BODY" "$BASE/api/chatWithAI")
 echo "HTTP $c — $(head -c 140 /tmp/lv.out)"
 [ "$c" = "429" ] && echo "  ok" || { echo "  FAIL"; fail=1; }
 
@@ -84,7 +89,7 @@ echo
 echo "=== 6. daily cap → expect 429 after the allowance ==="
 PSQL "update ai_daily_limit set call_count = 999 where uid='$UID_A' and kind='chat';" >/dev/null
 PSQL "update ai_cooldown set updated_at = now() - interval '1 hour' where uid='$UID_A';" >/dev/null
-c=$(code -X POST -H "Authorization: Bearer $JWT_A" -H 'Content-Type: application/json' -d "$BODY" "$BASE/api/chatWithAI")
+c=$(REQ_JWT="$JWT_A" code -X POST -H 'Content-Type: application/json' -d "$BODY" "$BASE/api/chatWithAI")
 echo "HTTP $c — $(head -c 140 /tmp/lv.out)"
 [ "$c" = "429" ] && echo "  ok" || { echo "  FAIL"; fail=1; }
 

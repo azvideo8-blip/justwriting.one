@@ -49,7 +49,10 @@ afterEach(() => {
   }
 });
 
-describe('/ready (SA-4)', () => {
+// R5-005: холодный import('../server') и настоящий сокет — под нагрузкой
+// первый кейс не укладывался и в 15 с. Бюджет на весь блок, а не на один
+// кейс: холодный импорт платит тот, кто запустится первым.
+describe('/ready (SA-4)', { timeout: 30_000 }, () => {
   it('не отдаёт наружу ни строку подключения, ни адрес бэкенда, ни message драйвера', async () => {
     QUERY.mockRejectedValue(Object.assign(new Error(PG_MESSAGE), { code: 'ECONNREFUSED' }));
     const { status, body } = await ready();
@@ -63,7 +66,7 @@ describe('/ready (SA-4)', () => {
       expect(wire).not.toContain(encodeURIComponent(secret));
     }
     expect(wire.toLowerCase()).not.toContain('embed.internal');
-  }, 15_000);
+  });
 
   it('база описана кодом ошибки и булевым флагом, а не текстом драйвера', async () => {
     QUERY.mockRejectedValue(Object.assign(new Error(PG_MESSAGE), { code: 'ECONNREFUSED' }));

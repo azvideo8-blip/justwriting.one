@@ -54,7 +54,10 @@ describe('R4-053: reservation latches survive a failed recordUsage', () => {
 
 // R4-082: без DATABASE_URL /ready обязан отвечать 503, а не изображать готовность.
 // R4-051: 413 должен доходить до клиента по настоящему http-соединению.
-describe('/ready and csp-report on a real http.Server', () => {
+// R5-005: настоящий сокет и холодный import('../server') — время стенное по
+// природе, под нагрузкой оно превышало дефолтные 5 с. Поломка (не 503/413,
+// оборванный сокет) краснеет assertion'ом или fetch failed сразу.
+describe('/ready and csp-report on a real http.Server', { timeout: 30_000 }, () => {
   const originalUrl = process.env.DATABASE_URL;
 
   beforeEach(() => {

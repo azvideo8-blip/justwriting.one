@@ -1599,6 +1599,138 @@ RESET role;
 RESET request.jwt.claims;
 
 -- ============================================================
+-- R5-001 (0035): тот же запрет для разборов и векторов. Под bob-tomb-001
+-- строк нет — на нём проверяется INSERT; под bob-tomb-002 строки засеяны —
+-- на нём UPDATE и upsert (клиент пишет именно upsert'ом). Позитивные
+-- контролы на живых документах доказывают, что политики не deny-all.
+-- ============================================================
+SET role = 'postgres';
+INSERT INTO public.documents (uuid, user_id, title, current_version, deleted_at) VALUES
+  ('bob-tomb-002', '00000000-0000-0000-0000-000000000002', 'Bob''s deleted analysed note', 1, now())
+ON CONFLICT DO NOTHING;
+INSERT INTO public.documents (uuid, user_id, title, current_version) VALUES
+  ('bob-doc-ai-live', '00000000-0000-0000-0000-000000000002', 'Bob''s live note', 1)
+ON CONFLICT DO NOTHING;
+INSERT INTO public.ai_summaries (document_id, user_id, summary) VALUES
+  ('bob-tomb-002', '00000000-0000-0000-0000-000000000002', 'leftover')
+ON CONFLICT DO NOTHING;
+INSERT INTO public.ai_embeddings (document_id, user_id, dim) VALUES
+  ('bob-tomb-002', '00000000-0000-0000-0000-000000000002', 1)
+ON CONFLICT DO NOTHING;
+RESET role;
+
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002"}';
+
+-- R5-001: Bob cannot insert a summary / embedding for his own tombstoned document.
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.ai_summaries (document_id, user_id, summary)
+    VALUES ('bob-tomb-001', '00000000-0000-0000-0000-000000000002', 'smuggled under tombstone');
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Bob inserted an ai_summary under his own tombstone';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.ai_embeddings (document_id, user_id, dim)
+    VALUES ('bob-tomb-001', '00000000-0000-0000-0000-000000000002', 1);
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Bob inserted an ai_embedding under his own tombstone';
+  END IF;
+END $$;
+
+-- R5-001: upsert over a leftover row under the tombstone is refused too.
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.ai_summaries (document_id, user_id, summary)
+    VALUES ('bob-tomb-002', '00000000-0000-0000-0000-000000000002', 'upserted under tombstone')
+    ON CONFLICT (user_id, document_id) DO UPDATE SET summary = excluded.summary;
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Bob upserted an ai_summary under his own tombstone';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.ai_embeddings (document_id, user_id, dim)
+    VALUES ('bob-tomb-002', '00000000-0000-0000-0000-000000000002', 2)
+    ON CONFLICT (user_id, document_id) DO UPDATE SET dim = excluded.dim;
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: Bob upserted an ai_embedding under his own tombstone';
+  END IF;
+END $$;
+
+-- R5-001: Bob cannot update summaries / embeddings under his tombstoned document.
+DO $$
+DECLARE affected int;
+BEGIN
+  UPDATE public.ai_summaries SET summary = 'hacked under tombstone'
+   WHERE document_id = 'bob-tomb-002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: Bob updated ai_summaries under his own tombstone (% rows)', affected;
+  END IF;
+
+  UPDATE public.ai_embeddings SET dim = 3
+   WHERE document_id = 'bob-tomb-002';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: Bob updated ai_embeddings under his own tombstone (% rows)', affected;
+  END IF;
+END $$;
+
+-- R5-001 positive control: Bob CAN insert and update analyses of a live document.
+DO $$
+DECLARE ok boolean; affected int;
+BEGIN
+  BEGIN
+    INSERT INTO public.ai_summaries (document_id, user_id, summary)
+    VALUES ('bob-doc-ai-live', '00000000-0000-0000-0000-000000000002', 'live insert ok');
+    INSERT INTO public.ai_embeddings (document_id, user_id, dim)
+    VALUES ('bob-doc-ai-live', '00000000-0000-0000-0000-000000000002', 1);
+    ok := true;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := false;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: positive control — Bob could not insert analyses for a live document';
+  END IF;
+
+  UPDATE public.ai_summaries SET summary = 'live update ok' WHERE document_id = 'bob-doc-001';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 1 THEN
+    RAISE EXCEPTION 'FAIL: positive control — Bob could not update a live ai_summary (% rows)', affected;
+  END IF;
+
+  UPDATE public.ai_embeddings SET dim = 2 WHERE document_id = 'bob-doc-001';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 1 THEN
+    RAISE EXCEPTION 'FAIL: positive control — Bob could not update a live ai_embedding (% rows)', affected;
+  END IF;
+END $$;
+
+RESET role;
+RESET request.jwt.claims;
+
+-- ============================================================
 -- R4-035: позитивные контролы — владелец видит СВОИ строки. Денай-ол
 -- политика проходит все негативные проверки; эти контролы её ловят.
 -- ============================================================

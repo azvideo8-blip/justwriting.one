@@ -46,7 +46,14 @@ function ChatHarness({ text }: { text: string }) {
   );
 }
 
-describe('useAIChat → crisis panel', () => {
+// R5-005: ждать здесь нечего, кроме настоящей цепочки (IndexedDB, сборка
+// контекста, холодный импорт модулей) — таймеров-засыпаний нет, поддельные
+// часы ничего не ускорят. Под нагрузкой (test:ci с покрытием) она шла 2.7–3.8 с
+// при дефолтных 1 с у waitFor и 5 с у теста: красное без assertion'а. Бюджет
+// waitFor меньше таймаута теста — поломка краснеет assertion'ом, а не таймаутом.
+const WAIT = { timeout: 10_000 };
+
+describe('useAIChat → crisis panel', { timeout: 30_000 }, () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
     localStorage.clear();
@@ -68,7 +75,7 @@ describe('useAIChat → crisis panel', () => {
     });
     await waitFor(() => {
       expect(screen.getByText(/ты не один/)).toBeInTheDocument();
-    });
+    }, WAIT);
   });
 
   it('обычная фраза панель не открывает', async () => {
@@ -78,7 +85,7 @@ describe('useAIChat → crisis panel', () => {
     });
     await waitFor(() => {
       expect(transport.streamChat).toHaveBeenCalled();
-    });
+    }, WAIT);
     expect(screen.queryByText(/ты не один/)).toBeNull();
   });
 });

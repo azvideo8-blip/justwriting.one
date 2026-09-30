@@ -38,7 +38,10 @@ async function putHugeDialogue(id: string): Promise<void> {
   });
 }
 
-describe('R4-004: corrupt journals are not overwritten by writers', () => {
+// R5-005: засыпаний нет (flushPending(true) не ждёт таймер) — время уходит на
+// холодное открытие fake-indexeddb и пять проходов; под нагрузкой это
+// превышало дефолтные 5 с. Поломка журнала краснеет assertion'ом сразу.
+describe('R4-004: corrupt journals are not overwritten by writers', { timeout: 30_000 }, () => {
   let save: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
