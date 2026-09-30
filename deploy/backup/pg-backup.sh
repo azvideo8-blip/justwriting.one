@@ -11,6 +11,29 @@
 set -euo pipefail
 umask 077
 
+# N-92: обязательный состав дампа. auth.users и public.local_store_records —
+# таблицы, чья потеря уже случалась; дамп без них не копия, а надежда.
+check_toc() {
+    local toc_file="$1" entry
+    for entry in "auth users" "public users" "public documents" "public versions" "public local_store_records"; do
+        if ! grep -q "TABLE DATA $entry" "$toc_file"; then
+            echo "ОШИБКА: в дампе нет данных таблицы $entry" >&2
+            return 1
+        fi
+    done
+}
+
+# --check-toc <файл-оглавление>: только проверка состава, без дампа.
+# Для стенда и тестов: pg-backup.sh --check-toc <(pg_restore --list dump.dump)
+if [ "${1:-}" = "--check-toc" ]; then
+    if [ -z "${2:-}" ] || [ ! -f "$2" ]; then
+        echo "ОШИБКА: --check-toc требует путь к файлу оглавления" >&2
+        exit 1
+    fi
+    check_toc "$2"
+    exit $?
+fi
+
 DEST=/var/backups/justwriting
 KEEP_DAILY=14
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -36,12 +59,7 @@ if ! docker exec -i supabase-db pg_restore --list < "$TMP" > "$TOC" 2>/dev/null;
     exit 1
 fi
 
-for t in users documents versions; do
-    if ! grep -q "TABLE DATA public $t" "$TOC"; then
-        echo "ОШИБКА: в дампе нет данных таблицы $t" >&2
-        exit 1
-    fi
-done
+check_toc "$TOC" || exit 1
 
 mv "$TMP" "$FILE"
 sha256sum "$FILE" > "$FILE.sha256"

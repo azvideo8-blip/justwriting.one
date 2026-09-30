@@ -128,12 +128,19 @@ GRANTS_QUERY="select c.relname||' '||coalesce(r.rolname,'PUBLIC')||' '||p.privil
 
 run_checks() {
   Q="select (select count(*) from auth.users)||' auth.users, '||(select count(*) from public.users)||' users, '||(select count(*) from public.documents)||' docs, '||(select count(*) from public.versions)||' versions, '||(select count(*) from public.local_store_records)||' ai records, '||(select count(*) from public.users where encryption_meta is not null)||' vaults'"
-  echo "дамп:  $(drill_sql "$Q")"
-  echo "прод:  $(prod_sql "$Q")"
+  # N-91: psql из $(…) отдаёт ошибку как пустую строку — сверка падала с
+  # «нечисловые значения», хотя причина была в недоступной базе. Каждый
+  # доступ к базе теперь проверяется явно и падает с честной причиной.
+  dump_display=$(drill_sql "$Q") || { echo "ERROR: drill-контейнер не отвечает (psql не смог прочитать счётчики)" >&2; return 1; }
+  prod_display=$(prod_sql "$Q") || { echo "ERROR: прод не отвечает (psql не смог прочитать счётчики)" >&2; return 1; }
+  echo "дамп:  $dump_display"
+  echo "прод:  $prod_display"
   echo "(прод может быть впереди на то, что записано после дампа)"
 
   Q_RAW="select (select count(*) from auth.users)||'|'||(select count(*) from public.users)||'|'||(select count(*) from public.documents)||'|'||(select count(*) from public.versions)||'|'||(select count(*) from public.local_store_records)||'|'||(select count(*) from public.users where encryption_meta is not null)"
-  compare_drill_counts "$(drill_sql "$Q_RAW")" "$(prod_sql "$Q_RAW")"
+  dump_counts=$(drill_sql "$Q_RAW") || { echo "ERROR: drill-контейнер не отвечает (psql не смог прочитать сырые счётчики)" >&2; return 1; }
+  prod_counts=$(prod_sql "$Q_RAW") || { echo "ERROR: прод не отвечает (psql не смог прочитать сырые счётчики)" >&2; return 1; }
+  compare_drill_counts "$dump_counts" "$prod_counts" || return 1
 
   local login_failed=0
   for role in authenticated service_role; do
@@ -150,21 +157,40 @@ run_checks() {
   fi
   echo "OK: приложение входит в восстановленную базу (authenticated, service_role)"
 
-  compare_drill_grants "$(drill_sql "$GRANTS_QUERY")" "$(prod_sql "$GRANTS_QUERY")"
+  # N-91: гранты тоже читаются явно — пустой ответ psql не «пустой список грантов».
+  restored_grants=$(drill_sql "$GRANTS_QUERY") || { echo "ERROR: drill-контейнер не отвечает (psql не смог прочитать гранты)" >&2; return 1; }
+  prod_grants=$(prod_sql "$GRANTS_QUERY") || { echo "ERROR: прод не отвечает (psql не смог прочитать гранты)" >&2; return 1; }
+  compare_drill_grants "$restored_grants" "$prod_grants"
 }
 
 # --verify-only: боевой дамп не разворачивать, проверить контейнер с прошлой
 # итерации. Нужно, чтобы подкрутить гранты в одноразовом контейнере и убедиться,
 # что сверка краснеет, — иначе каждая поломка стоит полного восстановления.
-if [ "${1:-}" = "--verify-only" ]; then
+if [ "${1:-}" = "--verify-only" ] || [ "${2:-}" = "--verify-only" ]; then
+  # N-91: без контейнера проверять нечего — раньше это падало дальше по скрипту
+  # с посторонней ошибкой.
+  if ! docker container inspect "$NAME" >/dev/null 2>&1; then
+    echo "ERROR: контейнер $NAME не найден — --verify-only проверять нечего." >&2
+    echo "Сначала полный прогон: sudo bash $0 --keep-container" >&2
+    exit 1
+  fi
   run_checks
   exit $?
 fi
 
+# N-91: --keep-container не убивает контейнер после прогона — так работает
+# красный рецепт из RESTORE.md: прогон → отозвать грант → --verify-only.
+KEEP_CONTAINER=0
+for arg in "$@"; do
+  if [ "$arg" = "--keep-container" ]; then KEEP_CONTAINER=1; fi
+done
+
 ( cd /var/backups/justwriting && sha256sum -c "$(basename "$DUMP").sha256" )
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true
-trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+if [ "$KEEP_CONTAINER" -eq 0 ]; then
+  trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+fi
 docker run -d --name "$NAME" --memory 1g --network none -e POSTGRES_PASSWORD=drill "$IMAGE" >/dev/null
 for _ in $(seq 1 60); do docker exec "$NAME" pg_isready -U postgres -h localhost >/dev/null 2>&1 && break; sleep 2; done
 sleep 5
