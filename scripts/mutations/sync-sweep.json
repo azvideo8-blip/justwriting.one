@@ -761,9 +761,9 @@
  {
   "id": "ld-02",
   "file": "src/core/services/LocalDocumentService.ts",
-  "line": 172,
-  "old": "t => t.documentId === id ||",
-  "new": "t => t.documentId !== id ||",
+  "line": 188,
+  "old": "           t.documentId === id ||",
+  "new": "           t.documentId !== id ||",
   "why": "Deleting one note wipes the pending upload tasks of every OTHER note — their unsynced edits never reach the cloud (data loss).",
   "tests": [
    "src/core/services/__tests__/faultInjectionHarness.test.ts",
