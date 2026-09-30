@@ -91,21 +91,16 @@ This ensures OpenCode behaves similarly to Claude Code with full workflow enforc
 Проверка перед коммитом: если строку страшно показать постороннему — она не
 едет в репозиторий.
 
-## Orchestration: Personas, Skills, and Commands
+## Orchestration: Skills
 
-This repo has three composable layers. They have different jobs and should not be confused:
+В репозитории один слой оркестрации — **skills** (`skills/<name>/SKILL.md`):
+workflows с шагами и критериями выхода. Обязательный хоп, когда интент
+совпадает с описанием скилла. Оркестратор — человек за запросом.
 
-- **Skills** (`skills/<name>/SKILL.md`) — workflows with steps and exit criteria. The *how*. Mandatory hops when an intent matches.
-- **Personas** (`agents/<role>.md`) — roles with a perspective and an output format. The *who*.
-- **Slash commands** (`.claude/commands/*.md`) — user-facing entry points. The *when*. The orchestration layer.
-
-Composition rule: **the user (or a slash command) is the orchestrator. Personas do not invoke other personas.** A persona may invoke skills.
-
-The only multi-persona orchestration pattern this repo endorses is **parallel fan-out with a merge step** — used by `/ship` to run `code-reviewer`, `security-auditor`, and `test-engineer` concurrently and synthesize their reports. Do not build a "router" persona that decides which other persona to call; that's the job of slash commands and intent mapping.
-
-See [agents/README.md](agents/README.md) for the decision matrix and [references/orchestration-patterns.md](references/orchestration-patterns.md) for the full pattern catalog.
-
-**Claude Code interop:** the personas in `agents/` work as Claude Code subagents (auto-discovered from this plugin's `agents/` directory) and as Agent Teams teammates (referenced by name when spawning). Two platform constraints align with our rules: subagents cannot spawn other subagents, and teams cannot nest. Plugin agents silently ignore the `hooks`, `mcpServers`, and `permissionMode` frontmatter fields.
+(L-13 / R4-045: прежний раздел описывал три слоя — personas `agents/`,
+slash-команды `.claude/commands/` и каталог `references/` — ни одного из этих
+путей в репозитории нет. Мёртвые ссылки удалены; если слои вернутся, вернётся
+и этот абзац — вместе с файлами.)
 
 ## Creating a New Skill
 
@@ -144,7 +139,7 @@ description: {One sentence describing when to use this skill. Include trigger ph
 ## Usage
 
 ```bash
-bash /mnt/skills/user/{skill-name}/scripts/{script}.sh [args]
+bash skills/{skill-name}/scripts/{script}.sh [args]
 ```
 
 **Arguments:**
@@ -183,7 +178,7 @@ Skills are loaded on-demand — only the skill name and description are loaded a
 - Write status messages to stderr: `echo "Message" >&2`
 - Write machine-readable output (JSON) to stdout
 - Include a cleanup trap for temp files
-- Reference the script path as `/mnt/skills/user/{skill-name}/scripts/{script}.sh`
+- Reference the script path relative to the repo: `skills/{skill-name}/scripts/{script}.sh` — the /mnt/skills mount this file used to name does not exist.
 
 ### End-User Installation
 

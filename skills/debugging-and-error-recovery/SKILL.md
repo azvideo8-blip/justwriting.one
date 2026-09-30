@@ -216,12 +216,12 @@ Runtime error:
 When under time pressure, use safe fallbacks:
 
 ```typescript
-// Safe default + warning (instead of crashing)
+// L-13 (R4-045): молчаливый DEFAULTS[key] ?? '' учил глушить сбой —
+// конфиг, который не прочитался, должен падать громко, а не подсовывать пустоту.
 function getConfig(key: string): string {
   const value = process.env[key];
   if (!value) {
-    console.warn(`Missing config: ${key}, using default`);
-    return DEFAULTS[key] ?? '';
+    throw new Error(`Missing required config: ${key} — refusing to start with an empty value`);
   }
   return value;
 }

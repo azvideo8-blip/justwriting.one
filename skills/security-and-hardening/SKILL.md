@@ -142,9 +142,13 @@ app.use(helmet.contentSecurityPolicy({
   },
 }));
 
-// CORS — restrict to known origins
+// CORS — restrict to known origins. R4-045: прежний fallback на
+// 'http://localhost:3000' в проде открывал API любому источнику —
+// отсутствие конфига обязано уронить старт, а не расширить CORS.
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
+  origin: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : (() => { throw new Error('ALLOWED_ORIGINS is not set — refusing to start with permissive CORS'); })(),
   credentials: true,
 }));
 ```
