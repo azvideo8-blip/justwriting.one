@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.26 — 2026-10-01
+
+- **[RU]** Кризисная панель замечает больше формулировок: «хочу умирать», «не хочу больше жить», «устал жить», «незачем жить», «уснуть и не проснуться», «хочу сдохнуть», «причинить себе боль», английское «don't want to live», слова, разделённые несколькими невидимыми символами. И не срабатывает на бытовое: «не хочу жить в этом городе», «покончить с прокрастинацией», «умереть от смеха», «I won't…».
+- **[EN]** The crisis panel notices more phrasings: «хочу умирать», «не хочу больше жить», «устал жить», «незачем жить», «уснуть и не проснуться», «хочу сдохнуть», «причинить себе боль», English «don't want to live», words split by several invisible characters. And it stays quiet on everyday phrases: «не хочу жить в этом городе», «покончить с прокрастинацией», «умереть от смеха», «I won't…».
+- **[RU]** Заголовок заметки вроде «забудь всё» больше не блокирует разбор этой заметки в диалоге.
+- **[EN]** A note title like «forget everything» no longer blocks discussing that note in the dialogue.
+- **[RU]** Удаление заметки, которая ни разу не уходила в облако, больше не пугает сообщением «ИИ-данные остались в облаке»; «убрать копию с устройства» больше не удаляет облачные разборы этой заметки.
+- **[EN]** Deleting a note that never reached the cloud no longer warns that «AI data remained in the cloud»; «remove the device copy» no longer deletes that note’s analyses in the cloud.
+- **[RU]** Разборы ИИ удалённой заметки не могут попасть на сервер задним числом; разборы заметки, отвязанной от облака, остаются на устройстве, а не повторяют отправку бесконечно.
+- **[EN]** AI analyses of a deleted note can no longer reach the server afterwards; analyses of a note unlinked from the cloud stay on the device instead of retrying forever.
+- **[RU]** Даты в диагностике всегда следуют языку интерфейса.
+- **[EN]** Dates in diagnostics always follow the interface language.
+
 ## 0.9.25 — 2026-09-30
 
 - **[RU]** Кнопка «Посмотри в других моих записях — как это связано?» больше не прикрепляет к вопросу случайную заметку: приложение само заметки не прикрепляет, это делает только человек.

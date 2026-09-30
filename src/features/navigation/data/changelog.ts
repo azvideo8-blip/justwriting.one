@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.26',
+    date: '2026-10-01',
+    items: [
+      { category: 'fix', ru: 'Кризисная панель замечает больше формулировок: «хочу умирать», «не хочу больше жить», «устал жить», «незачем жить», «уснуть и не проснуться», «хочу сдохнуть», «причинить себе боль», английское «don\'t want to live», слова, разделённые несколькими невидимыми символами. И не срабатывает на бытовое: «не хочу жить в этом городе», «покончить с прокрастинацией», «умереть от смеха», «I won\'t…».', en: 'The crisis panel notices more phrasings: «хочу умирать», «не хочу больше жить», «устал жить», «незачем жить», «уснуть и не проснуться», «хочу сдохнуть», «причинить себе боль», English «don\'t want to live», words split by several invisible characters. And it stays quiet on everyday phrases: «не хочу жить в этом городе», «покончить с прокрастинацией», «умереть от смеха», «I won\'t…».' },
+      { category: 'fix', ru: 'Заголовок заметки вроде «забудь всё» больше не блокирует разбор этой заметки в диалоге.', en: 'A note title like «forget everything» no longer blocks discussing that note in the dialogue.' },
+      { category: 'fix', ru: 'Удаление заметки, которая ни разу не уходила в облако, больше не пугает сообщением «ИИ-данные остались в облаке»; «убрать копию с устройства» больше не удаляет облачные разборы этой заметки.', en: 'Deleting a note that never reached the cloud no longer warns that «AI data remained in the cloud»; «remove the device copy» no longer deletes that note’s analyses in the cloud.' },
+      { category: 'fix', ru: 'Разборы ИИ удалённой заметки не могут попасть на сервер задним числом; разборы заметки, отвязанной от облака, остаются на устройстве, а не повторяют отправку бесконечно.', en: 'AI analyses of a deleted note can no longer reach the server afterwards; analyses of a note unlinked from the cloud stay on the device instead of retrying forever.' },
+      { category: 'fix', ru: 'Даты в диагностике всегда следуют языку интерфейса.', en: 'Dates in diagnostics always follow the interface language.' },
+    ],
+  },
+  {
     version: '0.9.25',
     date: '2026-09-30',
     items: [
