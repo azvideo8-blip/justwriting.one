@@ -50,8 +50,8 @@
 - **[EN]** A note hidden from the AI no longer reaches the model through dialogue memory or message history.
 - **[RU]** Разбор заметки в чате: новый диалог не наследует заметку из прошлого; «Ответить иначе» опирается на вопрос, а не на текст заметки; обычная фраза в заметке («забудь всё») больше не блокирует диалог; дата заметки без сессий берётся из заметки.
 - **[EN]** Note analysis in the chat: a new dialogue no longer inherits the previous note; «Answer differently» works from the question, not the note text; an ordinary phrase in the note («forget everything») no longer blocks the dialogue; a note with no sessions gets its own date.
-- **[RU]** ИИ-панель в редакторе на телефоне снова работает — все её действия были выключены.
-- **[EN]** The AI panel in the phone editor works again — all its actions were disabled.
+- **[RU]** ИИ-панель мобильного редактора снова получает текст — все её действия были выключены. Мобильная раскладка пока выключена, на телефоне открывается обычный редактор.
+- **[EN]** The AI panel of the mobile editor gets the text again — all its actions were disabled. The mobile layout itself is still switched off; phones get the regular editor.
 - **[RU]** Ошибка сохранения больше не исчезает через секунду, а правка, сделанная во время сохранения, сохраняется сразу за ним, а не при следующем нажатии.
 - **[EN]** A save error no longer disappears after a second, and an edit made during a save is saved right after it instead of on the next keystroke.
 - **[RU]** Эмодзи в больших записях ИИ больше не портятся в облачной копии.
