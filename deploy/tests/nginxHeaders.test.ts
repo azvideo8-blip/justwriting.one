@@ -62,11 +62,11 @@ describe('AU-3: HSTS и защитные заголовки в nginx', () => {
 // M-7: /ready публичный, каждый запрос — SELECT 1 из пула на 10 соединений.
 // Фальсификация: убрать limit_req из `location = /ready` — тест краснеет.
 describe('M-7: /ready под лимитом запросов', () => {
-  it('location = /ready ограничен объявленной зоной api_limit', () => {
+  it('location = /ready ограничен своей объявленной зоной ready_limit (R5-011)', () => {
     const conf = readFileSync(join(process.cwd(), 'deploy/nginx.conf'), 'utf-8');
-    expect(conf).toMatch(/limit_req_zone\s+\S+\s+zone=api_limit:/);
+    expect(conf).toMatch(/limit_req_zone\s+\S+\s+zone=ready_limit:/);
     const body = conf.match(/location = \/ready \{([^}]+)\}/)?.[1] ?? '';
     expect(body).toContain('proxy_pass');
-    expect(body).toMatch(/limit_req zone=api_limit burst=\d+ nodelay;/);
+    expect(body).toMatch(/limit_req zone=ready_limit burst=\d+ nodelay;/);
   });
 });
