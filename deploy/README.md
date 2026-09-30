@@ -108,7 +108,6 @@ if [ -f /var/www/justwriting/index.html ]; then sudo cp /var/www/justwriting/ind
 if [ -f /var/www/justwriting/sw.js ]; then sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev; fi
 # БЕЗ --delete: страница, открытая до выкатки, продолжает подгружать куски своего бандла
 sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/
-sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/
 sudo chown -R www-data:www-data /var/www/justwriting
 REMOTE
 ```

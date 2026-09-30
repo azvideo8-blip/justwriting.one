@@ -188,10 +188,10 @@ jobs:
             if [ -f /var/www/justwriting/sw.js ]; then
               sudo cp /var/www/justwriting/sw.js /var/www/justwriting/sw.js.prev
             fi
+            # Шаблоны писем едут в dist из public/email. Прежняя подмена из
+            # /opt/justwriting/email-templates (каталога там нет) предупреждала
+            # на каждой выкатке и могла бы молча вернуть устаревшие шаблоны.
             sudo rsync -a "$REMOTE_DIR"/ /var/www/justwriting/
-            if ! mail_err=$(sudo rsync -a /opt/justwriting/email-templates/ /var/www/justwriting/email/ 2>&1); then
-              echo "::warning::email templates not synced: ${mail_err//$'\n'/ }"
-            fi
             sudo chown -R www-data:www-data /var/www/justwriting
             rm -rf "$REMOTE_DIR"
           REMOTE
