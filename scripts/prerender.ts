@@ -182,6 +182,9 @@ async function prerenderWithPlaywright(originalHtml: string, spaHtml: string): P
     } catch (launchErr) {
       // AUDIT-M20: отсутствие браузера не должно валить весь build —
       // prerender это SEO-усиление, а не корректность.
+      // L-9 (R4-067): в CI молчаливый пропуск — зелёная выкатка без
+      // предрендера; там браузер установлен шагом выше, и падение честное.
+      if (process.env.CI) throw launchErr;
       console.warn('[prerender] chromium unavailable, skipping prerender:', launchErr);
       process.exitCode = 0;
       return;

@@ -64,6 +64,15 @@ for f in $(grep -oE '/og-image\.[a-z]+' index.html | sort -u); do
 done
 
 echo ""
+echo "### 3.8 deploy.yml rollback restores node_modules (L-9 / R4-064)"
+# rsync --delete заменяет зависимости до запуска службы; откат, возвращающий
+# только server.mjs, оставляет службу без её пакетов. Красный на выкатке без
+# снимка: grep не находит node_modules.prev.
+grep -q 'node_modules.prev' .github/workflows/deploy.yml \
+  && echo "  OK: node_modules snapshot + restore present in deploy/rollback" \
+  || fail "deploy.yml has no node_modules snapshot/restore"
+
+echo ""
 echo "### 3.11 api tests run from the api/ directory"
 # Из корня 'npx vitest run api' матчил по подстроке 'api' файлы путей,
 # включая src/features/ai/utils/__tests__/prepareApiMessages.test.ts (3 теста).

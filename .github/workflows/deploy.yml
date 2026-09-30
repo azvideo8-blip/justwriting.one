@@ -262,6 +262,14 @@ jobs:
             # Кэш — у пользователя выкатки: в /opt/justwriting/api ему писать нельзя.
             env npm_config_cache="$HOME/.npm-cache-jw-api" \
               npm ci --prefix "$REMOTE_DIR"/stage --omit=dev --no-audit --no-fund &&
+            # L-9 (R4-064): снимок старого дерева перед подменой (жёсткие
+            # ссылки, тот же том). Откат ниже восстанавливает и зависимости:
+            # rsync --delete уже снёс прежние, а server.mjs без своих пакетов
+            # не поднимется.
+            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev &&
+            sudo cp -al /opt/justwriting/api/node_modules /opt/justwriting/api/node_modules.prev &&
+            sudo cp /opt/justwriting/api/package.json /opt/justwriting/api/package.json.prev &&
+            sudo cp /opt/justwriting/api/package-lock.json /opt/justwriting/api/package-lock.json.prev &&
             sudo rsync -a --delete "$REMOTE_DIR"/stage/node_modules/ /opt/justwriting/api/node_modules/ &&
             sudo cp "$REMOTE_DIR"/stage/package.json "$REMOTE_DIR"/stage/package-lock.json /opt/justwriting/api/ &&
             sudo chown -R justwriting:justwriting /opt/justwriting/api/node_modules /opt/justwriting/api/package.json /opt/justwriting/api/package-lock.json &&
@@ -269,7 +277,8 @@ jobs:
             sudo chown justwriting:justwriting /opt/justwriting/api/server.mjs &&
             rm -rf "$REMOTE_DIR" &&
             sudo systemctl restart justwriting && sleep 5 &&
-            systemctl is-active --quiet justwriting
+            systemctl is-active --quiet justwriting &&
+            sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev
           REMOTE
 
       - name: Проверка после выкатки
@@ -310,9 +319,16 @@ jobs:
         run: |
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             if [ -f /opt/justwriting/api/server.mjs.prev ]; then
-              sudo cp /opt/justwriting/api/server.mjs.prev /opt/justwriting/api/server.mjs &&
-              sudo systemctl restart justwriting && echo "откат службы выполнен"
-            fi'
+              sudo cp /opt/justwriting/api/server.mjs.prev /opt/justwriting/api/server.mjs;
+            fi;
+            if [ -d /opt/justwriting/api/node_modules.prev ]; then
+              sudo rsync -a --delete /opt/justwriting/api/node_modules.prev/ /opt/justwriting/api/node_modules/ &&
+              sudo cp /opt/justwriting/api/package.json.prev /opt/justwriting/api/package.json &&
+              sudo cp /opt/justwriting/api/package-lock.json.prev /opt/justwriting/api/package-lock.json &&
+              sudo rm -rf /opt/justwriting/api/node_modules.prev /opt/justwriting/api/package.json.prev /opt/justwriting/api/package-lock.json.prev &&
+              echo "откат зависимостей выполнен";
+            fi;
+            sudo systemctl restart justwriting && echo "откат службы выполнен"'
 
       # Если проверка после выкатки клиента упала — возвращаем index.html и sw.js.
       # Старые бандлы в assets сохранены благодаря ротации по возрасту, поэтому
