@@ -216,16 +216,29 @@ export const LocalDocumentService = {
     // выше её удалили. Уборка производных не может достать uuid сама — она
     // прочитает undefined и пойдёт удалять облачные строки по локальному
     // номеру, которого в облаке нет. Ровно эта ошибка тут и была.
+    //
+    // R5-031: облачные сводка и вектор ключуются номером облачного ряда
+    // (documents.uuid = targetCloudId), и RLS пускает их только под живой ряд.
+    // Отсюда три случая:
+    // - облачная копия остаётся (нет cloud.remove: removeLocalCopy, откат
+    //   скачивания) — её производные тоже остаются, трогать облако нельзя;
+    // - заметка здесь есть, а облачного ряда у неё нет (незалитая, гостевая) —
+    //   в облаке нечего удалять, и «производные остались» было бы ложью;
+    // - облачный ряд известен — сносим по его номеру, даже если локальной
+    //   строки уже не было и uuid прочитать неоткуда.
+    const skipCloud = !cloud?.remove || (Boolean(doc) && !targetCloudId);
     const effectiveOwner = ownerId ?? doc?.guestId;
-    return LocalDocumentService.cascadeDeleteAIDerivatives(id, doc?.uuid, effectiveOwner);
+    return LocalDocumentService.cascadeDeleteAIDerivatives(id, targetCloudId, effectiveOwner, skipCloud);
   },
 
   /**
    * @param canonicalUuid Постоянный номер заметки, снятый ДО её удаления.
    *   Обязателен, когда заметки в хранилище уже нет: облачные строки сводки и
    *   вектора ключуются им, и по локальному номеру не удалится ничего.
+   * @param skipCloud true — облачных производных у заметки нет или они должны
+   *   остаться (см. deleteDocument): облако не трогаем и сбоем это не считаем.
    */
-  async cascadeDeleteAIDerivatives(documentId: string, canonicalUuid?: string, ownerId?: string): Promise<boolean> {
+  async cascadeDeleteAIDerivatives(documentId: string, canonicalUuid?: string, ownerId?: string, skipCloud = false): Promise<boolean> {
     // N-51: каждый сбой считается — удаление производных сообщает, прошло ли оно.
     let failed = 0;
     const fail = () => { failed++; };
@@ -245,7 +258,9 @@ export const LocalDocumentService = {
       // Облачные копии тех же трёх. Локального удаления мало: восстановление
       // из облака вернуло бы разбор удалённой заметки обратно на устройство.
       LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);
-      if (canonicalId) {
+      if (skipCloud) {
+        // облачного ряда нет или он остаётся — удалять в облаке нечего
+      } else if (canonicalId) {
         const cloud = await Promise.all([
           deleteCloudDerivative('summary', canonicalId, effectiveOwnerId),
           deleteCloudDerivative('embedding', canonicalId, effectiveOwnerId),

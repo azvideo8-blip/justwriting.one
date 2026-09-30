@@ -15,6 +15,34 @@ sudo bash /opt/justwriting/backup/restore-drill.sh
 Поднимает дамп в отдельном контейнере без сети и сверяет с боевой базой и число
 строк, и права. Боевую базу не трогает.
 
+### Таймер (R5-025, R5-062)
+
+«Раз в месяц» держит systemd, а не память: `justwriting-restore-drill.timer`
+запускает тот же скрипт 1-го числа в 05:00 UTC (после ночной копии в 03:30),
+без `--keep-container` — контейнер с копией данных удаляется на выходе. Красный
+drill — ненулевой код, юнит уходит в `failed`, вывод — в журнале. Установка
+(один раз, из корня репозитория на сервере или после копирования файлов):
+
+```bash
+sudo install -m 644 deploy/backup/justwriting-restore-drill.service \
+  deploy/backup/justwriting-restore-drill.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemd-analyze verify /etc/systemd/system/justwriting-restore-drill.service
+sudo systemctl enable --now justwriting-restore-drill.timer
+systemctl list-timers justwriting-restore-drill.timer     # следующий запуск
+sudo systemctl start justwriting-restore-drill.service    # первый прогон сразу, ждёт до конца
+```
+
+Итог последнего прогона — машиной, а не прозой:
+
+```bash
+systemctl show -p Result,ExecMainStatus,ExecMainExitTimestamp justwriting-restore-drill.service
+journalctl -u justwriting-restore-drill.service -n 60 --no-pager
+```
+
+`Result=success`, `ExecMainStatus=0` — зелёный; `ExecMainExitTimestamp` старше
+~35 дней — таймер не срабатывает, это тоже красный.
+
 Счётчики строк читаются суперюзером — на базе без единого табличного гранта они
 выглядят точно так же, как на здоровой. Поэтому drill дополнительно входит в
 восстановленную базу под ролями клиента (`authenticated`, `service_role`) и

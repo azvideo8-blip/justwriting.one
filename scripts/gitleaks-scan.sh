@@ -6,7 +6,8 @@
 #
 #   bash scripts/gitleaks-scan.sh "<git log opts, напр. --all>"
 #
-# Сборки зафиксированы под linux — оба вызова идут на раннере с Linux.
+# Сборки зафиксированы под linux (раннеры CI) и macOS (ручной прогон с ноутбука);
+# sha256 — из gitleaks_<ver>_checksums.txt релиза, сверены с самими архивами.
 set -euo pipefail
 
 LOG_OPTS="${1:-}"
@@ -16,17 +17,27 @@ if [ -z "$LOG_OPTS" ]; then
 fi
 
 GL_VERSION=8.30.1
-case "$(uname -m)" in
-  x86_64|amd64)
+# R5-026/R5-033: выбор только по `uname -m` качал linux-сборку и на macOS —
+# там она не запускается (exit 126). Выбираем по ОС и архитектуре вместе.
+case "$(uname -s)/$(uname -m)" in
+  Linux/x86_64|Linux/amd64)
     GL_ARCH=linux_x64
     GL_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
     ;;
-  aarch64|arm64)
+  Linux/aarch64|Linux/arm64)
     GL_ARCH=linux_arm64
     GL_SHA256=e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080
     ;;
+  Darwin/x86_64)
+    GL_ARCH=darwin_x64
+    GL_SHA256=dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709
+    ;;
+  Darwin/arm64)
+    GL_ARCH=darwin_arm64
+    GL_SHA256=b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5
+    ;;
   *)
-    echo "::error::Нет зафиксированной сборки gitleaks для $GL_VERSION под $(uname -m)"
+    echo "::error::Нет зафиксированной сборки gitleaks для $GL_VERSION под $(uname -s) $(uname -m)"
     exit 1
     ;;
 esac

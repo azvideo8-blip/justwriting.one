@@ -21,7 +21,8 @@ const CANON = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
 vi.mock('../../data', () => ({ DataProvider: { deleteSummary, deleteEmbedding } }));
 vi.mock('../../auth', () => ({ getCurrentUser: () => ({ uid: 'user-1' }) }));
-vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+const reportError = vi.fn();
+vi.mock('../../../shared/errors/reportError', () => ({ reportError }));
 vi.mock('../facetLock', () => ({
   withFacetLock: async (fn: () => Promise<void>) => fn(),
   // Без этого шаги 7–8 уборки (грани профиля, убеждения) падали в заглушке
@@ -40,7 +41,7 @@ vi.mock('../LocalStoreSyncService', () => ({
  * Прежняя отдавала документ ВСЕГДА — и поэтому не могла увидеть, что в проде
  * уборка вызывается уже ПОСЛЕ удаления и читает undefined.
  */
-const docs = new Map<string, { id: string; uuid?: string; guestId?: string }>();
+const docs = new Map<string, { id: string; uuid?: string; guestId?: string; linkedCloudId?: string }>();
 
 vi.mock('../../storage/localDb', () => ({
   randomUUID: () => 'uuid',
@@ -76,7 +77,7 @@ describe('cascadeDeleteAIDerivatives — облачные копии', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     docs.clear();
-    docs.set('local_1', { id: 'local_1', uuid: CANON, guestId: 'user-1' });
+    docs.set('local_1', { id: 'local_1', uuid: CANON, guestId: 'user-1', linkedCloudId: CANON });
   });
 
   it('сносит облачные сводку и вектор по постоянному номеру заметки', async () => {
@@ -100,7 +101,7 @@ describe('cascadeDeleteAIDerivatives — облачные копии', () => {
    * и подсовывал ей живой документ, поэтому не видел ничего.
    */
   it('удаление заметки сносит облачные копии по постоянному номеру', async () => {
-    await LocalDocumentService.deleteDocument('local_1');
+    await LocalDocumentService.deleteDocument('local_1', undefined, { remove: true });
 
     expect(deleteSummary).toHaveBeenCalledWith('user-1', CANON);
     expect(deleteEmbedding).toHaveBeenCalledWith('user-1', CANON);
@@ -110,22 +111,73 @@ describe('cascadeDeleteAIDerivatives — облачные копии', () => {
   // сообщает, а не рапортует полный успех.
   it('reports when a cloud derivative could not be deleted', async () => {
     deleteSummary.mockRejectedValueOnce(new Error('offline'));
-    expect(await LocalDocumentService.deleteDocument('local_1')).toBe(false);
+    expect(await LocalDocumentService.deleteDocument('local_1', undefined, { remove: true })).toBe(false);
   });
 
   it('reports success when everything is gone', async () => {
-    expect(await LocalDocumentService.deleteDocument('local_1')).toBe(true);
+    expect(await LocalDocumentService.deleteDocument('local_1', undefined, { remove: true })).toBe(true);
   });
 
-  // N-64: когда нет канонического uuid, удаление возвращает false (fail)
-  it('N-64: returns false when canonical uuid is missing', async () => {
-    docs.set('local_no_uuid', { id: 'local_no_uuid', guestId: 'user-1' });
-    expect(await LocalDocumentService.deleteDocument('local_no_uuid')).toBe(false);
+  // N-64: ни заметки, ни облачного номера — что лежит в облаке, неизвестно;
+  // это честное «не всё удалено», а не успех.
+  it('N-64: returns false when neither the note nor its cloud id is known', async () => {
+    expect(await LocalDocumentService.deleteDocument('local_gone', 'user-1', { remove: true })).toBe(false);
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('canonical uuid unavailable') }),
+      expect.anything(), 'warning');
   });
 
-  // N-65: удаление облачных производных для гостя или чужого владельца возвращает false
-  it('N-65: returns false when owner is guest or missing for cloud derivatives', async () => {
+  // N-65: владелец неизвестен — облачную копию удалить некому, это сбой.
+  it('N-65: returns false when the owner of a synced note is missing', async () => {
+    docs.set('local_ownerless', { id: 'local_ownerless', uuid: CANON, linkedCloudId: CANON });
+    expect(await LocalDocumentService.deleteDocument('local_ownerless', undefined, { remove: true })).toBe(false);
+  });
+
+  // R5-031: у незалитой заметки облачного ряда нет, а RLS не пустила бы туда
+  // ни одной производной. Удаление без сети не должно говорить «производные
+  // остались в облаке» — там ничего не было.
+  it('R5-031: never-synced note deleted offline is a full delete, cloud untouched', async () => {
+    docs.set('local_new', { id: 'local_new', uuid: CANON, guestId: 'user-1' });
+    deleteSummary.mockRejectedValue(new Error('offline'));
+    deleteEmbedding.mockRejectedValue(new Error('offline'));
+    try {
+      expect(await LocalDocumentService.deleteDocument('local_new', 'user-1', { remove: true })).toBe(true);
+    } finally {
+      deleteSummary.mockResolvedValue(undefined);
+      deleteEmbedding.mockResolvedValue(undefined);
+    }
+    expect(deleteSummary).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  // R5-031: гостевая заметка в облаке не бывает никогда — её удаление полное.
+  it('R5-031: guest note deletion is a full delete', async () => {
     docs.set('local_guest_doc', { id: 'local_guest_doc', uuid: CANON, guestId: 'guest_123' });
-    expect(await LocalDocumentService.deleteDocument('local_guest_doc')).toBe(false);
+    expect(await LocalDocumentService.deleteDocument('local_guest_doc', 'guest_123', { remove: true })).toBe(true);
+  });
+
+  // R5-031: локальной строки уже нет (сняли параллельно), но облачный номер
+  // вызывающий знает — облачные сводка и вектор сносятся по нему, а не
+  // остаются навсегда с предупреждением в журнале.
+  it('R5-031: note already gone locally — cloud derivatives purged by the passed cloud id', async () => {
+    expect(await LocalDocumentService.deleteDocument('local_gone', 'user-1', { remove: true, cloudId: CANON })).toBe(true);
+    expect(deleteSummary).toHaveBeenCalledWith('user-1', CANON);
+    expect(deleteEmbedding).toHaveBeenCalledWith('user-1', CANON);
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  // R5-031: снять только локальную копию (removeLocalCopy, откат скачивания)
+  // — облачная заметка остаётся, и её сводка с вектором тоже.
+  it('R5-031: removing only the local copy keeps the cloud summary and embedding', async () => {
+    expect(await LocalDocumentService.deleteDocument('local_1')).toBe(true);
+    expect(deleteSummary).not.toHaveBeenCalled();
+    expect(deleteEmbedding).not.toHaveBeenCalled();
+  });
+
+  // Облако остаётся намеренно — значит и «облачные производные остались» не
+  // сбой, даже если локальной строки к этому моменту уже нет.
+  it('R5-031: removing only the local copy of an already-gone note is not a failure', async () => {
+    expect(await LocalDocumentService.deleteDocument('local_gone', 'user-1')).toBe(true);
+    expect(reportError).not.toHaveBeenCalled();
   });
 });

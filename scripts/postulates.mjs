@@ -73,8 +73,17 @@ export function getFixtureFilter(table, prefix = '') {
   return `${p}user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'`;
 }
 
+// R5-030: хранилище — режим аккаунта, а не всей базы. Без сейфа открытый текст
+// разрешён (P2 меряется только с включённым сейфом), поэтому нарушение ценза —
+// только строка аккаунта, у которого сейф есть: новая encryption_meta или
+// старая пара salt + ключ (ровно так его ищет EncryptionService). Выключить
+// сейф продукт не умеет — «был включён» и «включён» совпадают.
+export const VAULT_ON_SQL = `EXISTS (SELECT 1 FROM public."users" u WHERE u.uid = t.user_id AND (u.encryption_meta IS NOT NULL OR (u.encryption_salt IS NOT NULL AND u.encrypted_data_key IS NOT NULL)))`;
+
 export const CENSUS_TABLES = [
-  { table: 'documents', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
+  // Надгробие (deleted_at) обнулено и помечено _encrypted=false самим удалением
+  // (providers/documents.ts): содержимого в нём нет, считать его нечем.
+  { table: 'documents', unencrypted: `_encrypted IS NOT TRUE AND deleted_at IS NULL AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
   { table: 'versions', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
   { table: 'drafts', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
   { table: 'ai_summaries', unencrypted: `_encrypted IS NOT TRUE AND user_id::text NOT LIKE '${RESERVED_FIXTURE_UID_PREFIX}%'` },
@@ -413,21 +422,25 @@ export async function runDatabaseChecks(client, { logger = console.log } = {}) {
   }
 
   // 4. _encrypted census
-  log('\n--- 4. _encrypted census (all rows in encrypted tables must have _encrypted = true) ---');
-  log('SQL Query: SELECT count(*) FROM public.%I WHERE <unencrypted>');
+  log('\n--- 4. _encrypted census (rows of vault-enabled accounts must have _encrypted = true) ---');
+  log('SQL Query: SELECT count(*) FILTER (WHERE <vault on>), count(*) FILTER (WHERE NOT <vault on>) FROM public.%I t WHERE <unencrypted>');
   for (const { table, unencrypted } of CENSUS_TABLES) {
-    const q = `SELECT count(*)::int AS cnt FROM public."${table}" WHERE ${unencrypted}`;
+    const q = `SELECT count(*) FILTER (WHERE ${VAULT_ON_SQL})::int AS cnt, count(*) FILTER (WHERE NOT ${VAULT_ON_SQL})::int AS vault_off FROM public."${table}" t WHERE ${unencrypted}`;
     try {
       const res = await client.query(q);
       const cnt = res.rows[0]?.cnt || 0;
+      const vaultOff = res.rows[0]?.vault_off || 0;
       if (cnt > 0) {
-        // Незашифрованная строка в таблице, которая обязана быть зашифрованной,
-        // — это нарушение постулата 2, а не справка к сведению.
-        log(`  [FAIL] ${table}: ${cnt} unencrypted rows`);
+        // Незашифрованная строка аккаунта с сейфом — это нарушение постулата 2,
+        // а не справка к сведению.
+        log(`  [FAIL] ${table}: ${cnt} unencrypted rows of vault-enabled accounts`);
         totalViolations += cnt;
       } else {
-        log(`  [OK]   ${table}: 0 unencrypted rows`);
+        log(`  [OK]   ${table}: 0 unencrypted rows of vault-enabled accounts`);
       }
+      // Без сейфа открытый текст — разрешённый режим; число печатаем, чтобы
+      // «всё чисто» не читалось как «всё зашифровано».
+      if (vaultOff > 0) log(`  [INFO] ${table}: ${vaultOff} plaintext rows of accounts without a vault (allowed, not a violation)`);
     } catch (err) {
       skipped++;
       log(`  [SKIP] ${table}: ${err.message}`);
@@ -568,10 +581,15 @@ export async function main() {
   console.log('');
 
   if (passed) {
-    console.log('RESULT: NO VIOLATIONS FOUND');
+    // R5-032: без базы exit 0 — по замыслу (локально базы может не быть, строгий
+    // режим — --require-db / npm run postulates:db, его гоняет gates.yml). Но
+    // сама строка RESULT обязана сказать, что база не проверялась: читают её.
+    console.log(dbRes.checked
+      ? 'RESULT: NO VIOLATIONS FOUND'
+      : 'RESULT: NO VIOLATIONS FOUND IN THE MATRIX — DATABASE NOT SCANNED');
     console.log(dbRes.checked
       ? 'Every postulate that could be measured held, in the matrix and in the database.'
-      : 'Every postulate that could be measured held in the matrix. The database was not scanned.');
+      : 'Every postulate that could be measured held in the matrix. The database was not scanned: use --require-db (npm run postulates:db) to make that a failure.');
     process.exit(0);
   } else {
     console.log('RESULT: FAILED');

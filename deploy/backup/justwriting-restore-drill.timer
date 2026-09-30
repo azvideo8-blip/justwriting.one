@@ -1,0 +1,12 @@
+[Unit]
+Description=Ежемесячное учебное восстановление базы justwriting
+
+[Timer]
+# Первое число месяца, после ночной копии (03:30 + до 15 мин разброса).
+OnCalendar=*-*-01 05:00:00
+RandomizedDelaySec=900
+# Сервер был выключен в момент срабатывания — прогнать при следующем старте.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

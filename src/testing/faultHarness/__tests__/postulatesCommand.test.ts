@@ -6,6 +6,7 @@ import {
   runDatabaseChecks,
   ENC_COLS,
   CENSUS_TABLES,
+  VAULT_ON_SQL,
 } from '../../../../scripts/postulates.mjs';
 
 const rootDir = path.resolve(__dirname, '../../../..');
@@ -61,6 +62,8 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
     expect(res.stdout, 'вердикт говорит про applicable cells').toContain('applicable cells');
     expect(res.stdout, 'неприменимые слоты посчитаны отдельно').toMatch(/not-applicable slots \(P2\/P4 with the vault off\): \d+/);
     expect(res.stdout, 'пропущенный обход базы обязан быть назван').toContain('Database sweep: NOT RUN');
+    // R5-032: и в самой строке RESULT — её читают, а не сводку выше.
+    expect(res.stdout).toContain('RESULT: NO VIOLATIONS FOUND IN THE MATRIX — DATABASE NOT SCANNED');
     expect(res.stdout).not.toContain('All four postulates hold');
   }, MATRIX_SPAWN_TIMEOUT_MS + 20_000);
 
@@ -309,6 +312,42 @@ describe('Postulates Command Suite (BETA-8 / POST-4)', () => {
       expect(output).toContain('[FAIL]');
       expect(output).toContain(probe.col ? `${probe.table}.${probe.col}` : `${probe.table}: 1 unencrypted rows`);
     }
+  });
+
+  // R5-030: без сейфа открытый текст — разрешённый режим аккаунта. Ценз,
+  // считавший его нарушением, давал стену ложных FAIL и не отвечал на вопрос
+  // «есть ли незашифрованная строка у аккаунта с сейфом». Реальный замер на
+  // PG16 с миграциями: 1 утечка vault-on + 1 legacy-пара + 2 vault-off + 1
+  // надгробие → старый ценз 5, новый 2 (+ INFO 2).
+  it('R5-030: census counts plaintext as a violation only for vault-enabled accounts', async () => {
+    const mockQuery = vi.fn(async (sql: string) =>
+      sql.includes('vault_off') ? { rows: [{ cnt: 0, vault_off: 7 }] } : { rows: [{ cnt: 0 }] });
+    const logs: string[] = [];
+    const result = await runDatabaseChecks({ query: mockQuery } as any, { logger: (m: string) => logs.push(m) });
+
+    expect(result.success).toBe(true);
+    expect(result.totalViolations).toBe(0);
+    expect(logs.join('\n')).toContain('documents: 7 plaintext rows of accounts without a vault');
+
+    const census = mockQuery.mock.calls.map(c => c[0] as string).filter(q => q.includes('vault_off'));
+    expect(census).toHaveLength(CENSUS_TABLES.length);
+    // сейф — это encryption_meta или старая пара salt + ключ (как в EncryptionService)
+    expect(VAULT_ON_SQL).toContain('u.encryption_meta IS NOT NULL');
+    expect(VAULT_ON_SQL).toContain('u.encryption_salt IS NOT NULL AND u.encrypted_data_key IS NOT NULL');
+    for (const q of census) expect(q).toContain(`count(*) FILTER (WHERE ${VAULT_ON_SQL})::int AS cnt`);
+    // надгробие обнулено удалением — не строка с содержимым
+    expect(census.find(q => q.includes('"documents"'))).toContain('deleted_at IS NULL');
+  });
+
+  it('R5-030: plaintext of a vault-enabled account is still a violation', async () => {
+    const mockQuery = vi.fn(async (sql: string) =>
+      sql.includes('vault_off') && sql.includes('"versions"') ? { rows: [{ cnt: 3, vault_off: 5 }] } : { rows: [{ cnt: 0 }] });
+    const logs: string[] = [];
+    const result = await runDatabaseChecks({ query: mockQuery } as any, { logger: (m: string) => logs.push(m) });
+
+    expect(result.success).toBe(false);
+    expect(result.totalViolations).toBe(3);
+    expect(logs.join('\n')).toContain('[FAIL] versions: 3 unencrypted rows of vault-enabled accounts');
   });
 
   it('ENC_COLS and CENSUS_TABLES contain all required fields from POST-3', () => {

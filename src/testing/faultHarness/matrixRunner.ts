@@ -117,8 +117,10 @@ export class MatrixRunner {
       { seq: 'seq4_write_save_sync_delete', fault: 'postgres_409', step: 'delete_cloud' },
 
       // Sequence 5: write → save → delete before sync
+      // R5-031: × abort убрана — удаление незалитой заметки в сеть больше не
+      // ходит (облачного ряда нет, сносить там нечего), обрывать нечего, и GT-2
+      // честно красила ячейку «сбой не сработал». Обрыв на удалении меряет seq4.
       { seq: 'seq5_delete_before_sync', fault: 'none', step: 'delete_local' },
-      { seq: 'seq5_delete_before_sync', fault: 'abort', step: 'delete_local' },
 
       // Sequence 6: tombstone recovery
       { seq: 'seq6_tombstone_edit_recovery', fault: 'none', step: 'edit_local' },

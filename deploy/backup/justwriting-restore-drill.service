@@ -1,0 +1,20 @@
+[Unit]
+Description=Учебное восстановление базы justwriting из свежей копии
+# Сверяется самый свежий дамп — ночная копия должна успеть лечь раньше.
+After=docker.service justwriting-backup.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Без --keep-container: контейнер с копией данных удаляется на выходе (trap в
+# скрипте). Красный drill = ненулевой код = юнит в failed; итог — в журнале:
+#   journalctl -u justwriting-restore-drill.service
+#   systemctl show -p Result,ExecMainStatus,ExecMainExitTimestamp justwriting-restore-drill.service
+ExecStart=/usr/bin/bash /opt/justwriting/backup/restore-drill.sh
+# У oneshot таймаута старта по умолчанию нет — зависший drill висел бы вечно.
+TimeoutStartSec=1h
+# Боевая база на том же диске: восстановление не должно отнимать у неё ввод-вывод.
+Nice=10
+IOSchedulingClass=idle
+StandardOutput=journal
+StandardError=journal
