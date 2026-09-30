@@ -14,6 +14,10 @@ on:
     # попадают никогда. 03:17 UTC — не круглое время, чтобы не попадать в пик
     # очередей раннера.
     - cron: '17 3 * * *'
+    # R3-017 (a): тяжёлые ворота (мутации, доказательства, живая база) раз в
+    # неделю, в ночь на понедельник по Екатеринбургу. Тегов релиза нет, и
+    # ручной пуск забывался: с 29.09 свип не гонялся ни разу.
+    - cron: '47 21 * * 0'
 
 permissions:
   contents: read
@@ -32,7 +36,7 @@ jobs:
     # там быть не должно.
     runs-on: [self-hosted, justwriting-vps]
     timeout-minutes: 15
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 3 * * *'
 
     steps:
       - name: Checkout repository
@@ -46,10 +50,10 @@ jobs:
 
   gates:
     name: Testability & Mutations Gates
-    # Расписание ходит только ради полной истории секретов: гонять сорокаминутный
-    # прогон мутаций и живых БД каждый день — это и ресурсы раннера, и шум в
-    # отчётах вместо сигнала.
-    if: github.event_name != 'schedule'
+    # Каждый день — только полная история секретов: гонять сорокаминутный
+    # прогон мутаций и живых БД ежедневно — это и ресурсы раннера, и шум в
+    # отчётах вместо сигнала. Раз в неделю — да (см. второй cron).
+    if: github.event_name != 'schedule' || github.event.schedule == '47 21 * * 0'
     runs-on: [self-hosted, justwriting-vps]
     timeout-minutes: 40
 
