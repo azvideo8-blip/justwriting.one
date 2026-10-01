@@ -29,6 +29,8 @@ const {
   mockExecuteMigrationBatch,
   mockSaveSummary,
   mockSaveEmbedding,
+  mockDeleteSummary,
+  mockDeleteEmbedding,
   mockGetUserSummaries,
   mockGetUserEmbeddings,
   mockGetLocalStoreRecords,
@@ -40,6 +42,8 @@ const {
   mockExecuteMigrationBatch: vi.fn().mockResolvedValue(undefined),
   mockSaveSummary: vi.fn().mockResolvedValue(undefined),
   mockSaveEmbedding: vi.fn().mockResolvedValue(undefined),
+  mockDeleteSummary: vi.fn().mockResolvedValue(undefined),
+  mockDeleteEmbedding: vi.fn().mockResolvedValue(undefined),
   mockGetUserSummaries: vi.fn<() => Promise<any[]>>(async () => []),
   mockGetUserEmbeddings: vi.fn<() => Promise<any[]>>(async () => []),
   mockGetLocalStoreRecords: vi.fn<() => Promise<any[]>>(async () => []),
@@ -57,6 +61,8 @@ vi.mock('../../data', () => ({
     getLocalStoreRecords: mockGetLocalStoreRecords,
     saveSummary: mockSaveSummary,
     saveEmbedding: mockSaveEmbedding,
+    deleteSummary: mockDeleteSummary,
+    deleteEmbedding: mockDeleteEmbedding,
   },
 }));
 
@@ -374,6 +380,58 @@ describe('encryptAllExistingNotes', () => {
       'canonical-cloud-emb-uuid-222',
       expect.objectContaining({ _encrypted: true })
     );
+  });
+
+  it('S-23: plaintext summary under a tombstoned document (42501 on save) deletes summary and clears checkpoint without errors', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserEmbeddings.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+
+    mockGetUserSummaries.mockResolvedValue([
+      {
+        documentId: 'tombstoned-doc-summary-uuid',
+        summary: 'Plaintext summary under a tombstone',
+        _encrypted: false,
+      },
+    ]);
+
+    mockSaveSummary.mockRejectedValueOnce({
+      code: '42501',
+      message: 'new row violates row-level security policy for table "ai_summaries"',
+    });
+
+    const progress = await encryptAllExistingNotes(userId);
+
+    expect(progress.errors).toBe(0);
+    expect(mockDeleteSummary).toHaveBeenCalledWith(userId, 'tombstoned-doc-summary-uuid');
+    expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).toBeNull();
+  });
+
+  it('S-23: plaintext embedding under a tombstoned document (42501 on save) deletes embedding and clears checkpoint without errors', async () => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserSummaries.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+
+    mockGetUserEmbeddings.mockResolvedValue([
+      {
+        documentId: 'tombstoned-doc-emb-uuid',
+        vectorsJson: JSON.stringify([[0.1, 0.2]]),
+        _encrypted: false,
+      },
+    ]);
+
+    mockSaveEmbedding.mockRejectedValueOnce({
+      code: '42501',
+      message: 'new row violates row-level security policy for table "ai_embeddings"',
+    });
+
+    const progress = await encryptAllExistingNotes(userId);
+
+    expect(progress.errors).toBe(0);
+    expect(mockDeleteEmbedding).toHaveBeenCalledWith(userId, 'tombstoned-doc-emb-uuid');
+    expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).toBeNull();
   });
 });
 

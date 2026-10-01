@@ -81,6 +81,14 @@ function clearCheckpoint(userId: string) {
   } catch { /* ignore */ }
 }
 
+function isTombstoneOrRlsError(e: unknown): boolean {
+  const code = (e as { code?: string } | null)?.code;
+  const msg = typeof e === 'object' && e !== null && 'message' in e
+    ? String((e as { message: unknown }).message)
+    : (e instanceof Error ? e.message : String(e));
+  return code === '42501' || /42501|row-level security policy/i.test(msg);
+}
+
 interface PendingOp {
   type: 'version' | 'draft' | 'document';
   userId: string;
@@ -334,10 +342,21 @@ async function _encryptAllExistingNotesInner(
           const encrypted = await maybeEncrypt({ ...s, documentUuid: canonicalId } as Record<string, unknown>, STRING_FIELDS, ARRAY_FIELDS, true);
           clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
         }
-        await DataProvider.saveSummary(userId, canonicalId, clean);
-        checkpoint.add(ck);
-        saveCheckpoint(userId, checkpoint);
-        progress.encrypted++;
+        try {
+          await DataProvider.saveSummary(userId, canonicalId, clean);
+          checkpoint.add(ck);
+          saveCheckpoint(userId, checkpoint);
+          progress.encrypted++;
+        } catch (saveErr) {
+          if (isTombstoneOrRlsError(saveErr)) {
+            // S-23: save refused under tombstone (0035 RLS 42501); 0035 allows DELETE.
+            await DataProvider.deleteSummary(userId, canonicalId).catch(() => {});
+            checkpoint.add(ck);
+            saveCheckpoint(userId, checkpoint);
+          } else {
+            throw saveErr;
+          }
+        }
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') throw e;
         if (e instanceof VaultLockedError) throw e;
@@ -386,10 +405,21 @@ async function _encryptAllExistingNotesInner(
           true
         );
         const clean = Object.fromEntries(Object.entries(encrypted).filter(([, v]) => v !== undefined));
-        await DataProvider.saveEmbedding(userId, canonicalId, clean);
-        checkpoint.add(ck);
-        saveCheckpoint(userId, checkpoint);
-        progress.encrypted++;
+        try {
+          await DataProvider.saveEmbedding(userId, canonicalId, clean);
+          checkpoint.add(ck);
+          saveCheckpoint(userId, checkpoint);
+          progress.encrypted++;
+        } catch (saveErr) {
+          if (isTombstoneOrRlsError(saveErr)) {
+            // S-23: save refused under tombstone (0035 RLS 42501); 0035 allows DELETE.
+            await DataProvider.deleteEmbedding(userId, canonicalId).catch(() => {});
+            checkpoint.add(ck);
+            saveCheckpoint(userId, checkpoint);
+          } else {
+            throw saveErr;
+          }
+        }
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') throw e;
         if (e instanceof VaultLockedError) throw e;
