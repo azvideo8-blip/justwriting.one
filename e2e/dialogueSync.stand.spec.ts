@@ -101,7 +101,7 @@ async function unlockVaultIfAsked(page: Page, password: string, wait = 1_500): P
   await dialog.locator('input[type="password"]').first().fill(password);
   await btn.click();
   await expect(btn).toBeHidden({ timeout: 30_000 });
-  console.log('[vault] unlocked on demand');
+  console.warn('[vault] unlocked on demand');
 }
 
 async function grantAiConsent(page: Page): Promise<void> {
@@ -132,7 +132,6 @@ async function openDialogue(page: Page, title: string): Promise<void> {
   await item.click();
 }
 
-let turnNo = 0;
 let lastSendAt = 0;
 const SEND_COOLDOWN_MS = 10_000; // «Слишком частые запросы. Подождите 8 сек.» — лимит на аккаунт, общий для устройств
 /** Отправляет ход и ждёт ответа заглушки на него. */
@@ -158,7 +157,6 @@ async function sendTurn(page: Page, text: string): Promise<void> {
   await expect(page.getByText(new RegExp(`заглушки на: .*${tail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)).first()).toBeVisible({ timeout: 60_000 });
   // Ответ на экране раньше, чем ход в базе: ждём саму запись (выгрузка идёт из неё).
   await expect.poll(async () => (await dialogues(page, user.uid)).some(d => d.messages.some(m => m.content.includes(text))), { timeout: 30_000, intervals: [500] }).toBe(true);
-  turnNo++;
 }
 
 /** Фоновый проход (забор + выгрузка) стартует через 5 с после visibilitychange. */
@@ -276,7 +274,7 @@ test('1. concurrent append on A and B without a pull in between — both turns i
       const db = await new Promise<IDBDatabase>((res, rej) => { const r = indexedDB.open('justwriting-local'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
       try { if (!db.objectStoreNames.contains('aiDialogues')) return 'no store'; return await new Promise<number>((res) => { const r = db.transaction('aiDialogues').objectStore('aiDialogues').count(); r.onsuccess = () => res(r.result); }); } finally { db.close(); }
     });
-    console.log(`[1:${tag}] dbs=${JSON.stringify(dbs)} guestDialogues=${guest} cloud(${dlg.id.slice(0, 8)}) updatedAt=${c?.updatedAt} local=${JSON.stringify(all.map(d => [d.id.slice(0, 8), d.updatedAt, texts(d)]))}`);
+    console.warn(`[1:${tag}] dbs=${JSON.stringify(dbs)} guestDialogues=${guest} cloud(${dlg.id.slice(0, 8)}) updatedAt=${c?.updatedAt} local=${JSON.stringify(all.map(d => [d.id.slice(0, 8), d.updatedAt, texts(d)]))}`);
   };
   await sendTurn(B.page, 'Вопрос с устройства B');
   await snap('B after turn', B.page);
@@ -290,7 +288,7 @@ test('1. concurrent append on A and B without a pull in between — both turns i
 
   const cloud = await freshDeviceView(browser, dlg.id);
   const t = texts(cloud);
-  console.log('[1] облако после двух выгрузок:', JSON.stringify(t));
+  console.warn('[1] облако после двух выгрузок:', JSON.stringify(t));
   expect(t.filter(x => x.includes('устройства B'))).toHaveLength(1);
   expect(t.filter(x => x.includes('устройства A'))).toHaveLength(1);
   expect(t).toHaveLength(6);
@@ -326,13 +324,13 @@ test('2. B wrote a turn offline > 1 h ago; A online pulled within 30 min — the
   await sendTurn(B.page, 'Ход B снова в сети');
   await waitFlushed(B.page, user.uid, dlg.id);
   const cloud = (await cloudRows(user.uid)).find(r => r.key === dlg.id)!;
-  console.log('[2] отметка союза в облаке', cloud.updatedAt, 'последний забор A', aPullBefore);
+  console.warn('[2] отметка союза в облаке', cloud.updatedAt, 'последний забор A', aPullBefore);
   expect(cloud.updatedAt!).toBeGreaterThan(Number(aPullBefore) - 30 * 60_000);
 
-  console.log('[2] B после выгрузки:', JSON.stringify(texts((await dialogues(B.page, user.uid)).find(d => d.id === dlg.id))));
+  console.warn('[2] B после выгрузки:', JSON.stringify(texts((await dialogues(B.page, user.uid)).find(d => d.id === dlg.id))));
   const hasOff = (x: Dlg[]) => texts(x.find(d => d.id === dlg.id)).some(t => t === 'Ход B в офлайне');
   let a = await syncUntil(A.page, hasOff, 'A видит офлайн-ход B');
-  console.log('[2] A после забора:', JSON.stringify(texts(a.find(d => d.id === dlg.id))));
+  console.warn('[2] A после забора:', JSON.stringify(texts(a.find(d => d.id === dlg.id))));
   expect(hasOff(a)).toBe(true);
 
   await sendTurn(A.page, 'Следующий ход A');
@@ -388,7 +386,7 @@ test('7. the same turn regenerated on both devices; regenerate on A while B appe
   await converged();
   const a = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id)!;
   const b = (await dialogues(B.page, user.uid)).find(d => d.id === dlg.id)!;
-  console.log('[7] A:', JSON.stringify(texts(a)), 'варианты последнего:', a.messages.at(-1)?.variants?.length);
+  console.warn('[7] A:', JSON.stringify(texts(a)), 'варианты последнего:', a.messages.at(-1)?.variants?.length);
   expect(texts(a)).toHaveLength(before.length);
   expect(texts(b)).toHaveLength(before.length);
   expect(texts(a).filter(x => x === before.at(-2))).toHaveLength(1);
@@ -405,7 +403,7 @@ test('7. the same turn regenerated on both devices; regenerate on A while B appe
   await converged();
   const a2 = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
   const b2 = texts((await dialogues(B.page, user.uid)).find(d => d.id === dlg.id));
-  console.log('[7b] A:', JSON.stringify(a2));
+  console.warn('[7b] A:', JSON.stringify(a2));
   expect(a2).toEqual(b2);
   expect(a2).toHaveLength(before.length + 2);
   expect(a2.indexOf(a2.find(x => x.includes('во время перегенерации'))!)).toBe(before.length);
@@ -422,7 +420,7 @@ test('11. delete on A; B, still holding the message, appends — the message mus
     return !d?.messages.some(m => m.id === victim.id);
   }, { timeout: 15_000 }).toBe(true).then(() => true, () => false);
   const afterDel = (await dialogues(A.page, user.uid)).find(x => x.id === dlg.id);
-  console.log('[11] удалено локально:', gone, 'victim:', victim.id, victim.content.slice(0, 30), 'deletedMessages:', JSON.stringify(afterDel?.deletedMessages), 'texts:', JSON.stringify(texts(afterDel)));
+  console.warn('[11] удалено локально:', gone, 'victim:', victim.id, victim.content.slice(0, 30), 'deletedMessages:', JSON.stringify(afterDel?.deletedMessages), 'texts:', JSON.stringify(texts(afterDel)));
   expect(gone, 'удаление через UI не записалось — харнесс').toBe(true);
   await waitFlushed(A.page, user.uid, dlg.id);
   await openDialogue(B.page, dlg.title);
@@ -452,7 +450,7 @@ test('9. delete a middle message on A, switch the last answer’s variant on B, 
   for (let i = 0; i < 2; i++) { await pass(A.page); await pass(B.page); }
   const a = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id)!;
   const b = (await dialogues(B.page, user.uid)).find(d => d.id === dlg.id)!;
-  console.log('[9] A:', JSON.stringify(texts(a)), 'B:', JSON.stringify(texts(b)));
+  console.warn('[9] A:', JSON.stringify(texts(a)), 'B:', JSON.stringify(texts(b)));
   expect(texts(a)).toEqual(texts(b));
   expect(a.messages.at(-1)?.variantIndex).toBe(b.messages.at(-1)?.variantIndex);
 });
@@ -472,7 +470,7 @@ test('14. rename on A while B chats', async () => {
   for (let i = 0; i < 2; i++) { await pass(A.page); await pass(B.page); }
   const a = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id)!;
   const b = (await dialogues(B.page, user.uid)).find(d => d.id === dlg.id)!;
-  console.log('[14] titles', a.title, '|', b.title);
+  console.warn('[14] titles', a.title, '|', b.title);
   expect(texts(a)).toEqual(texts(b));
   expect(texts(a).some(x => x.includes('переименовывает'))).toBe(true);
   expect(a.title).toBe(b.title);
@@ -490,7 +488,7 @@ test('12. B’s clock +1 day — order and no loss', async ({ browser }) => {
   await pass(A.page); await pass(Bfast.page); await pass(A.page);
   const a = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
   const b = texts((await dialogues(Bfast.page, user.uid)).find(d => d.id === dlg.id));
-  console.log('[12] A:', JSON.stringify(a));
+  console.warn('[12] A:', JSON.stringify(a));
   expect(a).toEqual(b);
   expect(a.some(x => x.includes('на сутки'))).toBe(true);
   expect(a.some(x => x.includes('нормальных часов'))).toBe(true);
@@ -522,7 +520,7 @@ test('8. pre-update dialogue (no ids, with variants): switch variant on A, chat 
   for (let i = 0; i < 2; i++) { await pass(A.page); await pass(B.page); }
   const a = (await dialogues(A.page, user.uid)).find(d => d.id === legacy.id)!;
   const b = (await dialogues(B.page, user.uid)).find(d => d.id === legacy.id)!;
-  console.log('[8] A:', JSON.stringify(texts(a)), 'B:', JSON.stringify(texts(b)));
+  console.warn('[8] A:', JSON.stringify(texts(a)), 'B:', JSON.stringify(texts(b)));
   expect(texts(a)).toEqual(texts(b));
   expect(texts(a)).toHaveLength(6);
   expect(a.messages[3]?.content).toBe('вариант А');
@@ -559,6 +557,6 @@ test('15. delete the whole dialogue on A while B appends', async () => {
   const a = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id);
   const b = (await dialogues(B.page, user.uid)).find(d => d.id === dlg.id);
   const rows = (await cloudRows(user.uid)).find(r => r.key === dlg.id);
-  console.log('[15] A has:', !!a, 'B has:', !!b, 'cloud row:', !!rows, 'B texts:', JSON.stringify(texts(b)));
+  console.warn('[15] A has:', !!a, 'B has:', !!b, 'cloud row:', !!rows, 'B texts:', JSON.stringify(texts(b)));
   expect(!!a).toBe(!!b);
 });
