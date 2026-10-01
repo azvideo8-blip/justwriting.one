@@ -138,5 +138,44 @@ describe('importNoteFile', () => {
     const savedPayload = saveNewMock.mock.calls[saveNewMock.mock.calls.length - 1]![1];
     expect(savedPayload.sessionStartedAt).toBeInstanceOf(Date);
   });
+
+  it('S-11: rejects docx bomb exceeding 50MB uncompressed budget without calling saveNew', async () => {
+    const JSZip = (await import('jszip')).default;
+    const bombZip = new JSZip();
+    bombZip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+    bombZip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    // 55 MB of repeated text
+    const largeBody = 'A'.repeat(55 * 1024 * 1024);
+    bombZip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${largeBody}</w:t></w:r></w:p></w:body></w:document>`);
+
+    const buf = await bombZip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+    const file = new File([buf], 'bomb.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+
+    let failed = false;
+    try {
+      const res = await importNoteFile(file, 'user-1', false);
+      if (!res.success) failed = true;
+    } catch {
+      failed = true;
+    }
+
+    expect(failed).toBe(true);
+    expect(saveNewMock).not.toHaveBeenCalled();
+  });
+
+  it('S-11: imports normal docx file', async () => {
+    const JSZip = (await import('jszip')).default;
+    const normalZip = new JSZip();
+    normalZip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+    normalZip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    normalZip.file('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Hello normal docx</w:t></w:r></w:p></w:body></w:document>');
+
+    const buf = await normalZip.generateAsync({ type: 'arraybuffer' });
+    const file = new File([buf], 'normal.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+
+    const res = await importNoteFile(file, 'user-1', false);
+    expect(res.success).toBe(true);
+    expect(saveNewMock).toHaveBeenCalled();
+  });
 });
 

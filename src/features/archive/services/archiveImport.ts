@@ -34,18 +34,51 @@ async function readFileContent(file: File): Promise<string | null> {
       throw new Error('DOCX_TOO_LARGE: File size exceeds 10MB limit.');
     }
     const arrayBuffer = await file.arrayBuffer();
+
+    // 1. Before mammoth: JSZip.loadAsync reads the central directory.
+    // Reject when word/document.xml or the archive's total uncompressed size is over a budget (50 MB).
+    const MAX_UNCOMPRESSED_DOCX_BYTES = 50 * 1024 * 1024;
+    const JSZipMod = await import('jszip');
+    const JSZip = (JSZipMod.default ?? JSZipMod) as unknown as {
+      loadAsync: (data: ArrayBuffer) => Promise<{ files: Record<string, { _data?: { uncompressedSize?: number } }> }>;
+    };
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    let totalUncompressed = 0;
+    for (const [name, entry] of Object.entries(zip.files)) {
+      const size = entry._data?.uncompressedSize ?? 0;
+      if (name === 'word/document.xml' && size > MAX_UNCOMPRESSED_DOCX_BYTES) {
+        throw new Error('DOCX_TOO_LARGE: Uncompressed document.xml exceeds 50MB limit.');
+      }
+      totalUncompressed += size;
+      if (totalUncompressed > MAX_UNCOMPRESSED_DOCX_BYTES) {
+        throw new Error('DOCX_TOO_LARGE: Total uncompressed archive size exceeds 50MB limit.');
+      }
+    }
+
     const mammothMod = await import('mammoth');
     const mammoth = (mammothMod.default ?? mammothMod) as unknown as {
-      convertToMarkdown: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>;
+      convertToMarkdown: (input: { arrayBuffer: ArrayBuffer; buffer?: Buffer }) => Promise<{ value: string }>;
     };
 
     // 15-second timeout to prevent infinite zip/xml parsing hangs
-    const parsePromise = mammoth.convertToMarkdown({ arrayBuffer });
+    const mammothInput = {
+      arrayBuffer,
+      ...(typeof Buffer !== 'undefined' ? { buffer: Buffer.from(arrayBuffer) } : {}),
+    };
+    const parsePromise = mammoth.convertToMarkdown(mammothInput);
     const timeoutPromise = new Promise<{ value: string }>((_, reject) =>
       setTimeout(() => reject(new Error('DOCX_PARSE_TIMEOUT')), 15_000)
     );
 
     const result = await Promise.race([parsePromise, timeoutPromise]);
+
+    // 2. After mammoth: result.value.length <= 10M characters (parity with txt/md).
+    // Otherwise DOCX_TOO_LARGE before saveNew.
+    const MAX_DECOMPRESSED_CHARS = 10_000_000;
+    if (result.value.length > MAX_DECOMPRESSED_CHARS) {
+      throw new Error('DOCX_TOO_LARGE: Result exceeds 10M characters limit.');
+    }
+
     return result.value;
   }
   if (extension === 'txt' || extension === 'md') {
