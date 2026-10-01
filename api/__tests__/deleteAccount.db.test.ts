@@ -39,9 +39,39 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
     await pool.query('INSERT INTO public.ai_bulk_cooldown (uid, endpoint, calls) VALUES ($1, $2, 1)', [uid, 'summarize']);
     await pool.query('INSERT INTO public.anonymized_telemetry (id, data) VALUES ($1, $2)', [telId, JSON.stringify({ theme: 'test' })]);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS auth.audit_log_entries (
+        instance_id uuid,
+        id          uuid not null primary key,
+        payload     jsonb,
+        created_at  timestamptz default now(),
+        ip_address  varchar(64) default ''::character varying not null
+      );
+    `);
+
+    const auditId1 = crypto.randomUUID();
+    const auditId2 = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO auth.audit_log_entries (id, payload, created_at) VALUES 
+       ($1, $2, now()), 
+       ($3, $4, now())`,
+      [
+        auditId1,
+        JSON.stringify({ actor_id: uid, actor_email: email }),
+        auditId2,
+        JSON.stringify({ traits: { user_id: uid }, user_email: email }),
+      ]
+    );
+
     // Verify all seeded tables actually have rows before deletion
     const authBefore = await pool.query<{ count: number }>('SELECT count(*)::int as count FROM auth.users WHERE id = $1', [uid]);
     expect(authBefore.rows[0]?.count).toBe(1);
+
+    const auditBefore = await pool.query<{ count: number }>(
+      "SELECT count(*)::int as count FROM auth.audit_log_entries WHERE payload->>'actor_id' = $1 OR payload->'traits'->>'user_id' = $1",
+      [uid]
+    );
+    expect(auditBefore.rows[0]?.count).toBe(2);
 
     const telBefore = await pool.query<{ count: number }>('SELECT count(*)::int as count FROM public.anonymized_telemetry WHERE id = $1', [telId]);
     expect(telBefore.rows[0]?.count).toBe(1);
@@ -54,17 +84,20 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
       SELECT c.table_schema, c.table_name, c.column_name 
       FROM information_schema.columns c
       JOIN information_schema.tables t ON c.table_schema = t.table_schema AND c.table_name = t.table_name
-      WHERE c.table_schema = 'public' 
+      WHERE c.table_schema IN ('public', 'auth') 
         AND t.table_type = 'BASE TABLE'
-        AND c.column_name IN ('user_id', 'uid')
-      ORDER BY c.table_name;
+        AND (
+          c.column_name IN ('user_id', 'uid')
+          OR (c.table_schema = 'auth' AND c.table_name = 'users' AND c.column_name = 'id')
+        )
+      ORDER BY c.table_schema, c.table_name;
     `);
 
     const leftoverTables: string[] = [];
 
     for (const row of tablesQuery.rows) {
       const res = await pool.query<{ count: number }>(
-        `SELECT count(*)::int as count FROM "${row.table_schema}"."${row.table_name}" WHERE "${row.column_name}" = $1`,
+        `SELECT count(*)::int as count FROM "${row.table_schema}"."${row.table_name}" WHERE "${row.column_name}"::text = $1`,
         [uid]
       );
       const count = res.rows[0]?.count ?? 0;
@@ -73,17 +106,21 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
       }
     }
 
-    // Also verify auth.users and anonymized_telemetry
-    const authAfter = await pool.query<{ count: number }>('SELECT count(*)::int as count FROM auth.users WHERE id = $1', [uid]);
-    const authCount = authAfter.rows[0]?.count ?? 0;
-    if (authCount > 0) {
-      leftoverTables.push(`auth.users (${authCount} rows)`);
-    }
-
+    // Also verify anonymized_telemetry
     const telAfter = await pool.query<{ count: number }>('SELECT count(*)::int as count FROM public.anonymized_telemetry WHERE id = $1', [telId]);
     const telCount = telAfter.rows[0]?.count ?? 0;
     if (telCount > 0) {
       leftoverTables.push(`public.anonymized_telemetry (${telCount} rows)`);
+    }
+
+    // Verify auth.audit_log_entries has 0 rows for this user
+    const auditAfter = await pool.query<{ count: number }>(
+      "SELECT count(*)::int as count FROM auth.audit_log_entries WHERE payload->>'actor_id' = $1 OR payload->'traits'->>'user_id' = $1",
+      [uid]
+    );
+    const auditCount = auditAfter.rows[0]?.count ?? 0;
+    if (auditCount > 0) {
+      leftoverTables.push(`auth.audit_log_entries (${auditCount} rows)`);
     }
 
     expect(leftoverTables).toEqual([]);

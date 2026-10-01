@@ -46,6 +46,7 @@ describe('deleteAccountLogic', () => {
       'begin',
       'delete from public.local_store_records where user_id = $1',
       'delete from public.users where uid = $1',
+      "delete from auth.audit_log_entries where payload->>'actor_id' = $1 or payload->'traits'->>'user_id' = $1",
       'delete from auth.users where id = $1',
       'commit',
     ]);

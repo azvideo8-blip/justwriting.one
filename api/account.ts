@@ -120,6 +120,13 @@ export async function deleteAccountLogic(_ctx: unknown, uid: string): Promise<un
     // limits and the telemetry cooldown with it.
     await client.query('delete from public.users where uid = $1', [uid]);
 
+    // R6-008 / S-10: GoTrue audit log stores actor_id and user_id in payload with email.
+    // Clean it up in the same transaction so no orphan PII remains.
+    await client.query(
+      "delete from auth.audit_log_entries where payload->>'actor_id' = $1 or payload->'traits'->>'user_id' = $1",
+      [uid],
+    );
+
     // Then the account itself. Deleting the profile without this leaves a login
     // that works and owns nothing — and the 0006 trigger only creates the
     // profile on signup, so it would never come back.

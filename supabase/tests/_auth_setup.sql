@@ -11,6 +11,14 @@ create table if not exists auth.users (
   email text not null
 );
 
+create table if not exists auth.audit_log_entries (
+  instance_id uuid,
+  id          uuid not null primary key,
+  payload     jsonb,
+  created_at  timestamptz default now(),
+  ip_address  varchar(64) default ''::character varying not null
+);
+
 create or replace function auth.uid()
 returns uuid as $$
   select nullif(current_setting('request.jwt.claims', true)::jsonb ->> 'sub', '')::uuid;
