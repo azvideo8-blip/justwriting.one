@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.28',
+    date: '2026-10-01',
+    items: [
+      { category: 'fix', ru: 'Служебный выпуск: восстановление базы из резервной копии больше не возвращает лишние права доступа, которые были отозваны.', en: 'Maintenance release: restoring the database from a backup no longer brings back access rights that had been revoked.' },
+    ],
+  },
+  {
     version: '0.9.27',
     date: '2026-10-01',
     items: [
