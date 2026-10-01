@@ -420,7 +420,6 @@ describe('GUARD-1: Field inventory and write-site encryption classification for 
   describe('AI_EMBEDDING_FIELDS inventory & write-site binding', () => {
     const ENCRYPTED_FIELDS = new Set([
       'vectorsJson',
-      'vectorJson',
       'chunkTextsJson',
       'model',
       'contentHash',

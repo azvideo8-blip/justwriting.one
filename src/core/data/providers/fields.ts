@@ -137,7 +137,6 @@ export const AI_EMBEDDING_FIELDS: Record<string, string> = {
   documentUuid: 'document_id',
   userId: 'user_id',
   vectorsJson: 'vectors_json',
-  vectorJson: 'vector_json',
   chunkTextsJson: 'chunk_texts_json',
   model: 'model',
   dim: 'dim',

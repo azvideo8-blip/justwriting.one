@@ -17,10 +17,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
 }
 
-// Encrypt fields on save: only the chunked vectorsJson. Decrypt accepts the
-// legacy single-vector vectorJson too, so old cloud docs still read.
+// Encrypt fields on save: only the chunked vectorsJson.
 const ENCRYPT_FIELDS = ['vectorsJson', 'chunkTextsJson', 'model', 'contentHash'];
-const DECRYPT_FIELDS = ['vectorsJson', 'chunkTextsJson', 'vectorJson', 'model', 'contentHash'];
+const DECRYPT_FIELDS = ['vectorsJson', 'chunkTextsJson', 'model', 'contentHash'];
 const ARRAY_FIELDS: string[] = [];
 
 const MAX_CLOUD_EMBEDDING_BYTES = 1_000_000;
@@ -176,20 +175,12 @@ function parseVectors(decrypted: Record<string, unknown>): number[][] {
       if (Array.isArray(v)) return [v as number[]];
     } catch { /* fall through */ }
   }
-  // Legacy single-vector format.
-  if (typeof decrypted.vectorJson === 'string') {
-    try {
-      const v = JSON.parse(decrypted.vectorJson);
-      if (Array.isArray(v)) return [v as number[]];
-    } catch { /* fall through */ }
-  }
   return [];
 }
 
 /**
  * Decodes one cloud embedding payload. Exported so the bulk restore decodes
- * with exactly this logic — including the legacy single-vector format — rather
- * than growing a second parser that drifts from it.
+ * with exactly this logic rather than growing a second parser that drifts from it.
  */
 export async function decodeCloudEmbedding(
   data: Record<string, unknown>,
