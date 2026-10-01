@@ -102,8 +102,11 @@ export function cleanAttachedTitle(title: string): string {
   return (title || '').replace(/"/g, "'").replace(/[\r\n]+/g, ' ');
 }
 
-const ATTACHED_HEAD = /^\[#[^\]\n]*\]\n\[Прикреплена заметка: "[^"\n]*"\]/;
-const ATTACHED_MARKER = /^\[Прикреплена заметка: "[^"\n]*"\]$/gm;
+// S-39: ходы, записанные до S-3, несут в названии кавычки и переводы строк —
+// шапку узнаём по началу маркера, сам маркер читаем до первого `"]` в конце
+// строки, название на выходе нормализуем (иначе тело такого хода уходило в API).
+const ATTACHED_HEAD = /^\[#[^\]\n]*\]\n\[Прикреплена заметка: "/;
+const ATTACHED_MARKER = /^\[Прикреплена заметка: "([\s\S]*?)"\]$/gm;
 const QUESTION_SEP = '\n\n— — —\nВопрос: ';
 
 /**
@@ -115,7 +118,7 @@ export function splitAttachedMessage(content: string): { markers: string; questi
   const q = content.lastIndexOf(QUESTION_SEP);
   const head = q === -1 ? content : content.slice(0, q);
   return {
-    markers: (head.match(ATTACHED_MARKER) ?? []).join('\n'),
+    markers: [...head.matchAll(ATTACHED_MARKER)].map(m => `[Прикреплена заметка: "${cleanAttachedTitle(m[1]!)}"]`).join('\n'),
     question: q === -1 ? '' : content.slice(q + QUESTION_SEP.length).trim(),
   };
 }

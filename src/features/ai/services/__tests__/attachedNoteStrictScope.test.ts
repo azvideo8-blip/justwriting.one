@@ -112,6 +112,45 @@ describe('R3-004: заметка, скрытая от ИИ, не уходит н
   });
 });
 
+// S-39 (S-3 leftover): при нескольких заметках в documentId уходит только первая,
+// и заметка, скрытая от ИИ уже после прикрепления, доезжала до модели в
+// documentContent и в сборщик памяти. Флаг перепроверяется по шапке каждого
+// блока в момент отправки.
+describe('S-39: скрытая заметка среди нескольких приложенных', () => {
+  const OPEN_ID = 'doc_s39_open';
+  const HIDDEN_ID = 'doc_s39_hidden';
+  const OPEN_BODY = 'Открытый текст про утро';
+  const HIDDEN_BODY = 'Секретный абзац, скрытый после прикрепления';
+  // Производственная форма из useAIPageData для двух заметок.
+  const CONTENT = `[#${OPEN_ID} · 2026-09-29]\n[Прикреплена заметка: "Утро"]\n${OPEN_BODY}\n\n---\n\n[#${HIDDEN_ID} · 2026-09-28]\n[Прикреплена заметка: "Мой "дневник""]\n${HIDDEN_BODY}`;
+
+  beforeEach(async () => {
+    const db = await getLocalDb();
+    await db.put('documents', { id: OPEN_ID, title: 'Утро', currentVersion: 1, lastSessionAt: Date.now() } as never);
+    await db.put('documents', { id: HIDDEN_ID, title: 'Мой "дневник"', currentVersion: 1, lastSessionAt: Date.now(), excludedFromAI: true } as never);
+  });
+
+  it.each(['note', 'wide'] as const)('ход %s: тело скрытой вырезано, открытая на месте', async scope => {
+    const assemble = vi.spyOn(AIMemoryAssembler, 'assembleMemoryContext');
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    const ctx = await result.current.buildContext({
+      text: 'Разбери эти заметки',
+      attached: { documentId: OPEN_ID, content: CONTENT },
+      mood: undefined,
+      messageHistory: [],
+      isFirstTurn: true,
+      scope,
+    });
+    expect(ctx.searchContext ?? '').toContain(OPEN_BODY);
+    expect(ctx.searchContext ?? '').not.toContain(HIDDEN_BODY);
+    expect(ctx.searchContext ?? '').toContain('[заметка скрыта от ИИ]');
+    expect(ctx.memoryContext ?? '').not.toContain(HIDDEN_BODY);
+    for (const call of assemble.mock.calls) {
+      expect(call[0]?.attachedContent ?? '').not.toContain(HIDDEN_BODY);
+    }
+  });
+});
+
 describe('R3-005: новый диалог не наследует заметку-тему', () => {
   it('resetSession снимает приложенную заметку', () => {
     const { result } = renderHook(() => useAIChatContext('coach'));

@@ -46,6 +46,31 @@ const CRISIS_RESOURCE_TEXT =
   `${CRISIS_RESOURCES_LINE_RU}.\n` +
   `Отвечай тепло, эмпатично, не давай советов, поддерживай.`;
 
+// S-39: блок каждой приложенной заметки начинается шапкой `[#id · дата]` +
+// маркер (см. useAIPageData; у старых ходов в названии бывают кавычки и
+// переводы строк — маркер читаем до первого `"]` в конце строки). Тело заметки,
+// скрытой от ИИ, вырезаем перед отправкой; ошибка чтения документа читается
+// как «скрыта», а не как «можно».
+const ATTACHED_BLOCK_HEAD = /^\[#([^\s\]·]+) · [^\]\n]*\]\n\[Прикреплена заметка: "[\s\S]*?"\]\n/gm;
+async function hideExcludedNotes(content: string, db: Awaited<ReturnType<typeof getLocalDb>>): Promise<string> {
+  const heads = [...content.matchAll(ATTACHED_BLOCK_HEAD)];
+  if (heads.length === 0) return content;
+  let out = content.slice(0, heads[0]!.index);
+  for (let i = 0; i < heads.length; i++) {
+    const h = heads[i]!;
+    const bodyEnd = i + 1 < heads.length ? heads[i + 1]!.index : content.length;
+    const body = content.slice(h.index + h[0].length, bodyEnd);
+    let hidden = true;
+    try {
+      hidden = isExcludedFromAI(await db.get('documents', h[1]!));
+    } catch (e) {
+      reportError(e, { action: 'hideExcludedNotes', documentId: h[1] });
+    }
+    out += h[0] + (hidden ? '[заметка скрыта от ИИ]\n\n' : body);
+  }
+  return out;
+}
+
 export function useAIChatContext(personaId: string): {
   buildContext(params: BuildContextParams): Promise<ChatContextResult>;
   resetSession(): void;
@@ -181,6 +206,9 @@ export function useAIChatContext(personaId: string): {
     let attachedBlock: string | undefined;
 
     let isAttachedExcluded = false;
+    // S-39: при нескольких заметках в documentId только первая — скрытую от ИИ
+    // проверяем по шапке каждого блока в момент отправки, а не при прикреплении.
+    const attachedContent = attached ? await hideExcludedNotes(attached.content, db) : '';
     if (attached) {
       if (attached.documentId) {
         try {
@@ -191,15 +219,15 @@ export function useAIChatContext(personaId: string): {
         } catch { /* ignore */ }
       }
       if (!isAttachedExcluded) {
-        if (attached.content.includes('[#')) {
-          attachedBlock = attached.content;
+        if (attachedContent.includes('[#')) {
+          attachedBlock = attachedContent;
         } else {
           const yyyymmdd = attached.documentId ? (await getDocDate(attached.documentId)) : formatDateYYYYMMDD(Date.now());
           const docId = attached.documentId || 'attached-note';
           const label = attachedIsSticky
             ? '[Заметка, к которой привязан этот диалог — пользователь НЕ присылал её сейчас, не говори «присланная/прикреплённая заметка»]'
             : '[Прикрепленная заметка]';
-          attachedBlock = `[#${docId} · ${yyyymmdd}]\n${label}\n${attached.content}`;
+          attachedBlock = `[#${docId} · ${yyyymmdd}]\n${label}\n${attachedContent}`;
         }
         searchContext = attachedBlock;
 
@@ -209,7 +237,7 @@ export function useAIChatContext(personaId: string): {
         // AUDIT-M3: `[#id]` в тексте заметки не должен открывать цитирование
         // исключённых из AI или несуществующих документов — валидируем по корпусу.
         const citedIds = await validateCitationIds(
-          extractCitationIds(attached.content),
+          extractCitationIds(attachedContent),
           async id => (await db.get('documents', id)) ?? undefined,
         );
         injectedDocumentIds.push(...citedIds);
@@ -723,7 +751,7 @@ export function useAIChatContext(personaId: string): {
       memoryContext = await AIMemoryAssembler.assembleMemoryContext({
         query: text,
         attachedDocumentId: isAttachedExcluded ? null : (params.attached?.documentId ?? null),
-        attachedContent: isAttachedExcluded ? null : (params.attached?.content ?? null),
+        attachedContent: isAttachedExcluded || !attached ? null : attachedContent,
         userPortrait,
         proactiveBlock: searchContext,
         dialogueId: params.dialogueId ?? null,
