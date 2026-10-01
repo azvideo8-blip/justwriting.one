@@ -83,6 +83,11 @@ describe('S-25: regenerate while another tab appends', { timeout: 30_000 }, () =
     expect(texts, `чужой ход срезан: ${JSON.stringify(texts)}`).toContain('Вопрос из другой вкладки');
     expect(texts).toContain('Ответ из другой вкладки');
     expect(texts).toContain('Ответ новый');
-    expect(stored.deletedMessageIds ?? []).toEqual([]);
+    expect(stored.deletedMessages ?? []).toEqual([]);
+    // S-36: варианты — у перегенерированного ответа, на его месте, под его id;
+    // чужой ход, дописанный позже, их не получает, и вопрос не дублируется.
+    expect(texts, `вопрос продублирован: ${JSON.stringify(texts)}`).toEqual(['Вопрос один', 'Ответ новый', 'Вопрос из другой вкладки', 'Ответ из другой вкладки']);
+    expect(stored.messages[1]?.variants).toEqual(['Ответ один', 'Ответ новый']);
+    expect(stored.messages[3]?.variants, 'варианты достались чужому ходу').toBeUndefined();
   });
 });

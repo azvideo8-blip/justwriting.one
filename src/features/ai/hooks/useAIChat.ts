@@ -830,35 +830,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     const userText = msgs[userIdx]?.content ?? '';
     if (!userText) return;
 
-    // Save the current answer as a variant before truncating
-    const oldAssistant = msgs[aiIdx];
-    const oldVariants = oldAssistant?.variants ?? [];
-    const oldContent = oldAssistant?.content ?? '';
-    const savedVariants = [...oldVariants, oldContent];
-
+    // S-36: прежний ответ уходит в варианты внутри replaceLastTurn — по id хода,
+    // а не «последнему ответу»: дописанный соседней вкладкой ход получал чужие
+    // варианты, а снимок отсюда затирал союз вариантов после слияния.
     // Truncate dialogue in memory (React state) so sendMessage appends userText as a replacement turn,
     // but DO NOT truncate in IndexedDB yet so failures leave the stored dialogue intact.
     setDialogue({ ...d, messages: d.messages.slice(0, userIdx) });
     // Показанный текст хода — заметка + «Вопрос: …». Режим хода и поиск строятся
     // по вопросу, иначе слово «раньше» в заметке делало ход широким (R3-006).
     const attachedTurn = splitAttachedMessage(userText);
-    const newId = await sendMessage(userText, undefined, undefined, undefined, {
+    await sendMessage(userText, undefined, undefined, undefined, {
       replaceUserId: msgs[userIdx]?.id,
       ...(attachedTurn ? { question: attachedTurn.question || 'Разбери эту заметку' } : {}),
     });
-    // After the new response is saved, merge variants including the new response
-    if (newId) {
-      const updated = await AIDialogueService.get(newId);
-      let newContent = '';
-      if (updated) {
-        for (let i = updated.messages.length - 1; i >= 0; i--) {
-          const m = updated.messages[i];
-          if (m && m.role === 'assistant' && m.type !== 'system') { newContent = m.content; break; }
-        }
-      }
-      const allVariants = [...savedVariants, newContent];
-      await AIDialogueService.setLastAssistantVariants(newId, allVariants, allVariants.length - 1);
-    }
   }, [isLoading, dialogueId, dialogue, sendMessage]);
 
   const triggerForcedSearch = useCallback(async (query: string) => {

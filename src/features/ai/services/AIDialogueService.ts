@@ -1,12 +1,12 @@
 import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
-import type { AIDialogue } from '../../../core/storage/localDb';
+import type { AIDialogue, DialogueMessage } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
-import { stampMessage, withMessageIds } from '../utils/dialogueMerge';
+import { stampMessage, withMessageIds } from '../../../core/storage/dialogueMerge';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 
@@ -49,9 +49,16 @@ export const AIDialogueService = {
   async create(data: Omit<AIDialogue, 'id' | 'createdAt' | 'updatedAt'>): Promise<AIDialogue> {
     const db = await getLocalDb();
     const now = Date.now();
+    // S-36: ответ помнит id своего вопроса и создан на тик позже него (порядок
+    // хвоста при слиянии — по ходам, ход ответа — createdAt − 1 и turnId).
+    let turnId: string | undefined;
     const dialogue: AIDialogue = {
       ...data,
-      messages: data.messages.map(m => stampMessage(m, now)),
+      messages: data.messages.map((m, i) => {
+        const stamped = stampMessage(m, now + i);
+        if (m.role === 'user' && m.type !== 'system') { turnId = stamped.id; return stamped; }
+        return m.role === 'assistant' && m.type !== 'system' && turnId ? { ...stamped, turnId } : stamped;
+      }),
       id: randomUUID(),
       createdAt: now,
       updatedAt: now,
@@ -99,11 +106,13 @@ export const AIDialogueService = {
     const now = Date.now();
     // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
     // реплики по id, и ответ встанет перед своим вопросом.
+    const question = stampMessage({ role: 'user', content: truncate(userMsg) }, now);
     existing.messages.push(
-      stampMessage({ role: 'user', content: truncate(userMsg) }, now),
+      question,
       stampMessage({
         role: 'assistant',
         content: truncate(assistantMsg),
+        turnId: question.id,
         ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
         ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
         ...(degradedReason ? { degradedReason } : {}),
@@ -116,12 +125,14 @@ export const AIDialogueService = {
   },
 
   /**
-   * S-25 / S-29: замена последнего хода по id его пользовательской реплики, а не
-   * по позиции. Прежний `fromIndex` приходил из состояния вкладки и срезал
-   * `splice(fromIndex)` чужой ход, если соседняя вкладка успела дописать. Теперь:
-   * если заменяемого хода уже нет в конце — дописываем, а не урезаем; убранные
-   * реплики остаются в списке удалённых, чтобы слияние не вернуло их из второй
-   * реплики.
+   * S-25 / S-29 / S-36: перегенерация хода по id его пользовательской реплики.
+   * Ход остаётся на месте и с теми же id: вопрос как был, у ответа новый
+   * текст, прежний уходит в варианты (союз), ответ помечен updatedAt, чтобы при
+   * слиянии победила более свежая копия. Прежний путь «вырезать и дописать с
+   * новыми id» давал два вопроса при перегенерации на двух устройствах, а после
+   * служебной реплики (смена объёма/персоны) — второй вопрос в конце. Нет
+   * такого вопроса (удалён на другом устройстве) — ход дописывается в конец,
+   * а не режет чужое.
    */
   async replaceLastTurn(
     id: string,
@@ -137,28 +148,40 @@ export const AIDialogueService = {
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    // Id старых реплик проставляем в саму запись: резать надо то, что пойдёт в
+    // Id старых реплик проставляем в саму запись: править надо то, что пойдёт в
     // базу, а не копию рядом с ней.
     existing.messages = withMessageIds(existing).messages;
-    const idx = existing.messages.findIndex(m => m.id === replaceUserId);
-    const isLastTurn = idx >= 0 && idx === existing.messages.length - 2;
-    if (isLastTurn) {
-      const removed = existing.messages.splice(idx);
-      existing.deletedMessageIds = [...(existing.deletedMessageIds ?? []), ...removed.map(m => m.id!).filter(Boolean)];
-    }
     const now = Date.now();
-    // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
-    // реплики по id, и ответ встанет перед своим вопросом.
-    existing.messages.push(
-      stampMessage({ role: 'user', content: truncate(userMsg) }, now),
-      stampMessage({
-        role: 'assistant',
-        content: truncate(assistantMsg),
-        ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
-        ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
-        ...(degradedReason ? { degradedReason } : {}),
-      }, now + 1),
-    );
+    const answer: DialogueMessage = {
+      role: 'assistant',
+      content: truncate(assistantMsg),
+      turnId: replaceUserId,
+      ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
+      ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
+      ...(degradedReason ? { degradedReason } : {}),
+    };
+    const userIdx = existing.messages.findIndex(m => m.id === replaceUserId);
+    // Ответ хода — первая реплика ассистента после вопроса; служебные
+    // пропускаем, на следующем вопросе останавливаемся (ответ удалён).
+    let answerIdx = -1;
+    for (let i = userIdx + 1; userIdx >= 0 && i < existing.messages.length; i++) {
+      const m = existing.messages[i]!;
+      if (m.type === 'system') continue;
+      if (m.role === 'assistant') answerIdx = i;
+      break;
+    }
+    if (userIdx < 0) {
+      // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
+      // реплики по id, и ответ встанет перед своим вопросом.
+      const question = stampMessage({ role: 'user', content: truncate(userMsg) }, now);
+      existing.messages.push(question, stampMessage({ ...answer, turnId: question.id }, now + 1));
+    } else if (answerIdx < 0) {
+      existing.messages.splice(userIdx + 1, 0, stampMessage(answer, (existing.messages[userIdx]!.createdAt ?? now) + 1));
+    } else {
+      const old = existing.messages[answerIdx]!;
+      const variants = [...(old.variants ?? []), old.content, answer.content].filter((v, i, arr) => arr.indexOf(v) === i);
+      existing.messages[answerIdx] = { ...answer, id: old.id, createdAt: old.createdAt, variants, variantIndex: variants.indexOf(answer.content), updatedAt: now };
+    }
     existing.updatedAt = now;
     await tx.store.put(existing);
     await tx.done;
@@ -196,37 +219,21 @@ export const AIDialogueService = {
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
-  async setLastAssistantVariants(id: string, variants: string[], variantIndex: number): Promise<void> {
-    const db = await getLocalDb();
-    const tx = db.transaction('aiDialogues', 'readwrite');
-    const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
-    for (let i = existing.messages.length - 1; i >= 0; i--) {
-      const m = existing.messages[i];
-      if (m && m.role === 'assistant' && m.type !== 'system') {
-        m.variants = variants;
-        m.variantIndex = variantIndex;
-        break;
-      }
-    }
-    existing.updatedAt = Date.now();
-    await tx.store.put(existing);
-    await tx.done;
-    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
-    window.dispatchEvent(new Event('dialogue-updated'));
-  },
-
   async switchVariant(id: string, variantIndex: number): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
+    // S-36: id в запись до правки на месте — позиционный id старой реплики
+    // считался по тексту, и смена текста меняла id: слияние видело две реплики.
+    existing.messages = withMessageIds(existing).messages;
     for (let i = existing.messages.length - 1; i >= 0; i--) {
       const m = existing.messages[i];
       if (m && m.role === 'assistant' && m.type !== 'system') {
         if (!m.variants || variantIndex < 0 || variantIndex >= m.variants.length) { await tx.done; return; }
         m.variantIndex = variantIndex;
         m.content = m.variants[variantIndex] ?? m.content;
+        m.updatedAt = Date.now();
         break;
       }
     }
