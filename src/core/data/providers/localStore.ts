@@ -16,6 +16,40 @@ export async function saveLocalStoreRecord(userId: string, store: string, key: s
   if (error != null) throw error;
 }
 
+/**
+ * S-34: запись «если облако не изменилось»: строки нет — insert (23505, если
+ * кто-то успел создать), есть — update с условием на прежний `updatedAt`
+ * payload'а. false — облако ушло вперёд, вызывающий перечитывает и сливает
+ * заново; прежний слепой upsert затирал ход другого устройства.
+ */
+export async function saveLocalStoreRecordIfUnchanged(
+  userId: string,
+  store: string,
+  key: string,
+  payload: ProviderRecord,
+  expectedUpdatedAt: number | null,
+): Promise<boolean> {
+  const row = { user_id: userId, store, key, payload, checksum: null };
+  if (expectedUpdatedAt === null) {
+    const { error } = await getSupabase().from('local_store_records').insert(row);
+    if (error != null) {
+      if (error.code === '23505') return false;
+      throw error;
+    }
+    return true;
+  }
+  const { data, error } = await getSupabase()
+    .from('local_store_records')
+    .update({ payload, checksum: null })
+    .eq('user_id', userId)
+    .eq('store', store)
+    .eq('key', key)
+    .eq('payload->>updatedAt', String(expectedUpdatedAt))
+    .select('key');
+  if (error != null) throw error;
+  return Array.isArray(data) && data.length === 1;
+}
+
 /** Страницы одной версии записи `key#N` — одним запросом. Upsert массивом — это
  *  один INSERT … ON CONFLICT, то есть одна транзакция: другое устройство не увидит
  *  новую страницу 0 рядом со старой страницей 1 («Newest version … is incomplete»),

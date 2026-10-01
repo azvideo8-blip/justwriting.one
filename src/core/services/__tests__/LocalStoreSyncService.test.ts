@@ -23,6 +23,13 @@ vi.mock('../../data', () => ({
     },
     deleteLocalStoreRecord: (...args: unknown[]) => mockDeleteRecord(...args),
     getLocalStoreRecords: (...args: unknown[]) => mockGetRecords(...args),
+    // S-34: диалог перед выгрузкой читает облачную строку и пишет её условно;
+    // здесь облако пусто, условная запись видна тем же mockSaveRecord.
+    getLocalStoreRecord: async () => null,
+    saveLocalStoreRecordIfUnchanged: async (u: string, s: string, k: string, p: unknown) => {
+      await mockSaveRecord(u, s, k, p);
+      return true;
+    },
   },
 }));
 

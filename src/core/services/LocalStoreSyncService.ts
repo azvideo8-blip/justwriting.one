@@ -1,7 +1,9 @@
 import { getLocalDb } from '../storage/localDb';
+import type { AIDialogue } from '../storage/localDb';
+import { DIALOGUE_SCHEMA, dialogueFingerprint, mergeDialogues, withMessageIds } from '../storage/dialogueMerge';
 import { DataProvider } from '../data';
 import { getCurrentUser } from '../auth';
-import { maybeEncrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
@@ -649,6 +651,68 @@ export class LocalStoreSyncManager {
     this.resetTimer();
   }
 
+  /**
+   * S-34: облачная копия читается, союз пишется локально (get+merge+put в
+   * одной транзакции) и уходит в облако с условием «updatedAt облака не
+   * изменился». Ушёл — перечитываем и сливаем заново, до трёх раз; дальше
+   * запись падает как обычная ошибка и повторяется штатным путём.
+   * ponytail: диалог крупнее одной страницы (> 500 КБ) уходит без проверки
+   * условия — страницы `key#N` одним условием не запереть; союз на другой
+   * стороне всё равно соберёт restore. Нужна гарантия и для таких — версия
+   * записи в отдельной строке.
+   */
+  private async uploadDialogue(
+    uid: string,
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    key: string,
+  ): Promise<'ok' | 'gone' | { paged: AIDialogue }> {
+    for (let attempt = 0; ; attempt++) {
+      const cloud = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key);
+      let cloudDialogue: AIDialogue | null = null;
+      // null — строки нет (insert); undefined — строка без числовой отметки,
+      // условие поставить не на что, пишем как раньше.
+      let expected: number | null | undefined = null;
+      if (cloud) {
+        const dec = await maybeDecrypt(cloud.payload as Record<string, unknown>, ['data'], []);
+        // Строка есть, а прочитать её нельзя — это не «облако пусто»: слепая
+        // запись поверх затёрла бы чужой ход. Пусть запись упадёт и повторится.
+        if (typeof dec.data !== 'string') throw new Error(`S-34: cloud dialogue ${key} has no readable data`);
+        cloudDialogue = JSON.parse(dec.data) as AIDialogue;
+        expected = typeof dec.updatedAt === 'number' ? dec.updatedAt : undefined;
+      }
+
+      const tx = db.transaction('aiDialogues', 'readwrite');
+      const current = await tx.store.get(key);
+      if (!current) { await tx.done; return 'gone'; }
+      const merged = cloudDialogue
+        ? mergeDialogues(withMessageIds(current), cloudDialogue)
+        : { ...withMessageIds(current), schema: DIALOGUE_SCHEMA };
+      if (dialogueFingerprint(merged) !== dialogueFingerprint(current) || merged.updatedAt !== current.updatedAt) {
+        await tx.store.put(merged);
+      }
+      await tx.done;
+
+      const jsonString = JSON.stringify(merged);
+      if (new TextEncoder().encode(jsonString).length > PAGE_SPLIT_THRESHOLD_BYTES) return { paged: merged };
+
+      const encrypted = await maybeEncrypt({ data: jsonString, updatedAt: merged.updatedAt }, ['data'], [], uid);
+      let stored: boolean;
+      if (expected === undefined) {
+        await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, encrypted);
+        stored = true;
+      } else {
+        stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, encrypted, expected);
+      }
+      if (stored) {
+        if (DataProvider.deleteLocalStorePagedRecords) {
+          await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
+        }
+        return 'ok';
+      }
+      if (attempt >= 2) throw new Error(`S-34: cloud dialogue ${key} kept changing during upload`);
+    }
+  }
+
   private resetTimer(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
@@ -776,7 +840,28 @@ export class LocalStoreSyncManager {
             }
           }
 
-          const jsonString = JSON.stringify(rawRecord);
+          // S-34: диалог сливается с облачной копией и пишется «если облако не
+          // изменилось». Слепой upsert затирал ход другого устройства, пока
+          // оно не успело забрать наш; после его очистки ход пропадал совсем.
+          let record: unknown = rawRecord;
+          if (item.store === 'aiDialogues') {
+            const outcome = await this.uploadDialogue(uid, db, item.key);
+            if (outcome === 'gone') {
+              markerChanges.dropped.add(itemKey);
+              markerChanges.revived.push({ store: item.store, key: item.key });
+              continue;
+            }
+            if (outcome === 'ok') {
+              removeOversizedRecord(item.store, item.key);
+              result.synced++;
+              markerChanges.dropped.add(itemKey);
+              markerChanges.revived.push({ store: item.store, key: item.key });
+              continue;
+            }
+            record = outcome.paged;
+          }
+
+          const jsonString = JSON.stringify(record);
           const recordBytes = new TextEncoder().encode(jsonString).length;
 
           // Страниц может выйти на одну больше, чем байт на 8 страниц: край
@@ -800,7 +885,7 @@ export class LocalStoreSyncManager {
 
           removeOversizedRecord(item.store, item.key);
 
-          const recordTs = extractRecordTimestamp(rawRecord) ?? Date.now();
+          const recordTs = extractRecordTimestamp(record) ?? Date.now();
 
           if (recordBytes <= PAGE_SPLIT_THRESHOLD_BYTES) {
             // Single-row record upload

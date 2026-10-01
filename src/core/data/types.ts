@@ -83,6 +83,8 @@ export interface IDataProvider {
   // --- Local Store Records Operations ---
   saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void>;
   saveLocalStoreRecordPages(userId: string, store: string, pages: Array<{ key: string; payload: ProviderRecord }>): Promise<void>;
+  /** S-34: false — облако изменилось с момента чтения (expectedUpdatedAt устарел или строка уже есть). */
+  saveLocalStoreRecordIfUnchanged(userId: string, store: string, key: string, payload: ProviderRecord, expectedUpdatedAt: number | null): Promise<boolean>;
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   countLocalStoreRecords(userId: string, stores: readonly string[]): Promise<number>;

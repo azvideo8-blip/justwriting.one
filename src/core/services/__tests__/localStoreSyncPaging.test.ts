@@ -29,6 +29,8 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
   beforeEach(async () => {
     vi.restoreAllMocks();
     vi.spyOn(DataProvider, 'getUserEmbeddingsPaginated').mockResolvedValue({ items: [], readCount: 0 });
+    // S-34: диалог перед выгрузкой читает облачную строку; здесь облако пусто.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);
     const db = await getLocalDb();
     await db.clear('aiDialogues');
   });
@@ -74,6 +76,11 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       const savedRecords: Array<{ key: string; payload: Record<string, unknown> }> = [];
       vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockImplementation(async (_u, _s, key, payload) => {
         savedRecords.push({ key, payload: payload as Record<string, unknown> });
+      });
+      // S-34: строки в облаке нет — диалог уходит условной вставкой.
+      vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnchanged').mockImplementation(async (_u, _s, key, payload) => {
+        savedRecords.push({ key, payload: payload as Record<string, unknown> });
+        return true;
       });
       const deletePagedSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
 
