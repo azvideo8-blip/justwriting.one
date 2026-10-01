@@ -22,7 +22,7 @@ import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
-import { looksLikeNoteSearch, splitAttachedMessage } from '../utils/aiChatTransport';
+import { looksLikeNoteSearch, splitAttachedMessage, cleanAttachedTitle } from '../utils/aiChatTransport';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { noteMetaFor } from '../utils/noteMeta';
@@ -297,12 +297,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
 
     let id: string | null;
     if (attaches.length > 0) {
-      const markers = attaches.map(a => `[Прикреплена заметка: "${a.title}"]`);
+      const markers = attaches.map(a => `[Прикреплена заметка: "${cleanAttachedTitle(a.title)}"]`);
       const firstLocalDocId = attaches.find(a => a.documentId.startsWith('local_'))?.documentId;
 
       const formatRefTag = (a: { documentId: string; lastSessionAt?: number | undefined; title: string; content: string }) => {
         const yyyymmdd = localDayKey(a.lastSessionAt ?? Date.now()); // N-17: день по местному времени, как везде
-        return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${a.title}"]\n${a.content}`;
+        return `[#${a.documentId} · ${yyyymmdd}]\n[Прикреплена заметка: "${cleanAttachedTitle(a.title)}"]\n${a.content}`;
       };
       // Вопрос уходит отдельно от текста заметки (режим хода и контекст строятся
       // по нему), название и дата — в правило строгого хода.

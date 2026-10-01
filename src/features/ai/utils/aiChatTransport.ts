@@ -98,6 +98,10 @@ export function shouldRunFullSearch(text: string, hasAttachment: boolean): boole
 export const API_MSG_CAP = 9_500;
 export const API_ASSISTANT_OLD_CAP = 1_500;
 
+export function cleanAttachedTitle(title: string): string {
+  return (title || '').replace(/"/g, "'").replace(/[\r\n]+/g, ' ');
+}
+
 const ATTACHED_HEAD = /^\[#[^\]\n]*\]\n\[Прикреплена заметка: "[^"\n]*"\]/;
 const ATTACHED_MARKER = /^\[Прикреплена заметка: "[^"\n]*"\]$/gm;
 const QUESTION_SEP = '\n\n— — —\nВопрос: ';
