@@ -127,4 +127,43 @@ describe('deploy/monitor/healthcheck.py (S-7)', () => {
     expect(res.status).toBe(0);
     expect(res.stdout).toContain('проверка обвала выключена');
   });
+
+  // S-45 (S-7): мутация «if True:» в проверке юнитов — здоровый список не
+  // должен давать ни одного «Юниты в failed».
+  it('S-45/S-7: a healthy unit list produces no failed-unit message', () => {
+    const sb = makeSandbox('● justwriting.service loaded active running Justwriting\njustwriting-backup.service loaded inactive dead Justwriting backup');
+    const res = runHealthcheck(sb);
+    expect(res.status).toBe(0);
+    expect(res.stdout).not.toContain('Юниты в failed');
+  });
+
+  it('S-44.3: «failed» in the DESCRIPTION column with ACTIVE=active is not a failed unit', () => {
+    const sb = makeSandbox('justwriting-mail.service loaded active exited Retry failed mails');
+    const res = runHealthcheck(sb);
+    expect(res.status).toBe(0);
+    expect(res.stdout).not.toContain('Юниты в failed');
+  });
+
+  it('S-44.3: an unreadable SHRINK-ALERT is reported, not swallowed (R5-054)', () => {
+    const sb = makeSandbox('justwriting.service loaded active running Justwriting');
+    // Каталог: exists() истинно, read_text() падает.
+    fs.mkdirSync(path.join(sb.backupDir, 'SHRINK-ALERT'));
+    const res = runHealthcheck(sb);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain('Не удалось прочитать отметку SHRINK-ALERT');
+  });
+
+  it('S-44.3: the same set of problems is mailed once, not again after the old 12 h window', () => {
+    const sb = makeSandbox('justwriting-restore-drill.service loaded failed failed Justwriting Restore Drill');
+    const first = runAlerting(sb);
+    expect(first.status).toBe(0);
+    expect(first.stdout).toContain('SMTP_SENT');
+
+    const stateFile = path.join(sb.dir, 'state.json');
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8')) as { key: string; sent: number };
+    fs.writeFileSync(stateFile, JSON.stringify({ ...state, sent: 0 }));
+    const second = runAlerting(sb);
+    expect(second.status).toBe(0);
+    expect(second.stdout).not.toContain('SMTP_SENT');
+  });
 });

@@ -30,7 +30,9 @@ describe('S-27: auth-log retention is stated, not just «ограниченно�
     expect(PRIVACY_POLICY.en.updated).toBe('October 1, 2026');
   });
 
-  it('the repo ships the units prod runs, with the 30-day delete the policy promises', () => {
+  // S-45 (S-27): два теста ниже читают файлы в deploy/, а не исполняют их — под
+  // revert фикса они не краснеют и не могут; их задача — держать файлы в репо.
+  it('[file-content, cannot go red under revert] the repo ships the units prod runs, with the 30-day delete the policy promises', () => {
     const svc = readFileSync(resolve(DEPLOY, 'backup/justwriting-audit-retention.service'), 'utf8');
     const timer = readFileSync(resolve(DEPLOY, 'backup/justwriting-audit-retention.timer'), 'utf8');
     expect(svc).toContain('auth.audit_log_entries');
@@ -40,7 +42,7 @@ describe('S-27: auth-log retention is stated, not just «ограниченно�
     expect(timer).toContain('Persistent=true');
   });
 
-  it('the S-7 failed-unit mask covers the retention unit', () => {
+  it('[file-content, cannot go red under revert] the S-7 failed-unit mask covers the retention unit', () => {
     expect(readFileSync(resolve(DEPLOY, 'monitor/healthcheck.py'), 'utf8')).toContain('justwriting*.service');
   });
 });

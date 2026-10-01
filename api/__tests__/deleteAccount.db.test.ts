@@ -21,6 +21,15 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
     // 1. Seed user in auth.users (trigger creates public.users)
     await pool.query('INSERT INTO auth.users (id, email) VALUES ($1, $2)', [uid, email]);
 
+    // S-45 (S-10): отрицательный контроль — соседний аккаунт с теми же видами
+    // строк. Удаление без where (или с чужим ключом) снесло бы и его.
+    const otherUid = crypto.randomUUID();
+    const otherEmail = `test_keep_${otherUid.slice(0, 8)}@example.com`;
+    const otherDocUuid = crypto.randomUUID();
+    await pool.query('INSERT INTO auth.users (id, email) VALUES ($1, $2)', [otherUid, otherEmail]);
+    await pool.query('INSERT INTO public.documents (uuid, user_id, title) VALUES ($1, $2, $3)', [otherDocUuid, otherUid, 'Keep Test Doc']);
+    await pool.query('INSERT INTO public.local_store_records (user_id, store, key, payload) VALUES ($1, $2, $3, $4)', [otherUid, 'aiPortrait', 'singleton', JSON.stringify({ portrait: 'keep' })]);
+
     // 2. Seed rows in all user-keyed tables
     await pool.query('INSERT INTO public.documents (uuid, user_id, title) VALUES ($1, $2, $3)', [docUuid, uid, 'Delete Test Doc']);
     await pool.query('INSERT INTO public.versions (document_uuid, user_id, version, content) VALUES ($1, $2, 1, $3)', [docUuid, uid, 'Delete Test Version']);
@@ -46,15 +55,19 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
 
     const auditId1 = crypto.randomUUID();
     const auditId2 = crypto.randomUUID();
+    const otherAuditId = crypto.randomUUID();
     await pool.query(
       `INSERT INTO auth.audit_log_entries (id, payload, created_at) VALUES 
        ($1, $2, now()), 
-       ($3, $4, now())`,
+       ($3, $4, now()),
+       ($5, $6, now())`,
       [
         auditId1,
         JSON.stringify({ actor_id: uid, actor_email: email }),
         auditId2,
         JSON.stringify({ traits: { user_id: uid }, user_email: email }),
+        otherAuditId,
+        JSON.stringify({ actor_id: otherUid, actor_email: otherEmail }),
       ]
     );
 
@@ -109,5 +122,17 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
     }
 
     expect(leftoverTables).toEqual([]);
+
+    // S-45 (S-10): соседний аккаунт цел — в каждой таблице, которую трогает удаление.
+    const survivors = await Promise.all([
+      pool.query<{ count: number }>('SELECT count(*)::int as count FROM auth.users WHERE id = $1', [otherUid]),
+      pool.query<{ count: number }>('SELECT count(*)::int as count FROM public.users WHERE uid = $1', [otherUid]),
+      pool.query<{ count: number }>('SELECT count(*)::int as count FROM public.documents WHERE user_id = $1', [otherUid]),
+      pool.query<{ count: number }>('SELECT count(*)::int as count FROM public.local_store_records WHERE user_id = $1', [otherUid]),
+      pool.query<{ count: number }>("SELECT count(*)::int as count FROM auth.audit_log_entries WHERE payload->>'actor_id' = $1", [otherUid]),
+    ]);
+    expect(survivors.map(r => r.rows[0]?.count)).toEqual([1, 1, 1, 1, 1]);
+
+    await deleteAccountLogic(null, otherUid);
   });
 });

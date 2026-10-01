@@ -96,10 +96,12 @@ describe('S-21: tag writers go through writeDocumentPatch (R6Q-032 hardening)', 
     const row = mockTable.find(r => r.uuid === 'doc-plaintext-1')!;
     expect(row).toBeDefined();
 
-    // If _encrypted is true, title MUST NOT be plaintext!
-    if (row._encrypted === true) {
-      expect(row.title).not.toBe('Plaintext Title');
-    }
+    // S-45 (S-21): безусловно — writeDocumentPatch обязан дошифровать строку
+    // целиком; «if (_encrypted)» пропускал бы запись, которая ничего не сделала.
+    expect(row._encrypted).toBe(true);
+    expect(row.title).not.toBe('Plaintext Title');
+    expect(row.mood).not.toBe('Plaintext Mood');
+    expect(row.tags).not.toEqual(['old-tag']);
   });
 
   it('removeTagFromAllDocs: with N1-1 guard mutated off, no row ends up _encrypted:true with plaintext title', async () => {
@@ -123,8 +125,9 @@ describe('S-21: tag writers go through writeDocumentPatch (R6Q-032 hardening)', 
     const row = mockTable.find(r => r.uuid === 'doc-plaintext-2')!;
     expect(row).toBeDefined();
 
-    if (row._encrypted === true) {
-      expect(row.title).not.toBe('Plaintext Title 2');
-    }
+    expect(row._encrypted).toBe(true);
+    expect(row.title).not.toBe('Plaintext Title 2');
+    expect(row.mood).not.toBe('Plaintext Mood 2');
+    expect(row.tags).not.toEqual(['delete-tag']);
   });
 });

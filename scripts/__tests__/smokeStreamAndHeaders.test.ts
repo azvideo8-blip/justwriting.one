@@ -9,8 +9,15 @@ import {
   countRawHeader,
   errorCodeFromBody,
   foreignHostRedirectErrors,
+  runSmokeCheck,
   swContentTypeErrors,
 } from '../post-deploy-smoke';
+
+// S-45 (S-16): runSmokeCheck гоняется без браузера — launch падает, шаги 4–6
+// (сверки по проводу) всё равно выполняются; проверяется их подключение.
+vi.mock('@playwright/test', () => ({
+  chromium: { launch: () => Promise.reject(new Error('no browser in unit test')) },
+}));
 
 async function serve(handler: RequestListener): Promise<{ server: Server; base: string }> {
   const server = createServer(handler);
@@ -70,6 +77,11 @@ describe('post-deploy smoke: обрыв стрима при не-200', () => {
     [401, 'UNAUTHENTICATED'],
     [503, 'SERVICE_UNAVAILABLE'],
     [502, ''],
+    // S-45 (S-6): «внешняя причина» — только с её кодом; 504 без кода — это
+    // nginx, 403 с другим кодом — не согласие. Ослабить проверку до «любой
+    // 504» / «любой 403» — эти две строки краснеют.
+    [504, ''],
+    [403, 'FORBIDDEN'],
   ])('%i %s — ошибка сервера: провал деплоя (errors.length === 2)', async (status, code) => {
     vi.stubEnv('SMOKE_JWT_SECRET', 's');
     vi.stubEnv('SMOKE_UID', 'u');
@@ -249,6 +261,25 @@ describe('post-deploy smoke: запрет .prev и .env (R6Q-011)', () => {
     const errors = await checkHiddenAndBackupFiles(base, 5_000);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('/.env вернул HTTP 200');
+  });
+
+  // S-45 (S-16): убрать вызов checkHiddenAndBackupFiles из runSmokeCheck — краснеет.
+  it('runSmokeCheck wires checkHiddenAndBackupFiles: 200 on /index.html.prev fails the whole check', async () => {
+    let base = '';
+    ({ server, base } = await serve((req, res) => {
+      if (req.url === '/index.html.prev') {
+        res.writeHead(200).end('old html');
+      } else {
+        res.writeHead(404).end('Not Found');
+      }
+    }));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await runSmokeCheck({ baseUrl: base, timeoutMs: 5_000 });
+
+    expect(result.success).toBe(false);
+    expect(result.errors.some(e => e.includes('/index.html.prev вернул HTTP 200 вместо 404'))).toBe(true);
   });
 });
 
