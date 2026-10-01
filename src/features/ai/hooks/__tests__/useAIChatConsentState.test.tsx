@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useState } from 'react';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 import { useAIChat } from '../useAIChat';
@@ -10,11 +8,14 @@ import * as transport from '../../utils/aiChatTransport';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { useAiLimitStore } from '../../store/useAiLimitStore';
 import { setAiConsent, useAiConsentStore } from '../../../../core/ai/aiConsent';
+import { setIndexingConsent } from '../../../../core/ai/indexingConsent';
 import { setProfileLoaded } from '../../../../core/crypto/cryptoHelpers';
 import * as auth from '../../../../core/auth';
 import { LanguageProvider } from '../../../../shared/i18n';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { reportError } from '../../../../shared/errors/reportError';
+import { useActivityLogStore } from '../../../../shared/activity/useActivityLogStore';
+import { resetAIDegradationSession } from '../../utils/aiDegradationReporter';
 
 // S-31: «нет согласия на ИИ» — состояние, а не техническая ошибка. До правки
 // стрим падал на клиентском гейте, хук писал reportError и звал callable, тот
@@ -92,6 +93,9 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     localStorage.clear();
     transport._resetStreamUnavailable();
     useAiConsentStore.setState({ consents: {} });
+    setIndexingConsent('user-123', 'unanswered');
+    useActivityLogStore.setState({ entries: [] });
+    resetAIDegradationSession();
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true, writable: true });
     useAiLimitStore.setState({ remaining: 10, limit: 10, used: 0, resetsAt: new Date(Date.now() + 100_000), loaded: true, isAdmin: false });
     vi.mocked(auth.getCurrentUser).mockReturnValue({ uid: 'user-123', email: 'someone@example.com' } as never);
@@ -120,23 +124,97 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
 
     await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
 
-    expect(callable).not.toHaveBeenCalled();
-    expect(reportError).not.toHaveBeenCalled();
-    expect(aiFetchCalls).toEqual([]);
-
     await waitFor(() => {
       expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
     }, WAIT);
-
-    // Плашки «техническая ошибка» в DOM быть не должно.
-    expect(screen.queryByText(/Произошла ошибка|Ошибка сервиса/)).not.toBeInTheDocument();
     // null — сигнал useAIPageData вернуть набранный текст в поле ввода.
     await waitFor(() => {
       expect(screen.getByTestId('returned').textContent).toBe('null');
     }, WAIT);
 
+    // S-40.3: проверяем после завершения отправки, а не сразу после клика —
+    // иначе reportError из catch стрима просто не успевал сработать.
+    expect(callable).not.toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
+    expect(aiFetchCalls).toEqual([]);
+    // Плашки «техническая ошибка» в DOM быть не должно.
+    expect(screen.queryByText(/Произошла ошибка|Ошибка сервиса/)).not.toBeInTheDocument();
+
     screen.getByRole('button', { name: 'Открыть настройки' }).click();
     expect(openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('S-40.4: a blocked send into a new dialogue leaves no empty dialogue record', async () => {
+    setAiConsent('user-123', false);
+    renderLang('ru', () => {});
+
+    await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
+    await waitFor(() => {
+      expect(screen.getByTestId('returned').textContent).toBe('null');
+    }, WAIT);
+    expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+
+    const db = await getLocalDb();
+    expect(await db.getAll('aiDialogues')).toEqual([]);
+  });
+
+  it('S-40.1: consent refused by the server while indexing is granted — the turn stops with the hint, no «базовый режим»', async () => {
+    // Профиль не загружен — клиентский гейт молчит, отказ приходит с сервера на
+    // первом же вызове (векторизация реплики), как при согласии, снятом на другом устройстве.
+    setProfileLoaded('user-123', false);
+    setIndexingConsent('user-123', 'granted');
+    global.fetch = vi.fn(async (input: unknown) => {
+      const url = String(input);
+      if (url === '/api/embedDocument') {
+        aiFetchCalls.push(url);
+        return new Response(JSON.stringify({ error: { code: 'AI_CONSENT_REQUIRED', message: 'AI_CONSENT_REQUIRED' } }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.startsWith('/api/')) { aiFetchCalls.push(url); return Promise.reject(new Error('AI_FETCH_RAN')); }
+      return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    renderLang('ru', () => {});
+
+    await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
+    await waitFor(() => {
+      expect(screen.getByTestId('returned').textContent).toBe('null');
+    }, WAIT);
+
+    expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+    expect(screen.queryByText(/Произошла ошибка|Ошибка сервиса/)).not.toBeInTheDocument();
+    // Ход остановлен на векторизации: до запроса к модели дело не дошло.
+    expect(aiFetchCalls).toEqual(['/api/embedDocument']);
+    expect(reportError).not.toHaveBeenCalled();
+    // В журнале активности нет «Сбой сервиса ИИ: запрос выполнен в базовом режиме».
+    expect(useActivityLogStore.getState().entries.filter(e => e.level === 'error')).toEqual([]);
+  });
+
+  it('S-40.2: the direct callable path (streaming marked unavailable) shows the hint, not a technical error', async () => {
+    // Клиентский гейт молчит (профиль не загружен); первый /api/chat отвечает
+    // 404 — стрим помечается недоступным, дальше хук зовёт callable напрямую.
+    setProfileLoaded('user-123', false);
+    global.fetch = vi.fn(async (input: unknown) => {
+      const url = String(input);
+      if (url === '/api/chat') { aiFetchCalls.push(url); return new Response('', { status: 404 }); }
+      if (url === '/api/chatWithAI') {
+        aiFetchCalls.push(url);
+        return new Response(JSON.stringify({ error: { code: 'AI_CONSENT_REQUIRED', message: 'AI_CONSENT_REQUIRED' } }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.startsWith('/api/')) { aiFetchCalls.push(url); return Promise.reject(new Error('AI_FETCH_RAN')); }
+      return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    renderLang('ru', () => {});
+
+    for (const attempt of [1, 2]) {
+      await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
+      await waitFor(() => {
+        expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
+      }, WAIT);
+      expect(screen.queryByText(/Произошла ошибка|Ошибка сервиса/)).not.toBeInTheDocument();
+      // Второй ход идёт в callable напрямую: /api/chat больше не трогается.
+      expect(aiFetchCalls.filter(u => u === '/api/chat')).toHaveLength(1);
+      expect(aiFetchCalls.filter(u => u === '/api/chatWithAI')).toHaveLength(attempt);
+      await act(async () => { screen.getByRole('button', { name: 'Закрыть' }).click(); });
+    }
   });
 
   it('the hint comes from i18n in English too', async () => {
@@ -165,9 +243,7 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     expect(screen.queryByText(/разрешите его использование в настройках/)).not.toBeInTheDocument();
   });
 
-  it('AIPage wires the hint to the same settings section the archive uses', () => {
-    const page = readFileSync(resolve(__dirname, '../../../../app/pages/AIPage.tsx'), 'utf8');
-    expect(page).toContain('consentRequired={consentRequired}');
-    expect(page).toContain("navigate('/settings#security')");
-  });
+  // Проводка подсказки в AIPage (consentRequired → AIChatMessages, «Открыть
+  // настройки» → /settings#security) проверяется рендером страницы:
+  // src/app/pages/__tests__/AIPageConsentHint.test.tsx (S-40.3).
 });

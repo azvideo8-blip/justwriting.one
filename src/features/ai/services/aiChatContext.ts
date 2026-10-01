@@ -144,6 +144,9 @@ export function useAIChatContext(personaId: string): {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
         if (!res.ok) {
+          // S-40: нет согласия — ход останавливается с подсказкой (useAIChat), а не
+          // идёт «в базовом режиме» в тот же гейт на chat с записью «Сбой сервиса ИИ».
+          if (res.error === 'AI_CONSENT_REQUIRED' || res.error === 'INDEXING_CONSENT_REQUIRED') throw new Error(res.error);
           if (isDailyLimitError(res.error)) {
             degradedDueToDailyLimit = true;
           }
@@ -156,6 +159,7 @@ export function useAIChatContext(personaId: string): {
         }
         turnEmb = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
       } catch (e) {
+        if (e instanceof Error && (e.message === 'AI_CONSENT_REQUIRED' || e.message === 'INDEXING_CONSENT_REQUIRED')) throw e;
         if (isDailyLimitError(e)) {
           degradedDueToDailyLimit = true;
         }

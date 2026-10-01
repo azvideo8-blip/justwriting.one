@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { getCurrentUser } from '../../../core/auth';
 import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
+import { getAiConsent, isProfileLoaded } from '../../../core/ai/aiConsent';
 import type { AIDialogue } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
@@ -361,6 +362,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     let turnSaved = false;
 
     try {
+      // S-40: тот же гейт, что в streamChat/callAi, но до записи диалога — иначе
+      // заблокированный ход в новый диалог оставлял пустую запись.
+      const gateUid = getCurrentUser()?.uid;
+      if (gateUid && isProfileLoaded(gateUid) && !getAiConsent(gateUid)) throw new Error('AI_CONSENT_REQUIRED');
 
             // Sticky note: remember a freshly attached note, and reuse it on follow-up
       // turns that don't re-attach so the note stays the subject of the dialogue.

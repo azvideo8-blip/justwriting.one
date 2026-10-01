@@ -198,7 +198,8 @@ export const AIService = {
       return { ok: true, vectors: data.vectors, chunks: data.chunks ?? [], model: data.model, dim: data.dim };
     } catch (e: unknown) {
       const errType = mapAIError(e);
-      if (errType !== 'INDEXING_CONSENT_REQUIRED' && (e as { code?: string })?.code !== 'INDEXING_CONSENT_REQUIRED') {
+      // S-40: отсутствие согласия на ИИ — состояние, не сбой (как и индексация).
+      if (errType !== 'AI_CONSENT_REQUIRED' && errType !== 'INDEXING_CONSENT_REQUIRED' && (e as { code?: string })?.code !== 'INDEXING_CONSENT_REQUIRED') {
         reportError(e, { action: 'embed' }, 'warning');
       }
       if (errType === 'DAILY_LIMIT') return { ok: false, error: 'DAILY_LIMIT' };

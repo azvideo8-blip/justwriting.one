@@ -403,6 +403,9 @@ export async function callableChat(params: {
     if (result.error === 'AUTH_REQUIRED') throw new Error('AUTH_REQUIRED');
     if (result.error === 'RATE_LIMIT') throw new Error('RATE_LIMIT');
     if (result.error === 'UPSTREAM') throw new Error('UPSTREAM');
+    // S-40: коды согласия — состояние с подсказкой в чате, как и на стриме;
+    // иначе прямой callable-путь показывал «техническую ошибку» без маршрута.
+    if (result.error === 'AI_CONSENT_REQUIRED' || result.error === 'INDEXING_CONSENT_REQUIRED') throw new Error(result.error);
     throw new Error('SERVER_ERROR');
   }
 
