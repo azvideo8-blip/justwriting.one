@@ -314,6 +314,9 @@ export const AIDialogueService = {
         }
 
         existing.closingSummary = text;
+        // S-35: без новой отметки инкрементальный забор на другом устройстве
+        // итог не увидит.
+        existing.updatedAt = Date.now();
         await tx.objectStore('aiDialogues').put(existing);
 
         await tx.objectStore('aiDialogueEvents').put({
