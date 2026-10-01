@@ -163,6 +163,18 @@ describe('detectRisk', () => {
     'по\u{E0100}вешусь',
     'по\u{E0020}вешусь',
     'по\u0000вешусь',
+    // S-5: EN, транслит, омоглифы цифр и греческих букв, латинская h
+    'i will kill myself',
+    'better off dead',
+    'wish I were dead',
+    'commit suicide',
+    'hochu sdochnut',
+    'xochu umeret',
+    'ubyu sebya',
+    'samoubiystvo',
+    'п0вешусь',
+    'he хочу жить',
+    'hочу умереть',
   ])('риск: %s', text => {
     expect(detectRisk(text).isRisk).toBe(true);
   });
@@ -216,6 +228,8 @@ describe('detectRisk', () => {
     'порезала руку, когда резала хлеб',
     // S-4: однобуквенные слова не схлопываются в длинные слова
     'я в шоке от вас',
+    // S-5: отрицание в английском с don't think
+    "i don't think I will kill myself",
   ])('не риск: %s', text => {
     expect(detectRisk(text).isRisk).toBe(false);
   });

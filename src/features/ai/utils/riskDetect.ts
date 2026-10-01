@@ -86,23 +86,35 @@ const RISK_PATTERNS: RegExp[] = [
 // M-15: \b — иначе «i want to diet» ловилось как «die».
 const FOREIGN_RISK_PATTERNS: RegExp[] = [
   // English
-  /\bi\s+want\s+to\s+(die|kill\s+myself|end\s+my\s+life)\b/,
+  /\b(?:i\s+)?(?:want\s+to|going\s+to|gonna|will|plan\s+to|might|ready\s+to)\s+(?:die|kill\s+myself|end\s+my\s+life|take\s+my\s+life)\b/,
   /\bkill\s+myself\b/,
-  /\bsuicid(?:e|al)/,
+  /\b(?:commit|attempt|considering|contemplating)\s+suicide\b/,
+  /\bsuicid(?:e|al)\b/,
+  /\b(?:better\s+off\s+dead|wish\s+i\s+(?:was|were)\s+dead)\b/,
   /\bdon['’]?t\s+want\s+to\s+live\b|\bdo\s+not\s+want\s+to\s+live\b/,
   // Translit
-  /\bne\s+hochu\s+zhit/,
-  /\bhochu\s+umeret/,
-  /\bpokonchit\s+s\s+sobo[jiy]/,
-  /\bnet\s+smysla\s+(dalshe\s+)?zhit/,
+  /\bne\s+hochu\s+zhit\b/,
+  /\b(?:hochu|xochu|hotel[ai]?)\s+(?:sdochnut|ubit\s+sebya|ume?re?t)\b/,
+  /\b(?:ubyu|ubju)\s+sebya\b/,
+  /\bsamoubiy?stv|\bsamoubitstv/,
+  /\b(?:sbrositsya|povesitsya|vskryt\s+veny)\b/,
+  /\bpokonchit\s+s\s+sobo[jiy]\b/,
+  /\bnet\s+smysla\s+(dalshe\s+)?zhit\b/,
+  /\bdumal\s+o\s+smerti\b/,
 ];
 
 // Инверсия CONFUSABLES_MAP (кириллица→латиница): латинская буква-двойник
 // складывается в кириллицу. Дубликаты («А»→A и «а»→a) разрешаются в пользу
 // первой записи. Только русские буквы: греческие и «і/ѕ/һ» паттерны не знают —
 // h→һ прятал «Hе хочу жить» (M-14).
+// S-5: цифра 0, греческая эта (Η/η) и латинская u.
 const LATIN_LOOKALIKE_TO_CYRILLIC: Record<string, string> = (() => {
-  const map: Record<string, string> = {};
+  const map: Record<string, string> = {
+    '0': 'о',
+    '\u0397': 'н',
+    '\u03b7': 'н',
+    'u': 'у',
+  };
   for (const [cyr, lat] of Object.entries(CONFUSABLES_MAP)) {
     if (!/^[а-яА-Я]$/.test(cyr)) continue;
     const low = lat.toLowerCase();
@@ -112,8 +124,10 @@ const LATIN_LOOKALIKE_TO_CYRILLIC: Record<string, string> = (() => {
 })();
 
 function foldLatinLookalikes(text: string): string {
+  // S-5: латинская h перед e/е — «н» («he хочу» → «не хочу»); иначе — «х» («hочу» → «хочу»).
+  const withH = text.replace(/h(?=[еe])/gi, 'н').replace(/h/gi, 'х');
   let out = '';
-  for (const ch of text) out += LATIN_LOOKALIKE_TO_CYRILLIC[ch] ?? ch;
+  for (const ch of withH) out += LATIN_LOOKALIKE_TO_CYRILLIC[ch] ?? ch;
   return out;
 }
 
@@ -133,9 +147,9 @@ const STANCE_AFTER = /^[\s,—–]*(?:это\s+|уже\s+)?(?:не\s+вариа�
 // M-15: отрицание для EN/транслита — «I don't want to kill myself», «ne hochu umeret».
 // Только если оно управляет самой фразой, вплотную перед ней: «I'm not ok and
 // I want to die» — одна клауза, но «not» к «want to die» не относится.
-// R5-017: вспомогательный глагол с отрицанием управляет и самим «kill»:
-// «I won't / will not / wouldn't kill myself», «it's not that I want to die».
-const FOREIGN_NEGATION_BEFORE = /(?:\bdo(?:n['’]?t| not)|\bnot|\bnever|\bwon['’]?t)\s+(?:want|going|plan(?:ning)?|gonna|wanna)\s+(?:to\s+)?$|\b(?:won['’]?t|will\s+(?:not|never)|would(?:n['’]?t|\s+not|\s+never)|never|do(?:n['’]?t|\s+not)|not\s+that)\s+$|\bne\s+$/;
+// R5-017 / S-5: вспомогательный глагол с отрицанием управляет и самим «kill»:
+// «I won't / will not / wouldn't kill myself», «it's not that I want to die», «don't think I will».
+const FOREIGN_NEGATION_BEFORE = /(?:\bdo(?:n['’]?t| not)|\bnot|\bnever|\bwon['’]?t)\s+(?:want|going|plan(?:ning)?|gonna|wanna)\s+(?:to\s+)?$|\b(?:won['’]?t|will\s+(?:not|never)|would(?:n['’]?t|\s+not|\s+never)|never|do(?:n['’]?t|\s+not)|(?:it['’]?s\s+|it\s+is\s+)?not\s+that|not)\s+$|\bdo(?:n['’]?t|\s+not)\s+think\s+(?:i\s+)?(?:will\s+)?$|\bne\s+$/;
 
 // Граница клаузы: знак препинания или союз-поворот. Исключение из соседней
 // клаузы («не думал о смерти, но хочу покончить с собой») острое не гасит.
