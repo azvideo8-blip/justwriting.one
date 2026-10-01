@@ -1,0 +1,13 @@
+[Unit]
+Description=Срок хранения журнала аудита входа justwriting (30 дней)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Журнал GoTrue (входы, сбросы пароля, приглашения) держим 30 дней: след на
+# случай подбора пароля, но не вечное хранение почты (политика, раздел про
+# технические журналы). Записи удалённого аккаунта стирает само удаление.
+ExecStart=/usr/bin/docker exec supabase-db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "delete from auth.audit_log_entries where created_at < now() - interval '30 days'"
+StandardOutput=journal
+StandardError=journal

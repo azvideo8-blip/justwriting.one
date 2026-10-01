@@ -70,6 +70,37 @@ sudo docker rm -f jw-restore-drill
 408 грантов совпали; после `revoke` — exit 1, «гранты разошлись», одна строка
 `versions authenticated SELECT`.
 
+## Срок хранения журнала входов (S-27)
+
+Журнал GoTrue `auth.audit_log_entries` пишет входы, сбросы пароля и приглашения
+вместе с почтой. Держим 30 дней — обещание в политике, раздел «Сроки хранения»;
+записи удалённого аккаунта стирает само удаление (S-10), а не этот таймер.
+
+Файлы в `deploy/backup/` совпадают с продом побайтно (проверка — sha256, а не
+«похоже на правду»):
+
+```bash
+sha256sum /etc/systemd/system/justwriting-audit-retention.{service,timer} \
+  deploy/backup/justwriting-audit-retention.{service,timer}
+```
+
+Установка (на сервере, из корня репозитория):
+
+```bash
+sudo install -m 644 deploy/backup/justwriting-audit-retention.service \
+  deploy/backup/justwriting-audit-retention.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemd-analyze verify /etc/systemd/system/justwriting-audit-retention.service
+sudo systemctl enable --now justwriting-audit-retention.timer
+sudo systemctl start justwriting-audit-retention.service   # первый прогон сразу
+journalctl -u justwriting-audit-retention.service -n 20 --no-pager
+```
+
+Плюс 600 секунд случайной задержки к 04:20 UTC, `Persistent=true` догоняет
+пропущенный запуск. Юнит попадает под маску `justwriting*.service`, которой
+мониторинг (S-7) смотрит `failed` — то есть молча не работающая чистка краснеет
+в healthcheck, а не остаётся не замеченной, как drill 2026-10-01.
+
 ## Восстановление всего
 
 Только `--clean --if-exists` от `supabase_admin`: образ Supabase при старте

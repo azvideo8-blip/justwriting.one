@@ -21,8 +21,8 @@ export interface LegalDocument {
   en: { updated: string; sections: LegalSection[] };
 }
 
-const UPDATED_RU = '18 августа 2026';
-const UPDATED_EN = 'August 18, 2026';
+const UPDATED_RU = '1 октября 2026';
+const UPDATED_EN = 'October 1, 2026';
 
 export const PRIVACY_POLICY: LegalDocument = {
   ru: {
@@ -89,7 +89,7 @@ export const PRIVACY_POLICY: LegalDocument = {
           'Данные обрабатываются до достижения целей обработки, отзыва согласия либо удаления учётной записи.',
           'Удаление учётной записи влечёт удаление записей, их версий, производных данных и учётных сведений.',
           'Резервные копии базы данных хранятся ограниченное время. В течение этого срока удалённые данные могут сохраняться в копиях и уничтожаются вместе с истечением срока хранения копии.',
-          'Технические журналы хранятся ограниченное время и затем уничтожаются.',
+          'Журнал входов в учётную запись (вход, сброс пароля, приглашение) хранится 30 дней и затем удаляется; записи удалённой учётной записи удаляются сразу. Журналы веб-сервера хранятся ограниченное время.',
         ],
       },
       {
@@ -174,7 +174,7 @@ export const PRIVACY_POLICY: LegalDocument = {
           'Data is processed until the purposes are achieved, consent is withdrawn, or the account is deleted.',
           'Deleting an account removes the notes, their versions, derived data and account information.',
           'Database backups are kept for a limited time. During that period deleted data may persist in the copies and is destroyed when the copy’s retention period expires.',
-          'Technical logs are kept for a limited time and then destroyed.',
+          'The account sign-in log (sign-in, password reset, invitation) is kept for 30 days and then deleted; records of a deleted account are removed immediately. Web-server logs are kept for a limited time.',
         ],
       },
       {
