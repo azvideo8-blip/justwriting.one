@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.27',
+    date: '2026-10-01',
+    items: [
+      { category: 'improvement', ru: 'Служебный выпуск: выкатку больше нельзя запустить в обход проверок, внутренние рабочие документы перенесены из основного репозитория в закрытый.', en: 'Maintenance release: a deploy can no longer bypass the checks; internal working documents moved out of the main repository into a private one.' },
+    ],
+  },
+  {
     version: '0.9.26',
     date: '2026-10-01',
     items: [
