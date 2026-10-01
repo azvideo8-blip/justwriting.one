@@ -76,6 +76,13 @@ sudo docker rm -f jw-restore-drill
 сам создаёт схему `auth`, и восстановление поверх неё без `--clean` теряет
 `auth.users` — аккаунты не входят, uid заметок повисают.
 
+`--no-privileges` теряет то, что миграции **отозвали** (служебные таблицы из
+0034, EXECUTE у функций из 0017/0020/0033): права по умолчанию образа выдают
+их снова. Поэтому сразу после `pg_restore` применяется
+`post-restore-grants.sql` — все `grant`/`revoke` из миграций (тест
+`scripts/__tests__/postRestoreGrants.test.ts` держит список полным). Drill
+2026-10-01 это и поймал.
+
 `--no-privileges` не выбрасывает гранты приложения: образ держит
 `ALTER DEFAULT PRIVILEGES`, и таблицы, созданные восстановлением, получают
 права `anon`/`authenticated`/`service_role` заново. Проверено на настоящем
@@ -91,6 +98,10 @@ cd /opt/justwriting/supabase
 sudo docker compose stop kong auth rest realtime   # никто не пишет во время восстановления
 sudo cat "$F" | sudo docker exec -i supabase-db pg_restore -U supabase_admin -d postgres \
   --clean --if-exists --no-owner --no-privileges
+# права, которые миграции отозвали: --no-privileges их теряет, а default
+# privileges образа возвращают anon/authenticated всё (drill 2026-10-01)
+sudo docker exec -i supabase-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
+  < /opt/justwriting/backup/post-restore-grants.sql
 sudo docker compose start kong auth rest realtime
 ```
 

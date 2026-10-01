@@ -117,14 +117,27 @@ prod_sql() { docker exec supabase-db psql -U postgres -d postgres -At -c "$1"; }
 # и поводу, которого нет. Смысл проверки — права трёх ролей Supabase, под
 # которыми ходит клиент (anon/authenticated через Kong, service_role у API).
 # grantee из aclexplode — OID, сравнивать его с именем надо через pg_roles.
-GRANTS_QUERY="select c.relname||' '||coalesce(r.rolname,'PUBLIC')||' '||p.privilege_type
-  from pg_class c
-  join pg_namespace n on n.oid = c.relnamespace
- cross join lateral aclexplode(c.relacl) p
-  left join pg_roles r on r.oid = p.grantee
- where n.nspname = 'public' and c.relkind = 'r'
-   and coalesce(r.rolname,'PUBLIC') in ('anon','authenticated','service_role')
- order by 1"
+# Таблицы и представления — плюс функции: отзыв EXECUTE у PUBLIC/anon
+# (0017/0020/0033) восстановление теряло так же, как отзыв прав на таблицы
+# (0034), а сверка видела только таблицы. Для функций NULL в proacl — права по
+# умолчанию (EXECUTE для PUBLIC), поэтому acldefault.
+GRANTS_QUERY="select q from (
+ select c.relname||' '||coalesce(r.rolname,'PUBLIC')||' '||p.privilege_type as q
+   from pg_class c
+   join pg_namespace n on n.oid = c.relnamespace
+  cross join lateral aclexplode(c.relacl) p
+   left join pg_roles r on r.oid = p.grantee
+  where n.nspname = 'public' and c.relkind in ('r','v')
+    and coalesce(r.rolname,'PUBLIC') in ('anon','authenticated','service_role')
+ union all
+ select 'fn '||pr.proname||'('||pg_get_function_identity_arguments(pr.oid)||') '||coalesce(r.rolname,'PUBLIC')||' '||p.privilege_type
+   from pg_proc pr
+   join pg_namespace n on n.oid = pr.pronamespace
+  cross join lateral aclexplode(coalesce(pr.proacl, acldefault('f', pr.proowner))) p
+   left join pg_roles r on r.oid = p.grantee
+  where n.nspname = 'public'
+    and coalesce(r.rolname,'PUBLIC') in ('anon','authenticated','service_role','PUBLIC')
+) x order by 1"
 
 run_checks() {
   Q="select (select count(*) from auth.users)||' auth.users, '||(select count(*) from public.users)||' users, '||(select count(*) from public.documents)||' docs, '||(select count(*) from public.versions)||' versions, '||(select count(*) from public.local_store_records)||' ai records, '||(select count(*) from public.users where encryption_meta is not null)||' vaults'"
@@ -197,5 +210,9 @@ sleep 5
 
 docker exec -i -e PGPASSWORD=drill "$NAME" pg_restore -U supabase_admin -h localhost -d postgres \
   --clean --if-exists --no-owner --no-privileges < "$DUMP"
+# Права, которые миграции отозвали, --no-privileges теряет — возвращаем их
+# тем же файлом, что и при настоящем восстановлении (RESTORE.md).
+docker exec -i -e PGPASSWORD=drill "$NAME" psql -U supabase_admin -h localhost -d postgres -v ON_ERROR_STOP=1 -q \
+  < "$(dirname "$0")/post-restore-grants.sql"
 
 run_checks
