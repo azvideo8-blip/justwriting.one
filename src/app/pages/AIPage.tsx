@@ -54,7 +54,7 @@ export function AIPage() {
     detailPersona, setDetailPersona,
     attachMenuOpen, setAttachMenuOpen,
     messagesEndRef, fileInputRef, attachMenuRef,
-    isLoading, streamingMessage, streamingReasoning, error, clearError,
+    isLoading, streamingMessage, streamingReasoning, error, consentRequired, clearError,
     stop, pendingAttachments, removePendingAttachment, handlePasteAsNote,
     lastTurnScope, handleAnalyzeNote, handleRelateNote, handleLookWider,
     handleSuggestion, handleFeedback, handleRegenerate, handleSwitchVariant,
@@ -146,6 +146,8 @@ export function AIPage() {
           isLoading={isLoading}
           error={error}
           clearError={clearError}
+          consentRequired={consentRequired}
+          onOpenSettings={() => { void navigate('/settings#security'); }}
           convPersonaName={convPersonaName}
           convVisual={convVisual}
           onCopyMessage={handleCopyMessage}

@@ -18,6 +18,7 @@ import {
 import type { PersonaVisual } from '../../constants/personaVisuals';
 import { useCitationMeta, type ChatMessage } from './useCitationMeta';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import type { ConsentCode } from '../../hooks/useAIChat';
 
 export interface AIChatMessagesProps {
   displayMessages: readonly ChatMessage[];
@@ -26,6 +27,9 @@ export interface AIChatMessagesProps {
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
+  /** S-31: нет согласия на ИИ/индексацию — состояние, а не техническая ошибка. */
+  consentRequired: ConsentCode | null;
+  onOpenSettings: () => void;
   convPersonaName: string;
   convVisual: PersonaVisual;
   onCopyMessage: (content: string) => void;
@@ -85,6 +89,8 @@ export function AIChatMessages(props: AIChatMessagesProps) {
     isLoading,
     error,
     clearError,
+    consentRequired,
+    onOpenSettings,
     convPersonaName,
     convVisual,
     onCopyMessage,
@@ -329,7 +335,19 @@ export function AIChatMessages(props: AIChatMessagesProps) {
             </div>
           )}
 
-          {!isLoading && streamingMessage === null && !error && lastAssistantIdx === displayMessages.length - 1 && displayMessages.length > 0 && (
+          {/* S-31: согласие — не поломка: спокойная подсказка со ссылкой в Настройки
+              вместо красной плашки «техническая ошибка». */}
+          {consentRequired && (
+            <div className="flex justify-center" role="status">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-xs text-brand-soft">
+                <span>{t(consentRequired === 'INDEXING_CONSENT_REQUIRED' ? 'ai_chat_indexing_consent_hint' : 'ai_chat_consent_hint')}</span>
+                <Button onClick={onOpenSettings} className="ml-1 underline shrink-0">{t('settings_open')}</Button>
+                <Button onClick={clearError} className="underline shrink-0">{t('ai_close')}</Button>
+              </div>
+            </div>
+          )}
+
+          {!isLoading && streamingMessage === null && !error && !consentRequired && lastAssistantIdx === displayMessages.length - 1 && displayMessages.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
               {followUps.map(s => (
                 <button

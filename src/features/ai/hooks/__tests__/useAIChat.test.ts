@@ -61,7 +61,9 @@ describe('useAIChat tests (AG-ERR-2 & AG-CHAT-2)', () => {
       expect(sendResult).toBeNull();
       expect(streamSpy).toHaveBeenCalled();
       expect(callableSpy).not.toHaveBeenCalled();
-      expect(result.current.error).toBe('Слишком частые запросы. Подождите немного перед следующей отправкой.');
+      // S-31: текст идёт через i18n (t здесь отдаёт сам ключ), а не через
+      // жёстко зашитую русскую строку — иначе англоязычный видит RU-заглушку.
+      expect(result.current.error).toBe('ai_error_rate_limit');
     });
 
     it('shows upstream error message when UPSTREAM is thrown and does not fallback to callableChat (F-06)', async () => {
@@ -132,7 +134,7 @@ describe('useAIChat tests (AG-ERR-2 & AG-CHAT-2)', () => {
       });
 
       // Assert error set
-      expect(result.current.error).toContain('Слишком частые запросы');
+      expect(result.current.error).toContain('ai_error_rate_limit');
 
       // Assert dialogue in IndexedDB still contains the original assistant message!
       const stored = await db.get('aiDialogues', dialogueId);

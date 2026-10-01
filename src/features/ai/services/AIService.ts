@@ -155,7 +155,11 @@ export const AIService = {
           return { ok: true, text: data.result };
         } catch { /* второй отказ — сообщаем честно ниже */ }
       }
-      reportError(e, { action: 'chat', personaId: params.personaId, aiError: code }, 'warning');
+      // S-31: отсутствие согласия — состояние, а не сбой: в журнале активности
+      // оно выглядело бы как техническая ошибка.
+      if (code !== 'AI_CONSENT_REQUIRED' && code !== 'INDEXING_CONSENT_REQUIRED') {
+        reportError(e, { action: 'chat', personaId: params.personaId, aiError: code }, 'warning');
+      }
       return { ok: false, error: code };
     }
   },

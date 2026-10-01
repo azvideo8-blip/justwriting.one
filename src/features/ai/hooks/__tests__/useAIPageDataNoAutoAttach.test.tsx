@@ -18,6 +18,7 @@ vi.mock('../useAIChat', () => ({
     streamingMessage: '',
     streamingReasoning: '',
     error: null,
+    consentRequired: null,
     sendMessage,
     prepareAttachment,
     stop: vi.fn(),

@@ -61,9 +61,17 @@ interface UseAIChatReturn {
   crisisActive: boolean;
   dismissCrisis: () => void;
   clearError: () => void;
+  /** S-31: отсутствие согласия — состояние, а не техническая ошибка. */
+  consentRequired: ConsentCode | null;
 }
 
 const INTERRUPTED_STREAM_MARKER = '\n\n[ответ не дописан — стрим оборвался]';
+
+// S-31: коды клиентского гейта согласия. Отсутствие согласия — состояние, а не
+// поломка: callable бросает тот же код, а в журнал активности писать нечего.
+export type ConsentCode = 'AI_CONSENT_REQUIRED' | 'INDEXING_CONSENT_REQUIRED';
+const CONSENT_CODES: readonly ConsentCode[] = ['AI_CONSENT_REQUIRED', 'INDEXING_CONSENT_REQUIRED'];
+const isConsentCode = (msg: string): msg is ConsentCode => (CONSENT_CODES as readonly string[]).includes(msg);
 
 export function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
@@ -115,6 +123,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   const [streamingMessage, setStreamingMessage] = useState<string | null>(null);
   const [streamingReasoning, setStreamingReasoning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [consentRequired, setConsentRequired] = useState<ConsentCode | null>(null);
   // Safety-by-design: surface crisis resources in the UI (not just the prompt)
   // once acute-risk markers are detected; stays until the user dismisses it.
   const [crisisActive, setCrisisActive] = useState(false);
@@ -235,7 +244,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     return () => { active = false; };
   }, [dialogueId, personaId, dialogue]);
 
-  const clearError = useCallback(() => setError(null), []);
+  const clearError = useCallback(() => { setError(null); setConsentRequired(null); }, []);
 
   // `attached.content` is the full note text routed through documentContent (50K),
   // so the model reads the whole note while the chat message stays small (just a
@@ -297,6 +306,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     setIsLoading(true);
     setStreamingMessage(null); setStreamingReasoning(null);
     setError(null);
+    setConsentRequired(null);
 
     // Stop button: fresh controller per send; stop() aborts this one.
     // R-1: Abort any previous in-flight controller before overwriting the ref,
@@ -524,13 +534,17 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         } catch (e: unknown) {
           // Don't fall back to the callable if the user aborted on purpose.
           if (controller.signal.aborted) throw new Error('ABORTED');
-          // A handled fallback, not a failure: the callable path runs next and
-          // usually answers. Logged as a warning so a provider hiccup does not
-          // sit in the log looking like something broke.
-          reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           const errMsg = e instanceof Error ? e.message : '';
+          // S-31: нет согласия — не поломка. Гейт бросает до запроса, callable
+          // бросил бы тот же код, а в журнале это выглядело как техническая ошибка.
+          if (!isConsentCode(errMsg)) {
+            // A handled fallback, not a failure: the callable path runs next and
+            // usually answers. Logged as a warning so a provider hiccup does not
+            // sit in the log looking like something broke.
+            reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
+          }
           const isUpstream = errMsg === 'UPSTREAM' || errMsg === 'UPSTREAM_ERROR' || errMsg === 'SERVICE_UNAVAILABLE' || errMsg.startsWith('UPSTREAM');
-          if (!isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT' && !errMsg.startsWith('RATE_LIMIT:')) {
+          if (!isConsentCode(errMsg) && !isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT' && !errMsg.startsWith('RATE_LIMIT:')) {
             // #77: streaming already consumed a daily limit slot. The callable
             // fallback consumes another. Accepted by design: the residual case
             // after server-side refund-on-disconnect is a mid-stream network
@@ -736,7 +750,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         void useAiLimitStore.getState().loadLimitFromServer();
       }
 
-      setError(aiErrorToText(rawMsg));
+      // S-31: согласие показывается отдельной панелью со ссылкой в Настройки,
+      // а не красной плашкой «техническая ошибка».
+      if (isConsentCode(rawMsg)) {
+        setConsentRequired(rawMsg);
+        return null;
+      }
+
+      setError(aiErrorToText(rawMsg, { t, isLoggedIn: !!getCurrentUser() }));
       return null;
     } finally {
       try { localStorage.removeItem('jw_ai_inflight'); } catch { /* ignore */ }
@@ -830,5 +851,5 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     await sendMessage('', undefined, undefined, query);
   }, [sendMessage]);
 
-  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, sendMessage, lastTurnScope, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
+  return { dialogue, isLoading, streamingMessage, streamingReasoning, error, consentRequired, sendMessage, lastTurnScope, prepareAttachment, stop, regenerateLast, triggerForcedSearch, crisisActive, dismissCrisis, clearError };
 }

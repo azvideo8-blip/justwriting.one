@@ -76,6 +76,16 @@ export const aiTranslations: Translations = {
     ru: 'Для поиска по смыслу требуется согласие на индексацию',
     en: 'Semantic search requires consent for indexing',
   },
+  // S-31: отсутствие согласия — состояние, а не техническая ошибка: текст
+  // спокойный и с действием (кнопка «Открыть настройки» → /settings#security).
+  ai_chat_consent_hint: {
+    ru: 'Чтобы общаться с ИИ, разрешите его использование в настройках.',
+    en: 'To chat with the AI, allow it in Settings.',
+  },
+  ai_chat_indexing_consent_hint: {
+    ru: 'Поиск по вашим заметкам требует согласия на индексацию — включите его в настройках.',
+    en: 'Searching your notes needs indexing consent — turn it on in Settings.',
+  },
   ai_stage_preparing: { ru: 'готовит ответ', en: 'preparing answer' },
   ai_stage_query: { ru: 'разбирает запрос', en: 'parsing query' },
   ai_stage_search: { ru: 'ищет в заметках', en: 'searching notes' },
