@@ -6,6 +6,7 @@ import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { stampMessage, withMessageIds } from '../utils/dialogueMerge';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 
@@ -50,6 +51,7 @@ export const AIDialogueService = {
     const now = Date.now();
     const dialogue: AIDialogue = {
       ...data,
+      messages: data.messages.map(m => stampMessage(m, now)),
       id: randomUUID(),
       createdAt: now,
       updatedAt: now,
@@ -62,12 +64,13 @@ export const AIDialogueService = {
   async get(id: string): Promise<AIDialogue | undefined> {
     if (!id || typeof id !== 'string') return undefined;
     const db = await getLocalDb();
-    return (await db.get('aiDialogues', id)) ?? undefined;
+    const found = await db.get('aiDialogues', id);
+    return found ? withMessageIds(found) : undefined;
   },
 
   async list(options?: { includeArchived?: boolean }): Promise<AIDialogue[]> {
     const db = await getLocalDb();
-    const all = await db.getAll('aiDialogues');
+    const all = (await db.getAll('aiDialogues')).map(withMessageIds);
     const filtered = options?.includeArchived
       ? all
       : all.filter(d => !d.archivedAt);
@@ -76,7 +79,7 @@ export const AIDialogueService = {
 
   async listByDocument(documentId: string): Promise<AIDialogue[]> {
     const db = await getLocalDb();
-    const all = await db.getAllFromIndex('aiDialogues', 'by-document', documentId);
+    const all = (await db.getAllFromIndex('aiDialogues', 'by-document', documentId)).map(withMessageIds);
     return all.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
@@ -94,15 +97,17 @@ export const AIDialogueService = {
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
     const now = Date.now();
+    // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
+    // реплики по id, и ответ встанет перед своим вопросом.
     existing.messages.push(
-      { role: 'user', content: truncate(userMsg) },
-      {
+      stampMessage({ role: 'user', content: truncate(userMsg) }, now),
+      stampMessage({
         role: 'assistant',
         content: truncate(assistantMsg),
         ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
         ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
         ...(degradedReason ? { degradedReason } : {}),
-      },
+      }, now + 1),
     );
     existing.updatedAt = now;
     await tx.store.put(existing);
@@ -110,9 +115,17 @@ export const AIDialogueService = {
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
+  /**
+   * S-25 / S-29: замена последнего хода по id его пользовательской реплики, а не
+   * по позиции. Прежний `fromIndex` приходил из состояния вкладки и срезал
+   * `splice(fromIndex)` чужой ход, если соседняя вкладка успела дописать. Теперь:
+   * если заменяемого хода уже нет в конце — дописываем, а не урезаем; убранные
+   * реплики остаются в списке удалённых, чтобы слияние не вернуло их из второй
+   * реплики.
+   */
   async replaceLastTurn(
     id: string,
-    fromIndex: number,
+    replaceUserId: string,
     userMsg: string,
     assistantMsg: string,
     reasoning?: string,
@@ -124,19 +137,27 @@ export const AIDialogueService = {
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    if (fromIndex >= 0 && fromIndex < existing.messages.length) {
-      existing.messages.splice(fromIndex);
+    // Id старых реплик проставляем в саму запись: резать надо то, что пойдёт в
+    // базу, а не копию рядом с ней.
+    existing.messages = withMessageIds(existing).messages;
+    const idx = existing.messages.findIndex(m => m.id === replaceUserId);
+    const isLastTurn = idx >= 0 && idx === existing.messages.length - 2;
+    if (isLastTurn) {
+      const removed = existing.messages.splice(idx);
+      existing.deletedMessageIds = [...(existing.deletedMessageIds ?? []), ...removed.map(m => m.id!).filter(Boolean)];
     }
     const now = Date.now();
+    // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
+    // реплики по id, и ответ встанет перед своим вопросом.
     existing.messages.push(
-      { role: 'user', content: truncate(userMsg) },
-      {
+      stampMessage({ role: 'user', content: truncate(userMsg) }, now),
+      stampMessage({
         role: 'assistant',
         content: truncate(assistantMsg),
         ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
         ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
         ...(degradedReason ? { degradedReason } : {}),
-      },
+      }, now + 1),
     );
     existing.updatedAt = now;
     await tx.store.put(existing);
@@ -144,13 +165,18 @@ export const AIDialogueService = {
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
-  async deleteMessage(id: string, index: number): Promise<void> {
+  async deleteMessage(id: string, messageId: string): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    if (index < 0 || index >= existing.messages.length) { await tx.done; return; }
-    existing.messages.splice(index, 1);
+    existing.messages = withMessageIds(existing).messages;
+    const idx = existing.messages.findIndex(m => m.id === messageId);
+    if (idx < 0) { await tx.done; return; }
+    const removed = existing.messages.splice(idx, 1)[0];
+    if (removed?.id) {
+      existing.deletedMessageIds = [...(existing.deletedMessageIds ?? []), removed.id];
+    }
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
@@ -168,20 +194,6 @@ export const AIDialogueService = {
     await tx.store.put(existing);
     await tx.done;
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
-  },
-
-  async truncateFrom(id: string, fromIndex: number): Promise<void> {
-    const db = await getLocalDb();
-    const tx = db.transaction('aiDialogues', 'readwrite');
-    const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
-    if (fromIndex < 0 || fromIndex >= existing.messages.length) { await tx.done; return; }
-    existing.messages.splice(fromIndex);
-    existing.updatedAt = Date.now();
-    await tx.store.put(existing);
-    await tx.done;
-    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
-    window.dispatchEvent(new Event('dialogue-updated'));
   },
 
   async setLastAssistantVariants(id: string, variants: string[], variantIndex: number): Promise<void> {
@@ -388,11 +400,11 @@ export const AIDialogueService = {
     if (!dialogue) { await tx.done; return; }
     const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : 'стандартно';
     const reasoningLabel = reasoning ? ' + рассуждения' : '';
-    dialogue.messages.push({
+    dialogue.messages.push(stampMessage({
       role: 'assistant',
       content: `⚙️ [Смена объёма]: Теперь ${dialogue.personaName} ответит вам ${lengthLabel}${reasoningLabel}`,
       type: 'system',
-    });
+    }));
     dialogue.responseLength = responseLength;
     if (reasoning !== undefined) dialogue.reasoning = reasoning;
     dialogue.updatedAt = Date.now();

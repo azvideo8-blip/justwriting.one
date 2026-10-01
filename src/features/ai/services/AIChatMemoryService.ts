@@ -7,6 +7,7 @@ import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { withMessageIds } from '../utils/dialogueMerge';
 
 
 type MemoryKind = 'fact' | 'insight' | 'commitment' | 'preference';
@@ -26,12 +27,28 @@ export const AIChatMemoryService = {
       const db = await getLocalDb();
       let dialogue: AIDialogue | undefined;
       try {
-        dialogue = await db.get('aiDialogues', dialogueId);
+        const stored = await db.get('aiDialogues', dialogueId);
+        dialogue = stored ? withMessageIds(stored) : undefined;
       } catch {
         // non-fatal if dialogue lookup fails in test or detached mode
       }
-      const lastIdx = dialogue?.lastExtractedIdx ?? 0;
-      const startIdx = Math.max(0, lastIdx - 2);
+
+      // S-29: курсор — id последней извлечённой реплики, а не позиция. Позиция
+      // ломалась, стоило слиянию вставить ход в середину: память либо молчала,
+      // либо переизвлекала то, что уже извлечено. Старый индекс переживается в id
+      // на месте, дальше курсор живёт только по id.
+      const OVERLAP = 2;
+      const legacyIdx = dialogue?.lastExtractedIdx ?? 0;
+      const cursorId = dialogue?.lastExtractedMessageId
+        ?? dialogue?.messages[legacyIdx]?.id
+        ?? undefined;
+      const storedAt = cursorId && dialogue ? dialogue.messages.findIndex(m => m.id === cursorId) : -1;
+      // Хвост окна и хвост сохранённого диалога совпадают (последняя реплика
+      // параметра — та же, что в базе), поэтому сдвиг считаем по длине.
+      const shift = dialogue ? Math.max(0, dialogue.messages.length - messages.length) : 0;
+      const startIdx = storedAt >= 0
+        ? Math.max(0, storedAt - OVERLAP - shift)
+        : Math.max(0, legacyIdx - OVERLAP);
 
       const candidateMessages = messages.slice(startIdx);
       const bounded = candidateMessages.length > MEMORY_EXTRACT_MAX_MESSAGES
@@ -86,7 +103,15 @@ export const AIChatMemoryService = {
       }
 
       if (dialogue) {
-        dialogue.lastExtractedIdx = messages.length;
+        const lastSeen = dialogue.messages[Math.min(dialogue.messages.length - 1, messages.length - 1)];
+        // Курсор по id, пока его удалось разглядеть; пока сохранённый диалог
+        // короче переданного (detached-режим, тесты), остаётся позиционный.
+        if (lastSeen?.id) {
+          dialogue.lastExtractedMessageId = lastSeen.id;
+          delete dialogue.lastExtractedIdx;
+        } else {
+          dialogue.lastExtractedIdx = messages.length;
+        }
         await db.put('aiDialogues', dialogue);
         LocalStoreSyncService.scheduleStoreSync('aiDialogues', dialogue.id);
       }

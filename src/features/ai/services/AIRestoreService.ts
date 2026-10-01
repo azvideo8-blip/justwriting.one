@@ -1,12 +1,14 @@
 import { getLocalDb } from '../../../core/storage/localDb';
-import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet } from '../../../core/storage/localDb';
+import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet, AIDialogue } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
+import { mergeDialogues } from '../utils/dialogueMerge';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { sha256Hex } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import {
   extractRecordTimestamp,
+  LocalStoreSyncService,
   SUPPORTED_LOCAL_STORES,
   SupportedLocalStoreName,
   MAX_RESTORE_RECORD_BYTES,
@@ -363,9 +365,22 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         // Get local record if exists
         const localRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, baseKey);
 
-        const putRecord = () => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
+        const putRecord = (value: unknown = parsedData) => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, value);
 
         if (localRecord !== undefined) {
+          // S-29: диалоги не выбирают победителя по часам — они сливаются.
+          // LWW уносил ход того устройства, которое ответило вторым, молча.
+          if (store === 'aiDialogues') {
+            const merged = mergeDialogues(localRecord as AIDialogue, parsedData as AIDialogue);
+            if (JSON.stringify(merged) !== JSON.stringify(localRecord)) {
+              await putRecord(merged);
+              // Союз надо отправить в облако, иначе второе устройство так и
+              // останется со своей половинкой.
+              LocalStoreSyncService.scheduleStoreSync('aiDialogues', merged.id);
+              result.localStoreRecords++;
+            }
+            continue;
+          }
           const localTs = extractRecordTimestamp(localRecord);
           // Conflict rule:
           // If both timestamps exist and cloudTs > localTs: cloud wins.

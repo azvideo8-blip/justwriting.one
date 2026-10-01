@@ -499,12 +499,16 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleDeleteMessage = async (index: number) => {
     const id = activeDialogueId ?? dialogue?.id;
     if (!id) return;
+    // S-29: удаляем по id реплики — позиция из списка экрана может разойтись с
+    // записью в базе, а тумбстоун без id слияние не учтёт и ответ вернётся.
+    const messageId = (dialogue ?? dialogues.find(d => d.id === activeDialogueId))?.messages[index]?.id;
+    if (!messageId) return;
     const ok = await confirmDialog({
       title: t('ai_delete_message_confirm_title'),
       message: t('ai_delete_message_confirm_message'),
     });
     if (!ok) return;
-    await AIDialogueService.deleteMessage(id, index);
+    await AIDialogueService.deleteMessage(id, messageId);
     await loadDialogues();
   };
 

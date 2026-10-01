@@ -109,6 +109,25 @@ interface PendingSession {
   userId: string;
 }
 
+export interface DialogueMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  type?: 'chat' | 'system' | undefined;
+  reasoning?: string | undefined;
+  variants?: string[] | undefined;
+  variantIndex?: number | undefined;
+  searchRequest?: string | undefined;
+  degradedReason?: string | undefined;
+  /**
+   * S-29: опознаёт реплику при слиянии двух реплик диалога. Без него слияние
+   * невозможное: сопоставлять сообщения по позиции — это терять ход того, кто
+   * дописал в соседнем устройстве.
+   */
+  id?: string | undefined;
+  /** Момент создания на том устройстве, где реплику написали. */
+  createdAt?: number | undefined;
+}
+
 export interface AIDialogue {
   id: string;
   title: string;
@@ -116,7 +135,7 @@ export interface AIDialogue {
   personaName: string;
   personaEmoji: string;
   documentId?: string | undefined;
-  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined; searchRequest?: string | undefined; degradedReason?: string | undefined }[];
+  messages: DialogueMessage[];
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;
@@ -126,6 +145,13 @@ export interface AIDialogue {
   reasoning?: boolean;
   closingSummary?: string;
   lastExtractedIdx?: number;
+  /** S-29: курсор извлечения памяти по id реплики, а не по позиции. */
+  lastExtractedMessageId?: string | undefined;
+  /**
+   * S-29: удалённые и заменённые реплики. Без записи об удалении слияние
+   * возвращает их из второй реплики, и исчезнувший ответ появляется снова.
+   */
+  deletedMessageIds?: string[] | undefined;
 }
 
 export interface AIDialogueEvent {

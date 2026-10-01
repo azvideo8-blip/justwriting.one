@@ -12,6 +12,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
+import { stampMessage, withMessageIds } from '../utils/dialogueMerge';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
@@ -37,7 +38,8 @@ import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 export { API_MSG_CAP };
 
 export interface SendMessageOptions {
-  replaceFromIndex?: number;
+  /** S-25/S-29: id пользовательской реплики заменяемого хода — не позиция. */
+  replaceUserId?: string | undefined;
   /** Вопрос хода без текста заметки: по нему решается режим и строится контекст. */
   question?: string;
   /** Кнопки «Связать с другими записями» / «Посмотреть в других записях». */
@@ -224,17 +226,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (!active) return;
       const db = await getLocalDb();
       if (!active) return;
-      const fresh = await db.get('aiDialogues', dialogueId);
-      if (!active || !fresh) return;
+      const stored = await db.get('aiDialogues', dialogueId);
+      if (!active || !stored) return;
+      const fresh = withMessageIds(stored);
+      if (!active) return;
 
       fresh.personaId = personaId;
       fresh.personaName = newPersonaName;
       fresh.personaEmoji = newPersonaEmoji;
-      fresh.messages.push({
+      fresh.messages.push(stampMessage({
         role: 'assistant',
         content: `⚙️ [Смена персоны]: Теперь с вами общается ${newPersonaName}`,
         type: 'system',
-      });
+      }));
       fresh.updatedAt = Date.now();
       if (!active) return;
       await db.put('aiDialogues', fresh);
@@ -432,8 +436,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           : currentDialogue);
       }
 
-      const baseMessages = options?.replaceFromIndex !== undefined
-        ? currentDialogue.messages.slice(0, options.replaceFromIndex)
+      // S-25/S-29: заменяемый ход ищем по id его реплики, а не по позиции из
+      // состояния вкладки: если соседняя вкладка дописала ход, позиция ведёт в
+      // чужой разговор.
+      const replaceFromIdx = options?.replaceUserId !== undefined
+        ? currentDialogue.messages.findIndex(m => m.id === options.replaceUserId)
+        : -1;
+      const baseMessages = replaceFromIdx >= 0
+        ? currentDialogue.messages.slice(0, replaceFromIdx)
         : currentDialogue.messages;
       const sourceForApi: AIMessage[] = text.trim() ? [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...baseMessages];
       const apiMessages = prepareApiMessages(sourceForApi);
@@ -642,8 +652,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (controller.signal.aborted) {
         savedText = `${savedText.trim()}${INTERRUPTED_STREAM_MARKER}`;
       }
-      if (options?.replaceFromIndex !== undefined) {
-        await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceFromIndex, text, savedText, savedReasoning, searchReq, degradedReason);
+      if (options?.replaceUserId !== undefined) {
+        await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceUserId, text, savedText, savedReasoning, searchReq, degradedReason);
       } else {
         await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
       }
@@ -703,8 +713,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       return currentDialogue.id;
     } catch (e: unknown) {
       setStreamingMessage(null); setStreamingReasoning(null);
-      const db = await getLocalDb();
-      const fresh = (dialogueId && typeof dialogueId === 'string') ? await db.get('aiDialogues', dialogueId) : null;
+      const fresh = (dialogueId && typeof dialogueId === 'string') ? await AIDialogueService.get(dialogueId) : undefined;
       setDialogue(fresh ?? dialogue);
       const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
 
@@ -715,10 +724,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (!turnSaved && turnDialogueId && text.trim() && shownPartial.trim()) {
         try {
           const interruptedMsg = `${shownPartial.trim()}${INTERRUPTED_STREAM_MARKER}`;
-          if (options?.replaceFromIndex !== undefined) {
+          if (options?.replaceUserId !== undefined) {
             await AIDialogueService.replaceLastTurn(
               turnDialogueId,
-              options.replaceFromIndex,
+              options.replaceUserId,
               text,
               interruptedMsg,
             );
@@ -829,7 +838,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     // по вопросу, иначе слово «раньше» в заметке делало ход широким (R3-006).
     const attachedTurn = splitAttachedMessage(userText);
     const newId = await sendMessage(userText, undefined, undefined, undefined, {
-      replaceFromIndex: userIdx,
+      replaceUserId: msgs[userIdx]?.id,
       ...(attachedTurn ? { question: attachedTurn.question || 'Разбери эту заметку' } : {}),
     });
     // After the new response is saved, merge variants including the new response
