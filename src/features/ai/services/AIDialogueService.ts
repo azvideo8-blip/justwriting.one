@@ -198,7 +198,7 @@ export const AIDialogueService = {
     if (idx < 0) { await tx.done; return; }
     const removed = existing.messages.splice(idx, 1)[0];
     if (removed?.id) {
-      existing.deletedMessageIds = [...(existing.deletedMessageIds ?? []), removed.id];
+      existing.deletedMessages = [...(existing.deletedMessages ?? []), { id: removed.id, at: Date.now() }];
     }
     existing.updatedAt = Date.now();
     await tx.store.put(existing);

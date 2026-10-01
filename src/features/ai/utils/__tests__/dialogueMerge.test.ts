@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeDialogues, withMessageIds } from '../dialogueMerge';
+import { mergeDialogues, withMessageIds } from '../../../../core/storage/dialogueMerge';
 import type { AIDialogue, DialogueMessage } from '../../../../core/storage/localDb';
 
 // S-29: слияние двух реплик диалога вместо last-writer-wins.
@@ -34,13 +34,13 @@ describe('S-29: mergeDialogues', () => {
   });
 
   it('ход, удалённый на одном устройстве, не возвращается с другого', () => {
-    const a = dialogue({ id: 'd', messages: base, deletedMessageIds: ['a1'], updatedAt: 30 });
+    const a = dialogue({ id: 'd', messages: base, deletedMessages: [{ id: 'a1', at: Date.now() }], updatedAt: 30 });
     const b = dialogue({ id: 'd', messages: base, updatedAt: 31 });
 
     const merged = mergeDialogues(a, b);
 
     expect(merged.messages.map(m => m.id)).toEqual(['u1']);
-    expect(merged.deletedMessageIds).toContain('a1');
+    expect(merged.deletedMessages?.map(t => t.id)).toContain('a1');
   });
 
   it('перегенерация на A и новый ход на B — и варианты, и ход целы', () => {
