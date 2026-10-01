@@ -165,7 +165,7 @@ export const settingsTranslations: Translations = {
   settings_passwords_dont_match: { ru: 'Пароли не совпадают.', en: 'Passwords do not match.' },
   settings_export_all_desc: { ru: 'Скачать все заметки одним ZIP-архивом (отдельные .txt файлы без разметки).', en: 'Download all notes as a single ZIP archive (separate .txt files without markup).' },
   settings_export_all_button: { ru: 'Экспортировать всё в ZIP', en: 'Export all to ZIP' },
-  settings_export_json_button: { ru: 'Скачать копию всех своих данных (JSON, по GDPR — закону ЕС о персональных данных)', en: 'Export as JSON (GDPR)' },
+  settings_export_json_button: { ru: 'Скачать заметки в JSON (GDPR)', en: 'Export as JSON (GDPR)' },
   settings_export_all_progress: { ru: 'Готовлю архив...', en: 'Preparing archive...' },
   settings_export_all_done: { ru: 'Экспортировано заметок: {count}', en: 'Exported notes: {count}' },
   settings_export_all_skipped: { ru: 'Пропущено (заблокировано): {count}', en: 'Skipped (locked): {count}' },

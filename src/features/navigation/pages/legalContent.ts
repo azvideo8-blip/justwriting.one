@@ -371,7 +371,7 @@ export const TERMS: LegalDocument = {
         title: '7. Ответственность',
         paragraphs: [
           'Сервис предоставляется «как есть». Оператор не отвечает за решения, принятые пользователем на основании ответов искусственного интеллекта, и за точность этих ответов.',
-          'Оператор принимает разумные меры для сохранности данных, включая регулярное резервное копирование, но не гарантирует их сохранности при обстоятельствах, находящихся вне его контроля. Пользователю рекомендуется хранить собственную копию: в настройках есть выгрузка всех данных одним файлом.',
+          'Оператор принимает разумные меры для сохранности данных, включая регулярное резервное копирование, но не гарантирует их сохранности при обстоятельствах, находящихся вне его контроля. Пользователю рекомендуется хранить собственную копию: в настройках есть полная выгрузка данных этого устройства одним файлом.',
         ],
       },
       {
@@ -449,7 +449,7 @@ export const TERMS: LegalDocument = {
         title: '7. Liability',
         paragraphs: [
           'The service is provided "as is". The Operator is not responsible for decisions the user makes on the basis of AI answers, nor for the accuracy of those answers.',
-          'The Operator takes reasonable measures to preserve data, including regular backups, but does not guarantee preservation in circumstances beyond its control. Users are advised to keep their own copy: settings offer a full export in one file.',
+          'The Operator takes reasonable measures to preserve data, including regular backups, but does not guarantee preservation in circumstances beyond its control. Users are advised to keep their own copy: settings offer a full export of this device\'s data in one file.',
         ],
       },
       {
