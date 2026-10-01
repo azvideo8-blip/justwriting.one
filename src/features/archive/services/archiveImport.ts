@@ -27,6 +27,38 @@ export function parseImportFile(fileName: string, rawContent: string): ParsedImp
 
 const MAX_DOCX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit (SEC-40)
 
+// JSZip public ZipObject#internalStream (not in its index.d.ts).
+interface ZipStream {
+  on(evt: 'data', fn: (chunk: Uint8Array) => void): ZipStream;
+  on(evt: 'end' | 'error', fn: (e: Error) => void): ZipStream;
+  resume(): ZipStream;
+  pause(): ZipStream;
+}
+interface ZipEntry {
+  dir: boolean;
+  internalStream(type: 'uint8array'): ZipStream;
+}
+
+// S-43: распаковывает запись потоково и считает реальные байты; при превышении cap
+// ставит поток на паузу (дальше DataWorker чанки не отдаёт) и отклоняет промис.
+function inflatedBytes(entry: ZipEntry, cap: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    let bytes = 0;
+    const stream = entry.internalStream('uint8array');
+    stream
+      .on('data', (chunk) => {
+        bytes += chunk.length;
+        if (bytes > cap) {
+          stream.pause();
+          reject(new Error('DOCX_TOO_LARGE: Total uncompressed archive size exceeds 50MB limit.'));
+        }
+      })
+      .on('error', reject)
+      .on('end', () => resolve(bytes))
+      .resume();
+  });
+}
+
 async function readFileContent(file: File): Promise<string | null> {
   const extension = file.name.split('.').pop()?.toLowerCase();
   if (extension === 'docx') {
@@ -35,24 +67,19 @@ async function readFileContent(file: File): Promise<string | null> {
     }
     const arrayBuffer = await file.arrayBuffer();
 
-    // 1. Before mammoth: JSZip.loadAsync reads the central directory.
-    // Reject when word/document.xml or the archive's total uncompressed size is over a budget (50 MB).
+    // 1. Before mammoth: inflate every entry ourselves with a byte cap (50 MB for the whole archive).
+    // S-43: uncompressedSize в заголовках zip — заявление автора файла; JSZip внутри mammoth
+    // проверяет его только после полной распаковки в память. Поэтому считаем байты потоково.
     const MAX_UNCOMPRESSED_DOCX_BYTES = 50 * 1024 * 1024;
     const JSZipMod = await import('jszip');
     const JSZip = (JSZipMod.default ?? JSZipMod) as unknown as {
-      loadAsync: (data: ArrayBuffer) => Promise<{ files: Record<string, { _data?: { uncompressedSize?: number } }> }>;
+      loadAsync: (data: ArrayBuffer) => Promise<{ files: Record<string, ZipEntry> }>;
     };
     const zip = await JSZip.loadAsync(arrayBuffer);
     let totalUncompressed = 0;
-    for (const [name, entry] of Object.entries(zip.files)) {
-      const size = entry._data?.uncompressedSize ?? 0;
-      if (name === 'word/document.xml' && size > MAX_UNCOMPRESSED_DOCX_BYTES) {
-        throw new Error('DOCX_TOO_LARGE: Uncompressed document.xml exceeds 50MB limit.');
-      }
-      totalUncompressed += size;
-      if (totalUncompressed > MAX_UNCOMPRESSED_DOCX_BYTES) {
-        throw new Error('DOCX_TOO_LARGE: Total uncompressed archive size exceeds 50MB limit.');
-      }
+    for (const entry of Object.values(zip.files)) {
+      if (entry.dir) continue;
+      totalUncompressed += await inflatedBytes(entry, MAX_UNCOMPRESSED_DOCX_BYTES - totalUncompressed);
     }
 
     const mammothMod = await import('mammoth');
