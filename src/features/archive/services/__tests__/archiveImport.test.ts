@@ -177,5 +177,40 @@ describe('importNoteFile', () => {
     expect(res.success).toBe(true);
     expect(saveNewMock).toHaveBeenCalled();
   });
+
+  it('clamps tags to <= 10 of <= 50 chars, and title/mood to <= 500 chars (S-19)', async () => {
+    const hugeTags = Array.from({ length: 50 }, (_, i) => `tag_${i}_${'a'.repeat(200)}`);
+    const hugeTitle = 't'.repeat(3000);
+    const hugeMood = 'настроение_'.repeat(150);
+    const { serializeNoteMarkdown } = await import('../../../../core/services/noteFormat');
+    const content = serializeNoteMarkdown({
+      title: hugeTitle,
+      tags: hugeTags,
+      mood: hugeMood,
+      content: 'body text',
+    });
+
+    const file = makeFile('huge.md', content);
+    const result = await importNoteFile(file, 'user-1', true);
+    expect(result.success).toBe(true);
+
+    expect(saveNewMock).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        title: expect.any(String),
+        tags: expect.any(Array),
+        mood: expect.any(String),
+      }),
+    );
+
+    const savedDoc = saveNewMock.mock.calls[0]![1] as { tags: string[]; title: string; mood: string };
+    expect(savedDoc.tags.length).toBeLessThanOrEqual(10);
+    for (const tag of savedDoc.tags) {
+      expect(tag.length).toBeLessThanOrEqual(50);
+    }
+    expect(savedDoc.title.length).toBeLessThanOrEqual(500);
+    expect(savedDoc.mood.length).toBeLessThanOrEqual(500);
+  });
 });
+
 

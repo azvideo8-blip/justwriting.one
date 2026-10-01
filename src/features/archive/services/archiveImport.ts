@@ -16,12 +16,12 @@ export function parseImportFile(fileName: string, rawContent: string): ParsedImp
   const parsed = parseNoteMarkdown(rawContent, fallbackTitle);
   const wordCount = countWords(parsed.content);
   return {
-    title: parsed.title,
+    title: (parsed.title || '').slice(0, 500),
     content: parsed.content,
-    tags: parsed.tags,
+    tags: (parsed.tags ?? []).slice(0, 10).map(t => String(t).slice(0, 50)),
     wordCount,
     date: parsed.date,
-    mood: parsed.mood,
+    mood: parsed.mood != null ? parsed.mood.slice(0, 500) : undefined,
   };
 }
 
