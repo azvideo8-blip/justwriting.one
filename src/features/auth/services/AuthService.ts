@@ -326,7 +326,10 @@ async function deleteAccount(password: string): Promise<void> {
   const purgeMarker = `jw_pending_purge_${user.uid}`;
   try {
     localStorage.setItem(purgeMarker, '1');
-  } catch { /* ignore */ }
+  } catch (e) {
+    // Маркера нет — сбой локальной очистки ниже не доделает следующий старт.
+    reportError(e, { action: 'deleteAccount_purgeMarker' }, 'warning');
+  }
   // Аккаунт удалён на сервере — оставлять его заметки, разборы и портрет на
   // устройстве нельзя. Без явного флага signOut сохраняет локальное, и
   // «удалить аккаунт» уносило только облачную половину. Флаг force обязателен:
@@ -335,7 +338,9 @@ async function deleteAccount(password: string): Promise<void> {
   await signOut({ clearLocalData: true, force: true, isAccountDeletion: true });
   try {
     localStorage.removeItem(purgeMarker);
-  } catch { /* ignore */ }
+  } catch (e) {
+    reportError(e, { action: 'deleteAccount_purgeMarker' }, 'warning');
+  }
 }
 
 /**
