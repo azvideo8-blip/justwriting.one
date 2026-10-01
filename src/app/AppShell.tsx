@@ -29,7 +29,7 @@ import { setupGlobalErrorListeners } from '../shared/errors/reportError';
 import { ActivityLogBadge } from './ActivityLogBadge';
 
 import { AppRoutes } from './AppRoutes';
-import { ConfirmDialogRenderer } from '../shared/components/ConfirmDialog';
+import { ConfirmDialogRenderer, useConfirmDialog } from '../shared/components/ConfirmDialog';
 import { useAdminStatus } from '../features/auth/hooks/useAdminStatus';
 import { useEmptyDeviceDetection } from '../core/sync/useEmptyDeviceDetection';
 const RestoreFromCloudModal = React.lazy(() =>
@@ -64,6 +64,7 @@ export function AppShell() {
 
   // D-28: после сброса пароля по почте сейф перешифрован паролем входа.
   const { showToast } = useToast();
+  const { confirm: confirmDialog } = useConfirmDialog();
   useEffect(() => {
     const onConverged = () => showToast(t('enc_password_converged'), 'success');
     window.addEventListener(VAULT_PASSWORD_CONVERGED_EVENT, onConverged);
@@ -78,8 +79,8 @@ export function AppShell() {
     else if (notice === 'wipe_failed') showToast(t('settings_sign_out_notice_wipe_failed'), 'error');
     else if (notice === 'account_deleted') showToast(t('settings_delete_account_success'), 'success');
     else if (notice === 'account_deleted_wipe_failed') showToast(t('settings_delete_account_wipe_failed'), 'error');
-    else if (notice === 'lost_session') void offerLostSessionWipe(showToast, t);
-  }, [showToast, t]);
+    else if (notice === 'lost_session') void offerLostSessionWipe(showToast, t, confirmDialog);
+  }, [showToast, t, confirmDialog]);
 
   const currentPath = location.pathname;
   const showZen = isZenActive && zenModeEnabled && currentPath === '/';

@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
 import { getSupabase } from '../supabase/client';
 import { deriveAuthSecret } from './authSecret';
+import { getStoredSessionUid } from './storedSession';
 import type { AppUser } from './types';
 import { User } from '@supabase/supabase-js';
 
@@ -24,6 +25,13 @@ function mapUser(u: User | null): AppUser | null {
 let currentUser: AppUser | null = null;
 let subscribed = false;
 let isVoluntarySignOut = false;
+// S-33: uid сессии из storage на момент подписки. При неудачном refresh на
+// старте supabase-js стирает сессию и шлёт SIGNED_OUT, пока currentUser ещё
+// null (auth-js 2.117 _recoverAndRefresh → _removeSession) — без снимка обрыв
+// сессии на устройстве B (аккаунт удалён на A, токен истёк) не замечался.
+// Сетевой сбой refresh сессию не стирает (isAuthRetryableFetchError), так что
+// офлайн-старт сюда не попадает. Снимок одноразовый: его гасит первое событие.
+let storedUidAtSubscribe: string | null = null;
 
 import { reportError } from '../../shared/errors/reportError';
 import { reloadForAccountChange, isAccountReloadPending, setAccountChangeNotice, _resetAccountReloadForTesting } from './accountReload';
@@ -34,13 +42,16 @@ import { reloadForAccountChange, isAccountReloadPending, setAccountChangeNotice,
 function ensureSubscribed(): void {
   if (subscribed) return;
   subscribed = true;
+  storedUidAtSubscribe = getStoredSessionUid();
+  sweepStaleVoluntarySignoutMarks();
   getSupabase().auth.onAuthStateChange((event, session) => {
     const nextUid = session?.user?.id ?? null;
     if (event === 'SIGNED_OUT') {
-      if (currentUser !== null && !isVoluntarySignOut && !signedOutElsewhereJustNow(currentUser.uid)) {
+      const lostUid = currentUser?.uid ?? storedUidAtSubscribe;
+      if (lostUid !== null && !isVoluntarySignOut && !signedOutElsewhereJustNow(lostUid)) {
         reportError(
           new Error('SESSION_TERMINATED: auth session signed out unexpectedly'),
-          { action: 'auth_session_signed_out', previousUid: currentUser.uid },
+          { action: 'auth_session_signed_out', previousUid: lostUid },
           'warning',
         );
         // S-28: отличить «аккаунт удалён» от «сессию отозвали» по ответу сервера
@@ -48,10 +59,14 @@ function ensureSubscribed(): void {
         // данные показываем при любом нечаянном выходе — и только если локальная
         // база этого uid на устройстве осталась.
         setAccountChangeNotice('lost_session');
-        try { localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, currentUser.uid); } catch { /* приватный режим */ }
+        try { localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, lostUid); } catch { /* приватный режим */ }
+        // Вошедшего во вкладке не было — перезагрузки по смене аккаунта ниже не
+        // будет, а предложение стереть данные читает только новая страница.
+        if (currentUser === null) void reloadForAccountChange();
       }
       isVoluntarySignOut = false;
     }
+    storedUidAtSubscribe = null;
     // Аккаунт вкладки сменился (выход, вход другим, ссылка из письма, то же в
     // соседней вкладке) — перезагрузка: память вкладки принадлежит прежнему
     // человеку (accountReload.ts). currentUser до перезагрузки НЕ меняем:
@@ -155,7 +170,26 @@ export async function signUp(email: string, password: string): Promise<AppUser> 
 // N-60: отметка своя у каждого аккаунта — выход одного не заглушает сигнал
 // «сессия оборвалась» у другого.
 function signedOutElsewhereJustNow(uid: string): boolean {
-  try { return Date.now() - Number(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(uid)) ?? 0) < 10_000; } catch { return false; }
+  try { return Date.now() - Number(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(uid)) ?? 0) < VOLUNTARY_SIGNOUT_TTL_MS; } catch { return false; }
+}
+
+// S-33: отметка добровольного выхода живёт TTL. S-17 стирал её сразу после
+// выхода — наперегонки с соседней вкладкой, которая читает её, получив
+// SIGNED_OUT через storage-событие; проиграв гонку, та записывала обрыв сессии
+// и предлагала стереть данные. Старые отметки убирает старт приложения, молодую
+// добирает таймер той же страницы — ключ с uid не остаётся навсегда.
+const VOLUNTARY_SIGNOUT_TTL_MS = 60_000;
+
+function sweepStaleVoluntarySignoutMarks(): void {
+  try {
+    const prefix = STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('');
+    for (const key of Object.keys(localStorage)) {
+      if (!key.startsWith(prefix)) continue;
+      const age = Date.now() - Number(localStorage.getItem(key));
+      if (age >= VOLUNTARY_SIGNOUT_TTL_MS || Number.isNaN(age)) localStorage.removeItem(key);
+      else setTimeout(() => { try { localStorage.removeItem(key); } catch { /* приватный режим */ } }, VOLUNTARY_SIGNOUT_TTL_MS - age);
+    }
+  } catch { /* приватный режим */ }
 }
 
 export async function signOutUser(options?: { scope?: 'global' | 'local' | 'others' }): Promise<void> {
@@ -180,6 +214,7 @@ export function _resetAuthStateForTesting(): void {
   _resetAccountReloadForTesting();
   subscribed = false;
   isVoluntarySignOut = false;
+  storedUidAtSubscribe = null;
 }
 
 export async function sendPasswordResetEmail(email: string): Promise<void> {

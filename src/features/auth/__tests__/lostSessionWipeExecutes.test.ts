@@ -37,6 +37,11 @@ beforeEach(async () => {
     id: 'doc_guest', guestId: GUEST_ID, title: 'Гостевая заметка', currentVersion: 1,
     totalWords: 2, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
   } as never);
+  // S-33: строка другого аккаунта, не входившего сюда после разделения баз.
+  await guest.put('documents', {
+    id: 'doc_other', guestId: 'user_s28_other', title: 'Заметка другого аккаунта', currentVersion: 1,
+    totalWords: 2, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [],
+  } as never);
   localStorage.setItem(`ai_user_portrait_${USER}`, 'портрет в кэше');
 });
 
@@ -48,7 +53,7 @@ describe('S-28: wipeDeviceDataForUid', () => {
 
     expect(await hasLocalDatabase(USER)).toBe(false);
     const guest = await getLocalDb('justwriting-local');
-    expect(await guest.getAll('documents'), 'гостевая база осталась').toEqual([]);
+    expect((await guest.getAll('documents')).map(d => d.id), 'гостевая заметка осталась / чужая стёрта').toEqual(['doc_other']);
     expect(Object.keys(localStorage).filter(k => k.includes(USER))).toEqual([]);
   });
 });

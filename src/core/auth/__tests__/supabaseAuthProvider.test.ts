@@ -240,6 +240,65 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
     localStorage.removeItem(STORAGE_KEYS.LOST_SESSION_UID);
   });
 
+  // S-33.3: устройство B открыто после истечения токена — supabase-js стирает
+  // сессию и шлёт SIGNED_OUT до любого SIGNED_IN, currentUser ещё null.
+  it('a stored session that dies during startup still records the lost-session uid', async () => {
+    const loc = mockLocation();
+    try {
+      _resetAuthStateForTesting();
+      localStorage.setItem('sb-mock-auth-token', JSON.stringify({ access_token: 'stale', user: { id: 'u_stale' } }));
+      const fire = subscribe();
+      localStorage.removeItem('sb-mock-auth-token'); // _removeSession стирает её до события
+      fire('SIGNED_OUT', null);
+
+      expect(takeAccountChangeNotice()).toBe('lost_session');
+      expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBe('u_stale');
+      expect(reportErrorModule.reportError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('SESSION_TERMINATED') }),
+        expect.objectContaining({ action: 'auth_session_signed_out', previousUid: 'u_stale' }),
+        'warning',
+      );
+      // Вошедшего не было — перезагрузку просим сами, иначе новое предложение никто не прочтёт.
+      await vi.waitFor(() => expect(loc.reload).toHaveBeenCalledTimes(1));
+      localStorage.removeItem(STORAGE_KEYS.LOST_SESSION_UID);
+    } finally { loc.restore(); }
+  });
+
+  it('the stored-session snapshot is spent by the first event: a later SIGNED_OUT of a guest tab records nothing', () => {
+    _resetAuthStateForTesting();
+    localStorage.setItem('sb-mock-auth-token', JSON.stringify({ access_token: 'ok', user: { id: 'u_fine' } }));
+    const fire = subscribe();
+    fire('INITIAL_SESSION', null);
+    fire('SIGNED_OUT', null);
+    expect(takeAccountChangeNotice()).not.toBe('lost_session');
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBeNull();
+  });
+
+  it('a stored session that dies during startup right after a voluntary sign-out elsewhere records nothing', () => {
+    _resetAuthStateForTesting();
+    localStorage.setItem('sb-mock-auth-token', JSON.stringify({ access_token: 'stale', user: { id: 'u_left' } }));
+    localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_left'), String(Date.now()));
+    const fire = subscribe();
+    fire('SIGNED_OUT', null);
+    expect(takeAccountChangeNotice()).not.toBe('lost_session');
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBeNull();
+  });
+
+  // S-33.4: отметка добровольного выхода живёт 60 с; старые убирает старт, молодую — таймер.
+  it('stale voluntary-signout marks are swept at subscription, fresh ones expire after 60 s', () => {
+    vi.useFakeTimers();
+    try {
+      _resetAuthStateForTesting();
+      localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_old'), String(Date.now() - 61_000));
+      localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_fresh'), String(Date.now() - 1_000));
+      subscribe();
+      expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_old'))).toBeNull();
+      expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_fresh'))).not.toBeNull();
+      vi.advanceTimersByTime(59_001);
+      expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_fresh'))).toBeNull();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('a sign-out made in another tab records no wipe offer', () => {
     _resetAuthStateForTesting();
     let cb: ((event: string, session: unknown) => void) | undefined;

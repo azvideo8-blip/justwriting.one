@@ -100,14 +100,15 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     }
 
     try {
-      const { clearAllLocalStores, deleteLocalDatabase } = await import('../../../core/storage/localDb');
+      const { clearAllLocalStores, deleteLocalDatabase, wipeGuestAndAccountFromSharedDb } = await import('../../../core/storage/localDb');
       await clearAllLocalStores(currentUid);
       if (opts?.isAccountDeletion && currentUid) {
         await deleteLocalDatabase(currentUid);
-        // S-28 (O-5): вместе с аккаунтом с этого устройства уходит и гостевая
-        // база `justwriting-local` — заметки, оставленные локально при
-        // миграции, её черновик и производные ИИ.
-        await deleteLocalDatabase('justwriting-local');
+        // S-28 (O-5): вместе с аккаунтом с этого устройства уходят и гостевые
+        // данные общей базы `justwriting-local` — заметки, оставленные локально
+        // при миграции, её черновик и производные ИИ. S-33: записи других
+        // аккаунтов в ней не трогаем.
+        await wipeGuestAndAccountFromSharedDb(currentUid);
       }
     } catch (e) {
       wipeFailed = e;
@@ -183,14 +184,9 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     skipFlushOnAccountReload(false);
     throw e;
   }
-  if (opts?.clearLocalData && currentUid) {
-    try {
-      const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
-      localStorage.removeItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(currentUid));
-    } catch {
-      /* ignore */
-    }
-  }
+  // S-17 стирал здесь отметку добровольного выхода — наперегонки с соседней
+  // вкладкой, которая по ней отличает «вышел сам» от обрыва сессии (S-33).
+  // Отметку убирает TTL в supabaseAuthProvider.
   resetDbInstance();
 
   // AUD-11: выход состоялся; теперь сообщаем, что локальная очистка не прошла.
@@ -349,10 +345,10 @@ async function deleteAccount(password: string): Promise<void> {
  * гостевую базу вместо базы этого человека.
  */
 async function wipeDeviceDataForUid(uid: string): Promise<void> {
-  const { clearAllLocalStores, deleteLocalDatabase } = await import('../../../core/storage/localDb');
+  const { clearAllLocalStores, deleteLocalDatabase, wipeGuestAndAccountFromSharedDb } = await import('../../../core/storage/localDb');
   await clearAllLocalStores(uid);
   await deleteLocalDatabase(uid);
-  await deleteLocalDatabase('justwriting-local');
+  await wipeGuestAndAccountFromSharedDb(uid);
   const { clearAccountScopedStorage } = await import('./accountScopedKeys');
   clearAccountScopedStorage(uid);
 }

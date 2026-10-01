@@ -127,6 +127,11 @@ export interface DialogueMessage {
   id?: string | undefined;
   /** Момент создания на том устройстве, где реплику написали. */
   createdAt?: number | undefined;
+  /**
+   * S-36: момент последней правки на месте (смена варианта, перегенерация).
+   * При слиянии побеждает более свежая копия реплики, а не локальная.
+   */
+  updatedAt?: number | undefined;
 }
 
 export interface AIDialogue {
@@ -149,10 +154,18 @@ export interface AIDialogue {
   /** S-29: курсор извлечения памяти по id реплики, а не по позиции. */
   lastExtractedMessageId?: string | undefined;
   /**
-   * S-29: удалённые и заменённые реплики. Без записи об удалении слияние
-   * возвращает их из второй реплики, и исчезнувший ответ появляется снова.
+   * S-29: удалённые реплики. Без записи об удалении слияние возвращает их из
+   * второй реплики, и исчезнувший ответ появляется снова. S-37: с моментом
+   * удаления — старше 90 дней отметка снимается, иначе список растёт вечно.
    */
-  deletedMessageIds?: string[] | undefined;
+  deletedMessages?: { id: string; at: number }[] | undefined;
+  /**
+   * S-37: запись сделана клиентом, который ставит id репликам и пишет отметки
+   * об удалении. Без маркера запись пришла от старого клиента (0.9.28): её
+   * реплики без id подбираются к нашим по роли и тексту, а пропавшие в ней
+   * реплики не считаются удалёнными.
+   */
+  schema?: 2 | undefined;
 }
 
 export interface AIDialogueEvent {
@@ -721,6 +734,46 @@ export async function clearAllLocalStores(customUid?: string): Promise<void> {
   }
 }
 
+const OWNED_SHARED_STORES = new Set<string>(['documents', 'versions', 'profile', 'drafts', 'syncQueue', 'pending_sessions']);
+
+function isGuestOwner(owner: string | undefined): boolean {
+  return !owner || owner === 'guest' || owner.startsWith('guest_');
+}
+
+/**
+ * S-33 (поверх O-5): при удалении аккаунта и при стирании данных оборвавшейся
+ * сессии из общей базы `justwriting-local` уходят гостевые записи и записи этого
+ * uid. Строки другого аккаунта, который не входил сюда после разделения баз (их
+ * переносит migrateLegacyIfNeeded при его первом входе), остаются — удаление
+ * всего файла базы уносило их вместе с гостевыми. Хранилища без владельца
+ * (производные ИИ) — гостевые по O-5, а при нескольких владельцах спорные: их и
+ * миграция стирает. Файл базы удаляется, только если в ней ничего не осталось.
+ */
+export async function wipeGuestAndAccountFromSharedDb(uid: string): Promise<void> {
+  const db = await getLocalDb('justwriting-local');
+  const names = Array.from(db.objectStoreNames);
+  const tx = db.transaction(names, 'readwrite');
+  for (const name of names) {
+    const store = tx.objectStore(name);
+    if (!OWNED_SHARED_STORES.has(name)) {
+      void store.clear();
+      continue;
+    }
+    let cursor = await store.openCursor();
+    while (cursor) {
+      const rec = cursor.value as { guestId?: string; userId?: string; ownerId?: string };
+      const owner = rec.guestId ?? rec.userId ?? rec.ownerId;
+      if (owner === uid || isGuestOwner(owner)) void cursor.delete();
+      cursor = await cursor.continue();
+    }
+  }
+  await tx.done;
+  let remaining = 0;
+  for (const name of ['documents', 'versions', 'profile', 'drafts'] as const) remaining += await db.count(name);
+  if (remaining === 0) await deleteLocalDatabase('justwriting-local');
+  else resetDbInstance('justwriting-local');
+}
+
 /** DEEP-14: Полное удаление файла БД при удалении аккаунта (indexedDB.deleteDatabase).
  *  Закрывает открытые соединения и гарантирует, что имя justwriting-usr_<uid>
  *  не остаётся на устройстве как артефакт существования аккаунта. */
@@ -811,8 +864,9 @@ export async function processPendingPurges(): Promise<void> {
     try {
       await deleteLocalDatabase(uid);
       // S-28: маркер покрывает и гостевую базу — при удалении аккаунта с неё
-      // уходят те же данные, что и с базы аккаунта.
-      await deleteLocalDatabase('justwriting-local');
+      // уходят те же данные, что и с базы аккаунта (S-33: только гостевые и
+      // этого uid, записи других аккаунтов остаются).
+      await wipeGuestAndAccountFromSharedDb(uid);
       localStorage.removeItem(`jw_pending_purge_${uid}`);
     } catch (e) {
       reportError(e, { action: 'processPendingPurges', uid });

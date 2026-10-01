@@ -41,8 +41,10 @@ describe('S-17: UID in localStorage key after deletion and wipe-sign-out', () =>
     const { AuthService } = await import('../services/AuthService');
     await AuthService.deleteAccount('secretPassword');
 
+    // S-33.4: отметка добровольного выхода остаётся на 60 с — её читает
+    // соседняя вкладка; убирает TTL в supabaseAuthProvider (sweep + таймер).
     const remainingUserKeys = Object.keys(localStorage).filter(k => k.includes(USER));
-    expect(remainingUserKeys).toEqual([]);
+    expect(remainingUserKeys).toEqual([STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(USER)]);
   });
 
   it('no localStorage key contains uid after signOut with clearLocalData', async () => {
@@ -52,6 +54,6 @@ describe('S-17: UID in localStorage key after deletion and wipe-sign-out', () =>
     await AuthService.signOut({ clearLocalData: true });
 
     const remainingUserKeys = Object.keys(localStorage).filter(k => k.includes(USER));
-    expect(remainingUserKeys).toEqual([]);
+    expect(remainingUserKeys).toEqual([STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(USER)]);
   });
 });

@@ -117,6 +117,19 @@ export const authScreensTranslations: Translations = {
     ru: 'Удалить данные с этого устройства',
     en: 'Delete data from this device',
   },
+  // S-33: подтверждение называет, что уходит, и предупреждает о несинхронизированном.
+  auth_lost_session_wipe_confirm_title: {
+    ru: 'Удалить данные с этого устройства?',
+    en: 'Delete data from this device?',
+  },
+  auth_lost_session_wipe_confirm_message: {
+    ru: 'Будут удалены заметки, разборы и настройки этого аккаунта на этом устройстве, а также гостевые заметки и черновик этого браузера. Данные других аккаунтов на устройстве и копия в облаке (если аккаунт существует) не затрагиваются.',
+    en: 'This deletes this account’s notes, analyses and settings on this device, plus this browser’s guest notes and draft. Other accounts’ data on this device and the cloud copy (if the account still exists) are not affected.',
+  },
+  auth_lost_session_wipe_confirm_unsynced: {
+    ru: 'Внимание: {count} несинхронизированных записей не попали в облако — они будут потеряны навсегда.',
+    en: 'Warning: {count} unsynced items never reached the cloud — they will be lost for good.',
+  },
   auth_lost_session_wipe_done: {
     ru: 'Данные этого аккаунта удалены с устройства',
     en: 'This account’s data was deleted from this device',
