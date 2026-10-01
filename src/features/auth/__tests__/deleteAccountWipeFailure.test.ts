@@ -43,6 +43,9 @@ describe('S-9: account deletion local wipe failure reporting & pending purge mar
     const notice = takeAccountChangeNotice();
     expect(notice).not.toBe('account_deleted');
     expect(notice).toBe('account_deleted_wipe_failed');
+    // S-32: сервер подтвердил удаление, локальная очистка не прошла — маркер
+    // остаётся, чтобы следующий старт её доделал.
+    expect(localStorage.getItem(`jw_pending_purge_${USER}`)).toBe('1');
   });
 
   it('removes justwriting-local-<uid> at boot when jw_pending_purge marker is set', async () => {

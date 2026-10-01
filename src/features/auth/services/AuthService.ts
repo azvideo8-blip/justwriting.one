@@ -322,13 +322,15 @@ async function deleteAccount(password: string): Promise<void> {
 
   await reauthenticate(user.email, password);
 
+  const { callAi } = await import('../../../core/ai/callAi');
+  await callAi('deleteAccount', {});
+  // S-32: маркер ставится только после подтверждения сервера. Поставленный до
+  // вызова, он переживал отказ сервера («не удалось удалить аккаунт», человек
+  // пишет дальше) и на следующем старте стирал базу живого аккаунта.
   const purgeMarker = `jw_pending_purge_${user.uid}`;
   try {
     localStorage.setItem(purgeMarker, '1');
   } catch { /* ignore */ }
-
-  const { callAi } = await import('../../../core/ai/callAi');
-  await callAi('deleteAccount', {});
   // Аккаунт удалён на сервере — оставлять его заметки, разборы и портрет на
   // устройстве нельзя. Без явного флага signOut сохраняет локальное, и
   // «удалить аккаунт» уносило только облачную половину. Флаг force обязателен:

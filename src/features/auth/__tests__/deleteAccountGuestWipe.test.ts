@@ -80,6 +80,8 @@ describe('S-28: account deletion wipes this browser’s guest data', () => {
   it('the pending-purge marker finishes the guest wipe too', async () => {
     await seedGuestData();
     localStorage.setItem(`jw_pending_purge_${USER}`, '1');
+    // S-32: старт после удаления — сессии этого uid на устройстве уже нет.
+    mockCurrentUser = null;
 
     await processPendingPurges();
 
