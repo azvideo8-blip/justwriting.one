@@ -131,6 +131,7 @@ export function classifyInvisibleCodePoint(code: number): InvisibleCategory {
 
   // Символы нулевой ширины, форматирования, вариации, теги: выбрасываются
   if (
+    code === 0 ||                          // NUL
     code === 0x00AD ||                     // soft hyphen
     code === 0x180E ||                     // mongolian vowel separator
     (code >= 0x200B && code <= 0x200F) ||  // ZWSP, ZWNJ, ZWJ, LRM, RLM
@@ -139,6 +140,7 @@ export function classifyInvisibleCodePoint(code: number): InvisibleCategory {
     (code >= 0x2066 && code <= 0x206F) ||  // directional isolates, deprecated format chars
     code === 0xFEFF ||                     // BOM / zero-width no-break space
     (code >= 0xFE00 && code <= 0xFE0F) ||  // variation selectors
+    (code >= 0xE0100 && code <= 0xE01EF) || // variation selectors supplement
     (code >= 0xE0000 && code <= 0xE007F)   // tag block — hidden ASCII smuggling
   ) {
     return 'drop';

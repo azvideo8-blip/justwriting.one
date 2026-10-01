@@ -34,7 +34,7 @@ const RISK_PATTERNS: RegExp[] = [
   /суицид/,
   /самоубийств/,
   // First-person future
-  /повешусь|застрелюсь|утоплюсь|отравлюсь|вскрою\s+вены|спрыгну\s+с\s+(?:крыши|моста|окна|балкона)|брошусь\s+под|наглотаюсь(?:\s+таблеток)?|выброшусь(?:\s+(?:из|в|с)\s+окн[а-я]*)?|выпью\s+все\s+таблетки/,
+  /повешусь|застрелюсь|утоплюсь|отравлюсь|вскрою\s+вены|спрыгну\s+с\s+(?:крыши|моста|окна|балкона)|брошусь\s+под|наглотаюсь(?:\s+таблеток)?|выброшусь(?:\s+(?:из|в|с)\s+окн[а-я]*)?|выпью\s+все\s+таблетки|умру(?!\s+(?:от|со)\s+(?:смех|смеху))/,
   // Idioms
   /(?:свести|сведу)\s+счет[ые]\s+с\s+жизнью/,
   /(?:наложить|наложу)\s+на\s+себя\s+руки/,
@@ -46,7 +46,7 @@ const RISK_PATTERNS: RegExp[] = [
   /(?:мне\s+)?надоело\s+жить/,
   /не\s+вижу\s+смысла\s+(?:дальше\s+)?жить/,
   /так\s+жить\s+не\s+хочу|не\s+хочу\s+так\s+жить|жить\s+не\s+хочется|жить\s+больше\s+не\s+могу/,
-  /сдохнуть\s+бы/,
+  /(?:^|[^а-я])сдохнуть(?!\s+(?:можно|от\b))(?![а-я])/,
   /лучше\s+бы\s+(?:меня\s+не\s+было|(?:я|меня)\s+не\s+родил(?:ся|ась))/,
   /пора\s+(?:уже\s+)?вс[её]\s+закончить/,
   /(?:скоро\s+)?вс[её]\s+закончу\s+со?\s+собой/,
@@ -149,21 +149,39 @@ export interface RiskResult {
 
 const LETTER_RE = /[\p{L}\p{N}]/u;
 
-function baseNormalize(text: string): string {
+function collapseSpacedSingleLetters(text: string): string {
+  return text.replace(/(?:(?<=^|[^\p{L}])\p{L}(?:[^\S\n]+\p{L}){2,}(?=[^\p{L}]|$))/gu, (match) => {
+    return match.replace(/[^\S\n]+/g, '');
+  });
+}
+
+function baseNormalize(text: string, dropMode: 'space' | 'delete' = 'space'): string {
   let out = '';
   let dropped = false;
-  for (const ch of text) {
-    const action = classifyInvisibleCodePoint(ch.codePointAt(0) ?? 0);
-    if (action === 'drop') { dropped = true; continue; }
-    // «drop»-символ между двумя буквами склеивал слова: «нехочужить» без
-    // пробелов после выбрасывания нулевой ширины уходил мимо всех паттернов.
-    // R5-014: соседи — последняя выведенная буква и следующая настоящая, а не
-    // соседний невидимый символ: серия из двух ZWSP тоже даёт один пробел.
-    if (dropped && LETTER_RE.test(ch) && LETTER_RE.test(out[out.length - 1] ?? '')) out += ' ';
+  // S-4: NFC preserves precomposed characters (e.g. Cyrillic "й") while isolating non-precomposed accents.
+  const nfc = text.normalize('NFC');
+  for (const ch of nfc) {
+    const cp = ch.codePointAt(0) ?? 0;
+    // S-4: Combining diacritical marks (U+0300..U+036F, e.g. accents) are dropped unconditionally.
+    if (cp >= 0x0300 && cp <= 0x036F) {
+      continue;
+    }
+    const action = classifyInvisibleCodePoint(cp);
+    if (action === 'drop') {
+      if (dropMode === 'space') {
+        dropped = true;
+      }
+      continue;
+    }
+    // In 'space' mode, an invisible char between two letters emits a space boundary.
+    if (dropMode === 'space' && dropped && LETTER_RE.test(ch) && LETTER_RE.test(out[out.length - 1] ?? '')) {
+      out += ' ';
+    }
     dropped = false;
     out += action === 'space' ? ' ' : ch;
   }
-  return out.toLowerCase().replace(/ё/g, 'е');
+  const lower = out.toLowerCase().replace(/ё/g, 'е');
+  return collapseSpacedSingleLetters(lower);
 }
 
 function clauseBounds(lower: string, start: number, end: number): [number, number] {
@@ -211,9 +229,7 @@ function firstAcuteMatch(text: string, patterns: RegExp[], isSafe: (lower: strin
   return null;
 }
 
-export function detectRisk(text: string): RiskResult {
-  const lower = baseNormalize(text);
-
+function checkRiskOnNormalized(lower: string): RiskResult {
   // Все совпадения всех паттернов: исключение у ранней фразы («раньше думал
   // о смерти») не должно прятать острую позже («а сейчас режу себя»).
   // Кириллические паттерны — против латинских букв-двойников; EN/транслит —
@@ -226,6 +242,22 @@ export function detectRisk(text: string): RiskResult {
   const latMatch = firstAcuteMatch(foldConfusables(lower), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore)
     ?? firstAcuteMatch(foldConfusables(lower.replace(/у/g, 'u')), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore);
   if (latMatch) return { isRisk: true, severity: 'acute', matchedPattern: latMatch };
+
+  return { isRisk: false, severity: 'none' };
+}
+
+export function detectRisk(text: string): RiskResult {
+  // S-4: Двойная нормализация — сначала удаление невидимых (склеивает разорванные слова),
+  // затем замена на пробел (разлепляет склеенные невидимыми символами слова).
+  const normDelete = baseNormalize(text, 'delete');
+  const resDelete = checkRiskOnNormalized(normDelete);
+  if (resDelete.isRisk) return resDelete;
+
+  const normSpace = baseNormalize(text, 'space');
+  if (normSpace !== normDelete) {
+    const resSpace = checkRiskOnNormalized(normSpace);
+    if (resSpace.isRisk) return resSpace;
+  }
 
   return { isRisk: false, severity: 'none' };
 }
