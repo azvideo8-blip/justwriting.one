@@ -256,4 +256,17 @@ describe('detectRisk', () => {
     detectRisk(text);
     expect(performance.now() - t0).toBeLessThan(1500);
   });
+
+  // S-13: 200k-character inputs must run in < 1500 ms (no quadratic clauseBounds or baseNormalize)
+  it.each([
+    ['суицид не вариант, ', 'суицид не вариант, '.repeat(10527)],
+    ['не хочу суицид ', 'не хочу суицид '.repeat(13334)],
+    ["i don't want to kill myself. ", "i don't want to kill myself. ".repeat(6897)],
+    ['а\\u200B', 'а\u200B'.repeat(100_000)],
+  ])('вырожденный ввод 200k символов (%s) — укладывается в 1500 мс (S-13)', (_name, text) => {
+    const t0 = performance.now();
+    detectRisk(text);
+    expect(performance.now() - t0).toBeLessThan(1500);
+  });
 });
+

@@ -114,6 +114,15 @@ const FOREIGN_RISK_PATTERNS: RegExp[] = [
   /\bdumal\s+o\s+smerti\b/,
 ];
 
+function toGlobalPattern(pattern: RegExp): RegExp {
+  const flags = pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g';
+  return new RegExp(pattern.source, flags);
+}
+
+// S-13: Precompile global versions of regexes once at module scope with p.flags + 'g'.
+const GLOBAL_RISK_PATTERNS: RegExp[] = RISK_PATTERNS.map(toGlobalPattern);
+const GLOBAL_FOREIGN_RISK_PATTERNS: RegExp[] = FOREIGN_RISK_PATTERNS.map(toGlobalPattern);
+
 // Инверсия CONFUSABLES_MAP (кириллица→латиница): латинская буква-двойник
 // складывается в кириллицу. Дубликаты («А»→A и «а»→a) разрешаются в пользу
 // первой записи. Только русские буквы: греческие и «і/ѕ/һ» паттерны не знают —
@@ -180,9 +189,11 @@ function collapseSpacedSingleLetters(text: string): string {
   });
 }
 
-function baseNormalize(text: string, dropMode: 'space' | 'delete' = 'space'): string {
+function baseNormalize(text: string, dropMode: 'space' | 'delete' = 'space'): { normalized: string; hadDrops: boolean } {
   let out = '';
   let dropped = false;
+  let hadDrops = false;
+  let lastChar = '';
   // S-4: NFC preserves precomposed characters (e.g. Cyrillic "й") while isolating non-precomposed accents.
   const nfc = text.normalize('NFC');
   for (const ch of nfc) {
@@ -193,60 +204,132 @@ function baseNormalize(text: string, dropMode: 'space' | 'delete' = 'space'): st
     }
     const action = classifyInvisibleCodePoint(cp);
     if (action === 'drop') {
+      hadDrops = true;
       if (dropMode === 'space') {
         dropped = true;
       }
       continue;
     }
     // In 'space' mode, an invisible char between two letters emits a space boundary.
-    if (dropMode === 'space' && dropped && LETTER_RE.test(ch) && LETTER_RE.test(out[out.length - 1] ?? '')) {
+    // S-13: Track last emitted char in a variable to avoid O(N) indexing into growing string.
+    if (dropMode === 'space' && dropped && LETTER_RE.test(ch) && LETTER_RE.test(lastChar)) {
       out += ' ';
+      lastChar = ' ';
     }
     dropped = false;
-    out += action === 'space' ? ' ' : ch;
+    const emitted = action === 'space' ? ' ' : ch;
+    out += emitted;
+    lastChar = emitted;
   }
   const lower = out.toLowerCase().replace(/ё/g, 'е');
-  return collapseSpacedSingleLetters(lower);
+  return { normalized: collapseSpacedSingleLetters(lower), hadDrops };
 }
 
-function clauseBounds(lower: string, start: number, end: number): [number, number] {
-  let from = 0;
-  let to = lower.length;
-  for (const m of lower.matchAll(CLAUSE_BREAK)) {
-    const at = m.index;
-    if (at + m[0].length <= start) from = at + m[0].length;
-    else if (at >= end) { to = at; break; }
+interface ClauseBreak {
+  start: number;
+  end: number;
+}
+
+function collectClauseBreaks(text: string): ClauseBreak[] {
+  const breaks: ClauseBreak[] = [];
+  CLAUSE_BREAK.lastIndex = 0;
+  for (const m of text.matchAll(CLAUSE_BREAK)) {
+    if (m.index !== undefined) {
+      breaks.push({ start: m.index, end: m.index + m[0].length });
+    }
   }
+  return breaks;
+}
+
+function clauseBoundsFromBreaks(breaks: ClauseBreak[], textLength: number, start: number, end: number): [number, number] {
+  let from = 0;
+  let to = textLength;
+
+  let low = 0;
+  let high = breaks.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const b = breaks[mid];
+    if (!b) break;
+    if (b.end <= start) {
+      from = b.end;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  low = 0;
+  high = breaks.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const b = breaks[mid];
+    if (!b) break;
+    if (b.start >= end) {
+      to = b.start;
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
+  }
+
   return [from, to];
 }
 
-function hasRussianSafeContext(lower: string, start: number, end: number): boolean {
-  const [from] = clauseBounds(lower, start, end);
+function hasRussianSafeContext(lower: string, start: number, end: number, breaks: ClauseBreak[]): boolean {
+  const [from] = clauseBoundsFromBreaks(breaks, lower.length, start, end);
+
+  // S-13: Fast check for negation suffix right before match without slicing the entire clause
+  let negStart = from;
+  if (start - from > 120) {
+    negStart = start - 120;
+    while (negStart > from && /[а-я]/i.test(lower[negStart] ?? '')) {
+      negStart--;
+    }
+  }
+  const beforeNeg = lower.slice(negStart, start);
+  if (RU_NEGATION_BEFORE.test(beforeNeg)) return true;
+
   const before = lower.slice(from, start);
-
-  if (RU_NEGATION_BEFORE.test(before)) return true;
   if (PAST_COPING_BEFORE.test(before)) return true;
-
   if (STANCE_MARKERS.test(before)) return true;
 
   const matchText = lower.slice(start, end).trim();
   if (NOUN_TOPIC.test(matchText)) {
-    const after = lower.slice(end);
+    // S-13: STANCE_AFTER is anchored at ^ and matches within 200 chars (can cross comma/dash)
+    const after = lower.slice(end, end + 200);
     if (STANCE_AFTER.test(after)) return true;
   }
 
   return false;
 }
 
-function hasForeignNegationBefore(lower: string, start: number, end: number): boolean {
-  const [from] = clauseBounds(lower, start, end);
-  return FOREIGN_NEGATION_BEFORE.test(lower.slice(from, start));
+function hasForeignNegationBefore(lower: string, start: number, end: number, breaks: ClauseBreak[]): boolean {
+  const [from] = clauseBoundsFromBreaks(breaks, lower.length, start, end);
+  let negStart = from;
+  if (start - from > 120) {
+    negStart = start - 120;
+    while (negStart > from && /[a-z]/i.test(lower[negStart] ?? '')) {
+      negStart--;
+    }
+  }
+  return FOREIGN_NEGATION_BEFORE.test(lower.slice(negStart, start));
 }
 
-function firstAcuteMatch(text: string, patterns: RegExp[], isSafe: (lower: string, start: number, end: number) => boolean): string | null {
+function firstAcuteMatch(
+  text: string,
+  patterns: RegExp[],
+  isSafe: (lower: string, start: number, end: number, breaks: ClauseBreak[]) => boolean,
+): string | null {
+  let breaks: ClauseBreak[] | null = null;
   for (const pattern of patterns) {
-    for (const match of text.matchAll(new RegExp(pattern.source, 'g'))) {
-      if (!isSafe(text, match.index, match.index + match[0].length)) {
+    pattern.lastIndex = 0;
+    for (const match of text.matchAll(pattern)) {
+      if (match.index === undefined) continue;
+      if (!breaks) {
+        breaks = collectClauseBreaks(text);
+      }
+      if (!isSafe(text, match.index, match.index + match[0].length, breaks)) {
         return match[0];
       }
     }
@@ -260,12 +343,12 @@ function checkRiskOnNormalized(lower: string): RiskResult {
   // Кириллические паттерны — против латинских букв-двойников; EN/транслит —
   // против кириллицы, сложенной в латиницу.
   const cyr = foldLatinLookalikes(lower);
-  const cyrMatch = firstAcuteMatch(cyr, RISK_PATTERNS, hasRussianSafeContext);
+  const cyrMatch = firstAcuteMatch(cyr, GLOBAL_RISK_PATTERNS, hasRussianSafeContext);
   if (cyrMatch) return { isRisk: true, severity: 'acute', matchedPattern: cyrMatch };
   // R5-018: CONFUSABLES_MAP складывает кириллическую «у» в «y», а в EN/транслите
   // она подменяет и «u» («sуicide», «hochу») — второй проход с «у»→«u».
-  const latMatch = firstAcuteMatch(foldConfusables(lower), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore)
-    ?? firstAcuteMatch(foldConfusables(lower.replace(/у/g, 'u')), FOREIGN_RISK_PATTERNS, hasForeignNegationBefore);
+  const latMatch = firstAcuteMatch(foldConfusables(lower), GLOBAL_FOREIGN_RISK_PATTERNS, hasForeignNegationBefore)
+    ?? firstAcuteMatch(foldConfusables(lower.replace(/у/g, 'u')), GLOBAL_FOREIGN_RISK_PATTERNS, hasForeignNegationBefore);
   if (latMatch) return { isRisk: true, severity: 'acute', matchedPattern: latMatch };
 
   return { isRisk: false, severity: 'none' };
@@ -274,14 +357,16 @@ function checkRiskOnNormalized(lower: string): RiskResult {
 export function detectRisk(text: string): RiskResult {
   // S-4: Двойная нормализация — сначала удаление невидимых (склеивает разорванные слова),
   // затем замена на пробел (разлепляет склеенные невидимыми символами слова).
-  const normDelete = baseNormalize(text, 'delete');
+  const { normalized: normDelete, hadDrops } = baseNormalize(text, 'delete');
   const resDelete = checkRiskOnNormalized(normDelete);
   if (resDelete.isRisk) return resDelete;
 
-  const normSpace = baseNormalize(text, 'space');
-  if (normSpace !== normDelete) {
-    const resSpace = checkRiskOnNormalized(normSpace);
-    if (resSpace.isRisk) return resSpace;
+  if (hadDrops) {
+    const { normalized: normSpace } = baseNormalize(text, 'space');
+    if (normSpace !== normDelete) {
+      const resSpace = checkRiskOnNormalized(normSpace);
+      if (resSpace.isRisk) return resSpace;
+    }
   }
 
   return { isRisk: false, severity: 'none' };
