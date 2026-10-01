@@ -92,6 +92,9 @@ jobs:
     - name: Raw overlay gate (AUDIT-part2 3.1, AG-GATE-1)
       run: bash scripts/raw-overlay-check.sh
     - run: npm run test:ci
+    # S-42.3: каждый паттерн детектора кризиса держится хотя бы одной фразой корпуса.
+    - name: Crisis pattern coverage (S-42)
+      run: npx tsx scripts/crisis-pattern-coverage.mjs
     # EA-8: браузер ставится ДО сборки — иначе пререндер внутри build молча
     # пропускался, и бюджет размера мерил не ту сборку, что уезжает на сервер.
     - name: Install Playwright

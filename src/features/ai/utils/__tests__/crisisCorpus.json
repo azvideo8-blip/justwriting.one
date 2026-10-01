@@ -1096,13 +1096,13 @@
  },
  {
   "text": "не думаю о том, чтобы покончить с собой",
-  "expect": "risk",
+  "expect": "safe",
   "category": "negation-before",
   "sources": [
    "r6-qoder",
    "verify"
   ],
-  "note": "comma = clause break; R5-020 decided (Qoder false-alarm log); counter-intuitive but rule-settled"
+  "note": "owner decision 2026-10-01 (S-2 §4): negated thought before the phrase suppresses"
  },
  {
   "text": "хочu\u0000умереть",
@@ -4696,6 +4696,51 @@
    "r6-review"
   ],
   "note": "S-45: «хотел» in the negation verb list protects the bare «покончить с собой» pattern"
+ },
+ {
+  "text": "буду наказывать себя до крови",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-42.3: protects the «наказывать себя … до крови» pattern"
+ },
+ {
+  "text": "наказать себя болью",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-42.3: protects the «наказать себя … боль» pattern"
+ },
+ {
+  "text": "i'll end it all tonight",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-42.3: protects the bare «end it all» pattern"
+ },
+ {
+  "text": "ubyu sebya",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-42.3: protects the «ubyu sebya» pattern"
+ },
+ {
+  "text": "hochu povesitsya",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-42.3: protects the «povesitsya» pattern"
  },
  {
   "text": "не​хочу покончить с собой",

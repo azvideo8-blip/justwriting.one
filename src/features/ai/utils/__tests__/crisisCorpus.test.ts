@@ -1,5 +1,5 @@
 // S-30: Fixed phrase corpus for the crisis detector in CI.
-// Source: justwriting-docs/crisis-corpus.json (488 phrases, 473 required, 15 knownGap).
+// Source: justwriting-docs/crisis-corpus.json (530 phrases, 515 required, 15 knownGap) — the two copies stay byte-identical (S-42.1).
 //
 // Rules:
 // 1. New crisis phrasings go into crisisCorpus.json with a source note in `sources`.
@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { detectRisk } from '../riskDetect';
+import { classifyInvisibleCodePoint } from '../../../../shared/ai/buildChatPrompt';
 import corpusData from './crisisCorpus.json';
 
 interface CorpusItem {
@@ -23,10 +24,25 @@ interface CorpusItem {
 const corpus = corpusData as CorpusItem[];
 const requiredCases = corpus.filter(c => !c.knownGap);
 
+// S-42.4: невидимые символы в имени теста — escape-последовательностью, а не сырым кодом.
+function visible(text: string): string {
+  let out = '';
+  for (const ch of text) {
+    const cp = ch.codePointAt(0) ?? 0;
+    const invisible = cp < 0x20 || (cp >= 0x0300 && cp <= 0x036F) || classifyInvisibleCodePoint(cp) !== 'keep';
+    out += invisible ? `\\u{${cp.toString(16).toUpperCase()}}` : ch;
+  }
+  return out;
+}
+
 describe('crisisCorpus (S-30)', () => {
   it('ratchet: corpus size and required count do not regress', () => {
-    expect(corpus.length).toBeGreaterThanOrEqual(488);
-    expect(requiredCases.length).toBeGreaterThanOrEqual(473);
+    expect(corpus.length).toBeGreaterThanOrEqual(530);
+    expect(requiredCases.length).toBeGreaterThanOrEqual(515);
+    // S-42.5: точные счётчики по меткам — перекрашенная фраза видна в диффе теста, а не проглочена ратчетом.
+    const labels = { risk: 0, safe: 0 };
+    for (const c of requiredCases) labels[c.expect]++;
+    expect(labels).toEqual({ risk: 381, safe: 134 });
 
     // Verify key categories are represented
     const categories = new Set(corpus.map(c => c.category));
@@ -56,7 +72,7 @@ describe('crisisCorpus (S-30)', () => {
   });
 
   describe('required corpus cases', () => {
-    it.each(requiredCases)('$category: "$text" -> $expect', ({ text, expect: expected, category, sources, note }) => {
+    it.each(requiredCases.map(c => ({ ...c, name: visible(c.text) })))('$category: "$name" -> $expect', ({ text, expect: expected, category, sources, note }) => {
       const result = detectRisk(text);
       const isExpected = result.isRisk === (expected === 'risk');
       if (!isExpected) {
@@ -71,6 +87,20 @@ describe('crisisCorpus (S-30)', () => {
       }
       expect(result.isRisk).toBe(expected === 'risk');
     });
+  });
+
+  // S-42.4: одна сводка по категориям — видно, какой пласт поехал, а не десятки одинаковых падений.
+  it('per-category failure summary', () => {
+    const failed = new Map<string, string[]>();
+    for (const c of requiredCases) {
+      const r = detectRisk(c.text);
+      if (r.isRisk === (c.expect === 'risk')) continue;
+      const list = failed.get(c.category) ?? [];
+      list.push(`"${visible(c.text)}" -> expected ${c.expect}, got ${r.isRisk ? 'risk' : 'safe'} (${r.matchedPattern ?? 'none'})`);
+      failed.set(c.category, list);
+    }
+    const summary = [...failed].map(([cat, items]) => `${cat}: ${items.length} failed\n  ${items.join('\n  ')}`).join('\n');
+    expect(summary, `\n${summary}`).toBe('');
   });
 
   it('performance: full corpus executes well under 2 seconds', () => {
