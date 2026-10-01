@@ -13,7 +13,7 @@ const LATIN_PATTERNS = [
   /(?<=^|[^а-яёА-ЯЁa-zA-Z0-9])DAN(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
   /you\s+are\s+now/i,
   /forget\s+your/i,
-  /(^|\n)\s*system\s*:/i,
+  /(^|\n)\s*s[yi]stem\s*:/i,
   /as\s+an\s+AI(?=$|[^а-яёА-ЯЁa-zA-Z0-9])/i,
   /(^|\n)\s*developer\s*:/i,
   /<\|im_start\|>/i,
@@ -22,9 +22,9 @@ const LATIN_PATTERNS = [
   /<end_of_turn>/i,
   // Промежуток ограничен длиной: с открытым `.*` движок перебирает позиции
   // квадратично, и 50 000 пробелов после «repeat» занимают процесс на секунду.
-  /repeat\s+.{0,200}(system|initial)\s+prompt/i,
+  /repeat\s+.{0,200}(s[yi]stem|initial)\s+prompt/i,
   /output\s+your\s+instructions/i,
-  /reveal\s+your\s+system\s+prompt/i,
+  /reveal\s+your\s+s[yi]stem\s+prompt/i,
 ];
 
 // Patterns written for Cyrillic/Russian phrases. Checked against the
@@ -48,8 +48,9 @@ export const INJECTION_PATTERNS = [...LATIN_PATTERNS, ...CYRILLIC_PATTERNS];
 // Нормализуем невидимые символы перед проверкой инъекций.
 // Символы категории 'space' (U+2000..U+200A, U+2028, U+2029 и т.д.) заменяются на U+0020,
 // чтобы сохранить границу слова для паттернов с \s+.
-// Символы категории 'drop' (нулевая ширина, U+2060, U+FE0F, теги U+E0000..E007F) удаляются.
-function stripInvisible(text: string): string {
+// S-15: Проверяются оба варианта (drop удалён и drop → пробел), чтобы невидимый
+// символ не мог служить разделителем слов в обход проверки.
+function stripInvisible(text: string, dropMode: 'delete' | 'space' = 'delete'): string {
   let out = '';
   for (const ch of text) {
     const code = ch.codePointAt(0) ?? 0;
@@ -58,6 +59,8 @@ function stripInvisible(text: string): string {
       out += ' ';
     } else if (action === 'keep') {
       out += ch;
+    } else if (action === 'drop' && dropMode === 'space') {
+      out += ' ';
     }
   }
   return out;
@@ -73,6 +76,7 @@ function stripInvisible(text: string): string {
 const HOMOGLYPH_MAP: Record<string, string> = {
   'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c',
   'х': 'x', 'у': 'y', 'і': 'i', 'ѕ': 's', 'һ': 'h',
+  'м': 'm', 'т': 't', 'к': 'k', 'ү': 'y',
   'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M',
   'Н': 'H', 'О': 'O', 'Р': 'P', 'С': 'C', 'Т': 'T',
   'Х': 'X', 'У': 'Y',
@@ -91,8 +95,13 @@ function foldLatinHomoglyphs(text: string): string {
   return out;
 }
 
-export function hasInjectionAttempt(text: string): boolean {
-  const stripped = stripInvisible(text);
+function checkInjectionVariant(text: string, dropMode: 'delete' | 'space'): boolean {
+  const stripped = stripInvisible(text, dropMode);
   const latinFolded = foldLatinHomoglyphs(stripped);
   return LATIN_PATTERNS.some(p => p.test(latinFolded)) || CYRILLIC_PATTERNS.some(p => p.test(stripped));
+}
+
+export function hasInjectionAttempt(text: string): boolean {
+  // S-15: Проверяем оба режима нормализации невидимых символов
+  return checkInjectionVariant(text, 'delete') || checkInjectionVariant(text, 'space');
 }
