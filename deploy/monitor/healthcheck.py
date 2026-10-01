@@ -22,7 +22,7 @@ from pathlib import Path
 
 STATE = Path('/var/lib/justwriting-monitor/state.json')
 REPEAT_AFTER = 12 * 3600
-SITE = 'https://justwriting.ru'
+SITE = os.environ.get('MONITOR_SITE', 'https://justwriting.ru')
 DRY = '--dry-run' in sys.argv
 # EA-2: адрес получателя — из окружения (EnvironmentFile в unit), не из репозитория.
 TO = os.environ.get('MONITOR_ALERT_TO', '')
@@ -85,6 +85,22 @@ else:
 if sh('systemctl is-active justwriting') != 'active':
     problems.append('Служба justwriting не работает — ИИ-функции и /api недоступны.')
 
+# ── службы systemd (R6-005) ────────────────────────────────────────────────
+units_out = sh("systemctl list-units --all --plain --no-legend 'justwriting*.service'")
+if not units_out.strip():
+    problems.append('Не удалось получить список юнитов: systemctl list-units пуст.')
+else:
+    failed = []
+    for line in units_out.splitlines():
+        parts = line.strip().split()
+        if not parts:
+            continue
+        unit = parts[1] if parts[0] in ('●', '*') else parts[0]
+        if 'failed' in parts[1:]:
+            failed.append(unit)
+    if failed:
+        problems.append(f"Юниты в failed: {', '.join(failed)} — journalctl -u {failed[0]}")
+
 # ── контейнеры ──────────────────────────────────────────────────────────────
 ps = sh('cd /opt/justwriting/supabase && docker compose ps --format json')
 down = []
@@ -111,21 +127,34 @@ if emb != '200':
 
 # ── свежесть резервной копии ────────────────────────────────────────────────
 # R3-11: копия — только .dump с парной .sha256 (её пишут после проверки дампа).
-dumps = sorted((p for p in Path('/var/backups/justwriting').glob('*.dump') if Path(f'{p}.sha256').exists()),
-               key=lambda p: p.stat().st_mtime, reverse=True)
+BACKUP_DIR = Path(os.environ.get('BACKUP_DIR', '/var/backups/justwriting'))
+try:
+    dumps = sorted((p for p in BACKUP_DIR.glob('*.dump') if Path(f'{p}.sha256').exists()),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+except Exception as e:
+    dumps = []
+    problems.append(f'Не удалось прочитать каталог копий: {e}')
+
 if not dumps:
-    problems.append('Резервных копий нет вовсе.')
+    if not any('каталог копий' in p for p in problems):
+        problems.append('Резервных копий нет вовсе.')
 else:
     age_h = (time.time() - dumps[0].stat().st_mtime) / 3600
     if age_h > 26:
         problems.append(f'Свежей копии нет {age_h:.0f} часов — таймер копирования, похоже, сломался.')
+    if not Path(f'{dumps[0]}.counts').exists():
+        problems.append('Свежая копия базы не имеет .counts — проверка обвала выключена.')
+
 # R5-056: отметку ставит pg-backup.sh, когда строк стало меньше вдвое против
 # прошлой копии. Пока она лежит, ротация копий стоит.
-shrink = Path('/var/backups/justwriting/SHRINK-ALERT')
-if shrink.exists():
-    problems.append('Строк в базе стало меньше вдвое против прошлой копии, ротация копий остановлена. '
-                    'Если удаление намеренное — sudo rm ' + str(shrink) + '\n' +
-                    '\n'.join(shrink.read_text().splitlines()[-3:]))
+try:
+    shrink = BACKUP_DIR / 'SHRINK-ALERT'
+    if shrink.exists():
+        problems.append('Строк в базе стало меньше вдвое против прошлой копии, ротация копий остановлена. '
+                        'Если удаление намеренное — sudo rm ' + str(shrink) + '\n' +
+                        '\n'.join(shrink.read_text().splitlines()[-3:]))
+except Exception:
+    pass
 
 # ── сертификат ──────────────────────────────────────────────────────────────
 out = sh('openssl x509 -enddate -noout -in /etc/letsencrypt/live/justwriting.ru/fullchain.pem')
