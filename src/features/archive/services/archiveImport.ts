@@ -11,17 +11,34 @@ export interface ParsedImportFile {
   mood?: string | undefined;
 }
 
+// S-44.6 (S-19): title/mood уходят в облако шифротекстом base64(iv12 + ct + tag16);
+// documents_title_check / documents_mood_check (0013) — ≤ 2000 символов. 500 символов
+// CJK = 1500 байт → 2040 символов base64 → вечный 23514. Режем по байтам UTF-8:
+// 1450 + 28 → 1972 символа. Не рвём кодовую точку (итерация по for..of).
+const MAX_IMPORT_FIELD_BYTES = 1450;
+function clampUtf8Bytes(s: string, maxBytes: number): string {
+  const encoder = new TextEncoder();
+  let bytes = 0;
+  let out = '';
+  for (const ch of s) {
+    bytes += encoder.encode(ch).length;
+    if (bytes > maxBytes) break;
+    out += ch;
+  }
+  return out;
+}
+
 export function parseImportFile(fileName: string, rawContent: string): ParsedImportFile {
   const fallbackTitle = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
   const parsed = parseNoteMarkdown(rawContent, fallbackTitle);
   const wordCount = countWords(parsed.content);
   return {
-    title: (parsed.title || '').slice(0, 500),
+    title: clampUtf8Bytes((parsed.title || '').slice(0, 500), MAX_IMPORT_FIELD_BYTES),
     content: parsed.content,
     tags: (parsed.tags ?? []).slice(0, 10).map(t => String(t).slice(0, 50)),
     wordCount,
     date: parsed.date,
-    mood: parsed.mood != null ? parsed.mood.slice(0, 500) : undefined,
+    mood: parsed.mood != null ? clampUtf8Bytes(parsed.mood.slice(0, 500), MAX_IMPORT_FIELD_BYTES) : undefined,
   };
 }
 

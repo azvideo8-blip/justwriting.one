@@ -274,6 +274,28 @@ describe('importNoteFile', () => {
     expect(savedDoc.title.length).toBeLessThanOrEqual(500);
     expect(savedDoc.mood.length).toBeLessThanOrEqual(500);
   });
+
+  // S-44.6: 500 символов CJK = 1500 байт UTF-8 → base64(iv + ct + tag) = 2040 символов
+  // > documents_title_check ≤ 2000 (0013) → вечный 23514 при каждой синхронизации.
+  it('S-44.6: clamps a 500-char CJK title/mood so the encrypted value fits documents_title_check (≤ 2000)', async () => {
+    const cjk = '漢'.repeat(500);
+    const { serializeNoteMarkdown } = await import('../../../../core/services/noteFormat');
+    const content = serializeNoteMarkdown({ title: cjk, tags: [], mood: cjk, content: 'body text' });
+
+    const result = await importNoteFile(makeFile('cjk.md', content), 'user-1', true);
+    expect(result.success).toBe(true);
+
+    const savedDoc = saveNewMock.mock.calls[0]![1] as { title: string; mood: string };
+    expect(new TextEncoder().encode(savedDoc.title).length).toBeLessThanOrEqual(1450);
+    expect(new TextEncoder().encode(savedDoc.mood).length).toBeLessThanOrEqual(1450);
+    expect(savedDoc.title).toMatch(/^漢+$/); // no split code point / U+FFFD
+
+    // Through the real title ciphertext path (DocumentService → maybeEncrypt → encryptContent).
+    const { encryptContent } = await import('../../../../core/crypto/encrypt');
+    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    expect((await encryptContent(savedDoc.title, key)).length).toBeLessThanOrEqual(2000);
+    expect((await encryptContent(savedDoc.mood, key)).length).toBeLessThanOrEqual(2000);
+  });
 });
 
 
