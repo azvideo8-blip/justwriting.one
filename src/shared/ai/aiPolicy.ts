@@ -133,7 +133,8 @@ import { hasInjectionAttempt } from './injectionPatterns.js';
 import { isAllowedSystemTaskPrompt } from './systemTaskPrompts.js';
 
 // Маркер приложенной заметки: строка целиком (см. useAIPageData / aiChatTransport).
-const ATTACHED_NOTE_MARKER = /^\[Прикреплена заметка: ".*"\]$/gm;
+// S-14: Non-greedy and bounded to avoid swallowing inline injections.
+const ATTACHED_NOTE_MARKER = /^\[Прикреплена заметка: "[^"\n]{0,200}"\]$/gm;
 
 // AUDIT-MH8: Shared injection policy across streaming and non-streaming chat endpoints.
 // Hard-rejects only apply to direct instructions (last user message, customSystemPrompt).
