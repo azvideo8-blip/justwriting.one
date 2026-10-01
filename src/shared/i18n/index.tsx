@@ -243,6 +243,16 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEYS.APP_LANGUAGE, lang);
   }, []);
 
+  React.useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.APP_LANGUAGE && (e.newValue === 'ru' || e.newValue === 'en')) {
+        setLanguageState(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const [transVersion, setTransVersion] = useState(0);
 
   React.useEffect(() => {
