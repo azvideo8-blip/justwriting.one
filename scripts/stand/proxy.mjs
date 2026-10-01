@@ -6,9 +6,12 @@ const PORT = Number(process.env.STAND_PORT ?? 3000);
 const GOTRUE = Number(process.env.STAND_GOTRUE_PORT ?? 9999);
 const REST = Number(process.env.STAND_REST_PORT ?? 3003);
 const VITE = Number(process.env.STAND_VITE_PORT ?? 3010);
+// S-38: локальный api/server.ts (с заглушкой ИИ) подключается через STAND_API_PORT;
+// без него /api, как и раньше, отвечает 503.
+const API = process.env.STAND_API_PORT ? Number(process.env.STAND_API_PORT) : null;
 const route = url => url.startsWith('/auth/v1/') ? { port: GOTRUE, path: url.slice(8) }
   : url.startsWith('/rest/v1/') ? { port: REST, path: url.slice(8) }
-  : url.startsWith('/api/') ? null
+  : url.startsWith('/api/') ? (API ? { port: API, path: url } : null)
   : { port: VITE, path: url };
 http.createServer((req, res) => {
   const r = route(req.url);
