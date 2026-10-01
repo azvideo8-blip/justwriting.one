@@ -219,4 +219,16 @@ describe('NoteAnalysisService.analyzePending', () => {
     // Догоняющий проход посчитал недостающий вектор — долг закрыт.
     expect(result).toMatchObject({ analyzed: 2, missingVectors: 0, stopped: null });
   });
+
+  it('stops with auth when session is expired (AUTH_REQUIRED), not consent (S-18)', async () => {
+    documents = [{ id: 'doc_1' }];
+    contentByDoc = { doc_1: LONG };
+    summarize.mockResolvedValue({ ok: false, error: 'AUTH_REQUIRED' });
+
+    const result = await run();
+
+    expect(result.stopped).not.toBe('consent');
+    expect(result.stopped).toBe('auth');
+  });
 });
+

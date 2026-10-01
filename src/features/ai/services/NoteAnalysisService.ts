@@ -28,7 +28,7 @@ export type AnalyzeResult =
   | { ok: false; error: 'NO_CONTENT' | 'TOO_SHORT' | 'EXCLUDED' | AIErrorCode };
 
 /** Почему проход по архиву остановился, не дойдя до конца очереди. */
-export type BatchStop = 'daily' | 'rate' | 'global' | 'consent' | 'errors';
+export type BatchStop = 'daily' | 'rate' | 'global' | 'consent' | 'auth' | 'errors';
 
 export interface BatchResult {
   analyzed: number;
@@ -343,7 +343,10 @@ export const NoteAnalysisService = {
       } else if (res.error === 'GLOBAL_LIMIT') {
         result.stopped = 'global';
         break;
-      } else if (res.error === 'AUTH_REQUIRED' || res.error === 'AI_CONSENT_REQUIRED') {
+      } else if (res.error === 'AUTH_REQUIRED') {
+        result.stopped = 'auth';
+        break;
+      } else if (res.error === 'AI_CONSENT_REQUIRED') {
         result.stopped = 'consent';
         break;
       } else if (res.error === 'NO_CONTENT' || res.error === 'TOO_SHORT' || res.error === 'EXCLUDED') {
@@ -365,7 +368,7 @@ export const NoteAnalysisService = {
     // он сам пропускает свежие и умеет останавливаться на лимите. Без этого
     // такая заметка осталась бы без вектора навсегда — очередь разбора смотрит
     // на сводки и второй раз её не предложит.
-    if (result.missingVectors > 0 && result.stopped !== 'daily' && result.stopped !== 'consent') {
+    if (result.missingVectors > 0 && result.stopped !== 'daily' && result.stopped !== 'consent' && result.stopped !== 'auth') {
       try {
         const caught = await indexPending();
         result.missingVectors = Math.max(0, result.missingVectors - caught.ok);

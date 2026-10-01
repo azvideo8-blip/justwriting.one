@@ -23,11 +23,21 @@ const STOP_MESSAGES: Record<NonNullable<BatchResult['stopped']>, string> = {
   rate: 'слишком много запросов подряд, продолжите через минуту',
   global: 'общий дневной лимит приложения исчерпан',
   consent: 'нет согласия на использование ИИ',
+  auth: 'сессия истекла, войдите снова',
   errors: 'три отказа подряд — похоже, связь или сервис недоступны',
 };
 
+const STOP_MESSAGES_EN: Record<NonNullable<BatchResult['stopped']>, string> = {
+  daily: 'daily AI limit reached, continue tomorrow',
+  rate: 'too many requests in a row, continue in a minute',
+  global: 'global daily limit reached',
+  consent: 'no consent to use AI',
+  auth: 'session expired, sign in again',
+  errors: 'three failures in a row — service or network may be unavailable',
+};
+
 export function ArchiveAnalysisButton() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { showToast } = useToast();
   const [survey, setSurvey] = useState<PendingSurvey | null>(null);
   const [counting, setCounting] = useState(false);
@@ -57,8 +67,11 @@ export function ArchiveAnalysisButton() {
       });
 
       if (result.stopped) {
+        const msg = language === 'en' ? STOP_MESSAGES_EN[result.stopped] : STOP_MESSAGES[result.stopped];
         showToast(
-          `Разобрано ${result.analyzed}, проход остановлен: ${STOP_MESSAGES[result.stopped]}`,
+          language === 'en'
+            ? `Analyzed ${result.analyzed}, stopped: ${msg}`
+            : `Разобрано ${result.analyzed}, проход остановлен: ${msg}`,
           'error',
         );
       } else if (result.analyzed === 0) {
