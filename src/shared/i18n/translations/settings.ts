@@ -265,6 +265,16 @@ export const settingsTranslations: Translations = {
     ru: 'Будет удалено всё: учётная запись, заметки в облаке, локальная база данных, ключи шифрования и данные ИИ. Восстановление невозможно. Вы уверены?',
     en: 'Everything will be deleted: your account, cloud notes, local database, encryption keys, and AI data. Recovery is impossible. Are you sure?',
   },
+  // S-28 (O-5): что стирается на этом устройстве сверх базы аккаунта, и что
+  // остаётся на других — человек должен узнать это до подтверждения.
+  settings_delete_account_confirm_guest_wipe: {
+    ru: 'С этого устройства удалится и гостевая база: заметки, которые вы решили оставить локально, её черновик и данные ИИ.',
+    en: 'This device will also lose the guest database: the notes you chose to keep locally, its draft, and AI data.',
+  },
+  settings_delete_account_confirm_other_devices: {
+    ru: 'На других устройствах, где вы входили, локальная копия заметок останется. Чтобы её удалить, на каждом из них выйдите с очисткой данных — до удаления аккаунта.',
+    en: 'On other devices you have signed in to, a local copy of your notes will remain. To delete it, sign out with data clearing on each of them — before deleting the account.',
+  },
   settings_delete_account_success: { ru: 'Аккаунт удалён', en: 'Account deleted' },
   settings_delete_account_wipe_failed: { ru: 'Аккаунт удалён, очистите данные сайта вручную', en: 'Account deleted, clear site data manually' },
   settings_delete_account_device_not_cleared: { ru: 'Аккаунт удалён, но устройство не очищено', en: 'Account deleted, but device not cleared' },

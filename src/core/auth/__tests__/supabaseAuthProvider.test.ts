@@ -24,7 +24,8 @@ vi.mock('../../../shared/errors/reportError', () => ({
 }));
 
 import { getIdToken, signOutUser, getCurrentUser, onAuthStateChange, _resetAuthStateForTesting, verifyOtpForRecovery } from '../supabaseAuthProvider';
-import { onBeforeAccountReload, skipFlushOnAccountReload } from '../accountReload';
+import { onBeforeAccountReload, skipFlushOnAccountReload, takeAccountChangeNotice } from '../accountReload';
+import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { mapAIError } from '../../../features/ai/services/AIService';
 
 describe('ERR-3: auth session error visibility and token refresh failure', () => {
@@ -224,5 +225,31 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
     cb?.('SIGNED_OUT', null);
     expect(reportErrorModule.reportError).toHaveBeenCalledWith(
       expect.objectContaining({ message: expect.stringContaining('SESSION_TERMINATED') }), expect.anything(), 'warning');
+  });
+
+  // S-28: нечаянный выход оставляет новое странице что предложить стереть.
+  it('an unexpected sign-out records the lost-session notice and its uid', () => {
+    _resetAuthStateForTesting();
+    let cb: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((f: (event: string, session: unknown) => void) => { cb = f; return { data: { subscription: { unsubscribe: vi.fn() } } }; });
+    getCurrentUser();
+    cb?.('SIGNED_IN', { user: { id: 'u_lost', email: 'l@example.com' } });
+    cb?.('SIGNED_OUT', null);
+    expect(takeAccountChangeNotice()).toBe('lost_session');
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBe('u_lost');
+    localStorage.removeItem(STORAGE_KEYS.LOST_SESSION_UID);
+  });
+
+  it('a sign-out made in another tab records no wipe offer', () => {
+    _resetAuthStateForTesting();
+    let cb: ((event: string, session: unknown) => void) | undefined;
+    mockOnAuthStateChange.mockImplementation((f: (event: string, session: unknown) => void) => { cb = f; return { data: { subscription: { unsubscribe: vi.fn() } } }; });
+    getCurrentUser();
+    cb?.('SIGNED_IN', { user: { id: 'u_given', email: 'g@example.com' } });
+    localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_given'), String(Date.now()));
+    cb?.('SIGNED_OUT', null);
+    expect(takeAccountChangeNotice()).not.toBe('lost_session');
+    expect(localStorage.getItem(STORAGE_KEYS.LOST_SESSION_UID)).toBeNull();
+    localStorage.removeItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_given'));
   });
 });

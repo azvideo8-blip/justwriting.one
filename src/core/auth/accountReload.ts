@@ -41,7 +41,7 @@ export function skipFlushOnAccountReload(skip = true): void {
   skipFlush = skip;
 }
 
-export type AccountChangeNotice = 'signed_out' | 'signed_out_wiped' | 'wipe_failed' | 'account_deleted' | 'account_deleted_wipe_failed';
+export type AccountChangeNotice = 'signed_out' | 'signed_out_wiped' | 'wipe_failed' | 'account_deleted' | 'account_deleted_wipe_failed' | 'lost_session';
 
 /** Сообщение, которое покажется уже на новой странице. */
 export function setAccountChangeNotice(notice: AccountChangeNotice): void {

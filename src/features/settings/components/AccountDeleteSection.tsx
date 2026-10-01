@@ -35,7 +35,11 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
   const handleDeleteAccount = async () => {
     const ok = await confirmDialog({
       title: t('settings_delete_account_confirm_title'),
-      message: t('settings_delete_account_confirm_message'),
+      message: [
+        t('settings_delete_account_confirm_message'),
+        t('settings_delete_account_confirm_guest_wipe'),
+        t('settings_delete_account_confirm_other_devices'),
+      ].join(' '),
     });
     if (!ok) return;
     setAuthError(false);

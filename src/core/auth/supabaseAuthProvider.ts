@@ -26,7 +26,7 @@ let subscribed = false;
 let isVoluntarySignOut = false;
 
 import { reportError } from '../../shared/errors/reportError';
-import { reloadForAccountChange, isAccountReloadPending, _resetAccountReloadForTesting } from './accountReload';
+import { reloadForAccountChange, isAccountReloadPending, setAccountChangeNotice, _resetAccountReloadForTesting } from './accountReload';
 
 // Subscribed on first use, never at import time. A top-level call here builds
 // the Supabase client as a side effect of importing this file, which throws
@@ -43,6 +43,12 @@ function ensureSubscribed(): void {
           { action: 'auth_session_signed_out', previousUid: currentUser.uid },
           'warning',
         );
+        // S-28: отличить «аккаунт удалён» от «сессию отозвали» по ответу сервера
+        // нельзя (verifyJwt проверяет только подпись), поэтому предложение стереть
+        // данные показываем при любом нечаянном выходе — и только если локальная
+        // база этого uid на устройстве осталась.
+        setAccountChangeNotice('lost_session');
+        try { localStorage.setItem(STORAGE_KEYS.LOST_SESSION_UID, currentUser.uid); } catch { /* приватный режим */ }
       }
       isVoluntarySignOut = false;
     }

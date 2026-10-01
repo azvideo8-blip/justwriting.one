@@ -728,6 +728,33 @@ export async function deleteLocalDatabase(customUid?: string): Promise<void> {
 }
 
 /**
+ * S-28: есть ли на устройстве база этого uid — по этому признаку предложение
+ * «удалить данные с этого устройства» показывается, а не всегда подряд.
+ * Safari `indexedDB.databases()` не реализует: там открываем с фиксацией
+ * upgradeneeded — несозданная база встанет пустой и тут же удалится,
+ * существующая откроется без апгрейда.
+ */
+export async function hasLocalDatabase(customUid: string): Promise<boolean> {
+  const name = getLocalDbName(customUid);
+  if (typeof indexedDB === 'undefined') return false;
+  if (typeof indexedDB.databases === 'function') {
+    return (await indexedDB.databases()).some(d => d.name === name);
+  }
+  return new Promise<boolean>(resolve => {
+    let existed = true;
+    const req = indexedDB.open(name);
+    req.onupgradeneeded = () => { existed = false; };
+    req.onblocked = () => resolve(true);
+    req.onerror = () => resolve(false);
+    req.onsuccess = () => {
+      req.result.close();
+      if (!existed) void indexedDB.deleteDatabase(name);
+      resolve(existed);
+    };
+  });
+}
+
+/**
  * R6Q-023 (S-9): завершение очистки удалённого аккаунта при старте приложения,
  * если в момент удаления локальное стирание не прошло (сбой IndexedDB/памяти/питания).
  */
@@ -748,7 +775,9 @@ export async function processPendingPurges(): Promise<void> {
   for (const uid of pendingUids) {
     try {
       await deleteLocalDatabase(uid);
-      await purgeAccountFromSharedDb(uid);
+      // S-28: маркер покрывает и гостевую базу — при удалении аккаунта с неё
+      // уходят те же данные, что и с базы аккаунта.
+      await deleteLocalDatabase('justwriting-local');
       localStorage.removeItem(`jw_pending_purge_${uid}`);
     } catch (e) {
       reportError(e, { action: 'processPendingPurges', uid });

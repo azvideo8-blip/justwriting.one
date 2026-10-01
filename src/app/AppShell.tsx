@@ -10,6 +10,7 @@ import { useSyncStatus } from '../core/sync/useSyncStatus';
 import { useToast } from '../shared/components/Toast';
 import { VAULT_PASSWORD_CONVERGED_EVENT } from '../core/services/EncryptionService';
 import { takeAccountChangeNotice } from '../core/auth/accountReload';
+import { offerLostSessionWipe } from '../features/auth/services/lostSessionWipe';
 
 import { AppLayout } from '../shared/components/Layout/AppLayout';
 import { Sidebar } from '../features/navigation/components/Sidebar';
@@ -77,6 +78,7 @@ export function AppShell() {
     else if (notice === 'wipe_failed') showToast(t('settings_sign_out_notice_wipe_failed'), 'error');
     else if (notice === 'account_deleted') showToast(t('settings_delete_account_success'), 'success');
     else if (notice === 'account_deleted_wipe_failed') showToast(t('settings_delete_account_wipe_failed'), 'error');
+    else if (notice === 'lost_session') void offerLostSessionWipe(showToast, t);
   }, [showToast, t]);
 
   const currentPath = location.pathname;

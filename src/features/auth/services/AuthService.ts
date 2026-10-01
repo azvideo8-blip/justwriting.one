@@ -104,6 +104,10 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
       await clearAllLocalStores(currentUid);
       if (opts?.isAccountDeletion && currentUid) {
         await deleteLocalDatabase(currentUid);
+        // S-28 (O-5): вместе с аккаунтом с этого устройства уходит и гостевая
+        // база `justwriting-local` — заметки, оставленные локально при
+        // миграции, её черновик и производные ИИ.
+        await deleteLocalDatabase('justwriting-local');
       }
     } catch (e) {
       wipeFailed = e;
@@ -336,6 +340,21 @@ async function deleteAccount(password: string): Promise<void> {
   } catch { /* ignore */ }
 }
 
+/**
+ * S-28: стирание данных аккаунта с устройства, где выход уже состоялся
+ * (устройство B после удаления учётной записи). uid приходит явно: после
+ * принудительного выхода getCurrentUser() пуст, и без него стирание ушло бы в
+ * гостевую базу вместо базы этого человека.
+ */
+async function wipeDeviceDataForUid(uid: string): Promise<void> {
+  const { clearAllLocalStores, deleteLocalDatabase } = await import('../../../core/storage/localDb');
+  await clearAllLocalStores(uid);
+  await deleteLocalDatabase(uid);
+  await deleteLocalDatabase('justwriting-local');
+  const { clearAccountScopedStorage } = await import('./accountScopedKeys');
+  clearAccountScopedStorage(uid);
+}
+
 export const AuthService = {
   signUpWithEmail,
   signInWithEmail,
@@ -348,5 +367,6 @@ export const AuthService = {
   unlockVaultFromPendingKeys,
   recoverVault,
   deleteAccount,
+  wipeDeviceDataForUid,
 };
 

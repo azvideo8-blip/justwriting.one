@@ -106,6 +106,25 @@ export const authScreensTranslations: Translations = {
   },
 
   // SignOutConfirmModal
+  // S-28: предложение стереть данные аккаунта на устройстве, где вход оборвался
+  // не по воле человека. Формулировка не утверждает, что аккаунт удалён, —
+  // отличить это от отозванной сессии нельзя.
+  auth_lost_session_wipe_hint: {
+    ru: 'Вход в аккаунт с этого устройства оборвался, его локальная копия заметок осталась. Удалить её?',
+    en: 'Sign-in to your account on this device ended unexpectedly, but its local copy of notes is still here. Delete it?',
+  },
+  auth_lost_session_wipe_button: {
+    ru: 'Удалить данные с этого устройства',
+    en: 'Delete data from this device',
+  },
+  auth_lost_session_wipe_done: {
+    ru: 'Данные этого аккаунта удалены с устройства',
+    en: 'This account’s data was deleted from this device',
+  },
+  auth_lost_session_wipe_failed: {
+    ru: 'Не удалось удалить данные с устройства — очистите данные сайта в браузере вручную',
+    en: 'Could not delete the data from this device — clear this site’s data in your browser manually',
+  },
   signout_unsynced_error: {
     ru: 'Есть несинхронизированные данные. Подтвердите принудительное удаление или отмените выход.',
     en: 'There is unsynced data. Confirm forced deletion or cancel sign-out.',

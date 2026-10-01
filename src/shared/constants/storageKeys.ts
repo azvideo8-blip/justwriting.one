@@ -34,6 +34,8 @@ export const STORAGE_KEYS = {
   PENDING_RECOVERY_CODE: (uid: string) => `pending_recovery_code_${uid}`,
   /** Когда этот аккаунт вышел сознательно (в любой вкладке) — N-60. */
   VOLUNTARY_SIGNOUT_AT: (uid: string) => `jw_voluntary_signout_at_${uid}`,
+  /** S-28: uid аккаунта, сессия которого оборвалась не по воле человека. */
+  LOST_SESSION_UID: 'jw_lost_session_uid',
   VAULT_AUTO_CREATED: (uid: string) => `vault_auto_created_${uid}`,
   VAULT_AUTO_UNLOCK_FAILED: (uid: string) => `vault_auto_unlock_failed_${uid}`,
 } as const;
