@@ -179,6 +179,14 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
     skipFlushOnAccountReload(false);
     throw e;
   }
+  if (opts?.clearLocalData && currentUid) {
+    try {
+      const { STORAGE_KEYS } = await import('../../../shared/constants/storageKeys');
+      localStorage.removeItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT(currentUid));
+    } catch {
+      /* ignore */
+    }
+  }
   resetDbInstance();
 
   // AUD-11: выход состоялся; теперь сообщаем, что локальная очистка не прошла.

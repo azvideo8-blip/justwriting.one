@@ -164,6 +164,7 @@ export function clearAccountScopedStorage(uid: string | null | undefined): void 
   for (const key of Object.keys(localStorage)) {
     if (DEVICE_SETTINGS_KEYS.has(key)) continue;
     if (belongsToAnotherAccount(key, uid)) continue;
+    if (key.startsWith('jw_pending_purge_')) continue;
     localStorage.removeItem(key);
   }
 }

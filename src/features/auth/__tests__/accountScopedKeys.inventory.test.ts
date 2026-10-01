@@ -100,6 +100,8 @@ describe('accountScopedKeys inventory test (LS-5 + LS-8)', () => {
       [`draft-deleted-${SENTINEL}`]: 'sessionStorage only (WritingDraftService.ts)',
       // vault_auto_unlock_failed_ is exclusively stored in sessionStorage (AuthService.ts)
       [`vault_auto_unlock_failed_${SENTINEL}`]: 'sessionStorage only (AuthService.ts)',
+      // jw_pending_purge_ is a crash/wipe-failure recovery marker cleaned up by processPendingPurges at boot (S-9)
+      [`jw_pending_purge_${SENTINEL}`]: 'crash/wipe-failure recovery marker cleaned by processPendingPurges at boot',
     };
 
     const missing: string[] = [];
