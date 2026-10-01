@@ -131,7 +131,7 @@ vi.mock('../../core/theme/ThemeBackground', () => ({ ThemeBackground: () => null
 vi.mock('../../features/auth/components/LoginModalOverlay', () => ({ LoginModalOverlay: () => null }));
 vi.mock('../../features/auth/components/RecoveryCodeGate', () => ({ RecoveryCodeGate: () => null }));
 vi.mock('../../features/auth/components/GuestMigrationGate', () => ({ GuestMigrationGate: () => null }));
-vi.mock('../../shared/components/ConfirmDialog', () => ({ ConfirmDialogRenderer: () => null }));
+vi.mock('../../shared/components/ConfirmDialog', () => ({ ConfirmDialogRenderer: () => null, useConfirmDialog: () => ({ confirm: async () => true, alert: async () => {}, prompt: async () => null }) }));
 vi.mock('../ActivityLogBadge', () => ({ ActivityLogBadge: () => null }));
 
 // Mock DesktopWritingLayout children
