@@ -570,10 +570,25 @@ export async function checkChatStreamRefund(baseUrl: string): Promise<string[]> 
 
       const stream = await openChatStreamThenDestroy(origin, token, c.reasoning);
       if (stream.status !== 200) {
-        // M-2: громко, но не провал выкатки — слот не измерен, и только.
-        console.warn(
-          `::warning::Обрыв стрима (${c.name}): не измерено: ${stream.status} ${stream.code || '-'} — ` +
-          'стрим не открылся, проверка возврата слота пропущена.',
+        const isExternalUnmeasured =
+          (stream.status === 403 && stream.code === 'AI_CONSENT_REQUIRED') ||
+          stream.status === 429 ||
+          (stream.status === 502 && stream.code === 'UPSTREAM_ERROR') ||
+          (stream.status === 504 && stream.code === 'UPSTREAM_TIMEOUT');
+
+        if (isExternalUnmeasured) {
+          // M-2: громко, но не провал выкатки — слот не измерен из-за внешних лимитов/провайдера.
+          console.warn(
+            `::warning::Обрыв стрима (${c.name}): не измерено: ${stream.status} ${stream.code || '-'} — ` +
+            'стрим не открылся, проверка возврата слота пропущена.',
+          );
+          continue;
+        }
+
+        // S-6: Внутренние ошибки (500, 404, 400, 401, 503, 502 без кода, сброс сокета) — провал деплоя.
+        errors.push(
+          `Обрыв стрима (${c.name}): ошибка ${stream.status} ${stream.code || '-'} — ` +
+          'эндпоинт /api/chat вернул ошибку, деплой не может быть подтверждён.',
         );
         continue;
       }

@@ -31,9 +31,12 @@ afterEach(async () => {
 // убрать continue — печатается «✅ … слот возвращён», тест краснеет.
 describe('post-deploy smoke: обрыв стрима при не-200', () => {
   it.each([
-    [401, 'UNAUTHENTICATED'],
     [429, 'DAILY_LIMIT'],
-  ])('%i %s — громкое «не измерено», без ✅ и без ошибки', async (status, code) => {
+    [429, ''],
+    [403, 'AI_CONSENT_REQUIRED'],
+    [502, 'UPSTREAM_ERROR'],
+    [504, 'UPSTREAM_TIMEOUT'],
+  ])('%i %s — внешняя причина: «не измерено», без ошибки деплоя', async (status, code) => {
     vi.stubEnv('SMOKE_JWT_SECRET', 's');
     vi.stubEnv('SMOKE_UID', 'u');
     ({ server } = await serve((req, res) => {
@@ -42,7 +45,7 @@ describe('post-deploy smoke: обрыв стрима при не-200', () => {
         res.end(JSON.stringify({ result: { events: [{ used: 3 }] } }));
       } else {
         res.statusCode = status;
-        res.end(JSON.stringify({ error: { code, message: code } }));
+        res.end(code ? JSON.stringify({ error: { code, message: code } }) : '<html>upstream error</html>');
       }
     }));
     const base = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/`;
@@ -54,8 +57,57 @@ describe('post-deploy smoke: обрыв стрима при не-200', () => {
     expect(errors).toEqual([]);
     expect(log.mock.calls.flat().join('\n')).not.toContain('✅');
     const warned = warn.mock.calls.flat().join('\n');
-    expect(warned).toContain(`не измерено: ${status} ${code}`);
+    expect(warned).toContain(`не измерено: ${status} ${code || '-'}`);
     expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    [500, 'INTERNAL'],
+    [500, 'STREAM_FAILED'],
+    [404, 'NOT_FOUND'],
+    [400, 'BAD_REQUEST'],
+    [401, 'UNAUTHENTICATED'],
+    [503, 'SERVICE_UNAVAILABLE'],
+    [502, ''],
+  ])('%i %s — ошибка сервера: провал деплоя (errors.length === 2)', async (status, code) => {
+    vi.stubEnv('SMOKE_JWT_SECRET', 's');
+    vi.stubEnv('SMOKE_UID', 'u');
+    ({ server } = await serve((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      if (req.url === '/api/getAIUsageStats') {
+        res.end(JSON.stringify({ result: { events: [{ used: 3 }] } }));
+      } else {
+        res.statusCode = status;
+        res.end(code ? JSON.stringify({ error: { code, message: code } }) : '<html>502 Bad Gateway</html>');
+      }
+    }));
+    const base = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/`;
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const errors = await checkChatStreamRefund(base);
+
+    expect(errors).toHaveLength(2);
+  });
+
+  it('сброс сокета до заголовков — провал деплоя (errors.length === 2)', async () => {
+    vi.stubEnv('SMOKE_JWT_SECRET', 's');
+    vi.stubEnv('SMOKE_UID', 'u');
+    ({ server } = await serve((req, res) => {
+      if (req.url === '/api/getAIUsageStats') {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ result: { events: [{ used: 3 }] } }));
+      } else {
+        req.socket.destroy();
+      }
+    }));
+    const base = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/`;
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const errors = await checkChatStreamRefund(base);
+
+    expect(errors).toHaveLength(2);
   });
 
   it('код ошибки из тела sendError; не-JSON — пусто', () => {
