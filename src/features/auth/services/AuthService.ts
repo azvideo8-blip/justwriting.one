@@ -163,7 +163,8 @@ async function signOut(opts?: { clearLocalData?: boolean; force?: boolean; isAcc
   // Выход перезагружает страницу (accountReload.ts) — сообщение и переход на
   // вход задаём заранее, показывать их будет уже новая страница.
   setAccountChangeNotice(
-    opts?.isAccountDeletion ? 'account_deleted'
+    opts?.isAccountDeletion
+      ? (wipeFailed ? 'account_deleted_wipe_failed' : 'account_deleted')
       : wipeFailed ? 'wipe_failed'
         : opts?.clearLocalData ? 'signed_out_wiped' : 'signed_out',
   );
@@ -309,6 +310,11 @@ async function deleteAccount(password: string): Promise<void> {
 
   await reauthenticate(user.email, password);
 
+  const purgeMarker = `jw_pending_purge_${user.uid}`;
+  try {
+    localStorage.setItem(purgeMarker, '1');
+  } catch { /* ignore */ }
+
   const { callAi } = await import('../../../core/ai/callAi');
   await callAi('deleteAccount', {});
   // Аккаунт удалён на сервере — оставлять его заметки, разборы и портрет на
@@ -317,6 +323,9 @@ async function deleteAccount(password: string): Promise<void> {
   // аккаунт на сервере уже уничтожен, отменять локальную очистку из-за
   // несинхронизированных данных бессмысленно и заблокировало бы выход.
   await signOut({ clearLocalData: true, force: true, isAccountDeletion: true });
+  try {
+    localStorage.removeItem(purgeMarker);
+  } catch { /* ignore */ }
 }
 
 export const AuthService = {

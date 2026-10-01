@@ -727,6 +727,35 @@ export async function deleteLocalDatabase(customUid?: string): Promise<void> {
   });
 }
 
+/**
+ * R6Q-023 (S-9): завершение очистки удалённого аккаунта при старте приложения,
+ * если в момент удаления локальное стирание не прошло (сбой IndexedDB/памяти/питания).
+ */
+export async function processPendingPurges(): Promise<void> {
+  if (typeof localStorage === 'undefined') return;
+  const pendingUids: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('jw_pending_purge_')) {
+        pendingUids.push(key.slice('jw_pending_purge_'.length));
+      }
+    }
+  } catch {
+    return;
+  }
+
+  for (const uid of pendingUids) {
+    try {
+      await deleteLocalDatabase(uid);
+      await purgeAccountFromSharedDb(uid);
+      localStorage.removeItem(`jw_pending_purge_${uid}`);
+    } catch (e) {
+      reportError(e, { action: 'processPendingPurges', uid });
+    }
+  }
+}
+
 interface DatabaseWithClosed {
   closed?: boolean;
 }

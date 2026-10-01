@@ -5,9 +5,12 @@ import { MotionConfig } from 'motion/react';
 import { z } from 'zod';
 import { reportError } from './shared/errors/reportError';
 import { chunkIsGone } from './shared/errors/chunkReload';
+import { processPendingPurges } from './core/storage/localDb';
 import { APP_VERSION } from './version';
 import App from './App.tsx';
 import './index.css';
+
+void processPendingPurges();
 
 // Disable zod's JIT path: it probes `new Function("")`, which our CSP
 // (script-src without unsafe-eval) blocks and reports as a violation.

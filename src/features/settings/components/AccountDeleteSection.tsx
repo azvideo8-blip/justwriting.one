@@ -58,6 +58,11 @@ export function AccountDeleteSection({ userId }: AccountDeleteSectionProps) {
         setDeleting(false);
         return;
       }
+      if (err instanceof Error && (err.name === 'LocalWipeFailedError' || err.message === 'LOCAL_WIPE_FAILED')) {
+        showToast(t('settings_delete_account_device_not_cleared'), 'warning');
+        setAskingPassword(false);
+        return;
+      }
       showToast(t('settings_delete_account_error'), 'error');
       setAskingPassword(false);
     } finally {

@@ -76,6 +76,7 @@ export function AppShell() {
     else if (notice === 'signed_out_wiped') showToast(t('settings_sign_out_notice_wiped'), 'success');
     else if (notice === 'wipe_failed') showToast(t('settings_sign_out_notice_wipe_failed'), 'error');
     else if (notice === 'account_deleted') showToast(t('settings_delete_account_success'), 'success');
+    else if (notice === 'account_deleted_wipe_failed') showToast(t('settings_delete_account_wipe_failed'), 'error');
   }, [showToast, t]);
 
   const currentPath = location.pathname;

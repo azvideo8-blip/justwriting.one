@@ -266,6 +266,8 @@ export const settingsTranslations: Translations = {
     en: 'Everything will be deleted: your account, cloud notes, local database, encryption keys, and AI data. Recovery is impossible. Are you sure?',
   },
   settings_delete_account_success: { ru: 'Аккаунт удалён', en: 'Account deleted' },
+  settings_delete_account_wipe_failed: { ru: 'Аккаунт удалён, очистите данные сайта вручную', en: 'Account deleted, clear site data manually' },
+  settings_delete_account_device_not_cleared: { ru: 'Аккаунт удалён, но устройство не очищено', en: 'Account deleted, but device not cleared' },
   settings_delete_account_error: { ru: 'Не удалось удалить аккаунт', en: 'Failed to delete account' },
   // C-4 (R2-007): тосты после выхода — их показывает уже новая загрузка страницы.
   settings_sign_out_notice: { ru: 'Вы вышли из аккаунта', en: 'Signed out' },
