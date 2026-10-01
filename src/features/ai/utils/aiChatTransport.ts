@@ -1,6 +1,7 @@
 import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { AIMessage } from '../services/AIService';
 import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
+import { ATTACHED_NOTE_TITLE_MAX } from '../../../shared/ai/aiPolicy';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 
@@ -99,7 +100,9 @@ export const API_MSG_CAP = 9_500;
 export const API_ASSISTANT_OLD_CAP = 1_500;
 
 export function cleanAttachedTitle(title: string): string {
-  return (title || '').replace(/"/g, "'").replace(/[\r\n]+/g, ' ');
+  // S-44.5: сервер узнаёт маркер только до ATTACHED_NOTE_TITLE_MAX символов
+  // названия (aiPolicy); импорт пропускает 500 — длиннее режем здесь.
+  return (title || '').replace(/"/g, "'").replace(/[\r\n]+/g, ' ').slice(0, ATTACHED_NOTE_TITLE_MAX);
 }
 
 // S-39: ходы, записанные до S-3, несут в названии кавычки и переводы строк —

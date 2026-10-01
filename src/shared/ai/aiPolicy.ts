@@ -134,7 +134,10 @@ import { isAllowedSystemTaskPrompt } from './systemTaskPrompts.js';
 
 // Маркер приложенной заметки: строка целиком (см. useAIPageData / aiChatTransport).
 // S-14: Non-greedy and bounded to avoid swallowing inline injections.
-const ATTACHED_NOTE_MARKER = /^\[Прикреплена заметка: "[^"\n]{0,200}"\]$/gm;
+// S-44.5: предел — одно число на клиент и сервер: клиент режет название до него
+// (cleanAttachedTitle), иначе длинное название с «забудь всё» отбивалось 400-кой.
+export const ATTACHED_NOTE_TITLE_MAX = 200;
+const ATTACHED_NOTE_MARKER = new RegExp(`^\\[Прикреплена заметка: "[^"\\n]{0,${ATTACHED_NOTE_TITLE_MAX}}"\\]$`, 'gm');
 
 // AUDIT-MH8: Shared injection policy across streaming and non-streaming chat endpoints.
 // Hard-rejects only apply to direct instructions (last user message, customSystemPrompt).
