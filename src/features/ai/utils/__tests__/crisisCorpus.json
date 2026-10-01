@@ -4372,5 +4372,338 @@
   "sources": [
    "existing-test"
   ]
+ },
+ {
+  "text": "раньше я любила жизнь теперь хочу умереть",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: bare «раньше» earlier in the clause does not govern the phrase"
+ },
+ {
+  "text": "я умру без кофе",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: bare future «умру» is not a marker"
+ },
+ {
+  "text": "если не высплюсь, я умру",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: bare future «умру» is not a marker"
+ },
+ {
+  "text": "умру от скуки на лекции",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: bare future «умру» is not a marker"
+ },
+ {
+  "text": "я умру со стыда если он узнает",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: bare future «умру» is not a marker"
+ },
+ {
+  "text": "пусть я умру",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «умру» after an intent head stays acute"
+ },
+ {
+  "text": "лучше бы я умру",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «умру» after an intent head stays acute"
+ },
+ {
+  "text": "вчера ушел из жизни мой дедушка",
+  "expect": "safe",
+  "category": "grief",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «ушел/ушла из жизни» is grief about someone else"
+ },
+ {
+  "text": "я уйду из жизни",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: first person «уйду из жизни»"
+ },
+ {
+  "text": "ему разрешили умереть дома",
+  "expect": "safe",
+  "category": "other-person",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «решили» inside «разрешили» — left boundary on intent heads"
+ },
+ {
+  "text": "завтра покончу со всеми долгами",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «покончу со всем» only with «бы» or at end of clause"
+ },
+ {
+  "text": "покончу со всем этим бардаком на выходных",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «покончу со всем» only with «бы» or at end of clause"
+ },
+ {
+  "text": "покончил бы со всем",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «покончил бы со всем» stays acute"
+ },
+ {
+  "text": "надоело жить в этом городе",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: place lookahead on «надоело жить»"
+ },
+ {
+  "text": "надоело жить с родителями",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: companion lookahead on «надоело жить»"
+ },
+ {
+  "text": "не вижу смысла жить в москве",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: place lookahead on «не вижу смысла жить»"
+ },
+ {
+  "text": "можно сдохнуть от этой жары",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «от\\b» after Cyrillic was dead"
+ },
+ {
+  "text": "суицид не вариант для меня, а выход",
+  "expect": "risk",
+  "category": "stance-marker",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «для\\b» after Cyrillic was dead"
+ },
+ {
+  "text": "я не​хочу умереть",
+  "expect": "safe",
+  "category": "invisible",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: deleting the invisible glues «не» onto the verb; negation holds in the space variant"
+ },
+ {
+  "text": "не​хочу умирать",
+  "expect": "safe",
+  "category": "invisible",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: deleting the invisible glues «не» onto the verb; negation holds in the space variant"
+ },
+ {
+  "text": "я не­хочу умереть",
+  "expect": "safe",
+  "category": "invisible",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: deleting the invisible glues «не» onto the verb; negation holds in the space variant"
+ },
+ {
+  "text": "i don​t want to die",
+  "expect": "safe",
+  "category": "invisible",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: negation holds in the delete variant («dont»), the space variant must not override it"
+ },
+ {
+  "text": "по​вешусь, я не хочу умереть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: the negated phrase in the space variant is not the one that fired in the delete variant"
+ },
+ {
+  "text": "my plants will die if i forget to water them",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: bare «will die» is not a marker"
+ },
+ {
+  "text": "i might die of boredom",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «might die» without a self target is not a marker"
+ },
+ {
+  "text": "i'm ready to die",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: first person «ready to die»"
+ },
+ {
+  "text": "i might kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: first person + self target"
+ },
+ {
+  "text": "в прошлом году я поняла что хочу умереть",
+  "expect": "risk",
+  "category": "stance-marker",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «в прошлом» before the phrase suppresses only when it governs it"
+ },
+ {
+  "text": "не могу преодолеть желание покончить с собой",
+  "expect": "risk",
+  "category": "negation-before",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: a negation on «преодолеть» cancels the coping marker"
+ },
+ {
+  "text": "таблетки взяла с собой в отпуск",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «взять с собой» is not a method"
+ },
+ {
+  "text": "положила нож с собой в рюкзак",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «с собой» without «покончить» is not a method"
+ },
+ {
+  "text": "я не знаю что делать хочу умереть",
+  "expect": "risk",
+  "category": "negation-before",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-45: «не» two words earlier does not govern the phrase ($ anchor in RU_NEGATION_BEFORE)"
+ },
+ {
+  "text": "не справляюсь хочу умереть",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-45: negated coping is not coping («не » lookbehind in PAST_COPING_BEFORE)"
+ },
+ {
+  "text": "хочу умереть, уже не вариант жить так",
+  "expect": "risk",
+  "category": "stance-marker",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-45: stance after the phrase applies only to the noun topic («суицид/самоубийство»)"
+ },
+ {
+  "text": "и в прошлом хотел умереть",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-45: single-letter collapse needs 3+ letters («и в» must stay two words)"
+ },
+ {
+  "text": "не хотел покончить с собой",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-45: «хотел» in the negation verb list protects the bare «покончить с собой» pattern"
+ },
+ {
+  "text": "не​хочу покончить с собой",
+  "expect": "safe",
+  "category": "invisible",
+  "sources": [
+   "r6-review"
+  ],
+  "note": "S-41: «нехочу покончить с собой» after deleting the invisible — the bare «покончить с собой» pattern has no left boundary; the negation in the space variant must still hold"
  }
 ]

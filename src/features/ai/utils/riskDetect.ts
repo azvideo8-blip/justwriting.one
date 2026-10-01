@@ -27,31 +27,38 @@ const ZHIT_PLACE = String.raw`(?:у|под|за|возле|около|рядом
 const ZHIT_MANNER = String.raw`(?:(?:по|как)\s+[а-я]+|прошлым|чужой\s+жизнью)(?![а-я])`;
 const ZHIT_SUPPRESS = String.raw`(?:${ZHIT_WHERE}|${ZHIT_WITH}|${ZHIT_PLACE}|${ZHIT_MANNER})`;
 
-const HEAD = String.raw`(?:хоч(?:у|ешь|ется)|хотел[аи]?(?:\s+бы)?|готов[аы]?|собира(?:юсь|ется)|планиру(?:ю|ешь|ет)|решил[аи]?)`;
+// S-41: левая граница — «решили» сидит внутри «разрешили» («ему разрешили умереть дома»).
+const HEAD = String.raw`(?<![а-я])(?:хоч(?:у|ешь|ется)|хотел[аи]?(?:\s+бы)?|готов[аы]?|собира(?:юсь|ется)|планиру(?:ю|ешь|ет)|решил[аи]?)`;
 const METHOD_VERBS = String.raw`повеситься|застрелиться|утопиться|отравиться|вскрыть\s+вены|спрыгнуть(?:\s+с\s+[а-я]+)?|броситься\s+под(?:\s+[а-я]+)?|наглота(?:ться|юсь)(?:\s+таблеток)?|выброситься|шагнуть\s+с\s+крыши|вып(?:ить|ью)\s+все\s+таблетки(?:\s+разом)?`;
 
 const RISK_PATTERNS: RegExp[] = [
   // Explicit suicidal intent & personal forms
   new RegExp(String.raw`${HEAD}\s+(?:${UMERET}|${POKONCHIT}|убить\s+себя|сдохнуть|помереть|${METHOD_VERBS})`),
   /покончить\s+с\s+собой/,
-  /поконч(?:у|ил[аи]?(?:\s+бы)?)\s+со?\s+(?:собой|всем)/,
+  // S-41: «покончу со всем» — только с «бы» или в конце клаузы; «покончу со всеми долгами / со всем этим бардаком» — быт.
+  /поконч(?:у|ил[аи]?)(?:\s+бы)?\s+с\s+собой|поконч(?:у|ил[аи]?)\s+бы\s+со\s+всем(?:\s+этим)?|поконч(?:у|ил[аи]?)\s+со\s+всем(?:\s+этим)?(?![^\S\n]*[а-я])/,
   /убью\s+себя|себя\s+убью/,
   /суицид/,
   /самоубийств/,
   // First-person future
-  /повешусь|застрелюсь|утоплюсь|отравлюсь|вскрою\s+вены|спрыгну\s+с\s+(?:крыши|моста|окна|балкона)|брошусь\s+под|наглотаюсь(?:\s+таблеток)?|выброшусь(?:\s+(?:из|в|с)\s+окн[а-я]*)?|выпью\s+все\s+таблетки|умру(?!\s+(?:от|со)\s+(?:смех|смеху))/,
+  /повешусь|застрелюсь|утоплюсь|отравлюсь|вскрою\s+вены|спрыгну\s+с\s+(?:крыши|моста|окна|балкона)|брошусь\s+под|наглотаюсь(?:\s+таблеток)?|выброшусь(?:\s+(?:из|в|с)\s+окн[а-я]*)?|выпью\s+все\s+таблетки/,
+  // S-41: голое «умру» — быт («умру без кофе», «умру со стыда»); остро только после головы намерения.
+  /(?:лучше\s+бы|скорей\s+бы|скорее\s+бы|пусть)\s+(?:я\s+)?умру(?!\s+(?:от|со)\s+(?:смех|смеху))/,
   // Idioms
   /(?:свести|сведу)\s+счет[ые]\s+с\s+жизнью/,
   /(?:наложить|наложу)\s+на\s+себя\s+руки/,
   /(?:лишить|лишу)\s+себя\s+жизни/,
-  /(?:уйти|уйду|ушла|ушел)\s+из\s+жизни/,
+  // S-41: «ушла/ушел из жизни» — горе о ком-то («ушел из жизни мой дедушка»); только первое лицо.
+  /(?:уйти|уйду)\s+из\s+жизни/,
   /(?:расстаться|расстанусь)\s+с\s+жизнью/,
   /закончить\s+(?:свою\s+)?жизнь/,
   /перестать\s+существовать/,
-  /(?:мне\s+)?надоело\s+жить/,
-  /не\s+вижу\s+смысла\s+(?:дальше\s+)?жить/,
+  // S-41: та же оговорка про место и соседей, что у «не хочу жить» («надоело жить в этом городе»).
+  new RegExp(String.raw`(?:мне\s+)?надоело\s+жить(?!\s+${ZHIT_SUPPRESS})`),
+  new RegExp(String.raw`не\s+вижу\s+смысла\s+(?:дальше\s+)?жить(?!\s+${ZHIT_SUPPRESS})`),
   /так\s+жить\s+не\s+хочу|не\s+хочу\s+так\s+жить|жить\s+не\s+хочется|жить\s+больше\s+не\s+могу/,
-  /(?:^|[^а-я])сдохнуть(?!\s+(?:можно|от\b))(?![а-я])/,
+  // S-41: \b после кириллицы не работает (ASCII-граница) — «от(?![а-я])».
+  /(?:^|[^а-я])сдохнуть(?!\s+(?:можно|от(?![а-я])))(?![а-я])/,
   /лучше\s+бы\s+(?:меня\s+не\s+было|(?:я|меня)\s+не\s+родил(?:ся|ась))/,
   /пора\s+(?:уже\s+)?вс[её]\s+закончить/,
   /(?:скоро\s+)?вс[её]\s+закончу\s+со?\s+собой/,
@@ -73,7 +80,8 @@ const RISK_PATTERNS: RegExp[] = [
   // Plan / means. Средства — целыми словами: «яд» сидит внутри «порядок», «наряд».
   // S-12 / S-30: вторая группа сужена с голого «себя» до действия («убить себя», «умереть», «с собой», «покончить»).
   // Граница допускает запятую (means/goal across a comma — решение S-30).
-  /(?:^|[^а-я])(таблетк|снотворн|нож|веревк|оруж|яд(?![а-я])|выброс[а-я]*\s+(?:из|в|с)\s+окн|выпрыгн|крыш|поезд|утоп)[^.!?\n]{0,100}\s+(?:покончить|(?<!не\s+)умереть|убить\s+себя|с\s+собой|уснуть\s+навсегда|не\s+проснуться|поре[зж][а-я]*\s+себ[яе])/,
+  // S-41: голое «с собой» — «таблетки взяла с собой в отпуск»; нужно «поконч… с собой».
+  /(?:^|[^а-я])(таблетк|снотворн|нож|веревк|оруж|яд(?![а-я])|выброс[а-я]*\s+(?:из|в|с)\s+окн|выпрыгн|крыш|поезд|утоп)[^.!?\n]{0,100}\s+(?:поконч[а-я]*|(?<!не\s+)умереть|убить\s+себя|уснуть\s+навсегда|не\s+проснуться|поре[зж][а-я]*\s+себ[яе])/,
   // Self-harm intent
   /хочу\s+(порезать|навредить|причинить\s+боль|наказывать|ударить)\s+(себе|себя)/,
   /причинить\s+себе\s+боль|(?:порезал[аи]?|режу|порежу|порезать|перережу)\s+(?:себе\s+)?(?:руки|вены|запяст)/,
@@ -93,12 +101,16 @@ const RISK_PATTERNS: RegExp[] = [
 // M-15: \b — иначе «i want to diet» ловилось как «die».
 const FOREIGN_RISK_PATTERNS: RegExp[] = [
   // English
-  /\b(?:i\s+)?(?:want\s+to|wanna|going\s+to|gonna|will|plan\s+to|planning\s+to|might|ready\s+to)\s+(?:die|kill\s+myself|end\s+my\s+life|take\s+my\s+life|end\s+it\s+all|off\s+myself|stop\s+existing|never\s+wake\s+up|hang\s+myself|overdose)\b/,
+  /\b(?:i\s+)?(?:want\s+to|wanna|going\s+to|gonna|plan\s+to|planning\s+to)\s+(?:die|kill\s+myself|end\s+my\s+life|take\s+my\s+life|end\s+it\s+all|off\s+myself|stop\s+existing|never\s+wake\s+up|hang\s+myself|overdose)\b/,
+  // S-41: «will / might / ready to» — только от первого лица и на себя; голое «will die» — быт
+  // («my plants will die», «i might die of boredom»).
+  /\bi\s+(?:will|might)\s+(?:kill\s+myself|end\s+my\s+life|take\s+my\s+life|end\s+it\s+all|off\s+myself|stop\s+existing|never\s+wake\s+up|hang\s+myself|overdose)\b|\bi(?:['’]?m|\s+am)\s+ready\s+to\s+(?:die|kill\s+myself|end\s+my\s+life|take\s+my\s+life|end\s+it\s+all|off\s+myself|stop\s+existing|never\s+wake\s+up|hang\s+myself|overdose)\b/,
   /\bkill\s+myself\b/,
   /\bend\s+my\s+life\b/,
   /\bend\s+it\s+all\b/,
   /\bno\s+reason\s+to\s+(?:live|stay\s+alive)\b/,
   /\bplanning\s+to\s+hurt\s+myself\b/,
+  // S-42.3: «commit/attempt … suicide» убран — строго внутри `\bsuicid`, ни одна фраза не красит корпус без него.
   /\b(?:commit|attempt|considering|contemplating)\s+suicide\b/,
   /\bsuicid/,
   /\b(?:better\s+off\s+dead|wish\s+i\s+(?:could\s+die|(?:was|were)\s+dead))\b/,
@@ -157,12 +169,16 @@ function foldLatinLookalikes(text: string): string {
 const RU_NEGATION_BEFORE = /(?:^|[^а-я])(?:никогда\s+не|не)\s+(?:(?:хочу|буду|думал[аи]?|думаю|планирую|собираюсь|хотел[аи]?)\s+)?$/;
 
 // 2. Маркеры прошлого и совладания: только до совпадения, целыми словами, и не после «не ».
-const PAST_COPING_BEFORE = /(?:^|[^а-я])(?<!не\s+)(?:раньше(?:\s+(?:думал|хотел)[аи]?)?|была\s+мысль\s+но|справляюсь|преодол[а-я]*)(?![а-я])/;
+// S-41: голое «раньше» гасит только вплотную перед фразой («раньше [думал/хотел] хотел умереть»);
+// «раньше я любила жизнь теперь хочу умереть» — остро. Отрицание через слово («не могу преодолеть») тоже снимает маркер.
+const PAST_COPING_BEFORE = /(?:^|[^а-я])(?<!не\s+(?:[а-я]+\s+)?)(?:раньше\s+(?:(?:думал|хотел)[аи]?\s+)?$|была\s+мысль\s+но|справляюсь|преодол[а-я]*)(?![а-я])/;
 
-// 3. Маркеры позиции: могут стоять после (или до) совпадения, только целыми словами.
-const STANCE_MARKERS = /(?:^|[^а-я])(?:не\s+вариант|не\s+про\s+меня|в\s+прошлом)(?![а-я])/;
+// 3. Маркеры позиции. До совпадения — только если управляют фразой, т. е. вплотную перед ней
+// (S-41: «в прошлом году я поняла что хочу умереть» — остро); после — см. STANCE_AFTER.
+const STANCE_BEFORE = /(?:^|[^а-я])(?:не\s+вариант|не\s+про\s+меня|в\s+прошлом(?:\s+году)?)\s+(?:я\s+)?$/;
 const NOUN_TOPIC = /^(?:суицид[а-я]*|самоубийств[а-я]*)$/;
-const STANCE_AFTER = /^[\s,—–]*(?:это\s+|уже\s+)?(?:не\s+вариант(?!\s+для\b)|не\s+про\s+меня(?:\s+сейчас)?|в\s+прошлом(?!\s+(?:вс[её]|все|было|год)))(?![а-я])/;
+// S-41: «для\b» после кириллицы — мёртвая граница; «суицид не вариант для меня, а выход» — остро.
+const STANCE_AFTER = /^[\s,—–]*(?:это\s+|уже\s+)?(?:не\s+вариант(?!\s+для(?![а-я]))|не\s+про\s+меня(?:\s+сейчас)?|в\s+прошлом(?!\s+(?:вс[её]|все|было|год)))(?![а-я])/;
 
 // M-15: отрицание для EN/транслита — «I don't want to kill myself», «ne hochu umeret».
 // Только если оно управляет самой фразой, вплотную перед ней: «I'm not ok and
@@ -276,23 +292,29 @@ function clauseBoundsFromBreaks(breaks: ClauseBreak[], textLength: number, start
   return [from, to];
 }
 
-function hasRussianSafeContext(lower: string, start: number, end: number, breaks: ClauseBreak[]): boolean {
+// S-13 / S-44.8: клауза перед совпадением, но не длиннее ~200 символов (до границы
+// слова) — иначе маркеры сканируют всю клаузу на каждое совпадение, O(n·clause).
+function clauseWindowBefore(lower: string, start: number, end: number, breaks: ClauseBreak[]): string {
   const [from] = clauseBoundsFromBreaks(breaks, lower.length, start, end);
-
-  // S-13: Fast check for negation suffix right before match without slicing the entire clause
-  let negStart = from;
-  if (start - from > 120) {
-    negStart = start - 120;
-    while (negStart > from && /[а-я]/i.test(lower[negStart] ?? '')) {
-      negStart--;
+  let winStart = from;
+  if (start - from > 200) {
+    winStart = start - 200;
+    while (winStart > from && LETTER_RE.test(lower[winStart] ?? '')) {
+      winStart--;
     }
   }
-  const beforeNeg = lower.slice(negStart, start);
-  if (RU_NEGATION_BEFORE.test(beforeNeg)) return true;
+  return lower.slice(winStart, start);
+}
 
-  const before = lower.slice(from, start);
+function hasRussianNegationBefore(lower: string, start: number, end: number, breaks: ClauseBreak[]): boolean {
+  return RU_NEGATION_BEFORE.test(clauseWindowBefore(lower, start, end, breaks));
+}
+
+function hasRussianSafeContext(lower: string, start: number, end: number, breaks: ClauseBreak[]): boolean {
+  const before = clauseWindowBefore(lower, start, end, breaks);
+  if (RU_NEGATION_BEFORE.test(before)) return true;
   if (PAST_COPING_BEFORE.test(before)) return true;
-  if (STANCE_MARKERS.test(before)) return true;
+  if (STANCE_BEFORE.test(before)) return true;
 
   const matchText = lower.slice(start, end).trim();
   if (NOUN_TOPIC.test(matchText)) {
@@ -305,69 +327,87 @@ function hasRussianSafeContext(lower: string, start: number, end: number, breaks
 }
 
 function hasForeignNegationBefore(lower: string, start: number, end: number, breaks: ClauseBreak[]): boolean {
-  const [from] = clauseBoundsFromBreaks(breaks, lower.length, start, end);
-  let negStart = from;
-  if (start - from > 120) {
-    negStart = start - 120;
-    while (negStart > from && /[a-z]/i.test(lower[negStart] ?? '')) {
-      negStart--;
-    }
-  }
-  return FOREIGN_NEGATION_BEFORE.test(lower.slice(negStart, start));
+  return FOREIGN_NEGATION_BEFORE.test(clauseWindowBefore(lower, start, end, breaks));
 }
 
-function firstAcuteMatch(
-  text: string,
-  patterns: RegExp[],
-  isSafe: (lower: string, start: number, end: number, breaks: ClauseBreak[]) => boolean,
-): string | null {
+type ContextCheck = (lower: string, start: number, end: number, breaks: ClauseBreak[]) => boolean;
+
+function* acuteMatches(text: string, patterns: RegExp[]): Generator<[string, number, number, ClauseBreak[]]> {
   let breaks: ClauseBreak[] | null = null;
   for (const pattern of patterns) {
     pattern.lastIndex = 0;
     for (const match of text.matchAll(pattern)) {
       if (match.index === undefined) continue;
-      if (!breaks) {
-        breaks = collectClauseBreaks(text);
-      }
-      if (!isSafe(text, match.index, match.index + match[0].length, breaks)) {
-        return match[0];
-      }
+      breaks ??= collectClauseBreaks(text);
+      yield [match[0], match.index, match.index + match[0].length, breaks];
     }
+  }
+}
+
+function firstAcuteMatch(
+  text: string,
+  patterns: RegExp[],
+  isSafe: ContextCheck,
+  negatedElsewhere?: (match: string) => boolean,
+): string | null {
+  for (const [matched, start, end, breaks] of acuteMatches(text, patterns)) {
+    if (isSafe(text, start, end, breaks)) continue;
+    if (negatedElsewhere?.(matched)) continue;
+    return matched;
   }
   return null;
 }
 
-function checkRiskOnNormalized(lower: string): RiskResult {
+// Три прохода одного текста: кириллические паттерны — против латинских
+// букв-двойников; EN/транслит — против кириллицы, сложенной в латиницу.
+// R5-018: CONFUSABLES_MAP складывает кириллическую «у» в «y», а в EN/транслите
+// она подменяет и «u» («sуicide», «hochу») — второй проход с «у»→«u».
+function passes(lower: string): [string, RegExp[], ContextCheck, ContextCheck][] {
+  return [
+    [foldLatinLookalikes(lower), GLOBAL_RISK_PATTERNS, hasRussianSafeContext, hasRussianNegationBefore],
+    [foldConfusables(lower), GLOBAL_FOREIGN_RISK_PATTERNS, hasForeignNegationBefore, hasForeignNegationBefore],
+    [foldConfusables(lower.replace(/у/g, 'u')), GLOBAL_FOREIGN_RISK_PATTERNS, hasForeignNegationBefore, hasForeignNegationBefore],
+  ];
+}
+
+function checkRiskOnNormalized(lower: string, negatedElsewhere?: (match: string) => boolean): RiskResult {
   // Все совпадения всех паттернов: исключение у ранней фразы («раньше думал
   // о смерти») не должно прятать острую позже («а сейчас режу себя»).
-  // Кириллические паттерны — против латинских букв-двойников; EN/транслит —
-  // против кириллицы, сложенной в латиницу.
-  const cyr = foldLatinLookalikes(lower);
-  const cyrMatch = firstAcuteMatch(cyr, GLOBAL_RISK_PATTERNS, hasRussianSafeContext);
-  if (cyrMatch) return { isRisk: true, severity: 'acute', matchedPattern: cyrMatch };
-  // R5-018: CONFUSABLES_MAP складывает кириллическую «у» в «y», а в EN/транслите
-  // она подменяет и «u» («sуicide», «hochу») — второй проход с «у»→«u».
-  const latMatch = firstAcuteMatch(foldConfusables(lower), GLOBAL_FOREIGN_RISK_PATTERNS, hasForeignNegationBefore)
-    ?? firstAcuteMatch(foldConfusables(lower.replace(/у/g, 'u')), GLOBAL_FOREIGN_RISK_PATTERNS, hasForeignNegationBefore);
-  if (latMatch) return { isRisk: true, severity: 'acute', matchedPattern: latMatch };
-
+  for (const [text, patterns, isSafe] of passes(lower)) {
+    const matched = firstAcuteMatch(text, patterns, isSafe, negatedElsewhere);
+    if (matched) return { isRisk: true, severity: 'acute', matchedPattern: matched };
+  }
   return { isRisk: false, severity: 'none' };
+}
+
+// S-41: совпадения, которые в этом варианте нормализации гасит отрицание.
+function negatedMatches(lower: string): Set<string> {
+  const out = new Set<string>();
+  for (const [text, patterns, , isNegated] of passes(lower)) {
+    for (const [matched, start, end, breaks] of acuteMatches(text, patterns)) {
+      if (isNegated(text, start, end, breaks)) out.add(matched);
+    }
+  }
+  return out;
 }
 
 export function detectRisk(text: string): RiskResult {
   // S-4: Двойная нормализация — сначала удаление невидимых (склеивает разорванные слова),
   // затем замена на пробел (разлепляет склеенные невидимыми символами слова).
   const { normalized: normDelete, hadDrops } = baseNormalize(text, 'delete');
-  const resDelete = checkRiskOnNormalized(normDelete);
+  if (!hadDrops) return checkRiskOnNormalized(normDelete);
+  const { normalized: normSpace } = baseNormalize(text, 'space');
+  if (normSpace === normDelete) return checkRiskOnNormalized(normDelete);
+
+  // S-41: удаление невидимого склеивает отрицание с глаголом («не{ZWSP}хочу умереть» →
+  // «нехочу умереть», «don{ZWSP}t» → «dont»). Фраза остра, только если её не гасит
+  // отрицание в другом варианте нормализации; «по{ZWSP}вешусь» в «space» просто не
+  // совпадает — не отрицание, остаётся острым. Множество считается лениво, по первой находке.
+  const negatedIn = (variant: string) => {
+    let set: Set<string> | null = null;
+    return (match: string) => (set ??= negatedMatches(variant)).has(match);
+  };
+  const resDelete = checkRiskOnNormalized(normDelete, negatedIn(normSpace));
   if (resDelete.isRisk) return resDelete;
-
-  if (hadDrops) {
-    const { normalized: normSpace } = baseNormalize(text, 'space');
-    if (normSpace !== normDelete) {
-      const resSpace = checkRiskOnNormalized(normSpace);
-      if (resSpace.isRisk) return resSpace;
-    }
-  }
-
-  return { isRisk: false, severity: 'none' };
+  return checkRiskOnNormalized(normSpace, negatedIn(normDelete));
 }
