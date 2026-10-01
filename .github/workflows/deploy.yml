@@ -12,11 +12,6 @@ on:
         default: both
         type: choice
         options: [both, client, api]
-      force:
-        description: Выкатить без зелёного CI этого коммита (только аварийно)
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
   group: deploy
@@ -35,6 +30,8 @@ jobs:
     # dependabot) остаётся на github-хостинге — вешать его туда же означало
     # бы непредсказуемую конкуренцию за память с живой базой.
     runs-on: [self-hosted, justwriting-vps]
+    # R5-034: окружение production на GitHub пускает выкатку только из main.
+    environment: production
     # R4-8: зависшая выкатка не держит очередь (cancel-in-progress: false) вечно.
     timeout-minutes: 30
     steps:
@@ -48,8 +45,9 @@ jobs:
       # после push и CI этого коммита не смотрела. Ждать CI здесь нельзя: он
       # идёт на том же раннере и стоял бы в очереди за выкаткой. Порядок —
       # сначала зелёный CI, потом кнопка.
+      # R5-034: флага force больше нет — кнопка выкатки не обходит CI ни при
+      # каких входах. Аварийный обход — руками на сервере, не из Actions.
       - name: CI этого коммита зелёный
-        if: ${{ !inputs.force }}
         env:
           GH_TOKEN: ${{ github.token }}
           RUNS_URL: https://api.github.com/repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=${{ github.sha }}&per_page=20
@@ -59,7 +57,7 @@ jobs:
             | node -e 'const w=JSON.parse(require("fs").readFileSync(0,"utf8")).workflow_runs[0];console.log(w?`${w.status}/${w.conclusion}`:"none")')
           echo "CI $GITHUB_SHA: $state"
           if [ "$state" != "completed/success" ]; then
-            echo "::error::CI этого коммита не зелёный ($state). Дождитесь зелёного CI или выкатывайте с force."
+            echo "::error::CI этого коммита не зелёный ($state). Дождитесь зелёного CI."
             exit 1
           fi
 
