@@ -7,9 +7,8 @@ import { reportError } from '../../../shared/errors/reportError';
 import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../core/services/SyncService';
-import { migrateDocuments } from '../services/migrateDocuments';
+import { migrateDocuments, readGuestDraft } from '../services/migrateDocuments';
 import { Button } from '../../../shared/components/Button';
-import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 interface MigrationPromptProps {
   userId: string;
@@ -102,10 +101,8 @@ export async function checkGuestDocuments(): Promise<{ guestId: string; docs: im
     // Незаконченный черновик — тоже работа, которую надо перенести. Без этой
     // проверки человек, писавший в гостевом режиме и не сохранивший заметку,
     // не увидит окна переноса вовсе, и текст останется на прежнем аккаунте.
-    const db = await getLocalDb('justwriting-local');
-    const hasIdbDraft = db.objectStoreNames.contains('drafts') && !!(await db.get('drafts', 'guest_draft'));
-    const hasLsDraft = !!localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT);
-    const hasDraft = hasIdbDraft || hasLsDraft;
+    // S-44.4: тот же черновик (и тот же срок годности), что перенесёт migrateDocuments.
+    const hasDraft = (await readGuestDraft(await getLocalDb('justwriting-local'))) !== null;
     
     if (localDocs.length > 0 || hasDraft) return { guestId, docs: localDocs, hasDraft };
   } catch (e) {

@@ -56,4 +56,19 @@ describe('2.8 guest draft is consumed by migration', () => {
     expect(await guestDb.get('drafts', 'user_2')).toBeUndefined();
     expect(((await userDb.get('drafts', 'user_2')) as { content: string }).content).toBe('уже был черновик');
   });
+
+  // S-44.4: окно переноса считает и копию из localStorage — значит, перенос
+  // обязан её перенести, иначе «перенесено 1» при moved: 0 и окно на каждой загрузке.
+  it('S-44.4: moves a draft that lives only in localStorage and counts it', async () => {
+    const guestDb = await getLocalDb();
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'только в localStorage', updatedAt: Date.now() }));
+
+    const result = await migrateDocuments('user_3');
+
+    const userDraft = await (await getLocalDb('user_3')).get('drafts', 'user_3');
+    expect((userDraft as { content?: string })?.content).toBe('только в localStorage');
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).toBeNull();
+    expect(await guestDb.get('drafts', 'guest_draft')).toBeUndefined();
+    expect(result).toEqual({ moved: 1, left: 0 });
+  });
 });

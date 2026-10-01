@@ -11,11 +11,17 @@ describe('S-20: GDPR JSON button and guide promise only notes, not all data', ()
     expect(ru).toBe('Скачать заметки в JSON (GDPR)');
   });
 
-  it('backup.html does not contain justwriting-export and reflects justwriting-backup', () => {
+  // S-44.1: файлы называются по-разному (AccountExportSection: justwriting-export-… у
+  // GDPR-выгрузки, justwriting-backup-… у полной) — руководство обязано говорить это,
+  // а не «называется так же»; старое имя кнопки «Экспортировать в JSON (GDPR)» ушло.
+  it('backup.html names both files correctly and uses the current GDPR button name', () => {
     const backupHtmlPath = path.resolve(__dirname, '../../../../public/docs/backup.html');
     const html = fs.readFileSync(backupHtmlPath, 'utf8');
-    expect(html).not.toContain('justwriting-export');
-    expect(html).toContain('justwriting-backup');
+    const fullExport = html.slice(html.indexOf('<h2 id="full-export">'), html.indexOf('<h2 id="full-import">'));
+    expect(fullExport).toContain('Файл называется justwriting-backup');
+    expect(fullExport).toContain('justwriting-export');
+    expect(html).not.toContain('называется так же');
+    expect(html).not.toContain('Экспортировать в JSON (GDPR)');
   });
 
   it('legal terms mention полная выгрузка данных этого устройства', () => {

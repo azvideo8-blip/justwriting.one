@@ -14,18 +14,21 @@ const migrationStatements = readdirSync(MIGRATIONS)
   .flatMap(f => readFileSync(`${MIGRATIONS}/${f}`, 'utf8').split('\n').map(l => ({ f, l })))
   .filter(({ l }) => /^\s*(grant|revoke)\b/i.test(l));
 
-const droppedTables = new Set<string>();
-for (const f of readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql'))) {
+// S-44.2: удалённой считается таблица, чей ПОСЛЕДНИЙ DDL — drop. 0022 дропает и
+// тут же пересоздаёт ai_bulk_cooldown; фильтр «встречался drop» прятал бы её
+// права из проверки.
+const lastDdl = new Map<string, string>();
+for (const f of readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql')).sort()) {
   const content = readFileSync(`${MIGRATIONS}/${f}`, 'utf8');
-  const matches = content.matchAll(/drop\s+table\s+(?:if\s+exists\s+)?([a-zA-Z0-9_.,\s]+);/gi);
+  const matches = content.matchAll(/\b(drop|create)\s+table\s+(?:if\s+(?:not\s+)?exists\s+)?([a-zA-Z0-9_.,\s]+?)\s*[;(]/gi);
   for (const m of matches) {
-    const rawTables = m[1]?.split(',') ?? [];
-    for (const t of rawTables) {
+    for (const t of m[2]!.split(',')) {
       const cleaned = t.trim().replace(/^public\./i, '').toLowerCase();
-      if (cleaned) droppedTables.add(cleaned);
+      if (cleaned) lastDdl.set(cleaned, m[1]!.toLowerCase());
     }
   }
 }
+const droppedTables = new Set([...lastDdl].filter(([, ddl]) => ddl === 'drop').map(([t]) => t));
 
 const activeMigrationStatements = migrationStatements.filter(({ l }) => {
   for (const tbl of droppedTables) {
@@ -52,6 +55,12 @@ describe('post-restore-grants.sql', () => {
   it('каждый grant/revoke из действующих миграций есть в post-restore-grants.sql', () => {
     const missing = activeMigrationStatements.filter(({ l }) => !postRestore.has(norm(l))).map(({ f, l }) => `${f}: ${l.trim()}`);
     expect(missing).toEqual([]);
+  });
+
+  it('таблица, пересозданная после drop (0022 ai_bulk_cooldown), не считается удалённой; 0036 — считается', () => {
+    expect(droppedTables.has('ai_bulk_cooldown')).toBe(false);
+    expect(droppedTables.has('anonymized_telemetry')).toBe(true);
+    expect(droppedTables.has('telemetry_cooldown')).toBe(true);
   });
 
   it('post-restore-grants.sql не содержит прав на удалённые таблицы (иначе psql падает при restore)', () => {

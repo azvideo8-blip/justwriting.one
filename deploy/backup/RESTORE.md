@@ -43,6 +43,16 @@ journalctl -u justwriting-restore-drill.service -n 60 --no-pager
 `Result=success`, `ExecMainStatus=0` — зелёный; `ExecMainExitTimestamp` старше
 ~35 дней — таймер не срабатывает, это тоже красный.
 
+Красный drill оставляет юнит в `failed` до следующего запуска таймера, и
+`healthcheck.py` (S-7) шлёт об этом одно письмо — следующее придёт, только
+когда набор проблем изменится (S-44.3). Разобравшись с причиной, снять
+состояние вручную, иначе в следующем письме о чём-то другом он будет снова:
+
+```bash
+sudo systemctl reset-failed justwriting-restore-drill.service
+sudo /opt/justwriting/monitor/healthcheck.py --dry-run   # → «проблем нет»
+```
+
 Счётчики строк читаются суперюзером — на базе без единого табличного гранта они
 выглядят точно так же, как на здоровой. Поэтому drill дополнительно входит в
 восстановленную базу под ролями клиента (`authenticated`, `service_role`) и

@@ -1,5 +1,5 @@
-import { getOrCreateGuestId, getLocalDb } from '../../../core/storage/localDb';
-import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { getOrCreateGuestId, getLocalDb, type LocalDraft } from '../../../core/storage/localDb';
+import { GUEST_DRAFT_TTL_MS, STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { getFrozenDates, saveFrozenDates, clearFrozenDates } from '../../../core/utils/streakFreeze';
 import { reportError } from '../../../shared/errors/reportError';
@@ -7,6 +7,31 @@ import { reportError } from '../../../shared/errors/reportError';
 export interface MigrateResult {
   moved: number;
   left: number;
+}
+
+type GuestDb = Awaited<ReturnType<typeof getLocalDb>>;
+
+/**
+ * S-44.4 (S-8): черновик гостя лежит в IndexedDB и/или в localStorage (запись
+ * идёт в оба, см. GuestDraftService). Окно переноса и сам перенос должны видеть
+ * один и тот же черновик: новейший из двух копий и не старше 7 дней — иначе
+ * окно считало копию из localStorage, перенос её не трогал, и предложение
+ * «перенесено 1» возвращалось при каждой загрузке.
+ */
+export async function readGuestDraft(guestDb: GuestDb): Promise<LocalDraft | null> {
+  const idb = guestDb.objectStoreNames.contains('drafts') ? await guestDb.get('drafts', 'guest_draft') : undefined;
+  let ls: LocalDraft | undefined;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT);
+    if (raw) ls = JSON.parse(raw) as LocalDraft;
+  } catch (e) {
+    reportError(e, { action: 'readGuestDraft_ls' }, 'warning');
+  }
+  const ts = (d: LocalDraft | undefined) => d?.updatedAt ?? 0;
+  const draft = ts(idb) >= ts(ls) ? (idb ?? ls) : ls;
+  if (!draft) return null;
+  if (ts(draft) > 1_000_000_000_000 && Date.now() - ts(draft) > GUEST_DRAFT_TTL_MS) return null;
+  return draft;
 }
 
 /**
@@ -25,26 +50,25 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
 
   let draftMigrated = false;
   // D-3 / AG-MIG-1: migrate guest draft to user draft (don't clobber existing user draft).
-  if (hasDraftsInGuest) {
-    const guestDraft = await guestDb.get('drafts', 'guest_draft');
-    if (guestDraft) {
-      if (hasDraftsInUser) {
-        const existingUserDraft = await userDb.get('drafts', userId);
-        if (!existingUserDraft) {
-          const newDraft = { ...guestDraft, userId };
-          await userDb.put('drafts', newDraft);
-          // Выгрузку делает слой письма по событию: прямой импорт из auth в
-          // writing запрещён зонами import/no-restricted-paths.
-          emitDomainEvent({ type: 'draft.migrated', userId });
-          draftMigrated = true;
-        }
-        await guestDb.delete('drafts', 'guest_draft');
-        if (userDb !== guestDb) {
-          await guestDb.delete('drafts', userId);
-        }
-        try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
+  // S-44.4: черновик берётся из обоих хранилищ, не только из IndexedDB.
+  const guestDraft = await readGuestDraft(guestDb);
+  if (guestDraft && hasDraftsInUser) {
+    const existingUserDraft = await userDb.get('drafts', userId);
+    if (!existingUserDraft) {
+      const newDraft = { ...guestDraft, userId };
+      await userDb.put('drafts', newDraft);
+      // Выгрузку делает слой письма по событию: прямой импорт из auth в
+      // writing запрещён зонами import/no-restricted-paths.
+      emitDomainEvent({ type: 'draft.migrated', userId });
+      draftMigrated = true;
+    }
+    if (hasDraftsInGuest) {
+      await guestDb.delete('drafts', 'guest_draft');
+      if (userDb !== guestDb) {
+        await guestDb.delete('drafts', userId);
       }
     }
+    try { localStorage.removeItem(STORAGE_KEYS.GUEST_DRAFT); } catch { /* ignore */ }
   }
 
   // AG-MIG-1: migrate profile store if present

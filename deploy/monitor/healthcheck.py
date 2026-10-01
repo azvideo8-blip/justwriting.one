@@ -5,9 +5,10 @@
 # копии, срок сертификата. Того, что сервер вообще жив, отсюда не проверить —
 # для этого есть задание на ноутбуке.
 #
-# Письмо уходит только при отклонении и не чаще раза в 12 часов на одну и ту же
-# причину: молчание должно значить «всё хорошо», а поток одинаковых писем
-# приводит к тому, что их перестают читать.
+# Письмо уходит только при отклонении и один раз на смену набора причин
+# (S-44.3): молчание должно значить «всё хорошо», а поток одинаковых писем
+# приводит к тому, что их перестают читать. Упавший oneshot (месячный drill)
+# остаётся в failed до `systemctl reset-failed` — см. deploy/backup/RESTORE.md.
 #
 # R5-054: сбой измерителя — тоже проблема. Проверка, которая ничего не
 # измерила, не имеет права промолчать.
@@ -20,8 +21,9 @@ import json, os, re, smtplib, ssl, subprocess, sys, time, urllib.error, urllib.r
 from email.message import EmailMessage
 from pathlib import Path
 
-STATE = Path('/var/lib/justwriting-monitor/state.json')
-REPEAT_AFTER = 12 * 3600
+# Пути переопределяются из окружения только ради тестов (scripts/__tests__/healthcheckMonitor.test.ts).
+STATE = Path(os.environ.get('MONITOR_STATE', '/var/lib/justwriting-monitor/state.json'))
+ENV_FILE = Path(os.environ.get('MONITOR_ENV_FILE', '/opt/justwriting/supabase/.env'))
 SITE = os.environ.get('MONITOR_SITE', 'https://justwriting.ru')
 DRY = '--dry-run' in sys.argv
 # EA-2: адрес получателя — из окружения (EnvironmentFile в unit), не из репозитория.
@@ -38,7 +40,7 @@ def send(subject, body):
     # Причина — в журнал (без пароля: печатается только тип и текст ошибки),
     # служба — в failed, состояние не пишется, через час будет новая попытка.
     try:
-        env = dict(re.findall(r'^(\w+)=(.*)$', Path('/opt/justwriting/supabase/.env').read_text(), re.M))
+        env = dict(re.findall(r'^(\w+)=(.*)$', ENV_FILE.read_text(), re.M))
         msg = EmailMessage()
         msg['Subject'] = subject
         msg['From'] = env['SMTP_USER']
@@ -95,9 +97,11 @@ else:
         parts = line.strip().split()
         if not parts:
             continue
-        unit = parts[1] if parts[0] in ('●', '*') else parts[0]
-        if 'failed' in parts[1:]:
-            failed.append(unit)
+        # S-44.3: колонки UNIT LOAD ACTIVE SUB DESCRIPTION; смотреть надо на ACTIVE,
+        # иначе «failed» в описании юнита поднимает ложную тревогу.
+        cols = parts[1:] if parts[0] in ('●', '*') else parts
+        if len(cols) > 2 and cols[2] == 'failed':
+            failed.append(cols[0])
     if failed:
         problems.append(f"Юниты в failed: {', '.join(failed)} — journalctl -u {failed[0]}")
 
@@ -153,8 +157,9 @@ try:
         problems.append('Строк в базе стало меньше вдвое против прошлой копии, ротация копий остановлена. '
                         'Если удаление намеренное — sudo rm ' + str(shrink) + '\n' +
                         '\n'.join(shrink.read_text().splitlines()[-3:]))
-except Exception:
-    pass
+except Exception as e:
+    # R5-054 / S-44.3: не прочитанная отметка — не «отметки нет».
+    problems.append(f'Не удалось прочитать отметку SHRINK-ALERT: {e}')
 
 # ── сертификат ──────────────────────────────────────────────────────────────
 out = sh('openssl x509 -enddate -noout -in /etc/letsencrypt/live/justwriting.ru/fullchain.pem')
@@ -206,21 +211,22 @@ except Exception as e:
 if DRY:
     print('\n'.join(problems) or 'проблем нет')
     sys.exit(0)
-if not problems:
-    sys.exit(0)
 
+# S-44.3: письмо — один раз на смену набора причин. Состояние пишется и при
+# пустом наборе: иначе та же поломка после починки осталась бы без письма.
 key = '|'.join(sorted(p.split('.')[0] for p in problems))
 STATE.parent.mkdir(parents=True, exist_ok=True)
 prev = {}
 if STATE.exists():
     try: prev = json.loads(STATE.read_text())
     except Exception: prev = {}
-if prev.get('key') == key and time.time() - prev.get('sent', 0) < REPEAT_AFTER:
+if prev.get('key') == key:
     sys.exit(0)
 
-send('justwriting: проверка сервера нашла проблему',
-     'Почасовая проверка сервера обнаружила:\n\n' + '\n'.join(f'  • {p}' for p in problems) +
-     '\n\nЭто письмо приходит не чаще раза в 12 часов на одну и ту же причину.\n')
+if problems:
+    send('justwriting: проверка сервера нашла проблему',
+         'Почасовая проверка сервера обнаружила:\n\n' + '\n'.join(f'  • {p}' for p in problems) +
+         '\n\nСледующее письмо придёт, только когда набор причин изменится.\n')
+    print('отправлено письмо:', '; '.join(problems))
 
 STATE.write_text(json.dumps({'key': key, 'sent': time.time()}))
-print('отправлено письмо:', '; '.join(problems))

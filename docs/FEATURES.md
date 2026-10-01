@@ -93,7 +93,7 @@
 
 ## 10. Телеметрия и приватность
 
-PostHog по явному согласию (`analytics_consent`), Sentry, web-vitals, анонимная телеметрия через сервер, страницы согласия/политики/условий, DPIA (`docs/DPIA.md`).
+PostHog по явному согласию (`analytics_consent`), Sentry, web-vitals, страницы согласия/политики/условий, DPIA (`docs/DPIA.md`).
 
 ## 11. Гейты качества (CI)
 

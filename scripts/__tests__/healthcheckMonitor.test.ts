@@ -67,6 +67,39 @@ function runHealthcheck(sb: { backupDir: string; bin: string }): { status: numbe
   return { status: res.status ?? -1, stdout: res.stdout, stderr: res.stderr };
 }
 
+// S-44.3: боевой режим (без --dry-run) — с подменённым smtplib и путями
+// состояния/окружения из песочницы; письмо видно по строке SMTP_SENT.
+const RUNNER = [
+  'import runpy, smtplib, sys',
+  'class S:',
+  '    def __init__(self, *a, **k): pass',
+  '    def __enter__(self): return self',
+  '    def __exit__(self, *a): return False',
+  '    def login(self, *a): pass',
+  "    def send_message(self, m): print('SMTP_SENT: ' + m['Subject'])",
+  'smtplib.SMTP_SSL = S',
+  'sys.argv = [sys.argv[1]]',
+  "runpy.run_path(sys.argv[0], run_name='__main__')",
+].join('\n');
+
+function runAlerting(sb: { dir: string; backupDir: string; bin: string }): { status: number; stdout: string; stderr: string } {
+  const envFile = path.join(sb.dir, 'supabase.env');
+  fs.writeFileSync(envFile, 'SMTP_HOST=smtp.test\nSMTP_PORT=465\nSMTP_USER=u@test\nSMTP_PASS=x\n');
+  const res = spawnSync('python3', ['-c', RUNNER, HEALTHCHECK], {
+    env: {
+      ...process.env,
+      BACKUP_DIR: sb.backupDir,
+      MONITOR_SITE: 'http://127.0.0.1:9',
+      MONITOR_ALERT_TO: 'alerts@test',
+      MONITOR_STATE: path.join(sb.dir, 'state.json'),
+      MONITOR_ENV_FILE: envFile,
+      PATH: `${sb.bin}:${process.env.PATH ?? ''}`,
+    },
+    encoding: 'utf8',
+  });
+  return { status: res.status ?? -1, stdout: res.stdout, stderr: res.stderr };
+}
+
 describe('deploy/monitor/healthcheck.py (S-7)', () => {
   it('detects failed systemd unit from systemctl list-units', () => {
     const sb = makeSandbox('justwriting-restore-drill.service loaded failed failed Justwriting Restore Drill');

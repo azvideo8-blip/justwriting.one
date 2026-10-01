@@ -1,6 +1,6 @@
 import { getLocalDb, LocalDraft } from '../../../core/storage/localDb';
 import { reportError } from '../../../shared/errors/reportError';
-import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
+import { GUEST_DRAFT_TTL_MS, STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 const DRAFT_KEY = STORAGE_KEYS.GUEST_DRAFT;
 const GUEST_IDB_KEY = 'guest_draft';
@@ -49,8 +49,6 @@ export async function saveGuestDraftToStorage(draft: GuestDraftData): Promise<vo
     throw new Error('GUEST_DRAFT_SAVE_FAILED: both IDB and localStorage failed');
   }
 }
-
-const GUEST_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function loadGuestDraftFromStorage(): Promise<GuestDraftData | null> {
   let idbDraft: GuestDraftData | null = null;

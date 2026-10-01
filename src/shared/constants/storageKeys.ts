@@ -1,3 +1,7 @@
+// S-44.4: срок жизни гостевого черновика — один для слоя письма (GuestDraftService)
+// и для переноса в аккаунт (auth/migrateDocuments): auth не может импортировать writing.
+export const GUEST_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const STORAGE_KEYS = {
   GUEST_ID: 'jw_guest_id',
   GUEST_DRAFT: 'jw_guest_draft',

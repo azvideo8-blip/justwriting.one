@@ -50,4 +50,16 @@ describe('checkGuestDocuments (S-8)', () => {
     expect(res).not.toBeNull();
     expect(res?.hasDraft).toBe(true);
   });
+
+  // S-44.4: черновик старше 7 дней слой письма уже не показывает — и окно
+  // переноса не должно предлагать перенести его.
+  it.each([
+    ['localStorage', async (updatedAt: number) => { localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'старый', updatedAt })); }],
+    ['guest DB', async (updatedAt: number) => { await (await getLocalDb('justwriting-local')).put('drafts', { userId: 'guest_draft', content: 'старый', updatedAt } as any); }],
+  ])('S-44.4: a draft older than 7 days in %s is not counted', async (_where, seed) => {
+    vi.spyOn(authModule, 'getCurrentUser').mockReturnValue({ uid: 'user_signed_in_s8', email: 'user@example.com' } as any);
+    await seed(Date.now() - 8 * 24 * 60 * 60 * 1000);
+
+    expect(await checkGuestDocuments()).toBeNull();
+  });
 });
