@@ -1,0 +1,4376 @@
+[
+ {
+  "text": "не думал о смерти, но хочу покончить с собой",
+  "expect": "risk",
+  "category": "negation-before",
+  "sources": [
+   "r4",
+   "r6-fable",
+   "existing-test"
+  ],
+  "note": "source note: cross-clause: must stay acute"
+ },
+ {
+  "text": "не хо​чу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r4",
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "не​хочу​жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r4",
+   "r6-fable",
+   "r5"
+  ]
+ },
+ {
+  "text": "не‍хочу‍жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r4"
+  ]
+ },
+ {
+  "text": "не﻿хочу﻿жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r4",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "врач выписал таблетки, чтобы не умереть",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r4",
+   "r6-fable",
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "Hе хочу жить",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ],
+  "note": "source note: Latin H"
+ },
+ {
+  "text": "HE XOЧY ЖИТЬ",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "he хочу жить",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "sуicide",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ],
+  "note": "source note: Cyrillic у in EN (R5-018)"
+ },
+ {
+  "text": "i want to diet",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "I don't want to kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "ne hochu umeret",
+  "expect": "safe",
+  "category": "translit",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "i won't kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "it's not that i want to die",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "думаю, как убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "хочу покончить с этим проектом",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу умереть от стыда",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "ticket",
+   "existing-test"
+  ],
+  "note": "owner 2026-10-01: only laughter is exempt (existing test asserts safe — must flip)"
+ },
+ {
+  "text": "it is not that i want to die, but tired",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "это не про меня, суицид не вариант",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ],
+  "note": "source note: decided: within clause only; «не вариант» is in the clause"
+ },
+ {
+  "text": "не хочу умepеть",
+  "expect": "safe",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ],
+  "note": "negated; r5 report :1801 retracts its own MISS label"
+ },
+ {
+  "text": "he хочу yмepеть",
+  "expect": "safe",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ],
+  "note": "negated (Latin «he» folds to «не»); r5 report :1801 retracts its own MISS label"
+ },
+ {
+  "text": "хочу умeрeть",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не xочy жить",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "пoкончить с собой",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "тaблетки чтобы умереть",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "xочy yмepeть",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "лучше бы меня не родилась",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5"
+  ],
+  "note": "ungrammatical as written (r5 verbatim)"
+ },
+ {
+  "text": "хочу уснуть и не проснуться",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не вижу смысла жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 LOW oblique"
+ },
+ {
+  "text": "лучше бы меня не было",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-qoder",
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: R5 LOW oblique"
+ },
+ {
+  "text": "хочу исчезнуть навсегда",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "пора всё закончить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5"
+  ],
+  "note": "oblique; everyday reading common («пора всё закончить и спать»)"
+ },
+ {
+  "text": "хочу сдохнуть",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-qoder",
+   "r6-fable",
+   "verify",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу помереть",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу умирать",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "собираюсь убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "способ уйти из жизни",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 LOW oblique"
+ },
+ {
+  "text": "мне надоело жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-qoder",
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: R5 LOW oblique (unfixed)"
+ },
+ {
+  "text": "хочу перестать существовать",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-qoder",
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: R5 LOW oblique"
+ },
+ {
+  "text": "скоро всё закончу со собой",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "жить больше не могу и не хочу",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 LOW oblique"
+ },
+ {
+  "text": "хочу причинить себе боль",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "выпил таблетки чтобы уснуть навсегда",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "хочу наказывать себя до крови",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "думаю о том как убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "купил снотворное чтобы не проснуться",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "хочу порезать вены на руках",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "хочу ударить себя чтобы было больно",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "причинить себе боль — единственный выход",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "I'm going to end my life",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5",
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "I don't want to live anymore",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "no reason to live",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "better off dead",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5",
+   "r6-qoder",
+   "r6-fable",
+   "verify",
+   "ticket"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "I want to end it all tonight",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "end my life",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "I want to stop existing",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5",
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "hochu umret",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r5",
+   "ticket",
+   "r6-fable"
+  ],
+  "note": "source note: R5 miss"
+ },
+ {
+  "text": "hochuumeret",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r5"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos",
+  "knownGap": true
+ },
+ {
+  "text": "hochu samoubitstva",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "ya hotel umret",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "net smisla",
+  "expect": "safe",
+  "category": "translit",
+  "sources": [
+   "r5"
+  ],
+  "note": "truncated: RU «нет смысла» alone is not a risk phrase (pattern needs «жить»); r5 labelled risk"
+ },
+ {
+  "text": "ne hochu bolshe zhit",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r5",
+   "ticket",
+   "r6-fable"
+  ],
+  "note": "source note: R5 miss"
+ },
+ {
+  "text": "dumal o smerti",
+  "expect": "risk",
+  "category": "grief",
+  "sources": [
+   "r5"
+  ],
+  "note": "translit twin of «думал о смерти» which fires today; see grief decision"
+ },
+ {
+  "text": "не​​хочу​жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не​​​хочу​​жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу у м е р е т ь",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "letter-spacing obfuscation; visible spaces, not covered by the invisible-char rule or a ticket; source note: spaced letters (R5 MED miss)"
+ },
+ {
+  "text": "хочу у​м​е​р​е​т​ь",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "I want to ki​ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "не‌‌хочу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не﻿﻿хочу﻿жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "су​ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5",
+   "r6-fable",
+   "verify",
+   "ticket"
+  ],
+  "note": "source note: intra-word"
+ },
+ {
+  "text": "хочуyмереть",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r5"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos",
+  "knownGap": true
+ },
+ {
+  "text": "хачу умереть",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos; source note: R5 LOW",
+  "knownGap": true
+ },
+ {
+  "text": "i want to kill mysefl",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r5"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos",
+  "knownGap": true
+ },
+ {
+  "text": "i wnat to die",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r5",
+   "r6-fable"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos; source note: R5 LOW",
+  "knownGap": true
+ },
+ {
+  "text": "смотрел фильм suicide squad вчера",
+  "expect": "safe",
+  "category": "topic-mention",
+  "sources": [
+   "r5"
+  ],
+  "note": "title mention",
+  "knownGap": true
+ },
+ {
+  "text": "this movie is a suicide mission, awesome",
+  "expect": "safe",
+  "category": "topic-mention",
+  "sources": [
+   "r5"
+  ],
+  "note": "idiom/title mention",
+  "knownGap": true
+ },
+ {
+  "text": "самоповреждение как тема в научной статье",
+  "expect": "safe",
+  "category": "topic-mention",
+  "sources": [
+   "r5"
+  ],
+  "note": "topic framing; NB bare «суицид» fires by design",
+  "knownGap": true
+ },
+ {
+  "text": "хочу​ покончить​ с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "He хочу жить",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-qoder"
+  ]
+ },
+ {
+  "text": "хочу покончить с собой",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-qoder",
+   "verify",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить с собой и я справляюсь с этим",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть, но не хочу на работу",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу свести счеты с жизнью",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу наложить на себя руки",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу уйти из жизни",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу лишить себя жизни",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу расстаться с жизнью",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу закончить свою жизнь",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "не вижу смысла жить дальше",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "ищу способ убить себя",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу больше не просыпаться",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "сдохнуть бы",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "I want to end it all",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "I want to off myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "planning to hurt myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "no reason to stay alive",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "I want to never wake up",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочется умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хотел умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-qoder"
+  ],
+  "note": "S-1 head includes хотел[аи]?"
+ },
+ {
+  "text": "хочешь умереть",
+  "expect": "risk",
+  "category": "other-person",
+  "sources": [
+   "r6-qoder"
+  ],
+  "note": "2nd person; diaries often self-address; not in S-1 head list"
+ },
+ {
+  "text": "покончил с собой",
+  "expect": "risk",
+  "category": "other-person",
+  "sources": [
+   "r6-qoder"
+  ],
+  "note": "3rd person/past; consistent with bare «суицид» firing by design"
+ },
+ {
+  "text": "покончу с собой",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу повеситься",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу отравиться",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-qoder",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу выброситься с окна",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "не х0чу жить",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "Ηe хочу жить",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "не хочу жи́ть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ],
+  "note": "combining acute (stress mark) — visible diacritic, not a drop char; not in S-4"
+ },
+ {
+  "text": "хочу покончить с собой и не хочу больше работать",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть и не хочу есть",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "не собираюсь покончить с собой",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-qoder",
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "не хочу покончить с собой",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ]
+ },
+ {
+  "text": "не думаю о том, чтобы покончить с собой",
+  "expect": "risk",
+  "category": "negation-before",
+  "sources": [
+   "r6-qoder",
+   "verify"
+  ],
+  "note": "comma = clause break; R5-020 decided (Qoder false-alarm log); counter-intuitive but rule-settled"
+ },
+ {
+  "text": "хочu\u0000умереть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-qoder"
+  ],
+  "note": "Latin u + NUL: neither a confusable nor a drop class"
+ },
+ {
+  "text": "убью себя",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "i wanna die",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "никогда не покончу с собой",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть от любви",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ],
+  "note": "owner 2026-10-01 (O-6): only laughter is exempt"
+ },
+ {
+  "text": "хочу умереть со скуки",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "ticket"
+  ],
+  "note": "owner 2026-10-01: only laughter is exempt"
+ },
+ {
+  "text": "хочу умереть от смеха",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "умру со смеху",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "ticket"
+  ]
+ },
+ {
+  "text": "выброшусь из окна чтобы умереть",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "суицид не вариант",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу покончить с с​обой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть и не хочу никого видеть",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "не хочу жить не хочу жить не хочу жить",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "режу себя потому что не справляюсь",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть из-за прошлого",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть прошло два дня",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "i want to hang myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "i want to overdose",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "i wish i was dead",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "wish i could die",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "ne xochu zhit",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "ticket",
+   "r6-fable"
+  ],
+  "note": "source note: x-variant"
+ },
+ {
+  "text": "i'm not going to end my life",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "ticket"
+  ]
+ },
+ {
+  "text": "устал жить в бардаке",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: ? «устал жить в …»"
+ },
+ {
+  "text": "устала жить с родителями",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "ticket",
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "исчезнуть навсегда из соцсетей",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "ticket"
+  ]
+ },
+ {
+  "text": "незачем жить в этом городе",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "я устал жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "ticket",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "устал жить в этом мире",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "ticket"
+  ]
+ },
+ {
+  "text": "нож чтобы убить себя",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "ticket",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "r5",
+   "r6-qoder",
+   "ticket"
+  ],
+  "note": "Fable tagged this homoglyph, but the text has no Latin letters (plain Cyrillic)"
+ },
+ {
+  "text": "Хочу Умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "я хочу покончить с собой",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу покончить со всем",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу покончить с этим раз и навсегда",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить с жизнью",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить с этой жизнью",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "r6-qoder",
+   "r5"
+  ],
+  "note": "source note: Latin x? no — plain; Latin «не» → н is Cyrillic, е Latin; Fable tagged this homoglyph, but the text has no Latin letters (plain Cyrillic)"
+ },
+ {
+  "text": "не хочу больше жить",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу дальше жить",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "я больше не хочу жить",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: known-R5? «больше» before «не хочу»"
+ },
+ {
+  "text": "не хочу жить в этом мире",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу жить в аду",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить с этой болью",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "нет смысла жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "r5"
+  ]
+ },
+ {
+  "text": "нет смысла дальше жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "лучше бы я умер",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "лучше бы я не родился",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "лучше бы я не родилась",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: R5 LOW miss (feminine)"
+ },
+ {
+  "text": "лучше бы я умерла",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: feminine"
+ },
+ {
+  "text": "лучше бы я сдох",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "лучше бы сдохла",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: feminine"
+ },
+ {
+  "text": "устал жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "ticket"
+  ]
+ },
+ {
+  "text": "устала жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "я так устала от всего и устала жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "незачем жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "existing-test",
+   "ticket"
+  ]
+ },
+ {
+  "text": "незачем больше жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "думал о смерти всю ночь",
+  "expect": "risk",
+  "category": "grief",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "past «думал о смерти» fires today; decision only exempts present «думаю о смерти» (grief)"
+ },
+ {
+  "text": "думал о том как убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "думаю как покончить с собой",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "планирую убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "решил убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "суицид",
+  "expect": "risk",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable",
+   "r5"
+  ],
+  "note": "source note: Latin c-u-? c only; Fable tagged this homoglyph, but the text has no Latin letters (plain Cyrillic)"
+ },
+ {
+  "text": "суицидальные мысли не отпускают",
+  "expect": "risk",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "мысли о самоубийстве",
+  "expect": "risk",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "ХОЧУ УМЕРЕТЬ",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Latin X,O,Y? no; Fable tagged this homoglyph, but the text has no Latin letters (plain Cyrillic)"
+ },
+ {
+  "text": "хочу  умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: double space"
+ },
+ {
+  "text": "хочу\tумереть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: tab"
+ },
+ {
+  "text": "хочу\nумереть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: newline"
+ },
+ {
+  "text": "хочу умереть.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "«хочу умереть»",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу умереть от тоски",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ],
+  "note": "source note: decided acute R5-016"
+ },
+ {
+  "text": "хочу умереть от боли",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: decided acute"
+ },
+ {
+  "text": "хочу убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу  убить   себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "купил таблетки чтобы покончить с собой",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "возьму нож и порежу себя",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "веревка уже есть, осталось решиться покончить с собой",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: clause break between means and goal — by design"
+ },
+ {
+  "text": "хочу выпрыгнуть из окна чтобы умереть",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "пойду на крышу чтобы покончить со всем",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу порезать себе руки",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу порезать себя",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "причинить себе боль",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу навредить себе",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "порезала руки вчера",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "режу вены",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "порезал себе запястья",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "режу себя",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable",
+   "r4"
+  ]
+ },
+ {
+  "text": "самоповреждение снова",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "наказать себя физически",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "яд уже купил, завтра выпью чтобы умереть",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "plan with means; means and goal in different clauses (R5-020 boundary); source note: clause break"
+ },
+ {
+  "text": "яд выпью чтобы умереть",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "наряд чтобы умереть",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: яд inside наряд"
+ },
+ {
+  "text": "прощайте все",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "это мое последнее письмо",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "это моё последнее сообщение",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "никто не заметит если меня не будет",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "никто не заметит когда я умру",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "я не хочу умереть",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не думал о смерти никогда",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не планирую покончить с собой",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "раньше думал о смерти, сейчас справляюсь",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: clause: раньше думал in own clause"
+ },
+ {
+  "text": "суицид — это не про меня",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "stance marker separated by a dash (clause break); S-2 keeps «…суицид это не про меня» safe"
+ },
+ {
+  "text": "не буду убивать себя",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "я не хочу жить так, но убивать себя не буду",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "«не хочу жить так» is risk (R5-004) and the denial is in another clause (no cross-clause suppression); counter-intuitive but rule-settled; source note: «не хочу жить так»"
+ },
+ {
+  "text": "это прошло, больше не думаю о смерти",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не думаю о том как убить себя",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "никогда не хотел умереть",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "negation governs the phrase; NB S-2 verb list lacks «хотел» while S-1 adds «хотел» as a head; source note: «никогда не хотел» not in list, but «хотел» ≠ «хочу»"
+ },
+ {
+  "text": "раньше думал о смерти. а сейчас режу себя",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "я не хочу умирать, хочу жить",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу умереть молодым",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: ?"
+ },
+ {
+  "text": "хочу покончить с прокрастинацией",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить с этим бардаком навсегда",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу умереть со стыда",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "owner 2026-10-01: only laughter is exempt"
+ },
+ {
+  "text": "умереть от скуки на этой лекции",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить в этом городе",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить у родителей",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить с ним",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу жить одна",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу жить вместе",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить в Москве",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить на даче",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить в общаге",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить по чужим правилам",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "manner adjunct; decisions cover place/companion (safe) and «так» (risk) only; source note: «по» not in place list"
+ },
+ {
+  "text": "не хочу жить как раньше",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "manner adjunct (wants change)"
+ },
+ {
+  "text": "не хочу жить без тебя",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "companion-absence; reads as despair; Fable: arguably risk; source note: ? arguably risk"
+ },
+ {
+  "text": "не хочу жить прошлым",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "idiom «жить прошлым»"
+ },
+ {
+  "text": "нож для хлеба, чтобы себя не порезать",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: ? means pattern: нож … себя"
+ },
+ {
+  "text": "порядок на столе чтобы покончить с хаосом",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "самоубийство Марины Цветаевой — тема курсовой",
+  "expect": "safe",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "topic framing; NB bare «суицид» fires by design; source note: academic; by design acute?",
+  "knownGap": true
+ },
+ {
+  "text": "книга про суицид подростков",
+  "expect": "safe",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "topic framing; NB bare «суицид» fires by design; source note: academic",
+  "knownGap": true
+ },
+ {
+  "text": "прощай, Москва",
+  "expect": "safe",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "прощайте, уезжаю в отпуск",
+  "expect": "safe",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "«прощайте» fires on any use today; source note: likely FP"
+ },
+ {
+  "text": "это мое последнее предупреждение",
+  "expect": "safe",
+  "category": "goodbye",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: FP?"
+ },
+ {
+  "text": "незачем жить в прошлом",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "думал о смерти бабушки",
+  "expect": "safe",
+  "category": "grief",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: grief"
+ },
+ {
+  "text": "думаю о смерти как философ",
+  "expect": "safe",
+  "category": "grief",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу исчезнуть навсегда из соцсетей",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "сегодня я выпрыгнул из автобуса чтобы себя не опозорить",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: ?"
+ },
+ {
+  "text": "поезд ушёл, не успел себя пересилить",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: ? means: поезд … себя"
+ },
+ {
+  "text": "на крыше чтобы сфотографировать себя",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: ? крыш … себя"
+ },
+ {
+  "text": "таблетки от головы помогли себя почувствовать лучше",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: ? таблетк … себя"
+ },
+ {
+  "text": "утопить печаль в работе чтобы себя занять",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: ? утоп … себя"
+ },
+ {
+  "text": "i want to die",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify",
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "I want to kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "i want to end my life",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "suicidal thoughts",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "thinking about suicide",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i don't want to live",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i do not want to live anymore",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "I don’t want to live",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: curly apostrophe"
+ },
+ {
+  "text": "i dont want to live",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: no apostrophe"
+ },
+ {
+  "text": "i'm going to end my life",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: R5 MED miss"
+ },
+ {
+  "text": "i want to end it all",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: R5 miss"
+ },
+ {
+  "text": "I WANT TO DIE",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i want to die.",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i  want   to die",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i don't want to die",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i will never kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i would never kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i'm not going to kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i never want to die",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i'm not ok and i want to die",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: negation not governing"
+ },
+ {
+  "text": "i don't think i want to die",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "hedged negation governing the phrase; source note: ? «think» not in list"
+ },
+ {
+  "text": "i do not plan to kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i won't ever kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "source note: ? «ever»"
+ },
+ {
+  "text": "suicide squad was a bad movie",
+  "expect": "safe",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "title mention; source note: by design acute?",
+  "knownGap": true
+ },
+ {
+  "text": "the suicidal tendencies concert",
+  "expect": "safe",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "band name; source note: band",
+  "knownGap": true
+ },
+ {
+  "text": "killed myself laughing",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "i want to dye my hair",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "my wifi died",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "ne hochu zhit",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable",
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "hochu umeret",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable",
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "pokonchit s soboj",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "pokonchit s soboy",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "net smysla zhit",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "net smysla dalshe zhit",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "ya hochu umeret",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "NE HOCHU ZHIT",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "ne hochu jit",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: j-variant"
+ },
+ {
+  "text": "suicid",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: /suicid/ matches"
+ },
+ {
+  "text": "ya ne hochu umeret",
+  "expect": "safe",
+  "category": "translit",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "нe хoчу жить",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Latin e,o"
+ },
+ {
+  "text": "xочу умереть",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Latin x"
+ },
+ {
+  "text": "хочу умеpеть",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Latin p"
+ },
+ {
+  "text": "cуицид",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Latin c"
+ },
+ {
+  "text": "hочу умереть",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "Latin h for х (translit habit), not a confusable; source note: Latin h→? no Cyrillic lowercase h in map (һ only)"
+ },
+ {
+  "text": "i want to dіe",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Ukrainian і"
+ },
+ {
+  "text": "hochу umeret",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ],
+  "note": "source note: Cyrillic у"
+ },
+ {
+  "text": "kill mуself",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Cyrillic у"
+ },
+ {
+  "text": "Хочу умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Latin X capital; Fable tagged this homoglyph, but the text has no Latin letters (plain Cyrillic)"
+ },
+ {
+  "text": "самоубийство",
+  "expect": "risk",
+  "category": "topic-mention",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Latin c,a,o; Fable tagged this homoglyph, but the text has no Latin letters (plain Cyrillic)"
+ },
+ {
+  "text": "ѕuicide",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: Cyrillic ѕ"
+ },
+ {
+  "text": "не​​хочу​​​жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хочу‍умереть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хо​чу уме​реть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: intra-word (R5 MED miss)"
+ },
+ {
+  "text": "суи­цид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: soft hyphen intra-word"
+ },
+ {
+  "text": "i want to ki​ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: intra-word EN"
+ },
+ {
+  "text": "не хочу​ жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "не хочу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: em space / thin space"
+ },
+ {
+  "text": "не хочу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: NBSP"
+ },
+ {
+  "text": "не хочу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: NNBSP"
+ },
+ {
+  "text": "не хочу‎жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: LRM"
+ },
+ {
+  "text": "‮не хочу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: RLO prefix"
+ },
+ {
+  "text": "не⁠хочу⁠жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: word joiner"
+ },
+ {
+  "text": "не󠀠хочу󠀠жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: tag space"
+ },
+ {
+  "text": "не️хочу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "source note: VS16"
+ },
+ {
+  "text": "хочу умиреть",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos; source note: typo",
+  "knownGap": true
+ },
+ {
+  "text": "не хочю жить",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos; source note: typo",
+  "knownGap": true
+ },
+ {
+  "text": "хочуумереть",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "typo/glued; no decision or ticket covers typos; source note: glued",
+  "knownGap": true
+ },
+ {
+  "text": "раньше думал о смерти, а сейчас хочу умереть",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "в прошлом были мысли о суициде. сегодня снова хочу покончить с собой",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "была мысль но прошло, и всё же режу себя",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "это в прошлом; теперь хочу умереть",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "раньше хотел умереть, сейчас не хочу",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "past wish + present denial; S-2 past markers cover «раньше думал», not «раньше хотел»; strict no-cross-clause rule would give risk"
+ },
+ {
+  "text": "в прошлом году думал о смерти, справляюсь",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "умереть не встать",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "хоть умри",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "сдохнуть можно от этой жары",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "устал как собака жить не хочется",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "«жить не хочется» not in S-1 list; source note: ? «жить не хочется» oblique"
+ },
+ {
+  "text": "убить время",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "убить себя работой",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "figurative («убить себя работой»), no intent head; source note: ? «убить себя» FP"
+ },
+ {
+  "text": "хочу убить себя за эту ошибку",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "literal «хочу убить себя»; figurative reading possible; source note: FP bait: figurative"
+ },
+ {
+  "text": "прощай молодость",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "покончить с курением",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "он покончил с собой в книге",
+  "expect": "risk",
+  "category": "other-person",
+  "sources": [
+   "r6-fable"
+  ],
+  "note": "3rd person, fiction; Fable: by design; source note: by design (third person)"
+ },
+ {
+  "text": "завтра покончу с собой",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "я покончила бы с собой",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "покончил бы с собой давно",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "скоро покончу со всем этим",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "я себя убью",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "повешусь",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу застрелиться",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу утопиться",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу спрыгнуть с моста",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "спрыгну с крыши",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "наглотаюсь таблеток",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "вскрою вены",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу вскрыть вены",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "перережу себе вены",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "выпью все таблетки разом",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу броситься под поезд",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "брошусь под поезд",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу шагнуть с крыши",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хотел бы умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хотела умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочется сдохнуть",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "как же хочется умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "мне хочется покончить с собой",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "уйду из жизни",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "решила уйти из жизни",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "готов умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "я готова покончить с собой",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "не хочу жить так",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "verify",
+   "existing-test"
+  ],
+  "note": "decided R5-004"
+ },
+ {
+  "text": "не хочу так жить",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "same words as «не хочу жить так» (decided R5-004); probe2 had safe"
+ },
+ {
+  "text": "так жить не хочу",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "суицид, не вариант",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ],
+  "note": "stance marker separated by a comma (clause break)"
+ },
+ {
+  "text": "wanna kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "gonna kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "i will kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "i'll kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "im going to kill myself",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "i wish i were dead",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть завтра",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть от одиночества",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r6-fable",
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу поконч​ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч‌ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч‍ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч‎ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч‏ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч­ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч⁠ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч﻿ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч᠎ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч‪ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч⁦ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч️ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу поконч󠁁ить с собой",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су‌ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су‍ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су‎ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су‏ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су­ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су⁠ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су﻿ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су᠎ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су‪ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су⁦ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су️ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "су󠁁ицид",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki​ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket",
+   "r6-fable",
+   "r6-qoder"
+  ]
+ },
+ {
+  "text": "ki‌ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki‍ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki‎ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki‏ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki­ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki⁠ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki﻿ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki᠎ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki‪ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki⁦ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki️ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "ki󠁁ll myself",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify",
+   "ticket"
+  ]
+ },
+ {
+  "text": "хочу​умереть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу\u0000умереть",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "verify"
+  ],
+  "note": "NUL is not a drop class in classifyInvisibleCodePoint"
+ },
+ {
+  "text": "хочу покончить с собой слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово слово не хочу",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ],
+  "note": "negation 200 words after the phrase, same clause (S-2)"
+ },
+ {
+  "text": "не хочу жить, не хочу жить, не хочу жить, ",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть и это не вариант для мамы",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ],
+  "note": "«не вариант» follows but is about an external constraint, not stance; S-2 group 3 (stance may follow) would suppress it"
+ },
+ {
+  "text": "режу себя и не буду рассказывать",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть, прошло два дня и всё хуже",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть потому что в прошлом всё было хорошо",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ],
+  "note": "«в прошлом» follows but does not govern the phrase; S-2 group 3 would suppress it"
+ },
+ {
+  "text": "I want to end my life",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "verify",
+   "r6-qoder",
+   "r5"
+  ]
+ },
+ {
+  "text": "suicidal",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "i'm suicidal",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "я не собираюсь убивать себя",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "я бы никогда не покончил с собой",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу выброситься из окна",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "выброшусь в окно",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "таблетки чтобы умереть",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу наглотаться таблеток и умереть",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "спрыгну с крыши и покончу с собой",
+  "expect": "risk",
+  "category": "future-first-person",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "крыша, чтобы умереть",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "verify"
+  ],
+  "note": "means and goal across a comma"
+ },
+ {
+  "text": "поезд, на котором я ехал, вёз себя медленно",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "verify"
+  ],
+  "note": "means word + «себя» in a relative clause"
+ },
+ {
+  "text": "хочу умереть, из-за прошлого",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу покончить с собой, не хочу никого видеть",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу умереть потому что не справляюсь",
+  "expect": "risk",
+  "category": "negation-after",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "хочу выброситься из окна и умереть",
+  "expect": "risk",
+  "category": "method-verb",
+  "sources": [
+   "verify"
+  ]
+ },
+ {
+  "text": "умереть со смеху можно",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r5"
+  ],
+  "note": "laughter exemption"
+ },
+ {
+  "text": "это платье просто to die for",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r5"
+  ]
+ },
+ {
+  "text": "I do not want to die of boredom",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "r5"
+  ],
+  "note": "negation governs"
+ },
+ {
+  "text": "не хочу умирать молодым",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "я не хочу жить в этом городе",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не‌хочу‌жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "r5",
+   "existing-test",
+   "r6-fable"
+  ]
+ },
+ {
+  "text": "умереть от усталости",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "r5"
+  ],
+  "note": "no intent head («хочу»)"
+ },
+ {
+  "text": "смерть кажется избавлением",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "r5"
+  ],
+  "note": "passive ideation; no pattern, no ticket"
+ },
+ {
+  "text": "не хочу жить в общежитии",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "suicide",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "I am not ok and I want to die",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "r5",
+   "existing-test"
+  ]
+ },
+ {
+  "text": "Не хочу жить, всё бессмысленно.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "Не хочу жить больше",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "я просто не хочу жить",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "каждую ночь думаю про суицид",
+  "expect": "risk",
+  "category": "topic-mention",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "нет смысла жить дальше",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "раньше думал о смерти, а сейчас режу себя",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "existing-test",
+   "r4"
+  ]
+ },
+ {
+  "text": "не​ хочу жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "это моё последнее письмо",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "pokonchit s soboi",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "HE XOЧУ ЖИТЬ",
+  "expect": "risk",
+  "category": "homoglyph",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не﻿﻿хочу​​жить",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "думаю о самоубийстве",
+  "expect": "risk",
+  "category": "topic-mention",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу жить больше",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу жить на этом свете",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу жить в страхе",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить со всем этим",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить с этим",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "лучше бы сдохнуть",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "порезала себе руки",
+  "expect": "risk",
+  "category": "self-harm",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "раньше думал о смерти, но это в прошлом",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не планирую ничего с собой делать",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "я не думал о смерти",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "я не хочу умереть, я хочу разобраться",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "всё плохо, я очень устал",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "была мысль но справляюсь — суицид это не про меня сейчас",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "навести порядок в голове и перестать ругать себя",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "I'm not going to kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "я не думаю о том как убить себя",
+  "expect": "safe",
+  "category": "negation-before",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "i will not kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "i wouldn't kill myself",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу покончить с этим бардаком",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "не хочу жить здесь",
+  "expect": "safe",
+  "category": "place-companion",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "хочу исчезнуть с радаров на недельку",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "existing-test"
+  ]
+ },
+ {
+  "text": "порезала руку, когда резала хлеб",
+  "expect": "safe",
+  "category": "self-harm",
+  "sources": [
+   "existing-test"
+  ]
+ }
+]

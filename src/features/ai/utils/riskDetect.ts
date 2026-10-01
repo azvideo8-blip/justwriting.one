@@ -71,8 +71,9 @@ const RISK_PATTERNS: RegExp[] = [
   // чаще горе о ком-то, чем план.
   new RegExp(String.raw`думаю.{0,200}\s+(?:убить\s+себя|${POKONCHIT})`),
   // Plan / means. Средства — целыми словами: «яд» сидит внутри «порядок», «наряд».
-  // S-12: вторая группа сужена с голого «себя» до действия («убить себя», «умереть», «с собой», «покончить»).
-  /(?:^|[^а-я])(таблетк|снотворн|нож|веревк|оруж|яд(?![а-я])|выброс[а-я]*\s+(?:из|в|с)\s+окн|выпрыгн|крыш|поезд|утоп)[^.,;:!?\n—–]{0,100}\s+(?:покончить|(?<!не\s+)умереть|убить\s+себя|с\s+собой|уснуть\s+навсегда|не\s+проснуться|поре[зж][а-я]*\s+себ[яе])/,
+  // S-12 / S-30: вторая группа сужена с голого «себя» до действия («убить себя», «умереть», «с собой», «покончить»).
+  // Граница допускает запятую (means/goal across a comma — решение S-30).
+  /(?:^|[^а-я])(таблетк|снотворн|нож|веревк|оруж|яд(?![а-я])|выброс[а-я]*\s+(?:из|в|с)\s+окн|выпрыгн|крыш|поезд|утоп)[^.!?\n]{0,100}\s+(?:покончить|(?<!не\s+)умереть|убить\s+себя|с\s+собой|уснуть\s+навсегда|не\s+проснуться|поре[зж][а-я]*\s+себ[яе])/,
   // Self-harm intent
   /хочу\s+(порезать|навредить|причинить\s+боль|наказывать|ударить)\s+(себе|себя)/,
   /причинить\s+себе\s+боль|(?:порезал[аи]?|режу|порежу|порезать|перережу)\s+(?:себе\s+)?(?:руки|вены|запяст)/,
@@ -81,7 +82,7 @@ const RISK_PATTERNS: RegExp[] = [
   /самоповрежд/,
   /наказать\s+себя.{0,200}\s+(физическ|боль|травм)/,
   // Goodbye / finality
-  /прощайте(?!\s*,?\s*(?:уезжаю|в\s+отпуск))|прощай\s+всем|это\s+мое\s+последнее/,
+  /прощайте(?!\s*,?\s*(?:уезжаю|в\s+отпуск))|прощай\s+всем|это\s+мо[её]\s+последн(?:ее\s+(?:письмо|сообщение)|яя\s+записка|ий\s+день)|это\s+мо[её]\s+последнее(?!\s+предупрежден)/,
   /никто\s+не\s+заметит.{0,200}(если|когда).{0,200}\s+(меня\s+не\s+будет|я\s+умру)/,
 ];
 // M-16: разрывы между группами ограничены .{0,200} — с .* вырожденный ввод
@@ -92,14 +93,18 @@ const RISK_PATTERNS: RegExp[] = [
 // M-15: \b — иначе «i want to diet» ловилось как «die».
 const FOREIGN_RISK_PATTERNS: RegExp[] = [
   // English
-  /\b(?:i\s+)?(?:want\s+to|going\s+to|gonna|will|plan\s+to|might|ready\s+to)\s+(?:die|kill\s+myself|end\s+my\s+life|take\s+my\s+life)\b/,
+  /\b(?:i\s+)?(?:want\s+to|wanna|going\s+to|gonna|will|plan\s+to|planning\s+to|might|ready\s+to)\s+(?:die|kill\s+myself|end\s+my\s+life|take\s+my\s+life|end\s+it\s+all|off\s+myself|stop\s+existing|never\s+wake\s+up|hang\s+myself|overdose)\b/,
   /\bkill\s+myself\b/,
+  /\bend\s+my\s+life\b/,
+  /\bend\s+it\s+all\b/,
+  /\bno\s+reason\s+to\s+(?:live|stay\s+alive)\b/,
+  /\bplanning\s+to\s+hurt\s+myself\b/,
   /\b(?:commit|attempt|considering|contemplating)\s+suicide\b/,
-  /\bsuicid(?:e|al)\b/,
-  /\b(?:better\s+off\s+dead|wish\s+i\s+(?:was|were)\s+dead)\b/,
+  /\bsuicid/,
+  /\b(?:better\s+off\s+dead|wish\s+i\s+(?:could\s+die|(?:was|were)\s+dead))\b/,
   /\bdon['’]?t\s+want\s+to\s+live\b|\bdo\s+not\s+want\s+to\s+live\b/,
   // Translit
-  /\bne\s+hochu\s+zhit\b/,
+  /\bne\s+(?:hochu|xochu)\s+(?:bolshe\s+)?(?:zhit|jit)\b/,
   /\b(?:hochu|xochu|hotel[ai]?)\s+(?:sdochnut|ubit\s+sebya|ume?re?t)\b/,
   /\b(?:ubyu|ubju)\s+sebya\b/,
   /\bsamoubiy?stv|\bsamoubitstv/,
@@ -155,7 +160,7 @@ const STANCE_AFTER = /^[\s,—–]*(?:это\s+|уже\s+)?(?:не\s+вариа�
 // I want to die» — одна клауза, но «not» к «want to die» не относится.
 // R5-017 / S-5: вспомогательный глагол с отрицанием управляет и самим «kill»:
 // «I won't / will not / wouldn't kill myself», «it's not that I want to die», «don't think I will».
-const FOREIGN_NEGATION_BEFORE = /(?:\bdo(?:n['’]?t| not)|\bnot|\bnever|\bwon['’]?t)\s+(?:want|going|plan(?:ning)?|gonna|wanna)\s+(?:to\s+)?$|\b(?:won['’]?t|will\s+(?:not|never)|would(?:n['’]?t|\s+not|\s+never)|never|do(?:n['’]?t|\s+not)|(?:it['’]?s\s+|it\s+is\s+)?not\s+that|not)\s+$|\bdo(?:n['’]?t|\s+not)\s+think\s+(?:i\s+)?(?:will\s+)?$|\bne\s+$/;
+const FOREIGN_NEGATION_BEFORE = /(?:\bdo(?:n['’]?t| not)|\bnot|\bnever|\bwon['’]?t)\s+(?:want|going|plan(?:ning)?|gonna|wanna)\s+(?:to\s+)?$|\b(?:won['’]?t(?:\s+ever)?|will\s+(?:not|never)|would(?:n['’]?t|\s+not|\s+never)|never|do(?:n['’]?t|\s+not)|(?:it['’]?s\s+|it\s+is\s+)?not\s+that|not)\s+$|\bdo(?:n['’]?t|\s+not)\s+think\s+(?:i\s+)?(?:will\s+)?$|\bne\s+$/;
 
 // Граница клаузы: знак препинания или союз-поворот. Исключение из соседней
 // клаузы («не думал о смерти, но хочу покончить с собой») острое не гасит.
