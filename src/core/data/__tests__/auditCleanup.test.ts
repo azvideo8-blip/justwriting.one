@@ -75,7 +75,13 @@ describe('2.15 tag operations surface per-document failures', () => {
     builder.update.mockImplementation(() => {
       const r = updateResults[call] ?? { error: null };
       call++;
-      return { eq: () => ({ eq: async () => r }) } as never;
+      const res: any = {
+        eq: () => res,
+        is: () => res,
+        select: () => res,
+        then: (resolve: any) => resolve(r),
+      };
+      return res as never;
     });
   }
 

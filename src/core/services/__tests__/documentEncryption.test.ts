@@ -34,18 +34,25 @@ vi.mock('../../supabase/client', () => ({
           mockDocumentsTable.push({ ...payload });
           return { error: null };
         },
-        update: (updatePayload: any) => ({
-          eq: (col: string, val: any) => ({
-            eq: (col2: string, val2: any) => {
-              for (const row of mockDocumentsTable) {
-                if (row[col] === val && row[col2] === val2) {
-                  Object.assign(row, updatePayload);
-                }
-              }
-              return Promise.resolve({ error: null });
+        update: (updatePayload: any) => {
+          const cols: Record<string, any> = {};
+          const query: any = {
+            eq: (col: string, val: any) => {
+              cols[col] = val;
+              return query;
             },
-          }),
-        }),
+            is: (_col: string, _val: any) => query,
+            select: (_col?: string) => query,
+            then: (resolve: any) => {
+              const matched = mockDocumentsTable.filter(row => Object.entries(cols).every(([k, v]) => row[k] === v));
+              for (const row of matched) {
+                Object.assign(row, updatePayload);
+              }
+              resolve({ data: matched, error: null });
+            },
+          };
+          return query;
+        },
       };
     },
   }),

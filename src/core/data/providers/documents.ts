@@ -240,6 +240,7 @@ export async function renameTagInAllDocs(userId: string, oldTag: string, newTag:
   const failedUuids: string[] = [];
 
   for (const doc of data) {
+    if (!doc.uuid) continue;
     let tags: string[] = [];
     try {
       const decrypted = await maybeDecrypt(
@@ -256,15 +257,9 @@ export async function renameTagInAllDocs(userId: string, oldTag: string, newTag:
     if (tags.includes(oldTag)) {
       const newTags = Array.from(new Set(tags.map(t => (t === oldTag ? newTag : t))));
       const encrypted = await maybeEncrypt({ tags: newTags }, [], ['tags'], userId);
-      const { error: updateError } = await getSupabase()
-        .from('documents')
-        .update({
-          tags: encrypted.tags,
-          _encrypted: (encrypted._encrypted as boolean) ?? doc._encrypted ?? false,
-        })
-        .eq('user_id', userId)
-        .eq('uuid', doc.uuid);
-      if (updateError != null) {
+      try {
+        await writeDocumentPatch(userId, doc.uuid, toDb(DOCUMENT_FIELDS, encrypted));
+      } catch (updateError) {
         failedUuids.push(doc.uuid ?? '');
         reportError(updateError, { action: 'renameTagInAllDocs_update', docUuid: doc.uuid });
       }
@@ -282,6 +277,7 @@ export async function removeTagFromAllDocs(userId: string, tag: string): Promise
   const failedUuids: string[] = [];
 
   for (const doc of data) {
+    if (!doc.uuid) continue;
     let tags: string[] = [];
     try {
       const decrypted = await maybeDecrypt(
@@ -300,15 +296,9 @@ export async function removeTagFromAllDocs(userId: string, tag: string): Promise
       const encrypted = await maybeEncrypt({ tags: newTags }, [], ['tags'], userId);
       // Ошибка per-doc апдейта — это не «успех»: проглоченный отказ RLS или
       // сети оставлял тег в облаке, и следующий синк воскрешал его в UI.
-      const { error: updateError } = await getSupabase()
-        .from('documents')
-        .update({
-          tags: encrypted.tags,
-          _encrypted: (encrypted._encrypted as boolean) ?? doc._encrypted ?? false,
-        })
-        .eq('user_id', userId)
-        .eq('uuid', doc.uuid);
-      if (updateError != null) {
+      try {
+        await writeDocumentPatch(userId, doc.uuid, toDb(DOCUMENT_FIELDS, encrypted));
+      } catch (updateError) {
         failedUuids.push(doc.uuid ?? '');
         reportError(updateError, { action: 'removeTagFromAllDocs_update', docUuid: doc.uuid });
       }
