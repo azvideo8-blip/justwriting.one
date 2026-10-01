@@ -14,22 +14,56 @@ const migrationStatements = readdirSync(MIGRATIONS)
   .flatMap(f => readFileSync(`${MIGRATIONS}/${f}`, 'utf8').split('\n').map(l => ({ f, l })))
   .filter(({ l }) => /^\s*(grant|revoke)\b/i.test(l));
 
+const droppedTables = new Set<string>();
+for (const f of readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql'))) {
+  const content = readFileSync(`${MIGRATIONS}/${f}`, 'utf8');
+  const matches = content.matchAll(/drop\s+table\s+(?:if\s+exists\s+)?([a-zA-Z0-9_.,\s]+);/gi);
+  for (const m of matches) {
+    const rawTables = m[1]?.split(',') ?? [];
+    for (const t of rawTables) {
+      const cleaned = t.trim().replace(/^public\./i, '').toLowerCase();
+      if (cleaned) droppedTables.add(cleaned);
+    }
+  }
+}
+
+const activeMigrationStatements = migrationStatements.filter(({ l }) => {
+  for (const tbl of droppedTables) {
+    if (new RegExp(`\\b(public\\.)?${tbl}\\b`, 'i').test(l)) {
+      return false;
+    }
+  }
+  return true;
+});
+
 const postRestore = new Set(
   readFileSync('deploy/backup/post-restore-grants.sql', 'utf8').split('\n').map(norm).filter(l => /^(grant|revoke)\b/.test(l)),
 );
 
 describe('post-restore-grants.sql', () => {
   it('миграции действительно выставляют права (тест не пустой)', () => {
-    expect(migrationStatements.length).toBeGreaterThan(5);
+    expect(activeMigrationStatements.length).toBeGreaterThan(5);
   });
 
   it('каждый grant/revoke — одна строка до «;» (многострочный тест бы не увидел)', () => {
-    for (const { f, l } of migrationStatements) expect(l.trim().endsWith(';'), `${f}: ${l.trim()}`).toBe(true);
+    for (const { f, l } of activeMigrationStatements) expect(l.trim().endsWith(';'), `${f}: ${l.trim()}`).toBe(true);
   });
 
-  it('каждый grant/revoke из миграций есть в post-restore-grants.sql', () => {
-    const missing = migrationStatements.filter(({ l }) => !postRestore.has(norm(l))).map(({ f, l }) => `${f}: ${l.trim()}`);
+  it('каждый grant/revoke из действующих миграций есть в post-restore-grants.sql', () => {
+    const missing = activeMigrationStatements.filter(({ l }) => !postRestore.has(norm(l))).map(({ f, l }) => `${f}: ${l.trim()}`);
     expect(missing).toEqual([]);
+  });
+
+  it('post-restore-grants.sql не содержит прав на удалённые таблицы (иначе psql падает при restore)', () => {
+    const invalidStatements: string[] = [];
+    for (const stmt of postRestore) {
+      for (const tbl of droppedTables) {
+        if (new RegExp(`\\b(public\\.)?${tbl}\\b`, 'i').test(stmt)) {
+          invalidStatements.push(stmt);
+        }
+      }
+    }
+    expect(invalidStatements).toEqual([]);
   });
 
   it('drill и RESTORE.md применяют файл после pg_restore', () => {

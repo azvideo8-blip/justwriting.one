@@ -340,7 +340,7 @@ export class FaultInterceptor {
           // ignore
         }
       }
-      if (!['deleteAccount', 'sendTelemetry', 'inviteUser', 'listUsersWithStatus'].includes(name)) {
+      if (!['deleteAccount', 'inviteUser', 'listUsersWithStatus'].includes(name)) {
         this.aiCallsIntercepted.push({
           endpoint: name,
           payload: data,

@@ -34,7 +34,7 @@ synchronised to Postgres afterwards.
 - `src/shared/` — stateless UI, design system, pure utilities, prompt sources.
 - `api/` — the server: `server.ts` (routing), `dispatcher.ts` + `handlers.ts`
   (the non-streaming AI endpoints), `chat.ts` (streaming chat), `auth.ts` (JWT
-  verification), `account.ts` (deletion and telemetry), `postgresAiContext.ts`
+  verification), `account.ts` (account deletion), `postgresAiContext.ts`
   (consent checks and AI limits in Postgres), `admin/` (invites, user list),
   `ai/` (the AI logic).
 - `supabase/` — migrations, RLS policies, and the SQL test suite.
@@ -116,8 +116,7 @@ worker bundles.
 
 `users`, `documents`, `versions`, `drafts`, `ai_summaries`, `ai_embeddings`,
 `ai_daily_limit`, `ai_cooldown`, `ai_usage`, `ai_global_daily`,
-`telemetry_cooldown`, `anonymized_telemetry`, `local_store_records`,
-`applied_migrations`, `connection_test`.
+`local_store_records`, `applied_migrations`, `connection_test`.
 
 Every table has row-level security enabled, and every policy is scoped by
 `auth.uid()`. Server-only tables are deny-all. `supabase/tests/rls.test.sql`
@@ -194,7 +193,7 @@ pinned, audience and issuer checked).
   `summarizeDocument`, `summarizeFacet`, `judgeFacets`, `judgeBeliefCandidate`,
   `summarizeBeliefCluster`, `rerankNotes`, `embedDocument`, `extractChatMemory`,
   `deriveTaxonomy`, `validateCustomPrompt`, `getAIUsageStats`, `getAiQuota`,
-  `deleteAccount`, `sendTelemetry`, and the admin-only `inviteUser`,
+  `deleteAccount`, and the admin-only `inviteUser`,
   `listUsersWithStatus`.
 - `POST /api/csp-report`, `GET /health`, `GET /ready` (database and
   embedding-server config).

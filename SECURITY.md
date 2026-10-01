@@ -240,11 +240,12 @@ There is no third-party analytics, error-reporting or AI-observability service.
   covers families — `docId` beside `documentId` is the same thing under another
   name. Message text is also scrubbed by shape: uuids, email addresses and long
   base64 runs.
-- **Telemetry** — `sendTelemetry`, at most once per 14 days, sent when a
-  signed-in person opens the AI page: theme, a note-count bucket, average note
-  length rounded to 50 words, the share of reasoning dialogues. No consent
-  prompt gates it. The row carries no uid: its key is `sha256(uid:pepper)`
-  (`TELEMETRY_ID_PEPPER`), and the server accepts one send per 24 hours.
+- **No telemetry** — the usage counters this document used to describe (theme,
+  note-count bucket, average note length, reasoning share) were removed on
+  2026-10-01 for data minimisation: no `sendTelemetry` endpoint, and migration
+  `0036_drop_telemetry.sql` drops `anonymized_telemetry` and
+  `telemetry_cooldown`. Nothing about a person's usage leaves the device except
+  the notes they explicitly send to an AI endpoint.
 
 ---
 

@@ -47,15 +47,6 @@ describe('callAi consent gating (Ticket 2 / 152-ФЗ)', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/deleteAccount', expect.any(Object));
   });
 
-  it('allows sendTelemetry regardless of AI consent status (CONSENT_EXEMPT)', async () => {
-    setProfileLoaded('user-123', true);
-    setAiConsent('user-123', false);
-
-    const res = await callAi<{ success: boolean }>('sendTelemetry', { event: 'app_open' });
-    expect(res).toEqual({ success: true });
-    expect(global.fetch).toHaveBeenCalledWith('/api/sendTelemetry', expect.any(Object));
-  });
-
   it('does not block calls when profile has not finished loading yet', async () => {
     setProfileLoaded('user-123', false);
     setAiConsent('user-123', false);

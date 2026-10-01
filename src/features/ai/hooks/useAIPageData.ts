@@ -6,7 +6,6 @@ import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { useToast } from '../../../shared/components/Toast';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
-import { TelemetryService } from '../../../core/services/TelemetryService';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { useAIChat } from '../hooks/useAIChat';
 import { useDailyLimit } from '../hooks/useDailyLimit';
@@ -202,7 +201,6 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       void AIDialogueService.cleanupEmpty().then(n => { if (n > 0) void loadDialogues(); });
       void AIChatMemoryService.cleanupDuplicates();
       void loadCustomPersonas();
-      void TelemetryService.maybeSendTelemetry();
       if (!proactiveShownRef.current) {
         proactiveShownRef.current = true;
         void (async () => {

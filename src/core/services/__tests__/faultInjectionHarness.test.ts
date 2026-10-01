@@ -854,14 +854,14 @@ describe('Fault-Injection Harness — The Four Postulates Attack Suite', () => {
     it('direct evaluateP3 verification with populated intercepted calls', () => {
       const notes: string[] = [];
       runner.interceptor.aiCallsIntercepted.push({
-        endpoint: 'rogueTelemetryAI',
+        endpoint: 'rogueBackgroundAI',
         payload: {},
         consentPresent: false,
       });
 
       const p3Held = runner.evaluateP3(notes);
       expect(p3Held).toBe(false);
-      expect(notes.some(n => n.includes('rogueTelemetryAI'))).toBe(true);
+      expect(notes.some(n => n.includes('rogueBackgroundAI'))).toBe(true);
     });
 
     it('intercepts streaming chat endpoint /api/chat and marks p3Held false naming chat in notes (GUARD-7)', async () => {

@@ -84,7 +84,6 @@ vi.mock('../../services/AIChatMemoryService', () => ({ AIChatMemoryService: { cl
 vi.mock('../../services/AIProfileFacetService', () => ({ AIProfileFacetService: { getAll: vi.fn().mockResolvedValue([]) } }));
 vi.mock('../../services/AIService', () => ({ AIService: { chat: vi.fn() } }));
 vi.mock('../../utils/embeddingIndexer', () => ({ indexPending: vi.fn() }));
-vi.mock('../../../../core/services/TelemetryService', () => ({ TelemetryService: { maybeSendTelemetry: vi.fn() } }));
 vi.mock('../../../../core/data', () => ({ DataProvider: {} }));
 vi.mock('../../../../core/auth', () => ({ getCurrentUser: () => ({ uid: 'u1' }) }));
 vi.mock('../../../../core/ai/indexingConsent', () => ({

@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import crypto from 'node:crypto';
 import { pool } from '../db';
-import { deleteAccountLogic, telemetryRowId } from '../account';
+import { deleteAccountLogic } from '../account';
 
 // Тест пишет и удаляет строки. Одного DATABASE_URL мало: он бывает выставлен на
 // прод через туннель (тоже localhost) для обхода базы. Нужен явный флаг — его
@@ -13,13 +13,10 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
     await pool.end();
   });
 
-  it('deletes user from auth.users, public.users, anonymized_telemetry, and all cascading tables', async () => {
-    process.env.TELEMETRY_ID_PEPPER = 'test-pepper-tb08';
-
+  it('deletes user from auth.users, public.users, and all cascading tables', async () => {
     const uid = crypto.randomUUID();
     const email = `test_del_${uid.slice(0, 8)}@example.com`;
     const docUuid = crypto.randomUUID();
-    const telId = telemetryRowId(uid);
 
     // 1. Seed user in auth.users (trigger creates public.users)
     await pool.query('INSERT INTO auth.users (id, email) VALUES ($1, $2)', [uid, email]);
@@ -29,7 +26,6 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
     await pool.query('INSERT INTO public.versions (document_uuid, user_id, version, content) VALUES ($1, $2, 1, $3)', [docUuid, uid, 'Delete Test Version']);
     await pool.query('INSERT INTO public.drafts (user_id, content) VALUES ($1, $2)', [uid, 'Delete Test Draft']);
     await pool.query('INSERT INTO public.local_store_records (user_id, store, key, payload) VALUES ($1, $2, $3, $4)', [uid, 'aiPortrait', 'singleton', JSON.stringify({ portrait: 'test' })]);
-    await pool.query('INSERT INTO public.telemetry_cooldown (uid, last_sent_at) VALUES ($1, now())', [uid]);
     await pool.query('INSERT INTO public.ai_summaries (document_id, user_id, summary) VALUES ($1, $2, $3)', [docUuid, uid, 'Summary text']);
     await pool.query('INSERT INTO public.ai_embeddings (document_id, user_id, dim) VALUES ($1, $2, 1536)', [docUuid, uid]);
     await pool.query('INSERT INTO public.ai_usage (uid, date, data) VALUES ($1, $2, $3)', [uid, '2026-09-25', JSON.stringify({ tokens: 100 })]);
@@ -37,7 +33,6 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
     await pool.query('INSERT INTO public.ai_daily_limit (uid, day, kind, call_count) VALUES ($1, CURRENT_DATE, $2, 1)', [uid, 'chat']);
     await pool.query('INSERT INTO public.ai_cooldown (uid, data) VALUES ($1, $2)', [uid, JSON.stringify({ cooldown: true })]);
     await pool.query('INSERT INTO public.ai_bulk_cooldown (uid, endpoint, calls) VALUES ($1, $2, 1)', [uid, 'summarize']);
-    await pool.query('INSERT INTO public.anonymized_telemetry (id, data) VALUES ($1, $2)', [telId, JSON.stringify({ theme: 'test' })]);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS auth.audit_log_entries (
@@ -73,9 +68,6 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
     );
     expect(auditBefore.rows[0]?.count).toBe(2);
 
-    const telBefore = await pool.query<{ count: number }>('SELECT count(*)::int as count FROM public.anonymized_telemetry WHERE id = $1', [telId]);
-    expect(telBefore.rows[0]?.count).toBe(1);
-
     // 3. Call deleteAccountLogic
     await deleteAccountLogic(null, uid);
 
@@ -104,13 +96,6 @@ describe.skipIf(!throwawayDb)('deleteAccount server logic on real Postgres (TB-0
       if (count > 0) {
         leftoverTables.push(`${row.table_schema}.${row.table_name} (${count} rows)`);
       }
-    }
-
-    // Also verify anonymized_telemetry
-    const telAfter = await pool.query<{ count: number }>('SELECT count(*)::int as count FROM public.anonymized_telemetry WHERE id = $1', [telId]);
-    const telCount = telAfter.rows[0]?.count ?? 0;
-    if (telCount > 0) {
-      leftoverTables.push(`public.anonymized_telemetry (${telCount} rows)`);
     }
 
     // Verify auth.audit_log_entries has 0 rows for this user

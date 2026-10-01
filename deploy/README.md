@@ -227,7 +227,6 @@ Read by the API service (`api/`). Defaults are from the code.
 | `DATABASE_URL` | yes | Postgres connection string (via Supavisor, tenant-qualified user) |
 | `SUPABASE_URL` | no | GoTrue admin API base for invites, default `https://justwriting.ru` |
 | `SUPABASE_SERVICE_ROLE_KEY` | for invites | Service role key (`SERVICE_ROLE_KEY` also accepted) |
-| `TELEMETRY_ID_PEPPER` | for telemetry | Secret salt for telemetry row keys; without it `sendTelemetry` fails |
 | `OPENROUTER_API_KEY` | yes | AI provider key (RouterAI) |
 | `AI_BASE_URL` | no | Provider base URL, default `https://routerai.ru/api/v1` |
 | `AI_EMBED_BASE_URL` | no | Separate embeddings server (the local one); unset = embeddings go to `AI_BASE_URL` |

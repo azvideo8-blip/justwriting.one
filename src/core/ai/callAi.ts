@@ -4,8 +4,8 @@ import { getAiConsent, isProfileLoaded } from './aiConsent';
 import { hasIndexingConsent } from './indexingConsent';
 
 // Эти действия не про обработку записей: удаление аккаунта — право субъекта,
-// телеметрия и администрирование пользователей не требуют согласия на анализ заметок.
-const CONSENT_EXEMPT = new Set(['deleteAccount', 'sendTelemetry', 'inviteUser', 'listUsersWithStatus']);
+// администрирование пользователей не требует согласия на анализ заметок.
+const CONSENT_EXEMPT = new Set(['deleteAccount', 'inviteUser', 'listUsersWithStatus']);
 
 export interface CallAiOptions {
   charge?: 'user' | 'bulk';

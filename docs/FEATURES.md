@@ -81,7 +81,7 @@
 
 **Согласия**: отдельно AI-согласие и согласие на индексацию (`IndexingConsentModal`); без них эндпоинты отказывают.
 
-**Сервер** (`api/`): `POST /api/chat` (стрим) и диспетчер `POST /api/<name>` — `chatWithAI`, `editWithAI`, `summarizeDocument`, `summarizeFacet`, `judgeFacets`, `judgeBeliefCandidate`, `summarizeBeliefCluster`, `rerankNotes`, `embedDocument`, `extractChatMemory`, `deriveTaxonomy`, `validateCustomPrompt`, `getAIUsageStats`, `deleteAccount`, `sendTelemetry`; плюс `/api/csp-report`, `/health`. Гейты: дневной лимит, кулдаун, глобальный дневной потолок, отдельный счётчик внутренних вызовов, проверка на инъекции и санитизация, JWT HS256 с проверкой aud/iss.
+**Сервер** (`api/`): `POST /api/chat` (стрим) и диспетчер `POST /api/<name>` — `chatWithAI`, `editWithAI`, `summarizeDocument`, `summarizeFacet`, `judgeFacets`, `judgeBeliefCandidate`, `summarizeBeliefCluster`, `rerankNotes`, `embedDocument`, `extractChatMemory`, `deriveTaxonomy`, `validateCustomPrompt`, `getAIUsageStats`, `deleteAccount`; плюс `/api/csp-report`, `/health`. Гейты: дневной лимит, кулдаун, глобальный дневной потолок, отдельный счётчик внутренних вызовов, проверка на инъекции и санитизация, JWT HS256 с проверкой aud/iss.
 
 ## 8. Настройки (`/settings`, `src/features/settings`)
 

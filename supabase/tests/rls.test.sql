@@ -68,9 +68,6 @@ INSERT INTO public.ai_global_daily (date, data) VALUES
   ('2026-01-01', '{"count": 50}')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO public.anonymized_telemetry (id, data) VALUES
-  ('telem-seed-001', '{"event": "test"}')
-ON CONFLICT DO NOTHING;
 
 INSERT INTO public.ai_usage_calls (uid, fn, model, tokens_in, tokens_out) VALUES
   ('00000000-0000-0000-0000-000000000002', 'chat', 'test-model', 100, 20);
@@ -96,8 +93,6 @@ BEGIN
   SELECT count(*) INTO c FROM public.ai_global_daily WHERE date = '2026-01-01';
   IF c = 0 THEN RAISE EXCEPTION 'seed missing: ai_global_daily'; END IF;
 
-  SELECT count(*) INTO c FROM public.anonymized_telemetry WHERE id = 'telem-seed-001';
-  IF c = 0 THEN RAISE EXCEPTION 'seed missing: anonymized_telemetry'; END IF;
 
   SELECT count(*) INTO c FROM public.ai_usage_calls WHERE uid = '00000000-0000-0000-0000-000000000002' AND fn = 'chat';
   IF c = 0 THEN RAISE EXCEPTION 'seed missing: ai_usage_calls'; END IF;
@@ -431,35 +426,6 @@ BEGIN
   END IF;
 END $$;
 
--- ============================================================
--- anonymized_telemetry: client cannot read (admin only)
--- ============================================================
-DO $$
-DECLARE cnt int;
-BEGIN
-  SELECT count(*) INTO cnt FROM public.anonymized_telemetry;
-  IF cnt > 0 THEN
-    RAISE EXCEPTION 'FAIL: client read anonymized_telemetry (% rows)', cnt;
-  END IF;
-END $$;
-
--- ============================================================
--- anonymized_telemetry: client cannot insert
--- ============================================================
-DO $$
-DECLARE ok boolean;
-BEGIN
-  BEGIN
-    INSERT INTO public.anonymized_telemetry (id, data)
-    VALUES ('x', '{}');
-    ok := false;
-  EXCEPTION
-    WHEN insufficient_privilege THEN ok := true;
-  END;
-  IF NOT ok THEN
-    RAISE EXCEPTION 'FAIL: client inserted into anonymized_telemetry';
-  END IF;
-END $$;
 
 -- ============================================================
 -- ai_usage_calls: client cannot read (admin only), even Bob's own row
@@ -853,15 +819,6 @@ BEGIN
   END IF;
 END $$;
 
--- Telemetry stays invisible to the plain user (policy now uses is_admin()).
-DO $$
-DECLARE n int;
-BEGIN
-  SELECT count(*) INTO n FROM public.anonymized_telemetry;
-  IF n <> 0 THEN
-    RAISE EXCEPTION 'FAIL: plain user read anonymized_telemetry (% rows)', n;
-  END IF;
-END $$;
 RESET role;
 RESET request.jwt.claims;
 
@@ -1375,48 +1332,7 @@ BEGIN
   END IF;
 END $$;
 
--- ============================================================
--- RLS-TEST-1: telemetry_cooldown: deny-all table (select & insert)
--- (0034: grant revoked — permission denied counts as denied too)
--- ============================================================
-RESET ROLE;
-INSERT INTO public.telemetry_cooldown (uid, last_sent_at)
-VALUES ('00000000-0000-0000-0000-000000000001', now())
-ON CONFLICT (uid) DO UPDATE SET last_sent_at = now();
-SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
-SET role = 'authenticated';
 
-DO $$
-DECLARE cnt int;
-BEGIN
-  BEGIN
-    SELECT count(*) INTO cnt FROM public.telemetry_cooldown;
-  EXCEPTION
-    WHEN insufficient_privilege THEN cnt := 0;
-  END;
-  IF cnt > 0 THEN
-    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice read telemetry_cooldown (% rows)', cnt;
-  END IF;
-END $$;
-
-RESET ROLE;
-DELETE FROM public.telemetry_cooldown WHERE uid = '00000000-0000-0000-0000-000000000001';
-SET role = 'authenticated';
-
-DO $$
-DECLARE ok boolean;
-BEGIN
-  BEGIN
-    INSERT INTO public.telemetry_cooldown (uid, last_sent_at)
-    VALUES ('00000000-0000-0000-0000-000000000001', now());
-    ok := false;
-  EXCEPTION
-    WHEN insufficient_privilege THEN ok := true;
-  END;
-  IF NOT ok THEN
-    RAISE EXCEPTION 'FAIL: RLS-TEST-1: Alice inserted into telemetry_cooldown';
-  END IF;
-END $$;
 
 -- ============================================================
 -- RLS-TEST-1: ai_bulk_cooldown: deny-all table under authenticated (select & insert)
@@ -1777,7 +1693,7 @@ DECLARE
   rol text;
   priv text;
 BEGIN
-  FOREACH tbl IN ARRAY ARRAY['public.applied_migrations', 'public.ai_global_daily', 'public.ai_cooldown', 'public.telemetry_cooldown'] LOOP
+  FOREACH tbl IN ARRAY ARRAY['public.applied_migrations', 'public.ai_global_daily', 'public.ai_cooldown'] LOOP
     FOREACH rol IN ARRAY ARRAY['authenticated', 'anon'] LOOP
       FOREACH priv IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
         IF has_table_privilege(rol, tbl, priv) THEN

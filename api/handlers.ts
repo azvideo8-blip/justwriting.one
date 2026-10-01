@@ -16,7 +16,7 @@ import { summarizeDocumentLogic } from './ai/summarizeDocument.logic';
 import { summarizeFacetLogic } from './ai/summarizeFacet.logic';
 import { validateCustomPromptLogic } from './ai/validateCustomPrompt.logic';
 import { deriveTaxonomyLogic } from './ai/deriveTaxonomy.logic';
-import { sendTelemetryLogic, deleteAccountLogic } from './account';
+import { deleteAccountLogic } from './account';
 import { inviteUserLogic, listUsersWithStatusLogic } from './admin/admin.logic';
 
 type LogicFn = (
@@ -42,7 +42,6 @@ const LOGIC_MAP: Record<string, LogicFn> = {
   deriveTaxonomy: deriveTaxonomyLogic,
   // Not AI, but the client reaches them the same way and they need the same
   // auth gate — so they live behind the same dispatcher.
-  sendTelemetry: sendTelemetryLogic,
   deleteAccount: deleteAccountLogic,
   inviteUser: inviteUserLogic,
   listUsersWithStatus: listUsersWithStatusLogic,
@@ -83,8 +82,8 @@ export async function handleAiEndpoint(
 
   // AUD-2: серверный гейт согласия. Клиентский (callAi) остаётся как
   // вежливость, но гарантией быть не может. Исключения — те же, что и там:
-  // удаление аккаунта, телеметрия и администрирование пользователей не про обработку записей.
-  if (endpoint !== 'deleteAccount' && endpoint !== 'sendTelemetry' && endpoint !== 'inviteUser' && endpoint !== 'listUsersWithStatus') {
+  // удаление аккаунта и администрирование пользователей не про обработку записей.
+  if (endpoint !== 'deleteAccount' && endpoint !== 'inviteUser' && endpoint !== 'listUsersWithStatus') {
     if (endpoint === 'embedDocument') {
       // Индексация гоняет фрагменты заметок через модель эмбеддингов —
       // отдельное согласие, отдельная колонка.
