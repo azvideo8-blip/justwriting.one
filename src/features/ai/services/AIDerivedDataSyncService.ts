@@ -22,6 +22,9 @@ export interface DerivedSyncProgress {
 export interface OrphanSurvey {
   summaries: string[];
   embeddings: string[];
+  /** S-46 (R6Q-043): строки в облаке, чья заметка там снята надгробием. */
+  cloudSummaries: string[];
+  cloudEmbeddings: string[];
   /** false — облако недоступно, и вывод о сиротстве делать нельзя. */
   cloudChecked: boolean;
 }
@@ -241,16 +244,24 @@ export const AIDerivedDataSyncService = {
    * ничего: лучше не убрать, чем убрать лишнее.
    */
   async findOrphanedDerivatives(userId: string): Promise<OrphanSurvey> {
-    const empty: OrphanSurvey = { summaries: [], embeddings: [], cloudChecked: false };
+    const empty: OrphanSurvey = { summaries: [], embeddings: [], cloudSummaries: [], cloudEmbeddings: [], cloudChecked: false };
     if (!userId || userId.startsWith('guest_')) return empty;
 
     let cloudUuids: Set<string>;
+    let cloudSummaries: string[];
+    let cloudEmbeddings: string[];
     try {
       const cloudDocs = await DataProvider.getUserDocuments(userId);
       cloudUuids = new Set(
         cloudDocs.map((d: ProviderRecord) => String((d as { uuid?: unknown; id?: unknown }).uuid ?? (d as { id?: unknown }).id ?? ''))
           .filter(Boolean),
       );
+      // S-46 (R6Q-043): облачная строка всегда вставлялась под живую заметку
+      // (политика 0002/0035). Нет живой заметки с таким uuid — она под
+      // надгробием, а 0035 оставляет DELETE открытым ровно для этого.
+      const dead = (id: string) => !cloudUuids.has(id);
+      cloudSummaries = (await DataProvider.listSummaryDocumentIds(userId)).filter(dead);
+      cloudEmbeddings = (await DataProvider.listEmbeddingDocumentIds(userId)).filter(dead);
     } catch (e) {
       reportError(e, { action: 'findOrphanedDerivatives_cloudList' }, 'warning');
       return empty;
@@ -270,12 +281,12 @@ export const AIDerivedDataSyncService = {
     const summaries = (await db.getAll('aiSummaries')).filter(isOrphan).map(r => r.documentId);
     const embeddings = (await db.getAll('aiEmbeddings')).filter(isOrphan).map(r => r.documentId);
 
-    return { summaries, embeddings, cloudChecked: true };
+    return { summaries, embeddings, cloudSummaries, cloudEmbeddings, cloudChecked: true };
   },
 
   /**
-   * Убирает найденные сироты с устройства. Облачных копий у них нет по
-   * определению — база их и не приняла бы.
+   * Убирает найденные сироты с устройства, а облачные хвосты под надгробиями —
+   * из облака (S-46).
    *
    * Опись делается заново, а не берётся готовой: между показом числа человеку и
    * нажатием могла приехать синхронизация, и удалять по устаревшему списку
@@ -293,6 +304,13 @@ export const AIDerivedDataSyncService = {
     }
     for (const id of survey.embeddings) {
       try { await db.delete('aiEmbeddings', id); embeddings++; } catch { /* намеренно: как выше */ }
+    }
+    // S-46: облачные хвосты под надгробиями; отказ не считается удалённым.
+    for (const id of survey.cloudSummaries) {
+      try { await DataProvider.deleteSummary(userId, id); summaries++; } catch (e) { reportError(e, { action: 'deleteOrphanedDerivatives_cloudSummary' }, 'warning'); }
+    }
+    for (const id of survey.cloudEmbeddings) {
+      try { await DataProvider.deleteEmbedding(userId, id); embeddings++; } catch (e) { reportError(e, { action: 'deleteOrphanedDerivatives_cloudEmbedding' }, 'warning'); }
     }
     return { summaries, embeddings };
   },

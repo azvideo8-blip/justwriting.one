@@ -32,7 +32,7 @@ interface SyncSettingsSectionProps {
     onClose: () => void;
     onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number }>) | undefined;
   }) => ReactNode;
-  onFindOrphans?: (userId: string) => Promise<{ summaries: string[]; embeddings: string[]; cloudChecked: boolean }>;
+  onFindOrphans?: (userId: string) => Promise<{ summaries: string[]; embeddings: string[]; cloudSummaries: string[]; cloudEmbeddings: string[]; cloudChecked: boolean }>;
   onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number }>;
   onLoadDerivedDrift?: (userId: string) => Promise<DerivedDriftView>;
 }
@@ -159,7 +159,8 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
         showToast(t('settings_sync_orphans_offline'), 'error');
         return;
       }
-      const count = survey.summaries.length + survey.embeddings.length;
+      const count = survey.summaries.length + survey.embeddings.length
+        + survey.cloudSummaries.length + survey.cloudEmbeddings.length;
       if (count === 0) {
         showToast(t('settings_sync_orphans_none'), 'success');
         return;

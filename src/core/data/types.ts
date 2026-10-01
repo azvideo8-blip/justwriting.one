@@ -54,12 +54,14 @@ export interface IDataProvider {
   countSummaries(userId: string): Promise<number>;
   deleteSummary(userId: string, documentId: string): Promise<void>;
   deleteAllSummaries(userId: string): Promise<void>;
+  listSummaryDocumentIds(userId: string): Promise<string[]>;
 
   // --- AI Embedding Operations ---
   getEmbedding(userId: string, documentId: string): Promise<ProviderRecord | null>;
   saveEmbedding(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
   deleteEmbedding(userId: string, documentId: string): Promise<void>;
   deleteAllEmbeddings(userId: string): Promise<void>;
+  listEmbeddingDocumentIds(userId: string): Promise<string[]>;
   getUserEmbeddings(userId: string): Promise<ProviderRecord[]>;
   getUserEmbeddingsPaginated(userId: string, limitCount: number, cursorId?: string): Promise<{ items: ProviderRecord[]; nextCursorId?: string; readCount: number }>;
   getEmbeddingsPage(userId: string, limitCount: number, startAfterId?: string): Promise<ProviderRecord[]>;

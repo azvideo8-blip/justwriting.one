@@ -348,14 +348,15 @@ async function _encryptAllExistingNotesInner(
           saveCheckpoint(userId, checkpoint);
           progress.encrypted++;
         } catch (saveErr) {
-          if (isTombstoneOrRlsError(saveErr)) {
-            // S-23: save refused under tombstone (0035 RLS 42501); 0035 allows DELETE.
-            await DataProvider.deleteSummary(userId, canonicalId).catch(() => {});
-            checkpoint.add(ck);
-            saveCheckpoint(userId, checkpoint);
-          } else {
-            throw saveErr;
-          }
+          if (!isTombstoneOrRlsError(saveErr)) throw saveErr;
+          // S-23: save refused under tombstone (0035 RLS 42501); 0035 allows DELETE.
+          // S-46: 42501 сам по себе не надгробие (без auth.uid() ответ тот же) —
+          // смотрим deleted_at; неудачный DELETE — ошибка, чекпойнт не ставим.
+          const doc = await DataProvider.getDocumentWithDeleted(userId, canonicalId);
+          if (!doc?.deletedAt) throw saveErr;
+          await DataProvider.deleteSummary(userId, canonicalId);
+          checkpoint.add(ck);
+          saveCheckpoint(userId, checkpoint);
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') throw e;
@@ -411,14 +412,15 @@ async function _encryptAllExistingNotesInner(
           saveCheckpoint(userId, checkpoint);
           progress.encrypted++;
         } catch (saveErr) {
-          if (isTombstoneOrRlsError(saveErr)) {
-            // S-23: save refused under tombstone (0035 RLS 42501); 0035 allows DELETE.
-            await DataProvider.deleteEmbedding(userId, canonicalId).catch(() => {});
-            checkpoint.add(ck);
-            saveCheckpoint(userId, checkpoint);
-          } else {
-            throw saveErr;
-          }
+          if (!isTombstoneOrRlsError(saveErr)) throw saveErr;
+          // S-23: save refused under tombstone (0035 RLS 42501); 0035 allows DELETE.
+          // S-46: 42501 сам по себе не надгробие (без auth.uid() ответ тот же) —
+          // смотрим deleted_at; неудачный DELETE — ошибка, чекпойнт не ставим.
+          const doc = await DataProvider.getDocumentWithDeleted(userId, canonicalId);
+          if (!doc?.deletedAt) throw saveErr;
+          await DataProvider.deleteEmbedding(userId, canonicalId);
+          checkpoint.add(ck);
+          saveCheckpoint(userId, checkpoint);
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') throw e;

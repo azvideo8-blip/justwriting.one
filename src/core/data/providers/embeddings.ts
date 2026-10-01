@@ -32,6 +32,19 @@ export async function deleteEmbedding(userId: string, documentId: string): Promi
   if (error != null) throw error;
 }
 
+/** S-46: только номера заметок — векторы и тексты чанков не выкачиваются. */
+export async function listEmbeddingDocumentIds(userId: string): Promise<string[]> {
+  const rows = await pageAll((from, to) =>
+    getSupabase()
+      .from('ai_embeddings')
+      .select('document_id, user_id')
+      .eq('user_id', userId)
+      .order('document_id', { ascending: true })
+      .range(from, to),
+  );
+  return ownRows(rows, userId).map(r => String(r.document_id));
+}
+
 export async function deleteAllEmbeddings(userId: string): Promise<void> {
   const { error } = await getSupabase()
     .from('ai_embeddings')

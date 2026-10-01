@@ -11,8 +11,14 @@ import 'fake-indexeddb/auto';
  */
 
 const getUserDocuments = vi.fn();
+const listSummaryDocumentIds = vi.fn(async () => [] as string[]);
+const listEmbeddingDocumentIds = vi.fn(async () => [] as string[]);
+const deleteSummary = vi.fn(async () => {});
+const deleteEmbedding = vi.fn(async () => {});
 
-vi.mock('../../../../core/data', () => ({ DataProvider: { getUserDocuments } }));
+vi.mock('../../../../core/data', () => ({
+  DataProvider: { getUserDocuments, listSummaryDocumentIds, listEmbeddingDocumentIds, deleteSummary, deleteEmbedding },
+}));
 vi.mock('../../../../core/crypto/cryptoHelpers', () => ({ getEncryptionEnabled: () => false }));
 vi.mock('../../../../core/crypto/encrypt', () => ({ getSessionKey: () => null }));
 vi.mock('../../../../core/services/LocalStoreSyncService', () => ({
@@ -83,7 +89,41 @@ describe('уборка производных без заметки', () => {
 
     const survey = await AIDerivedDataSyncService.findOrphanedDerivatives('user-1');
 
-    expect(survey).toEqual({ summaries: [], embeddings: [], cloudChecked: false });
+    expect(survey).toEqual({ summaries: [], embeddings: [], cloudSummaries: [], cloudEmbeddings: [], cloudChecked: false });
+  });
+
+  /**
+   * S-46 (R6Q-043): облачная строка под надгробием. Заметка LOCAL_AND_CLOUD
+   * здесь снята с облака (не в списке живых), её разбор и вектор в облаке
+   * лежат хвостом; CLOUD_ONLY жива — её строки трогать нельзя.
+   */
+  it('S-46: облачные разборы и векторы под надгробием находятся и удаляются из облака', async () => {
+    getUserDocuments.mockResolvedValue([{ uuid: CLOUD_ONLY }]);
+    listSummaryDocumentIds.mockResolvedValueOnce([CLOUD_ONLY, LOCAL_AND_CLOUD]).mockResolvedValueOnce([CLOUD_ONLY, LOCAL_AND_CLOUD]);
+    listEmbeddingDocumentIds.mockResolvedValueOnce([LOCAL_AND_CLOUD]).mockResolvedValueOnce([LOCAL_AND_CLOUD]);
+
+    const survey = await AIDerivedDataSyncService.findOrphanedDerivatives('user-1');
+    expect(survey.cloudSummaries).toEqual([LOCAL_AND_CLOUD]);
+    expect(survey.cloudEmbeddings).toEqual([LOCAL_AND_CLOUD]);
+
+    // Отказ облачного DELETE не считается удалённым.
+    deleteEmbedding.mockRejectedValueOnce(new Error('Failed to fetch'));
+    const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
+    expect(deleteSummary).toHaveBeenCalledWith('user-1', LOCAL_AND_CLOUD);
+    expect(deleteEmbedding).toHaveBeenCalledWith('user-1', LOCAL_AND_CLOUD);
+    expect(deleteSummary).not.toHaveBeenCalledWith('user-1', CLOUD_ONLY);
+    // GHOST локально (разбор + вектор) + облачный разбор; облачный вектор отказал.
+    expect(removed).toEqual({ summaries: 2, embeddings: 1 });
+  });
+
+  it('S-46: отказ списка облачных строк — сверки не было, ничего не удаляется', async () => {
+    getUserDocuments.mockResolvedValue([{ uuid: LOCAL_AND_CLOUD }, { uuid: CLOUD_ONLY }]);
+    listEmbeddingDocumentIds.mockRejectedValueOnce(new Error('network'));
+
+    const survey = await AIDerivedDataSyncService.findOrphanedDerivatives('user-1');
+
+    expect(survey.cloudChecked).toBe(false);
+    expect(survey.summaries).toEqual([]);
   });
 
   it('убирает только сирот, живые разборы остаются', async () => {
@@ -116,7 +156,7 @@ describe('уборка производных без заметки', () => {
    */
   it('не удаляет по неподтверждённой описи, даже если та принесла кандидатов', async () => {
     const spy = vi.spyOn(AIDerivedDataSyncService, 'findOrphanedDerivatives')
-      .mockResolvedValue({ summaries: [GHOST], embeddings: [GHOST], cloudChecked: false });
+      .mockResolvedValue({ summaries: [GHOST], embeddings: [GHOST], cloudSummaries: [], cloudEmbeddings: [], cloudChecked: false });
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 

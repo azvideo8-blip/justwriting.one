@@ -32,6 +32,19 @@ export async function deleteSummary(userId: string, documentId: string): Promise
   if (error != null) throw error;
 }
 
+/** S-46: только номера заметок — для сверки с живыми заметками, без тел. */
+export async function listSummaryDocumentIds(userId: string): Promise<string[]> {
+  const rows = await pageAll((from, to) =>
+    getSupabase()
+      .from('ai_summaries')
+      .select('document_id, user_id')
+      .eq('user_id', userId)
+      .order('document_id', { ascending: true })
+      .range(from, to),
+  );
+  return ownRows(rows, userId).map(r => String(r.document_id));
+}
+
 export async function deleteAllSummaries(userId: string): Promise<void> {
   const { error } = await getSupabase()
     .from('ai_summaries')

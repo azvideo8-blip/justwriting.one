@@ -23,6 +23,7 @@ const maybeEncryptSpy = vi.spyOn(cryptoHelpers, 'maybeEncrypt').mockImplementati
 
 const {
   mockGetDocument,
+  mockGetDocumentWithDeleted,
   mockGetUserDocuments,
   mockGetVersions,
   mockGetMigrationDrafts,
@@ -36,6 +37,7 @@ const {
   mockGetLocalStoreRecords,
 } = vi.hoisted(() => ({
   mockGetDocument: vi.fn(),
+  mockGetDocumentWithDeleted: vi.fn(),
   mockGetUserDocuments: vi.fn(),
   mockGetVersions: vi.fn(),
   mockGetMigrationDrafts: vi.fn(),
@@ -52,6 +54,7 @@ const {
 vi.mock('../../data', () => ({
   DataProvider: {
     getDocument: mockGetDocument,
+    getDocumentWithDeleted: mockGetDocumentWithDeleted,
     getUserDocuments: mockGetUserDocuments,
     getVersions: mockGetVersions,
     getMigrationDrafts: mockGetMigrationDrafts,
@@ -400,6 +403,7 @@ describe('encryptAllExistingNotes', () => {
       code: '42501',
       message: 'new row violates row-level security policy for table "ai_summaries"',
     });
+    mockGetDocumentWithDeleted.mockResolvedValue({ uuid: 'tombstoned-doc-summary-uuid', deletedAt: '2026-10-01T00:00:00Z' });
 
     const progress = await encryptAllExistingNotes(userId);
 
@@ -426,12 +430,84 @@ describe('encryptAllExistingNotes', () => {
       code: '42501',
       message: 'new row violates row-level security policy for table "ai_embeddings"',
     });
+    mockGetDocumentWithDeleted.mockResolvedValue({ uuid: 'tombstoned-doc-emb-uuid', deletedAt: '2026-10-01T00:00:00Z' });
 
     const progress = await encryptAllExistingNotes(userId);
 
     expect(progress.errors).toBe(0);
     expect(mockDeleteEmbedding).toHaveBeenCalledWith(userId, 'tombstoned-doc-emb-uuid');
     expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`)).toBeNull();
+  });
+
+  // S-46: неудачный DELETE под надгробием — не «сделано». Ошибка считается,
+  // чекпойнт остаётся без этой строки, следующий проход повторит.
+  const RLS_42501 = { code: '42501', message: 'new row violates row-level security policy' };
+  const onlySummaries = (rows: unknown[]) => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserEmbeddings.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+    mockGetUserSummaries.mockResolvedValue(rows);
+  };
+  const onlyEmbeddings = (rows: unknown[]) => {
+    mockGetUserDocuments.mockResolvedValue([]);
+    mockGetMigrationDrafts.mockResolvedValue([]);
+    mockGetUserSummaries.mockResolvedValue([]);
+    mockGetLocalStoreRecords.mockResolvedValue([]);
+    mockGetUserEmbeddings.mockResolvedValue(rows);
+  };
+
+  it('S-46: summary under a tombstone, DELETE rejects → errors === 1, checkpoint kept without that row', async () => {
+    onlySummaries([{ documentId: 'ts-sum', summary: 'plain', _encrypted: false }]);
+    mockSaveSummary.mockRejectedValueOnce(RLS_42501);
+    mockGetDocumentWithDeleted.mockResolvedValue({ uuid: 'ts-sum', deletedAt: '2026-10-01T00:00:00Z' });
+    mockDeleteSummary.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    const progress = await encryptAllExistingNotes(userId);
+
+    expect(progress.errors).toBe(1);
+    expect(mockDeleteSummary).toHaveBeenCalledWith(userId, 'ts-sum');
+    const ck = JSON.parse(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`) ?? '[]') as string[];
+    expect(ck).not.toContain('summary_ts-sum');
+  });
+
+  it('S-46: embedding under a tombstone, DELETE rejects → errors === 1, checkpoint kept without that row', async () => {
+    onlyEmbeddings([{ documentId: 'ts-emb', vectorsJson: '[[0.1]]', _encrypted: false }]);
+    mockSaveEmbedding.mockRejectedValueOnce(RLS_42501);
+    mockGetDocumentWithDeleted.mockResolvedValue({ uuid: 'ts-emb', deletedAt: '2026-10-01T00:00:00Z' });
+    mockDeleteEmbedding.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    const progress = await encryptAllExistingNotes(userId);
+
+    expect(progress.errors).toBe(1);
+    expect(mockDeleteEmbedding).toHaveBeenCalledWith(userId, 'ts-emb');
+    const ck = JSON.parse(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`) ?? '[]') as string[];
+    expect(ck).not.toContain('emb_ts-emb');
+  });
+
+  it('S-46: 42501 on a live document (no deleted_at) is not a tombstone — summary not deleted, counted as error', async () => {
+    onlySummaries([{ documentId: 'live-sum', summary: 'plain', _encrypted: false }]);
+    mockSaveSummary.mockRejectedValueOnce(RLS_42501);
+    mockGetDocumentWithDeleted.mockResolvedValue({ uuid: 'live-sum', deletedAt: null });
+
+    const progress = await encryptAllExistingNotes(userId);
+
+    expect(mockDeleteSummary).not.toHaveBeenCalled();
+    expect(progress.errors).toBe(1);
+    expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`) ?? '[]').not.toContain('summary_live-sum');
+  });
+
+  it('S-46: 42501 on a live document (no deleted_at) is not a tombstone — embedding not deleted, counted as error', async () => {
+    onlyEmbeddings([{ documentId: 'live-emb', vectorsJson: '[[0.1]]', _encrypted: false }]);
+    mockSaveEmbedding.mockRejectedValueOnce(RLS_42501);
+    // 0 строк (например, нет auth.uid()) — тоже не надгробие.
+    mockGetDocumentWithDeleted.mockResolvedValue(null);
+
+    const progress = await encryptAllExistingNotes(userId);
+
+    expect(mockDeleteEmbedding).not.toHaveBeenCalled();
+    expect(progress.errors).toBe(1);
+    expect(localStorage.getItem(`encryptionMigration_${userId}_checkpoint`) ?? '[]').not.toContain('emb_live-emb');
   });
 });
 
