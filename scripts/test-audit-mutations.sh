@@ -333,7 +333,7 @@ else
   log "- lint:changed: OK"
 fi
 
-log "- RLS suite: see docker command in docs/audit-cleanup-plan.md (requires Docker)"
+log "- RLS suite: see docker command in audit-cleanup-plan.md (private justwriting-docs) (requires Docker)"
 echo "Protocol written to $OUT"
 
 # L-10 (R4-068): протокол с провалами должен быть красным всегда, а не только

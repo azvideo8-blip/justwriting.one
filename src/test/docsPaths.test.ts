@@ -4,10 +4,10 @@ import { resolve } from 'node:path';
 
 // L-13: пути, названные в живой документации, обязаны существовать. Прежний
 // runbook называл src/core/services/featureFlags.ts — файла нет, а раздел
-// рапортовал «kill switches». Тест красится на любом вымершем пути.
+// рапортовал «kill switches». Тест красится на любом вымершем пути. Runbook
+// с 2026-10-01 в приватном justwriting-docs — здесь только публичные документы.
 const DOCS = [
   resolve(__dirname, '../../docs/security-invariants.md'),
-  resolve(__dirname, '../../docs/ops/runbook.md'),
 ];
 
 // Путь в бэктиках; `supabase/scripts/...` не должен давать ложный

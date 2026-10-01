@@ -82,7 +82,7 @@ This ensures OpenCode behaves similarly to Claude Code with full workflow enforc
   (`scripts/rerank-bench/*.json`, `scripts/ai-bench/*-real.*`, `corpus-real.json`).
   Версионируются только скрипты стенда.
 - В отчётах запросы идут под номерами (З1, З2…); таблица соответствия остаётся
-  в личной выгрузке. См. `docs/rerank-contribution-measurement.md`.
+  в личной выгрузке. См. `rerank-contribution-measurement.md` в приватном `justwriting-docs`.
 - Фикстуры в тестах и примеры в системных промптах — выдуманные имена.
   Не бери их из своего архива: имя из примера потом расходится по коду.
 - Нужен реалистичный вход для бенчмарка — напиши синтетический текст похожей
@@ -193,3 +193,14 @@ cp -r skills/{skill-name} ~/.claude/skills/
 Add the skill to project knowledge or paste SKILL.md contents into the conversation.
 
 If the skill requires network access, instruct users to add required domains at `claude.ai/settings/capabilities`.
+
+## Внутренние документы — в `justwriting-docs`
+
+Тикеты, отчёты аудитов, промпты аудиторов, ops-документы (runbook, rollback) и
+рабочие планы живут в приватном репозитории
+`https://github.com/azvideo8-blip/justwriting-docs` (клон — `../justwriting-docs`),
+с 2026-10-01. Основной репозиторий станет публичным, а эти файлы — карта
+устройства прода и известных дыр. Новые тикеты и отчёты кладутся туда, не в
+`docs/`. В `docs/` остаются только публичные: `adr/`, `FEATURES.md`,
+`security-invariants.md`, `sync-resilience.md`, `reasoning-mode.md`, `api/` и
+генерируемые скриптами `sync-mutation-sweep.md`, `TEST1-protocol.md`.

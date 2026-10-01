@@ -226,7 +226,7 @@ and the in-app `src/features/navigation/data/changelog.ts`.
 
 ## Known gaps
 
-Open findings live in `docs/ag-audit-2026-09-03-tickets.md` and `docs/beta-postulate-closeout-tickets.md`.
+Open findings, audit reports and ops runbooks live in the private `justwriting-docs` repository.
 The isolation weaknesses that previously blocked the closed beta (`AG-ISO-1` and `AG-ISO-2`) were
 resolved in commit `2710c0d0` by scoping local IndexedDB databases strictly per authenticated account.
 

@@ -4,7 +4,7 @@
 Зачем: подключение fonts.googleapis.com / fonts.gstatic.com отправляет IP
 каждого посетителя в Google (США) при каждой загрузке страницы — до входа и до
 любого согласия. Для 152-ФЗ это трансграничная передача, которой у нас быть не
-должно (D4.19 в docs/migration-plan.md).
+должно (D4.19 в migration-plan.md, приватный justwriting-docs).
 
 Запуск: python3 scripts/fetch-fonts.py
 Затем: проверить, что public/fonts/fonts.css перезаписан, и закоммитить.
