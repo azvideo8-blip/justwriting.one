@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import {
   apiNoTokenErrors,
   checkChatStreamRefund,
+  checkHiddenAndBackupFiles,
   checkHostAndSwHeaders,
   countRawHeader,
   errorCodeFromBody,
@@ -211,3 +212,43 @@ describe('post-deploy smoke: не измерено ≠ провал', () => {
     expect(errors[0]).toContain('с чужим Host');
   });
 });
+
+// S-16 (R6Q-011): живая проверка запрета скрытых файлов и резервных копий
+describe('post-deploy smoke: запрет .prev и .env (R6Q-011)', () => {
+  it('исправный сервер возвращает 404 на /index.html.prev и 404/403 на /.env → 0 ошибок', async () => {
+    let base = '';
+    ({ server, base } = await serve((req, res) => {
+      res.writeHead(404).end('Not Found');
+    }));
+    expect(await checkHiddenAndBackupFiles(base, 5_000)).toEqual([]);
+  });
+
+  it('сервер, отдающий 200 на /index.html.prev → 1 ошибка', async () => {
+    let base = '';
+    ({ server, base } = await serve((req, res) => {
+      if (req.url === '/index.html.prev') {
+        res.writeHead(200).end('old html');
+      } else {
+        res.writeHead(404).end('Not Found');
+      }
+    }));
+    const errors = await checkHiddenAndBackupFiles(base, 5_000);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('/index.html.prev вернул HTTP 200 вместо 404');
+  });
+
+  it('сервер, отдающий 200 на /.env → 1 ошибка', async () => {
+    let base = '';
+    ({ server, base } = await serve((req, res) => {
+      if (req.url === '/.env') {
+        res.writeHead(200).end('SECRET=foo');
+      } else {
+        res.writeHead(404).end('Not Found');
+      }
+    }));
+    const errors = await checkHiddenAndBackupFiles(base, 5_000);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('/.env вернул HTTP 200');
+  });
+});
+

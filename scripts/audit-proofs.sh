@@ -92,12 +92,18 @@ grep -rnE "Firebase|Firestore" src/ --exclude='*test*' --exclude-dir='*test*' | 
 
 echo ""
 echo "### 3.7 manifest/icon references exist on disk"
+[ -f public/manifest.json ] || fail "missing public/manifest.json"
+ICON_COUNT=0
 for f in $(grep -oE '"/[^"]+\.(svg|png)"' public/manifest.json | tr -d '"'); do
-  [ -f "public$f" ] && echo "  OK $f" || fail "missing public$f"
+  [ -f "public$f" ] && echo "  OK $f" && ICON_COUNT=$((ICON_COUNT + 1)) || fail "missing public$f"
 done
+[ "$ICON_COUNT" -ge 1 ] || fail "no icons found in public/manifest.json"
+
+OG_COUNT=0
 for f in $(grep -oE '/og-image\.[a-z]+' index.html | sort -u); do
-  [ -f "public$f" ] && echo "  OK $f (index.html)" || fail "missing public$f (index.html)"
+  [ -f "public$f" ] && echo "  OK $f (index.html)" && OG_COUNT=$((OG_COUNT + 1)) || fail "missing public$f (index.html)"
 done
+[ "$OG_COUNT" -ge 1 ] || fail "no og-image found in index.html"
 
 echo ""
 echo "### 3.8 deploy.yml rollback restores node_modules (L-9 / R4-064)"

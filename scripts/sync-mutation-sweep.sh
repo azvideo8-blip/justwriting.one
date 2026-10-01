@@ -144,6 +144,10 @@ echo "" >> "$OUT"
 echo "Итого: $total поломок, выжило $survived, не применилось $unapplied." >> "$OUT"
 echo "Итого: $total поломок, выжило $survived, не применилось $unapplied."
 
+# S-16 (R6Q-014): гейт не должен быть зелёным, если список мутаций пуст.
+[ "$total" -gt 0 ] || exit 1
+
 if [ $survived -ne 0 ] || [ $unapplied -ne 0 ]; then
   exit 1
 fi
+

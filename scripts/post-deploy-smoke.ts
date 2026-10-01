@@ -182,6 +182,33 @@ export async function checkHostAndSwHeaders(baseUrl: string, timeoutMs = 20_000)
   return errors;
 }
 
+// S-16 (R6Q-011): живая проверка запрета скрытых файлов и резервных копий
+export async function checkHiddenAndBackupFiles(baseUrl: string, timeoutMs = 20_000): Promise<string[]> {
+  const errors: string[] = [];
+
+  const prevUrl = new URL('/index.html.prev', baseUrl).toString();
+  try {
+    const r = await rawGet(prevUrl, {}, timeoutMs);
+    if (r.status !== 404) {
+      errors.push(`GET /index.html.prev вернул HTTP ${r.status} вместо 404`);
+    }
+  } catch (err) {
+    errors.push(`Не удалось запросить ${prevUrl}: ${String(err)}`);
+  }
+
+  const envUrl = new URL('/.env', baseUrl).toString();
+  try {
+    const r = await rawGet(envUrl, {}, timeoutMs);
+    if (r.status === 200) {
+      errors.push(`GET /.env вернул HTTP 200 (утечка конфигурации)`);
+    }
+  } catch (err) {
+    errors.push(`Не удалось запросить ${envUrl}: ${String(err)}`);
+  }
+
+  return errors;
+}
+
 export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCheckResult> {
   const { baseUrl, expectedVersion = APP_VERSION, timeoutMs = 20_000 } = options;
   const errors: string[] = [];
@@ -352,6 +379,9 @@ export async function runSmokeCheck(options: SmokeCheckOptions): Promise<SmokeCh
   // 5. M-9: заголовки на проводе, мимо браузера — он склеивает дубли и сам
   // идёт по редиректам.
   errors.push(...await checkHostAndSwHeaders(baseUrl, timeoutMs));
+
+  // 6. S-16: живая проверка запрета скрытых файлов и резервных копий
+  errors.push(...await checkHiddenAndBackupFiles(baseUrl, timeoutMs));
 
   return {
     success: errors.length === 0,

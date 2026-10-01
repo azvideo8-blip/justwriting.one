@@ -6,6 +6,9 @@
 // ponytail: только ::warning::, выкатку не валит — ручной `gh workflow run
 // gates.yml` снимает предупреждение. Нужна жёсткость — exit 1 вместо warning.
 
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 /** Имя джоба в gates.yml → сколько суток без успешного прогона терпим.
  *  Сутки + запас на опоздание расписания; неделя + сутки. */
 export const MAX_AGE_DAYS = {
@@ -53,7 +56,8 @@ async function main() {
   if (warnings.length === 0) console.log('gates.yml: все ворота прошли в срок');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// S-16 (R6Q-015): realpathSync comparison so invocation via symlink executes main().
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   // Неудачное чтение — «не измерено», а не «всё хорошо» и не упавшая выкатка.
   main().catch((err) => console.log(`::warning::свежесть gates.yml не измерена: ${err.message}`));
 }
