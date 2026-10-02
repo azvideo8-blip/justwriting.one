@@ -48,6 +48,30 @@ export async function getDocumentWithDeleted(userId: string, documentId: string)
   return fromDb(DOCUMENT_REV, data);
 }
 
+/**
+ * S-47: какие из этих заметок в облаке сняты надгробием (`deleted_at` стоит).
+ * Уборка облачных производных удаляет строку только по подтверждённому
+ * надгробию: «нет в списке живых» — это и пустой ответ сервера, и обрезанная
+ * страница, и заметка, созданная между двумя чтениями.
+ */
+export async function listTombstonedDocumentUuids(userId: string, uuids: string[]): Promise<string[]> {
+  const out: string[] = [];
+  // ponytail: пачками по 200 — фильтр `in` живёт в строке запроса, у неё есть предел длины.
+  for (let i = 0; i < uuids.length; i += 200) {
+    const { data, error } = await getSupabase()
+      .from('documents')
+      .select('uuid, user_id')
+      .eq('user_id', userId)
+      .in('uuid', uuids.slice(i, i + 200))
+      .not('deleted_at', 'is', null);
+    if (error != null) throw error;
+    for (const row of ownRows((data ?? []) as Array<{ uuid: string | null; user_id: string }>, userId)) {
+      if (row.uuid) out.push(row.uuid);
+    }
+  }
+  return out;
+}
+
 export async function getUserDocuments(userId: string): Promise<ProviderRecord[]> {
   const allRows = await pageAll((from, to) =>
     getSupabase()

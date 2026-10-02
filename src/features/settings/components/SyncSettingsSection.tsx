@@ -33,7 +33,7 @@ interface SyncSettingsSectionProps {
     onRestoreAIData?: ((userId: string) => Promise<{ summaries: number; embeddings?: number; localStoreRecords: number; failed: number }>) | undefined;
   }) => ReactNode;
   onFindOrphans?: (userId: string) => Promise<{ summaries: string[]; embeddings: string[]; cloudSummaries: string[]; cloudEmbeddings: string[]; cloudChecked: boolean }>;
-  onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number }>;
+  onDeleteOrphans?: (userId: string) => Promise<{ summaries: number; embeddings: number; failed: number }>;
   onLoadDerivedDrift?: (userId: string) => Promise<DerivedDriftView>;
 }
 
@@ -179,6 +179,8 @@ export function SyncSettingsSection({ userId, onSyncDerivedData, renderRestoreMo
         }),
         'success',
       );
+      // S-47: отказ облачного удаления — не «убрано».
+      if (removed.failed > 0) showToast(t('settings_sync_orphans_failed', { failed: String(removed.failed) }), 'error');
     } catch (err) {
       reportError(err, { action: 'cleanOrphanedDerivatives' });
       showToast(t('error_generic_action'), 'error');

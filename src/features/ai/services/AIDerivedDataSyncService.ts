@@ -56,6 +56,49 @@ export interface DerivedDrift {
   stores: DriftFamily;
 }
 
+/**
+ * S-47: id облачных производных, чья заметка в облаке подтверждённо под
+ * надгробием. Заметки, известные устройству или живые в облаке (`known`), не
+ * проверяются и не возвращаются.
+ */
+async function confirmedTombstoned(userId: string, ids: string[], known: Set<string>): Promise<string[]> {
+  const candidates = ids.filter(id => !known.has(id));
+  if (candidates.length === 0) return [];
+  const dead = new Set(await DataProvider.listTombstonedDocumentUuids(userId, candidates));
+  return candidates.filter(id => dead.has(id));
+}
+
+/** Облачные строки под надгробиями — из облака; отказ не считается удалённым. */
+async function deleteCloudTombstoned(
+  userId: string,
+  survey: Pick<OrphanSurvey, 'cloudSummaries' | 'cloudEmbeddings'>,
+): Promise<{ summaries: number; embeddings: number; failed: number }> {
+  let summaries = 0;
+  let embeddings = 0;
+  let failed = 0;
+  for (const id of survey.cloudSummaries) {
+    try { await DataProvider.deleteSummary(userId, id); summaries++; } catch (e) { failed++; reportError(e, { action: 'deleteOrphanedDerivatives_cloudSummary' }, 'warning'); }
+  }
+  for (const id of survey.cloudEmbeddings) {
+    try { await DataProvider.deleteEmbedding(userId, id); embeddings++; } catch (e) { failed++; reportError(e, { action: 'deleteOrphanedDerivatives_cloudEmbedding' }, 'warning'); }
+  }
+  return { summaries, embeddings, failed };
+}
+
+/** R6Q-043: та же уборка из прохода выгрузки одного семейства. */
+async function sweepCloudTombstoned(userId: string, family: 'summaries' | 'embeddings'): Promise<void> {
+  try {
+    const survey = await AIDerivedDataSyncService.findOrphanedDerivatives(userId);
+    if (!survey.cloudChecked) return;
+    await deleteCloudTombstoned(userId, {
+      cloudSummaries: family === 'summaries' ? survey.cloudSummaries : [],
+      cloudEmbeddings: family === 'embeddings' ? survey.cloudEmbeddings : [],
+    });
+  } catch (e) {
+    reportError(e, { action: 'sweepCloudTombstoned', family }, 'warning');
+  }
+}
+
 export const AIDerivedDataSyncService = {
   /**
    * Syncs all local summaries to cloud storage.
@@ -101,6 +144,10 @@ export const AIDerivedDataSyncService = {
       }
     }
 
+    // R6Q-043 / S-47: хвосты в облаке под надгробиями убираются и отсюда, а не
+    // только кнопкой в настройках — у давно перенесённых аккаунтов они иначе
+    // лежат вечно. Отказ сверки — пропуск, не сбой выгрузки.
+    await sweepCloudTombstoned(userId, 'summaries');
     return { synced, failed, orphaned, skippedLocked: false };
   },
 
@@ -151,6 +198,7 @@ export const AIDerivedDataSyncService = {
       }
     }
 
+    await sweepCloudTombstoned(userId, 'embeddings');
     return { synced, failed, orphaned, skippedLocked: false };
   },
 
@@ -247,32 +295,41 @@ export const AIDerivedDataSyncService = {
     const empty: OrphanSurvey = { summaries: [], embeddings: [], cloudSummaries: [], cloudEmbeddings: [], cloudChecked: false };
     if (!userId || userId.startsWith('guest_')) return empty;
 
-    let cloudUuids: Set<string>;
+    let known: Set<string>;
     let cloudSummaries: string[];
     let cloudEmbeddings: string[];
+    const db = await getLocalDb(userId);
+    const documents = await db.getAll('documents');
     try {
       const cloudDocs = await DataProvider.getUserDocuments(userId);
-      cloudUuids = new Set(
+      known = new Set(
         cloudDocs.map((d: ProviderRecord) => String((d as { uuid?: unknown; id?: unknown }).uuid ?? (d as { id?: unknown }).id ?? ''))
           .filter(Boolean),
       );
-      // S-46 (R6Q-043): облачная строка всегда вставлялась под живую заметку
-      // (политика 0002/0035). Нет живой заметки с таким uuid — она под
-      // надгробием, а 0035 оставляет DELETE открытым ровно для этого.
-      const dead = (id: string) => !cloudUuids.has(id);
-      cloudSummaries = (await DataProvider.listSummaryDocumentIds(userId)).filter(dead);
-      cloudEmbeddings = (await DataProvider.listEmbeddingDocumentIds(userId)).filter(dead);
+      for (const doc of documents) {
+        known.add(doc.id);
+        if (doc.uuid) known.add(doc.uuid);
+      }
+      const summaryIds = await DataProvider.listSummaryDocumentIds(userId);
+      const embeddingIds = await DataProvider.listEmbeddingDocumentIds(userId);
+      // S-47: пустой список заметок при живых производных — не «заметок нет»:
+      // так выглядит и ответ 200 с пустым телом, и обрезанная страница. По
+      // такому списку сиротой выглядит каждая производная; удалять нельзя.
+      if (cloudDocs.length === 0 && (summaryIds.length > 0 || embeddingIds.length > 0)) {
+        reportError(new Error('EMPTY_NOTES_LISTING: cloud derivatives exist but the notes listing is empty'),
+          { action: 'findOrphanedDerivatives_emptyListing', summaries: summaryIds.length, embeddings: embeddingIds.length }, 'warning');
+        return empty;
+      }
+      // S-46 (R6Q-043) / S-47: облачная строка удаляется только под
+      // ПОДТВЕРЖДЁННЫМ надгробием (`deleted_at` у заметки стоит), и никогда —
+      // у заметки, известной этому устройству. «Нет в списке живых» само по
+      // себе доказательством не было: обрезанный или пустой список сносил
+      // разборы живых заметок.
+      cloudSummaries = await confirmedTombstoned(userId, summaryIds, known);
+      cloudEmbeddings = await confirmedTombstoned(userId, embeddingIds, known);
     } catch (e) {
       reportError(e, { action: 'findOrphanedDerivatives_cloudList' }, 'warning');
       return empty;
-    }
-
-    const db = await getLocalDb(userId);
-    const documents = await db.getAll('documents');
-    const known = new Set<string>(cloudUuids);
-    for (const doc of documents) {
-      known.add(doc.id);
-      if (doc.uuid) known.add(doc.uuid);
     }
 
     const isOrphan = (r: { documentId: string; documentUuid?: string | undefined }): boolean =>
@@ -292,9 +349,9 @@ export const AIDerivedDataSyncService = {
    * нажатием могла приехать синхронизация, и удалять по устаревшему списку
    * значит удалять то, что уже перестало быть сиротой.
    */
-  async deleteOrphanedDerivatives(userId: string): Promise<{ summaries: number; embeddings: number }> {
+  async deleteOrphanedDerivatives(userId: string): Promise<{ summaries: number; embeddings: number; failed: number }> {
     const survey = await AIDerivedDataSyncService.findOrphanedDerivatives(userId);
-    if (!survey.cloudChecked) return { summaries: 0, embeddings: 0 };
+    if (!survey.cloudChecked) return { summaries: 0, embeddings: 0, failed: 0 };
 
     const db = await getLocalDb(userId);
     let summaries = 0;
@@ -306,13 +363,8 @@ export const AIDerivedDataSyncService = {
       try { await db.delete('aiEmbeddings', id); embeddings++; } catch { /* намеренно: как выше */ }
     }
     // S-46: облачные хвосты под надгробиями; отказ не считается удалённым.
-    for (const id of survey.cloudSummaries) {
-      try { await DataProvider.deleteSummary(userId, id); summaries++; } catch (e) { reportError(e, { action: 'deleteOrphanedDerivatives_cloudSummary' }, 'warning'); }
-    }
-    for (const id of survey.cloudEmbeddings) {
-      try { await DataProvider.deleteEmbedding(userId, id); embeddings++; } catch (e) { reportError(e, { action: 'deleteOrphanedDerivatives_cloudEmbedding' }, 'warning'); }
-    }
-    return { summaries, embeddings };
+    const cloud = await deleteCloudTombstoned(userId, survey);
+    return { summaries: summaries + cloud.summaries, embeddings: embeddings + cloud.embeddings, failed: cloud.failed };
   },
 
   /**

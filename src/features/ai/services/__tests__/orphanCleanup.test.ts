@@ -15,9 +15,11 @@ const listSummaryDocumentIds = vi.fn(async () => [] as string[]);
 const listEmbeddingDocumentIds = vi.fn(async () => [] as string[]);
 const deleteSummary = vi.fn(async () => {});
 const deleteEmbedding = vi.fn(async () => {});
+// S-47: надгробие подтверждается отдельным чтением; здесь — всё, о чём спросили.
+const listTombstonedDocumentUuids = vi.fn(async (_u: string, ids: string[]) => ids);
 
 vi.mock('../../../../core/data', () => ({
-  DataProvider: { getUserDocuments, listSummaryDocumentIds, listEmbeddingDocumentIds, deleteSummary, deleteEmbedding },
+  DataProvider: { getUserDocuments, listSummaryDocumentIds, listEmbeddingDocumentIds, listTombstonedDocumentUuids, deleteSummary, deleteEmbedding },
 }));
 vi.mock('../../../../core/crypto/cryptoHelpers', () => ({ getEncryptionEnabled: () => false }));
 vi.mock('../../../../core/crypto/encrypt', () => ({ getSessionKey: () => null }));
@@ -35,6 +37,8 @@ const { getLocalDb } = await import('../../../../core/storage/localDb');
 const CLOUD_ONLY = 'cccccccc-1111-4222-8333-444444444444';
 const LOCAL_AND_CLOUD = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const GHOST = 'ffffffff-9999-4888-8777-666666666666';
+/** S-46/S-47: заметки нет на устройстве, в облаке она под надгробием. */
+const TOMBSTONED = 'dddddddd-2222-4333-8444-555555555555';
 
 async function seed() {
   const db = await getLocalDb('user-1');
@@ -93,27 +97,31 @@ describe('уборка производных без заметки', () => {
   });
 
   /**
-   * S-46 (R6Q-043): облачная строка под надгробием. Заметка LOCAL_AND_CLOUD
-   * здесь снята с облака (не в списке живых), её разбор и вектор в облаке
-   * лежат хвостом; CLOUD_ONLY жива — её строки трогать нельзя.
+   * S-46 (R6Q-043): облачная строка под надгробием. TOMBSTONED снята в облаке
+   * (`deleted_at` стоит, в списке живых её нет) и на устройстве её нет — её
+   * разбор и вектор в облаке лежат хвостом. CLOUD_ONLY жива — её строки
+   * трогать нельзя. S-47: заметка, известная устройству (LOCAL_AND_CLOUD),
+   * из облачной уборки исключена, даже если список живых её не содержит.
    */
   it('S-46: облачные разборы и векторы под надгробием находятся и удаляются из облака', async () => {
     getUserDocuments.mockResolvedValue([{ uuid: CLOUD_ONLY }]);
-    listSummaryDocumentIds.mockResolvedValueOnce([CLOUD_ONLY, LOCAL_AND_CLOUD]).mockResolvedValueOnce([CLOUD_ONLY, LOCAL_AND_CLOUD]);
-    listEmbeddingDocumentIds.mockResolvedValueOnce([LOCAL_AND_CLOUD]).mockResolvedValueOnce([LOCAL_AND_CLOUD]);
+    const summaryIds = [CLOUD_ONLY, LOCAL_AND_CLOUD, TOMBSTONED];
+    listSummaryDocumentIds.mockResolvedValueOnce(summaryIds).mockResolvedValueOnce(summaryIds);
+    listEmbeddingDocumentIds.mockResolvedValueOnce([LOCAL_AND_CLOUD, TOMBSTONED]).mockResolvedValueOnce([LOCAL_AND_CLOUD, TOMBSTONED]);
 
     const survey = await AIDerivedDataSyncService.findOrphanedDerivatives('user-1');
-    expect(survey.cloudSummaries).toEqual([LOCAL_AND_CLOUD]);
-    expect(survey.cloudEmbeddings).toEqual([LOCAL_AND_CLOUD]);
+    expect(survey.cloudSummaries).toEqual([TOMBSTONED]);
+    expect(survey.cloudEmbeddings).toEqual([TOMBSTONED]);
 
     // Отказ облачного DELETE не считается удалённым.
     deleteEmbedding.mockRejectedValueOnce(new Error('Failed to fetch'));
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
-    expect(deleteSummary).toHaveBeenCalledWith('user-1', LOCAL_AND_CLOUD);
-    expect(deleteEmbedding).toHaveBeenCalledWith('user-1', LOCAL_AND_CLOUD);
+    expect(deleteSummary).toHaveBeenCalledWith('user-1', TOMBSTONED);
+    expect(deleteEmbedding).toHaveBeenCalledWith('user-1', TOMBSTONED);
     expect(deleteSummary).not.toHaveBeenCalledWith('user-1', CLOUD_ONLY);
+    expect(deleteSummary).not.toHaveBeenCalledWith('user-1', LOCAL_AND_CLOUD);
     // GHOST локально (разбор + вектор) + облачный разбор; облачный вектор отказал.
-    expect(removed).toEqual({ summaries: 2, embeddings: 1 });
+    expect(removed).toEqual({ summaries: 2, embeddings: 1, failed: 1 });
   });
 
   it('S-46: отказ списка облачных строк — сверки не было, ничего не удаляется', async () => {
@@ -131,7 +139,7 @@ describe('уборка производных без заметки', () => {
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
-    expect(removed).toEqual({ summaries: 1, embeddings: 1 });
+    expect(removed).toEqual({ summaries: 1, embeddings: 1, failed: 0 });
 
     const db = await getLocalDb('user-1');
     const left = (await db.getAll('aiSummaries')).map(r => r.documentId).sort();
@@ -143,7 +151,7 @@ describe('уборка производных без заметки', () => {
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
-    expect(removed).toEqual({ summaries: 0, embeddings: 0 });
+    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0 });
     const db = await getLocalDb('user-1');
     expect(await db.count('aiSummaries')).toBe(3);
   });
@@ -160,7 +168,7 @@ describe('уборка производных без заметки', () => {
 
     const removed = await AIDerivedDataSyncService.deleteOrphanedDerivatives('user-1');
 
-    expect(removed).toEqual({ summaries: 0, embeddings: 0 });
+    expect(removed).toEqual({ summaries: 0, embeddings: 0, failed: 0 });
     const db = await getLocalDb('user-1');
     expect(await db.count('aiSummaries')).toBe(3);
     spy.mockRestore();

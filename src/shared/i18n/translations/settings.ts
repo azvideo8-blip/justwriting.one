@@ -54,6 +54,7 @@ export const settingsTranslations: Translations = {
   settings_sync_orphans_confirm_title: { ru: 'Убрать разборы без заметок?', en: 'Remove analyses with no note?' },
   settings_sync_orphans_confirm: { ru: 'Найдено записей: {count}. Это разборы и векторы удалённых заметок — самих заметок нет ни здесь, ни в облаке. Они будут удалены с устройства безвозвратно. Заметки и их текст не затрагиваются.', en: 'Found {count} records. These are analyses and vectors of deleted notes — the notes exist neither here nor in the cloud. They will be permanently removed from the device. Notes and their text are not affected.' },
   settings_sync_orphans_done: { ru: 'Убрано: {summaries} разборов, {embeddings} векторов', en: 'Removed: {summaries} analyses, {embeddings} vectors' },
+  settings_sync_orphans_failed: { ru: 'Не удалось убрать из облака: {failed}', en: 'Could not remove from the cloud: {failed}' },
   settings_sync_derived_failed: { ru: 'Не удалось отправить: {failed}', en: 'Failed to upload: {failed}' },
   settings_sync_derived_locked: { ru: 'Сейф заблокирован. Разблокируйте шифрование для синхронизации', en: 'Vault is locked. Unlock encryption to sync' },
 

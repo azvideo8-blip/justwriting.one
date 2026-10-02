@@ -6,6 +6,8 @@ export interface IDataProvider {
   getDocument(userId: string, documentId: string): Promise<ProviderRecord | null>;
   getDocumentWithDeleted(userId: string, documentId: string): Promise<ProviderRecord | null>;
   getUserDocuments(userId: string): Promise<ProviderRecord[]>;
+  /** S-47: подмножество `uuids`, снятых в облаке надгробием (`deleted_at is not null`). */
+  listTombstonedDocumentUuids(userId: string, uuids: string[]): Promise<string[]>;
   updateDocument(userId: string, documentId: string, data: ProviderRecord): Promise<void>;
   updateDocumentSessionStats(
     userId: string, 
