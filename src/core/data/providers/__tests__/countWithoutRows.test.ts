@@ -79,6 +79,7 @@ describe('drift-1: cloud counters count without pulling rows', () => {
 
     expect(calls[0]!.filters).toContainEqual(['in', 'store', ['aiDialogues', 'aiBeliefs']]);
     // Страницы `key#1…` длинной записи в счёт не идут: только нулевая или запись без страниц.
-    expect(calls[0]!.filters).toContainEqual(['or', 'payload->>page.is.null,payload->>page.eq.0']);
+    // S-49: у постраничного диалога страницы `key#stamp#N` — считается его манифест (без номера страницы).
+    expect(calls[0]!.filters).toContainEqual(['or', 'payload->>page.is.null,and(payload->>page.eq.0,key.not.like.%#%#%)']);
   });
 });
