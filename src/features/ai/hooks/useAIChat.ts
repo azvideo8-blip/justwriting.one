@@ -28,6 +28,7 @@ import {
   prepareApiMessages,
   toApiContent,
   splitAttachedMessage,
+  legacyNoteHidden,
   API_MSG_CAP,
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
@@ -441,7 +442,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         ? currentDialogue.messages.slice(0, options.replaceFromIndex)
         : currentDialogue.messages;
       const sourceForApi: AIMessage[] = text.trim() ? [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...baseMessages];
-      const apiMessages = prepareApiMessages(sourceForApi);
+      // S-63: старые ходы без шапки — тело скрытой заметки-темы не идёт ни в историю, ни в память.
+      const legacyParse = { legacyNoteHidden: await legacyNoteHidden(currentDialogue, await getLocalDb()) };
+      const apiMessages = prepareApiMessages(sourceForApi, legacyParse);
 
       const isFirstTurn = baseMessages.filter(m => m.type !== 'system').length === 0;
 
@@ -664,7 +667,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (context.getMessageCount() % 3 === 0 && getChatExtrasEnabled(getCurrentUser()?.uid)) {
         // Strip attachment bodies — memory extraction goes to an AI endpoint with
         // the same per-message cap, and raw note text shouldn't be stored anyway.
-        const memMessages = allMessages.map(m => ({ ...m, content: toApiContent(m.content) }));
+        const memMessages = allMessages.map(m => ({ ...m, content: toApiContent(m.content, API_MSG_CAP, legacyParse) }));
         void AIChatMemoryService.extractFromDialogue(currentDialogue.id, memMessages);
       }
       const updated = await AIDialogueService.get(currentDialogue.id);
@@ -837,7 +840,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     setDialogue({ ...d, messages: d.messages.slice(0, userIdx) });
     // Показанный текст хода — заметка + «Вопрос: …». Режим хода и поиск строятся
     // по вопросу, иначе слово «раньше» в заметке делало ход широким (R3-006).
-    const attachedTurn = splitAttachedMessage(userText);
+    const attachedTurn = splitAttachedMessage(userText, { legacyNoteHidden: await legacyNoteHidden(d, await getLocalDb()) });
     const newId = await sendMessage(userText, undefined, undefined, undefined, {
       replaceFromIndex: userIdx,
       ...(attachedTurn ? { question: attachedTurn.question || 'Разбери эту заметку' } : {}),

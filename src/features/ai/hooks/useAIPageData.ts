@@ -317,9 +317,11 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       if (attaches.length === 1) {
         const a = attaches[0]!;
         const marker = markers[0]!;
+        // S-63: и в «не влезает» вопрос идёт за разделителем — иначе ход «маркер +
+        // вопрос» неотличим от старого «маркер + тело» (aiChatTransport, порог 1500).
         const display = fits
           ? `${formatRefTag(a)}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
-          : (text ? `${marker}\n\n${text}` : marker);
+          : `${marker}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`;
         id = await sendMessage(display, { content: formatRefTag(a), ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       } else {
         const display = fits

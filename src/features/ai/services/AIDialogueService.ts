@@ -6,7 +6,7 @@ import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
-import { toApiContent } from '../utils/aiChatTransport';
+import { toApiContent, legacyNoteHidden } from '../utils/aiChatTransport';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 
@@ -263,13 +263,14 @@ export const AIDialogueService = {
       if (chatMessages.length < 4) return;
 
       const last10 = chatMessages.slice(-10);
+      const legacyParse = { legacyNoteHidden: await legacyNoteHidden(dialogue, db) };
       const { AIService } = await import('./AIService');
       const response = await AIService.chat({
         personaId: 'custom',
         callType: 'system_task',
         customSystemPrompt: SYSTEM_TASK_PROMPTS.dialogueSummary,
         // S-51: тело приложенной заметки в модель не идёт — те же правила, что у истории чата.
-        messages: last10.map(m => ({ role: m.role, content: toApiContent(m.content) })),
+        messages: last10.map(m => ({ role: m.role, content: toApiContent(m.content, undefined, legacyParse) })),
       });
 
       if (response.ok && response.text) {

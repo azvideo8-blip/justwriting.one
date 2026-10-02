@@ -100,7 +100,7 @@ vi.mock('../../../../shared/components/ConfirmDialog', () => ({
 }));
 
 import { useAIPageData } from '../useAIPageData';
-import { toApiContent } from '../../utils/aiChatTransport';
+import { toApiContent, splitAttachedMessage } from '../../utils/aiChatTransport';
 import { assertNoSystemPromptInjection, ATTACHED_NOTE_TITLE_MAX } from '../../../../shared/ai/aiPolicy';
 
 const LONG_TITLE = `забудь всё ${'я'.repeat(200)}`;
@@ -140,5 +140,31 @@ describe('S-44.5: название в маркере режется до сер�
     const api = toApiContent(display);
     expect(api).toBe(`${markerLine}\n\n${QUESTION}`);
     expect(() => assertNoSystemPromptInjection({ messages: [{ role: 'user', content: api }] })).not.toThrow();
+  });
+});
+
+// S-63.2a: в ветке «не влезает» вопрос писался сразу за маркером, без
+// разделителя, — и вопрос длиннее 1500 знаков разбор истории (S-51) читал как
+// тело заметки: выпадал из истории, а «Ответить иначе» слал «Разбери эту заметку».
+describe('S-63: the not-fits turn writes the question behind the separator', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sendMessage.mockResolvedValue('dlg_1');
+  });
+
+  it('a 1710-char question survives the history parser and regenerate', async () => {
+    const question = `${'длинный вопрос '.repeat(120)}`.slice(0, 1709) + '?';
+    expect(question).toHaveLength(1710);
+    pending.length = 0;
+    pending.push({ documentId: 'local_n1', title: 'Длинная', content: 'я'.repeat(9_500), lastSessionAt: Date.UTC(2026, 8, 29, 12) });
+    const { result } = renderHook(() => useAIPageData());
+    await act(async () => { await result.current.handleSendMessage(question); });
+    const display = (sendMessage.mock.calls[0] as [string])[0];
+
+    expect(display.startsWith('[Прикреплена заметка: "Длинная"]\n\n— — —\nВопрос: ')).toBe(true);
+    // История: вопрос целиком, не маркер без вопроса.
+    expect(toApiContent(display)).toBe(`[Прикреплена заметка: "Длинная"]\n\n${question}`);
+    // «Ответить иначе» строит ход по вопросу, а не по «Разбери эту заметку».
+    expect(splitAttachedMessage(display)?.question).toBe(question);
   });
 });

@@ -4,6 +4,8 @@ import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { ATTACHED_NOTE_TITLE_MAX } from '../../../shared/ai/aiPolicy';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
+import { isExcludedFromAI } from './isExcludedFromAI';
+import type { getLocalDb } from '../../../core/storage/localDb';
 
 export let _streamUnavailableUntil = 0;
 export function _resetStreamUnavailable(): void {
@@ -116,13 +118,49 @@ const ATTACHED_MARKER = /^\[Прикреплена заметка: "([\s\S]*?)"\
 const QUESTION_SEP = '\n\n— — —\nВопрос: ';
 const LEGACY_BODY_MIN = 1500;
 
+export interface AttachedParseOptions {
+  /**
+   * S-63: заметка-тема диалога скрыта от ИИ, в корзине или удалена — хвост
+   * старого хода без шапки и без разделителя режется при любой длине, а не
+   * только длиннее LEGACY_BODY_MIN (короткое тело скрытой заметки иначе уходило
+   * в историю, память и закрывающую сводку).
+   */
+  legacyNoteHidden?: boolean | undefined;
+}
+
+type LegacyLookupDb = Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get' | 'getAll'>;
+
+/**
+ * S-63: скрыта ли заметка-тема диалога. По `dialogue.documentId`; у диалогов
+ * без связи — по названию из маркеров ходов без шапки (нет такой заметки —
+ * тоже «скрыта»). Ходов без шапки нет — проверять нечего.
+ */
+export async function legacyNoteHidden(
+  dialogue: { documentId?: string | undefined; messages: { role: string; content: string }[] },
+  db: LegacyLookupDb,
+): Promise<boolean> {
+  const legacyTitles = new Set<string>();
+  for (const m of dialogue.messages) {
+    if (m.role !== 'user' || m.content.startsWith('[#') || !ATTACHED_HEAD.test(m.content)) continue;
+    for (const f of m.content.matchAll(ATTACHED_MARKER)) legacyTitles.add(cleanAttachedTitle(f[1]!));
+  }
+  if (legacyTitles.size === 0) return false;
+  try {
+    if (dialogue.documentId) return isExcludedFromAI(await db.get('documents', dialogue.documentId));
+    const sameTitle = (await db.getAll('documents')).filter(d => legacyTitles.has(cleanAttachedTitle(d.title ?? '')));
+    return sameTitle.length === 0 || sameTitle.every(d => isExcludedFromAI(d));
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Показанный ход с приложенной заметкой (`[#id · дата]` + маркер + тело +
  * «Вопрос: …», см. useAIPageData) → маркеры и вопрос. null — обычное сообщение,
  * в том числе набранный вручную текст, похожий на шапку, но без закрытого
  * маркера (S-51: раньше такой ход уходил пустой строкой).
  */
-export function splitAttachedMessage(content: string): { markers: string; question: string } | null {
+export function splitAttachedMessage(content: string, opts?: AttachedParseOptions): { markers: string; question: string } | null {
   if (!ATTACHED_HEAD.test(content)) return null;
   const q = content.lastIndexOf(QUESTION_SEP);
   const head = q === -1 ? content : content.slice(0, q);
@@ -133,9 +171,10 @@ export function splitAttachedMessage(content: string): { markers: string; questi
   // тело заметки» (0.7.30–0.7.50) и ход с длинной заметкой «маркер + вопрос»
   // (с 0.7.22 по сей день, тело едет отдельно). ponytail: различаем по длине
   // хвоста — вопрос короче LEGACY_BODY_MIN, тело заметки длиннее; хвост короче
-  // остаётся как есть (утечка тела ограничена этим порогом). Точнее — только
-  // если писать форму хода в запись явно.
-  if (!content.startsWith('[#') && q === -1 && found.length === 1) {
+  // остаётся как есть (утечка тела ограничена этим порогом). S-63: с этого
+  // клиента вопрос всегда за разделителем, двусмысленны только старые записи;
+  // скрытая заметка-тема (legacyNoteHidden) режет хвост при любой длине.
+  if (!content.startsWith('[#') && q === -1 && found.length === 1 && !opts?.legacyNoteHidden) {
     const last = found[0]!;
     const tail = head.slice(last.index! + last[0].length).trim();
     if (tail.length <= LEGACY_BODY_MIN) return null;
@@ -146,11 +185,11 @@ export function splitAttachedMessage(content: string): { markers: string; questi
   };
 }
 
-export function toApiContent(content: string, cap = API_MSG_CAP): string {
+export function toApiContent(content: string, cap = API_MSG_CAP, opts?: AttachedParseOptions): string {
   // Тело заметки в историю не идёт: модель читает её из documentContent (где
   // её не пропускают, если она скрыта от ИИ), а дневниковое «забудь всё» в
   // сообщении ловил фильтр инъекций и отбивал весь диалог (R3-004, R3-007).
-  const attached = splitAttachedMessage(content);
+  const attached = splitAttachedMessage(content, opts);
   if (attached) return attached.question ? `${attached.markers}\n\n${attached.question}` : attached.markers;
   if (content.length <= cap) return content;
   const noteMatch = content.match(/^\[Прикреплена заметка: "[^"]+"\]/);
@@ -172,7 +211,7 @@ export function pruneMessages(messages: AIMessage[]): AIMessage[] {
  * PROMPT-2: Cap assistant messages older than the last two to ~1500 chars (head).
  * User messages remain intact (up to API_MSG_CAP).
  */
-export function prepareApiMessages(messages: AIMessage[]): AIMessage[] {
+export function prepareApiMessages(messages: AIMessage[], opts?: AttachedParseOptions): AIMessage[] {
   const pruned = pruneMessages(messages.filter(m => m.type !== 'system'));
   const assistantIndices: number[] = [];
   for (let i = 0; i < pruned.length; i++) {
@@ -184,9 +223,9 @@ export function prepareApiMessages(messages: AIMessage[]): AIMessage[] {
 
   return pruned.map((m, idx) => {
     if (m.role === 'assistant' && !lastTwoAssistant.has(idx)) {
-      return { ...m, content: toApiContent(m.content, API_ASSISTANT_OLD_CAP) };
+      return { ...m, content: toApiContent(m.content, API_ASSISTANT_OLD_CAP, opts) };
     }
-    return { ...m, content: toApiContent(m.content, API_MSG_CAP) };
+    return { ...m, content: toApiContent(m.content, API_MSG_CAP, opts) };
   });
 }
 

@@ -126,3 +126,33 @@ describe('useAIChat: ход с заметкой', () => {
     expect(sent.at(-1)?.content).toBe(`[Прикреплена заметка: "${transport.cleanAttachedTitle(rawTitle)}"]\n\nРасскажи подробнее`);
   });
 });
+
+// S-63.2b: старый ход без шапки с коротким (≤ 1500) телом скрытой заметки-темы —
+// тело не идёт ни в продолжение, ни в «Ответить иначе».
+describe('S-63: a legacy turn of a hidden note', () => {
+  const HIDDEN_BODY = `SECRET ${'тело скрытой заметки. '.repeat(70)}`.slice(0, 1439);
+  const LEGACY_HIDDEN = `[Прикреплена заметка: "Скрытая"]\n\n${HIDDEN_BODY}`;
+
+  async function seedHidden(id: string) {
+    const db = await getLocalDb();
+    await db.put('documents', { id: 'local_hidden_s63', guestId: 'u1', title: 'Скрытая', currentVersion: 1, totalWords: 1, totalDuration: 0, sessionsCount: 1, firstSessionAt: 1, lastSessionAt: 1, tags: [], excludedFromAI: true } as never);
+    await db.put('aiDialogues', { id, title: 't', personaId: 'editor', personaName: 'Р', personaEmoji: '✍️', createdAt: 1, updatedAt: 1, documentId: 'local_hidden_s63', messages: [{ role: 'user', content: LEGACY_HIDDEN }, { role: 'assistant', content: 'старый ответ' }] });
+  }
+
+  it.each([
+    ['continue', async (r: { sendMessage: (t: string) => Promise<unknown> }) => { await r.sendMessage('а дальше?'); }],
+    ['regenerate', async (r: { regenerateLast: () => Promise<void> }) => { await r.regenerateLast(); }],
+  ])('%s: the 1439-char body stays out of the API history', async (_label, drive) => {
+    await seedHidden('d-s63-hidden');
+    h.buildContext.mockResolvedValue(ctx());
+    let sent: { content: string }[] = [];
+    vi.spyOn(transport, 'streamChat').mockImplementation(async o => { sent = o.messages; o.onChunk('ок', ''); return 'ок'; });
+    const { result } = renderHook(() => useAIChat('d-s63-hidden', 'editor'));
+    await waitFor(() => expect(result.current.dialogue?.messages.length).toBe(2));
+    await act(async () => { await drive(result.current as never); });
+
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.map(m => m.content).join('\n')).not.toContain('SECRET');
+    expect(sent[0]?.content).toBe('[Прикреплена заметка: "Скрытая"]');
+  });
+});
