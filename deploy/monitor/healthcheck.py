@@ -25,6 +25,7 @@ from pathlib import Path
 STATE = Path(os.environ.get('MONITOR_STATE', '/var/lib/justwriting-monitor/state.json'))
 ENV_FILE = Path(os.environ.get('MONITOR_ENV_FILE', '/opt/justwriting/supabase/.env'))
 SITE = os.environ.get('MONITOR_SITE', 'https://justwriting.ru')
+COMPOSE_DIR = os.environ.get('MONITOR_COMPOSE_DIR', '/opt/justwriting/supabase')
 DRY = '--dry-run' in sys.argv
 # EA-2: адрес получателя — из окружения (EnvironmentFile в unit), не из репозитория.
 TO = os.environ.get('MONITOR_ALERT_TO', '')
@@ -70,27 +71,33 @@ def http(url, method='GET', timeout=15):
     except Exception:
         return '000', ''
 
+# S-59: причина — пара (вид, текст). Ключ состояния считается по видам, а не
+# по тексту: в тексте числа (часы копии, дни сертификата, проценты диска), и
+# та же поломка каждый час выглядела новой.
 problems = []
+
+def problem(kind, text):
+    problems.append((kind, text))
 
 # ── место на диске: байты и inode (R5-061) ─────────────────────────────────
 pct = re.findall(r'(\d+)%', sh('df --output=pcent,ipcent / | tail -1'))
 if len(pct) != 2:
-    problems.append('Не удалось измерить место на диске: df не ответил.')
+    problem('disk_df', 'Не удалось измерить место на диске: df не ответил.')
 else:
     used, iused = map(int, pct)
     if used >= 80:
-        problems.append(f'Диск занят на {used}%. Копии базы лежат в /var/backups/justwriting.')
+        problem('disk_high', f'Диск занят на {used}%. Копии базы лежат в /var/backups/justwriting.')
     if iused >= 80:
-        problems.append(f'Inode на диске заняты на {iused}%. Мелкие файлы: журналы docker, /tmp/jw-*.')
+        problem('inodes_high', f'Inode на диске заняты на {iused}%. Мелкие файлы: журналы docker, /tmp/jw-*.')
 
 # ── служба ИИ ───────────────────────────────────────────────────────────────
 if sh('systemctl is-active justwriting') != 'active':
-    problems.append('Служба justwriting не работает — ИИ-функции и /api недоступны.')
+    problem('service_down', 'Служба justwriting не работает — ИИ-функции и /api недоступны.')
 
 # ── службы systemd (R6-005) ────────────────────────────────────────────────
 units_out = sh("systemctl list-units --all --plain --no-legend 'justwriting*.service'")
 if not units_out.strip():
-    problems.append('Не удалось получить список юнитов: systemctl list-units пуст.')
+    problem('units_list', 'Не удалось получить список юнитов: systemctl list-units пуст.')
 else:
     failed = []
     for line in units_out.splitlines():
@@ -103,10 +110,14 @@ else:
         if len(cols) > 2 and cols[2] == 'failed':
             failed.append(cols[0])
     if failed:
-        problems.append(f"Юниты в failed: {', '.join(failed)} — journalctl -u {failed[0]}")
+        # S-59: вид включает момент последнего падения каждого юнита — второй
+        # подряд проваленный месячный drill иначе не давал письма, пока кто-то
+        # не сделал reset-failed.
+        stamps = [f"{u}@{sh(f'systemctl show -p ExecMainExitTimestamp --value {u}')}" for u in failed]
+        problem('units_failed:' + ','.join(sorted(stamps)), f"Юниты в failed: {', '.join(failed)} — journalctl -u {failed[0]}")
 
 # ── контейнеры ──────────────────────────────────────────────────────────────
-ps = sh('cd /opt/justwriting/supabase && docker compose ps --format json')
+ps = sh(f'cd {COMPOSE_DIR} && docker compose ps --format json')
 down = []
 for line in ps.splitlines():
     try:
@@ -118,16 +129,16 @@ for line in ps.splitlines():
     if state != 'running' or health in ('unhealthy', 'starting'):
         down.append(f"{c.get('Service')} ({state}{'/' + health if health else ''})")
 if not any(line.strip().startswith('{') for line in ps.splitlines()):
-    problems.append('Не удалось получить список контейнеров: docker compose ps пуст.')
+    problem('containers_list', 'Не удалось получить список контейнеров: docker compose ps пуст.')
 if down:
-    problems.append('Контейнеры не в порядке: ' + ', '.join(down))
+    problem('containers_down', 'Контейнеры не в порядке: ' + ', '.join(down))
 
 # ── эмбеддинги (R5-055) ─────────────────────────────────────────────────────
 # Отдельный compose-проект (/opt/justwriting/embeddings), в список выше не
 # попадает, а /ready знает только, что адрес задан. Спрашиваем сам сервис.
 emb = sh('curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://127.0.0.1:8081/health')
 if emb != '200':
-    problems.append(f'Сервис эмбеддингов не отвечает: /health вернул {emb} — поиск и индексация заметок стоят.')
+    problem('embeddings_down', f'Сервис эмбеддингов не отвечает: /health вернул {emb} — поиск и индексация заметок стоят.')
 
 # ── свежесть резервной копии ────────────────────────────────────────────────
 # R3-11: копия — только .dump с парной .sha256 (её пишут после проверки дампа).
@@ -137,53 +148,53 @@ try:
                    key=lambda p: p.stat().st_mtime, reverse=True)
 except Exception as e:
     dumps = []
-    problems.append(f'Не удалось прочитать каталог копий: {e}')
+    problem('backup_dir', f'Не удалось прочитать каталог копий: {e}')
 
 if not dumps:
-    if not any('каталог копий' in p for p in problems):
-        problems.append('Резервных копий нет вовсе.')
+    if not any(k == 'backup_dir' for k, _ in problems):
+        problem('backup_none', 'Резервных копий нет вовсе.')
 else:
     age_h = (time.time() - dumps[0].stat().st_mtime) / 3600
     if age_h > 26:
-        problems.append(f'Свежей копии нет {age_h:.0f} часов — таймер копирования, похоже, сломался.')
+        problem('backup_stale', f'Свежей копии нет {age_h:.0f} часов — таймер копирования, похоже, сломался.')
     if not Path(f'{dumps[0]}.counts').exists():
-        problems.append('Свежая копия базы не имеет .counts — проверка обвала выключена.')
+        problem('backup_counts', 'Свежая копия базы не имеет .counts — проверка обвала выключена.')
 
 # R5-056: отметку ставит pg-backup.sh, когда строк стало меньше вдвое против
 # прошлой копии. Пока она лежит, ротация копий стоит.
 try:
     shrink = BACKUP_DIR / 'SHRINK-ALERT'
     if shrink.exists():
-        problems.append('Строк в базе стало меньше вдвое против прошлой копии, ротация копий остановлена. '
+        problem('shrink_alert', 'Строк в базе стало меньше вдвое против прошлой копии, ротация копий остановлена. '
                         'Если удаление намеренное — sudo rm ' + str(shrink) + '\n' +
                         '\n'.join(shrink.read_text().splitlines()[-3:]))
 except Exception as e:
     # R5-054 / S-44.3: не прочитанная отметка — не «отметки нет».
-    problems.append(f'Не удалось прочитать отметку SHRINK-ALERT: {e}')
+    problem('shrink_unreadable', f'Не удалось прочитать отметку SHRINK-ALERT: {e}')
 
 # ── сертификат ──────────────────────────────────────────────────────────────
 out = sh('openssl x509 -enddate -noout -in /etc/letsencrypt/live/justwriting.ru/fullchain.pem')
 m = re.search(r'notAfter=(.+)', out)
 if not m:
-    problems.append('Не удалось прочитать срок сертификата: нет файла или openssl не ответил.')
+    problem('cert_read', 'Не удалось прочитать срок сертификата: нет файла или openssl не ответил.')
 else:
     left = (time.mktime(time.strptime(m.group(1).strip(), '%b %d %H:%M:%S %Y %Z')) - time.time()) / 86400
     if left < 20:
-        problems.append(f'Сертификат истекает через {left:.0f} дней — автопродление не сработало.')
+        problem('cert_expiring', f'Сертификат истекает через {left:.0f} дней — автопродление не сработало.')
 
 # ── сайт отвечает (изнутри) и отдаёт приложение (R5-051) ───────────────────
 # 200 на / ещё не приложение: при пропавшем чанке nginx отдаёт index.html, а
 # человек видит белый экран. Проверяем метку сборки и каждый /assets/ из неё.
 code, html = http(SITE + '/')
 if code != '200':
-    problems.append(f'Сайт отвечает {code} вместо 200.')
+    problem('site_code', f'Сайт отвечает {code} вместо 200.')
 elif 'data-app-version=' not in html:
-    problems.append('Сайт отвечает 200, но без метки data-app-version — это не оболочка приложения.')
+    problem('site_shell', 'Сайт отвечает 200, но без метки data-app-version — это не оболочка приложения.')
 else:
     missing = [a for a in sorted(set(re.findall(r'(?:src|href)="(/assets/[^"]+)"', html)))
                if http(SITE + a, 'HEAD')[0] != '200']
     if missing:
-        problems.append('Сайт отвечает 200, но ассетов нет — белый экран: ' + ', '.join(missing[:5]))
+        problem('site_assets', 'Сайт отвечает 200, но ассетов нет — белый экран: ' + ', '.join(missing[:5]))
 
 # ── готовность ИИ-службы с базой (N-77) ─────────────────────────────────────
 # /health проверяет только «процесс жив»: при висящем пуле он продолжает
@@ -191,7 +202,7 @@ else:
 # спрашивает базу. 000 — curl не дождался ответа (висяк), тоже проблема.
 ready = sh('curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://127.0.0.1:3000/ready')
 if ready != '200':
-    problems.append(
+    problem('ready',
         'Служба justwriting не готова: /ready вернул ' + ready +
         ' — база не отвечает либо пул соединений занят целиком (000 = не дождался ответа).'
     )
@@ -203,30 +214,41 @@ auth_settings = sh('docker exec supabase-auth wget -qO- http://localhost:9999/se
 try:
     auth_data = json.loads(auth_settings)
     if auth_data.get('disable_signup') is not True:
-        problems.append('Регистрация открыта: /auth/v1/settings вернул disable_signup: false.')
+        problem('signup_open', 'Регистрация открыта: /auth/v1/settings вернул disable_signup: false.')
 except Exception as e:
-    problems.append(f'Не удалось проверить /auth/v1/settings: {e}')
+    problem('signup_check', f'Не удалось проверить /auth/v1/settings: {e}')
 
 # ── отправка ────────────────────────────────────────────────────────────────
+texts = [t for _, t in problems]
 if DRY:
-    print('\n'.join(problems) or 'проблем нет')
+    print('\n'.join(texts) or 'проблем нет')
     sys.exit(0)
 
 # S-44.3: письмо — один раз на смену набора причин. Состояние пишется и при
 # пустом наборе: иначе та же поломка после починки осталась бы без письма.
-key = '|'.join(sorted(p.split('.')[0] for p in problems))
-STATE.parent.mkdir(parents=True, exist_ok=True)
-prev = {}
+# S-59: ключ — по видам причин; нечитаемое состояние — не «тот же ключ».
+key = '|'.join(sorted(k for k, _ in problems))
+prev = None
 if STATE.exists():
     try: prev = json.loads(STATE.read_text())
-    except Exception: prev = {}
-if prev.get('key') == key:
+    except Exception: prev = None
+if isinstance(prev, dict) and prev.get('key') == key:
     sys.exit(0)
 
 if problems:
     send('justwriting: проверка сервера нашла проблему',
-         'Почасовая проверка сервера обнаружила:\n\n' + '\n'.join(f'  • {p}' for p in problems) +
+         'Почасовая проверка сервера обнаружила:\n\n' + '\n'.join(f'  • {t}' for t in texts) +
          '\n\nСледующее письмо придёт, только когда набор причин изменится.\n')
-    print('отправлено письмо:', '; '.join(problems))
+    print('отправлено письмо:', '; '.join(texts))
 
-STATE.write_text(json.dumps({'key': key, 'sent': time.time()}))
+# S-59: письмо раньше записи состояния — иначе каталог, который не создался,
+# навсегда оставлял проверку без писем. Незаписанное состояние — само тревога.
+try:
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps({'key': key, 'sent': time.time()}))
+except Exception as e:
+    send('justwriting: состояние проверки сервера не записалось',
+         f'Проверка отработала, но не смогла записать {STATE}: {type(e).__name__}: {e}\n'
+         'Пока это не починено, одно и то же письмо будет приходить каждый час.\n')
+    print(f'СОСТОЯНИЕ НЕ ЗАПИСАНО: {type(e).__name__}: {e}', file=sys.stderr)
+    sys.exit(1)
