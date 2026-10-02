@@ -58,6 +58,8 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
   const hasDraftsInUser = userDb.objectStoreNames.contains('drafts');
 
   let draftMigrated = false;
+  // S-63: черновик стал заметкой — считается в «перенесено» наравне с заметками.
+  let draftNote = false;
   // D-3 / AG-MIG-1: migrate guest draft to user draft (don't clobber existing user draft).
   // S-44.4: черновик берётся из обоих хранилищ, не только из IndexedDB.
   const guestDraft = await readGuestDraft(guestDb);
@@ -70,12 +72,13 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
       // writing запрещён зонами import/no-restricted-paths.
       emitDomainEvent({ type: 'draft.migrated', userId });
       draftMigrated = true;
-    } else if (guestDraft.content.trim()) {
+    } else if (guestDraft.content.trim() || guestDraft.title?.trim()) {
       // S-55: у аккаунта свой черновик — гостевой не затирается и не
       // выбрасывается, а становится обычной заметкой. Раньше он удалялся под
-      // сообщением «перенесено 1».
+      // сообщением «перенесено 1». S-63: черновик только с названием — тоже
+      // заметка; своё название черновика важнее «Черновик гостя, <дата>».
       await LocalStorageService.saveNew(userId, {
-        title: guestDraftNoteTitle(ts(guestDraft) || Date.now()),
+        title: guestDraft.title?.trim() || guestDraftNoteTitle(ts(guestDraft) || Date.now()),
         content: guestDraft.content,
         wordCount: guestDraft.wordCount ?? 0,
         duration: guestDraft.seconds ?? 0,
@@ -86,6 +89,7 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
         documentDate: new Date(ts(guestDraft) || Date.now()),
       });
       draftMigrated = true;
+      draftNote = true;
     }
     if (hasDraftsInGuest) {
       await guestDb.delete('drafts', 'guest_draft');
@@ -167,5 +171,5 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
   }
 
   const left = guestDocs.length - moved;
-  return { moved, left };
+  return { moved: moved + (draftNote ? 1 : 0), left };
 }

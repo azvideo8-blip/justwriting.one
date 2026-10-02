@@ -4,7 +4,8 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { getLocalDb } from '../../../../core/storage/localDb';
+import { getLocalDb, getOrCreateGuestId } from '../../../../core/storage/localDb';
+import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { migrateDocuments, readGuestDraft } from '../migrateDocuments';
 
@@ -64,6 +65,35 @@ describe('2.8 guest draft is consumed by migration', () => {
     expect(versions.map(v => v.content)).toEqual(['гостевой текст, который нельзя терять']);
     expect(notes[0]!.firstSessionAt).toBe(at);
     expect(result).toEqual({ moved: 1, left: 0 });
+  });
+
+  // S-63.5: черновик только с названием удалялся без сохранения; своё название
+  // черновика выбрасывалось в пользу «Черновик гостя, <дата>».
+  it('S-63: a title-only guest draft becomes a note under its own title', async () => {
+    const guestDb = await getLocalDb();
+    const userDb = await getLocalDb('user_s63');
+    await guestDb.put('drafts', { userId: 'guest_draft', title: 'Только название', content: '', wordCount: 0, seconds: 0, wpm: 0, updatedAt: Date.now() } as never);
+    await userDb.put('drafts', { userId: 'user_s63', content: 'свой черновик', updatedAt: Date.now() } as never);
+
+    const result = await migrateDocuments('user_s63');
+
+    expect((await userDb.getAll('documents')).map(n => n.title), 'черновик без текста выброшен').toEqual(['Только название']);
+    expect(await guestDb.get('drafts', 'guest_draft')).toBeUndefined();
+    expect(result).toEqual({ moved: 1, left: 0 });
+  });
+
+  it('S-63: the draft-note counts in «moved» next to the notes', async () => {
+    const guestDb = await getLocalDb();
+    const userDb = await getLocalDb('user_s63b');
+    const guestId = getOrCreateGuestId();
+    for (const title of ['Раз', 'Два']) await LocalDocumentService.createDocument(guestId, { title });
+    await guestDb.put('drafts', { userId: 'guest_draft', title: 'Черновик', content: 'текст черновика', wordCount: 2, seconds: 0, wpm: 0, updatedAt: Date.now() } as never);
+    await userDb.put('drafts', { userId: 'user_s63b', content: 'свой черновик', updatedAt: Date.now() } as never);
+
+    const result = await migrateDocuments('user_s63b');
+
+    expect((await userDb.getAll('documents')).map(n => n.title).sort()).toEqual(['Два', 'Раз', 'Черновик']);
+    expect(result).toEqual({ moved: 3, left: 0 });
   });
 
   it('S-55: the legacy `timestamp` field counts like updatedAt — for the newer-copy rule and for the 7-day TTL', async () => {

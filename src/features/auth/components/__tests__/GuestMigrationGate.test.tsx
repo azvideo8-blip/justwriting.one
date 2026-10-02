@@ -19,10 +19,11 @@ vi.mock('../../../../app/useAuthStatus', () => ({
 
 vi.mock('../../../../shared/i18n', () => ({
   useLanguage: () => ({
-    t: (key: string) => {
+    // S-63: тост со счётчиком отдаёт `ключ:число` — иначе «сколько перенесено» не проверить.
+    t: (key: string, params?: { count?: number }) => {
       if (key === 'migration_move_to_account') return 'Перенести в аккаунт';
       if (key === 'migration_found_title') return 'Найдены локальные записи';
-      return key;
+      return params?.count !== undefined ? `${key}:${params.count}` : key;
     },
   }),
 }));
@@ -152,7 +153,27 @@ describe('GuestMigrationGate', () => {
       expect(screen.queryByText('Перенести в аккаунт')).toBeNull();
     });
 
-    expect(mockShowToast).toHaveBeenCalledWith('migration_success_local', 'success');
+    expect(mockShowToast).toHaveBeenCalledWith('migration_success_local:1', 'success');
     expect(localStorage.getItem(STORAGE_KEYS.MIGRATION_DECLINED('user_draft_only'))).toBeNull();
+  });
+
+  // S-55/S-63 survivor: тост считает перенесённое (moved), а не найденное —
+  // гостевой черновик, ставший заметкой, входит в счёт.
+  it('S-63: the toast counts the draft-note with the notes (2 notes + draft → 3)', async () => {
+    const guestId = getOrCreateGuestId();
+    await LocalDocumentService.createDocument(guestId, { title: 'Раз' });
+    await LocalDocumentService.createDocument(guestId, { title: 'Два' });
+    await (await getLocalDb()).put('drafts', { userId: 'guest_draft', content: 'текст черновика', updatedAt: Date.now() } as never);
+    await (await getLocalDb('user_new_123')).put('drafts', { userId: 'user_new_123', content: 'свой черновик', updatedAt: Date.now() } as never);
+
+    const { rerender } = render(<GuestMigrationGate />);
+    mockAuth = { user: { uid: 'user_new_123' }, isGuest: false };
+    rerender(<GuestMigrationGate />);
+    fireEvent.click(await screen.findByText('Перенести в аккаунт'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Перенести в аккаунт')).toBeNull();
+    });
+    expect(mockShowToast).toHaveBeenCalledWith('migration_success_local:3', 'success');
   });
 });
