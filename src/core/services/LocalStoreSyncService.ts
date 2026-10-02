@@ -578,7 +578,7 @@ async function readDialogueText(payload: Record<string, unknown>): Promise<strin
   }
 }
 
-async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: AIDialogue; expected: number | undefined } | null> {
+async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: AIDialogue; expected: number | null | undefined } | null> {
   const [row, pages] = await Promise.all([
     DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key),
     DataProvider.getLocalStoreRecordPages ? DataProvider.getLocalStoreRecordPages(uid, 'aiDialogues', key) : Promise.resolve([]),
@@ -597,7 +597,14 @@ async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: 
     }
     let text = '';
     for (const page of version.pages) text += await readDialogueText(page.payload);
-    return { dialogue: JSON.parse(text) as AIDialogue, expected: version.updatedAt };
+    // M-1: условная запись нацелена на строку `key`, значит и expected — её собственное
+    // состояние, а не отметка страниц. У копии без манифеста (legacy `key#N` из 0.9.28,
+    // стёртый старым табом манифест, обрыв между страницами и манифестом) строки `key`
+    // вовсе нет: прежний expected = отметка страниц не совпадал ни с чем, CAS не
+    // проходил никогда и диалог > 500 КБ не выгружался вообще.
+    const keyStamp = row ? (row.payload as Record<string, unknown>).updatedAt : undefined;
+    const expected = row === null ? null : (typeof keyStamp === 'number' ? keyStamp : undefined);
+    return { dialogue: JSON.parse(text) as AIDialogue, expected };
   } catch (e) {
     // Строка есть, а прочитать её нельзя — это не «облако пусто»: слепая
     // запись поверх затёрла бы чужой ход. Пусть запись упадёт и повторится.
