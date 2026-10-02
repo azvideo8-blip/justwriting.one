@@ -39,6 +39,30 @@ function legacyMessageId(role: string, content: string, index: number): string {
   return LEGACY_PREFIX + h.toString(16).padStart(8, '0') + '_' + index;
 }
 
+/**
+ * S-58: запись-надгробие диалога — без реплик и заметки, с отметкой удаления.
+ * Детерминирована по входу: слияние двух надгробий одного диалога даёт то же.
+ */
+export function tombstoneDialogue(d: AIDialogue, deletedAt: number): AIDialogue {
+  return {
+    id: d.id,
+    title: '',
+    personaId: d.personaId,
+    personaName: d.personaName,
+    personaEmoji: d.personaEmoji,
+    messages: [],
+    createdAt: d.createdAt,
+    updatedAt: deletedAt,
+    deletedAt,
+    schema: DIALOGUE_SCHEMA,
+  };
+}
+
+/** Живое надгробие: отметка стоит и моложе TOMBSTONE_TTL_MS. */
+export function isTombstoned(d: AIDialogue, now = Date.now()): boolean {
+  return typeof d.deletedAt === 'number' && now - d.deletedAt <= TOMBSTONE_TTL_MS;
+}
+
 /** Репликам без id выдаёт детерминированный id; копии с id возвращает как есть. */
 export function withMessageIds(d: AIDialogue): AIDialogue {
   if (d.messages.every(m => !!m.id)) return d;
@@ -177,6 +201,18 @@ export function dialogueFingerprint(d: AIDialogue): string {
  * забор перезаписывал и выгружал бы запись заново.
  */
 export function mergeDialogues(local: AIDialogue, cloud: AIDialogue, now = Date.now()): AIDialogue {
+  // S-58: удаление побеждает. Ходы, дописанные на другом устройстве после
+  // удаления, пропадают — это и значит «удалить»; подтверждение в интерфейсе
+  // говорит, что действие необратимо.
+  if (isTombstoned(local, now) || isTombstoned(cloud, now)) {
+    const deletedAt = Math.max(isTombstoned(local, now) ? local.deletedAt! : 0, isTombstoned(cloud, now) ? cloud.deletedAt! : 0);
+    const source = (local.updatedAt ?? 0) >= (cloud.updatedAt ?? 0) ? local : cloud;
+    const result = tombstoneDialogue({ ...source, createdAt: Math.min(local.createdAt ?? 0, cloud.createdAt ?? 0) }, deletedAt);
+    result.updatedAt = dialogueFingerprint(result) === dialogueFingerprint(cloud)
+      ? (cloud.updatedAt ?? 0)
+      : Math.max(now, (local.updatedAt ?? 0) + 1, (cloud.updatedAt ?? 0) + 1);
+    return result;
+  }
   const a = adoptIds(local, cloud);
   const b = adoptIds(cloud, local);
   const aNewer = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0);

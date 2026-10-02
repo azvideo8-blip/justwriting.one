@@ -6,7 +6,7 @@ import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
-import { stampMessage, withMessageIds } from '../../../core/storage/dialogueMerge';
+import { isTombstoned, stampMessage, tombstoneDialogue, withMessageIds } from '../../../core/storage/dialogueMerge';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 
@@ -72,21 +72,33 @@ export const AIDialogueService = {
     if (!id || typeof id !== 'string') return undefined;
     const db = await getLocalDb();
     const found = await db.get('aiDialogues', id);
-    return found ? withMessageIds(found) : undefined;
+    return found && !found.deletedAt ? withMessageIds(found) : undefined;
   },
 
   async list(options?: { includeArchived?: boolean }): Promise<AIDialogue[]> {
     const db = await getLocalDb();
-    const all = (await db.getAll('aiDialogues')).map(withMessageIds);
+    const now = Date.now();
+    const live: AIDialogue[] = [];
+    for (const d of await db.getAll('aiDialogues')) {
+      if (d.deletedAt) {
+        // S-58: надгробие старше срока снимается — здесь и в облаке.
+        if (!isTombstoned(d, now)) {
+          await db.delete('aiDialogues', d.id);
+          LocalStoreSyncService.scheduleStoreDelete('aiDialogues', d.id);
+        }
+        continue;
+      }
+      live.push(withMessageIds(d));
+    }
     const filtered = options?.includeArchived
-      ? all
-      : all.filter(d => !d.archivedAt);
+      ? live
+      : live.filter(d => !d.archivedAt);
     return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
   async listByDocument(documentId: string): Promise<AIDialogue[]> {
     const db = await getLocalDb();
-    const all = (await db.getAllFromIndex('aiDialogues', 'by-document', documentId)).map(withMessageIds);
+    const all = (await db.getAllFromIndex('aiDialogues', 'by-document', documentId)).filter(d => !d.deletedAt).map(withMessageIds);
     return all.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
@@ -102,7 +114,8 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
+    // S-58: ответ, пришедший после удаления диалога, в надгробие не дописывается.
+    if (!existing || existing.deletedAt) { await tx.done; return; }
     const now = Date.now();
     // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
     // реплики по id, и ответ встанет перед своим вопросом.
@@ -147,7 +160,7 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
+    if (!existing || existing.deletedAt) { await tx.done; return; }
     // Id старых реплик проставляем в саму запись: править надо то, что пойдёт в
     // базу, а не копию рядом с ней.
     existing.messages = withMessageIds(existing).messages;
@@ -303,7 +316,7 @@ export const AIDialogueService = {
     try {
       const db = await getLocalDb();
       const dialogue = await db.get('aiDialogues', id);
-      if (!dialogue) return;
+      if (!dialogue || dialogue.deletedAt) return;
 
       const chatMessages = dialogue.messages.filter(m => m.type !== 'system');
       if (chatMessages.length < 4) return;
@@ -407,8 +420,14 @@ export const AIDialogueService = {
 
     await removeDialogueFromFacets(id);
 
-    await db.delete('aiDialogues', id);
-    LocalStoreSyncService.scheduleStoreDelete('aiDialogues', id);
+    // S-58: не стирание строки, а надгробие — иначе устройство, ещё державшее
+    // диалог, дописывало ход и возвращало его в облако (сценарий 15 стенда).
+    // Удаление побеждает при слиянии; через TOMBSTONE_TTL_MS list() снимает запись.
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (existing) await tx.store.put(tombstoneDialogue(existing, Date.now()));
+    await tx.done;
+    if (existing) LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     LocalStoreSyncService.scheduleStoreDelete('aiDialogueEvents', id);
   },
 
