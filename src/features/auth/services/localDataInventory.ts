@@ -48,6 +48,19 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
     hasPortrait = Boolean(localStorage.getItem(`ai_user_portrait_${userId ?? ''}`));
   }
 
+  // M-4: удалённый диалог лежит в базе надгробием (S-58) — в инвентаре выхода
+  // из аккаунта он больше не считается диалогом. Читаем стор целиком, как это
+  // уже делает диагностика: индекса под deletedAt нет, а надгробий не много.
+  const countLiveDialogues = async (): Promise<number> => {
+    try {
+      if (!db.objectStoreNames.contains('aiDialogues')) return 0;
+      const rows = await db.getAll('aiDialogues');
+      return rows.filter(d => !d.deletedAt).length;
+    } catch {
+      return 0;
+    }
+  };
+
   const safeCount = async (storeName: Parameters<typeof db.count>[0]): Promise<number> => {
     try {
       if (!db.objectStoreNames.contains(storeName)) return 0;
@@ -71,7 +84,7 @@ export async function countLocalDataInventory(userId?: string): Promise<LocalDat
     personasCount,
   ] = await Promise.all([
     safeCount('aiProfileFacets'),
-    safeCount('aiDialogues'),
+    countLiveDialogues(),
     safeCount('aiDialogueEvents'),
     safeCount('aiChatMemory'),
     safeCount('lifeStory'),

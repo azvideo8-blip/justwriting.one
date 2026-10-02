@@ -116,7 +116,9 @@ export const AIChatMemoryService = {
         const lastSent = [...bounded].reverse().find(m => m.role === 'user' || m.role === 'assistant')!;
         const tx = db.transaction('aiDialogues', 'readwrite');
         const stored = await tx.store.get(dialogueId);
-        if (stored) {
+        // M-4: курсор извлечения не пишется в надгробие — удалённый диалог
+        // оставался бы в облаке живой записью с новой отметкой.
+        if (stored && !stored.deletedAt) {
           const fresh = withMessageIds(stored);
           const byId = lastSent.id && fresh.messages.some(m => m.id === lastSent.id) ? lastSent.id : undefined;
           const cursor = byId ?? [...fresh.messages].reverse().find(m =>

@@ -269,7 +269,9 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return undefined; }
+    // M-4: диалог удалён (надгробие) — персона сюда не пишется, иначе запись
+    // оживала без единого хода и уходила в облако как живая.
+    if (!existing || existing.deletedAt) { await tx.done; return undefined; }
     const fresh = withMessageIds(existing);
     fresh.personaId = persona.personaId;
     fresh.personaName = persona.personaName;
@@ -290,7 +292,8 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
+    // M-4: надгробие не переименовываем (см. setPersona).
+    if (!existing || existing.deletedAt) { await tx.done; return; }
     existing.title = title;
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
@@ -472,7 +475,8 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const dialogue = await tx.store.get(id);
-    if (!dialogue) { await tx.done; return; }
+    // M-4: надгробие не получает системный ход и настройку объёма.
+    if (!dialogue || dialogue.deletedAt) { await tx.done; return; }
     const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : 'стандартно';
     const reasoningLabel = reasoning ? ' + рассуждения' : '';
     dialogue.messages.push(stampMessage({
