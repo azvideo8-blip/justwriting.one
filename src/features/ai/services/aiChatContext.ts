@@ -52,8 +52,13 @@ const CRISIS_RESOURCE_TEXT =
 // скрытой от ИИ, вырезаем перед отправкой; ошибка чтения документа читается
 // как «скрыта», а не как «можно».
 const ATTACHED_BLOCK_HEAD = /^\[#([^\s\]·]+) · [^\]\n]*\]\n\[Прикреплена заметка: "[\s\S]*?"\]\n/gm;
-async function hideExcludedNotes(content: string, db: Awaited<ReturnType<typeof getLocalDb>>): Promise<string> {
-  const heads = [...content.matchAll(ATTACHED_BLOCK_HEAD)];
+// S-51: блоки склеивает useAIPageData через этот разделитель; шапка внутри тела
+// заметки (похожая строка в самом тексте) блока не начинает — иначе остаток
+// скрытой заметки за ней уходил в модель.
+const ATTACHED_BLOCK_SEP = '\n\n---\n\n';
+export async function hideExcludedNotes(content: string, db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>): Promise<string> {
+  const heads = [...content.matchAll(ATTACHED_BLOCK_HEAD)]
+    .filter(h => h.index === 0 || content.slice(h.index - ATTACHED_BLOCK_SEP.length, h.index) === ATTACHED_BLOCK_SEP);
   if (heads.length === 0) return content;
   let out = content.slice(0, heads[0]!.index);
   for (let i = 0; i < heads.length; i++) {
@@ -220,7 +225,11 @@ export function useAIChatContext(personaId: string): {
           if (isExcludedFromAI(doc)) {
             isAttachedExcluded = true;
           }
-        } catch { /* ignore */ }
+        } catch (e) {
+          // S-51: не прочитали заметку — не знаем, скрыта ли; тело не уходит.
+          reportError(e, { action: 'buildContext_attachedExcluded', documentId: attached.documentId }, 'warning');
+          isAttachedExcluded = true;
+        }
       }
       if (!isAttachedExcluded) {
         if (attachedContent.includes('[#')) {

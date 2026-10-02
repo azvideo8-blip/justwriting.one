@@ -108,20 +108,40 @@ export function cleanAttachedTitle(title: string): string {
 // S-39: ходы, записанные до S-3, несут в названии кавычки и переводы строк —
 // шапку узнаём по началу маркера, сам маркер читаем до первого `"]` в конце
 // строки, название на выходе нормализуем (иначе тело такого хода уходило в API).
-const ATTACHED_HEAD = /^\[#[^\]\n]*\]\n\[Прикреплена заметка: "/;
+// S-51: ходы до 2026-07-15 (v0.7.30–0.7.50 и старше) шапки `[#id · дата]` не
+// имеют — только маркер, тело и, возможно, «Вопрос: …». Без этой формы их тело
+// уходило в историю, в перегенерацию и в извлечение памяти целиком.
+const ATTACHED_HEAD = /^(?:\[#[^\]\n]*\]\n)?\[Прикреплена заметка: "/;
 const ATTACHED_MARKER = /^\[Прикреплена заметка: "([\s\S]*?)"\]$/gm;
 const QUESTION_SEP = '\n\n— — —\nВопрос: ';
+const LEGACY_BODY_MIN = 1500;
 
 /**
  * Показанный ход с приложенной заметкой (`[#id · дата]` + маркер + тело +
- * «Вопрос: …», см. useAIPageData) → маркеры и вопрос. null — обычное сообщение.
+ * «Вопрос: …», см. useAIPageData) → маркеры и вопрос. null — обычное сообщение,
+ * в том числе набранный вручную текст, похожий на шапку, но без закрытого
+ * маркера (S-51: раньше такой ход уходил пустой строкой).
  */
 export function splitAttachedMessage(content: string): { markers: string; question: string } | null {
   if (!ATTACHED_HEAD.test(content)) return null;
   const q = content.lastIndexOf(QUESTION_SEP);
   const head = q === -1 ? content : content.slice(0, q);
+  const found = [...head.matchAll(ATTACHED_MARKER)];
+  if (found.length === 0) return null;
+  const markers = found.map(m => `[Прикреплена заметка: "${cleanAttachedTitle(m[1]!)}"]`);
+  // Без шапки и без «Вопрос:» одна форма на два смысла: старый ход «маркер +
+  // тело заметки» (0.7.30–0.7.50) и ход с длинной заметкой «маркер + вопрос»
+  // (с 0.7.22 по сей день, тело едет отдельно). ponytail: различаем по длине
+  // хвоста — вопрос короче LEGACY_BODY_MIN, тело заметки длиннее; хвост короче
+  // остаётся как есть (утечка тела ограничена этим порогом). Точнее — только
+  // если писать форму хода в запись явно.
+  if (!content.startsWith('[#') && q === -1 && found.length === 1) {
+    const last = found[0]!;
+    const tail = head.slice(last.index! + last[0].length).trim();
+    if (tail.length <= LEGACY_BODY_MIN) return null;
+  }
   return {
-    markers: [...head.matchAll(ATTACHED_MARKER)].map(m => `[Прикреплена заметка: "${cleanAttachedTitle(m[1]!)}"]`).join('\n'),
+    markers: markers.join('\n'),
     question: q === -1 ? '' : content.slice(q + QUESTION_SEP.length).trim(),
   };
 }

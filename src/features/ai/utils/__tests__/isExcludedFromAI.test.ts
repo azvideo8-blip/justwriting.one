@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { isExcludedFromAI } from '../isExcludedFromAI';
 
 describe('isExcludedFromAI', () => {
-  it('returns false for null / undefined', () => {
-    expect(isExcludedFromAI(null)).toBe(false);
-    expect(isExcludedFromAI(undefined)).toBe(false);
+  // S-51: заметки нет (удалена, не прочитана) — её текст из старого хода в модель не идёт.
+  it('returns true for null / undefined: a note that no longer exists is not available to the AI', () => {
+    expect(isExcludedFromAI(null)).toBe(true);
+    expect(isExcludedFromAI(undefined)).toBe(true);
   });
 
   it('returns false when neither excludedFromAI nor trashedAt is set', () => {

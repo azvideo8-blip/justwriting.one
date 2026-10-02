@@ -7,6 +7,7 @@ import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncServ
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { isTombstoned, stampMessage, tombstoneDialogue, withMessageIds } from '../../../core/storage/dialogueMerge';
+import { toApiContent } from '../utils/aiChatTransport';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 
@@ -327,7 +328,8 @@ export const AIDialogueService = {
         personaId: 'custom',
         callType: 'system_task',
         customSystemPrompt: SYSTEM_TASK_PROMPTS.dialogueSummary,
-        messages: last10.map(m => ({ role: m.role, content: m.content })),
+        // S-51: тело приложенной заметки в модель не идёт — те же правила, что у истории чата.
+        messages: last10.map(m => ({ role: m.role, content: toApiContent(m.content) })),
       });
 
       if (response.ok && response.text) {
