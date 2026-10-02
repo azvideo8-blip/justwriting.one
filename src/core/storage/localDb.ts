@@ -110,36 +110,6 @@ interface PendingSession {
   userId: string;
 }
 
-export interface DialogueMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  type?: 'chat' | 'system' | undefined;
-  reasoning?: string | undefined;
-  variants?: string[] | undefined;
-  variantIndex?: number | undefined;
-  searchRequest?: string | undefined;
-  degradedReason?: string | undefined;
-  /**
-   * S-29: опознаёт реплику при слиянии двух реплик диалога. Без него слияние
-   * невозможное: сопоставлять сообщения по позиции — это терять ход того, кто
-   * дописал в соседнем устройстве.
-   */
-  id?: string | undefined;
-  /** Момент создания на том устройстве, где реплику написали. */
-  createdAt?: number | undefined;
-  /**
-   * S-36: момент последней правки на месте (смена варианта, перегенерация).
-   * При слиянии побеждает более свежая копия реплики, а не локальная.
-   */
-  updatedAt?: number | undefined;
-  /**
-   * S-36: id вопроса, на который отвечает реплика ассистента. Порядок хвоста
-   * при слиянии — по ходам; без ссылки ход угадывался по соседству в массиве,
-   * и ответ, чей вопрос удалён, на разных устройствах вставал по-разному.
-   */
-  turnId?: string | undefined;
-}
-
 export interface AIDialogue {
   id: string;
   title: string;
@@ -147,7 +117,7 @@ export interface AIDialogue {
   personaName: string;
   personaEmoji: string;
   documentId?: string | undefined;
-  messages: DialogueMessage[];
+  messages: { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined; reasoning?: string | undefined; variants?: string[] | undefined; variantIndex?: number | undefined; searchRequest?: string | undefined; degradedReason?: string | undefined }[];
   createdAt: number;
   updatedAt: number;
   archivedAt?: number | undefined;
@@ -157,28 +127,6 @@ export interface AIDialogue {
   reasoning?: boolean;
   closingSummary?: string;
   lastExtractedIdx?: number;
-  /** S-29: курсор извлечения памяти по id реплики, а не по позиции. */
-  lastExtractedMessageId?: string | undefined;
-  /**
-   * S-29: удалённые реплики. Без записи об удалении слияние возвращает их из
-   * второй реплики, и исчезнувший ответ появляется снова. S-37: с моментом
-   * удаления — старше 90 дней отметка снимается, иначе список растёт вечно.
-   */
-  deletedMessages?: { id: string; at: number }[] | undefined;
-  /**
-   * S-37: запись сделана клиентом, который ставит id репликам и пишет отметки
-   * об удалении. Без маркера запись пришла от старого клиента (0.9.28): её
-   * реплики без id подбираются к нашим по роли и тексту, а пропавшие в ней
-   * реплики не считаются удалёнными.
-   */
-  schema?: 2 | undefined;
-  /**
-   * S-58: надгробие диалога. Удаление — не стирание строки, а запись с этой
-   * отметкой: иначе устройство, ещё державшее диалог, дописывало ход и
-   * возвращало его в облако. При слиянии удаление побеждает; снимается через
-   * TOMBSTONE_TTL_MS (list() стирает запись и облачную строку).
-   */
-  deletedAt?: number | undefined;
 }
 
 export interface AIDialogueEvent {

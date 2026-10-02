@@ -37,14 +37,6 @@ vi.mock('../../../../core/storage/localDb', () => ({
     delete: async (store: StoreName, key: string) => {
       localStore[store]?.delete(key);
     },
-    // S-35: диалоги сливаются внутри одной readwrite-транзакции.
-    transaction: (store: StoreName) => ({
-      store: {
-        get: async (key: string) => localStore[store]?.get(key),
-        put: async (value: { id: string }) => { localStore[store].set(value.id, value); },
-      },
-      done: Promise.resolve(),
-    }),
   })),
 }));
 

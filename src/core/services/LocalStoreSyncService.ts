@@ -1,15 +1,12 @@
 import { getLocalDb } from '../storage/localDb';
-import type { AIDialogue } from '../storage/localDb';
-import { DIALOGUE_SCHEMA, dialogueFingerprint, mergeDialogues, withMessageIds } from '../storage/dialogueMerge';
 import { DataProvider } from '../data';
 import { getCurrentUser } from '../auth';
-import { maybeEncrypt, maybeDecrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { maybeEncrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
-import { selectCloudVersion, type CloudRow } from './localStorePages';
 
 export const SUPPORTED_LOCAL_STORES = [
   'aiPortrait',
@@ -549,71 +546,6 @@ function removeOversizedRecord(store: string, key: string): void {
   } catch { /* намеренно: лишняя пометка «слишком большой» ничего не теряет */ }
 }
 
-/**
- * S-49/S-54: облачная копия диалога — строка `key` или страницы — расшифрованная
- * и разобранная. null — копии нет. `expected` — отметка для условной записи
- * (undefined — у строки нет числовой отметки).
- *
- * S-54: открытая строка под включённым сейфом читается: так выглядит обрыв
- * «зашифровать всё» на середине, и слияние запишет её обратно уже
- * зашифрованной. Строка, которую не прочитать иначе (чужой ключ, порча),
- * остаётся ошибкой, а не «облако пусто», и один раз попадает в журнал.
- */
-const unreadableReported = new Set<string>();
-
-function isPlaintextUnderVault(e: unknown): boolean {
-  // По форме, не по instanceof: DecryptionError из cryptoHelpers, причина — PLAINTEXT_UNDER_VAULT.
-  const err = e as { name?: unknown; cause?: { message?: unknown } } | null;
-  return err?.name === 'DecryptionError' && err.cause?.message === 'PLAINTEXT_UNDER_VAULT';
-}
-
-async function readDialogueText(payload: Record<string, unknown>): Promise<string> {
-  try {
-    const dec = await maybeDecrypt(payload, ['data'], []);
-    if (typeof dec.data !== 'string') throw new Error('S-34: cloud dialogue row has no readable data');
-    return dec.data;
-  } catch (e) {
-    if (isPlaintextUnderVault(e) && typeof payload.data === 'string') return payload.data;
-    throw e;
-  }
-}
-
-async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: AIDialogue; expected: number | undefined } | null> {
-  const [row, pages] = await Promise.all([
-    DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key),
-    DataProvider.getLocalStoreRecordPages ? DataProvider.getLocalStoreRecordPages(uid, 'aiDialogues', key) : Promise.resolve([]),
-  ]);
-  const rows: CloudRow[] = [];
-  if (row) rows.push({ key, payload: row.payload as Record<string, unknown> });
-  for (const p of pages) rows.push({ key: p.key, payload: p.payload as Record<string, unknown> });
-  const version = selectCloudVersion(rows);
-  if (!version) return null;
-  try {
-    if (version.kind === 'refused') throw new Error(`S-49: cloud dialogue ${key} pages unreadable: ${version.reason}`);
-    if (version.kind === 'single') {
-      const text = await readDialogueText(version.row.payload);
-      const at = version.row.payload.updatedAt;
-      return { dialogue: JSON.parse(text) as AIDialogue, expected: typeof at === 'number' ? at : undefined };
-    }
-    let text = '';
-    for (const page of version.pages) text += await readDialogueText(page.payload);
-    return { dialogue: JSON.parse(text) as AIDialogue, expected: version.updatedAt };
-  } catch (e) {
-    // Строка есть, а прочитать её нельзя — это не «облако пусто»: слепая
-    // запись поверх затёрла бы чужой ход. Пусть запись упадёт и повторится.
-    if (!unreadableReported.has(key)) {
-      unreadableReported.add(key);
-      useActivityLogStore.getState().addActivity(
-        'activity_dialogue_cloud_unreadable',
-        { action: 'uploadDialogue_unreadable', store: 'aiDialogues', key, error: e instanceof Error ? e.message.slice(0, 200) : String(e) },
-        'warning',
-        'sync',
-      );
-    }
-    throw e;
-  }
-}
-
 export class LocalStoreSyncManager {
   private pending = new Map<string, PendingSyncItem>();
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -715,97 +647,6 @@ export class LocalStoreSyncManager {
     this.deleteGen.set(itemKey, (this.deleteGen.get(itemKey) ?? 0) + 1);
     this.pending.set(itemKey, { store, key, isDelete: true });
     this.resetTimer();
-  }
-
-  /**
-   * S-34: облачная копия читается, союз пишется локально (get+merge+put в
-   * одной транзакции) и уходит в облако с условием «updatedAt облака не
-   * изменился». Ушёл — перечитываем и сливаем заново, до трёх раз; дальше
-   * запись падает как обычная ошибка и повторяется штатным путём.
-   *
-   * S-49: копия крупнее одной страницы (> 500 КБ) тоже читается (строка `key`
-   * или страницы) и пишется с условием: страницы `key#<updatedAt>#N` уходят
-   * первыми, последним — манифест в строке `key` с тем же условием на прежний
-   * `updatedAt`. Проиграли условие — свои страницы убираем и сливаем заново;
-   * выиграли — убираем страницы всех прочих версий. Восстановление читает
-   * только страницы, на которые указывает манифест.
-   */
-  private async uploadDialogue(
-    uid: string,
-    db: Awaited<ReturnType<typeof getLocalDb>>,
-    key: string,
-  ): Promise<'ok' | 'gone' | { oversized: number }> {
-    for (let attempt = 0; ; attempt++) {
-      const cloud = await readCloudDialogue(uid, key);
-      // null — строки нет (insert); undefined — строка без числовой отметки,
-      // условие поставить не на что, пишем как раньше.
-      const expected: number | null | undefined = cloud ? cloud.expected : null;
-
-      const tx = db.transaction('aiDialogues', 'readwrite');
-      const current = await tx.store.get(key);
-      if (!current) { await tx.done; return 'gone'; }
-      const merged = cloud
-        ? mergeDialogues(withMessageIds(current), cloud.dialogue)
-        : { ...withMessageIds(current), schema: DIALOGUE_SCHEMA };
-      const changedLocally = dialogueFingerprint(merged) !== dialogueFingerprint(current);
-      if (changedLocally || merged.updatedAt !== current.updatedAt) {
-        await tx.store.put(merged);
-      }
-      await tx.done;
-      // S-57: союз лёг в базу — открытый на этом устройстве чат иначе показывает
-      // прежнюю копию до следующей своей правки.
-      if (changedLocally && typeof window !== 'undefined') window.dispatchEvent(new Event('dialogue-updated'));
-
-      const jsonString = JSON.stringify(merged);
-      const recordBytes = new TextEncoder().encode(jsonString).length;
-      const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
-      if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) return { oversized: recordBytes };
-
-      let stored: boolean;
-      if (chunks.length === 1) {
-        const encrypted = await maybeEncrypt({ data: jsonString, updatedAt: merged.updatedAt }, ['data'], [], uid);
-        if (expected === undefined) {
-          await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, encrypted);
-          stored = true;
-        } else {
-          stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, encrypted, expected);
-        }
-        if (stored) {
-          if (DataProvider.deleteLocalStorePagedRecords) {
-            await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
-          }
-          return 'ok';
-        }
-      } else {
-        const totalPages = chunks.length;
-        const pages: Array<{ key: string; payload: Awaited<ReturnType<typeof maybeEncrypt>> }> = [];
-        for (let i = 0; i < totalPages; i++) {
-          pages.push({
-            key: `${key}#${merged.updatedAt}#${i}`,
-            payload: await maybeEncrypt({ data: chunks[i], updatedAt: merged.updatedAt, page: i, totalPages }, ['data'], [], uid),
-          });
-        }
-        await DataProvider.saveLocalStoreRecordPages(uid, 'aiDialogues', pages);
-        const manifest = { manifest: true, updatedAt: merged.updatedAt, totalPages };
-        if (expected === undefined) {
-          await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, manifest);
-          stored = true;
-        } else {
-          stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, manifest, expected);
-        }
-        if (stored) {
-          if (DataProvider.deleteLocalStoreStalePages) {
-            await DataProvider.deleteLocalStoreStalePages(uid, 'aiDialogues', key, merged.updatedAt);
-          }
-          return 'ok';
-        }
-        // Проигравшая попытка: её страницы никто не читает, убираем свои.
-        if (DataProvider.deleteLocalStorePagedRecords) {
-          await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', `${key}#${merged.updatedAt}`);
-        }
-      }
-      if (attempt >= 2) throw new Error(`S-34: cloud dialogue ${key} kept changing during upload`);
-    }
   }
 
   private resetTimer(): void {
@@ -935,10 +776,13 @@ export class LocalStoreSyncManager {
             }
           }
 
-          // S-34: диалог сливается с облачной копией и пишется «если облако не
-          // изменилось». Слепой upsert затирал ход другого устройства, пока
-          // оно не успело забрать наш; после его очистки ход пропадал совсем.
-          const markOversized = (recordBytes: number) => {
+          const jsonString = JSON.stringify(rawRecord);
+          const recordBytes = new TextEncoder().encode(jsonString).length;
+
+          // Страниц может выйти на одну больше, чем байт на 8 страниц: край
+          // страницы не режет символ. Такая запись тоже не влезает в один запрос.
+          const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
+          if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) {
             // Для таких записей уже есть своя персистентная отметка — две на
             // одну запись удваивали бы счёт в бейдже. Не записалась — маркер
             // загрузки остаётся, иначе запись не учтена нигде (M-11).
@@ -951,41 +795,12 @@ export class LocalStoreSyncManager {
               'warning',
               'sync'
             );
-          };
-
-          if (item.store === 'aiDialogues') {
-            const outcome = await this.uploadDialogue(uid, db, item.key);
-            if (outcome === 'gone') {
-              markerChanges.dropped.add(itemKey);
-              markerChanges.revived.push({ store: item.store, key: item.key });
-              continue;
-            }
-            if (outcome === 'ok') {
-              removeOversizedRecord(item.store, item.key);
-              result.synced++;
-              markerChanges.dropped.add(itemKey);
-              markerChanges.revived.push({ store: item.store, key: item.key });
-              continue;
-            }
-            markOversized(outcome.oversized);
-            continue;
-          }
-
-          const record: unknown = rawRecord;
-          const jsonString = JSON.stringify(record);
-          const recordBytes = new TextEncoder().encode(jsonString).length;
-
-          // Страниц может выйти на одну больше, чем байт на 8 страниц: край
-          // страницы не режет символ. Такая запись тоже не влезает в один запрос.
-          const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
-          if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) {
-            markOversized(recordBytes);
             continue;
           }
 
           removeOversizedRecord(item.store, item.key);
 
-          const recordTs = extractRecordTimestamp(record) ?? Date.now();
+          const recordTs = extractRecordTimestamp(rawRecord) ?? Date.now();
 
           if (recordBytes <= PAGE_SPLIT_THRESHOLD_BYTES) {
             // Single-row record upload

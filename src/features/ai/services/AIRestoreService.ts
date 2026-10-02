@@ -1,15 +1,12 @@
 import { getLocalDb } from '../../../core/storage/localDb';
-import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet, AIDialogue } from '../../../core/storage/localDb';
+import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
-import { mergeDialogues, dialogueFingerprint } from '../../../core/storage/dialogueMerge';
-import { parseLocalStoreKey, selectCloudVersion, type CloudRow } from '../../../core/services/localStorePages';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { sha256Hex } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import {
   extractRecordTimestamp,
-  LocalStoreSyncService,
   SUPPORTED_LOCAL_STORES,
   SupportedLocalStoreName,
   MAX_RESTORE_RECORD_BYTES,
@@ -181,54 +178,119 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
   } else try {
     const cloudRecords = await DataProvider.getLocalStoreRecords(userId, undefined, sinceMs);
 
-    // Group cloud records by (store, baseKey). S-49: разбор ключей и выбор
-    // версии — общий с выгрузкой (core/services/localStorePages).
-    const grouped = new Map<string, { store: string; baseKey: string; rows: CloudRow[] }>();
+    // Group cloud records by (store, baseKey)
+    interface CloudGroupItem {
+      fullKey: string;
+      pageIndex: number | null; // null if not paged
+      payload: Record<string, unknown>;
+      checksum?: string | undefined;
+    }
+    const grouped = new Map<string, { store: string; baseKey: string; items: CloudGroupItem[] }>();
 
     for (const rec of cloudRecords) {
       if (!SUPPORTED_LOCAL_STORES.includes(rec.store as SupportedLocalStoreName)) continue;
       if (!(db.objectStoreNames as unknown as { contains(s: string): boolean }).contains(rec.store)) continue;
 
-      const { baseKey } = parseLocalStoreKey(rec.key);
+      const hashIdx = rec.key.lastIndexOf('#');
+      let baseKey = rec.key;
+      let pageIndex: number | null = null;
+      if (hashIdx !== -1) {
+        const suffix = rec.key.slice(hashIdx + 1);
+        if (/^\d+$/.test(suffix)) {
+          baseKey = rec.key.slice(0, hashIdx);
+          pageIndex = parseInt(suffix, 10);
+        }
+      }
+
       const groupKey = `${rec.store}:${baseKey}`;
       let grp = grouped.get(groupKey);
       if (!grp) {
-        grp = { store: rec.store, baseKey, rows: [] };
+        grp = { store: rec.store, baseKey, items: [] };
         grouped.set(groupKey, grp);
       }
-      grp.rows.push({ key: rec.key, payload: rec.payload as Record<string, unknown>, checksum: (rec as { checksum?: string }).checksum });
+      grp.items.push({
+        fullKey: rec.key,
+        pageIndex,
+        payload: rec.payload as Record<string, unknown>,
+        checksum: (rec as { checksum?: string }).checksum,
+      });
     }
 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
-    for (const { store, baseKey, rows } of grouped.values()) {
+    for (const { store, baseKey, items } of grouped.values()) {
       if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
       try {
         let fullJson: string;
         let cloudTs: number | null = null;
 
-        // S-49: манифест указывает версию точно; без него — самая свежая полная
-        // версия по отметке. Страницы разных версий могут лежать рядом: хвост
-        // прежней, более длинной версии, проигравшая попытка, выгрузка,
-        // оборванная на середине. Склеить половинки двух версий нельзя.
-        const version = selectCloudVersion(rows);
-        if (!version) continue;
-        if (version.kind === 'refused') {
-          logger.warn('AIRestoreService', `${store}/${baseKey}: ${version.reason}. Refusing.`);
-          result.failed++;
-          continue; // Keep local copy intact!
-        }
+        const isPaged = items.some(it => it.pageIndex !== null);
 
-        if (version.kind === 'single') {
-          const decryptedPayload = await maybeDecrypt(version.row.payload, ['data'], []);
+        if (!isPaged) {
+          // Single unpaged record
+          const item = items[0];
+          if (!item) continue;
+          const decryptedPayload = await maybeDecrypt(item.payload, ['data'], []);
           if (typeof decryptedPayload.data !== 'string') continue;
           fullJson = decryptedPayload.data;
           cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
         } else {
+          // SYNC-4: Multi-page reassembly
+          // Страницы разных версий могут лежать рядом: хвост прежней, более длинной
+          // версии, или новая версия, выгрузка которой оборвалась на середине.
+          // Собираем только самую свежую версию и только если её набор полный —
+          // склеить половинки двух версий нельзя, а старая версия поверх новой не нужна.
+          const versions = new Map<string, CloudGroupItem[]>();
+          for (const it of items) {
+            if (it.pageIndex === null) continue;
+            const ts = it.payload.updatedAt;
+            const total = it.payload.totalPages;
+            const stamp = `${typeof ts === 'number' ? ts : 'x'}|${typeof total === 'number' ? total : 'x'}`;
+            const list = versions.get(stamp) ?? [];
+            list.push(it);
+            versions.set(stamp, list);
+          }
+          const newest = [...versions.values()]
+            .filter(v => typeof v[0]?.payload.updatedAt === 'number' && typeof v[0]?.payload.totalPages === 'number')
+            .sort((a, b) => (b[0]!.payload.updatedAt as number) - (a[0]!.payload.updatedAt as number))[0];
+          const expectedTotalPages = newest ? newest[0]!.payload.totalPages as number : 0;
+          const expectedUpdatedAt = newest ? newest[0]!.payload.updatedAt as number : null;
+
+          const pagesByIndex = new Map<number, CloudGroupItem>();
+          let hasIntegrityError = !newest || expectedTotalPages <= 0;
+          for (const it of newest ?? []) {
+            if (pagesByIndex.has(it.pageIndex!)) {
+              logger.warn('AIRestoreService', `Duplicate page index ${it.pageIndex} for ${store}/${baseKey}. Refusing.`);
+              hasIntegrityError = true;
+              break;
+            }
+            pagesByIndex.set(it.pageIndex!, it);
+          }
+
+          const sortedPages: CloudGroupItem[] = [];
+          for (let i = 0; !hasIntegrityError && i < expectedTotalPages; i++) {
+            const pageItem = pagesByIndex.get(i);
+            if (!pageItem) {
+              logger.warn('AIRestoreService', `Newest version of ${store}/${baseKey} is incomplete: page ${i} of ${expectedTotalPages} missing. Refusing.`);
+              hasIntegrityError = true;
+              break;
+            }
+            sortedPages.push(pageItem);
+          }
+          if (!hasIntegrityError && pagesByIndex.size !== expectedTotalPages) {
+            logger.warn('AIRestoreService', `Newest version of ${store}/${baseKey} has pages beyond ${expectedTotalPages}. Refusing.`);
+            hasIntegrityError = true;
+          }
+
+          if (hasIntegrityError) {
+            result.failed++;
+            continue; // Keep local copy intact!
+          }
+
           // Decrypt and join chunks
           const decryptedChunks: string[] = [];
           let decryptFailed = false;
 
-          for (const pageItem of version.pages) {
+          for (const pageItem of sortedPages) {
             const dec = await maybeDecrypt(pageItem.payload, ['data'], []);
             if (typeof dec.data !== 'string') {
               decryptFailed = true;
@@ -243,7 +305,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           }
 
           fullJson = decryptedChunks.join('');
-          cloudTs = version.updatedAt;
+          cloudTs = expectedUpdatedAt;
         }
 
         // AG-RESTORE-4: Limit is MAX_RESTORE_RECORD_BYTES (10 MB) — above the upload cap,
@@ -284,7 +346,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           reportError(new Error('restoreAIData: malformed local_store_record'), { store, key: baseKey });
           continue;
         }
-        const expectedChecksum = rows[0]?.checksum;
+        const expectedChecksum = items[0]?.checksum;
         if (expectedChecksum) {
           const computed = await sha256Hex(fullJson);
           if (computed !== expectedChecksum) {
@@ -298,31 +360,10 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           cloudTs = dataTs;
         }
 
-        // S-29: диалоги не выбирают победителя по часам — они сливаются.
-        // LWW уносил ход того устройства, которое ответило вторым, молча.
-        // S-35: чтение, слияние и запись — в одной транзакции и без await на
-        // не-IDB работе между ними: ход, записанный между get и put, терялся.
-        if (store === 'aiDialogues') {
-          const cloudDialogue = parsedData as AIDialogue;
-          const tx = db.transaction('aiDialogues', 'readwrite');
-          const current = await tx.store.get(baseKey);
-          const merged = current ? mergeDialogues(current, cloudDialogue) : cloudDialogue;
-          const changed = !current || dialogueFingerprint(merged) !== dialogueFingerprint(current) || merged.updatedAt !== current.updatedAt;
-          if (changed) await tx.store.put(merged);
-          await tx.done;
-          if (changed) result.localStoreRecords++;
-          // Союз надо отправить в облако, иначе второе устройство так и
-          // останется со своей половинкой. Совпал с облаком — слать нечего.
-          if (current && dialogueFingerprint(merged) !== dialogueFingerprint(cloudDialogue)) {
-            LocalStoreSyncService.scheduleStoreSync('aiDialogues', merged.id);
-          }
-          continue;
-        }
-
         // Get local record if exists
         const localRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, baseKey);
 
-        const putRecord = (value: unknown = parsedData) => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, value);
+        const putRecord = () => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
 
         if (localRecord !== undefined) {
           const localTs = extractRecordTimestamp(localRecord);

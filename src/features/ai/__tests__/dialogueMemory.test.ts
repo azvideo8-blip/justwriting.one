@@ -101,12 +101,8 @@ describe('Dialogue Memory Purge (RING-0)', () => {
     // Act: Delete the dialogue
     await AIDialogueService.delete(dialogue.id);
 
-    // Assert: Dialogue is gone — S-58: a tombstone without messages stays behind
-    // so another device's late append cannot bring the dialogue back.
-    const tombstone = await db.get('aiDialogues', dialogue.id);
-    expect(tombstone?.deletedAt).toBeTypeOf('number');
-    expect(tombstone?.messages).toEqual([]);
-    expect(await AIDialogueService.get(dialogue.id)).toBeUndefined();
+    // Assert: Dialogue is gone
+    expect(await db.get('aiDialogues', dialogue.id)).toBeUndefined();
     // Assert: Dialogue event is gone
     expect(await db.get('aiDialogueEvents', dialogue.id)).toBeUndefined();
     // Assert: Derived memories are gone

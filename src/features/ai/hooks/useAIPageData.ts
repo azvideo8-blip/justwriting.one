@@ -456,8 +456,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (!msg?.variants || msg.variants.length <= 1) return;
     const currentIdx = msg.variantIndex ?? msg.variants.length - 1;
     const newIdx = Math.max(0, Math.min(msg.variants.length - 1, currentIdx + delta));
-    if (newIdx === currentIdx || !msg.id) return;
-    await AIDialogueService.switchVariant(id, msg.id, newIdx);
+    if (newIdx === currentIdx) return;
+    await AIDialogueService.switchVariant(id, newIdx);
     await loadDialogues();
   };
 
@@ -499,16 +499,12 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleDeleteMessage = async (index: number) => {
     const id = activeDialogueId ?? dialogue?.id;
     if (!id) return;
-    // S-29: удаляем по id реплики — позиция из списка экрана может разойтись с
-    // записью в базе, а тумбстоун без id слияние не учтёт и ответ вернётся.
-    const messageId = (dialogue ?? dialogues.find(d => d.id === activeDialogueId))?.messages[index]?.id;
-    if (!messageId) return;
     const ok = await confirmDialog({
       title: t('ai_delete_message_confirm_title'),
       message: t('ai_delete_message_confirm_message'),
     });
     if (!ok) return;
-    await AIDialogueService.deleteMessage(id, messageId);
+    await AIDialogueService.deleteMessage(id, index);
     await loadDialogues();
   };
 
