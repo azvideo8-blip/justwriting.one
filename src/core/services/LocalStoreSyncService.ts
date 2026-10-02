@@ -747,10 +747,14 @@ export class LocalStoreSyncManager {
       const merged = cloud
         ? mergeDialogues(withMessageIds(current), cloud.dialogue)
         : { ...withMessageIds(current), schema: DIALOGUE_SCHEMA };
-      if (dialogueFingerprint(merged) !== dialogueFingerprint(current) || merged.updatedAt !== current.updatedAt) {
+      const changedLocally = dialogueFingerprint(merged) !== dialogueFingerprint(current);
+      if (changedLocally || merged.updatedAt !== current.updatedAt) {
         await tx.store.put(merged);
       }
       await tx.done;
+      // S-57: союз лёг в базу — открытый на этом устройстве чат иначе показывает
+      // прежнюю копию до следующей своей правки.
+      if (changedLocally && typeof window !== 'undefined') window.dispatchEvent(new Event('dialogue-updated'));
 
       const jsonString = JSON.stringify(merged);
       const recordBytes = new TextEncoder().encode(jsonString).length;

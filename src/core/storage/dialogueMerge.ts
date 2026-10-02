@@ -112,9 +112,18 @@ function mergePair(x: DialogueMessage, y: DialogueMessage): DialogueMessage {
   };
 }
 
-function lastExtractedIdOf(d: AIDialogue, merged: DialogueMessage[]): string | undefined {
-  if (!d.lastExtractedMessageId) return undefined;
-  return merged.some(m => m.id === d.lastExtractedMessageId) ? d.lastExtractedMessageId : undefined;
+// S-57: курсор извлечения памяти — тот, что дальше всех в союзе реплик, а не
+// у копии с более свежим updatedAt: сдвиг курсора updatedAt не поднимает, и
+// курсор откатывался, а реплики извлекались второй раз.
+function furthestExtractedId(a: AIDialogue, b: AIDialogue, merged: DialogueMessage[]): string | undefined {
+  let best: string | undefined;
+  let bestIdx = -1;
+  for (const id of [a.lastExtractedMessageId, b.lastExtractedMessageId]) {
+    if (!id) continue;
+    const idx = merged.findIndex(m => m.id === id);
+    if (idx > bestIdx) { bestIdx = idx; best = id; }
+  }
+  return best;
 }
 
 // S-36: ключ порядка в хвосте — ход, а не голая реплика: (createdAt вопроса,
@@ -172,7 +181,6 @@ export function mergeDialogues(local: AIDialogue, cloud: AIDialogue, now = Date.
   const b = adoptIds(cloud, local);
   const aNewer = (a.updatedAt ?? 0) >= (b.updatedAt ?? 0);
   const newer = aNewer ? a : b;
-  const older = aNewer ? b : a;
 
   const tomb = new Map<string, number>();
   for (const t of [...(a.deletedMessages ?? []), ...(b.deletedMessages ?? [])]) {
@@ -203,7 +211,7 @@ export function mergeDialogues(local: AIDialogue, cloud: AIDialogue, now = Date.
   const tail = [...tailById.values()].sort((x, y) => compareKeys(turnKey(x), turnKey(y)));
 
   const messages = [...prefix, ...tail];
-  const extracted = lastExtractedIdOf(newer, messages) ?? lastExtractedIdOf(older, messages);
+  const extracted = furthestExtractedId(a, b, messages);
   const deletedMessages = [...tomb].map(([id, at]) => ({ id, at })).sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
 
   const result: AIDialogue = {

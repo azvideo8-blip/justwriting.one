@@ -219,7 +219,11 @@ export const AIDialogueService = {
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
-  async switchVariant(id: string, variantIndex: number): Promise<void> {
+  /**
+   * S-36/S-57: смена варианта — у реплики по её id, а не у «последнего ответа»:
+   * на отставшем экране последний ответ — чужой ход с другого устройства.
+   */
+  async switchVariant(id: string, messageId: string, variantIndex: number): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
@@ -227,21 +231,45 @@ export const AIDialogueService = {
     // S-36: id в запись до правки на месте — позиционный id старой реплики
     // считался по тексту, и смена текста меняла id: слияние видело две реплики.
     existing.messages = withMessageIds(existing).messages;
-    for (let i = existing.messages.length - 1; i >= 0; i--) {
-      const m = existing.messages[i];
-      if (m && m.role === 'assistant' && m.type !== 'system') {
-        if (!m.variants || variantIndex < 0 || variantIndex >= m.variants.length) { await tx.done; return; }
-        m.variantIndex = variantIndex;
-        m.content = m.variants[variantIndex] ?? m.content;
-        m.updatedAt = Date.now();
-        break;
-      }
+    const m = existing.messages.find(x => x.id === messageId);
+    if (!m || m.role !== 'assistant' || m.type === 'system' || !m.variants || variantIndex < 0 || variantIndex >= m.variants.length) {
+      await tx.done;
+      return;
     }
+    m.variantIndex = variantIndex;
+    m.content = m.variants[variantIndex] ?? m.content;
+    m.updatedAt = Date.now();
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     window.dispatchEvent(new Event('dialogue-updated'));
+  },
+
+  /**
+   * S-57: смена персоны — одной транзакцией и с постановкой в выгрузку. Прежний
+   * писатель в useAIChat делал get и put врозь (ход, записанный между ними,
+   * терялся) и в облако запись не ставил.
+   */
+  async setPersona(id: string, persona: { personaId: string; personaName: string; personaEmoji: string }): Promise<AIDialogue | undefined> {
+    const db = await getLocalDb();
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (!existing) { await tx.done; return undefined; }
+    const fresh = withMessageIds(existing);
+    fresh.personaId = persona.personaId;
+    fresh.personaName = persona.personaName;
+    fresh.personaEmoji = persona.personaEmoji;
+    fresh.messages.push(stampMessage({
+      role: 'assistant',
+      content: `⚙️ [Смена персоны]: Теперь с вами общается ${persona.personaName}`,
+      type: 'system',
+    }));
+    fresh.updatedAt = Date.now();
+    await tx.store.put(fresh);
+    await tx.done;
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
+    return fresh;
   },
 
   async updateTitle(id: string, title: string): Promise<void> {

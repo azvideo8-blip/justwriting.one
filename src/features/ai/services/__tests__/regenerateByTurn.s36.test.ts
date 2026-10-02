@@ -109,7 +109,7 @@ describe('S-36: regenerate keeps the turn in place and under its own ids', () =>
     const idsBefore = withMessageIds(legacy).messages.map(x => x.id);
     const otherDevice = JSON.parse(JSON.stringify(legacy)) as AIDialogue;
 
-    await AIDialogueService.switchVariant(DID, 1);
+    await AIDialogueService.switchVariant(DID, idsBefore[1]!, 1);
 
     const after = (await stored(DID))!;
     expect(after.messages[1]?.content).toBe('v2');

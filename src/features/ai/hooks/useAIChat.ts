@@ -9,11 +9,9 @@ import { LocalDocumentService } from '../../../core/services/LocalDocumentServic
 import { useLanguage } from '../../../shared/i18n';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
 import { useAiLimitStore } from '../store/useAiLimitStore';
-import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
-import { stampMessage, withMessageIds } from '../utils/dialogueMerge';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { reportError } from '../../../shared/errors/reportError';
 import { reportAIDegradation } from '../utils/aiDegradationReporter';
@@ -225,25 +223,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
 
       if (!active) return;
-      const db = await getLocalDb();
-      if (!active) return;
-      const stored = await db.get('aiDialogues', dialogueId);
-      if (!active || !stored) return;
-      const fresh = withMessageIds(stored);
-      if (!active) return;
-
-      fresh.personaId = personaId;
-      fresh.personaName = newPersonaName;
-      fresh.personaEmoji = newPersonaEmoji;
-      fresh.messages.push(stampMessage({
-        role: 'assistant',
-        content: `⚙️ [Смена персоны]: Теперь с вами общается ${newPersonaName}`,
-        type: 'system',
-      }));
-      fresh.updatedAt = Date.now();
-      if (!active) return;
-      await db.put('aiDialogues', fresh);
-      if (active) setDialogue({ ...fresh });
+      // S-57: запись — в сервисе, одной транзакцией и с постановкой в выгрузку.
+      const fresh = await AIDialogueService.setPersona(dialogueId, { personaId, personaName: newPersonaName, personaEmoji: newPersonaEmoji });
+      if (active && fresh) setDialogue({ ...fresh });
     })();
 
     return () => { active = false; };

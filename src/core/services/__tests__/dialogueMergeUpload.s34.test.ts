@@ -221,6 +221,33 @@ describe('S-34: dialogue upload merges with the cloud row', () => {
     expect(onA, `инкрементальный забор не увидел союз: ${JSON.stringify(onA)}`).toContain('Вопрос с B');
   });
 
+  it('S-57: a merge during upload that changes the local record dispatches dialogue-updated; an unchanged one does not', async () => {
+    const a = new Device();
+    const b = new Device();
+    const d = await sharedPrefix(a, b);
+
+    switchTo(b);
+    at('09:30');
+    await AIDialogueService.appendMessage(d.id, 'Вопрос с B', 'Ответ с B');
+    await flush();
+
+    switchTo(a);
+    at('10:00');
+    await AIDialogueService.appendMessage(d.id, 'Вопрос с A', 'Ответ с A');
+    const updated = vi.fn();
+    window.addEventListener('dialogue-updated', updated);
+    try {
+      await flush();
+      expect(updated, 'открытый чат не узнал о слитом ходе B').toHaveBeenCalledTimes(1);
+      // Повторная выгрузка без изменений — без события.
+      LocalStoreSyncService.scheduleStoreSync('aiDialogues', d.id);
+      await flush();
+      expect(updated).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener('dialogue-updated', updated);
+    }
+  });
+
   it('S-53 survivor: the first upload of a dialogue carries schema 2 even without a cloud copy to merge with', async () => {
     const a = new Device();
     switchTo(a);

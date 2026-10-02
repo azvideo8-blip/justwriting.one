@@ -456,8 +456,8 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
     if (!msg?.variants || msg.variants.length <= 1) return;
     const currentIdx = msg.variantIndex ?? msg.variants.length - 1;
     const newIdx = Math.max(0, Math.min(msg.variants.length - 1, currentIdx + delta));
-    if (newIdx === currentIdx) return;
-    await AIDialogueService.switchVariant(id, newIdx);
+    if (newIdx === currentIdx || !msg.id) return;
+    await AIDialogueService.switchVariant(id, msg.id, newIdx);
     await loadDialogues();
   };
 
