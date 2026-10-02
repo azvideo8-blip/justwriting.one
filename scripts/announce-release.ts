@@ -23,13 +23,23 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export function formatAnnouncement(release: ChangelogRelease): string | null {
   const items = release.items.filter(i => !i.ru.startsWith('Служебный выпуск'));
   if (items.length === 0) return null;
-  let text = `<b>Версия ${esc(release.version)} обновлена</b>`;
+  // Не влезло в лимит Telegram — отбрасываем пункты с конца целиком: обрезка
+  // по символам рвёт HTML-сущность или тег, и Telegram отвечает 400.
+  for (let n = items.length; n > 0; n--) {
+    const text = build(release.version, items.slice(0, n), items.length - n);
+    if (text.length <= TG_LIMIT) return text;
+  }
+  return build(release.version, [], items.length);
+}
+
+function build(version: string, items: ChangelogRelease['items'], dropped: number): string {
+  let text = `<b>Версия ${esc(version)} обновлена</b>`;
   for (const [cat, title] of SECTIONS) {
     const lines = items.filter(i => i.category === cat).map(i => `• ${esc(i.ru)}`);
     if (lines.length) text += `\n\n<b>${title}</b>\n${lines.join('\n')}`;
   }
-  // ponytail: режем по символам, а не по пунктам — выпуск на 4 КБ текста бывает раз в жизни.
-  return text.length > TG_LIMIT ? text.slice(0, TG_LIMIT - 1) + '…' : text;
+  if (dropped) text += `\n\n…и ещё ${dropped} — список изменений в приложении.`;
+  return text;
 }
 
 async function main(): Promise<void> {

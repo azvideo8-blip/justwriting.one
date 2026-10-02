@@ -334,9 +334,12 @@ jobs:
             sudo find /var/www/justwriting/assets -type f -mtime +14 -delete'
 
       # Объявление в теме «Новости» группы в Telegram — только после проверок.
-      # Сбой объявления выкатку не роняет (скрипт всегда выходит с 0).
+      # Сбой объявления выкатку не роняет: скрипт выходит с 0, а на случай
+      # падения самого tsx — continue-on-error. Иначе failure() поднял бы откат
+      # уже проверенного релиза, когда node_modules.prev уже удалён.
       - name: Объявление о выпуске
         if: success()
+        continue-on-error: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}

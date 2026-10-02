@@ -21,8 +21,11 @@ describe('formatAnnouncement', () => {
       .toBe('<b>Версия 1 обновлена</b>\n\n<b>Новое</b>\n• Видно людям');
   });
 
-  it('fits the Telegram limit', () => {
-    const text = formatAnnouncement({ version: '1', date: '', items: [{ category: 'new', ru: 'я'.repeat(5000), en: '' }] });
-    expect(text!.length).toBe(4096);
+  it('fits the Telegram limit by dropping whole items, never cutting HTML', () => {
+    const item = { category: 'fix' as const, ru: '<&>'.repeat(300), en: '' };
+    const text = formatAnnouncement({ version: '1', date: '', items: [item, item, item, item] })!;
+    expect(text.length).toBeLessThanOrEqual(4096);
+    expect(text).toMatch(/…и ещё 3 — список изменений в приложении\.$/);
+    expect(text.replace(/&(amp|lt|gt);/g, '').includes('&')).toBe(false);
   });
 });
