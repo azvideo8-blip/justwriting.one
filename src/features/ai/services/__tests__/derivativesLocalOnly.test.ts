@@ -32,6 +32,11 @@ vi.mock('../../../../core/data', () => ({
     countSummaries: async () => 0,
     countEmbeddings: async () => 0,
     countLocalStoreRecords: async () => 0,
+    // S-47: проход выгрузки сверяет облачные хвосты под надгробиями.
+    getUserDocuments: async () => [{ uuid: LIVE }],
+    listSummaryDocumentIds: async () => [],
+    listEmbeddingDocumentIds: async () => [],
+    listTombstonedDocumentUuids: async () => [],
   },
 }));
 vi.mock('../../../../core/services/LocalStoreSyncService', () => ({
