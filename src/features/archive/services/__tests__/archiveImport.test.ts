@@ -224,6 +224,47 @@ describe('importNoteFile', () => {
     expect(saveNewMock).not.toHaveBeenCalled();
   }, BOMB_TEST_TIMEOUT_MS);
 
+  // S-60 (S-43): предел — на архив целиком, не на запись: три записи по 20 МБ
+  // поодиночке проходят под 50 МБ, вместе — нет.
+  it('S-60: rejects an archive whose entries each fit under the cap but sum over 50 MB, before mammoth', async () => {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    zip.file('word/document.xml', '<w:document/>');
+    for (const name of ['word/media/a.bin', 'word/media/b.bin', 'word/media/c.bin']) zip.file(name, 'A'.repeat(20 * 1024 * 1024));
+    const file = docxFile(await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' }), 'three-parts.docx');
+
+    expect(await importFails(file)).toBe(true);
+    expect(convertToMarkdownSpy).not.toHaveBeenCalled();
+    expect(saveNewMock).not.toHaveBeenCalled();
+  }, BOMB_TEST_TIMEOUT_MS);
+
+  // S-60 (S-43): после превышения предела поток ставится на паузу — иначе
+  // бомба распаковывается до конца в память, хотя импорт уже отклонён.
+  // Пауза действует с шагом в один сжатый кусок (16 КБ на входе — до ~16 МБ на
+  // выходе у «бомбы»), поэтому бомба здесь вдвое больше предела: без паузы
+  // распаковываются все 120 МБ, с паузой — чуть больше 50.
+  it('S-60: inflating stops right after the cap is crossed instead of running to the end of the bomb', async () => {
+    const JSZip = (await import('jszip')).default;
+    const bigBomb = await makeDocx('A'.repeat(120 * 1024 * 1024), 'DEFLATE');
+    const probe = await JSZip.loadAsync(bigBomb);
+    const proto = Object.getPrototypeOf(probe.file('word/document.xml')!) as { internalStream: (type: string) => { on: (ev: string, cb: (c: Uint8Array) => void) => unknown } };
+    const original = proto.internalStream;
+    let streamed = 0;
+    const spy = vi.spyOn(proto, 'internalStream').mockImplementation(function (this: unknown, type: string) {
+      const stream = original.call(this, type);
+      stream.on('data', (chunk: Uint8Array) => { streamed += chunk.length; });
+      return stream;
+    });
+    try {
+      expect(await importFails(docxFile(bigBomb, 'big-bomb.docx'))).toBe(true);
+      await new Promise(r => setTimeout(r, 1_500));
+      expect(streamed, `распаковано ${Math.round(streamed / 1024 / 1024)} МБ после отказа`).toBeLessThan(100 * 1024 * 1024);
+      expect(streamed).toBeGreaterThan(50 * 1024 * 1024);
+    } finally {
+      spy.mockRestore();
+    }
+  }, BOMB_TEST_TIMEOUT_MS);
+
   it('S-11: rejects a docx whose mammoth output exceeds 10M characters without saving', async () => {
     convertToMarkdownSpy.mockResolvedValueOnce({ value: 'A'.repeat(10_000_001), messages: [] });
     const file = docxFile(await makeDocx('small'), 'huge-output.docx');

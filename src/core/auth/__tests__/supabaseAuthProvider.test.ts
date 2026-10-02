@@ -290,11 +290,16 @@ describe('ERR-3: auth session error visibility and token refresh failure', () =>
     try {
       _resetAuthStateForTesting();
       localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_old'), String(Date.now() - 61_000));
+      localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_almost'), String(Date.now() - 59_000));
       localStorage.setItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_fresh'), String(Date.now() - 1_000));
       subscribe();
       expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_old'))).toBeNull();
+      // S-60 (S-33.4): срок — ровно 60 с, не меньше: отметка в 59 с ещё жива.
+      expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_almost'))).not.toBeNull();
       expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_fresh'))).not.toBeNull();
-      vi.advanceTimersByTime(59_001);
+      vi.advanceTimersByTime(58_000);
+      expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_fresh')), 'отметка снята раньше 60 с').not.toBeNull();
+      vi.advanceTimersByTime(1_001);
       expect(localStorage.getItem(STORAGE_KEYS.VOLUNTARY_SIGNOUT_AT('u_fresh'))).toBeNull();
     } finally { vi.useRealTimers(); }
   });
