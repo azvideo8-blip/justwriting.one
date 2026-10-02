@@ -1,4 +1,5 @@
 import { getOrCreateGuestId, getLocalDb, type LocalDraft } from '../../../core/storage/localDb';
+import { LocalStorageService } from '../../../core/services/LocalStorageService';
 import { GUEST_DRAFT_TTL_MS, STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { getFrozenDates, saveFrozenDates, clearFrozenDates } from '../../../core/utils/streakFreeze';
@@ -18,6 +19,14 @@ type GuestDb = Awaited<ReturnType<typeof getLocalDb>>;
  * окно считало копию из localStorage, перенос её не трогал, и предложение
  * «перенесено 1» возвращалось при каждой загрузке.
  */
+const ts = (d: LocalDraft | undefined) => d?.updatedAt ?? (d as { timestamp?: number } | undefined)?.timestamp ?? 0;
+
+/** «Черновик гостя, 2 октября 2026» — заголовок заметки, в которую уходит неперенесённый черновик. */
+export function guestDraftNoteTitle(at: number, lang = localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) === 'en' ? 'en' : 'ru'): string {
+  const date = new Date(at).toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  return lang === 'en' ? `Guest draft, ${date}` : `Черновик гостя, ${date}`;
+}
+
 export async function readGuestDraft(guestDb: GuestDb): Promise<LocalDraft | null> {
   const idb = guestDb.objectStoreNames.contains('drafts') ? await guestDb.get('drafts', 'guest_draft') : undefined;
   let ls: LocalDraft | undefined;
@@ -27,7 +36,7 @@ export async function readGuestDraft(guestDb: GuestDb): Promise<LocalDraft | nul
   } catch (e) {
     reportError(e, { action: 'readGuestDraft_ls' }, 'warning');
   }
-  const ts = (d: LocalDraft | undefined) => d?.updatedAt ?? 0;
+  // S-55: черновик до 0.7.x нёс `timestamp`, не `updatedAt` — читаем оба, как GuestDraftService.
   const draft = ts(idb) >= ts(ls) ? (idb ?? ls) : ls;
   if (!draft) return null;
   if (ts(draft) > 1_000_000_000_000 && Date.now() - ts(draft) > GUEST_DRAFT_TTL_MS) return null;
@@ -60,6 +69,22 @@ export async function migrateDocuments(userId: string): Promise<MigrateResult> {
       // Выгрузку делает слой письма по событию: прямой импорт из auth в
       // writing запрещён зонами import/no-restricted-paths.
       emitDomainEvent({ type: 'draft.migrated', userId });
+      draftMigrated = true;
+    } else if (guestDraft.content.trim()) {
+      // S-55: у аккаунта свой черновик — гостевой не затирается и не
+      // выбрасывается, а становится обычной заметкой. Раньше он удалялся под
+      // сообщением «перенесено 1».
+      await LocalStorageService.saveNew(userId, {
+        title: guestDraftNoteTitle(ts(guestDraft) || Date.now()),
+        content: guestDraft.content,
+        wordCount: guestDraft.wordCount ?? 0,
+        duration: guestDraft.seconds ?? 0,
+        wpm: guestDraft.wpm ?? 0,
+        tags: [],
+        sessionStartedAt: new Date(ts(guestDraft) || Date.now()),
+        // Дата заметки — когда черновик писали, а не момент входа.
+        documentDate: new Date(ts(guestDraft) || Date.now()),
+      });
       draftMigrated = true;
     }
     if (hasDraftsInGuest) {

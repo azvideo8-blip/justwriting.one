@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
-import { migrateDocuments } from '../migrateDocuments';
+import { migrateDocuments, readGuestDraft } from '../migrateDocuments';
 
 beforeEach(async () => {
   localStorage.clear();
@@ -44,17 +44,45 @@ describe('2.8 guest draft is consumed by migration', () => {
     expect(moved.moved).toBeGreaterThanOrEqual(0);
   });
 
-  it('consumes the source even when the user already had a draft', async () => {
+  // S-55: у аккаунта уже есть черновик — гостевой не выбрасывается под
+  // «перенесено 1», а становится обычной заметкой «Черновик гостя, <дата>».
+  it('S-55: when the user already has a draft, the guest draft becomes a note instead of being deleted', async () => {
     const guestDb = await getLocalDb();
     const userDb = await getLocalDb('user_2');
-    await guestDb.put('drafts', { userId: 'guest_draft', content: 'гостевой', updatedAt: Date.now() } as never);
+    const at = Date.parse('2026-10-02T10:00:00+05:00');
+    await guestDb.put('drafts', { userId: 'guest_draft', content: 'гостевой текст, который нельзя терять', wordCount: 5, seconds: 40, wpm: 7, updatedAt: at } as never);
     await userDb.put('drafts', { userId: 'user_2', content: 'уже был черновик', updatedAt: Date.now() } as never);
 
-    await migrateDocuments('user_2');
+    const result = await migrateDocuments('user_2');
 
     expect(await guestDb.get('drafts', 'guest_draft')).toBeUndefined();
     expect(await guestDb.get('drafts', 'user_2')).toBeUndefined();
     expect(((await userDb.get('drafts', 'user_2')) as { content: string }).content).toBe('уже был черновик');
+    const notes = await userDb.getAll('documents');
+    expect(notes.map(n => n.title)).toEqual([`Черновик гостя, ${new Date(at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`]);
+    const versions = await userDb.getAll('versions');
+    expect(versions.map(v => v.content)).toEqual(['гостевой текст, который нельзя терять']);
+    expect(notes[0]!.firstSessionAt).toBe(at);
+    expect(result).toEqual({ moved: 1, left: 0 });
+  });
+
+  it('S-55: the legacy `timestamp` field counts like updatedAt — for the newer-copy rule and for the 7-day TTL', async () => {
+    const guestDb = await getLocalDb();
+    await guestDb.put('drafts', { userId: 'guest_draft', content: 'старая копия в IDB', updatedAt: Date.now() - 60_000 } as never);
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'свежий старый черновик', timestamp: Date.now() - 1000 }));
+    expect((await readGuestDraft(guestDb))?.content, 'копия с timestamp сочтена нулевого возраста и проиграла').toBe('свежий старый черновик');
+
+    await guestDb.delete('drafts', 'guest_draft');
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'протухший', timestamp: Date.now() - 8 * 24 * 60 * 60 * 1000 }));
+    expect(await readGuestDraft(guestDb), 'черновик старше 7 дней по timestamp должен быть пропущен, как в GuestDraftService').toBeNull();
+  });
+
+  it('S-55 survivor: the newer of the two copies wins — localStorage over IndexedDB when it is fresher', async () => {
+    const guestDb = await getLocalDb();
+    await guestDb.put('drafts', { userId: 'guest_draft', content: 'старая копия в IDB', updatedAt: Date.now() - 60_000 } as never);
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'свежая копия в localStorage', updatedAt: Date.now() }));
+
+    expect((await readGuestDraft(guestDb))?.content).toBe('свежая копия в localStorage');
   });
 
   // S-44.4: окно переноса считает и копию из localStorage — значит, перенос

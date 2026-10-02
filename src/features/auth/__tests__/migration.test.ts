@@ -63,12 +63,16 @@ vi.mock('../../../core/services/DocumentService', () => ({
 
 vi.mock('../../../core/services/VersionService', () => ({
   VersionService: MockVersionService,
+  // S-55: saveNew заметки из гостевого черновика проверяет размер версии.
+  isVersionContentTooLarge: () => false,
 }));
 
 vi.mock('../../../core/crypto/cryptoHelpers', () => ({
   maybeEncrypt: vi.fn(async (doc: Record<string, unknown>) => ({ ...doc, _encrypted: false })),
   maybeDecrypt: vi.fn(async (doc: Record<string, unknown>) => doc),
   isVaultLocked: () => false,
+  // S-55: неперенесённый гостевой черновик сохраняется заметкой через saveNew.
+  getEncryptionEnabled: () => false,
 }));
 
 // Removed firestore mock
@@ -716,6 +720,8 @@ describe('GROUP F — Draft migration (D-3)', () => {
     const userDraft = await userDb.get('drafts', USER_ID);
     expect(userDraft?.content).toBe('User content');
     expect(await guestDb.get('drafts', 'guest_draft')).toBeUndefined();
+    // S-55: гостевой черновик не выброшен — стал заметкой.
+    expect((await userDb.getAll('versions')).map(v => v.content)).toContain('Guest content');
   });
 
   it('F03: no guest draft — migration succeeds, no user draft created', async () => {

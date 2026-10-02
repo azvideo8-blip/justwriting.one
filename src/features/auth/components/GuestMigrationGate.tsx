@@ -77,8 +77,9 @@ export function GuestMigrationGate() {
           return;
         }
 
-        if (result.left === 0 && (result.moved > 0 || count > 0)) {
-          showToast(t('migration_success_local', { count: result.moved || count }), 'success');
+        // S-55: тост — о том, что перенесено на самом деле, а не о том, что нашлось.
+        if (result.left === 0 && result.moved > 0) {
+          showToast(t('migration_success_local', { count: result.moved }), 'success');
         }
         // При left > 0 тост уже показан в MigrationPrompt, а флаг MIGRATION_DECLINED
         // НЕ ставится — предложение вернётся при следующем входе.
