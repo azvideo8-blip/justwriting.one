@@ -14,3 +14,14 @@ export function isExcludedFromAI(doc?: ExcludableDoc | null | undefined): boolea
   if (!doc) return true;
   return Boolean(doc.excludedFromAI || doc.trashedAt);
 }
+
+/**
+ * S-63: «Вставить как заметку» прикладывает текст под id `pasted-<ts>` — строки
+ * в documents у него нет и не будет. Это не заметка, и правило «заметки нет —
+ * скрыта» (S-51) к нему не относится: иначе вставленный текст уходил в модель
+ * как «[заметка скрыта от ИИ]».
+ */
+export const PASTED_ATTACHMENT_ID_PREFIX = 'pasted-';
+export function isPastedAttachmentId(id: string): boolean {
+  return id.startsWith(PASTED_ATTACHMENT_ID_PREFIX);
+}

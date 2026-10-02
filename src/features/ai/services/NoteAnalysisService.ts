@@ -159,7 +159,8 @@ export const NoteAnalysisService = {
   async analyze(documentId: string): Promise<AnalyzeResult> {
     const db = await getLocalDb();
     const doc = await db.get('documents', documentId);
-    if (isExcludedFromAI(doc)) return { ok: false, error: 'EXCLUDED' };
+    // S-63: заметки нет — это NO_CONTENT (как до S-51), а не EXCLUDED.
+    if (doc && isExcludedFromAI(doc)) return { ok: false, error: 'EXCLUDED' };
 
     const content = await latestContent(documentId);
     if (!content || content.trim().length === 0) return { ok: false, error: 'NO_CONTENT' };

@@ -31,7 +31,7 @@ import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
-import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 
 /** Заметка-тема диалога. title/date идут в правило строгого хода (noteScope). */
 export interface AttachedNoteRef {
@@ -68,11 +68,14 @@ export async function hideExcludedNotes(content: string, db: Pick<Awaited<Return
     const h = heads[i]!;
     const bodyEnd = i + 1 < heads.length ? heads[i + 1]!.index : content.length;
     const body = content.slice(h.index + h[0].length, bodyEnd);
-    let hidden = true;
-    try {
-      hidden = isExcludedFromAI(await db.get('documents', h[1]!));
-    } catch (e) {
-      reportError(e, { action: 'hideExcludedNotes', documentId: h[1] });
+    // S-63: вставленный текст — не заметка, строки в documents у него нет; скрывать нечего.
+    let hidden = !isPastedAttachmentId(h[1]!);
+    if (hidden) {
+      try {
+        hidden = isExcludedFromAI(await db.get('documents', h[1]!));
+      } catch (e) {
+        reportError(e, { action: 'hideExcludedNotes', documentId: h[1] });
+      }
     }
     out += h[0] + (hidden ? '[заметка скрыта от ИИ]\n\n' : body);
   }

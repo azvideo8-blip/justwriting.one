@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, type ChangeEvent } from 'react';
 import { API_MSG_CAP } from './useAIChat';
 import { reportError } from '../../../shared/errors/reportError';
+import { PASTED_ATTACHMENT_ID_PREFIX } from '../utils/isExcludedFromAI';
 import { useLanguage } from '../../../shared/i18n';
 
 interface AttachmentManagerParams {
@@ -67,7 +68,7 @@ export function useAttachmentManager({
   const handlePasteAsNote = useCallback(() => {
     const text = inputText.trim();
     if (!text) return;
-    setPendingAttachments(prev => [...prev, { documentId: `pasted-${Date.now()}`, title: 'Вставленный текст', content: text }]);
+    setPendingAttachments(prev => [...prev, { documentId: `${PASTED_ATTACHMENT_ID_PREFIX}${Date.now()}`, title: 'Вставленный текст', content: text }]);
     setInputText('');
   }, [inputText, setInputText]);
 

@@ -92,6 +92,11 @@ describe("D4.18 NoteAnalysisService & ArchiveCrud Exclusion", () => {
     unsub?.();
   });
 
+  // S-63: заметки нет — NO_CONTENT, как до S-51; EXCLUDED — только у существующей скрытой.
+  it("S-63: analyze() of a missing note is NO_CONTENT, not EXCLUDED", async () => {
+    expect(await NoteAnalysisService.analyze("doc_missing_s63")).toEqual({ ok: false, error: "NO_CONTENT" });
+  });
+
   it("analyze() returns early with { ok: false, error: 'EXCLUDED' } on excluded note", async () => {
     const summarizeSpy = vi.spyOn(AIService, "summarize");
 
