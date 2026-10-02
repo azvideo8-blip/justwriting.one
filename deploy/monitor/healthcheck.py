@@ -9,6 +9,9 @@
 # (S-44.3): молчание должно значить «всё хорошо», а поток одинаковых писем
 # приводит к тому, что их перестают читать. Упавший oneshot (месячный drill)
 # остаётся в failed до `systemctl reset-failed` — см. deploy/backup/RESTORE.md.
+# S-63: ключ без имён (disk_high, cert_expiring…) не эскалирует: диск 80 → 99 %
+# и сертификат 19 → 1 день — одно письмо. Причины с именами (юниты, контейнеры,
+# ассеты) несут имена в ключе — смена состава даёт новое письмо.
 #
 # R5-054: сбой измерителя — тоже проблема. Проверка, которая ничего не
 # измерила, не имеет права промолчать.
@@ -119,6 +122,7 @@ else:
 # ── контейнеры ──────────────────────────────────────────────────────────────
 ps = sh(f'cd {COMPOSE_DIR} && docker compose ps --format json')
 down = []
+down_names = []
 for line in ps.splitlines():
     try:
         c = json.loads(line)
@@ -128,10 +132,13 @@ for line in ps.splitlines():
     health = (c.get('Health') or '').lower()
     if state != 'running' or health in ('unhealthy', 'starting'):
         down.append(f"{c.get('Service')} ({state}{'/' + health if health else ''})")
+        down_names.append(str(c.get('Service')))
 if not any(line.strip().startswith('{') for line in ps.splitlines()):
     problem('containers_list', 'Не удалось получить список контейнеров: docker compose ps пуст.')
 if down:
-    problem('containers_down', 'Контейнеры не в порядке: ' + ', '.join(down))
+    # S-63: имена в ключе, как у units_failed: иначе «A упал», а потом «A поднялся,
+    # B упал» — один ключ, и о B письма нет.
+    problem('containers_down:' + ','.join(sorted(down_names)), 'Контейнеры не в порядке: ' + ', '.join(down))
 
 # ── эмбеддинги (R5-055) ─────────────────────────────────────────────────────
 # Отдельный compose-проект (/opt/justwriting/embeddings), в список выше не
@@ -194,7 +201,7 @@ else:
     missing = [a for a in sorted(set(re.findall(r'(?:src|href)="(/assets/[^"]+)"', html)))
                if http(SITE + a, 'HEAD')[0] != '200']
     if missing:
-        problem('site_assets', 'Сайт отвечает 200, но ассетов нет — белый экран: ' + ', '.join(missing[:5]))
+        problem('site_assets:' + ','.join(missing), 'Сайт отвечает 200, но ассетов нет — белый экран: ' + ', '.join(missing[:5]))
 
 # ── готовность ИИ-службы с базой (N-77) ─────────────────────────────────────
 # /health проверяет только «процесс жив»: при висящем пуле он продолжает

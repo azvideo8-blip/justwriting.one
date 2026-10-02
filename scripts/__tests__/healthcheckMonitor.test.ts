@@ -109,25 +109,33 @@ const RUNNER = [
   '    def login(self, *a): pass',
   "    def send_message(self, m): print('SMTP_SENT: ' + m['Subject'])",
   'smtplib.SMTP_SSL = S',
-  // GREEN_SITE=1: сайт отвечает 200 оболочкой приложения без ассетов.
-  'import os, io, urllib.request',
+  // GREEN_SITE=1: сайт отвечает 200 оболочкой приложения; GREEN_SITE_HTML
+  // подменяет оболочку, MISSING_ASSETS (пути через запятую) отвечают 404 (S-63).
+  'import os, io, urllib.request, urllib.error',
   'if os.environ.get("GREEN_SITE"):',
   '    class R(io.BytesIO):',
   '        status = 200',
   '        def __enter__(self): return self',
   '        def __exit__(self, *a): return False',
-  '    urllib.request.urlopen = lambda req, timeout=15: R(b"<html data-app-version=\\"t\\"></html>")',
+  '    _html = os.environ.get("GREEN_SITE_HTML", "<html data-app-version=\\"t\\"></html>").encode()',
+  '    _missing = set(filter(None, os.environ.get("MISSING_ASSETS", "").split(",")))',
+  '    def _open(req, timeout=15):',
+  '        path = "/" + req.full_url.split("//", 1)[-1].split("/", 1)[-1]',
+  '        if path in _missing: raise urllib.error.HTTPError(req.full_url, 404, "nf", None, None)',
+  '        return R(_html)',
+  '    urllib.request.urlopen = _open',
   'sys.argv = [sys.argv[1]]',
   "runpy.run_path(sys.argv[0], run_name='__main__')",
 ].join('\n');
 
-function runAlerting(sb: Sandbox, statePath = path.join(sb.dir, 'state.json'), green = false): { status: number; stdout: string; stderr: string } {
+function runAlerting(sb: Sandbox, statePath = path.join(sb.dir, 'state.json'), green = false, extraEnv: Record<string, string> = {}): { status: number; stdout: string; stderr: string } {
   const envFile = path.join(sb.dir, 'supabase.env');
   fs.writeFileSync(envFile, 'SMTP_HOST=smtp.test\nSMTP_PORT=465\nSMTP_USER=u@test\nSMTP_PASS=x\n');
   const res = spawnSync('python3', ['-c', RUNNER, HEALTHCHECK], {
     env: {
       ...process.env,
       ...(green ? { GREEN_SITE: '1', MONITOR_COMPOSE_DIR: sb.dir } : {}),
+      ...extraEnv,
       BACKUP_DIR: sb.backupDir,
       MONITOR_SITE: 'http://127.0.0.1:9',
       MONITOR_ALERT_TO: 'alerts@test',
@@ -269,6 +277,43 @@ describe('deploy/monitor/healthcheck.py (S-7)', () => {
     const res = runAlerting(sb);
     expect(res.stdout).toContain('SMTP_SENT');
     expect(JSON.parse(fs.readFileSync(path.join(sb.dir, 'state.json'), 'utf8'))).toHaveProperty('key');
+  });
+
+  // S-63: ключ без имён молчал о втором контейнере: A упал → письмо; A поднялся,
+  // B упал → тот же ключ, письма нет.
+  it('S-63: a different container going down is a new key — mailed', () => {
+    const sb = makeGreenSandbox();
+    const setContainers = (rows: string[]) => fs.writeFileSync(path.join(sb.dir, 'ps.txt'), rows.join('\n') + '\n');
+    fs.writeFileSync(path.join(sb.bin, 'docker'), `#!/bin/bash\ncase "$*" in *exec*) echo '{"disable_signup": true}' ;; *) cat "${path.join(sb.dir, 'ps.txt')}" ;; esac\n`, { mode: 0o755 });
+    const state = path.join(sb.dir, 'state.json');
+    const row = (service: string, state: string) => JSON.stringify({ Service: service, State: state, Health: '' });
+
+    setContainers([row('db', 'exited'), row('auth', 'running')]);
+    expect(runAlerting(sb, state, true).stdout).toContain('SMTP_SENT');
+
+    setContainers([row('db', 'running'), row('auth', 'exited')]);
+    const second = runAlerting(sb, state, true);
+    expect(second.stdout, 'упал другой контейнер — письма нет').toContain('SMTP_SENT');
+    expect(second.stdout).toContain('auth (exited)');
+  });
+
+  it('S-63: a different missing asset is a new key — mailed', () => {
+    const sb = makeGreenSandbox();
+    const state = path.join(sb.dir, 'state.json');
+    const html = '<html data-app-version="t"><script src="/assets/a.js"></script><link href="/assets/b.css"></html>';
+
+    expect(runAlerting(sb, state, true, { GREEN_SITE_HTML: html, MISSING_ASSETS: '/assets/a.js' }).stdout).toContain('SMTP_SENT');
+    const second = runAlerting(sb, state, true, { GREEN_SITE_HTML: html, MISSING_ASSETS: '/assets/b.css' });
+    expect(second.stdout, 'пропал другой ассет — письма нет').toContain('SMTP_SENT');
+    expect(second.stdout).toContain('/assets/b.css');
+  });
+
+  it('S-63 survivor: a valid non-dict state file (`[]`) is not the same key and does not crash the run', () => {
+    const sb = makeSandbox('justwriting-restore-drill.service loaded failed failed Justwriting Restore Drill');
+    fs.writeFileSync(path.join(sb.dir, 'state.json'), '[]');
+    const res = runAlerting(sb);
+    expect(res.status, res.stderr).toBe(0);
+    expect(res.stdout).toContain('SMTP_SENT');
   });
 
   it('S-44.3: the same set of problems is mailed once, not again after the old 12 h window', () => {
