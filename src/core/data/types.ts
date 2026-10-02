@@ -96,7 +96,7 @@ export interface IDataProvider {
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStorePagedRecords?(userId: string, store: string, key: string, keepPages?: number): Promise<void>;
   /** S-49: страницы записи всех версий, кроме `key#<keepStamp>#N`. */
-  deleteLocalStoreStalePages?(userId: string, store: string, key: string, keepStamp: number): Promise<void>;
+  deleteLocalStoreStalePages?(userId: string, store: string, key: string, keepStamp: number, keepNonce?: string): Promise<void>;
   deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
   deleteLocalStoreRecordsByStores(userId: string, stores: string[]): Promise<void>;
   deleteAllLocalStoreRecords?(userId: string): Promise<void>;

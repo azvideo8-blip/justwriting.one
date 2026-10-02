@@ -139,17 +139,22 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
 
       const totalPages = savedRecords.length;
       const stamp = (JSON.parse(JSON.stringify(await db.get('aiDialogues', 'dialogue_large'))) as { updatedAt: number }).updatedAt;
+      // M-2: у попытки своя случайная метка — она же названа в манифесте.
+      const nonce = manifests[0]?.payload.nonce;
+      expect(typeof nonce).toBe('string');
+      expect(String(nonce)).toMatch(/^[0-9a-f]{8}$/);
       for (let i = 0; i < totalPages; i++) {
         const pageRec = savedRecords[i]!;
-        expect(pageRec.key).toBe(`dialogue_large#${stamp}#${i}`);
+        expect(pageRec.key).toBe(`dialogue_large#${stamp}#${nonce}#${i}`);
         expect(pageRec.payload.page).toBe(i);
         expect(pageRec.payload.totalPages).toBe(totalPages);
         expect(pageRec.payload.updatedAt).toBe(stamp);
+        expect(pageRec.payload.nonce).toBe(nonce);
       }
 
       // Манифест: строки в облаке не было — условная вставка; страницы прочих версий убраны.
-      expect(manifests).toEqual([{ key: 'dialogue_large', payload: { manifest: true, updatedAt: stamp, totalPages }, expected: null }]);
-      expect(deleteStaleSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large', stamp);
+      expect(manifests).toEqual([{ key: 'dialogue_large', payload: { manifest: true, updatedAt: stamp, totalPages, nonce }, expected: null }]);
+      expect(deleteStaleSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large', stamp, nonce);
     });
 
     // R3-013: запись крупнее одного запроса (8 страниц) уходила несколькими —

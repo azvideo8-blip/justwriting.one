@@ -9,7 +9,7 @@ import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
-import { selectCloudVersion, type CloudRow } from './localStorePages';
+import { attemptPrefix, newPageNonce, pageKeyFor, selectCloudVersion, type CloudRow } from './localStorePages';
 
 export const SUPPORTED_LOCAL_STORES = [
   'aiPortrait',
@@ -785,15 +785,20 @@ export class LocalStoreSyncManager {
         }
       } else {
         const totalPages = chunks.length;
+        // M-2: у каждой попытки своя случайная метка в ключе страниц. Прежний ключ
+        // `key#<stamp>#<i>` повторяем между попытками (отметка = max(now, a+1, b+1),
+        // dialogueMerge.ts), и осиротевшая страница неудавшейся попытки ложилась под
+        // отметку победителя → «pages beyond N» → запись отказывалась читаться вечно.
+        const nonce = newPageNonce();
         const pages: Array<{ key: string; payload: Awaited<ReturnType<typeof maybeEncrypt>> }> = [];
         for (let i = 0; i < totalPages; i++) {
           pages.push({
-            key: `${key}#${merged.updatedAt}#${i}`,
-            payload: await maybeEncrypt({ data: chunks[i], updatedAt: merged.updatedAt, page: i, totalPages }, ['data'], [], uid),
+            key: pageKeyFor(key, merged.updatedAt, nonce, i),
+            payload: await maybeEncrypt({ data: chunks[i], updatedAt: merged.updatedAt, page: i, totalPages, nonce }, ['data'], [], uid),
           });
         }
         await DataProvider.saveLocalStoreRecordPages(uid, 'aiDialogues', pages);
-        const manifest = { manifest: true, updatedAt: merged.updatedAt, totalPages };
+        const manifest = { manifest: true, updatedAt: merged.updatedAt, totalPages, nonce };
         if (expected === undefined) {
           await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, manifest);
           stored = true;
@@ -802,13 +807,14 @@ export class LocalStoreSyncManager {
         }
         if (stored) {
           if (DataProvider.deleteLocalStoreStalePages) {
-            await DataProvider.deleteLocalStoreStalePages(uid, 'aiDialogues', key, merged.updatedAt);
+            await DataProvider.deleteLocalStoreStalePages(uid, 'aiDialogues', key, merged.updatedAt, nonce);
           }
           return 'ok';
         }
-        // Проигравшая попытка: её страницы никто не читает, убираем свои.
+        // Проигравшая попытка: убираем ТОЛЬКО свои страницы — по префиксу метки.
+        // Прежний `key#<stamp>` сносил и страницы победителя с той же отметкой.
         if (DataProvider.deleteLocalStorePagedRecords) {
-          await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', `${key}#${merged.updatedAt}`);
+          await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', attemptPrefix(key, merged.updatedAt, nonce));
         }
       }
       if (attempt >= 2) throw new Error(`S-34: cloud dialogue ${key} kept changing during upload`);
