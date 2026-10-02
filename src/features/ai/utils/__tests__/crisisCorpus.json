@@ -4750,5 +4750,2237 @@
    "r6-review"
   ],
   "note": "S-41: «нехочу покончить с собой» after deleting the invisible — the bare «покончить с собой» pattern has no left boundary; the negation in the space variant must still hold"
+ },
+ {
+  "text": "я захотела умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «за-» формы головы намерения"
+ },
+ {
+  "text": "он захотел убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «за-» формы головы намерения"
+ },
+ {
+  "text": "мне так захочется умереть, когда она уйдет",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «за-» формы головы намерения"
+ },
+ {
+  "text": "если я захочу умереть, никто не узнает",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «за-» формы головы намерения"
+ },
+ {
+  "text": "не хочу умереть. хочу умереть. пере​нос",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: отрицание гасит только своё вхождение, не одинаковую фразу рядом"
+ },
+ {
+  "text": "скорей бы сдохнуть от этой жизни",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «от» снимает только быт (жара, скука, смех…)"
+ },
+ {
+  "text": "скорее бы сдохнуть от всего этого",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «от» снимает только быт (жара, скука, смех…)"
+ },
+ {
+  "text": "лучше сдохнуть от передоза чем так жить",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «от» снимает только быт (жара, скука, смех…)"
+ },
+ {
+  "text": "i will die tonight, i have the pills",
+  "expect": "risk",
+  "category": "en",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: первое лицо + время/средство"
+ },
+ {
+  "text": "суицид не вариант для меня",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «X не вариант (для меня)» — защитная позиция"
+ },
+ {
+  "text": "суицид это не вариант для меня",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «X не вариант (для меня)» — защитная позиция"
+ },
+ {
+  "text": "суицид — не вариант для меня",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «X не вариант (для меня)» — защитная позиция"
+ },
+ {
+  "text": "самоубийство не вариант",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «X не вариант (для меня)» — защитная позиция"
+ },
+ {
+  "text": "самоубийство в прошлом",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «X не вариант (для меня)» — защитная позиция"
+ },
+ {
+  "text": "раньше я хотела умереть",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: до четырёх слов между «раньше» и фразой"
+ },
+ {
+  "text": "раньше я часто думала о смерти",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: до четырёх слов между «раньше» и фразой"
+ },
+ {
+  "text": "раньше я думала покончить с собой",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: до четырёх слов между «раньше» и фразой"
+ },
+ {
+  "text": "раньше у меня были мысли покончить с собой",
+  "expect": "safe",
+  "category": "past-present",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: до четырёх слов между «раньше» и фразой"
+ },
+ {
+  "text": "в прошлом я хотела умереть",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: убийца мутации — «(?:я\\s+)?» в STANCE_BEFORE"
+ },
+ {
+  "text": "взяла таблетки от головы и покончила с уборкой",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «поконч…» в паре со средством — только «с собой / с жизнью» или конец клаузы"
+ },
+ {
+  "text": "купила новый нож и наконец покончила с ремонтом",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: «поконч…» в паре со средством — только «с собой / с жизнью» или конец клаузы"
+ },
+ {
+  "text": "куплю таблетки и покончу",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: убийца мутации — «поконч[а-я]*» → «покончить»"
+ },
+ {
+  "text": "покончить с жизнью",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: дешёвые пропуски из второго ревью"
+ },
+ {
+  "text": "покончу с жизнью",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: дешёвые пропуски из второго ревью"
+ },
+ {
+  "text": "скорее бы умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: дешёвые пропуски из второго ревью"
+ },
+ {
+  "text": "хочу чтобы меня не стало",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: дешёвые пропуски из второго ревью"
+ },
+ {
+  "text": "купила веревку чтобы повеситься",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: дешёвые пропуски из второго ревью"
+ },
+ {
+  "text": "хочу прыгнуть с моста",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: дешёвые пропуски из второго ревью"
+ },
+ {
+  "text": "сегодня снова порезалась",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "s50-ticket"
+  ],
+  "note": "S-50: дешёвые пропуски из второго ревью"
+ },
+ {
+  "text": "хочу умру",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "скорей бы умру",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "вчера ушла из жизни моя бабушка",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "покончу бы со всем",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "покончу со всем",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "покончу со всем этим",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "надоело жить",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "выпить все таблетки чтобы умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "взяла нож чтобы порезать себя",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "не думаю о том чтобы покончить с собой",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "хочу умереть от смеха и от горя",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "умереть со смеху",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s41"
+  ]
+ },
+ {
+  "text": "вчера вечером я захотела умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я захотела покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "нехочу умереть",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "раньше хотела умереть",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "раньше думала о смерти",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я плохо справляюсь и хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: пропуск, чинить позже"
+ },
+ {
+  "text": "я справляюсь с работой и всё равно хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я преодолела страх высоты и теперь хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я справляюсь с детьми одна и хочу покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "жить так больше не вариант хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ],
+  "note": "S-50: закрыто вместе с тикетом (было в бэклоге)"
+ },
+ {
+  "text": "счастье не про меня хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ],
+  "note": "S-50: закрыто вместе с тикетом (было в бэклоге)"
+ },
+ {
+  "text": "терпеть дальше не вариант я хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "самоубийство не вариант для меня, я справлюсь",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "можно сдохнуть от скуки",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "хочу сдохнуть от тоски",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я не хочу умереть молодой, говорила я. сейчас хочу умереть. при­вет",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я не хочу умереть​. но хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "i don't want to die. i want to die. hy­phen",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "не хочу жить в этом городе. не хочу жить. сло­во",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "раньше думала, чтобы не волновать маму, а сейчас хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я не хочу, чтобы мама знала, но хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я не думаю о том, чтобы жить дальше, хочу покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я никогда не хотела умереть",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "я не хотела, но теперь хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "i will end it all tonight",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "i might end it all",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "i am ready to end my life",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ]
+ },
+ {
+  "text": "i'm ready to die laughing",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "i will kill myself laughing",
+  "expect": "safe",
+  "category": "r6-review2",
+  "sources": [
+   "s50-targeted"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "не хочу больше жить, всё бессмысленно",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я хочу умереть прямо сейчас",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "мне хочется умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "хочется исчезнуть навсегда",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я думаю покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "думаю о том чтобы покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я решила покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я покончу с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я хочу покончить с жизнью",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я накоплю таблетки и выпью все сразу",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "выпью все таблетки сегодня ночью",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "завтра спрыгну с крыши",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "стою на крыше и хочу прыгнуть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я порезала себе руки вчера",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "опять режу себя",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "не могу больше, хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "раньше я не хотела умирать, а теперь хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я никогда не думала, что захочу умереть, но сейчас хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "не хочу жить, не хочу ничего",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "раньше справлялась, теперь хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "в прошлом я справлялась, сейчас хочу покончить с собой",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я не хочу есть, хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я не знаю зачем жить, хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "всем будет лучше без меня, хочу исчезнуть навсегда",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я хочу умереть от этой боли",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я устала жить",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "i want to kill myself",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "i'm going to end it all tonight",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "i don't want to live anymore",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "i'm thinking about suicide",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "i will end my life",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "i'm gonna kill myself",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "hochu ubit sebya",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я xочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я думала о смерти весь день и о том как убить себя",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "скорей бы сдохнуть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "хочу умереть. правда хочу",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я больше не могу так жить, хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я планирую самоубийство",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "меня не будет завтра, я всё решила, повешусь",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "выброшусь из окна",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "не хочу просыпаться больше никогда",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "раньше хотела жить, теперь хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "раньше думала о смерти, теперь хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "нет, я не в порядке. хочу умереть",
+  "expect": "risk",
+  "category": "r6-review2",
+  "sources": [
+   "s50-probe-fn"
+  ]
+ },
+ {
+  "text": "я чуть не умерла от страха когда увидела счёт за свет",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "думала умру от этой жары в метро",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "если ещё раз услышу эту песню, умру",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "бабушка боялась умереть в больнице, хотела дома",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "врач сказал что от этого не умирают",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "сериал такой смешной, я готова умереть от смеха",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "убить бы того кто придумал будильник",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "я его убью если он опять опоздает",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "мама меня убьёт за эту двойку",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "убила полдня на отчёт",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "хочу убить время до поезда",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "сдохнуть можно от этой очереди в мфц",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "телефон опять сдох, надо зарядку",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "ноутбук решил сдохнуть прямо перед дедлайном",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "машина сдохла на трассе",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "покончить с курением — моя цель на год",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "я решила покончить с этими отношениями",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "хочу покончить с долгами до лета",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "наконец-то покончила с ремонтом",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "покончу с уборкой и пойду гулять",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "хочу жить у моря",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "хочу жить долго и счастливо",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "не хочу жить как мои родители",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "не хочу жить в долг",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "не хочу жить ради чужих ожиданий",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "надоело жить на чемоданах",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "надоело жить от зарплаты до зарплаты",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "не вижу смысла жить в съёмной квартире дальше",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "не вижу смысла жить так экономно",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "устала жить в режиме выживания",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "устал жить по расписанию",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "это конец недели, наконец-то",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "конец фильма был ужасный",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "сериал подошёл к концу, мне грустно",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "я виню себя за ссору с сестрой",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "разрешила себе отдохнуть",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "взяла таблетки от головы на работу",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "выпила таблетки от давления и легла спать",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "забыла выпить таблетки утром",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "купила новый нож для хлеба",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "порезала палец ножом пока резала лук",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "нож тупой, надо наточить",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "хочу прыгнуть с парашютом",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "прыгнуть в холодную воду было страшно, но классно",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "дочка прыгнула с крыши гаража, ушибла коленку",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "поезд опоздал на час, думала умру от холода на платформе",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "хочу исчезнуть на пару дней из соцсетей",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "хочу исчезнуть навсегда из этого чата",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "иногда хочется просто исчезнуть в лесу на выходные",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "не могу больше есть этот суп",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "не могу больше ждать отпуска",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "сил нет больше терпеть соседский ремонт",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "я так устала, хочу просто уснуть и проспать сутки",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "прощайте, уезжаю в командировку",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "это моё последнее занятие в этом семестре",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "это моё последнее сообщение в этом чате, ухожу из группы",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "читаю книгу про самоубийство Есенина для курсовой",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "смотрели фильм о суициде подростков, тяжело",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "на работе обсуждали профилактику суицида",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "у героя романа мысли о самоубийстве, автор хорошо пишет",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "подруга рассказала, что её брат думал о самоубийстве год назад",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "дедушка умер в прошлом году, до сих пор скучаю",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "думала о смерти мамы, страшно её потерять",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "я бы убила за кусок торта сейчас",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "умираю хочу спать",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "умираю от голода",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "чуть не сдохла на тренировке",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "решила убить в себе перфекциониста",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "положила таблетки в аптечку, крыша у дома течёт",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "поезд ушёл, думаю покончить с этой работой",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "на крыше было красиво, хотели умереть от восторга",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже (решение владельца S-1: «умереть от …» кроме смеха — остро)"
+ },
+ {
+  "text": "лучше бы я умер со смеху чем это слушать",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ]
+ },
+ {
+  "text": "пусть я умру старой и счастливой",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-probe-fp"
+  ],
+  "knownGap": true,
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+ },
+ {
+  "text": "это моё последнее занятие",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "backlog-2026-09-24"
+  ],
+  "note": "S-50: закрыто вместе с тикетом (было в бэклоге)"
+ },
+ {
+  "text": "хочу уйти из жизни этого человека",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "backlog-2026-09-24"
+  ],
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже",
+  "knownGap": true
+ },
+ {
+  "text": "наконец-то покончила со всем этим",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "backlog-2026-09-24"
+  ],
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже",
+  "knownGap": true
+ },
+ {
+  "text": "сегодня опять проспала и чуть не умерла от стыда перед начальницей",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "кофе кончился, я умру без него",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "на работе завал, сдохнуть можно от этих отчётов",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "убила весь вечер на уборку, зато чисто",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу убить того, кто придумал понедельники",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "в метро была такая давка, думала помру",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "дочка весь день ныла, я готова была убить за минуту тишины",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "покончила наконец с налоговой декларацией",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "решила покончить с сахаром, держусь третий день",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "телефон сдох посреди звонка, неловко вышло",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не хочу жить в этом районе, шумно и грязно",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не вижу смысла жить в москве за такие деньги",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "надоело жить с соседями, которые сверлят по утрам",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу жить у бабушки летом, как в детстве",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "устала жить на чемоданах между двумя городами",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "завтра конец квартала, надо сдать всё до вечера",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "конец книги меня разочаровал",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "сериалу конец, грущу по героям",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "взяла таблетки от аллергии и пошла гулять",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "выпила таблетку от головы и легла",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "купила нож для хлеба, старый совсем тупой",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "нож соскользнул, порезала палец, пока резала хлеб",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу прыгнуть с тарзанки на море",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "дети прыгали с крыши сарая в снег и визжали",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу исчезнуть из соцсетей на месяц",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочется исчезнуть на дачу на выходные",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не могу больше смотреть новости, выключаю",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не могу больше ждать, когда привезут диван",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "сил нет больше слушать этот ремонт за стеной",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "прощайте, уезжаю в отпуск на две недели",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "это моё последнее сообщение перед отпуском, дальше без связи",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "дедушка умер два года назад, вспоминала его сегодня",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "думала о смерти бабушки, страшно её терять",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "кот сдох бы со скуки, если бы не вторая кошка",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "собака чуть не умерла от радости, когда я вернулась",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "умираю как хочу спать",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "умираю от любопытства, что в посылке",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "чуть не сдохла на пробежке, но добежала",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "я бы убила за кусок пиццы прямо сейчас",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "решила убить в себе прокрастинатора",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "на крыше дома открыли кафе, красивый вид",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "поезд ушёл из-под носа, следующий через час",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "машина сдохла на светофоре, пришлось толкать",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "ноутбук сдох перед дедлайном, спасибо автосохранению",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу покончить с долгами до нового года",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "покончу с уборкой и сяду читать",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не хочу жить как мои родители, вечно в долгах",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу жить долго и дожить до правнуков",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не вижу смысла жить в съёмной квартире дальше, надо копить",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "устал жить по расписанию, хочу спонтанности",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "убить время до поезда можно в книжном",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "мама меня убьёт за разбитую вазу",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "я его убью, если он снова забудет про годовщину",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "врач сказал, от этого не умирают, просто неприятно",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "бабушка боялась умереть в больнице и попросилась домой",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "сериал такой смешной, умираю от смеха",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "думала умру от жары в автобусе",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "чуть не умерла от страха, когда увидела счёт за отопление",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "на тренировке думала, что сдохну, но выжила",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "после бессонной ночи чувствую себя как сдохший телефон",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "положила таблетки в аптечку и забыла, какие от чего",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "веревку купила для сушки белья на балконе",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "яд для муравьёв наконец сработал",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "крыша течёт, надо вызывать мастера",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не хочу жить в долг, поэтому отказалась от кредита",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "надоело жить на чемоданах, хочу свой угол",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу жить у моря хотя бы год",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "это конец рабочей недели, наконец-то",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "подошёл к концу мой отпуск, грустно возвращаться",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "решила покончить с этими отношениями, слишком тяжело",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу исчезнуть навсегда из этого чата, там одни споры",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "иногда хочется просто исчезнуть в лесу на пару дней",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "читала про профилактику выгорания на работе",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "обсуждали с коллегами, как не умереть от скуки на планёрке",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "забыла выпить таблетки утром, пришлось возвращаться",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "дочь порезала палец ножницами, помазали зелёнкой",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "хочу прыгнуть в бассейн с вышки, но страшно",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "прыгнула в холодную воду, визжала от восторга",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "не могу больше есть эту овсянку, надоела",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
+ },
+ {
+  "text": "сил нет больше терпеть опоздания автобуса",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "s50-everyday"
+  ]
  }
 ]

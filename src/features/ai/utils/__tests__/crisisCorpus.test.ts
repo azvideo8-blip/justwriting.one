@@ -1,5 +1,5 @@
 // S-30: Fixed phrase corpus for the crisis detector in CI.
-// Source: justwriting-docs/crisis-corpus.json (530 phrases, 515 required, 15 knownGap) — the two copies stay byte-identical (S-42.1).
+// Source: justwriting-docs/crisis-corpus.json (802 phrases, 775 required, 27 knownGap) — the two copies stay byte-identical (S-42.1).
 //
 // Rules:
 // 1. New crisis phrasings go into crisisCorpus.json with a source note in `sources`.
@@ -37,12 +37,12 @@ function visible(text: string): string {
 
 describe('crisisCorpus (S-30)', () => {
   it('ratchet: corpus size and required count do not regress', () => {
-    expect(corpus.length).toBeGreaterThanOrEqual(530);
-    expect(requiredCases.length).toBeGreaterThanOrEqual(515);
+    expect(corpus.length).toBeGreaterThanOrEqual(802);
+    expect(requiredCases.length).toBeGreaterThanOrEqual(775);
     // S-42.5: точные счётчики по меткам — перекрашенная фраза видна в диффе теста, а не проглочена ратчетом.
     const labels = { risk: 0, safe: 0 };
     for (const c of requiredCases) labels[c.expect]++;
-    expect(labels).toEqual({ risk: 381, safe: 134 });
+    expect(labels).toEqual({ risk: 473, safe: 302 });
 
     // Verify key categories are represented
     const categories = new Set(corpus.map(c => c.category));
@@ -65,6 +65,8 @@ describe('crisisCorpus (S-30)', () => {
       'goodbye',
       'grief',
       'idiom-fp',
+      // S-50: обычные дневниковые фразы со словами умереть/убить/сдохнуть/покончить/… в бытовом смысле.
+      'everyday',
     ];
     for (const cat of requiredCategories) {
       expect(categories.has(cat), `Category "${cat}" must be present in corpus`).toBe(true);
@@ -103,12 +105,17 @@ describe('crisisCorpus (S-30)', () => {
     expect(summary, `\n${summary}`).toBe('');
   });
 
-  it('performance: full corpus executes well under 2 seconds', () => {
-    const t0 = performance.now();
-    for (const item of corpus) {
-      detectRisk(item.text);
+  // S-50: медиана трёх прогонов — одиночный замер на загруженной машине давал 1,9 с при бюджете 2 с.
+  it('performance: full corpus executes well under 2 seconds (median of 3 runs)', () => {
+    const runs: number[] = [];
+    for (let r = 0; r < 3; r++) {
+      const t0 = performance.now();
+      for (const item of corpus) {
+        detectRisk(item.text);
+      }
+      runs.push(performance.now() - t0);
     }
-    const elapsed = performance.now() - t0;
-    expect(elapsed).toBeLessThan(2000);
+    runs.sort((a, b) => a - b);
+    expect(runs[1]!).toBeLessThan(2000);
   });
 });
