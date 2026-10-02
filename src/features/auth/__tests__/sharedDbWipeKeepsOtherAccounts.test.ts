@@ -38,9 +38,11 @@ async function seedShared(): Promise<void> {
   await shared.put('versions', { id: 'v_guest', documentId: 'doc_guest', guestId: GUEST, version: 1, content: 'G', wordCount: 1, wordsAdded: 1, charsAdded: 1, duration: 1, wpm: 1, savedAt: 1, sessionStartedAt: 1 } as never);
   await shared.put('drafts', { userId: B, title: '', content: 'черновик B', seconds: 0, wpm: 0, wordCount: 2, updatedAt: 1 } as never);
   await shared.put('drafts', { userId: GUEST, title: '', content: 'черновик гостя', seconds: 0, wpm: 0, wordCount: 2, updatedAt: 1 } as never);
-  await shared.put('aiDialogues', { id: 'dlg_guest', title: 'Диалог гостя', personaId: 'coach', messages: [], createdAt: 1, updatedAt: 1 } as never);
   const aDb = await getLocalDb(A);
   await aDb.put('documents', doc('doc_a_own', A));
+  // После открытия базы A: её миграция при нескольких владельцах в общей базе
+  // сама стирает строки ИИ без владельца; здесь проверяется стирание, не миграция.
+  await shared.put('aiDialogues', { id: 'dlg_guest', title: 'Диалог до разделения баз', personaId: 'coach', messages: [], createdAt: 1, updatedAt: 1 } as never);
 }
 
 async function expectOnlyBRemains(): Promise<void> {
@@ -49,7 +51,9 @@ async function expectOnlyBRemains(): Promise<void> {
   expect((await shared.getAll('documents')).map(d => d.id), 'заметки B не пережили удаление A').toEqual(['doc_b']);
   expect((await shared.getAll('versions')).map(v => v.id)).toEqual(['v_b']);
   expect((await shared.getAll('drafts')).map(d => d.userId)).toEqual([B]);
-  expect(await shared.getAll('aiDialogues'), 'гостевые производные ИИ остались').toEqual([]);
+  // S-52: строки ИИ без владельца — не гостевые (гость их создать не может), а
+  // аккаунта, который ещё не входил после разделения баз; их не трогаем.
+  expect((await shared.getAll('aiDialogues')).map(d => d.id)).toEqual(['dlg_guest']);
   expect(await hasLocalDatabase(A)).toBe(false);
 }
 

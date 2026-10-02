@@ -751,20 +751,21 @@ function isGuestOwner(owner: string | undefined): boolean {
  * сессии из общей базы `justwriting-local` уходят гостевые записи и записи этого
  * uid. Строки другого аккаунта, который не входил сюда после разделения баз (их
  * переносит migrateLegacyIfNeeded при его первом входе), остаются — удаление
- * всего файла базы уносило их вместе с гостевыми. Хранилища без владельца
- * (производные ИИ) — гостевые по O-5, а при нескольких владельцах спорные: их и
- * миграция стирает. Файл базы удаляется, только если в ней ничего не осталось.
+ * всего файла базы уносило их вместе с гостевыми.
+ *
+ * S-52: хранилища без владельца (производные ИИ) не трогаются. Гость строк ИИ
+ * создать не может (callAi требует токен), а записи этого uid после разделения
+ * баз живут в `justwriting-local-<uid>`, — значит, строки ИИ без владельца здесь
+ * принадлежат аккаунту, который ещё не входил после разделения, и их отдаст ему
+ * миграция (claimUnowned). Файл базы удаляется, только если в ней не осталось
+ * ни одной строки с владельцем.
  */
 export async function wipeGuestAndAccountFromSharedDb(uid: string): Promise<void> {
   const db = await getLocalDb('justwriting-local');
-  const names = Array.from(db.objectStoreNames);
+  const names = Array.from(db.objectStoreNames).filter(name => OWNED_SHARED_STORES.has(name));
   const tx = db.transaction(names, 'readwrite');
   for (const name of names) {
     const store = tx.objectStore(name);
-    if (!OWNED_SHARED_STORES.has(name)) {
-      void store.clear();
-      continue;
-    }
     let cursor = await store.openCursor();
     while (cursor) {
       const rec = cursor.value as { guestId?: string; userId?: string; ownerId?: string };
@@ -775,7 +776,7 @@ export async function wipeGuestAndAccountFromSharedDb(uid: string): Promise<void
   }
   await tx.done;
   let remaining = 0;
-  for (const name of ['documents', 'versions', 'profile', 'drafts'] as const) remaining += await db.count(name);
+  for (const name of names) remaining += await db.count(name as never);
   if (remaining === 0) await deleteLocalDatabase('justwriting-local');
   else resetDbInstance('justwriting-local');
 }
