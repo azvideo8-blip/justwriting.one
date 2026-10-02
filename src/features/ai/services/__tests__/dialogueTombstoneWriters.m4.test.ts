@@ -114,13 +114,17 @@ describe('M-4: писатели не трогают надгробие', () => {
     // await-а модели и внутри транзакции: ранний выход в начале функции его не
     // заменяет — без него итог ложился в надгробие и поднимал updatedAt.
     const { AIService } = await import('../AIService');
-    (AIService.chat as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-      const tx = db.transaction('aiDialogues', 'readwrite');
-      const row = await tx.store.get('d_live4');
-      await tx.store.put(tombstoneDialogue(row!, 5000));
-      await tx.done;
-      return { ok: true, text: 'Итог разговора' };
-    });
+    // Пока «модель» думает, диалог снимают другой вкладкой. mockReturnValue, а не
+    // mockImplementation(async …): callback здесь обязан не возвращать проmise.
+    (AIService.chat as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(resolve => {
+      void (async () => {
+        const tx = db.transaction('aiDialogues', 'readwrite');
+        const row = await tx.store.get('d_live4');
+        await tx.store.put(tombstoneDialogue(row!, 5000));
+        await tx.done;
+        resolve({ ok: true, text: 'Итог разговора' });
+      })();
+    }));
 
     await AIDialogueService.generateClosingSummary('d_live4');
 

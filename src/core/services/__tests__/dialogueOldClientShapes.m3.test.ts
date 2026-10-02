@@ -334,7 +334,6 @@ async function localDialogue(id: string): Promise<AIDialogue> {
 }
 
 /** Реплики диалога без длинных тел — по первым словам. */
-const heads = (d: AIDialogue) => d.messages.map(m => m.content.split(' ')[0]);
 const cloudKeys = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`)).map(r => r.key);
 
 // appendMessage режет реплику и рассуждение по 100 000 знаков; три таких куска
@@ -354,18 +353,6 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function flushRaw() { return LocalStoreSyncService.flushPending(true); }
-
-function legacyPages(rec: AIDialogue, n = 2) {
-  // 0.9.28 generic path: pages `key#i`, payload {data, updatedAt, page, totalPages}; exact row `key` deleted.
-  const json = JSON.stringify(rec);
-  const size = Math.ceil(json.length / n);
-  cloud.delete(rowKey('aiDialogues', rec.id));
-  for (let i = 0; i < n; i++) {
-    const key = `${rec.id}#${i}`;
-    cloud.set(rowKey('aiDialogues', key), { store: 'aiDialogues', key, payload: { data: json.slice(i * size, (i + 1) * size), updatedAt: rec.updatedAt, page: i, totalPages: n } });
-  }
-}
 
 
 
