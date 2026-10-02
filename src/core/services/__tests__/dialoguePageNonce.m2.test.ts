@@ -242,11 +242,11 @@ describe('M-2: страницы одной попытки отличаются �
     expect(manifest.totalPages).toBeGreaterThan(1);
 
     // Осиротевшая страница проигравшей попытки: та же отметка, другой nonce.
-    const orphan = d.id + "#" + stamp + "#deadbeef#0";
+    const orphan = d.id + "#" + stamp + "#deadbeef#p0";
     cloud.set(rowKey('aiDialogues', orphan), {
       store: 'aiDialogues',
       key: orphan,
-      payload: { data: 'мусор проигравшей попытки', updatedAt: stamp, page: 0, totalPages: manifest.totalPages, nonce: 'deadbeef' },
+      payload: { chunk: 'мусор проигравшей попытки', updatedAt: stamp, page: 0, totalPages: manifest.totalPages, nonce: 'deadbeef' },
     });
 
     const c = new Device(); switchTo(c); at('10:00');

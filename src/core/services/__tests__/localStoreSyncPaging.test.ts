@@ -145,11 +145,15 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       expect(String(nonce)).toMatch(/^[0-9a-f]{8}$/);
       for (let i = 0; i < totalPages; i++) {
         const pageRec = savedRecords[i]!;
-        expect(pageRec.key).toBe(`dialogue_large#${stamp}#${nonce}#${i}`);
+        expect(pageRec.key).toBe(`dialogue_large#${stamp}#${nonce}#p${i}`);
         expect(pageRec.payload.page).toBe(i);
         expect(pageRec.payload.totalPages).toBe(totalPages);
         expect(pageRec.payload.updatedAt).toBe(stamp);
         expect(pageRec.payload.nonce).toBe(nonce);
+        // M-3: текст страницы — в `chunk`, а не в `data`: строки без `data` клиенты
+        // 0.9.28/0.9.29 пропускают, а не собирают в диалог поверх локального хода.
+        expect(typeof pageRec.payload.chunk).toBe('string');
+        expect(pageRec.payload.data).toBeUndefined();
       }
 
       // Манифест: строки в облаке не было — условная вставка; страницы прочих версий убраны.

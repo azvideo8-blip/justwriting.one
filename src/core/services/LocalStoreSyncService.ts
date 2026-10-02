@@ -9,7 +9,7 @@ import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
-import { attemptPrefix, newPageNonce, pageKeyFor, selectCloudVersion, type CloudRow } from './localStorePages';
+import { attemptPrefix, newPageNonce, pageKeyFor, pageTextOf, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
 
 export const SUPPORTED_LOCAL_STORES = [
   'aiPortrait',
@@ -569,11 +569,16 @@ function isPlaintextUnderVault(e: unknown): boolean {
 
 async function readDialogueText(payload: Record<string, unknown>): Promise<string> {
   try {
-    const dec = await maybeDecrypt(payload, ['data'], []);
-    if (typeof dec.data !== 'string') throw new Error('S-34: cloud dialogue row has no readable data');
-    return dec.data;
+    const dec = await maybeDecrypt(payload, [...PAGE_TEXT_FIELDS], []);
+    const text = pageTextOf(dec);
+    if (text === null) throw new Error('S-34: cloud dialogue row has no readable data');
+    return text;
   } catch (e) {
-    if (isPlaintextUnderVault(e) && typeof payload.data === 'string') return payload.data;
+    if (!isPlaintextUnderVault(e)) throw e;
+    // S-54 + M-3: открытый текст под сейфом — обрыв «зашифровать всё»; читаем то
+    // поле, в котором он лежит (новый формат — chunk, прежние страницы — data).
+    const raw = pageTextOf(payload);
+    if (raw !== null) return raw;
     throw e;
   }
 }
@@ -794,7 +799,9 @@ export class LocalStoreSyncManager {
         for (let i = 0; i < totalPages; i++) {
           pages.push({
             key: pageKeyFor(key, merged.updatedAt, nonce, i),
-            payload: await maybeEncrypt({ data: chunks[i], updatedAt: merged.updatedAt, page: i, totalPages, nonce }, ['data'], [], uid),
+            // M-3: текст страницы — в `chunk`. Строки без `data` клиенты
+            // 0.9.28/0.9.29 пропускают, а не собирают в диалог.
+            payload: await maybeEncrypt({ chunk: chunks[i], updatedAt: merged.updatedAt, page: i, totalPages, nonce }, ['chunk'], [], uid),
           });
         }
         await DataProvider.saveLocalStoreRecordPages(uid, 'aiDialogues', pages);

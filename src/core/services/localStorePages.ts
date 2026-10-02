@@ -7,7 +7,9 @@
 // Форматы ключей:
 //   `key`            — запись целиком, либо (S-49) манифест постраничной записи
 //                      `{ manifest: true, updatedAt, totalPages }`;
-//   `key#<stamp>#<nonce>#<N>` — страница N попытки `nonce` версии `stamp`, M-2:
+//   `key#<stamp>#<nonce>#p<N>` — страница N попытки `nonce` версии `stamp`:
+//                      метка попытки (M-2) и непригодно-цифровой хвост, чтобы
+//                      клиент 0.9.28/0.9.29 не собрал из этих строк диалог (M-3);
 //                      одна попытка выгрузки = свой `nonce`, поэтому страницы
 //                      неудавшейся попытки не могут collide со страницами победителя;
 //   `key#<stamp>#<N>` — страница N версии `stamp` (= updatedAt записи), S-49;
@@ -38,7 +40,7 @@ export interface ParsedKey {
 }
 
 export function parseLocalStoreKey(key: string): ParsedKey {
-  const nonced = /^(.+)#(\d+)#([0-9a-z]{6,})#(\d+)$/.exec(key);
+  const nonced = /^(.+)#(\d+)#([0-9a-z]{6,})#p(\d+)$/.exec(key);
   if (nonced) return { baseKey: nonced[1]!, stamp: Number(nonced[2]), nonce: nonced[3]!, pageIndex: Number(nonced[4]) };
   const versioned = /^(.+)#(\d+)#(\d+)$/.exec(key);
   if (versioned) return { baseKey: versioned[1]!, stamp: Number(versioned[2]), nonce: null, pageIndex: Number(versioned[3]) };
@@ -47,9 +49,28 @@ export function parseLocalStoreKey(key: string): ParsedKey {
   return { baseKey: key, stamp: null, nonce: null, pageIndex: null };
 }
 
-/** Ключ страницы попытки (M-2): метка стоит ПЕРЕД номером страницы. */
+/** Ключ страницы попытки (M-2): метка перед номером; `p` в номере — чтобы
+ * прежний клиент (M-3) не принял страницу за нумерованную страницу своей версии. */
 export function pageKeyFor(baseKey: string, stamp: number, nonce: string, pageIndex: number): string {
-  return `${baseKey}#${stamp}#${nonce}#${pageIndex}`;
+  return `${baseKey}#${stamp}#${nonce}#p${pageIndex}`;
+}
+
+/**
+ * M-3: текст страницы нового формата лежит в `chunk`, а не в `data`. Клиенты
+ * 0.9.28/0.9.29 (AIRestoreService, один и тот же файл в обоих тегах) читают
+ * только `data` и на строке без него делают `continue` — то есть молча пропускают
+ * наши страницы вместо того, чтобы собрать из них диалог и затереть локальный.
+ * Порядок чтения: сначала новый формат, потом `data` (страницы 0.9.28 и прочих
+ * хранилищ). Ни того, ни другого нет — null, а не пустая строка.
+ */
+export const PAGE_TEXT_FIELDS = ['chunk', 'data'] as const;
+
+export function pageTextOf(decrypted: Record<string, unknown>): string | null {
+  for (const field of PAGE_TEXT_FIELDS) {
+    const v = decrypted[field];
+    if (typeof v === 'string') return v;
+  }
+  return null;
 }
 
 /** Префикс всех страниц одной попытки — им чистит свои осколки проигравший. */

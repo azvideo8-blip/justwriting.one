@@ -2,7 +2,7 @@ import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet, AIDialogue } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
 import { mergeDialogues, dialogueFingerprint } from '../../../core/storage/dialogueMerge';
-import { parseLocalStoreKey, selectCloudVersion, type CloudRow } from '../../../core/services/localStorePages';
+import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from '../../../core/services/localStorePages';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { sha256Hex } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
@@ -229,12 +229,14 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           let decryptFailed = false;
 
           for (const pageItem of version.pages) {
-            const dec = await maybeDecrypt(pageItem.payload, ['data'], []);
-            if (typeof dec.data !== 'string') {
+            const dec = await maybeDecrypt(pageItem.payload, [...PAGE_TEXT_FIELDS], []);
+            // M-3: страница нового формата несёт текст в `chunk`.
+            const chunk = pageTextOf(dec);
+            if (chunk === null) {
               decryptFailed = true;
               break;
             }
-            decryptedChunks.push(dec.data);
+            decryptedChunks.push(chunk);
           }
 
           if (decryptFailed) {
