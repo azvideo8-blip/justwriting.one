@@ -25,6 +25,7 @@ describe('R3-8: a failed upsert stays queued', () => {
     // S-34: диалог читает облачную строку (пусто) и уходит условной вставкой —
     // та же сетевая ошибка и те же счётчики, что у saveLocalStoreRecord.
     vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);
+    vi.spyOn(DataProvider as Required<typeof DataProvider>, 'getLocalStoreRecordPages').mockResolvedValue([]);
     vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnchanged').mockImplementation(async (u, s, k, p) => {
       await DataProvider.saveLocalStoreRecord(u, s, k, p);
       return true;
