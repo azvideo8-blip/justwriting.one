@@ -158,14 +158,20 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
     expect(await db.getAll('aiDialogues')).toEqual([]);
   });
 
-  it('S-40.1: consent refused by the server while indexing is granted — the turn stops with the hint, no «базовый режим»', async () => {
-    // Профиль не загружен — клиентский гейт молчит, отказ приходит с сервера на
-    // первом же вызове (векторизация реплики), как при согласии, снятом на другом устройстве.
+  it('S-40.1/S-56: AI consent refused by the server (revoked on another device) — the hint, no reportError, no technical error, no empty dialogue', async () => {
+    // Профиль не загружен — клиентский гейт молчит; индексация разрешена, так что
+    // векторизация проходит, а отказ приходит с /api/chat — единственное место,
+    // откуда сервер действительно отвечает AI_CONSENT_REQUIRED (api/handlers.ts).
     setProfileLoaded('user-123', false);
     setIndexingConsent('user-123', 'granted');
+    const callable = vi.spyOn(transport, 'callableChat').mockRejectedValue(new Error('CALLABLE_RAN'));
     global.fetch = vi.fn(async (input: unknown) => {
       const url = String(input);
       if (url === '/api/embedDocument') {
+        aiFetchCalls.push(url);
+        return new Response(JSON.stringify({ result: { vectors: [[0.1, 0.2]], chunks: [], model: 'm', dim: 2 } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url === '/api/chat') {
         aiFetchCalls.push(url);
         return new Response(JSON.stringify({ error: { code: 'AI_CONSENT_REQUIRED', message: 'AI_CONSENT_REQUIRED' } }), { status: 403, headers: { 'Content-Type': 'application/json' } });
       }
@@ -181,11 +187,42 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
 
     expect(screen.getByText(/разрешите его использование в настройках/)).toBeInTheDocument();
     expect(screen.queryByText(/Произошла ошибка|Ошибка сервиса/)).not.toBeInTheDocument();
-    // Ход остановлен на векторизации: до запроса к модели дело не дошло.
-    expect(aiFetchCalls).toEqual(['/api/embedDocument']);
+    expect(aiFetchCalls).toContain('/api/chat');
+    // S-56.5: отказ стрима по согласию — не «Streaming chat failed», и без callable-повтора.
     expect(reportError).not.toHaveBeenCalled();
-    // В журнале активности нет «Сбой сервиса ИИ: запрос выполнен в базовом режиме».
+    expect(callable).not.toHaveBeenCalled();
     expect(useActivityLogStore.getState().entries.filter(e => e.level === 'error')).toEqual([]);
+    // S-56.1: диалог, созданный под этот ход, не остаётся пустой записью.
+    const db = await getLocalDb();
+    expect(await db.getAll('aiDialogues')).toEqual([]);
+  });
+
+  it('S-56.3: indexing consent refused by the server — the turn answers in basic mode, no degradation record', async () => {
+    setProfileLoaded('user-123', false);
+    setIndexingConsent('user-123', 'granted');
+    vi.spyOn(transport, 'streamChat').mockResolvedValue('Ответ в базовом режиме');
+    global.fetch = vi.fn(async (input: unknown) => {
+      const url = String(input);
+      if (url === '/api/embedDocument') {
+        aiFetchCalls.push(url);
+        return new Response(JSON.stringify({ error: { code: 'INDEXING_CONSENT_REQUIRED', message: 'INDEXING_CONSENT_REQUIRED' } }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
+      // Автоназвание нового диалога — отдельный служебный вызов, не часть хода.
+      if (url === '/api/chatWithAI') return new Response(JSON.stringify({ result: { result: 'Название' } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url.startsWith('/api/')) { aiFetchCalls.push(url); return Promise.reject(new Error('AI_FETCH_RAN')); }
+      return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    renderLang('ru', () => {});
+
+    await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
+    await waitFor(() => {
+      expect(screen.getByTestId('returned').textContent).toBe('id');
+    }, WAIT);
+
+    expect(aiFetchCalls, `лишние запросы: ${aiFetchCalls.join(', ')}`).toEqual(['/api/embedDocument']);
+    expect(screen.queryByText(/разрешите его использование в настройках/)).not.toBeInTheDocument();
+    expect(reportError).not.toHaveBeenCalled();
+    expect(useActivityLogStore.getState().entries.filter(e => e.level === 'error' || e.level === 'warning')).toEqual([]);
   });
 
   it('S-40.2: the direct callable path (streaming marked unavailable) shows the hint, not a technical error', async () => {

@@ -18,6 +18,9 @@ export interface ChatPromptParams {
   noteScope?: NoteScope | null | undefined;
 }
 
+/** S-56: предел названия в правиле строгого хода — клиент режет до него, сервер отвергает длиннее. */
+export const NOTE_SCOPE_TITLE_MAX = 300;
+
 /** Заметка-тема диалога и режим хода (см. src/features/ai/utils/turnScope.ts). */
 export interface NoteScope {
   mode: 'note' | 'wide';
@@ -240,7 +243,7 @@ export const chatInputSchema = z.object({
   callType: z.enum(['auto_name', 'follow_up', 'query_expand', 'system_task']).nullish(),
   noteScope: z.object({
     mode: z.enum(['note', 'wide']),
-    title: z.string().max(300),
+    title: z.string().max(NOTE_SCOPE_TITLE_MAX),
     date: z.string().max(60),
   }).nullish(),
 });

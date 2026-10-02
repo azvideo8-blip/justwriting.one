@@ -41,6 +41,9 @@ export interface AttachedNoteRef {
   date?: string;
 }
 
+// S-56: отказ по согласию — состояние, а не сбой: в журнал деградаций не идёт.
+const isConsentError = (error: string) => error === 'AI_CONSENT_REQUIRED' || error === 'INDEXING_CONSENT_REQUIRED';
+
 const CRISIS_RESOURCE_TEXT =
   `Пользователь находится в кризисном состоянии. Интегрируй в свой ответ контакты служб поддержки:\n` +
   `${CRISIS_RESOURCES_LINE_RU}.\n` +
@@ -149,31 +152,36 @@ export function useAIChatContext(personaId: string): {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
         if (!res.ok) {
-          // S-40: нет согласия — ход останавливается с подсказкой (useAIChat), а не
+          // S-40: нет согласия на ИИ — ход останавливается с подсказкой (useAIChat), а не
           // идёт «в базовом режиме» в тот же гейт на chat с записью «Сбой сервиса ИИ».
-          if (res.error === 'AI_CONSENT_REQUIRED' || res.error === 'INDEXING_CONSENT_REQUIRED') throw new Error(res.error);
-          if (isDailyLimitError(res.error)) {
+          if (res.error === 'AI_CONSENT_REQUIRED') throw new Error(res.error);
+          // S-56: нет согласия на индексацию — базовый режим без записи о сбое.
+          if (res.error !== 'INDEXING_CONSENT_REQUIRED') {
+            if (isDailyLimitError(res.error)) {
+              degradedDueToDailyLimit = true;
+            }
+            reportAIDegradation({
+              feature: 'chat_turn_embed',
+              cause: res.error,
+              action: 'Векторизация реплики чата',
+              impact: 'Поворот диалога не сохранён в векторной памяти',
+            });
+          }
+        }
+        turnEmb = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
+      } catch (e) {
+        if (e instanceof Error && e.message === 'AI_CONSENT_REQUIRED') throw e;
+        if (!(e instanceof Error && e.message === 'INDEXING_CONSENT_REQUIRED')) {
+          if (isDailyLimitError(e)) {
             degradedDueToDailyLimit = true;
           }
           reportAIDegradation({
             feature: 'chat_turn_embed',
-            cause: res.error,
+            cause: e,
             action: 'Векторизация реплики чата',
             impact: 'Поворот диалога не сохранён в векторной памяти',
           });
         }
-        turnEmb = res.ok && res.vectors[0] ? res.vectors[0] : undefined;
-      } catch (e) {
-        if (e instanceof Error && (e.message === 'AI_CONSENT_REQUIRED' || e.message === 'INDEXING_CONSENT_REQUIRED')) throw e;
-        if (isDailyLimitError(e)) {
-          degradedDueToDailyLimit = true;
-        }
-        reportAIDegradation({
-          feature: 'chat_turn_embed',
-          cause: e,
-          action: 'Векторизация реплики чата',
-          impact: 'Поворот диалога не сохранён в векторной памяти',
-        });
       }
     }
 
@@ -520,7 +528,8 @@ export function useAIChatContext(personaId: string): {
                 }));
                 setAIStage('rank');
                 const rr = await AIService.rerank({ query: effectiveQuery, candidates, maxResults: 8 });
-                if (!rr.ok) {
+                // S-56: отказ по согласию — не деградация.
+                if (!rr.ok && !isConsentError(rr.error)) {
                   reportAIDegradation({
                     feature: 'chat_rerank',
                     cause: rr.error,

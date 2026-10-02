@@ -18,7 +18,7 @@ import { reportAIDegradation } from '../utils/aiDegradationReporter';
 
 import { useAIChatContext, type AttachedNoteRef } from '../services/aiChatContext';
 import { turnScope, type TurnScope } from '../utils/turnScope';
-import { noteMetaFor } from '../utils/noteMeta';
+import { noteMetaFor, noteScopeFor } from '../utils/noteMeta';
 import {
   streamChat,
   callableChat,
@@ -342,6 +342,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     let turnDialogueId: string | undefined = dialogueId ?? undefined;
     let shownPartial = '';
     let turnSaved = false;
+    let createdThisTurn = false;
 
     try {
       // S-40: тот же гейт, что в streamChat/callAi, но до записи диалога — иначе
@@ -373,9 +374,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const question = options?.question ?? text;
       const scope = effectiveAttached ? turnScope(question, { forceWide: options?.forceWide }) : undefined;
       const subjectNote = context.getAttachedNote();
-      const noteScope = scope
-        ? { mode: scope, title: subjectNote?.title ?? 'приложенная заметка', date: subjectNote?.date ?? '' }
-        : undefined;
+      const noteScope = scope ? noteScopeFor(scope, subjectNote) : undefined;
 
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
@@ -412,6 +411,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         });
         effectiveDialogueId = currentDialogue.id;
         turnDialogueId = currentDialogue.id;
+        createdThisTurn = true;
         // Show the freshly created dialogue WITH the message the user just sent.
         // The stored record is deliberately empty — appendMessage writes the
         // user turn together with the answer — but handing that empty record to
@@ -749,6 +749,11 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // S-31: согласие показывается отдельной панелью со ссылкой в Настройки,
       // а не красной плашкой «техническая ошибка».
       if (isConsentCode(rawMsg)) {
+        // S-56: отказ сервера по согласию (снято на другом устройстве) приходит
+        // уже после создания диалога — пустая запись не остаётся.
+        if (createdThisTurn && !turnSaved && turnDialogueId) {
+          try { await AIDialogueService.discardEmpty(turnDialogueId); } catch (discardErr) { reportError(discardErr, { action: 'useAIChat_discardEmptyDialogue' }, 'warning'); }
+        }
         setConsentRequired(rawMsg);
         return null;
       }

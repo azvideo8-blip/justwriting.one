@@ -434,6 +434,20 @@ export const AIDialogueService = {
     LocalStoreSyncService.scheduleStoreDelete('aiDialogueEvents', id);
   },
 
+  /**
+   * S-56: диалог, созданный в этом же ходе, а ход отбит сервером по согласию —
+   * пустая запись не остаётся. Защищать её надгробием нечем: реплик в ней нет.
+   */
+  async discardEmpty(id: string): Promise<void> {
+    const db = await getLocalDb();
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    const empty = !!existing && existing.messages.every(m => m.type === 'system' || m.content.trim() === '');
+    if (empty) await tx.store.delete(id);
+    await tx.done;
+    if (empty) LocalStoreSyncService.scheduleStoreDelete('aiDialogues', id);
+  },
+
   async cleanupEmpty(excludeId?: string): Promise<number> {
     const all = await this.list({ includeArchived: false });
     const now = Date.now();

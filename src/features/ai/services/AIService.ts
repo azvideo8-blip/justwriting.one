@@ -228,8 +228,10 @@ export const AIService = {
       const data = await withTimeout(callAi<{ documentIds: string[] }>('rerankNotes', clamped), 60_000);
       return { ok: true, documentIds: data.documentIds };
     } catch (e: unknown) {
-      reportError(e, { action: 'rerank' }, 'warning');
-      return { ok: false, error: mapAIError(e) };
+      const error = mapAIError(e);
+      // S-56: нет согласия — состояние, а не сбой; в журнал не пишется.
+      if (error !== 'AI_CONSENT_REQUIRED' && error !== 'INDEXING_CONSENT_REQUIRED') reportError(e, { action: 'rerank' }, 'warning');
+      return { ok: false, error };
     }
   },
 
