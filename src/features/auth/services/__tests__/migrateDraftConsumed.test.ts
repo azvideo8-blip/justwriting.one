@@ -2,10 +2,11 @@
 // gone and the localStorage copy is cleared, so the migration prompt cannot
 // reappear and the draft cannot resurface as a ghost on the next guest session.
 import 'fake-indexeddb/auto';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { getLocalDb, getOrCreateGuestId } from '../../../../core/storage/localDb';
 import { LocalDocumentService } from '../../../../core/services/LocalDocumentService';
+import { LocalStorageService } from '../../../../core/services/LocalStorageService';
 import { STORAGE_KEYS } from '../../../../shared/constants/storageKeys';
 import { migrateDocuments, readGuestDraft } from '../migrateDocuments';
 
@@ -94,6 +95,23 @@ describe('2.8 guest draft is consumed by migration', () => {
 
     expect((await userDb.getAll('documents')).map(n => n.title).sort()).toEqual(['Два', 'Раз', 'Черновик']);
     expect(result).toEqual({ moved: 3, left: 0 });
+  });
+
+  // S-55 survivor (S-63): заметка не сохранилась — черновик не удаляется.
+  it('S-55 survivor: a failed saveNew keeps the guest draft in both stores', async () => {
+    const guestDb = await getLocalDb();
+    const userDb = await getLocalDb('user_s63c');
+    await guestDb.put('drafts', { userId: 'guest_draft', content: 'текст, который нельзя терять', wordCount: 3, seconds: 0, wpm: 0, updatedAt: Date.now() } as never);
+    localStorage.setItem(STORAGE_KEYS.GUEST_DRAFT, JSON.stringify({ content: 'текст, который нельзя терять', updatedAt: Date.now() }));
+    await userDb.put('drafts', { userId: 'user_s63c', content: 'свой черновик', updatedAt: Date.now() } as never);
+    const spy = vi.spyOn(LocalStorageService, 'saveNew').mockRejectedValue(new Error('IDB full'));
+    try {
+      await expect(migrateDocuments('user_s63c')).rejects.toThrow('IDB full');
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await guestDb.get('drafts', 'guest_draft'), 'черновик удалён без сохранённой заметки').toBeDefined();
+    expect(localStorage.getItem(STORAGE_KEYS.GUEST_DRAFT)).not.toBeNull();
   });
 
   it('S-55: the legacy `timestamp` field counts like updatedAt — for the newer-copy rule and for the 7-day TTL', async () => {

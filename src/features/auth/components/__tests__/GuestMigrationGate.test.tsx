@@ -33,6 +33,13 @@ vi.mock('../../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
 
+// S-55 survivor: подмена результата переноса — чтобы «перенесено» и «найдено» разошлись.
+const migrationOverride = vi.hoisted(() => ({ result: null as { moved: number; left: number } | null }));
+vi.mock('../../services/migrateDocuments', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/migrateDocuments')>();
+  return { ...actual, migrateDocuments: async (uid: string) => migrationOverride.result ?? actual.migrateDocuments(uid) };
+});
+
 vi.mock('../../../../core/services/SyncService', () => ({
   SyncService: {
     syncAllUnlinked: vi.fn().mockResolvedValue({ synced: 1, failed: 0 }),
@@ -175,5 +182,24 @@ describe('GuestMigrationGate', () => {
       expect(screen.queryByText('Перенести в аккаунт')).toBeNull();
     });
     expect(mockShowToast).toHaveBeenCalledWith('migration_success_local:3', 'success');
+  });
+
+  it('S-55 survivor: the toast shows what the migration reports as moved, not what the gate found', async () => {
+    const guestId = getOrCreateGuestId();
+    await LocalDocumentService.createDocument(guestId, { title: 'Раз' });
+    await LocalDocumentService.createDocument(guestId, { title: 'Два' });
+    migrationOverride.result = { moved: 5, left: 0 };
+    try {
+      const { rerender } = render(<GuestMigrationGate />);
+      mockAuth = { user: { uid: 'user_new_123' }, isGuest: false };
+      rerender(<GuestMigrationGate />);
+      fireEvent.click(await screen.findByText('Перенести в аккаунт'));
+      await waitFor(() => {
+        expect(screen.queryByText('Перенести в аккаунт')).toBeNull();
+      });
+      expect(mockShowToast).toHaveBeenCalledWith('migration_success_local:5', 'success');
+    } finally {
+      migrationOverride.result = null;
+    }
   });
 });

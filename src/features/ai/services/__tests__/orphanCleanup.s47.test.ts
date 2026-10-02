@@ -115,6 +115,16 @@ describe('S-47: cloud derivative cleanup deletes only under a confirmed tombston
     expect(await AIDerivedDataSyncService.deleteOrphanedDerivatives(UID)).toEqual({ summaries: 0, embeddings: 0, failed: 0 });
   });
 
+  // S-63 survivor: тот же проход для эмбеддингов (AIDerivedDataSyncService.ts:201).
+  it('S-63: the embeddings upload pass sweeps confirmed-tombstoned cloud embeddings, and only those', async () => {
+    getUserDocuments.mockResolvedValue([{ uuid: LOCAL_LIVE }, { uuid: CLOUD_LIVE }]);
+
+    await AIDerivedDataSyncService.syncAllEmbeddings(UID);
+
+    expect(deleteEmbedding.mock.calls.map(c => c[1])).toEqual([TOMBSTONED]);
+    expect(deleteSummary).not.toHaveBeenCalled();
+  });
+
   it('R6Q-043: the summaries upload pass also sweeps confirmed-tombstoned cloud summaries, and only those', async () => {
     getUserDocuments.mockResolvedValue([{ uuid: LOCAL_LIVE }, { uuid: CLOUD_LIVE }]);
 

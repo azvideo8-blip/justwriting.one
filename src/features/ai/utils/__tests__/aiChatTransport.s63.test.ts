@@ -52,3 +52,16 @@ describe('S-63: a short legacy body of a hidden note is stripped', () => {
     });
   });
 });
+
+// S-51 survivors (S-63): две ветки разбора, которые оставались без красного теста.
+describe('S-51 survivors: the ambiguous branch is entered only for one header-less marker', () => {
+  it('a headed turn with a short tail and no question is still stripped to the marker (the `[#` check)', () => {
+    const headed = '[#local_1 · 2026-01-01]\n[Прикреплена заметка: "Т"]\nкороткое тело заметки';
+    expect(toApiContent(headed)).toBe('[Прикреплена заметка: "Т"]');
+  });
+
+  it('two header-less markers with short bodies and no question → both markers, no bodies (found.length === 1, not >= 1)', () => {
+    const two = '[Прикреплена заметка: "Первая"]\n\nкороткое тело 1\n\n---\n\n[Прикреплена заметка: "Вторая"]\n\nкороткое тело 2';
+    expect(toApiContent(two)).toBe('[Прикреплена заметка: "Первая"]\n[Прикреплена заметка: "Вторая"]');
+  });
+});

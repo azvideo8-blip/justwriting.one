@@ -114,6 +114,26 @@ describe('S-32: a failed account deletion must not wipe the live account on the 
     expect(localStorage.getItem(MARKER)).toBeNull();
   });
 
+  // S-48 survivor (S-63): сессия снимается до первого await — иначе клиент успевает её восстановить.
+  it('S-48 survivor: the stored session is already gone when the first database delete starts', async () => {
+    mockGetCurrentUser.mockReturnValue(null);
+    localStorage.setItem('sb-mock-auth-token', JSON.stringify({ access_token: 'x', user: { id: USER } }));
+    localStorage.setItem(MARKER, '1');
+    const sessionAtDelete: (string | null)[] = [];
+    const orig = indexedDB.deleteDatabase.bind(indexedDB);
+    const spy = vi.spyOn(indexedDB, 'deleteDatabase').mockImplementation((name: string) => {
+      sessionAtDelete.push(localStorage.getItem('sb-mock-auth-token'));
+      return orig(name);
+    });
+    try {
+      await processPendingPurges();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(sessionAtDelete.length).toBeGreaterThan(0);
+    expect(sessionAtDelete, 'сессия ещё лежала, когда началось удаление базы').toEqual(sessionAtDelete.map(() => null));
+  });
+
   it('a marker for a uid with no session here is still honoured (the real crash-recovery case)', async () => {
     mockGetCurrentUser.mockReturnValue(null);
     localStorage.setItem(MARKER, '1');

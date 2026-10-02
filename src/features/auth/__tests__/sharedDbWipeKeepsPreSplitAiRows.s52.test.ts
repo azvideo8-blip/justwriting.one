@@ -71,6 +71,17 @@ describe('S-52: deleting account A keeps the pre-split AI rows for account B', (
     expect((await (await getLocalDb('justwriting-local')).getAll('syncQueue')).map(q => q.id)).toEqual(['q_b']);
   });
 
+  // S-52 survivor (S-63): pending_sessions тоже считается в «что-то осталось».
+  it('a leftover pending_sessions row of another account keeps the file', async () => {
+    const shared = await getLocalDb('justwriting-local');
+    await shared.put('pending_sessions', { sessionId: null, data: {}, userId: B } as never);
+
+    await wipeGuestAndAccountFromSharedDb(A);
+
+    expect(await hasLocalDatabase('justwriting-local'), 'файл базы удалён вместе с отложенной сессией B').toBe(true);
+    expect((await (await getLocalDb('justwriting-local')).getAll('pending_sessions')).map(p => p.userId)).toEqual([B]);
+  });
+
   it('the file goes when only guest and A rows were in it', async () => {
     const shared = await getLocalDb('justwriting-local');
     await shared.put('documents', doc('doc_a', A));

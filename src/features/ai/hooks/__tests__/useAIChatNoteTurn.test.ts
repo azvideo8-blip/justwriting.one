@@ -156,3 +156,34 @@ describe('S-63: a legacy turn of a hidden note', () => {
     expect(sent[0]?.content).toBe('[Прикреплена заметка: "Скрытая"]');
   });
 });
+
+// S-56 survivors (S-63): обрезка названия в noteScope на пути отправки и защита
+// «не трогать диалог, созданный не в этом ходе».
+describe('S-56 survivors', () => {
+  it('the sticky note title is cut to 300 in the noteScope sent with the turn', async () => {
+    await seed('d-s63-title', []);
+    h.attached = { content: `[#local_n1 · 2026-09-29]\n${NOTE}`, documentId: 'local_n1', title: 'н'.repeat(500), date: '2026-09-29' } as typeof h.attached;
+    h.buildContext.mockResolvedValue(ctx());
+    let scope: { title: string } | undefined;
+    vi.spyOn(transport, 'streamChat').mockImplementation(async o => { scope = o.noteScope; o.onChunk('ок', ''); return 'ок'; });
+    const { result } = renderHook(() => useAIChat('d-s63-title', 'editor'));
+    await waitFor(() => expect(result.current.dialogue?.id).toBe('d-s63-title'));
+    await act(async () => { await result.current.sendMessage('что скажешь об этом утре?'); });
+
+    expect(scope, 'строгий ход без noteScope').toBeDefined();
+    expect(scope!.title).toHaveLength(300);
+  });
+
+  it('a consent refusal does not discard a dialogue that existed before this turn (createdThisTurn guard)', async () => {
+    await seed('d-s63-preexisting', []);
+    h.buildContext.mockResolvedValue(ctx());
+    vi.spyOn(transport, 'streamChat').mockRejectedValue(new Error('AI_CONSENT_REQUIRED'));
+    vi.spyOn(transport, 'callableChat').mockRejectedValue(new Error('AI_CONSENT_REQUIRED'));
+    const { result } = renderHook(() => useAIChat('d-s63-preexisting', 'editor'));
+    await waitFor(() => expect(result.current.dialogue?.id).toBe('d-s63-preexisting'));
+    await act(async () => { await result.current.sendMessage('привет'); });
+
+    expect(result.current.consentRequired).toBe('AI_CONSENT_REQUIRED');
+    expect(await (await getLocalDb()).get('aiDialogues', 'd-s63-preexisting'), 'чужой пустой диалог стёрт').toBeDefined();
+  });
+});
