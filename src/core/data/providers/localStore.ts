@@ -16,6 +16,40 @@ export async function saveLocalStoreRecord(userId: string, store: string, key: s
   if (error != null) throw error;
 }
 
+/**
+ * S-34: запись «если облако не изменилось»: строки нет — insert (23505, если
+ * кто-то успел создать), есть — update с условием на прежний `updatedAt`
+ * payload'а. false — облако ушло вперёд, вызывающий перечитывает и сливает
+ * заново; прежний слепой upsert затирал ход другого устройства.
+ */
+export async function saveLocalStoreRecordIfUnchanged(
+  userId: string,
+  store: string,
+  key: string,
+  payload: ProviderRecord,
+  expectedUpdatedAt: number | null,
+): Promise<boolean> {
+  const row = { user_id: userId, store, key, payload, checksum: null };
+  if (expectedUpdatedAt === null) {
+    const { error } = await getSupabase().from('local_store_records').insert(row);
+    if (error != null) {
+      if (error.code === '23505') return false;
+      throw error;
+    }
+    return true;
+  }
+  const { data, error } = await getSupabase()
+    .from('local_store_records')
+    .update({ payload, checksum: null })
+    .eq('user_id', userId)
+    .eq('store', store)
+    .eq('key', key)
+    .eq('payload->>updatedAt', String(expectedUpdatedAt))
+    .select('key');
+  if (error != null) throw error;
+  return Array.isArray(data) && data.length === 1;
+}
+
 /** Страницы одной версии записи `key#N` — одним запросом. Upsert массивом — это
  *  один INSERT … ON CONFLICT, то есть одна транзакция: другое устройство не увидит
  *  новую страницу 0 рядом со старой страницей 1 («Newest version … is incomplete»),
@@ -43,6 +77,27 @@ export async function getLocalStoreRecord(userId: string, store: string, key: st
     payload: (data.payload ?? {}) as ProviderRecord,
     checksum: data.checksum as string | undefined,
   };
+}
+
+/** S-49: страницы записи — строки `key#…` (оба формата: `key#N` и `key#stamp#N`). */
+export async function getLocalStoreRecordPages(userId: string, store: string, key: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>> {
+  const rows = await pageAll((from, to) => getSupabase()
+    .from('local_store_records')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('store', store)
+    .like('key', likePrefix(key))
+    .order('key', { ascending: true })
+    .range(from, to));
+  return ownRows(rows as Record<string, unknown>[], userId).map(row => {
+    const rec: { store: string; key: string; payload: ProviderRecord; checksum?: string } = {
+      store: row.store as string,
+      key: row.key as string,
+      payload: (row.payload ?? {}) as ProviderRecord,
+    };
+    if (typeof row.checksum === 'string') rec.checksum = row.checksum;
+    return rec;
+  });
 }
 
 export async function getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>> {
@@ -136,6 +191,28 @@ export async function deleteLocalStorePagedRecords(userId: string, store: string
   if (error != null) throw error;
 }
 
+/** S-49: все страницы записи, кроме версии `keepStamp` (`key#<keepStamp>#N`) —
+ *  проигравшие попытки и страницы прежних форматов после удачной записи манифеста. */
+export async function deleteLocalStoreStalePages(userId: string, store: string, key: string, keepStamp: number): Promise<void> {
+  const { data, error } = await getSupabase()
+    .from('local_store_records')
+    .select('key')
+    .eq('user_id', userId)
+    .eq('store', store)
+    .like('key', likePrefix(key));
+  if (error != null) throw error;
+  const keep = `${key}#${keepStamp}#`;
+  const stale = ((data ?? []) as Array<{ key: string }>).map(r => r.key).filter(k => !k.startsWith(keep));
+  if (stale.length === 0) return;
+  const { error: delError } = await getSupabase()
+    .from('local_store_records')
+    .delete()
+    .eq('user_id', userId)
+    .eq('store', store)
+    .in('key', stale);
+  if (delError != null) throw delError;
+}
+
 export async function deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void> {
   const { error } = await getSupabase()
     .from('local_store_records')
@@ -166,14 +243,15 @@ export async function deleteAllLocalStoreRecords(userId: string): Promise<void> 
 /** Число ЗАПИСЕЙ хранилищ в облаке без выкачивания строк — см. `countSummaries`.
  *  Запись длиннее порога лежит страницами `key#N`, и номер страницы открыт в
  *  payload: в счёт идёт нулевая страница либо запись без страниц, иначе одна
- *  длинная запись считалась бы восемью. */
+ *  длинная запись считалась бы восемью. S-49: у постраничного диалога страницы
+ *  `key#stamp#N` и манифест без номера страницы — считается манифест. */
 export async function countLocalStoreRecords(userId: string, stores: readonly string[]): Promise<number> {
   const { count, error } = await getSupabase()
     .from('local_store_records')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .in('store', stores)
-    .or('payload->>page.is.null,payload->>page.eq.0');
+    .or('payload->>page.is.null,and(payload->>page.eq.0,key.not.like.%#%#%)');
   if (error != null) throw error;
   if (count == null) throw new Error('COUNT_UNAVAILABLE: local_store_records');
   return count;

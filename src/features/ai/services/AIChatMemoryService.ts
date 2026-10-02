@@ -7,6 +7,8 @@ import { reportAIDegradation } from '../utils/aiDegradationReporter';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { withMessageIds } from '../../../core/storage/dialogueMerge';
+import { toApiContent } from '../utils/aiChatTransport';
 
 
 type MemoryKind = 'fact' | 'insight' | 'commitment' | 'preference';
@@ -18,7 +20,7 @@ function coerceKind(kind: string): MemoryKind {
 }
 
 export const AIChatMemoryService = {
-  async extractFromDialogue(dialogueId: string, messages: { role: string; content: string; type?: string | undefined }[]): Promise<void> {
+  async extractFromDialogue(dialogueId: string, messages: { role: string; content: string; type?: string | undefined; id?: string | undefined }[]): Promise<void> {
     const userMessages = messages.filter(m => m.role === 'user' && m.content.trim().length > 10);
     if (userMessages.length < 2) return;
 
@@ -26,12 +28,32 @@ export const AIChatMemoryService = {
       const db = await getLocalDb();
       let dialogue: AIDialogue | undefined;
       try {
-        dialogue = await db.get('aiDialogues', dialogueId);
+        const stored = await db.get('aiDialogues', dialogueId);
+        dialogue = stored ? withMessageIds(stored) : undefined;
       } catch {
         // non-fatal if dialogue lookup fails in test or detached mode
       }
-      const lastIdx = dialogue?.lastExtractedIdx ?? 0;
-      const startIdx = Math.max(0, lastIdx - 2);
+
+      // S-29: курсор — id последней извлечённой реплики, а не позиция. Позиция
+      // ломалась, стоило слиянию вставить ход в середину: память либо молчала,
+      // либо переизвлекала то, что уже извлечено. Старый индекс переживается в id
+      // на месте, дальше курсор живёт только по id.
+      // S-35: старт окна — позиция курсора в самом окне (окно несёт id своих
+      // реплик). Прежний сдвиг «по разнице длин» считал, что хвост окна и хвост
+      // записи совпадают, — после слияния это не так, и уже извлечённое
+      // уходило в модель второй раз.
+      const OVERLAP = 2;
+      const legacyIdx = dialogue?.lastExtractedIdx ?? 0;
+      const cursorId = dialogue?.lastExtractedMessageId
+        ?? dialogue?.messages[legacyIdx]?.id
+        ?? undefined;
+      const inWindow = cursorId ? messages.findIndex(m => m.id === cursorId) : -1;
+      const storedAt = cursorId && dialogue ? dialogue.messages.findIndex(m => m.id === cursorId) : -1;
+      const startIdx = inWindow >= 0
+        ? Math.max(0, inWindow - OVERLAP)
+        : storedAt >= 0
+          ? Math.max(0, storedAt - OVERLAP)
+          : Math.max(0, legacyIdx - OVERLAP);
 
       const candidateMessages = messages.slice(startIdx);
       const bounded = candidateMessages.length > MEMORY_EXTRACT_MAX_MESSAGES
@@ -86,9 +108,31 @@ export const AIChatMemoryService = {
       }
 
       if (dialogue) {
-        dialogue.lastExtractedIdx = messages.length;
-        await db.put('aiDialogues', dialogue);
-        LocalStoreSyncService.scheduleStoreSync('aiDialogues', dialogue.id);
+        // S-35: запись перечитывается после вызова модели в одной транзакции, и
+        // правится только курсор. Запись целиком из снимка «до вызова» уносила
+        // ход, дописанный за время вызова, и возвращала удалённую реплику.
+        // Курсор — последняя реально отправленная реплика: по id, если окно его
+        // несёт, иначе по тексту (свежий вопрос в окне ещё без id).
+        const lastSent = [...bounded].reverse().find(m => m.role === 'user' || m.role === 'assistant')!;
+        const tx = db.transaction('aiDialogues', 'readwrite');
+        const stored = await tx.store.get(dialogueId);
+        if (stored) {
+          const fresh = withMessageIds(stored);
+          const byId = lastSent.id && fresh.messages.some(m => m.id === lastSent.id) ? lastSent.id : undefined;
+          const cursor = byId ?? [...fresh.messages].reverse().find(m =>
+            m.role === lastSent.role && (m.content === lastSent.content || toApiContent(m.content) === lastSent.content))?.id;
+          if (cursor) {
+            fresh.lastExtractedMessageId = cursor;
+            delete fresh.lastExtractedIdx;
+          } else {
+            // Пока сохранённый диалог не содержит переданного (detached-режим,
+            // тесты), курсор остаётся позиционным.
+            fresh.lastExtractedIdx = messages.length;
+          }
+          await tx.store.put(fresh);
+        }
+        await tx.done;
+        if (stored) LocalStoreSyncService.scheduleStoreSync('aiDialogues', dialogueId);
       }
 
       if (result.memories.length === 0) return;

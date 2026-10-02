@@ -2,14 +2,13 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { getCurrentUser } from '../../../core/auth';
 import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { getAiConsent, isProfileLoaded } from '../../../core/ai/aiConsent';
-import type { AIDialogue } from '../../../core/storage/localDb';
+import { getLocalDb, type AIDialogue } from '../../../core/storage/localDb';
 import { AIDialogueService } from '../services/AIDialogueService';
 import { PRESET_PERSONAS, AIPersonaService } from '../services/AIPersonaService';
 import { LocalDocumentService } from '../../../core/services/LocalDocumentService';
 import { useLanguage } from '../../../shared/i18n';
 import { incrementDailyUsage, setDailyLimitExhausted } from './useDailyLimit';
 import { useAiLimitStore } from '../store/useAiLimitStore';
-import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIMessage } from '../services/AIService';
 import { AIService } from '../services/AIService';
 import { AIChatMemoryService } from '../services/AIChatMemoryService';
@@ -39,7 +38,8 @@ import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 export { API_MSG_CAP };
 
 export interface SendMessageOptions {
-  replaceFromIndex?: number;
+  /** S-25/S-29: id пользовательской реплики заменяемого хода — не позиция. */
+  replaceUserId?: string | undefined;
   /** Вопрос хода без текста заметки: по нему решается режим и строится контекст. */
   question?: string;
   /** Кнопки «Связать с другими записями» / «Посмотреть в других записях». */
@@ -224,23 +224,9 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
 
       if (!active) return;
-      const db = await getLocalDb();
-      if (!active) return;
-      const fresh = await db.get('aiDialogues', dialogueId);
-      if (!active || !fresh) return;
-
-      fresh.personaId = personaId;
-      fresh.personaName = newPersonaName;
-      fresh.personaEmoji = newPersonaEmoji;
-      fresh.messages.push({
-        role: 'assistant',
-        content: `⚙️ [Смена персоны]: Теперь с вами общается ${newPersonaName}`,
-        type: 'system',
-      });
-      fresh.updatedAt = Date.now();
-      if (!active) return;
-      await db.put('aiDialogues', fresh);
-      if (active) setDialogue({ ...fresh });
+      // S-57: запись — в сервисе, одной транзакцией и с постановкой в выгрузку.
+      const fresh = await AIDialogueService.setPersona(dialogueId, { personaId, personaName: newPersonaName, personaEmoji: newPersonaEmoji });
+      if (active && fresh) setDialogue({ ...fresh });
     })();
 
     return () => { active = false; };
@@ -438,8 +424,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           : currentDialogue);
       }
 
-      const baseMessages = options?.replaceFromIndex !== undefined
-        ? currentDialogue.messages.slice(0, options.replaceFromIndex)
+      // S-25/S-29: заменяемый ход ищем по id его реплики, а не по позиции из
+      // состояния вкладки: если соседняя вкладка дописала ход, позиция ведёт в
+      // чужой разговор.
+      const replaceFromIdx = options?.replaceUserId !== undefined
+        ? currentDialogue.messages.findIndex(m => m.id === options.replaceUserId)
+        : -1;
+      const baseMessages = replaceFromIdx >= 0
+        ? currentDialogue.messages.slice(0, replaceFromIdx)
         : currentDialogue.messages;
       const sourceForApi: AIMessage[] = text.trim() ? [...baseMessages, { role: 'user' as const, content: text, type: 'chat' as const }] : [...baseMessages];
       // S-63: старые ходы без шапки — тело скрытой заметки-темы не идёт ни в историю, ни в память.
@@ -650,8 +642,8 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (controller.signal.aborted) {
         savedText = `${savedText.trim()}${INTERRUPTED_STREAM_MARKER}`;
       }
-      if (options?.replaceFromIndex !== undefined) {
-        await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceFromIndex, text, savedText, savedReasoning, searchReq, degradedReason);
+      if (options?.replaceUserId !== undefined) {
+        await AIDialogueService.replaceLastTurn(currentDialogue.id, options.replaceUserId, text, savedText, savedReasoning, searchReq, degradedReason);
       } else {
         await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
       }
@@ -711,8 +703,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       return currentDialogue.id;
     } catch (e: unknown) {
       setStreamingMessage(null); setStreamingReasoning(null);
-      const db = await getLocalDb();
-      const fresh = (dialogueId && typeof dialogueId === 'string') ? await db.get('aiDialogues', dialogueId) : null;
+      const fresh = (dialogueId && typeof dialogueId === 'string') ? await AIDialogueService.get(dialogueId) : undefined;
       setDialogue(fresh ?? dialogue);
       const rawMsg = e instanceof Error ? e.message : 'SERVER_ERROR';
 
@@ -723,10 +714,10 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       if (!turnSaved && turnDialogueId && text.trim() && shownPartial.trim()) {
         try {
           const interruptedMsg = `${shownPartial.trim()}${INTERRUPTED_STREAM_MARKER}`;
-          if (options?.replaceFromIndex !== undefined) {
+          if (options?.replaceUserId !== undefined) {
             await AIDialogueService.replaceLastTurn(
               turnDialogueId,
-              options.replaceFromIndex,
+              options.replaceUserId,
               text,
               interruptedMsg,
             );
@@ -829,35 +820,19 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     const userText = msgs[userIdx]?.content ?? '';
     if (!userText) return;
 
-    // Save the current answer as a variant before truncating
-    const oldAssistant = msgs[aiIdx];
-    const oldVariants = oldAssistant?.variants ?? [];
-    const oldContent = oldAssistant?.content ?? '';
-    const savedVariants = [...oldVariants, oldContent];
-
+    // S-36: прежний ответ уходит в варианты внутри replaceLastTurn — по id хода,
+    // а не «последнему ответу»: дописанный соседней вкладкой ход получал чужие
+    // варианты, а снимок отсюда затирал союз вариантов после слияния.
     // Truncate dialogue in memory (React state) so sendMessage appends userText as a replacement turn,
     // but DO NOT truncate in IndexedDB yet so failures leave the stored dialogue intact.
     setDialogue({ ...d, messages: d.messages.slice(0, userIdx) });
     // Показанный текст хода — заметка + «Вопрос: …». Режим хода и поиск строятся
     // по вопросу, иначе слово «раньше» в заметке делало ход широким (R3-006).
     const attachedTurn = splitAttachedMessage(userText, { legacyNoteHidden: await legacyNoteHidden(d, await getLocalDb()) });
-    const newId = await sendMessage(userText, undefined, undefined, undefined, {
-      replaceFromIndex: userIdx,
+    await sendMessage(userText, undefined, undefined, undefined, {
+      replaceUserId: msgs[userIdx]?.id,
       ...(attachedTurn ? { question: attachedTurn.question || 'Разбери эту заметку' } : {}),
     });
-    // After the new response is saved, merge variants including the new response
-    if (newId) {
-      const updated = await AIDialogueService.get(newId);
-      let newContent = '';
-      if (updated) {
-        for (let i = updated.messages.length - 1; i >= 0; i--) {
-          const m = updated.messages[i];
-          if (m && m.role === 'assistant' && m.type !== 'system') { newContent = m.content; break; }
-        }
-      }
-      const allVariants = [...savedVariants, newContent];
-      await AIDialogueService.setLastAssistantVariants(newId, allVariants, allVariants.length - 1);
-    }
   }, [isLoading, dialogueId, dialogue, sendMessage]);
 
   const triggerForcedSearch = useCallback(async (query: string) => {

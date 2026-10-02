@@ -85,12 +85,18 @@ export interface IDataProvider {
   // --- Local Store Records Operations ---
   saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void>;
   saveLocalStoreRecordPages(userId: string, store: string, pages: Array<{ key: string; payload: ProviderRecord }>): Promise<void>;
+  /** S-34: false — облако изменилось с момента чтения (expectedUpdatedAt устарел или строка уже есть). */
+  saveLocalStoreRecordIfUnchanged(userId: string, store: string, key: string, payload: ProviderRecord, expectedUpdatedAt: number | null): Promise<boolean>;
   getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
+  /** S-49: страницы записи `key#…` (оба формата). Необязателен только ради тестовых заглушек: у провайдера он есть всегда. */
+  getLocalStoreRecordPages?(userId: string, store: string, key: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   countLocalStoreRecords(userId: string, stores: readonly string[]): Promise<number>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStorePagedRecords?(userId: string, store: string, key: string, keepPages?: number): Promise<void>;
+  /** S-49: страницы записи всех версий, кроме `key#<keepStamp>#N`. */
+  deleteLocalStoreStalePages?(userId: string, store: string, key: string, keepStamp: number): Promise<void>;
   deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
   deleteLocalStoreRecordsByStores(userId: string, stores: string[]): Promise<void>;
   deleteAllLocalStoreRecords?(userId: string): Promise<void>;
