@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.29 — 2026-10-02
+
+- **[RU]** Чат с ИИ без разрешения на его использование показывает спокойную подсказку и кнопку «Открыть настройки» вместо технической ошибки; набранный текст остаётся в поле ввода.
+- **[EN]** Chatting with the AI before allowing it now shows a calm hint with an «Open settings» button instead of a technical error; the typed text stays in the input.
+- **[RU]** Удаление аккаунта стирает с этого устройства и гостевые данные. На другом устройстве, где вы были в этом аккаунте, приложение предложит стереть его данные — после подтверждения и с предупреждением о несинхронизированном.
+- **[EN]** Deleting the account also wipes guest data on this device. On another device where you used that account, the app offers to wipe its data — after a confirmation and a warning about anything unsynced.
+- **[RU]** Кризисная панель замечает больше формулировок, в том числе разбитые невидимыми символами, латиницей и по-английски, и реже срабатывает на бытовые фразы.
+- **[EN]** The crisis panel notices more phrasings, including ones split by invisible characters, written in Latin letters or in English, and fires less often on everyday phrases.
+- **[RU]** Язык интерфейса меняется сразу во всех открытых вкладках.
+- **[EN]** The interface language changes in all open tabs at once.
+- **[RU]** Журнал входов в аккаунт хранится 30 дней — так и написано в политике конфиденциальности. Удалён неиспользуемый сбор анонимной статистики.
+- **[EN]** Sign-in logs are kept for 30 days, as the privacy policy now says. The unused anonymous statistics collection is removed.
+- **[RU]** Кнопка «Скачать копию всех своих данных (JSON)» теперь называется «Скачать заметки в JSON»: она и раньше сохраняла только заметки, полная копия всех данных — резервная копия.
+- **[EN]** The JSON (GDPR) export saves your notes only, as its Russian label now says; a full copy of all data is the backup.
+- **[RU]** ИИ больше не получает текст прикреплённой заметки там, где его быть не должно: при кавычке или переносе строки в названии, в старых диалогах и в итоговом резюме диалога. Заметки, скрытые от ИИ, проверяются заново при каждой отправке.
+- **[EN]** The AI no longer receives an attached note’s text where it shouldn’t: with a quote or line break in the title, in old dialogues and in a dialogue’s closing summary. Notes hidden from the AI are re-checked on every send.
+- **[RU]** Незаконченный черновик гостя предлагается перенести после входа; если в аккаунте уже есть черновик, гостевой сохраняется отдельной заметкой, а не пропадает.
+- **[EN]** An unfinished guest draft is offered for transfer after sign-in; if the account already has a draft, the guest one is saved as a separate note instead of being lost.
+- **[RU]** Если удаление аккаунта не завершилось на устройстве (сбой, закрытая вкладка), приложение честно об этом скажет и дочистит данные при следующем запуске.
+- **[EN]** If deleting the account didn’t finish on the device (a crash, a closed tab), the app says so honestly and finishes the wipe on the next start.
+- **[RU]** Импорт файла .docx защищён от архивов, которые раздуваются до гигабайт и роняли вкладку; слишком длинные названия, настроение и метки при импорте обрезаются до допустимых, а не ломают синхронизацию.
+- **[EN]** Importing a .docx is protected from archives that inflate to gigabytes and crashed the tab; over-long titles, moods and tags are trimmed on import instead of breaking sync.
+- **[RU]** Истёкший вход больше не выдаётся за «нет согласия на ИИ»; длинное название заметки больше не ломает разговор с ИИ.
+- **[EN]** An expired sign-in is no longer shown as «no AI consent»; a long note title no longer breaks the AI conversation.
+
 ## 0.9.28 — 2026-10-01
 
 - **[RU]** Служебный выпуск: восстановление базы из резервной копии больше не возвращает лишние права доступа, которые были отозваны.
