@@ -550,16 +550,32 @@ function removeOversizedRecord(store: string, key: string): void {
 }
 
 /**
- * S-49: облачная копия диалога — строка `key` или страницы — расшифрованная и
- * разобранная. null — копии нет. `expected` — отметка для условной записи
- * (undefined — у строки нет числовой отметки). Строка есть, а прочитать её
- * нельзя — это не «облако пусто»: слепая запись поверх затёрла бы чужой ход.
- * Пусть запись упадёт и повторится.
+ * S-49/S-54: облачная копия диалога — строка `key` или страницы — расшифрованная
+ * и разобранная. null — копии нет. `expected` — отметка для условной записи
+ * (undefined — у строки нет числовой отметки).
+ *
+ * S-54: открытая строка под включённым сейфом читается: так выглядит обрыв
+ * «зашифровать всё» на середине, и слияние запишет её обратно уже
+ * зашифрованной. Строка, которую не прочитать иначе (чужой ключ, порча),
+ * остаётся ошибкой, а не «облако пусто», и один раз попадает в журнал.
  */
+const unreadableReported = new Set<string>();
+
+function isPlaintextUnderVault(e: unknown): boolean {
+  // По форме, не по instanceof: DecryptionError из cryptoHelpers, причина — PLAINTEXT_UNDER_VAULT.
+  const err = e as { name?: unknown; cause?: { message?: unknown } } | null;
+  return err?.name === 'DecryptionError' && err.cause?.message === 'PLAINTEXT_UNDER_VAULT';
+}
+
 async function readDialogueText(payload: Record<string, unknown>): Promise<string> {
-  const dec = await maybeDecrypt(payload, ['data'], []);
-  if (typeof dec.data !== 'string') throw new Error('S-34: cloud dialogue row has no readable data');
-  return dec.data;
+  try {
+    const dec = await maybeDecrypt(payload, ['data'], []);
+    if (typeof dec.data !== 'string') throw new Error('S-34: cloud dialogue row has no readable data');
+    return dec.data;
+  } catch (e) {
+    if (isPlaintextUnderVault(e) && typeof payload.data === 'string') return payload.data;
+    throw e;
+  }
 }
 
 async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: AIDialogue; expected: number | undefined } | null> {
@@ -572,15 +588,30 @@ async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: 
   for (const p of pages) rows.push({ key: p.key, payload: p.payload as Record<string, unknown> });
   const version = selectCloudVersion(rows);
   if (!version) return null;
-  if (version.kind === 'refused') throw new Error(`S-49: cloud dialogue ${key} pages unreadable: ${version.reason}`);
-  if (version.kind === 'single') {
-    const text = await readDialogueText(version.row.payload);
-    const at = version.row.payload.updatedAt;
-    return { dialogue: JSON.parse(text) as AIDialogue, expected: typeof at === 'number' ? at : undefined };
+  try {
+    if (version.kind === 'refused') throw new Error(`S-49: cloud dialogue ${key} pages unreadable: ${version.reason}`);
+    if (version.kind === 'single') {
+      const text = await readDialogueText(version.row.payload);
+      const at = version.row.payload.updatedAt;
+      return { dialogue: JSON.parse(text) as AIDialogue, expected: typeof at === 'number' ? at : undefined };
+    }
+    let text = '';
+    for (const page of version.pages) text += await readDialogueText(page.payload);
+    return { dialogue: JSON.parse(text) as AIDialogue, expected: version.updatedAt };
+  } catch (e) {
+    // Строка есть, а прочитать её нельзя — это не «облако пусто»: слепая
+    // запись поверх затёрла бы чужой ход. Пусть запись упадёт и повторится.
+    if (!unreadableReported.has(key)) {
+      unreadableReported.add(key);
+      useActivityLogStore.getState().addActivity(
+        'activity_dialogue_cloud_unreadable',
+        { action: 'uploadDialogue_unreadable', store: 'aiDialogues', key, error: e instanceof Error ? e.message.slice(0, 200) : String(e) },
+        'warning',
+        'sync',
+      );
+    }
+    throw e;
   }
-  let text = '';
-  for (const page of version.pages) text += await readDialogueText(page.payload);
-  return { dialogue: JSON.parse(text) as AIDialogue, expected: version.updatedAt };
 }
 
 export class LocalStoreSyncManager {
