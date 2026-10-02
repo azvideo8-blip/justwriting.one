@@ -1,0 +1,82 @@
+/**
+ * Объявление о выпуске в теме «Новости» группы в Telegram — последний шаг
+ * выкатки. Текст — верхняя запись CHANGELOG (то же, что видно в приложении).
+ * Сбой объявления выкатку не роняет: прод уже обновлён и проверен.
+ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { CHANGELOG, type ChangelogRelease, type ChangelogCategory } from '../src/features/navigation/data/changelog';
+import { APP_VERSION } from '../src/version';
+
+const SECTIONS: [ChangelogCategory, string][] = [
+  ['new', 'Новое'],
+  ['improvement', 'Улучшено'],
+  ['accessibility', 'Доступность'],
+  ['fix', 'Исправлено'],
+];
+const TG_LIMIT = 4096;
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** null — объявлять нечего: выпуск только служебный. */
+export function formatAnnouncement(release: ChangelogRelease): string | null {
+  const items = release.items.filter(i => !i.ru.startsWith('Служебный выпуск'));
+  if (items.length === 0) return null;
+  let text = `<b>Версия ${esc(release.version)} обновлена</b>`;
+  for (const [cat, title] of SECTIONS) {
+    const lines = items.filter(i => i.category === cat).map(i => `• ${esc(i.ru)}`);
+    if (lines.length) text += `\n\n<b>${title}</b>\n${lines.join('\n')}`;
+  }
+  // ponytail: режем по символам, а не по пунктам — выпуск на 4 КБ текста бывает раз в жизни.
+  return text.length > TG_LIMIT ? text.slice(0, TG_LIMIT - 1) + '…' : text;
+}
+
+async function main(): Promise<void> {
+  const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chatId, TELEGRAM_THREAD_ID: threadId } = process.env;
+  if (!token || !chatId) {
+    console.log('Объявление пропущено: не заданы TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.');
+    return;
+  }
+  const release = CHANGELOG[0];
+  if (release?.version !== APP_VERSION) {
+    console.log(`::warning::Объявление пропущено: верхняя запись changelog ${release?.version} ≠ APP_VERSION ${APP_VERSION}.`);
+    return;
+  }
+  // Повторная выкатка той же версии не дублирует объявление. Раннер живёт на
+  // проде, домашний каталог переживает прогоны.
+  const stateFile = process.env.ANNOUNCE_STATE_FILE ?? join(homedir(), '.jw-announced-version');
+  let last = '';
+  try { last = readFileSync(stateFile, 'utf8').trim(); } catch { /* файла ещё нет */ }
+  if (last === release.version) {
+    console.log(`Версия ${release.version} уже объявлена.`);
+    return;
+  }
+  const text = formatAnnouncement(release);
+  if (!text) {
+    console.log(`Версия ${release.version} служебная — не объявляем.`);
+  } else {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        ...(threadId ? { message_thread_id: Number(threadId) } : {}),
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
+    if (!res.ok) {
+      // Тело ответа Telegram не содержит токена; URL с токеном не печатаем.
+      console.log(`::warning::Объявление не отправлено: Telegram ответил ${res.status} ${await res.text()}`);
+      return;
+    }
+    console.log(`Версия ${release.version} объявлена.`);
+  }
+  writeFileSync(stateFile, release.version + '\n');
+}
+
+if (process.argv[1]?.endsWith('announce-release.ts')) {
+  main().catch(e => console.log(`::warning::Объявление не отправлено: ${e instanceof Error ? e.message : String(e)}`));
+}

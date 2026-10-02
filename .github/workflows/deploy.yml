@@ -333,6 +333,16 @@ jobs:
           $DEPLOY_SSH ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             sudo find /var/www/justwriting/assets -type f -mtime +14 -delete'
 
+      # Объявление в теме «Новости» группы в Telegram — только после проверок.
+      # Сбой объявления выкатку не роняет (скрипт всегда выходит с 0).
+      - name: Объявление о выпуске
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID: ${{ vars.TELEGRAM_THREAD_ID }}
+        run: npx tsx scripts/announce-release.ts
+
       # Если служба не поднялась или проверка после выкатки упала — возвращаем
       # предыдущий бандл службы, а не оставляем сервис лежать.
       # Только если подмена службы реально начиналась (swapped=1): упавшие
