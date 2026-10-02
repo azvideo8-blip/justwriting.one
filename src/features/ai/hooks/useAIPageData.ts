@@ -21,7 +21,7 @@ import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { indexPending } from '../utils/embeddingIndexer';
-import { looksLikeNoteSearch, splitAttachedMessage, cleanAttachedTitle } from '../utils/aiChatTransport';
+import { looksLikeNoteSearch, splitAttachedMessage, cleanAttachedTitle, legacyNoteHidden } from '../utils/aiChatTransport';
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { noteMetaFor } from '../utils/noteMeta';
@@ -413,12 +413,22 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   const handleRelateNote = () => { void handleSendMessage('Как эта заметка связана с другими моими записями?', { forceWide: true }); };
   // Широкий ход ищет по последнему вопросу человека, а не по тексту кнопки (R3-049).
   const handleLookWider = () => {
-    const lastUser = [...(dialogue?.messages ?? [])].reverse().find(m => m.role === 'user' && m.type !== 'system');
-    const lastQuestion = lastUser ? (splitAttachedMessage(lastUser.content)?.question ?? lastUser.content) : '';
-    void handleSendMessage('Посмотри в других моих записях — как это связано?', {
-      forceWide: true,
-      ...(lastQuestion.trim() ? { question: lastQuestion.trim() } : {}),
-    });
+    void (async () => {
+      const lastUser = [...(dialogue?.messages ?? [])].reverse().find(m => m.role === 'user' && m.type !== 'system');
+      let lastQuestion = '';
+      if (lastUser) {
+        // S-63: у старого хода без шапки хвост может быть телом скрытой заметки —
+        // тот же разбор, что у истории; ход с маркером без распознанного вопроса
+        // вопроса не даёт (сырой текст хода в запрос не идёт).
+        const opts = dialogue ? { legacyNoteHidden: await legacyNoteHidden(dialogue, await getLocalDb()) } : undefined;
+        const split = splitAttachedMessage(lastUser.content, opts);
+        lastQuestion = split ? split.question : (lastUser.content.startsWith('[Прикреплена заметка: "') ? '' : lastUser.content);
+      }
+      void handleSendMessage('Посмотри в других моих записях — как это связано?', {
+        forceWide: true,
+        ...(lastQuestion.trim() ? { question: lastQuestion.trim() } : {}),
+      });
+    })();
   };
 
   const handleFeedback = async (value: 'up' | 'down') => {
