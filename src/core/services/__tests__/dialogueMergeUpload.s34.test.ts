@@ -221,6 +221,18 @@ describe('S-34: dialogue upload merges with the cloud row', () => {
     expect(onA, `инкрементальный забор не увидел союз: ${JSON.stringify(onA)}`).toContain('Вопрос с B');
   });
 
+  it('S-53 survivor: the first upload of a dialogue carries schema 2 even without a cloud copy to merge with', async () => {
+    const a = new Device();
+    switchTo(a);
+    at('09:00');
+    const d = await AIDialogueService.create({
+      title: 'Разговор', personaId: 'coach', personaName: 'Коуч', personaEmoji: '🎯',
+      messages: [{ role: 'user', content: 'Вопрос' }, { role: 'assistant', content: 'Ответ' }],
+    });
+    await flush();
+    expect(cloudDialogue(d.id).schema, 'без маркера схемы второе устройство примет запись за старый клиент').toBe(2);
+  });
+
   it('S-45/S-29: a union produced by the restore merge is queued and reaches the cloud', async () => {
     const a = new Device();
     const b = new Device();

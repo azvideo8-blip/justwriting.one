@@ -59,7 +59,10 @@ export function withMessageIds(d: AIDialogue): AIDialogue {
 function adoptIds(x: AIDialogue, y: AIDialogue): AIDialogue {
   if (x.messages.every(m => !!m.id)) return x;
   const pool = y.messages.filter(m => m.id);
-  const used = new Set<string>();
+  // S-53: id, которые запись уже несёт, заняты. Старый клиент (0.9.28) хранит
+  // id у прежних реплик и дописывает новую без id; одинаковый текст («да»)
+  // иначе подбирал id прежней реплики, и дедупликация по id съедала новую.
+  const used = new Set<string>(x.messages.map(m => m.id).filter((id): id is string => !!id));
   return {
     ...x,
     messages: x.messages.map((m, i) => {
