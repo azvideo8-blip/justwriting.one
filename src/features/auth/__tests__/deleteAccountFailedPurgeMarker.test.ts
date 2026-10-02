@@ -97,6 +97,23 @@ describe('S-32: a failed account deletion must not wipe the live account on the 
     expect((await guest.getAll('documents')).map(d => d.id), 'гостевые данные удалённого аккаунта остались').toEqual([]);
   });
 
+  // S-63.4 (S-48): после доочистки на старте ключи localStorage удалённого
+  // аккаунта (в т.ч. открытый `draft-<uid>`) оставались — в отличие от wipeDeviceDataForUid.
+  it('S-63: the boot purge also clears the deleted account\'s localStorage keys, not another account\'s', async () => {
+    mockGetCurrentUser.mockReturnValue(null);
+    localStorage.setItem(MARKER, '1');
+    localStorage.setItem(`draft-${USER}`, JSON.stringify({ content: 'открытый черновик удалённого аккаунта' }));
+    localStorage.setItem('draft-someone_else', JSON.stringify({ content: 'чужой черновик' }));
+
+    const { finishPendingPurges } = await import('../services/bootPurge');
+    await finishPendingPurges();
+
+    expect(await hasLocalDatabase(USER)).toBe(false);
+    expect(localStorage.getItem(`draft-${USER}`), 'черновик удалённого аккаунта остался').toBeNull();
+    expect(localStorage.getItem('draft-someone_else')).not.toBeNull();
+    expect(localStorage.getItem(MARKER)).toBeNull();
+  });
+
   it('a marker for a uid with no session here is still honoured (the real crash-recovery case)', async () => {
     mockGetCurrentUser.mockReturnValue(null);
     localStorage.setItem(MARKER, '1');

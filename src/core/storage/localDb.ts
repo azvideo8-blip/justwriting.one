@@ -799,9 +799,11 @@ export async function hasLocalDatabase(customUid: string): Promise<boolean> {
 /**
  * R6Q-023 (S-9): завершение очистки удалённого аккаунта при старте приложения,
  * если в момент удаления локальное стирание не прошло (сбой IndexedDB/памяти/питания).
+ * Возвращает uid, чьи базы стёрты: ключи localStorage этого аккаунта снимает
+ * вызывающий (S-63, finishPendingPurges) — core не импортирует features/auth.
  */
-export async function processPendingPurges(): Promise<void> {
-  if (typeof localStorage === 'undefined') return;
+export async function processPendingPurges(): Promise<string[]> {
+  if (typeof localStorage === 'undefined') return [];
   const pendingUids: string[] = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -811,7 +813,7 @@ export async function processPendingPurges(): Promise<void> {
       }
     }
   } catch {
-    return;
+    return [];
   }
 
   // S-48: маркер пишется только после подтверждения сервера (S-32), так что
@@ -820,6 +822,7 @@ export async function processPendingPurges(): Promise<void> {
   // снимается до любого await — иначе клиент успеет её восстановить.
   for (const uid of pendingUids) clearStoredSession(uid);
 
+  const purged: string[] = [];
   for (const uid of pendingUids) {
     try {
       await deleteLocalDatabase(uid);
@@ -828,10 +831,12 @@ export async function processPendingPurges(): Promise<void> {
       // этого uid, записи других аккаунтов остаются).
       await wipeGuestAndAccountFromSharedDb(uid);
       localStorage.removeItem(`jw_pending_purge_${uid}`);
+      purged.push(uid);
     } catch (e) {
       reportError(e, { action: 'processPendingPurges', uid });
     }
   }
+  return purged;
 }
 
 interface DatabaseWithClosed {
