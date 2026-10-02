@@ -353,7 +353,8 @@ export const AIDialogueService = {
 
         const tx = db.transaction(['aiDialogues', 'aiDialogueEvents'], 'readwrite');
         const existing = await tx.objectStore('aiDialogues').get(id);
-        if (!existing) {
+        // S-58: диалог удалён, пока модель отвечала, — итог и событие не пишутся.
+        if (!existing || existing.deletedAt) {
           try {
             tx.abort();
             await tx.done.catch(() => {});
