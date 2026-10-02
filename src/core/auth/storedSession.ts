@@ -21,3 +21,25 @@ export function getStoredSessionUid(): string | null {
   }
   return null;
 }
+
+/**
+ * S-48: снимает сохранённую сессию этого uid, не трогая клиент. Нужно при
+ * доочистке удалённого аккаунта на старте: сервер аккаунт уже уничтожил, а
+ * supabase-js иначе восстановит сессию несуществующего аккаунта до истечения
+ * токена. Синхронно — чтобы успеть до того, как клиент прочитает запись.
+ */
+export function clearStoredSession(uid: string): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (!key || !/^sb-.+-auth-token$/.test(key)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { user?: { id?: unknown } };
+      if (parsed?.user?.id === uid) localStorage.removeItem(key);
+    }
+  } catch {
+    /* приватный режим / повреждённый JSON — снимать нечего */
+  }
+}

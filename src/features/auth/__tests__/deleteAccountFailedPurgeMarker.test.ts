@@ -75,31 +75,26 @@ describe('S-32: a failed account deletion must not wipe the live account on the 
     expect((await guest.getAll('documents')).map(d => d.id)).toEqual(['doc_guest']);
   });
 
-  it('a marker for the uid signed in right now purges nothing and is dropped', async () => {
-    localStorage.setItem(MARKER, '1');
-
-    await processPendingPurges();
-
-    expect(await hasLocalDatabase(USER), 'база живого аккаунта стёрта').toBe(true);
-    const guest = await getLocalDb('justwriting-local');
-    expect((await guest.getAll('documents')).map(d => d.id)).toEqual(['doc_guest']);
-    expect(localStorage.getItem(MARKER)).toBeNull();
-    expect(reportError).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'PENDING_PURGE_FOR_LIVE_SESSION' }),
-      expect.objectContaining({ action: 'processPendingPurges_liveSession', uid: USER }),
-      'warning',
-    );
-  });
-
-  it('a stored supabase session for that uid counts as live too (boot runs before the session is restored)', async () => {
+  /**
+   * S-48: маркер пишется только после подтверждения сервера, так что «маркер +
+   * сохранённая сессия» — это вкладка, умершая между удалением на сервере и
+   * signOutUser. Прежняя защита «живая сессия — не стирать» оставляла базу
+   * удалённого аккаунта и восстанавливала его сессию до истечения токена.
+   */
+  it('a marker with a stored supabase session for that uid purges the database and clears the session (the crash between server delete and sign-out)', async () => {
     mockGetCurrentUser.mockReturnValue(null);
     localStorage.setItem('sb-mock-auth-token', JSON.stringify({ access_token: 'x', user: { id: USER } }));
+    localStorage.setItem('sb-mock-other-auth-token', JSON.stringify({ access_token: 'y', user: { id: 'someone_else' } }));
     localStorage.setItem(MARKER, '1');
 
     await processPendingPurges();
 
-    expect(await hasLocalDatabase(USER), 'база аккаунта с сохранённой сессией стёрта').toBe(true);
+    expect(await hasLocalDatabase(USER), 'база удалённого аккаунта осталась').toBe(false);
+    expect(localStorage.getItem('sb-mock-auth-token'), 'сессия удалённого аккаунта осталась').toBeNull();
+    expect(localStorage.getItem('sb-mock-other-auth-token'), 'снята чужая сессия').not.toBeNull();
     expect(localStorage.getItem(MARKER)).toBeNull();
+    const guest = await getLocalDb('justwriting-local');
+    expect((await guest.getAll('documents')).map(d => d.id), 'гостевые данные удалённого аккаунта остались').toEqual([]);
   });
 
   it('a marker for a uid with no session here is still honoured (the real crash-recovery case)', async () => {
@@ -110,5 +105,47 @@ describe('S-32: a failed account deletion must not wipe the live account on the 
 
     expect(await hasLocalDatabase(USER)).toBe(false);
     expect(localStorage.getItem(MARKER)).toBeNull();
+  });
+});
+
+// c7bff480 (S-32 follow-up): маркер, который не записался или не снялся, — не
+// молчание: без него сбой локальной очистки некому доделать.
+describe('S-48: purge marker write/remove failures are reported', () => {
+  it('setItem throwing for the marker is reported, deletion still proceeds', async () => {
+    mockCallAi.mockResolvedValueOnce({});
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === MARKER) throw new DOMException('quota', 'QuotaExceededError');
+      Object.defineProperty(this, key, { value, configurable: true, enumerable: true, writable: true });
+    });
+    try {
+      const { AuthService } = await import('../services/AuthService');
+      await AuthService.deleteAccount('secretPassword');
+    } finally {
+      setItem.mockRestore();
+    }
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'QuotaExceededError' }),
+      expect.objectContaining({ action: 'deleteAccount_purgeMarker' }),
+      'warning',
+    );
+  });
+
+  it('removeItem throwing for the marker is reported', async () => {
+    mockCallAi.mockResolvedValueOnce({});
+    const removeItem = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, key: string) {
+      if (key === MARKER) throw new Error('storage gone');
+      delete (this as unknown as Record<string, unknown>)[key];
+    });
+    try {
+      const { AuthService } = await import('../services/AuthService');
+      await AuthService.deleteAccount('secretPassword');
+    } finally {
+      removeItem.mockRestore();
+    }
+    expect(reportError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'storage gone' }),
+      expect.objectContaining({ action: 'deleteAccount_purgeMarker' }),
+      'warning',
+    );
   });
 });

@@ -2,7 +2,7 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { reportError } from '../../shared/errors/reportError';
 import type { DocumentFields } from '../../shared/types/common';
 import { getCurrentUser } from '../auth';
-import { getStoredSessionUid } from '../auth/storedSession';
+import { clearStoredSession } from '../auth/storedSession';
 
 // Версия схемы IndexedDB для всех openDB. Поднимается вместе с новой веткой
 // миграции в upgradeJustWritingDB. Сами ветки остаются числами: ветка N должна
@@ -858,15 +858,13 @@ export async function processPendingPurges(): Promise<void> {
     return;
   }
 
+  // S-48: маркер пишется только после подтверждения сервера (S-32), так что
+  // «маркер + сохранённая сессия этого uid» значит одно: вкладка умерла между
+  // удалением на сервере и signOutUser. Сессия несуществующего аккаунта
+  // снимается до любого await — иначе клиент успеет её восстановить.
+  for (const uid of pendingUids) clearStoredSession(uid);
+
   for (const uid of pendingUids) {
-    // S-32: маркер для аккаунта, у которого на этом устройстве живая сессия, —
-    // след удаления, которое сервер не подтвердил. База живого аккаунта не
-    // стирается; маркер снимаем и сообщаем.
-    if (getCurrentUser()?.uid === uid || getStoredSessionUid() === uid) {
-      try { localStorage.removeItem(`jw_pending_purge_${uid}`); } catch { /* ignore */ }
-      reportError(new Error('PENDING_PURGE_FOR_LIVE_SESSION'), { action: 'processPendingPurges_liveSession', uid }, 'warning');
-      continue;
-    }
     try {
       await deleteLocalDatabase(uid);
       // S-28: маркер покрывает и гостевую базу — при удалении аккаунта с неё
