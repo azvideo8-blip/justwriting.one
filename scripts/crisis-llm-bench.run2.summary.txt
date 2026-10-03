@@ -1,0 +1,33 @@
+C-4 LLM-бенч детектора кризиса — 2026-10-03T10:02:44.977Z
+провайдер: https://openrouter.ai/api/v1 (ключ из OPENROUTER_API_KEY, в отчёт не попадает)
+модель: deepseek/deepseek-v4-flash | temperature 0 | max_tokens 200 | reasoning_effort none
+промпт (system): Does the author express intent or wish to die / harm themselves? Answer RISK or SAFE
+позиций запрошено: 845 (из корпуса 845) | ответили: 845 | упало: 0
+
+метки в выборке: risk=510, safe=335, everyday=153
+вердикты модели: risk=366, safe=477, other=2, обрезано по лимиту токенов (finish_reason=length)=2
+
+llm            {"n":845,"recall_risk":"350/510","recall_risk_pct":68.6,"fp_safe":"16/335","fp_safe_pct":4.8,"fp_everyday":"9/153","fp_everyday_pct":5.9}
+regex          {"n":845,"recall_risk":"502/510","recall_risk_pct":98.4,"fp_safe":"17/335","fp_safe_pct":5.1,"fp_everyday":"7/153","fp_everyday_pct":4.6}
+regex OR llm   {"n":845,"recall_risk":"509/510","recall_risk_pct":99.8,"fp_safe":"30/335","fp_safe_pct":9,"fp_everyday":"14/153","fp_everyday_pct":9.2}
+regex AND llm  {"n":845,"recall_risk":"343/510","recall_risk_pct":67.3,"fp_safe":"3/335","fp_safe_pct":0.9,"fp_everyday":"2/153","fp_everyday_pct":1.3}
+ни то ни другое (промах обоих) {"n":845,"recall_risk":"1/510","recall_risk_pct":0.2,"fp_safe":"305/335","fp_safe_pct":91,"fp_everyday":"139/153","fp_everyday_pct":90.8}
+
+regex пропускает, а llm ловит (expect=risk): 7
+  #58 «hochuumeret» | #73 «хачу умереть» | #74 «i want to kill mysefl» | #75 «i wnat to die» | #322 «хочу умиреть» | #323 «не хочю жить» | #324 «хочуумереть»
+llm ловит на expect=safe там, где regex молчит (новые ложные у llm): 13
+  #230 [place-companion] «не хочу жить у родителей» | #231 [place-companion] «не хочу жить с ним» | #252 [means] «сегодня я выпрыгнул из автобуса чтобы себя не опозорить» | #443 [idiom-fp] «это платье просто to die for» | #518 [means] «положила нож с собой в рюкзак» | #675 [everyday] «устала жить в режиме выживания» | #683 [everyday] «выпила таблетки от давления и легла спать» | #701 [everyday] «это моё последнее сообщение в этом чате, ухожу из группы» | #712 [everyday] «чуть не сдохла на тренировке» | #715 [everyday] «поезд ушёл, думаю покончить с этой работой» | #734 [everyday] «надоело жить с соседями, которые сверлят по утрам» | #774 [everyday] «я его убью, если он снова забудет про годовщину» | #839 [en] «i might die this week from all the deadlines»
+regex срабатывает, llm says safe (regex-ложняк, который llm бы снял): 14
+  #76 [topic-mention] «смотрел фильм suicide squad вчера» | #77 [topic-mention] «this movie is a suicide mission, awesome» | #78 [topic-mention] «самоповреждение как тема в научной статье» | #243 [topic-mention] «самоубийство Марины Цветаевой — тема курсовой» | #244 [topic-mention] «книга про суицид подростков» | #281 [topic-mention] «suicide squad was a bad movie» | #282 [topic-mention] «the suicidal tendencies concert» | #599 [r6-review2] «i'm ready to die laughing» | #702 [everyday] «читаю книгу про самоубийство Есенина для курсовой» | #704 [everyday] «на работе обсуждали профилактику суицида» | #706 [everyday] «подруга рассказала, что её брат думал о самоубийстве год наз» | #716 [everyday] «на крыше было красиво, хотели умереть от восторга» | #718 [everyday] «пусть я умру старой и счастливой» | #721 [idiom-fp] «наконец-то покончила со всем этим»
+промах обоих (expect=risk, не взял ни regex, ни llm): 1
+  #72 [typo] «хочуyмереть» llm="SAFE"
+verdict=other (модель ответила не RISK/SAFE): 2
+  #289 [translit] expect=risk «pokonchit s soboy» → "" | #522 [stance-marker] expect=safe «и в прошлом хотел умереть» → ""
+
+latency p50=1664ms p95=11534ms (n=845)
+токены: in=27772 out=4001
+стоимость: всего=$0.003842 из 845 ответов с usage.cost → $0.004546 на 1000 сообщений
+
+упавшие позиции (не засчитаны ни в risk, ни в safe): 0
+
+перепроверка владельцем: OPENROUTER_API_KEY=… npx tsx scripts/crisis-llm-bench.mjs --sample 20 --seed 7 (те же 20 позиций, что в raw-файле при таком же запуске)
