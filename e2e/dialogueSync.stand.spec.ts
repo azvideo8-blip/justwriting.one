@@ -24,9 +24,13 @@ async function cloudRows(uid: string): Promise<Array<{ key: string; updatedAt: n
   const rows = (await res.json()) as Array<{ key: string; payload: { updatedAt?: number; totalPages?: number } }>;
   const byKey = new Map<string, { key: string; updatedAt: number | null; pages: number }>();
   for (const r of rows) {
-    const base = r.key.split('#')[0]!;
+    // Дочерние строки записи: страницы `key#…` (0.9.28 и прочие сторы) и сегменты
+    // `key@seg…` (M-5). Принадлежность head'у определяется по «@seg», остальное —
+    // по последней «#», как её режет parseLocalStoreKey.
+    const at = r.key.indexOf('@seg');
+    const base = at < 0 ? r.key.split('#')[0]! : r.key.slice(0, at);
     const cur = byKey.get(base) ?? { key: base, updatedAt: null, pages: 0 };
-    cur.pages += r.key.includes('#') ? 1 : 0;
+    cur.pages += (at < 0 ? r.key.includes('#') : r.key !== base) ? 1 : 0;
     cur.updatedAt = typeof r.payload?.updatedAt === 'number' ? r.payload.updatedAt : cur.updatedAt;
     byKey.set(base, cur);
   }
@@ -42,22 +46,28 @@ async function cloudDetail(uid: string, dialogueId: string, label: string, vault
     headers: { apikey: env.SERVICE_KEY!, Authorization: `Bearer ${env.SERVICE_KEY}` },
   });
   const all = (await res.json()) as Array<{ key: string; payload: Record<string, unknown> }>;
-  const rows = all.filter(r => r.key === dialogueId || r.key.startsWith(`${dialogueId}#`));
+  const rows = all.filter(r => r.key === dialogueId || r.key.startsWith(`${dialogueId}#`) || r.key.startsWith(`${dialogueId}@seg`));
   rows.sort((a, b) => a.key.localeCompare(b.key));
   const brief = rows.map((r) => {
     const p = r.payload;
     const manifest = p.manifest === true;
+    const head = p.head === true;
+    const seg = p.seg === true;
     const base: Record<string, unknown> = {
       key: r.key.slice(dialogueId.length) || '(row)',
       updatedAt: p.updatedAt,
       ...(typeof p.totalPages === 'number' ? { totalPages: p.totalPages } : {}),
       ...(typeof p.page === 'number' ? { page: p.page } : {}),
+      ...(typeof p.firstAt === 'number' ? { firstAt: p.firstAt } : {}),
       ...(manifest ? { manifest: true } : {}),
+      ...(head ? { head: true, windows: Array.isArray(p.segments) ? p.segments.length : null } : {}),
+      ...(seg ? { seg: true } : {}),
       ...(typeof p.nonce === 'string' ? { nonce: p.nonce } : {}),
     };
-    if (vaultless) base.head = JSON.stringify(p.data ?? p.chunk ?? null).slice(0, 80);
+    if (vaultless) base.head = JSON.stringify(p.data ?? p.chunk ?? p.messages ?? null).slice(0, 80);
     else if (typeof p.data === 'string') base.dataBytes = p.data.length;
     else if (typeof p.chunk === 'string') base.chunkBytes = p.chunk.length;
+    else if (typeof p.messages === 'string') base.messagesBytes = p.messages.length;
     return base;
   });
   console.warn(`[cloud ${label}] ${dialogueId.slice(0, 8)}: ${JSON.stringify(brief)}`);
@@ -1000,15 +1010,15 @@ test('15b. обрыв сети между страницами и манифес
   (huge as unknown as { personaId: string; createdAt: number }).personaId = (dlg as unknown as { personaId: string }).personaId;
   (huge as unknown as { createdAt: number }).createdAt = Date.now() - 120_000;
 
-  // Рвём ровно один запрос с манифестом: страницы уже легли, манифеста нет —
-  // ровно то состояние, из которого M-1 обязан довыгрузить, а читатель —
-  // не выставить пустоту.
+  // Рвём ровно один запрос указателя версии: тело (страницы или сегменты) уже
+  // легло, указателя нет — ровно то состояние, из которого M-1/M-5 обязаны
+  // довыгрузить, а читатель — не выставить пустоту.
   let blocked = false;
   await A.ctx.route('**/rest/v1/local_store_records*', async (route) => {
     const body = route.request().postData() ?? '';
-    if (!blocked && body.includes('"manifest":true')) {
+    if (!blocked && (body.includes('"manifest":true') || body.includes('"head":true'))) {
       blocked = true;
-      console.warn('[15b] режу запрос манифеста (страницы уже в облаке)');
+      console.warn('[15b] режу запрос указателя (тело уже в облаке)');
       return route.abort('failed');
     }
     return route.continue();
@@ -1028,7 +1038,7 @@ test('15b. обрыв сети между страницами и манифес
   const rows1 = await cloudRows(user.uid);
   const r1 = rows1.find(x => x.key === huge.id)!;
   console.warn('[15b] облако после обрыва:', JSON.stringify(r1));
-  expect(r1.pages, 'страниц не было — постраничный путь не сработал').toBeGreaterThan(1);
+  expect(r1.pages, 'дочерних строк не было — многострочный путь (страницы или сегменты) не сработал').toBeGreaterThan(1);
 
   // Следующая выгрузка (M-1): версия без манифеста должна быть перечитана и
   // довыгружена, а не проигнорирована.

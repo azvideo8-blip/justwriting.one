@@ -525,10 +525,10 @@ describe('SupabaseDataProvider', () => {
     });
 
     it('M-5: getLocalStoreRecordsByKeyPrefix берёт строки по префиксу и экранирует джокеры', async () => {
-      mockQueryBuilder.range.mockImplementationOnce(() => Promise.resolve({
+      mockQueryBuilder.range.mockResolvedValueOnce({
         data: [{ user_id: 'user-1', store: 'aiDialogues', key: 'a%b@seg1-aa', payload: { seg: true } }],
         error: null,
-      }));
+      });
 
       const rows = await SupabaseDataProvider.getLocalStoreRecordsByKeyPrefix('user-1', 'aiDialogues', 'a%b@seg');
 

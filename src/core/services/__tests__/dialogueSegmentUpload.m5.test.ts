@@ -191,6 +191,8 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     const head = ops.findIndex(o => o.startsWith('cas:'));
     expect(body, 'тела не было').toBeGreaterThanOrEqual(0);
     expect(head, 'head не ушёл условной записью').toBeGreaterThan(body);
+    // Один CAS на выгрузку: условная запись только у указателя, у сегментов его нет.
+    expect(ops.filter(o => o === `cas:${d.id}`)).toHaveLength(1);
   });
 
   it('дописка в хвост пишет ОДНО окно, а не весь диалог', async () => {
@@ -231,9 +233,11 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
   it('повторная выгрузка без изменений не пишет ничего', async () => {
     const d = await bigDialogue();
     await flush();
+    const before = headPayload(d.id);
     ops.length = 0;
     await flush();
     expect(ops, `пустая выгрузка что-то написала: ${ops.join(', ')}`).toEqual([]);
+    expect(headPayload(d.id)).toEqual(before);
   });
 
   it('миграция: legacy-страницы с манифестом читаются, союз уходит сегментами, страницы сносятся', async () => {
