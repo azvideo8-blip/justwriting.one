@@ -6,6 +6,7 @@ import type { AIDialogue } from '../../storage/localDb';
 import { LocalStoreSyncService } from '../LocalStoreSyncService';
 import { AIDialogueService } from '../../../features/ai/services/AIDialogueService';
 import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreService';
+import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { segmentPrefixOf } from '../dialogueSegments';
 
 // M-5: диалог крупнее одной строки живёт в облаке head'ом (строка `key`) и
@@ -165,6 +166,7 @@ beforeEach(async () => {
   cloud.clear();
   localStorage.clear();
   ops.length = 0;
+  useActivityLogStore.getState().clearLog();
   deleteKeysCalls = [];
   casResult = true;
   casThrows = false;
@@ -293,21 +295,62 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     expect(heads(await localDialogue(d.id))).toEqual(['Вопрос', 'Ответ', 'Мой', 'Мой']);
   });
 
-  it('head называет окно, которого в облаке нет: выгрузка падает, ничего не записано', async () => {
+  it('неполная копия: писатель чинит её и переподписывает head, читатель отказывает', async () => {
     const d = await bigDialogue();
     await flush();
     const missing = segKeys(d.id)[1]!;
     cloud.delete(rowKey('aiDialogues', missing));
-    const snapshot = new Map([...cloud]);
-    ops.length = 0;
+    const before = headPayload(d.id);
 
     at('11:00');
     await AIDialogueService.appendMessage(d.id, 'Ход при неполном облаке', 'Ответ');
     const r = await flushRaw();
+    // Писатель знает больше облака: локальный союз у него целый. Отказываться
+    // навсегда значило бы, что повреждённую копию не восстановит никто.
+    expect(r.failed, 'выгрузка не починила неполную копию').toBe(0);
+    const after = headPayload(d.id);
+    expect(after.segments.map(s => s.key)).not.toEqual(before.segments.map(s => s.key));
+    // Облако снова замкнуто: ни одной строки вне head’а и ни одного окна head’а
+    // без строки.
+    const named = new Set(after.segments.map(s => s.key));
+    expect(segKeys(d.id).filter(k => !named.has(k))).toEqual([]);
+    expect([...named].filter(k => !cloud.has(rowKey('aiDialogues', k)))).toEqual([]);
+    expect(missing === after.segments[1]!.key, 'прежняя пропавшая строка воскресла как ни в чём не бывало').toBe(false);
+    // Починка не должна быть тихой: журнал активности обязан знать, что облако
+    // было неполным (иначе «самое важное молча починилось» неотличимо от
+    // «самое важное молча проглотили»).
+    const entries = useActivityLogStore.getState().entries.filter(e => e.message === 'activity_dialogue_cloud_unreadable');
+    expect(entries.map(e => e.context?.action)).toContain('uploadDialogue_incomplete_cloud');
+  });
 
-    expect(r.failed, 'неполную копию приняли за «облака нет»').toBe(1);
-    expect(ops.filter(o => o.startsWith('pages:') || o.startsWith('cas:') || o.startsWith('save:')), `писали поверх неполной копии: ${ops.join(', ')}`).toEqual([]);
+  it('нечитаемая (не отсутствующая) строка, которую называет head: выгрузка падает', async () => {
+    const d = await bigDialogue();
+    await flush();
+    const broken = segKeys(d.id)[1]!;
+    cloud.get(rowKey('aiDialogues', broken))!.payload.messages = '{не json';
+    const snapshot = new Map([...cloud]);
+    ops.length = 0;
+
+    at('11:20');
+    await AIDialogueService.appendMessage(d.id, 'Ход при битом окне', 'Ответ');
+    const r = await flushRaw();
+
+    expect(r.failed, 'нечитаемое окно приняли за «можно перезаписать»').toBe(1);
+    expect(ops.filter(o => o.startsWith('pages:') || o.startsWith('cas:') || o.startsWith('save:')), `писали поверх нечитаемой строки: ${ops.join(', ')}`).toEqual([]);
     for (const [k, v] of snapshot) expect(cloud.get(k)!.payload).toEqual(v.payload);
+  });
+
+  it('забор неполной копии отказывает: локальный диалог не укорачивается', async () => {
+    const d = await bigDialogue();
+    await flush();
+    cloud.delete(rowKey('aiDialogues', segKeys(d.id)[1]!));
+
+    switchTo(new Device());
+    at('11:40');
+    const r = await restoreAIDataFromCloud(UID);
+    expect(r.failed, 'неполный набор окон не посчитан отказом').toBeGreaterThan(0);
+    const mine = await (await getLocalDb()).get('aiDialogues', d.id);
+    expect(mine, 'забор приткнул укороченную копию поверх пустой базы').toBeUndefined();
   });
 
   it('инкрементальный забор добирает окно с прежней отметкой: диалог приезжает целиком', async () => {

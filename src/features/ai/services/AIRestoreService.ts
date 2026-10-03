@@ -255,15 +255,21 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         if (headRow) {
           let segRows = await decodeSegmentGroup(rows, headRow);
           let version = readSegmentVersion(segRows);
-          if (version?.kind === 'refused' && version.missing.length > 0) {
+          if (version && version.kind !== 'segments' && version.missing.length > 0) {
             const extra = await fetchMissingSegments(userId, store, version.missing);
             if (extra.length > 0) {
               segRows = [...segRows, ...extra];
               version = readSegmentVersion(segRows);
             }
           }
-          if (version === null || version.kind === 'refused') {
-            logger.warn('AIRestoreService', `${store}/${baseKey}: ${(version?.reason ?? 'head-строка не читается как head')}. Refusing.`);
+          // `incomplete` здесь — тоже отказ: забор не имеет права превращать
+          // неполный набор в укороченный дневник. Починкой занимается писатель,
+          // у которого есть локальный союз.
+          if (!version || version.kind !== 'segments') {
+            const reason = !version ? 'head-строка не читается как head'
+              : version.kind === 'refused' ? version.reason
+              : `не хватает ${version.missing.length} сегментов: ${version.missing.join(', ')}`;
+            logger.warn('AIRestoreService', `${store}/${baseKey}: ${reason}. Refusing.`);
             result.failed++;
             continue; // Keep local copy intact!
           }

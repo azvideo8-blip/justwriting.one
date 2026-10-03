@@ -340,6 +340,12 @@ export interface CloudRowLike {
 
 export type SegmentCloudVersion =
   | { kind: 'segments'; head: DialogueHead; dialogue: AIDialogue; rows: CloudSegmentRow[]; missing: string[] }
+  /** Head называет окна, которых в облаке нет. Читателю это нельзя отдавать как
+   *  диалог (иначе обрезанная копия разъедет по устройствам), но писателю это
+   *  повод ЧИНИТЬ: он строит копию из локального союза и переподписывает head.
+   *  Нечитаемая (а не отсутствующая) строка — по-прежнему `refused`: её содержимое
+   *  мог знать только автор, затирать его нечем. */
+  | { kind: 'incomplete'; head: DialogueHead; partial: AIDialogue; rows: CloudSegmentRow[]; missing: string[] }
   | { kind: 'refused'; reason: string; missing: string[] };
 
 function headFromPayload(p: Record<string, unknown>): DialogueHead | null {
@@ -398,7 +404,16 @@ export function readSegmentVersion(rows: CloudRowLike[]): SegmentCloudVersion | 
 
   const missing = head.segments.filter(s => !byKey.has(s.key)).map(s => s.key);
   if (missing.length > 0) {
-    return { kind: 'refused', missing, reason: `не хватает ${missing.length} сегментов: ${missing.join(', ')}` };
+    // Частичная сборка — только для писателя, и она никогда не отдаётся как
+    // «облачная копия диалога»: `partial` отделён от `dialogue` именно затем,
+    // чтобы вызывающий не мог перепутать отказ с успехом.
+    return {
+      kind: 'incomplete',
+      head,
+      partial: assembleDialogue(head, new Map([...byKey.values()].map(s => [s.key, s]))),
+      rows: cloudRows,
+      missing,
+    };
   }
 
   const dialogue = assembleDialogue(head, new Map([...byKey.values()].map(s => [s.key, s])));

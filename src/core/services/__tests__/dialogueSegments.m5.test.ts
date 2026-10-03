@@ -263,21 +263,27 @@ describe('M-5 read: неполный набор — отказ, а не укор
     expect(read.head.updatedAt).toBe(d.updatedAt);
   });
 
-  it('не хватает сегмента → refused со списком окон, диалога нет', () => {
+  it('не хватает сегмента → incomplete со списком окон и БЕЗ диалога', () => {
     const all = rows();
     const missingKey = all[2]!.key;
     const read = readSegmentVersion(all.filter((_, i) => i !== 2));
-    expect(read?.kind).toBe('refused');
-    if (read?.kind !== 'refused') return;
+    // `incomplete`, а не `refused`: отсутствующую строку писатель может
+    // перезаписать из локального союза. `refused` остаётся за нечитаемым.
+    expect(read?.kind).toBe('incomplete');
+    if (read?.kind !== 'incomplete') return;
     expect(read.missing).toEqual([missingKey]);
+    // Доверчивому читателю отдавать нечего: поля `dialogue` у такого результата
+    // нет — иначе обрезанная копия разъехалась бы по устройствам как настоящая.
     expect((read as { dialogue?: unknown }).dialogue).toBeUndefined();
+    expect(read.partial.messages.length).toBeLessThan(d.messages.length);
   });
 
-  it('head без единого сегмента (первый забор) → refused, а не пустой диалог', () => {
+  it('head без единого сегмента (первый забор) → ни диалога, ни тишины', () => {
     const read = readSegmentVersion([rows()[0]!]);
-    expect(read?.kind).toBe('refused');
-    if (read?.kind !== 'refused') return;
+    expect(read?.kind).toBe('incomplete');
+    if (read?.kind !== 'incomplete') return;
     expect(read.missing.length).toBe(plan.head.segments.length);
+    expect((read as { dialogue?: unknown }).dialogue).toBeUndefined();
   });
 
   it('битый messages у сегмента → refused (не «текста не было»)', () => {

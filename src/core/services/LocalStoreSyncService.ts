@@ -586,6 +586,9 @@ interface CloudDialogue {
   head?: DialogueHead;
   /** Расшифрованные строки сегментов этого диалога; пусто, если их нет. */
   segments?: CloudSegmentRow[];
+  /** Head называет эти окна, а строк нет: копия неполная, выгрузка чинит её и
+   *  переподписывает head. Читателю такая копия не отдаётся ни при каких условиях. */
+  incomplete?: string[];
 }
 
 function isPlaintextUnderVault(e: unknown): boolean {
@@ -668,12 +671,21 @@ async function readCloudDialogue(uid: string, key: string): Promise<CloudDialogu
       if (version === null) throw new Error(`M-5: cloud dialogue ${key}: head-строка есть, но не читается как head`);
       if (version.kind === 'refused') throw new Error(`M-5: cloud dialogue ${key} segments unreadable: ${version.reason}`);
       const at = headPayload.updatedAt;
-      return {
-        dialogue: version.dialogue,
-        expected: typeof at === 'number' ? at : undefined,
-        head: version.head,
-        segments,
-      };
+      const expected = typeof at === 'number' ? at : undefined;
+      if (version.kind === 'incomplete') {
+        // Head называет окна, которых в облаке нет. Читателю такой набор не
+        // отдаётся никогда (см. AIRestoreService), но писателю это сигнал ЧИНИТЬ:
+        // он перепишет диалог из локального союза и переподпишет head, а не будет
+        // вечно отказываться — иначе повреждённую копию не восстановил бы никто.
+        useActivityLogStore.getState().addActivity(
+          'activity_dialogue_cloud_unreadable',
+          { action: 'uploadDialogue_incomplete_cloud', store: 'aiDialogues', key, missing: version.missing.join(',').slice(0, 200) },
+          'warning',
+          'sync',
+        );
+        return { dialogue: version.partial, expected, head: version.head, segments: version.rows.length > 0 ? version.rows : segments, incomplete: version.missing };
+      }
+      return { dialogue: version.dialogue, expected, head: version.head, segments };
     }
 
     const rows: CloudRow[] = [];
