@@ -35,6 +35,11 @@ let failCas: (() => boolean) | null = null;
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
+      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+    deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+      for (const k of keys) cloud.delete(`${store}:${k}`);
+    },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
@@ -70,7 +75,9 @@ vi.mock('../../data', () => ({
     },
     deleteLocalStoreRecord: async (_uid: string, store: string, key: string) => {
       cloud.delete(rowKey(store, key));
-      for (const [k, r] of cloud) if (r.store === store && r.key.startsWith(`${key}#`)) cloud.delete(k);
+      // Дочерние строки записи: страницы `key#…` (прошлые форматы) и сегменты
+      // `key@seg…` (M-5). Провайдер сносит и те, и другие.
+      for (const [k, r] of cloud) if (r.store === store && (r.key.startsWith(`${key}#`) || r.key.startsWith(`${key}@`))) cloud.delete(k);
     },
   },
 }));
@@ -123,7 +130,11 @@ function rng(seed: number): () => number {
 }
 
 const local = async (id: string): Promise<AIDialogue | undefined> => (await getLocalDb()).get('aiDialogues', id);
-const cloudKeysOf = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`)).map(r => r.key);
+// Строки диалога: head (`id`), его сегменты (`id@seg…`) и страницы прежних
+// форматов (`id#…`).
+const cloudKeysOf = (id: string) => [...cloud.values()]
+  .filter(r => r.key === id || r.key.startsWith(`${id}#`) || r.key.startsWith(`${id}@seg`))
+  .map(r => r.key);
 
 /** 0.9.28 переложил облачную копию на страницы `key#N` без строки `key`. */
 async function legacyRepage(id: string): Promise<void> {
@@ -131,7 +142,7 @@ async function legacyRepage(id: string): Promise<void> {
   if (!rec) return;
   const json = JSON.stringify(rec);
   const n = 2;
-  for (const [k, r] of [...cloud]) if (r.store === 'aiDialogues' && (r.key === id || r.key.startsWith(id + '#'))) cloud.delete(k);
+  for (const [k, r] of [...cloud]) if (r.store === 'aiDialogues' && (r.key === id || r.key.startsWith(id + '#') || r.key.startsWith(id + '@seg'))) cloud.delete(k);
   const size = Math.ceil(json.length / n);
   for (let i = 0; i < n; i++) {
     const key = id + '#' + i;
@@ -199,10 +210,11 @@ async function runSeed(seed: number): Promise<string[]> {
   switchTo(devs[0]!);
   await AIDialogueService.appendMessage(id, `Вопрос ${BLOB}`, `Ответ ${BLOB}`, BLOB);
   await flushDev();
-  // Покрытием считается ANY постраничная выгрузка сида: размер первой записи зависит
-  // от того, что уже лежит в диалоге, и требовать её в два куска на первом же
-  // шаге — значит ловить стенд, а не продукт.
-  let pagedSeen = cloudKeysOf(id).some(k => k.includes('#'));
+  // Покрытием считается ANY выгрузка дальше одной строки сида (страницы `key#…`
+  // или сегменты `key@seg…`): размер первой записи зависит от того, что уже лежит
+  // в диалоге, и требовать её в два куска на первом же шаге — значит ловить
+  // стенд, а не продукт.
+  let splitSeen = cloudKeysOf(id).length > 1;
   const created = new Set<string>((await local(id))!.messages.map(m => m.id!));
   const deleted = new Set<string>();
   failCas = FAILP !== 0 ? () => r() < FAILP : null;
@@ -243,7 +255,9 @@ async function runSeed(seed: number): Promise<string[]> {
         // вернуться в эту точку и пройти CAS по состоянию самой строки `key`.
         await legacyRepage(id);
       } else if (x < 0.53 + DELP + LEGP + 0.02) {
-        if (cloudKeysOf(id).some(k => k.includes('#'))) cloud.delete(rowKey('aiDialogues', id));
+        // Строка-указатель стёрта, а дочерние строки живы: под paging это был
+        // «старый таб снёс манифест», под M-5 — head удалён при целых сегментах.
+        if (cloudKeysOf(id).length > 1) cloud.delete(rowKey('aiDialogues', id));
       } else if (x < 0.78) {
         await flushDev();
       } else {
@@ -286,9 +300,9 @@ async function runSeed(seed: number): Promise<string[]> {
     failures.push(`  cloud=${JSON.stringify(cloudKeysOf(id).map(k => k.slice(id.length)))}`);
   }
   if ((await LocalStoreSyncService.flushPending(true)).failed) failures.push('финальная выгрузка упала');
-  if (!pagedSeen) {
+  if (!splitSeen) {
     const bytes = new TextEncoder().encode(JSON.stringify(await local(id))).length;
-    failures.push(`за весь сид ни одна выгрузка не стала постраничной: размер записи ${bytes} Б, порог 512000 Б, ключи ${JSON.stringify(cloudKeysOf(id).map(k => k.slice(id.length)))}`);
+    failures.push(`за весь сид ни одна выгрузка не вышла за одну строку (ни страниц, ни сегментов): размер записи ${bytes} Б, порог 512000 Б, ключи ${JSON.stringify(cloudKeysOf(id).map(k => k.slice(id.length)))}`);
   }
   if (oversizedSeen > 0) failures.push(`запись переросла лимит выгрузки (${oversizedSeen} раз) — хода не уехали по Дизайнy, тест не покрывает эту ветку`);
   if (!dialogueDeleted) {

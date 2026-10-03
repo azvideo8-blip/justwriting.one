@@ -17,6 +17,11 @@ const cloud = new Map<string, Row>();
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async (_u: string, store: string, prefix: string) =>
+      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+    deleteLocalStoreRecordsByKeys: async (_u: string, store: string, keys: string[]) => {
+      for (const k of keys) cloud.delete(`${store}:${k}`);
+    },
     getLocalStoreRecord: async (_u: string, store: string, key: string) => {
       const r = cloud.get(`${store}:${key}`);
       return r ? { store, key, payload: r.payload } : null;

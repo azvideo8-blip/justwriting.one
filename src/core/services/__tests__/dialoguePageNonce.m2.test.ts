@@ -31,6 +31,11 @@ const casCalls = vi.fn();
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
+      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+    deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+      for (const k of keys) cloud.delete(`${store}:${k}`);
+    },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
@@ -126,7 +131,7 @@ async function localDialogue(id: string): Promise<AIDialogue> {
 
 /** Реплики диалога без длинных тел — по первым словам. */
 const heads = (d: AIDialogue) => d.messages.map(m => m.content.split(' ')[0]);
-const cloudKeys = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`)).map(r => r.key).sort();
+const cloudKeys = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`) || r.key.startsWith(`${id}@seg`)).map(r => r.key).sort();
 
 // appendMessage режет реплику и рассуждение по 100 000 знаков; три таких куска
 // (вопрос, ответ, рассуждение) — ~570 КБ в UTF-8, больше порога страницы (500 КБ).
@@ -186,14 +191,15 @@ describe('M-2: страницы одной попытки отличаются �
     expect(heads(await localDialogue(d.id))).toEqual([...PREFIX, 'Снова', 'Снова']);
   });
 
-  it('P6: осиротевшие страницы неудавшейся попытки не коверают чтение и не мешают победителю', async () => {
+  it('P6: осиротевшие строки неудавшейся попытки не коверают чтение и не мешают победителю', async () => {
     const x = new Device(); const a = new Device(); const b = new Device();
     switchTo(x); at('10:00');
     const d = await AIDialogueService.create({ title: 'Р', personaId: 'coach', personaName: 'Коуч', personaEmoji: '🎯',
       messages: [{ role: 'user', content: 'Общий вопрос ' + BIG + BIG + BIG }, { role: 'assistant', content: 'Общий ответ' }] });
     await flush();
     for (const dev of [a, b]) { switchTo(dev); at('09:30'); await restoreAIDataFromCloud(UID); }
-    // A (clock behind): big append, pages go up, the manifest request fails
+    const baseKeys = new Set(cloudKeys(d.id));
+    // A: сегменты ушли в облако, а условная запись head'а упала по «сети».
     switchTo(a); at('09:31');
     await AIDialogueService.appendMessage(d.id, 'A ' + BIG, 'A ' + BIG, BIG);
     const { DataProvider } = await import('../../data');
@@ -201,33 +207,32 @@ describe('M-2: страницы одной попытки отличаются �
     (DataProvider as { saveLocalStoreRecordIfUnchanged: unknown }).saveLocalStoreRecordIfUnchanged = async () => { throw new Error('network'); };
     await flushRaw();
     (DataProvider as { saveLocalStoreRecordIfUnchanged: unknown }).saveLocalStoreRecordIfUnchanged = orig;
-    const afterA = cloudKeys(d.id);
-    // Проигравшая попытка оставила в облаке свои страницы — их и должен игнорировать читатель.
-    // B (clock behind too): smaller big append, uploads fine
+    // Мусор на месте: именно его читатель обязан не замечать. Прежний paging на
+    // этом шаге давал «pages beyond N» — запись отказывалась читаться навсегда.
+    const orphans = cloudKeys(d.id).filter(k => k.includes('@seg') && !baseKeys.has(k));
+    expect(orphans.length, 'попытка A не оставила своих строк').toBeGreaterThan(0);
+
+    // B дописывает и выгружается нормально.
     switchTo(b); at('09:32');
     await AIDialogueService.appendMessage(d.id, 'B', 'B');
     const rb = await flushRaw();
-    expect(rb.failed, "выгрузка B после осиротевших страниц падает").toBe(0);
-    const afterB = cloudKeys(d.id).map(k => k.slice(36));
-    expect(afterA.filter(k => k.slice(36) !== "").length).toBeGreaterThan(1);
-    const manifest = cloud.get(rowKey('aiDialogues', d.id))!.payload;
-    // M-2: в облаке остались страницы победителя — одна попытка, ровно totalPages
-    // штук, все под меткой из манифеста. Прежнее «key#<stamp>» давало лишнюю
-    // страницу от проигравшего и «pages beyond N» при чтении.
-    const nonce = String(manifest.nonce);
-    expect(nonce).toMatch(/^[0-9a-f]{8}$/);
-    const pages = afterB.filter(k => k.startsWith('#'));
-    expect(pages.every(k => k.startsWith('#' + String(manifest.updatedAt) + '#' + nonce + '#'))).toBe(true);
-    expect(pages).toHaveLength(Number(manifest.totalPages));
+    expect(rb.failed, 'выгрузка B после осиротевших строк падает').toBe(0);
+    const headAfter = cloud.get(rowKey('aiDialogues', d.id))!.payload as { head?: boolean, segments?: Array<{ key: string }> };
+    expect(headAfter.head).toBe(true);
+
     const c = new Device(); switchTo(c); at('10:30');
-    const r = await restoreAIDataFromCloud(UID);
-    expect(r.failed, 'restore refused the dialogue').toBe(0);
+    expect((await restoreAIDataFromCloud(UID)).failed, 'restore отказался от диалога').toBe(0);
     switchTo(a); at('10:31');
-    expect((await flushRaw()).failed, 'A can never upload again').toBe(0);
+    expect((await flushRaw()).failed, 'A не может выгрузиться никогда').toBe(0);
+    // И уборка: после удачной выгрузки в облаке не осталось ничего, чего head
+    // не называет (ни осиротевших сегментов, ни страниц прежней копии).
+    const named = new Set((cloud.get(rowKey('aiDialogues', d.id))!.payload as { segments: Array<{ key: string }> }).segments.map(s => s.key));
+    for (const k of cloudKeys(d.id).filter(x => x.includes('@seg'))) expect(named.has(k), `мусор не убран: ${k}`).toBe(true);
+    expect(cloudKeys(d.id).filter(k => k.includes('#')), 'страницы прежней копии остались').toEqual([]);
   });
 
 
-  it('манифест называет попытку, а чужие страницы той же отметки не читаются', async () => {
+  it('строка, которой head не называет, не ломает чтение и сносится следующей выгрузкой', async () => {
     const a = new Device();
     switchTo(a);
     at('09:00');
@@ -236,34 +241,33 @@ describe('M-2: страницы одной попытки отличаются �
       messages: [{ role: 'user', content: 'Вопрос ' + BIG + BIG + BIG }, { role: 'assistant', content: 'Ответ' }],
     });
     await flush();
-    const manifest = cloud.get(rowKey('aiDialogues', d.id))!.payload;
-    const stamp = Number(manifest.updatedAt);
-    const nonce = String(manifest.nonce);
-    expect(manifest.totalPages).toBeGreaterThan(1);
+    const headPayload = cloud.get(rowKey('aiDialogues', d.id))!.payload as { head: boolean, segments: Array<{ key: string, firstAt: number, updatedAt: number }> };
+    expect(headPayload.head).toBe(true);
+    expect(headPayload.segments.length).toBeGreaterThan(1);
 
-    // Осиротевшая страница проигравшей попытки: та же отметка, другой nonce.
-    const orphan = d.id + "#" + stamp + "#deadbeef#p0";
+    // Осиротевшая строка: тот же firstAt, чужой nonce, мусор внутри.
+    const orphan = `${d.id}@seg${headPayload.segments[0]!.firstAt}-deadbeef`;
     cloud.set(rowKey('aiDialogues', orphan), {
       store: 'aiDialogues',
       key: orphan,
-      payload: { chunk: 'мусор проигравшей попытки', updatedAt: stamp, page: 0, totalPages: manifest.totalPages, nonce: 'deadbeef' },
+      payload: { seg: true, headKey: d.id, firstAt: headPayload.segments[0]!.firstAt, updatedAt: headPayload.segments[0]!.updatedAt, messages: 'мусор проигравшей попытки' },
     });
 
     const c = new Device(); switchTo(c); at('10:00');
     const r = await restoreAIDataFromCloud(UID);
-    expect(r.failed, 'чтение отказалось из-за чужой страницы той же отметки').toBe(0);
+    expect(r.failed, 'чтение отказалось из-за чужой строки').toBe(0);
     expect(heads(await localDialogue(d.id))).toEqual(['Вопрос', 'Ответ']);
 
-    // Чистка победителя не трогает его страницы, а проигравший сносит только свои.
-    const winnerKeys = cloudKeys(d.id).filter(k => k.includes(nonce));
-    expect(winnerKeys.length).toBe(Number(manifest.totalPages));
     at('10:05');
     switchTo(a);
     await AIDialogueService.appendMessage(d.id, 'Новый вопрос', 'Новый ответ');
     await flush();
-    const loserNonce = String(cloud.get(rowKey('aiDialogues', d.id))!.payload.nonce);
-    expect(loserNonce).not.toBe(nonce);
-    expect(cloudKeys(d.id).some(k => k.includes('deadbeef'))).toBe(false);
+    // Выигравший CAS сносит всё, чего head не называет, — и мусор проигравшего
+    // в том числе. Прежний paging на этом месте оставлял «pages beyond N».
+    expect(cloud.has(rowKey('aiDialogues', orphan)), 'осиротевшая строка не убрана').toBe(false);
+    const after = cloud.get(rowKey('aiDialogues', d.id))!.payload as { segments: Array<{ key: string }> };
+    const named = new Set(after.segments.map(s => s.key));
+    for (const k of cloudKeys(d.id).filter(x => x.includes('@seg'))) expect(named.has(k), `head не называет ${k}`).toBe(true);
   });
 
 });

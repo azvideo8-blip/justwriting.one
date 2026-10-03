@@ -23,6 +23,11 @@ const casCalls = vi.fn();
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
+      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+    deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+      for (const k of keys) cloud.delete(`${store}:${k}`);
+    },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>

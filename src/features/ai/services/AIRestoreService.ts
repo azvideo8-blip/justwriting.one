@@ -3,6 +3,12 @@ import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfile
 import { DataProvider } from '../../../core/data';
 import { mergeDialogues, dialogueFingerprint } from '../../../core/storage/dialogueMerge';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from '../../../core/services/localStorePages';
+import {
+  HEAD_TEXT_FIELDS,
+  SEGMENT_TEXT_FIELDS,
+  headKeyOfRow,
+  readSegmentVersion,
+} from '../../../core/services/dialogueSegments';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { sha256Hex } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
@@ -100,6 +106,38 @@ export interface AIRestoreResult {
  * newer cloud copy: a restore must not clobber work newer than the cloud copy.
  */
 /**
+ * M-5: строки сегментной копии в том виде, в котором их читает
+ * readSegmentVersion — head с открытыми текстовыми полями и названные им сегменты
+ * с открытым `messages`. Строки, которых head не называет, читателя не касаются:
+ * это осиротевшие остатки чужих попыток, их убирает писатель. Нечитаемая
+ * названная строка остаётся брошенной ошибкой, а не «строк не было».
+ */
+async function decodeSegmentGroup(rows: CloudRow[], headRow: CloudRow): Promise<CloudRow[]> {
+  const payload = await maybeDecrypt(headRow.payload, [...HEAD_TEXT_FIELDS], []);
+  const named = new Set(((payload.segments as Array<{ key: string }> | undefined) ?? []).map(s => s.key));
+  const out: CloudRow[] = [{ key: headRow.key, payload }];
+  for (const r of rows) {
+    if (r === headRow || r.payload.seg !== true || !named.has(r.key)) continue;
+    out.push({ key: r.key, payload: await maybeDecrypt(r.payload, [...SEGMENT_TEXT_FIELDS], []) });
+  }
+  return out;
+}
+
+/** Инкрементальный забор фильтрует строки по `payload.updatedAt`, а переиспользованное
+ *  окно сохраняет свою прежнюю отметку: свежий head может приехать без старых строк,
+ *  которые он называет. Их добирают точным чтением по ключу; чего нет — того нет,
+ *  и отказ выдаёт readSegmentVersion. */
+async function fetchMissingSegments(userId: string, store: string, keys: string[]): Promise<CloudRow[]> {
+  const out: CloudRow[] = [];
+  for (const key of keys) {
+    const row = await DataProvider.getLocalStoreRecord(userId, store, key);
+    if (!row) continue;
+    out.push({ key, payload: await maybeDecrypt(row.payload as Record<string, unknown>, [...SEGMENT_TEXT_FIELDS], []) });
+  }
+  return out;
+}
+
+/**
  * `sinceMs` — инкрементальный забор: только то, что изменилось на других
  * устройствах после этой отметки (регулярный фоновый проход). Без него —
  * полное восстановление (раз в день, после очистки устройства).
@@ -189,7 +227,9 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       if (!SUPPORTED_LOCAL_STORES.includes(rec.store as SupportedLocalStoreName)) continue;
       if (!(db.objectStoreNames as unknown as { contains(s: string): boolean }).contains(rec.store)) continue;
 
-      const { baseKey } = parseLocalStoreKey(rec.key);
+      const { baseKey: pageBase } = parseLocalStoreKey(rec.key);
+      // M-5: сегмент `key@seg…` принадлежит записи `key`, а не себе и не странице.
+      const baseKey = headKeyOfRow(pageBase);
       const groupKey = `${rec.store}:${baseKey}`;
       let grp = grouped.get(groupKey);
       if (!grp) {
@@ -206,46 +246,71 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         let fullJson: string;
         let cloudTs: number | null = null;
 
-        // S-49: манифест указывает версию точно; без него — самая свежая полная
-        // версия по отметке. Страницы разных версий могут лежать рядом: хвост
-        // прежней, более длинной версии, проигравшая попытка, выгрузка,
-        // оборванная на середине. Склеить половинки двух версий нельзя.
-        const version = selectCloudVersion(rows);
-        if (!version) continue;
-        if (version.kind === 'refused') {
-          logger.warn('AIRestoreService', `${store}/${baseKey}: ${version.reason}. Refusing.`);
-          result.failed++;
-          continue; // Keep local copy intact!
-        }
-
-        if (version.kind === 'single') {
-          const decryptedPayload = await maybeDecrypt(version.row.payload, ['data'], []);
-          if (typeof decryptedPayload.data !== 'string') continue;
-          fullJson = decryptedPayload.data;
-          cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
-        } else {
-          // Decrypt and join chunks
-          const decryptedChunks: string[] = [];
-          let decryptFailed = false;
-
-          for (const pageItem of version.pages) {
-            const dec = await maybeDecrypt(pageItem.payload, [...PAGE_TEXT_FIELDS], []);
-            // M-3: страница нового формата несёт текст в `chunk`.
-            const chunk = pageTextOf(dec);
-            if (chunk === null) {
-              decryptFailed = true;
-              break;
+        // M-5: head + сегменты. Head называет окна диалога, и это единственная
+        // истина: если какого-то окна нет, копия неполная — отказ, а не
+        // укороченный дневник. Сначала добираем недостающие строки точным чтением
+        // (инкрементальный забор мог принести свежий head со старыми, уже
+        // лежавшими в облаке сегментами), и только потом отказываемся.
+        const headRow = store === 'aiDialogues' ? rows.find(r => r.payload.head === true) : undefined;
+        if (headRow) {
+          let segRows = await decodeSegmentGroup(rows, headRow);
+          let version = readSegmentVersion(segRows);
+          if (version?.kind === 'refused' && version.missing.length > 0) {
+            const extra = await fetchMissingSegments(userId, store, version.missing);
+            if (extra.length > 0) {
+              segRows = [...segRows, ...extra];
+              version = readSegmentVersion(segRows);
             }
-            decryptedChunks.push(chunk);
           }
-
-          if (decryptFailed) {
+          if (version === null || version.kind === 'refused') {
+            logger.warn('AIRestoreService', `${store}/${baseKey}: ${(version?.reason ?? 'head-строка не читается как head')}. Refusing.`);
             result.failed++;
-            continue;
+            continue; // Keep local copy intact!
+          }
+          fullJson = JSON.stringify(version.dialogue);
+          cloudTs = version.head.updatedAt;
+        } else {
+          // S-49: манифест указывает версию точно; без него — самая свежая полная
+          // версия по отметке. Страницы разных версий могут лежать рядом: хвост
+          // прежней, более длинной версии, проигравшая попытка, выгрузка,
+          // оборванная на середине. Склеить половинки двух версий нельзя.
+          const version = selectCloudVersion(rows);
+          if (!version) continue;
+          if (version.kind === 'refused') {
+            logger.warn('AIRestoreService', `${store}/${baseKey}: ${version.reason}. Refusing.`);
+            result.failed++;
+            continue; // Keep local copy intact!
           }
 
-          fullJson = decryptedChunks.join('');
-          cloudTs = version.updatedAt;
+          if (version.kind === 'single') {
+            const decryptedPayload = await maybeDecrypt(version.row.payload, ['data'], []);
+            if (typeof decryptedPayload.data !== 'string') continue;
+            fullJson = decryptedPayload.data;
+            cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
+          } else {
+            // Decrypt and join chunks
+            const decryptedChunks: string[] = [];
+            let decryptFailed = false;
+
+            for (const pageItem of version.pages) {
+              const dec = await maybeDecrypt(pageItem.payload, [...PAGE_TEXT_FIELDS], []);
+              // M-3: страница нового формата несёт текст в `chunk`.
+              const chunk = pageTextOf(dec);
+              if (chunk === null) {
+                decryptFailed = true;
+                break;
+              }
+              decryptedChunks.push(chunk);
+            }
+
+            if (decryptFailed) {
+              result.failed++;
+              continue;
+            }
+
+            fullJson = decryptedChunks.join('');
+            cloudTs = version.updatedAt;
+          }
         }
 
         // AG-RESTORE-4: Limit is MAX_RESTORE_RECORD_BYTES (10 MB) — above the upload cap,

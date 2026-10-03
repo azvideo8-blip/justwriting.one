@@ -23,6 +23,11 @@ const casCalls = vi.fn();
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
+      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+    deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+      for (const k of keys) cloud.delete(`${store}:${k}`);
+    },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
@@ -115,7 +120,7 @@ async function localDialogue(id: string): Promise<AIDialogue> {
 
 /** Реплики диалога без длинных тел — по первым словам. */
 const heads = (d: AIDialogue) => d.messages.map(m => m.content.split(' ')[0]);
-const cloudKeys = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`)).map(r => r.key).sort();
+const cloudKeys = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`) || r.key.startsWith(`${id}@seg`)).map(r => r.key).sort();
 
 // appendMessage режет реплику и рассуждение по 100 000 знаков; три таких куска
 // (вопрос, ответ, рассуждение) — ~570 КБ в UTF-8, больше порога страницы (500 КБ).
@@ -161,7 +166,7 @@ describe('S-49: dialogues over one page merge and write with a condition too', (
     at('09:30');
     await AIDialogueService.appendMessage(d.id, 'Большой вопрос с A ' + BIG, 'Большой ответ с A ' + BIG, BIG);
     await flush();
-    expect(cloudKeys(d.id).some(k => k.includes('#')), 'диалог A не ушёл страницами').toBe(true);
+    expect(cloudKeys(d.id).some(k => k.includes('@seg')), 'диалог A не ушёл сегментами').toBe(true);
 
     switchTo(b);
     at('10:00');
@@ -215,16 +220,19 @@ describe('S-49: dialogues over one page merge and write with a condition too', (
     const texts = (await localDialogue(d.id)).messages.map(m => m.content.split(' ').slice(0, 3).join(' '));
     expect(texts).toContain('Вопрос с A');
     expect(texts).toContain('Вопрос с B');
-    // В облаке — только страницы версии из манифеста, без хвостов проигравших попыток.
-    const manifest = cloud.get(rowKey('aiDialogues', d.id))!.payload as { manifest: boolean; updatedAt: number; totalPages: number };
-    expect(manifest.manifest).toBe(true);
-    const pages = cloudKeys(d.id).filter(k => k.includes('#'));
-    expect(pages.every(k => k.startsWith(`${d.id}#${manifest.updatedAt}#`)), `лишние страницы: ${pages.join(', ')}`).toBe(true);
-    expect(pages.length).toBe(manifest.totalPages);
+    // M-5: в облаке — head и ровно те сегменты, которые он называет. Строки
+    // проигравших попыток сносит выигравший CAS, страницы прежней копии уходит
+    // вслед за ними (миграция).
+    const head = cloud.get(rowKey('aiDialogues', d.id))!.payload as { head: boolean; segments: Array<{ key: string }> };
+    expect(head.head).toBe(true);
+    const named = new Set(head.segments.map(s => s.key));
+    const segs = cloudKeys(d.id).filter(k => k.includes('@seg'));
+    expect(segs.length, `лишние сегменты: ${segs.join(', ')}`).toBe(named.size);
+    for (const k of segs) expect(named.has(k), `head не называет ${k}`).toBe(true);
+    expect(cloudKeys(d.id).filter(k => k.includes('#')), 'страницы прежней копии остались').toEqual([]);
   });
 
-  it('a compare-and-swap failure in the page path re-merges: no turn lost, the losing pages are removed', async () => {
-    const a = new Device();
+  it('a compare-and-swap failure in the page path re-merges: no turn lost, the losing pages are removed', async () => {    const a = new Device();
     const b = new Device();
     const d = await sharedPrefix(a, b);
 
@@ -256,12 +264,16 @@ describe('S-49: dialogues over one page merge and write with a condition too', (
     expect((await restoreAIDataFromCloud(UID)).failed).toBe(0);
     const texts = (await localDialogue(d.id)).messages.map(m => m.content.split(' ').slice(0, 3).join(' '));
     expect(texts, `ход потерян: ${JSON.stringify(texts)}`).toEqual(['Общий вопрос', 'Общий ответ', 'Вопрос с B', 'Ответ с B', 'Вопрос с A', 'Ответ с A']);
-    const manifest = cloud.get(rowKey('aiDialogues', d.id))!.payload as { updatedAt: number };
-    const pages = cloudKeys(d.id).filter(k => k.includes('#'));
-    expect(pages.every(k => k.startsWith(`${d.id}#${manifest.updatedAt}#`)), `страницы проигравшей попытки остались: ${pages.join(', ')}`).toBe(true);
+    const headAfter = cloud.get(rowKey('aiDialogues', d.id))!.payload as { head: boolean; segments: Array<{ key: string }> };
+    expect(headAfter.head, 'победитель оставил манифест вместо head').toBe(true);
+    // M-5: чистятся обе ветки — и осиротевшие сегменты проигравшей попытки, и
+    // страницы legacy-копии, на которую наехал CAS.
+    const named = new Set(headAfter.segments.map(s => s.key));
+    for (const k of cloudKeys(d.id).filter(x => x.includes('@seg'))) expect(named.has(k), `head не называет ${k}`).toBe(true);
+    expect(cloudKeys(d.id).filter(k => k.includes('#')), `страницы остались: ${cloudKeys(d.id).join(', ')}`).toEqual([]);
   });
 
-  it('shrinking back under one page replaces the manifest with a single row and removes the pages', async () => {
+  it('сжатие обратно под размер строки оставляет формат head и убирает лишние строки', async () => {
     const a = new Device();
     switchTo(a);
     at('09:00');
@@ -278,7 +290,13 @@ describe('S-49: dialogues over one page merge and write with a condition too', (
     await AIDialogueService.deleteMessage(d.id, big.messages[0]!.id!);
     await flush();
 
-    expect(cloudKeys(d.id), 'страницы прежней версии остались рядом со строкой').toEqual([d.id]);
-    expect((cloud.get(rowKey('aiDialogues', d.id))!.payload as { manifest?: boolean }).manifest).toBeUndefined();
+    // Формат не мигает туда-сюда: head остаётся head’ом (переезд на одну строку
+    // означал бы, что клиент снова видит смесь форматов). Убирается только то,
+    // что head больше не называет.
+    const headRow = cloud.get(rowKey('aiDialogues', d.id))!.payload as { head?: boolean, segments?: Array<{ key: string }> };
+    expect(headRow.head, 'head сменился одиночной строкой').toBe(true);
+    const named = new Set((headRow.segments ?? []).map(s => s.key));
+    for (const k of cloudKeys(d.id).filter(x => x.includes('@seg'))) expect(named.has(k), `head не называет ${k}`).toBe(true);
+    expect(cloudKeys(d.id).filter(k => k.includes('#')), 'остались страницы прежней версии').toEqual([]);
   });
 });

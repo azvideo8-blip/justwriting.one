@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { oldClientWrites, type Row } from './helpers/oldClientRestore029';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion } from '../localStorePages';
+import { readSegmentVersion } from '../dialogueSegments';
 import { IDBFactory } from 'fake-indexeddb';
 import 'fake-indexeddb/auto';
 import { getLocalDb, resetDbInstance } from '../../storage/localDb';
@@ -138,6 +139,11 @@ const casCalls = vi.fn();
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
+      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+    deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+      for (const k of keys) cloud.delete(`${store}:${k}`);
+    },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
@@ -229,7 +235,7 @@ async function localDialogue(id: string): Promise<AIDialogue> {
 }
 
 /** Реплики диалога без длинных тел — по первым словам. */
-const cloudKeys = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`)).map(r => r.key);
+const cloudKeys = (id: string) => [...cloud.values()].filter(r => r.key === id || r.key.startsWith(`${id}#`) || r.key.startsWith(`${id}@seg`)).map(r => r.key);
 
 // appendMessage режет реплику и рассуждение по 100 000 знаков; три таких куска
 // (вопрос, ответ, рассуждение) — ~570 КБ в UTF-8, больше порога страницы (500 КБ).
@@ -272,7 +278,7 @@ describe('M-3: строки сегодняшней выгрузки старый
     // (вопрос, ответ, рассуждение) — ~570 КБ в UTF-8, за порогом страницы.
     await AIDialogueService.appendMessage(d.id, 'Большой вопрос ' + BIG, 'Большой ответ ' + BIG, BIG);
     await flush();
-    expect(cloudKeys(d.id).some(k => k.includes('#')), 'диалог не ушёл страницами').toBe(true);
+    expect(cloudKeys(d.id).some(k => k.includes('@seg')), 'диалог не ушёл сегментами').toBe(true);
 
     const rows: Row[] = [...cloud.values()];
     // Локальная копия старого клиента — со своим несохранённым ходом.
@@ -284,10 +290,8 @@ describe('M-3: строки сегодняшней выгрузки старый
     expect(writes.map(w => w.baseKey), `старый клиент собирает и пишет: ${JSON.stringify(writes.map(w => w.baseKey))}`).toEqual([]);
 
     // Для верности: наш читатель эти же строки собирает, и форма не «для прочности».
-    const version = selectCloudVersion(rows);
-    if (version === null || version.kind !== 'pages') { expect.fail('новый читатель не видит свои страницы'); return; }
-    let text = '';
-    for (const page of version.pages) text += pageTextOf(page.payload) ?? '';
-    expect((JSON.parse(text) as AIDialogue).messages.length).toBe(4);
+    const version = readSegmentVersion(rows.map(r => ({ key: r.key, payload: r.payload })));
+    if (version === null || version.kind !== 'segments') { expect.fail('новый читатель не видит свои сегменты'); return; }
+    expect(version.dialogue.messages).toHaveLength(4);
   });
 });

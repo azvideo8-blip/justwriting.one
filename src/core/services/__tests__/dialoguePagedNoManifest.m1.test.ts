@@ -29,6 +29,11 @@ const casCalls = vi.fn();
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
+      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+    deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+      for (const k of keys) cloud.delete(`${store}:${k}`);
+    },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
@@ -184,7 +189,9 @@ describe('M-1: постраничная копия диалога без ман�
       messages: [{ role: 'user', content: 'Вопрос ' + BIG + BIG + BIG }, { role: 'assistant', content: 'Ответ' }],
     });
     await flush();
-    expect(cloud.get(rowKey('aiDialogues', d.id))!.payload.manifest).toBe(true);
+    // M-5: крупной копией управляет head (прежний манифест версии), и именно его
+    // сносит 0.9.28, перекладывая диалог на страницы `key#N`.
+    expect(cloud.get(rowKey('aiDialogues', d.id))!.payload.head).toBe(true);
     // old client: restore LWW + append without ids, generic upload
     const rec = await localDialogue(d.id);
     at('09:20');

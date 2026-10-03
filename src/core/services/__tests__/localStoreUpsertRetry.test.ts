@@ -26,6 +26,8 @@ describe('R3-8: a failed upsert stays queued', () => {
     // та же сетевая ошибка и те же счётчики, что у saveLocalStoreRecord.
     vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);
     vi.spyOn(DataProvider as Required<typeof DataProvider>, 'getLocalStoreRecordPages').mockResolvedValue([]);
+    vi.spyOn(DataProvider, 'deleteLocalStoreRecordsByKeys').mockResolvedValue(undefined as never);
+    vi.spyOn(DataProvider, 'getLocalStoreRecordsByKeyPrefix').mockResolvedValue([]);
     vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnchanged').mockImplementation(async (u, s, k, p) => {
       await DataProvider.saveLocalStoreRecord(u, s, k, p);
       return true;

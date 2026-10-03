@@ -9,7 +9,18 @@ import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
-import { attemptPrefix, newPageNonce, pageKeyFor, pageTextOf, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
+import { pageTextOf, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
+import {
+  HEAD_TEXT_FIELDS,
+  SEGMENT_TEXT_FIELDS,
+  headRowPayload,
+  planDialogue,
+  readSegmentVersion,
+  segmentPrefixOf,
+  segmentRowPayload,
+  type CloudSegmentRow,
+  type DialogueHead,
+} from './dialogueSegments';
 
 export const SUPPORTED_LOCAL_STORES = [
   'aiPortrait',
@@ -554,12 +565,24 @@ function removeOversizedRecord(store: string, key: string): void {
  * и разобранная. null — копии нет. `expected` — отметка для условной записи
  * (undefined — у строки нет числовой отметки).
  *
+ * M-5: копия может лежать head’ом и сегментами; тогда вместе с диалогом
+ * отдаются head и строки окон — план записи сверяется с ними дословно.
+ *
  * S-54: открытая строка под включённым сейфом читается: так выглядит обрыв
  * «зашифровать всё» на середине, и слияние запишет её обратно уже
  * зашифрованной. Строка, которую не прочитать иначе (чужой ключ, порча),
  * остаётся ошибкой, а не «облако пусто», и один раз попадает в журнал.
  */
 const unreadableReported = new Set<string>();
+
+interface CloudDialogue {
+  dialogue: AIDialogue;
+  expected: number | null | undefined;
+  /** Только у сегментной копии: head, который её описывает. */
+  head?: DialogueHead;
+  /** Расшифрованные строки сегментов этого диалога; пусто, если их нет. */
+  segments?: CloudSegmentRow[];
+}
 
 function isPlaintextUnderVault(e: unknown): boolean {
   // По форме, не по instanceof: DecryptionError из cryptoHelpers, причина — PLAINTEXT_UNDER_VAULT.
@@ -583,22 +606,84 @@ async function readDialogueText(payload: Record<string, unknown>): Promise<strin
   }
 }
 
-async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: AIDialogue; expected: number | null | undefined } | null> {
-  const [row, pages] = await Promise.all([
+/** То же для полей head'а и сегмента: открытый текст под сейфом читается, всё
+ *  остальное — ошибка. Пустого «не прочитали, значит строки нет» здесь нет. */
+async function decryptFields(payload: Record<string, unknown>, fields: readonly string[]): Promise<Record<string, unknown>> {
+  try {
+    return await maybeDecrypt(payload, [...fields], []);
+  } catch (e) {
+    if (!isPlaintextUnderVault(e)) throw e;
+    return payload;
+  }
+}
+
+/**
+ * Копия диалога из облака. M-5: диалог может лежать сегментами (head в строке
+ * `key` + строки `key@seg…`) или в прежних форматах — одной строкой с `data`
+ * либо страницами `key#…`; читаем и то, и другое, потому что в облаке живут
+ * копии обоих видов (старые таб-коды, записи до миграции).
+ *
+ * Неполная или нечитаемая копия — ошибка, а не «облака нет»: слепая запись
+ * поверх укороченной копии затёрла бы чужие ходы.
+ */
+async function readCloudDialogue(uid: string, key: string): Promise<CloudDialogue | null> {
+  const [row, pages, segRows] = await Promise.all([
     DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key),
     DataProvider.getLocalStoreRecordPages ? DataProvider.getLocalStoreRecordPages(uid, 'aiDialogues', key) : Promise.resolve([]),
+    DataProvider.getLocalStoreRecordsByKeyPrefix(uid, 'aiDialogues', segmentPrefixOf(key)),
   ]);
-  const rows: CloudRow[] = [];
-  if (row) rows.push({ key, payload: row.payload as Record<string, unknown> });
-  for (const p of pages) rows.push({ key: p.key, payload: p.payload as Record<string, unknown> });
-  const version = selectCloudVersion(rows);
-  if (!version) return null;
+  const rowPayload = row ? row.payload as Record<string, unknown> : null;
+  const isSegmented = rowPayload?.head === true;
+
   try {
+    // Строки сегментов расшифровываем всегда: их мог назвать head другой стороны,
+    // а без head это осиротевшие остатки оборванной попытки — и то, и другое
+    // план переиспользует вместо записи второго экземпляра тех же байтов.
+    // Непрочитаемая строка, которой head НЕ называет, чтения не ломает (она не
+    // часть диалога), но её ключ всё равно идёт в уборку. Непрочитаемая названная
+    // — отказ ниже, в readSegmentVersion.
+    const namedKeys = new Set((rowPayload?.segments as Array<{ key: string }> | undefined)?.map(s => s.key) ?? []);
+    const segments: CloudSegmentRow[] = [];
+    const segPayloads: Array<Record<string, unknown>> = [];
+    for (const s of segRows) {
+      const dec = await decryptFields(s.payload as Record<string, unknown>, SEGMENT_TEXT_FIELDS);
+      const text = typeof dec.messages === 'string' ? dec.messages : null;
+      if (text === null && namedKeys.has(s.key)) throw new Error(`M-5: cloud segment ${s.key} has no readable messages`);
+      segments.push({
+        key: s.key,
+        firstAt: typeof dec.firstAt === 'number' ? dec.firstAt : 0,
+        updatedAt: typeof dec.updatedAt === 'number' ? dec.updatedAt : 0,
+        messages: text,
+      });
+      segPayloads.push(dec);
+    }
+
+    if (isSegmented) {
+      const headPayload = await decryptFields(rowPayload!, HEAD_TEXT_FIELDS);
+      const version = readSegmentVersion([{ key, payload: headPayload }, ...segRows.map((s, i) => ({ key: s.key, payload: segPayloads[i]! }))]);
+      if (version === null) throw new Error(`M-5: cloud dialogue ${key}: head-строка есть, но не читается как head`);
+      if (version.kind === 'refused') throw new Error(`M-5: cloud dialogue ${key} segments unreadable: ${version.reason}`);
+      const at = headPayload.updatedAt;
+      return {
+        dialogue: version.dialogue,
+        expected: typeof at === 'number' ? at : undefined,
+        head: version.head,
+        segments,
+      };
+    }
+
+    const rows: CloudRow[] = [];
+    if (rowPayload) rows.push({ key, payload: rowPayload });
+    for (const p of pages) rows.push({ key: p.key, payload: p.payload as Record<string, unknown> });
+    const version = selectCloudVersion(rows);
+    // Ни строки `key`, ни прочных страниц: копии в облаке нет. Осиротевшие
+    // сегменты сами по себе диалогом не являются.
+    if (!version) return null;
     if (version.kind === 'refused') throw new Error(`S-49: cloud dialogue ${key} pages unreadable: ${version.reason}`);
     if (version.kind === 'single') {
       const text = await readDialogueText(version.row.payload);
       const at = version.row.payload.updatedAt;
-      return { dialogue: JSON.parse(text) as AIDialogue, expected: typeof at === 'number' ? at : undefined };
+      return { dialogue: JSON.parse(text) as AIDialogue, expected: typeof at === 'number' ? at : undefined, segments };
     }
     let text = '';
     for (const page of version.pages) text += await readDialogueText(page.payload);
@@ -607,9 +692,9 @@ async function readCloudDialogue(uid: string, key: string): Promise<{ dialogue: 
     // стёртый старым табом манифест, обрыв между страницами и манифестом) строки `key`
     // вовсе нет: прежний expected = отметка страниц не совпадал ни с чем, CAS не
     // проходил никогда и диалог > 500 КБ не выгружался вообще.
-    const keyStamp = row ? (row.payload as Record<string, unknown>).updatedAt : undefined;
+    const keyStamp = row ? rowPayload!.updatedAt : undefined;
     const expected = row === null ? null : (typeof keyStamp === 'number' ? keyStamp : undefined);
-    return { dialogue: JSON.parse(text) as AIDialogue, expected };
+    return { dialogue: JSON.parse(text) as AIDialogue, expected, segments };
   } catch (e) {
     // Строка есть, а прочитать её нельзя — это не «облако пусто»: слепая
     // запись поверх затёрла бы чужой ход. Пусть запись упадёт и повторится.
@@ -735,18 +820,22 @@ export class LocalStoreSyncManager {
    * изменился». Ушёл — перечитываем и сливаем заново, до трёх раз; дальше
    * запись падает как обычная ошибка и повторяется штатным путём.
    *
-   * S-49: копия крупнее одной страницы (> 500 КБ) тоже читается (строка `key`
-   * или страницы) и пишется с условием: страницы `key#<updatedAt>#N` уходят
-   * первыми, последним — манифест в строке `key` с тем же условием на прежний
-   * `updatedAt`. Проиграли условие — свои страницы убираем и сливаем заново;
-   * выиграли — убираем страницы всех прочих версий. Восстановление читает
-   * только страницы, на которые указывает манифест.
+   * S-49: копия крупнее одной страницы тоже читается (строка `key`, страницы
+   * `key#…` или сегменты) и пишется с условием.
+   *
+   * M-5: постраничная ветка записи стала сегментной. Строки окон уходят первыми
+   * (одной транзакцией на пачку), последним — head в строке `key` с условием на
+   * её прежний `updatedAt`. Head подписывается только когда все его окна уже в
+   * облаке, поэтому «половина диалога» не становится читаемой версией: не
+   * дописанное окно — это прежний head, а не обрезанный дневник. Проиграли
+   * условие — убираем свои строки и сливаем заново; выиграли — убираем строки,
+   * которые head больше не называет, и страницы прежней копии.
    */
   private async uploadDialogue(
     uid: string,
     db: Awaited<ReturnType<typeof getLocalDb>>,
     key: string,
-  ): Promise<'ok' | 'gone' | { oversized: number }> {
+  ): Promise<'ok' | 'gone' | 'partial' | { oversized: number }> {
     for (let attempt = 0; ; attempt++) {
       const cloud = await readCloudDialogue(uid, key);
       // null — строки нет (insert); undefined — строка без числовой отметки,
@@ -770,12 +859,65 @@ export class LocalStoreSyncManager {
 
       const jsonString = JSON.stringify(merged);
       const recordBytes = new TextEncoder().encode(jsonString).length;
-      const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
-      if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) return { oversized: recordBytes };
+      // Потолок размера остаётся прежним: M-5 меняет ФОРМУ записи, а не то,
+      // сколько диалог может занять в облаке. Крупнее предела — по-прежнему
+      // отметка «слишком большой», а не молчаливая обрезка.
+      if (recordBytes > MAX_LOCAL_RECORD_BYTES) return { oversized: recordBytes };
+      // M-5: диалог, которому не одна строка, живёт head'ом и сегментами. Прежняя
+      // постраничная ветка (`key#<stamp>#<nonce>#p<i>` + манифест) остаётся только
+      // для ЧТЕНИЯ: такие копии лежат в облаке и их пишет 0.9.28/0.9.29.
+      //
+      // Порог прежний: пока диалог влезает в одну строку, он в неё и пишется —
+      // клиенты 0.9.28/0.9.29 читают `data` и продолжают получать мелкие диалоги.
+      // Сегменты они не читают намеренно (M-3), поэтому переформатировать запись
+      // раньше порога значило бы отрезать живые табы от синхронизации.
+      const useSegments = cloud?.head !== undefined || recordBytes > PAGE_SPLIT_THRESHOLD_BYTES;
+      if (useSegments) {
+        const plan = planDialogue(merged, { head: cloud?.head, segments: cloud?.segments });
+        // Head обязан называть только те строки, что уже в облаке: подпись под
+        // ненаписанным окном — это «диалог читается наполовину», а readSegmentVersion
+        // честно отдаёт по такому head'у отказ. Поэтому крупный диалог доезжает за
+        // несколько проходов по PAGES_PER_REQUEST строк, и каждый проход добавляет
+        // строго новые байты (записанные окна план переиспользует).
+        const batch = plan.toWrite.slice(0, PAGES_PER_REQUEST);
+        if (batch.length > 0) {
+          const pages: Array<{ key: string; payload: Awaited<ReturnType<typeof maybeEncrypt>> }> = [];
+          for (const s of batch) {
+            pages.push({ key: s.key, payload: await maybeEncrypt(segmentRowPayload(s), [...SEGMENT_TEXT_FIELDS], [], uid) });
+          }
+          // Одна транзакция на пачку: полудиалога другой читатель не увидит.
+          await DataProvider.saveLocalStoreRecordPages(uid, 'aiDialogues', pages);
+        }
+        if (plan.toWrite.length > batch.length) return 'partial';
 
-      let stored: boolean;
-      if (chunks.length === 1) {
+        const headPayload = await maybeEncrypt(headRowPayload(plan.head), [...HEAD_TEXT_FIELDS], [], uid);
+        let stored: boolean;
+        if (expected === undefined) {
+          await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, headPayload);
+          stored = true;
+        } else {
+          stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, headPayload, expected);
+        }
+        if (!stored) {
+          // Проигравшая попытка убирает ТОЛЬКО свои строки: победитель их не
+          // называет, а чужие имена он мог уже переписать своим содержимым.
+          if (batch.length > 0) {
+            await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', batch.map(p => p.key));
+          }
+        } else {
+          if (plan.toDelete.length > 0) {
+            await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', plan.toDelete);
+          }
+          // Миграция: страницы прежней постраничной копии больше не нужны — их
+          // место заняли сегменты, названные head'ом.
+          if (DataProvider.deleteLocalStorePagedRecords) {
+            await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
+          }
+          return 'ok';
+        }
+      } else {
         const encrypted = await maybeEncrypt({ data: jsonString, updatedAt: merged.updatedAt }, ['data'], [], uid);
+        let stored: boolean;
         if (expected === undefined) {
           await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, encrypted);
           stored = true;
@@ -787,41 +929,6 @@ export class LocalStoreSyncManager {
             await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
           }
           return 'ok';
-        }
-      } else {
-        const totalPages = chunks.length;
-        // M-2: у каждой попытки своя случайная метка в ключе страниц. Прежний ключ
-        // `key#<stamp>#<i>` повторяем между попытками (отметка = max(now, a+1, b+1),
-        // dialogueMerge.ts), и осиротевшая страница неудавшейся попытки ложилась под
-        // отметку победителя → «pages beyond N» → запись отказывалась читаться вечно.
-        const nonce = newPageNonce();
-        const pages: Array<{ key: string; payload: Awaited<ReturnType<typeof maybeEncrypt>> }> = [];
-        for (let i = 0; i < totalPages; i++) {
-          pages.push({
-            key: pageKeyFor(key, merged.updatedAt, nonce, i),
-            // M-3: текст страницы — в `chunk`. Строки без `data` клиенты
-            // 0.9.28/0.9.29 пропускают, а не собирают в диалог.
-            payload: await maybeEncrypt({ chunk: chunks[i], updatedAt: merged.updatedAt, page: i, totalPages, nonce }, ['chunk'], [], uid),
-          });
-        }
-        await DataProvider.saveLocalStoreRecordPages(uid, 'aiDialogues', pages);
-        const manifest = { manifest: true, updatedAt: merged.updatedAt, totalPages, nonce };
-        if (expected === undefined) {
-          await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, manifest);
-          stored = true;
-        } else {
-          stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, manifest, expected);
-        }
-        if (stored) {
-          if (DataProvider.deleteLocalStoreStalePages) {
-            await DataProvider.deleteLocalStoreStalePages(uid, 'aiDialogues', key, merged.updatedAt, nonce);
-          }
-          return 'ok';
-        }
-        // Проигравшая попытка: убираем ТОЛЬКО свои страницы — по префиксу метки.
-        // Прежний `key#<stamp>` сносил и страницы победителя с той же отметкой.
-        if (DataProvider.deleteLocalStorePagedRecords) {
-          await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', attemptPrefix(key, merged.updatedAt, nonce));
         }
       }
       if (attempt >= 2) throw new Error(`S-34: cloud dialogue ${key} kept changing during upload`);
@@ -978,6 +1085,14 @@ export class LocalStoreSyncManager {
             if (outcome === 'gone') {
               markerChanges.dropped.add(itemKey);
               markerChanges.revived.push({ store: item.store, key: item.key });
+              continue;
+            }
+            if (outcome === 'partial') {
+              // M-5: окна дописаны не все, head ещё не подписан. Обязательство
+              // остаётся открытым (маркер не снимаем, бейдж прав), следующий
+              // проход продолжает с того места, где встал.
+              this.pending.set(itemKey, item);
+              this.resetTimer();
               continue;
             }
             if (outcome === 'ok') {
