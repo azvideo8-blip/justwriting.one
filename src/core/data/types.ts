@@ -91,6 +91,8 @@ export interface IDataProvider {
   getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   /** S-49: страницы записи `key#…` (оба формата). Необязателен только ради тестовых заглушек: у провайдера он есть всегда. */
   getLocalStoreRecordPages?(userId: string, store: string, key: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
+  /** M-5: дочерние строки записи по префиксу ключа — сегменты диалога `key@seg…`. */
+  getLocalStoreRecordsByKeyPrefix(userId: string, store: string, prefix: string): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
   countLocalStoreRecords(userId: string, stores: readonly string[]): Promise<number>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
@@ -99,6 +101,9 @@ export interface IDataProvider {
   deleteLocalStoreStalePages?(userId: string, store: string, key: string, keepStamp: number, keepNonce?: string): Promise<void>;
   deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
   deleteLocalStoreRecordsByStores(userId: string, stores: string[]): Promise<void>;
+  /** M-5: снести ровно названные строки — осиротевшие сегменты, которые head
+   *  больше не перечисляет, и строки проигравшей попытки. */
+  deleteLocalStoreRecordsByKeys(userId: string, store: string, keys: string[]): Promise<void>;
   deleteAllLocalStoreRecords?(userId: string): Promise<void>;
 
   // --- Migration ---

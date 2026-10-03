@@ -1182,6 +1182,16 @@
           "like([\"key\",\"k#%\"])",
           "<await>"
         ]
+      },
+      {
+        "table": "local_store_records",
+        "chain": [
+          "delete([])",
+          "eq([\"user_id\",\"u1\"])",
+          "eq([\"store\",\"aiDialogues\"])",
+          "like([\"key\",\"k@%\"])",
+          "<await>"
+        ]
       }
     ]
   },
