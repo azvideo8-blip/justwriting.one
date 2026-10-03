@@ -27,6 +27,7 @@ const rowKey = (store: string, key: string) => `${store}:${key}`;
 /** Порядок обращений к облаку — по нему видно, что head подписан ПОСЛЕ тела. */
 const ops: string[] = [];
 let casResult = true;
+let casThrows = false;
 let deleteKeysCalls: string[][] = [];
 
 vi.mock('../../data', () => ({
@@ -58,6 +59,9 @@ vi.mock('../../data', () => ({
     },
     saveLocalStoreRecordIfUnchanged: async (_uid: string, store: string, key: string, payload: Record<string, unknown>, expected: number | null) => {
       ops.push(`cas:${key}`);
+      // Сбой «сети» ПОСЛЕ того, как тело уже легло: ровно то состояние, из
+      // которого повтор обязан принять готовые окна, а не писать их заново.
+      if (casThrows) throw new Error('network');
       if (!casResult) return false;
       const cur = cloud.get(rowKey(store, key));
       if (expected === null ? cur !== undefined : cur?.payload.updatedAt !== expected) return false;
@@ -163,6 +167,7 @@ beforeEach(async () => {
   ops.length = 0;
   deleteKeysCalls = [];
   casResult = true;
+  casThrows = false;
   currentDevice = null;
   LocalStoreSyncService['pending'].clear();
   await (await getLocalDb()).clear('aiDialogues');
@@ -341,6 +346,30 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     LocalStoreSyncService.scheduleStoreDelete('aiDialogues', d.id);
     await flush();
     expect(cloudKeys(d.id), `после удаления остались строки: ${cloudKeys(d.id).join(', ')}`).toEqual([]);
+  });
+
+  it('обрыв после тела: окна легли, head не подписан — повтор принимает их и дописывает указатель', async () => {
+    const a = new Device();
+    switchTo(a);
+    at('09:00');
+    // Первая же выгрузка крупного диалога обрывается после записи тела.
+    casThrows = true;
+    const d = await bigDialogue();
+    const r = await flushRaw();
+    casThrows = false;
+    expect(r.failed, 'сбой сети не должен считаться успехом').toBe(1);
+    expect(cloud.has(rowKey('aiDialogues', d.id)), 'head всё-таки подписался при сбое').toBe(false);
+    const orphans = segKeys(d.id);
+    expect(orphans.length, 'тело не легло — случай не покрыт').toBeGreaterThan(1);
+
+    ops.length = 0;
+    const r2 = await flushRaw();
+    expect(r2.failed).toBe(0);
+    // Ключевое: повтор НЕ переписывает те же байты вторично.
+    expect(ops.filter(o => o.startsWith('pages:')), `повтор переписал готовые окна: ${ops.join(', ')}`).toEqual([]);
+    expect(ops.some(o => o.startsWith(`cas:${d.id}`)), 'head не дописан').toBe(true);
+    const named = new Set(headPayload(d.id).segments.map(s => s.key));
+    expect([...named].sort()).toEqual(orphans);
   });
 
   it('чистые ходы: ни одной строки, которой head не называет', async () => {

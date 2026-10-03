@@ -576,7 +576,11 @@ function removeOversizedRecord(store: string, key: string): void {
 const unreadableReported = new Set<string>();
 
 interface CloudDialogue {
-  dialogue: AIDialogue;
+  /** null — указателя версии нет вовсе (оборванная попытка: строки окон легли,
+   *  head не подписан). Сами окна при этом возвращаются в `segments`: план
+   *  принимает их, а не пишет второй экземпляр тех же байтов, и убирает те, что
+   *  не пригодятся. */
+  dialogue: AIDialogue | null;
   expected: number | null | undefined;
   /** Только у сегментной копии: head, который её описывает. */
   head?: DialogueHead;
@@ -676,9 +680,10 @@ async function readCloudDialogue(uid: string, key: string): Promise<CloudDialogu
     if (rowPayload) rows.push({ key, payload: rowPayload });
     for (const p of pages) rows.push({ key: p.key, payload: p.payload as Record<string, unknown> });
     const version = selectCloudVersion(rows);
-    // Ни строки `key`, ни прочных страниц: копии в облаке нет. Осиротевшие
-    // сегменты сами по себе диалогом не являются.
-    if (!version) return null;
+    // Ни строки `key`, ни прочных страниц: копии диалога в облаке нет. Но если
+    // легли сегменты предыдущей оборванной попытки, их надо вернуть — план
+    // примет совпадающие окна и снесёт лишнее, а не оставит их сиротами навсегда.
+    if (!version) return segments.length > 0 ? { dialogue: null, expected: null, segments } : null;
     if (version.kind === 'refused') throw new Error(`S-49: cloud dialogue ${key} pages unreadable: ${version.reason}`);
     if (version.kind === 'single') {
       const text = await readDialogueText(version.row.payload);
@@ -845,7 +850,7 @@ export class LocalStoreSyncManager {
       const tx = db.transaction('aiDialogues', 'readwrite');
       const current = await tx.store.get(key);
       if (!current) { await tx.done; return 'gone'; }
-      const merged = cloud
+      const merged = cloud?.dialogue
         ? mergeDialogues(withMessageIds(current), cloud.dialogue)
         : { ...withMessageIds(current), schema: DIALOGUE_SCHEMA };
       const changedLocally = dialogueFingerprint(merged) !== dialogueFingerprint(current);
