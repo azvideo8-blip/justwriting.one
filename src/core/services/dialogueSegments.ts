@@ -263,3 +263,67 @@ export function staleSegmentKeys(head: DialogueHead, cloudKeys: string[]): strin
   const prefix = `${head.id}@seg`;
   return cloudKeys.filter(k => k.startsWith(prefix) && !live.has(k));
 }
+
+export interface CloudRowLike {
+  key: string;
+  payload: Record<string, unknown>;
+}
+
+export type SegmentCloudVersion =
+  | { kind: 'segments'; head: DialogueHead; dialogue: AIDialogue; missing: string[] }
+  | { kind: 'refused'; reason: string; missing: string[] };
+
+function headFromPayload(p: Record<string, unknown>): DialogueHead | null {
+  if (p.head !== true) return null;
+  const id = p.id;
+  const updatedAt = p.updatedAt;
+  const segs = p.segments;
+  if (typeof id !== 'string' || typeof updatedAt !== 'number' || !Array.isArray(segs)) return null;
+  return p as unknown as DialogueHead;
+}
+
+/**
+ * Сегментная версия диалога из его облачных строк (head `key` + строки `key@seg…`).
+ *
+ * Неполный набор — ОТКАЗ, а не «диалог без хвоста»: молча отдать обрезанный диалог
+ * значит later выгрузить его поверх целого (тот же класс, что «empty = failed read»).
+ * `missing` перечисляет окна, которых нет — по нему вызывающий решит, ждать ли ещё
+ * один забор.
+ */
+export function readSegmentVersion(rows: CloudRowLike[]): SegmentCloudVersion | null {
+  const headRow = rows.find(r => r.payload.head === true);
+  if (!headRow) return null;
+  const head = headFromPayload(headRow.payload);
+  if (!head) return { kind: 'refused', reason: 'head-строка есть, но её форма не разобралась', missing: [] };
+
+  const byKey = new Map<string, DialogueSegment>();
+  for (const r of rows) {
+    if (r.key === headRow.key || r.payload.seg !== true) continue;
+    const raw = r.payload.messages;
+    if (typeof raw !== 'string') return { kind: 'refused', reason: `сегмент ${r.key} без поля messages`, missing: [] };
+    let messages: DialogueMessage[];
+    try {
+      messages = JSON.parse(raw) as DialogueMessage[];
+    } catch {
+      return { kind: 'refused', reason: `сегмент ${r.key}: messages не разбирается`, missing: [] };
+    }
+    if (!Array.isArray(messages)) return { kind: 'refused', reason: `сегмент ${r.key}: messages не массив`, missing: [] };
+    byKey.set(r.key, {
+      seg: true,
+      key: r.key,
+      headKey: head.id,
+      firstAt: typeof r.payload.firstAt === 'number' ? r.payload.firstAt : 0,
+      lastAt: typeof r.payload.lastAt === 'number' ? r.payload.lastAt : 0,
+      updatedAt: typeof r.payload.updatedAt === 'number' ? r.payload.updatedAt : head.updatedAt,
+      messages,
+    });
+  }
+
+  const missing = head.segments.filter(s => !byKey.has(s.key)).map(s => s.key);
+  if (missing.length > 0) {
+    return { kind: 'refused', missing, reason: `не хватает ${missing.length} сегментов: ${missing.join(', ')}` };
+  }
+
+  const dialogue = assembleDialogue(head, new Map([...byKey.values()].map(s => [s.key, s])));
+  return { kind: 'segments', head, dialogue, missing: [] };
+}

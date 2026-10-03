@@ -7,6 +7,7 @@ import {
   headOf,
   mergeHeads,
   planDialogue,
+  readSegmentVersion,
   segmentKeyOf,
   splitMessages,
   staleSegmentKeys,
@@ -171,6 +172,57 @@ describe('M-5 сборка и уборка', () => {
     expect(windows.length).toBeGreaterThan(1);
     for (const w of windows) expect(w.length).toBeGreaterThan(0);
     expect(windows.flat().map(m => m.id)).toEqual(messages.map(m => m.id));
+  });
+});
+
+describe('M-5 read: неполный набор — отказ, а не укороченный диалог', () => {
+  const d = dialogue(Array.from({ length: 24 }, (_, i) => msg(`m${i}`, big(30_000, `w${i}`), 1_000 + i)));
+  const plan = planDialogue(d);
+  const rows = () => [
+    { key: plan.head.id, payload: { ...plan.head } as Record<string, unknown> },
+    ...plan.segments.map(s => ({
+      key: s.key,
+      payload: { seg: true, firstAt: s.firstAt, lastAt: s.lastAt, updatedAt: s.updatedAt, messages: JSON.stringify(s.messages) } as Record<string, unknown>,
+    })),
+  ];
+
+  it('round-trip: то, что положили, то и собрали, без потерь и дублей', () => {
+    const read = readSegmentVersion(rows());
+    expect(read?.kind).toBe('segments');
+    if (read?.kind !== 'segments') return;
+    expect(read.dialogue.messages.map(m => m.id)).toEqual(d.messages.map(m => m.id));
+    expect(read.dialogue.title).toBe(d.title);
+    expect(read.head.updatedAt).toBe(d.updatedAt);
+  });
+
+  it('не хватает сегмента → refused со списком окон, диалога нет', () => {
+    const all = rows();
+    const missingKey = all[2]!.key;
+    const read = readSegmentVersion(all.filter((_, i) => i !== 2));
+    expect(read?.kind).toBe('refused');
+    if (read?.kind !== 'refused') return;
+    expect(read.missing).toEqual([missingKey]);
+    expect((read as { dialogue?: unknown }).dialogue).toBeUndefined();
+  });
+
+  it('head без единого сегмента (первый забор) → refused, а не пустой диалог', () => {
+    const read = readSegmentVersion([rows()[0]!]);
+    expect(read?.kind).toBe('refused');
+    if (read?.kind !== 'refused') return;
+    expect(read.missing.length).toBe(plan.head.segments.length);
+  });
+
+  it('битый messages у сегмента → refused (не «текста не было»)', () => {
+    const all = rows();
+    all[1]!.payload = { ...all[1]!.payload, messages: '{не json' };
+    const read = readSegmentVersion(all);
+    expect(read?.kind).toBe('refused');
+    if (read?.kind !== 'refused') return;
+    expect(read.reason).toContain('не разбирается');
+  });
+
+  it('чужих строк head не трогает: без своей head-строки это не сегментный диалог', () => {
+    expect(readSegmentVersion(rows().slice(1))).toBeNull();
   });
 });
 
