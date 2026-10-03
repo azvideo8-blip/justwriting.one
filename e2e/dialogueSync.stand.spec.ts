@@ -243,12 +243,35 @@ async function sendTurn(page: Page, text: string): Promise<void> {
 async function pass(page: Page): Promise<void> {
   await unlockVaultIfAsked(page, user.password);
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await page.waitForTimeout(7_000);
+  await page.waitForTimeout(3_500);
+  await unlockVaultIfAsked(page, user.password, 500);
+  await page.waitForTimeout(3_500);
   await unlockVaultIfAsked(page, user.password);
+}
+
+/** Сырое состояние записи диалога: есть ли указатель, какие сегменты он называет,
+ *  какие строки лежат в облаке и остались ли страницы прежнего формата. */
+async function cloudSegmentState(uid: string, id: string): Promise<{ pointer: boolean; named: string[]; segKeys: string[]; legacyKeys: string[] }> {
+  const res = await fetch(`${REST}/local_store_records?user_id=eq.${uid}&store=eq.aiDialogues&select=key,payload`, {
+    headers: { apikey: env.SERVICE_KEY!, Authorization: `Bearer ${env.SERVICE_KEY}` },
+  });
+  const rows = (await res.json()) as Array<{ key: string; payload: Record<string, unknown> }>;
+  const head = rows.find(r => r.key === id && r.payload.head === true);
+  const named = head ? ((head.payload.segments as Array<{ key: string }> | undefined) ?? []).map(s => s.key) : [];
+  return {
+    pointer: head !== undefined,
+    named,
+    segKeys: rows.filter(r => r.key.startsWith(`${id}@seg`)).map(r => r.key),
+    legacyKeys: rows.filter(r => r.key.startsWith(`${id}#`)).map(r => r.key),
+  };
 }
 
 async function waitFlushed(page: Page, uid: string, dialogueId: string): Promise<void> {
   await expect.poll(async () => {
+    // Запоздавший запрос сейфа (на старых профилях он всплывает через 10–20 с)
+    // снимается здесь же: иначе «облако пусто» означает запертый ключ, а не
+    // сломанное слияние.
+    await unlockVaultIfAsked(page, user.password, 300);
     const local = (await dialogues(page, uid)).find(d => d.id === dialogueId);
     const cloud = (await cloudRows(uid)).find(r => r.key === dialogueId);
     // M-5: для сегментной копии фактом выгрузки считается наличие head'а: строки
@@ -931,6 +954,13 @@ test('11. диалог > 500 КБ на обоих устройствах, вкл
   await old28.page.reload();
   await openDialogue(old28.page, big28.title, OLD_028);
   await sendTurn(old28.page, 'Дописываем в большой с 0.9.28');
+  // Ход обязан сесть именно в этот диалог: на старомorigin после перезагрузки
+  // список мог ещё не отрисоваться, и раньше это выглядело как «облако пусто»,
+  // потому что выгружать было нечего — очередь не получала сигнала.
+  await waitTurnRecorded(old28.page, 'Дописываем в большой с 0.9.28');
+  const routed = (await dialogues(old28.page, user.uid)).find(d => d.id === big28.id);
+  expect(routed?.messages.some(m => m.content.includes('Дописываем в большой с 0.9.28')),
+    'ход старого клиента сел не в большой диалог').toBe(true);
   await waitFlushed(old28.page, user.uid, big28.id);
   const paged28 = (await cloudRows(user.uid)).find(r => r.key === big28.id);
   console.warn('[11] 0.9.28 создал:', JSON.stringify(paged28));
@@ -963,6 +993,12 @@ test('11. диалог > 500 КБ на обоих устройствах, вкл
   expect(countText(texts(da), 'Ход ветки в большом диалоге')).toBe(1);
   expect(countText(texts(db), 'Ход B в большом диалоге')).toBe(1);
   expect(da.messages.some(m => m.content.length > 500_000), 'длинный ответ 0.9.28 потерялся при слиянии').toBe(true);
+  // M-3: старый клиент не должен заводить фантомов из наших строк. Его парсер режет
+  // ключ по последней «#», поэтому у сегмента адрес без «#» и без поля `data` —
+  // 0.9.28 проходит мимо. Если это сломать, на старом устройстве появится лишняя
+  // «запись» с адресом вида `id@seg…`.
+  const phantom = (await dialogues(old28.page, user.uid)).filter(d => d.id.includes('@seg') || d.id.includes('#'));
+  expect(phantom.map(d => d.id), `0.9.28 завёл фантомы: ${phantom.map(d => d.id).join(', ')}`).toEqual([]);
   await old28.ctx.close();
 });
 
@@ -1098,5 +1134,12 @@ test('15b. обрыв сети между сегментами и head’ом (�
   const db = b.find(d => d.id === huge.id)!;
   expect(countText(texts(db), 'Ход после обрыва манифеста')).toBe(1);
   expect(db.messages.some(m => m.content.length > 500_000), 'длинный ответ потерялся').toBe(true);
+
+  // Уборка: победитель CAS сносит всё, чего head не называет, и страницы прежней
+  // копии. Без этого оборванная попытка оставляет в облаке мусор навечно.
+  const state = await cloudSegmentState(user.uid, huge.id);
+  expect(state.legacyKeys, `страницы прежней копии остались: ${state.legacyKeys.join(', ')}`).toEqual([]);
+  expect(state.segKeys.filter(k => !state.named.includes(k)),
+    `head не называет эти строки: ${state.segKeys.filter(k => !state.named.includes(k)).join(', ')}`).toEqual([]);
   dlg = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id) ?? dlg;
 });
