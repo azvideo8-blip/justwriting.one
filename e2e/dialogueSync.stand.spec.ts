@@ -1143,3 +1143,98 @@ test('15b. обрыв сети между сегментами и head’ом (�
     `head не называет эти строки: ${state.segKeys.filter(k => !state.named.includes(k)).join(', ')}`).toEqual([]);
   dlg = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id) ?? dlg;
 });
+
+/** Снести облачную строку напрямую (сервисный ключ обходит RLS): так стенд
+ *  моделирует потерю окна, которое head всё ещё называет. */
+async function deleteCloudRow(uid: string, key: string): Promise<void> {
+  const res = await fetch(`${REST}/local_store_records?user_id=eq.${uid}&store=eq.aiDialogues&key=eq.${encodeURIComponent(key)}`, {
+    method: 'DELETE',
+    headers: { apikey: env.SERVICE_KEY!, Authorization: `Bearer ${env.SERVICE_KEY}` },
+  });
+  if (!res.ok) throw new Error(`deleteCloudRow(${key}): ${res.status}`);
+}
+
+/** Диалог заведомо крупнее одной строки: 600-килобайтный ответ + несколько ходов. */
+async function makeBigDialogue(page: Page, title: string, firstTurn: string): Promise<string> {
+  const id = `big_${Math.random().toString(36).slice(2, 10)}`;
+  const rec: Dlg = {
+    id, title,
+    messages: [{ role: 'user', content: 'Большой вопрос' }, { role: 'assistant', content: 'Ы'.repeat(600_000) }],
+    updatedAt: Date.now() - 60_000,
+  };
+  (rec as unknown as { personaId: string; createdAt: number }).personaId = (dlg as unknown as { personaId: string }).personaId;
+  (rec as unknown as { createdAt: number }).createdAt = Date.now() - 120_000;
+  await putDialogue(page, user.uid, rec);
+  await page.reload();
+  await openDialogue(page, title);
+  await sendTurn(page, firstTurn);
+  await waitFlushed(page, user.uid, id);
+  return id;
+}
+
+test('17. дописка в большой диалог не оставляет в облаке сирот', async () => {
+  await ensureSeed();
+  const id = await makeBigDialogue(A.page, 'Оконные сироты', 'Первый ход в большом');
+  const before = await cloudSegmentState(user.uid, id);
+  expect(before.pointer, 'head не подписан').toBe(true);
+  expect(before.segKeys.length, 'окон нет').toBeGreaterThan(1);
+
+  await sendTurn(A.page, 'Второй ход в большом');
+  await waitFlushed(A.page, user.uid, id);
+
+  const after = await cloudSegmentState(user.uid, id);
+  const orphans = after.segKeys.filter(k => !after.named.includes(k));
+  expect(orphans, `прежняя строка открытого окна осталась в облаке: ${orphans.join(', ')}`).toEqual([]);
+  expect(after.named.length, 'head называет другое число окон').toBe(after.segKeys.length);
+});
+
+test('18. head называет окно, которого в облаке нет: читатель отказывает, а не укорачивает', async ({ browser }) => {
+  await ensureSeed();
+  const id = await makeBigDialogue(A.page, 'Отказ вместо обрезки', 'Ход перед потерей окна');
+  const state = await cloudSegmentState(user.uid, id);
+  expect(state.named.length).toBeGreaterThan(1);
+
+  // Третье устройство забирает диалог целиком — до вреда.
+  const C = await device(await browser.newContext());
+  const seesAll = (x: Dlg[]) => (x.find(d => d.id === id)?.messages.length ?? 0) >= 4;
+  const got = await syncUntil(C.page, seesAll, 'C получает целый диалог');
+  expect(seesAll(got), 'C не получил целый диалог до порчи').toBe(true);
+
+  // Рвём одну СТРОКУ, которую head продолжает называть.
+  await deleteCloudRow(user.uid, state.named[1]!);
+
+  // Новое устройство обязано ОТКАЗАТЬСЯ, а не показать укороченный дневник:
+  // укороченная копия потом уехала бы в облако поверх целого.
+  const D = await device(await browser.newContext());
+  await pass(D.page);
+  const dList = await dialogues(D.page, user.uid);
+  expect(dList.some(d => d.id === id), 'D собрал диалог из неполного набора окон').toBe(false);
+
+  // Хозяин копии довыгружает недостающее окно, и D получает целый диалог.
+  await sendTurn(A.page, 'Ход после потери окна');
+  await waitFlushed(A.page, user.uid, id);
+  const healed = await syncUntil(D.page, seesAll, 'D получает диалог после починки');
+  expect(seesAll(healed), 'после довыгрузки D так и не получил целый диалог').toBe(true);
+  await C.ctx.close(); await D.ctx.close();
+});
+
+test('19. параллельный ход в большой диалог без забора: CAS head’а не даёт затереть соседа', async () => {
+  await ensureSeed();
+  const id = await makeBigDialogue(A.page, 'Гонка на head’е', 'Ход A до гонки');
+  await syncUntil(B.page, x => x.some(d => d.id === id), 'B получает большой диалог');
+  await openDialogue(B.page, 'Гонка на head’е');
+
+  // Оба пишут, не забирая чужое: облако между чтением и записью меняется.
+  await sendTurn(A.page, 'Ход A в гонке');
+  await sendTurn(B.page, 'Ход B в гонке');
+  await waitFlushed(A.page, user.uid, id);
+  await waitFlushed(B.page, user.uid, id);
+  for (let i = 0; i < 2; i++) { await pass(A.page); await pass(B.page); }
+
+  const a = (await dialogues(A.page, user.uid)).find(d => d.id === id)!;
+  const b = (await dialogues(B.page, user.uid)).find(d => d.id === id)!;
+  expect(countText(texts(a), 'Ход A в гонке'), 'ход A затёрт').toBe(1);
+  expect(countText(texts(a), 'Ход B в гонке'), 'ход B затёрт').toBe(1);
+  expect(countText(texts(b), 'Ход A в гонке'), 'ход A не дошёл до B').toBe(1);
+  expect(countText(texts(b), 'Ход B в гонке'), 'ход B не дошёл до B').toBe(1);
+});
