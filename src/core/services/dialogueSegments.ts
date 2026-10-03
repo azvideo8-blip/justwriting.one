@@ -63,6 +63,27 @@ export interface DialogueSegment {
   messages: DialogueMessage[];
 }
 
+/** Строка сегмента, как она читается из облака: `messages` — ровно тот текст,
+ *  который под ним лежит (расшифрованный), а не разобранный массив: идентичность
+ *  окна проверяется по нему. `null` — строка есть, но её содержимое мы прочесть не
+ *  можем: для плана это не кандидат (переиспользовать нельзя), для уборки —
+ *  по-прежнему ключ head'а, который надо снести. */
+export interface CloudSegmentRow {
+  key: string;
+  firstAt: number;
+  updatedAt: number;
+  messages: string | null;
+}
+
+export interface SegmentPlan {
+  head: DialogueHead;
+  segments: DialogueSegment[];
+  /** Новые строки: их пишут до CAS head'а, одним запросом. */
+  toWrite: DialogueSegment[];
+  /** Строки облака, которые новый head не называет: мусор после дописки в окно. */
+  toDelete: string[];
+}
+
 const encoder = new TextEncoder();
 const bytes = (s: string): number => encoder.encode(s).length;
 
@@ -76,6 +97,44 @@ export function newSegmentNonce(): string {
  *  фантом. */
 export function segmentKeyOf(headKey: string, firstAt: number, nonce: string): string {
   return `${headKey}@seg${firstAt}-${nonce}`;
+}
+
+/** Префикс всех сегментов одного head'а — им их читают и чистят. */
+export function segmentPrefixOf(headKey: string): string {
+  return `${headKey}@seg`;
+}
+
+/** Ключ записи, которой принадлежит строка: `key@seg…` — это head `key`, а не
+ *  отдельная страница (в отличие от «#» группировка по «@» своя). */
+export function headKeyOfRow(key: string): string {
+  const i = key.indexOf('@seg');
+  return i < 0 ? key : key.slice(0, i);
+}
+
+/**
+ * Форма облачной строки head'а и её зашифруемые поля. Ни у head'а, ни у сегмента
+ * нет поля `data` — единственного, на что смотрит читатель 0.9.28/0.9.29 (M-3):
+ * задепленный клиент проходит мимо наших строк молча.
+ */
+export const HEAD_TEXT_FIELDS = ['title', 'personaName', 'closingSummary'] as const;
+
+export function headRowPayload(head: DialogueHead): Record<string, unknown> {
+  return { ...head };
+}
+
+/** Строка сегмента: `messages` — JSON массива реплик (текст, а не объект), поэтому
+ *  он и в списке шифруемых полей. */
+export const SEGMENT_TEXT_FIELDS = ['messages'] as const;
+
+export function segmentRowPayload(s: DialogueSegment): Record<string, unknown> {
+  return {
+    seg: true,
+    headKey: s.headKey,
+    firstAt: s.firstAt,
+    lastAt: s.lastAt,
+    updatedAt: s.updatedAt,
+    messages: JSON.stringify(s.messages),
+  };
 }
 
 /**
@@ -128,52 +187,62 @@ export function headOf(d: AIDialogue, segments: SegmentRef[] = []): DialogueHead
 }
 
 /**
- * План записи диалога. `prev` — уже известный head: окно, которое в нём есть и
- * содержательно не изменилось, получает ТО ЖЕ имя, поэтому закрытый сегмент не
- * переписывается никогда — его строка остаётся на своём ключе. Границы окон
- * детерминированы временем первой реплики, так что дописывание в хвост не двигает
- * прежние окна. Идентичность окна оцениваем по размеру и числу реплик: совпадение по
- * обоим у разного содержимого практически невозможно, а ошибка стоит лишнюю запись,
- * но не потерю данных.
+ * План записи диалога. `cloud` — что уже лежит в облаке: head (ссылки окон) и
+ * сами строки сегментов.
+ *
+ * Строка сегмента неизменяема: под своим ключом она пишется ровно один раз и
+ * ровно со своим содержимым. Окно, содержимое которого совпадает с облачной
+ * строкой (сравнение по тексту, не по размеру — совпадение байт и числа реплик
+ * это не равенство), получает имя этой строки и не переписывается. Поэтому:
+ *  · закрытое окно не переписывается никогда — его строка остаётся на своём ключе;
+ *  · дописка в хвост даёт новое имя прежнего открытого окна, старая строка уходит
+    в `toDelete` и сносится тем, кто выиграл CAS head'а;
+ *  · два писателя никогда не пишут один ключ с разным содержимым, а значит гонка
+ *    решается единственным CAS — над head.
+ * Границы окон детерминированы временем первой реплики, так что дописка не двигает
+ * прежние окна. `toWrite` пусто, когда диалог в облаке уже точный: выгрузка
+ * без изменений не пишет ничего.
  */
 export function planDialogue(
   d: AIDialogue,
-  prev?: DialogueHead,
+  cloud: { head?: DialogueHead | undefined, segments?: CloudSegmentRow[] | undefined } = {},
   limit = SEGMENT_MAX_BYTES,
-): { head: DialogueHead; segments: DialogueSegment[]; toWrite: DialogueSegment[] } {
+): SegmentPlan {
+  const prev = cloud.head;
+  const rows = cloud.segments ?? [];
   const segments: DialogueSegment[] = [];
   const toWrite: DialogueSegment[] = [];
   for (const w of splitMessages(d.messages, limit)) {
     const firstAt = w[0]?.createdAt ?? d.createdAt;
-    const size = bytes(JSON.stringify(w));
+    const text = JSON.stringify(w);
+    // Имя переиспользуем ТОЛЬКО когда строка окна жива в облаке и её содержимое
+    // совпадает дословно. Совпало имя в head, но строку снесли (гонка очистки) —
+    // берём новое: под прежним ключом уже не лежит ничего нашего, а два писателя
+    // не должны оказаться в одной строке с разным текстом.
     const held = prev?.segments.find(s => s.firstAt === firstAt);
-    // Два независимых вопроса: КАКОЕ ИМЯ у окна и НАДО ЛИ его переписывать.
-    //  · открытое окно (последнее в прежнем head) разрешается и всегда остаётся под
-    //    своим именем — иначе каждая дописка оставляла бы в облаке осиротевшую строку
-    //    (тот самый мусор, из-за которого M-2 лечили nonce'ом);
-    //  · закрытое окно меняет имя только если его переоткрыли (правка внутри него);
-    //  · записываем при любом изменении содержимого, в том числе открытый хвост.
-    const openWindow = prev?.segments.at(-1)?.firstAt === firstAt;
-    const identical = held !== undefined && held.bytes === size && held.count === w.length;
-    const keepName = held !== undefined && (openWindow === true || identical);
-    const key = keepName ? held.key : segmentKeyOf(d.id, firstAt, newSegmentNonce());
+    const heldRow = held === undefined ? undefined : rows.find(r => r.key === held.key);
+    const exact = heldRow !== undefined && heldRow.messages === text ? heldRow : undefined;
+    // Осиротевшая строка этого же окна (оборванная попытка другой стороны) —
+    // принимаем её, а не пишем второй экземпляр тех же байтов.
+    const orphan = exact ?? rows.find(r => r.firstAt === firstAt && r.messages === text);
     const seg: DialogueSegment = {
       seg: true,
-      key,
+      key: orphan !== undefined ? orphan.key : segmentKeyOf(d.id, firstAt, newSegmentNonce()),
       headKey: d.id,
       firstAt,
       lastAt: w.at(-1)?.createdAt ?? firstAt,
-      updatedAt: identical ? held.updatedAt : d.updatedAt,
+      updatedAt: orphan?.updatedAt ?? d.updatedAt,
       messages: w,
     };
     segments.push(seg);
-    if (!identical) toWrite.push(seg);
+    if (orphan === undefined) toWrite.push(seg);
   }
   const refs: SegmentRef[] = segments.map(s => ({
     key: s.key, firstAt: s.firstAt, lastAt: s.lastAt, updatedAt: s.updatedAt,
     bytes: bytes(JSON.stringify(s.messages)), count: s.messages.length,
   }));
-  return { head: headOf(d, refs), segments, toWrite };
+  const head = headOf(d, refs);
+  return { head, segments, toWrite, toDelete: staleSegmentKeys(head, rows.map(r => r.key)) };
 }
 
 /** Окно сегмента опознаётся по firstAt: переоткрытие (правка внутри закрытого
@@ -260,7 +329,7 @@ export function assembleDialogue(head: DialogueHead, segments: Map<string, Dialo
  *  проигравшей записи окна. Удаляет их устройство, выигравшее CAS head'а. */
 export function staleSegmentKeys(head: DialogueHead, cloudKeys: string[]): string[] {
   const live = new Set(head.segments.map(s => s.key));
-  const prefix = `${head.id}@seg`;
+  const prefix = segmentPrefixOf(head.id);
   return cloudKeys.filter(k => k.startsWith(prefix) && !live.has(k));
 }
 
@@ -270,7 +339,7 @@ export interface CloudRowLike {
 }
 
 export type SegmentCloudVersion =
-  | { kind: 'segments'; head: DialogueHead; dialogue: AIDialogue; missing: string[] }
+  | { kind: 'segments'; head: DialogueHead; dialogue: AIDialogue; rows: CloudSegmentRow[]; missing: string[] }
   | { kind: 'refused'; reason: string; missing: string[] };
 
 function headFromPayload(p: Record<string, unknown>): DialogueHead | null {
@@ -297,8 +366,13 @@ export function readSegmentVersion(rows: CloudRowLike[]): SegmentCloudVersion | 
   if (!head) return { kind: 'refused', reason: 'head-строка есть, но её форма не разобралась', missing: [] };
 
   const byKey = new Map<string, DialogueSegment>();
+  const cloudRows: CloudSegmentRow[] = [];
+  const named = new Set(head.segments.map(s => s.key));
   for (const r of rows) {
     if (r.key === headRow.key || r.payload.seg !== true) continue;
+    // Строки, которых head не называет, читателя не касаются: это осиротевшие
+    // остатки чужих попыток, их ключи убирает писатель, а не читатель.
+    if (!named.has(r.key)) continue;
     const raw = r.payload.messages;
     if (typeof raw !== 'string') return { kind: 'refused', reason: `сегмент ${r.key} без поля messages`, missing: [] };
     let messages: DialogueMessage[];
@@ -308,13 +382,16 @@ export function readSegmentVersion(rows: CloudRowLike[]): SegmentCloudVersion | 
       return { kind: 'refused', reason: `сегмент ${r.key}: messages не разбирается`, missing: [] };
     }
     if (!Array.isArray(messages)) return { kind: 'refused', reason: `сегмент ${r.key}: messages не массив`, missing: [] };
+    const firstAt = typeof r.payload.firstAt === 'number' ? r.payload.firstAt : 0;
+    const updatedAt = typeof r.payload.updatedAt === 'number' ? r.payload.updatedAt : head.updatedAt;
+    cloudRows.push({ key: r.key, firstAt, updatedAt, messages: raw });
     byKey.set(r.key, {
       seg: true,
       key: r.key,
       headKey: head.id,
-      firstAt: typeof r.payload.firstAt === 'number' ? r.payload.firstAt : 0,
-      lastAt: typeof r.payload.lastAt === 'number' ? r.payload.lastAt : 0,
-      updatedAt: typeof r.payload.updatedAt === 'number' ? r.payload.updatedAt : head.updatedAt,
+      firstAt,
+      lastAt: typeof r.payload.lastAt === 'number' ? r.payload.lastAt : firstAt,
+      updatedAt,
       messages,
     });
   }
@@ -325,5 +402,5 @@ export function readSegmentVersion(rows: CloudRowLike[]): SegmentCloudVersion | 
   }
 
   const dialogue = assembleDialogue(head, new Map([...byKey.values()].map(s => [s.key, s])));
-  return { kind: 'segments', head, dialogue, missing: [] };
+  return { kind: 'segments', head, dialogue, rows: cloudRows, missing: [] };
 }

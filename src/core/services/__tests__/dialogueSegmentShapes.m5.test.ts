@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { AIDialogue, DialogueMessage } from '../../storage/localDb';
-import { planDialogue } from '../dialogueSegments';
+import { headRowPayload, planDialogue, segmentRowPayload } from '../dialogueSegments';
 import { parseLocalStoreKey } from '../localStorePages';
 import { oldClientWrites, type Row } from './helpers/oldClientRestore029';
 
@@ -28,18 +28,13 @@ const bigDialogue = (): AIDialogue => dialogue(
   })),
 );
 
-/** Облачные строки сегментного диалога ровно в той форме, в какой их положит
- *  выгрузка: у head и у сегмента поля `data` нет — оно и есть единственное, на
- *  что смотрит старый читатель. */
+/** Облачные строки сегментного диалога в ТОЙ форме, которую кладёт выгрузка:
+ *  сборщикиpayload'а общие с write-путём, так что проверка видит реальный код. */
 function segmentRows(d: AIDialogue): Row[] {
   const plan = planDialogue(d);
-  const rows: Row[] = [{ store: 'aiDialogues', key: ID, payload: { ...plan.head } }];
+  const rows: Row[] = [{ store: 'aiDialogues', key: ID, payload: headRowPayload(plan.head) }];
   for (const s of plan.segments) {
-    rows.push({
-      store: 'aiDialogues',
-      key: s.key,
-      payload: { seg: true, headKey: s.headKey, firstAt: s.firstAt, lastAt: s.lastAt, updatedAt: s.updatedAt, messages: JSON.stringify(s.messages) },
-    });
+    rows.push({ store: 'aiDialogues', key: s.key, payload: segmentRowPayload(s) });
   }
   return rows;
 }

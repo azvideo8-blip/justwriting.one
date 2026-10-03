@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { AIDialogue, DialogueMessage } from '../../storage/localDb';
-import type { DialogueHead } from '../dialogueSegments';
+import type { CloudSegmentRow, DialogueHead, SegmentPlan } from '../dialogueSegments';
 import {
   SEGMENT_MAX_BYTES,
   assembleDialogue,
@@ -34,6 +34,16 @@ const dialogue = (messages: DialogueMessage[], over: Partial<AIDialogue> = {}): 
 
 const big = (n: number, seed: string): string => `${seed}-`.repeat(n);
 
+/** Что лежит в облаке после плана: строки сегментов ровно тем текстом, которым их
+ *  записали (так же их читает write-путь: `messages` — строка, а не массив). */
+function rowsOf(plan: { segments: SegmentPlan['segments'] }): CloudSegmentRow[] {
+  return plan.segments.map(s => ({
+    key: s.key, firstAt: s.firstAt, updatedAt: s.updatedAt, messages: JSON.stringify(s.messages),
+  }));
+}
+
+const cloud = (plan: SegmentPlan) => ({ head: plan.head, segments: rowsOf(plan) });
+
 describe('M-5 plan: разбиение и стабильность закрытых окон', () => {
   it('ни одно окно не больше лимита, состав и порядок реплик сохранены', () => {
     const messages = Array.from({ length: 40 }, (_, i) => msg(`m${i}`, big(30_000, `k${i}`), 1_000 + i));
@@ -54,19 +64,77 @@ describe('M-5 plan: разбиение и стабильность закрыт�
     expect(own.messages).toHaveLength(1);
   });
 
-  it('дописывание в хвост не трогает закрытые окна: те же ключи, те же границы', () => {
+  it('первая выгрузка пишет все окна, повторная — ни одного', () => {
+    const messages = Array.from({ length: 30 }, (_, i) => msg(`m${i}`, big(30_000, `k${i}`), 1_000 + i));
+    const first = planDialogue(dialogue(messages));
+    expect(first.toWrite.length).toBe(first.segments.length);
+    expect(first.toDelete).toEqual([]);
+    // Ничего не поменялось → выгрузка не пишется вовсе ( paging-формат на этом
+    // шаге переписывал все страницы диалога).
+    const again = planDialogue(dialogue(messages), cloud(first));
+    expect(again.toWrite).toEqual([]);
+    expect(again.toDelete).toEqual([]);
+    expect(again.head.segments.map(s => s.key)).toEqual(first.head.segments.map(s => s.key));
+  });
+
+  it('дописка в хвост: закрытые окна не трогаем, открытое пишется новым ключом, старый — в удаление', () => {
     const first = Array.from({ length: 20 }, (_, i) => msg(`m${i}`, big(30_000, `k${i}`), 1_000 + i));
     const plan1 = planDialogue(dialogue(first));
     const grown = [...first, msg('new', 'свежий ход', 9_000), msg('new2', 'ещё один', 9_500)];
-    const plan2 = planDialogue(dialogue(grown, { updatedAt: 10_000 }), plan1.head);
+    const plan2 = planDialogue(dialogue(grown, { updatedAt: 10_000 }), cloud(plan1));
 
-    // Все окна прежнего диалога остались на своих ключах: их не переписывают.
-    expect(plan2.head.segments.filter(x => x.firstAt < 9_000).map(x => x.key))
-      .toEqual(plan1.head.segments.map(x => x.key));
-    // Переписывается ровно одно окно — открытое, куда добавляли. Имя при этом
-    // не меняется: иначе каждая дописка оставляла бы в облаке осиротевшую строку.
-    expect(plan2.toWrite.map(x => x.firstAt)).toEqual([plan1.head.segments.at(-1)?.firstAt]);
-    expect(plan2.head.segments.map(x => x.key)).toEqual(plan1.head.segments.map(x => x.key));
+    const openRef = plan1.head.segments.at(-1)!;
+    // Все окна прежнего диалога, кроме открытого, остались на своих ключах и не
+    // переписываются.
+    expect(plan2.head.segments.filter(x => x.firstAt < openRef.firstAt).map(x => x.key))
+      .toEqual(plan1.head.segments.filter(x => x.firstAt < openRef.firstAt).map(x => x.key));
+    expect(plan2.toWrite.map(x => x.firstAt)).toEqual([openRef.firstAt]);
+    // Открытое окно сменило имя: строка сегмента неизменяема, поэтому два писателя
+    // не могут оказаться в одной строке с разным текстом. Прежняя строка — мусор.
+    const openRef2 = plan2.head.segments.find(x => x.firstAt === openRef.firstAt)!;
+    expect(openRef2.key).not.toBe(openRef.key);
+    expect(plan2.toDelete).toEqual([openRef.key]);
+  });
+
+  it('правка заголовка не переписывает ни одного сегмента — меняется только head', () => {
+    const messages = Array.from({ length: 20 }, (_, i) => msg(`m${i}`, big(30_000, `k${i}`), 1_000 + i));
+    const plan1 = planDialogue(dialogue(messages));
+    const renamed = planDialogue(dialogue(messages, { title: 'Новое имя', updatedAt: 5_000 }), cloud(plan1));
+    expect(renamed.toWrite).toEqual([]);
+    expect(renamed.head.title).toBe('Новое имя');
+    expect(renamed.head.segments.map(s => s.key)).toEqual(plan1.head.segments.map(s => s.key));
+  });
+
+  it('совпадение размера и числа реплик — не равенство: окно с тем же весом пишется заново', () => {
+    const base = [msg('a', '12345', 1_000)];
+    const plan1 = planDialogue(dialogue(base));
+    // Ровно та же длина текста, ровно та же длина JSON, другое содержимое.
+    const edited = planDialogue(dialogue([msg('a', '67890', 1_000)], { updatedAt: 3_000 }), cloud(plan1));
+    expect(edited.head.segments[0]!.bytes).toBe(plan1.head.segments[0]!.bytes);
+    expect(edited.head.segments[0]!.count).toBe(plan1.head.segments[0]!.count);
+    expect(edited.toWrite.length).toBe(1);
+    expect(edited.toWrite[0]!.key).not.toBe(plan1.head.segments[0]!.key);
+    expect(edited.toDelete).toEqual([plan1.head.segments[0]!.key]);
+  });
+
+  it('строку окна снесли — окно пишется заново под НОВЫМ именем, а не под прежним ключом', () => {
+    const plan1 = planDialogue(dialogue([msg('a', 'раз', 1_000)]));
+    const gone = { head: plan1.head, segments: [] };
+    const retry = planDialogue(dialogue([msg('a', 'раз', 1_000)]), gone);
+    expect(retry.toWrite.length).toBe(1);
+    expect(retry.toWrite[0]!.key).not.toBe(plan1.head.segments[0]!.key);
+  });
+
+  it('осиротевшую строку того же окна принимаем, а не пишем дубликат тех же байтов', () => {
+    const messages = Array.from({ length: 20 }, (_, i) => msg(`m${i}`, big(30_000, `k${i}`), 1_000 + i));
+    const plan1 = planDialogue(dialogue(messages));
+    const orphan = plan1.toWrite.at(-1)!;
+    // Head другой стороны этого окна не называет (оборванная попытка), строка жива.
+    const c = { head: { ...plan1.head, segments: plan1.head.segments.slice(0, -1) }, segments: rowsOf(plan1) };
+    const mergedIntoHead = planDialogue(dialogue(messages, { updatedAt: 9_000 }), c);
+    expect(mergedIntoHead.toWrite.map(s => s.key)).not.toContain(orphan.key);
+    expect(mergedIntoHead.head.segments.map(s => s.key)).toContain(orphan.key);
+    expect(mergedIntoHead.toDelete).toEqual([]);
   });
 
   it('имя сегмента не содержит «#» и не несёт поля data — старый клиент его не соберёт', () => {
@@ -84,7 +152,7 @@ describe('M-5 plan: разбиение и стабильность закрыт�
 });
 
 describe('M-5 mergeHeads: то, чего не умел paging', () => {
-  const plan = (d: AIDialogue, prev?: DialogueHead) => planDialogue(d, prev);
+  const plan = (d: AIDialogue, prev?: DialogueHead) => planDialogue(d, prev ? { head: prev } : {});
 
   it('удаление сильнее параллельной правки: надгробие уровня диалога переживает ход соседа', () => {
     const base = plan(dialogue([msg('a', 'раз', 1_000)]));
@@ -223,6 +291,30 @@ describe('M-5 read: неполный набор — отказ, а не укор
 
   it('чужих строк head не трогает: без своей head-строки это не сегментный диалог', () => {
     expect(readSegmentVersion(rows().slice(1))).toBeNull();
+  });
+
+  it('строка, которой head не называет, не участвует в сборке: битый её messages — не отказ', () => {
+    const all = rows();
+    // Мусор проигравшей попытки: тот же firstAt, чужой ключ, нечитаемый текст.
+    const junk = {
+      key: segmentKeyOf(plan.head.id, all[1]!.payload.firstAt as number, 'deadbeef'),
+      payload: { seg: true, firstAt: all[1]!.payload.firstAt, updatedAt: 1, messages: '{не json' } as Record<string, unknown>,
+    };
+    const read = readSegmentVersion([...all, junk]);
+    expect(read?.kind).toBe('segments');
+    if (read?.kind !== 'segments') return;
+    expect(read.dialogue.messages.map(m => m.id)).toEqual(d.messages.map(m => m.id));
+    // …и при этом её ключ head не называет — уборка найдёт её как мусор.
+    expect(staleSegmentKeys(read.head, [junk.key])).toEqual([junk.key]);
+  });
+
+  it('названная head’ом строка с битым messages — отказ, а не «окна не было»', () => {
+    const all = rows();
+    all[2]!.payload = { ...all[2]!.payload, messages: '{не json' };
+    const read = readSegmentVersion(all);
+    expect(read?.kind).toBe('refused');
+    if (read?.kind !== 'refused') return;
+    expect(read.reason).toContain('не разбирается');
   });
 });
 
