@@ -705,6 +705,8 @@ test('8. pre-update dialogue (no ids, with variants): switch variant on A, chat 
 });
 
 test('16. dialogue > 500 KB syncs as head + segments (was: page path)', async () => {
+  // Как и 8: `dlg` появляется в ensureSeed, без него тест годен только в цепочке.
+  await ensureSeed();
   const big: Dlg = {
     id: `big_${Date.now().toString(36)}`, title: 'Большой диалог',
     messages: [{ role: 'user', content: 'Большой вопрос' }, { role: 'assistant', content: 'Ы'.repeat(600_000) }],
