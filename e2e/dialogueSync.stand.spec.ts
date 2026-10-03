@@ -1204,11 +1204,12 @@ test('18. head называет окно, которого в облаке не�
   await deleteCloudRow(user.uid, state.named[1]!);
 
   // Новое устройство обязано ОТКАЗАТЬСЯ, а не показать укороченный дневник:
-  // укороченная копия потом уехала бы в облако поверх целого.
+  // укороченная копия потом уехала бы в облако поверх целого. Ждём именно
+  // попытки забора (иначе ассерт прошёл бы и когда забор просто не успел).
   const D = await device(await browser.newContext());
-  await pass(D.page);
-  const dList = await dialogues(D.page, user.uid);
-  expect(dList.some(d => d.id === id), 'D собрал диалог из неполного набора окон').toBe(false);
+  const partialSeen = (x: Dlg[]) => x.some(d => d.id === id);
+  const dList = await syncUntil(D.page, partialSeen, 'D получает диалог из неполного набора');
+  expect(partialSeen(dList), 'D собрал диалог из неполного набора окон').toBe(false);
 
   // Хозяин копии довыгружает недостающее окно, и D получает целый диалог.
   await sendTurn(A.page, 'Ход после потери окна');
