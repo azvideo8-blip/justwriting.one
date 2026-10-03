@@ -17,21 +17,29 @@ const REST = `${env.STAND_URL}/rest/v1`;
 interface Msg { id?: string; role: string; content: string; type?: string; variants?: string[]; variantIndex?: number; turnId?: string }
 interface Dlg { id: string; title: string; messages: Msg[]; updatedAt: number; deletedMessages?: { id: string; at: number }[]; schema?: number; archived?: boolean; personaId?: string; responseLength?: string; lastExtractedMessageId?: string }
 
-async function cloudRows(uid: string): Promise<Array<{ key: string; updatedAt: number | null; pages: number }>> {
+async function cloudRows(uid: string): Promise<Array<{ key: string; updatedAt: number | null; pages: number; pointer: boolean; segmented: boolean }>> {
   const res = await fetch(`${REST}/local_store_records?user_id=eq.${uid}&store=eq.aiDialogues&select=key,payload`, {
     headers: { apikey: env.SERVICE_KEY!, Authorization: `Bearer ${env.SERVICE_KEY}` },
   });
   const rows = (await res.json()) as Array<{ key: string; payload: { updatedAt?: number; totalPages?: number } }>;
-  const byKey = new Map<string, { key: string; updatedAt: number | null; pages: number }>();
+  const byKey = new Map<string, { key: string; updatedAt: number | null; pages: number; pointer: boolean; segmented: boolean }>();
   for (const r of rows) {
     // Дочерние строки записи: страницы `key#…` (0.9.28 и прочие сторы) и сегменты
-    // `key@seg…` (M-5). Принадлежность head'у определяется по «@seg», остальное —
-    // по последней «#», как её режет parseLocalStoreKey.
+    // `key@seg…` (M-5).
     const at = r.key.indexOf('@seg');
     const base = at < 0 ? r.key.split('#')[0]! : r.key.slice(0, at);
-    const cur = byKey.get(base) ?? { key: base, updatedAt: null, pages: 0 };
-    cur.pages += (at < 0 ? r.key.includes('#') : r.key !== base) ? 1 : 0;
-    cur.updatedAt = typeof r.payload?.updatedAt === 'number' ? r.payload.updatedAt : cur.updatedAt;
+    const cur = byKey.get(base) ?? { key: base, updatedAt: null, pages: 0, pointer: false, segmented: false };
+    if (r.key === base) cur.pointer = true;
+    else cur.pages += 1;
+    if (at >= 0) cur.segmented = true;
+    // Отметкой версии для сегментной копии является head, а не окно: иначе
+    // осиротевшие строки оборванной попытки выглядят как «выгрузка прошла».
+    if (r.key === base || !cur.segmented) {
+      cur.updatedAt = typeof r.payload?.updatedAt === 'number' ? r.payload.updatedAt : cur.updatedAt;
+    } else if (cur.pointer) {
+      const h = rows.find(x => x.key === base)?.payload?.updatedAt;
+      cur.updatedAt = typeof h === 'number' ? h : cur.updatedAt;
+    }
     byKey.set(base, cur);
   }
   return [...byKey.values()];
@@ -243,6 +251,10 @@ async function waitFlushed(page: Page, uid: string, dialogueId: string): Promise
   await expect.poll(async () => {
     const local = (await dialogues(page, uid)).find(d => d.id === dialogueId);
     const cloud = (await cloudRows(uid)).find(r => r.key === dialogueId);
+    // M-5: для сегментной копии фактом выгрузки считается наличие head'а: строки
+    // окон сами по себе диалогом не являются (их пишет тот же проход, что и
+    // указатель, но указатель — последний).
+    if (local && cloud?.segmented && !cloud.pointer) return 'segments without head';
     // Облако не старше локальной копии: своя выгрузка прошла (чужая более поздняя — не ошибка).
     return local && cloud && (cloud.updatedAt ?? 0) >= local.updatedAt ? 'flushed' : `local=${local?.updatedAt} cloud=${cloud?.updatedAt}`;
   }, { timeout: 30_000, intervals: [1000] }).toBe('flushed');
@@ -296,6 +308,19 @@ async function device(context: BrowserContext, clockOffsetMs = 0, base = '', vau
   page.on('console', m => { if (m.type() === 'error') console.warn(`[console.error] ${m.text().slice(0, 200)}`); });
   if (clockOffsetMs) await page.addInitScript((off) => { const real = Date.now; Date.now = () => real() + off; }, clockOffsetMs);
   if (vault) await login(page, user, base); else await loginWithoutVault(page, base);
+  // Флаг автосинхронизации живёт в localStorage КАЖДОГО origin: диалог первого
+  // входа, который его включает, показывается один раз на аккаунт и только там,
+  // где аккаунт создан. Профиль старого клиента (:3101/:3102) этого диалога не
+  // видел, поэтому фоновая выгрузка на «старом устройстве» была выключена не
+  // продуктом, а руками, которых на нём не было. Включаем так, как это сделал
+  // бы пользователь, — и только если ключ отсутствует.
+  const flagSet = await page.evaluate((uid) => {
+    const k = `auto_sync_enabled_${uid}`;
+    if (localStorage.getItem(k) !== null) return false;
+    localStorage.setItem(k, 'true');
+    return true;
+  }, user.uid);
+  if (flagSet) console.warn(`[sync] включил автосинхронизацию на origin ${base || '(свой)'} — ключ был пуст`);
   await grantAiConsent(page);
   await page.goto(base + '/ai'); await unlockVaultIfAsked(page, user.password, 8_000);
   return { ctx: context, page };
@@ -645,6 +670,9 @@ test('12. B’s clock +1 day — order and no loss', async ({ browser }) => {
 });
 
 test('8. pre-update dialogue (no ids, with variants): switch variant on A, chat on B, sync', async () => {
+  // `dlg` наполняется в ensureSeed: без него тест годен только в цепочке, а
+  // одиночный прогон падал на `undefined.personaId` ещё до M-5.
+  await ensureSeed();
   const legacy: Dlg = {
     id: `legacy_${Date.now().toString(36)}`, title: 'Старый диалог до обновления',
     messages: [
@@ -676,7 +704,7 @@ test('8. pre-update dialogue (no ids, with variants): switch variant on A, chat 
   expect(b.messages[3]?.content).toBe('вариант А');
 });
 
-test('16. paged dialogue (> 500 KB) syncs through the page path', async () => {
+test('16. dialogue > 500 KB syncs as head + segments (was: page path)', async () => {
   const big: Dlg = {
     id: `big_${Date.now().toString(36)}`, title: 'Большой диалог',
     messages: [{ role: 'user', content: 'Большой вопрос' }, { role: 'assistant', content: 'Ы'.repeat(600_000) }],
@@ -998,7 +1026,7 @@ test('13. аккаунт без сейфа: слияние работает, о�
   }
 });
 
-test('15b. обрыв сети между страницами и манифестом', async () => {
+test('15b. обрыв сети между сегментами и head’ом (указатель не подписан)', async () => {
   await ensureSeed();
   // Долгие операции стенда (несколько отправок с кулдауном, стрим 16 с,
   // постраничные выгрузки 600 КБ) не умещаются в общие 4 мин — таймаут по длительности.
@@ -1040,14 +1068,31 @@ test('15b. обрыв сети между страницами и манифес
   console.warn('[15b] облако после обрыва:', JSON.stringify(r1));
   expect(r1.pages, 'дочерних строк не было — многострочный путь (страницы или сегменты) не сработал').toBeGreaterThan(1);
 
-  // Следующая выгрузка (M-1): версия без манифеста должна быть перечитана и
+  // Следующая выгрузка (M-1/M-5): версия без указателя должна быть перечитана и
   // довыгружена, а не проигнорирована.
+  //
+  // M-5 меняет смысл самого обрыва: тело (сегменты) само по себе диалогом не
+  // является, поэтому читатель обязан ОТКАЗАТЬСЯ, а не показать укороченную
+  // копию. Проверяем обе половины: (1) до довыгрузки B не получает ничего,
+  // (2) после — получает целый диалог.
+  const sees = (x: Dlg[]) => (x.find(d => d.id === huge.id)?.messages.length ?? 0) >= 4;
+  const before = await dialogues(B.page, user.uid);
+  expect(sees(before), 'без head’а B показался целый диалог — значит указатель всё-таки записан').toBe(false);
+  expect(before.some(d => d.id === huge.id), 'без head’а B собрал из осиротевших окон фасолдиалог').toBe(false);
+
+  // Указатель дописывается следующим проходом выгрузки (триггер — смена
+  // видимости вкладки, как в `pass`).
+  let healed = false;
+  for (let i = 0; i < 3 && !healed; i++) {
+    await pass(A.page);
+    healed = (await cloudRows(user.uid)).find(x => x.key === huge.id)?.pointer === true;
+  }
+  expect(healed, 'после обрыва head так и не был дописан').toBe(true);
   await waitFlushed(A.page, user.uid, huge.id);
   await cloudDetail(user.uid, huge.id, '15b после довыгрузки');
 
-  const sees = (x: Dlg[]) => (x.find(d => d.id === huge.id)?.messages.length ?? 0) >= 4;
   const b = await syncUntil(B.page, sees, 'B получает диалог после обрыва');
-  expect(sees(b), 'после обрыва манифеста B не собрал диалог').toBe(true);
+  expect(sees(b), 'после обрыва указателя B не собрал диалог').toBe(true);
   const db = b.find(d => d.id === huge.id)!;
   expect(countText(texts(db), 'Ход после обрыва манифеста')).toBe(1);
   expect(db.messages.some(m => m.content.length > 500_000), 'длинный ответ потерялся').toBe(true);
