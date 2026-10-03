@@ -164,17 +164,32 @@ async function grantAiConsent(page: Page): Promise<void> {
   const grant = page.getByRole('button', { name: 'Предоставить согласие' });
   const granted = page.getByText('Предоставлено').first();
   // Согласие живёт на аккаунте, не на устройстве: на сборке другого тега
-  // (0.9.28/0.9.29) секция может выглядеть иначе. Не найдя её, продолжаем —
-  // если бы согласия не было, отправка хода упала бы на AI_CONSENT_REQUIRED.
+  // (0.9.28/0.9.29) секция может выглядеть иначе — поэтому проверяем не надпись,
+  // а факт в базе (см. aiConsentGranted ниже).
   await expect(grant.or(granted).first()).toBeVisible({ timeout: 30_000 }).catch(() => {
-    console.warn('[consent] секция согласия не найдена — считаю, что аккаунту оно уже дано');
+    console.warn('[consent] секция согласия не найдена — проверяю согласие по базе');
   });
   if (await grant.isVisible().catch(() => false)) {
     // force/dispatchEvent: под нагрузкой кнопки настроек дёргаются анимациями, и
-    // обычный клик ждёт «стабильности» минутami (так упали прогоны 12-го сценария).
+    // обычный клик ждёт «стабильности» минутами (так упали прогоны 12-го сценария).
     await grant.click({ force: true, timeout: 15_000 }).catch(() => grant.dispatchEvent('click'));
     await expect(granted).toBeVisible({ timeout: 20_000 });
   }
+  // Молчаливое «считаю, что дано» стоило прогона: без согласия API отвечает
+  // 403 AI_CONSENT_REQUIRED, а тест видит «ход не принят» и падает по таймауту,
+  // где это выглядит как сломанная синхронизация (так упал сценарий 8).
+  await expect.poll(() => aiConsentGranted(user.uid), { timeout: 30_000, intervals: [1_000] }).toBe(true);
+}
+
+/** Истина согласия — столбец профиля: UI старого билда может выглядеть иначе. */
+async function aiConsentGranted(uid: string): Promise<boolean> {
+  const res = await fetch(`${REST}/users?uid=eq.${uid}&select=ai_consent_at,ai_consent_version`, {
+    headers: { apikey: env.SERVICE_KEY!, Authorization: `Bearer ${env.SERVICE_KEY}` },
+  });
+  const rows = (await res.json()) as Array<{ ai_consent_at: string | null; ai_consent_version?: number | null }>;
+  const granted = rows.length > 0 && rows[0]!.ai_consent_at !== null;
+  if (!granted) console.warn('[consent] в базе согласия пока нет:', JSON.stringify(rows[0] ?? null));
+  return granted;
 }
 
 async function openChat(page: Page, base = ''): Promise<void> {
@@ -210,7 +225,7 @@ async function startTurn(page: Page, text: string): Promise<void> {
     // (автоименование); с точным матчингом тест 1 висел на ожидании ответа.
     // поле очищается до ответа, и отклонённый лимитником запрос выглядел бы
     // отправленным, а ход молча не появлялся бы в базе (run2, run3).
-    const seen = page.waitForResponse(r => new URL(r.url()).pathname.startsWith('/api/chat'), { timeout: 90_000 }).catch(() => null);
+    const seen = page.waitForResponse(r => new URL(r.url()).pathname.startsWith('/api/chat'), { timeout: 45_000 }).catch(() => null);
     const wait = lastSendAt + SEND_COOLDOWN_MS - Date.now();
     if (wait > 0) await page.waitForTimeout(wait);
     await box.fill(text);
@@ -218,9 +233,21 @@ async function startTurn(page: Page, text: string): Promise<void> {
     lastSendAt = Date.now();
     const res = await seen;
     if (res && res.status() < 400) return;
+    // Серверный кулдаун считается по последнему AI-запросу аккаунта, а на один
+    // ход их 2–3 (чат, автоименование, память): фиксированный шаг харнесса
+    // систематически меньше реального окна. Ждём ровно столько, сколько просит
+    // сервер, вместо слепых повторов, съедавших бюджет теста.
+    if (res?.status() === 429) {
+      const retryAfter = Number(res.headers()['retry-after'] ?? '0');
+      if (retryAfter > 0) {
+        console.warn(`[startTurn] 429, жду Retry-After=${retryAfter} с`);
+        await page.waitForTimeout(retryAfter * 1_000 + 500);
+        lastSendAt = 0;
+      }
+    }
     const alert = (await page.getByRole('alert').allInnerTexts().catch(() => [])).join(' ');
     console.warn('[startTurn] не принят (попытка ' + (attempt + 1) + '): status=' + (res?.status() ?? 'нет ответа') + ' ' + alert.slice(0, 120));
-    if (attempt >= 6) throw new Error('startTurn: ход не принят за 7 попыток: ' + alert.slice(0, 120));
+    if (attempt >= 4) throw new Error('startTurn: ход не принят за 5 попыток: ' + alert.slice(0, 120));
     await page.getByRole('alert').getByRole('button', { name: 'Закрыть' }).first().click().catch(() => {});
   }
 }
