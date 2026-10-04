@@ -771,6 +771,29 @@ test('14. rename on A while B chats', async () => {
   dlg = a;
 });
 
+// Часы, убежавшие на сутки вперёд, стоят В СЕРЕДИНЕ серии и после починки: это её
+// доказательство. Отметку версии базовой строки диалога ставит сервер (миграция
+// 0037), поэтому копия skewed-устройства больше не может заморозить скаляры —
+// сценарий 6 ниже идёт по прежним местам и обязан сойтись.
+test('12. B’s clock +1 day — order and no loss', async ({ browser }) => {
+  await ensureSeed();
+  const Bfast = await device(await browser.newContext(), 24 * 3600_000);
+  await openDialogue(Bfast.page, dlg.title);
+  await sendTurn(Bfast.page, 'Ход с часов, ушедших на сутки вперёд');
+  await waitFlushed(Bfast.page, user.uid, dlg.id);
+  await openDialogue(A.page, dlg.title);
+  await sendTurn(A.page, 'Ход A с нормальных часов');
+  await waitFlushed(A.page, user.uid, dlg.id);
+  await pass(A.page); await pass(Bfast.page); await pass(A.page);
+  const a = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
+  const b = texts((await dialogues(Bfast.page, user.uid)).find(d => d.id === dlg.id));
+  console.warn('[12] A:', JSON.stringify(a));
+  expect(a).toEqual(b);
+  expect(countText(a, 'Ход с часов, ушедших на сутки вперёд')).toBe(1);
+  expect(countText(a, 'Ход A с нормальных часов')).toBe(1);
+  await Bfast.ctx.close();
+});
+
 test('8. pre-update dialogue (no ids, with variants): switch variant on A, chat on B, sync', async () => {
   // `dlg` наполняется в ensureSeed: без него тест годен только в цепочке, а
   // одиночный прогон падал на `undefined.personaId` ещё до M-5.
@@ -1322,33 +1345,9 @@ test('19. параллельный ход в большой диалог без 
   expect(countText(texts(b), 'Ход B в гонке'), 'ход B не дошёл до B').toBe(1);
 });
 
-// Сценарии 12 и 15 стоят в конце серии намеренно: оба оставляют общий
-// диалог-затравку в состоянии, из которого следующие тесты уже не работают.
-// 15 удаляет затравку, а `ensureSeed` считает её готовой, пока переменная `dlg`
-// не пуста — сценарий 4 после этого ждал диалог, которого больше нет (90 с в
-// `syncUntil` + 20 с на локатор). 12 выкладывает в облако копию с отметкой на
-// сутки вперёд, а скаляры в слиянии берутся LWW по updatedAt: у последующих
-// тестов смена собеседника откатывалась к снимку из «будущего», и копии
-// расходились (проверено тестом dialogueMergeFutureStamp.m6).
-test('12. B’s clock +1 day — order and no loss', async ({ browser }) => {
-  await ensureSeed();
-  const Bfast = await device(await browser.newContext(), 24 * 3600_000);
-  await openDialogue(Bfast.page, dlg.title);
-  await sendTurn(Bfast.page, 'Ход с часов, ушедших на сутки вперёд');
-  await waitFlushed(Bfast.page, user.uid, dlg.id);
-  await openDialogue(A.page, dlg.title);
-  await sendTurn(A.page, 'Ход A с нормальных часов');
-  await waitFlushed(A.page, user.uid, dlg.id);
-  await pass(A.page); await pass(Bfast.page); await pass(A.page);
-  const a = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
-  const b = texts((await dialogues(Bfast.page, user.uid)).find(d => d.id === dlg.id));
-  console.warn('[12] A:', JSON.stringify(a));
-  expect(a).toEqual(b);
-  expect(countText(a, 'Ход с часов, ушедших на сутки вперёд')).toBe(1);
-  expect(countText(a, 'Ход A с нормальных часов')).toBe(1);
-  await Bfast.ctx.close();
-});
-
+// Сценарий 15 идёт последним намеренно: он удаляет общий диалог-затравку, а
+// `ensureSeed` считает её готовой, пока переменная `dlg` не пуста. В середине
+// очереди это стоило сценарию 4 девяти минут ожидания диалога, которого больше нет.
 test('15. delete the whole dialogue on A while B appends', async () => {
   await ensureSeed();
   await openDialogue(A.page, dlg.title);
