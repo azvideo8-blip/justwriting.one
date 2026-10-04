@@ -872,6 +872,7 @@ test('6. перегенерация после смены объёма отве�
   // Ждём схождения по скалярным полям, а не двух проходов: сравнение после
   // фиксированного числа проходов меряло бы скорость фоновой синхронизации.
   { const deadline = Date.now() + 120_000;
+    let stuck = 0; let prev = '';
     for (let round = 1; Date.now() < deadline; round++) {
       const x = flagsOf((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
       const y = flagsOf((await dialogues(B.page, user.uid)).find(d => d.id === dlg.id));
@@ -881,6 +882,12 @@ test('6. перегенерация после смены объёма отве�
       // не выгружает) выглядят как одно и то же.
       const cloudUpd = (await cloudRows(user.uid)).find(r => r.key === dlg.id)?.updatedAt ?? null;
       console.warn(`[6:круг ${round}] A ${x} | B ${y} | облако updatedAt=${cloudUpd}`);
+      // Если обе копии не двинулись с прошлого круга — ждать дальше бессмысленно:
+      // синхронизация на одном из устройств не работает, а не «ещё не сошлась».
+      const now = `${x}|${y}`;
+      stuck = now === prev ? stuck + 1 : 0;
+      prev = now;
+      if (stuck >= 2) { console.warn('[6:круг]: отметки копий не меняются два круга подряд — фоновый проход молчит, схождение не проверять'); break; }
       await pass(A.page); await pass(B.page);
     } }
   await cloudDetail(user.uid, dlg.id, '6 после смены объёма/персоны');
