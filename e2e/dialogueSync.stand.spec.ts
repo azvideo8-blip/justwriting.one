@@ -872,10 +872,15 @@ test('6. перегенерация после смены объёма отве�
   // Ждём схождения по скалярным полям, а не двух проходов: сравнение после
   // фиксированного числа проходов меряло бы скорость фоновой синхронизации.
   { const deadline = Date.now() + 120_000;
-    while (Date.now() < deadline) {
+    for (let round = 1; Date.now() < deadline; round++) {
       const x = flagsOf((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
       const y = flagsOf((await dialogues(B.page, user.uid)).find(d => d.id === dlg.id));
       if (x === y) break;
+      // Печатаем каждый круг: без этого падения не объяснить — «слияние не
+      // сходится» и «фоновый проход молча не прошёл» (сейф заперт, аккаунт
+      // не выгружает) выглядят как одно и то же.
+      const cloudUpd = (await cloudRows(user.uid)).find(r => r.key === dlg.id)?.updatedAt ?? null;
+      console.warn(`[6:круг ${round}] A ${x} | B ${y} | облако updatedAt=${cloudUpd}`);
       await pass(A.page); await pass(B.page);
     } }
   await cloudDetail(user.uid, dlg.id, '6 после смены объёма/персоны');
