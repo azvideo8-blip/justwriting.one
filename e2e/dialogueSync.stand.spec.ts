@@ -9,7 +9,12 @@ import { readFileSync } from 'node:fs';
 // свежее третье устройство C, которое забирает облако в пустую базу.
 
 test.describe.configure({ mode: 'serial' });
-test.setTimeout(420_000);
+// Таймаут — базовые 240 с из восстановленной спеки S-38. По ходу отладки харнесса
+// он был поднят до 420 с (и до 480/540 с в двух сценариях), когда тесты висели на
+// промахах `startTurn` и `openDialogue`. После починки харнесса самый долгий
+// сценарий зелёного прогона — 2,5 мин, то есть в лимит вмещается с запасом, и
+// поднятые значения убраны, а не оставлены «на всякий случай».
+test.setTimeout(240_000);
 
 const env = Object.fromEntries(readFileSync('scripts/stand/.env.stand', 'utf8').split('\n').filter(Boolean).map(l => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)]; }));
 const REST = `${env.STAND_URL}/rest/v1`;
@@ -220,11 +225,30 @@ async function openDialogue(page: Page, titleOrId: string, base = ''): Promise<v
   // на: …»), префиксы совпадают, `.first()` берёт чужой диалог — и все ходы
   // дальнейшей очереди уезжают не в ту запись. Так выглядели «потеря хода» в
   // сценарии 4 и расхождение собеседника в сценарии 6.
-  const rx = new RegExp(rec.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const matched = await page.getByRole('button', { name: rx }).all();
+  // Пробелы в сопоставлении — гибкие: доступное имя пункта Playwright нормализует
+  // (последовательности сворачиваются), а заголовок из автоименования приходит из
+  // базы с двойным пробелом («ответ заглушки на:  …»). Строгий шаблон ловил 0
+  // совпадений на существующем пункте.
+  const rx = new RegExp(rec.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
+  // Пункт списка может ОТСТАВАТЬ от базы: автоименование правит заголовок в
+  // записи, а список ещё показывает прежний. Снимок в один миг превращал эту
+  // гонку в «диалога нет». Ждём ровно одного совпадения; 0 или два после ожидания
+  // — по-прежнему явная ошибка, а не `.first()`.
+  let matched = await page.getByRole('button', { name: rx }).all();
+  for (let attempt = 0; matched.length !== 1 && attempt < 20; attempt++) {
+    await page.waitForTimeout(1_000);
+    matched = await page.getByRole('button', { name: rx }).all();
+  }
   const names = await Promise.all(matched.map(async b => (await b.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 70)));
-  console.warn(`[openDialogue] «${rec.title.slice(0, 40)}» id=${rec.id.slice(0, 8)}: совпадений ${matched.length} — ${JSON.stringify(names)}`);
-  if (matched.length !== 1) throw new Error(`openDialogue: пункт диалога «${rec.title.slice(0, 40)}» (id ${rec.id.slice(0, 8)}) не один (${matched.length}): ${JSON.stringify(names)}`);
+  if (matched.length !== 1) {
+    // В лог — что реально отрисовано в списке, иначе «0 совпадений» невозможно
+    // отличить от «пункт показывает прежний заголовок».
+    const all = await page.getByRole('button').allInnerTexts().catch(() => []);
+    const inList = all.map(t => t.replace(/\s+/g, ' ').trim()).filter(t => t.startsWith('Гп ') || t.startsWith('К ')).slice(0, 6);
+    console.warn(`[openDialogue] «${rec.title.slice(0, 40)}» id=${rec.id.slice(0, 8)}: совпадений ${matched.length}, список: ${JSON.stringify(inList)}`);
+    throw new Error(`openDialogue: пункт диалога «${rec.title.slice(0, 40)}» (id ${rec.id.slice(0, 8)}) не один (${matched.length}): ${JSON.stringify(names)}; в списке: ${JSON.stringify(inList)}`);
+  }
+  console.warn(`[openDialogue] «${rec.title.slice(0, 40)}» id=${rec.id.slice(0, 8)}: совпадений 1 — ${JSON.stringify(names)}`);
   const item = matched[0]!;
   await expect(item).toBeVisible({ timeout: 20_000 });
   await item.click();
@@ -917,7 +941,6 @@ test('4. забор в другой вкладке того же устройс�
 });
 
 test('5. удаление хода на A и ход на B, пока извлекается память', async () => {
-  test.setTimeout(480000);
   await ensureSeed();
   await openDialogue(A.page, dlg.title);
   await openDialogue(B.page, dlg.title);
@@ -1066,10 +1089,7 @@ test('10. старый клиент 0.9.29: дописывает, переген
 });
 
 test('11. диалог > 500 КБ на обоих устройствах, включая созданный на 0.9.28', async ({ browser }) => {
-  test.setTimeout(540000);
   await ensureSeed();
-  // Долгие операции стенда (несколько отправок с кулдауном, стрим 16 с,
-  // постраничные выгрузки 600 КБ) не умещаются в общие 4 мин — таймаут по длительности.
   const old28 = await device(await browser.newContext(), 0, OLD_028);
   await old28.page.goto(OLD_028 + '/ai');
   await unlockVaultIfAsked(old28.page, user.password, 8_000);
