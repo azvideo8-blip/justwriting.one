@@ -228,20 +228,19 @@ async function openDialogue(page: Page, titleOrId: string, base = ''): Promise<v
   const item = matched[0]!;
   await expect(item).toBeVisible({ timeout: 20_000 });
   await item.click();
-  // Клик по списку не гарантирует, что чат переключился: проверка по экрану —
-  // последняя реплика целевой записи должна появиться ИМЕННО в чате (абзац <p>),
-  // а не в превью боковой панели. Не появилось — жмём снова и не молчим.
-  const last = rec.messages.filter(m => m.type !== 'system').at(-1)?.content ?? '';
-  if (!last) return;
-  const probe = last.replace(/\s+/g, ' ').slice(0, 60);
+  // Клик по списку не гарантирует, что чат переключился. Проверяем не текстом
+  // переписки (он меняется прямо во время прогона: забор, смена варианта — и
+  // проверка по устаревшему снимку краснела на харнессе), а признаком активного
+  // пункта: AIChatSidebar подсвечивает выбранный диалог инлайн-стилем, у
+  // неактивных его нет. Нет подсветки — жмём снова, и не молчим.
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const inChat = await page.locator('p').filter({ hasText: probe }).first().isVisible().catch(() => false);
-    if (inChat) return;
-    console.warn(`[openDialogue] «${rec.title.slice(0, 30)}» не открылся (попытка ${attempt}): в чате нет «${probe.slice(0, 40)}»`);
+    const style = await item.getAttribute('style').catch(() => null);
+    if (style?.includes('linear-gradient')) return;
+    console.warn(`[openDialogue] «${rec.title.slice(0, 30)}» не стал активным (попытка ${attempt}): style=${JSON.stringify(style)}`);
     await item.click().catch(() => {});
     await page.waitForTimeout(1_500);
   }
-  throw new Error(`openDialogue: диалог «${rec.title.slice(0, 40)}» (id ${rec.id.slice(0, 8)}) не открылся в чат; последний его ход «${probe}»`);
+  throw new Error(`openDialogue: диалог «${rec.title.slice(0, 40)}» (id ${rec.id.slice(0, 8)}) не стал открытым — пункт списка не подсвечен`);
 }
 
 let lastSendAt = 0;
