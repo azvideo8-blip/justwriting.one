@@ -1,7 +1,25 @@
 import { defineConfig, devices } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 // S-38: прогон слияния диалогов на двух профилях браузера на локальном стенде
 // (scripts/stand/up.sh + api/server.ts с заглушкой ИИ через STAND_API_PORT).
+
+// Прежний `process.env.STAND_URL ?? 'http://localhost:3000'` молча уходил на
+// чужой сервис, если переменная не экспортирована: тот ронял React
+// («Invalid hook call»), страница логина не рендерилась, и падал `beforeAll` —
+// прогон выглядел как дефект продукта, а был дефектом окружения.
+function standUrl(): string {
+  const fromEnv = process.env.STAND_URL;
+  if (fromEnv) return fromEnv;
+  try {
+    const line = readFileSync('scripts/stand/.env.stand', 'utf8')
+      .split('\n')
+      .find(l => l.startsWith('STAND_URL='));
+    if (line) return line.slice('STAND_URL='.length).trim();
+  } catch { /* файла нет — стенд не поднят */ }
+  throw new Error('STAND_URL не задан и scripts/stand/.env.stand не найден — поднимите стенд: bash scripts/stand/up.sh');
+}
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: 'dialogueSync.stand.spec.ts',
@@ -11,7 +29,7 @@ export default defineConfig({
   reporter: [['list']],
   timeout: 240_000,
   use: {
-    baseURL: process.env.STAND_URL ?? 'http://localhost:3000',
+    baseURL: standUrl(),
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
