@@ -44,8 +44,15 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {}
 } as any;
 
+// Колбэк дёргается только пока среда жива: после teardown jsdom vitest снимает
+// `window`, а 16-миллисекундный таймер motion-dom ещё может приехать — это давало
+// unhandled `ReferenceError: window is not defined`, и полный `vitest run` выходил
+// с кодом 1 при нуле красных файлов (1 прогон из 5).
 global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => {
-  return setTimeout(() => cb(Date.now()), 16) as unknown as number;
+  return setTimeout(() => {
+    if (typeof window === 'undefined') return;
+    cb(Date.now());
+  }, 16) as unknown as number;
 });
 
 global.cancelAnimationFrame = vi.fn((id: number) => {
