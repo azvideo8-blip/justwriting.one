@@ -800,23 +800,6 @@ test('16. dialogue > 500 KB syncs as head + segments (was: page path)', async ()
 
 });
 
-test('15. delete the whole dialogue on A while B appends', async () => {
-  await ensureSeed();
-  await openDialogue(A.page, dlg.title);
-  await openDialogue(B.page, dlg.title);
-  const del = A.page.getByRole('button', { name: 'Удалить', exact: true }).first();
-  await expect(del).toBeVisible({ timeout: 10_000 });
-  await del.click();
-  { const dialog = A.page.getByRole('dialog'); if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) { const bs = await dialog.getByRole('button').all(); await bs[bs.length - 1]!.click(); } }
-  await sendTurn(B.page, 'Ход B пока A удаляет диалог');
-  await pass(A.page); await pass(B.page); await pass(A.page); await pass(B.page);
-  const a = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id);
-  const b = (await dialogues(B.page, user.uid)).find(d => d.id === dlg.id);
-  const rows = (await cloudRows(user.uid)).find(r => r.key === dlg.id);
-  console.warn('[15] A has:', !!a, 'B has:', !!b, 'cloud row:', !!rows, 'B texts:', JSON.stringify(texts(b)));
-  expect(!!a).toBe(!!b);
-});
-
 test('4. забор в другой вкладке того же устройства, пока стрим ещё дописывается', async () => {
   await ensureSeed();
   await openDialogue(A.page, dlg.title);
@@ -1291,4 +1274,26 @@ test('19. параллельный ход в большой диалог без 
   expect(countText(texts(a), 'Ход B в гонке'), 'ход B затёрт').toBe(1);
   expect(countText(texts(b), 'Ход A в гонке'), 'ход A не дошёл до B').toBe(1);
   expect(countText(texts(b), 'Ход B в гонке'), 'ход B не дошёл до B').toBe(1);
+});
+
+// Сценарий 15 идёт последним и намеренно: он удаляет общий диалог-затравку, а
+// `ensureSeed` считает затравку готовой, пока переменная `dlg` не пуста. В середине
+// очереди это стоило сценарию 4 девяти минут ожидания: затравки в списке уже не
+// было — `[syncUntil] … не дождались`, а на устройстве остались только big_…,
+// legacy_… и пустое надгробие удалённого диалога.
+test('15. delete the whole dialogue on A while B appends', async () => {
+  await ensureSeed();
+  await openDialogue(A.page, dlg.title);
+  await openDialogue(B.page, dlg.title);
+  const del = A.page.getByRole('button', { name: 'Удалить', exact: true }).first();
+  await expect(del).toBeVisible({ timeout: 10_000 });
+  await del.click();
+  { const dialog = A.page.getByRole('dialog'); if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) { const bs = await dialog.getByRole('button').all(); await bs[bs.length - 1]!.click(); } }
+  await sendTurn(B.page, 'Ход B пока A удаляет диалог');
+  await pass(A.page); await pass(B.page); await pass(A.page); await pass(B.page);
+  const a = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id);
+  const b = (await dialogues(B.page, user.uid)).find(d => d.id === dlg.id);
+  const rows = (await cloudRows(user.uid)).find(r => r.key === dlg.id);
+  console.warn('[15] A has:', !!a, 'B has:', !!b, 'cloud row:', !!rows, 'B texts:', JSON.stringify(texts(b)));
+  expect(!!a).toBe(!!b);
 });
