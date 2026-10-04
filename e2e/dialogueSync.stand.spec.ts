@@ -1033,12 +1033,20 @@ test('12b. часы B на сутки НАЗАД — ничего не теря�
   await waitFlushed(A.page, user.uid, dlg.id);
   for (let i = 0; i < 2; i++) { await pass(A.page); await pass(Bslow.page); }
   await cloudDetail(user.uid, dlg.id, '12b расхождение часов −1 сутки');
-  const a = texts((await dialogues(A.page, user.uid)).find(d => d.id === dlg.id));
-  const b = texts((await dialogues(Bslow.page, user.uid)).find(d => d.id === dlg.id));
+  const ad = (await dialogues(A.page, user.uid)).find(d => d.id === dlg.id)!;
+  const bd = (await dialogues(Bslow.page, user.uid)).find(d => d.id === dlg.id)!;
+  const a = texts(ad);
+  const b = texts(bd);
   console.warn('[12b] A:', JSON.stringify(a));
   expect(countText(a, 'Ход с часов, отставших на сутки')).toBe(1);
   expect(countText(a, 'Ход A с точных часов')).toBe(1);
-  expect(new Set(a).size).toBe(a.length);
+  // «Ничего не задвоено» проверяется по id реплик, а не по превью текстов: texts()
+  // режет по 40 знаков, а ответы заглушки различаются только счётчиком в хвосте —
+  // на длинном диалоге три разных ответа выглядели одинаково, и проверка краснела
+  // на харнессе, а не на слиянии.
+  const ids = ad.messages.map(m => m.id);
+  expect(ids.every(x => x !== undefined), 'слияние отдало реплику без id').toBe(true);
+  expect(new Set(ids).size, `задвоение реплик: ${JSON.stringify(ids.filter((x, i) => ids.indexOf(x) !== i))}`).toBe(ids.length);
   expect(a).toEqual(b);
   await Bslow.ctx.close();
 });
