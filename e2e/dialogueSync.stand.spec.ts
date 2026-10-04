@@ -1,4 +1,4 @@
-import { test, expect, type Page, type BrowserContext, type Request } from '@playwright/test';
+import { test, expect, type Page, type BrowserContext, type Request, type Response } from '@playwright/test';
 import { createUser } from './stand';
 import { readFileSync } from 'node:fs';
 
@@ -213,51 +213,67 @@ let lastSendAt = 0;
 // аккаунта, а на один ход их 2–3 (чат, автоименование, память), поэтому шаг
 // «интервал между ходами» систематически меньше реального окна: ретраи съедали таймаут теста.
 const SEND_COOLDOWN_MS = 12_000; // реальный межзапросный кулдаун сервера — 8 с
-/** Отправляет ход и ждёт, пока поле очистится, т. е. запрос принят.
- *  Ответа НЕ ждёт: сценарию «забор посреди стрима» нужен незавершённый стрим. */
+/** Отправляет ход и дожидается, пока он лег в локальную базу.
+ *  Ответа модели НЕ ждёт: сценарию «забор посреди стрима» нужен незавершённый стрим.
+ *
+ *  Факт принятия — запись в IndexedDB, а не первый ответ эндпоинта. Прежний
+ *  матчинг «любой /api/chat* с статусом < 400» ловил отказ автоименования
+ *  (`/api/chatWithAI`, 429 «Daily limit reached.») как отказ самого хода: ход
+ *  был принят и отвечен (видно на снимке страницы), а харнесс уходил во вторую
+ *  попытку и висел на `fill` до таймаута теста — так падал сценарий 8 в очереди. */
 async function startTurn(page: Page, text: string): Promise<void> {
   await unlockVaultIfAsked(page, user.password);
   const box = page.locator('textarea').first();
+  const recorded = async () => (await dialogues(page, user.uid)).some(d => d.messages.some(m => m.content.includes(text)));
   for (let attempt = 0; ; attempt++) {
-    // Принятие хода — по ответу эндпоинта чата, а не по очистке поля: поле
-    // очищается до ответа. Широкий префикс /api/chat, а не точное равенство:
-    // стрим идёт через service worker, и на странице виден также /api/chatWithAI
-    // (автоименование); с точным матчингом тест 1 висел на ожидании ответа.
-    // поле очищается до ответа, и отклонённый лимитником запрос выглядел бы
-    // отправленным, а ход молча не появлялся бы в базе (run2, run3).
-    const seen = page.waitForResponse(r => new URL(r.url()).pathname.startsWith('/api/chat'), { timeout: 45_000 }).catch(() => null);
-    // «не принят» бывает трёх видов: сервер отказал (видно в статусе и теле),
-    // запрос вообще не ушёл (клиентский собственный кулдаун молча блокирует
-    // отправку), или ушёл и не ответил. Без этого различия падение в очереди
-    // выглядит как «отправка не доходит до эндпоинта», а почему — непонятно.
+    // Отказы собираем со всех AI-эндпоинтов, но относимся к ним как к контексту:
+    // 429 от служебного вызова (именование, память) ход не отменяет.
+    const rejects: string[] = [];
+    const onResponse = (r: Response) => {
+      const p = new URL(r.url()).pathname;
+      if (!p.startsWith('/api/chat')) return;
+      if (r.status() < 400) return;
+      rejects.push(`${p} ${r.status()}${r.headers()['retry-after'] ? ` (Retry-After=${r.headers()['retry-after']})` : ''}`);
+    };
+    page.on('response', onResponse);
     let sent = false;
     const onRequest = (r: Request) => { if (r.url().includes('/api/chat')) sent = true; };
     page.on('request', onRequest);
     const wait = lastSendAt + SEND_COOLDOWN_MS - Date.now();
     if (wait > 0) await page.waitForTimeout(wait);
-    await box.fill(text);
-    await box.press('Enter');
+    // `fill` без ограничения ждётactionability до конца таймаута теста: во время
+    // генерации композера нет на экране, и молчаливое висение стоило очереди
+    // семь минут на одном шаге.
+    try {
+      await box.fill(text, { timeout: 20_000 });
+      await box.press('Enter');
+    } catch (e) {
+      const dialogs = (await page.getByRole('dialog').allInnerTexts().catch(() => [])).join(' | ').slice(0, 160);
+      console.warn(`[startTurn] поле ввода недоступно (попытка ${attempt + 1}): ${String(e).slice(0, 120)} · url=${page.url()} · dialogs="${dialogs}"`);
+      page.off('request', onRequest); page.off('response', onResponse);
+      if (attempt >= 4) throw new Error(`startTurn: нет поля ввода за 5 попыток (url=${page.url()}, dialogs="${dialogs}")`);
+      await page.waitForTimeout(3_000);
+      continue;
+    }
     lastSendAt = Date.now();
-    const res = await seen;
+    // Ждём записи хода в базу (она появляется, только когда запрос принят).
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline && !(await recorded())) await page.waitForTimeout(1_000);
+    const accepted = await recorded();
     page.off('request', onRequest);
-    if (res && res.status() < 400) return;
-    const body = res ? (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160) : (sent ? 'запрос ушёл, ответа нет' : 'ЗАПРОС НЕ УШЁЛ (блокировка на клиенте)');
-    // Серверный кулдаун считается по последнему AI-запросу аккаунта, а на один
-    // ход их 2–3 (чат, автоименование, память): фиксированный шаг харнесса
-    // систематически меньше реального окна. Ждём ровно столько, сколько просит
-    // сервер, вместо слепых повторов, съедавших бюджет теста.
-    if (res?.status() === 429) {
-      const retryAfter = Number(res.headers()['retry-after'] ?? '0');
-      if (retryAfter > 0) {
-        console.warn(`[startTurn] 429, жду Retry-After=${retryAfter} с`);
-        await page.waitForTimeout(retryAfter * 1_000 + 500);
-        lastSendAt = 0;
-      }
+    page.off('response', onResponse);
+    if (accepted) {
+      if (rejects.length) console.warn(`[startTurn] ход принят, но в попытке были отказы: ${rejects.join(', ')}`);
+      return;
     }
     const alert = (await page.getByRole('alert').allInnerTexts().catch(() => [])).join(' ');
     const clientCooldown = await page.evaluate(() => localStorage.getItem('jw_ai_cooldown_until')).catch(() => null);
-    console.warn(`[startTurn] не принят (попытка ${attempt + 1}): ${res?.status() ?? 'нет ответа'} ${body} · alert="${alert.slice(0, 80)}" · jw_ai_cooldown_until=${clientCooldown ?? '?'}`);
-    if (attempt >= 4) throw new Error(`startTurn: ход не принят за 5 попыток: ${body} · alert="${alert.slice(0, 120)}"`);
+    console.warn(`[startTurn] ход не в базе (попытка ${attempt + 1}): запрос${sent ? 'ушёл' : 'НЕ УШЁЛ'} · отказы: ${rejects.join(', ') || 'нет'} · alert="${alert.slice(0, 80)}" · jw_ai_cooldown_until=${clientCooldown ?? '?'}`);
+    if (attempt >= 4) throw new Error(`startTurn: ход не принят за 5 попыток · отказы: ${rejects.join(', ') || 'нет'} · alert="${alert.slice(0, 120)}"`);
+    // Серверный кулдаун (10 с на аккаунт) приходит с Retry-After — ждём ровно
+    // столько, сколько просит сервер, вместо слепых повторов.
+    const retryAfter = Math.max(0, ...rejects.map(x => Number(/Retry-After=(\d+)/.exec(x)?.[1] ?? 0)));
+    if (retryAfter > 0) { await page.waitForTimeout(retryAfter * 1_000 + 500); lastSendAt = 0; }
     await page.getByRole('alert').getByRole('button', { name: 'Закрыть' }).first().click().catch(() => {});
   }
 }
