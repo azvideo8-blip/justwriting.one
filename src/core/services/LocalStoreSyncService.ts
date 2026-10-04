@@ -885,7 +885,14 @@ export class LocalStoreSyncManager {
       const current = await tx.store.get(key);
       if (!current) { await tx.done; return 'gone'; }
       const merged = cloud?.dialogue
-        ? mergeDialogues(withMessageIds(current), cloud.dialogue)
+        // Версией облачной копии считается отметка СТРОКИ, которую поставил
+        // сервер (миграция 0037), а не время внутри `data`: его сервер не видит
+        // (шифр) и часы устройства-источника остаются там навсегда. Без этого
+        // устройство с убежавшими часами выигрывало спор скаляров до бесконечности.
+        ? mergeDialogues(
+          withMessageIds(current),
+          typeof expected === 'number' ? { ...cloud.dialogue, updatedAt: expected } : cloud.dialogue,
+        )
         : { ...withMessageIds(current), schema: DIALOGUE_SCHEMA };
       const changedLocally = dialogueFingerprint(merged) !== dialogueFingerprint(current);
       if (changedLocally || merged.updatedAt !== current.updatedAt) {

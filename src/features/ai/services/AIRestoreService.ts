@@ -89,6 +89,14 @@ export interface AIRestoreResult {
   oversized: number;
   skippedLocked: boolean;
   sectionFailed?: boolean;
+  /**
+   * Наибольшая отметка строки, реально увидленная в облаке за этот проход.
+   * Курсор инкрементального забора обязан считаться по ней, а не по `Date.now()`:
+   * базовой строке диалога отметку версии ставит сервер (миграция 0037), и на
+   * устройстве с часами вперёд собственные часы оказываются «новее» всего, что
+   * приходит с сервера, — такой читатель перестал бы получать чужие правки совсем.
+   */
+  maxUpdatedAt: number;
 }
 
 
@@ -144,7 +152,7 @@ async function fetchMissingSegments(userId: string, store: string, keys: string[
  */
 export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: number }): Promise<AIRestoreResult> {
   const sinceMs = opts?.sinceMs;
-  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false, sectionFailed: false };
+  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false, sectionFailed: false, maxUpdatedAt: 0 };
   if (!userId) return result;
 
   // With E2E on but the vault locked, every decrypt throws. Restoring now would
@@ -242,6 +250,12 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
     for (const { store, baseKey, rows } of grouped.values()) {
       if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
+      // Спор копий и курсор забора считаются отметкой СТРОКИ, а не спрятанного
+      // внутри документа: `payload.data` для нас непрозрачен (шифр), и часы
+      // устройства-источника остаются в нём навсегда. Строке же отметку ставит
+      // сервер (миграция 0037).
+      const outerTs = typeof rows[0]?.payload?.updatedAt === 'number' ? (rows[0].payload.updatedAt as number) : null;
+      if (outerTs !== null && outerTs > result.maxUpdatedAt) result.maxUpdatedAt = outerTs;
       try {
         let fullJson: string;
         let cloudTs: number | null = null;
@@ -376,7 +390,11 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
         // S-35: чтение, слияние и запись — в одной транзакции и без await на
         // не-IDB работе между ними: ход, записанный между get и put, терялся.
         if (store === 'aiDialogues') {
-          const cloudDialogue = parsedData as AIDialogue;
+          // Версией облачной копии считается серверная отметка строки, а не та,
+          // что нарисована часами устройства внутри `data`.
+          const cloudDialogue: AIDialogue = outerTs === null
+            ? (parsedData as AIDialogue)
+            : { ...(parsedData as AIDialogue), updatedAt: outerTs };
           const tx = db.transaction('aiDialogues', 'readwrite');
           const current = await tx.store.get(baseKey);
           const merged = current ? mergeDialogues(current, cloudDialogue) : cloudDialogue;

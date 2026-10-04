@@ -280,6 +280,63 @@ describe('restoreAIDataFromCloud', () => {
     expect(localStore.aiDialogues.get('large-dlg')).toMatchObject({ id: 'large-dlg', pad: padding });
   });
 
+  it('maxUpdatedAt = наибольшая внешняя отметка строки, увидленная в облаке', async () => {
+    // Курсор инкрементального забора обязан считаться по этой величине, а не по
+    // Date.now(): на устройстве с часами вперёд собственные часы «новее» всего,
+    // что приходит с сервера, и такой читатель перестал бы получать чужие правки.
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues',
+      key: 'cursor-dlg',
+      payload: {
+        data: JSON.stringify({ id: 'cursor-dlg', title: 'Т', personaId: 'cbt', personaName: 'КПТ', personaEmoji: '🎯', messages: [], createdAt: 1000, updatedAt: 7000 }),
+        updatedAt: 7000,
+      },
+    });
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait',
+      key: 'cursor-portrait',
+      payload: { data: JSON.stringify({ id: 'cursor-portrait', updatedAt: 9000 }), updatedAt: 9000 },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.maxUpdatedAt, 'забор не сообщил самую свежую облачную отметку').toBe(9000);
+  });
+
+  it('облачная копия с надутыми ВНУТРЕННИМИ часами не выигрывает спор скаляров', async () => {
+    // Миграция 0037: сервер переписывает отметку строки, а содержимое `data`
+    // непрозрачно (шифр) и сохраняет часы устройства-источника. Если бы спор
+    // шел по внутренней отметке, устройство с +сутками держало бы своего
+    // собеседника вечно — ровно тот дефект, ради которого всё и затевалось.
+    const DAY = 86_400_000;
+    const inner = {
+      id: 'skew-dlg', title: 'Т', personaId: 'cbt', personaName: 'КПТ', personaEmoji: '🎯',
+      messages: [{ id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 10 }],
+      createdAt: 1000, updatedAt: 5000 + DAY, // часы источника убежали на сутки
+    };
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: 'skew-dlg',
+      payload: { data: JSON.stringify(inner), updatedAt: 5000 }, // серверная отметка строки — честная
+    });
+    (localStore.aiDialogues as Map<string, unknown>).set('skew-dlg', {
+      id: 'skew-dlg', title: 'Т', personaId: 'group_psychology', personaName: 'Группа', personaEmoji: '🎯',
+      messages: [{ id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 10 }],
+      createdAt: 1000, updatedAt: 6000,
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    const after = localStore.aiDialogues.get('skew-dlg') as { personaId: string; messages: unknown[] };
+    expect(after.personaId, 'скаляр утащила копия с убежавшими внутренними часами').toBe('group_psychology');
+    expect(after.messages).toHaveLength(1);
+    expect(res.maxUpdatedAt, 'курсор обязан считаться по отметке строки, а не по внутренним часам').toBe(5000);
+  });
+
+  it('maxUpdatedAt остаётся 0, когда в облаке ничего нет (курсор нельзя задирать)', async () => {
+    const res = await restoreAIDataFromCloud('user_1');
+    expect(res.maxUpdatedAt).toBe(0);
+  });
+
   it('rejects record exceeding MAX_RESTORE_RECORD_BYTES, reports oversized with both numbers and never malformed (AG-RESTORE-4)', async () => {
     // Payload slightly above MAX_RESTORE_RECORD_BYTES (10 MB)
     const padding = 'y'.repeat(MAX_RESTORE_RECORD_BYTES + 1024);

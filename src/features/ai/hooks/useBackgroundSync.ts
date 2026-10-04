@@ -97,7 +97,14 @@ export function useBackgroundSync(): void {
         const startedAt = Date.now();
         const last = Number(localStorage.getItem(pullKey)) || startedAt - PULL_FIRST_WINDOW_MS;
         const pulled = await restoreAIDataFromCloud(uid, { sinceMs: last - PULL_CLOCK_SKEW_MS });
-        if (!pulled.skippedLocked) localStorage.setItem(pullKey, String(startedAt));
+        // Курсор — по отметке, реально увиденной в облаке, а не по часам
+        // устройства. Базовой строке диалога отметку ставит сервер (миграция 0037),
+        // и на машине с часами вперёд `Date.now()` уходит в будущее: сравнение
+        // «облако старше курсора» стало бы истинным навсегда, и такой читатель
+        // перестал бы получать чужие правки совсем. Назад курсор не откатываем.
+        if (!pulled.skippedLocked) {
+          localStorage.setItem(pullKey, String(Math.min(startedAt, Math.max(last, pulled.maxUpdatedAt))));
+        }
       } catch (e) {
         reportError(e, { action: 'backgroundSync_pullAIData' });
       }
