@@ -88,3 +88,56 @@ begin
 end $$;
 
 select 'server_stamp: все проверки прошли' as итог;
+
+-- 4. У БАЗОВОЙ строки диалога `payload.updatedAt` — серверный, даже если клиент
+-- прислал время из будущего. Дочерние строки (страницы `key#…`, окна `key@seg…`)
+-- не трогаются: по отметке версии строится уборка прежних копий.
+do $$
+declare
+  uid uuid;
+  v bigint;
+  future bigint := floor(extract(epoch from now()) * 1000)::bigint + 86400000; -- +сутки
+begin
+  select user_id into uid from public.local_store_records limit 1;
+
+  delete from public.local_store_records where key in ('stamp-base', 'stamp-base#3', 'stamp-base@seg9-x');
+
+  insert into public.local_store_records (user_id, store, key, payload)
+    values (uid, 'aiDialogues', 'stamp-base', jsonb_build_object('updatedAt', future));
+  select (payload ->> 'updatedAt')::bigint into v
+    from public.local_store_records where key = 'stamp-base';
+  if v >= future then
+    raise exception 'базовая строка сохранила клиентские часы: % (просят <= now)', v;
+  end if;
+
+  insert into public.local_store_records (user_id, store, key, payload)
+    values (uid, 'aiDialogues', 'stamp-base#3', jsonb_build_object('updatedAt', future));
+  select (payload ->> 'updatedAt')::bigint into v
+    from public.local_store_records where key = 'stamp-base#3';
+  if v <> future then
+    raise exception 'страница %: триггер тронул отметку версии — уборка прежних копий рассогласуется', v;
+  end if;
+
+  insert into public.local_store_records (user_id, store, key, payload)
+    values (uid, 'aiDialogues', 'stamp-base@seg9-x', jsonb_build_object('updatedAt', future, 'firstAt', future));
+  select (payload ->> 'updatedAt')::bigint into v
+    from public.local_store_records where key = 'stamp-base@seg9-x';
+  if v <> future then
+    raise exception 'окно %: триггер тронул отметку окна', v;
+  end if;
+
+  -- Другой стор (заметки, документы) не затронут вовсе.
+  insert into public.local_store_records (user_id, store, key, payload)
+    values (uid, 'documents', 'stamp-doc', jsonb_build_object('updatedAt', future));
+  select (payload ->> 'updatedAt')::bigint into v
+    from public.local_store_records where store = 'documents' and key = 'stamp-doc';
+  if v <> future then
+    raise exception 'documents: триггер полез в чужой стор (% )', v;
+  end if;
+
+  delete from public.local_store_records
+    where key in ('stamp-base', 'stamp-base#3', 'stamp-base@seg9-x')
+       or (store = 'documents' and key = 'stamp-doc');
+end $$;
+
+select 'server_stamp: payload.updatedAt базовой строки — серверный, дочерние целы' as итог_2;

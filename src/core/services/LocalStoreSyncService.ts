@@ -832,6 +832,28 @@ export class LocalStoreSyncManager {
   }
 
   /**
+   * Серверная метка: базовой строке диалога `payload.updatedAt` проставил сервер
+   * (миграция 0037), и локальная копия обязана принять это значение. Иначе её
+   * собственные часы снова победят следующий спор скаляров, а расхождение — ровно то,
+   * из-за чего устройство с часами вперёд держало чужие настройки замороженными —
+   * переживало бы перезагрузку. Отпечаток копии (dialogueFingerprint) на updatedAt не
+   * смотрит, поэтому само принятие повторной выгрузки не поднимает.
+   */
+  private async adoptServerStamp(
+    uid: string,
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    key: string,
+  ): Promise<void> {
+    const row = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key);
+    const fromCloud = (row?.payload as Record<string, unknown> | undefined)?.updatedAt;
+    if (typeof fromCloud !== 'number' || !Number.isFinite(fromCloud)) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const current = await tx.store.get(key);
+    if (current && current.updatedAt !== fromCloud) await tx.store.put({ ...current, updatedAt: fromCloud });
+    await tx.done;
+  }
+
+  /**
    * S-34: облачная копия читается, союз пишется локально (get+merge+put в
    * одной транзакции) и уходит в облако с условием «updatedAt облака не
    * изменился». Ушёл — перечитываем и сливаем заново, до трёх раз; дальше
@@ -930,6 +952,7 @@ export class LocalStoreSyncManager {
           if (DataProvider.deleteLocalStorePagedRecords) {
             await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
           }
+          await this.adoptServerStamp(uid, db, key);
           return 'ok';
         }
       } else {
@@ -945,6 +968,7 @@ export class LocalStoreSyncManager {
           if (DataProvider.deleteLocalStorePagedRecords) {
             await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
           }
+          await this.adoptServerStamp(uid, db, key);
           return 'ok';
         }
       }
