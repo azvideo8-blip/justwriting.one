@@ -332,6 +332,53 @@ describe('restoreAIDataFromCloud', () => {
     expect(res.maxUpdatedAt, 'курсор обязан считаться по отметке строки, а не по внутренним часам').toBe(5000);
   });
 
+  it('версией записи считает отметку БАЗОВОЙ строки, а не самой свежей в группе', async () => {
+    // Отметку окна ставит устройство (сервер переписывает только базовую строку),
+    // поэтому курсор и спор копий обязаны смотреть в строку `key`. Если брать
+    // первую/самую свежую строку группы, зависимость от порядка сортировки в
+    // провайдере станет частью контракта молча.
+    const segKey = 'pair-dlg@seg1000-abcd';
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: segKey,
+      payload: {
+        seg: true, headKey: 'pair-dlg', firstAt: 1000, lastAt: 1001, updatedAt: 9999,
+        messages: JSON.stringify([{ id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 1000 }]),
+      },
+    });
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: 'pair-dlg',
+      payload: {
+        head: true, title: 'Т', personaName: 'Коуч', personaEmoji: '🎯', updatedAt: 5000,
+        createdAt: 1000, closingSummary: '',
+        segments: [{ key: segKey, firstAt: 1000, lastAt: 1001, updatedAt: 9999, bytes: 10, count: 1 }],
+      },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.maxUpdatedAt, 'курсор уехал за отметку осиротевшего окна').toBe(5000);
+    // Здесь проверяется именно выбор строки для версии (head живёт в `key`, окно
+    // несёт device-метку). Сборка head + окна покрыт отдельными сюитами
+    // (dialogueSegmentUpload.m5, localStoreSyncPaging), принятие серверной отметки
+    // локальной копией — dialogueServerStamp.m6.
+    const stamps = [...localStore.aiDialogues.values()] as Array<{ updatedAt?: number }>;
+    expect(stamps.every(d => d.updatedAt !== 9999), 'отметка окна просочилась в локальную копию как версия').toBe(true);
+  });
+
+  it('группа без базовой строки (только осиротевшие окна) курсор не двигает', async () => {
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: 'orphan-dlg@seg1000-ffff',
+      payload: {
+        seg: true, headKey: 'orphan-dlg', firstAt: 1000, lastAt: 1001, updatedAt: 77777,
+        messages: JSON.stringify([{ id: 'u1', role: 'user', content: 'Сирота', createdAt: 1000 }]),
+      },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.maxUpdatedAt, 'осиротевшее окно с device-меткой задёрнуло курсор в будущее').toBe(0);
+  });
+
   it('maxUpdatedAt остаётся 0, когда в облаке ничего нет (курсор нельзя задирать)', async () => {
     const res = await restoreAIDataFromCloud('user_1');
     expect(res.maxUpdatedAt).toBe(0);

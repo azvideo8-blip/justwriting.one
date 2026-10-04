@@ -250,11 +250,15 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
     for (const { store, baseKey, rows } of grouped.values()) {
       if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
-      // Спор копий и курсор забора считаются отметкой СТРОКИ, а не спрятанного
-      // внутри документа: `payload.data` для нас непрозрачен (шифр), и часы
-      // устройства-источника остаются в нём навсегда. Строке же отметку ставит
-      // сервер (миграция 0037).
-      const outerTs = typeof rows[0]?.payload?.updatedAt === 'number' ? (rows[0].payload.updatedAt as number) : null;
+      // Спор копий и курсор забора считаются отметкой БАЗОВОЙ строки, которую
+      // поставил сервер (миграция 0037). Отметку берём не из `rows[0]`, а из строки
+      // с ключом `baseKey`: head живёт именно там, и выбор по индексу молча
+      // зависел бы от порядка сортировки в провайдере. Осиротевшие окна (их
+      // отметки — device-ные) курсор не двигают: они не версия записи.
+      const versionRow = rows.find(r => r.key === baseKey);
+      const outerTs = typeof versionRow?.payload?.updatedAt === 'number'
+        ? (versionRow.payload.updatedAt as number)
+        : null;
       if (outerTs !== null && outerTs > result.maxUpdatedAt) result.maxUpdatedAt = outerTs;
       try {
         let fullJson: string;
