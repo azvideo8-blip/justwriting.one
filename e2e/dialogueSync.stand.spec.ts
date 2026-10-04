@@ -14,7 +14,7 @@ test.setTimeout(420_000);
 const env = Object.fromEntries(readFileSync('scripts/stand/.env.stand', 'utf8').split('\n').filter(Boolean).map(l => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)]; }));
 const REST = `${env.STAND_URL}/rest/v1`;
 
-interface Msg { id?: string; role: string; content: string; type?: string; variants?: string[]; variantIndex?: number; turnId?: string }
+interface Msg { id?: string; role: string; content: string; type?: string; variants?: string[]; variantIndex?: number; turnId?: string; createdAt?: number }
 interface Dlg { id: string; title: string; messages: Msg[]; updatedAt: number; deletedMessages?: { id: string; at: number }[]; schema?: number; archived?: boolean; personaId?: string; responseLength?: string; lastExtractedMessageId?: string }
 
 async function cloudRows(uid: string): Promise<Array<{ key: string; updatedAt: number | null; pages: number; pointer: boolean; segmented: boolean }>> {
@@ -411,6 +411,39 @@ async function deleteMessage(page: Page, text: string): Promise<void> {
   if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) {
     const buttons = await dialog.getByRole('button').all();
     await buttons[buttons.length - 1]!.click();
+  }
+  await page.waitForTimeout(1500);
+}
+
+/** Удаляет реплику по маркеру в начале её текста.
+ *  От `deleteMessage` отличается двумя вещами: реплики большого диалога — это
+ *  сотни килобайт, искать их по полному содержимому нельзя, а кнопка удаления у
+ *  хода пользователя («Удалить сообщение») и у ответа модели («удалить», без
+ *  aria-label) — разные, и нижняя из них совпадает с кнопкой «Удалить» в шапке
+ *  чата, поэтому ищем всегда внутри пузыря. Внутри пузыря обязан быть маркер, а
+ *  кнопок удаления — ровно одна: предок, проглотивший соседнюю реплику, дал бы
+ *  две, и молча кликать нельзя (урок префиксов заголовков). */
+async function deleteTurnByMarker(page: Page, marker: string, buttonName: string): Promise<void> {
+  const hits = page.getByText(marker, { exact: false });
+  const n = await hits.count();
+  if (n !== 1) throw new Error(`deleteTurnByMarker: маркер «${marker}» дал ${n} совпадений — нужен ровно один`);
+  const q = buttonName.replace(/['\s]/g, '');
+  const bubble = hits.first().locator(`xpath=ancestor::*[.//button[@aria-label='${q}' or normalize-space()='${q}']][1]`);
+  const btn = bubble.getByRole('button', { name: q, exact: true });
+  const k = await btn.count();
+  if (k !== 1) throw new Error(`deleteTurnByMarker: в пузыре «${marker}» кнопок «${q}»: ${k} — нужен один`);
+  const shown = (await bubble.innerText().catch(() => '')).replace(/\s+/g, ' ');
+  if (!shown.includes(marker)) {
+    throw new Error(`deleteTurnByMarker: в пузыре «${q}» нет маркера «${marker}», а есть «${shown.slice(0, 60)}»`);
+  }
+  if (shown.split(marker).length - 1 !== 1) {
+    throw new Error(`deleteTurnByMarker: маркер «${marker}» встречается в пузыре больше одного раза`);
+  }
+  await btn.first().click({ force: true });
+  const dialog = page.getByRole('dialog');
+  if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+    const confirm = await dialog.getByRole('button').all();
+    await confirm[confirm.length - 1]!.click();
   }
   await page.waitForTimeout(1500);
 }
@@ -1343,6 +1376,98 @@ test('19. параллельный ход в большой диалог без 
   expect(countText(texts(a), 'Ход B в гонке'), 'ход B затёрт').toBe(1);
   expect(countText(texts(b), 'Ход A в гонке'), 'ход A не дошёл до B').toBe(1);
   expect(countText(texts(b), 'Ход B в гонке'), 'ход B не дошёл до B').toBe(1);
+});
+
+// Сценарий 20 — правка ВНУТРИ закрытого окна. До него стенд трогал большой диалог
+// только хвостом: 17 и 19 дописывают в открытое окно, 18 портит чужое. Закрытое
+// окно при изменении содержимого переоткрывается: то же `firstAt`, новое имя
+// строки, старая строка уходит в `toDelete` и сносится победителем CAS. Имя
+// переиспользуется ТОЛЬКО если байты облачной строки совпадают дословно — это
+// видно по слиянию двух копий, а план считает имена в изоляции.
+test('20. удаление реплики внутри закрытого окна: окно переоткрывается, сирот нет, копии сходятся', async () => {
+  await ensureSeed();
+  // Пять реплик по ~120 КБ: окно 1 = [m1, m2, m3] (~360 КБ), окно 2 = [m4, m5]
+  // плюс ход и ответ заглушки. Правим m2 — середину ЗАКРЫТОГО первого окна.
+  const id = `bigw_${Math.random().toString(36).slice(2, 10)}`;
+  const pad = 'Ы'.repeat(60_000);
+  const base = Date.now() - 100_000;
+  const body = (n: string) => `${n} ${SEED_TOKEN} ${pad}`;
+  // Заголовок с токеном прогона: openDialogue требует ровно один пункт списка,
+  // а диалог с таким же базовым именем мог остаться от предыдущего прогона.
+  const title = `Правка в закрытом окне ${SEED_TOKEN}`;
+  const rec: Dlg = {
+    id, title,
+    messages: [
+      { role: 'user', content: body('оконная реплика один'), createdAt: base + 1 },
+      { role: 'assistant', content: body('оконная реплика два'), createdAt: base + 2 },
+      { role: 'user', content: body('оконная реплика три'), createdAt: base + 3 },
+      { role: 'assistant', content: body('оконная реплика четыре'), createdAt: base + 4 },
+      { role: 'user', content: body('оконная реплика пять'), createdAt: base + 5 },
+    ],
+    updatedAt: Date.now() - 10_000,
+  };
+  (rec as unknown as { personaId: string }).personaId = (dlg as unknown as { personaId: string }).personaId;
+  (rec as unknown as { createdAt: number }).createdAt = base;
+  await putDialogue(A.page, user.uid, rec);
+  await A.page.reload();
+  await openDialogue(A.page, id);
+  // Ход через продукт обязателен: запись, положенная прямо в IndexedDB, не стоит
+  // в очереди выгрузки (маркер ставит сервис), и без хода облако осталось бы пустым
+  // по вине харнесса. С ходом диалог уезжает целиком, включая большие реплики.
+  await sendTurn(A.page, 'Ход до правки в окне');
+  await waitFlushed(A.page, user.uid, id);
+
+  const before = await cloudSegmentState(user.uid, id);
+  expect(before.pointer, 'head не подписан').toBe(true);
+  expect(before.named.length, 'окно одно — закрытого окна нет, и правка ничего не переоткроет').toBe(2);
+  const oldKeys = before.named;
+
+  const record = (await dialogues(A.page, user.uid)).find(d => d.id === id)!;
+  expect(record.messages.length, 'диалог приехал не в полном составе (5 + ход + ответ)').toBe(7);
+  const victim = record.messages[1]!;
+  const marker = `оконная реплика два ${SEED_TOKEN}`;
+  if (!victim.id) throw new Error('[20] у второй реплики нет id — сравнивать нечем, это промах харнесса');
+  if (!victim.content.startsWith(marker)) throw new Error(`[20] вторая реплика — не «${marker}», а «${victim.content.slice(0, 40)}»`);
+  await deleteTurnByMarker(A.page, marker, 'удалить');
+  const gone = await expect.poll(async () => {
+    const d = (await dialogues(A.page, user.uid)).find(x => x.id === id);
+    return !d?.messages.some(m => m.id === victim.id);
+  }, { timeout: 15_000 }).toBe(true).then(() => true, () => false);
+  expect(gone, 'удаление через UI не записалось локально — харнесс').toBe(true);
+  await waitFlushed(A.page, user.uid, id);
+
+  const after = await cloudSegmentState(user.uid, id);
+  expect(after.named.length, 'правка породила лишнее окно').toBe(2);
+  expect(after.segKeys.filter(k => !after.named.includes(k)), 'прежняя строка закрытого окна осталась в облаке').toEqual([]);
+  expect(after.named.filter(k => oldKeys.includes(k)), 'переоткрытое окно стоит под прежним именем, а под ним уже другие байты').toEqual([]);
+  console.warn(`[20] окна до: ${JSON.stringify(oldKeys.map(k => k.slice(-8)))}, после: ${JSON.stringify(after.named.map(k => k.slice(-8)))}`);
+
+  // Второе устройство забирает правку, дописывает свой ход и отдаёт его обратно:
+  // удалённая реплика не имеет права воскреснуть из прежней строки окна.
+  await syncUntil(B.page, x => x.some(d => d.id === id), 'B получает большой диалог');
+  await openDialogue(B.page, id);
+  const bClean = await expect.poll(async () => {
+    const d = (await dialogues(B.page, user.uid)).find(x => x.id === id);
+    return d?.messages.length === 6 && !d.messages.some(m => m.id === victim.id);
+  }, { timeout: 30_000 }).toBe(true).then(() => true, () => false);
+  const onB = (await dialogues(B.page, user.uid)).find(d => d.id === id);
+  console.warn(`[20] у B реплик ${onB?.messages.length}, дождался удаления: ${bClean}`);
+  expect(bClean, 'удалённая реплика всё ещё у B после забора').toBe(true);
+
+  await sendTurn(B.page, 'Ход B после правки в окне');
+  await waitFlushed(B.page, user.uid, id);
+  for (let i = 0; i < 2; i++) { await pass(A.page); await pass(B.page); }
+
+  const a = (await dialogues(A.page, user.uid)).find(d => d.id === id)!;
+  const b = (await dialogues(B.page, user.uid)).find(d => d.id === id)!;
+  expect(a.messages.some(m => m.id === victim.id), 'удалённая реплика воскресла на A').toBe(false);
+  expect(b.messages.some(m => m.id === victim.id), 'удалённая реплика воскресла на B').toBe(false);
+  expect(countText(texts(b), 'Ход B после правки в окне'), 'ход B потерян').toBe(1);
+  // Сравнение по id реплик, а не по 40-символьным превью (урок сценария 12b).
+  expect(a.messages.map(m => m.id), 'копии разошлись по составу реплик').toEqual(b.messages.map(m => m.id));
+  const final = await cloudSegmentState(user.uid, id);
+  expect(final.segKeys.filter(k => !final.named.includes(k)), 'после раунда в облаке остались сироты').toEqual([]);
+  expect(new Set(final.named).size, 'head называет одно окно дважды').toBe(final.named.length);
 });
 
 // Сценарий 15 идёт последним намеренно: он удаляет общий диалог-затравку, а
