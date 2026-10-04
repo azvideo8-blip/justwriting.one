@@ -213,7 +213,12 @@ jobs:
         # в базе просто не было.
         # psql — внутри контейнера сервиса: на VPS-раннере клиента Postgres нет,
         # а порт наружу не публикуется (5432 там — Supavisor прода).
-        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql; do cat "$f"; echo; done; } \
+        # server_stamp.test.sql идёт третьим не для порядка: он проверяет то, чего
+        # ни один юнит-тест не видит, — что метку версии строки ставит база. Вся
+        # защита от убежавших часов держится на одном триггере из 0037, а миграции
+        # перезаписываются часто; без этой строчки удалённый триггер ронял бы
+        # гейты в ноль.
+        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql; do cat "$f"; echo; done; } \
           | docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -v ON_ERROR_STOP=1
 
   # R5-008: джоб только для PR не от Dependabot. Сегодня таких нет (владелец

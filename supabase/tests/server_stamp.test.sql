@@ -1,25 +1,29 @@
 -- server_stamp.test.sql — отметку версии облачной строки пишет только сервер.
 --
--- Как запускать (на стендовой базе, где миграции уже применены):
---   docker exec -i jw-stand-db psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/tests/server_stamp.test.sql
+-- Запуск (миграции уже применены):
+--   docker exec -i <база> psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/tests/server_stamp.test.sql
+-- Файл подключён в CI: `rls` в .github/workflows/ci.yml (сразу после rls.test.sql)
+-- и шаг 3 «Live database checks» в .github/workflows/gates.yml.
 --
--- В CI файл пока не подключён (ci.yml катает _auth_setup + миграции + rls.test.sql);
--- включение — одна строчка, но pipeline без ведома владельца не трогаем.
+-- Тест не пользуется чужими остатками: у него собственный пользователь,
+-- заведённый в первом блоке. Иначе проверка молча зависела бы от того, какие
+-- строки оставил rls.test.sql перед ней, и падала бы на пустой базе.
 --
--- Проверяется ровно то, на чём держится шаг 2 (CAS по stamped_at вместо
--- payload->>updatedAt): клиент не может ни задать метку, ни оставить её прежней,
--- а между транзакциями метка строго растёт.
+-- `local_store_records.user_id` связан внешним ключом с `auth.users`, поэтому
+-- «просто сгенерировать uuid» для вставки нельзя — база её отвергнет.
+--
+-- Проверяется ровно то, на чём держится шаг 2 (спор копий по отметке строки):
+-- клиент не может ни задать `stamped_at`, ни оставить её прежней, а между
+-- транзакциями метка строго растёт.
 
 -- 1. Клиентская отметка из прошлого не доживает до строки (INSERT).
 do $$
 declare
-  uid uuid;
+  uid constant uuid := '00000000-0000-0000-0000-000000000d05';
   t timestamptz;
 begin
-  select user_id into uid from public.local_store_records limit 1;
-  if uid is null then
-    raise exception 'нет ни одной строки local_store_records — вставлять некому';
-  end if;
+  insert into auth.users (id, email)
+    values (uid, 'server-stamp@test.local') on conflict (id) do nothing;
 
   delete from public.local_store_records where key in ('stamp-test', 'stamp-test-2');
 
@@ -51,9 +55,8 @@ end $$;
 -- функция и возвращает new.stamped_at победителю. Каждый do $$ … $$ — своя
 -- транзакция, поэтому между ними ставим паузу отдельным запросом.
 do $$
-declare uid uuid;
+declare uid constant uuid := '00000000-0000-0000-0000-000000000d05';
 begin
-  select user_id into uid from public.local_store_records limit 1;
   insert into public.local_store_records (user_id, store, key, payload)
     values (uid, 'aiDialogues', 'stamp-test-2', '{"updatedAt": 1}'::jsonb);
 end $$;
@@ -94,12 +97,10 @@ select 'server_stamp: все проверки прошли' as итог;
 -- не трогаются: по отметке версии строится уборка прежних копий.
 do $$
 declare
-  uid uuid;
+  uid constant uuid := '00000000-0000-0000-0000-000000000d05';
   v bigint;
   future bigint := floor(extract(epoch from now()) * 1000)::bigint + 86400000; -- +сутки
 begin
-  select user_id into uid from public.local_store_records limit 1;
-
   delete from public.local_store_records where key in ('stamp-base', 'stamp-base#3', 'stamp-base@seg9-x');
 
   insert into public.local_store_records (user_id, store, key, payload)
@@ -132,7 +133,7 @@ begin
   select (payload ->> 'updatedAt')::bigint into v
     from public.local_store_records where store = 'documents' and key = 'stamp-doc';
   if v <> future then
-    raise exception 'documents: триггер полез в чужой стор (% )', v;
+    raise exception 'documents: триггер полез в чужой стор (%)', v;
   end if;
 
   delete from public.local_store_records
@@ -141,3 +142,13 @@ begin
 end $$;
 
 select 'server_stamp: payload.updatedAt базовой строки — серверный, дочерние целы' as итог_2;
+
+-- 5. Уборка за собой. Строки удалены и в самих блоках, но этот шаг убирает ещё и
+-- тестового пользователя: в gates.yml после нас идут canary и постулаты, и им
+-- вид базы поперёк горла.
+do $$
+declare uid constant uuid := '00000000-0000-0000-0000-000000000d05';
+begin
+  delete from public.local_store_records where user_id = uid;
+  delete from auth.users where id = uid;
+end $$;
