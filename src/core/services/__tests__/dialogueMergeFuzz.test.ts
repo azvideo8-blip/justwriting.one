@@ -22,8 +22,9 @@ import { dialogueFingerprint } from '../../storage/dialogueMerge';
 //   npx vitest run src/core/services/__tests__/dialogueMergeFuzz.test.ts
 //   JW_FUZZ_SEEDS=400 npx vitest run …        (локальный прогон, ~10 минут)
 //   JW_FUZZ_SEEDS=6 JW_FUZZ_TRACE=1 …          (разбор одного упадка)
-// В CI сидов 50 (JW_FUZZ_SEEDS задаётся в шаге запуска); каждый сид — отдельный
-// тест, поэтому таймауты нигде не поднимаются и в отчёте виден номер сида.
+// В CI сидов 50 — это значение по умолчанию: `test:ci` (`vitest run --coverage`)
+// запускается без `JW_FUZZ_SEEDS`, отдельного шага с переменной в workflow нет.
+// Каждый сид — отдельный тест, поэтому таймауты нигде не поднимаются и в отчёте виден номер сида.
 
 const UID = 'u_fuzz';
 
