@@ -1,4 +1,4 @@
-import { test, expect, type Page, type BrowserContext } from '@playwright/test';
+import { test, expect, type Page, type BrowserContext, type Request } from '@playwright/test';
 import { createUser } from './stand';
 import { readFileSync } from 'node:fs';
 
@@ -226,13 +226,22 @@ async function startTurn(page: Page, text: string): Promise<void> {
     // поле очищается до ответа, и отклонённый лимитником запрос выглядел бы
     // отправленным, а ход молча не появлялся бы в базе (run2, run3).
     const seen = page.waitForResponse(r => new URL(r.url()).pathname.startsWith('/api/chat'), { timeout: 45_000 }).catch(() => null);
+    // «не принят» бывает трёх видов: сервер отказал (видно в статусе и теле),
+    // запрос вообще не ушёл (клиентский собственный кулдаун молча блокирует
+    // отправку), или ушёл и не ответил. Без этого различия падение в очереди
+    // выглядит как «отправка не доходит до эндпоинта», а почему — непонятно.
+    let sent = false;
+    const onRequest = (r: Request) => { if (r.url().includes('/api/chat')) sent = true; };
+    page.on('request', onRequest);
     const wait = lastSendAt + SEND_COOLDOWN_MS - Date.now();
     if (wait > 0) await page.waitForTimeout(wait);
     await box.fill(text);
     await box.press('Enter');
     lastSendAt = Date.now();
     const res = await seen;
+    page.off('request', onRequest);
     if (res && res.status() < 400) return;
+    const body = res ? (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160) : (sent ? 'запрос ушёл, ответа нет' : 'ЗАПРОС НЕ УШЁЛ (блокировка на клиенте)');
     // Серверный кулдаун считается по последнему AI-запросу аккаунта, а на один
     // ход их 2–3 (чат, автоименование, память): фиксированный шаг харнесса
     // систематически меньше реального окна. Ждём ровно столько, сколько просит
@@ -246,8 +255,9 @@ async function startTurn(page: Page, text: string): Promise<void> {
       }
     }
     const alert = (await page.getByRole('alert').allInnerTexts().catch(() => [])).join(' ');
-    console.warn('[startTurn] не принят (попытка ' + (attempt + 1) + '): status=' + (res?.status() ?? 'нет ответа') + ' ' + alert.slice(0, 120));
-    if (attempt >= 4) throw new Error('startTurn: ход не принят за 5 попыток: ' + alert.slice(0, 120));
+    const clientCooldown = await page.evaluate(() => localStorage.getItem('jw_ai_cooldown_until')).catch(() => null);
+    console.warn(`[startTurn] не принят (попытка ${attempt + 1}): ${res?.status() ?? 'нет ответа'} ${body} · alert="${alert.slice(0, 80)}" · jw_ai_cooldown_until=${clientCooldown ?? '?'}`);
+    if (attempt >= 4) throw new Error(`startTurn: ход не принят за 5 попыток: ${body} · alert="${alert.slice(0, 120)}"`);
     await page.getByRole('alert').getByRole('button', { name: 'Закрыть' }).first().click().catch(() => {});
   }
 }
