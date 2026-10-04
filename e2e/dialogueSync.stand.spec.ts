@@ -198,14 +198,50 @@ async function openChat(page: Page, base = ''): Promise<void> {
   await expect(page.locator('textarea').first()).toBeVisible({ timeout: 20_000 });
 }
 
-async function openDialogue(page: Page, title: string, base = ''): Promise<void> {
+async function openDialogue(page: Page, titleOrId: string, base = ''): Promise<void> {
   await openChat(page, base);
   await unlockVaultIfAsked(page, user.password);
-  // Новое устройство могло ещё не забрать диалог из облака.
-  await syncUntil(page, x => x.some(d => d.title.startsWith(title.slice(0, 18))), `диалог «${title.slice(0, 18)}» на устройстве`);
-  const item = page.getByRole('button', { name: new RegExp(title.slice(0, 18).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).first();
+  // Ищем запись: сначала по id (он не зависит от автоименования), потом по
+  // началу заголовка — ради вызовов, где титул известен заранее.
+  const list = await dialogues(page, user.uid);
+  let rec = list.find(d => d.id === titleOrId) ?? list.find(d => d.title.startsWith(titleOrId.slice(0, 18)));
+  if (rec) {
+    const want = rec.title.slice(0, 18);
+    await syncUntil(page, x => x.some(d => d.title.startsWith(want)), `диалог «${want}» на устройстве`);
+    rec = (await dialogues(page, user.uid)).find(d => d.id === rec!.id) ?? rec;
+  } else {
+    await syncUntil(page, x => x.some(d => d.title.startsWith(titleOrId.slice(0, 18))), `диалог «${titleOrId.slice(0, 18)}» на устройстве`);
+    rec = (await dialogues(page, user.uid)).find(d => d.title.startsWith(titleOrId.slice(0, 18)));
+  }
+  if (!rec) throw new Error(`openDialogue: записи «${titleOrId.slice(0, 24)}» нет на устройстве`);
+  // Пункт списка ищем по ПОЛНОМУ заголовку, а не по 18 символам, и требуем ровно
+  // одного совпадения. Прежний короткий префикс зарезолвил два пункта: автоименование
+  // на стенде присваивает диалогам заголовок из ответа заглушки («ответ заглушки
+  // на: …»), префиксы совпадают, `.first()` берёт чужой диалог — и все ходы
+  // дальнейшей очереди уезжают не в ту запись. Так выглядели «потеря хода» в
+  // сценарии 4 и расхождение собеседника в сценарии 6.
+  const rx = new RegExp(rec.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const matched = await page.getByRole('button', { name: rx }).all();
+  const names = await Promise.all(matched.map(async b => (await b.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 70)));
+  console.warn(`[openDialogue] «${rec.title.slice(0, 40)}» id=${rec.id.slice(0, 8)}: совпадений ${matched.length} — ${JSON.stringify(names)}`);
+  if (matched.length !== 1) throw new Error(`openDialogue: пункт диалога «${rec.title.slice(0, 40)}» (id ${rec.id.slice(0, 8)}) не один (${matched.length}): ${JSON.stringify(names)}`);
+  const item = matched[0]!;
   await expect(item).toBeVisible({ timeout: 20_000 });
   await item.click();
+  // Клик по списку не гарантирует, что чат переключился: проверка по экрану —
+  // последняя реплика целевой записи должна появиться ИМЕННО в чате (абзац <p>),
+  // а не в превью боковой панели. Не появилось — жмём снова и не молчим.
+  const last = rec.messages.filter(m => m.type !== 'system').at(-1)?.content ?? '';
+  if (!last) return;
+  const probe = last.replace(/\s+/g, ' ').slice(0, 60);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const inChat = await page.locator('p').filter({ hasText: probe }).first().isVisible().catch(() => false);
+    if (inChat) return;
+    console.warn(`[openDialogue] «${rec.title.slice(0, 30)}» не открылся (попытка ${attempt}): в чате нет «${probe.slice(0, 40)}»`);
+    await item.click().catch(() => {});
+    await page.waitForTimeout(1_500);
+  }
+  throw new Error(`openDialogue: диалог «${rec.title.slice(0, 40)}» (id ${rec.id.slice(0, 8)}) не открылся в чат; последний его ход «${probe}»`);
 }
 
 let lastSendAt = 0;
@@ -280,7 +316,13 @@ async function startTurn(page: Page, text: string): Promise<void> {
 
 /** Ход записан в локальную базу (выгрузка идёт из неё, а не с экрана). */
 async function waitTurnRecorded(page: Page, text: string): Promise<void> {
-  await expect.poll(async () => (await dialogues(page, user.uid)).some(d => d.messages.some(m => m.content.includes(text))), { timeout: 60_000, intervals: [500] }).toBe(true);
+  await expect.poll(async () => {
+    const hit = (await dialogues(page, user.uid)).find(d => d.messages.some(m => m.content.includes(text)));
+    // Если ход приехал — важно КУДА: не в ту запись означает, что чат был открыт
+    // на другом диалоге, и это промах харнесса, а не слияния.
+    if (hit) console.warn(`[waitTurnRecorded] «${text.slice(0, 28)}» → запись ${hit.id.slice(0, 8)}`);
+    return !!hit;
+  }, { timeout: 60_000, intervals: [500] }).toBe(true);
 }
 
 /** Отправляет ход и ждёт ответа заглушки на него. */
@@ -378,6 +420,9 @@ interface Device { ctx: BrowserContext; page: Page }
 let user: { email: string; password: string; uid: string };
 let A: Device; let B: Device;
 let dlg: Dlg;
+// Заглушка автоименования делает заголовок из ответа, то есть у двух затравок были БУКВАЛЬНО
+// одинаковые заголовки, и поиск пункта списка по началу строки брал не тот диалог.
+const SEED_TOKEN = Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
 
 async function device(context: BrowserContext, clockOffsetMs = 0, base = '', vault = true): Promise<Device> {
   const page = await context.newPage();
@@ -430,7 +475,7 @@ async function freshDeviceView(browser: import('@playwright/test').Browser, dial
 async function ensureSeed(): Promise<void> {
   if (dlg !== undefined) return;
   await openChat(A.page);
-  await sendTurn(A.page, 'Общий вопрос первый');
+  await sendTurn(A.page, `Общий вопрос первый ${SEED_TOKEN}`);
   dlg = (await dialogues(A.page, user.uid))[0]!;
   await waitFlushed(A.page, user.uid, dlg.id);
   await openChat(B.page);
@@ -505,7 +550,7 @@ test.beforeAll(async ({ browser }) => {
 
 test('1. concurrent append on A and B without a pull in between — both turns in the cloud row after each flush', async ({ browser }) => {
   await openChat(A.page);
-  await sendTurn(A.page, 'Общий вопрос первый');
+  await sendTurn(A.page, `Общий вопрос первый ${SEED_TOKEN}`);
   dlg = (await dialogues(A.page, user.uid))[0]!;
   await waitFlushed(A.page, user.uid, dlg.id);
   await openChat(B.page);
