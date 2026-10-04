@@ -276,7 +276,7 @@ async function startTurn(page: Page, text: string): Promise<void> {
     page.on('request', onRequest);
     const wait = lastSendAt + SEND_COOLDOWN_MS - Date.now();
     if (wait > 0) await page.waitForTimeout(wait);
-    // `fill` без ограничения ждётactionability до конца таймаута теста: во время
+    // `fill` без ограничения ждёт actionability до конца таймаута теста: во время
     // генерации композера нет на экране, и молчаливое висение стоило очереди
     // семь минут на одном шаге.
     try {
@@ -1051,7 +1051,7 @@ test('11. диалог > 500 КБ на обоих устройствах, вкл
   await old28.page.reload();
   await openDialogue(old28.page, big28.title, OLD_028);
   await sendTurn(old28.page, 'Дописываем в большой с 0.9.28');
-  // Ход обязан сесть именно в этот диалог: на старомorigin после перезагрузки
+  // Ход обязан сесть именно в этот диалог: на старом клиенте после перезагрузки
   // список мог ещё не отрисоваться, и раньше это выглядело как «облако пусто»,
   // потому что выгружать было нечего — очередь не получала сигнала.
   await waitTurnRecorded(old28.page, 'Дописываем в большой с 0.9.28');

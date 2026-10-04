@@ -115,7 +115,8 @@ describe('M-4: писатели не трогают надгробие', () => {
     // заменяет — без него итог ложился в надгробие и поднимал updatedAt.
     const { AIService } = await import('../AIService');
     // Пока «модель» думает, диалог снимают другой вкладкой. mockReturnValue, а не
-    // mockImplementation(async …): callback здесь обязан не возвращать проmise.
+    // mockImplementation(async …): съём должен начаться сразу при постановке мока,
+    // ещё до вызова chat.
     (AIService.chat as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(resolve => {
       void (async () => {
         const tx = db.transaction('aiDialogues', 'readwrite');

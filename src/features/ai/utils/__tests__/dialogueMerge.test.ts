@@ -76,7 +76,7 @@ describe('S-29: mergeDialogues', () => {
   });
 
   it('расхождение часов переставляет хвост, но не теряет ход', () => {
-    // B считает, что его репликаcreated позже, хотя запись A свежее по updatedAt.
+    // B считает, что его реплика created позже, хотя запись A свежее по updatedAt.
     const a = dialogue({ id: 'd', messages: [...base, msg({ id: 'xa', content: 'Из A', createdAt: 9000 })], updatedAt: 10 });
     const b = dialogue({ id: 'd', messages: [...base, msg({ id: 'xb', content: 'Из B', createdAt: 5000 })], updatedAt: 9999 });
 

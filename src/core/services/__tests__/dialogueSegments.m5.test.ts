@@ -188,7 +188,7 @@ describe('M-5 mergeHeads: то, чего не умел paging', () => {
     expect(d.messages.map(m => m.id)).toEqual(['a']);
   });
 
-  it('окна двух устройствUnion’ятся и идут в хронологическом порядке, скаляры — от свежего', () => {
+  it('окна двух устройств объединяются и идут в хронологическом порядке, скаляры — от свежего', () => {
     const a = plan(dialogue(Array.from({ length: 12 }, (_, i) => msg(`a${i}`, big(40_000, `x${i}`), 1_000 + i)), { updatedAt: 4_000, title: 'A-имя' }));
     const b = plan(dialogue(Array.from({ length: 12 }, (_, i) => msg(`b${i}`, big(40_000, `y${i}`), 1_000 + i)), { updatedAt: 5_000, personaId: 'other' }));
     const merged = mergeHeads(a.head, b.head);

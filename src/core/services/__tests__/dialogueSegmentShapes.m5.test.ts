@@ -29,7 +29,7 @@ const bigDialogue = (): AIDialogue => dialogue(
 );
 
 /** Облачные строки сегментного диалога в ТОЙ форме, которую кладёт выгрузка:
- *  сборщикиpayload'а общие с write-путём, так что проверка видит реальный код. */
+ *  сборщики payload'а общие с write-путём, так что проверка видит реальный код. */
 function segmentRows(d: AIDialogue): Row[] {
   const plan = planDialogue(d);
   const rows: Row[] = [{ store: 'aiDialogues', key: ID, payload: headRowPayload(plan.head) }];
