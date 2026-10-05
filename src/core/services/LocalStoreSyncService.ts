@@ -902,8 +902,9 @@ export class LocalStoreSyncManager {
 
     const segMap = new Map<string, number>();
     for (const s of knownSegments) {
-      const stamp = s.stampedAt ?? s.updatedAt;
-      if (typeof stamp === 'number' && Number.isFinite(stamp)) segMap.set(s.key, stamp);
+      if (typeof s.stampedAt === 'number' && Number.isFinite(s.stampedAt)) {
+        segMap.set(s.key, s.stampedAt);
+      }
     }
 
     const toDelete: string[] = [];
@@ -911,19 +912,23 @@ export class LocalStoreSyncManager {
       // (a) Текущий head называет это окно — НЕ удаляем
       if (currentNamed.has(candKey)) continue;
 
-      // (b) Строка должна быть старше grace-периода (10 минут)
+      // (b) Строка должна быть старше grace-периода (10 минут) по серверным часам
       let segStamp = segMap.get(candKey);
       if (segStamp === undefined) {
         const r = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', candKey);
         const stampedAt = (r as { stamped_at?: unknown } | null)?.stamped_at;
-        if (typeof stampedAt === 'number') segStamp = stampedAt;
-        else if (typeof stampedAt === 'string') segStamp = Date.parse(stampedAt);
-        else {
-          const p = r?.payload as Record<string, unknown> | undefined;
-          if (typeof p?.updatedAt === 'number') segStamp = p.updatedAt;
+        if (typeof stampedAt === 'number' && Number.isFinite(stampedAt)) {
+          segStamp = stampedAt;
+        } else if (typeof stampedAt === 'string') {
+          const parsed = Date.parse(stampedAt);
+          if (Number.isFinite(parsed)) segStamp = parsed;
         }
       }
-      if (segStamp !== undefined && serverNow - segStamp < ORPHAN_GRACE_PERIOD_MS) {
+      // T-8: неизвестный серверный штамп — окно оставляем (никогда не смотрим на device time и не считаем 0 за возраст)
+      if (segStamp === undefined) {
+        continue;
+      }
+      if (serverNow - segStamp < ORPHAN_GRACE_PERIOD_MS) {
         continue;
       }
       toDelete.push(candKey);

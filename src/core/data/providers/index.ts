@@ -16,6 +16,7 @@ import * as embeddings from './embeddings';
 import * as localStore from './localStore';
 
 export { likePrefix } from './fields';
+export { rowToLocalStoreRecord, parseStampedAt } from './localStore';
 
 export const SupabaseDataProvider: IDataProvider = {
   ...documents,

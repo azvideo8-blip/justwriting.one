@@ -23,7 +23,7 @@ import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreS
 
 const UID = 'u_s49';
 
-type Row = { store: string; key: string; payload: Record<string, unknown> };
+type Row = { store: string; key: string; payload: Record<string, unknown>; stamped_at?: number };
 const cloud = new Map<string, Row>();
 const rowKey = (store: string, key: string) => `${store}:${key}`;
 let onCloudRead: (() => void) | null = null;
@@ -32,17 +32,21 @@ const casCalls = vi.fn();
 vi.mock('../../data', () => ({
   DataProvider: {
     getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
-      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+      [...cloud.values()]
+        .filter(r => r.store === store && r.key.startsWith(prefix))
+        .map(r => ({ store: r.store, key: r.key, payload: r.payload, stamped_at: r.stamped_at })),
     deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
       for (const k of keys) cloud.delete(`${store}:${k}`);
     },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
-      [...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since)),
+      [...cloud.values()]
+        .filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since))
+        .map(r => ({ store: r.store, key: r.key, payload: r.payload, stamped_at: r.stamped_at })),
     getLocalStoreRecord: async (_uid: string, store: string, key: string) => {
       const r = cloud.get(rowKey(store, key));
-      return r ? { store, key, payload: r.payload } : null;
+      return r ? { store, key, payload: r.payload, stamped_at: r.stamped_at } : null;
     },
     getLocalStoreRecordPages: async (_uid: string, store: string, key: string) => {
       const out = [...cloud.values()].filter(r => r.store === store && r.key.startsWith(`${key}#`));
@@ -51,16 +55,16 @@ vi.mock('../../data', () => ({
       return out;
     },
     saveLocalStoreRecord: async (_uid: string, store: string, key: string, payload: Record<string, unknown>) => {
-      cloud.set(rowKey(store, key), { store, key, payload });
+      cloud.set(rowKey(store, key), { store, key, payload, stamped_at: Date.now() });
     },
     saveLocalStoreRecordPages: async (_uid: string, store: string, pages: Array<{ key: string; payload: Record<string, unknown> }>) => {
-      for (const p of pages) cloud.set(rowKey(store, p.key), { store, key: p.key, payload: p.payload });
+      for (const p of pages) cloud.set(rowKey(store, p.key), { store, key: p.key, payload: p.payload, stamped_at: Date.now() });
     },
     saveLocalStoreRecordIfUnchanged: async (_uid: string, store: string, key: string, payload: Record<string, unknown>, expected: number | null) => {
       casCalls(expected);
       const cur = cloud.get(rowKey(store, key));
       if (expected === null ? cur !== undefined : cur?.payload.updatedAt !== expected) return false;
-      cloud.set(rowKey(store, key), { store, key, payload });
+      cloud.set(rowKey(store, key), { store, key, payload, stamped_at: Date.now() });
       return true;
     },
     deleteLocalStorePagedRecords: async (_uid: string, store: string, key: string) => {
@@ -245,6 +249,7 @@ describe('M-2: страницы одной попытки отличаются �
       store: 'aiDialogues',
       key: orphan,
       payload: { seg: true, headKey: d.id, firstAt: headPayload.segments[0]!.firstAt, updatedAt: headPayload.segments[0]!.updatedAt, messages: 'мусор проигравшей попытки' },
+      stamped_at: Date.now(),
     });
 
     const c = new Device(); switchTo(c); at('10:00');

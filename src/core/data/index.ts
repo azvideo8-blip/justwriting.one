@@ -1,4 +1,5 @@
 export * from './types';
+export { rowToLocalStoreRecord, parseStampedAt } from './providers/index';
 import { SupabaseDataProvider } from './supabaseDataProvider';
 import { IDataProvider } from './types';
 

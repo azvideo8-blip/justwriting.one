@@ -66,31 +66,35 @@ function setCloud(store: string, key: string, payload: Record<string, unknown>, 
 }
 const sortedRows = (rows: Row[]) => rows.sort((a, b) => a.store.localeCompare(b.store) || a.key.localeCompare(b.key));
 
-vi.mock('../../data', () => ({
-  DataProvider: {
-    getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
-      [...cloud.values()]
-        .filter(r => r.store === store && r.key.startsWith(prefix))
-        .map(r => ({ store: r.store, key: r.key, payload: r.payload, stamped_at: r.stamped_at })),
-    deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
-      const f = failMode();
-      if (f === 'net') throw new Error('network: delete failed');
-      for (const k of keys) cloud.delete(`${store}:${k}`);
-      if (f === 'lost') throw new Error('network: delete response lost');
-    },
-    getUserSummaries: async () => [],
-    getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
-    getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
-      sortedRows([...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since))),
-    getLocalStoreRecord: async (_uid: string, store: string, key: string) => {
-      const r = cloud.get(rowKey(store, key));
-      return r ? { store, key, payload: r.payload, stamped_at: r.stamped_at } : null;
-    },
-    getLocalStoreRecordPages: async (_uid: string, store: string, key: string) => {
-      const out = [...cloud.values()].filter(r => r.store === store && r.key.startsWith(`${key}#`));
-      if (onCloudRead) { const h = onCloudRead; onCloudRead = null; h(); }
-      return out;
-    },
+vi.mock('../../data', async () => {
+  const actual = await vi.importActual<typeof import('../../data')>('../../data');
+  return {
+    ...actual,
+    DataProvider: {
+      getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
+        [...cloud.values()]
+          .filter(r => r.store === store && r.key.startsWith(prefix))
+          .map(r => actual.rowToLocalStoreRecord(r as Record<string, unknown>)),
+      deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+        const f = failMode();
+        if (f === 'net') throw new Error('network: delete failed');
+        for (const k of keys) cloud.delete(`${store}:${k}`);
+        if (f === 'lost') throw new Error('network: delete response lost');
+      },
+      getUserSummaries: async () => [],
+      getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
+      getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
+        sortedRows([...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since)))
+          .map(r => actual.rowToLocalStoreRecord(r as Record<string, unknown>)),
+      getLocalStoreRecord: async (_uid: string, store: string, key: string) => {
+        const r = cloud.get(rowKey(store, key));
+        return r ? actual.rowToLocalStoreRecord(r as Record<string, unknown>) : null;
+      },
+      getLocalStoreRecordPages: async (_uid: string, store: string, key: string) => {
+        const out = [...cloud.values()].filter(r => r.store === store && r.key.startsWith(`${key}#`));
+        if (onCloudRead) { const h = onCloudRead; onCloudRead = null; h(); }
+        return out.map(r => actual.rowToLocalStoreRecord(r as Record<string, unknown>));
+      },
     saveLocalStoreRecord: async (_uid: string, store: string, key: string, payload: Record<string, unknown>) => {
       const f = failMode();
       if (f === 'net') throw new Error('network');
@@ -128,7 +132,8 @@ vi.mock('../../data', () => ({
       for (const [k, r] of cloud) if (r.store === store && (r.key.startsWith(`${key}#`) || r.key.startsWith(`${key}@`))) cloud.delete(k);
     },
   },
-}));
+};
+});
 vi.mock('../../sync/cloudSyncEnabled', () => ({ cloudSyncEnabled: () => false }));
 vi.mock('../../crypto/cryptoHelpers', () => ({
   getEncryptionEnabled: () => false,

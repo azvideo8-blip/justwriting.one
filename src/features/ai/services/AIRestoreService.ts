@@ -288,6 +288,9 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
               : version.kind === 'refused' ? version.reason
               : `не хватает ${version.missing.length} сегментов: ${version.missing.join(', ')}`;
             logger.warn('AIRestoreService', `${store}/${baseKey}: ${reason}. Refusing.`);
+            if (version && version.kind === 'incomplete' && version.missing.length > 0) {
+              LocalStoreSyncService.scheduleStoreSync('aiDialogues', baseKey);
+            }
             result.failed++;
             continue; // Keep local copy intact!
           }

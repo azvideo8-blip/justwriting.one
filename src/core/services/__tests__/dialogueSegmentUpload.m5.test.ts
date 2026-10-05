@@ -22,7 +22,7 @@ import { oldClientWrites } from './helpers/oldClientRestore029';
 
 const UID = 'u_m5';
 
-type Row = { store: string; key: string; payload: Record<string, unknown> };
+type Row = { store: string; key: string; payload: Record<string, unknown>; stamped_at?: number };
 const cloud = new Map<string, Row>();
 const rowKey = (store: string, key: string) => `${store}:${key}`;
 
@@ -35,7 +35,9 @@ let deleteKeysCalls: string[][] = [];
 vi.mock('../../data', () => ({
   DataProvider: {
     getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
-      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+      [...cloud.values()]
+        .filter(r => r.store === store && r.key.startsWith(prefix))
+        .map(r => ({ store: r.store, key: r.key, payload: r.payload, stamped_at: r.stamped_at })),
     deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
       ops.push(`deleteKeys:${keys.length}`);
       deleteKeysCalls.push(keys);
@@ -44,20 +46,22 @@ vi.mock('../../data', () => ({
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
-      [...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since)),
+      [...cloud.values()]
+        .filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since))
+        .map(r => ({ store: r.store, key: r.key, payload: r.payload, stamped_at: r.stamped_at })),
     getLocalStoreRecord: async (_uid: string, store: string, key: string) => {
       const r = cloud.get(rowKey(store, key));
-      return r ? { store, key, payload: r.payload } : null;
+      return r ? { store, key, payload: r.payload, stamped_at: r.stamped_at } : null;
     },
     getLocalStoreRecordPages: async (_uid: string, store: string, key: string) =>
       [...cloud.values()].filter(r => r.store === store && r.key.startsWith(`${key}#`)),
     saveLocalStoreRecord: async (_uid: string, store: string, key: string, payload: Record<string, unknown>) => {
       ops.push(`save:${key}`);
-      cloud.set(rowKey(store, key), { store, key, payload });
+      cloud.set(rowKey(store, key), { store, key, payload, stamped_at: Date.now() });
     },
     saveLocalStoreRecordPages: async (_uid: string, store: string, pages: Array<{ key: string; payload: Record<string, unknown> }>) => {
       ops.push(`pages:${pages.length}`);
-      for (const p of pages) cloud.set(rowKey(store, p.key), { store, key: p.key, payload: p.payload });
+      for (const p of pages) cloud.set(rowKey(store, p.key), { store, key: p.key, payload: p.payload, stamped_at: Date.now() });
     },
     saveLocalStoreRecordIfUnchanged: async (_uid: string, store: string, key: string, payload: Record<string, unknown>, expected: number | null) => {
       ops.push(`cas:${key}`);
@@ -67,7 +71,7 @@ vi.mock('../../data', () => ({
       if (!casResult) return false;
       const cur = cloud.get(rowKey(store, key));
       if (expected === null ? cur !== undefined : cur?.payload.updatedAt !== expected) return false;
-      cloud.set(rowKey(store, key), { store, key, payload });
+      cloud.set(rowKey(store, key), { store, key, payload, stamped_at: Date.now() });
       return true;
     },
     deleteLocalStorePagedRecords: async (_uid: string, store: string, key: string) => {
@@ -448,6 +452,7 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     cloud.set(rowKey('aiDialogues', orphan), {
       store: 'aiDialogues', key: orphan,
       payload: { seg: true, headKey: d.id, firstAt: T('08:00'), lastAt: T('08:10'), updatedAt: T('08:10'), messages: '[]' },
+      stamped_at: T('08:10'),
     });
 
     at('09:10');
