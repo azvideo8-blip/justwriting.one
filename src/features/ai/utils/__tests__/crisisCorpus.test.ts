@@ -1,5 +1,5 @@
 // S-30: Fixed phrase corpus for the crisis detector in CI.
-// Source: justwriting-docs/crisis-corpus.json (889 фраз, 864 обязательных, 25 knownGap) — the two copies stay byte-identical (S-42.1).
+// Source: justwriting-docs/crisis-corpus.json (890 фраз, 864 обязательных, 26 knownGap) — the two copies stay byte-identical (S-42.1).
 //
 // Rules:
 // 1. New crisis phrasings go into crisisCorpus.json with a source note in `sources`.

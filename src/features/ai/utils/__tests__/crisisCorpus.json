@@ -7804,5 +7804,15 @@
    "0.9.30-review"
   ],
   "note": "0.9.30 review: «не станет + глагол» — не будет делать"
+ },
+ {
+  "text": "уходжу из жизни",
+  "expect": "risk",
+  "category": "typo",
+  "sources": [
+   "owner-2026-10-05"
+  ],
+  "note": "typo; owner 2026-10-05: backlog",
+  "knownGap": true
  }
 ]
