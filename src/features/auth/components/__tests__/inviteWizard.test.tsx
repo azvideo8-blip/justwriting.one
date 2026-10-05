@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { InviteWizard } from '../InviteWizard';
-import { updateUserPassword } from '../../../../core/auth/supabaseAuthProvider';
+import { updateUserPassword, getCurrentUser } from '../../../../core/auth/supabaseAuthProvider';
 import { AuthService } from '../../services/AuthService';
 import { DataProvider } from '../../../../core/data';
 import { LanguageProvider } from '../../../../shared/i18n';
 
-vi.mock('../../../../core/auth/supabaseAuthProvider', () => ({ updateUserPassword: vi.fn(async () => {}) }));
+vi.mock('../../../../core/auth/supabaseAuthProvider', () => ({ updateUserPassword: vi.fn(async () => {}), getCurrentUser: vi.fn(() => null) }));
 vi.mock('../../services/AuthService', () => ({ AuthService: { signInWithEmail: vi.fn() } }));
 vi.mock('../../../../core/data', () => ({ DataProvider: { updateProfile: vi.fn(async () => {}) } }));
 
@@ -123,5 +123,95 @@ describe('InviteWizard password errors say what actually happened', () => {
     const links = screen.getAllByRole('link');
     expect(links.length).toBeGreaterThan(0);
     for (const a of links) expect(a.getAttribute('target')).toBe('_blank');
+  });
+});
+
+// V-1.1: перезагрузка страницы посреди мастера начинала его заново и теряла
+// галочки согласия (memory f3-account-switch-findings).
+describe('InviteWizard continues after a reload', () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); sessionStorage.clear(); });
+
+  function renderAt(tokenHash: string) {
+    return render(
+      <LanguageProvider>
+        <MemoryRouter initialEntries={['/reset-password']}>
+          <Routes>
+            <Route path="/reset-password" element={<InviteWizard email="new@example.com" tokenHash={tokenHash} />} />
+            <Route path="/" element={<div>EDITOR</div>} />
+          </Routes>
+        </MemoryRouter>
+      </LanguageProvider>,
+    );
+  }
+
+  function toPasswordStep(boxes: { policy: boolean; aiConsent: boolean }) {
+    fireEvent.click(screen.getByRole('button', { name: 'Начать' }));
+    if (boxes.policy) fireEvent.click(screen.getAllByRole('checkbox')[0]!);
+    if (boxes.aiConsent) fireEvent.click(screen.getAllByRole('checkbox')[1]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+  }
+
+  it('a reload on the password step lands on the password step with both boxes ticked', () => {
+    const first = renderAt('tok-reload');
+    toPasswordStep({ policy: true, aiConsent: true });
+    fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'typed-but-not-sent' } });
+    first.unmount();
+
+    renderAt('tok-reload');
+    expect(screen.getByText('Придумайте пароль')).toBeTruthy();
+    expect(screen.queryByText('Добро пожаловать в justwriting')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    expect(screen.getAllByRole('checkbox')[0]).toBeChecked();
+    expect(screen.getAllByRole('checkbox')[1]).toBeChecked();
+    // Пароль в хранилище не попадает — только шаги и галочки.
+    const stored = Array.from({ length: sessionStorage.length }, (_, i) => `${sessionStorage.key(i)}=${sessionStorage.getItem(sessionStorage.key(i) ?? '')}`).join('|');
+    expect(stored).toContain('jw_invite_wizard_tok-reload');
+    expect(stored).not.toContain('typed-but-not-sent');
+  });
+
+  it('another link starts its own wizard from the beginning', () => {
+    const first = renderAt('tok-one');
+    toPasswordStep({ policy: true, aiConsent: false });
+    first.unmount();
+
+    renderAt('tok-two');
+    expect(screen.getByText('Добро пожаловать в justwriting')).toBeTruthy();
+  });
+
+  it('the sync step is restored for the person who is already signed in', async () => {
+    vi.mocked(AuthService.signInWithEmail).mockImplementation(async () => ({ user: { uid: UID } }) as never);
+    vi.mocked(getCurrentUser).mockReturnValue({ uid: UID, email: 'new@example.com' } as never);
+    const first = renderAt('tok-sync');
+    toPasswordStep({ policy: true, aiConsent: false });
+    fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+    await screen.findByText('Хранить заметки в облаке?');
+    first.unmount();
+
+    renderAt('tok-sync');
+    expect(await screen.findByText('Хранить заметки в облаке?')).toBeTruthy();
+    expect(screen.queryByText('Придумайте пароль')).toBeNull();
+  });
+
+  it('a guest session does not inherit the sync step', () => {
+    sessionStorage.setItem('jw_invite_wizard_tok-guest', JSON.stringify({ step: 'sync', policy: true, aiConsent: false }));
+    vi.mocked(getCurrentUser).mockReturnValue({ uid: 'guest-1', email: null } as never);
+    renderAt('tok-guest');
+    expect(screen.getByText('Придумайте пароль')).toBeTruthy();
+  });
+
+  it('finishing the wizard drops the saved progress', async () => {
+    vi.mocked(AuthService.signInWithEmail).mockImplementation(async () => ({ user: { uid: UID } }) as never);
+    const first = renderAt('tok-finish');
+    toPasswordStep({ policy: true, aiConsent: false });
+    fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+    await screen.findByText('Хранить заметки в облаке?');
+    fireEvent.click(screen.getByRole('button', { name: 'Не сейчас' }));
+    await screen.findByText('EDITOR');
+    expect(sessionStorage.getItem('jw_invite_wizard_tok-finish')).toBeNull();
+    first.unmount();
   });
 });

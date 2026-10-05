@@ -5,13 +5,13 @@ import { reportError } from '../../../shared/errors/reportError';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { InviteWizard } from '../components/InviteWizard';
 import { isAccountReloadPending, reloadForAccountChange } from '../../../core/auth/accountReload';
+import { passwordErrorKind, type PasswordErrorKind } from '../utils/passwordErrorKind';
 import { useLanguage } from '../../../shared/i18n';
 
 // Смена аккаунта перезагружает страницу (accountReload.ts). Две отметки
 // переживают эту перезагрузку: ссылка уже обменена (второй обмен ответил бы
 // «ссылка устарела») и пароль уже изменён.
-const exchangedKey = (hash: string) => `jw_link_exchanged_${hash}`;
-const RESET_DONE_KEY = 'jw_password_reset_done';
+const exchangedKey = (hash: string) => `jw_link_exchanged_${hash}`;const RESET_DONE_KEY = 'jw_password_reset_done';
 // 2026-10-05: отметка обмена — в localStorage, а не только в sessionStorage.
 // Ссылку из письма часто открывают второй раз — новой вкладкой, где
 // sessionStorage пуст. Без общей отметки страница видела «вход есть, ссылка не
@@ -19,6 +19,13 @@ const RESET_DONE_KEY = 'jw_password_reset_done';
 // приглашённого и обменивала ссылку повторно — сервер отвечал «использована»,
 // и человек оставался без входа и без пароля (прод, 2026-10-05).
 const EXCHANGED_TTL_MS = 24 * 60 * 60 * 1000;
+
+// V-1.3: вид ошибки считает общий с мастером приглашения хелпер, здесь только подписи.
+const RESET_ERROR_KEY: Record<PasswordErrorKind, 'reset_pw_offline' | 'reset_pw_session_lost' | 'reset_pw_failed'> = {
+  offline: 'reset_pw_offline',
+  session_lost: 'reset_pw_session_lost',
+  failed: 'reset_pw_failed',
+};
 
 function markExchanged(hash: string, email: string | null): void {
   try { sessionStorage.setItem(exchangedKey(hash), '1'); } catch { /* намеренно: приватный режим */ }
@@ -247,11 +254,8 @@ export function ResetPasswordPage() {
       setDone(true);
     } catch (err) {
       reportError(err, { action: 'resetPassword' });
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        setError(t('reset_pw_offline'));
-      } else {
-        setError(t('reset_pw_failed'));
-      }
+      // V-1.3: тот же маппинг видов ошибки, что у мастера приглашения.
+      setError(t(RESET_ERROR_KEY[passwordErrorKind(err)]));
     } finally {
       setBusy(false);
     }
@@ -330,7 +334,7 @@ export function ResetPasswordPage() {
   // ON-2: приглашённый проходит мастер (приветствие → политика → пароль →
   // синхронизация); голая форма ниже — для сброса пароля.
   if (isInvite && recoveryMode && !linkExpired && !legacyHash) {
-    return <InviteWizard email={email} />;
+    return <InviteWizard email={email} tokenHash={searchParams.get('token_hash')} />;
   }
 
   return (
@@ -358,6 +362,9 @@ export function ResetPasswordPage() {
             <p className="text-sm text-accent-danger">
               {isInvite ? t('reset_pw_invite_used_message') : t('reset_pw_link_expired_message')}
             </p>
+            {/* V-1.2: настройку можно довести до конца только там, где её начали —
+                ссылка обменена, и в другом браузере человек увидит это сообщение. */}
+            {isInvite && <p className="text-sm text-text-main/70">{t('reset_pw_invite_used_other_browser')}</p>}
             <button
               type="button"
               onClick={() => { void navigate('/login'); }}

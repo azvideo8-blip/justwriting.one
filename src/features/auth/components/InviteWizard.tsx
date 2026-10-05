@@ -1,7 +1,7 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, useEffect, type FormEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Copy, Download, Check } from 'lucide-react';
-import { updateUserPassword } from '../../../core/auth/supabaseAuthProvider';
+import { updateUserPassword, getCurrentUser } from '../../../core/auth/supabaseAuthProvider';
 import { AuthService } from '../services/AuthService';
 import { PrivacyConsentBody, savePrivacyConsent } from './PrivacyConsentBody';
 import { JustWritingLogo } from '../../../shared/components/JustWritingLogo';
@@ -10,6 +10,8 @@ import { setCloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/constants/passwordPolicy';
 import { reportError } from '../../../shared/errors/reportError';
 import { useLanguage } from '../../../shared/i18n';
+import { passwordErrorKind, type PasswordErrorKind } from '../utils/passwordErrorKind';
+import { clearWizardSnapshot, loadWizardSnapshot, saveWizardSnapshot, type WizardStep } from '../utils/inviteWizardState';
 
 /**
  * ON-1/ON-2: мастер приглашения. Приветствие → политика → пароль →
@@ -21,36 +23,46 @@ import { useLanguage } from '../../../shared/i18n';
  * шифрования». Согласие пишется тем же способом, что в окне при первом входе, —
  * поэтому то окно после мастера не появляется.
  */
-type Step = 'welcome' | 'policy' | 'password' | 'sync';
+type Step = WizardStep;
 
-// 2026-10-05: раньше «нет сети» показывалось по одному navigator.onLine после
-// любой ошибки, и приглашённый видел «сбой сети», когда на деле потерялся вход
-// по ссылке. Сеть — только когда запрос и правда не ушёл.
-function passwordErrorKey(err: unknown): 'invite_wizard_err_offline' | 'invite_wizard_err_session_lost' | 'invite_wizard_err_failed' {
-  const name = (err as { name?: unknown } | null)?.name;
-  const message = err instanceof Error ? err.message : '';
-  if ((typeof navigator !== 'undefined' && !navigator.onLine) || err instanceof TypeError || name === 'AuthRetryableFetchError') {
-    return 'invite_wizard_err_offline';
-  }
-  if (name === 'AuthSessionMissingError' || message.includes('No signed-in user')) return 'invite_wizard_err_session_lost';
-  return 'invite_wizard_err_failed';
-}
+// V-1.3: kinds считаются общим хелпером (там же и почему), здесь только подписи.
+const ERROR_KEY: Record<PasswordErrorKind, 'invite_wizard_err_offline' | 'invite_wizard_err_session_lost' | 'invite_wizard_err_failed'> = {
+  offline: 'invite_wizard_err_offline',
+  session_lost: 'invite_wizard_err_session_lost',
+  failed: 'invite_wizard_err_failed',
+};
 const NUMBERED: Step[] = ['policy', 'password', 'sync'];
 
-export function InviteWizard({ email }: { email: string | null }) {
+export function InviteWizard({ email, tokenHash = null }: { email: string | null; tokenHash?: string | null }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [step, setStep] = useState<Step>('welcome');
-  const [policy, setPolicy] = useState(false);
-  const [aiConsent, setAiConsent] = useState(false);
+  // V-1.1: этот запуск мастера мог начаться до перезагрузки страницы — продолжаем
+  // с того же шага и с теми же галочками. Шаг «синхронизация» без uid восстанавливать
+  // нельзя (uid берём из сессии), тогда — обратно на шаг пароля.
+  const [snapshot] = useState(() => loadWizardSnapshot(tokenHash));
+  const [restoredUid] = useState<string | null>(() => {
+    if (snapshot?.step !== 'sync') return null;
+    const uid = getCurrentUser()?.uid ?? null;
+    return uid && !uid.startsWith('guest') ? uid : null;
+  });
+  const [step, setStep] = useState<Step>(() => {
+    if (!snapshot) return 'welcome';
+    return snapshot.step === 'sync' && !restoredUid ? 'password' : snapshot.step;
+  });
+  const [policy, setPolicy] = useState(() => snapshot?.policy ?? false);
+  const [aiConsent, setAiConsent] = useState(() => snapshot?.aiConsent ?? false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uid, setUid] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(restoredUid);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [codeSaved, setCodeSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    saveWizardSnapshot(tokenHash, { step, policy, aiConsent });
+  }, [tokenHash, step, policy, aiConsent]);
 
   const submitPassword = async (e: FormEvent) => {
     e.preventDefault();
@@ -67,7 +79,7 @@ export function InviteWizard({ email }: { email: string | null }) {
       setStep('sync');
     } catch (err) {
       reportError(err, { action: 'inviteWizard_password' });
-      setError(t(passwordErrorKey(err)));
+      setError(t(ERROR_KEY[passwordErrorKind(err)]));
     } finally {
       setBusy(false);
     }
@@ -79,6 +91,7 @@ export function InviteWizard({ email }: { email: string | null }) {
   };
 
   const finish = (syncOn: boolean) => {
+    clearWizardSnapshot(tokenHash);
     if (uid) {
       setCloudSyncEnabled(uid, syncOn);
       try {

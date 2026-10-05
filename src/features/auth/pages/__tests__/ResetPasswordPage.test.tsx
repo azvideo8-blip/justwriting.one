@@ -354,3 +354,70 @@ describe('invite link opened a second time (prod 2026-10-05)', () => {
     expect(screen.queryByText('Запросить новую ссылку')).toBeNull();
   });
 });
+
+// V-1.2/V-1.3: что видит человек, который открыл обмененную ссылку не там, где
+// начал настройку, и чем форма сброса отвечает на потерянный вход.
+describe('used invitation: where to finish, and how errors are named', () => {
+  beforeEach(() => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    updateUserPassword.mockResolvedValue(undefined);
+  });
+
+  it('the used-invite message says to go back to the browser where the setup started', async () => {
+    verifyOtpForRecovery.mockRejectedValueOnce(new Error('Invitation has already been used'));
+    renderPage(['/reset-password?token_hash=used-2&type=invite']);
+    expect(await screen.findByText(/Эта ссылка-приглашение уже использована/)).toBeTruthy();
+    expect(screen.getByText(/Если вы начали настройку в другом браузере/)).toBeTruthy();
+    expect(screen.getByText(/вернитесь туда/)).toBeTruthy();
+  });
+
+  it('an expired recovery link does not get the invitation-only advice', async () => {
+    verifyOtpForRecovery.mockRejectedValueOnce(new Error('Email link is invalid or has expired'));
+    renderPage(['/reset-password?token_hash=used-3&type=recovery']);
+    expect(await screen.findByText(/Ссылка уже использована или устарела/)).toBeTruthy();
+    expect(screen.queryByText(/начали настройку в другом браузере/)).toBeNull();
+  });
+
+  it('a lost link session is named as such, not as a failed password change', async () => {
+    renderPage();
+    act(() => { onPasswordRecoveryCb.fire(); });
+    updateUserPassword.mockRejectedValueOnce(new Error('No signed-in user to set a password for'));
+    fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.click(screen.getByText('Сменить пароль'));
+    expect(await screen.findByText(/Вход по ссылке потерялся/)).toBeTruthy();
+    expect(screen.queryByText(/Не удалось изменить пароль/)).toBeNull();
+  });
+
+  it('a request that never left the browser is still a network failure', async () => {
+    renderPage();
+    act(() => { onPasswordRecoveryCb.fire(); });
+    updateUserPassword.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    fireEvent.change(screen.getByLabelText('Новый пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'new-secret-9' } });
+    fireEvent.click(screen.getByText('Сменить пароль'));
+    expect(await screen.findByText(/Нет соединения с сетью/)).toBeTruthy();
+  });
+
+  // V-1.1 сквозь страницу: мастер должен получать хэш токена из адреса, иначе
+  // после перезагрузки ему не по чему найти сохранённый шаг.
+  it('a reload in the middle of the wizard resumes on the same step', async () => {
+    const url = ['/reset-password?token_hash=tok-page-reload&type=invite'];
+    verifyOtpForRecovery.mockResolvedValueOnce('invitee@example.com');
+    const first = renderPage(url);
+    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalledWith('tok-page-reload', 'invite'));
+    await screen.findByText('Добро пожаловать в justwriting');
+    fireEvent.click(screen.getByRole('button', { name: 'Начать' }));
+    fireEvent.click(screen.getAllByRole('checkbox')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+    await screen.findByText('Придумайте пароль');
+    first.unmount();
+
+    getSession.mockResolvedValue({ data: { session: { user: { email: 'invitee@example.com' } } } });
+    renderPage(url);
+    await screen.findByText('Придумайте пароль');
+    fireEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    expect(screen.getAllByRole('checkbox')[0]).toBeChecked();
+    getSession.mockResolvedValue({ data: { session: null } });
+  });
+});

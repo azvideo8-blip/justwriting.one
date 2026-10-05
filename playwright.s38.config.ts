@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 
 // S-38: прогон слияния диалогов на двух профилях браузера на локальном стенде
 // (scripts/stand/up.sh + api/server.ts с заглушкой ИИ через STAND_API_PORT).
+// Стендовые спеки — все *.stand.spec.ts: они читают scripts/stand/.env.stand,
+// поэтому в обычном наборе (playwright.config.ts) их нет.
 
 // Прежний `process.env.STAND_URL ?? 'http://localhost:3000'` молча уходил на
 // чужой сервис, если переменная не экспортирована: тот ронял React
@@ -22,7 +24,7 @@ function standUrl(): string {
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: 'dialogueSync.stand.spec.ts',
+  testMatch: /\.stand\.spec\.ts$/,
   fullyParallel: false,
   workers: 1,
   retries: 0,

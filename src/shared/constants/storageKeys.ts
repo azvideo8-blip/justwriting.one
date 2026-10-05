@@ -36,6 +36,8 @@ export const STORAGE_KEYS = {
   MIGRATION_DECLINED: (uid: string) => `jw_migration_declined_${uid}`,
   DICTATION_NOTICE_SEEN: 'jw_dictation_notice_seen',
   PENDING_RECOVERY_CODE: (uid: string) => `pending_recovery_code_${uid}`,
+  /** V-1.1: шаг мастера приглашения по хэшу токена из ссылки (sessionStorage). */
+  INVITE_WIZARD_STATE: (tokenHash: string) => `jw_invite_wizard_${tokenHash}`,
   /** Когда этот аккаунт вышел сознательно (в любой вкладке) — N-60. */
   VOLUNTARY_SIGNOUT_AT: (uid: string) => `jw_voluntary_signout_at_${uid}`,
   /** S-28: uid аккаунта, сессия которого оборвалась не по воле человека. */

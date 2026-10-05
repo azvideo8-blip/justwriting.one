@@ -312,6 +312,16 @@ export const authScreensTranslations: Translations = {
     ru: 'Эта ссылка-приглашение уже использована. Если вы задали пароль — просто войдите. Если не успели — попросите новое приглашение у того, кто вас пригласил.',
     en: 'This invitation link has already been used. If you set a password, just sign in. If you didn’t get to it, ask whoever invited you for a new invitation.',
   },
+  // V-1.2: начатую настройку нельзя продолжить в другом браузере — ссылка обменена там, где её открыли первой.
+  reset_pw_invite_used_other_browser: {
+    ru: 'Если вы начали настройку в другом браузере или на другом устройстве — вернитесь туда и завершите её там.',
+    en: 'If you started the setup in another browser or on another device, go back there and finish it there.',
+  },
+  // V-1.3: вход по ссылке потерялся — это не «нет сети».
+  reset_pw_session_lost: {
+    ru: 'Вход по ссылке потерялся. Откройте ссылку из письма ещё раз; если она уже использована — попросите новую.',
+    en: 'The sign-in from the link was lost. Open the link from the email again; if it has already been used, ask for a new one.',
+  },
   reset_pw_link_expired_message: {
     ru: 'Ссылка уже использована или устарела — запросите новую',
     en: 'The link has already been used or has expired — please request a new one',
