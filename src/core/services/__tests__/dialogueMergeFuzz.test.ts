@@ -8,6 +8,7 @@ import { AIDialogueService } from '../../../features/ai/services/AIDialogueServi
 import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreService';
 import { nextPullCursor } from '../../../features/ai/services/pullCursor';
 import { dialogueFingerprint } from '../../storage/dialogueMerge';
+import { planDialogue, type DialogueHead, type CloudSegmentRow } from '../dialogueSegments';
 
 // Сеть-фаззинг слияния диалогов (главная страховка Track M). Порт стенда
 // merge-repro/rv3fuzz.test.ts из justwriting-docs — с НАСТОЯЩИМИ порогами
@@ -38,10 +39,11 @@ import { dialogueFingerprint } from '../../storage/dialogueMerge';
 
 const UID = 'u_fuzz';
 
-type Row = { store: string; key: string; payload: Record<string, unknown> };
+type Row = { store: string; key: string; payload: Record<string, unknown>; stamped_at: number };
 const cloud = new Map<string, Row>();
 const rowKey = (store: string, key: string) => `${store}:${key}`;
 let onCloudRead: (() => void) | null = null;
+let onBeforeDeletePaged: ((key: string) => Promise<void>) | null = null;
 let failCas: (() => boolean) | null = null;
 // Сбой «сети»: 'net' — бросок ДО записи, 'lost' — запись легла, а ответ потерян.
 let failMode: (() => 'ok' | 'net' | 'lost') = () => 'ok';
@@ -59,14 +61,22 @@ function stampRow(store: string, key: string, payload: Record<string, unknown>):
   }
   return payload;
 }
+function setCloud(store: string, key: string, payload: Record<string, unknown>, stamped_at = clock): void {
+  cloud.set(rowKey(store, key), { store, key, payload, stamped_at });
+}
 const sortedRows = (rows: Row[]) => rows.sort((a, b) => a.store.localeCompare(b.store) || a.key.localeCompare(b.key));
 
 vi.mock('../../data', () => ({
   DataProvider: {
     getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
-      [...cloud.values()].filter(r => r.store === store && r.key.startsWith(prefix)),
+      [...cloud.values()]
+        .filter(r => r.store === store && r.key.startsWith(prefix))
+        .map(r => ({ store: r.store, key: r.key, payload: r.payload, stamped_at: r.stamped_at })),
     deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+      const f = failMode();
+      if (f === 'net') throw new Error('network: delete failed');
       for (const k of keys) cloud.delete(`${store}:${k}`);
+      if (f === 'lost') throw new Error('network: delete response lost');
     },
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
@@ -74,7 +84,7 @@ vi.mock('../../data', () => ({
       sortedRows([...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since))),
     getLocalStoreRecord: async (_uid: string, store: string, key: string) => {
       const r = cloud.get(rowKey(store, key));
-      return r ? { store, key, payload: r.payload } : null;
+      return r ? { store, key, payload: r.payload, stamped_at: r.stamped_at } : null;
     },
     getLocalStoreRecordPages: async (_uid: string, store: string, key: string) => {
       const out = [...cloud.values()].filter(r => r.store === store && r.key.startsWith(`${key}#`));
@@ -84,13 +94,15 @@ vi.mock('../../data', () => ({
     saveLocalStoreRecord: async (_uid: string, store: string, key: string, payload: Record<string, unknown>) => {
       const f = failMode();
       if (f === 'net') throw new Error('network');
-      cloud.set(rowKey(store, key), { store, key, payload: stampRow(store, key, payload) });
+      setCloud(store, key, stampRow(store, key, payload), clock);
       if (f === 'lost') throw new Error('network: response lost');
     },
     saveLocalStoreRecordPages: async (_uid: string, store: string, pages: Array<{ key: string; payload: Record<string, unknown> }>) => {
       const f = failPages();
       if (f === 'net') throw new Error('network: pages');
-      for (const p of pages) cloud.set(rowKey(store, p.key), { store, key: p.key, payload: stampRow(store, p.key, p.payload) });
+      for (const p of pages) {
+        setCloud(store, p.key, stampRow(store, p.key, p.payload), clock);
+      }
       if (f === 'lost') throw new Error('network: pages response lost');
     },
     saveLocalStoreRecordIfUnchanged: async (_uid: string, store: string, key: string, payload: Record<string, unknown>, expected: number | null) => {
@@ -99,12 +111,15 @@ vi.mock('../../data', () => ({
       if (f === 'net') throw new Error('network');
       const cur = cloud.get(rowKey(store, key));
       if (expected === null ? cur !== undefined : cur?.payload.updatedAt !== expected) return false;
-      cloud.set(rowKey(store, key), { store, key, payload: stampRow(store, key, payload) });
+      setCloud(store, key, stampRow(store, key, payload), clock);
       if (f === 'lost') throw new Error('network: response lost');
       return true;
     },
     deleteLocalStorePagedRecords: async (_uid: string, store: string, key: string) => {
       for (const [k, r] of cloud) if (r.store === store && r.key.startsWith(`${key}#`)) cloud.delete(k);
+      if (store === 'aiDialogues' && onBeforeDeletePaged) {
+        await onBeforeDeletePaged(key);
+      }
     },
     deleteLocalStoreRecord: async (_uid: string, store: string, key: string) => {
       cloud.delete(rowKey(store, key));
@@ -169,23 +184,7 @@ const cloudKeysOf = (id: string) => [...cloud.values()]
   .filter(r => r.key === id || r.key.startsWith(`${id}#`) || r.key.startsWith(`${id}@seg`))
   .map(r => r.key);
 
-/** 0.9.28 переложил облачную копию на страницы `key#N` без строки `key`. */
-async function legacyRepage(id: string): Promise<void> {
-  const rec = await local(id);
-  if (!rec) return;
-  const json = JSON.stringify(rec);
-  const n = 2;
-  for (const [k, r] of [...cloud]) if (r.store === 'aiDialogues' && (r.key === id || r.key.startsWith(id + '#') || r.key.startsWith(id + '@seg'))) cloud.delete(k);
-  const size = Math.ceil(json.length / n);
-  for (let i = 0; i < n; i++) {
-    const key = id + '#' + i;
-    cloud.set(rowKey('aiDialogues', key), {
-      store: 'aiDialogues',
-      key,
-      payload: { data: json.slice(i * size, (i + 1) * size), updatedAt: rec.updatedAt, page: i, totalPages: n },
-    });
-  }
-}
+
 
 async function flushDev(): Promise<{ failed: number; skippedOversized: number }> {
   const r = await LocalStoreSyncService.flushPending(true);
@@ -239,13 +238,20 @@ async function runSeed(seed: number): Promise<string[]> {
   });
   const id = d.id;
   oversizedSeen += (await flushDev()).skippedOversized;
-  for (const dv of devs.slice(1)) { switchTo(dv); await pull(dv, true); }
+  const devDialogues = new Map<Device, AIDialogue>();
+  for (const dv of devs.slice(1)) {
+    switchTo(dv);
+    await pull(dv, true);
+    const cur = await local(id);
+    if (cur) devDialogues.set(dv, cur);
+  }
   switchTo(devs[0]!);
   // Гарантируем постраничную ветку в каждом сиде: без неё тест тихо превращается
   // в перебор однострочных диалогов.
   switchTo(devs[0]!);
   await AIDialogueService.appendMessage(id, `Вопрос ${BLOB}`, `Ответ ${BLOB}`, BLOB);
   await flushDev();
+  const d0 = await local(id); if (d0) devDialogues.set(devs[0]!, d0);
   // Покрытием считается ANY выгрузка дальше одной строки сида (страницы `key#…`
   // или сегменты `key@seg…`): размер первой записи зависит от того, что уже лежит
   // в диалоге, и требовать её в два куска на первом же шаге — значит ловить
@@ -256,8 +262,85 @@ async function runSeed(seed: number): Promise<string[]> {
   failCas = FAILP !== 0 ? () => r() < FAILP : null;
   failMode = () => { const x = r(); return x < LOSTP ? 'lost' : 'ok'; };
   failPages = () => { const x = r(); return x < PAGEFAILP ? 'net' : x < PAGEFAILP + LOSTP ? 'lost' : 'ok'; };
+
+  // T-4: интерливинг — пока победитель single-row CAS сносит старые страницы в
+  // deleteLocalStorePagedRecords, другое устройство успевает выгрузить свой head,
+  // усыновив осиротевшее окно.
+  onBeforeDeletePaged = async (key: string) => {
+    const other = devs.find(d => d !== currentDevice && devDialogues.has(d) && !devDialogues.get(d)!.deletedAt && devDialogues.get(d)!.messages.length > 0);
+    if (!other) return;
+    const localD = devDialogues.get(other)!;
+    const segRows = [...cloud.values()].filter(row => row.store === 'aiDialogues' && row.key.startsWith(key + '@seg'));
+    if (segRows.length === 0) return;
+    const cloudSegs: CloudSegmentRow[] = segRows.map(s => ({
+      key: s.key,
+      firstAt: Number(s.payload.firstAt) || 0,
+      updatedAt: Number(s.payload.updatedAt) || 0,
+      messages: typeof s.payload.messages === 'string' ? s.payload.messages : null,
+      stampedAt: s.stamped_at,
+    }));
+    const curHeadRow = cloud.get(rowKey('aiDialogues', key));
+    const curHead = curHeadRow?.payload.head === true ? (curHeadRow.payload as unknown as DialogueHead) : undefined;
+    const plan = planDialogue(localD, { head: curHead, segments: cloudSegs });
+    const segKeySet = new Set(segRows.map(s => s.key));
+    const adopted = plan.head.segments.some(s => segKeySet.has(s.key));
+    if (!adopted) return;
+    for (const s of plan.toWrite) {
+      setCloud('aiDialogues', s.key, { seg: true, headKey: key, firstAt: s.firstAt, lastAt: s.lastAt, updatedAt: s.updatedAt, messages: JSON.stringify(s.messages) }, clock);
+    }
+    setCloud('aiDialogues', key, stampRow('aiDialogues', key, { ...plan.head }), clock);
+  };
+
   let dialogueDeleted = false;
   let n = 0;
+
+  /** 0.9.28 переложил облачную копию на страницы `key#N` без строки `key`. */
+  const legacyRepage = async (id: string): Promise<void> => {
+    const rec = await local(id);
+    if (!rec) return;
+    const json = JSON.stringify(rec);
+    const numPages = 2;
+    for (const [k, r] of [...cloud]) if (r.store === 'aiDialogues' && (r.key === id || r.key.startsWith(id + '#'))) cloud.delete(k);
+    const size = Math.ceil(json.length / numPages);
+    for (let i = 0; i < numPages; i++) {
+      const key = id + '#' + i;
+      cloud.set(rowKey('aiDialogues', key), {
+        store: 'aiDialogues',
+        key,
+        payload: { data: json.slice(i * size, (i + 1) * size), updatedAt: rec.updatedAt, page: i, totalPages: numPages },
+        stamped_at: clock,
+      });
+    }
+  };
+
+  /** 0.9.29 слепая выгрузка всего диалога одной строкой — затирает head, оставляет сегменты. */
+  const legacySingleUpsert = async (id: string): Promise<void> => {
+    const rec = await local(id);
+    if (!rec) return;
+    const json = JSON.stringify(rec);
+    for (const [k, r] of [...cloud]) if (r.store === 'aiDialogues' && r.key.startsWith(id + '#')) cloud.delete(k);
+    cloud.set(rowKey('aiDialogues', id), {
+      store: 'aiDialogues',
+      key: id,
+      payload: stampRow('aiDialogues', id, { data: json, updatedAt: rec.updatedAt }),
+      stamped_at: clock,
+    });
+  };
+
+  /** 0.9.29 cleanupEmpty сносит строку в облаке, ТОЛЬКО если в data пустые messages (head не трогает). */
+  const legacyCleanupEmpty = (id: string): void => {
+    const r = cloud.get(rowKey('aiDialogues', id));
+    if (!r || typeof r.payload.data !== 'string') return;
+    try {
+      const p = JSON.parse(r.payload.data) as { messages?: unknown[] };
+      if (!p.messages || p.messages.length === 0) {
+        cloud.delete(rowKey('aiDialogues', id));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const steps = 25 + Math.floor(r() * 20);
   for (let step = 0; step < steps; step++) {
     clock = Math.floor((clock + Math.floor(r() * 90_000)) / CLOCK_STEP) * CLOCK_STEP;
@@ -288,10 +371,29 @@ async function runSeed(seed: number): Promise<string[]> {
         await AIDialogueService.delete(id);
         if (before && !before.deletedAt) dialogueDeleted = true;
       } else if (x < 0.53 + DELP + LEGP) {
-        // M-1: облачная копия без манифеста — её переложил старый клиент (или
-        // старый таб стёр строку `key`, оставив страницы). Выгрузка обязана
-        // вернуться в эту точку и пройти CAS по состоянию самой строки `key`.
-        await legacyRepage(id);
+        // Старый клиент: перекладывает на страницы, слепо пишет одну строку или чистит пустые диалоги
+        const op = r();
+        if (op < 0.25) {
+          await legacyRepage(id);
+        } else if (op < 0.50) {
+          await legacySingleUpsert(id);
+        } else if (op < 0.75) {
+          const rec = await local(id);
+          if (rec && !rec.deletedAt) {
+            dialogueDeleted = true;
+            for (const m of rec.messages) if (m.id) deleted.add(m.id);
+            const tomb = { ...rec, deletedAt: clock, messages: [] };
+            for (const [k, r] of [...cloud]) if (r.store === 'aiDialogues' && r.key.startsWith(id + '#')) cloud.delete(k);
+            cloud.set(rowKey('aiDialogues', id), {
+              store: 'aiDialogues',
+              key: id,
+              payload: stampRow('aiDialogues', id, { data: JSON.stringify(tomb), updatedAt: clock }),
+              stamped_at: clock,
+            });
+          }
+        } else {
+          legacyCleanupEmpty(id);
+        }
       } else if (x < 0.53 + DELP + LEGP + 0.02) {
         // Строка-указатель стёрта, а дочерние строки живы: под paging это был
         // «старый таб снёс манифест», под M-5 — head удалён при целых сегментах.
@@ -299,7 +401,8 @@ async function runSeed(seed: number): Promise<string[]> {
       } else if (x < 0.78) {
         await flushDev();
       } else {
-        await pull(dev, r() < 0.2);
+        const pr = await pull(dev, r() < 0.2);
+        if (TRACE) trace.push(`pull on ${dev.name} failed=${pr.failed} local=${(await local(id))?.messages.length}`);
         const after = await local(id);
         if (before && !before.deletedAt && after && !after.deletedAt) {
           const ids = new Set(after.messages.map(m => m.id));
@@ -319,11 +422,21 @@ async function runSeed(seed: number): Promise<string[]> {
       trace.push(`${step} ${dev.name} x=${x.toFixed(3)} local=${before ? (before.deletedAt ? 'TOMB' : before.messages.length) : '-'} -> ${after ? (after.deletedAt ? 'TOMB' : after.messages.length) : '-'} cloud=${JSON.stringify(cloudKeysOf(id).map(k => k.slice(id.length)))}`);
     }
     const after = await local(id);
+    if (after) devDialogues.set(dev, after);
     for (const m of after?.messages ?? []) if (m.id && !before?.messages.some(b => b.id === m.id)) created.add(m.id);
   }
-  failCas = null; failMode = () => 'ok'; failPages = () => 'ok';
+  failCas = null; failMode = () => 'ok'; failPages = () => 'ok'; onBeforeDeletePaged = null;
   clock += 3_600_000;
-  for (let round = 0; round < 4; round++) for (const dv of devs) { switchTo(dv); await flushDev(); await pull(dv, true); await flushDev(); }
+  for (let round = 0; round < 4; round++) {
+    clock += 15 * 60_000;
+    legacyCleanupEmpty(id);
+    for (const dv of devs) {
+      switchTo(dv);
+      await pull(dv, true);
+      LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
+      await flushDev();
+    }
+  }
 
   const finals: Array<AIDialogue | undefined> = [];
   for (const dv of devs) {
