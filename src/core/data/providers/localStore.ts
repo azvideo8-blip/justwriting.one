@@ -230,29 +230,6 @@ export async function deleteLocalStorePagedRecords(userId: string, store: string
   if (error != null) throw error;
 }
 
-/** S-49: все страницы записи, кроме версии `keepStamp` (`key#<keepStamp>#N`) —
- *  проигравшие попытки и страницы прежних форматов после удачной записи манифеста. */
-export async function deleteLocalStoreStalePages(userId: string, store: string, key: string, keepStamp: number, keepNonce?: string): Promise<void> {
-  const { data, error } = await getSupabase()
-    .from('local_store_records')
-    .select('key')
-    .eq('user_id', userId)
-    .eq('store', store)
-    .like('key', likePrefix(key));
-  if (error != null) throw error;
-  // M-2: победитель оставляет страницы СВОЕЙ попытки; без keepNonce — прежняя
-  // гранулярность (версия по отметке), для записей формата S-49.
-  const keep = keepNonce ? `${key}#${keepStamp}#${keepNonce}#` : `${key}#${keepStamp}#`;
-  const stale = ((data ?? []) as Array<{ key: string }>).map(r => r.key).filter(k => !k.startsWith(keep));
-  if (stale.length === 0) return;
-  const { error: delError } = await getSupabase()
-    .from('local_store_records')
-    .delete()
-    .eq('user_id', userId)
-    .eq('store', store)
-    .in('key', stale);
-  if (delError != null) throw delError;
-}
 
 export async function deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void> {
   const { error } = await getSupabase()

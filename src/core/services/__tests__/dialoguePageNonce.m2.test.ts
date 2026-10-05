@@ -66,12 +66,6 @@ vi.mock('../../data', () => ({
     deleteLocalStorePagedRecords: async (_uid: string, store: string, key: string) => {
       for (const [k, r] of cloud) if (r.store === store && r.key.startsWith(`${key}#`)) cloud.delete(k);
     },
-    deleteLocalStoreStalePages: async (_uid: string, store: string, key: string, keepStamp: number, keepNonce?: string) => {
-      // как провайдер: победитель оставляет страницы своей попытки (M-2),
-      // без метки — прежняя гранулярность по отметке.
-      const keep = keepNonce ? `${key}#${keepStamp}#${keepNonce}#` : `${key}#${keepStamp}#`;
-      for (const [k, r] of cloud) if (r.store === store && r.key.startsWith(`${key}#`) && !r.key.startsWith(keep)) cloud.delete(k);
-    },
     deleteLocalStoreRecord: async (_uid: string, store: string, key: string) => {
       cloud.delete(rowKey(store, key));
       for (const [k, r] of cloud) if (r.store === store && r.key.startsWith(`${key}#`)) cloud.delete(k);

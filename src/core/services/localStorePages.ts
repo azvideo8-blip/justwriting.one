@@ -16,13 +16,7 @@
 //   `key#<N>`         — страница N без версии в ключе (все хранилища до S-49 и
 //                      все, кроме диалогов, после).
 
-import { randomUUID } from '../storage/localDb';
 import { headKeyOfRow } from './dialogueSegments';
-
-/** Метка попытки выгрузки (M-2): случайные 8 hex-символов, своя на каждую попытку. */
-export function newPageNonce(): string {
-  return randomUUID().replace(/-/g, '').slice(0, 8);
-}
 
 export interface CloudRow {
   key: string;
@@ -50,12 +44,6 @@ export function parseLocalStoreKey(key: string): ParsedKey {
   return { baseKey: key, stamp: null, nonce: null, pageIndex: null };
 }
 
-/** Ключ страницы попытки (M-2): метка перед номером; `p` в номере — чтобы
- * прежний клиент (M-3) не принял страницу за нумерованную страницу своей версии. */
-export function pageKeyFor(baseKey: string, stamp: number, nonce: string, pageIndex: number): string {
-  return `${baseKey}#${stamp}#${nonce}#p${pageIndex}`;
-}
-
 /**
  * M-3: текст страницы нового формата лежит в `chunk`, а не в `data`. Клиенты
  * 0.9.28/0.9.29 (AIRestoreService, один и тот же файл в обоих тегах) читают
@@ -72,11 +60,6 @@ export function pageTextOf(decrypted: Record<string, unknown>): string | null {
     if (typeof v === 'string') return v;
   }
   return null;
-}
-
-/** Префикс всех страниц одной попытки — им чистит свои осколки проигравший. */
-export function attemptPrefix(baseKey: string, stamp: number, nonce: string): string {
-  return `${baseKey}#${stamp}#${nonce}`;
 }
 
 export interface Manifest { updatedAt: number; totalPages: number; nonce: string | null }

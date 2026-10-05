@@ -126,7 +126,6 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
         heads.push({ key, payload: payload as Record<string, unknown>, expected });
         return true;
       });
-      const deleteStaleSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreStalePages').mockResolvedValue(undefined as never);
       const deletePagedSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
       const deleteByKeysSpy = vi.spyOn(DataProvider, 'deleteLocalStoreRecordsByKeys').mockResolvedValue(undefined as never);
 
@@ -162,7 +161,6 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       // страницы `key#…` сносятся — на них больше никто не ссылается.
       expect(deleteByKeysSpy).not.toHaveBeenCalled();
       expect(deletePagedSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large');
-      expect(deleteStaleSpy, 'постраничная уборка диалогу больше не нужна').not.toHaveBeenCalled();
     });
 
     // R3-013: запись крупнее одного запроса (8 страниц) уходила несколькими —
@@ -182,7 +180,6 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockResolvedValue(undefined);
       const pagesSaveSpy = vi.spyOn(DataProvider, 'saveLocalStoreRecordPages').mockResolvedValue(undefined);
       vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnchanged').mockResolvedValue(true);
-      vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreStalePages').mockResolvedValue(undefined as never);
 
       LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_big');
       const res = await LocalStoreSyncService.flushPending(true);
