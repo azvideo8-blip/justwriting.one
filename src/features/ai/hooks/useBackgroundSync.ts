@@ -6,6 +6,9 @@ import { useActivityLogStore } from '../../../shared/activity/useActivityLogStor
 import { CloudSyncService } from '../../../core/services/CloudSyncService';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
+// Курсор — общая формула с сетевым фуззом; чистая функция, чтобы тест hook'а
+// не подменял её своим mock'ом.
+import { nextPullCursor } from '../services/pullCursor';
 import { SyncService } from '../../../core/services/SyncService';
 
 /**
@@ -97,13 +100,10 @@ export function useBackgroundSync(): void {
         const startedAt = Date.now();
         const last = Number(localStorage.getItem(pullKey)) || startedAt - PULL_FIRST_WINDOW_MS;
         const pulled = await restoreAIDataFromCloud(uid, { sinceMs: last - PULL_CLOCK_SKEW_MS });
-        // Курсор — по отметке, реально увиденной в облаке, а не по часам
-        // устройства. Базовой строке диалога отметку ставит сервер (миграция 0037),
-        // и на машине с часами вперёд `Date.now()` уходит в будущее: сравнение
-        // «облако старше курсора» стало бы истинным навсегда, и такой читатель
-        // перестал бы получать чужие правки совсем. Назад курсор не откатываем.
+        // Формула — общая с сетевым фуззом (pullCursor.ts): по отметке, реально
+        // увиденной в облаке, с часами устройства только как потолком.
         if (!pulled.skippedLocked) {
-          localStorage.setItem(pullKey, String(Math.min(startedAt, Math.max(last, pulled.maxUpdatedAt))));
+          localStorage.setItem(pullKey, String(nextPullCursor(startedAt, last, pulled.maxUpdatedAt)));
         }
       } catch (e) {
         reportError(e, { action: 'backgroundSync_pullAIData' });

@@ -6,6 +6,7 @@ import type { AIDialogue } from '../../storage/localDb';
 import { getDeadStoreUpserts, LocalStoreSyncService } from '../LocalStoreSyncService';
 import { AIDialogueService } from '../../../features/ai/services/AIDialogueService';
 import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreService';
+import { nextPullCursor } from '../../../features/ai/services/pullCursor';
 import { dialogueFingerprint } from '../../storage/dialogueMerge';
 
 // Сеть-фаззинг слияния диалогов (главная страховка Track M). Порт стенда
@@ -18,9 +19,18 @@ import { dialogueFingerprint } from '../../storage/dialogueMerge';
 // «сети» (FAILP). После оседания все три копии обязаны сойтись в один снимок,
 // ни один живой ход не теряется, удалённый не воскресает, дублей нет.
 //
+// Что смоделировано, кроме перемешанных операций:
+//   · порядок строк у провайдера — (store, key), как у PostgREST. С вставочным
+//     порядком R-1 (осиротевшее окно как «единственная строка диалога») не виден
+//     вовсе: пересозданная строка `key` попадала бы в конец списка сама;
+//   · триггер 0037 — серверная отметка базовой строки (JW_FUZZ_NOSTAMP=1 её снимает);
+//   · сбои не только до записи, но и ПОСЛЕ («ответ потерян») и на пачке сегментов;
+//   · инварианты конца: ни окна без head, ни head без своего окна, ни страниц
+//     рядом с head, и забор не обязан срезать живой ход.
+//
 // Запуск:
 //   npx vitest run src/core/services/__tests__/dialogueMergeFuzz.test.ts
-//   JW_FUZZ_SEEDS=400 npx vitest run …        (локальный прогон, ~10 минут)
+//   JW_FUZZ_SEEDS=400 npx vitest run …        (локальный прогон, ~50 с на 8 ядрах)
 //   JW_FUZZ_SEEDS=6 JW_FUZZ_TRACE=1 …          (разбор одного упадка)
 // В CI сидов 50 — это значение по умолчанию: `test:ci` (`vitest run --coverage`)
 // запускается без `JW_FUZZ_SEEDS`, отдельного шага с переменной в workflow нет.
@@ -33,6 +43,23 @@ const cloud = new Map<string, Row>();
 const rowKey = (store: string, key: string) => `${store}:${key}`;
 let onCloudRead: (() => void) | null = null;
 let failCas: (() => boolean) | null = null;
+// Сбой «сети»: 'net' — бросок ДО записи, 'lost' — запись легла, а ответ потерян.
+let failMode: (() => 'ok' | 'net' | 'lost') = () => 'ok';
+let failPages: (() => 'ok' | 'net' | 'lost') = () => 'ok';
+// Триггер 0037 на базовой строке диалога: серверные часы — общие `clock` без
+// перекоса устройства, отметки строго возрастают. JW_FUZZ_NOSTAMP=1 выключает его
+// и смотрит раскатку «сначала клиент, миграции ещё нет».
+let lastStamp = 0;
+const STAMP = process.env.JW_FUZZ_NOSTAMP ? false : true;
+function stampRow(store: string, key: string, payload: Record<string, unknown>): Record<string, unknown> {
+  if (!STAMP) return payload;
+  if (store === 'aiDialogues' && !key.includes('#') && !key.includes('@') && typeof payload.updatedAt === 'number') {
+    lastStamp = Math.max(clock, lastStamp + 1);
+    return { ...payload, updatedAt: lastStamp };
+  }
+  return payload;
+}
+const sortedRows = (rows: Row[]) => rows.sort((a, b) => a.store.localeCompare(b.store) || a.key.localeCompare(b.key));
 
 vi.mock('../../data', () => ({
   DataProvider: {
@@ -44,7 +71,7 @@ vi.mock('../../data', () => ({
     getUserSummaries: async () => [],
     getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
     getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
-      [...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since)),
+      sortedRows([...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since))),
     getLocalStoreRecord: async (_uid: string, store: string, key: string) => {
       const r = cloud.get(rowKey(store, key));
       return r ? { store, key, payload: r.payload } : null;
@@ -55,16 +82,25 @@ vi.mock('../../data', () => ({
       return out;
     },
     saveLocalStoreRecord: async (_uid: string, store: string, key: string, payload: Record<string, unknown>) => {
-      cloud.set(rowKey(store, key), { store, key, payload });
+      const f = failMode();
+      if (f === 'net') throw new Error('network');
+      cloud.set(rowKey(store, key), { store, key, payload: stampRow(store, key, payload) });
+      if (f === 'lost') throw new Error('network: response lost');
     },
     saveLocalStoreRecordPages: async (_uid: string, store: string, pages: Array<{ key: string; payload: Record<string, unknown> }>) => {
-      for (const p of pages) cloud.set(rowKey(store, p.key), { store, key: p.key, payload: p.payload });
+      const f = failPages();
+      if (f === 'net') throw new Error('network: pages');
+      for (const p of pages) cloud.set(rowKey(store, p.key), { store, key: p.key, payload: stampRow(store, p.key, p.payload) });
+      if (f === 'lost') throw new Error('network: pages response lost');
     },
     saveLocalStoreRecordIfUnchanged: async (_uid: string, store: string, key: string, payload: Record<string, unknown>, expected: number | null) => {
       if (failCas && failCas()) throw new Error('network');
+      const f = failMode();
+      if (f === 'net') throw new Error('network');
       const cur = cloud.get(rowKey(store, key));
       if (expected === null ? cur !== undefined : cur?.payload.updatedAt !== expected) return false;
-      cloud.set(rowKey(store, key), { store, key, payload });
+      cloud.set(rowKey(store, key), { store, key, payload: stampRow(store, key, payload) });
+      if (f === 'lost') throw new Error('network: response lost');
       return true;
     },
     deleteLocalStorePagedRecords: async (_uid: string, store: string, key: string) => {
@@ -158,9 +194,10 @@ async function flushDev(): Promise<{ failed: number; skippedOversized: number }>
 }
 
 async function pull(dev: Device, full: boolean): Promise<{ failed: number }> {
-  const now = Date.now();
+  // Курсор — тот же, что у фона: та же формула, что в hook'е, а не её копия.
+  const startedAt = Date.now();
   const r = await restoreAIDataFromCloud(UID, full || !dev.lastPull ? undefined : { sinceMs: dev.lastPull - 30 * 60 * 1000 });
-  dev.lastPull = now;
+  dev.lastPull = nextPullCursor(startedAt, dev.lastPull || startedAt - 24 * 3600_000, r.maxUpdatedAt);
   if (LSS.timer !== null) { clearTimeout(LSS.timer); LSS.timer = null; }
   return r;
 }
@@ -178,7 +215,9 @@ const TRACE = !!process.env.JW_FUZZ_TRACE;
 // appendMessage режет реплику и рассуждение по 100 000 знаков, поэтому кусок
 // чуть меньше: три куска (вопрос, ответ, рассуждение) ≈ 570 КБ в UTF-8 — за
 // порогом страницы.
-const BLOB = 'ж'.repeat(95_000);
+const BLOB = 'ж'.repeat(Number(process.env.JW_FUZZ_BLOB ?? 95_000));
+const LOSTP = Number(process.env.JW_FUZZ_LOSTP ?? 0.05);
+const PAGEFAILP = Number(process.env.JW_FUZZ_PAGEFAILP ?? 0.15);
 
 async function runSeed(seed: number): Promise<string[]> {
   const failures: string[] = [];
@@ -215,6 +254,8 @@ async function runSeed(seed: number): Promise<string[]> {
   const created = new Set<string>((await local(id))!.messages.map(m => m.id!));
   const deleted = new Set<string>();
   failCas = FAILP !== 0 ? () => r() < FAILP : null;
+  failMode = () => { const x = r(); return x < LOSTP ? 'lost' : 'ok'; };
+  failPages = () => { const x = r(); return x < PAGEFAILP ? 'net' : x < PAGEFAILP + LOSTP ? 'lost' : 'ok'; };
   let dialogueDeleted = false;
   let n = 0;
   const steps = 25 + Math.floor(r() * 20);
@@ -259,6 +300,11 @@ async function runSeed(seed: number): Promise<string[]> {
         await flushDev();
       } else {
         await pull(dev, r() < 0.2);
+        const after = await local(id);
+        if (before && !before.deletedAt && after && !after.deletedAt) {
+          const ids = new Set(after.messages.map(m => m.id));
+          for (const m of before.messages) if (m.id && !deleted.has(m.id) && !ids.has(m.id)) failures.push(`pull на ${dev.name} убрал живой ход ${m.id.slice(0, 8)} (укороченная копия принята как полная)`);
+        }
       }
     } catch (e) {
       failures.push(`op threw ${String(e)}`);
@@ -275,7 +321,7 @@ async function runSeed(seed: number): Promise<string[]> {
     const after = await local(id);
     for (const m of after?.messages ?? []) if (m.id && !before?.messages.some(b => b.id === m.id)) created.add(m.id);
   }
-  failCas = null;
+  failCas = null; failMode = () => 'ok'; failPages = () => 'ok';
   clock += 3_600_000;
   for (let round = 0; round < 4; round++) for (const dv of devs) { switchTo(dv); await flushDev(); await pull(dv, true); await flushDev(); }
 
@@ -297,11 +343,26 @@ async function runSeed(seed: number): Promise<string[]> {
     failures.push(`  cloud=${JSON.stringify(cloudKeysOf(id).map(k => k.slice(id.length)))}`);
   }
   if ((await LocalStoreSyncService.flushPending(true)).failed) failures.push('финальная выгрузка упала');
+  {
+    const headRow = cloud.get(rowKey('aiDialogues', id));
+    const segKeys = cloudKeysOf(id).filter(k => k.includes('@seg'));
+    const pageKeys = cloudKeysOf(id).filter(k => k.includes('#'));
+    if (headRow?.payload.head === true) {
+      const named = new Set(((headRow.payload.segments as Array<{ key: string }>) ?? []).map(s => s.key));
+      const orphans = segKeys.filter(k => !named.has(k));
+      if (orphans.length) failures.push(`осиротевшие окна: ${orphans.length}`);
+      const missing = [...named].filter(k => !cloud.has(rowKey('aiDialogues', k)));
+      if (missing.length) failures.push(`head называет отсутствующие окна: ${missing.length}`);
+      if (pageKeys.length) failures.push(`страницы прежнего формата рядом с head: ${pageKeys.length}`);
+    } else if (segKeys.length) {
+      failures.push(`окна без head: ${segKeys.length}`);
+    }
+  }
   if (!splitSeen) {
     const bytes = new TextEncoder().encode(JSON.stringify(await local(id))).length;
     failures.push(`за весь сид ни одна выгрузка не вышла за одну строку (ни страниц, ни сегментов): размер записи ${bytes} Б, порог 512000 Б, ключи ${JSON.stringify(cloudKeysOf(id).map(k => k.slice(id.length)))}`);
   }
-  if (oversizedSeen > 0) failures.push(`запись переросла лимит выгрузки (${oversizedSeen} раз) — хода не уехали по Дизайнy, тест не покрывает эту ветку`);
+  if (oversizedSeen > 0) failures.push(`запись переросла лимит выгрузки (${oversizedSeen} раз) — хода не уехали по дизайну, тест не покрывает эту ветку`);
   if (!dialogueDeleted) {
     const ids = finals[0]!.messages.map(m => m.id!);
     if (new Set(ids).size !== ids.length) failures.push('дубли id');
