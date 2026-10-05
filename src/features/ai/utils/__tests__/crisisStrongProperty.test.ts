@@ -24,7 +24,7 @@ const corpus = corpusData as CorpusItem[];
 
 // Обычные дневниковые фразы, помеченные обязательным случаем. knownGap (суицид в книге,
 // «умереть от восторга», «умру старой») из множества убраны: они красятся другим
-// тестом — corpus.test.ts, — а здесь требуются все четыре склейки, и заведомо
+// тестом — corpus.test.ts, — а здесь требуются все семь склеек, и заведомо
 // неоднозначная фраза красила бы свойство, а не правило.
 const everyday = corpus.filter(c => c.category === 'everyday' && !c.knownGap).map(c => c.text);
 
@@ -52,8 +52,10 @@ const LAUGHED: string[] = ['хочу умереть от смеха', 'гото�
 // (c) отказ «раньше … — сейчас/теперь не …»
 const DENIED: string[] = ['раньше хотел умереть, сейчас не хочу', 'раньше я хотела умереть, теперь не хочу'];
 
-// Невербальный разрыв внутри слова бытовухи: U+200B и U+00AD обе классифицируются как
-// «drop», поэтому риск обязан остаться в варианте склейки букв.
+// Невербальный разрыв — и внутри бытовухи, и внутри самой сильной фразы: U+200B и
+// U+00AD обе классифицируются как «drop», поэтому риск обязан остаться в обоих
+// вариантах. Разрыв в сильной фразе — это и есть страж нормализации: снятая
+// вычистка невидимок роняет этот тест, а не только корпус.
 function insertInvisible(text: string, marker: string): string {
   const words = text.split(' ');
   let idx = words.findIndex(w => [...w].length >= 4);
@@ -70,6 +72,8 @@ function* joins(phrase: string, sentence: string): Generator<string> {
   yield `${sentence}. ${phrase}`;
   yield `${insertInvisible(sentence, '\u200B')} ${phrase}`;
   yield `${insertInvisible(sentence, '\u00AD')} ${phrase}`;
+  yield `${sentence} ${insertInvisible(phrase, '\u200B')}`;
+  yield `${sentence} ${insertInvisible(phrase, '\u00AD')}`;
 }
 
 function* joinAll(phrases: string[]): Generator<string> {
@@ -115,7 +119,7 @@ describe('сильные фразы: свойство, а не список (C-1
     reportFailures('everyday alone', failures, everyday.length, 'safe');
   });
 
-  it('сильная фраза в бытовом окружении — риск (4 склейки)', () => {
+  it('сильная фраза в бытовом окружении — риск (7 склеек)', () => {
     const failures: string[] = [];
     let total = 0;
     for (const text of joinAll([...STRONG_RISK_PHRASES])) {
