@@ -1,5 +1,5 @@
 // S-30: Fixed phrase corpus for the crisis detector in CI.
-// Source: justwriting-docs/crisis-corpus.json (855 фраз, 829 обязательных, 26 knownGap) — the two copies stay byte-identical (S-42.1).
+// Source: justwriting-docs/crisis-corpus.json (866 фраз, 840 обязательных, 26 knownGap) — the two copies stay byte-identical (S-42.1).
 //
 // Rules:
 // 1. New crisis phrasings go into crisisCorpus.json with a source note in `sources`.
@@ -37,14 +37,15 @@ function visible(text: string): string {
 
 describe('crisisCorpus (S-30)', () => {
   it('ratchet: corpus size and required count do not regress', () => {
-    expect(corpus.length).toBeGreaterThanOrEqual(855);
-    expect(requiredCases.length).toBeGreaterThanOrEqual(829);
+    expect(corpus.length).toBeGreaterThanOrEqual(866);
+    expect(requiredCases.length).toBeGreaterThanOrEqual(840);
     // S-42.5: точные счётчики по меткам — перекрашенная фраза видна в диффе теста, а не проглочена ратчетом.
     // C-2: +41 пункт корпуса из backlog «Crisis detector (2026-10-02)» (19 регрессий,
     // 6 открытых пропусков, 15 ложных срабатываний, 1 пин для мутации).
+    // T-10: +11 safe everyday (ложные срабатывания новых сильных паттернов T-7).
     const labels = { risk: 0, safe: 0 };
     for (const c of requiredCases) labels[c.expect]++;
-    expect(labels).toEqual({ risk: 507, safe: 322 });
+    expect(labels).toEqual({ risk: 507, safe: 333 });
 
     // Verify key categories are represented
     const categories = new Set(corpus.map(c => c.category));
