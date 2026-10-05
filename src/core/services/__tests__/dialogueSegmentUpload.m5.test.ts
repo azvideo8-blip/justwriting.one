@@ -431,4 +431,32 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     const firsts = headPayload(d.id).segments.map(s => s.firstAt);
     expect(firsts).toEqual([...firsts].sort((a, b) => a - b));
   });
+
+  it('R-2: удачная одиночная строка сносит осиротевшие окна этого диалога', async () => {
+    const a = new Device();
+    switchTo(a);
+    at('09:00');
+    const d = await AIDialogueService.create({
+      title: 'Разговор', personaId: 'coach', personaName: 'Коуч', personaEmoji: '🎯',
+      messages: [{ role: 'user', content: 'Вопрос' }, { role: 'assistant', content: 'Ответ' }],
+    });
+    await flush();
+    // Обрыв прошлой сегментной выгрузки: тела легли, head под ними не подписан,
+    // а устройство-писатель больше к диалогу не вернётся.
+    const orphan = `${d.id}@seg${T('08:00')}-deadbeef`;
+    cloud.set(rowKey('aiDialogues', orphan), {
+      store: 'aiDialogues', key: orphan,
+      payload: { seg: true, headKey: d.id, firstAt: T('08:00'), lastAt: T('08:10'), updatedAt: T('08:10'), messages: '[]' },
+    });
+
+    at('09:10');
+    await AIDialogueService.appendMessage(d.id, 'Ещё вопрос', 'Ещё ответ');
+    await flush();
+
+    expect((cloud.get(rowKey('aiDialogues', d.id))!.payload as { head?: boolean }).head,
+      'мелкий диалог уехал head’ом, а не одиночной строкой').toBeUndefined();
+    expect(segKeys(d.id), `осиротевшие окна остались в облаке навсегда: ${segKeys(d.id).join(', ')}`).toEqual([]);
+    expect(cloudKeys(d.id), 'у диалога осталась лишняя строка').toEqual([d.id]);
+  });
+
 });

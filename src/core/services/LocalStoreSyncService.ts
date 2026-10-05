@@ -975,6 +975,13 @@ export class LocalStoreSyncManager {
           if (DataProvider.deleteLocalStorePagedRecords) {
             await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
           }
+          // R-2: окна, которые не назвал ни один head, этой строкой не описываются
+          // и без уборки жили бы вечно — читатель группы без head брал последнее из
+          // них как «единственную строку диалога» и молча пропускал забор (R-1).
+          const orphans = cloud?.segments ?? [];
+          if (orphans.length > 0) {
+            await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', orphans.map(s => s.key));
+          }
           await this.adoptServerStamp(uid, db, key);
           return 'ok';
         }
