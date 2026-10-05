@@ -73,6 +73,7 @@ export interface CloudSegmentRow {
   firstAt: number;
   updatedAt: number;
   messages: string | null;
+  stampedAt?: number | undefined;
 }
 
 export interface SegmentPlan {

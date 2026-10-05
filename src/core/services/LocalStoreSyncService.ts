@@ -58,6 +58,13 @@ export const PAGES_PER_REQUEST = 8;
  * запись — 3 страницы. Крупнее — остаётся на устройстве с отметкой.
  */
 export const MAX_LOCAL_RECORD_BYTES = PAGES_PER_REQUEST * PAGE_SPLIT_THRESHOLD_BYTES;
+
+/**
+ * T-4 (R-2): Защитный интервал удаления осиротевших окон (10 минут).
+ * Окно моложе этого интервала относительно серверных часов не удаляется,
+ * чтобы параллельный писатель успел связать его своим head'ом.
+ */
+export const ORPHAN_GRACE_PERIOD_MS = 10 * 60 * 1000;
 /** Восстановление принимает и то, что прежние версии выгрузили с пределом 10 МБ. */
 export const MAX_RESTORE_RECORD_BYTES = 10 * 1024 * 1024;
 
@@ -656,11 +663,16 @@ async function readCloudDialogue(uid: string, key: string): Promise<CloudDialogu
       const dec = await decryptFields(s.payload as Record<string, unknown>, SEGMENT_TEXT_FIELDS);
       const text = typeof dec.messages === 'string' ? dec.messages : null;
       if (text === null && namedKeys.has(s.key)) throw new Error(`M-5: cloud segment ${s.key} has no readable messages`);
+      let segStamp: number | undefined;
+      const rowStampedAt = (s as { stamped_at?: unknown }).stamped_at;
+      if (typeof rowStampedAt === 'number') segStamp = rowStampedAt;
+      else if (typeof rowStampedAt === 'string') segStamp = Date.parse(rowStampedAt);
       segments.push({
         key: s.key,
         firstAt: typeof dec.firstAt === 'number' ? dec.firstAt : 0,
         updatedAt: typeof dec.updatedAt === 'number' ? dec.updatedAt : 0,
         messages: text,
+        stampedAt: segStamp,
       });
       segPayloads.push(dec);
     }
@@ -854,6 +866,79 @@ export class LocalStoreSyncManager {
   }
 
   /**
+   * T-4 (R-2): безопасное удаление окон сегментов.
+   * Окно может быть удалено ТОЛЬКО если:
+   * (a) текущий head, перечитанный непосредственно перед удалением, НЕ называет его;
+   * (b) строка старше grace-периода (stamped_at / updatedAt < now() - 10 мин,
+   *     где now() — серверная отметка из миграции 0037).
+   */
+  private async deleteSafeOrphanWindows(
+    uid: string,
+    key: string,
+    candidateKeys: string[],
+    knownSegments: CloudSegmentRow[],
+  ): Promise<void> {
+    if (candidateKeys.length === 0) return;
+
+    // (a) Перечитываем текущий head непосредственно перед удалением
+    const currentHeadRow = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key);
+    const currentPayload = currentHeadRow?.payload as Record<string, unknown> | undefined;
+    const currentNamed = new Set<string>();
+    if (currentPayload?.head === true && Array.isArray(currentPayload.segments)) {
+      for (const s of currentPayload.segments as Array<{ key?: unknown }>) {
+        if (typeof s?.key === 'string') currentNamed.add(s.key);
+      }
+    }
+
+    // Серверное время: отметка stamped_at строки или updatedAt текущего head'а (миграция 0037 ставит серверные часы)
+    const rawHeadStamp = (currentHeadRow as { stamped_at?: unknown } | null)?.stamped_at;
+    let headStamp: number | undefined;
+    if (typeof rawHeadStamp === 'number') headStamp = rawHeadStamp;
+    else if (typeof rawHeadStamp === 'string') headStamp = Date.parse(rawHeadStamp);
+    const serverNow = headStamp
+      ?? (typeof currentPayload?.updatedAt === 'number' && Number.isFinite(currentPayload.updatedAt)
+        ? currentPayload.updatedAt
+        : Date.now());
+
+    const segMap = new Map<string, number>();
+    for (const s of knownSegments) {
+      const stamp = s.stampedAt ?? s.updatedAt;
+      if (typeof stamp === 'number' && Number.isFinite(stamp)) segMap.set(s.key, stamp);
+    }
+
+    const toDelete: string[] = [];
+    for (const candKey of candidateKeys) {
+      // (a) Текущий head называет это окно — НЕ удаляем
+      if (currentNamed.has(candKey)) continue;
+
+      // (b) Строка должна быть старше grace-периода (10 минут)
+      let segStamp = segMap.get(candKey);
+      if (segStamp === undefined) {
+        const r = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', candKey);
+        const stampedAt = (r as { stamped_at?: unknown } | null)?.stamped_at;
+        if (typeof stampedAt === 'number') segStamp = stampedAt;
+        else if (typeof stampedAt === 'string') segStamp = Date.parse(stampedAt);
+        else {
+          const p = r?.payload as Record<string, unknown> | undefined;
+          if (typeof p?.updatedAt === 'number') segStamp = p.updatedAt;
+        }
+      }
+      if (segStamp !== undefined && serverNow - segStamp < ORPHAN_GRACE_PERIOD_MS) {
+        continue;
+      }
+      toDelete.push(candKey);
+    }
+
+    if (toDelete.length > 0) {
+      try {
+        await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', toDelete);
+      } catch (e) {
+        logger.warn('LocalStoreSyncService', `Failed to delete orphan segments: ${String(e)}`);
+      }
+    }
+  }
+
+  /**
    * S-34: облачная копия читается, союз пишется локально (get+merge+put в
    * одной транзакции) и уходит в облако с условием «updatedAt облака не
    * изменился». Ушёл — перечитываем и сливаем заново, до трёх раз; дальше
@@ -959,7 +1044,7 @@ export class LocalStoreSyncManager {
           }
         } else {
           if (plan.toDelete.length > 0) {
-            await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', plan.toDelete);
+            await this.deleteSafeOrphanWindows(uid, key, plan.toDelete, cloud?.segments ?? []);
           }
           // Миграция: страницы прежней постраничной копии больше не нужны — их
           // место заняли сегменты, названные head'ом.
@@ -982,12 +1067,12 @@ export class LocalStoreSyncManager {
           if (DataProvider.deleteLocalStorePagedRecords) {
             await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
           }
-          // R-2: окна, которые не назвал ни один head, этой строкой не описываются
-          // и без уборки жили бы вечно — читатель группы без head брал последнее из
-          // них как «единственную строку диалога» и молча пропускал забор (R-1).
+          // R-2 / T-4: окна, которые не назвал ни один head, этой строкой не описываются
+          // и без уборки жили бы вечно. Безопасное удаление: только если текущий head их не назвал
+          // и они старше grace-периода (10 мин).
           const orphans = cloud?.segments ?? [];
           if (orphans.length > 0) {
-            await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', orphans.map(s => s.key));
+            await this.deleteSafeOrphanWindows(uid, key, orphans.map(s => s.key), orphans);
           }
           await this.adoptServerStamp(uid, db, key);
           return 'ok';
