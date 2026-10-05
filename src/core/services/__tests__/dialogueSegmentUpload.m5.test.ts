@@ -8,6 +8,7 @@ import { AIDialogueService } from '../../../features/ai/services/AIDialogueServi
 import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreService';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { segmentPrefixOf } from '../dialogueSegments';
+import { oldClientWrites } from './helpers/oldClientRestore029';
 
 // M-5: диалог крупнее одной строки живёт в облаке head'ом (строка `key`) и
 // append-only сегментами (`key@seg…`) вместо страниц одной строки с манифестом.
@@ -459,4 +460,30 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     expect(cloudKeys(d.id), 'у диалога осталась лишняя строка').toEqual([d.id]);
   });
 
+  it('R-3: надгробие уходит head-формой, которую 0.9.29 обходит молча', async () => {
+    const a = new Device();
+    switchTo(a);
+    at('09:00');
+    const d = await AIDialogueService.create({
+      title: 'Разговор', personaId: 'coach', personaName: 'Коуч', personaEmoji: '🎯',
+      messages: [{ role: 'user', content: 'Вопрос' }, { role: 'assistant', content: 'Ответ' }],
+    });
+    await flush();
+
+    at('09:20');
+    await AIDialogueService.delete(d.id);
+    await flush();
+
+    const row = cloud.get(rowKey('aiDialogues', d.id))!.payload as Record<string, unknown>;
+    expect(row.head, 'надгробие уехало не head-строкой').toBe(true);
+    expect(typeof row.deletedAt, 'head не несёт надгробие').toBe('number');
+    expect(row.segments, 'надгробие называет окна').toEqual([]);
+    // Единственное поле, которое читает 0.9.29. `data` здесь = пустой диалог в
+    // списке старого клиента, а затем `cleanupEmpty` и жёсткое удаление строки.
+    expect(row, 'в строке есть `data` — старый клиент прочитает надгробие').not.toHaveProperty('data');
+    expect(oldClientWrites(
+      [...cloud.values()].map(r => ({ store: r.store, key: r.key, payload: r.payload })),
+      new Map<string, AIDialogue>([[d.id, { ...d, messages: d.messages }]]),
+    ), 'старый клиент что-то записал бы поверх удаления').toEqual([]);
+  });
 });

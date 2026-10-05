@@ -917,7 +917,14 @@ export class LocalStoreSyncManager {
       // клиенты 0.9.28/0.9.29 читают `data` и продолжают получать мелкие диалоги.
       // Сегменты они не читают намеренно (M-3), поэтому переформатировать запись
       // раньше порога значило бы отрезать живые табы от синхронизации.
-      const useSegments = cloud?.head !== undefined || recordBytes > PAGE_SPLIT_THRESHOLD_BYTES;
+      //
+      // R-3: надгробие — то же исключение наоборот. Одиночной строкой его писать
+      // нельзя: 0.9.29 читает любую строку с `data`, игнорирует `deletedAt`,
+      // показывает диалог с нулём реплик, а его `cleanupEmpty` через 10 минут
+      // сносит строку в облаке — третье устройство тогда никогда не узнает об
+      // удалении. Head-форму старый клиент обходит молча, а новый читатель
+      // уважает `deletedAt` в head, поэтому надгробие уходит head’ом всегда.
+      const useSegments = cloud?.head !== undefined || merged.deletedAt !== undefined || recordBytes > PAGE_SPLIT_THRESHOLD_BYTES;
       if (useSegments) {
         const plan = planDialogue(merged, { head: cloud?.head, segments: cloud?.segments });
         // Head обязан называть только те строки, что уже в облаке: подпись под
