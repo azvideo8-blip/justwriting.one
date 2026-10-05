@@ -44,6 +44,12 @@ const cloud = new Map<string, Row>();
 const rowKey = (store: string, key: string) => `${store}:${key}`;
 let onCloudRead: (() => void) | null = null;
 let onBeforeDeletePaged: ((key: string) => Promise<void>) | null = null;
+// T-4: интерливинг записывает head, усыновивший чужое окно. Уборка победителя
+// single-row CAS не имеет права сносить названные им окна; сбой «сети» на самой
+// пачке delete — легальная причина пропажи (её чинит перевыгрузка), поэтому
+// инвариант смотрит только на чисто исполнившуюся пачку.
+let interleaveNamed: string[] | null = null;
+let deleteLandedCleanly = true;
 let failCas: (() => boolean) | null = null;
 // Сбой «сети»: 'net' — бросок ДО записи, 'lost' — запись легла, а ответ потерян.
 let failMode: (() => 'ok' | 'net' | 'lost') = () => 'ok';
@@ -79,6 +85,7 @@ vi.mock('../../data', async () => {
         const f = failMode();
         if (f === 'net') throw new Error('network: delete failed');
         for (const k of keys) cloud.delete(`${store}:${k}`);
+        if (keys.length > 0) deleteLandedCleanly = f === 'ok';
         if (f === 'lost') throw new Error('network: delete response lost');
       },
       getUserSummaries: async () => [],
@@ -228,6 +235,8 @@ async function runSeed(seed: number): Promise<string[]> {
   const trace: string[] = [];
   let oversizedSeen = 0;
   cloud.clear(); currentDevice = null; localStorage.clear(); LSS.deleteGen.clear();
+  interleaveNamed = null;
+  deleteLandedCleanly = true;
   // Дебаунс-таймер LocalStoreSyncService — настоящий (fake только Date). Если
   // он доживает до следующего сида, flush срабатывает над чужой IndexedDB и
   // очередью, и «потерянный ход» оказывается течкой стенда, а не продукта.
@@ -294,6 +303,7 @@ async function runSeed(seed: number): Promise<string[]> {
       setCloud('aiDialogues', s.key, { seg: true, headKey: key, firstAt: s.firstAt, lastAt: s.lastAt, updatedAt: s.updatedAt, messages: JSON.stringify(s.messages) }, clock);
     }
     setCloud('aiDialogues', key, stampRow('aiDialogues', key, { ...plan.head }), clock);
+    interleaveNamed = plan.head.segments.map(s => s.key);
   };
 
   let dialogueDeleted = false;
@@ -430,6 +440,13 @@ async function runSeed(seed: number): Promise<string[]> {
       trace.push(`${step} ${dev.name} x=${x.toFixed(3)} local=${before ? (before.deletedAt ? 'TOMB' : before.messages.length) : '-'} -> ${after ? (after.deletedAt ? 'TOMB' : after.messages.length) : '-'} cloud=${JSON.stringify(cloudKeysOf(id).map(k => k.slice(id.length)))}`);
     }
     const after = await local(id);
+    if (interleaveNamed !== null) {
+      const gone = interleaveNamed.filter(k => !cloud.has(rowKey('aiDialogues', k)));
+      if (gone.length > 0 && deleteLandedCleanly) {
+        failures.push(`T-4: уборка снесла окно, названное свежим head (${gone.length}: ${gone.map(k => k.slice(id.length)).join(',')})`);
+      }
+      interleaveNamed = null;
+    }
     if (after) devDialogues.set(dev, after);
     for (const m of after?.messages ?? []) if (m.id && !before?.messages.some(b => b.id === m.id)) created.add(m.id);
   }
@@ -492,6 +509,34 @@ async function runSeed(seed: number): Promise<string[]> {
     for (const c of created) if (!deleted.has(c) && !ids.includes(c)) failures.push(`потерян живой ход ${c.slice(0, 8)}`);
     for (const dd of deleted) if (ids.includes(dd)) failures.push(`воскрес удалённый ${dd.slice(0, 8)}`);
   }
+  // R-1: осиротевшее окно — не «единственная строка диалога». Форма из прода:
+  // старый таб пишет свою копию одной строкой вслепую (head стёрт, `@seg`
+  // остались), а писатель-победитель их уберёт только при следующей выгрузке.
+  // Ловит её только читатель, который ничего не выгружал, — поэтому свежее
+  // устройство с пустой IndexedDB.
+  if (!dialogueDeleted && finals[0]) {
+    switchTo(devs[0]!);
+    await legacySingleUpsert(id);
+    let orphans = cloudKeysOf(id).filter(k => k.includes('@seg')).length;
+    if (orphans === 0) {
+      // «писатель умер между телами окон и head» — та же форма сироты, из которой
+      // R-1 вырос: окно лежит, head (здесь — уже однострочная копия) его не называет.
+      setCloud('aiDialogues', `${id}@seg${clock}-planted`, {
+        seg: true, headKey: id, firstAt: clock, lastAt: clock, updatedAt: clock, messages: '[]',
+      }, clock);
+      orphans = 1;
+    }
+    const fresh = new Device('F', 0);
+    switchTo(fresh);
+    const pr = await pull(fresh, true);
+    const got = await local(id);
+    if (!got || got.deletedAt) {
+      failures.push(`R-1: свежее устройство не получило живой диалог (сирот рядом: ${orphans}, failed=${pr.failed})`);
+    } else if (dialogueFingerprint(got) !== dialogueFingerprint(finals[0]!)) {
+      failures.push('R-1: свежее устройство получило не однострочную копию облака');
+    }
+  }
+
   if (LSS.timer !== null) { clearTimeout(LSS.timer); LSS.timer = null; }
   LSS.pending.clear();
   if (TRACE && failures.length > 0) console.log(`\n--- trace сида ${seed} ---\n${trace.join('\n')}`);
