@@ -66,6 +66,28 @@ function insertInvisible(text: string, marker: string): string {
   return words.join(' ');
 }
 
+function spaceLetters(text: string): string {
+  const words = text.split(' ');
+  let bestIdx = -1;
+  for (let i = 0; i < words.length; i++) {
+    if ([...words[i]!].length >= 3) {
+      const prevIsOne = i > 0 && [...words[i - 1]!].length === 1;
+      const nextIsOne = i < words.length - 1 && [...words[i + 1]!].length === 1;
+      if (!prevIsOne && !nextIsOne) {
+        bestIdx = i;
+        break;
+      }
+    }
+  }
+  if (bestIdx < 0) {
+    bestIdx = words.findIndex(w => [...w].length >= 3);
+  }
+  if (bestIdx >= 0) {
+    words[bestIdx] = [...words[bestIdx]!].join(' ');
+  }
+  return words.join(' ');
+}
+
 function* joins(phrase: string, sentence: string): Generator<string> {
   yield `${sentence} ${phrase}`;
   yield `${phrase}, ${sentence}`;
@@ -74,6 +96,10 @@ function* joins(phrase: string, sentence: string): Generator<string> {
   yield `${insertInvisible(sentence, '\u00AD')} ${phrase}`;
   yield `${sentence} ${insertInvisible(phrase, '\u200B')}`;
   yield `${sentence} ${insertInvisible(phrase, '\u00AD')}`;
+  yield `${sentence} ${phrase.toUpperCase()}`;
+  yield `${sentence} ${phrase.replace(/е/g, 'ё')}`;
+  yield `${sentence} ${phrase.normalize('NFD')}`;
+  yield `${sentence} ${spaceLetters(phrase)}`;
 }
 
 function* joinAll(phrases: string[]): Generator<string> {
@@ -119,7 +145,7 @@ describe('сильные фразы: свойство, а не список (C-1
     reportFailures('everyday alone', failures, everyday.length, 'safe');
   });
 
-  it('сильная фраза в бытовом окружении — риск (7 склеек)', () => {
+  it('сильная фраза в бытовом окружении — риск (11 склеек)', () => {
     const failures: string[] = [];
     let total = 0;
     for (const text of joinAll([...STRONG_RISK_PHRASES])) {

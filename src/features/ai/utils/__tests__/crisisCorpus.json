@@ -7418,5 +7418,87 @@
    "r7-crisis"
   ],
   "note": "R-4: местоимение, а не уклад — как «ради него/них/этого»"
+ },
+ {
+  "text": "не хочу жить ради детей",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «ради» снято с сильного слоя — отказ от воли жить"
+ },
+ {
+  "text": "не хочу жить ради себя",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «ради» снято с сильного слоя — отказ от воли жить"
+ },
+ {
+  "text": "я ухожу из жизни",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «уходить/уйти из жизни» в 1-м лице"
+ },
+ {
+  "text": "завтра меня не будет",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «меня не будет» со словом времени"
+ },
+ {
+  "text": "хочу быть мёртвой",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «быть мёртвой» в сильном слое"
+ },
+ {
+  "text": "его не будет на работе завтра",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие третьего лица"
+ },
+ {
+  "text": "меня завтра не будет дома",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие дома"
+ },
+ {
+  "text": "меня не будет на работе завтра",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие на работе"
+ },
+ {
+  "text": "завтра меня не будет в офисе",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие в офисе"
  }
 ]
+
