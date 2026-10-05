@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — 0.9.31 (в сборке)
+
+- **[RU]** Время, проведённое в заметке без интернета, теперь доезжает до облака. Раньше такая сессия не попадала в суммарную длительность, а следующая синхронизация копировала облачное число поверх локального — и потраченное на записях время уменьшалось.
+- **[EN]** Time spent in a note offline now reaches the cloud. Such a session used to be missing from the total duration, and the next sync copied the cloud figure over the local one — so logged writing time went down.
+- **[RU]** Честно о сводном числе слов: это наивысшая отметка длины заметки, а не её текущая длина. Если заметку сократить, на других устройствах до следующей правки может оставаться прежнее, бо́льшее число.
+- **[EN]** About the word total: it is the note's high-water mark, not its current length. After shortening a note, other devices may keep showing the previous, larger count until the next edit.
+
 ## 0.9.30 — 2026-10-05
 
 - **[RU]** Диалоги с ИИ объединяются между устройствами: реплики, написанные на разных устройствах, больше не затирают друг друга, а удалённый диалог или реплика исчезают везде. Обновите приложение на всех устройствах и во всех открытых вкладках — старая версия не видит новых реплик в длинных диалогах.

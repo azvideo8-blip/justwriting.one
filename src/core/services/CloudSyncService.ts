@@ -877,6 +877,14 @@ export const CloudSyncService = {
             ? (await LocalStorageService.getDocument(localDocumentId, userId)) ?? localDoc
             : localDoc;
           missing.sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
+          // W-2: длительность, уехавшая в облако ЭТИМ прогоном. Именно она идёт
+          // приращением в total_duration: этот же цикл — штатная дорога сессий,
+          // сохранённых офлайн (дренаж очереди зовёт addCloudCopy), и с нулевой
+          // дельтой такое время в облаке не появлялось никогда, а следующий pull
+          // копировал облачный счётчик поверх локального и суммы человека
+          // уменьшались. Версии, уже лежащие в облаке, в сумму не входят: их
+          // приращение ушло той выгрузкой, которая их принесла.
+          let uploadedDuration = 0;
           for (const ver of missing) {
             const idx = localVersions.findIndex(v => v.id === ver.id);
             const prevContent = idx <= 0 ? '' : (localVersions[idx - 1]?.content ?? '');
@@ -920,6 +928,7 @@ export const CloudSyncService = {
               mood,
               _encrypted,
             }));
+            uploadedDuration += ver.duration ?? 0;
           }
           // A run that ran out of write budget left versions behind. Advancing
           // currentVersion anyway told the cloud it holds text it never received,
@@ -958,9 +967,11 @@ export const CloudSyncService = {
           if (metaDoc.currentVersion >= existingDoc.currentVersion) {
             await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
               totalWords: metaDoc.totalWords,
-              // V-5: здесь нет новой сессии — только метаданные, поэтому и
-              // приращение длительности нулевое (складывает сервер, 0039).
-              durationDelta: 0,
+              // V-5: приращение считает сервер (0039); W-2: дельта — длительность
+              // версий, уехавших в облако этим прогоном. Нулевая дельта означала
+              // бы, что сессии, сохранённые офлайн, в облачном total_duration не
+              // появляются никогда.
+              durationDelta: uploadedDuration,
               currentVersion: metaDoc.currentVersion,
               sessionsCount: metaDoc.sessionsCount,
               lastSessionAt: metaDoc.lastSessionAt ? new Date(metaDoc.lastSessionAt) : undefined,
@@ -985,6 +996,10 @@ export const CloudSyncService = {
       const versions = await LocalVersionService.getVersions(localDocumentId, userId);
 
       let cloudId: string | null = null;
+      // W-2: ряд, который облако держало и ДО этой выгрузки (столкнулись по uuid).
+      // createDocument в него ничего не записал, поэтому счётчики обязана принести
+      // дельта ниже — ровно как в linked-ветке.
+      let adoptedCloudRow = false;
 
       const createPayload = {
         title: localDoc.title,
@@ -1023,6 +1038,7 @@ export const CloudSyncService = {
           const existing = await DocumentService.findByUuid(userId, localDocUuid);
           if (existing) {
             cloudId = existing.uuid || existing.id;
+            adoptedCloudRow = true;
             await LocalStorageService.updateLinkedCloudId(localDocumentId, cloudId, userId);
           } else {
             // LIFE-10: живой строки с этим номером нет, а ограничение
@@ -1077,6 +1093,13 @@ export const CloudSyncService = {
 
       try {
         const sortedVersions = [...versions].sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
+        // W-2: при принятом ряде версия могла уехать в облако раньше (и тогда её
+        // приращение уже лежит в total_duration), либо её перезаписал более свежий
+        // ряд — засчитывать её второй раз нельзя.
+        const alreadyInCloud = adoptedCloudRow
+          ? new Set((await withTimeout(VersionService.getVersions(userId, cloudId!))).map(v => v.version))
+          : null;
+        let uploadedDuration = 0;
         for (let i = 0; i < sortedVersions.length; i++) {
           const ver = sortedVersions[i]!;
           const prevContent = i === 0 ? '' : (sortedVersions[i - 1]?.content ?? '');
@@ -1122,14 +1145,17 @@ export const CloudSyncService = {
             mood,
             _encrypted,
           }));
+          if (alreadyInCloud && !alreadyInCloud.has(ver.version)) uploadedDuration += ver.duration ?? 0;
         }
 
         await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
           // V-5: создавая облачный ряд, createDocument уже положил в него
-          // накопленные счётчики этого устройства, поэтому за эту выгрузку
+          // накопленные счётчики этого устройства, поэтому за такую выгрузку
           // приращение нулевое — иначе первая синхронизация удвоила бы время.
-          durationDelta: 0,
+          // W-2: принятому ряду (23505 по uuid) createDocument не писал ничего —
+          // дельта равна длительности версий, которых в облаке до этого не было.
+          durationDelta: uploadedDuration,
           currentVersion: localDoc.currentVersion,
           sessionsCount: localDoc.sessionsCount,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
