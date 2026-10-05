@@ -1,9 +1,9 @@
-# M-fuzz на сегментном формате (M-5, ветка merge-r5 @ 0f8a5d51).
+# M-fuzz на сегментном формате (M-5, ветка merge-r5 @ c1c43ece).
 # Команда: JW_FUZZ_SEEDS=400 npx vitest run src/core/services/__tests__/dialogueMergeFuzz.test.ts
 # Пороги не подменялись: 500 КБ (PAGE_SPLIT_THRESHOLD_BYTES), 400 КБ окно сегмента, 8 строк на запрос, 4 МБ потолок записи.
 # Покрытие каждого сида: хотя бы одна выгрузка дальше одной строки (assert в харнесле).
-# Прежний прогон того же харнесса на paging-формате — 92288cdb (246 с против 47,3 с здесь).
+# Прежний прогон того же харнесса на paging-формате — 92288cdb (246 с против 64 с здесь).
 
 Test Files  1 passed (1)
      Tests  400 passed (400)
-  Duration  47.34s
+  Duration  64.04s
