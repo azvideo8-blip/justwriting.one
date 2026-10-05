@@ -7373,13 +7373,14 @@
  },
  {
   "text": "с готовкой на сегодня покончила",
-  "expect": "risk",
+  "expect": "safe",
+  "knownGap": true,
   "category": "direct-intent",
   "sources": [
    "backlog-2026-10-02",
    "c-2"
   ],
-  "note": "нет дополнения «с <чем>» после глагола"
+  "note": "owner 2026-10-05: false alarm accepted for now; bare «покончила» at end of clause"
  },
  {
   "text": "машина может сдохнуть в любой момент",

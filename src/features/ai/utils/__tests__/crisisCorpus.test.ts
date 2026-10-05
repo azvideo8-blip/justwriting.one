@@ -38,13 +38,13 @@ function visible(text: string): string {
 describe('crisisCorpus (S-30)', () => {
   it('ratchet: corpus size and required count do not regress', () => {
     expect(corpus.length).toBeGreaterThanOrEqual(846);
-    expect(requiredCases.length).toBeGreaterThanOrEqual(821);
+    expect(requiredCases.length).toBeGreaterThanOrEqual(820);
     // S-42.5: точные счётчики по меткам — перекрашенная фраза видна в диффе теста, а не проглочена ратчетом.
     // C-2: +41 пункт корпуса из backlog «Crisis detector (2026-10-02)» (19 регрессий,
     // 6 открытых пропусков, 15 ложных срабатываний, 1 пин для мутации).
     const labels = { risk: 0, safe: 0 };
     for (const c of requiredCases) labels[c.expect]++;
-    expect(labels).toEqual({ risk: 503, safe: 318 });
+    expect(labels).toEqual({ risk: 502, safe: 318 });
 
     // Verify key categories are represented
     const categories = new Set(corpus.map(c => c.category));
