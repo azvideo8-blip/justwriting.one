@@ -29,6 +29,11 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
   beforeEach(async () => {
     vi.restoreAllMocks();
     vi.spyOn(DataProvider, 'getUserEmbeddingsPaginated').mockResolvedValue({ items: [], readCount: 0 });
+    // S-34: диалог перед выгрузкой читает облачную строку; здесь облако пусто.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);
+    vi.spyOn(DataProvider as Required<typeof DataProvider>, 'getLocalStoreRecordPages').mockResolvedValue([]);
+    vi.spyOn(DataProvider, 'deleteLocalStoreRecordsByKeys').mockResolvedValue(undefined as never);
+    vi.spyOn(DataProvider, 'getLocalStoreRecordsByKeyPrefix').mockResolvedValue([]);
     const db = await getLocalDb();
     await db.clear('aiDialogues');
   });
@@ -75,6 +80,11 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockImplementation(async (_u, _s, key, payload) => {
         savedRecords.push({ key, payload: payload as Record<string, unknown> });
       });
+      // S-34: строки в облаке нет — диалог уходит условной вставкой.
+      vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnchanged').mockImplementation(async (_u, _s, key, payload) => {
+        savedRecords.push({ key, payload: payload as Record<string, unknown> });
+        return true;
+      });
       const deletePagedSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
 
       LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_small');
@@ -89,7 +99,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       expect(deletePagedSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_small');
     });
 
-    it('splits and uploads a record above 500 KB as multiple pages with page, totalPages, updatedAt', async () => {
+    it('запись крупнее строки уходит head’ом и сегментами: тело первым, head последним условно', async () => {
       const db = await getLocalDb();
       // Generate a ~800 KB dialogue record
       const longMessage = 'Тестовое длинное рассуждение модели с множеством деталей и инсайтов. '.repeat(8000);
@@ -110,8 +120,14 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       const pagesSaveSpy = vi.spyOn(DataProvider, 'saveLocalStoreRecordPages').mockImplementation(async (_u, _s, pages) => {
         for (const p of pages) savedRecords.push({ key: p.key, payload: p.payload as Record<string, unknown> });
       });
-      const deleteExactSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreExactRecord').mockResolvedValue(undefined as never);
+      // M-5: head строки `key` уходит последним и только условной записью.
+      const heads: Array<{ key: string; payload: Record<string, unknown>; expected: number | null }> = [];
+      vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnchanged').mockImplementation(async (_u, _s, key, payload, expected) => {
+        heads.push({ key, payload: payload as Record<string, unknown>, expected });
+        return true;
+      });
       const deletePagedSpy = vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
+      const deleteByKeysSpy = vi.spyOn(DataProvider, 'deleteLocalStoreRecordsByKeys').mockResolvedValue(undefined as never);
 
       LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_large');
       const { synced, failed } = await LocalStoreSyncService.flushPending(true);
@@ -119,23 +135,32 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       expect(synced).toBe(1);
       expect(failed).toBe(0);
       expect(savedRecords.length).toBeGreaterThanOrEqual(2);
-      // Все страницы версии — одним запросом: по одной другое устройство видело
-      // новую страницу 0 рядом со старой страницей 1 и отказывалось собирать запись.
+      // Все строки версии — одним запросом: по одной другое устройство видело
+      // новый сегмент 0 рядом со старым сегментом 1 и отказывалось собирать запись.
       expect(pagesSaveSpy).toHaveBeenCalledTimes(1);
       expect(singleSaveSpy).not.toHaveBeenCalled();
 
-      const totalPages = savedRecords.length;
-      for (let i = 0; i < totalPages; i++) {
-        const pageRec = savedRecords[i]!;
-        expect(pageRec.key).toBe(`dialogue_large#${i}`);
-        expect(pageRec.payload.page).toBe(i);
-        expect(pageRec.payload.totalPages).toBe(totalPages);
-        expect(pageRec.payload.updatedAt).toBe(2000);
+      for (const rec of savedRecords) {
+        expect(rec.key.startsWith('dialogue_large@seg')).toBe(true);
+        expect(rec.payload.seg).toBe(true);
+        expect(typeof rec.payload.messages).toBe('string');
+        // M-3: поля `data` нет ни у сегмента, ни у head — клиенты 0.9.28/0.9.29
+        // пропускают такие строки, а не собирают из них диалог поверх локального хода.
+        expect(rec.payload.data).toBeUndefined();
       }
 
-      expect(deleteExactSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large');
-      // Хвост прежней, более длинной версии (страницы ≥ totalPages) удаляется.
-      expect(deletePagedSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large', totalPages);
+      const headWrite = heads[0]!;
+      expect(headWrite.key).toBe('dialogue_large');
+      expect(headWrite.expected, 'строки в облаке не было — ждёт вставка, а не update').toBeNull();
+      expect(headWrite.payload.head).toBe(true);
+      expect(headWrite.payload.data).toBeUndefined();
+      const named = (headWrite.payload.segments as Array<{ key: string }>).map(s => s.key).sort();
+      expect(named, 'head назвал не те строки, что легли в облако').toEqual(savedRecords.map(r => r.key).sort());
+
+      // Уборка прежнего формата: мусорных сегментов при первой выгрузке нет, а
+      // страницы `key#…` сносятся — на них больше никто не ссылается.
+      expect(deleteByKeysSpy).not.toHaveBeenCalled();
+      expect(deletePagedSpy).toHaveBeenCalledWith(USER, 'aiDialogues', 'dialogue_large');
     });
 
     // R3-013: запись крупнее одного запроса (8 страниц) уходила несколькими —
@@ -154,8 +179,7 @@ describe('SYNC-4: LocalStoreSyncService and AIRestoreService paged records', () 
       } as never);
       vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockResolvedValue(undefined);
       const pagesSaveSpy = vi.spyOn(DataProvider, 'saveLocalStoreRecordPages').mockResolvedValue(undefined);
-      vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStoreExactRecord').mockResolvedValue(undefined as never);
-      vi.spyOn(DataProvider as Required<typeof DataProvider>, 'deleteLocalStorePagedRecords').mockResolvedValue(undefined as never);
+      vi.spyOn(DataProvider, 'saveLocalStoreRecordIfUnchanged').mockResolvedValue(true);
 
       LocalStoreSyncService.scheduleStoreSync('aiDialogues', 'dialogue_big');
       const res = await LocalStoreSyncService.flushPending(true);

@@ -15,6 +15,12 @@ const mockGetRecords = vi.fn();
 
 vi.mock('../../data', () => ({
   DataProvider: {
+    getLocalStoreRecordsByKeyPrefix: async () => [],
+    deleteLocalStoreRecordsByKeys: async () => {},
+    saveLocalStoreRecordIfUnchanged: async (u: string, s: string, k: string, p: unknown) => {
+      await mockSaveRecord(u, s, k, p);
+      return true;
+    },
     saveLocalStoreRecord: (...args: unknown[]) => mockSaveRecord(...args),
     // Страницы уходят одним запросом (атомарность проверяет localStoreSyncPaging);
     // здесь каждая страница видна тем же mockSaveRecord, что и одиночная запись.
@@ -23,6 +29,11 @@ vi.mock('../../data', () => ({
     },
     deleteLocalStoreRecord: (...args: unknown[]) => mockDeleteRecord(...args),
     getLocalStoreRecords: (...args: unknown[]) => mockGetRecords(...args),
+    // S-34: диалог перед выгрузкой читает облачную строку и пишет её условно;
+    // здесь облако пусто, условная запись видна тем же mockSaveRecord.
+    getLocalStoreRecord: async () => null,
+    // M-5: диалог крупнее одной строки читается и пишется сегментами; здесь
+    // облака нет вовсе, поэтому префиксное чтение отдаёт пустоту.
   },
 }));
 

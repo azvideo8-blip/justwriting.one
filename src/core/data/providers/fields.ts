@@ -232,6 +232,10 @@ export function fromDb(rev: Record<string, string>, row: Record<string, unknown>
 // когда-нибудь соберут из пользовательской строки, и `%` в нём снесёт все
 // страничные записи стора разом. Экранируем на входе в шаблон, а не надеемся
 // на форму ключа.
+export function likeGlob(prefix: string): string {
+  return `${prefix.replace(/[\\%_]/g, '\\$&')}%`;
+}
+
 export function likePrefix(key: string): string {
-  return `${key.replace(/[\\%_]/g, '\\$&')}#%`;
+  return likeGlob(`${key}#`);
 }

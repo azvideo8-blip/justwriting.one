@@ -502,6 +502,39 @@ describe('SupabaseDataProvider', () => {
 
       expect(mockQueryBuilder.in).toHaveBeenCalledWith('key', ['k#2', 'k#10']);
     });
+
+    it('M-5: deleteLocalStoreRecord сносит и страницы `key#…`, и сегменты `key@…`', async () => {
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.like.mockReturnValue(mockQueryBuilder);
+
+      await SupabaseDataProvider.deleteLocalStoreRecord('user-1', 'aiDialogues', 'a_b');
+
+      expect(mockQueryBuilder.like).toHaveBeenCalledWith('key', 'a\\_b#%');
+      expect(mockQueryBuilder.like).toHaveBeenCalledWith('key', 'a\\_b@%');
+    });
+
+    it('M-5: deleteLocalStoreRecordsByKeys удаляет ровно названные строки, пустой список — ноль запросов', async () => {
+      await SupabaseDataProvider.deleteLocalStoreRecordsByKeys('user-1', 'aiDialogues', ['k@seg1-aa', 'k@seg2-bb']);
+
+      expect(mockQueryBuilder.delete).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.in).toHaveBeenCalledWith('key', ['k@seg1-aa', 'k@seg2-bb']);
+
+      mockQueryBuilder.delete.mockClear();
+      await SupabaseDataProvider.deleteLocalStoreRecordsByKeys('user-1', 'aiDialogues', []);
+      expect(mockQueryBuilder.delete, '.in(key, []) сносит условие, а не выбирает «ничего»').not.toHaveBeenCalled();
+    });
+
+    it('M-5: getLocalStoreRecordsByKeyPrefix берёт строки по префиксу и экранирует джокеры', async () => {
+      mockQueryBuilder.range.mockResolvedValueOnce({
+        data: [{ user_id: 'user-1', store: 'aiDialogues', key: 'a%b@seg1-aa', payload: { seg: true } }],
+        error: null,
+      });
+
+      const rows = await SupabaseDataProvider.getLocalStoreRecordsByKeyPrefix('user-1', 'aiDialogues', 'a%b@seg');
+
+      expect(mockQueryBuilder.like).toHaveBeenCalledWith('key', 'a\\%b@seg%');
+      expect(rows).toEqual([{ store: 'aiDialogues', key: 'a%b@seg1-aa', payload: { seg: true } }]);
+    });
   });
 
   describe('deleteDocument — надгробие', () => {

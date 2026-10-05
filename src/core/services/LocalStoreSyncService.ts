@@ -1,12 +1,26 @@
 import { getLocalDb } from '../storage/localDb';
+import type { AIDialogue } from '../storage/localDb';
+import { DIALOGUE_SCHEMA, dialogueFingerprint, mergeDialogues, withMessageIds } from '../storage/dialogueMerge';
 import { DataProvider } from '../data';
 import { getCurrentUser } from '../auth';
-import { maybeEncrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
+import { maybeEncrypt, maybeDecrypt, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
 import { cloudSyncEnabled } from '../sync/cloudSyncEnabled';
 import { reportError } from '../../shared/errors/reportError';
 import { logger } from '../../shared/errors/logger';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
+import { pageTextOf, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from './localStorePages';
+import {
+  HEAD_TEXT_FIELDS,
+  SEGMENT_TEXT_FIELDS,
+  headRowPayload,
+  planDialogue,
+  readSegmentVersion,
+  segmentPrefixOf,
+  segmentRowPayload,
+  type CloudSegmentRow,
+  type DialogueHead,
+} from './dialogueSegments';
 
 export const SUPPORTED_LOCAL_STORES = [
   'aiPortrait',
@@ -44,6 +58,13 @@ export const PAGES_PER_REQUEST = 8;
  * запись — 3 страницы. Крупнее — остаётся на устройстве с отметкой.
  */
 export const MAX_LOCAL_RECORD_BYTES = PAGES_PER_REQUEST * PAGE_SPLIT_THRESHOLD_BYTES;
+
+/**
+ * T-4 (R-2): Защитный интервал удаления осиротевших окон (10 минут).
+ * Окно моложе этого интервала относительно серверных часов не удаляется,
+ * чтобы параллельный писатель успел связать его своим head'ом.
+ */
+export const ORPHAN_GRACE_PERIOD_MS = 10 * 60 * 1000;
 /** Восстановление принимает и то, что прежние версии выгрузили с пределом 10 МБ. */
 export const MAX_RESTORE_RECORD_BYTES = 10 * 1024 * 1024;
 
@@ -546,6 +567,179 @@ function removeOversizedRecord(store: string, key: string): void {
   } catch { /* намеренно: лишняя пометка «слишком большой» ничего не теряет */ }
 }
 
+/**
+ * S-49/S-54: облачная копия диалога — строка `key` или страницы — расшифрованная
+ * и разобранная. null — копии нет. `expected` — отметка для условной записи
+ * (undefined — у строки нет числовой отметки).
+ *
+ * M-5: копия может лежать head’ом и сегментами; тогда вместе с диалогом
+ * отдаются head и строки окон — план записи сверяется с ними дословно.
+ *
+ * S-54: открытая строка под включённым сейфом читается: так выглядит обрыв
+ * «зашифровать всё» на середине, и слияние запишет её обратно уже
+ * зашифрованной. Строка, которую не прочитать иначе (чужой ключ, порча),
+ * остаётся ошибкой, а не «облако пусто», и один раз попадает в журнал.
+ */
+const unreadableReported = new Set<string>();
+
+interface CloudDialogue {
+  /** null — указателя версии нет вовсе (оборванная попытка: строки окон легли,
+   *  head не подписан). Сами окна при этом возвращаются в `segments`: план
+   *  принимает их, а не пишет второй экземпляр тех же байтов, и убирает те, что
+   *  не пригодятся. */
+  dialogue: AIDialogue | null;
+  expected: number | null | undefined;
+  /** Только у сегментной копии: head, который её описывает. */
+  head?: DialogueHead;
+  /** Расшифрованные строки сегментов этого диалога; пусто, если их нет. */
+  segments?: CloudSegmentRow[];
+  /** Head называет эти окна, а строк нет: копия неполная, выгрузка чинит её и
+   *  переподписывает head. Читателю такая копия не отдаётся ни при каких условиях. */
+  incomplete?: string[];
+}
+
+function isPlaintextUnderVault(e: unknown): boolean {
+  // По форме, не по instanceof: DecryptionError из cryptoHelpers, причина — PLAINTEXT_UNDER_VAULT.
+  const err = e as { name?: unknown; cause?: { message?: unknown } } | null;
+  return err?.name === 'DecryptionError' && err.cause?.message === 'PLAINTEXT_UNDER_VAULT';
+}
+
+async function readDialogueText(payload: Record<string, unknown>): Promise<string> {
+  try {
+    const dec = await maybeDecrypt(payload, [...PAGE_TEXT_FIELDS], []);
+    const text = pageTextOf(dec);
+    if (text === null) throw new Error('S-34: cloud dialogue row has no readable data');
+    return text;
+  } catch (e) {
+    if (!isPlaintextUnderVault(e)) throw e;
+    // S-54 + M-3: открытый текст под сейфом — обрыв «зашифровать всё»; читаем то
+    // поле, в котором он лежит (новый формат — chunk, прежние страницы — data).
+    const raw = pageTextOf(payload);
+    if (raw !== null) return raw;
+    throw e;
+  }
+}
+
+/** То же для полей head'а и сегмента: открытый текст под сейфом читается, всё
+ *  остальное — ошибка. Пустого «не прочитали, значит строки нет» здесь нет. */
+async function decryptFields(payload: Record<string, unknown>, fields: readonly string[]): Promise<Record<string, unknown>> {
+  try {
+    return await maybeDecrypt(payload, [...fields], []);
+  } catch (e) {
+    if (!isPlaintextUnderVault(e)) throw e;
+    return payload;
+  }
+}
+
+/**
+ * Копия диалога из облака. M-5: диалог может лежать сегментами (head в строке
+ * `key` + строки `key@seg…`) или в прежних форматах — одной строкой с `data`
+ * либо страницами `key#…`; читаем и то, и другое, потому что в облаке живут
+ * копии обоих видов (старые таб-коды, записи до миграции).
+ *
+ * Неполная или нечитаемая копия — ошибка, а не «облака нет»: слепая запись
+ * поверх укороченной копии затёрла бы чужие ходы.
+ */
+async function readCloudDialogue(uid: string, key: string): Promise<CloudDialogue | null> {
+  const [row, pages, segRows] = await Promise.all([
+    DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key),
+    DataProvider.getLocalStoreRecordPages ? DataProvider.getLocalStoreRecordPages(uid, 'aiDialogues', key) : Promise.resolve([]),
+    DataProvider.getLocalStoreRecordsByKeyPrefix(uid, 'aiDialogues', segmentPrefixOf(key)),
+  ]);
+  const rowPayload = row ? row.payload as Record<string, unknown> : null;
+  const isSegmented = rowPayload?.head === true;
+
+  try {
+    // Строки сегментов расшифровываем всегда: их мог назвать head другой стороны,
+    // а без head это осиротевшие остатки оборванной попытки — и то, и другое
+    // план переиспользует вместо записи второго экземпляра тех же байтов.
+    // Непрочитаемая строка, которой head НЕ называет, чтения не ломает (она не
+    // часть диалога), но её ключ всё равно идёт в уборку. Непрочитаемая названная
+    // — отказ ниже, в readSegmentVersion.
+    const namedKeys = new Set((rowPayload?.segments as Array<{ key: string }> | undefined)?.map(s => s.key) ?? []);
+    const segments: CloudSegmentRow[] = [];
+    const segPayloads: Array<Record<string, unknown>> = [];
+    for (const s of segRows) {
+      const dec = await decryptFields(s.payload as Record<string, unknown>, SEGMENT_TEXT_FIELDS);
+      const text = typeof dec.messages === 'string' ? dec.messages : null;
+      if (text === null && namedKeys.has(s.key)) throw new Error(`M-5: cloud segment ${s.key} has no readable messages`);
+      let segStamp: number | undefined;
+      const rowStampedAt = (s as { stamped_at?: unknown }).stamped_at;
+      if (typeof rowStampedAt === 'number') segStamp = rowStampedAt;
+      else if (typeof rowStampedAt === 'string') segStamp = Date.parse(rowStampedAt);
+      segments.push({
+        key: s.key,
+        firstAt: typeof dec.firstAt === 'number' ? dec.firstAt : 0,
+        updatedAt: typeof dec.updatedAt === 'number' ? dec.updatedAt : 0,
+        messages: text,
+        stampedAt: segStamp,
+      });
+      segPayloads.push(dec);
+    }
+
+    if (isSegmented) {
+      const headPayload = await decryptFields(rowPayload!, HEAD_TEXT_FIELDS);
+      const version = readSegmentVersion([{ key, payload: headPayload }, ...segRows.map((s, i) => ({ key: s.key, payload: segPayloads[i]! }))]);
+      if (version === null) throw new Error(`M-5: cloud dialogue ${key}: head-строка есть, но не читается как head`);
+      if (version.kind === 'refused') throw new Error(`M-5: cloud dialogue ${key} segments unreadable: ${version.reason}`);
+      const at = headPayload.updatedAt;
+      const expected = typeof at === 'number' ? at : undefined;
+      if (version.kind === 'incomplete') {
+        // Head называет окна, которых в облаке нет. Читателю такой набор не
+        // отдаётся никогда (см. AIRestoreService), но писателю это сигнал ЧИНИТЬ:
+        // он перепишет диалог из локального союза и переподпишет head, а не будет
+        // вечно отказываться — иначе повреждённую копию не восстановил бы никто.
+        useActivityLogStore.getState().addActivity(
+          'activity_dialogue_cloud_unreadable',
+          { action: 'uploadDialogue_incomplete_cloud', store: 'aiDialogues', key, missing: version.missing.join(',').slice(0, 200) },
+          'warning',
+          'sync',
+        );
+        return { dialogue: version.partial, expected, head: version.head, segments: version.rows.length > 0 ? version.rows : segments, incomplete: version.missing };
+      }
+      return { dialogue: version.dialogue, expected, head: version.head, segments };
+    }
+
+    const rows: CloudRow[] = [];
+    if (rowPayload) rows.push({ key, payload: rowPayload });
+    for (const p of pages) rows.push({ key: p.key, payload: p.payload as Record<string, unknown> });
+    const version = selectCloudVersion(rows);
+    // Ни строки `key`, ни прочных страниц: копии диалога в облаке нет. Но если
+    // легли сегменты предыдущей оборванной попытки, их надо вернуть — план
+    // примет совпадающие окна и снесёт лишнее, а не оставит их сиротами навсегда.
+    if (!version) return segments.length > 0 ? { dialogue: null, expected: null, segments } : null;
+    if (version.kind === 'refused') throw new Error(`S-49: cloud dialogue ${key} pages unreadable: ${version.reason}`);
+    if (version.kind === 'single') {
+      const text = await readDialogueText(version.row.payload);
+      const at = version.row.payload.updatedAt;
+      return { dialogue: JSON.parse(text) as AIDialogue, expected: typeof at === 'number' ? at : undefined, segments };
+    }
+    let text = '';
+    for (const page of version.pages) text += await readDialogueText(page.payload);
+    // M-1: условная запись нацелена на строку `key`, значит и expected — её собственное
+    // состояние, а не отметка страниц. У копии без манифеста (legacy `key#N` из 0.9.28,
+    // стёртый старым табом манифест, обрыв между страницами и манифестом) строки `key`
+    // вовсе нет: прежний expected = отметка страниц не совпадал ни с чем, CAS не
+    // проходил никогда и диалог > 500 КБ не выгружался вообще.
+    const keyStamp = row ? rowPayload!.updatedAt : undefined;
+    const expected = row === null ? null : (typeof keyStamp === 'number' ? keyStamp : undefined);
+    return { dialogue: JSON.parse(text) as AIDialogue, expected, segments };
+  } catch (e) {
+    // Строка есть, а прочитать её нельзя — это не «облако пусто»: слепая
+    // запись поверх затёрла бы чужой ход. Пусть запись упадёт и повторится.
+    if (!unreadableReported.has(key)) {
+      unreadableReported.add(key);
+      useActivityLogStore.getState().addActivity(
+        'activity_dialogue_cloud_unreadable',
+        { action: 'uploadDialogue_unreadable', store: 'aiDialogues', key, error: e instanceof Error ? e.message.slice(0, 200) : String(e) },
+        'warning',
+        'sync',
+      );
+    }
+    throw e;
+  }
+}
+
 export class LocalStoreSyncManager {
   private pending = new Map<string, PendingSyncItem>();
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -647,6 +841,250 @@ export class LocalStoreSyncManager {
     this.deleteGen.set(itemKey, (this.deleteGen.get(itemKey) ?? 0) + 1);
     this.pending.set(itemKey, { store, key, isDelete: true });
     this.resetTimer();
+  }
+
+  /**
+   * Серверная метка: базовой строке диалога `payload.updatedAt` проставил сервер
+   * (миграция 0037), и локальная копия обязана принять это значение. Иначе её
+   * собственные часы снова победят следующий спор скаляров, а расхождение — ровно то,
+   * из-за чего устройство с часами вперёд держало чужие настройки замороженными —
+   * переживало бы перезагрузку. Отпечаток копии (dialogueFingerprint) на updatedAt не
+   * смотрит, поэтому само принятие повторной выгрузки не поднимает.
+   */
+  private async adoptServerStamp(
+    uid: string,
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    key: string,
+  ): Promise<void> {
+    const row = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key);
+    const fromCloud = (row?.payload as Record<string, unknown> | undefined)?.updatedAt;
+    if (typeof fromCloud !== 'number' || !Number.isFinite(fromCloud)) return;
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const current = await tx.store.get(key);
+    if (current && current.updatedAt !== fromCloud) await tx.store.put({ ...current, updatedAt: fromCloud });
+    await tx.done;
+  }
+
+  /**
+   * T-4 (R-2): безопасное удаление окон сегментов.
+   * Окно может быть удалено ТОЛЬКО если:
+   * (a) текущий head, перечитанный непосредственно перед удалением, НЕ называет его;
+   * (b) строка старше grace-периода (stamped_at / updatedAt < now() - 10 мин,
+   *     где now() — серверная отметка из миграции 0037).
+   */
+  private async deleteSafeOrphanWindows(
+    uid: string,
+    key: string,
+    candidateKeys: string[],
+    knownSegments: CloudSegmentRow[],
+  ): Promise<void> {
+    if (candidateKeys.length === 0) return;
+
+    // (a) Перечитываем текущий head непосредственно перед удалением
+    const currentHeadRow = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', key);
+    const currentPayload = currentHeadRow?.payload as Record<string, unknown> | undefined;
+    const currentNamed = new Set<string>();
+    if (currentPayload?.head === true && Array.isArray(currentPayload.segments)) {
+      for (const s of currentPayload.segments as Array<{ key?: unknown }>) {
+        if (typeof s?.key === 'string') currentNamed.add(s.key);
+      }
+    }
+
+    // Серверное время: отметка stamped_at строки или updatedAt текущего head'а (миграция 0037 ставит серверные часы)
+    const rawHeadStamp = (currentHeadRow as { stamped_at?: unknown } | null)?.stamped_at;
+    let headStamp: number | undefined;
+    if (typeof rawHeadStamp === 'number') headStamp = rawHeadStamp;
+    else if (typeof rawHeadStamp === 'string') headStamp = Date.parse(rawHeadStamp);
+    const serverNow = headStamp
+      ?? (typeof currentPayload?.updatedAt === 'number' && Number.isFinite(currentPayload.updatedAt)
+        ? currentPayload.updatedAt
+        : Date.now());
+
+    const segMap = new Map<string, number>();
+    for (const s of knownSegments) {
+      if (typeof s.stampedAt === 'number' && Number.isFinite(s.stampedAt)) {
+        segMap.set(s.key, s.stampedAt);
+      }
+    }
+
+    const toDelete: string[] = [];
+    for (const candKey of candidateKeys) {
+      // (a) Текущий head называет это окно — НЕ удаляем
+      if (currentNamed.has(candKey)) continue;
+
+      // (b) Строка должна быть старше grace-периода (10 минут) по серверным часам
+      let segStamp = segMap.get(candKey);
+      if (segStamp === undefined) {
+        const r = await DataProvider.getLocalStoreRecord(uid, 'aiDialogues', candKey);
+        const stampedAt = (r as { stamped_at?: unknown } | null)?.stamped_at;
+        if (typeof stampedAt === 'number' && Number.isFinite(stampedAt)) {
+          segStamp = stampedAt;
+        } else if (typeof stampedAt === 'string') {
+          const parsed = Date.parse(stampedAt);
+          if (Number.isFinite(parsed)) segStamp = parsed;
+        }
+      }
+      // T-8: неизвестный серверный штамп — окно оставляем (никогда не смотрим на device time и не считаем 0 за возраст)
+      if (segStamp === undefined) {
+        continue;
+      }
+      if (serverNow - segStamp < ORPHAN_GRACE_PERIOD_MS) {
+        continue;
+      }
+      toDelete.push(candKey);
+    }
+
+    if (toDelete.length > 0) {
+      try {
+        await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', toDelete);
+      } catch (e) {
+        logger.warn('LocalStoreSyncService', `Failed to delete orphan segments: ${String(e)}`);
+      }
+    }
+  }
+
+  /**
+   * S-34: облачная копия читается, союз пишется локально (get+merge+put в
+   * одной транзакции) и уходит в облако с условием «updatedAt облака не
+   * изменился». Ушёл — перечитываем и сливаем заново, до трёх раз; дальше
+   * запись падает как обычная ошибка и повторяется штатным путём.
+   *
+   * S-49: копия крупнее одной страницы тоже читается (строка `key`, страницы
+   * `key#…` или сегменты) и пишется с условием.
+   *
+   * M-5: постраничная ветка записи стала сегментной. Строки окон уходят первыми
+   * (одной транзакцией на пачку), последним — head в строке `key` с условием на
+   * её прежний `updatedAt`. Head подписывается только когда все его окна уже в
+   * облаке, поэтому «половина диалога» не становится читаемой версией: не
+   * дописанное окно — это прежний head, а не обрезанный дневник. Проиграли
+   * условие — убираем свои строки и сливаем заново; выиграли — убираем строки,
+   * которые head больше не называет, и страницы прежней копии.
+   */
+  private async uploadDialogue(
+    uid: string,
+    db: Awaited<ReturnType<typeof getLocalDb>>,
+    key: string,
+  ): Promise<'ok' | 'gone' | 'partial' | { oversized: number }> {
+    for (let attempt = 0; ; attempt++) {
+      const cloud = await readCloudDialogue(uid, key);
+      // null — строки нет (insert); undefined — строка без числовой отметки,
+      // условие поставить не на что, пишем как раньше.
+      const expected: number | null | undefined = cloud ? cloud.expected : null;
+
+      const tx = db.transaction('aiDialogues', 'readwrite');
+      const current = await tx.store.get(key);
+      if (!current) { await tx.done; return 'gone'; }
+      const merged = cloud?.dialogue
+        // Версией облачной копии считается отметка СТРОКИ, которую поставил
+        // сервер (миграция 0037), а не время внутри `data`: его сервер не видит
+        // (шифр) и часы устройства-источника остаются там навсегда. Без этого
+        // устройство с убежавшими часами выигрывало спор скаляров до бесконечности.
+        ? mergeDialogues(
+          withMessageIds(current),
+          typeof expected === 'number' ? { ...cloud.dialogue, updatedAt: expected } : cloud.dialogue,
+        )
+        : { ...withMessageIds(current), schema: DIALOGUE_SCHEMA };
+      const changedLocally = dialogueFingerprint(merged) !== dialogueFingerprint(current);
+      if (changedLocally || merged.updatedAt !== current.updatedAt) {
+        await tx.store.put(merged);
+      }
+      await tx.done;
+      // S-57: союз лёг в базу — открытый на этом устройстве чат иначе показывает
+      // прежнюю копию до следующей своей правки.
+      if (changedLocally && typeof window !== 'undefined') window.dispatchEvent(new Event('dialogue-updated'));
+
+      const jsonString = JSON.stringify(merged);
+      const recordBytes = new TextEncoder().encode(jsonString).length;
+      // Потолок размера остаётся прежним: M-5 меняет ФОРМУ записи, а не то,
+      // сколько диалог может занять в облаке. Крупнее предела — по-прежнему
+      // отметка «слишком большой», а не молчаливая обрезка.
+      if (recordBytes > MAX_LOCAL_RECORD_BYTES) return { oversized: recordBytes };
+      // M-5: диалог, которому не одна строка, живёт head'ом и сегментами. Прежняя
+      // постраничная ветка (`key#<stamp>#<nonce>#p<i>` + манифест) остаётся только
+      // для ЧТЕНИЯ: такие копии лежат в облаке и их пишет 0.9.28/0.9.29.
+      //
+      // Порог прежний: пока диалог влезает в одну строку, он в неё и пишется —
+      // клиенты 0.9.28/0.9.29 читают `data` и продолжают получать мелкие диалоги.
+      // Сегменты они не читают намеренно (M-3), поэтому переформатировать запись
+      // раньше порога значило бы отрезать живые табы от синхронизации.
+      //
+      // R-3: надгробие — то же исключение наоборот. Одиночной строкой его писать
+      // нельзя: 0.9.29 читает любую строку с `data`, игнорирует `deletedAt`,
+      // показывает диалог с нулём реплик, а его `cleanupEmpty` через 10 минут
+      // сносит строку в облаке — третье устройство тогда никогда не узнает об
+      // удалении. Head-форму старый клиент обходит молча, а новый читатель
+      // уважает `deletedAt` в head, поэтому надгробие уходит head’ом всегда.
+      const useSegments = cloud?.head !== undefined || merged.deletedAt !== undefined || recordBytes > PAGE_SPLIT_THRESHOLD_BYTES;
+      if (useSegments) {
+        const plan = planDialogue(merged, { head: cloud?.head, segments: cloud?.segments });
+        // Head обязан называть только те строки, что уже в облаке: подпись под
+        // ненаписанным окном — это «диалог читается наполовину», а readSegmentVersion
+        // честно отдаёт по такому head'у отказ. Поэтому крупный диалог доезжает за
+        // несколько проходов по PAGES_PER_REQUEST строк, и каждый проход добавляет
+        // строго новые байты (записанные окна план переиспользует).
+        const batch = plan.toWrite.slice(0, PAGES_PER_REQUEST);
+        if (batch.length > 0) {
+          const pages: Array<{ key: string; payload: Awaited<ReturnType<typeof maybeEncrypt>> }> = [];
+          for (const s of batch) {
+            pages.push({ key: s.key, payload: await maybeEncrypt(segmentRowPayload(s), [...SEGMENT_TEXT_FIELDS], [], uid) });
+          }
+          // Одна транзакция на пачку: полудиалога другой читатель не увидит.
+          await DataProvider.saveLocalStoreRecordPages(uid, 'aiDialogues', pages);
+        }
+        if (plan.toWrite.length > batch.length) return 'partial';
+
+        const headPayload = await maybeEncrypt(headRowPayload(plan.head), [...HEAD_TEXT_FIELDS], [], uid);
+        let stored: boolean;
+        if (expected === undefined) {
+          await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, headPayload);
+          stored = true;
+        } else {
+          stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, headPayload, expected);
+        }
+        if (!stored) {
+          // Проигравшая попытка убирает ТОЛЬКО свои строки: победитель их не
+          // называет, а чужие имена он мог уже переписать своим содержимым.
+          if (batch.length > 0) {
+            await DataProvider.deleteLocalStoreRecordsByKeys(uid, 'aiDialogues', batch.map(p => p.key));
+          }
+        } else {
+          if (plan.toDelete.length > 0) {
+            await this.deleteSafeOrphanWindows(uid, key, plan.toDelete, cloud?.segments ?? []);
+          }
+          // Миграция: страницы прежней постраничной копии больше не нужны — их
+          // место заняли сегменты, названные head'ом.
+          if (DataProvider.deleteLocalStorePagedRecords) {
+            await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
+          }
+          await this.adoptServerStamp(uid, db, key);
+          return 'ok';
+        }
+      } else {
+        const encrypted = await maybeEncrypt({ data: jsonString, updatedAt: merged.updatedAt }, ['data'], [], uid);
+        let stored: boolean;
+        if (expected === undefined) {
+          await DataProvider.saveLocalStoreRecord(uid, 'aiDialogues', key, encrypted);
+          stored = true;
+        } else {
+          stored = await DataProvider.saveLocalStoreRecordIfUnchanged(uid, 'aiDialogues', key, encrypted, expected);
+        }
+        if (stored) {
+          if (DataProvider.deleteLocalStorePagedRecords) {
+            await DataProvider.deleteLocalStorePagedRecords(uid, 'aiDialogues', key);
+          }
+          // R-2 / T-4: окна, которые не назвал ни один head, этой строкой не описываются
+          // и без уборки жили бы вечно. Безопасное удаление: только если текущий head их не назвал
+          // и они старше grace-периода (10 мин).
+          const orphans = cloud?.segments ?? [];
+          if (orphans.length > 0) {
+            await this.deleteSafeOrphanWindows(uid, key, orphans.map(s => s.key), orphans);
+          }
+          await this.adoptServerStamp(uid, db, key);
+          return 'ok';
+        }
+      }
+      if (attempt >= 2) throw new Error(`S-34: cloud dialogue ${key} kept changing during upload`);
+    }
   }
 
   private resetTimer(): void {
@@ -776,13 +1214,10 @@ export class LocalStoreSyncManager {
             }
           }
 
-          const jsonString = JSON.stringify(rawRecord);
-          const recordBytes = new TextEncoder().encode(jsonString).length;
-
-          // Страниц может выйти на одну больше, чем байт на 8 страниц: край
-          // страницы не режет символ. Такая запись тоже не влезает в один запрос.
-          const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
-          if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) {
+          // S-34: диалог сливается с облачной копией и пишется «если облако не
+          // изменилось». Слепой upsert затирал ход другого устройства, пока
+          // оно не успело забрать наш; после его очистки ход пропадал совсем.
+          const markOversized = (recordBytes: number) => {
             // Для таких записей уже есть своя персистентная отметка — две на
             // одну запись удваивали бы счёт в бейдже. Не записалась — маркер
             // загрузки остаётся, иначе запись не учтена нигде (M-11).
@@ -795,12 +1230,49 @@ export class LocalStoreSyncManager {
               'warning',
               'sync'
             );
+          };
+
+          if (item.store === 'aiDialogues') {
+            const outcome = await this.uploadDialogue(uid, db, item.key);
+            if (outcome === 'gone') {
+              markerChanges.dropped.add(itemKey);
+              markerChanges.revived.push({ store: item.store, key: item.key });
+              continue;
+            }
+            if (outcome === 'partial') {
+              // M-5: окна дописаны не все, head ещё не подписан. Обязательство
+              // остаётся открытым (маркер не снимаем, бейдж прав), следующий
+              // проход продолжает с того места, где встал.
+              this.pending.set(itemKey, item);
+              this.resetTimer();
+              continue;
+            }
+            if (outcome === 'ok') {
+              removeOversizedRecord(item.store, item.key);
+              result.synced++;
+              markerChanges.dropped.add(itemKey);
+              markerChanges.revived.push({ store: item.store, key: item.key });
+              continue;
+            }
+            markOversized(outcome.oversized);
+            continue;
+          }
+
+          const record: unknown = rawRecord;
+          const jsonString = JSON.stringify(record);
+          const recordBytes = new TextEncoder().encode(jsonString).length;
+
+          // Страниц может выйти на одну больше, чем байт на 8 страниц: край
+          // страницы не режет символ. Такая запись тоже не влезает в один запрос.
+          const chunks = recordBytes > PAGE_SPLIT_THRESHOLD_BYTES ? splitStringIntoChunks(jsonString, PAGE_SPLIT_THRESHOLD_BYTES) : [jsonString];
+          if (recordBytes > MAX_LOCAL_RECORD_BYTES || chunks.length > PAGES_PER_REQUEST) {
+            markOversized(recordBytes);
             continue;
           }
 
           removeOversizedRecord(item.store, item.key);
 
-          const recordTs = extractRecordTimestamp(rawRecord) ?? Date.now();
+          const recordTs = extractRecordTimestamp(record) ?? Date.now();
 
           if (recordBytes <= PAGE_SPLIT_THRESHOLD_BYTES) {
             // Single-row record upload

@@ -1,11 +1,12 @@
 import { getLocalDb, randomUUID } from '../../../core/storage/localDb';
 import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
-import type { AIDialogue } from '../../../core/storage/localDb';
+import type { AIDialogue, DialogueMessage } from '../../../core/storage/localDb';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 import { AIChatMemoryService } from './AIChatMemoryService';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
+import { isTombstoned, stampMessage, tombstoneDialogue, withMessageIds } from '../../../core/storage/dialogueMerge';
 import { toApiContent, legacyNoteHidden } from '../utils/aiChatTransport';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
@@ -49,8 +50,16 @@ export const AIDialogueService = {
   async create(data: Omit<AIDialogue, 'id' | 'createdAt' | 'updatedAt'>): Promise<AIDialogue> {
     const db = await getLocalDb();
     const now = Date.now();
+    // S-36: ответ помнит id своего вопроса и создан на тик позже него (порядок
+    // хвоста при слиянии — по ходам, ход ответа — createdAt − 1 и turnId).
+    let turnId: string | undefined;
     const dialogue: AIDialogue = {
       ...data,
+      messages: data.messages.map((m, i) => {
+        const stamped = stampMessage(m, now + i);
+        if (m.role === 'user' && m.type !== 'system') { turnId = stamped.id; return stamped; }
+        return m.role === 'assistant' && m.type !== 'system' && turnId ? { ...stamped, turnId } : stamped;
+      }),
       id: randomUUID(),
       createdAt: now,
       updatedAt: now,
@@ -63,21 +72,34 @@ export const AIDialogueService = {
   async get(id: string): Promise<AIDialogue | undefined> {
     if (!id || typeof id !== 'string') return undefined;
     const db = await getLocalDb();
-    return (await db.get('aiDialogues', id)) ?? undefined;
+    const found = await db.get('aiDialogues', id);
+    return found && !found.deletedAt ? withMessageIds(found) : undefined;
   },
 
   async list(options?: { includeArchived?: boolean }): Promise<AIDialogue[]> {
     const db = await getLocalDb();
-    const all = await db.getAll('aiDialogues');
+    const now = Date.now();
+    const live: AIDialogue[] = [];
+    for (const d of await db.getAll('aiDialogues')) {
+      if (d.deletedAt) {
+        // S-58: надгробие старше срока снимается — здесь и в облаке.
+        if (!isTombstoned(d, now)) {
+          await db.delete('aiDialogues', d.id);
+          LocalStoreSyncService.scheduleStoreDelete('aiDialogues', d.id);
+        }
+        continue;
+      }
+      live.push(withMessageIds(d));
+    }
     const filtered = options?.includeArchived
-      ? all
-      : all.filter(d => !d.archivedAt);
+      ? live
+      : live.filter(d => !d.archivedAt);
     return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
   async listByDocument(documentId: string): Promise<AIDialogue[]> {
     const db = await getLocalDb();
-    const all = await db.getAllFromIndex('aiDialogues', 'by-document', documentId);
+    const all = (await db.getAllFromIndex('aiDialogues', 'by-document', documentId)).filter(d => !d.deletedAt).map(withMessageIds);
     return all.sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
@@ -93,17 +115,22 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
+    // S-58: ответ, пришедший после удаления диалога, в надгробие не дописывается.
+    if (!existing || existing.deletedAt) { await tx.done; return; }
     const now = Date.now();
+    // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
+    // реплики по id, и ответ встанет перед своим вопросом.
+    const question = stampMessage({ role: 'user', content: truncate(userMsg) }, now);
     existing.messages.push(
-      { role: 'user', content: truncate(userMsg) },
-      {
+      question,
+      stampMessage({
         role: 'assistant',
         content: truncate(assistantMsg),
+        turnId: question.id,
         ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
         ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
         ...(degradedReason ? { degradedReason } : {}),
-      },
+      }, now + 1),
     );
     existing.updatedAt = now;
     await tx.store.put(existing);
@@ -111,9 +138,19 @@ export const AIDialogueService = {
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
+  /**
+   * S-25 / S-29 / S-36: перегенерация хода по id его пользовательской реплики.
+   * Ход остаётся на месте и с теми же id: вопрос как был, у ответа новый
+   * текст, прежний уходит в варианты (союз), ответ помечен updatedAt, чтобы при
+   * слиянии победила более свежая копия. Прежний путь «вырезать и дописать с
+   * новыми id» давал два вопроса при перегенерации на двух устройствах, а после
+   * служебной реплики (смена объёма/персоны) — второй вопрос в конце. Нет
+   * такого вопроса (удалён на другом устройстве) — ход дописывается в конец,
+   * а не режет чужое.
+   */
   async replaceLastTurn(
     id: string,
-    fromIndex: number,
+    replaceUserId: string,
     userMsg: string,
     assistantMsg: string,
     reasoning?: string,
@@ -124,34 +161,59 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
-    if (fromIndex >= 0 && fromIndex < existing.messages.length) {
-      existing.messages.splice(fromIndex);
-    }
+    if (!existing || existing.deletedAt) { await tx.done; return; }
+    // Id старых реплик проставляем в саму запись: править надо то, что пойдёт в
+    // базу, а не копию рядом с ней.
+    existing.messages = withMessageIds(existing).messages;
     const now = Date.now();
-    existing.messages.push(
-      { role: 'user', content: truncate(userMsg) },
-      {
-        role: 'assistant',
-        content: truncate(assistantMsg),
-        ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
-        ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
-        ...(degradedReason ? { degradedReason } : {}),
-      },
-    );
+    const answer: DialogueMessage = {
+      role: 'assistant',
+      content: truncate(assistantMsg),
+      turnId: replaceUserId,
+      ...(reasoning ? { reasoning: truncate(reasoning) } : {}),
+      ...(searchRequest ? { searchRequest: truncate(searchRequest) } : {}),
+      ...(degradedReason ? { degradedReason } : {}),
+    };
+    const userIdx = existing.messages.findIndex(m => m.id === replaceUserId);
+    // Ответ хода — первая реплика ассистента после вопроса; служебные
+    // пропускаем, на следующем вопросе останавливаемся (ответ удалён).
+    let answerIdx = -1;
+    for (let i = userIdx + 1; userIdx >= 0 && i < existing.messages.length; i++) {
+      const m = existing.messages[i]!;
+      if (m.type === 'system') continue;
+      if (m.role === 'assistant') answerIdx = i;
+      break;
+    }
+    if (userIdx < 0) {
+      // Ответ создаётся после вопроса: с одним `createdAt` слияние рассортирует
+      // реплики по id, и ответ встанет перед своим вопросом.
+      const question = stampMessage({ role: 'user', content: truncate(userMsg) }, now);
+      existing.messages.push(question, stampMessage({ ...answer, turnId: question.id }, now + 1));
+    } else if (answerIdx < 0) {
+      existing.messages.splice(userIdx + 1, 0, stampMessage(answer, (existing.messages[userIdx]!.createdAt ?? now) + 1));
+    } else {
+      const old = existing.messages[answerIdx]!;
+      const variants = [...(old.variants ?? []), old.content, answer.content].filter((v, i, arr) => arr.indexOf(v) === i);
+      existing.messages[answerIdx] = { ...answer, id: old.id, createdAt: old.createdAt, variants, variantIndex: variants.indexOf(answer.content), updatedAt: now };
+    }
     existing.updatedAt = now;
     await tx.store.put(existing);
     await tx.done;
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
-  async deleteMessage(id: string, index: number): Promise<void> {
+  async deleteMessage(id: string, messageId: string): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    if (index < 0 || index >= existing.messages.length) { await tx.done; return; }
-    existing.messages.splice(index, 1);
+    existing.messages = withMessageIds(existing).messages;
+    const idx = existing.messages.findIndex(m => m.id === messageId);
+    if (idx < 0) { await tx.done; return; }
+    const removed = existing.messages.splice(idx, 1)[0];
+    if (removed?.id) {
+      existing.deletedMessages = [...(existing.deletedMessages ?? []), { id: removed.id, at: Date.now() }];
+    }
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
@@ -171,13 +233,26 @@ export const AIDialogueService = {
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
   },
 
-  async truncateFrom(id: string, fromIndex: number): Promise<void> {
+  /**
+   * S-36/S-57: смена варианта — у реплики по её id, а не у «последнего ответа»:
+   * на отставшем экране последний ответ — чужой ход с другого устройства.
+   */
+  async switchVariant(id: string, messageId: string, variantIndex: number): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
     if (!existing) { await tx.done; return; }
-    if (fromIndex < 0 || fromIndex >= existing.messages.length) { await tx.done; return; }
-    existing.messages.splice(fromIndex);
+    // S-36: id в запись до правки на месте — позиционный id старой реплики
+    // считался по тексту, и смена текста меняла id: слияние видело две реплики.
+    existing.messages = withMessageIds(existing).messages;
+    const m = existing.messages.find(x => x.id === messageId);
+    if (!m || m.role !== 'assistant' || m.type === 'system' || !m.variants || variantIndex < 0 || variantIndex >= m.variants.length) {
+      await tx.done;
+      return;
+    }
+    m.variantIndex = variantIndex;
+    m.content = m.variants[variantIndex] ?? m.content;
+    m.updatedAt = Date.now();
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
     await tx.done;
@@ -185,52 +260,40 @@ export const AIDialogueService = {
     window.dispatchEvent(new Event('dialogue-updated'));
   },
 
-  async setLastAssistantVariants(id: string, variants: string[], variantIndex: number): Promise<void> {
+  /**
+   * S-57: смена персоны — одной транзакцией и с постановкой в выгрузку. Прежний
+   * писатель в useAIChat делал get и put врозь (ход, записанный между ними,
+   * терялся) и в облако запись не ставил.
+   */
+  async setPersona(id: string, persona: { personaId: string; personaName: string; personaEmoji: string }): Promise<AIDialogue | undefined> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
-    for (let i = existing.messages.length - 1; i >= 0; i--) {
-      const m = existing.messages[i];
-      if (m && m.role === 'assistant' && m.type !== 'system') {
-        m.variants = variants;
-        m.variantIndex = variantIndex;
-        break;
-      }
-    }
-    existing.updatedAt = Date.now();
-    await tx.store.put(existing);
+    // M-4: диалог удалён (надгробие) — персона сюда не пишется, иначе запись
+    // оживала без единого хода и уходила в облако как живая.
+    if (!existing || existing.deletedAt) { await tx.done; return undefined; }
+    const fresh = withMessageIds(existing);
+    fresh.personaId = persona.personaId;
+    fresh.personaName = persona.personaName;
+    fresh.personaEmoji = persona.personaEmoji;
+    fresh.messages.push(stampMessage({
+      role: 'assistant',
+      content: `⚙️ [Смена персоны]: Теперь с вами общается ${persona.personaName}`,
+      type: 'system',
+    }));
+    fresh.updatedAt = Date.now();
+    await tx.store.put(fresh);
     await tx.done;
     LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
-    window.dispatchEvent(new Event('dialogue-updated'));
-  },
-
-  async switchVariant(id: string, variantIndex: number): Promise<void> {
-    const db = await getLocalDb();
-    const tx = db.transaction('aiDialogues', 'readwrite');
-    const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
-    for (let i = existing.messages.length - 1; i >= 0; i--) {
-      const m = existing.messages[i];
-      if (m && m.role === 'assistant' && m.type !== 'system') {
-        if (!m.variants || variantIndex < 0 || variantIndex >= m.variants.length) { await tx.done; return; }
-        m.variantIndex = variantIndex;
-        m.content = m.variants[variantIndex] ?? m.content;
-        break;
-      }
-    }
-    existing.updatedAt = Date.now();
-    await tx.store.put(existing);
-    await tx.done;
-    LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
-    window.dispatchEvent(new Event('dialogue-updated'));
+    return fresh;
   },
 
   async updateTitle(id: string, title: string): Promise<void> {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const existing = await tx.store.get(id);
-    if (!existing) { await tx.done; return; }
+    // M-4: надгробие не переименовываем (см. setPersona).
+    if (!existing || existing.deletedAt) { await tx.done; return; }
     existing.title = title;
     existing.updatedAt = Date.now();
     await tx.store.put(existing);
@@ -257,7 +320,7 @@ export const AIDialogueService = {
     try {
       const db = await getLocalDb();
       const dialogue = await db.get('aiDialogues', id);
-      if (!dialogue) return;
+      if (!dialogue || dialogue.deletedAt) return;
 
       const chatMessages = dialogue.messages.filter(m => m.type !== 'system');
       if (chatMessages.length < 4) return;
@@ -296,7 +359,8 @@ export const AIDialogueService = {
 
         const tx = db.transaction(['aiDialogues', 'aiDialogueEvents'], 'readwrite');
         const existing = await tx.objectStore('aiDialogues').get(id);
-        if (!existing) {
+        // S-58: диалог удалён, пока модель отвечала, — итог и событие не пишутся.
+        if (!existing || existing.deletedAt) {
           try {
             tx.abort();
             await tx.done.catch(() => {});
@@ -305,6 +369,9 @@ export const AIDialogueService = {
         }
 
         existing.closingSummary = text;
+        // S-35: без новой отметки инкрементальный забор на другом устройстве
+        // итог не увидит.
+        existing.updatedAt = Date.now();
         await tx.objectStore('aiDialogues').put(existing);
 
         await tx.objectStore('aiDialogueEvents').put({
@@ -360,8 +427,14 @@ export const AIDialogueService = {
 
     await removeDialogueFromFacets(id);
 
-    await db.delete('aiDialogues', id);
-    LocalStoreSyncService.scheduleStoreDelete('aiDialogues', id);
+    // S-58: не стирание строки, а надгробие — иначе устройство, ещё державшее
+    // диалог, дописывало ход и возвращало его в облако (сценарий 15 стенда).
+    // Удаление побеждает при слиянии; через TOMBSTONE_TTL_MS list() снимает запись.
+    const tx = db.transaction('aiDialogues', 'readwrite');
+    const existing = await tx.store.get(id);
+    if (existing) await tx.store.put(tombstoneDialogue(existing, Date.now()));
+    await tx.done;
+    if (existing) LocalStoreSyncService.scheduleStoreSync('aiDialogues', id);
     LocalStoreSyncService.scheduleStoreDelete('aiDialogueEvents', id);
   },
 
@@ -402,14 +475,15 @@ export const AIDialogueService = {
     const db = await getLocalDb();
     const tx = db.transaction('aiDialogues', 'readwrite');
     const dialogue = await tx.store.get(id);
-    if (!dialogue) { await tx.done; return; }
+    // M-4: надгробие не получает системный ход и настройку объёма.
+    if (!dialogue || dialogue.deletedAt) { await tx.done; return; }
     const lengthLabel = responseLength === 'short' ? 'кратко' : responseLength === 'detailed' ? 'объёмно' : 'стандартно';
     const reasoningLabel = reasoning ? ' + рассуждения' : '';
-    dialogue.messages.push({
+    dialogue.messages.push(stampMessage({
       role: 'assistant',
       content: `⚙️ [Смена объёма]: Теперь ${dialogue.personaName} ответит вам ${lengthLabel}${reasoningLabel}`,
       type: 'system',
-    });
+    }));
     dialogue.responseLength = responseLength;
     if (reasoning !== undefined) dialogue.reasoning = reasoning;
     dialogue.updatedAt = Date.now();

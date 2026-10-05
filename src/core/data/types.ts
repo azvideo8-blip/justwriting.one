@@ -1,5 +1,13 @@
 export type ProviderRecord = Record<string, unknown>;
 
+export interface LocalStoreRecordRow {
+  store: string;
+  key: string;
+  payload: ProviderRecord;
+  checksum?: string;
+  stamped_at?: number;
+}
+
 export interface IDataProvider {
   // --- Document Operations ---
   createDocument(userId: string, data: ProviderRecord): Promise<string>;
@@ -85,14 +93,23 @@ export interface IDataProvider {
   // --- Local Store Records Operations ---
   saveLocalStoreRecord(userId: string, store: string, key: string, payload: ProviderRecord, checksum?: string): Promise<void>;
   saveLocalStoreRecordPages(userId: string, store: string, pages: Array<{ key: string; payload: ProviderRecord }>): Promise<void>;
-  getLocalStoreRecord(userId: string, store: string, key: string): Promise<ProviderRecord | null>;
-  getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<Array<{ store: string; key: string; payload: ProviderRecord; checksum?: string }>>;
+  /** S-34: false — облако изменилось с момента чтения (expectedUpdatedAt устарел или строка уже есть). */
+  saveLocalStoreRecordIfUnchanged(userId: string, store: string, key: string, payload: ProviderRecord, expectedUpdatedAt: number | null): Promise<boolean>;
+  getLocalStoreRecord(userId: string, store: string, key: string): Promise<LocalStoreRecordRow | null>;
+  getLocalStoreRecords(userId: string, store?: string, sinceMs?: number): Promise<LocalStoreRecordRow[]>;
+  /** S-49: страницы записи `key#…` (оба формата). Необязателен только ради тестовых заглушек: у провайдера он есть всегда. */
+  getLocalStoreRecordPages?(userId: string, store: string, key: string): Promise<LocalStoreRecordRow[]>;
+  /** M-5: дочерние строки записи по префиксу ключа — сегменты диалога `key@seg…`. */
+  getLocalStoreRecordsByKeyPrefix(userId: string, store: string, prefix: string): Promise<LocalStoreRecordRow[]>;
   countLocalStoreRecords(userId: string, stores: readonly string[]): Promise<number>;
   deleteLocalStoreRecord(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStoreExactRecord?(userId: string, store: string, key: string): Promise<void>;
   deleteLocalStorePagedRecords?(userId: string, store: string, key: string, keepPages?: number): Promise<void>;
   deleteLocalStoreRecordsByStore(userId: string, store: string): Promise<void>;
   deleteLocalStoreRecordsByStores(userId: string, stores: string[]): Promise<void>;
+  /** M-5: снести ровно названные строки — осиротевшие сегменты, которые head
+   *  больше не перечисляет, и строки проигравшей попытки. */
+  deleteLocalStoreRecordsByKeys(userId: string, store: string, keys: string[]): Promise<void>;
   deleteAllLocalStoreRecords?(userId: string): Promise<void>;
 
   // --- Migration ---

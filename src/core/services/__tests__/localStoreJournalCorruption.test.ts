@@ -48,6 +48,11 @@ describe('R4-004: corrupt journals are not overwritten by writers', { timeout: 3
     localStorage.clear();
     vi.clearAllMocks();
     save = vi.spyOn(DataProvider, 'saveLocalStoreRecord').mockReset().mockResolvedValue(undefined as never);
+    // S-34: диалог перед выгрузкой читает облачную строку; здесь облако пусто.
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);
+    vi.spyOn(DataProvider as Required<typeof DataProvider>, 'getLocalStoreRecordPages').mockResolvedValue([]);
+    vi.spyOn(DataProvider, 'deleteLocalStoreRecordsByKeys').mockResolvedValue(undefined as never);
+    vi.spyOn(DataProvider, 'getLocalStoreRecordsByKeyPrefix').mockResolvedValue([]);
   });
 
   it('corrupt dead-upsert journal: a new dead mark does not overwrite the raw, the upload marker stays', async () => {
@@ -91,6 +96,10 @@ describe('R4-017: oversized records are visible as not synced', () => {
   beforeEach(async () => {
     localStorage.clear();
     vi.clearAllMocks();
+    vi.spyOn(DataProvider, 'getLocalStoreRecord').mockResolvedValue(null);
+    vi.spyOn(DataProvider as Required<typeof DataProvider>, 'getLocalStoreRecordPages').mockResolvedValue([]);
+    vi.spyOn(DataProvider, 'deleteLocalStoreRecordsByKeys').mockResolvedValue(undefined as never);
+    vi.spyOn(DataProvider, 'getLocalStoreRecordsByKeyPrefix').mockResolvedValue([]);
   });
 
   it('an oversized record lands in the summary under its own account key', async () => {

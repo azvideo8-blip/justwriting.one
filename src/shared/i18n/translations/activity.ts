@@ -52,6 +52,10 @@ export const activityTranslations: Translations = {
     ru: 'Часть истории заметки не читается и пропущена (версий: {count})',
     en: 'Part of note history is unreadable and was skipped ({count} versions)',
   },
+  activity_dialogue_cloud_unreadable: {
+    ru: 'Диалог {key} не синхронизируется: облачная копия не читается',
+    en: 'Dialogue {key} is not syncing: the cloud copy is unreadable',
+  },
   activity_local_store_dead_upsert: {
     ru: 'Запись {store}/{key} не принята облаком {attempts} раз и осталась только на устройстве',
     en: 'Record {store}/{key} was rejected by the cloud {attempts} times and stays on this device only',

@@ -119,6 +119,11 @@ jobs:
           done
           docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/rls.test.sql
 
+          # Триггер из 0037 — единственное, что мешает устройству с убежавшими
+          # часами выиграть спор отметок. Юнит-тесты работают с подставной базой и
+          # его отсутствия не заметят; этот шаг падает, если триггер снять.
+          docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/server_stamp.test.sql
+
           export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5439/postgres"
 
           echo "TB-02/TB-03 Step A: Injecting canary..."

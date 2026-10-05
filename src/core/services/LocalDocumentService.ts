@@ -3,6 +3,7 @@ import { invalidatePortrait } from '../ai/portraitEpoch';
 import { reportError } from '../../shared/errors/reportError';
 import { writeFacetStore } from './facetLock';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
+import { tombstoneDialogue } from '../storage/dialogueMerge';
 import { DataProvider } from '../data';
 
 /**
@@ -289,8 +290,9 @@ export const LocalDocumentService = {
               LocalStoreSyncService.scheduleStoreDelete('aiChatMemory', m.id);
             }
           } catch { fail(); }
-          await db.delete('aiDialogues', d.id).catch(fail);
-          LocalStoreSyncService.scheduleStoreDelete('aiDialogues', d.id);
+          // S-58: надгробие вместо стирания — см. AIDialogueService.delete.
+          await db.put('aiDialogues', tombstoneDialogue(d, Date.now())).catch(fail);
+          LocalStoreSyncService.scheduleStoreSync('aiDialogues', d.id);
         }
       } catch { fail(); }
 

@@ -1,12 +1,21 @@
 import { getLocalDb } from '../../../core/storage/localDb';
-import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet } from '../../../core/storage/localDb';
+import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet, AIDialogue } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
+import { mergeDialogues, dialogueFingerprint } from '../../../core/storage/dialogueMerge';
+import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from '../../../core/services/localStorePages';
+import {
+  HEAD_TEXT_FIELDS,
+  SEGMENT_TEXT_FIELDS,
+  headKeyOfRow,
+  readSegmentVersion,
+} from '../../../core/services/dialogueSegments';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
 import { sha256Hex } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import {
   extractRecordTimestamp,
+  LocalStoreSyncService,
   SUPPORTED_LOCAL_STORES,
   SupportedLocalStoreName,
   MAX_RESTORE_RECORD_BYTES,
@@ -80,8 +89,15 @@ export interface AIRestoreResult {
   oversized: number;
   skippedLocked: boolean;
   sectionFailed?: boolean;
+  /**
+   * Наибольшая отметка строки, реально увидленная в облаке за этот проход.
+   * Курсор инкрементального забора обязан считаться по ней, а не по `Date.now()`:
+   * базовой строке диалога отметку версии ставит сервер (миграция 0037), и на
+   * устройстве с часами вперёд собственные часы оказываются «новее» всего, что
+   * приходит с сервера, — такой читатель перестал бы получать чужие правки совсем.
+   */
+  maxUpdatedAt: number;
 }
-
 
 /**
  * Pulls AI analysis back from the cloud into local storage.
@@ -97,13 +113,45 @@ export interface AIRestoreResult {
  * newer cloud copy: a restore must not clobber work newer than the cloud copy.
  */
 /**
+ * M-5: строки сегментной копии в том виде, в котором их читает
+ * readSegmentVersion — head с открытыми текстовыми полями и названные им сегменты
+ * с открытым `messages`. Строки, которых head не называет, читателя не касаются:
+ * это осиротевшие остатки чужих попыток, их убирает писатель. Нечитаемая
+ * названная строка остаётся брошенной ошибкой, а не «строк не было».
+ */
+async function decodeSegmentGroup(rows: CloudRow[], headRow: CloudRow): Promise<CloudRow[]> {
+  const payload = await maybeDecrypt(headRow.payload, [...HEAD_TEXT_FIELDS], []);
+  const named = new Set(((payload.segments as Array<{ key: string }> | undefined) ?? []).map(s => s.key));
+  const out: CloudRow[] = [{ key: headRow.key, payload }];
+  for (const r of rows) {
+    if (r === headRow || r.payload.seg !== true || !named.has(r.key)) continue;
+    out.push({ key: r.key, payload: await maybeDecrypt(r.payload, [...SEGMENT_TEXT_FIELDS], []) });
+  }
+  return out;
+}
+
+/** Инкрементальный забор фильтрует строки по `payload.updatedAt`, а переиспользованное
+ *  окно сохраняет свою прежнюю отметку: свежий head может приехать без старых строк,
+ *  которые он называет. Их добирают точным чтением по ключу; чего нет — того нет,
+ *  и отказ выдаёт readSegmentVersion. */
+async function fetchMissingSegments(userId: string, store: string, keys: string[]): Promise<CloudRow[]> {
+  const out: CloudRow[] = [];
+  for (const key of keys) {
+    const row = await DataProvider.getLocalStoreRecord(userId, store, key);
+    if (!row) continue;
+    out.push({ key, payload: await maybeDecrypt(row.payload as Record<string, unknown>, [...SEGMENT_TEXT_FIELDS], []) });
+  }
+  return out;
+}
+
+/**
  * `sinceMs` — инкрементальный забор: только то, что изменилось на других
  * устройствах после этой отметки (регулярный фоновый проход). Без него —
  * полное восстановление (раз в день, после очистки устройства).
  */
 export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: number }): Promise<AIRestoreResult> {
   const sinceMs = opts?.sinceMs;
-  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false, sectionFailed: false };
+  const result: AIRestoreResult = { summaries: 0, embeddings: 0, localStoreRecords: 0, markedSynced: 0, failed: 0, oversized: 0, skippedLocked: false, sectionFailed: false, maxUpdatedAt: 0 };
   if (!userId) return result;
 
   // With E2E on but the vault locked, every decrypt throws. Restoring now would
@@ -178,134 +226,118 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
   } else try {
     const cloudRecords = await DataProvider.getLocalStoreRecords(userId, undefined, sinceMs);
 
-    // Group cloud records by (store, baseKey)
-    interface CloudGroupItem {
-      fullKey: string;
-      pageIndex: number | null; // null if not paged
-      payload: Record<string, unknown>;
-      checksum?: string | undefined;
-    }
-    const grouped = new Map<string, { store: string; baseKey: string; items: CloudGroupItem[] }>();
+    // Group cloud records by (store, baseKey). S-49: разбор ключей и выбор
+    // версии — общий с выгрузкой (core/services/localStorePages).
+    const grouped = new Map<string, { store: string; baseKey: string; rows: CloudRow[] }>();
 
     for (const rec of cloudRecords) {
       if (!SUPPORTED_LOCAL_STORES.includes(rec.store as SupportedLocalStoreName)) continue;
       if (!(db.objectStoreNames as unknown as { contains(s: string): boolean }).contains(rec.store)) continue;
 
-      const hashIdx = rec.key.lastIndexOf('#');
-      let baseKey = rec.key;
-      let pageIndex: number | null = null;
-      if (hashIdx !== -1) {
-        const suffix = rec.key.slice(hashIdx + 1);
-        if (/^\d+$/.test(suffix)) {
-          baseKey = rec.key.slice(0, hashIdx);
-          pageIndex = parseInt(suffix, 10);
-        }
-      }
-
+      const { baseKey: pageBase } = parseLocalStoreKey(rec.key);
+      // M-5: сегмент `key@seg…` принадлежит записи `key`, а не себе и не странице.
+      // Для остальных хранилищ @seg — обычная часть ключа.
+      const baseKey = rec.store === 'aiDialogues' ? headKeyOfRow(pageBase) : pageBase;
       const groupKey = `${rec.store}:${baseKey}`;
       let grp = grouped.get(groupKey);
       if (!grp) {
-        grp = { store: rec.store, baseKey, items: [] };
+        grp = { store: rec.store, baseKey, rows: [] };
         grouped.set(groupKey, grp);
       }
-      grp.items.push({
-        fullKey: rec.key,
-        pageIndex,
-        payload: rec.payload as Record<string, unknown>,
-        checksum: (rec as { checksum?: string }).checksum,
-      });
+      grp.rows.push({ key: rec.key, payload: rec.payload as Record<string, unknown>, checksum: (rec as { checksum?: string }).checksum });
     }
 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
-    for (const { store, baseKey, items } of grouped.values()) {
+    for (const { store, baseKey, rows } of grouped.values()) {
       if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
+      // Спор копий и курсор забора считаются отметкой БАЗОВОЙ строки, которую
+      // поставил сервер (миграция 0037). Отметку берём не из `rows[0]`, а из строки
+      // с ключом `baseKey`: head живёт именно там, и выбор по индексу молча
+      // зависел бы от порядка сортировки в провайдере. Осиротевшие окна (их
+      // отметки — device-ные) курсор не двигают: они не версия записи.
+      const versionRow = rows.find(r => r.key === baseKey);
+      const outerTs = typeof versionRow?.payload?.updatedAt === 'number'
+        ? (versionRow.payload.updatedAt as number)
+        : null;
+      if (outerTs !== null && outerTs > result.maxUpdatedAt) result.maxUpdatedAt = outerTs;
       try {
         let fullJson: string;
         let cloudTs: number | null = null;
 
-        const isPaged = items.some(it => it.pageIndex !== null);
-
-        if (!isPaged) {
-          // Single unpaged record
-          const item = items[0];
-          if (!item) continue;
-          const decryptedPayload = await maybeDecrypt(item.payload, ['data'], []);
-          if (typeof decryptedPayload.data !== 'string') continue;
-          fullJson = decryptedPayload.data;
-          cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
+        // M-5: head + сегменты. Head называет окна диалога, и это единственная
+        // истина: если какого-то окна нет, копия неполная — отказ, а не
+        // укороченный дневник. Сначала добираем недостающие строки точным чтением
+        // (инкрементальный забор мог принести свежий head со старыми, уже
+        // лежавшими в облаке сегментами), и только потом отказываемся.
+        const headRow = store === 'aiDialogues' ? rows.find(r => r.payload.head === true) : undefined;
+        if (headRow) {
+          let segRows = await decodeSegmentGroup(rows, headRow);
+          let version = readSegmentVersion(segRows);
+          if (version && version.kind !== 'segments' && version.missing.length > 0) {
+            const extra = await fetchMissingSegments(userId, store, version.missing);
+            if (extra.length > 0) {
+              segRows = [...segRows, ...extra];
+              version = readSegmentVersion(segRows);
+            }
+          }
+          // `incomplete` здесь — тоже отказ: забор не имеет права превращать
+          // неполный набор в укороченный дневник. Починкой занимается писатель,
+          // у которого есть локальный союз.
+          if (!version || version.kind !== 'segments') {
+            const reason = !version ? 'head-строка не читается как head'
+              : version.kind === 'refused' ? version.reason
+              : `не хватает ${version.missing.length} сегментов: ${version.missing.join(', ')}`;
+            logger.warn('AIRestoreService', `${store}/${baseKey}: ${reason}. Refusing.`);
+            if (version && version.kind === 'incomplete' && version.missing.length > 0) {
+              LocalStoreSyncService.scheduleStoreSync('aiDialogues', baseKey);
+            }
+            result.failed++;
+            continue; // Keep local copy intact!
+          }
+          fullJson = JSON.stringify(version.dialogue);
+          cloudTs = version.head.updatedAt;
         } else {
-          // SYNC-4: Multi-page reassembly
-          // Страницы разных версий могут лежать рядом: хвост прежней, более длинной
-          // версии, или новая версия, выгрузка которой оборвалась на середине.
-          // Собираем только самую свежую версию и только если её набор полный —
-          // склеить половинки двух версий нельзя, а старая версия поверх новой не нужна.
-          const versions = new Map<string, CloudGroupItem[]>();
-          for (const it of items) {
-            if (it.pageIndex === null) continue;
-            const ts = it.payload.updatedAt;
-            const total = it.payload.totalPages;
-            const stamp = `${typeof ts === 'number' ? ts : 'x'}|${typeof total === 'number' ? total : 'x'}`;
-            const list = versions.get(stamp) ?? [];
-            list.push(it);
-            versions.set(stamp, list);
-          }
-          const newest = [...versions.values()]
-            .filter(v => typeof v[0]?.payload.updatedAt === 'number' && typeof v[0]?.payload.totalPages === 'number')
-            .sort((a, b) => (b[0]!.payload.updatedAt as number) - (a[0]!.payload.updatedAt as number))[0];
-          const expectedTotalPages = newest ? newest[0]!.payload.totalPages as number : 0;
-          const expectedUpdatedAt = newest ? newest[0]!.payload.updatedAt as number : null;
-
-          const pagesByIndex = new Map<number, CloudGroupItem>();
-          let hasIntegrityError = !newest || expectedTotalPages <= 0;
-          for (const it of newest ?? []) {
-            if (pagesByIndex.has(it.pageIndex!)) {
-              logger.warn('AIRestoreService', `Duplicate page index ${it.pageIndex} for ${store}/${baseKey}. Refusing.`);
-              hasIntegrityError = true;
-              break;
-            }
-            pagesByIndex.set(it.pageIndex!, it);
-          }
-
-          const sortedPages: CloudGroupItem[] = [];
-          for (let i = 0; !hasIntegrityError && i < expectedTotalPages; i++) {
-            const pageItem = pagesByIndex.get(i);
-            if (!pageItem) {
-              logger.warn('AIRestoreService', `Newest version of ${store}/${baseKey} is incomplete: page ${i} of ${expectedTotalPages} missing. Refusing.`);
-              hasIntegrityError = true;
-              break;
-            }
-            sortedPages.push(pageItem);
-          }
-          if (!hasIntegrityError && pagesByIndex.size !== expectedTotalPages) {
-            logger.warn('AIRestoreService', `Newest version of ${store}/${baseKey} has pages beyond ${expectedTotalPages}. Refusing.`);
-            hasIntegrityError = true;
-          }
-
-          if (hasIntegrityError) {
+          // S-49: манифест указывает версию точно; без него — самая свежая полная
+          // версия по отметке. Страницы разных версий могут лежать рядом: хвост
+          // прежней, более длинной версии, проигравшая попытка, выгрузка,
+          // оборванная на середине. Склеить половинки двух версий нельзя.
+          const version = selectCloudVersion(rows, store === 'aiDialogues');
+          if (!version) continue;
+          if (version.kind === 'refused') {
+            logger.warn('AIRestoreService', `${store}/${baseKey}: ${version.reason}. Refusing.`);
             result.failed++;
             continue; // Keep local copy intact!
           }
 
-          // Decrypt and join chunks
-          const decryptedChunks: string[] = [];
-          let decryptFailed = false;
+          if (version.kind === 'single') {
+            const decryptedPayload = await maybeDecrypt(version.row.payload, ['data'], []);
+            if (typeof decryptedPayload.data !== 'string') continue;
+            fullJson = decryptedPayload.data;
+            cloudTs = typeof decryptedPayload.updatedAt === 'number' ? decryptedPayload.updatedAt : null;
+          } else {
+            // Decrypt and join chunks
+            const decryptedChunks: string[] = [];
+            let decryptFailed = false;
 
-          for (const pageItem of sortedPages) {
-            const dec = await maybeDecrypt(pageItem.payload, ['data'], []);
-            if (typeof dec.data !== 'string') {
-              decryptFailed = true;
-              break;
+            for (const pageItem of version.pages) {
+              const dec = await maybeDecrypt(pageItem.payload, [...PAGE_TEXT_FIELDS], []);
+              // M-3: страница нового формата несёт текст в `chunk`.
+              const chunk = pageTextOf(dec);
+              if (chunk === null) {
+                decryptFailed = true;
+                break;
+              }
+              decryptedChunks.push(chunk);
             }
-            decryptedChunks.push(dec.data);
-          }
 
-          if (decryptFailed) {
-            result.failed++;
-            continue;
-          }
+            if (decryptFailed) {
+              result.failed++;
+              continue;
+            }
 
-          fullJson = decryptedChunks.join('');
-          cloudTs = expectedUpdatedAt;
+            fullJson = decryptedChunks.join('');
+            cloudTs = version.updatedAt;
+          }
         }
 
         // AG-RESTORE-4: Limit is MAX_RESTORE_RECORD_BYTES (10 MB) — above the upload cap,
@@ -346,7 +378,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           reportError(new Error('restoreAIData: malformed local_store_record'), { store, key: baseKey });
           continue;
         }
-        const expectedChecksum = items[0]?.checksum;
+        const expectedChecksum = rows[0]?.checksum;
         if (expectedChecksum) {
           const computed = await sha256Hex(fullJson);
           if (computed !== expectedChecksum) {
@@ -360,10 +392,35 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           cloudTs = dataTs;
         }
 
+        // S-29: диалоги не выбирают победителя по часам — они сливаются.
+        // LWW уносил ход того устройства, которое ответило вторым, молча.
+        // S-35: чтение, слияние и запись — в одной транзакции и без await на
+        // не-IDB работе между ними: ход, записанный между get и put, терялся.
+        if (store === 'aiDialogues') {
+          // Версией облачной копии считается серверная отметка строки, а не та,
+          // что нарисована часами устройства внутри `data`.
+          const cloudDialogue: AIDialogue = outerTs === null
+            ? (parsedData as AIDialogue)
+            : { ...(parsedData as AIDialogue), updatedAt: outerTs };
+          const tx = db.transaction('aiDialogues', 'readwrite');
+          const current = await tx.store.get(baseKey);
+          const merged = current ? mergeDialogues(current, cloudDialogue) : cloudDialogue;
+          const changed = !current || dialogueFingerprint(merged) !== dialogueFingerprint(current) || merged.updatedAt !== current.updatedAt;
+          if (changed) await tx.store.put(merged);
+          await tx.done;
+          if (changed) result.localStoreRecords++;
+          // Союз надо отправить в облако, иначе второе устройство так и
+          // останется со своей половинкой. Совпал с облаком — слать нечего.
+          if (current && dialogueFingerprint(merged) !== dialogueFingerprint(cloudDialogue)) {
+            LocalStoreSyncService.scheduleStoreSync('aiDialogues', merged.id);
+          }
+          continue;
+        }
+
         // Get local record if exists
         const localRecord = await (db as unknown as { get(s: string, k: string): Promise<unknown> }).get(store, baseKey);
 
-        const putRecord = () => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, parsedData);
+        const putRecord = (value: unknown = parsedData) => (db as unknown as { put(s: string, v: unknown): Promise<unknown> }).put(store, value);
 
         if (localRecord !== undefined) {
           const localTs = extractRecordTimestamp(localRecord);

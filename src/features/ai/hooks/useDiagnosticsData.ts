@@ -172,7 +172,10 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
       const uid = getCurrentUser()?.uid ?? getOrCreateGuestId();
       const localDocs = await LocalDocumentService.getDocumentsByOwner(uid);
       const db = await getLocalDb();
-      const dialogues = await db.getAll('aiDialogues');
+      // M-4: надгробие (удалённый диалог, который ещё не снят) — не диалог:
+      // раньше оно попадало в счётчик и в статистику выхода из аккаунта.
+      const dialogueRows = await db.getAll('aiDialogues');
+      const dialogues = dialogueRows.filter(d => !d.deletedAt);
       const summaries = await db.getAll('aiSummaries');
       const embeddings = await db.getAll('aiEmbeddings');
       const personas = await db.getAll('aiPersonas');

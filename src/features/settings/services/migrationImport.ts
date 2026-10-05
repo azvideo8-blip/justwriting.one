@@ -603,10 +603,18 @@ export async function importMigrationManifest(
       if (dialogueKeys && dialogueKeys.has(rec.key)) {
         skipped.verbatim["aiDialogues"] =
           (skipped.verbatim["aiDialogues"] || 0) + 1;
+        // M-4: локально там может лежать надгробие (диалог удалён недавно).
+        // Молча писать «already exists» нельзя: пользователь видит удалённый
+        // диалог в бэкапе и не понимает, почему он не вернулся.
+        const existingDialogue = (await db.get('aiDialogues', rec.key)) as
+          | { deletedAt?: number }
+          | undefined;
         skipped.details.push({
           store: "aiDialogues",
           id: rec.key,
-          reason: "dialogue already exists",
+          reason: existingDialogue?.deletedAt
+            ? "dialogue deleted locally — import did not resurrect it"
+            : "dialogue already exists",
         });
       } else {
         queueWrite("aiDialogues", payload);
