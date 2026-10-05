@@ -115,8 +115,19 @@ export function headKeyOfRow(key: string): string {
  * Форма облачной строки head'а и её зашифруемые поля. Ни у head'а, ни у сегмента
  * нет поля `data` — единственного, на что смотрит читатель 0.9.28/0.9.29 (M-3):
  * задепленный клиент проходит мимо наших строк молча.
+ *
+ * Поля, оставленные открытыми в head-строке (T-1 / R-7):
+ * - `personaId`: системный идентификатор встроенной/пользовательской персоны (без текста, не ПДн, безвредно);
+ * - `responseLength`, `reasoning`: технические настройки генерации ответов модели, безвредны;
+ * - `archivedAt`, `deletedAt`: системные временные отметки состояния диалога, нужны для слияния версий без ключа шифрования;
+ * - `deletedMessages` (id + at): идентификаторы и отметки удалённых реплик, нужны для слияния надгробий сообщений без ключа шифрования;
+ * - сегменты `segments` (`firstAt`, `lastAt`, `bytes`, `count`, `key`): временные границы, размеры и ключи сегментов,
+ *   необходимы для структуры, навигации и сборки диалога без предварительной расшифровки;
+ * - `createdAt`, `updatedAt`, `schema`: системные метаданные записи.
+ *
+ * `documentId` шифруется (R-7): связывает разговор с конкретной дневниковой записью пользователя.
  */
-export const HEAD_TEXT_FIELDS = ['title', 'personaName', 'closingSummary'] as const;
+export const HEAD_TEXT_FIELDS = ['title', 'personaName', 'closingSummary', 'documentId'] as const;
 
 export function headRowPayload(head: DialogueHead): Record<string, unknown> {
   return { ...head };
