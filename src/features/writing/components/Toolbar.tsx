@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { FilePlus, FolderOpen, Save, Square, Flag, Mic, MicOff } from 'lucide-react';
+import { FilePlus, Save, Square, Flag, Mic, MicOff } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
@@ -35,7 +35,6 @@ interface ToolbarProps {
 
 export function Toolbar({
   onNew,
-  onOpenLog,
   onSave,
   onPlay,
   onPause,
@@ -76,12 +75,14 @@ export function Toolbar({
           className="rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5"
         />
 
+        {/* Кнопка «Открыть» скрыта по решению владельца (2026-10-05): смысла в ней пока нет.
         <IconButton
           icon={<FolderOpen size={16} />}
           label={t('topbar_open')}
           onClick={onOpenLog}
           className="rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5"
         />
+        */}
 
         <motion.button
           type="button"

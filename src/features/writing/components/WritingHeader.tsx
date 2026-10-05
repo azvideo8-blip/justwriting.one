@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Maximize, Minimize, FilePlus, FolderOpen, Save, BookOpen, Sparkles, SlidersHorizontal
+  Maximize, Minimize, FilePlus, Save, BookOpen, Sparkles, SlidersHorizontal
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
@@ -97,7 +97,9 @@ export const WritingHeader = React.memo(function WritingHeader({
           {lifeLogEnabled ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-card/50 min-h-[56px]">
                 <IconButton icon={<FilePlus size={16} aria-hidden="true" />} label={t('topbar_new')} onClick={onNew} />
+                {/* Кнопка «Открыть» скрыта по решению владельца (2026-10-05).
                 <IconButton icon={<FolderOpen size={16} aria-hidden="true" />} label={t('topbar_open')} onClick={onOpenLog} />
+                */}
                 <IconButton icon={<Save size={16} aria-hidden="true" />} label={t('topbar_save')} onClick={onSave} />
                 <div className="w-px h-5 bg-border-subtle mx-1" />
                 <input
