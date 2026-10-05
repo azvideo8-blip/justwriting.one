@@ -156,8 +156,8 @@ describe('DocumentService', () => {
   describe('update functions', () => {
     it('updateDocumentAfterSession calls updateDocumentSessionStats', async () => {
       vi.mocked(DataProvider.updateDocumentSessionStats).mockResolvedValue();
-      await DocumentService.updateDocumentAfterSession('u1', 'doc1', { totalWords: 10, totalDuration: 10, currentVersion: 1 });
-      expect(DataProvider.updateDocumentSessionStats).toHaveBeenCalledWith('u1', 'doc1', { totalWords: 10, totalDuration: 10, currentVersion: 1, mood: null });
+      await DocumentService.updateDocumentAfterSession('u1', 'doc1', { totalWords: 10, durationDelta: 10, currentVersion: 1 });
+      expect(DataProvider.updateDocumentSessionStats).toHaveBeenCalledWith('u1', 'doc1', { totalWords: 10, durationDelta: 10, currentVersion: 1, mood: null });
     });
 
     it('updateTags calls updateDocument', async () => {

@@ -958,7 +958,9 @@ export const CloudSyncService = {
           if (metaDoc.currentVersion >= existingDoc.currentVersion) {
             await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
               totalWords: metaDoc.totalWords,
-              totalDuration: metaDoc.totalDuration,
+              // V-5: здесь нет новой сессии — только метаданные, поэтому и
+              // приращение длительности нулевое (складывает сервер, 0039).
+              durationDelta: 0,
               currentVersion: metaDoc.currentVersion,
               sessionsCount: metaDoc.sessionsCount,
               lastSessionAt: metaDoc.lastSessionAt ? new Date(metaDoc.lastSessionAt) : undefined,
@@ -1124,7 +1126,10 @@ export const CloudSyncService = {
 
         await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
-          totalDuration: localDoc.totalDuration,
+          // V-5: создавая облачный ряд, createDocument уже положил в него
+          // накопленные счётчики этого устройства, поэтому за эту выгрузку
+          // приращение нулевое — иначе первая синхронизация удвоила бы время.
+          durationDelta: 0,
           currentVersion: localDoc.currentVersion,
           sessionsCount: localDoc.sessionsCount,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
@@ -1410,7 +1415,9 @@ export const CloudSyncService = {
 
       await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
         totalWords: data.documentWordCount ?? data.wordCount,
-        totalDuration: data.documentDuration ?? data.duration,
+        // V-5: дельта — длительность ИМЕННО этой сессии (documentDuration —
+        // абсолют, он уже лежит в локальной копии и в созданном облачном ряде).
+        durationDelta: data.duration,
         currentVersion: newVersion,
         mood: data.mood,
       });

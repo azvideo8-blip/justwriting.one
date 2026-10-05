@@ -22,7 +22,9 @@ export interface IDataProvider {
     documentId: string, 
     stats: {
       totalWords: number;
-      totalDuration: number;
+      /** V-5: приращение длительности за ЭТУ выгрузку, а не абсолют: складывает
+       *  сервер (0039), поэтому два устройства не теряют счёт друг друга. */
+      durationDelta: number;
       currentVersion: number;
       mood?: string | null;      // null implies field deletion
       moodEncrypted?: boolean;   // mood is ciphertext: the row must be encrypted as a whole

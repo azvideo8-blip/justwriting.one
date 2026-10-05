@@ -47,6 +47,23 @@ vi.mock('../../supabase/client', () => ({
       };
       return q;
     },
+    // V-5 (0039): счётчики считает сервер. Под этой же строкой эмулируются оба
+    // rpc — инкремент сессий и синхронизация счётчиков (максимум по словам,
+    // приращение по длительности), иначе мок расходился бы с продакшном.
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      requests.push(`rpc:${fn}`);
+      const row = table.find(r => r.uuid === args.p_uuid);
+      if (!row) return { data: null, error: { message: 'no such document' } };
+      if (fn === 'increment_document_sessions') {
+        row.sessions_count = Math.max(0, Number(row.sessions_count ?? 0) + Number(args.p_delta ?? 1));
+      } else if (fn === 'sync_document_stats') {
+        row.total_words = Math.max(Number(row.total_words ?? 0), Number(args.p_words ?? 0));
+        row.total_duration = Math.max(0, Number(row.total_duration ?? 0) + Number(args.p_duration_delta ?? 0));
+      } else {
+        throw new Error(`неизвестный rpc в тесте: ${fn}`);
+      }
+      return { data: null, error: null };
+    },
   }),
 }));
 
@@ -143,7 +160,7 @@ describe('partial metadata update on a row that is still plaintext', () => {
     table.push(legacyRow());
 
     await DocumentService.updateDocumentAfterSession(USER, DOC, {
-      totalWords: 10, totalDuration: 120, currentVersion: 2, mood: '😊', sessionsCount: 2,
+      totalWords: 10, durationDelta: 120, currentVersion: 2, mood: '😊', sessionsCount: 2,
     });
 
     expectNoPlaintext(stored(), { title: 'Письмо себе', tags: [], mood: '😊' });

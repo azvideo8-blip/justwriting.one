@@ -197,7 +197,8 @@ export const DocumentService = {
     documentId: string,
     data: {
       totalWords: number;
-      totalDuration: number;
+      /** V-5: длительность именно этой выгрузки; складывает сервер (0039). */
+      durationDelta: number;
       currentVersion: number;
       mood?: string | undefined;
       sessionsCount?: number | undefined;
@@ -206,7 +207,7 @@ export const DocumentService = {
   ): Promise<void> {
     const payload: Parameters<typeof DataProvider.updateDocumentSessionStats>[2] = {
       totalWords: data.totalWords,
-      totalDuration: data.totalDuration,
+      durationDelta: data.durationDelta,
       currentVersion: data.currentVersion,
       mood: data.mood ?? null,
     };

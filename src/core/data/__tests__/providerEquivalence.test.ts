@@ -111,6 +111,13 @@ function makeMockClient() {
 
   const client = {
     from: (table: string) => makeBuilder(table),
+    // Методы провайдера зовут rpc напрямую (0020 increment_document_sessions,
+    // 0039 sync_document_stats). Без этого ветки транскрипта замирали с ошибкой
+    // «rpc is not a function», и golden сверял текст ошибки вместо вызова.
+    rpc: async (fn: string, args: unknown) => {
+      calls.push({ table: 'rpc', chain: [`rpc(${JSON.stringify([fn, args]).slice(0, 400)})`], payload: { fn, args } });
+      return { data: null, error: null };
+    },
     channel: () => channelObj,
     removeChannel: async () => {},
   };
@@ -124,8 +131,8 @@ const SCENARIOS: Array<{ name: string; run: (p: Provider) => Promise<unknown> }>
   { name: 'getDocumentWithDeleted', run: p => p['getDocumentWithDeleted']!('u1', 'doc_1') },
   { name: 'getUserDocuments', run: p => p['getUserDocuments']!('u1') },
   { name: 'updateDocument', run: p => p['updateDocument']!('u1', 'doc_1', { title: 'T2', mood: null }) },
-  { name: 'stats-no-count', run: p => p['updateDocumentSessionStats']!('u1', 'doc_1', { totalWords: 5, totalDuration: 60, currentVersion: 4 }) },
-  { name: 'stats-with-count', run: p => p['updateDocumentSessionStats']!('u1', 'doc_1', { totalWords: 5, totalDuration: 60, currentVersion: 4, sessionsCount: 9, lastSessionAt: new Date(1756000000000) }) },
+  { name: 'stats-no-count', run: p => p['updateDocumentSessionStats']!('u1', 'doc_1', { totalWords: 5, durationDelta: 60, currentVersion: 4 }) },
+  { name: 'stats-with-count', run: p => p['updateDocumentSessionStats']!('u1', 'doc_1', { totalWords: 5, durationDelta: 60, currentVersion: 4, sessionsCount: 9, lastSessionAt: new Date(1756000000000) }) },
   { name: 'deleteDocument', run: p => p['deleteDocument']!('u1', 'doc_1') },
   { name: 'clearLabelFromAllDocs', run: p => p['clearLabelFromAllDocs']!('u1', 'l1') },
   { name: 'renameTagInAllDocs', run: p => p['renameTagInAllDocs']!('u1', 'a', 'b') },

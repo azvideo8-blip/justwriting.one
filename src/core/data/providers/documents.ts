@@ -154,7 +154,7 @@ export async function updateDocumentSessionStats(
   documentId: string,
   stats: {
     totalWords: number;
-    totalDuration: number;
+    durationDelta: number;
     currentVersion: number;
     mood?: string | null;
     /** `mood` — шифротекст; без этого признака он лёг бы на открытую строку. */
@@ -171,9 +171,19 @@ export async function updateDocumentSessionStats(
     if (rpcError != null) throw rpcError;
   }
 
+  // V-5 (0039): счётчики сессий складывает сервер. Раньше сюда клались
+  // абсолюты, которые клиент прочитал из локальной копии, и писатель с устаревшей
+  // копией тихо обнулял чужие приращения. Длительность — дельта этой выгрузки,
+  // слова — максимум (в локальной модели это длина заметки, а не сумма).
+  const { error: statsError } = await getSupabase()
+    .rpc('sync_document_stats', {
+      p_uuid: documentId,
+      p_words: Math.max(0, Math.floor(stats.totalWords)),
+      p_duration_delta: Math.floor(stats.durationDelta),
+    });
+  if (statsError != null) throw statsError;
+
   const updateData: Record<string, unknown> = {
-    totalWords: stats.totalWords,
-    totalDuration: stats.totalDuration,
     currentVersion: stats.currentVersion,
     ...(stats.sessionsCount !== undefined ? { sessionsCount: stats.sessionsCount } : {}),
     lastSessionAt: stats.lastSessionAt !== undefined ? stats.lastSessionAt : new Date(),

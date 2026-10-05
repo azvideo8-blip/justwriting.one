@@ -128,7 +128,7 @@ describe('SupabaseDataProvider', () => {
     it('updateDocumentSessionStats with provided sessionsCount transforms stats', async () => {
       await SupabaseDataProvider.updateDocumentSessionStats('user-1', 'doc-1', {
         totalWords: 300,
-        totalDuration: 600,
+        durationDelta: 600,
         currentVersion: 3,
         sessionsCount: 5,
         mood: 'calm',
@@ -136,9 +136,14 @@ describe('SupabaseDataProvider', () => {
       });
 
       expect(mockFrom).toHaveBeenCalledWith('documents');
+      // V-5 (0039): счётчики уходят в rpc, в патче их больше нет — иначе
+      // устаревшая копия устройства перезаписала бы чужие приращения.
+      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('sync_document_stats', {
+        p_uuid: 'doc-1',
+        p_words: 300,
+        p_duration_delta: 600,
+      });
       expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-        total_words: 300,
-        total_duration: 600,
         current_version: 3,
         sessions_count: 5,
         mood: 'calm',
@@ -151,7 +156,7 @@ describe('SupabaseDataProvider', () => {
     it('updateDocumentSessionStats increments sessionsCount atomically via rpc when not provided', async () => {
       await SupabaseDataProvider.updateDocumentSessionStats('user-1', 'doc-1', {
         totalWords: 400,
-        totalDuration: 800,
+        durationDelta: 800,
         currentVersion: 4,
       });
 
@@ -160,16 +165,21 @@ describe('SupabaseDataProvider', () => {
         p_uuid: 'doc-1',
         p_delta: 1,
       });
+      // V-5: и счётчики сессий считаются на сервере.
+      expect(supabaseClientModule.getSupabase().rpc).toHaveBeenCalledWith('sync_document_stats', {
+        p_uuid: 'doc-1',
+        p_words: 400,
+        p_duration_delta: 800,
+      });
       // Метаданные пишутся без sessions_count — его только что посчитал rpc.
       expect(mockQueryBuilder.update).toHaveBeenCalledWith(
         expect.not.objectContaining({ sessions_count: expect.anything() })
       );
       expect(mockQueryBuilder.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          total_words: 400,
-          total_duration: 800,
-          current_version: 4,
-        })
+        expect.objectContaining({ current_version: 4 })
+      );
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(
+        expect.not.objectContaining({ total_words: expect.anything(), total_duration: expect.anything() })
       );
     });
 
