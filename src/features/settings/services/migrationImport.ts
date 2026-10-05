@@ -606,7 +606,7 @@ export async function importMigrationManifest(
         // M-4: локально там может лежать надгробие (диалог удалён недавно).
         // Молча писать «already exists» нельзя: пользователь видит удалённый
         // диалог в бэкапе и не понимает, почему он не вернулся.
-        const existingDialogue = (await db.get("aiDialogues" as never, rec.key as never)) as
+        const existingDialogue = (await db.get('aiDialogues', rec.key)) as
           | { deletedAt?: number }
           | undefined;
         skipped.details.push({
