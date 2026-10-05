@@ -66,7 +66,7 @@ try {
 
   const uncovered = [];
   let total = 0;
-  for (const arrayName of ['RISK_PATTERNS', 'FOREIGN_RISK_PATTERNS']) {
+  for (const arrayName of ['STRONG_RISK_PATTERNS', 'RISK_PATTERNS', 'STRONG_FOREIGN_RISK_PATTERNS', 'FOREIGN_RISK_PATTERNS']) {
     for (const line of entryLines(arrayName)) {
       total++;
       const red = failures(await loadMutant(line));

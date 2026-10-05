@@ -5163,8 +5163,7 @@
   "sources": [
    "s50-targeted"
   ],
-  "knownGap": true,
-  "note": "backlog-2026-09-24: пропуск, чинить позже"
+  "note": "backlog-2026-09-24: пропуск, чинить позже — закрыто C-2 (двухслойный детектор)"
  },
  {
   "text": "я справляюсь с работой и всё равно хочу умереть",
@@ -5353,8 +5352,7 @@
   "sources": [
    "s50-targeted"
   ],
-  "knownGap": true,
-  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже — закрыто C-2 (двухслойный детектор)"
  },
  {
   "text": "не хочу больше жить, всё бессмысленно",
@@ -6330,8 +6328,7 @@
   "sources": [
    "backlog-2026-09-24"
   ],
-  "note": "backlog-2026-09-24: ложная тревога, чинить позже",
-  "knownGap": true
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
  },
  {
   "text": "наконец-то покончила со всем этим",
@@ -6982,5 +6979,830 @@
   "sources": [
    "s50-everyday"
   ]
+ },
+ {
+  "text": "телефон молчит хочу умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "DEVICE_BEFORE тушит сильную фразу после слова-техники"
+ },
+ {
+  "text": "она не берёт телефон хочу умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "то же, «телефон» через слово"
+ },
+ {
+  "text": "выключила телефон хочу умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "то же"
+ },
+ {
+  "text": "телефон разбила хочу убить себя",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "то же, «убить себя»"
+ },
+ {
+  "text": "пашу как машина хочу умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "«машина» в списке техники"
+ },
+ {
+  "text": "я как сломанный компьютер хочу умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "«компьютер» в списке техники"
+ },
+ {
+  "text": "это моё последнее сообщение перед тем как я уйду навсегда",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "бытовое назначение не названо"
+ },
+ {
+  "text": "это моё последнее сообщение перед уходом",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "то же"
+ },
+ {
+  "text": "это моё последнее сообщение в этом чате и в этой жизни",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "«в этом чате» + «в этой жизни»"
+ },
+ {
+  "text": "раньше было легче я хочу умереть",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "настоящее время после «раньше»"
+ },
+ {
+  "text": "раньше было больно сегодня хочу умереть",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "маркер настоящего между"
+ },
+ {
+  "text": "раньше я плакала уже просто хочу умереть",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "«уже» + настоящее"
+ },
+ {
+  "text": "раньше я хотела умереть, и сейчас тоже",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "повтор в настоящем, отказа нет"
+ },
+ {
+  "text": "не хочу больше жить ради этого",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "«больше» — отказ от воли жить, дополнение не спасает"
+ },
+ {
+  "text": "устала жить ради других, хочу исчезнуть",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "голое «хочу исчезнуть» остро"
+ },
+ {
+  "text": "незачем жить ради такого",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "указательное «ради такого» не называет уклад"
+ },
+ {
+  "text": "не хочу жить так бедно и одиноко, лучше умереть",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "«так бедно» не гасит «не хочу жить»"
+ },
+ {
+  "text": "суицид не вариант для меня, это единственный выход",
+  "expect": "risk",
+  "category": "stance-marker",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "stance снимается утверждением выхода"
+ },
+ {
+  "text": "самоубийство — не вариант, а единственный выход",
+  "expect": "risk",
+  "category": "stance-marker",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "противопоставление через «а»"
+ },
+ {
+  "text": "мне хотелось умереть",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "форма «хотелось» не в голове намерения"
+ },
+ {
+  "text": "он захочет убить себя",
+  "expect": "risk",
+  "category": "other-person",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "будущее время «захочет»"
+ },
+ {
+  "text": "стою на мосту хочу прыгнуть",
+  "expect": "risk",
+  "category": "means",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "место до глагола, «мост» не в списке средств"
+ },
+ {
+  "text": "справляюсь плохо хочу умереть",
+  "expect": "risk",
+  "category": "past-present",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "маркер совладания тушит сильную фразу"
+ },
+ {
+  "text": "хочу уснуть и никогда не просыпаться",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "инфинитивная форма вместо «не проснуться»"
+ },
+ {
+  "text": "хо​чу умереть. не хочу умереть.",
+  "expect": "risk",
+  "category": "invisible",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "повтор фразы: острая позиция не должна гаситься отрицанием другой"
+ },
+ {
+  "text": "хочу прыгнуть с моста на тарзанке",
+  "expect": "safe",
+  "category": "method-verb",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "тарзанка, а не мост"
+ },
+ {
+  "text": "хочу прыгнуть с крыши в сугроб",
+  "expect": "safe",
+  "category": "method-verb",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "мягкое приземление"
+ },
+ {
+  "text": "залезли на крышу, чтобы прыгнуть в бассейн",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "бассейн"
+ },
+ {
+  "text": "опоздала на поезд, пришлось прыгнуть в такси",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "в такси"
+ },
+ {
+  "text": "таблетки от давления выпью все сразу после завтрака",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "«таблетки от <чего>» — не средство"
+ },
+ {
+  "text": "приняла таблетку от аллергии и выпью всё молоко",
+  "expect": "safe",
+  "category": "means",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "то же"
+ },
+ {
+  "text": "опять порезалась бумагой на работе",
+  "expect": "safe",
+  "category": "self-harm",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "бумага — причина-быт"
+ },
+ {
+  "text": "снова порезалась, когда резала лук",
+  "expect": "safe",
+  "category": "self-harm",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "готовка"
+ },
+ {
+  "text": "не хочу просыпаться никогда по будильнику",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "будильник — бытовая причина"
+ },
+ {
+  "text": "можно сдохнуть от тоски на этой лекции",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "гипербола «можно сдохнуть»"
+ },
+ {
+  "text": "чуть не сдохнуть от страха на американских горках",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "гипербола «чуть не сдохнуть»"
+ },
+ {
+  "text": "i will die today if i don't get coffee",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "условие про кофе"
+ },
+ {
+  "text": "i might die this week from all the deadlines",
+  "expect": "safe",
+  "category": "en",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "причина — дедлайны"
+ },
+ {
+  "text": "суицид для меня не вариант",
+  "expect": "safe",
+  "category": "stance-marker",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "stance после существительного через «для меня»"
+ },
+ {
+  "text": "с готовкой на сегодня покончила",
+  "expect": "safe",
+  "knownGap": true,
+  "category": "direct-intent",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "owner 2026-10-05: false alarm accepted for now; bare «покончила» at end of clause"
+ },
+ {
+  "text": "машина может сдохнуть в любой момент",
+  "expect": "safe",
+  "category": "idiom-fp",
+  "sources": [
+   "backlog-2026-10-02",
+   "c-2"
+  ],
+  "note": "из списка DEVICE_BEFORE нельзя выбрасывать «машина»"
+ },
+ {
+  "text": "лучше бы я погиб на той войне",
+  "expect": "risk",
+  "category": "idiom-intent",
+  "sources": [
+   "c-2"
+  ],
+  "note": "желание собственной смерти другими словами"
+ },
+ {
+  "text": "hochu sdochnut",
+  "expect": "risk",
+  "category": "translit",
+  "sources": [
+   "c-2"
+  ],
+  "note": "транслит «хочу сдохнуть»"
+ },
+ {
+  "text": "не хочу жить ради неё",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "R-4: местоимение, а не уклад — как «ради него/них/этого»"
+ },
+ {
+  "text": "не хочу жить ради детей",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «ради» снято с сильного слоя — отказ от воли жить"
+ },
+ {
+  "text": "не хочу жить ради себя",
+  "expect": "risk",
+  "category": "place-companion",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «ради» снято с сильного слоя — отказ от воли жить"
+ },
+ {
+  "text": "я ухожу из жизни",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «уходить/уйти из жизни» в 1-м лице"
+ },
+ {
+  "text": "завтра меня не будет",
+  "expect": "risk",
+  "category": "goodbye",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «меня не будет» со словом времени"
+ },
+ {
+  "text": "хочу быть мёртвой",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: «быть мёртвой» в сильном слое"
+ },
+ {
+  "text": "его не будет на работе завтра",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие третьего лица"
+ },
+ {
+  "text": "меня завтра не будет дома",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие дома"
+ },
+ {
+  "text": "меня не будет на работе завтра",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие на работе"
+ },
+ {
+  "text": "завтра меня не будет в офисе",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "r7-crisis"
+  ],
+  "note": "T-7: бытовое отсутствие в офисе"
+ },
+ {
+  "text": "На встрече в пятницу меня не будет.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: место/событие перед «меня не будет»"
+ },
+ {
+  "text": "Сегодня меня не будет, заболела.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: время дня + запятая, продолжающая предложение"
+ },
+ {
+  "text": "Скажи им, что завтра меня не будет.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: придаточное «что…» — не голая клауза"
+ },
+ {
+  "text": "На дне рождения у подруги меня не будет, так что не ждите.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: событие перед «меня не будет» + запятая"
+ },
+ {
+  "text": "Если меня не будет, начинайте без меня.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: условие «если» + запятая, продолжающая предложение"
+ },
+ {
+  "text": "Я ухожу из жизни этого человека навсегда.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: «из жизни» + родительный падеж лица"
+ },
+ {
+  "text": "Уйду из жизни бывшего и никогда не вернусь.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: «из жизни бывшего» — родительный падеж"
+ },
+ {
+  "text": "Хочу быть мёртвой в игре, чтобы не перепроходить уровень.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: «мёртвой в игре» — игровой контекст"
+ },
+ {
+  "text": "Хочу быть мёртвым на сцене, у меня такая роль.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: «мёртвым на сцене» — театр"
+ },
+ {
+  "text": "Хочу быть мёртвой от усталости — шучу, просто тяжёлый день.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: «мёртвой от усталости» — гипербола"
+ },
+ {
+  "text": "Хочу быть мёртвым персонажем в ролевке.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "t10-crisis"
+  ],
+  "note": "T-10: «мёртвым персонажем» — ролевая игра"
+ },
+ {
+  "text": "меня не будет, и никто не заметит",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не будет, и всем станет легче.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Скоро меня не будет, я всё решила.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Скоро меня не будет, и это к лучшему",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Завтра меня не будет, я так решила.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Когда меня не будет, вы поймёте.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не станет, и никто не вспомнит.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не станет, обещаю.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Просто меня не станет.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "А потом меня не станет.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Однажды меня не станет, и всё.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "завтра меня уже не будет",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня просто не станет.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Лучше бы я была мёртвой.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не будет — уезжаю в отпуск.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Завтра меня не будет; перенеси встречу.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Ухожу из жизни соцсетей на месяц.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "уйду из жизни родных",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Хочу уйти из жизни мегаполиса",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Хочу быть мёртвой царевной на маскараде.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Меня не будет до понедельника, я в отпуске.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Он меня не станет слушать.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: «не станет + глагол» — не будет делать"
+ },
+ {
+  "text": "Она меня не станет ждать, уедет одна.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: «не станет + глагол» — не будет делать"
  }
 ]
