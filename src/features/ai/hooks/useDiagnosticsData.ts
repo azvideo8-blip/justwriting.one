@@ -90,6 +90,7 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
   const [manualResetUid, setManualResetUid] = useState('');
   const [invitingUser, setInvitingUser] = useState(false);
   const [sendingResetEmail, setSendingResetEmail] = useState<string | null>(null);
+  const [deletingUid, setDeletingUid] = useState<string | null>(null);
 
   const fetchAIUsage = useCallback(async () => {
     setAiUsageLoading(true);
@@ -466,6 +467,31 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     }
   };
 
+  // 2026-10-05 (owner): удаление чужого аккаунта из админки — сервер удаляет
+  // теми же строками, что и самоудаление; себя и админов не даёт.
+  const handleDeleteUser = async (user: AdminUserItem) => {
+    const label = user.email || user.uid;
+    const ok = await confirmDialog({
+      title: t('admin_delete_user_confirm_title'),
+      message: t('admin_delete_user_confirm_message', { email: label, count: user.noteCount ?? 0 }),
+      confirmLabel: t('admin_delete_user_btn'),
+      destructive: true,
+    });
+    if (!ok) return;
+    setDeletingUid(user.uid);
+    try {
+      await AdminUserService.deleteUser(user.uid);
+      showToast(t('admin_delete_user_success', { email: label }), 'success');
+      setUsers(prev => prev.filter(u => u.uid !== user.uid));
+    } catch (e: unknown) {
+      reportError(e, { action: 'adminDeleteUser' });
+      const errMsg = e instanceof Error ? e.message : 'Ошибка сервера';
+      showToast(t('admin_delete_user_error', { error: errMsg }), 'error');
+    } finally {
+      setDeletingUid(null);
+    }
+  };
+
   const handleSendPasswordReset = async (email: string) => {
     if (!email) return;
     setSendingResetEmail(email);
@@ -485,6 +511,8 @@ export function useDiagnosticsData(profile: UserProfile | null, authLoading: boo
     users,
     invitingUser,
     sendingResetEmail,
+    deletingUid,
+    handleDeleteUser,
     handleInviteUser,
     handleSendPasswordReset,
     bulkImporting,

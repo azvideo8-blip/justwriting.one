@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Loader2, KeyRound } from 'lucide-react';
+import { RotateCcw, Loader2, KeyRound, Trash2 } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 
@@ -11,6 +11,10 @@ interface AdminUsersTableProps {
   resettingUid?: string | null;
   onSendPasswordReset?: (email: string) => void;
   sendingResetEmail?: string | null;
+  onDeleteUser?: (user: AdminUserItem) => void;
+  deletingUid?: string | null;
+  /** Свою строку удалить нельзя — для этого удаление аккаунта в настройках. */
+  currentUid?: string | null;
 }
 
 export function AdminUsersTable({
@@ -19,6 +23,9 @@ export function AdminUsersTable({
   resettingUid,
   onSendPasswordReset,
   sendingResetEmail,
+  onDeleteUser,
+  deletingUid,
+  currentUid,
 }: AdminUsersTableProps) {
   const { t } = useLanguage();
 
@@ -31,7 +38,7 @@ export function AdminUsersTable({
           <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_role')}</th>
           <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_status')}</th>
           <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_activity')}</th>
-          {(onSendPasswordReset || onResetLimit) && (
+          {(onSendPasswordReset || onResetLimit || onDeleteUser) && (
             <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-text-main/60">{t('admin_col_actions')}</th>
           )}
         </tr>
@@ -83,7 +90,7 @@ export function AdminUsersTable({
                   </span>
                 )}
               </td>
-              {(onSendPasswordReset || onResetLimit) && (
+              {(onSendPasswordReset || onResetLimit || onDeleteUser) && (
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     {onSendPasswordReset && u.email && (
@@ -100,6 +107,22 @@ export function AdminUsersTable({
                           <KeyRound size={12} />
                         )}
                         {t('admin_reset_password_btn')}
+                      </button>
+                    )}
+                    {onDeleteUser && u.role !== 'admin' && u.uid !== currentUid && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteUser(u)}
+                        disabled={deletingUid === u.uid}
+                        title={t('admin_delete_user_btn')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-accent-danger/30 text-accent-danger/80 hover:text-accent-danger hover:border-accent-danger/60 transition-colors disabled:opacity-40"
+                      >
+                        {deletingUid === u.uid ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={12} />
+                        )}
+                        {t('admin_delete_user_btn')}
                       </button>
                     )}
                     {onResetLimit && (

@@ -145,6 +145,8 @@ export function DiagnosticsPage() {
     sendingResetEmail,
     handleInviteUser,
     handleSendPasswordReset,
+    deletingUid,
+    handleDeleteUser,
     handleResetCounter,
     handleResetUserLimit,
     handleClearMemory,
@@ -433,6 +435,9 @@ export function DiagnosticsPage() {
                     resettingUid={resettingUid}
                     onSendPasswordReset={(email) => void handleSendPasswordReset(email)}
                     sendingResetEmail={sendingResetEmail}
+                    onDeleteUser={(u) => void handleDeleteUser(u)}
+                    deletingUid={deletingUid}
+                    currentUid={profile?.uid ?? null}
                   />
                 </div>
               )}

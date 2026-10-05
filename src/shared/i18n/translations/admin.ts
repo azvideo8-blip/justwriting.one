@@ -50,6 +50,11 @@ export const adminTranslations: Translations = {
   admin_invite_resend_success: { ru: 'Приглашение отправлено повторно на {email}', en: 'Invitation resent to {email}' },
   admin_invite_error: { ru: 'Не удалось пригласить пользователя: {error}', en: 'Failed to invite user: {error}' },
   admin_reset_password_btn: { ru: 'Сброс пароля', en: 'Reset password' },
+  admin_delete_user_btn: { ru: 'Удалить', en: 'Delete' },
+  admin_delete_user_confirm_title: { ru: 'Удалить пользователя?', en: 'Delete this user?' },
+  admin_delete_user_confirm_message: { ru: 'Аккаунт {email} будет удалён вместе со всеми данными в облаке: заметок — {count}, а также диалоги с ИИ и настройки. Отменить это нельзя.', en: 'The account {email} will be deleted with all its cloud data: {count} notes, plus AI dialogues and settings. This cannot be undone.' },
+  admin_delete_user_success: { ru: 'Пользователь {email} удалён', en: 'User {email} deleted' },
+  admin_delete_user_error: { ru: 'Не удалось удалить пользователя: {error}', en: 'Could not delete the user: {error}' },
   admin_reset_password_success: { ru: 'Ссылка на сброс пароля отправлена на {email}', en: 'Password reset link sent to {email}' },
   admin_reset_password_error: { ru: 'Не удалось отправить ссылку: {error}', en: 'Failed to send reset link: {error}' },
 

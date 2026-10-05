@@ -80,4 +80,14 @@ describe('AdminUsersTable', () => {
     fireEvent.click(limitButtons[1]!);
     expect(handleResetLimit).toHaveBeenCalledWith('uid-2', 'active@example.com');
   });
+
+  it('offers «Удалить» for ordinary users only — not for admins and not for the current admin', () => {
+    const onDeleteUser = vi.fn();
+    renderWithProviders(<AdminUsersTable users={sampleUsers} onDeleteUser={onDeleteUser} currentUid="uid-3" />);
+    const buttons = screen.getAllByRole('button', { name: /Удалить/ });
+    // uid-1 — обычный пользователь; uid-2 — админ; uid-3 — сам смотрящий.
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]!);
+    expect(onDeleteUser).toHaveBeenCalledWith(expect.objectContaining({ uid: 'uid-1' }));
+  });
 });

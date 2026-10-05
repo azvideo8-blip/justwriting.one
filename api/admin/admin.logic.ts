@@ -3,6 +3,7 @@ import { AiError } from '../../src/shared/ai/context.js';
 import type { postgresAiContext } from '../postgresAiContext';
 import { pool } from '../db';
 import { getSupabaseAdmin } from './supabaseAdmin';
+import { deleteUserRows } from '../account';
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.string().email().max(254)),
@@ -134,5 +135,47 @@ export async function listUsersWithStatusLogic(
     if (err instanceof AiError) throw err;
     console.error('[listUsersWithStatus] error:', err);
     throw new AiError('internal', 'Failed to retrieve user statuses');
+  }
+}
+
+const deleteUserSchema = z.object({ uid: z.string().uuid() });
+
+/**
+ * 2026-10-05 (owner request): an admin deletes another account — the same rows,
+ * in the same transaction and order as self-deletion (deleteUserRows). Never
+ * the caller, never another admin.
+ */
+export async function adminDeleteUserLogic(
+  ctx: typeof postgresAiContext,
+  uid: string,
+  data: unknown,
+): Promise<{ success: true }> {
+  if (!(await ctx.isAdmin(uid))) {
+    throw new AiError('permission-denied', 'Admin access required');
+  }
+  const parsed = deleteUserSchema.safeParse(data);
+  if (!parsed.success) throw new AiError('invalid-argument', 'Invalid user id');
+  const target = parsed.data.uid;
+  if (target === uid) throw new AiError('invalid-argument', 'Себя удалить отсюда нельзя — для этого есть удаление аккаунта в настройках.');
+  if (await ctx.isAdmin(target)) throw new AiError('permission-denied', 'Администратора удалить нельзя.');
+
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const deleted = await deleteUserRows(client, target);
+    if (deleted === 0) {
+      await client.query('rollback');
+      throw new AiError('invalid-argument', 'Пользователь не найден — возможно, его уже удалили.');
+    }
+    await client.query('commit');
+    console.warn(`[admin] user deleted by ${uid}: ${target}`);
+    return { success: true };
+  } catch (err: unknown) {
+    try { await client.query('rollback'); } catch { /* уже откатили или соединение потеряно */ }
+    if (err instanceof AiError) throw err;
+    console.error('[admin] delete user failed:', err instanceof Error ? err.message : err);
+    throw new AiError('internal', 'Не удалось удалить пользователя.');
+  } finally {
+    client.release();
   }
 }

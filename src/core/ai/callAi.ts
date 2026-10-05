@@ -5,7 +5,7 @@ import { hasIndexingConsent } from './indexingConsent';
 
 // Эти действия не про обработку записей: удаление аккаунта — право субъекта,
 // администрирование пользователей не требует согласия на анализ заметок.
-const CONSENT_EXEMPT = new Set(['deleteAccount', 'inviteUser', 'listUsersWithStatus']);
+const CONSENT_EXEMPT = new Set(['deleteAccount', 'inviteUser', 'listUsersWithStatus', 'adminDeleteUser']);
 
 export interface CallAiOptions {
   charge?: 'user' | 'bulk';

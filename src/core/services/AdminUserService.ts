@@ -80,6 +80,10 @@ export const AdminUserService = {
     return callAi<{ user: { id?: string | undefined; email?: string | undefined }; reinvited?: boolean }>('inviteUser', { email });
   },
 
+  async deleteUser(uid: string): Promise<void> {
+    await callAi<{ success: true }>('adminDeleteUser', { uid });
+  },
+
   async listUsersWithStatus(): Promise<UserStatusItem[]> {
     return callAi<UserStatusItem[]>('listUsersWithStatus', {});
   },
