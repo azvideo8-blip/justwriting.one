@@ -1,6 +1,7 @@
 import { test, expect, type Page, type BrowserContext, type Request, type Response } from '@playwright/test';
 import { createUser } from './stand';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 // S-38: два профиля браузера на стенде (scripts/stand/up.sh + api/server.ts с
 // заглушкой ИИ) гоняют слияние диалогов S-29/S-34…S-37 вживую. Облачная строка
@@ -1399,6 +1400,40 @@ async function deleteCloudRow(uid: string, key: string): Promise<void> {
   if (!res.ok) throw new Error(`deleteCloudRow(${key}): ${res.status}`);
 }
 
+/** Контейнер БД стенда (scripts/stand/up.sh:16). Прода здесь нет и быть не может. */
+const STAND_DB = process.env.STAND_DB_CONTAINER ?? 'jw-stand-db';
+/** ORPHAN_GRACE_PERIOD_MS из LocalStoreSyncService — 10 минут. Не импортируем:
+ *  спека тянет весь граф приложения ради одной константы. */
+const ORPHAN_GRACE_MS = 10 * 60 * 1000;
+
+/**
+ * Низкие часы стенда: состарить облачную строку. Отметку `stamped_at` триггер
+ * 0037 переставляет на ЛЮБОМ insert/update, поэтому через PostgREST строку
+ * состарить нельзя, а ждать реальные десять минут grace в каждом прогоне —
+ * тем более. Один UPDATE с временно снятым триггером, в транзакции: падение
+ * внутри откатывает всё, включая снятие триггера, и следующие сценарии не
+ * остаются без серверной метки.
+ */
+function ageCloudRow(uid: string, key: string, ageMs: number): void {
+  if (!/^[A-Za-z0-9_.@#-]+$/.test(key) || !/^[0-9a-fA-F-]{36}$/.test(uid)) {
+    throw new Error(`ageCloudRow: неожиданные идентификаторы (uid=${uid}, key=${key})`);
+  }
+  const seconds = Math.max(1, Math.round(ageMs / 1000));
+  const sql = [
+    'begin;',
+    'alter table public.local_store_records disable trigger local_store_records_stamp;',
+    `update public.local_store_records set stamped_at = now() - interval '${seconds} seconds'`,
+    ` where user_id = '${uid}'::uuid and store = 'aiDialogues' and key = '${key}';`,
+    'alter table public.local_store_records enable trigger local_store_records_stamp;',
+    'commit;',
+  ].join('\n');
+  execFileSync(
+    'docker',
+    ['exec', '-i', STAND_DB, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q'],
+    { input: sql },
+  );
+}
+
 /** Диалог заведомо крупнее одной строки: 600-килобайтный ответ + несколько ходов. */
 async function makeBigDialogue(page: Page, title: string, firstTurn: string): Promise<string> {
   const id = `big_${Math.random().toString(36).slice(2, 10)}`;
@@ -1417,7 +1452,7 @@ async function makeBigDialogue(page: Page, title: string, firstTurn: string): Pr
   return id;
 }
 
-test('17. дописка в большой диалог не оставляет в облаке сирот', async () => {
+test('17. дописка в большой диалог: заменённое окно живёт grace, а после него уходит', async () => {
   await ensureSeed();
   const id = await makeBigDialogue(A.page, 'Оконные сироты', 'Первый ход в большом');
   const before = await cloudSegmentState(user.uid, id);
@@ -1429,8 +1464,27 @@ test('17. дописка в большой диалог не оставляет 
 
   const after = await cloudSegmentState(user.uid, id);
   const orphans = after.segKeys.filter(k => !after.named.includes(k));
-  expect(orphans, `прежняя строка открытого окна осталась в облаке: ${orphans.join(', ')}`).toEqual([]);
-  expect(after.named.length, 'head называет другое число окон').toBe(after.segKeys.length);
+  // T-8: строка пережитой попытки обязана прожить в облаке grace-период (10 минут
+  // по серверным часам), иначе параллельная выгрузка, уже назвавшая это окно,
+  // теряет его содержимое. Прежняя проверка «сирот нет сразу после выгрузки»
+  // ослепла ровно тогда, когда grace заработал по серверному времени (ревью
+  // 0.9.31), и требовала того, что продукт делать не должен.
+  expect(orphans.length, `заменённое окно ушло из облака до конца grace: ${orphans.join(', ')}`).toBe(1);
+  expect(after.named.length + orphans.length, 'окно пропало из облака, но head его не называет').toBe(after.segKeys.length);
+
+  // «Уйдёт после grace на следующей выгрузке» — та же проверка, но с низкими
+  // часами: ждать десять минут стендового времени не надо.
+  for (const k of orphans) ageCloudRow(user.uid, k, ORPHAN_GRACE_MS + 60_000);
+
+  await sendTurn(A.page, 'Третий ход в большом');
+  await waitFlushed(A.page, user.uid, id);
+
+  const final = await cloudSegmentState(user.uid, id);
+  // Снесено именно то, что дожило до конца grace. Свежая выгрузка оставляет
+  // СВОЮ заменённую строку — она живёт свои десять минут, и это то же правило,
+  // а не протечка.
+  const survived = orphans.filter(k => final.segKeys.includes(k));
+  expect(survived, `после конца grace осиротевшее окно осталось в облаке: ${survived.join(', ')}`).toEqual([]);
 });
 
 test('18. head называет окно, которого в облаке нет: читатель отказывает, а не укорачивает', async ({ browser }) => {
@@ -1491,7 +1545,7 @@ test('19. параллельный ход в большой диалог без 
 // строки, старая строка уходит в `toDelete` и сносится победителем CAS. Имя
 // переиспользуется ТОЛЬКО если байты облачной строки совпадают дословно — это
 // видно по слиянию двух копий, а план считает имена в изоляции.
-test('20. удаление реплики внутри закрытого окна: окно переоткрывается, сирот нет, копии сходятся', async () => {
+test('20. удаление реплики внутри закрытого окна: окно переоткрывается, сирота живёт grace и уходит на следующей выгрузке, копии сходятся', async () => {
   await ensureSeed();
   // Пять реплик по ~120 КБ: окно 1 = [m1, m2, m3] (~360 КБ), окно 2 = [m4, m5]
   // плюс ход и ответ заглушки. Правим m2 — середину ЗАКРЫТОГО первого окна.
@@ -1545,7 +1599,13 @@ test('20. удаление реплики внутри закрытого окн
 
   const after = await cloudSegmentState(user.uid, id);
   expect(after.named.length, 'правка породила лишнее окно').toBe(2);
-  expect(after.segKeys.filter(k => !after.named.includes(k)), 'прежняя строка закрытого окна осталась в облаке').toEqual([]);
+  // T-8 (тот же порядок, что в сценарии 17): прежняя строка закрытого окна
+  // обязана пережить эту выгрузку и прожить grace-период — немедленной очистки
+  // здесь быть не может. Ниже она же проверяет, что после grace окно всё-таки
+  // уходит: строку состариваем намеренно, вместо десяти минут стенного времени.
+  const retired = after.segKeys.filter(k => !after.named.includes(k));
+  expect(retired.length, 'переоткрытое окно не оставило в облаке прежней строки — проверять нечего').toBeGreaterThan(0);
+  for (const k of retired) ageCloudRow(user.uid, k, ORPHAN_GRACE_MS + 60_000);
   expect(after.named.filter(k => oldKeys.includes(k)), 'переоткрытое окно стоит под прежним именем, а под ним уже другие байты').toEqual([]);
   console.warn(`[20] окна до: ${JSON.stringify(oldKeys.map(k => k.slice(-8)))}, после: ${JSON.stringify(after.named.map(k => k.slice(-8)))}`);
 
@@ -1573,7 +1633,11 @@ test('20. удаление реплики внутри закрытого окн
   // Сравнение по id реплик, а не по 40-символьным превью (урок сценария 12b).
   expect(a.messages.map(m => m.id), 'копии разошлись по составу реплик').toEqual(b.messages.map(m => m.id));
   const final = await cloudSegmentState(user.uid, id);
-  expect(final.segKeys.filter(k => !final.named.includes(k)), 'после раунда в облаке остались сироты').toEqual([]);
+  // Прежняя строка закрытого окна дожила до конца grace (см. выше) и обязана
+  // уйти на первой выгрузке после него; свежие заменённые строки живут свои
+  // десять минут — их здесь не трогаем.
+  const survived = retired.filter(k => final.segKeys.includes(k));
+  expect(survived, `после конца grace окно осталось в облаке: ${survived.join(', ')}`).toEqual([]);
   expect(new Set(final.named).size, 'head называет одно окно дважды').toBe(final.named.length);
 });
 
