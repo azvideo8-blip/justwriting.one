@@ -17,6 +17,7 @@
 //                      все, кроме диалогов, после).
 
 import { randomUUID } from '../storage/localDb';
+import { headKeyOfRow } from './dialogueSegments';
 
 /** Метка попытки выгрузки (M-2): случайные 8 hex-символов, своя на каждую попытку. */
 export function newPageNonce(): string {
@@ -95,7 +96,8 @@ export type CloudVersion =
 
 /**
  * Какую версию записи читать из её облачных строк (`rows` — строка `key` и
- * все `key#…`). Манифест (S-49) указывает версию точно: берутся только
+ * все `key#…`; строки `key@seg…` версией не считаются и отбрасываются — их
+ * называет только head). Манифест (S-49) указывает версию точно: берутся только
  * страницы с его `stamp`, и их должно быть ровно `totalPages` — страницы
  * других версий (проигравшей попытки, прежней длины) не смотрятся. Без
  * манифеста — как раньше: самая свежая ПОЛНАЯ версия по отметке в payload;
@@ -107,8 +109,17 @@ export function selectCloudVersion(rows: CloudRow[]): CloudVersion | null {
   let single: CloudRow | null = null;
   let manifest: Manifest | null = null;
   const pages: Array<{ row: CloudRow; pageIndex: number; stamp: number | null; nonce: string | null }> = [];
+  // Провайдер отдаёт строки в порядке (store, key), а `key@seg…` сортируется сразу
+  // за `key` — то есть сегмент всегда идёт последним и молча становился «единственной
+  // строкой» диалога: читатель искал в ней `data`, не находил и пропускал диалог
+  // на каждом заборе. Сегмент — не версия записи, его называет только head.
+  const recordKey = rows.length > 0 ? headKeyOfRow(parseLocalStoreKey(rows[0]!.key).baseKey) : null;
   for (const row of rows) {
     const parsed = parseLocalStoreKey(row.key);
+    if (headKeyOfRow(parsed.baseKey) !== recordKey) {
+      return { kind: 'refused', reason: `rows belong to different records: ${recordKey} and ${row.key}` };
+    }
+    if (parsed.baseKey !== recordKey) continue;
     if (parsed.pageIndex === null) {
       manifest = readManifest(row.payload);
       if (!manifest) single = row;

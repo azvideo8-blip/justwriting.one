@@ -81,4 +81,38 @@ describe('selectCloudVersion', () => {
     const row = { key: 'dlg', payload: { data: 'x' } };
     expect(selectCloudVersion([row])).toEqual({ kind: 'single', row });
   });
+
+  // R-1: провайдер отдаёт строки в порядке (store, key), и `key@seg…` сортируется
+  // сразу за `key`. Пока сегмент считался кандидатом на «единственную строку»,
+  // последнее окно побеждало, `data` в нём не находилось, и читатель молча
+  // пропускал диалог на каждом заборе.
+  const seg = (key: string, updatedAt: number) =>
+    ({ key, payload: { seg: true, headKey: key.split('@')[0], firstAt: 1, updatedAt, messages: '[]' } });
+
+  it('осиротевшее окно не является версией записи: строка `key` остаётся единственной', () => {
+    const row = { key: 'dlg', payload: { data: '{}', updatedAt: 10 } };
+    expect(selectCloudVersion([row, seg('dlg@seg1-aaaaaaaa', 5)])).toEqual({ kind: 'single', row });
+    expect(selectCloudVersion([seg('dlg@seg1-aaaaaaaa', 99), row])).toEqual({ kind: 'single', row });
+  });
+
+  it('группа из одних осиротевших окон — «копии нет», а не отказ и не укороченный диалог', () => {
+    expect(selectCloudVersion([seg('dlg@seg1-aaaaaaaa', 5), seg('dlg@seg2-bbbbbbbb', 7)])).toBeNull();
+  });
+
+  it('страницы 0.9.29 читаются, даже когда рядом лежат осиротевшие окна', () => {
+    const v = selectCloudVersion([
+      { key: 'dlg', payload: { data: 'целая строка', updatedAt: 10 } },
+      page('dlg#0', 100, 0, 2), page('dlg#1', 100, 1, 2),
+      seg('dlg@seg1-aaaaaaaa', 90),
+    ]);
+    expect(v).toEqual({ kind: 'pages', updatedAt: 100, pages: [page('dlg#0', 100, 0, 2), page('dlg#1', 100, 1, 2)] });
+  });
+
+  it('строка другой записи в группе — отказ, а не «эта строка и есть версия»', () => {
+    const v = selectCloudVersion([
+      { key: 'dlg', payload: { data: '{}', updatedAt: 10 } },
+      { key: 'другой-диалог', payload: { data: '{}', updatedAt: 20 } },
+    ]);
+    expect(v?.kind).toBe('refused');
+  });
 });

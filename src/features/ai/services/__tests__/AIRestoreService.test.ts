@@ -379,6 +379,73 @@ describe('restoreAIDataFromCloud', () => {
     expect(res.maxUpdatedAt, 'осиротевшее окно с device-меткой задёрнуло курсор в будущее').toBe(0);
   });
 
+  // R-1: порядок строк у провайдера — (store, key), а `key@seg…` сортируется сразу
+  // за `key`. Пока окно считалось кандидатом на «единственную строку записи», оно
+  // выигрывало last-writer, `data` в нём отсутствовало, и диалог пропускался на
+  // каждом заборе — молча, без роста `failed`.
+  it('диалог со строкой `key` и осиротевшим окном рядом доезжает целиком', async () => {
+    const cloudCopy = {
+      id: 'solo-dlg', title: 'Т', personaId: 'cbt', personaName: 'КПТ', personaEmoji: '🎯',
+      messages: [
+        { id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 1000 },
+        { id: 'a1', role: 'assistant', content: 'Общий ответ', createdAt: 1001 },
+        { id: 'u2', role: 'user', content: 'Вопрос с другого устройства', createdAt: 2000 },
+        { id: 'a2', role: 'assistant', content: 'Ответ с другого устройства', createdAt: 2001 },
+      ],
+      createdAt: 1000, updatedAt: 5000,
+    };
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: 'solo-dlg',
+      payload: { data: JSON.stringify(cloudCopy), updatedAt: 5000 },
+    });
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: 'solo-dlg@seg1000-aaaaaaaa',
+      payload: {
+        seg: true, headKey: 'solo-dlg', firstAt: 1000, lastAt: 1001, updatedAt: 4000,
+        messages: JSON.stringify([{ id: 'u9', role: 'user', content: 'Осколок оборванной попытки', createdAt: 1000 }]),
+      },
+    });
+    localStore.aiDialogues.set('solo-dlg', { ...cloudCopy, messages: cloudCopy.messages.slice(0, 2), updatedAt: 3000 });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    const after = localStore.aiDialogues.get('solo-dlg') as { messages: Array<{ id: string }> };
+    expect(after.messages.map(m => m.id), 'ходят с другого устройства не применились').toEqual(['u1', 'a1', 'u2', 'a2']);
+    expect(res.failed).toBe(0);
+    expect(res.localStoreRecords).toBe(1);
+  });
+
+  it('страницы 0.9.29 рядом с осиротевшими окнами читаются, а не пропускаются', async () => {
+    const json = JSON.stringify({
+      id: 'paged-dlg', title: 'Т', personaId: 'cbt', personaName: 'КПТ', personaEmoji: '🎯',
+      messages: [
+        { id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 1000 },
+        { id: 'a1', role: 'assistant', content: 'Общий ответ', createdAt: 1001 },
+      ],
+      createdAt: 1000, updatedAt: 6000,
+    });
+    const half = Math.ceil(json.length / 2);
+    // Старый клиент пишет страницы `id#0…N` и сносит строку `id`; осиротевшее окно
+    // нового формата остаётся лежать рядом и раньше попадал в ту же группу.
+    for (const i of [0, 1]) {
+      localStoreRecordsDocs.push({
+        store: 'aiDialogues', key: `paged-dlg#${i}`,
+        payload: { data: json.slice(i * half, (i + 1) * half), updatedAt: 6000, page: i, totalPages: 2 },
+      });
+    }
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: 'paged-dlg@seg1000-bbbbbbbb',
+      payload: { seg: true, headKey: 'paged-dlg', firstAt: 1000, lastAt: 1001, updatedAt: 7000, messages: '[]' },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    const after = localStore.aiDialogues.get('paged-dlg') as { messages: unknown[] } | undefined;
+    expect(after, 'постраничная копия с осиротевшим окном не прочиталась').toBeDefined();
+    expect(after!.messages).toHaveLength(2);
+    expect(res.failed).toBe(0);
+  });
+
   it('maxUpdatedAt остаётся 0, когда в облаке ничего нет (курсор нельзя задирать)', async () => {
     const res = await restoreAIDataFromCloud('user_1');
     expect(res.maxUpdatedAt).toBe(0);
