@@ -3,7 +3,6 @@ import 'fake-indexeddb/auto';
 import { CloudSyncService } from '../CloudSyncService';
 import { DocumentService } from '../DocumentService';
 import { VersionService } from '../VersionService';
-import { LocalStorageService } from '../LocalStorageService';
 import { getLocalDb } from '../../storage/localDb';
 import { setEncryptionEnabled, setProfileLoaded } from '../../crypto/cryptoHelpers';
 
