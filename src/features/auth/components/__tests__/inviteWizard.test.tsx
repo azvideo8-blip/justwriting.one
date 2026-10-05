@@ -90,3 +90,38 @@ describe('InviteWizard', () => {
     expect(sessionStorage.getItem(`pending_recovery_code_${UID}`)).toBeNull();
   });
 });
+
+// 2026-10-05: приглашённый видел «нет сети», когда на деле потерялся вход по ссылке.
+describe('InviteWizard password errors say what actually happened', () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); sessionStorage.clear(); });
+
+  async function failWith(err: unknown) {
+    vi.mocked(updateUserPassword).mockRejectedValueOnce(err);
+    renderWizard();
+    fireEvent.click(screen.getByRole('button', { name: 'Начать' }));
+    fireEvent.click(screen.getAllByRole('checkbox')[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+    fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.change(screen.getByLabelText('Повторите пароль'), { target: { value: 'long-password-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }));
+  }
+
+  it('a lost link session is named as such, not as a network failure', async () => {
+    await failWith(new Error('No signed-in user to set a password for'));
+    expect(await screen.findByText(/Вход по ссылке потерялся/)).toBeTruthy();
+    expect(screen.queryByText(/Нет соединения с сетью/)).toBeNull();
+  });
+
+  it('a request that never left the browser is a network failure', async () => {
+    await failWith(new TypeError('Failed to fetch'));
+    expect(await screen.findByText(/Нет соединения с сетью/)).toBeTruthy();
+  });
+
+  it('the policy links open in a new tab, so the wizard is not left behind', () => {
+    renderWizard();
+    fireEvent.click(screen.getByRole('button', { name: 'Начать' }));
+    const links = screen.getAllByRole('link');
+    expect(links.length).toBeGreaterThan(0);
+    for (const a of links) expect(a.getAttribute('target')).toBe('_blank');
+  });
+});

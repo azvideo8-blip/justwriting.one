@@ -56,6 +56,7 @@ function renderPage(initialEntries = ['/']) {
 
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
   updateUserPassword.mockClear();
   signOutUser.mockClear();
   verifyOtpForRecovery.mockClear();
@@ -302,5 +303,54 @@ describe('invite link while another account is signed in', () => {
     const { unmount } = renderPage(['/reset-password']);
     expect(screen.getAllByText(/Пароль изменён/).length).toBeGreaterThan(0);
     unmount();
+  });
+});
+
+describe('invite link opened a second time (prod 2026-10-05)', () => {
+  it('a new tab of the same browser keeps the invitee signed in: no question, no sign-out, no second exchange', async () => {
+    const url = ['/reset-password?token_hash=tok-twice&type=invite'];
+    // Вкладка 1: входа не было, ссылка обменена.
+    getSession.mockResolvedValue({ data: { session: null } });
+    verifyOtpForRecovery.mockResolvedValueOnce('invitee@example.com');
+    const first = renderPage(url);
+    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalledWith('tok-twice', 'invite'));
+    expect(await screen.findByText('Добро пожаловать в justwriting')).toBeTruthy();
+    first.unmount();
+
+    // Вкладка 2: письмо открыто ещё раз — sessionStorage новой вкладки пуст,
+    // вход приглашённого жив.
+    sessionStorage.clear();
+    verifyOtpForRecovery.mockClear();
+    getSession.mockResolvedValue({ data: { session: { user: { email: 'invitee@example.com' } } } });
+    renderPage(url);
+    expect(await screen.findByText('Добро пожаловать в justwriting')).toBeTruthy();
+    expect(screen.queryByTestId('invite-switch-account')).toBeNull();
+    expect(signOutUser).not.toHaveBeenCalled();
+    expect(verifyOtpForRecovery).not.toHaveBeenCalled();
+    getSession.mockResolvedValue({ data: { session: null } });
+  });
+
+  it('another account signed in after the exchange is still asked before anything happens', async () => {
+    const url = ['/reset-password?token_hash=tok-other&type=invite'];
+    getSession.mockResolvedValue({ data: { session: null } });
+    verifyOtpForRecovery.mockResolvedValueOnce('invitee@example.com');
+    const first = renderPage(url);
+    await waitFor(() => expect(verifyOtpForRecovery).toHaveBeenCalled());
+    first.unmount();
+
+    sessionStorage.clear();
+    verifyOtpForRecovery.mockClear();
+    getSession.mockResolvedValue({ data: { session: { user: { email: 'owner@example.com' } } } });
+    renderPage(url);
+    expect(await screen.findByTestId('invite-switch-account')).toBeTruthy();
+    expect(signOutUser).not.toHaveBeenCalled();
+    getSession.mockResolvedValue({ data: { session: null } });
+  });
+
+  it('a used invitation with no sign-in says so in plain words and points to sign-in', async () => {
+    verifyOtpForRecovery.mockRejectedValueOnce(new Error('Email link is invalid or has expired'));
+    renderPage(['/reset-password?token_hash=used-invite&type=invite']);
+    expect(await screen.findByText(/Эта ссылка-приглашение уже использована/)).toBeTruthy();
+    expect(screen.queryByText('Запросить новую ссылку')).toBeNull();
   });
 });

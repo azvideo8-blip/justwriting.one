@@ -22,6 +22,19 @@ import { useLanguage } from '../../../shared/i18n';
  * поэтому то окно после мастера не появляется.
  */
 type Step = 'welcome' | 'policy' | 'password' | 'sync';
+
+// 2026-10-05: раньше «нет сети» показывалось по одному navigator.onLine после
+// любой ошибки, и приглашённый видел «сбой сети», когда на деле потерялся вход
+// по ссылке. Сеть — только когда запрос и правда не ушёл.
+function passwordErrorKey(err: unknown): 'invite_wizard_err_offline' | 'invite_wizard_err_session_lost' | 'invite_wizard_err_failed' {
+  const name = (err as { name?: unknown } | null)?.name;
+  const message = err instanceof Error ? err.message : '';
+  if ((typeof navigator !== 'undefined' && !navigator.onLine) || err instanceof TypeError || name === 'AuthRetryableFetchError') {
+    return 'invite_wizard_err_offline';
+  }
+  if (name === 'AuthSessionMissingError' || message.includes('No signed-in user')) return 'invite_wizard_err_session_lost';
+  return 'invite_wizard_err_failed';
+}
 const NUMBERED: Step[] = ['policy', 'password', 'sync'];
 
 export function InviteWizard({ email }: { email: string | null }) {
@@ -54,9 +67,7 @@ export function InviteWizard({ email }: { email: string | null }) {
       setStep('sync');
     } catch (err) {
       reportError(err, { action: 'inviteWizard_password' });
-      setError(typeof navigator !== 'undefined' && !navigator.onLine
-        ? t('invite_wizard_err_offline')
-        : t('invite_wizard_err_failed'));
+      setError(t(passwordErrorKey(err)));
     } finally {
       setBusy(false);
     }

@@ -7,11 +7,46 @@ import { InviteWizard } from '../components/InviteWizard';
 import { isAccountReloadPending, reloadForAccountChange } from '../../../core/auth/accountReload';
 import { useLanguage } from '../../../shared/i18n';
 
-// Смена аккаунта перезагружает страницу (accountReload.ts). Две отметки на
-// время вкладки переживают эту перезагрузку: ссылка уже обменена (второй
-// обмен ответил бы «ссылка устарела») и пароль уже изменён.
+// Смена аккаунта перезагружает страницу (accountReload.ts). Две отметки
+// переживают эту перезагрузку: ссылка уже обменена (второй обмен ответил бы
+// «ссылка устарела») и пароль уже изменён.
 const exchangedKey = (hash: string) => `jw_link_exchanged_${hash}`;
 const RESET_DONE_KEY = 'jw_password_reset_done';
+// 2026-10-05: отметка обмена — в localStorage, а не только в sessionStorage.
+// Ссылку из письма часто открывают второй раз — новой вкладкой, где
+// sessionStorage пуст. Без общей отметки страница видела «вход есть, ссылка не
+// обменена», решала, что вошёл кто-то чужой, выходила из аккаунта самого
+// приглашённого и обменивала ссылку повторно — сервер отвечал «использована»,
+// и человек оставался без входа и без пароля (прод, 2026-10-05).
+const EXCHANGED_TTL_MS = 24 * 60 * 60 * 1000;
+
+function markExchanged(hash: string, email: string | null): void {
+  try { sessionStorage.setItem(exchangedKey(hash), '1'); } catch { /* намеренно: приватный режим */ }
+  try { localStorage.setItem(exchangedKey(hash), JSON.stringify({ at: Date.now(), email })); } catch { /* намеренно: приватный режим */ }
+}
+
+/** Ссылка уже обменена в этом браузере? `email` — кому она принадлежала, если известно. */
+function readExchanged(hash: string): { email: string | null } | null {
+  try {
+    const raw = localStorage.getItem(exchangedKey(hash));
+    if (raw) {
+      const v = JSON.parse(raw) as { at?: unknown; email?: unknown };
+      if (typeof v.at === 'number' && Date.now() - v.at < EXCHANGED_TTL_MS) {
+        return { email: typeof v.email === 'string' ? v.email : null };
+      }
+      localStorage.removeItem(exchangedKey(hash));
+    }
+  } catch { /* намеренно: нет хранилища — смотрим отметку вкладки */ }
+  try { if (sessionStorage.getItem(exchangedKey(hash)) === '1') return { email: null }; } catch { /* намеренно */ }
+  return null;
+}
+
+/** Отметка про эту сессию: нет адреса у отметки или у сессии — не спорим. */
+function exchangedFor(hash: string, sessionEmail: string | null): boolean {
+  const mark = readExchanged(hash);
+  if (!mark) return false;
+  return !mark.email || !sessionEmail || mark.email.toLowerCase() === sessionEmail.toLowerCase();
+}
 
 /**
  * /reset-password — цель ссылки из письма о восстановлении.
@@ -94,6 +129,14 @@ export function ResetPasswordPage() {
             const { getSupabase } = await import('../../../core/supabase/client');
             const { data } = await getSupabase().auth.getSession();
             const signedIn = data.session?.user ?? null;
+            // Вошёл тот самый приглашённый — ссылку он уже обменял в этом
+            // браузере (например, открыл письмо второй раз). Спрашивать «выйти
+            // из аккаунта?» про него самого нельзя: выход сжёг бы ему вход.
+            if (signedIn && exchangedFor(tokenHash, signedIn.email ?? null)) {
+              setSwitchFrom(null);
+              setSwitchConfirmed(true);
+              return;
+            }
             setSwitchFrom(signedIn ? (signedIn.email ?? 'other') : null);
             if (!signedIn) setSwitchConfirmed(true);
           } catch (e) {
@@ -110,7 +153,7 @@ export function ResetPasswordPage() {
             // Отметка — только после успешного обмена. Поставленная до него,
             // она сбивала повторный запуск эффекта, пока обмен ещё в пути:
             // «обменена, а сессии нет» читалось как «ссылка устарела».
-            try { sessionStorage.setItem(exchangedKey(tokenHash), '1'); } catch { /* намеренно: без отметки просто не переживём перезагрузку */ }
+            markExchanged(tokenHash, linkEmail ?? null);
             setRecoveryMode(true);
             setLinkExpired(false);
             const currentUserEmail = linkEmail ?? getCurrentUser()?.email;
@@ -142,9 +185,7 @@ export function ResetPasswordPage() {
         } catch (e) {
           reportError(e, { action: 'resetLink_getSession' });
         }
-        let exchanged = false;
-        try { exchanged = sessionStorage.getItem(exchangedKey(tokenHash)) === '1'; } catch { /* намеренно: приватный режим — обменяем как впервые */ }
-        if (exchanged) {
+        if (exchangedFor(tokenHash, sessionEmail)) {
           // Страница перезагрузилась после обмена: сессия от ссылки уже есть.
           if (signedIn) {
             setRecoveryMode(true);
@@ -315,14 +356,14 @@ export function ResetPasswordPage() {
         {!legacyHash && linkExpired && !done && (
           <div className="space-y-3">
             <p className="text-sm text-accent-danger">
-              {t('reset_pw_link_expired_message')}
+              {isInvite ? t('reset_pw_invite_used_message') : t('reset_pw_link_expired_message')}
             </p>
             <button
               type="button"
               onClick={() => { void navigate('/login'); }}
               className="rounded-lg px-3 py-2 bg-accent text-white text-sm"
             >
-              {t('reset_pw_btn_request_new_link')}
+              {isInvite ? t('reset_pw_btn_go_to_login') : t('reset_pw_btn_request_new_link')}
             </button>
           </div>
         )}

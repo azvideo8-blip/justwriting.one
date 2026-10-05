@@ -308,6 +308,10 @@ export const authScreensTranslations: Translations = {
     ru: 'Перейти ко входу',
     en: 'Go to sign in',
   },
+  reset_pw_invite_used_message: {
+    ru: 'Эта ссылка-приглашение уже использована. Если вы задали пароль — просто войдите. Если не успели — попросите новое приглашение у того, кто вас пригласил.',
+    en: 'This invitation link has already been used. If you set a password, just sign in. If you didn’t get to it, ask whoever invited you for a new invitation.',
+  },
   reset_pw_link_expired_message: {
     ru: 'Ссылка уже использована или устарела — запросите новую',
     en: 'The link has already been used or has expired — please request a new one',
@@ -603,6 +607,10 @@ export const authScreensTranslations: Translations = {
   invite_wizard_err_offline: {
     ru: 'Нет соединения с сетью. Проверьте подключение и попробуйте снова.',
     en: 'No network connection. Please check your connection and try again.',
+  },
+  invite_wizard_err_session_lost: {
+    ru: 'Вход по ссылке потерялся. Откройте ссылку из письма ещё раз; если она уже использована — попросите новое приглашение.',
+    en: 'The sign-in from the link was lost. Open the link from the email again; if it has already been used, ask for a new invitation.',
   },
   invite_wizard_err_failed: {
     ru: 'Не удалось задать пароль. Ссылка могла устареть — попросите новое приглашение.',
