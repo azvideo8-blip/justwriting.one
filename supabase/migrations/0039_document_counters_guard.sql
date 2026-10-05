@@ -51,6 +51,11 @@ for each row execute function public.guard_documents_current_version();
 -- после сокращения текста облачный счётчик не откатывается назад; локальная
 -- копия по-прежнему показывает реальную длину, и именно она идёт в интерфейс
 -- заметки, а облачное число питает сводки.
+--
+-- `and deleted_at is null` — то же N-9, что 0033 закрыл для
+-- increment_document_sessions: функция работает от владельца, поэтому мимо этого
+-- условия она дописывала счётчики в надгробие удалённой заметки, куда RLS её
+-- пустил бы отказом.
 create or replace function public.sync_document_stats(
   p_uuid text,
   p_words bigint,
@@ -65,7 +70,8 @@ as $$
      set total_words   = greatest(coalesce(total_words, 0), coalesce(p_words, 0)),
          total_duration = greatest(0, coalesce(total_duration, 0) + coalesce(p_duration_delta, 0))
    where uuid = p_uuid
-     and user_id = (select auth.uid());
+     and user_id = (select auth.uid())
+     and deleted_at is null;
 $$;
 
 revoke all on function public.sync_document_stats(text, bigint, bigint) from public, anon;

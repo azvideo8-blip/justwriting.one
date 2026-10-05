@@ -1438,6 +1438,53 @@ END $$;
 RESET role;
 RESET request.jwt.claims;
 
+-- W-1 (0039): тот же N-9 класс у второго счётчика. sync_document_stats тоже
+-- security definer, поэтому RLS 0016 её не останавливает; без `deleted_at is
+-- null` она записывала слова и длительность в надгробие, где инкремент сессий
+-- выше уже отказался. Отдельный ряд, а не rpc-counter-doc: проверка не должна
+-- зависеть от того, в каком порядке её переставят.
+INSERT INTO public.documents (uuid, user_id, title, total_words, total_duration)
+VALUES ('stats-tomb-doc', '00000000-0000-0000-0000-000000000001', 'Stats tombstone', 10, 100)
+ON CONFLICT (uuid) DO NOTHING;
+UPDATE public.documents SET deleted_at = now() WHERE uuid = 'stats-tomb-doc';
+
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+DO $$
+DECLARE w bigint; d bigint;
+BEGIN
+  SELECT total_words, total_duration INTO w, d FROM public.documents WHERE uuid = 'stats-tomb-doc';
+  PERFORM public.sync_document_stats('stats-tomb-doc', 500, 77);
+  IF EXISTS (SELECT 1 FROM public.documents
+              WHERE uuid = 'stats-tomb-doc'
+                AND (total_words IS DISTINCT FROM w OR total_duration IS DISTINCT FROM d)) THEN
+    RAISE EXCEPTION 'FAIL: stats RPC wrote into a tombstone (words %/duration % -> 500/177)', w, d;
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
+
+-- Positive control: того же владельца и той же RPC живой ряд обновляется — иначе
+-- проверка выше прошла бы и на RPC, которая не пишет никогда.
+INSERT INTO public.documents (uuid, user_id, title, total_words, total_duration)
+VALUES ('stats-live-doc', '00000000-0000-0000-0000-000000000001', 'Stats live', 10, 100)
+ON CONFLICT (uuid) DO NOTHING;
+
+SET role = 'authenticated';
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000001"}';
+DO $$
+DECLARE w bigint; d bigint;
+BEGIN
+  PERFORM public.sync_document_stats('stats-live-doc', 500, 77);
+  SELECT total_words, total_duration INTO w, d FROM public.documents WHERE uuid = 'stats-live-doc';
+  IF w <> 500 OR d <> 177 THEN
+    RAISE EXCEPTION 'FAIL: stats RPC did not update a live document (words %, duration %)', w, d;
+  END IF;
+END $$;
+RESET role;
+RESET request.jwt.claims;
+DELETE FROM public.documents WHERE uuid IN ('stats-tomb-doc', 'stats-live-doc');
+
 -- ============================================================
 -- L-3 (R4-001): the owner cannot write versions under a tombstone.
 -- Positive controls prove the policies are not deny-all: the same owner
