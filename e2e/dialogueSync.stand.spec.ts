@@ -1164,21 +1164,16 @@ test('11. диалог > 500 КБ на обоих устройствах, вкл
 
 test('11c. 0.9.29 воскрешает удалённый диалог — один проход нового клиента закапывает его обратно', async ({ browser }) => {
   await ensureSeed();
-  // Свой диалог, не затравка: сценарий удаляет его, а 12b/13 считают `dlg` живым.
-  const own: Dlg = {
-    id: `resurrect_${Date.now().toString(36)}`,
-    title: 'Воскрешение',
-    createdAt: Date.now() - 120_000,
-    updatedAt: Date.now() - 60_000,
-    messages: [
-      { role: 'user', content: 'Вопрос до удаления' },
-      { role: 'assistant', content: 'Ответ до удаления' },
-    ],
-  } as Dlg;
-  await putDialogue(A.page, user.uid, own);
-  await A.page.reload();
-  await openDialogue(A.page, own.title);
-  await sendTurn(A.page, 'Ход, чтобы диалог уехал в облако');
+  // Свой диалог, не затравка: сценарий удаляет его целиком, а 12b/13 считают `dlg` живым.
+  // Создаём через UI, а не подкладкой в IndexedDB: подкладке не хватает полей
+  // (собеседник, id реплик), и страница чата на ней не отрисовывалась.
+  await openChat(A.page);
+  await A.page.getByRole('button', { name: 'Новый диалог' }).click();
+  await sendTurn(A.page, 'Вопрос до удаления');
+  const mine = await dialogues(A.page, user.uid);
+  const own = mine.filter(d => d.id !== dlg?.id).sort((x, y) => (x.updatedAt ?? 0) - (y.updatedAt ?? 0)).at(-1);
+  if (!own) throw new Error('11c: свой диалог не создался');
+  console.warn('[11c] диалог:', own.id, 'реплик:', own.messages.length);
   await waitFlushed(A.page, user.uid, own.id);
 
   const rawRow = async (): Promise<Record<string, unknown> | undefined> => {
@@ -1195,10 +1190,12 @@ test('11c. 0.9.29 воскрешает удалённый диалог — од�
   // Второе устройство — 0.9.29 — забирает диалог себе и держит копию.
   const old = await device(await browser.newContext(), 0, OLD_029);
   await syncUntil(old.page, x => x.some(d => d.id === own.id), '0.9.29 получает диалог');
-  await openDialogue(old.page, own.title, OLD_029);
+  // По id, а не по заголовку: автоименование на стенде перебивает титул, и по
+  // префиксу пункт списка мог оказаться чужим диалогом.
+  await openDialogue(old.page, own.id, OLD_029);
 
   // A удаляет диалог целиком.
-  await openDialogue(A.page, own.title);
+  await openDialogue(A.page, own.id);
   const del = A.page.getByRole('button', { name: 'Удалить', exact: true }).first();
   await expect(del).toBeVisible({ timeout: 10_000 });
   await del.click();
@@ -1221,7 +1218,11 @@ test('11c. 0.9.29 воскрешает удалённый диалог — од�
   const healed = await rawRow();
   console.warn('[11c] после одного прохода A:', JSON.stringify({ head: healed?.head, deletedAt: healed?.deletedAt, hasData: typeof healed?.data === 'string' }));
   expect(isTombstone(healed), 'надгробие не вернулось в облако за один проход').toBe(true);
-  expect((await dialogues(A.page, user.uid)).some(d => d.id === own.id), 'локальная копия A воскресла').toBe(false);
+  // Локально A обязан остаться надгробием (строка в IndexedDB живёт до TTL,
+  // воскресший объект был бы без deletedAt).
+  const localAfter = (await dialogues(A.page, user.uid)).find(d => d.id === own.id);
+  expect(localAfter && typeof (localAfter as unknown as { deletedAt?: number }).deletedAt === 'number',
+    'локальная копия A воскресла').toBe(true);
 
   // И свежее устройство не показывает удалённый диалог.
   const ctxC = await browser.newContext();
@@ -1229,8 +1230,11 @@ test('11c. 0.9.29 воскрешает удалённый диалог — од�
   await openChat(C.page);
   await pass(C.page);
   const seen = (await dialogues(C.page, user.uid)).find(d => d.id === own.id);
-  console.warn('[11c] свежее устройство видит диалог:', !!seen);
-  expect(seen, 'свежее устройство показало удалённый диалог').toBeUndefined();
+  console.warn('[11c] свежее устройство: запись есть:', !!seen,
+    'deletedAt:', (seen as unknown as { deletedAt?: number } | undefined)?.deletedAt);
+  // «Не показывает» = живой записи нет: либо её вовсе нет, либо она надгробие.
+  expect(!seen || typeof (seen as unknown as { deletedAt?: number }).deletedAt === 'number',
+    'свежее устройство показало удалённый диалог').toBe(true);
   await ctxC.close();
   await old.ctx.close();
 });
