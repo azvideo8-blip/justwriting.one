@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { IDBFactory } from 'fake-indexeddb';
 import 'fake-indexeddb/auto';
 import { getLocalDb, resetDbInstance } from '../../storage/localDb';
@@ -33,6 +34,8 @@ import { planDialogue, type DialogueHead, type CloudSegmentRow } from '../dialog
 //   npx vitest run src/core/services/__tests__/dialogueMergeFuzz.test.ts
 //   JW_FUZZ_SEEDS=400 npx vitest run …        (локальный прогон, ~50 с на 8 ядрах)
 //   JW_FUZZ_SEEDS=6 JW_FUZZ_TRACE=1 …          (разбор одного упадка)
+//   JW_FUZZ_STALL=3 npx vitest run …           (сид 3 не успевает в таймаут:
+//       падает только он, изоляция поколений держит остальные 49)
 // В CI сидов 50 — это значение по умолчанию: `test:ci` (`vitest run --coverage`)
 // запускается без `JW_FUZZ_SEEDS`, отдельного шага с переменной в workflow нет.
 // Каждый сид — отдельный тест, поэтому таймауты нигде не поднимаются и в отчёте виден номер сида.
@@ -68,9 +71,35 @@ function stampRow(store: string, key: string, payload: Record<string, unknown>):
   return payload;
 }
 function setCloud(store: string, key: string, payload: Record<string, unknown>, stamped_at = clock): void {
+  if (isStaleSeed()) return;
   cloud.set(rowKey(store, key), { store, key, payload, stamped_at });
 }
 const sortedRows = (rows: Row[]) => rows.sort((a, b) => a.store.localeCompare(b.store) || a.key.localeCompare(b.key));
+
+/**
+ * Low-1 (ревью 0.9.31): V-4.3 добивался изоляции тем, что следующий сид ждёт
+ * прошлый до 2 с. Под нагрузкой этого мало: сид, упёршийся в таймаут теста,
+ * остаётся живым и после потолка, и его continuation'ы пишут в общее состояние
+ * (`cloud`, очередь и дебаунс LocalStoreSyncService, `currentDevice`, `clock`)
+ * уже следующего сида — отсюда каскад таймаутов на сидах 32–49 и TypeError на
+ * чтении только что созданного диалога.
+ *
+ * Потолки и таймауты НЕ поднимаем. Вместо этого у каждого сида есть поколение:
+ * оно поднимается ДО того, как мы начали дожидаться прошлый сид, и осиротевшая
+ * цепочка по нему узнаётся. Ей запрещены все обращения к общему состоянию:
+ * запись — no-op, цикл шагов — выход, поэтому прошлый сид не может ни испортить
+ * данные нового, ни упасть с неотмеченным rejection'ом.
+ */
+const seedGen = new AsyncLocalStorage<number>();
+let generation = 0;
+/** Цепочка принадлежит сиду, который уже похоронен. */
+function isStaleSeed(): boolean {
+  const gen = seedGen.getStore();
+  return gen !== undefined && gen !== generation;
+}
+/** JW_FUZZ_STALL=<номер сида>: один сид намеренно не успевает в таймаут теста —
+ *  так видно, что он не ломает последующие сиды. */
+const STALL_SEED = Number(process.env.JW_FUZZ_STALL ?? '');
 
 vi.mock('../../data', async () => {
   const actual = await vi.importActual<typeof import('../../data')>('../../data');
@@ -78,10 +107,12 @@ vi.mock('../../data', async () => {
     ...actual,
     DataProvider: {
       getLocalStoreRecordsByKeyPrefix: async (_uid: string, store: string, prefix: string) =>
-        [...cloud.values()]
+        isStaleSeed() ? []
+        : [...cloud.values()]
           .filter(r => r.store === store && r.key.startsWith(prefix))
           .map(r => actual.rowToLocalStoreRecord(r as Record<string, unknown>)),
       deleteLocalStoreRecordsByKeys: async (_uid: string, store: string, keys: string[]) => {
+        if (isStaleSeed()) return;
         const f = failMode();
         if (f === 'net') throw new Error('network: delete failed');
         for (const k of keys) cloud.delete(`${store}:${k}`);
@@ -91,24 +122,29 @@ vi.mock('../../data', async () => {
       getUserSummaries: async () => [],
       getUserEmbeddingsPaginated: async () => ({ items: [], nextCursorId: null, readCount: 0 }),
       getLocalStoreRecords: async (_uid: string, store?: string, since?: number) =>
-        sortedRows([...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since)))
+        isStaleSeed() ? []
+        : sortedRows([...cloud.values()].filter(r => (!store || r.store === store) && (since === undefined || Number(r.payload.updatedAt) > since)))
           .map(r => actual.rowToLocalStoreRecord(r as Record<string, unknown>)),
       getLocalStoreRecord: async (_uid: string, store: string, key: string) => {
+        if (isStaleSeed()) return null;
         const r = cloud.get(rowKey(store, key));
         return r ? actual.rowToLocalStoreRecord(r as Record<string, unknown>) : null;
       },
       getLocalStoreRecordPages: async (_uid: string, store: string, key: string) => {
+        if (isStaleSeed()) return [];
         const out = [...cloud.values()].filter(r => r.store === store && r.key.startsWith(`${key}#`));
         if (onCloudRead) { const h = onCloudRead; onCloudRead = null; h(); }
         return out.map(r => actual.rowToLocalStoreRecord(r as Record<string, unknown>));
       },
     saveLocalStoreRecord: async (_uid: string, store: string, key: string, payload: Record<string, unknown>) => {
+      if (isStaleSeed()) return;
       const f = failMode();
       if (f === 'net') throw new Error('network');
       setCloud(store, key, stampRow(store, key, payload), clock);
       if (f === 'lost') throw new Error('network: response lost');
     },
     saveLocalStoreRecordPages: async (_uid: string, store: string, pages: Array<{ key: string; payload: Record<string, unknown> }>) => {
+      if (isStaleSeed()) return;
       const f = failPages();
       if (f === 'net') throw new Error('network: pages');
       for (const p of pages) {
@@ -117,6 +153,7 @@ vi.mock('../../data', async () => {
       if (f === 'lost') throw new Error('network: pages response lost');
     },
     saveLocalStoreRecordIfUnchanged: async (_uid: string, store: string, key: string, payload: Record<string, unknown>, expected: number | null) => {
+      if (isStaleSeed()) return false;
       if (failCas && failCas()) throw new Error('network');
       const f = failMode();
       if (f === 'net') throw new Error('network');
@@ -127,12 +164,14 @@ vi.mock('../../data', async () => {
       return true;
     },
     deleteLocalStorePagedRecords: async (_uid: string, store: string, key: string) => {
+      if (isStaleSeed()) return;
       for (const [k, r] of cloud) if (r.store === store && r.key.startsWith(`${key}#`)) cloud.delete(k);
       if (store === 'aiDialogues' && onBeforeDeletePaged) {
         await onBeforeDeletePaged(key);
       }
     },
     deleteLocalStoreRecord: async (_uid: string, store: string, key: string) => {
+      if (isStaleSeed()) return;
       cloud.delete(rowKey(store, key));
       // Дочерние строки записи: страницы `key#…` (прошлые форматы) и сегменты
       // `key@seg…` (M-5). Провайдер сносит и те, и другие.
@@ -169,6 +208,9 @@ let currentDevice: Device | null = null;
 let clock = 0;
 
 function switchTo(dev: Device): void {
+  // Осиротевшему сиду нельзя ни переключать «текущее устройство», ни трогать
+  // чужой дебаунс: это общее состояние, а не его собственное.
+  if (isStaleSeed()) return;
   if (LSS.timer !== null) { clearTimeout(LSS.timer); LSS.timer = null; }
   LSS.pending.clear();
   if (currentDevice === dev) { vi.setSystemTime(clock + dev.skew); return; }
@@ -254,6 +296,12 @@ const DRAIN_CAP_MS = 2_000;
 let prevSeed: Promise<unknown> | null = null;
 
 async function runSeed(seed: number): Promise<string[]> {
+  // Сид живёт в своём поколении: по нему осиротевшая цепочка отличает себя от
+  // того, который сейчас у руля (см. Low-1 выше).
+  return seedGen.run(generation, () => runSeedBody(seed));
+}
+
+async function runSeedBody(seed: number): Promise<string[]> {
   const failures: string[] = [];
   const trace: string[] = [];
   let oversizedSeen = 0;
@@ -296,6 +344,7 @@ async function runSeed(seed: number): Promise<string[]> {
   // deleteLocalStorePagedRecords, другое устройство успевает выгрузить свой head,
   // усыновив осиротевшее окно.
   onBeforeDeletePaged = async (key: string) => {
+    if (isStaleSeed()) return;
     const other = devs.find(d => d !== currentDevice && devDialogues.has(d) && !devDialogues.get(d)!.deletedAt && devDialogues.get(d)!.messages.length > 0);
     if (!other) return;
     const localD = devDialogues.get(other)!;
@@ -326,6 +375,7 @@ async function runSeed(seed: number): Promise<string[]> {
 
   /** 0.9.28 переложил облачную копию на страницы `key#N` без строки `key`. */
   const legacyRepage = async (id: string): Promise<void> => {
+    if (isStaleSeed()) return;
     const rec = await local(id);
     if (!rec) return;
     const json = JSON.stringify(rec);
@@ -345,6 +395,7 @@ async function runSeed(seed: number): Promise<string[]> {
 
   /** 0.9.29 слепая выгрузка всего диалога одной строкой — затирает head, оставляет сегменты. */
   const legacySingleUpsert = async (id: string): Promise<void> => {
+    if (isStaleSeed()) return;
     const rec = await local(id);
     if (!rec) return;
     const json = JSON.stringify(rec);
@@ -359,6 +410,7 @@ async function runSeed(seed: number): Promise<string[]> {
 
   /** 0.9.29 cleanupEmpty сносит строку в облаке, ТОЛЬКО если в data пустые messages (head не трогает). */
   const legacyCleanupEmpty = (id: string): void => {
+    if (isStaleSeed()) return;
     const r = cloud.get(rowKey('aiDialogues', id));
     if (!r || typeof r.payload.data !== 'string') return;
     try {
@@ -372,7 +424,13 @@ async function runSeed(seed: number): Promise<string[]> {
   };
 
   const steps = 25 + Math.floor(r() * 20);
+  if (Number.isFinite(STALL_SEED) && STALL_SEED === seed) {
+    await new Promise(res => setTimeout(res, 8_000));   // дольше таймаута теста
+  }
   for (let step = 0; step < steps; step++) {
+    // Сид похоронен (начался следующий): новых шагов не делаем — и `clock`, и
+    // `switchTo`, и правки диалога ниже пишут в общее состояние нового сида.
+    if (isStaleSeed()) break;
     clock = Math.floor((clock + Math.floor(r() * 90_000)) / CLOCK_STEP) * CLOCK_STEP;
     const dev = devs[Math.floor(r() * 3)]!;
     switchTo(dev);
@@ -464,6 +522,11 @@ async function runSeed(seed: number): Promise<string[]> {
     }
     if (after) devDialogues.set(dev, after);
     for (const m of after?.messages ?? []) if (m.id && !before?.messages.some(b => b.id === m.id)) created.add(m.id);
+  }
+  if (isStaleSeed()) {
+    // Осиротевший сид уходит сразу после цикла шагов: оседание, инварианты и
+    // сброс hook'ов ниже — это чужое состояние и чужая проверка (Low-1).
+    return failures;
   }
   failCas = null; failMode = () => 'ok'; failPages = () => 'ok'; onBeforeDeletePaged = null;
   clock += 3_600_000;
@@ -560,6 +623,9 @@ async function runSeed(seed: number): Promise<string[]> {
 
 describe(`fuzz слияния диалогов: 3 устройства × ${SEEDS} сидов, FAILP=${FAILP}, SKEW=${SKEW} мс`, () => {
   beforeEach(async () => {
+    // Low-1: поколение поднимается ПЕРВЫМ словом — с этого момента прошлый сид
+    // не имеет права писать в общее состояние, и дождаться его можно молча.
+    generation += 1;
     // Порядок важен: сначала дожидаемся прошлого сида НА НАСТОЯЩИХ таймерах,
     // потом обнуляем состояние, и только потом включаём подделку Date.
     // Домогаться без потолка нельзя: сид, который сам упёрся в таймаут, не
