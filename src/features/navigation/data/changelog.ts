@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.30',
+    date: '2026-10-05',
+    items: [
+      { category: 'new', ru: 'Диалоги с ИИ объединяются между устройствами: реплики, написанные на разных устройствах, больше не затирают друг друга, а удалённый диалог или реплика исчезают везде. Обновите приложение на всех устройствах и во всех открытых вкладках — старая версия не видит новых реплик в длинных диалогах.', en: 'AI dialogues now merge across devices: turns written on different devices no longer overwrite each other, and a deleted dialogue or turn disappears everywhere. Update the app on every device and in every open tab — an older version does not see new turns in long dialogues.' },
+      { category: 'new', ru: 'В админке у пользователя появилась кнопка «Удалить» — с подтверждением, где видно, сколько у человека заметок.', en: 'The admin users list has a «Delete» button, with a confirmation that shows how many notes the person has.' },
+      { category: 'improvement', ru: 'Кризисная панель точнее: замечает «меня не будет, и никто не заметит», «скоро меня не станет», «хочу уйти из жизни» и похожие формулировки, и реже срабатывает на бытовое — «меня не будет на встрече», «ухожу из жизни соцсетей».', en: 'The crisis panel is more precise: it notices «меня не будет, и никто не заметит», «скоро меня не станет», «хочу уйти из жизни» and similar phrasings, and fires less often on everyday phrases like «меня не будет на встрече».' },
+      { category: 'improvement', ru: 'Кнопка «Открыть» убрана из шапки редактора.', en: 'The «Open» button is removed from the editor header.' },
+      { category: 'fix', ru: 'Вход по приглашению: повторное открытие ссылки из письма больше не выкидывает из аккаунта и не «сжигает» приглашение; ссылки на политику открываются в новой вкладке, поэтому настройка не начинается заново; если ссылка уже использована, приложение так и говорит.', en: 'Invitation sign-up: opening the email link a second time no longer signs you out and burns the invitation; policy links open in a new tab, so the setup doesn’t restart; a used link is now explained plainly.' },
+    ],
+  },
+  {
     version: '0.9.29',
     date: '2026-10-02',
     items: [
