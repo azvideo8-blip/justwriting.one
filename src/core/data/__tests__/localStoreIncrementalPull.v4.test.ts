@@ -95,9 +95,13 @@ describe('инкрементальный забор local_store_records (V-4.2)'
     expect(rows.map(r => r.key)).toContain('dlg-1#1759000000000#abcd#p0');
   });
 
-  it('остальные сторы остаются на сравнении по payload.updatedAt', async () => {
+  it('остальные сторы фильтруются так же — по stamped_at (W-3)', async () => {
+    // Раньше этот кейс закреплял обратное (`payload.updatedAt`), и ровно поэтому
+    // прод ничего не заметил: единственный инкрементальный вызывающий передаёт
+    // store = undefined, так что ветка «по отметке из payload» исполнялась и для
+    // диалогов тоже.
     const rows = await getLocalStoreRecords(UID, 'aiPortrait', SERVER_NOW - HOUR);
-    expect(calls.filter(c => c.startsWith('gt:'))).toEqual([`gt:payload->>updatedAt=${String(SERVER_NOW - HOUR)}`]);
+    expect(calls.filter(c => c.startsWith('gt:'))).toEqual([`gt:stamped_at=${iso(SERVER_NOW - HOUR)}`]);
     expect(rows.map(r => r.key)).toEqual(['singleton']);
   });
 

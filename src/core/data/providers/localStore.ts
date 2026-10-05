@@ -151,17 +151,17 @@ export async function getLocalStoreRecords(userId: string, store?: string, since
     if (store) {
       q = q.eq('store', store);
     }
-    // V-4.2: у диалогов инкрементальный забор идёт по серверной отметке строки
-    // (миграция 0037), а не по `payload.updatedAt`: дочерние строки — страницы
-    // `key#…` старых клиентов и окна `key@seg…` — триггер не переставляет, и на
-    // часах устройства, убежавших назад, они не попадали в `> since` до суток.
-    // Остальные сторы продолжают сравнивать открытый номер в payload.
+    // V-4.2 / W-3: инкрементальный забор сравнивает СЕРВЕРНУЮ отметку строки
+    // (миграция 0037), а не `payload.updatedAt` — для всех сторов. Триггер
+    // переставляет stamped_at на ЛЮБОМ insert/update, поэтому строка попадает в
+    // выборку в тот момент, когда её принял сервер, а не когда её нарисовали часы
+    // писателя: устройство, отстающее на два часа, больше не прячет свою правку
+    // от остальных устройств на два часа. Раньше ветка по stamped_at выбиралась
+    // только для store === 'aiDialogues', а единственный инкрементальный
+    // вызывающий (AIRestoreService) передаёт store = undefined, — на проде она не
+    // исполнялась вовсе.
     if (sinceMs !== undefined) {
-      if (store === 'aiDialogues') {
-        q = q.gt('stamped_at', new Date(Math.floor(sinceMs)).toISOString());
-      } else {
-        q = q.gt('payload->>updatedAt', String(Math.floor(sinceMs)));
-      }
+      q = q.gt('stamped_at', new Date(Math.floor(sinceMs)).toISOString());
     }
     // R4-7: ключ уникален только внутри store (PK — user_id, store, key); без
     // store в сортировке одинаковые ключи разных сторов переставлялись между
