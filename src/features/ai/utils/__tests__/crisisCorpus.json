@@ -6328,8 +6328,7 @@
   "sources": [
    "backlog-2026-09-24"
   ],
-  "note": "backlog-2026-09-24: ложная тревога, чинить позже",
-  "knownGap": true
+  "note": "backlog-2026-09-24: ложная тревога, чинить позже"
  },
  {
   "text": "наконец-то покончила со всем этим",
@@ -7598,6 +7597,212 @@
    "t10-crisis"
   ],
   "note": "T-10: «мёртвым персонажем» — ролевая игра"
+ },
+ {
+  "text": "меня не будет, и никто не заметит",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не будет, и всем станет легче.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Скоро меня не будет, я всё решила.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Скоро меня не будет, и это к лучшему",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Завтра меня не будет, я так решила.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Когда меня не будет, вы поймёте.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не станет, и никто не вспомнит.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не станет, обещаю.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Просто меня не станет.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "А потом меня не станет.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Однажды меня не станет, и всё.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "завтра меня уже не будет",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня просто не станет.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Лучше бы я была мёртвой.",
+  "expect": "risk",
+  "category": "direct-intent",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: genuine «меня не будет/не станет», «лучше бы я была мёртвой»"
+ },
+ {
+  "text": "Меня не будет — уезжаю в отпуск.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Завтра меня не будет; перенеси встречу.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Ухожу из жизни соцсетей на месяц.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "уйду из жизни родных",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Хочу уйти из жизни мегаполиса",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Хочу быть мёртвой царевной на маскараде.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Меня не будет до понедельника, я в отпуске.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: бытовое «не будет/из жизни <чего-то>/мёртвой <кем-то>»"
+ },
+ {
+  "text": "Он меня не станет слушать.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: «не станет + глагол» — не будет делать"
+ },
+ {
+  "text": "Она меня не станет ждать, уедет одна.",
+  "expect": "safe",
+  "category": "everyday",
+  "sources": [
+   "0.9.30-review"
+  ],
+  "note": "0.9.30 review: «не станет + глагол» — не будет делать"
  }
 ]
-
