@@ -117,5 +117,8 @@ describe('S-54: an unreadable cloud dialogue row', () => {
     expect(cloud.get('aiDialogues:d2')!.payload.data, 'нечитаемая строка затёрта слепой записью').toBe('garbage');
     const entries = useActivityLogStore.getState().entries.filter(e => e.message === 'activity_dialogue_cloud_unreadable');
     expect(entries.map(e => e.context?.key)).toEqual(['d2']);
+    // Одинаковые сообщения журнал склеивает в одну запись с `count`, поэтому по
+    // числу записей один репорт не отличим от пяти: отличает именно count.
+    expect(entries[0]!.count, 'страж «сообщить один раз» снят — строка репортится каждую попытку').toBe(1);
   });
 });

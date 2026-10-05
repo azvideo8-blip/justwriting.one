@@ -383,8 +383,7 @@ describe('restoreAIDataFromCloud', () => {
   // за `key`. Пока окно считалось кандидатом на «единственную строку записи», оно
   // выигрывало last-writer, `data` в нём отсутствовало, и диалог пропускался на
   // каждом заборе — молча, без роста `failed`.
-  it('диалог со строкой `key` и осиротевшим окном рядом доезжает целиком', async () => {
-    const cloudCopy = {
+  it('диалог со строкой `key` и осиротевшим окном рядом доезжает целиком', async () => {    const cloudCopy = {
       id: 'solo-dlg', title: 'Т', personaId: 'cbt', personaName: 'КПТ', personaEmoji: '🎯',
       messages: [
         { id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 1000 },
@@ -443,6 +442,37 @@ describe('restoreAIDataFromCloud', () => {
     const after = localStore.aiDialogues.get('paged-dlg') as { messages: unknown[] } | undefined;
     expect(after, 'постраничная копия с осиротевшим окном не прочиталась').toBeDefined();
     expect(after!.messages).toHaveLength(2);
+    expect(res.failed).toBe(0);
+  });
+
+  it('head с deletedAt собирается надгробием, а не живым диалогом', async () => {
+    // Писатель эту сторону держал (head с deletedAt — dialogueSegmentUpload.m5), а
+    // читатель — никто: снятый `deletedAt` в assembleDialogue возвращал удалённый
+    // сегментный диалог новому устройству как обычный.
+    const segKey = 'dead-win@seg1000-abcd';
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: 'dead-win',
+      payload: {
+        head: true, id: 'dead-win', title: 'Т', personaId: 'cbt', personaName: 'КПТ', personaEmoji: '🎯',
+        createdAt: 1000, updatedAt: 8000, deletedAt: 7000, segments: [{ key: segKey, firstAt: 1000, lastAt: 1001, updatedAt: 1001, bytes: 10, count: 2 }],
+      },
+    });
+    localStoreRecordsDocs.push({
+      store: 'aiDialogues', key: segKey,
+      payload: {
+        seg: true, headKey: 'dead-win', firstAt: 1000, lastAt: 1001, updatedAt: 1001,
+        messages: JSON.stringify([
+          { id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 1000 },
+          { id: 'a1', role: 'assistant', content: 'Общий ответ', createdAt: 1001 },
+        ]),
+      },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    const got = localStore.aiDialogues.get('dead-win') as { deletedAt?: number } | undefined;
+    expect(got, 'окно с head не прочиталось').toBeDefined();
+    expect(got!.deletedAt, 'удалённый сегментный диалог ожил на свежем устройстве').toBe(7000);
     expect(res.failed).toBe(0);
   });
 

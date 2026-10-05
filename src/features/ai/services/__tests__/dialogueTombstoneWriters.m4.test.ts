@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Mock } from 'vitest';
 import 'fake-indexeddb/auto';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import type { AIDialogue } from '../../../../core/storage/localDb';
@@ -110,22 +111,21 @@ describe('M-4: писатели не трогают надгробие', () => {
       'aiDialogues',
       { ...d, messages: [...d.messages, { id: 'm4', role: 'assistant', content: 'Ответ второй', createdAt: 1003 }] } as never,
     );
-    // Модель отвечает долго, и в этот момент диалог удаляют. Страж S-58 стоит после
-    // await-а модели и внутри транзакции: ранний выход в начале функции его не
-    // заменяет — без него итог ложился в надгробие и поднимал updatedAt.
+    // Модель отвечает долго, и в этот момент диалог удаляют. Страж S-58 стоит
+    // ПОСЛЕ await-а модели и внутри транзакции: ранний выход в начале функции его
+    // не заменяет — без него итог ложился в надгробие и поднимал отметку.
     const { AIService } = await import('../AIService');
-    // Пока «модель» думает, диалог снимают другой вкладкой. mockReturnValue, а не
-    // mockImplementation(async …): съём должен начаться сразу при постановке мока,
-    // ещё до вызова chat.
-    (AIService.chat as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(resolve => {
-      void (async () => {
+    // Съём начинается в момент вызова модели, а не в момент установки мока: иначе
+    // диалог становится надгробием до первого чтения функции, и проверяется ранний
+    // выход, а не страж внутри транзакции.
+    const chat = AIService.chat as unknown as Mock<(input: unknown) => Promise<{ ok: boolean; text: string }>>;
+    chat.mockImplementation(async () => {
         const tx = db.transaction('aiDialogues', 'readwrite');
         const row = await tx.store.get('d_live4');
         await tx.store.put(tombstoneDialogue(row!, 5000));
         await tx.done;
-        resolve({ ok: true, text: 'Итог разговора' });
-      })();
-    }));
+        return { ok: true, text: 'Итог разговора' };
+      });
 
     await AIDialogueService.generateClosingSummary('d_live4');
 
@@ -138,12 +138,19 @@ describe('M-4: писатели не трогают надгробие', () => {
 
   it('курсор извлечения памяти не ставится в удалённый диалог', async () => {
     const tomb = await buriedDialogue('d_dead5');
+    const before = JSON.stringify(await stored(tomb.id));
     const msgs = [
       { role: 'user', content: 'Вопрос первый, длиннее десяти знаков', id: 'm1' },
       { role: 'assistant', content: 'Ответ первый', id: 'm2' },
       { role: 'user', content: 'Вопрос второй, тоже длиннее десяти знаков', id: 'm3' },
     ];
     await AIChatMemoryService.extractFromDialogue(tomb.id, msgs);
+    // Только `lastExtractedMessageId === undefined` ничего не запирает: у
+    // надгробия реплик нет, курс по id не находится, и страж без проверки
+    // `deletedAt` честно дописывал позиционный `lastExtractedIdx` и ставил
+    // строку в выгрузку — то есть воскресал в облаке живой записью.
+    expect(JSON.stringify(await stored(tomb.id)), 'в надгробие записан курс извлечения').toBe(before);
+    expect(scheduleSync, 'надгробие поставлено в выгрузку').not.toHaveBeenCalledWith('aiDialogues', 'd_dead5');
     expect((await stored(tomb.id))!.lastExtractedMessageId).toBeUndefined();
 
     const d = await liveDialogue('d_live5');

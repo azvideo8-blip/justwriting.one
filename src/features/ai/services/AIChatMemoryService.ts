@@ -132,9 +132,11 @@ export const AIChatMemoryService = {
             fresh.lastExtractedIdx = messages.length;
           }
           await tx.store.put(fresh);
+          // И в выгрузку строку ставит тот же писатель: надгробие без единого
+          // изменения уезжало в облако на каждом извлечении памяти.
+          LocalStoreSyncService.scheduleStoreSync('aiDialogues', dialogueId);
         }
         await tx.done;
-        if (stored) LocalStoreSyncService.scheduleStoreSync('aiDialogues', dialogueId);
       }
 
       if (result.memories.length === 0) return;
