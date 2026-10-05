@@ -388,6 +388,9 @@ async function runSeed(seed: number): Promise<string[]> {
             dialogueDeleted = true;
             for (const m of rec.messages) if (m.id) deleted.add(m.id);
             const tomb = { ...rec, deletedAt: clock, messages: [] };
+            // Реальный старый клиент (0.9.28/0.9.29) при удалении сначала фиксирует
+            // надгробие в своей локальной БД, а затем выгружает его в облако.
+            await (await getLocalDb()).put('aiDialogues', tomb as never);
             for (const [k, r] of [...cloud]) if (r.store === 'aiDialogues' && r.key.startsWith(id + '#')) cloud.delete(k);
             cloud.set(rowKey('aiDialogues', id), {
               store: 'aiDialogues',
