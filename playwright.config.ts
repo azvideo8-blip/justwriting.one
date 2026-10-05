@@ -6,7 +6,9 @@ const PORT = process.env.E2E_PORT ?? '3000';
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: /accountSwitch\.spec\.ts/,
+  // Стендовые спеки (*.stand.spec.ts) гоняются своим конфигом (playwright.s38.config.ts)
+  // и читают scripts/stand/.env.stand при загрузке — в обычном наборе их нет.
+  testIgnore: [/accountSwitch\.spec\.ts/, /\.stand\.spec\.ts$/],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
