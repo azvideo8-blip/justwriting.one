@@ -1162,6 +1162,79 @@ test('11. диалог > 500 КБ на обоих устройствах, вкл
   await old28.ctx.close();
 });
 
+test('11c. 0.9.29 воскрешает удалённый диалог — один проход нового клиента закапывает его обратно', async ({ browser }) => {
+  await ensureSeed();
+  // Свой диалог, не затравка: сценарий удаляет его, а 12b/13 считают `dlg` живым.
+  const own: Dlg = {
+    id: `resurrect_${Date.now().toString(36)}`,
+    title: 'Воскрешение',
+    createdAt: Date.now() - 120_000,
+    updatedAt: Date.now() - 60_000,
+    messages: [
+      { role: 'user', content: 'Вопрос до удаления' },
+      { role: 'assistant', content: 'Ответ до удаления' },
+    ],
+  } as Dlg;
+  await putDialogue(A.page, user.uid, own);
+  await A.page.reload();
+  await openDialogue(A.page, own.title);
+  await sendTurn(A.page, 'Ход, чтобы диалог уехал в облако');
+  await waitFlushed(A.page, user.uid, own.id);
+
+  const rawRow = async (): Promise<Record<string, unknown> | undefined> => {
+    const res = await fetch(`${REST}/local_store_records?user_id=eq.${user.uid}&store=eq.aiDialogues&select=key,payload`, {
+      headers: { apikey: env.SERVICE_KEY!, Authorization: `Bearer ${env.SERVICE_KEY}` },
+    });
+    const rows = (await res.json()) as Array<{ key: string; payload: Record<string, unknown> }>;
+    return rows.find(r => r.key === own.id)?.payload;
+  };
+  const isTombstone = (p?: Record<string, unknown>) => p?.head === true && typeof p.deletedAt === 'number';
+  // Живая old-format строка: одиночная, с `data` — ровно то, что пишет 0.9.29.
+  const isOldLiveRow = (p?: Record<string, unknown>) => typeof p?.data === 'string' && p.head !== true;
+
+  // Второе устройство — 0.9.29 — забирает диалог себе и держит копию.
+  const old = await device(await browser.newContext(), 0, OLD_029);
+  await syncUntil(old.page, x => x.some(d => d.id === own.id), '0.9.29 получает диалог');
+  await openDialogue(old.page, own.title, OLD_029);
+
+  // A удаляет диалог целиком.
+  await openDialogue(A.page, own.title);
+  const del = A.page.getByRole('button', { name: 'Удалить', exact: true }).first();
+  await expect(del).toBeVisible({ timeout: 10_000 });
+  await del.click();
+  { const dialog = A.page.getByRole('dialog'); if (await dialog.isVisible({ timeout: 2000 }).catch(() => false)) { const bs = await dialog.getByRole('button').all(); await bs[bs.length - 1]!.click(); } }
+  await expect.poll(async () => (isTombstone(await rawRow()) ? 'tombstone' : JSON.stringify(Object.keys(await rawRow() ?? {}))), { timeout: 30_000, intervals: [1000] }).toBe('tombstone');
+  await cloudDetail(user.uid, own.id, '11c надгробие в облаке');
+
+  // Старый клиент дописывает ход: он не видит надгробие (у head нет `data`) и
+  // перезаписывает его ЖИВОЙ строкой прежнего формата. Это и есть воскрешение —
+  // без него проверка была бы вакуумной.
+  await sendTurn(old.page, 'Ход 0.9.29 после удаления на A');
+  await waitTurnRecorded(old.page, 'Ход 0.9.29 после удаления на A');
+  await expect.poll(async () => (isOldLiveRow(await rawRow()) ? 'resurrected' : 'не живой old-format'), { timeout: 40_000, intervals: [1000] }).toBe('resurrected');
+  await cloudDetail(user.uid, own.id, '11c облако воскрешено старым клиентом');
+
+  // РОВНО ОДИН проход нового клиента: забор живой строки там, где локально
+  // надгробие, обязан выдать надгробие обратно в облако, не дожидаясь
+  // следующего flush'а (V-4.1).
+  await pass(A.page);
+  const healed = await rawRow();
+  console.warn('[11c] после одного прохода A:', JSON.stringify({ head: healed?.head, deletedAt: healed?.deletedAt, hasData: typeof healed?.data === 'string' }));
+  expect(isTombstone(healed), 'надгробие не вернулось в облако за один проход').toBe(true);
+  expect((await dialogues(A.page, user.uid)).some(d => d.id === own.id), 'локальная копия A воскресла').toBe(false);
+
+  // И свежее устройство не показывает удалённый диалог.
+  const ctxC = await browser.newContext();
+  const C = await device(ctxC);
+  await openChat(C.page);
+  await pass(C.page);
+  const seen = (await dialogues(C.page, user.uid)).find(d => d.id === own.id);
+  console.warn('[11c] свежее устройство видит диалог:', !!seen);
+  expect(seen, 'свежее устройство показало удалённый диалог').toBeUndefined();
+  await ctxC.close();
+  await old.ctx.close();
+});
+
 test('12b. часы B на сутки НАЗАД — ничего не теряется', async ({ browser }) => {
   await ensureSeed();
   // Долгие операции стенда (несколько отправок с кулдауном, стрим 16 с,

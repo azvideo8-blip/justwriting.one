@@ -151,10 +151,17 @@ export async function getLocalStoreRecords(userId: string, store?: string, since
     if (store) {
       q = q.eq('store', store);
     }
-    // Инкрементальный забор: updatedAt лежит в payload открытым числом в мс
-    // (13 цифр), поэтому текстовое сравнение совпадает с числовым.
+    // V-4.2: у диалогов инкрементальный забор идёт по серверной отметке строки
+    // (миграция 0037), а не по `payload.updatedAt`: дочерние строки — страницы
+    // `key#…` старых клиентов и окна `key@seg…` — триггер не переставляет, и на
+    // часах устройства, убежавших назад, они не попадали в `> since` до суток.
+    // Остальные сторы продолжают сравнивать открытый номер в payload.
     if (sinceMs !== undefined) {
-      q = q.gt('payload->>updatedAt', String(Math.floor(sinceMs)));
+      if (store === 'aiDialogues') {
+        q = q.gt('stamped_at', new Date(Math.floor(sinceMs)).toISOString());
+      } else {
+        q = q.gt('payload->>updatedAt', String(Math.floor(sinceMs)));
+      }
     }
     // R4-7: ключ уникален только внутри store (PK — user_id, store, key); без
     // store в сортировке одинаковые ключи разных сторов переставлялись между

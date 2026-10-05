@@ -96,6 +96,10 @@ vi.mock('../../crypto/cryptoHelpers', () => ({
 }));
 vi.mock('../../crypto/encrypt', () => ({ getSessionKey: () => null }));
 vi.mock('../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
+// V-4.4: «окно без серверной отметки оставлено» — протечка, и она обязана быть
+// слышна. Логируемся на моке, чтобы это проверить.
+const loggerWarn = vi.fn();
+vi.mock('../../../shared/errors/logger', () => ({ logger: { info: vi.fn(), warn: (...a: unknown[]) => loggerWarn(...a) } }));
 
 describe('T-4 (R-2): гонка очистки сирот с параллельной выгрузкой head', () => {
   beforeEach(async () => {
@@ -420,6 +424,26 @@ describe('T-4 (R-2): гонка очистки сирот с параллель�
       // stamped_at не задан!
     });
 
+    // Негативный контроль V-4.4: ровно в том же проходе — окно С серверной
+    // отметкой старше grace-периода. Оно обязано быть снесено. Если провайдер
+    // перестанет пробрасывать stamped_at, отметка станет неизвестной у ОБЕИХ
+    // строк, обе останутся — и этот контроль станет красным. Без него тест
+    // ловил только «оставили» и пережил бы потерю штампа целиком.
+    const segOldKey = `${DLG_ID}@seg${now - 30 * 60_000}-old`;
+    cloud.set(rowKey('aiDialogues', segOldKey), {
+      store: 'aiDialogues',
+      key: segOldKey,
+      payload: {
+        seg: true,
+        headKey: DLG_ID,
+        firstAt: now - 30 * 60_000,
+        lastAt: now - 30 * 60_000,
+        updatedAt: now - 30 * 60_000,
+        messages: JSON.stringify([{ id: 'm9', role: 'user', content: 'старое окно', createdAt: now - 30 * 60_000 }]),
+      },
+      stamped_at: now - 30 * 60_000,
+    });
+
     // Устройство A выгружает мелкий диалог
     const dbA = await getLocalDb(UID);
     await dbA.put('aiDialogues', {
@@ -437,6 +461,15 @@ describe('T-4 (R-2): гонка очистки сирот с параллель�
 
     // Окно с неизвестным штампом НЕ должно быть снесено: правило «unknown stamp -> keep the window»
     expect(cloud.get(rowKey('aiDialogues', segKey)), 'окно без stamped_at должно сохраниться').toBeDefined();
+    expect(cloud.has(rowKey('aiDialogues', segOldKey)), 'окно с известной отметкой старше grace-периода должно быть снесено').toBe(false);
+
+    // V-4.4: и протечка должна быть названа вслух — ровно та строка, чей возраст
+    // неизвестен, а не «все подряд».
+    const reported = loggerWarn.mock.calls.filter(c => String(c[1]).includes('orphanCleanupUnknownStamp'));
+    expect(reported.length, 'окно без серверной отметки должно быть отмечено в логе').toBe(1);
+    const named = JSON.stringify(reported[0]);
+    expect(named).toContain(segKey);
+    expect(named).not.toContain(segOldKey);
   });
 
   it('T-8: отказ в восстановлении из-за нехватки окна триггерит re-upload диалога писателем', async () => {

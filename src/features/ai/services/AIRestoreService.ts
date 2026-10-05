@@ -1,7 +1,7 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet, AIDialogue } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
-import { mergeDialogues, dialogueFingerprint } from '../../../core/storage/dialogueMerge';
+import { mergeDialogues, dialogueFingerprint, isTombstoned } from '../../../core/storage/dialogueMerge';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from '../../../core/services/localStorePages';
 import {
   HEAD_TEXT_FIELDS,
@@ -413,6 +413,14 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           // останется со своей половинкой. Совпал с облаком — слать нечего.
           if (current && dialogueFingerprint(merged) !== dialogueFingerprint(cloudDialogue)) {
             LocalStoreSyncService.scheduleStoreSync('aiDialogues', merged.id);
+            // V-4.1: облако принёс ЖИВУЮ строку туда, где у нас надгробие, — это
+            // старый клиент перезаписал голову удаления. Ждать следующего flush'а
+            // нельзя: до него свежее устройство показывает диалог, которого уже нет.
+            // (Если выгрузка уже идёт параллельно, flushPending пропустит шаг, а
+            // отметка останется в очереди и уйдёт текущей выгрузкой.)
+            if (isTombstoned(current) && !isTombstoned(cloudDialogue)) {
+              await LocalStoreSyncService.flushPending();
+            }
           }
           continue;
         }

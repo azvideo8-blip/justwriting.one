@@ -230,10 +230,15 @@ const BLOB = 'ж'.repeat(Number(process.env.JW_FUZZ_BLOB ?? 95_000));
 const LOSTP = Number(process.env.JW_FUZZ_LOSTP ?? 0.05);
 const PAGEFAILP = Number(process.env.JW_FUZZ_PAGEFAILP ?? 0.15);
 
-async function runSeed(seed: number): Promise<string[]> {
-  const failures: string[] = [];
-  const trace: string[] = [];
-  let oversizedSeen = 0;
+/**
+ * V-4.3: состояние общее для всех сидов (`cloud`, очередь и дебаунс-таймер
+ * LocalStoreSyncService, localStorage), поэтому обнуляется оно ДО сида, а не в
+ * его начале. Сид, убитый таймаутом теста, не исчезает: его промисы продолжают
+ * дожиматься в микротасках и писать в `cloud` уже следующего сида — ровно те
+ * «потерянные ходы», которые падали на сидх 110/111 и 118/119 под нагрузкой.
+ * Поэтому первый шаг сброса — дождаться прошлого сида.
+ */
+function resetHarness(): void {
   cloud.clear(); currentDevice = null; localStorage.clear(); LSS.deleteGen.clear();
   interleaveNamed = null;
   deleteLandedCleanly = true;
@@ -242,6 +247,16 @@ async function runSeed(seed: number): Promise<string[]> {
   // очередью, и «потерянный ход» оказывается течкой стенда, а не продукта.
   if (LSS.timer !== null) { clearTimeout(LSS.timer); LSS.timer = null; }
   LSS.pending.clear();
+}
+
+// Сколько секунд следующий сид готов ждать, пока прошлый домоётся.
+const DRAIN_CAP_MS = 2_000;
+let prevSeed: Promise<unknown> | null = null;
+
+async function runSeed(seed: number): Promise<string[]> {
+  const failures: string[] = [];
+  const trace: string[] = [];
+  let oversizedSeen = 0;
   const r = rng(seed * 7919);
   clock = Date.parse('2026-10-02T09:00:00Z');
   const devs = [new Device('A', 0), new Device('B', Math.round((r() * 2 - 1) * SKEW)), new Device('C', Math.round((r() * 2 - 1) * SKEW))];
@@ -544,7 +559,22 @@ async function runSeed(seed: number): Promise<string[]> {
 }
 
 describe(`fuzz слияния диалогов: 3 устройства × ${SEEDS} сидов, FAILP=${FAILP}, SKEW=${SKEW} мс`, () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Порядок важен: сначала дожидаемся прошлого сида НА НАСТОЯЩИХ таймерах,
+    // потом обнуляем состояние, и только потом включаём подделку Date.
+    // Домогаться без потолка нельзя: сид, который сам упёрся в таймаут, не
+    // обязан завершиться вовсе, а следующий тест не имеет права из-за него
+    // потерять свой бюджет. Потолок — 2 с из 5; осевшие continuation'ы после
+    // него остаются, но состояние уже обнулено под новый сид.
+    if (prevSeed) {
+      const stuck = prevSeed;
+      prevSeed = null;
+      await Promise.race([
+        Promise.resolve(stuck).catch(() => { /* сид уже провален предыдущим тестом */ }),
+        new Promise<void>(r => setTimeout(r, DRAIN_CAP_MS)),
+      ]);
+    }
+    resetHarness();
     vi.useFakeTimers({ toFake: ['Date'] });
   });
   afterEach(() => {
@@ -555,7 +585,10 @@ describe(`fuzz слияния диалогов: 3 устройства × ${SEED
   const only = process.env.JW_FUZZ_ONLY?.split(',').map(x => Number(x.trim())).filter(n => Number.isFinite(n));
   const seeds = only && only.length ? only : Array.from({ length: SEEDS }, (_, i) => i + 1);
   it.each(seeds)('сид %i', async (seed) => {
-    const failures = await runSeed(seed);
+    const run = runSeed(seed);
+    prevSeed = run;
+    const failures = await run;
+    if (prevSeed === run) prevSeed = null;
     expect(failures, `сид ${seed}`).toEqual([]);
   });
 });

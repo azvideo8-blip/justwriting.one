@@ -908,6 +908,11 @@ export class LocalStoreSyncManager {
     }
 
     const toDelete: string[] = [];
+    // V-4.4: «оставили, потому что не знаем возраста» — это протекающие строки,
+    // и молчать они не имеют права. Без отметки неясно, окно ещё живо или ему
+    // год; решение то же (не удалять), но след уходит в warn, чтобы утечка
+    // была видна, а не превращалась в «облако понемногу разрастается».
+    const unknownStamp: string[] = [];
     for (const candKey of candidateKeys) {
       // (a) Текущий head называет это окно — НЕ удаляем
       if (currentNamed.has(candKey)) continue;
@@ -926,12 +931,17 @@ export class LocalStoreSyncManager {
       }
       // T-8: неизвестный серверный штамп — окно оставляем (никогда не смотрим на device time и не считаем 0 за возраст)
       if (segStamp === undefined) {
+        unknownStamp.push(candKey);
         continue;
       }
       if (serverNow - segStamp < ORPHAN_GRACE_PERIOD_MS) {
         continue;
       }
       toDelete.push(candKey);
+    }
+
+    if (unknownStamp.length > 0) {
+      logger.warn('LocalStoreSyncService', `orphanCleanupUnknownStamp: kept ${unknownStamp.length} window(s) without a server stamp`, { keys: unknownStamp.join(',') });
     }
 
     if (toDelete.length > 0) {
