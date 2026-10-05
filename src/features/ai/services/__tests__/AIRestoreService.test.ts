@@ -383,7 +383,8 @@ describe('restoreAIDataFromCloud', () => {
   // за `key`. Пока окно считалось кандидатом на «единственную строку записи», оно
   // выигрывало last-writer, `data` в нём отсутствовало, и диалог пропускался на
   // каждом заборе — молча, без роста `failed`.
-  it('диалог со строкой `key` и осиротевшим окном рядом доезжает целиком', async () => {    const cloudCopy = {
+  it('диалог со строкой `key` и осиротевшим окном рядом доезжает целиком', async () => {
+    const cloudCopy = {
       id: 'solo-dlg', title: 'Т', personaId: 'cbt', personaName: 'КПТ', personaEmoji: '🎯',
       messages: [
         { id: 'u1', role: 'user', content: 'Общий вопрос', createdAt: 1000 },
@@ -412,6 +413,26 @@ describe('restoreAIDataFromCloud', () => {
     expect(after.messages.map(m => m.id), 'ходят с другого устройства не применились').toEqual(['u1', 'a1', 'u2', 'a2']);
     expect(res.failed).toBe(0);
     expect(res.localStoreRecords).toBe(1);
+  });
+
+  it('T-6: ключи с @seg в хранилище, отличном от aiDialogues, не усекаются и доезжают оба', async () => {
+    localStoreRecordsDocs.push({
+      store: 'aiProfileFacets',
+      key: 'facet@seg1-first',
+      payload: { data: JSON.stringify({ id: 'facet@seg1-first', trait: 'curiosity', updatedAt: 2000 }) },
+    });
+    localStoreRecordsDocs.push({
+      store: 'aiProfileFacets',
+      key: 'facet@seg2-second',
+      payload: { data: JSON.stringify({ id: 'facet@seg2-second', trait: 'empathy', updatedAt: 2000 }) },
+    });
+
+    const res = await restoreAIDataFromCloud('user_1');
+
+    expect(res.failed).toBe(0);
+    expect(res.localStoreRecords).toBe(2);
+    expect(localStore.aiProfileFacets.get('facet@seg1-first')).toMatchObject({ trait: 'curiosity' });
+    expect(localStore.aiProfileFacets.get('facet@seg2-second')).toMatchObject({ trait: 'empathy' });
   });
 
   it('страницы 0.9.29 рядом с осиротевшими окнами читаются, а не пропускаются', async () => {

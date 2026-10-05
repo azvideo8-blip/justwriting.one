@@ -99,8 +99,6 @@ export interface AIRestoreResult {
   maxUpdatedAt: number;
 }
 
-
-
 /**
  * Pulls AI analysis back from the cloud into local storage.
  *
@@ -238,7 +236,8 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
 
       const { baseKey: pageBase } = parseLocalStoreKey(rec.key);
       // M-5: сегмент `key@seg…` принадлежит записи `key`, а не себе и не странице.
-      const baseKey = headKeyOfRow(pageBase);
+      // Для остальных хранилищ @seg — обычная часть ключа.
+      const baseKey = rec.store === 'aiDialogues' ? headKeyOfRow(pageBase) : pageBase;
       const groupKey = `${rec.store}:${baseKey}`;
       let grp = grouped.get(groupKey);
       if (!grp) {
@@ -299,7 +298,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           // версия по отметке. Страницы разных версий могут лежать рядом: хвост
           // прежней, более длинной версии, проигравшая попытка, выгрузка,
           // оборванная на середине. Склеить половинки двух версий нельзя.
-          const version = selectCloudVersion(rows);
+          const version = selectCloudVersion(rows, store === 'aiDialogues');
           if (!version) continue;
           if (version.kind === 'refused') {
             logger.warn('AIRestoreService', `${store}/${baseKey}: ${version.reason}. Refusing.`);

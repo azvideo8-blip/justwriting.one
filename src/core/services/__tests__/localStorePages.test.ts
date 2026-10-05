@@ -103,7 +103,7 @@ describe('selectCloudVersion', () => {
     const v = selectCloudVersion([
       { key: 'dlg', payload: { data: 'целая строка', updatedAt: 10 } },
       page('dlg#0', 100, 0, 2), page('dlg#1', 100, 1, 2),
-      seg('dlg@seg1-aaaaaaaa', 90),
+      seg('dlg@seg1-aaaaaaaa', 110),
     ]);
     expect(v).toEqual({ kind: 'pages', updatedAt: 100, pages: [page('dlg#0', 100, 0, 2), page('dlg#1', 100, 1, 2)] });
   });

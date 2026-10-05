@@ -84,7 +84,7 @@ COUNTS=$(docker exec supabase-db psql -U postgres -d postgres -tAc \
     "select (select count(*) from auth.users)||' '||(select count(*) from public.users)||' '||(select count(*) from public.documents)||' '||(select count(*) from public.versions)||' '||(select count(*) from public.local_store_records)") \
     || COUNTS=""
 if ! [[ "$COUNTS" =~ ^[0-9]+( [0-9]+){4}$ ]]; then
-    echo "ПРЕДУПРЕЖДЕНИЕ: не удалось посчитать строки («$COUNTS») — сравнение с прошлой копией пропущено" >&2
+    echo "ПРЕДУПРЕЖДЕНИЕ: не удалось посчитать строки («${COUNTS}») — сравнение с прошлой копией пропущено" >&2
     COUNTS=""
 fi
 

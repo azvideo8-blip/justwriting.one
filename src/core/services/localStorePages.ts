@@ -88,7 +88,7 @@ export type CloudVersion =
  * целиком рядом со страницами без манифеста: побеждает более свежая отметка
  * (запись, упавшая между страницами и строкой, оставляла обе).
  */
-export function selectCloudVersion(rows: CloudRow[]): CloudVersion | null {
+export function selectCloudVersion(rows: CloudRow[], isDialogue = true): CloudVersion | null {
   let single: CloudRow | null = null;
   let manifest: Manifest | null = null;
   const pages: Array<{ row: CloudRow; pageIndex: number; stamp: number | null; nonce: string | null }> = [];
@@ -96,10 +96,12 @@ export function selectCloudVersion(rows: CloudRow[]): CloudVersion | null {
   // за `key` — то есть сегмент всегда идёт последним и молча становился «единственной
   // строкой» диалога: читатель искал в ней `data`, не находил и пропускал диалог
   // на каждом заборе. Сегмент — не версия записи, его называет только head.
-  const recordKey = rows.length > 0 ? headKeyOfRow(parseLocalStoreKey(rows[0]!.key).baseKey) : null;
+  // Для других хранилищ (isDialogue = false) ключ с `@seg` не усекается до head.
+  const headKey = (key: string) => isDialogue ? headKeyOfRow(key) : key;
+  const recordKey = rows.length > 0 ? headKey(parseLocalStoreKey(rows[0]!.key).baseKey) : null;
   for (const row of rows) {
     const parsed = parseLocalStoreKey(row.key);
-    if (headKeyOfRow(parsed.baseKey) !== recordKey) {
+    if (headKey(parsed.baseKey) !== recordKey) {
       return { kind: 'refused', reason: `rows belong to different records: ${recordKey} and ${row.key}` };
     }
     if (parsed.baseKey !== recordKey) continue;
