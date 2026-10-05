@@ -40,11 +40,20 @@ describe('adminDeleteUserLogic', () => {
     const adminRun = statements();
     expect(adminRun[0]).toBe('begin');
     expect(adminRun.at(-1)).toBe('commit');
-    for (const call of clientQuery.mock.calls.slice(1, -1)) expect(call[1]).toEqual([TARGET]);
+    const deleteCalls = clientQuery.mock.calls.filter(c => String(c[0]).startsWith('delete from'));
+    expect(deleteCalls.length).toBeGreaterThan(0);
+    for (const call of deleteCalls) expect(call[1]).toEqual([TARGET]);
+
+    // V-3: в той же транзакции пишется след «кто и кого удалил» (0038).
+    const audit = clientQuery.mock.calls.find(c => String(c[0]).includes('public.admin_actions'));
+    expect(audit).toBeDefined();
+    expect(audit?.[1]).toEqual([ADMIN, 'delete_user', TARGET]);
+    expect(adminRun.indexOf('commit')).toBeGreaterThan(adminRun.indexOf(String(audit?.[0])));
 
     clientQuery.mockClear();
     await deleteAccountLogic(null, TARGET);
-    expect(adminRun).toEqual(statements());
+    expect(statements().filter(s => s.startsWith('delete from')))
+      .toEqual(deleteCalls.map(c => String(c[0])));
     expect(release).toHaveBeenCalled();
   });
 
@@ -65,6 +74,9 @@ describe('adminDeleteUserLogic', () => {
     await expect(adminDeleteUserLogic(ctx, ADMIN, { uid: TARGET })).rejects.toMatchObject({ code: 'invalid-argument' });
     expect(statements()).toContain('rollback');
     expect(statements()).not.toContain('commit');
+    // След пишется только про реальное удаление: иначе в audit была бы
+    // строка про несуществующий аккаунт.
+    expect(statements().some(s => s.includes('public.admin_actions'))).toBe(false);
   });
 
   it('a garbage id is rejected', async () => {

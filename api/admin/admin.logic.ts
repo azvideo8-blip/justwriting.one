@@ -167,6 +167,12 @@ export async function adminDeleteUserLogic(
       await client.query('rollback');
       throw new AiError('invalid-argument', 'Пользователь не найден — возможно, его уже удалили.');
     }
+    // V-3: след живёт в базе, а не только в логе процесса. Пишется в той же
+    // транзакции — либо удалено и записано, либо ничего.
+    await client.query(
+      'insert into public.admin_actions (admin_uid, action, target_uid) values ($1, $2, $3)',
+      [uid, 'delete_user', target],
+    );
     await client.query('commit');
     console.warn(`[admin] user deleted by ${uid}: ${target}`);
     return { success: true };

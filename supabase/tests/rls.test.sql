@@ -1679,6 +1679,95 @@ RESET role;
 RESET request.jwt.claims;
 
 -- ============================================================
+-- V-3 (0038): admin_actions — след админского удаления. Читает только админ
+-- (в наборе это уже заведённый 'Suite Admin' ...04 из раздела 1.1), из клиента
+-- сюда не пишут и не вычёркивают строку.
+-- ============================================================
+RESET role;
+INSERT INTO public.admin_actions (admin_uid, action, target_uid)
+VALUES ('00000000-0000-0000-0000-000000000004', 'delete_user', '00000000-0000-0000-0000-000000000002');
+
+-- Простой человек: ни строчки не видит.
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000002","role":"authenticated"}';
+SET role = 'authenticated';
+
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.admin_actions;
+  IF cnt > 0 THEN
+    RAISE EXCEPTION 'FAIL: V-3: Bob read admin_actions (% rows)', cnt;
+  END IF;
+END $$;
+
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.admin_actions (admin_uid, action, target_uid)
+    VALUES ('00000000-0000-0000-0000-000000000002', 'delete_user', '00000000-0000-0000-0000-000000000001');
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: V-3: Bob inserted into admin_actions';
+  END IF;
+END $$;
+
+-- Стереть или поправить след — тоже не ему.
+DO $$
+DECLARE affected int;
+BEGIN
+  DELETE FROM public.admin_actions;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: V-3: Bob deleted admin_actions (% rows)', affected;
+  END IF;
+
+  UPDATE public.admin_actions SET action = 'nothing';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected > 0 THEN
+    RAISE EXCEPTION 'FAIL: V-3: Bob updated admin_actions (% rows)', affected;
+  END IF;
+END $$;
+
+RESET role;
+RESET request.jwt.claims;
+
+-- Админ: строку видит. Без этого контроля политики были бы просто deny-all.
+SET request.jwt.claims = '{"sub":"00000000-0000-0000-0000-000000000004","role":"authenticated"}';
+SET role = 'authenticated';
+
+DO $$
+DECLARE cnt int;
+BEGIN
+  SELECT count(*) INTO cnt FROM public.admin_actions WHERE target_uid = '00000000-0000-0000-0000-000000000002';
+  IF cnt <> 1 THEN
+    RAISE EXCEPTION 'FAIL: V-3: admin sees % rows in admin_actions, expected 1', cnt;
+  END IF;
+END $$;
+
+DO $$
+DECLARE ok boolean;
+BEGIN
+  BEGIN
+    INSERT INTO public.admin_actions (admin_uid, action, target_uid)
+    VALUES ('00000000-0000-0000-0000-000000000004', 'delete_user', '00000000-0000-0000-0000-000000000001');
+    ok := false;
+  EXCEPTION
+    WHEN insufficient_privilege THEN ok := true;
+  END;
+  IF NOT ok THEN
+    RAISE EXCEPTION 'FAIL: V-3: admin inserted into admin_actions from the client';
+  END IF;
+END $$;
+
+RESET role;
+RESET request.jwt.claims;
+DELETE FROM public.admin_actions;
+
+-- ============================================================
 -- M-19 (R4-034): серверные таблицы без единого права у клиентских ролей.
 -- Deny-all политики их не читают, но право на таблицу оставалось —
 -- 0034 его отзывает. Без её revoke проверка красная: _auth_setup.sql
