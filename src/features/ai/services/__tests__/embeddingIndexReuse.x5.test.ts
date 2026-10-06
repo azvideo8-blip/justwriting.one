@@ -145,4 +145,25 @@ describe('X-5: индекс векторов не перечитывается �
     const afterDelete = await AIEmbeddingService.getAll();
     expect(afterDelete.map(e => e.documentId), 'удалённая запись осталась в индексе').not.toContain('doc_x5_new');
   });
+
+  it('правка заметки в другой вкладке: старый текст больше не отдаётся', async () => {
+    const warm = await AIEmbeddingService.getAll();
+    expect(warm.find(e => e.documentId === 'doc_x5_0')?.chunkTexts?.[0]).toContain('Текст заметки 0');
+
+    // Другая вкладка — свой экземпляр модуля кэша: перевекторизует заметку под тем
+    // же ключом (набор ключей не меняется) и сбрасывает СВОЙ кэш.
+    const db = await getLocalDb();
+    const old = await db.get('aiEmbeddings', 'doc_x5_0');
+    await db.put('aiEmbeddings', { ...old!, chunkTexts: ['Абзац удалён'] });
+    vi.resetModules();
+    const otherTab = await import('../../../../core/services/embeddingIndexCache');
+    otherTab.invalidateEmbeddingIndexCache();
+
+    // Точечное чтение — первым: полный обход перестроил бы кэш и скрыл его промах.
+    expect(await AIEmbeddingService.get('doc_x5_0').then(e => e?.chunkTexts), 'точечное чтение отдаёт удалённый текст')
+      .toEqual(['Абзац удалён']);
+    const after = await AIEmbeddingService.getAll();
+    const texts = after.find(e => e.documentId === 'doc_x5_0')?.chunkTexts ?? [];
+    expect(texts, 'эта вкладка всё ещё отдаёт удалённый текст').toEqual(['Абзац удалён']);
+  });
 });
