@@ -4,6 +4,8 @@ export interface TemporalQuery {
   month?: string | undefined;        // YYYY-MM if type=month
   from?: string | undefined;         // YYYY-MM-DD if type=dateRange
   to?: string | undefined;
+  /** Бытовое название окна («вчера», «на этой неделе») — оно идёт в контекст. */
+  phrase?: string | undefined;
   personName?: string | undefined;   // if type=person
   rawText: string;
 }
@@ -156,6 +158,65 @@ export function parseTemporalQuery(text: string): TemporalQuery {
       type: 'dateRange',
       from: localDayKey(fromDate),
       to: localDayKey(toDate),
+      rawText
+    };
+  }
+
+  // X-4: окно по дням и неделе. Без этого правила «что я писал вчера?»
+  // долетало до catch-up-ветки и получало две недели последних событий вместо
+  // вчерашнего дня. Порядок важен: правило стоит ДО поисковика имён, иначе
+  // «о чём я писал вчера» теряло окно. Хвост слова не ограничивается:
+  // «вчерашний день» — то же вчера.
+  const boundary = '(?:^|[^а-яёА-ЯЁa-zA-Z0-9])';
+  const noTail = '(?![а-яёА-ЯЁa-zA-Z0-9])';
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const dayBeforeYesterday = new Date();
+  dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 2);
+
+  if (new RegExp(`${boundary}(позавчераш|позавчера)`, 'i').test(lowerText)) {
+    return {
+      type: 'dateRange',
+      from: localDayKey(dayBeforeYesterday),
+      to: localDayKey(dayBeforeYesterday),
+      phrase: 'позавчера',
+      rawText
+    };
+  }
+
+  if (new RegExp(`${boundary}(вчераш|вчера)`, 'i').test(lowerText)) {
+    return {
+      type: 'dateRange',
+      from: localDayKey(yesterday),
+      to: localDayKey(yesterday),
+      phrase: 'вчера',
+      rawText
+    };
+  }
+
+  if (new RegExp(`${boundary}(сегодняш|сегодня)`, 'i').test(lowerText)) {
+    const today = new Date();
+    return {
+      type: 'dateRange',
+      from: localDayKey(today),
+      to: localDayKey(today),
+      phrase: 'сегодня',
+      rawText
+    };
+  }
+
+  // «на этой неделе» — от понедельника до сегодня; «на прошлой неделе» уже
+  // разобрано выше и сюда не доходит.
+  if (new RegExp(`${boundary}(?:на\\s+)?этой\\s+нед(еле|ели)${noTail}`, 'i').test(lowerText)) {
+    const today = new Date();
+    const weekday = (today.getDay() + 6) % 7; // понедельник = 0
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - weekday);
+    return {
+      type: 'dateRange',
+      from: localDayKey(monday),
+      to: localDayKey(today),
+      phrase: 'на этой неделе',
       rawText
     };
   }

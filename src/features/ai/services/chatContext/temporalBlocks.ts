@@ -134,7 +134,14 @@ export async function buildTemporalBlocks(
         const dateLabel = e.date ? `[${relativeDate(new Date(e.date).getTime())}]` : '';
         return e.facts.map(f => `${dateLabel} ${f}`);
       }).join('; ');
-      const textBlock = `В период с ${temporalQuery.from} по ${temporalQuery.to}: ${factsStr || 'записи отсутствуют'}. Было ${entries.length} заметок.`;
+      // X-4: окно по бытовому слову («вчера») называется тем же словом, а не
+      // двумя ISO-датами, и пустое окно говорится вслух: иначе модель
+      // додумывает содержание за день, в котором записей не было.
+      const where = temporalQuery.phrase
+        ? `За ${temporalQuery.phrase} (${temporalQuery.from})`
+        : `В период с ${temporalQuery.from} по ${temporalQuery.to}`;
+      const empty = temporalQuery.phrase ? 'записей нет' : 'записи отсутствуют';
+      const textBlock = `${where}: ${factsStr || empty}. Было ${entries.length} заметок.`;
       appends.push(`\n\n[Результаты поиска по хронологии]\n${textBlock}`);
     } catch (e) {
       reportError(e, { action: '[useAIChatContext] temporal query dateRange failed' });

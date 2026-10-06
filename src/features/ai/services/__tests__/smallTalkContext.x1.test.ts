@@ -84,7 +84,9 @@ describe('X-1: светский ход идёт без архива', () => {
     const ctx = await build('что я писал вчера?');
 
     expect(embed).toHaveBeenCalledTimes(1);
-    expect(ctx.searchContext ?? '').toContain('[Хронологическая сводка]');
+    // X-4: у «вчера» своё окно по датам, поэтому блок называется иначе, чем
+    // двухнедельная catch-up-сводка.
+    expect(ctx.searchContext ?? '').toContain('[Результаты поиска по хронологии]');
 
     const long = await build('расскажи, о чём была моя заметка про утренние пробежки');
     expect(long.searchContext ?? '').toContain(NOTE_CHUNK);

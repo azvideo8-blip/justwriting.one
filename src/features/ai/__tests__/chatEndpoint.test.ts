@@ -171,7 +171,9 @@ describe("/api/chat endpoint (Supabase JWT & Postgres AI Context)", () => {
 
     await handleChat(req, resState.res);
     expect(resState.statusCode).toBe(400);
-    expect(resState.getJson()).toEqual({ error: { code: "BAD_REQUEST", message: "BAD_REQUEST" } }) // AUDIT-part3 2;
+    // X-2: у отказа по формулировке реплики свой код: «BAD_REQUEST» клиент
+    // читал как сбой сервиса и предлагал повтор, который не помогает.
+    expect(resState.getJson()).toEqual({ error: { code: "DISALLOWED_PHRASE", message: "DISALLOWED_PHRASE" } }) // AUDIT-part3 2;
     expect(postgresAiContext.refundDailyLimit).toHaveBeenCalledWith("test-user-uid", expect.any(String));
   });
 
