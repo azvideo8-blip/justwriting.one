@@ -11,7 +11,8 @@ import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { looksLikeNoteSearch, shouldRunFullSearch } from '../utils/aiChatTransport';
+import { shouldRunFullSearch } from '../utils/aiChatTransport';
+import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIChatMemoryService } from './AIChatMemoryService';
 import { AIMemoryAssembler, extractDocumentIdsFromText } from './AIMemoryAssembler';
@@ -140,6 +141,12 @@ export function useAIChatContext(personaId: string): {
 
     let turnEmb: number[] | undefined;
     const uid = getCurrentUser()?.uid;
+    // X-1: светский ход («привет», «спасибо», «как дела») не тянет за собой
+    // архив — ни векторизации реплики, ни лайт-поиска, ни проактивного блока.
+    // Порог по персоне считается по `personaId`: в PSYCHE_PERSONAS нет ни
+    // 'custom', ни пресета-не-психа, поэтому поздний `effectivePersonaId` даёт
+    // тот же ответ.
+    const smallTalk = isSmallTalkTurn(text, PSYCHE_PERSONAS.includes(personaId));
     // AUDIT-M5: один текст за ход векторизуется ОДИН раз — повторные вызовы
     // (поисковый запрос === текст реплики) переиспользуют результат.
     const embedOnce = createEmbedOnce({
@@ -150,7 +157,7 @@ export function useAIChatContext(personaId: string): {
     const strictNoteTurn = params.scope === 'note' && !!attached;
     // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
     const crisis = detectRisk(attached ? `${text}\n${attached.content}` : text).isRisk;
-    if (!strictNoteTurn && text.trim().length > 0 && hasIndexingConsent(uid)) {
+    if (!strictNoteTurn && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
       try {
         setAIStage('query');
         const res = await AIService.embed({ content: text });
@@ -299,19 +306,13 @@ export function useAIChatContext(personaId: string): {
         stickyTurnsRef.current -= 1;
       }
 
-      const psychePersonas = ['group_psychology', 'cbt', 'coach', 'parts'];
-      const needsFacets = !attached && !noteIntentNoText && (explicitSearch || stickySearch || psychePersonas.includes(effectivePersonaId));
+      const needsFacets = !attached && !noteIntentNoText && (explicitSearch || stickySearch || PSYCHE_PERSONAS.includes(effectivePersonaId));
       const facetNoteIds = new Set<string>();
 
       let queryEmb: number[] | undefined;
       let allEmbeddings: Awaited<ReturnType<typeof AIEmbeddingService.getAll>> | undefined;
 
-      const wordCount = text.trim().split(/\s+/).length;
-      const isPsyche = psychePersonas.includes(effectivePersonaId);
-      const isTrivial = isPsyche
-        ? (wordCount < 2 && !/[?]/.test(text) && !looksLikeNoteSearch(text))
-        : (wordCount < 4 && !/[?]/.test(text) && !looksLikeNoteSearch(text));
-      const shouldRunFacets = needsFacets && !isTrivial;
+      const shouldRunFacets = needsFacets && !smallTalk;
 
       if (shouldRunFacets) {
         try {
@@ -669,7 +670,7 @@ export function useAIChatContext(personaId: string): {
 
       // Lite retrieval if no full search was performed
       const performedFullSearch = explicitSearch || stickySearch;
-      if (!attached && !performedFullSearch && !noteIntentNoText) {
+      if (!attached && !performedFullSearch && !noteIntentNoText && !smallTalk) {
         const liteBlock = await buildLiteRetrievalBlock({
           turnEmb,
           db,
@@ -761,7 +762,7 @@ export function useAIChatContext(personaId: string): {
     }
 
     // 3. Proactive recent context and dialogue memory
-    const shouldInjectProactive = isFirstTurn && !explicitSearch && !recentContextInjectedRef.current;
+    const shouldInjectProactive = isFirstTurn && !explicitSearch && !smallTalk && !recentContextInjectedRef.current;
     if (shouldInjectProactive) {
       const proactiveBlock = await buildProactiveBlock({ personaId, turnEmb });
       if (proactiveBlock) {

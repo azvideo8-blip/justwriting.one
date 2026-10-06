@@ -56,7 +56,9 @@ describe("D4.18 useAIChatContext Exclusion Gating", () => {
       isFirstTurn: true,
     });
 
-    expect(ctx.searchContext).not.toContain("Секретный текст");
+    // X-1: «Привет» больше не получает проактивного блока, поэтому контекст
+    // здесь пустой — и секрет в нём оказаться не может в принципе.
+    expect(ctx.searchContext ?? "").not.toContain("Секретный текст");
     expect(ctx.injectedDocumentIds).not.toContain(EXCLUDED_ID);
   });
 

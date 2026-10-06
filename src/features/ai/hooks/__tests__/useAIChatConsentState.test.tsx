@@ -31,12 +31,12 @@ vi.mock('../../../../core/auth', () => ({
 const convVisual = { color: '#888', mono: 'E', role: { ru: 'Роль', en: 'Role' } };
 const aiFetchCalls: string[] = [];
 
-function Harness({ onOpenSettings }: { onOpenSettings: () => void }) {
+function Harness({ onOpenSettings, text = 'привет' }: { onOpenSettings: () => void; text?: string | undefined }) {
   const chat = useAIChat(null, 'editor');
   const [returned, setReturned] = useState('none');
   return (
     <>
-      <button type="button" onClick={() => { void chat.sendMessage('привет').then(id => setReturned(id === null ? 'null' : 'id')); }}>send</button>
+      <button type="button" onClick={() => { void chat.sendMessage(text).then(id => setReturned(id === null ? 'null' : 'id')); }}>send</button>
       <span data-testid="returned">{returned}</span>
       <AIChatMessages
         displayMessages={[]}
@@ -75,11 +75,11 @@ function Harness({ onOpenSettings }: { onOpenSettings: () => void }) {
   );
 }
 
-function renderLang(lang: 'ru' | 'en', onOpenSettings: () => void) {
+function renderLang(lang: 'ru' | 'en', onOpenSettings: () => void, text?: string) {
   localStorage.setItem(STORAGE_KEYS.APP_LANGUAGE, lang);
   return render(
     <LanguageProvider>
-      <Harness onOpenSettings={onOpenSettings} />
+      <Harness onOpenSettings={onOpenSettings} text={text} />
     </LanguageProvider>,
   );
 }
@@ -212,7 +212,9 @@ describe('S-31: chat without AI consent', { timeout: 40_000 }, () => {
       if (url.startsWith('/api/')) { aiFetchCalls.push(url); return Promise.reject(new Error('AI_FETCH_RAN')); }
       return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
-    renderLang('ru', () => {});
+    // X-1: «привет» больше не векторизуется, поэтому ход здесь — реплика
+    // достаточной длины: проверяется реакция на 403 от /api/embedDocument.
+    renderLang('ru', () => {}, 'что делать с прокрастинацией вечером');
 
     await act(async () => { screen.getByRole('button', { name: 'send' }).click(); });
     await waitFor(() => {
