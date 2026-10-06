@@ -85,6 +85,8 @@ describe('AUDIT-M1 injection reject refunds the right pool', () => {
     await handleChat(req as unknown as IncomingMessage, res as unknown as ServerResponse);
 
     expect(res.statusCode).toBe(400);
+    // X-2: код в теле — отказ по формулировке, а не «400 вообще».
+    expect(JSON.parse(res.body)).toMatchObject({ error: { code: 'DISALLOWED_PHRASE' } });
     expect(refundDaily).toHaveBeenCalledTimes(1);
     expect(refundDaily).toHaveBeenCalledWith('u_inj', '2026-08-20');
     expect(refundBulk).not.toHaveBeenCalled();

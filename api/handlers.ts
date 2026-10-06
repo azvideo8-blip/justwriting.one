@@ -55,6 +55,9 @@ const CODE_TO_HTTP: Record<string, number> = {
   'resource-exhausted': 429,
   // Согласие не дано — отказ по праву субъекта, а не сбой сервиса.
   'AI_CONSENT_REQUIRED': 403,
+  // X-2: отказ по формулировке реплики — тоже отказ, а не сбой: клиенту нужен
+  // текст «перефразируй», а не обещание повтора.
+  'DISALLOWED_PHRASE': 400,
   'internal': 500,
   'unavailable': 503,
 };

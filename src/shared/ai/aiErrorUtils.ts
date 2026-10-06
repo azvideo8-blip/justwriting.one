@@ -52,6 +52,11 @@ export function aiErrorToText(code: string | undefined | null, opts?: AiErrorToT
       return t
         ? t('ai_indexing_consent_required')
         : 'Для поиска по смыслу требуется согласие на индексацию';
+    // X-2: отказ по формулировке — просьба перефразировать, а не обещание повтора.
+    case 'DISALLOWED_PHRASE':
+      return t
+        ? t('ai_error_disallowed_phrase')
+        : 'Эта формулировка не проходит проверку — перефразируйте, пожалуйста';
     case 'EMPTY_RESPONSE':
       return 'ИИ не ответил — сервис временно недоступен (возможно, исчерпан лимит). Попробуйте позже.';
     case 'UPSTREAM':

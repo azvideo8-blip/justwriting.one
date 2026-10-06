@@ -47,11 +47,13 @@ export function mapAIError(e: unknown): AIErrorCode {
   const status = (e as { status?: number }).status;
   const message = (e as { message?: string }).message ?? '';
   if (code === 'AI_CONSENT_REQUIRED' || message === 'AI_CONSENT_REQUIRED') return 'AI_CONSENT_REQUIRED';
-  if (
-    code === 'INDEXING_CONSENT_REQUIRED' ||
+  if (code === 'INDEXING_CONSENT_REQUIRED' ||
     message === 'INDEXING_CONSENT_REQUIRED' ||
     message.includes('Indexing consent required')
   ) return 'INDEXING_CONSENT_REQUIRED';
+  // X-2: отказ по формулировке реплики. Без этой ветки он падал в общий код, и
+  // человек читал «попробуй позже» там, где повтор никогда не помогает.
+  if (code === 'DISALLOWED_PHRASE' || message === 'DISALLOWED_PHRASE') return 'DISALLOWED_PHRASE';
   // Связь оборвалась, а не сервис сломался. Раньше всё это попадало в
   // SERVER_ERROR и писалось в журнал уровнем error, так что день с отвалившимся
   // прокси выглядел как день с поломанным приложением.

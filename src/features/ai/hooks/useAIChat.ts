@@ -74,6 +74,10 @@ const INTERRUPTED_STREAM_MARKER = '\n\n[ответ не дописан — ст�
 export type ConsentCode = 'AI_CONSENT_REQUIRED' | 'INDEXING_CONSENT_REQUIRED';
 const CONSENT_CODES: readonly ConsentCode[] = ['AI_CONSENT_REQUIRED', 'INDEXING_CONSENT_REQUIRED'];
 const isConsentCode = (msg: string): msg is ConsentCode => (CONSENT_CODES as readonly string[]).includes(msg);
+// X-2: отказ по формулировке реплики — тоже состояние, а не сбой сервиса: повтор
+// той же реплики даёт тот же отказ. Значит — без callable-повтора (вторая трата
+// квоты), без записи в журнал и без «Попробуй позже».
+const DISALLOWED_PHRASE = 'DISALLOWED_PHRASE';
 
 export function sanitizeCitations(text: string, injectedIds: string[]): string {
   const allowed = new Set(injectedIds);
@@ -537,14 +541,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           const errMsg = e instanceof Error ? e.message : '';
           // S-31: нет согласия — не поломка. Гейт бросает до запроса, callable
           // бросил бы тот же код, а в журнале это выглядело как техническая ошибка.
-          if (!isConsentCode(errMsg)) {
+          if (!isConsentCode(errMsg) && errMsg !== DISALLOWED_PHRASE) {
             // A handled fallback, not a failure: the callable path runs next and
             // usually answers. Logged as a warning so a provider hiccup does not
             // sit in the log looking like something broke.
             reportError(e, { action: 'Streaming chat failed, falling back to callable chat' }, 'warning');
           }
           const isUpstream = errMsg === 'UPSTREAM' || errMsg === 'UPSTREAM_ERROR' || errMsg === 'SERVICE_UNAVAILABLE' || errMsg.startsWith('UPSTREAM');
-          if (!isConsentCode(errMsg) && !isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT' && !errMsg.startsWith('RATE_LIMIT:')) {
+          if (!isConsentCode(errMsg) && errMsg !== DISALLOWED_PHRASE && !isUpstream && errMsg !== 'DAILY_LIMIT' && errMsg !== 'AUTH_REQUIRED' && errMsg !== 'GLOBAL_LIMIT' && errMsg !== 'RATE_LIMIT' && !errMsg.startsWith('RATE_LIMIT:')) {
             // #77: streaming already consumed a daily limit slot. The callable
             // fallback consumes another. Accepted by design: the residual case
             // after server-side refund-on-disconnect is a mid-stream network
@@ -751,13 +755,17 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // S-31: согласие показывается отдельной панелью со ссылкой в Настройки,
       // а не красной плашкой «техническая ошибка».
-      if (isConsentCode(rawMsg)) {
+      // X-2: отказ по формулировке идёт тем же путём «состояния, а не сбоя»:
+      // пустой диалог не остаётся, набранное возвращается в поле ввода, а
+      // человек читает просьбу перефразировать.
+      if (isConsentCode(rawMsg) || rawMsg === DISALLOWED_PHRASE) {
         // S-56: отказ сервера по согласию (снято на другом устройстве) приходит
         // уже после создания диалога — пустая запись не остаётся.
         if (createdThisTurn && !turnSaved && turnDialogueId) {
           try { await AIDialogueService.discardEmpty(turnDialogueId); } catch (discardErr) { reportError(discardErr, { action: 'useAIChat_discardEmptyDialogue' }, 'warning'); }
         }
-        setConsentRequired(rawMsg);
+        if (isConsentCode(rawMsg)) setConsentRequired(rawMsg);
+        else setError(aiErrorToText(rawMsg, { t, isLoggedIn: !!getCurrentUser() }));
         return null;
       }
 

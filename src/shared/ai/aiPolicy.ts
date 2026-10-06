@@ -168,7 +168,10 @@ export function assertNoSystemPromptInjection(params: {
   // (тело клиент вырезает, aiChatTransport.toApiContent). «Забудь всё» в
   // заголовке отбивало весь диалог 400-кой.
   if (lastUser && hasInjectionAttempt(lastUser.content.replace(ATTACHED_NOTE_MARKER, ''))) {
-    throw new AiError('invalid-argument', 'Disallowed patterns detected in messages.');
+    // X-2: отдельный код отказа. Клиент по «400 вообще» показывал «Ошибка
+    // сервиса. Попробуй позже.», хотя повтор той же реплики никогда не помогает:
+    // здесь нужен честный «перефразируй», а не обещание повтора.
+    throw new AiError('DISALLOWED_PHRASE', 'Disallowed patterns detected in messages.');
   }
   // История санитизируется у вызывающих: api/chat.ts и api/ai/chatWithAI.logic.ts (providerMessages).
 }

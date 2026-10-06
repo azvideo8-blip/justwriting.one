@@ -505,9 +505,12 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       customSystemPrompt,
       personaId,
     });
-  } catch {
+  } catch (e) {
     await callRes.settle('failed');
-    sendError(res, 400, 'BAD_REQUEST');
+    // X-2: у отказа по формулировке реплики свой код. Общий «BAD_REQUEST» клиент
+    // читал как сбой сервиса и показывал «Попробуй позже», хотя повтор той же
+    // реплики даёт ровно тот же отказ.
+    sendError(res, 400, e instanceof AiError && e.code === 'DISALLOWED_PHRASE' ? 'DISALLOWED_PHRASE' : 'BAD_REQUEST');
     return;
   }
 
