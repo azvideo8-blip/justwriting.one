@@ -88,7 +88,7 @@ describe('X-6: подтверждение скрытия заметки дост
     expect(document.activeElement).toBe(trigger);
 
     const dialog = openConfirm();
-    expect(dialog).toContainElement(document.activeElement);
+    expect(dialog).toContainElement(document.activeElement as HTMLElement | null);
 
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
