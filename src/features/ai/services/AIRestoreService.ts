@@ -33,6 +33,7 @@ import { localDayKey, localMonthKey } from '../../../core/utils/dateUtils';
 import { getPendingAnalysisDeleteKeys } from './pendingAnalysisDeletes';
 import { getCurrentUser } from '../../../core/auth';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
+import { invalidateEmbeddingIndexCache } from '../../../core/services/embeddingIndexCache';
 
 const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
 const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
@@ -529,6 +530,9 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
           if (!alreadyLocal) {
             await db.put('aiEmbeddings', { ...decoded, cloudSyncedAt: Date.now() });
             result.embeddings++;
+            // X-5: индекс построен по старому набору — сбрасываем на любой
+            // привезённой записи.
+            invalidateEmbeddingIndexCache();
           }
         } catch {
           result.failed++;
@@ -683,6 +687,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
         const orphan = candidates.shift()!;
         await db.put('aiEmbeddings', { ...orphan, documentId: doc.id });
         await db.delete('aiEmbeddings', orphan.documentId);
+        invalidateEmbeddingIndexCache();
         if (candidates.length === 0) orphanEmbeddingsByUuid.delete(doc.uuid);
         out.embeddings++;
       }
@@ -721,6 +726,7 @@ export async function reattachOrphanedAnalysis(): Promise<ReattachResult> {
       if (orphan) {
         await db.put('aiEmbeddings', { ...orphan, documentId: doc.id });
         await db.delete('aiEmbeddings', orphan.documentId);
+        invalidateEmbeddingIndexCache();
         orphanEmbeddingsByHash.delete(hash);
         out.embeddings++;
       }

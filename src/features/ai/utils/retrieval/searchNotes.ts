@@ -1,6 +1,7 @@
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
 import { AIService } from '../../services/AIService';
 import { getLocalDb } from '../../../../core/storage/localDb';
+import { loadDocumentSnapshot, loadSummarySnapshot } from './docSnapshot';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { topKMultiWithChunkIndex } from '../vectorSearch';
 import { reportError } from '../../../../shared/errors/reportError';
@@ -196,14 +197,17 @@ export async function searchNotes(
   }
 
   // Build rerank cards from LOCAL summaries
-  const cardsDb = await getLocalDb();
+  // X-5: карточки собираются по снимку хранилищ — точнее читать заметку и
+  // разбор на каждого кандидата (в замерах аудита 40 + 32 обращения за ход).
+  const docsSnap = await loadDocumentSnapshot();
+  const summariesSnap = await loadSummarySnapshot();
   const cards: { documentId: string; card: string }[] = [];
   for (const id of filteredTopIds) {
     let card = '(саммари недоступно)';
     try {
-      const doc = await cardsDb.get('documents', id);
+      const doc = docsSnap.get(id);
       const title = doc?.title || 'Без названия';
-      const summary = await cardsDb.get('aiSummaries', id);
+      const summary = summariesSnap.get(id);
       if (summary?.summary && summary.summary.trim().length >= 80) {
         card = `${title}\n${summary.summary.trim()}`;
       } else {

@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 import { CRISIS_RESOURCES_LINE_RU } from '../../../shared/ai/crisisResources';
 import { getLocalDb } from '../../../core/storage/localDb';
+import type { LocalDocument, AIDocumentSummary } from '../../../core/storage/localDb';
+import { loadDocumentSnapshot, loadSummarySnapshot } from '../utils/retrieval/docSnapshot';
 import { AIProfileService } from './AIProfileService';
 import { AIPersonaService, PRESET_PERSONAS } from './AIPersonaService';
 import { AIProfileFacetService } from './AIProfileFacetService';
@@ -137,6 +139,14 @@ export function useAIChatContext(personaId: string): {
     const { text, attached, mood, isFirstTurn, forcedSearchQuery, attachedIsSticky } = params;
     const injectedDocumentIds: string[] = [];
     const db = await getLocalDb();
+    // X-5: снимки заметок и разборов на один ход. Точечные чтения на каждого
+    // кандидата давали ~100 обращений к IndexedDB за ход. Снимок создаётся
+    // лениво и живёт до конца хода, поэтому права («не показывать ИИ») и
+    // корзина проверяются по записям ЭТОГО хода, а не по вчерашним.
+    let docsSnap: Promise<Map<string, LocalDocument>> | undefined;
+    let summariesSnap: Promise<Map<string, AIDocumentSummary>> | undefined;
+    const docAt = async (id: string) => (await (docsSnap ??= loadDocumentSnapshot())).get(id);
+    const summaryAt = async (id: string) => (await (summariesSnap ??= loadSummarySnapshot())).get(id);
     let degradedDueToDailyLimit = false;
 
     let turnEmb: number[] | undefined;
@@ -500,7 +510,7 @@ export function useAIChatContext(personaId: string): {
             allNotes = notes.length > 0 ? [...notes] : [];
 
             for (const docId of [...extraIds, ...nameIds]) {
-              const doc = await db.get('documents', docId);
+              const doc = await docAt(docId); // X-5
               if (!doc || isExcludedFromAI(doc)) continue;
               const content = await LocalVersionService.getLatestContent(docId);
               if (!content) continue;
@@ -520,7 +530,7 @@ export function useAIChatContext(personaId: string): {
                 const candidates = await Promise.all(allNotes.map(async n => {
                   let cardBody = n.content.slice(0, 400);
                   try {
-                    const sum = await db.get('aiSummaries', n.documentId);
+                    const sum = await summaryAt(n.documentId); // X-5
                     if (sum?.summary && sum.summary.trim().length >= 80) {
                       cardBody = sum.summary.trim();
                     }
@@ -618,7 +628,7 @@ export function useAIChatContext(personaId: string): {
               }
 
               setAIStage('summaries');
-              const noteSummary = await db.get('aiSummaries', n.documentId);
+              const noteSummary = await summaryAt(n.documentId); // X-5
               const summaryPrefix = noteSummary?.summary ? `[Суть: ${noteSummary.summary}]\n` : '';
 
               selectedNotes.push({ note: n, snippet, summaryPrefix });

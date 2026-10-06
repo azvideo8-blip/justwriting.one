@@ -1,5 +1,6 @@
 import { getLocalDb, LocalDocument, randomUUID } from '../storage/localDb';
 import { invalidatePortrait } from '../ai/portraitEpoch';
+import { invalidateEmbeddingIndexCache } from './embeddingIndexCache';
 import { reportError } from '../../shared/errors/reportError';
 import { writeFacetStore } from './facetLock';
 import { LocalStoreSyncService } from './LocalStoreSyncService';
@@ -256,6 +257,8 @@ export const LocalDocumentService = {
         db.delete('aiEmbeddings', documentId).catch(fail),
         db.delete('aiTimeline', documentId).catch(fail),
       ]);
+      // X-5: векторы удалённой заметки не должны остаться в памяти хода.
+      invalidateEmbeddingIndexCache();
       // Облачные копии тех же трёх. Локального удаления мало: восстановление
       // из облака вернуло бы разбор удалённой заметки обратно на устройство.
       LocalStoreSyncService.scheduleStoreDelete('aiTimeline', documentId);

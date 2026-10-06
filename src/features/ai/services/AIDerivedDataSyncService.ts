@@ -11,6 +11,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { canonicalDocumentId } from '../utils/canonicalDocumentId';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { canUploadDerivatives, LOCAL_ONLY_DOCUMENT } from './derivativeUpload';
+import { invalidateEmbeddingIndexCache } from '../../../core/services/embeddingIndexCache';
 
 export interface DerivedSyncProgress {
   phase: 'summaries' | 'embeddings' | 'stores';
@@ -362,6 +363,8 @@ export const AIDerivedDataSyncService = {
     for (const id of survey.embeddings) {
       try { await db.delete('aiEmbeddings', id); embeddings++; } catch { /* намеренно: как выше */ }
     }
+    // X-5: удалённые векторы не должны остаться в памяти хода.
+    if (embeddings > 0) invalidateEmbeddingIndexCache();
     // S-46: облачные хвосты под надгробиями; отказ не считается удалённым.
     const cloud = await deleteCloudTombstoned(userId, survey);
     return { summaries: summaries + cloud.summaries, embeddings: embeddings + cloud.embeddings, failed: cloud.failed };

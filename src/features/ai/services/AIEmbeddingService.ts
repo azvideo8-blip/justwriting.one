@@ -7,6 +7,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { canonicalDocumentId } from '../utils/canonicalDocumentId';
 import { canUploadDerivatives, LOCAL_ONLY_DOCUMENT } from './derivativeUpload';
+import { readEmbeddingIndex, getCachedEmbedding, invalidateEmbeddingIndexCache } from '../../../core/services/embeddingIndexCache';
 
 
 // Gentle pacing between consecutive cloud writes in a bulk sync loop —
@@ -62,6 +63,7 @@ export function markCloudStale(documentId: string): void {
     saveFreshLedger(ledger);
   }
 }
+
 
 export function isOversizedError(msg: string): boolean {
   return /exceeds the maximum allowed size|exceeds.*1,?048,?576|invalid-argument.*size|document.*too large/i.test(msg);
@@ -161,6 +163,7 @@ export async function resolveCanonicalId(emb: { documentId: string; documentUuid
     const existing = await db.get('aiEmbeddings', emb.documentId);
     if (existing) {
       await db.put('aiEmbeddings', { ...existing, documentUuid: canonicalId });
+      invalidateEmbeddingIndexCache();
     }
   } catch { /* ignore */ }
   return canonicalId;
@@ -215,8 +218,14 @@ async function fetchEmbeddingFromCloud(userId: string, documentId: string): Prom
 export const AIEmbeddingService = {
   async get(documentId: string): Promise<AIDocumentEmbedding | undefined> {
     const db = await getLocalDb();
-    const local = await db.get('aiEmbeddings', documentId);
-    if (local) return local;
+    // X-5: пока индекс тёплый, локальное точечное чтение не идёт в IndexedDB —
+    // запись уже в памяти. Промах по кэшу уходит в облачную ветку, как раньше.
+    const cached = getCachedEmbedding(documentId);
+    if (cached) return cached;
+    if (cached === null) {
+      const local = await db.get('aiEmbeddings', documentId);
+      if (local) return local;
+    }
 
     const uid = getCurrentUser()?.uid;
     if (uid) {
@@ -227,6 +236,7 @@ export const AIEmbeddingService = {
         const cloud = await fetchEmbeddingFromCloud(uid, documentId);
         if (cloud) {
           await db.put('aiEmbeddings', cloud);
+          invalidateEmbeddingIndexCache();
           return cloud;
         }
       } catch (e) {
@@ -244,6 +254,7 @@ export const AIEmbeddingService = {
     await db.put('aiEmbeddings', withUuid);
     // Запись обновилась — старая пометка выгрузки больше не действует.
     markCloudStale(emb.documentId);
+    invalidateEmbeddingIndexCache();
 
     const uid = getCurrentUser()?.uid;
     // SEC-8: Background write-time upload respects cloudSyncEnabled switch
@@ -366,8 +377,8 @@ export const AIEmbeddingService = {
   },
 
   async getAll(): Promise<AIDocumentEmbedding[]> {
-    const db = await getLocalDb();
-    return db.getAll('aiEmbeddings');
+    // X-5: индекс в памяти, сверенный с набором ключей стора.
+    return readEmbeddingIndex();
   },
 
   async hasAll(): Promise<Record<string, boolean>> {
@@ -384,5 +395,6 @@ export const AIEmbeddingService = {
     const db = await getLocalDb();
     await db.delete('aiEmbeddings', documentId);
     markCloudStale(documentId);
+    invalidateEmbeddingIndexCache();
   },
 };

@@ -1,5 +1,5 @@
 import { AIEmbeddingService } from '../../services/AIEmbeddingService';
-import { getLocalDb } from '../../../../core/storage/localDb';
+import { loadDocumentSnapshot } from './docSnapshot';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import type { RetrievedNote } from './types';
 import { isExcludedFromAI } from '../isExcludedFromAI';
@@ -41,10 +41,10 @@ export function shouldBoostKeywords(query: string): boolean {
 // TICKET-046: Check for exact title match to bypass rerank
 export function hasExactTitleMatch(query: string, topIds: string[]): Promise<boolean> {
   return (async () => {
-    const db = await getLocalDb();
+    const docs = await loadDocumentSnapshot(); // X-5
     const qLower = query.trim().toLowerCase();
     for (const id of topIds.slice(0, 5)) {
-      const doc = await db.get('documents', id);
+      const doc = docs.get(id);
       if (doc?.title?.trim().toLowerCase() === qLower) return true;
     }
     return false;
@@ -52,11 +52,11 @@ export function hasExactTitleMatch(query: string, topIds: string[]): Promise<boo
 }
 
 export async function getExactTitleMatchIds(query: string, ids: string[]): Promise<Set<string>> {
-  const db = await getLocalDb();
+  const docs = await loadDocumentSnapshot(); // X-5
   const qLower = query.trim().toLowerCase();
   const exactIds = new Set<string>();
   for (const id of ids) {
-    const doc = await db.get('documents', id);
+    const doc = docs.get(id);
     if (doc?.title?.trim().toLowerCase() === qLower) {
       exactIds.add(id);
     }
@@ -79,9 +79,10 @@ export async function loadNotes(
   chunkIndexMap?: Map<string, number>,
 ): Promise<RetrievedNote[]> {
   const results: RetrievedNote[] = [];
-  const db = await getLocalDb();
+  // X-5: один снимок заметок вместо точечного чтения на каждого кандидата.
+  const docs = await loadDocumentSnapshot();
   for (const docId of ids) {
-    const doc = await db.get('documents', docId);
+    const doc = docs.get(docId);
     if (!doc || isExcludedFromAI(doc)) continue;
     const chunkIdx = chunkIndexMap?.get(docId);
 
