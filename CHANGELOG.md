@@ -1,7 +1,19 @@
 # Changelog
 
-## Unreleased — 0.9.31 (в сборке)
+## 0.9.31 — 2026-10-06
 
+- **[RU]** На «привет», «спасибо» или «как дела» ИИ отвечает на сказанное, а не пересказывает последние заметки. Заметки он поднимает, когда о них спрашивают или когда пишешь о себе — короткое «нет сил» или «мама умерла» получает контекст как раньше.
+- **[EN]** On «hi», «thanks» or «how are you» the AI answers what you said instead of retelling your latest notes. It brings notes up when you ask about them or write about yourself — a short «no strength left» still gets the context.
+- **[RU]** «Что я писал вчера?» отвечается по вчерашнему дню и его заметкам, а не по событиям двух недель; «сегодня», «позавчера» и «на этой неделе» — так же, по местным суткам. Рассказ о событии со словом «вчера» окно не сужает.
+- **[EN]** «What did I write yesterday?» is answered from yesterday and its notes, not from two weeks of events; «today», «the day before yesterday» and «this week» work the same, by local days. Mentioning «yesterday» in a story does not narrow the context.
+- **[RU]** Фразы вроде «забудь всё, что я писал, и начни заново» больше не отклоняются как попытка взлома. Если формулировка всё же не проходит проверку, ИИ просит перефразировать, а не обещает «попробовать позже»; набранный текст остаётся в поле.
+- **[EN]** Phrases like «forget everything I wrote and start over» are no longer rejected as an attack. If a wording does fail the check, you are asked to rephrase instead of «try again later»; the typed text stays in the input.
+- **[RU]** Ход диалога с ИИ быстрее: индекс заметок не перечитывается целиком на каждом сообщении. Правка или скрытие заметки в другой вкладке видны сразу.
+- **[EN]** AI dialogue turns are faster: the notes index is no longer re-read in full on every message. Editing or hiding a note in another tab takes effect immediately.
+- **[RU]** Подтверждение «Скрыть эту заметку от ИИ?» — полноценный диалог: экранный диктор его объявляет, фокус переходит внутрь, Escape закрывает, а у кнопки подтверждения своё имя.
+- **[EN]** The «Hide this note from the AI?» confirmation is a proper dialog: screen readers announce it, focus moves inside, Escape closes it, and the confirm button has its own name.
+- **[RU]** Вход по приглашению переживает перезагрузку страницы, а если ссылка открыта в другом браузере, приложение подсказывает, где настройка была начата.
+- **[EN]** Invitation sign-up survives a page reload, and if the link is opened in another browser the app says where the setup was started.
 - **[RU]** Время, проведённое в заметке без интернета, теперь доезжает до облака. Раньше такая сессия не попадала в суммарную длительность, а следующая синхронизация копировала облачное число поверх локального — и потраченное на записях время уменьшалось.
 - **[EN]** Time spent in a note offline now reaches the cloud. Such a session used to be missing from the total duration, and the next sync copied the cloud figure over the local one — so logged writing time went down.
 - **[RU]** Честно о сводном числе слов: это наибольшая длина, которую заметка когда-либо имела, а не её текущая длина. Сокращение облачное число не уменьшает: на другом устройстве реальный счёт появляется только после его собственной правки, а следующий обмен с облаком возвращает прежнюю, бо́льшую отметку.

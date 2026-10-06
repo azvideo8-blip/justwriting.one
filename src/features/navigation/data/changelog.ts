@@ -14,6 +14,21 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.31',
+    date: '2026-10-06',
+    items: [
+      { category: 'improvement', ru: 'На «привет», «спасибо» или «как дела» ИИ отвечает на сказанное, а не пересказывает последние заметки. Заметки он поднимает, когда о них спрашивают или когда пишешь о себе.', en: 'On «hi», «thanks» or «how are you» the AI answers what you said instead of retelling your latest notes. It brings notes up when you ask about them or write about yourself.' },
+      { category: 'improvement', ru: '«Что я писал вчера?» отвечается по вчерашнему дню и его заметкам, а не по событиям двух недель; так же — «сегодня», «позавчера» и «на этой неделе».', en: '«What did I write yesterday?» is answered from yesterday and its notes, not from two weeks of events; the same for «today», «the day before yesterday» and «this week».' },
+      { category: 'improvement', ru: 'Ход диалога с ИИ быстрее: индекс заметок не перечитывается целиком на каждом сообщении.', en: 'AI dialogue turns are faster: the notes index is no longer re-read in full on every message.' },
+      { category: 'improvement', ru: 'Смена темы перекрашивает страницу одним плавным переходом, а появления и переключатели больше не «выпрыгивают» с отскоком.', en: 'Switching the theme crossfades the whole page, and entrances and switches no longer bounce.' },
+      { category: 'accessibility', ru: 'Подтверждение «Скрыть эту заметку от ИИ?» объявляется экранным диктором, принимает фокус и закрывается по Escape.', en: 'The «Hide this note from the AI?» confirmation is announced by screen readers, takes focus and closes with Escape.' },
+      { category: 'fix', ru: 'Фразы вроде «забудь всё, что я писал, и начни заново» больше не отклоняются как попытка взлома; если формулировка не проходит проверку, ИИ просит перефразировать, а набранный текст остаётся.', en: 'Phrases like «forget everything I wrote and start over» are no longer rejected as an attack; if a wording fails the check, you are asked to rephrase and the typed text stays.' },
+      { category: 'fix', ru: 'Время, проведённое в заметке без интернета, доезжает до облака, и суммарное время записей больше не уменьшается после синхронизации.', en: 'Time spent in a note offline now reaches the cloud, and your total writing time no longer drops after a sync.' },
+      { category: 'fix', ru: 'Разборы и диалоги с другого устройства приезжают без задержки, даже если часы устройств расходятся.', en: 'Analyses and dialogues from another device arrive without delay, even when the devices’ clocks differ.' },
+      { category: 'fix', ru: 'Вход по приглашению переживает перезагрузку страницы и подсказывает, в каком браузере настройка была начата.', en: 'Invitation sign-up survives a page reload and tells you which browser the setup was started in.' },
+    ],
+  },
+  {
     version: '0.9.30',
     date: '2026-10-05',
     items: [
