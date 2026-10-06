@@ -1,6 +1,7 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { AIDocumentSummary, AIDocumentEmbedding, AITimelineEntry, AIProfileFacet, AIDialogue } from '../../../core/storage/localDb';
 import { DataProvider } from '../../../core/data';
+import type { LocalStoreRecordRow } from '../../../core/data/types';
 import { mergeDialogues, dialogueFingerprint, isTombstoned } from '../../../core/storage/dialogueMerge';
 import { pageTextOf, parseLocalStoreKey, selectCloudVersion, PAGE_TEXT_FIELDS, type CloudRow } from '../../../core/services/localStorePages';
 import {
@@ -90,11 +91,12 @@ export interface AIRestoreResult {
   skippedLocked: boolean;
   sectionFailed?: boolean;
   /**
-   * Наибольшая отметка строки, реально увидленная в облаке за этот проход.
-   * Курсор инкрементального забора обязан считаться по ней, а не по `Date.now()`:
-   * базовой строке диалога отметку версии ставит сервер (миграция 0037), и на
-   * устройстве с часами вперёд собственные часы оказываются «новее» всего, что
-   * приходит с сервера, — такой читатель перестал бы получать чужие правки совсем.
+   * Наибольшая СЕРВЕРНАЯ отметка строки, реально увидленная в облаке за этот
+   * проход (W-5; `payload.updatedAt` — только у строк без неё). Курсор
+   * инкрементального забора обязан считаться по ней, а не по `Date.now()` и не по
+   * часам устройства-писателя: на устройстве с часами вперёд собственные часы
+   * оказываются «новее» всего, что приходит с сервера, — такой читатель перестал бы
+   * получать чужие правки совсем.
    */
   maxUpdatedAt: number;
 }
@@ -230,6 +232,24 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     // версии — общий с выгрузкой (core/services/localStorePages).
     const grouped = new Map<string, { store: string; baseKey: string; rows: CloudRow[] }>();
 
+    // W-5: курсор живёт серверной отметкой строки (миграция 0037), а не
+    // `payload.updatedAt`: её переписывает сервер только у базовой строки диалога,
+    // в остальных 13 хранилищах это часы устройства-писателя. Курсор, снятый с
+    // таких часов, на устройстве с +2 ч уезжает в будущее, и строка, которую
+    // другое устройство записало через 10 минут по серверному времени, не доезжает
+    // никогда. Второй дефект той же причины: после апгрейда у всех старых строк
+    // `stamped_at` = время миграции, а `payload.updatedAt` старее сохранённого
+    // курсора → курсор не ползёт → весь набор перебирается каждые 2 минуты.
+    // Строка без серверной отметки (её не ставил триггер 0037) по-прежнему
+    // считает курсор часами писателя — и только как базовая строка записи:
+    // отметка осиротевшего окна device-ная, ею задирать курсор нельзя.
+    const noteCursor = (rec: LocalStoreRecordRow, isBaseRow: boolean) => {
+      const t = typeof rec.stamped_at === 'number'
+        ? rec.stamped_at
+        : isBaseRow && typeof rec.payload?.updatedAt === 'number' ? rec.payload.updatedAt : null;
+      if (t !== null && t > result.maxUpdatedAt) result.maxUpdatedAt = t;
+    };
+
     for (const rec of cloudRecords) {
       if (!SUPPORTED_LOCAL_STORES.includes(rec.store as SupportedLocalStoreName)) continue;
       if (!(db.objectStoreNames as unknown as { contains(s: string): boolean }).contains(rec.store)) continue;
@@ -238,6 +258,7 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
       // M-5: сегмент `key@seg…` принадлежит записи `key`, а не себе и не странице.
       // Для остальных хранилищ @seg — обычная часть ключа.
       const baseKey = rec.store === 'aiDialogues' ? headKeyOfRow(pageBase) : pageBase;
+      noteCursor(rec, rec.key === baseKey);
       const groupKey = `${rec.store}:${baseKey}`;
       let grp = grouped.get(groupKey);
       if (!grp) {
@@ -250,16 +271,14 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     // EA-5: запись, облачное удаление которой ещё не дошло, не воскрешаем.
     for (const { store, baseKey, rows } of grouped.values()) {
       if (pendingDeletes.has(`${store}:${baseKey}`)) continue;
-      // Спор копий и курсор забора считаются отметкой БАЗОВОЙ строки, которую
-      // поставил сервер (миграция 0037). Отметку берём не из `rows[0]`, а из строки
-      // с ключом `baseKey`: head живёт именно там, и выбор по индексу молча
-      // зависел бы от порядка сортировки в провайдере. Осиротевшие окна (их
-      // отметки — device-ные) курсор не двигают: они не версия записи.
+      // Спор копий считается отметкой БАЗОВОЙ строки, которую поставил сервер
+      // (миграция 0037). Отметку берём не из `rows[0]`, а из строки с ключом
+      // `baseKey`: head живёт именно там, и выбор по индексу молча зависел бы от
+      // порядка сортировки в провайдере. Курсор забора считается отдельно — W-5.
       const versionRow = rows.find(r => r.key === baseKey);
       const outerTs = typeof versionRow?.payload?.updatedAt === 'number'
         ? (versionRow.payload.updatedAt as number)
         : null;
-      if (outerTs !== null && outerTs > result.maxUpdatedAt) result.maxUpdatedAt = outerTs;
       try {
         let fullJson: string;
         let cloudTs: number | null = null;

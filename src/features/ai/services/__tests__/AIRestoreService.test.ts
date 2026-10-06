@@ -63,8 +63,11 @@ vi.mock('../AIThemeLedgerService', () => ({ enqueuePendingThemeTouch: vi.fn() })
 
 const summaryDocs: Array<{ id: string; data: () => unknown }> = [];
 const embeddingDocs: Array<{ id: string; data: () => unknown }> = [];
-const localStoreRecordsDocs: Array<{ store: string; key: string; payload: Record<string, unknown>; checksum?: string }> = [];
+const localStoreRecordsDocs: Array<{ store: string; key: string; payload: Record<string, unknown>; checksum?: string; stamped_at?: number }> = [];
 const providerCalls: Array<[string, unknown[]]> = [];
+// W-5: последние два факта забора local_store_records — с какой отметки пошли в
+// облако и сколько строк оттуда приехало.
+const lastPull = { since: null as number | null, rowsReturned: -1 };
 
 vi.mock('../../../../core/data', () => ({
   DataProvider: {
@@ -80,7 +83,18 @@ vi.mock('../../../../core/data', () => ({
         readCount: slice.length,
       };
     },
-    getLocalStoreRecords: async (...a: unknown[]) => { providerCalls.push(['localStore', a]); return localStoreRecordsDocs; },
+    getLocalStoreRecords: async (...a: unknown[]) => {
+      providerCalls.push(['localStore', a]);
+      // Как настоящий провайдер (providers/localStore.ts): инкрементальный забор
+      // фильтрует по СЕРВЕРНОЙ отметке строки.
+      const since = typeof a[2] === 'number' ? a[2] : undefined;
+      lastPull.since = since ?? null;
+      const out = since === undefined
+        ? localStoreRecordsDocs
+        : localStoreRecordsDocs.filter(r => r.stamped_at === undefined || r.stamped_at > since);
+      lastPull.rowsReturned = out.length;
+      return out;
+    },
   },
 }));
 
@@ -109,6 +123,7 @@ vi.mock('../AIEmbeddingService', () => ({
 }));
 
 import { restoreAIDataFromCloud, reattachOrphanedAnalysis, requestEmbeddingRestore } from '../AIRestoreService';
+import { nextPullCursor } from '../pullCursor';
 import { reportError } from '../../../../shared/errors/reportError';
 import { logger } from '../../../../shared/errors/logger';
 import { MAX_RESTORE_RECORD_BYTES } from '../../../../core/services/LocalStoreSyncService';
@@ -128,6 +143,10 @@ describe('restoreAIDataFromCloud', () => {
     summaryDocs.length = 0;
     embeddingDocs.length = 0;
     localStoreRecordsDocs.length = 0;
+    lastPull.since = null;
+    lastPull.rowsReturned = -1;
+    lastPull.since = null;
+    lastPull.rowsReturned = -1;
     getSessionKey.mockReturnValue({} as CryptoKey);
     getEncryptionEnabled.mockReturnValue(true);
     // Pulling embeddings is opt-in: the collection costs more read units than a
@@ -377,6 +396,62 @@ describe('restoreAIDataFromCloud', () => {
     const res = await restoreAIDataFromCloud('user_1');
 
     expect(res.maxUpdatedAt, 'осиротевшее окно с device-меткой задёрнуло курсор в будущее').toBe(0);
+  });
+
+  // W-5: часы писателя курсором быть не могут. Два дефекта одного корня: чужая
+  // запись не доезжает никогда, а после апгрейда один и тот же набор перебирается
+  // каждые две минуты.
+  it('устройство с часами в +2 ч не прячет от себя чужую запись через 10 минут', async () => {
+    const HOUR = 3_600_000;
+    const S = 1_777_000_000_000; // серверная отметка моей строки
+    const MY_CLOCK = S + 2 * HOUR;
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait', key: 'skew-mine', stamped_at: S,
+      payload: { data: JSON.stringify({ id: 'skew-mine', updatedAt: MY_CLOCK }), updatedAt: MY_CLOCK },
+    });
+
+    const first = await restoreAIDataFromCloud('user_1', { sinceMs: S - HOUR });
+    expect(first.localStoreRecords).toBe(1);
+    expect(first.maxUpdatedAt, 'курсор прыгнул на часы устройства-писателя').toBe(S);
+    const cursor = nextPullCursor(MY_CLOCK, S - HOUR, first.maxUpdatedAt);
+    expect(cursor, 'после собственного хода курсор уехал в будущее сервера').toBe(S);
+
+    localStoreRecordsDocs.push({
+      store: 'aiPortrait', key: 'skew-theirs', stamped_at: S + 10 * 60_000,
+      payload: {
+        data: JSON.stringify({ id: 'skew-theirs', updatedAt: S + 10 * 60_000 }),
+        updatedAt: S + 10 * 60_000,
+      },
+    });
+    const second = await restoreAIDataFromCloud('user_1', { sinceMs: cursor });
+    expect(lastPull.rowsReturned, 'чужая строка не попала в выборку').toBe(1);
+    expect(second.localStoreRecords).toBe(1);
+    expect(localStore.aiPortrait.get('skew-theirs')).toMatchObject({ id: 'skew-theirs' });
+  });
+
+  it('строки до миграции 0037 двигают курсор за один проход: второй берёт 0 строк', async () => {
+    // Единственный забор после апгрейда: stamped_at у всех строк — время
+    // миграции, payload.updatedAt — дни и месяцы до неё, и он старее сохранённого
+    // курсора. По payload курсор не ползёт вообще.
+    const MIGRATION = 10_000;
+    localStoreRecordsDocs.push(
+      {
+        store: 'aiPortrait', key: 'old-portrait', stamped_at: MIGRATION,
+        payload: { data: JSON.stringify({ id: 'old-portrait', updatedAt: 200 }), updatedAt: 200 },
+      },
+      {
+        store: 'lifeStory', key: 'old-story', stamped_at: MIGRATION,
+        payload: { data: JSON.stringify({ id: 'old-story', updatedAt: 300 }), updatedAt: 300 },
+      },
+    );
+
+    const first = await restoreAIDataFromCloud('user_1', { sinceMs: 9_000 });
+    expect(lastPull.rowsReturned).toBe(2);
+    expect(first.maxUpdatedAt, 'курсор не поднялся на серверную отметку — забор повторяется каждый проход').toBe(MIGRATION);
+
+    const second = await restoreAIDataFromCloud('user_1', { sinceMs: nextPullCursor(Date.now(), 9_000, first.maxUpdatedAt) });
+    expect(lastPull.rowsReturned, 'второй проход снова тащит весь набор').toBe(0);
+    expect(second.localStoreRecords).toBe(0);
   });
 
   // R-1: порядок строк у провайдера — (store, key), а `key@seg…` сортируется сразу
