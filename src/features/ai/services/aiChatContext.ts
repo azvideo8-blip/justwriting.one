@@ -153,10 +153,13 @@ export function useAIChatContext(personaId: string): {
     const uid = getCurrentUser()?.uid;
     // X-1: светский ход («привет», «спасибо», «как дела») не тянет за собой
     // архив — ни векторизации реплики, ни лайт-поиска, ни проактивного блока.
-    // Порог по персоне считается по `personaId`: в PSYCHE_PERSONAS нет ни
-    // 'custom', ни пресета-не-психа, поэтому поздний `effectivePersonaId` даёт
-    // тот же ответ.
-    const smallTalk = isSmallTalkTurn(text, PSYCHE_PERSONAS.includes(personaId));
+    const smallTalk = isSmallTalkTurn(text);
+    // Открывающее «привет» не отнимает блок «недавнего» у первого содержательного
+    // хода: он положен ходу, перед которым были только светские реплики.
+    // messageHistory заканчивается текущим ходом — его не считаем.
+    const priorUserTurns = params.messageHistory.filter(m => m.role === 'user').slice(0, -1);
+    const onlySmallTalkBefore = priorUserTurns.length > 0
+      && priorUserTurns.every(m => typeof m.content === 'string' && isSmallTalkTurn(m.content));
     // AUDIT-M5: один текст за ход векторизуется ОДИН раз — повторные вызовы
     // (поисковый запрос === текст реплики) переиспользуют результат.
     const embedOnce = createEmbedOnce({
@@ -772,7 +775,7 @@ export function useAIChatContext(personaId: string): {
     }
 
     // 3. Proactive recent context and dialogue memory
-    const shouldInjectProactive = isFirstTurn && !explicitSearch && !smallTalk && !recentContextInjectedRef.current;
+    const shouldInjectProactive = (isFirstTurn || onlySmallTalkBefore) && !explicitSearch && !smallTalk && !recentContextInjectedRef.current;
     if (shouldInjectProactive) {
       const proactiveBlock = await buildProactiveBlock({ personaId, turnEmb });
       if (proactiveBlock) {

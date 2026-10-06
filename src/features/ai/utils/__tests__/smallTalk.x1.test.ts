@@ -33,7 +33,7 @@ describe('X-1: isSmallTalkTurn', () => {
     '—',
     '',
   ])('светский: «%s»', (text) => {
-    expect(isSmallTalkTurn(text, false)).toBe(true);
+    expect(isSmallTalkTurn(text)).toBe(true);
   });
 
   it.each([
@@ -54,22 +54,29 @@ describe('X-1: isSmallTalkTurn', () => {
     'объясни разницу между виной и стыдом',
     'хочу научиться ложиться вовремя',
   ])('не светский: «%s»', (text) => {
-    expect(isSmallTalkTurn(text, false)).toBe(false);
+    expect(isSmallTalkTurn(text)).toBe(false);
   });
 
   it('вопрос не спасает от контекста короткой формой', () => {
     // «как дела?» — тот же привет, но правило «любой знак вопроса = не светский»
     // оставлено как было до X-1: промах должен стоить лишних знаков контекста,
     // а не потерянной памяти.
-    expect(isSmallTalkTurn('как дела?', false)).toBe(false);
-    expect(isSmallTalkTurn('привет, как дела?', false)).toBe(false);
+    expect(isSmallTalkTurn('как дела?')).toBe(false);
+    expect(isSmallTalkTurn('привет, как дела?')).toBe(false);
   });
 
-  it('у псих-персон порог длины ниже, а словарь тот же', () => {
-    expect(isSmallTalkTurn('привет', true)).toBe(true);
-    expect(isSmallTalkTurn('расскажи о себе', true)).toBe(true);
-    // Две реплики-слова у терапевта — обычная часть диалога, не светский ход.
-    expect(isSmallTalkTurn('что делать', true)).toBe(false);
-    expect(isSmallTalkTurn('что делать', false)).toBe(true);
+  it.each([
+    // Короткие ходы о беде: прежний порог длины отдавал их как светские.
+    'мама умерла', 'он ушёл', 'не спится', 'нет сил', 'ненавижу себя', 'мы расстались',
+    'меня уволили', 'тяжёлый день', 'грусть', 'паника', 'злюсь', 'всё', 'опять',
+    'почему', '😢', "I'm done", 'что делать',
+  ])('короткое о состоянии — не светский: «%s»', (text) => {
+    expect(isSmallTalkTurn(text)).toBe(false);
+  });
+
+  it('светские фразы складываются: «привет, как дела» и «ок, спасибо, пока»', () => {
+    expect(isSmallTalkTurn('привет, как дела')).toBe(true);
+    expect(isSmallTalkTurn('ок спасибо пока')).toBe(true);
+    expect(isSmallTalkTurn('привет, мама умерла')).toBe(false);
   });
 });

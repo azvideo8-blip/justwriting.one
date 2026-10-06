@@ -13,15 +13,15 @@ import { looksLikeNoteSearch } from './aiChatTransport';
  * Консервативность: всё, что не узнали, — не светский ход.
  */
 
-/** Пресеты, для которых короткий ход — обычная реплика терапевтического
- *  диалога, поэтому порог длины ниже. */
+/** Пресеты-психологи: им фасеты профиля нужны и без явного поиска. */
 export const PSYCHE_PERSONAS = ['group_psychology', 'cbt', 'coach', 'parts'];
 
 // Нормализуем ход до строчки строгих букв/цифр и пробелов: «Привет!» и
-// «привет 👋» — один и тот же ход, «привет, как дела» — уже вопрос о делах.
+// «привет, как дела» — фразы словаря. ё → е, чтобы словарь не двоился.
 function normalize(text: string): string {
   return text
     .toLowerCase()
+    .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
@@ -33,7 +33,7 @@ const SMALL_TALK_PHRASES = new Set([
   'доброе утро', 'добрый день', 'добрый вечер', 'доброй ночи',
   'как дела', 'как ты', 'как ты там', 'как жизнь', 'как настроение', 'как сам', 'что нового', 'что как',
   'расскажи о себе', 'что ты умеешь', 'кто ты', 'ты кто', 'ты тут', 'ты на связи', 'ты здесь',
-  'спасибо', 'спасибки', 'спс', 'пасиб', 'благодарю', 'благодарю тебя', 'большое спасибо',
+  'спасибо', 'спасибо большое', 'спасибки', 'спс', 'пасиб', 'благодарю', 'благодарю тебя', 'большое спасибо',
   'хорошо', 'ладно', 'окей', 'ок', 'ага', 'угу', 'да', 'нет',
   'пока', 'до свидания', 'всего доброго', 'до встречи', 'спокойной ночи',
   // EN
@@ -46,18 +46,29 @@ const SMALL_TALK_PHRASES = new Set([
   'who are you', 'what can you do', 'tell me about yourself', 'are you there',
 ]);
 
-/**
- * Короткий ход о своём состоянии — не светский: «мне плохо», «устал», «страшно».
- * По длине он проходит как тривиальный, а контекста лишается именно тот, кому
- * он нужнее всего. Порог длины оставлен как есть, поэтому порог здесь.
- */
-const STATE_SIGNAL = /(плохо|тяжел|трудно|больно|страшно|тревож|ужасно|устал|вымотан|изм[оо]рен|тоск|одинок|пусто|скучно|стыдно|обидно|раздраж|давит|не могу|не получается|сил нет|плачу|помог|помощ[ью]|cry|sad|anxious|tired|alone|scared|help)/i;
+const MAX_PHRASE_WORDS = 4;
+
+/** Ход целиком собран из фраз словаря: «привет», «привет как дела», «ок спасибо пока». */
+function isComposedOfPhrases(words: string[]): boolean {
+  // ok[i] — первые i слов покрыты фразами словаря.
+  const ok = [true];
+  for (let i = 1; i <= words.length; i++) {
+    ok[i] = false;
+    for (let n = 1; n <= Math.min(MAX_PHRASE_WORDS, i) && !ok[i]; n++) {
+      ok[i] = Boolean(ok[i - n]) && SMALL_TALK_PHRASES.has(words.slice(i - n, i).join(' '));
+    }
+  }
+  return Boolean(ok[words.length]);
+}
 
 /**
- * Светский ли это ход. `psychePersona` опускает порог длины до одной фразы:
- * у псих-персон короткий ход — часть диалога, а не запрос в архив.
+ * Светский ли это ход. Только словарь: короткий ход вне словаря («мама умерла»,
+ * «нет сил», «грусть», «😢») — не светский, сколько бы в нём ни было слов.
+ * Порог длины давал именно этим ходам пустой контекст.
  */
-export function isSmallTalkTurn(text: string, psychePersona = false): boolean {
+export function isSmallTalkTurn(text: string): boolean {
+  // Эмодзи — не пустой ход: «😢» говорит о состоянии. Приветственные — нейтральны.
+  if (/\p{Extended_Pictographic}/u.test(text.replace(/[👋🙂😊🤗]/gu, ''))) return false;
   const normalized = normalize(text);
   // Пустой ход («», «...», «—») искать в архиве не по чему.
   if (!normalized) return true;
@@ -65,8 +76,5 @@ export function isSmallTalkTurn(text: string, psychePersona = false): boolean {
   if (/[?]/.test(text)) return false;
   // Любая заявка на поиск по архиву («вспомни», «про Сашу», «заметк…») — не светский.
   if (looksLikeNoteSearch(text)) return false;
-  if (SMALL_TALK_PHRASES.has(normalized)) return true;
-  if (STATE_SIGNAL.test(normalized)) return false;
-  const words = normalized.split(' ').filter(Boolean).length;
-  return psychePersona ? words < 2 : words < 4;
+  return isComposedOfPhrases(normalized.split(' '));
 }

@@ -97,4 +97,28 @@ describe('X-1: светский ход идёт без архива', () => {
     expect(ctx.searchContext ?? '').toContain('[Что ты писал недавно]');
     expect(ctx.searchContext ?? '').toContain(NOTE_CHUNK);
   });
+
+  it('открывающее «привет» не отнимает «недавнее» у первого содержательного хода', async () => {
+    const { result } = renderHook(() => useAIChatContext('editor'));
+    const text = 'опять поссорилась с мамой, не знаю что делать';
+    const ctx = await result.current.buildContext({
+      text,
+      attached: null,
+      mood: undefined,
+      messageHistory: [
+        { role: 'user', content: 'привет', type: 'chat' },
+        { role: 'assistant', content: 'Привет! Как ты?', type: 'chat' },
+        { role: 'user', content: text, type: 'chat' },
+      ] as never,
+      isFirstTurn: false,
+    });
+    expect(ctx.searchContext ?? '').toContain('[Что ты писал недавно]');
+  });
+
+  it('короткое о беде вне словаря получает контекст: «мама умерла», «нет сил»', async () => {
+    for (const text of ['мама умерла', 'нет сил']) {
+      const ctx = await build(text);
+      expect(ctx.searchContext ?? '', text).toContain('[Что ты писал недавно]');
+    }
+  });
 });
