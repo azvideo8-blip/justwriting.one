@@ -17,6 +17,7 @@ export interface UserStatusItem {
   createdAt: string | null;
   noteCount: number;
   pending: boolean;
+  service: boolean;
 }
 
 export async function inviteUserLogic(
@@ -97,6 +98,7 @@ export async function listUsersWithStatusLogic(
       hasPassword?: boolean | null;
       createdAt: string | Date | null;
       noteCount: number;
+      service: boolean;
     }>(
       `SELECT
          au.id AS uid,
@@ -105,7 +107,8 @@ export async function listUsersWithStatusLogic(
          COALESCE(au.confirmed_at, au.email_confirmed_at) AS "confirmedAt",
          (au.encrypted_password IS NOT NULL AND au.encrypted_password <> '') AS "hasPassword",
          au.created_at AS "createdAt",
-         COALESCE(d.note_count, 0)::int AS "noteCount"
+         COALESCE(d.note_count, 0)::int AS "noteCount",
+         EXISTS (SELECT 1 FROM public.service_accounts sa WHERE sa.uid = au.id) AS "service"
        FROM auth.users au
        LEFT JOIN (
          SELECT user_id, count(*)::int AS note_count
@@ -129,6 +132,7 @@ export async function listUsersWithStatusLogic(
         createdAt: r.createdAt !== null && r.createdAt !== undefined ? new Date(r.createdAt).toISOString() : null,
         noteCount: Number(r.noteCount) || 0,
         pending: !hasPassword,
+        service: Boolean(r.service),
       };
     });
   } catch (err: unknown) {
@@ -158,6 +162,12 @@ export async function adminDeleteUserLogic(
   const target = parsed.data.uid;
   if (target === uid) throw new AiError('invalid-argument', 'Себя удалить отсюда нельзя — для этого есть удаление аккаунта в настройках.');
   if (await ctx.isAdmin(target)) throw new AiError('permission-denied', 'Администратора удалить нельзя.');
+  // 0040: на служебном аккаунте держится проверка входа при выкатке — удалённый,
+  // он откатывает каждую выкатку (2026-10-06).
+  const service = await pool.query('select 1 from public.service_accounts where uid = $1', [target]);
+  if ((service.rowCount ?? 0) > 0) {
+    throw new AiError('permission-denied', 'Служебный аккаунт удалить нельзя — на нём держится проверка выкатки.');
+  }
 
   const client = await pool.connect();
   try {

@@ -75,6 +75,8 @@ export interface AdminUserItem extends UserProfile {
   noteCount?: number | undefined;
   invitedAt?: string | null | undefined;
   confirmedAt?: string | null | undefined;
+  /** 0040: служебный аккаунт (проверка выкатки) — без кнопки «Удалить». */
+  service?: boolean | undefined;
 }
 
 export type AchievementTier = 'common' | 'rare' | 'legendary';

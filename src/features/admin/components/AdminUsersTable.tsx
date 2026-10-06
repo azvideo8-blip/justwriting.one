@@ -65,7 +65,7 @@ export function AdminUsersTable({
                       : 'bg-text-main/10 text-text-main/60',
                   )}
                 >
-                  {u.role || 'user'}
+                  {u.service ? t('admin_role_service') : (u.role || 'user')}
                 </span>
               </td>
               <td className="px-6 py-4">
@@ -109,7 +109,7 @@ export function AdminUsersTable({
                         {t('admin_reset_password_btn')}
                       </button>
                     )}
-                    {onDeleteUser && u.role !== 'admin' && u.uid !== currentUid && (
+                    {onDeleteUser && u.role !== 'admin' && !u.service && u.uid !== currentUid && (
                       <button
                         type="button"
                         onClick={() => onDeleteUser(u)}

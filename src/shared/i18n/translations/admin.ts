@@ -51,6 +51,7 @@ export const adminTranslations: Translations = {
   admin_invite_error: { ru: 'Не удалось пригласить пользователя: {error}', en: 'Failed to invite user: {error}' },
   admin_reset_password_btn: { ru: 'Сброс пароля', en: 'Reset password' },
   admin_delete_user_btn: { ru: 'Удалить', en: 'Delete' },
+  admin_role_service: { ru: 'служебный', en: 'service' },
   admin_delete_user_confirm_title: { ru: 'Удалить пользователя?', en: 'Delete this user?' },
   admin_delete_user_confirm_message: { ru: 'Аккаунт {email} будет удалён вместе со всеми данными в облаке: заметок — {count}, а также диалоги с ИИ и настройки. Отменить это нельзя.', en: 'The account {email} will be deleted with all its cloud data: {count} notes, plus AI dialogues and settings. This cannot be undone.' },
   admin_delete_user_success: { ru: 'Пользователь {email} удалён', en: 'User {email} deleted' },

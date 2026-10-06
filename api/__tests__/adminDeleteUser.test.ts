@@ -5,11 +5,12 @@ import type { postgresAiContext } from '../postgresAiContext';
 // что и самоудаление, — и никогда себя или другого админа.
 const clientQuery = vi.fn();
 const release = vi.fn();
+const poolQuery = vi.fn();
 
 vi.mock('../db', () => ({
   pool: {
     on: vi.fn(),
-    query: vi.fn(),
+    query: poolQuery,
     connect: () => Promise.resolve({ query: clientQuery, release, on: vi.fn(), removeListener: vi.fn() }),
   },
 }));
@@ -20,6 +21,7 @@ const { deleteAccountLogic } = await import('../account');
 const ADMIN = '11111111-1111-4111-8111-111111111111';
 const TARGET = '22222222-2222-4222-8222-222222222222';
 const OTHER_ADMIN = '33333333-3333-4333-8333-333333333333';
+const SERVICE = '55555555-5555-4555-8555-555555555555';
 
 const ctx = {
   isAdmin: vi.fn(async (uid: string) => uid === ADMIN || uid === OTHER_ADMIN),
@@ -33,6 +35,9 @@ describe('adminDeleteUserLogic', () => {
     clientQuery.mockImplementation(async (sql: string) =>
       sql.startsWith('delete from auth.users') ? { rowCount: 1, rows: [] } : { rowCount: 0, rows: [] });
     release.mockClear();
+    poolQuery.mockReset();
+    poolQuery.mockImplementation(async (_sql: string, params?: unknown[]) =>
+      ({ rowCount: params?.[0] === SERVICE ? 1 : 0, rows: [] }));
   });
 
   it('deletes exactly what self-deletion deletes, in one transaction', async () => {
@@ -81,6 +86,12 @@ describe('adminDeleteUserLogic', () => {
 
   it('a garbage id is rejected', async () => {
     await expect(adminDeleteUserLogic(ctx, ADMIN, { uid: "x' or 1=1 --" })).rejects.toMatchObject({ code: 'invalid-argument' });
+    expect(clientQuery).not.toHaveBeenCalled();
+  });
+
+  it('служебный аккаунт (0040) не удаляется — на нём держится проверка выкатки', async () => {
+    await expect(adminDeleteUserLogic(ctx, ADMIN, { uid: SERVICE })).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(String(poolQuery.mock.calls[0]?.[0])).toContain('public.service_accounts');
     expect(clientQuery).not.toHaveBeenCalled();
   });
 });

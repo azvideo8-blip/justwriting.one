@@ -13,6 +13,8 @@ export interface UserStatusItem {
   createdAt: string | null;
   noteCount: number;
   pending: boolean;
+  /** 0040: служебный аккаунт — удалить из админки нельзя. */
+  service?: boolean;
 }
 
 export const AdminUserService = {
@@ -41,6 +43,7 @@ export const AdminUserService = {
               noteCount: s.noteCount,
               invitedAt: s.invitedAt,
               confirmedAt: s.confirmedAt,
+              service: s.service === true,
             };
           }
           return p;

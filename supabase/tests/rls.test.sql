@@ -1829,7 +1829,7 @@ DECLARE
   rol text;
   priv text;
 BEGIN
-  FOREACH tbl IN ARRAY ARRAY['public.applied_migrations', 'public.ai_global_daily', 'public.ai_cooldown'] LOOP
+  FOREACH tbl IN ARRAY ARRAY['public.applied_migrations', 'public.ai_global_daily', 'public.ai_cooldown', 'public.service_accounts'] LOOP
     FOREACH rol IN ARRAY ARRAY['authenticated', 'anon'] LOOP
       FOREACH priv IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
         IF has_table_privilege(rol, tbl, priv) THEN

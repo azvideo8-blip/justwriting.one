@@ -90,4 +90,14 @@ describe('AdminUsersTable', () => {
     fireEvent.click(buttons[0]!);
     expect(onDeleteUser).toHaveBeenCalledWith(expect.objectContaining({ uid: 'uid-1' }));
   });
+
+  it('служебный аккаунт (0040) помечен и без «Удалить»', () => {
+    const users: AdminUserItem[] = [
+      ...sampleUsers,
+      { uid: 'uid-svc', email: 'svc@example.com', nickname: '', role: 'user', pending: false, noteCount: 0, service: true },
+    ];
+    renderWithProviders(<AdminUsersTable users={users} onDeleteUser={vi.fn()} currentUid="uid-3" />);
+    expect(screen.getAllByRole('button', { name: /Удалить/ })).toHaveLength(1);
+    expect(screen.getByText('служебный')).toBeInTheDocument();
+  });
 });

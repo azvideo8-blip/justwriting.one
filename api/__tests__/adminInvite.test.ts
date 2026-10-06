@@ -215,6 +215,7 @@ describe('Admin Invite & User Status Logic', () => {
           createdAt: '2026-09-20T10:00:00.000Z',
           noteCount: 0,
           pending: true,
+          service: false,
         },
         {
           uid: 'u-2',
@@ -224,6 +225,7 @@ describe('Admin Invite & User Status Logic', () => {
           createdAt: '2026-09-10T10:00:00.000Z',
           noteCount: 15,
           pending: false,
+          service: false,
         },
         {
           uid: 'u-3',
@@ -233,6 +235,7 @@ describe('Admin Invite & User Status Logic', () => {
           createdAt: '2026-09-15T10:00:00.000Z',
           noteCount: 0,
           pending: false,
+          service: false,
         },
         {
           uid: 'u-4',
@@ -242,6 +245,7 @@ describe('Admin Invite & User Status Logic', () => {
           createdAt: '2026-09-16T10:00:00.000Z',
           noteCount: 0,
           pending: true,
+          service: false,
         },
       ]);
 
