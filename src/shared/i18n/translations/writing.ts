@@ -176,6 +176,7 @@ export const writingTranslations: Translations = {
   ai_note_include: { ru: 'Разрешить доступ ИИ', en: 'Allow AI access' },
   ai_note_excluded: { ru: 'Скрыто от ИИ', en: 'Hidden from AI' },
   ai_note_exclude_confirm: { ru: 'Скрыть эту заметку от ИИ?', en: 'Hide this note from AI?' },
+  ai_note_exclude_confirm_action: { ru: 'Да, скрыть от ИИ', en: 'Yes, hide it from AI' },
   ai_note_exclude_confirm_hint: { ru: 'Заметка больше не будет использоваться в чате и поиске. Существующий разбор и вектор поиска будут удалены', en: 'This note will no longer be used in chat or search. Existing analysis and search vector will be deleted' },
   ai_note_too_short: { ru: 'Заметка слишком короткая для разбора', en: 'This note is too short to analyse' },
   ai_error_offline: { ru: 'Данная функция работает только при подключении к сети', en: 'This feature only works when connected to the network' },

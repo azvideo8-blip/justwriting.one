@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { useId, useState, type ReactNode } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { useLanguage } from '../../../shared/i18n';
 import { useToast } from '../../../shared/components/Toast';
 import { StorageService } from '../../../core/services/StorageService';
@@ -11,6 +11,7 @@ import { UnlockPrompt } from '../../../app/UnlockPrompt';
 import { EncryptionPasswordModal } from '../../../app/EncryptionPasswordModal';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { Button } from '../../../shared/components/Button';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
 import { cn } from '../../../core/utils/utils';
@@ -86,6 +87,9 @@ export function useNoteStorageActions({
   const { profile } = useAuthStatus();
   const hasEncryption = !!(profile?.encryptionMeta || (profile?.encryptionSalt && profile?.encryptedDataKey));
   const [confirmState, setConfirmState] = useState<StorageConfirmKind>('idle');
+  // X-6: id заголовка — цель aria-labelledby в ModalShell; useId, чтобы две
+  // открытые панели не спорили об один id.
+  const confirmTitleId = useId();
   const [uploading, setUploading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [pendingAction, setPendingAction] = useState<'upload' | 'download' | null>(null);
@@ -291,7 +295,10 @@ export function useNoteStorageActions({
           title: t('ai_note_exclude_confirm'),
           hint: t('ai_note_exclude_confirm_hint'),
           positive: false,
-          confirmLabel: t('ai_note_exclude'),
+          // X-6: имя кнопки подтверждения обязано отличаться от имени той
+          // кнопки, что открыла подтверждение: раньше обе читались как
+          // «Не показывать ИИ», и скринридер не различал «спросить» и «сделать».
+          confirmLabel: t('ai_note_exclude_confirm_action'),
         };
       case 'download-local':
         return {
@@ -306,20 +313,20 @@ export function useNoteStorageActions({
 
   const dialogs = (
     <>
+      {/* X-6: подтверждение живёт в ModalShell — role=dialog, aria-modal,
+          подпись и фокус-трап с возвратом фокуса. Прений оверлей был
+          невидим для скринридеров: читалось только две кнопки с одинаковым
+          именем («Не показывать ИИ»). */}
       <AnimatePresence>
         {confirm !== null && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-[var(--z-critical)] flex items-center justify-center bg-surface-base/60 backdrop-blur-sm"
-            onClick={() => setConfirmState('idle')}
+          <ModalShell
+            open
+            onClose={() => setConfirmState('idle')}
+            labelId={confirmTitleId}
+            z="critical"
           >
-            <motion.div
-              className="bg-surface-card border border-border-subtle rounded-2xl p-5 w-[320px] shadow-lg"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="text-sm font-medium text-text-main mb-2">
+            <div className="mx-auto w-[320px] max-w-full bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-lg">
+              <div id={confirmTitleId} className="text-sm font-medium text-text-main mb-2">
                 {confirm.title}
               </div>
               <div className="text-xs text-text-main/60 mb-4">
@@ -348,8 +355,8 @@ export function useNoteStorageActions({
                   {t('common_cancel')}
                 </Button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </ModalShell>
         )}
       </AnimatePresence>
 

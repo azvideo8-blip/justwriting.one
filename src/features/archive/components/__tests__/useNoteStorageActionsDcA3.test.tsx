@@ -288,7 +288,9 @@ describe('DC-A3 useNoteStorageActions: скрытие от ИИ', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'request-exclusion' }));
     expect(onClick).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'ai_note_exclude' }));
+    // X-6: кнопка подтверждения переименована, чтобы не совпадать с именем
+    // кнопки в строке меню.
+    fireEvent.click(screen.getByRole('button', { name: 'ai_note_exclude_confirm_action' }));
     await waitFor(() => expect(onClick).toHaveBeenCalledTimes(1));
     view.unmount();
 
