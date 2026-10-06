@@ -11,7 +11,9 @@ import { chargeCall, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js
 // ронял запрос TypeError'ом ПОСЛЕ recordUsage (человек платил за мусор),
 // valence:1e999 ломал запись саммари. Фейл схемы идёт через тот же
 // settled/refund-регион, что и фейл JSON.parse.
-const summarySchema = z.object({
+// X-7: схема экспортируется — стендовая заглушка обязана отвечать ей, и это
+// проверяется тестом, а не совпадением двух копий текста.
+export const summarySchema = z.object({
   tone: z.string().max(200),
   frequentWords: z.array(z.string().max(64)).max(10),
   insights: z.array(z.string().max(2_000)).max(12),

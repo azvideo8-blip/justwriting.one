@@ -15,10 +15,14 @@
 //    последнем ходе растягивает стрим (нужно для «забор во время стрима»);
 //  • извлечение памяти — непустой JSON-список единиц;
 //  • суммаризация убеждения — текст убеждения; судья убеждений — JSON-вердикт;
+//  • разбор заметки (X-7) — JSON, проходящий схему summarizeDocument, с цитатой
+//    дословно из текста; без него summarizeDocument отвечал 503, и на стенде не
+//    было конвейера «заметка → разбор → вектор → контекст чата»;
 //  • эмбеддинги — детерминированный вектор размерности клиента.
 //
 // Ключа у заглушки нет: Authorization она не проверяет и никуда не пересылает.
 import http from 'node:http';
+import { chatAnswer, completionContent, lastUser, sleep } from './ai-stub-rules.mjs';
 
 const PORT = Number(process.env.STAND_AI_STUB_PORT ?? 3105);
 const HOST = '127.0.0.1';
@@ -42,45 +46,6 @@ function readBody(req) {
   });
 }
 
-const lastUser = (messages) => String([...messages].reverse().find((m) => m.role === 'user')?.content ?? '').trim();
-const systemOf = (messages) => String(messages.find((m) => m.role === 'system')?.content ?? '');
-
-/** Ответ чата: эхо последнего хода + уникальный хвост. Настоящая модель на
- *  перегенерации даёт другой текст, а AIDialogueService выкидывает из вариантов
- *  повторы — с одинаковым ответом «перегенерация» не создала бы второй вариант,
- *  и стенд не мог бы проверить ни слияние вариантов, ни их перелистывание. */
-let answerSeq = 0;
-
-function chatAnswer(messages) {
-  const asked = lastUser(messages).replace(/\[(slow|memory-delay)\]/g, '').replace(/\s+/g, ' ').slice(-160);
-  return `ответ заглушки на: ${asked} · ${++answerSeq}`;
-}
-
-/** Чем отвечать на non-stream вызов — по системному промпту вызывающей функции. */
-async function completionContent(messages) {
-  const sys = systemOf(messages);
-  if (sys.includes('Извлеки долговременные единицы памяти')) {
-    // Пустой список here = курсор памяти не двигается, и сценарии памяти на
-    // стенде молча не проверяются. Поэтому память всегда непустая.
-    const whole = lastUser(messages);
-    if (whole.includes('[memory-delay]')) {
-      console.warn(`[ai-stub] память: держу ответ ${MEMORY_DELAY_MS} мс (маркер в диалоге)`);
-      await sleep(MEMORY_DELAY_MS);
-    }
-    const asked = whole.replace(/\[CONVERSATION_(START|END)\]/g, '').replace('[memory-delay]', '').replace(/\s+/g, ' ').trim().slice(0, 120);
-    return JSON.stringify([
-      { kind: 'insight', text: `Пользователь обсуждал: ${asked || 'записи стенда'}` },
-      { kind: 'commitment', text: 'Пользователь собирается вернуться к этому позже' },
-    ]);
-  }
-  if (sys.includes('придирчивый AI-Судья')) {
-    return JSON.stringify({ passed: true, reason: 'заглушка стенда: убеждение принято', correctiveHint: '' });
-  }
-  if (sys.includes('сформулировать ОДНО устойчивое смысловое убеждение')) {
-    return 'Заглушка: пользователь внимательно относится к деталям.';
-  }
-  return chatAnswer(messages);
-}
 
 function chunk(id, model, created, delta, finish) {
   return `data: ${JSON.stringify({
@@ -89,7 +54,6 @@ function chunk(id, model, created, delta, finish) {
   })}\n\n`;
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function streamChat(res, id, model, created, text, slow) {
   res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
@@ -166,4 +130,4 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, HOST, () => console.warn(`[ai-stub] http://${HOST}:${PORT}/v1 (память непустая, [slow] растягивает стрим)`));
+server.listen(PORT, HOST, () => console.warn(`[ai-stub] http://${HOST}:${PORT}/v1 (память непустая, разбор заметки по схеме, [slow] растягивает стрим)`));
