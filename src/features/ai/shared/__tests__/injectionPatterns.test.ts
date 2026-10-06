@@ -33,7 +33,7 @@ describe('hasInjectionAttempt', () => {
   });
 
   it('INJECTION_PATTERNS array matches expected count', () => {
-    expect(INJECTION_PATTERNS.length).toBe(23); // X-2: «забудь» разбит на две инструктивные формы
+    expect(INJECTION_PATTERNS.length).toBe(24); // X-2: «забудь» — объект службы, «забудь всё + обращение к модели»
   });
 
   it('catches a homoglyph-spoofed English injection phrase', () => {

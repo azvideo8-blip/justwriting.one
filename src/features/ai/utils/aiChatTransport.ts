@@ -468,6 +468,8 @@ export async function callableChat(params: {
     // S-40: коды согласия — состояние с подсказкой в чате, как и на стриме;
     // иначе прямой callable-путь показывал «техническую ошибку» без маршрута.
     if (result.error === 'AI_CONSENT_REQUIRED' || result.error === 'INDEXING_CONSENT_REQUIRED') throw new Error(result.error);
+    // X-2: отказ проверки формулировки — не «попробуй позже», и на callable-пути тоже.
+    if (result.error === 'DISALLOWED_PHRASE') throw new Error('DISALLOWED_PHRASE');
     throw new Error('SERVER_ERROR');
   }
 

@@ -37,4 +37,9 @@ describe('SB-4: сигнал чата доходит до callable-пути', ()
   it('без отмены обычный отказ остаётся обычным отказом', async () => {
     await expect(callableChat(base)).rejects.toThrow('UPSTREAM');
   });
+
+  it('X-2: отказ проверки формулировки доходит кодом, а не «ошибкой сервера»', async () => {
+    vi.mocked(AIService.chat).mockResolvedValue({ ok: false, error: 'DISALLOWED_PHRASE' } as never);
+    await expect(callableChat(base)).rejects.toThrow('DISALLOWED_PHRASE');
+  });
 });
