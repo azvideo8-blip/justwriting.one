@@ -5,6 +5,7 @@ import { DocumentService } from '../DocumentService';
 import { VersionService } from '../VersionService';
 import { getLocalDb } from '../../storage/localDb';
 import { setEncryptionEnabled, setProfileLoaded } from '../../crypto/cryptoHelpers';
+import { TimeoutError } from '../../../shared/utils/withTimeout';
 
 // W-6 (ревью 0.9.31): онлайн-сохранение пишет ряд версии и только потом обновляет
 // счётчики. Если второй вызов упал, задача встаёт в очередь, дренаж видит ряд уже
@@ -245,5 +246,83 @@ describe('W-6: секунды сессии с упавшим вызовом сч
 
     expect(after).toHaveBeenCalledTimes(2);
     expect(after.mock.calls[1]![2]).toMatchObject({ durationDelta: 60 });
+  });
+});
+
+describe('W-6, ревью 0.9.31: ни двойного счёта, ни потерянных секунд', () => {
+  beforeEach(async () => {
+    vi.restoreAllMocks();
+    setProfileLoaded(USER, true);
+    setEncryptionEnabled(USER, false);
+    localStorage.removeItem('sync_pending_duration');
+    const db = await getLocalDb(USER);
+    for (const s of ['documents', 'versions', 'syncQueue'] as const) await db.clear(s);
+  });
+
+  it('таймаут вызова счётчиков — «не дождались», а не «не легло»: без двойного счёта', async () => {
+    const db = await getLocalDb(USER);
+    await seedEditedDoc(db, 'p1', 'u-p1');
+    let cloudTotal = 100;
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(100, 1) as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions(false));
+    vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession')
+      .mockImplementationOnce(async (_u: string, _id: string, d: { durationDelta: number }) => { cloudTotal += d.durationDelta; throw new TimeoutError('Sync timeout'); })
+      .mockImplementation(async (_u: string, _id: string, d: { durationDelta: number }) => { cloudTotal += d.durationDelta; });
+    await expect(CloudSyncService.addCloudCopy(USER, 'p1')).rejects.toThrow();
+    mockCloudAfterVersionArrived();
+    await CloudSyncService.addCloudCopy(USER, 'p1');
+    expect(cloudTotal).toBe(160);
+  });
+
+  it('версии ушли, правка метаданных упала: их секунды висят долгом', async () => {
+    const db = await getLocalDb(USER);
+    await seedEditedDoc(db, 'p2', 'u-p2');
+    const d = await db.get('documents', 'p2');
+    await db.put('documents', { ...(d as object), metadataDirty: true } as never);
+    let cloudTotal = 100;
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(100, 1) as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions(false));
+    vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
+    vi.spyOn(DocumentService, 'updateMetadata').mockRejectedValueOnce(new Error('503')).mockResolvedValue(undefined as never);
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession')
+      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; });
+    await expect(CloudSyncService.addCloudCopy(USER, 'p2')).rejects.toThrow();
+    mockCloudAfterVersionArrived();
+    await CloudSyncService.addCloudCopy(USER, 'p2');
+    expect(cloudTotal).toBe(160);
+  });
+
+  it('долг и создание облачного ряда заново: долг уже внутри суммы, вторая дельта не идёт', async () => {
+    const db = await getLocalDb(USER);
+    await seedEditedDoc(db, 'p3', 'u-p3');
+    await saveSessionWithFailedCounters('p3');
+    let cloudTotal = 0;
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(null as never);
+    vi.spyOn(DocumentService, 'createDocument').mockImplementation(async (_u: string, p: { totalDuration?: number | undefined }) => { cloudTotal = p.totalDuration ?? 0; return 'cloud_new'; });
+    vi.spyOn(VersionService, 'addVersion').mockResolvedValue('cloud_ver');
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession')
+      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; });
+    await CloudSyncService.addCloudCopy(USER, 'p3');
+    expect(cloudTotal).toBe(160);
+  });
+
+  it('v2 ушла, v3 упала посреди цикла: секунды v2 не теряются', async () => {
+    const db = await getLocalDb(USER);
+    await seedEditedDoc(db, 'p4', 'u-p4');
+    const d = await db.get('documents', 'p4');
+    await db.put('documents', { ...(d as object), currentVersion: 3, totalDuration: 200 } as never);
+    await db.put('versions', verRow('p4', 3, 40, 'ещё текст') as never);
+    let cloudTotal = 100;
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(100, 1) as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions(false));
+    vi.spyOn(VersionService, 'addVersion').mockResolvedValueOnce('v2').mockRejectedValueOnce(new Error('503')).mockResolvedValue('ok');
+    vi.spyOn(DocumentService, 'updateDocumentAfterSession')
+      .mockImplementation(async (_u: string, _id: string, dd: { durationDelta: number }) => { cloudTotal += dd.durationDelta; });
+    await expect(CloudSyncService.addCloudCopy(USER, 'p4')).rejects.toThrow();
+    vi.spyOn(DocumentService, 'getDocumentWithDeleted').mockResolvedValue(cloudRow(100, 2) as never);
+    vi.spyOn(VersionService, 'getVersions').mockResolvedValue(cloudVersions(true));
+    await CloudSyncService.addCloudCopy(USER, 'p4');
+    expect(cloudTotal).toBe(200);
   });
 });

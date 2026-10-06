@@ -12,7 +12,7 @@ import { toDate } from '../utils/dateUtils';
 import { maybeEncrypt, maybeDecrypt, DecryptionError, type VersionEncryptPayload, getEncryptionEnabled } from '../crypto/cryptoHelpers';
 import { getSessionKey } from '../crypto/encrypt';
 import { reportError } from '../../shared/errors/reportError';
-import { withTimeout as withTimeoutBase } from '../../shared/utils/withTimeout';
+import { withTimeout as withTimeoutBase, TimeoutError } from '../../shared/utils/withTimeout';
 
 import { DataProvider } from '../data';
 
@@ -22,6 +22,21 @@ import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { computeWordDelta } from './DiffService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
 import { oweSessionDuration, owedSessionDuration, settleSessionDuration } from './pendingDuration';
+
+/**
+ * W-6, исход упавшей выгрузки. Таймаут вызова счётчиков — «не дождались», а не
+ * «не легло»: сервер мог дельту применить, и досылка её удвоила бы. Такой вызов
+ * считаем прошедшим и гасим отправленный долг.
+ * ponytail: недосчёт при редком таймауте вместо двойного счёта; точный ответ —
+ * ключ идемпотентности в sync_document_stats.
+ * Любая другая ошибка — секунды версий, уже лёгших в облако, висят долгом.
+ */
+function settleOrOweAfterFailure(
+  e: unknown, statsInFlight: boolean, uid: string, docId: string, owed: number, uploaded: number,
+): void {
+  if (statsInFlight && e instanceof TimeoutError) settleSessionDuration(uid, docId, owed);
+  else oweSessionDuration(uid, docId, uploaded);
+}
 import { withDocumentLock } from '../sync/withDocumentLock';
 import { logger } from '../../shared/errors/logger';
 import pLimit from 'p-limit';
@@ -886,6 +901,11 @@ export const CloudSyncService = {
           // уменьшались. Версии, уже лежащие в облаке, в сумму не входят: их
           // приращение ушло той выгрузкой, которая их принесла.
           let uploadedDuration = 0;
+          // W-6: долг прежних упавших вызовов и признак «счётчики уже в пути» —
+          // снаружи try: catch решает по ним, что повиснет долгом.
+          const owed = owedSessionDuration(userId, localDocumentId);
+          let statsInFlight = false;
+          try {
           for (const ver of missing) {
             const idx = localVersions.findIndex(v => v.id === ver.id);
             const prevContent = idx <= 0 ? '' : (localVersions[idx - 1]?.content ?? '');
@@ -968,8 +988,7 @@ export const CloudSyncService = {
           if (metaDoc.currentVersion >= existingDoc.currentVersion) {
             // W-6: к дельте этого прогона добавляем долг прежних упавших вызовов;
             // списываем его только после успеха — наросшее за время полёта остаётся.
-            const owed = owedSessionDuration(userId, localDocumentId);
-            try {
+            statsInFlight = true;
               await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
                 totalWords: metaDoc.totalWords,
                 // V-5: приращение считает сервер (0039); W-2: дельта — длительность
@@ -983,12 +1002,10 @@ export const CloudSyncService = {
                 mood: metaDoc.mood,
               }));
               settleSessionDuration(userId, localDocumentId, owed);
-            } catch (e) {
-              // Ряды уже в облаке (добавлены выше), а счётчики — нет. Без долга
-              // следующий дренаж посчитает их отправленными и потеряет это время.
-              oweSessionDuration(userId, localDocumentId, uploadedDuration);
-              throw e;
-            }
+          }
+          } catch (e) {
+            settleOrOweAfterFailure(e, statsInFlight, userId, localDocumentId, owed, uploadedDuration);
+            throw e;
           }
           const syncdVer = Math.max(metaDoc.currentVersion, existingDoc.currentVersion);
           try {
@@ -1106,7 +1123,15 @@ export const CloudSyncService = {
       // W-2/W-6: длительность, уехавшая в облако ЭТИМ прогоном, и долг прежних
       // упавших вызовов. Нужны вне try: catch обязан оставить висящим ровно то,
       // что в облако легло, но не было посчитано.
+      // В ряд, созданный этим прогоном, createDocument уже положил локальную
+      // сумму — долг внутри неё. Гасим его сразу: досланный дельтой (здесь или
+      // позже, linked-веткой) он удвоил бы время.
+      if (!adoptedCloudRow) {
+        settleSessionDuration(userId, localDocumentId, owedSessionDuration(userId, localDocumentId));
+      }
       let uploadedDuration = 0;
+      let owed = 0;
+      let statsInFlight = false;
       try {
         const sortedVersions = [...versions].sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
         // W-2: при принятом ряде версия могла уехать в облако раньше (и тогда её
@@ -1115,7 +1140,7 @@ export const CloudSyncService = {
         const alreadyInCloud = adoptedCloudRow
           ? new Set((await withTimeout(VersionService.getVersions(userId, cloudId!))).map(v => v.version))
           : null;
-        const owed = owedSessionDuration(userId, localDocumentId);
+        owed = owedSessionDuration(userId, localDocumentId);
         for (let i = 0; i < sortedVersions.length; i++) {
           const ver = sortedVersions[i]!;
           const prevContent = i === 0 ? '' : (sortedVersions[i - 1]?.content ?? '');
@@ -1164,6 +1189,7 @@ export const CloudSyncService = {
           if (alreadyInCloud && !alreadyInCloud.has(ver.version)) uploadedDuration += ver.duration ?? 0;
         }
 
+        statsInFlight = true;
         await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
           totalWords: localDoc.totalWords,
           // V-5: создавая облачный ряд, createDocument уже положил в него
@@ -1183,7 +1209,7 @@ export const CloudSyncService = {
         // W-6: принятому ряду версии уже легли в облако, а их время — нет.
         // В созданном этим прогоном ряду счётчики локальной копии уже внутри
         // строки (createPayload), там uploadedDuration и так нулевой.
-        oweSessionDuration(userId, localDocumentId, uploadedDuration);
+        settleOrOweAfterFailure(e, statsInFlight, userId, localDocumentId, owed, uploadedDuration);
         // AUDIT-MH4: не откатываем частичную выгрузку. Облачный документ уже
         // создан, часть версий залита — удаление стирало бы успешную работу и,
         // если cleanup сам падал, оставляло orphan, который потом скачивался
