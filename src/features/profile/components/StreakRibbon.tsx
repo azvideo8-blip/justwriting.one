@@ -119,7 +119,7 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
               key={i}
               initial={reducedMotion ? false : { scaleY: 0 }}
               animate={{ scaleY: 1 }}
-              transition={{ duration: 0.35, delay: i * 0.02, ease: 'easeOut' }}
+              transition={{ duration: 0.35, delay: i * (0.4 / days.length), ease: 'easeOut' }}
               style={{ flex: 1, height: `${day.hasSession ? heightPct : 20}%`, minHeight: 3, transformOrigin: 'bottom' }}
               role="img" aria-label={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
               title={`${day.date.toLocaleDateString(language)} — ${day.words} ${t('writing_words')}`}
