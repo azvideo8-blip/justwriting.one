@@ -8,6 +8,10 @@
 - **[EN]** About the word total: it is the largest length the note has ever had, not its current length. Shortening a note does not lower the cloud figure — another device shows the real count only after its own edit, and the next sync brings the larger, high-water number back.
 - **[RU]** Правки с другого устройства приезжают без задержки, даже если часы того устройства отстают. Раньше запись, сделанная на таких часах, становилась видима остальным устройствам только спустя столько времени, насколько часы отстают.
 - **[EN]** Edits from another device now arrive without delay even when that device's clock is behind. Previously a note written on such a clock stayed invisible to the other devices for as long as the clock lagged.
+- **[RU]** Смена темы перекрашивает страницу одним плавным переходом. Раньше фон и текст утекали за 300 мс, а карточки, границы, сайдбар и градиент щёлкали сразу; теперь вся страница перетекает вместе за ту же треть секунды. Если в системе включено «уменьшить движение», перехода нет.
+- **[EN]** Switching the theme now crossfades the whole page. The background and text used to drift for 300 ms while cards, borders, the sidebar and the gradient snapped; they all change together over the same third of a second. With reduce motion on, there is no transition.
+- **[RU]** Появление без пружинного перелёта: тост о достигнутой цели и семь точек серии в финальном окне доезжают до своего размера плавно, а не выпрыгивают за него; волна столбиков на ленте серии укладывается в 0,4 с.
+- **[EN]** Entrances no longer overshoot: the goal-reached toast and the seven streak dots in the finish modal settle smoothly instead of popping past their size, and the streak ribbon's bar wave now completes within 0.4 s.
 
 ## 0.9.30 — 2026-10-05
 
