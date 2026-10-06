@@ -188,7 +188,23 @@
   }
 
   body {
-    @apply bg-surface-base text-text-main antialiased transition-colors duration-300;
+    @apply bg-surface-base text-text-main antialiased;
+  }
+
+  /* MO-1: смена темы — один кроссфейд всей страницы (View Transitions).
+   * transition-colors у body убран: с ним фон уезжал с задержкой, а карточки,
+   * границы и градиент ThemeBackground щёлкали на месте. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 300ms;
+    animation-timing-function: ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation: none;
+    }
   }
 
   /* Focus visible — keyboard navigation indicator */

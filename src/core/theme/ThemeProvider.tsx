@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { z } from 'zod';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../../shared/constants/storageKeys';
@@ -75,18 +76,34 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       ? (systemPrefersDark ? DARK_THEME : LIGHT_THEME)
       : themeId;
 
-  useEffect(() => {
+  // useLayoutEffect, не useEffect: переключение темы идёт через View Transitions,
+  // и снимок «после» берётся, когда колбэк уже вернулся. Пассивный эффект доехал бы
+  // до класса позже — браузер сделал бы кроссфейд old→old и потом щёлкнул.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     Object.values(THEMES).forEach(t => root.classList.remove(t.cssClass));
     root.classList.add(THEMES[resolvedThemeId].cssClass);
   }, [resolvedThemeId]);
 
+  const setThemeIdWithTransition = useCallback((id: ThemeId) => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (typeof document.startViewTransition !== 'function' || reducedMotion) {
+      setThemeId(id);
+      return;
+    }
+    // Снимок «до» берётся на входе в startViewTransition, поэтому setState
+    // обязан синхронно перекоммитить всё дерево до возврата из колбэка.
+    document.startViewTransition(() => {
+      flushSync(() => setThemeId(id));
+    });
+  }, [setThemeId]);
+
   const contextValue = useMemo(() => ({
     themeId,
-    setThemeId,
+    setThemeId: setThemeIdWithTransition,
     themes: THEMES,
     resolvedThemeId,
-  }), [themeId, setThemeId, resolvedThemeId]);
+  }), [themeId, setThemeIdWithTransition, resolvedThemeId]);
 
   return (
     <ThemeContext.Provider value={contextValue}>
