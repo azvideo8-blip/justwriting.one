@@ -21,6 +21,7 @@ import { ConflictResolver } from './ConflictResolver';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { computeWordDelta } from './DiffService';
 import { comparableOrUnknown } from '../sync/comparableOrUnknown';
+import { oweSessionDuration, owedSessionDuration, settleSessionDuration } from './pendingDuration';
 import { withDocumentLock } from '../sync/withDocumentLock';
 import { logger } from '../../shared/errors/logger';
 import pLimit from 'p-limit';
@@ -965,18 +966,29 @@ export const CloudSyncService = {
             );
           }
           if (metaDoc.currentVersion >= existingDoc.currentVersion) {
-            await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
-              totalWords: metaDoc.totalWords,
-              // V-5: приращение считает сервер (0039); W-2: дельта — длительность
-              // версий, уехавших в облако этим прогоном. Нулевая дельта означала
-              // бы, что сессии, сохранённые офлайн, в облачном total_duration не
-              // появляются никогда.
-              durationDelta: uploadedDuration,
-              currentVersion: metaDoc.currentVersion,
-              sessionsCount: metaDoc.sessionsCount,
-              lastSessionAt: metaDoc.lastSessionAt ? new Date(metaDoc.lastSessionAt) : undefined,
-              mood: metaDoc.mood,
-            }));
+            // W-6: к дельте этого прогона добавляем долг прежних упавших вызовов;
+            // списываем его только после успеха — наросшее за время полёта остаётся.
+            const owed = owedSessionDuration(userId, localDocumentId);
+            try {
+              await withTimeout(DocumentService.updateDocumentAfterSession(userId, cloudId, {
+                totalWords: metaDoc.totalWords,
+                // V-5: приращение считает сервер (0039); W-2: дельта — длительность
+                // версий, уехавших в облако этим прогоном. Нулевая дельта означала
+                // бы, что сессии, сохранённые офлайн, в облачном total_duration не
+                // появляются никогда.
+                durationDelta: uploadedDuration + owed,
+                currentVersion: metaDoc.currentVersion,
+                sessionsCount: metaDoc.sessionsCount,
+                lastSessionAt: metaDoc.lastSessionAt ? new Date(metaDoc.lastSessionAt) : undefined,
+                mood: metaDoc.mood,
+              }));
+              settleSessionDuration(userId, localDocumentId, owed);
+            } catch (e) {
+              // Ряды уже в облаке (добавлены выше), а счётчики — нет. Без долга
+              // следующий дренаж посчитает их отправленными и потеряет это время.
+              oweSessionDuration(userId, localDocumentId, uploadedDuration);
+              throw e;
+            }
           }
           const syncdVer = Math.max(metaDoc.currentVersion, existingDoc.currentVersion);
           try {
@@ -1091,6 +1103,10 @@ export const CloudSyncService = {
         }
       }
 
+      // W-2/W-6: длительность, уехавшая в облако ЭТИМ прогоном, и долг прежних
+      // упавших вызовов. Нужны вне try: catch обязан оставить висящим ровно то,
+      // что в облако легло, но не было посчитано.
+      let uploadedDuration = 0;
       try {
         const sortedVersions = [...versions].sort((a, b) => (a.version ?? 0) - (b.version ?? 0));
         // W-2: при принятом ряде версия могла уехать в облако раньше (и тогда её
@@ -1099,7 +1115,7 @@ export const CloudSyncService = {
         const alreadyInCloud = adoptedCloudRow
           ? new Set((await withTimeout(VersionService.getVersions(userId, cloudId!))).map(v => v.version))
           : null;
-        let uploadedDuration = 0;
+        const owed = owedSessionDuration(userId, localDocumentId);
         for (let i = 0; i < sortedVersions.length; i++) {
           const ver = sortedVersions[i]!;
           const prevContent = i === 0 ? '' : (sortedVersions[i - 1]?.content ?? '');
@@ -1155,13 +1171,19 @@ export const CloudSyncService = {
           // приращение нулевое — иначе первая синхронизация удвоила бы время.
           // W-2: принятому ряду (23505 по uuid) createDocument не писал ничего —
           // дельта равна длительности версий, которых в облаке до этого не было.
-          durationDelta: uploadedDuration,
+          // W-6: плюс долг прежних упавших вызовов, списывается только после успеха.
+          durationDelta: uploadedDuration + owed,
           currentVersion: localDoc.currentVersion,
           sessionsCount: localDoc.sessionsCount,
           lastSessionAt: localDoc.lastSessionAt ? new Date(localDoc.lastSessionAt) : undefined,
           mood: localDoc.mood,
         }));
+        settleSessionDuration(userId, localDocumentId, owed);
       } catch (e) {
+        // W-6: принятому ряду версии уже легли в облако, а их время — нет.
+        // В созданном этим прогоном ряду счётчики локальной копии уже внутри
+        // строки (createPayload), там uploadedDuration и так нулевой.
+        oweSessionDuration(userId, localDocumentId, uploadedDuration);
         // AUDIT-MH4: не откатываем частичную выгрузку. Облачный документ уже
         // создан, часть версий залита — удаление стирало бы успешную работу и,
         // если cleanup сам падал, оставляло orphan, который потом скачивался
@@ -1439,14 +1461,21 @@ export const CloudSyncService = {
       }
 
 
-      await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
-        totalWords: data.documentWordCount ?? data.wordCount,
-        // V-5: дельта — длительность ИМЕННО этой сессии (documentDuration —
-        // абсолют, он уже лежит в локальной копии и в созданном облачном ряде).
-        durationDelta: data.duration,
-        currentVersion: newVersion,
-        mood: data.mood,
-      });
+      try {
+        await DocumentService.updateDocumentAfterSession(userId, linkedCloudId, {
+          totalWords: data.documentWordCount ?? data.wordCount,
+          // V-5: дельта — длительность ИМЕННО этой сессии (documentDuration —
+          // абсолют, он уже лежит в локальной копии и в созданном облачном ряде).
+          durationDelta: data.duration,
+          currentVersion: newVersion,
+          mood: data.mood,
+        });
+      } catch (e) {
+        // W-6: ряд версии в облаке уже лежит, а её секунды — нет. Задача встанет
+        // в очередь, дренаж увидит ряд отправленным и принёс бы дельту 0.
+        oweSessionDuration(userId, documentId, data.duration);
+        throw e;
+      }
 
       // N2-2 (тот же случай на пути сохранения): в заметку, которую другое
       // устройство положило в корзину, здесь только что дописали — возвращаем.
