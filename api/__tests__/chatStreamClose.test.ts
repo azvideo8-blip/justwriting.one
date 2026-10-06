@@ -54,6 +54,7 @@ vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: { signal?: AbortSignal
 }));
 
 import { handleChat, STREAM_BROKEN_NOTE } from '../chat';
+import { buildChatSystemPrompt, assembleChatPromptParams } from '../../src/shared/ai/buildChatPrompt.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 class FakeReq extends EventEmitter {
@@ -445,11 +446,14 @@ describe('3.8 stream disconnect', () => {
     expect(refundDaily).not.toHaveBeenCalled();
     expect(refundGlobal).not.toHaveBeenCalled();
     // FU-1 & FU-4: Reconcile unconsumed reservation on abort mid-stream.
-    // FU-4 accounts for prompt input tokens spent before upstream produced chunks (20 tokens).
+    // X-3: ценой хода считается собранный сервером промпт, а не 60 символов
+    // запроса: прежние «20 токена» были ровно той недооценкой входа.
+    const system = buildChatSystemPrompt(assembleChatPromptParams(plainChatBody as never));
+    const expectedInput = Math.ceil((system.length + plainChatBody.messages[0]!.content.length) / 3);
     expect(recordUsage).toHaveBeenCalledTimes(1);
     expect(recordUsage).toHaveBeenCalledWith(
       'u_stream',
-      20,
+      expectedInput,
       Math.ceil(400 / 3),
       expect.objectContaining({ fn: 'chat-stream-abort' }),
       expect.objectContaining({ allowance: 8192 }),

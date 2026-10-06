@@ -4,7 +4,7 @@ import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
-import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage } from '../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, REASONING_LANGUAGE_RULE } from '../src/shared/ai/buildChatPrompt.js';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
@@ -478,10 +478,26 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // Составная квота: allowance = maxOutputTokens + inputEstimate.
   // inputEstimate сохраняется в резервации, чтобы при abort вернуть неизрасходованный остаток,
   // честно списав реально потраченные провайдером входные токены.
+  // X-3: считается ровно тот текст, что уйдёт провайдеру. Системный промпт
+  // собирает сервер (персона + guard'ы + «недавнее» в блоках), поэтому он
+  // оценивается собранным, а не по полям запроса: ход «привет» резервировал
+  // ~1 065 токена против 2 997 списанных, то есть глобальный котёл недооценивался
+  // втрое. Заметка, портрет и память уже внутри этого промпта — отдельно их не
+  // считаем, иначе резерв удваивается.
+  const { personaId, customSystemPrompt, messages, reasoning } = parsed.data;
+  // DUP-2: Single shared prompt options builder.
+  const basePromptParams = assembleChatPromptParams(parsed.data);
+  const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
+  const systemPrompt = isInternalCall
+    ? (customSystemPrompt ? `${INTERNAL_SYSTEM_PROMPT}\n\n${customSystemPrompt}` : INTERNAL_SYSTEM_PROMPT)
+    : buildChatSystemPrompt({
+        ...basePromptParams,
+        // «без хода мысли» относится только к пути с выключенным рассуждением.
+        reasoning: reasoning === true,
+      });
   const inputEstimate = estimateInputTokens([
+    reasoning === true ? `${systemPrompt}\n\n${REASONING_LANGUAGE_RULE}` : systemPrompt,
     ...parsed.data.messages.map(m => m.content),
-    parsed.data.documentContent, parsed.data.memoryContext,
-    parsed.data.userPortrait, parsed.data.customSystemPrompt,
   ]);
   const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens + inputEstimate);
   if (reservation && 'error' in reservation) {
@@ -495,8 +511,6 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
   callRes.attachGlobalReservation(reservation, inputEstimate);
-
-  const { personaId, customSystemPrompt, messages, reasoning } = parsed.data;
 
   // Injection guards (AUDIT-MH8: direct instructions only; note-derived fields are fenced and sanitized)
   try {
@@ -518,29 +532,16 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
 
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
-  // DUP-2: Single shared prompt options builder.
-  const basePromptParams = assembleChatPromptParams(parsed.data);
-
   if (reasoning) {
     // AG-MEM-1: reasoning is provider-side (`reasoning: { effort: CHAT_REASONING_EFFORT }`
     // in streamOpenRouterReasoning). reasoning: true keeps the «без хода мысли»
     // line out of this prompt — that line is for the reasoning-off path only.
-    const baseReasoningSystem = buildChatSystemPrompt({
-      ...basePromptParams,
-      reasoning: true,
-    });
-    const { system: reasoningSystem, messages: reasoningMessages } = withReasoningLanguage(baseReasoningSystem, providerMessages);
+    // X-3: сам промпт собран до резерва (с `reasoning: true`), здесь лишь
+    // правило о языке рассуждений.
+    const { system: reasoningSystem, messages: reasoningMessages } = withReasoningLanguage(systemPrompt, providerMessages);
     await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation, chargedDay, inputEstimate);
     return;
   }
-
-  const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
-  const systemPrompt = isInternalCall
-    ? (customSystemPrompt ? `${INTERNAL_SYSTEM_PROMPT}\n\n${customSystemPrompt}` : INTERNAL_SYSTEM_PROMPT)
-    : buildChatSystemPrompt({
-        ...basePromptParams,
-        reasoning: false,
-      });
 
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, inputEstimate, 'chat');
   const controller = new AbortController();

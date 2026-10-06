@@ -2,7 +2,7 @@
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation } from '../../src/shared/ai/aiPolicy.js';
 import { generate } from './provider';
-import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage } from '../../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, REASONING_LANGUAGE_RULE } from '../../src/shared/ai/buildChatPrompt.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = chatInputSchema;
@@ -14,7 +14,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     throw new AiError('invalid-argument', 'Invalid payload.');
   }
 
-  const { personaId, customSystemPrompt, messages, documentContent, userPortrait, memoryContext, reasoning } = parsed.data;
+  const { personaId, customSystemPrompt, messages, documentContent, userPortrait, reasoning } = parsed.data;
 
   let isInternalCall = false;
   try {
@@ -46,11 +46,22 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   const callRes = await acquireChatReservation(ctx, uid, isInternalCall, reasoning === true);
 
   const maxTokens = getMaxTokens(isInternalCall, reasoning, parsed.data.callType);
+
+  // DUP-2: Single shared prompt assembly
+  const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
+  const systemInstruction = isInternalCall
+    ? (customSystemPrompt ? `${INTERNAL_SYSTEM_PROMPT}\n\n${customSystemPrompt}` : INTERNAL_SYSTEM_PROMPT)
+    : buildChatSystemPrompt(assembleChatPromptParams(parsed.data));
+
   // AUD-19 & FU-4: вход тоже резервируется — см. api/chat.ts.
   // Составная квота: allowance = maxTokens + inputEstimate.
+  // X-3: оценивается ровно тот текст, что уйдёт провайдеру: собранный сервером
+  // системный промпт (в нём уже лежат заметка, портрет, память и guard'ы) плюс
+  // реплики хода. До правки системный промпт в оценку не попадал вовсе, и ход
+  // «привет» резервировал ~1 065 токена против ~3 000 списанных.
   const inputEstimate = estimateInputTokens([
+    reasoning === true ? `${systemInstruction}\n\n${REASONING_LANGUAGE_RULE}` : systemInstruction,
     ...messages.map(m => m.content),
-    documentContent, userPortrait, memoryContext, customSystemPrompt,
   ]);
   const reservation = await ctx.tryReserveGlobalRequest(maxTokens + inputEstimate);
   if (reservation && 'error' in reservation) {
@@ -62,12 +73,6 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
   callRes.attachGlobalReservation(reservation, inputEstimate);
-
-  // DUP-2: Single shared prompt assembly
-  const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
-  const systemInstruction = isInternalCall
-    ? (customSystemPrompt ? `${INTERNAL_SYSTEM_PROMPT}\n\n${customSystemPrompt}` : INTERNAL_SYSTEM_PROMPT)
-    : buildChatSystemPrompt(assembleChatPromptParams(parsed.data));
 
   const providerMessages = messages.map(m => ({
     role: m.role,
