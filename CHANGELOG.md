@@ -10,8 +10,8 @@
 - **[EN]** Edits from another device now arrive without delay even when that device's clock is behind. Previously a note written on such a clock stayed invisible to the other devices for as long as the clock lagged.
 - **[RU]** Смена темы перекрашивает страницу одним плавным переходом. Раньше фон и текст утекали за 300 мс, а карточки, границы, сайдбар и градиент щёлкали сразу; теперь вся страница перетекает вместе за ту же треть секунды. Если в системе включено «уменьшить движение», перехода нет.
 - **[EN]** Switching the theme now crossfades the whole page. The background and text used to drift for 300 ms while cards, borders, the sidebar and the gradient snapped; they all change together over the same third of a second. With reduce motion on, there is no transition.
-- **[RU]** Появление без пружинного перелёта: тост о достигнутой цели и семь точек серии в финальном окне доезжают до своего размера плавно, а не выпрыгивают за него; волна столбиков на ленте серии укладывается в 0,4 с.
-- **[EN]** Entrances no longer overshoot: the goal-reached toast and the seven streak dots in the finish modal settle smoothly instead of popping past their size, and the streak ribbon's bar wave now completes within 0.4 s.
+- **[RU]** Появление без пружинного перелёта: тост о достигнутой цели и семь точек серии в финальном окне доезжают до своего размера плавно, а не выпрыгивают за него; так же, без отскока, ходят ползунок переключателя и плитки статистики в профиле при наведении; волна столбиков на ленте серии укладывается в 0,4 с.
+- **[EN]** Entrances no longer overshoot: the goal-reached toast and the seven streak dots in the finish modal settle smoothly instead of popping past their size, the switch knob and the profile stat tiles on hover move without a bounce, and the streak ribbon's bar wave now completes within 0.4 s.
 
 ## 0.9.30 — 2026-10-05
 

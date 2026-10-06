@@ -28,7 +28,7 @@ export function Toggle({ checked, onChange, disabled, className, ariaLabel }: To
     >
       <motion.div
         animate={{ x: checked ? 24 : 0 }}
-        transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 30 }}
+        transition={reducedMotion ? { duration: 0 } : { duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
         className={cn(
           "w-4 h-4 rounded-full shadow-sm",
           checked ? "bg-surface-base" : "bg-text-main/70"

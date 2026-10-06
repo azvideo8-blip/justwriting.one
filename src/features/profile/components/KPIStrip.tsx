@@ -36,7 +36,7 @@ export function KPIStrip({ stats }: { stats: KPIStats }) {
         <motion.div
           key={i}
           whileHover={{ y: -2, scale: 1.02 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+          transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
           className="p-4 px-5 bg-[var(--surface-card)] cursor-default"
         >
           <div className="flex items-center gap-2 mb-2">
