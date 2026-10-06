@@ -123,7 +123,7 @@ vi.mock('../AIEmbeddingService', () => ({
 }));
 
 import { restoreAIDataFromCloud, reattachOrphanedAnalysis, requestEmbeddingRestore } from '../AIRestoreService';
-import { nextPullCursor } from '../pullCursor';
+import { nextPullCursor, pullSince } from '../pullCursor';
 import { reportError } from '../../../../shared/errors/reportError';
 import { logger } from '../../../../shared/errors/logger';
 import { MAX_RESTORE_RECORD_BYTES } from '../../../../core/services/LocalStoreSyncService';
@@ -452,6 +452,26 @@ describe('restoreAIDataFromCloud', () => {
     const second = await restoreAIDataFromCloud('user_1', { sinceMs: nextPullCursor(Date.now(), 9_000, first.maxUpdatedAt) });
     expect(lastPull.rowsReturned, 'второй проход снова тащит весь набор').toBe(0);
     expect(second.localStoreRecords).toBe(0);
+  });
+
+  it('W-5, формула фонового прохода: отмеченное миграцией не перекачивается каждые 2 минуты', async () => {
+    // Ревью 0.9.31: проход брал `курсор − 30 мин`, и строки с одной отметкой
+    // миграции 0037 возвращались на каждом проходе, пока не появится новая запись.
+    // Здесь — ровно формула useBackgroundSync: pullSince + nextPullCursor.
+    const MIGRATION = 1_777_000_000_000;
+    localStoreRecordsDocs.push(
+      { store: 'aiPortrait', key: 'a', stamped_at: MIGRATION, payload: { data: JSON.stringify({ id: 'a', updatedAt: 200 }), updatedAt: 200 } },
+      { store: 'lifeStory', key: 'b', stamped_at: MIGRATION, payload: { data: JSON.stringify({ id: 'b', updatedAt: 300 }), updatedAt: 300 } },
+    );
+    let last = MIGRATION - 3_600_000;
+    const rows: number[] = [];
+    for (let pass = 0; pass < 4; pass++) {
+      const now = MIGRATION + 3_600_000 + pass * 120_000;
+      const r = await restoreAIDataFromCloud('user_1', { sinceMs: pullSince(last) });
+      rows.push(lastPull.rowsReturned);
+      last = nextPullCursor(now, last, r.maxUpdatedAt);
+    }
+    expect(rows).toEqual([2, 0, 0, 0]);
   });
 
   // R-1: порядок строк у провайдера — (store, key), а `key@seg…` сортируется сразу

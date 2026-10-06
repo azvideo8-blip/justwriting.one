@@ -7,7 +7,7 @@ import type { AIDialogue } from '../../storage/localDb';
 import { getDeadStoreUpserts, LocalStoreSyncService } from '../LocalStoreSyncService';
 import { AIDialogueService } from '../../../features/ai/services/AIDialogueService';
 import { restoreAIDataFromCloud } from '../../../features/ai/services/AIRestoreService';
-import { nextPullCursor } from '../../../features/ai/services/pullCursor';
+import { nextPullCursor, pullSince } from '../../../features/ai/services/pullCursor';
 import { dialogueFingerprint } from '../../storage/dialogueMerge';
 import { planDialogue, type DialogueHead, type CloudSegmentRow } from '../dialogueSegments';
 
@@ -249,7 +249,7 @@ async function flushDev(): Promise<{ failed: number; skippedOversized: number }>
 async function pull(dev: Device, full: boolean): Promise<{ failed: number }> {
   // Курсор — тот же, что у фона: та же формула, что в hook'е, а не её копия.
   const startedAt = Date.now();
-  const r = await restoreAIDataFromCloud(UID, full || !dev.lastPull ? undefined : { sinceMs: dev.lastPull - 30 * 60 * 1000 });
+  const r = await restoreAIDataFromCloud(UID, full || !dev.lastPull ? undefined : { sinceMs: pullSince(dev.lastPull) });
   dev.lastPull = nextPullCursor(startedAt, dev.lastPull || startedAt - 24 * 3600_000, r.maxUpdatedAt);
   if (LSS.timer !== null) { clearTimeout(LSS.timer); LSS.timer = null; }
   return r;

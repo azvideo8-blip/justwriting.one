@@ -8,7 +8,7 @@ import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
 import { LocalStoreSyncService } from '../../../core/services/LocalStoreSyncService';
 // Курсор — общая формула с сетевым фуззом; чистая функция, чтобы тест hook'а
 // не подменял её своим mock'ом.
-import { nextPullCursor } from '../services/pullCursor';
+import { nextPullCursor, pullSince } from '../services/pullCursor';
 import { SyncService } from '../../../core/services/SyncService';
 
 /**
@@ -30,7 +30,6 @@ import { SyncService } from '../../../core/services/SyncService';
 
 const IDLE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 120_000;
-const PULL_CLOCK_SKEW_MS = 30 * 60_000;
 const PULL_FIRST_WINDOW_MS = 24 * 60 * 60_000;
 
 export function useBackgroundSync(): void {
@@ -92,14 +91,13 @@ export function useBackgroundSync(): void {
       // осиротевшего ничего нет — выходит до всякого хеширования.
       // Разбор и диалоги, сделанные на другом устройстве, забираем каждый проход,
       // а не раз в день: раньше разбор с компьютера доезжал до ноутбука только
-      // на следующие сутки. Берём изменённое после прошлого забора с запасом на
-      // расхождение часов устройств (курсор — по серверной отметке строки, W-5);
-      // повторно забранное безвредно — восстановление идемпотентно.
+      // на следующие сутки. Берём изменённое после прошлого забора; курсор — по
+      // серверной отметке строки (W-5), поэтому запаса на часы нет (pullSince).
       try {
         const pullKey = `ai_pull_since_${uid}`;
         const startedAt = Date.now();
         const last = Number(localStorage.getItem(pullKey)) || startedAt - PULL_FIRST_WINDOW_MS;
-        const pulled = await restoreAIDataFromCloud(uid, { sinceMs: last - PULL_CLOCK_SKEW_MS });
+        const pulled = await restoreAIDataFromCloud(uid, { sinceMs: pullSince(last) });
         // Формула — общая с сетевым фуззом (pullCursor.ts): по отметке, реально
         // увиденной в облаке, с часами устройства только как потолком.
         if (!pulled.skippedLocked) {
