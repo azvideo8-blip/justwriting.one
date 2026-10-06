@@ -22,6 +22,14 @@ const ALLOW = {
   // docx only calls nanoid() with default positive size, never passing negative size
   // to custom non-secure generators.
   'GHSA-28wg-ghj8-5hjv': 'nanoid negative size loop via docx — N/A (docx only uses standard positive-size ID generation)',
+
+  // sprintf-js "DoS through unbounded precision specifiers" (2026-10-06, range `*` —
+  // no fixed version). Pulled by mammoth@1.13.0 → argparse@1 → sprintf-js, and
+  // argparse is required only by mammoth's CLI (node_modules/mammoth/bin/mammoth);
+  // the app imports mammoth's library entry (archiveImport.ts), and the built
+  // bundle contains neither argparse nor sprintf. The API does not depend on
+  // mammoth. Re-check on the next mammoth bump.
+  'GHSA-hp3w-g68c-fv3c': 'sprintf-js via mammoth CLI (argparse) — N/A, not in the bundle',
 };
 
 // B-3 (R2-018): набор зависимостей службы — отдельный. `deploy/api/package.json` +
