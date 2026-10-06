@@ -4,8 +4,8 @@
 
 - **[RU]** Время, проведённое в заметке без интернета, теперь доезжает до облака. Раньше такая сессия не попадала в суммарную длительность, а следующая синхронизация копировала облачное число поверх локального — и потраченное на записях время уменьшалось.
 - **[EN]** Time spent in a note offline now reaches the cloud. Such a session used to be missing from the total duration, and the next sync copied the cloud figure over the local one — so logged writing time went down.
-- **[RU]** Честно о сводном числе слов: это наивысшая отметка длины заметки, а не её текущая длина. Если заметку сократить, на других устройствах до следующей правки может оставаться прежнее, бо́льшее число.
-- **[EN]** About the word total: it is the note's high-water mark, not its current length. After shortening a note, other devices may keep showing the previous, larger count until the next edit.
+- **[RU]** Честно о сводном числе слов: это наибольшая длина, которую заметка когда-либо имела, а не её текущая длина. Сокращение облачное число не уменьшает: на другом устройстве реальный счёт появляется только после его собственной правки, а следующий обмен с облаком возвращает прежнюю, бо́льшую отметку.
+- **[EN]** About the word total: it is the largest length the note has ever had, not its current length. Shortening a note does not lower the cloud figure — another device shows the real count only after its own edit, and the next sync brings the larger, high-water number back.
 - **[RU]** Правки с другого устройства приезжают без задержки, даже если часы того устройства отстают. Раньше запись, сделанная на таких часах, становилась видима остальным устройствам только спустя столько времени, насколько часы отстают.
 - **[EN]** Edits from another device now arrive without delay even when that device's clock is behind. Previously a note written on such a clock stayed invisible to the other devices for as long as the clock lagged.
 
