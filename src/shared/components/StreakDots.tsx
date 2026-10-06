@@ -63,7 +63,7 @@ export function StreakDots({ sessionGroups, variant }: StreakDotsProps) {
           key={i}
           initial={reducedMotion ? false : { scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.3, delay: i * 0.05, type: 'spring', stiffness: 300, damping: 20 }}
+          transition={{ duration: 0.4, delay: i * 0.05, ease: [0.25, 1, 0.5, 1] }}
           className="flex flex-col items-center gap-1 flex-1"
         >
           <div

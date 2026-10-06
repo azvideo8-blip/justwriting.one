@@ -18,7 +18,7 @@ export function GoalToast({ visible, type }: GoalToastProps) {
           initial={reducedMotion ? {} : { opacity: 0, y: 40, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.95 }}
-          transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 20, stiffness: 300 }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
           className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[var(--z-skip)] pointer-events-none"
         >
           <div role="status" aria-live="polite" className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-surface-card border border-border-subtle backdrop-blur-xl shadow-lg">
