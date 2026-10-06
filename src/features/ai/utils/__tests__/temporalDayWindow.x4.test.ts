@@ -34,7 +34,7 @@ describe('X-4: окно по дням и неделе', () => {
     expect(today.from).toBe(day(0));
     expect(today.phrase).toBe('сегодня');
 
-    const before = parseTemporalQuery('позавчера вечером');
+    const before = parseTemporalQuery('что я записал позавчера вечером');
     expect(before.type).toBe('dateRange');
     expect(before.from).toBe(day(2));
     expect(before.phrase).toBe('позавчера');
@@ -63,5 +63,17 @@ describe('X-4: окно по дням и неделе', () => {
     const q = parseTemporalQuery('что я писал про Сашу вчера');
     expect(q.type).toBe('dateRange');
     expect(q.phrase).toBe('вчера');
+  });
+
+  it('событие с «вчера»/«сегодня» — не вопрос о записях, окна нет', () => {
+    // Ревью X-4: окно в один день отрезало старые заметки про маму и сообщало
+    // модели «за вчера записей нет».
+    for (const text of [
+      'вчера я поругался с мамой, что делать',
+      'вчера я поругался с мамой, что мне теперь делать?',
+      'сегодняшний день был тяжёлым, опять мама',
+    ]) {
+      expect(parseTemporalQuery(text).type, text).not.toBe('dateRange');
+    }
   });
 });

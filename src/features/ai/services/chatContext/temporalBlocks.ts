@@ -25,6 +25,19 @@ interface TemporalDeps {
   db: Awaited<ReturnType<typeof getLocalDb>>;
 }
 
+type LocalDb = Awaited<ReturnType<typeof getLocalDb>>;
+
+/** Начало местных суток для ключа 'YYYY-MM-DD'. */
+function localDayStart(key: string): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y!, m! - 1, d!).getTime();
+}
+
+async function countNotesInWindow(db: LocalDb, minTime: number, maxTime: number): Promise<number> {
+  const docs = await db.getAll('documents');
+  return docs.filter(doc => typeof doc.lastSessionAt === 'number' && doc.lastSessionAt >= minTime && doc.lastSessionAt <= maxTime).length;
+}
+
 /**
  * Сравнение периодов и хронологические запросы («за март», «с января по март»,
  * «что нового»). Возвращает либо полную замену searchContext (режим сравнения),
@@ -125,8 +138,10 @@ export async function buildTemporalBlocks(
       reportError(e, { action: '[useAIChatContext] temporal query month failed' });
     }
   } else if (temporalQuery.type === 'dateRange') {
-    minTime = new Date(temporalQuery.from!).getTime();
-    maxTime = new Date(temporalQuery.to!).getTime() + 86_400_000 - 1;
+    // Границы — местные сутки: `new Date('YYYY-MM-DD')` — полночь UTC, и у
+    // человека на UTC+5 «сегодня» теряло ночные записи и брало чужие вчерашние.
+    minTime = localDayStart(temporalQuery.from!);
+    maxTime = localDayStart(temporalQuery.to!) + 86_400_000 - 1;
     handledByTemporal = true;
     try {
       const entries = await AITimelineService.getByDateRange(temporalQuery.from!, temporalQuery.to!);
@@ -140,8 +155,13 @@ export async function buildTemporalBlocks(
       const where = temporalQuery.phrase
         ? `За ${temporalQuery.phrase} (${temporalQuery.from})`
         : `В период с ${temporalQuery.from} по ${temporalQuery.to}`;
-      const empty = temporalQuery.phrase ? 'записей нет' : 'записи отсутствуют';
-      const textBlock = `${where}: ${factsStr || empty}. Было ${entries.length} заметок.`;
+      // «Записей нет» — только когда в окне нет и заметок: заметка без разбора в
+      // хронологию не попадает, а её тело в контекст приходит.
+      const notesInWindow = await countNotesInWindow(db, minTime, maxTime);
+      const empty = notesInWindow > 0
+        ? 'событий в хронологии нет'
+        : (temporalQuery.phrase ? 'записей нет' : 'записи отсутствуют');
+      const textBlock = `${where}: ${factsStr || empty}. Было ${notesInWindow} заметок.`;
       appends.push(`\n\n[Результаты поиска по хронологии]\n${textBlock}`);
     } catch (e) {
       reportError(e, { action: '[useAIChatContext] temporal query dateRange failed' });
@@ -168,14 +188,7 @@ export async function buildTemporalBlocks(
 
   if (minTime && maxTime) {
     try {
-      const docs = await db.getAll('documents');
-      let noteCountForPeriod = 0;
-      for (const doc of docs) {
-        const ts = doc.lastSessionAt;
-        if (ts && ts >= minTime && ts <= maxTime) {
-          noteCountForPeriod++;
-        }
-      }
+      const noteCountForPeriod = await countNotesInWindow(db, minTime, maxTime);
       if (noteCountForPeriod <= 2) {
         appends.push(`\n\n[СИСТЕМНОЕ ПРЕДУПРЕЖДЕНИЕ: За выбранный период найдено мало записей (${noteCountForPeriod}). Обязательно честно скажи об этом пользователю ("за этот период мало записей — ...") вместо того, чтобы придумывать или обобщать.]`);
       }

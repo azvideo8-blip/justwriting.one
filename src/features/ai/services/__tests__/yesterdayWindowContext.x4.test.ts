@@ -84,6 +84,9 @@ describe('X-4: вопрос про вчера получает вчерашни�
     expect(context, 'двухнедельная давность не должна попадать в вчерашний ответ').not.toContain(OLD_CHUNK);
     expect(context).toContain('За вчера');
     expect(context).not.toContain('[Хронологическая сводка]');
+    // Ревью X-4: в хронологии у этой заметки событий нет (разбора не было), но
+    // тело заметки в контексте — «записей нет» рядом с ним было бы ложью.
+    expect(context).not.toContain('записей нет');
   });
 
   it('пустое окно говорится вслух', async () => {
@@ -96,5 +99,25 @@ describe('X-4: вопрос про вчера получает вчерашни�
     const context = ctx.searchContext ?? '';
     expect(context).toContain('записей нет');
     expect(context).not.toContain(OLD_CHUNK);
+  });
+
+  it('«сегодня» — местные сутки, а не сутки UTC', async () => {
+    // 02:00 по Екатеринбургу (UTC+5) = 21:00 UTC вчерашнего дня. Заметка в 01:00
+    // местного — сегодняшняя; по суткам UTC она уезжала во «вчера».
+    const prevTz = process.env.TZ;
+    process.env.TZ = 'Asia/Yekaterinburg';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-10-06T02:00:00+05:00'));
+      await seedDoc(YESTERDAY_ID, 'Ночь', YESTERDAY_CHUNK, new Date('2026-10-06T01:00:00+05:00').getTime());
+      invalidateMiniSearchCache();
+
+      const context = (await build('что я писал сегодня?')).searchContext ?? '';
+      expect(context).toContain(YESTERDAY_CHUNK);
+      expect(context).not.toContain('записей нет');
+    } finally {
+      vi.useRealTimers();
+      process.env.TZ = prevTz;
+    }
   });
 });

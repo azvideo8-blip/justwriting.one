@@ -169,12 +169,20 @@ export function parseTemporalQuery(text: string): TemporalQuery {
   // «вчерашний день» — то же вчера.
   const boundary = '(?:^|[^а-яёА-ЯЁa-zA-Z0-9])';
   const noTail = '(?![а-яёА-ЯЁa-zA-Z0-9])';
+  // Окно — только для вопроса о записях. «Вчера я поругался с мамой, что
+  // делать» — рассказ о событии: окно в один день отрезало бы старые заметки
+  // про маму и сообщило модели «за вчера записей нет».
+  // Короткий вопрос («за вчерашний день что?») — тоже о записях; длинный с «?»
+  // («вчера поругался с мамой, что делать?») — о событии.
+  const shortQuestion = lowerText.includes('?') && lowerText.split(/\s+/).filter(Boolean).length <= 5;
+  const asksAboutNotes = shortQuestion
+    || /писал|записал|запис[иья]|заметк|дневник|что\s+было|что\s+нового|что\s+я\s+делал|чем\s+я\s+занима/i.test(lowerText);
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const dayBeforeYesterday = new Date();
   dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 2);
 
-  if (new RegExp(`${boundary}(позавчераш|позавчера)`, 'i').test(lowerText)) {
+  if (new RegExp(`${boundary}(позавчераш|позавчера)`, 'i').test(lowerText) && asksAboutNotes) {
     return {
       type: 'dateRange',
       from: localDayKey(dayBeforeYesterday),
@@ -184,7 +192,7 @@ export function parseTemporalQuery(text: string): TemporalQuery {
     };
   }
 
-  if (new RegExp(`${boundary}(вчераш|вчера)`, 'i').test(lowerText)) {
+  if (new RegExp(`${boundary}(вчераш|вчера)`, 'i').test(lowerText) && asksAboutNotes) {
     return {
       type: 'dateRange',
       from: localDayKey(yesterday),
@@ -194,7 +202,7 @@ export function parseTemporalQuery(text: string): TemporalQuery {
     };
   }
 
-  if (new RegExp(`${boundary}(сегодняш|сегодня)`, 'i').test(lowerText)) {
+  if (new RegExp(`${boundary}(сегодняш|сегодня)`, 'i').test(lowerText) && asksAboutNotes) {
     const today = new Date();
     return {
       type: 'dateRange',
@@ -207,7 +215,7 @@ export function parseTemporalQuery(text: string): TemporalQuery {
 
   // «на этой неделе» — от понедельника до сегодня; «на прошлой неделе» уже
   // разобрано выше и сюда не доходит.
-  if (new RegExp(`${boundary}(?:на\\s+)?этой\\s+нед(еле|ели)${noTail}`, 'i').test(lowerText)) {
+  if (new RegExp(`${boundary}(?:на\\s+)?этой\\s+нед(еле|ели)${noTail}`, 'i').test(lowerText) && asksAboutNotes) {
     const today = new Date();
     const weekday = (today.getDay() + 6) % 7; // понедельник = 0
     const monday = new Date(today);
