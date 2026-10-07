@@ -8,18 +8,21 @@
 - **[EN]** The companions answer shorter and more alive: one question at the end, no tables, headings or sections in the conversation.
 - **[RU]** Меньше выдуманного: ссылки только на настоящие заметки, лишние скобки и непроверенные цитаты убираются из ответа.
 - **[EN]** Less invention: links only to real notes, stray brackets and unchecked quotes are removed from the answer.
+- **[RU]** Когда вы говорите о близком человеке, ИИ сверяется с тем, что о нём написано в ваших заметках.
+- **[EN]** When you talk about someone close, the AI checks it against what your notes say about them.
 - **[RU]** На «нет сил, не хочу просыпаться» ИИ бережно спрашивает о безопасности и даёт телефоны помощи.
 - **[EN]** On «no strength left, I don't want to wake up» the AI gently asks about safety and gives helpline numbers.
 - **[RU]** На сообщение по-английски ИИ отвечает по-английски.
 - **[EN]** A message written in English gets an English answer.
-- **[RU]** Открытые планы показываются с заметкой, откуда они взяты.
-- **[EN]** Open plans are shown with the note they came from.
+- **[RU]** ИИ ссылается на заметку, из которой взят открытый план.
+- **[EN]** The AI links an open plan to the note it came from.
 - **[RU]** «Редактор» перерабатывает заметку в пост, а не копирует её дословно.
 - **[EN]** The «Editor» reworks a note into a post instead of copying it verbatim.
 - **[RU]** «Редактор» на «добавь из других заметок» ищет похожие записи, а если их нет — говорит об этом, а не досочиняет.
 - **[EN]** Asked to «add from other notes», the «Editor» looks for similar entries — and if there are none, says so instead of making them up.
 - **[RU]** «Редактор» показывает сверку с заметкой: какие имена и числа убраны из поста.
 - **[EN]** The «Editor» shows a check against the note: which names and numbers were removed from the post.
+
 ## 0.9.32 — 2026-10-07
 
 - **[RU]** Вернулся собеседник «Редактор» — он собирает из ваших заметок готовый пост для канала или блога: вашим голосом, только по тому, что вы написали, с заменой чужих имён на роли. Пост копируется одной кнопкой; в сами заметки ИИ по-прежнему ничего не пишет.
