@@ -252,6 +252,20 @@ describe('M-5: выгрузка head’ом и сегментами', () => {
     expect(headPayload(d.id)).toEqual(before);
   });
 
+  it('выгрузка, поставленная без изменений, head не переписывает (прод, 2026-10-07)', async () => {
+    // Head переписывался раз в 2 минуты: каждая запись — новая серверная отметка,
+    // и забор на всех устройствах принимал её за правку с другого устройства.
+    const d = await bigDialogue();
+    await flush();
+    const before = headPayload(d.id);
+    ops.length = 0;
+    at('09:05');
+    LocalStoreSyncService.scheduleStoreSync('aiDialogues', d.id);
+    await flush();
+    expect(ops, `выгрузка без изменений переписала облако: ${ops.join(', ')}`).toEqual([]);
+    expect(headPayload(d.id)).toEqual(before);
+  });
+
   it('миграция: legacy-страницы с манифестом читаются, союз уходит сегментами, страницы сносятся', async () => {
     const d = await bigDialogue();
     await flush();

@@ -18,6 +18,7 @@ import {
   readSegmentVersion,
   segmentPrefixOf,
   segmentRowPayload,
+  staleSegmentKeys,
   type CloudSegmentRow,
   type DialogueHead,
 } from './dialogueSegments';
@@ -1002,6 +1003,21 @@ export class LocalStoreSyncManager {
       // S-57: союз лёг в базу — открытый на этом устройстве чат иначе показывает
       // прежнюю копию до следующей своей правки.
       if (changedLocally && typeof window !== 'undefined') window.dispatchEvent(new Event('dialogue-updated'));
+
+      // Облако уже держит ровно эту копию — слать нечего. Запись head'а всё равно
+      // ставила бы ему новую серверную отметку (0037), и забор на каждом
+      // устройстве принимал её за правку с другого устройства. Прод, 2026-10-07:
+      // head длинного диалога переписывался раз в 2 минуты, журнал писал
+      // «получено с других устройств: 1» на каждом проходе. Неполная копия
+      // (incomplete) и надгробие одиночной строкой (R-3) — не тот случай: их надо
+      // дописать/переписать head'ом.
+      const cloudIsExact = cloud?.dialogue != null
+        && !(cloud.incomplete && cloud.incomplete.length > 0)
+        && (cloud.head !== undefined || merged.deletedAt === undefined)
+        // Осиротевшие окна убирает только запись head'а — с ними не пропускаем.
+        && (cloud.head === undefined || staleSegmentKeys(cloud.head, (cloud.segments ?? []).map(r => r.key)).length === 0)
+        && dialogueFingerprint(merged) === dialogueFingerprint(cloud.dialogue!);
+      if (cloudIsExact) return 'ok';
 
       const jsonString = JSON.stringify(merged);
       const recordBytes = new TextEncoder().encode(jsonString).length;
