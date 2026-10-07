@@ -101,7 +101,9 @@ const STRAY_BRACKET_RE = /\[([^[\]\n]{1,120})\]/g;
 // «в заметке «Письмо маме»», если такого заголовка хода нет → «в заметке про
 // письмо маме». Падеж существительного не трогаем: править его кодом — значит
 // портить текст на каждом втором окончании.
-const TITLE_REF_RE = /((?:заметк|запис|текст)[а-яё]*)\s+«([^»\n]{2,60})»/gi;
+// П5 (самопроверка): без левой границы маска ловила части внутри других слов —
+// «в предзаписи «черновик»» переписывалось, хотя о заметке речи не было.
+const TITLE_REF_RE = /(^|[^а-яёА-ЯЁ])((?:заметк|запис|текст)[а-яё]*)\s+«([^»\n]{2,60})»/gi;
 
 // Цитата в «ёлочках» длиннее трёх слов, приписанная человеку («ты пишешь»,
 // «в заметке», «твои слова») и отсутствующая в материалах — это не его слова.
@@ -180,9 +182,9 @@ export function sanitizeCitations(
   const materialsHay = materialsText ? normalizeQuoteText(materialsText) : '';
   if (injectedTitles && injectedTitles.length > 0 && materialsHay) {
     const known = new Set(injectedTitles.map(normalizeQuoteText));
-    cleaned = cleaned.replace(TITLE_REF_RE, (match, word: string, title: string) => {
+    cleaned = cleaned.replace(TITLE_REF_RE, (match, lead: string, word: string, title: string) => {
       const q = normalizeQuoteText(title);
-      return known.has(q) || materialsHay.includes(q) ? match : `${word} про ${title}`;
+      return known.has(q) || materialsHay.includes(q) ? match : `${lead}${word} про ${title}`;
     });
   }
 

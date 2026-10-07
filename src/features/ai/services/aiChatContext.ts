@@ -327,6 +327,12 @@ export function useAIChatContext(personaId: string): {
     // остаётся строгим: иначе вопрос ушёл бы искать по всему архиву.
     if (strictNoteTurn) {
       const noteBlock = attachedBlock ?? '[Заметка скрыта от ИИ пользователем — её текста у тебя нет. Скажи об этом и не додумывай содержание.]';
+      // П5 (самопроверка): в строгом ходе блок заметки печатается без названия,
+      // и список названий хода был пуст — правило (в) не работало вовсе, а
+      // законное «в заметке "Бег по утрам"» модель могла читать и как выдумку.
+      // Название носит маркер в реплике человека (`[Прикреплена заметка: "…"]`),
+      // поэтому список собирается из реплик этого хода, а не из блока.
+      const turnText = [text, ...(params.messageHistory ?? []).filter(m => m.role === 'user').map(m => m.content)].join('\n');
       return {
         userPortrait: userPortrait ?? null,
         customPersona: customSystemPrompt,
@@ -334,7 +340,7 @@ export function useAIChatContext(personaId: string): {
         documentMood: mood,
         memoryContext: null,
         injectedDocumentIds: [...new Set(injectedDocumentIds)],
-        injectedTitles: extractContextTitles(noteBlock),
+        injectedTitles: extractContextTitles(`${noteBlock}\n${turnText}`),
         allowedFirstSeenDates: [],
         degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
         crisis,

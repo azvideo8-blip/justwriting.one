@@ -50,6 +50,24 @@ describe('приложенная заметка: строгий и широки�
     expect(ctx.searchContext).toContain(ATTACHED_CONTENT);
     expect(ctx.searchContext).toContain('РЕЖИМ СРАВНЕНИЯ');
   });
+
+  // П5 (самопроверка): блок приложенной заметки печатается без названия, поэтому
+  // список названий хода собирался пустой и правило (в) в строгом ходе не
+  // работало вовсе. Название носит маркер в реплике человека.
+  it('строгий ход: название приложенной заметки известно из реплики хода', async () => {
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    const ctx = await result.current.buildContext({
+      text: 'сделай пост',
+      attached: { documentId: ATTACHED_ID, content: ATTACHED_CONTENT },
+      mood: undefined,
+      messageHistory: [
+        { role: 'user', content: `[#${ATTACHED_ID} · 20261006]\n[Прикреплена заметка: "Бег по утрам"]\n\n${ATTACHED_CONTENT}`, type: 'chat' },
+      ],
+      isFirstTurn: true,
+      scope: 'note',
+    });
+    expect(ctx.injectedTitles).toContain('Бег по утрам');
+  });
 });
 
 // DLG-Q3 (Fable T-6): телефоны раньше уезжали текстом инструкции внутри
