@@ -61,6 +61,8 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const normName = (s: string) => s.toLowerCase().replace(/ё/g, 'е');
+
 /**
  * О ком говорят в реплике: не больше двух, первые по порядку.
  *
@@ -74,7 +76,12 @@ export function detectPersonMentions(
   opts: { selfName?: string | undefined; corpusText?: string | undefined },
 ): PersonMention[] {
   const found: Array<{ at: number; mention: PersonMention }> = [];
-  const self = opts.selfName?.trim().toLowerCase();
+  // R-5: в профиле обычно «имя фамилия», поэтому сверяемся со каждым словом, а
+  // не со строкой целиком — иначе собственное имя считалось чужим человеком.
+  const selfWords = new Set((opts.selfName ?? '')
+    .split(/\s+/)
+    .map(normName)
+    .filter(Boolean));
 
   for (const role of ROLE_STEMS) {
     const pattern = new RegExp(`${LB}(${role.stems.join('|')})${RB}`, 'i');
@@ -88,7 +95,7 @@ export function detectPersonMentions(
   for (const m of text.matchAll(NAME_RE)) {
     const name = m[0];
     if (NAME_STOPWORDS.has(name.toLowerCase())) continue;
-    if (self && name.toLowerCase() === self) continue;
+    if (selfWords.has(normName(name))) continue;
     const sentenceInitial = m.index === 0 || SENTENCE_HEAD.test(text.slice(0, m.index));
     if (sentenceInitial && !(opts.corpusText ?? '').match(new RegExp(`(?:^|[^.!?…\\n])\\s${escapeRegExp(name)}(?![а-яё])`, 'm'))) continue;
     if (found.some(f => f.mention.pattern.test(name))) continue;

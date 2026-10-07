@@ -42,6 +42,13 @@ describe('Q-9: detectPersonMentions', () => {
     expect(detectPersonMentions('Аня снова всё тянет', { selfName: 'Аня', corpusText: 'Аня пишет: устала' })).toEqual([]);
   });
 
+  // R-5 (ревью 07.10): в профиле «имя фамилия», и сверка со строкой целиком
+  // считала собственное имя чужим человеком.
+  it('имя и фамилия в профиле: своё имя отсекается по каждому слову', () => {
+    expect(detectPersonMentions('Вот Андрей снова не спит', { selfName: 'Андрей Зубков', corpusText: 'Андрей не спит' })).toEqual([]);
+    expect(detectPersonMentions('Вот Фёдор снова не спит', { selfName: 'фёдор зубков', corpusText: 'Фёдор не спит' })).toEqual([]);
+  });
+
   it('не больше двух людей за ход, первые по порядку', () => {
     const found = detectPersonMentions('мама, потом Оля, потом Петя и Валя', { corpusText: 'сказала Оля, ответил Петя' });
     expect(found.map(m => m.key)).toEqual(['мама', 'Оля']);
