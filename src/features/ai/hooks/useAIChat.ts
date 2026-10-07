@@ -167,16 +167,21 @@ export function sanitizeCitations(
   });
 
   // (в) DLG-Q8: название заметки, которого в этом ходе не было.
-  if (injectedTitles && injectedTitles.length > 0) {
+  // R-1: «в заметке "…"» — это ещё и обычная форма цитаты, поэтому правило
+  // срабатывает только когда текст в ёлочках не найден в материалах хода. Без
+  // материалов правило молчит: иначе верная цитата переписывается в «про …».
+  const materialsHay = materialsText ? normalizeQuoteText(materialsText) : '';
+  if (injectedTitles && injectedTitles.length > 0 && materialsHay) {
     const known = new Set(injectedTitles.map(normalizeQuoteText));
-    cleaned = cleaned.replace(TITLE_REF_RE, (match, word: string, title: string) =>
-      known.has(normalizeQuoteText(title)) ? match : `${word} про ${title}`,
-    );
+    cleaned = cleaned.replace(TITLE_REF_RE, (match, word: string, title: string) => {
+      const q = normalizeQuoteText(title);
+      return known.has(q) || materialsHay.includes(q) ? match : `${word} про ${title}`;
+    });
   }
 
   // (б) DLG-Q8: приписанная цитата, которой нет ни в материалах, ни в истории.
   if (materialsText) {
-    const hay = normalizeQuoteText(materialsText);
+    const hay = materialsHay;
     cleaned = cleaned.replace(QUOTE_RE, (match, quote: string, offset: number, whole: string) => {
       if (quote.trim().split(/\s+/).length <= 3) return match;
       const before = whole.slice(Math.max(0, offset - 80), offset);
