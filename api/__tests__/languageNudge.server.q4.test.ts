@@ -99,7 +99,7 @@ describe('Q-4: подсказка языка на сервере', () => {
   });
 
   it('рассуждения + английская реплика: английское правило вместо русского', async () => {
-    const fetchMock = vi.fn(async (_url: unknown, init?: { body?: unknown }) => new Response('data: [DONE]\n\n', { status: 200 }));
+    const fetchMock = vi.fn(async (_url: unknown, _init?: { body?: unknown }) => new Response('data: [DONE]\n\n', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
     try {
       const req = new FakeReq({ personaId: 'cbt', reasoning: true, messages: [{ role: 'user', content: EN }] });
