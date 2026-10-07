@@ -32,7 +32,8 @@ function renderTwoAnsweredTurns() {
         clearError={() => {}}
         consentRequired={null}
         onOpenSettings={() => {}}
-        convPersonaName="Помощник"
+                  convPersonaId="editor"
+          convPersonaName="Помощник"
         convVisual={visual}
         onCopyMessage={() => {}}
         onDeleteMessage={() => {}}

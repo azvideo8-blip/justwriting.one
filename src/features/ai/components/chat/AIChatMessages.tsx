@@ -1,4 +1,4 @@
-import { type RefObject } from 'react';
+import { useEffect, useMemo, useState, type RefObject } from 'react';
 import { Trash2, Paperclip, AlertTriangle, Sparkles } from 'lucide-react';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import type { ArchiveSession } from '../../../../shared/types/common';
@@ -19,6 +19,10 @@ import type { PersonaVisual } from '../../constants/personaVisuals';
 import { useCitationMeta, type ChatMessage } from './useCitationMeta';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import type { ConsentCode } from '../../hooks/useAIChat';
+import { diffPostAgainstNote, postBody } from '../../utils/editorDiff';
+import { LocalVersionService } from '../../../../core/services/LocalVersionService';
+import { getLocalDb } from '../../../../core/storage/localDb';
+import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 
 export interface AIChatMessagesProps {
   displayMessages: readonly ChatMessage[];
@@ -31,6 +35,10 @@ export interface AIChatMessagesProps {
   consentRequired: ConsentCode | null;
   onOpenSettings: () => void;
   convPersonaName: string;
+  /** DLG-Q10: id персоны диалога — плашка сверки поста положена только Редактору. */
+  convPersonaId: string;
+  /** Заметка-тема диалога: источник сверки для старых ходов без тела в реплике. */
+  dialogueDocumentId?: string | undefined;
   convVisual: PersonaVisual;
   onCopyMessage: (content: string) => void;
   onDeleteMessage: (index: number) => void;
@@ -80,6 +88,86 @@ function buildAttachedNoteContent(title: string, body: string): string {
   return `[Прикреплена заметка: "${title}"]\n\n${body}`;
 }
 
+// DLG-Q10: откуда брать заметку-источник. Тело приложенной заметки лежит в
+// пользовательской реплике с маркером; берём последнюю перед этим ответом. Если
+// тела нет (старый формат хода), источник — заметка-тема диалога.
+const ATTACHED_HEAD_RE = /\[#([^\s\]·]+)(?:\s·[^\]\n]*)?\]/;
+
+interface SourceNote { id?: string | undefined; title: string; body: string }
+
+function findSourceNote(messages: readonly ChatMessage[], before: number): SourceNote | null {
+  for (let i = before - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m || m.role !== 'user' || !m.content.includes('[Прикреплена заметка:')) continue;
+    const { notes } = parseAttachedNotes(m.content, '');
+    const withBody = notes.filter(n => n.body);
+    if (withBody.length === 0) continue;
+    const last = withBody[withBody.length - 1]!;
+    return { id: m.content.match(ATTACHED_HEAD_RE)?.[1], title: last.title, body: last.body };
+  }
+  return null;
+}
+
+function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string; source: SourceNote | null; dialogueDocumentId?: string | undefined }) {
+  const { t } = useLanguage();
+  const [noteText, setNoteText] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const id = source?.id ?? (source ? undefined : dialogueDocumentId);
+    void (async () => {
+      try {
+        const db = await getLocalDb();
+        if (id) {
+          const doc = await db.get('documents', id);
+          // Скрытая от ИИ, в корзине или удалённая — сверку не показываем.
+          if (!doc || isExcludedFromAI(doc)) { if (!cancelled) setNoteText(null); return; }
+          const text = await LocalVersionService.getLatestContent(id);
+          if (!cancelled) setNoteText(text);
+          return;
+        }
+        if (source) {
+          const docs = await db.getAll('documents');
+          const byTitle = docs.find(d => (d.title ?? '') === source.title);
+          if (byTitle && isExcludedFromAI(byTitle)) { if (!cancelled) setNoteText(null); return; }
+          if (!cancelled) setNoteText(source.body);
+          return;
+        }
+        if (!cancelled) setNoteText(null);
+      } catch {
+        if (!cancelled) setNoteText(null);
+      }
+    })();
+    return () => { cancelled = true; };
+    // Зависимости — поля, а не объект: источник пересобирается на каждый рендер,
+    // и по ссылке эффект зациклился бы.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- примитивы эквивалентны объекту
+  }, [source?.id, source?.title, source?.body, dialogueDocumentId]);
+
+  const diff = useMemo(
+    () => (noteSourceIsPresent(noteText) ? diffPostAgainstNote(postBody(answer), noteText) : null),
+    [answer, noteText],
+  );
+  if (!diff) return null;
+
+  const parts: string[] = [];
+  if (diff.namesRemoved.length) parts.push(`${t('ai_editor_diff_names_removed')} — ${diff.namesRemoved.join(', ')}`);
+  if (diff.numbersRemoved.length) parts.push(`${t('ai_editor_diff_numbers_removed')} — ${diff.numbersRemoved.join(', ')}`);
+  if (diff.rolesAdded.length) parts.push(`${t('ai_editor_diff_roles_added')} — ${diff.rolesAdded.join(', ')}`);
+  const line = parts.length > 0 ? parts.join('; ') : t('ai_editor_diff_unchanged');
+
+  return (
+    <div className="mt-2 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-[11px] leading-relaxed text-text-main/55 w-fit max-w-full">
+      <span className="font-medium">{t('ai_editor_diff_title')}: </span>
+      <span>{line}</span>
+    </div>
+  );
+}
+
+function noteSourceIsPresent(text: string | null): text is string {
+  return !!text && text.trim().length > 0;
+}
+
 export function AIChatMessages(props: AIChatMessagesProps) {
   const {
     displayMessages,
@@ -91,6 +179,8 @@ export function AIChatMessages(props: AIChatMessagesProps) {
     consentRequired,
     onOpenSettings,
     convPersonaName,
+    convPersonaId,
+    dialogueDocumentId,
     convVisual,
     onCopyMessage,
     onDeleteMessage,
@@ -243,6 +333,13 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                     </div>
                   )}
                   <MarkdownRenderer content={processCitations(msg.content)} onCitationClick={handleCitationClick} />
+                  {convPersonaId === 'editor' && msg.content.includes('— — —') && (
+                    <EditorPostDiff
+                      answer={msg.content}
+                      source={findSourceNote(displayMessages, i)}
+                      dialogueDocumentId={dialogueDocumentId}
+                    />
+                  )}
                 </AssistantTurn>
               );
             }

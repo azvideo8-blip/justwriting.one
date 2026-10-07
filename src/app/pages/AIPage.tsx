@@ -74,7 +74,8 @@ export function AIPage() {
     allPersonas, openPersonaDetail,
     displayMessages,
     activePersona, activeRole, headerVisual,
-    convPersonaName, convVisual,
+    convPersonaId, convPersonaName, convVisual,
+    activeDialogue,
     MAX_INPUT_CHARS,
   } = useAIPageData(linkedDocId, draftFacetId);
 
@@ -144,7 +145,9 @@ export function AIPage() {
           clearError={clearError}
           consentRequired={consentRequired}
           onOpenSettings={() => { void navigate('/settings#security'); }}
+          convPersonaId={convPersonaId}
           convPersonaName={convPersonaName}
+          dialogueDocumentId={activeDialogue?.documentId ?? undefined}
           convVisual={convVisual}
           onCopyMessage={handleCopyMessage}
           onDeleteMessage={(index) => { void handleDeleteMessage(index); }}

@@ -166,6 +166,7 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
           clearError={() => {}}
           consentRequired={null}
           onOpenSettings={() => {}}
+                    convPersonaId="editor"
           convPersonaName="Helper"
           convVisual={{ color: '#888', mono: 'H', role: { ru: 'Роль', en: 'Role' } }}
           onCopyMessage={() => {}}

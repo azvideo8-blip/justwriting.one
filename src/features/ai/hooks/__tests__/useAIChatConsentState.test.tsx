@@ -47,7 +47,8 @@ function Harness({ onOpenSettings, text = 'привет' }: { onOpenSettings: ()
         clearError={chat.clearError}
         consentRequired={chat.consentRequired}
         onOpenSettings={onOpenSettings}
-        convPersonaName="Editor"
+                  convPersonaId="editor"
+          convPersonaName="Editor"
         convVisual={convVisual}
         onCopyMessage={() => {}}
         onDeleteMessage={() => {}}

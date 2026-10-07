@@ -51,6 +51,13 @@ export const aiTranslations: Translations = {
   ai_memory_forget_all: { ru: 'Забыть всё', en: 'Forget all' },
   ai_memory_forget_all_confirm: { ru: 'Удалить все воспоминания безвозвратно?', en: 'Delete all memories permanently?' },
   ai_memory_delete: { ru: 'Удалить воспоминание', en: 'Delete memory' },
+  // DLG-Q10: сверка поста Редактора с заметкой. Строка модели «что изменил»
+  // врёт, счёт ведёт код — здесь только подписи частей.
+  ai_editor_diff_title: { ru: 'Сверка с заметкой', en: 'Checked against the note' },
+  ai_editor_diff_names_removed: { ru: 'убраны имена', en: 'names removed' },
+  ai_editor_diff_roles_added: { ru: 'добавлены роли', en: 'roles added' },
+  ai_editor_diff_numbers_removed: { ru: 'убраны числа', en: 'numbers removed' },
+  ai_editor_diff_unchanged: { ru: 'имена и числа из заметки в посте не изменены', en: 'names and numbers from the note are unchanged in the post' },
   ai_degraded_daily_limit_chat: { ru: 'Дневной лимит исчерпан: ответ сформирован без поиска по заметкам (восстановится завтра)', en: 'Daily limit reached: answer generated without note search (resets tomorrow)' },
   ai_persona_delete_confirm_title: { ru: 'Удалить персону?', en: 'Delete persona?' },
   ai_persona_delete_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },
