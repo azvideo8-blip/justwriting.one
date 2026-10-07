@@ -30,6 +30,7 @@ import { reportError } from '../shared/errors/reportError';
 import { checkAndSyncCursor } from '../core/sync/changeCursor';
 
 import { initAiDomainEvents } from '../features/ai/subscribeDomainEvents';
+import { EarlierQuestionOpenContext } from './onboardingQueue';
 
 // Resolves the auth-aware userId here so core's SettingsProvider stays free of
 // feature imports (core must not import from features/).
@@ -72,8 +73,9 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
     );
   }, [user]);
 
+  const earlierQuestionOpen = isAuthenticated && !isResetPassword && (showPrivacy || showConsent);
   return (
-    <>
+    <EarlierQuestionOpenContext.Provider value={earlierQuestionOpen}>
       {children}
       {isAuthenticated && !isResetPassword && showPrivacy && (
         <Suspense fallback={null}>
@@ -83,7 +85,7 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
       {isAuthenticated && !isResetPassword && !showPrivacy && showConsent && user && (
         <SyncConsentModal userId={user.uid} onClose={() => setShowConsent(false)} />
       )}
-    </>
+    </EarlierQuestionOpenContext.Provider>
   );
 }
 

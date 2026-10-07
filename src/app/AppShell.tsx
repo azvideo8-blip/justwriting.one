@@ -1,4 +1,5 @@
-import React, { useEffect, Suspense } from 'react';
+import React, { useContext, useEffect, Suspense } from 'react';
+import { EarlierQuestionOpenContext } from './onboardingQueue';
 import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { useWritingSettings } from '../core/settings/WritingSettingsContext';
@@ -54,6 +55,9 @@ export function AppShell() {
   const { mode: encryptionMode, check: recheckEncryption, dismiss: dismissEncryption } = useEncryptionSetup();
   const { shouldPrompt: shouldPromptEmptyDevice, localCount, cloudCount, dismiss: dismissEmptyDevice } = useEmptyDeviceDetection();
   const { hasOtherData, dismiss: dismissOtherData, clear: clearOtherData } = useOtherUserDetection();
+  // Окна первого входа — по одному: пока открыт вопрос политики или синхронизации,
+  // остальные ждут (onboardingQueue.ts).
+  const queued = useContext(EarlierQuestionOpenContext);
 
 
   useSyncStatus(isGuest ? null : (user?.uid ?? null));
@@ -132,11 +136,11 @@ export function AppShell() {
 
       {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
       <LoginModalOverlay open={loginModalOpen} />
-      {!isResetPassword && <RecoveryCodeGate />}
-      <GuestMigrationGate />
+      {!isResetPassword && !queued && <RecoveryCodeGate />}
+      {!queued && <GuestMigrationGate />}
       <ConfirmDialogRenderer />
       <ActivityLogBadge />
-      {encryptionMode !== 'none' && user && !isResetPassword && (
+      {encryptionMode !== 'none' && user && !isResetPassword && !queued && (
         <Suspense fallback={null}>
           <EncryptionPasswordModal
             mode={encryptionMode}
@@ -146,7 +150,7 @@ export function AppShell() {
           />
         </Suspense>
       )}
-      {shouldPromptEmptyDevice && user && (
+      {shouldPromptEmptyDevice && user && !queued && (
         <Suspense fallback={null}>
           <RestoreFromCloudModal
             open={shouldPromptEmptyDevice}
@@ -159,7 +163,7 @@ export function AppShell() {
           />
         </Suspense>
       )}
-      {hasOtherData && user && !shouldPromptEmptyDevice && (
+      {hasOtherData && user && !shouldPromptEmptyDevice && !queued && (
         <OtherUserDataModal
           open={hasOtherData}
           onClose={dismissOtherData}
