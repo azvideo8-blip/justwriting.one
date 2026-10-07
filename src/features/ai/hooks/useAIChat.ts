@@ -165,9 +165,9 @@ export function sanitizeCitations(
     if (bare.startsWith('#')) {
       // R-2: модель иногда копирует шапку целиком — «[#local_a · 20261006]».
       // Настоящий id этого хода остаётся, дата при этом не нужна: ссылка в
-      // интерфейсе живёт по номеру заметки.
-      const withDate = /^#([a-zA-Z0-9_-]+)(?:\s·[^\]\n]*)?$/.exec(bare);
-      const id = withDate?.[1];
+      // интерфейсе живёт по номеру заметки. Номер не фильтруется набором
+      // символов: у импортированных заметок он с точкой («1720194283.716586»).
+      const id = bare.slice(1).trim().split(/\s*·\s*/)[0] ?? '';
       if (id && allowed.has(id)) return `[#${id}]`;
     }
     return UNRECOGNISED_MARKER;
