@@ -55,6 +55,23 @@ describe('Q-10: diffPostAgainstNote', () => {
     expect(d.namesRemoved).toEqual([]);
   });
 
+  // Самопроверка партии: начало фразы — это не только имена. «Решила»,
+  // «Подготовить», «Важно» не должны превращаться в «убраны имена».
+  it('глагол или наречие в начале фразы — не имя', () => {
+    expect(diffPostAgainstNote('Встречу отменила. Позвонила позже.', 'Решила отменить встречу. Оля звонила.')
+      .namesRemoved).toEqual(['Оля']);
+    expect(diffPostAgainstNote('Сделать отчёт до конца недели.', 'Подготовить отчёт до пятницы.')).toEqual(
+      { namesRemoved: [], rolesAdded: [], numbersRemoved: [] });
+    expect(diffPostAgainstNote('Ночью спорить не стоит.', 'Важно не спорить ночью.')).toEqual(
+      { namesRemoved: [], rolesAdded: [], numbersRemoved: [] });
+    expect(diffPostAgainstNote('Никого не было.', 'Никто не звонил.')).toEqual(
+      { namesRemoved: [], rolesAdded: [], numbersRemoved: [] });
+  });
+
+  it('беглая гласная: «Лев» в форме «Льва» — имя осталось', () => {
+    expect(diffPostAgainstNote('Льва не было дома.', 'Лев звонил вечером.').namesRemoved).toEqual([]);
+  });
+
   it('слово, которое в источнике хоть раз пишется со строчной, — не имя', () => {
     const d = diffPostAgainstNote('Всё решили завтра.', 'Маму звали вечером. Мы говорили про маму.');
     expect(d.namesRemoved).toEqual([]);

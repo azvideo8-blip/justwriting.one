@@ -15,6 +15,11 @@ const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
 const WORDS = /[А-ЯЁа-яё]{2,}|\d[\d\s.,:]{0,9}/g;
 const LOWER_WORD = new RegExp(`${LB}([а-яё][а-яё]{2,})${RB}`, 'g');
 const SENTENCE_START = /(?:^|[.!?…][\s\n]|\n)\s*$/;
+// Начало фразы — место, где с заглавной стоит всё подряд, а не только имена:
+// «Решила отменить», «Подготовить отчёт», «Важно не спорить». Имена так не
+// кончаются, поэтому эти окончания для позиции в начале фразы candidate отсекают.
+// Внутри фразы заглавное — почти всегда имя, там фильтр не нужен.
+const VERB_OR_ADVERB_ENDING = /(?:ться|сь|ся|ть|ти|ла|ло|ли|л|но|ко|ет|ит|ут|ют)$/;
 // Список начал фразы свёрнут так же, как lower(): иначе «Днём» сверяется с
 // «днём» и не совпадает.
 const SENTENCE_HEAD_FOLDED = new Set([...SENTENCE_HEAD_WORDS].map(lower));
@@ -33,7 +38,9 @@ function properNouns(text: string): string[] {
     const lw = lower(word);
     if (NAME_STOPWORDS.has(lw)) continue;
     if (lowercaseForms.has(lw)) continue;
-    if (SENTENCE_START.test(text.slice(0, m.index)) && SENTENCE_HEAD_FOLDED.has(lw)) continue;
+    if (SENTENCE_START.test(text.slice(0, m.index))) {
+      if (SENTENCE_HEAD_FOLDED.has(lw) || VERB_OR_ADVERB_ENDING.test(lw)) continue;
+    }
     if (!out.includes(word)) out.push(word);
   }
   return out;
@@ -48,6 +55,9 @@ function properNouns(text: string): string[] {
 function nameSurvives(postWord: string, name: string): boolean {
   if (!/^[А-ЯЁ]/.test(postWord)) return false;
   const a = lower(name), b = lower(postWord);
+  // Беглая гласная: «Лев» в посте живёт как «Льва», «Льву», «Львом» — общего
+  // начала с «лев» там нет, а имя не убрано.
+  if (b[0] === a[0] && b[1] === 'ь' && /[аеиоуыя]/.test(a[1] ?? '')) return true;
   if (b.length > a.length + 2) return false;
   const need = Math.max(2, Math.min(a.length, b.length) - 1);
   let shared = 0;
