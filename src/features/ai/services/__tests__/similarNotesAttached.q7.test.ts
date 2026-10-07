@@ -29,11 +29,20 @@ describe('Q-7: turnScope слышит просьбы о других запис�
 });
 
 describe('Q-7: asksForSimilarNotes', () => {
-  it('просьба без своей темы — true, со своей — false', () => {
-    expect(asksForSimilarNotes('ещё посмотри другие заметки')).toBe(true);
-    expect(asksForSimilarNotes('другие заметки про маму')).toBe(false);
-    expect(asksForSimilarNotes('привет')).toBe(false);
-    expect(asksForSimilarNotes('добавь немного личного, поищи похожие темы')).toBe(true);
+  // R-3 (ревью 07.10): прежняя проверка «любой остаток после слов просьбы = своя
+  // тема» выключала поиск на «…сейчас суховато». Своя тема — только явно
+  // названный предмет поиска (предлог + содержательное слово, имя или роль).
+  it.each([
+    ['добавь немного личного из других моих заметок, сейчас суховато', true],
+    ['поищи в других заметках что-нибудь похожее', true],
+    ['другие заметки про маму', false],
+    ['найди похожие записи про бег', false],
+    ['ещё посмотри другие заметки', true],
+    ['добавь немного личного, поищи похожие темы', true],
+    ['привет', false],
+    ['найди похожее на то, что я скидывал', true],
+  ])('%s → %s', (text, expected) => {
+    expect(asksForSimilarNotes(text)).toBe(expected);
   });
 });
 
@@ -118,5 +127,28 @@ describe('Q-7: запрос строится из приложенной зам�
     vi.spyOn(noteRetriever, 'searchNotesMulti').mockResolvedValue({ notes: [], failed: false, degraded: false } as never);
     const ctx = await run(TURN, 'Тело про бег.');
     expect(ctx.searchContext ?? '').toContain('[Поиск похожих записей: ничего не найдено');
+  });
+
+  // R-3: ход 2 сценария E7 — просьба с посторонними словами. Поиск обязан
+  // запуститься по теме заметки, а не молчать.
+  it('просьба с посторонними словами ищет по заметке, а не по реплике', async () => {
+    const search = await seed({ summary: 'Про бег и усталость перед стартом', themes: ['Бег', 'усталость'] });
+    await run('добавь немного личного из других моих заметок, сейчас суховато', 'Тело приложенной заметки про утренний бег.');
+    expect(search).toHaveBeenCalled();
+    const query = search.mock.calls[0]![0]!.join(' ');
+    expect(query).toContain('Бег');
+    expect(query).not.toContain('суховато');
+  });
+
+  // R-3: широкая просьба о других записях со своей темой не должна оставаться
+  // без поиска — если полный поиск по тексту реплики не триггернулся, идём по
+  // тексту реплики явно.
+  it('просьба со своей темой ищет по тексту реплики, а не молчит', async () => {
+    const search = await seed({ summary: 'Про бег', themes: ['Бег'] });
+    const turn = 'разбери другие заметки про маму';
+    await run(turn, 'Тело приложенной заметки про утренний бег.');
+    expect(search).toHaveBeenCalled();
+    const queries = search.mock.calls.map(c => c[0]!.join(' '));
+    expect(queries.some(q => q.includes('маму'))).toBe(true);
   });
 });

@@ -12,7 +12,7 @@ import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { shouldRunFullSearch, asksForSimilarNotes } from '../utils/aiChatTransport';
+import { shouldRunFullSearch, asksForSimilarNotes, asksForOtherNotes } from '../utils/aiChatTransport';
 import { detectPersonMentions, buildPersonQuotesBlock, personQuoteIds, type PersonNote } from './chatContext/personQuotes';
 import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
@@ -295,20 +295,27 @@ export function useAIChatContext(personaId: string): {
     // и Редактор честно отвечал «по этому запросу в базе ничего не нашлось».
     // Запрос строится из самой заметки: разбор, если он есть, иначе название +
     // начало тела. Тело скрытой от ИИ заметки в запрос не попадает.
-    if (!forcedSearchQuery && attached && !isAttachedExcluded && params.scope === 'wide' && asksForSimilarNotes(text)) {
-      const summary = attached.documentId ? await summaryAt(attached.documentId) : undefined;
-      const fromSummary = [summary?.summary, ...(summary?.themes ?? [])].filter(Boolean).join('. ');
-      if (fromSummary.trim()) {
-        similarNotesQuery = fromSummary;
-      } else {
-        const title = attached.documentId ? (await docAt(attached.documentId))?.title : undefined;
-        const body = attachedContent.replace(/\s+/g, ' ').trim().slice(0, 600);
-        const built = [title, body].filter(Boolean).join('. ');
-        if (built.trim()) similarNotesQuery = built;
-      }
-      if (similarNotesQuery) {
+    if (!forcedSearchQuery && attached && !isAttachedExcluded && params.scope === 'wide' && asksForOtherNotes(text)) {
+      if (asksForSimilarNotes(text)) {
+        const summary = attached.documentId ? await summaryAt(attached.documentId) : undefined;
+        const fromSummary = [summary?.summary, ...(summary?.themes ?? [])].filter(Boolean).join('. ');
+        if (fromSummary.trim()) {
+          similarNotesQuery = fromSummary;
+        } else {
+          const title = attached.documentId ? (await docAt(attached.documentId))?.title : undefined;
+          const body = attachedContent.replace(/\s+/g, ' ').trim().slice(0, 600);
+          const built = [title, body].filter(Boolean).join('. ');
+          if (built.trim()) similarNotesQuery = built;
+        }
+        if (similarNotesQuery) {
+          explicitSearch = true;
+          effectiveQuery = similarNotesQuery;
+        }
+      } else if (!explicitSearch) {
+        // R-3 (ревью 07.10): у хода своя тема («поищи в других заметках про
+        // маму»), и поиск по её тексту не триггернулся — широкий ход с
+        // просьбой о других записях не должен оставаться без поиска вовсе.
         explicitSearch = true;
-        effectiveQuery = similarNotesQuery;
       }
     }
 

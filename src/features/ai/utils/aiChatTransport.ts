@@ -5,6 +5,7 @@ import { ATTACHED_NOTE_TITLE_MAX } from '../../../shared/ai/aiPolicy';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { isExcludedFromAI } from './isExcludedFromAI';
+import { detectPersonMentions } from '../services/chatContext/personQuotes';
 import type { getLocalDb } from '../../../core/storage/localDb';
 
 export let _streamUnavailableUntil = 0;
@@ -95,18 +96,17 @@ export function shouldRunFullSearch(text: string, hasAttachment: boolean): boole
   return !looksLikeNoteAnalysis(text) || ARCHIVE_SCOPE.test(text);
 }
 
-// DLG-Q7 (Fable T-11): «похожее / другие записи» без собственной темы. Просьба
+// DLG-Q7 (Fable T-11): форма просьбы «похожее / другие записи». Просьба
 // посмотреть другие записи на ТЕму приложенной заметки — искать надо по самой
 // заметке, а не по тексту реплики («другие заметки ещё посмотри» как поисковый
 // запрос не ищет ничего).
 const SIMILAR_NOTES_FORM = /похож|из других|на эту тему|ещ[её]\s+(?:\S+\s+){0,2}?(?:заметк|заметок|запис)|друг(?:ие|их|им)(?:\s+\S+){0,2}\s+(?:заметк|заметок|запис)|(?:заметк|заметок|запис)(?:\s+\S+){0,2}\s+друг(?:ие|их|им)/i;
 
-// Слова самой просьбы — они тему не задают. Если после них остаётся содержательное
-// слово («…про маму»), тема у хода своя, и обычный поиск по реплике правильнее.
-// Оканчания — `[а-яё]*`, а не `\w*`: `\w` в JS это только ASCII, и `заметк\w*`
-// не совпал бы ни с «заметки», ни с «заметку». Жадные префиксы оставлены там, где
-// они безвредны; «самолёт», «темп», «нарушение» вынесены в точные формы.
-const DEMONSTRATIVE = 'эт(?:от|а|о|и|у|ой|ом|их|им)|тот|та|те|то|тех|тем|сам|сама|само|сами|самого|самой|самому|самом|самых|самую|свой|своя|своё|свое|свои|своим|своих|свою';
+// Слова самой просьбы — они тему не задают. Оканчания — `[а-яё]*`, а не `\w*`:
+// `\w` в JS это только ASCII, и `заметк\w*` не совпал бы ни с «заметки», ни с
+// «заметку». Жадные префиксы оставлены там, где они безвредны; «самолёт»,
+// «темп», «нарушение» вынесены в точные формы.
+const DEMONSTRATIVE = 'эт(?:от|а|о|и|у|ой|ом|их|им)|тот|та|те|то|тех|тем|того|тому|том|сам|сама|само|сами|самого|самой|самому|самом|самых|самую|свой|своя|своё|свое|свои|своим|своих|свою';
 const REQUEST_VOCABULARY = new RegExp(
   `^(?:похож[а-яё]*|заметк[а-яё]*|заметок|запис[а-яё]*|тем|тема|темы|теме|тему|темой|темах|ещ[её]|еще|тоже|пожалуйста|раз|`
   + `посмотр[а-яё]*|поищ[а-яё]*|поиск[а-яё]*|ищ[а-яё]*|найд[а-яё]*|глян[а-яё]*|провер[а-яё]*|вспомн[а-яё]*|`
@@ -117,13 +117,29 @@ const REQUEST_VOCABULARY = new RegExp(
   'i',
 );
 
+export function asksForOtherNotes(text: string): boolean {
+  return SIMILAR_NOTES_FORM.test(text);
+}
+
+// R-3 (ревью 07.10): раньше своя тема определялась как любой остаток после слов
+// просьбы, и любое постороннее слово выключало поиск по заметке: «добавь немного
+// личного из других моих заметок, сейчас суховато» — «сейчас» и «суховато» тему
+// не задают. Предмет поиска должен быть назван явно: предлогом темы с
+// содержательным словом либо именем/ролью человека.
+const TOPIC_PREP_RE = /(?:^|[^а-яё])(?:про|насчёт|на\s+тему|по\s+поводу|обо|об|о)(?![а-яё])/i;
+
+function namesSearchTopic(text: string): boolean {
+  const at = TOPIC_PREP_RE.exec(text);
+  if (at) {
+    const after = text.slice(at.index + at[0].length).replace(/[^\p{L}\p{N}]+/gu, ' ');
+    if (after.split(' ').some(w => w.length > 1 && !REQUEST_VOCABULARY.test(w))) return true;
+  }
+  return detectPersonMentions(text, {}).length > 0;
+}
+
 export function asksForSimilarNotes(text: string): boolean {
   if (!SIMILAR_NOTES_FORM.test(text)) return false;
-  const residue = text
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .split(' ')
-    .filter(w => w.length > 0 && !REQUEST_VOCABULARY.test(w));
-  return residue.length === 0;
+  return !namesSearchTopic(text);
 }
 
 // A chat message sent to the API is capped at 10K chars. An attached note is
