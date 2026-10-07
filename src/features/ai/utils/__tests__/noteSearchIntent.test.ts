@@ -61,5 +61,11 @@ describe('shouldRunFullSearch', () => {
     expect(shouldRunFullSearch('посмотри в моих заметках про Сашу', true)).toBe(true);
     expect(shouldRunFullSearch('прочитай все мои записи про маму', true)).toBe(true);
     expect(shouldRunFullSearch('проанализируй весь дневник целиком', true)).toBe(true);
+    // П4 (самопроверка): между предлогом и существительным может стоять
+    // определение — «в старых записях», «по прошлым заметкам».
+    expect(shouldRunFullSearch('а в старых записях есть что-то про деньги', true)).toBe(true);
+    expect(shouldRunFullSearch('разбери по прошлым заметкам', true)).toBe(true);
+    // …но указательное слово оставляет ход приложенной заметке.
+    expect(shouldRunFullSearch('разбери то, что в этой заметке', true)).toBe(false);
   });
 });
