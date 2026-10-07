@@ -3,7 +3,7 @@
 // добавлен. Код считает это надёжно. Строку модели из промпта при этом не
 // убираем: без неё модель хуже держит приватность (§10.5 отчёта замера).
 
-import { LB, RB, ROLE_STEMS, NAME_STOPWORDS } from '../services/chatContext/personQuotes';
+import { LB, RB, ROLE_STEMS, NAME_STOPWORDS, SENTENCE_HEAD_WORDS } from '../services/chatContext/personQuotes';
 
 export interface PostDiff {
   namesRemoved: string[];
@@ -13,33 +13,43 @@ export interface PostDiff {
 
 const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
 const WORDS = /[А-ЯЁа-яё]{2,}|\d[\d\s.,:]{0,9}/g;
+const LOWER_WORD = new RegExp(`${LB}([а-яё][а-яё]{2,})${RB}`, 'g');
+const SENTENCE_START = /(?:^|[.!?…][\s\n]|\n)\s*$/;
 
 /**
- * Основа слова для сверки падежей: «Оля» и «Олю» — один человек. Полное совпадение
- * слова для этого не годится, а жадиная маска ловит «олень» вместо «Оля», поэтому
- * сравниваем основы как префиксы друг друга.
+ * Кандидаты в имена: слова с заглавной, не из стоп-листа и ни разу не виденные в
+ * источнике со строчной («Оля» — имя, «Сегодня» — нет). Начало предложения — тоже
+ * кандидат: в дневнике имя чаще всего стоит именно там, и прежний пропуск начала
+ * фразы терял почти все имена (R-4).
  */
-function root(w: string): string {
-  const n = lower(w).replace(/[^а-яе]/g, '');
-  return n.slice(0, Math.max(2, n.length - 2));
-}
-
-function sameWord(a: string, b: string): boolean {
-  const ra = root(a), rb = root(b);
-  return ra === rb || (Math.min(ra.length, rb.length) >= 2 && (ra.startsWith(rb) || rb.startsWith(ra)));
-}
-
-/** Слово с заглавной в середине фразы — кандидат на имя. */
 function properNouns(text: string): string[] {
+  const lowercaseForms = new Set([...text.matchAll(LOWER_WORD)].map(m => lower(m[1] ?? '')));
   const out: string[] = [];
   for (const m of text.matchAll(/[А-ЯЁ][а-яё]{2,}/g)) {
-    const w = m[0];
-    if (NAME_STOPWORDS.has(lower(w))) continue;
-    const before = text.slice(0, m.index);
-    if (before.trim() === '' || /[.!?…][\s\n]$/.test(before) || /\n\s*$/.test(before)) continue;
-    if (!out.includes(w)) out.push(w);
+    const word = m[0];
+    const lw = lower(word);
+    if (NAME_STOPWORDS.has(lw)) continue;
+    if (lowercaseForms.has(lw)) continue;
+    if (SENTENCE_START.test(text.slice(0, m.index)) && SENTENCE_HEAD_WORDS.has(lw)) continue;
+    if (!out.includes(word)) out.push(word);
   }
   return out;
+}
+
+/**
+ * Имя осталось в посте, если там есть слово с заглавной буквы с тем же началом:
+ * общее начало не короче `max(2, min(длин) − 1)` и слово не длиннее имени на три
+ * буквы. Строчные «олень», «анализ», «лето» не подходят — за имя отвечает
+ * заглавная, а «Анализ» отсекает ограничение по длине.
+ */
+function nameSurvives(postWord: string, name: string): boolean {
+  if (!/^[А-ЯЁ]/.test(postWord)) return false;
+  const a = lower(name), b = lower(postWord);
+  if (b.length > a.length + 2) return false;
+  const need = Math.max(2, Math.min(a.length, b.length) - 1);
+  let shared = 0;
+  while (shared < need && shared < a.length && shared < b.length && a[shared] === b[shared]) shared++;
+  return shared >= need;
 }
 
 const NUMBER_RE = /(?:\d{1,3}[ \u00A0]\d{3}(?:[ \u00A0]\d{3})*|\d+(?:[.,:]\d+)?)/g;
@@ -54,7 +64,7 @@ export function diffPostAgainstNote(post: string, source: string): PostDiff {
   const postWords = post.match(WORDS) ?? [];
 
   const namesRemoved = properNouns(source)
-    .filter(name => !postWords.some(w => sameWord(w, name)));
+    .filter(name => !postWords.some(w => nameSurvives(w, name)));
 
   const rolePattern = (stems: string[]) => new RegExp(`${LB}(${stems.join('|')})${RB}`, 'i');
   const rolesAdded = ROLE_STEMS

@@ -154,12 +154,14 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
   if (diff.namesRemoved.length) parts.push(`${t('ai_editor_diff_names_removed')} — ${diff.namesRemoved.join(', ')}`);
   if (diff.numbersRemoved.length) parts.push(`${t('ai_editor_diff_numbers_removed')} — ${diff.numbersRemoved.join(', ')}`);
   if (diff.rolesAdded.length) parts.push(`${t('ai_editor_diff_roles_added')} — ${diff.rolesAdded.join(', ')}`);
-  const line = parts.length > 0 ? parts.join('; ') : t('ai_editor_diff_unchanged');
+  // R-4: «ничего не изменено» — непроверяемое утверждение (имена в начале фразы
+  // раньше не считались вовсе), поэтому при пустом результате плашки нет.
+  if (parts.length === 0) return null;
 
   return (
     <div className="mt-2 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-[11px] leading-relaxed text-text-main/55 w-fit max-w-full">
       <span className="font-medium">{t('ai_editor_diff_title')}: </span>
-      <span>{line}</span>
+      <span>{parts.join('; ')}</span>
     </div>
   );
 }

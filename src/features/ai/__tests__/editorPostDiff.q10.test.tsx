@@ -113,5 +113,25 @@ describe('Q-10: плашка сверки поста с заметкой', () =>
     expect(plate).toContain('Тимур');
     expect(plate).not.toContain('Оля');
   });
+
+  // R-4 (ревью 07.10): строка «имена и числа не изменены» — непроверяемое
+  // утверждение, при пустой сверке плашки нет вовсе.
+  it('сверка ничего не нашла — плашки нет', async () => {
+    renderChat('editor', `${NOTE_TEXT}\n\n— — —\nИз заметок: [#local_editor_note]`);
+    await new Promise(r => setTimeout(r, 30));
+    expect(screen.queryByText(/Сверка с заметкой/)).toBeNull();
+    expect(screen.queryByText(/не изменены/)).toBeNull();
+  });
+
+  it('имя в начале заметки, убранное из поста, видно в плашке', async () => {
+    await seed();
+    const db = await getLocalDb();
+    await db.put('versions', { id: 'ver_2', documentId: NOTE_ID, version: 2, content: 'Оля написала первой. Тимур звонил в 5:50.' } as never);
+    renderChat('editor', 'Подруга написала первой. Брат звонил рано.\n\n— — —\nИз заметок: [#local_editor_note]');
+    await waitFor(() => expect(screen.getByText(/Сверка с заметкой/)).toBeInTheDocument());
+    const plate = screen.getByText(/Сверка с заметкой/).parentElement?.textContent ?? '';
+    expect(plate).toContain('Оля');
+    expect(plate).toContain('Тимур');
+  });
 });
 
