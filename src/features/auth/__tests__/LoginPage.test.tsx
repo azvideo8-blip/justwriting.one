@@ -219,4 +219,16 @@ describe('LoginPage (JW-SEC-08: prevent user enumeration on forgot password)', (
     const passwordInput = screen.getByPlaceholderText('••••••••');
     expect(passwordInput).toHaveFocus();
   });
+
+  it('регистрация закрыта: кнопка «Регистрация» открывает окно со ссылкой на чат в Telegram', () => {
+    render(<LoginPage isModal={true} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'auth_signup_closed_btn' }));
+    const dialog = screen.getByRole('dialog', { name: 'auth_signup_closed_title' });
+    const link = dialog.querySelector('a');
+    expect(link?.getAttribute('href')).toBe('https://t.me/andreyzubkov');
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(link?.getAttribute('rel')).toContain('noopener');
+    fireEvent.click(screen.getByRole('button', { name: 'auth_signup_closed_close' }));
+    expect(screen.queryByRole('dialog', { name: 'auth_signup_closed_title' })).toBeNull();
+  });
 });

@@ -15,6 +15,7 @@ import { setEncryptionEnabled } from '../../../core/crypto/cryptoHelpers';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Input } from '../../../shared/components/Input';
+import { ModalShell } from '../../../shared/components/ModalShell';
 
 interface LoginPageProps {
   isModal?: boolean;
@@ -27,6 +28,9 @@ interface LoginPageProps {
 // бы отказом — хуже, чем её отсутствие. Ставить true одновременно с открытием
 // регистрации на сервере, не раньше.
 const SIGNUP_ENABLED = false;
+// Пока регистрация закрыта (тестирование по приглашениям), человеку без
+// приглашения показываем, куда написать.
+const SIGNUP_CONTACT_URL = 'https://t.me/andreyzubkov';
 
 type SupabaseAuthError = { code?: string; message?: string; status?: number };
 
@@ -91,6 +95,7 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
   }, [prefilledEmail]);
 
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showSignupInfo, setShowSignupInfo] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -315,6 +320,16 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
             </Button>
           )}
 
+          {!SIGNUP_ENABLED && mode === 'login' && (
+            <Button
+              type="button"
+              onClick={() => setShowSignupInfo(true)}
+              className="text-sm font-medium transition-colors text-text-main/60 hover:text-text-main"
+            >
+              {t('auth_signup_closed_btn')}
+            </Button>
+          )}
+
           {mode === 'login' && (
             <Button
               type="button"
@@ -327,6 +342,36 @@ export function LoginPage({ isModal, onSuccess, onClose }: LoginPageProps) {
           </form>
 
         </div>
+
+        {showSignupInfo && (
+          <ModalShell
+            open
+            onClose={() => setShowSignupInfo(false)}
+            labelId="signup-closed-title"
+            z="critical"
+            className="w-full max-w-sm bg-surface-card border border-border-subtle rounded-2xl p-6 shadow-lg"
+          >
+            <h3 id="signup-closed-title" className="text-lg font-semibold text-text-main mb-2">{t('auth_signup_closed_title')}</h3>
+            <p className="text-sm text-text-main/70 leading-relaxed mb-5">{t('auth_signup_closed_body')}</p>
+            <div className="flex flex-col gap-2">
+              <a
+                href={SIGNUP_CONTACT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-white bg-[var(--brand-primary)] hover:brightness-110 transition-colors"
+              >
+                {t('auth_signup_closed_telegram')}
+              </a>
+              <Button
+                type="button"
+                onClick={() => setShowSignupInfo(false)}
+                className="w-full py-2.5 text-sm text-text-main/60 hover:text-text-main transition-colors"
+              >
+                {t('auth_signup_closed_close')}
+              </Button>
+            </div>
+          </ModalShell>
+        )}
 
         {showForgotPassword && (
           <motion.div
