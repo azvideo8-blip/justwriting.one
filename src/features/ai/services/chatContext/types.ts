@@ -9,6 +9,8 @@ export interface ChatContextResult {
   documentMood: string | undefined;
   memoryContext?: string | null;
   injectedDocumentIds?: string[];
+  /** DLG-Q8: названия заметок, попавших в контекст хода — против выдуманных «заметок». */
+  injectedTitles?: string[];
   allowedFirstSeenDates?: string[];
   degradedReason?: 'daily_limit' | undefined;
   /** Острый риск в реплике или приложенной заметке: UI показывает телефоны помощи. */

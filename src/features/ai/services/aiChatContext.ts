@@ -27,7 +27,7 @@ import { extractFirstSeenDates } from '../utils/dateGuard';
 import { reportAIDegradation, isDailyLimitError } from '../utils/aiDegradationReporter';
 import type { ChatContextResult, BuildContextParams } from './chatContext/types';
 import { getCorpusStats, formatDateYYYYMMDD, getDocDate } from './chatContext/corpusStats';
-import { extractCitationIds, validateCitationIds } from './chatContext/citations';
+import { extractCitationIds, validateCitationIds, extractContextTitles } from './chatContext/citations';
 import { createEmbedOnce } from './chatContext/embeddings';
 import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
@@ -323,6 +323,7 @@ export function useAIChatContext(personaId: string): {
         documentMood: mood,
         memoryContext: null,
         injectedDocumentIds: [...new Set(injectedDocumentIds)],
+        injectedTitles: extractContextTitles(noteBlock),
         allowedFirstSeenDates: [],
         degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
         crisis,
@@ -849,6 +850,12 @@ export function useAIChatContext(personaId: string): {
       ...injectedDocumentIds,
       ...validatedDocIds,
     ];
+    // DLG-Q8: названия, которые модель реально видела в этом ходе, — по ним
+    // sanitizeCitations отличает законную ссылку на заметку от выдуманной.
+    const contextTitles = [
+      ...extractContextTitles(searchContext),
+      ...extractContextTitles(memoryContext),
+    ];
 
     return {
       userPortrait: effectivePortrait,
@@ -857,6 +864,7 @@ export function useAIChatContext(personaId: string): {
       documentMood: mood,
       memoryContext,
       injectedDocumentIds: [...new Set(allInjectedDocIds)],
+      injectedTitles: [...new Set(contextTitles)],
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
       degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
       crisis,

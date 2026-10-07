@@ -79,15 +79,69 @@ const isConsentCode = (msg: string): msg is ConsentCode => (CONSENT_CODES as rea
 // квоты), без записи в журнал и без «Попробуй позже».
 const DISALLOWED_PHRASE = 'DISALLOWED_PHRASE';
 
-export function sanitizeCitations(text: string, injectedIds: string[]): string {
+// Нормализка для сравнения цитаты с материалами: регистр, ё→е, кавычки,
+// пунктуация и пробелы схлопываются — цитата обязана совпадать по содержанию, а
+// не по оформлению.
+export function normalizeQuoteText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[«»"'`“”]/g, '')
+    .replace(/[\s\p{P}\p{S}]+/gu, ' ')
+    .trim();
+}
+
+// DLG-Q8 (Fable T-18): любые другие квадратные скобки. Модель оформляет ссылкой
+// то, чем она не является: [«Новая копилка», 18.09.2026], [из заметок],
+// [источник: …]. Правила промпта это запрещают, но промпт — не гарантия, поэтому
+// чистим кодом. Правило намеренно ограничено скобками с кириллицей, «ёлочкой»
+// или `#`: латинские сноски вида [1] в английском ответе — не выдумка.
+const STRAY_BRACKET_RE = /\[([^[\]\n]{1,120})\]/g;
+
+// «в заметке «Письмо маме»», если такого заголовка хода нет → «в заметке про
+// письмо маме». Падеж существительного не трогаем: править его кодом — значит
+// портить текст на каждом втором окончании.
+const TITLE_REF_RE = /((?:заметк|запис|текст)[а-яё]*)\s+«([^»\n]{2,60})»/gi;
+
+// Цитата в «ёлочках» длиннее трёх слов, приписанная человеку («ты пишешь»,
+// «в заметке», «твои слова») и отсутствующая в материалах — это не его слова.
+// Кавычки снимаем, текст оставляем. Гипотезы («может быть, внутри звучит…») не
+// трогаем: их модель предлагает, а не приписывает.
+const QUOTE_RE = /«([^»\n]{1,400})»/g;
+const ATTRIBUTION_RE = /(?:ты\s+(?:пишешь|пишете|писал|писала|писали|говоришь|сказал|сказала)|как\s+ты\s+(?:сама|сам)\s+пиш\w*|в\s+(?:заметк|запис)\w*|твои\s+слова|твоя\s+фраза)[^«»]{0,40}$/i;
+const HEDGE_RE = /(?:вроде|типа|например|может\s+быть|возможно|похоже|как\s+будто|звучит|мысль|примерно|наверн\w*|условно|предполож\w*|гипотез|если\s+бы|внутри|гвоздь|формулировк|вопрос|спроси|не\s+увер\w*)[^«»]{0,60}$/i;
+
+// Чекбокс списка и латинская сноска — не ссылка и не выдумка. `[x]` и `[1]`
+// иначе съедал CITATION_RE (его вторая ветка — `[a-zA-Z0-9_-]+`, то есть любой
+// короткий латинский токен считается id заметки), а `[ ]` — финальная чистка
+// пустых скобок. На время чистки прячем их под приватный маркер и возвращаем в
+// конце.
+const KEEP_TOKEN_RE = /\[(?:\d{1,3}|[a-zA-Z]{1,2}|[ xX])\]/g;
+const LIST_ITEM_PREFIX = /(?:^|\n)[ \t]*(?:[-*+]\s+|\d+[.)]\s+)$/;
+const KEEP_OPEN = '\uE001';
+const KEEP_CLOSE = '\uE002';
+
+export function sanitizeCitations(
+  text: string,
+  injectedIds: string[],
+  injectedTitles?: string[],
+  materialsText?: string,
+): string {
   const allowed = new Set(injectedIds);
   const UNRECOGNISED_MARKER = '\uE000';
+  const kept: string[] = [];
+  let src = text.replace(KEEP_TOKEN_RE, (match: string, offset: number) => {
+    // пустая скобка-чекбокс имеет смысл только в начале пункта списка
+    if (/^\[[ xX]\]$/.test(match) && !LIST_ITEM_PREFIX.test(text.slice(0, offset))) return match;
+    kept.push(match);
+    return `${KEEP_OPEN}${kept.length - 1}${KEEP_CLOSE}`;
+  });
 
   // Модель иногда сокращает номер: «[#local_d5751490…]». Такой не совпадал ни
   // с одним шаблоном и печатался сырым текстом вместо ссылки. Начало, которое
   // однозначно указывает на заметку из этого хода, достраивается до полного
   // номера; неоднозначное или чужое — убирается, как любая непризнанная ссылка.
-  let cleaned = text.replace(/\[#?([a-zA-Z0-9_.-]{6,}?)(?:…|\.{2,3})\]/g, (_match, prefix: string) => {
+  let cleaned = src.replace(/\[#?([a-zA-Z0-9_.-]{6,}?)(?:…|\.{2,3})\]/g, (_match, prefix: string) => {
     const hits = injectedIds.filter(id => id.startsWith(prefix));
     return hits.length === 1 ? `[#${hits[0]}]` : UNRECOGNISED_MARKER;
   });
@@ -99,6 +153,38 @@ export function sanitizeCitations(text: string, injectedIds: string[]): string {
     }
     return UNRECOGNISED_MARKER;
   });
+
+  // (а) DLG-Q8: всё, что осталось в квадратных скобках и похоже на ссылку, —
+  // ссылка невыдуманная или отсутствует. Незакрытая скобка потокового хвоста
+  // под этот шаблон не попадает, поэтому незакрытый кусок живёт до следующего
+  // чанка и чистится в финальном вызове.
+  cleaned = cleaned.replace(STRAY_BRACKET_RE, (match, inner: string, offset: number, whole: string) => {
+    if (whole[offset + match.length] === '(') return match;            // markdown-ссылка [текст](url)
+    const bare = inner.trim();
+    if (!/[а-яё«»#]/i.test(bare)) return match;                        // [1], [EN] — не выдумка
+    if (bare.startsWith('#') && allowed.has(bare.slice(1).trim())) return match; // признанная ссылка
+    return UNRECOGNISED_MARKER;
+  });
+
+  // (в) DLG-Q8: название заметки, которого в этом ходе не было.
+  if (injectedTitles && injectedTitles.length > 0) {
+    const known = new Set(injectedTitles.map(normalizeQuoteText));
+    cleaned = cleaned.replace(TITLE_REF_RE, (match, word: string, title: string) =>
+      known.has(normalizeQuoteText(title)) ? match : `${word} про ${title}`,
+    );
+  }
+
+  // (б) DLG-Q8: приписанная цитата, которой нет ни в материалах, ни в истории.
+  if (materialsText) {
+    const hay = normalizeQuoteText(materialsText);
+    cleaned = cleaned.replace(QUOTE_RE, (match, quote: string, offset: number, whole: string) => {
+      if (quote.trim().split(/\s+/).length <= 3) return match;
+      const before = whole.slice(Math.max(0, offset - 80), offset);
+      if (!ATTRIBUTION_RE.test(before) || HEDGE_RE.test(before)) return match;
+      if (hay.includes(normalizeQuoteText(quote))) return match;
+      return quote;
+    });
+  }
 
   // Clean up punctuation and whitespace around the removed citation.
   // A list of references ("Источники: [#a], [#b].") loses its separator with the
@@ -116,6 +202,10 @@ export function sanitizeCitations(text: string, injectedIds: string[]): string {
   cleaned = cleaned.replace(/ {2,}/g, ' ');
   cleaned = cleaned.replace(/\(\s*\)/g, '');
   cleaned = cleaned.replace(/\[\s*\]/g, '');
+
+  // Снятые на время чистки токены возвращаем на место.
+  cleaned = cleaned.replace(new RegExp(`${KEEP_OPEN}(\\d+)${KEEP_CLOSE}`, 'g'),
+    (_m, i: string) => kept[Number(i)] ?? '');
 
   return cleaned.trim();
 }
@@ -466,6 +556,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         searchContext: rawSearchContext,
         memoryContext,
         injectedDocumentIds,
+        injectedTitles,
         allowedFirstSeenDates,
         degradedReason,
         crisis,
@@ -511,6 +602,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       }
       const safePortrait = userPortrait && userPortrait.length > 4_000 ? userPortrait.slice(0, 4_000) : userPortrait;
 
+      // DLG-Q8: с чем сверять цитаты и названия — с теми же материалами, что
+      // ушли модели, плюс реплики человека из этого диалога.
+      const materialsText = [searchContext, memoryContext, ...apiMessages.filter(m => m.role === 'user').map(m => m.content)]
+        .filter((x): x is string => !!x)
+        .join('\n');
+
       const customSystemPrompt = customPersona;
       const effectivePersonaId = customPersona ? 'custom' : personaId;
 
@@ -537,12 +634,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeFirstSeenDates(
-                sanitizeCitations(partial, injectedDocumentIds || []),
+                sanitizeCitations(partial, injectedDocumentIds || [], injectedTitles, materialsText),
                 allowedFirstSeenDates || []
               );
               const cleanReasoning = reasoning
                 ? sanitizeFirstSeenDates(
-                    sanitizeCitations(reasoning, injectedDocumentIds || []),
+                    sanitizeCitations(reasoning, injectedDocumentIds || [], injectedTitles, materialsText),
                     allowedFirstSeenDates || []
                   )
                 : null;
@@ -588,7 +685,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanReasoning) {
               setStreamingReasoning(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanReasoning, injectedDocumentIds || []),
+                  sanitizeCitations(cleanReasoning, injectedDocumentIds || [], injectedTitles, materialsText),
                   allowedFirstSeenDates || []
                 )
               );
@@ -596,7 +693,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             if (cleanAnswer) {
               setStreamingMessage(
                 sanitizeFirstSeenDates(
-                  sanitizeCitations(cleanAnswer, injectedDocumentIds || []),
+                  sanitizeCitations(cleanAnswer, injectedDocumentIds || [], injectedTitles, materialsText),
                   allowedFirstSeenDates || []
                 )
               );
@@ -631,7 +728,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       // so the collapsible "ход мысли" survives in dialogue history.
       const searchReq = extractSearchRequest(fullText);
       const sanitizedFullText = sanitizeFirstSeenDates(
-        sanitizeCitations(fullText, injectedDocumentIds || []),
+        sanitizeCitations(fullText, injectedDocumentIds || [], injectedTitles, materialsText),
         allowedFirstSeenDates || []
       );
       let savedText = extractAnswer(sanitizedFullText);

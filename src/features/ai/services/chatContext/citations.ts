@@ -28,3 +28,26 @@ export async function validateCitationIds(
   }
   return valid;
 }
+
+// DLG-Q8: названия заметок, которые модель видела в этом ходе. Нужны, чтобы
+// отличить законную ссылку «в заметке «Письмо маме»» от выдуманной: модель
+// называет записями те, которых в материалах нет. Формы заголовков — те же, что
+// печатают блоки контекста: шапка результата поиска, строка «недавних записей»
+// и маркер приложенной заметки.
+const CONTEXT_TITLE_PATTERNS: RegExp[] = [
+  /Заметка\s+\d+:\s*"([^"\n]{1,200})"/g,
+  /^-\s*«([^»\n]{1,200})»:/gm,
+  /\[Прикрепле?нная? заметка:\s*"([^"\n]{1,200})"\]/g,
+];
+
+export function extractContextTitles(text: string | null | undefined): string[] {
+  if (!text) return [];
+  const titles: string[] = [];
+  for (const re of CONTEXT_TITLE_PATTERNS) {
+    for (const m of text.matchAll(re)) {
+      const t = (m[1] ?? '').trim();
+      if (t) titles.push(t);
+    }
+  }
+  return [...new Set(titles)];
+}

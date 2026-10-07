@@ -1,0 +1,92 @@
+import { describe, expect, it } from 'vitest';
+import { sanitizeCitations } from '../useAIChat';
+
+// DLG-Q8 (Fable T-18): выдумка коуча выглядела так: [«Новая копилка»,
+// 18.09.2026], [«Разговор», 28.09.2026]. Такие скобки проходили насквозь, потому
+// что чистились только ссылки формата CITATION_RE. Проверяется и обратное:
+// законное оформление (markdown-ссылка, чекбокс, сноска [1]) тронуто быть не
+// должно.
+const REAL = 'local_d5751490abcd';
+const IDS = [REAL];
+
+describe('Q-8 (а): нераспознанные квадратные скобки', () => {
+  it('скобки-названия с датой удаляются вместе с пунктуацией', () => {
+    const out = sanitizeCitations(
+      'ты откладываешь деньги [«Новая копилка», 18.09.2026], репетируешь разговор [«Разговор», 28.09.2026]',
+      IDS,
+    );
+    expect(out).toBe('ты откладываешь деньги, репетируешь разговор');
+    expect(out).not.toContain('  ');
+    expect(out).not.toContain('[');
+  });
+
+  it('признанная ссылка остаётся, выдуманная — нет', () => {
+    expect(sanitizeCitations(`про бег [#${REAL}]`, IDS)).toBe(`про бег [#${REAL}]`);
+    expect(sanitizeCitations('про бег [#local_fakeid123]', IDS)).toBe('про бег');
+  });
+
+  it('[из заметок] и [источник: …] — тоже выдумка', () => {
+    expect(sanitizeCitations('план [из заметок] на неделю', IDS)).toBe('план на неделю');
+    expect(sanitizeCitations('цифры [источник: апрель]', IDS)).toBe('цифры');
+  });
+
+  it('markdown-ссылка, чекбокс и латинская сноска не тронуты', () => {
+    const md = 'посмотри [описание](https://example.com/a) и выбери:';
+    expect(sanitizeCitations(md, IDS)).toBe(md);
+    const task = '- [ ] сделать забег\n- [x] план';
+    expect(sanitizeCitations(task, IDS)).toBe(task);
+    const en = 'see [1] and [2] for the run plan';
+    expect(sanitizeCitations(en, IDS)).toBe(en);
+  });
+});
+
+describe('Q-8 (в): ссылка на заметку по названию', () => {
+  it('названия, которого нет в этом ходе, быть не должно', () => {
+    const out = sanitizeCitations('в заметке «Письмо маме» ты пишешь про отпуск', IDS, ['Вечер с мамой']);
+    expect(out).toContain('заметке про Письмо маме');
+    expect(out).not.toContain('«Письмо маме»');
+  });
+
+  it('настоящий заголовок хода остаётся как есть', () => {
+    const src = 'в заметке «Письмо маме» ты пишешь про отпуск';
+    expect(sanitizeCitations(src, IDS, ['Письмо маме', 'Вечер с мамой'])).toBe(src);
+  });
+
+  it('без списка названий правило не применяется (старые вызовы)', () => {
+    const src = 'в заметке «Письмо маме» всё ровно';
+    expect(sanitizeCitations(src, IDS)).toBe(src);
+  });
+});
+
+describe('Q-8 (б): приписанная цитата без опоры', () => {
+  const ANSWER = 'ты пишешь «я больше так не могу и не хочу» — и замолкаешь';
+
+  it('нет в материалах — кавычки сняты, текст оставлен', () => {
+    expect(sanitizeCitations(ANSWER, IDS, [], 'про работу и планы')).toBe('ты пишешь я больше так не могу и не хочу — и замолкаешь');
+  });
+
+  it('есть в материалах — кавычки на месте', () => {
+    expect(sanitizeCitations(ANSWER, IDS, [], 'вчера: «Я больше так не могу и не хочу»')).toBe(ANSWER);
+  });
+
+  it('короткая цитата и гипотеза не трогаются', () => {
+    expect(sanitizeCitations('ты пишешь «не могу»', IDS, [], 'пусто')).toBe('ты пишешь «не могу»');
+    const hedge = 'может быть, внутри звучит «я больше так не могу и не хочу» — так?';
+    expect(sanitizeCitations(hedge, IDS, [], 'пусто')).toBe(hedge);
+  });
+
+  it('регистр, ё и пунктуация при сверке не важны', () => {
+    expect(sanitizeCitations(ANSWER, IDS, [], 'Я БОЛЬШЕ ТАК НЕ МОГУ, И НЕ ХОЧУ!')).toBe(ANSWER);
+  });
+});
+
+describe('Q-8: потоковый текст', () => {
+  it('незакрытая скобка и незакрытая кавычка переживают чанк', () => {
+    expect(sanitizeCitations('ты пишешь «я больше так', IDS, [], 'пусто')).toBe('ты пишешь «я больше так');
+    expect(sanitizeCitations('копилка [«Новая', IDS, [], 'пусто')).toBe('копилка [«Новая');
+  });
+
+  it('после закрытия правило применяется', () => {
+    expect(sanitizeCitations('копилка [«Новая», 18.09]', IDS, [], 'пусто')).toBe('копилка');
+  });
+});
