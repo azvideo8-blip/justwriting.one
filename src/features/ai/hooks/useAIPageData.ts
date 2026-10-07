@@ -25,6 +25,7 @@ import { looksLikeNoteSearch, splitAttachedMessage, cleanAttachedTitle, legacyNo
 import { useLanguage } from '../../../shared/i18n';
 import { localDayKey } from '../../../core/utils/dateUtils';
 import { noteMetaFor } from '../utils/noteMeta';
+import { followUpKey } from '../utils/followUpKey';
 
 type ResponseLength = 'short' | 'standard' | 'detailed';
 
@@ -552,12 +553,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   }, [displayMessages.length, streamingMessage]);
 
   useEffect(() => {
-    let lastAssistant: string | null = null;
-    for (let i = displayMessages.length - 1; i >= 0; i--) {
-      const m = displayMessages[i];
-      if (m && m.role === 'assistant' && m.type !== 'system') { lastAssistant = m.content; break; }
-    }
-    const key = `${activeDialogueId ?? 'new'}:${displayMessages.length}:${lastAssistant?.slice(0, 100) ?? 'none'}`;
+    const { key, lastAssistant } = followUpKey(displayMessages);
     if (key === lastFollowUpKeyRef.current) return;
     lastFollowUpKeyRef.current = key;
     if (!lastAssistant) return;
@@ -579,7 +575,7 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
       }
       setFollowUps(CHAT_FOLLOW_UPS);
     }).catch(() => setFollowUps(CHAT_FOLLOW_UPS));
-  }, [displayMessages, activeDialogueId]);
+  }, [displayMessages]);
 
   return {
     dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
