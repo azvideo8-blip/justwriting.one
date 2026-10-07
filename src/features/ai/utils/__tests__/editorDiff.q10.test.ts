@@ -50,6 +50,11 @@ describe('Q-10: diffPostAgainstNote', () => {
     expect(d.namesRemoved).toEqual([]);
   });
 
+  it('то же с «ё» в начале фразы', () => {
+    const d = diffPostAgainstNote('Было тихо. Пришла Оля.', 'Днём было тихо. Потом пришла Оля.');
+    expect(d.namesRemoved).toEqual([]);
+  });
+
   it('слово, которое в источнике хоть раз пишется со строчной, — не имя', () => {
     const d = diffPostAgainstNote('Всё решили завтра.', 'Маму звали вечером. Мы говорили про маму.');
     expect(d.namesRemoved).toEqual([]);

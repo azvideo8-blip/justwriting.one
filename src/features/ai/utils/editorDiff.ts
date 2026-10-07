@@ -15,6 +15,9 @@ const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
 const WORDS = /[А-ЯЁа-яё]{2,}|\d[\d\s.,:]{0,9}/g;
 const LOWER_WORD = new RegExp(`${LB}([а-яё][а-яё]{2,})${RB}`, 'g');
 const SENTENCE_START = /(?:^|[.!?…][\s\n]|\n)\s*$/;
+// Список начал фразы свёрнут так же, как lower(): иначе «Днём» сверяется с
+// «днём» и не совпадает.
+const SENTENCE_HEAD_FOLDED = new Set([...SENTENCE_HEAD_WORDS].map(lower));
 
 /**
  * Кандидаты в имена: слова с заглавной, не из стоп-листа и ни разу не виденные в
@@ -30,7 +33,7 @@ function properNouns(text: string): string[] {
     const lw = lower(word);
     if (NAME_STOPWORDS.has(lw)) continue;
     if (lowercaseForms.has(lw)) continue;
-    if (SENTENCE_START.test(text.slice(0, m.index)) && SENTENCE_HEAD_WORDS.has(lw)) continue;
+    if (SENTENCE_START.test(text.slice(0, m.index)) && SENTENCE_HEAD_FOLDED.has(lw)) continue;
     if (!out.includes(word)) out.push(word);
   }
   return out;
@@ -38,9 +41,9 @@ function properNouns(text: string): string[] {
 
 /**
  * Имя осталось в посте, если там есть слово с заглавной буквы с тем же началом:
- * общее начало не короче `max(2, min(длин) − 1)` и слово не длиннее имени на три
- * буквы. Строчные «олень», «анализ», «лето» не подходят — за имя отвечает
- * заглавная, а «Анализ» отсекает ограничение по длине.
+ * общее начало не короче `max(2, min(длин) − 1)` и слово не длиннее имени больше
+ * чем на две буквы. Строчные «олень», «анализ», «лето» не подходят — за имя
+ * отвечает заглавная, а «Анализ» отсекает ограничение по длине.
  */
 function nameSurvives(postWord: string, name: string): boolean {
   if (!/^[А-ЯЁ]/.test(postWord)) return false;
