@@ -2,6 +2,10 @@
 
 ## 0.9.32 — 2026-10-07
 
+- **[RU]** Вернулся собеседник «Редактор» — он собирает из ваших заметок готовый пост для канала или блога: вашим голосом, только по тому, что вы написали, с заменой чужих имён на роли. Пост копируется одной кнопкой; в сами заметки ИИ по-прежнему ничего не пишет.
+- **[EN]** The «Editor» persona is back — it turns your notes into a ready post for a channel or blog: in your voice, only from what you wrote, with other people's names replaced by roles. The post copies with one button; the AI still never writes into your notes.
+- **[RU]** В окне входа появилась кнопка «Регистрация»: пока программа в тестировании, она подсказывает, как попросить приглашение, и открывает чат в Telegram.
+- **[EN]** The sign-in window has a «Sign up» button: while the app is in testing, it explains how to ask for an invitation and opens a Telegram chat.
 - **[RU]** ИИ больше не теряет найденные заметки на втором вопросе нового диалога. Раньше уточнение после «о чём была моя заметка про…» шло без них, и ИИ мог досочинить то, чего в дневнике нет.
 - **[EN]** The AI no longer loses the notes it found on the second question of a new dialogue. A follow-up to «what was my note about…» used to go without them, and the AI could make up things that aren't in the diary.
 - **[RU]** ИИ обращается на «ты» весь диалог, ставит род по вашим записям, не начинает ответ с «Отличный вопрос» и не вставляет английские заголовки. «Ничего не нашлось» говорит, только когда поиск действительно пуст.
