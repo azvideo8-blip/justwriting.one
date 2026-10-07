@@ -67,7 +67,10 @@ export function extractDocumentIdFromEvidenceId(evidenceId: string): string | nu
 
 export function extractDocumentIdsFromText(text: string | null | undefined): string[] {
   if (!text) return [];
-  const matches = text.matchAll(/\[#([a-zA-Z0-9_-]+)\]/g);
+  // DLG-Q5: шапка вида `[#id · дата]` (блок открытых планов, шапки заметок) —
+  // это тоже ссылка. Прежний регэксп брал только `[#id]` и sanitizeCitations
+  // вырезал правильную ссылку модели на план.
+  const matches = text.matchAll(/\[#([a-zA-Z0-9_-]+)(?:\s·[^\]\n]*)?\]/g);
   const ids: string[] = [];
   for (const m of matches) {
     if (m[1]) ids.push(m[1]);

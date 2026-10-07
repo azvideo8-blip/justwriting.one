@@ -2,7 +2,6 @@ import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIDialogueService } from '../AIDialogueService';
 import { AIMonthlyDigestService } from '../AIMonthlyDigestService';
 import { AITimelineService } from '../AITimelineService';
-import { relativeDate } from '../../../../core/utils/dateUtils';
 import { reportError } from '../../../../shared/errors/reportError';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
 
@@ -140,7 +139,10 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
     const { AICommitmentService } = await import('../AICommitmentService');
     const openCommitments = await AICommitmentService.getOpenCommitments();
     if (openCommitments.length > 0) {
-      const commitmentsLines = openCommitments.map(c => `- «${c.text}» (создано: ${relativeDate(c.createdAt)})`).join('\n');
+      // DLG-Q5 (Fable T-9): дата извлечения вместо даты заметки — на стенде
+      // все 25 планов выглядели «сегодня», а без id заметки модель сочиняла ссылки
+      // вида [#планирует-…]. Ссылка [#id · дата] — тот же формат, что у шапок заметок.
+      const commitmentsLines = openCommitments.map(c => `- «${c.text}» [#${c.documentId} · ${c.date}]`).join('\n');
       const commitmentsBlock = `[Твои открытые планы / обязательства]\n${commitmentsLines}`;
       proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${commitmentsBlock}` : commitmentsBlock;
     }

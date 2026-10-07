@@ -71,7 +71,7 @@ export const AICommitmentService = {
     }
   },
 
-  async getOpenCommitments(): Promise<{ id: string; text: string; createdAt: number; date: string }[]> {
+  async getOpenCommitments(): Promise<{ id: string; text: string; createdAt: number; date: string; documentId: string }[]> {
     try {
       const db = await getLocalDb();
       const allCommitments = await db.getAll('aiCommitments');
@@ -134,6 +134,7 @@ export const AICommitmentService = {
             text: c.text,
             createdAt: c.createdAt,
             date: c.date,
+            documentId: c.documentId,
           });
         }
       }
