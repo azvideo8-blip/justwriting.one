@@ -4,7 +4,19 @@
 // so an extensionless relative import fails at runtime with ERR_MODULE_NOT_FOUND
 // and 500s the whole /api/chat endpoint. Vite resolves the .js → .ts for the SPA.
 import { z } from 'zod';
-import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_SEARCH_GUARD, REFLECTION_GUIDE, SAFETY_GUIDE } from './prompts.js';
+import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, SAFETY_GUIDE } from './prompts.js';
+
+// DLG-Q2: правила формата, длины и ссылок редактора — дословно из замера
+// (audit-evidence/ai-dialogue-quality-fable/variants/v6.json).
+const FORMAT_LINE = `ФОРМАТИРОВАНИЕ ТЕКСТА: абзацы разделяй одной пустой строкой. В разговоре пиши связным текстом — без заголовков, таблиц и нумерованных разделов; список уместен, только если человек просит план, перечень или сравнение. Заголовки — лишь в подробном разборе приложенной заметки. Язык ответа — язык последнего сообщения человека: на английское сообщение отвечай по-английски целиком.`;
+
+const LENGTH = {
+  short: `ДЛИНА ОТВЕТА (приоритет выше формата персоны): очень кратко — до ~500 знаков, 1–2 абзаца, без разделов и списков.`,
+  standard: `ДЛИНА ОТВЕТА (приоритет выше формата персоны): умеренно — до ~1200 знаков, 2–4 абзаца, без разделов. Если человек просит план или разбор — можно длиннее, но не таблицей.`,
+  detailed: `ДЛИНА ОТВЕТА (приоритет выше формата персоны): развёрнуто — полная структура персоны и глубокий разбор.`,
+} as const;
+
+const EDITOR_NOTES_RULE = `ДЛЯ РЕДАКТОРА: ссылки [#id] ставь только в блоке «Из заметок:» после поста; внутри текста поста ссылок и квадратных скобок нет.`;
 
 export interface ChatPromptParams {
   personaId: string;
@@ -16,6 +28,8 @@ export interface ChatPromptParams {
   documentMood?: string | null | undefined;
   memoryContext?: string | null | undefined;
   noteScope?: NoteScope | null | undefined;
+  /** DLG-Q2: источник случайности для подборки примеров вопросов — только для тестов. */
+  rnd?: (() => number) | undefined;
 }
 
 /** S-56: предел названия в правиле строгого хода — клиент режет до него, сервер отвергает длиннее. */
@@ -57,15 +71,35 @@ export function withReasoningLanguage<M extends { role: string; content: string 
   };
 }
 
+/**
+ * DLG-Q2: 2–3 разных примера открытых вопросов из пула. Строка с ними — последняя
+ * в статичной части промпта: у провайдера кэш префикса, и случайный текст в
+ * середине обнулял бы кэш всего, что идёт после него.
+ */
+export function pickOpenQuestionExamples(rnd: () => number = Math.random): string {
+  const list = [...OPEN_QUESTION_POOL];
+  const n = 2 + Math.floor(rnd() * 2);
+  const picked: string[] = [];
+  while (list.length && picked.length < n) {
+    const [taken] = list.splice(Math.floor(rnd() * list.length), 1);
+    if (taken === undefined) break;
+    picked.push(taken);
+  }
+  return picked.join(', ');
+}
+
 export function buildChatSystemPrompt(params: ChatPromptParams): string {
-  const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood, memoryContext, noteScope } = params;
+  const { personaId, customSystemPrompt, userPortrait, responseLength, reasoning, documentContent, documentMood, memoryContext, noteScope, rnd } = params;
 
   // `reasoning` = the request runs with provider-side reasoning on. The model
   // is never asked to write its reasoning into the answer: callers read it from
   // the reasoning channel and add the ХОД МЫСЛИ:/ОТВЕТ: headers themselves.
   const hasSearch = Boolean(documentContent && (documentContent.includes('Результаты поиска') || documentContent.includes('[#')));
   const baseNotesGuard = hasSearch ? `${NOTES_GUARD_BASE}\n\n${NOTES_SEARCH_GUARD}` : NOTES_GUARD_BASE;
-  const notesGuard = noteScope ? `${baseNotesGuard}\n\n${noteScopeRule(noteScope)}` : baseNotesGuard;
+  // DLG-Q2 (Fable T-8): правило ссылок редактора — до правила строгого хода,
+  // как в харнессе (run.mjs:57).
+  const guardedNotes = personaId === 'editor' ? `${baseNotesGuard}\n\n${EDITOR_NOTES_RULE}` : baseNotesGuard;
+  const notesGuard = noteScope ? `${guardedNotes}\n\n${noteScopeRule(noteScope)}` : guardedNotes;
 
   // SEC-24: Move custom system prompt AFTER system guards so custom instructions cannot override guards
   let base = personaId === 'custom'
@@ -82,15 +116,24 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
     base += '\n\nФОРМАТ ОТВЕТА: Отвечай сразу, без хода мысли.';
   }
 
-  base += '\n\nФОРМАТИРОВАНИЕ ТЕКСТА: Обязательно разделяй абзацы одной пустой строкой. Для удобства чтения структурируй длинные ответы с помощью заголовков и списков.';
+  base += `\n\n${FORMAT_LINE}`;
 
   // AX-11: Strengthen length differences so the user feels them.
   if (responseLength === 'short') {
-    base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): ОЧЕНЬ кратко — 1–2 абзаца, без секций/заголовков/списков. Только суть + один вопрос.';
+    base += `\n\n${LENGTH.short}`;
   } else if (responseLength === 'standard') {
-    base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): умеренно — 3–5 абзацев, без избыточных секций. Суть + краткое раскрытие + 1–2 вопроса.';
+    base += `\n\n${LENGTH.standard}`;
   } else if (responseLength === 'detailed') {
-    base += '\n\nДЛИНА ОТВЕТА (приоритет выше формата персоны): развёрнутый, подробный ответ — полная структура персоны, глубокий анализ, несколько вопросов.';
+    base += `\n\n${LENGTH.detailed}`;
+  }
+
+  // DLG-Q2: подборка примеров — последний ход статичной части, перед первым
+  // DATA_CONTEXT_BEGIN. Меняется от хода к ходу, поэтому всё до неё побайтно
+  // одинаково и попадает в кэш префикса.
+  // У редактора вопросов нет, у пользовательской персоны свой голос — примеры
+  // навязали бы чужой.
+  if (personaId !== 'editor' && personaId !== 'custom') {
+    base += `\n\nПРИМЕРЫ ОТКРЫТЫХ ВОПРОСОВ (меняются от хода к ходу): ${pickOpenQuestionExamples(rnd)}.`;
   }
 
   // OPT-5: RAG context in system prompt, not as fake user turn.

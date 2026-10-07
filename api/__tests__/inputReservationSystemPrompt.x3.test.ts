@@ -3,7 +3,9 @@
 // (заметка, портрет, память, кастомная персона), а шаблон персоны с guard'ами
 // добавлялся поверх: ход «привет» резервировал ~1 065 токена против 2 997
 // списанных — котёл недооценивался втрое.
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+let randomSpy: { mockRestore: () => void } | undefined;
 import { EventEmitter } from 'events';
 
 const { tryReserve } = vi.hoisted(() => ({ tryReserve: vi.fn() }));
@@ -84,6 +86,14 @@ describe('X-3: резерв включает собранный системны
   beforeEach(() => {
     tryReserve.mockReset();
     tryReserve.mockResolvedValue({ date: '2026-10-06', shardId: '0', allowance: 8192 });
+    // DLG-Q2: подборка примеров открытых вопросов меняется от хода к ходу. Тест
+    // сверяет резерв с промптом, который пересобирает сам, поэтому случайность
+    // должна быть общей и детерминированной — иначе длины разъезжаются.
+    randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    randomSpy?.mockRestore();
   });
 
   it('зарезервированный вход покрывает промпт, который уйдёт провайдеру', async () => {

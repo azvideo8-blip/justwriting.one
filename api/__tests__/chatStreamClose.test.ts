@@ -2,7 +2,9 @@
 // slot; after bytes flowed, the work stays charged.
 // The context is mocked (chat.ts flow is the subject); the assertion pins the
 // refund CALL with the charged day threaded through.
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+let randomSpy: { mockRestore: () => void } | undefined;
 import { EventEmitter } from 'events';
 
 const { refundDaily, refundBulk, refundGlobal, recordUsage } = vi.hoisted(() => ({
@@ -54,6 +56,11 @@ vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: { signal?: AbortSignal
 }));
 
 import { handleChat, STREAM_BROKEN_NOTE } from '../chat';
+
+afterEach(() => {
+  randomSpy?.mockRestore();
+  randomSpy = undefined;
+});
 import { buildChatSystemPrompt, assembleChatPromptParams } from '../../src/shared/ai/buildChatPrompt.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 
@@ -419,6 +426,10 @@ describe('3.8 stream disconnect', () => {
   });
 
   it('DEEP-8 / FU-1: обычный чат не возвращает слот, но сверяет резерв токенов при уходе клиента', async () => {
+    // DLG-Q2: подборка примеров вопросов в промпте случайна от хода к ходу, а
+    // тест пересобирает промпт сам, чтобы посчитать длину. Общую случайность
+    // фиксируем — иначе эталон и запрос разъезжаются на один вопрос.
+    randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
     const enc = new TextEncoder();
     const fetchMock = vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>);
     // eslint-disable-next-line @typescript-eslint/no-misused-promises -- типы vi.fn() здесь затёрты кастом
