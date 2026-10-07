@@ -8,6 +8,8 @@
 - **[EN]** The AI keeps one form of address through a dialogue, matches grammatical gender to your notes, doesn't open with «Great question» and doesn't insert English headings. It says «nothing found» only when the search is really empty.
 - **[RU]** Первый вход на новом устройстве: окна синхронизации, сейфа и загрузки из облака появляются по одному, а не стопкой; согласие на поиск по смыслу, данное раньше, не спрашивается заново посреди разговора.
 - **[EN]** First sign-in on a new device: the sync, vault and cloud-download windows appear one at a time instead of stacked; consent to semantic search given earlier isn't asked again mid-conversation.
+- **[RU]** Длинный диалог с ИИ больше не выгружается в облако заново каждые две минуты: в журнале пропадут повторяющиеся «Получено с других устройств: записей ИИ 1», а на других устройствах — лишние скачивания.
+- **[EN]** A long AI dialogue is no longer re-uploaded to the cloud every two minutes: the repeating «Received from other devices: 1 AI record» entries disappear from the log, along with needless downloads on other devices.
 - **[RU]** В админке служебный аккаунт помечен и не удаляется кнопкой «Удалить».
 - **[EN]** In the admin panel the service account is marked and can't be deleted with the «Delete» button.
 

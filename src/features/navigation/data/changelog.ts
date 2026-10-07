@@ -19,6 +19,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     items: [
       { category: 'fix', ru: 'ИИ больше не теряет найденные заметки на втором вопросе нового диалога — раньше уточнение шло без них, и ИИ мог досочинить то, чего в дневнике нет.', en: 'The AI no longer loses the notes it found on the second question of a new dialogue — a follow-up used to go without them, and the AI could make up things that aren’t in the diary.' },
       { category: 'improvement', ru: 'ИИ обращается на «ты» весь диалог, ставит род по вашим записям, не начинает с «Отличный вопрос» и не вставляет английские заголовки; «ничего не нашлось» — только когда поиск действительно пуст.', en: 'The AI keeps one form of address, matches gender to your notes, doesn’t open with «Great question» and doesn’t insert English headings; «nothing found» only when the search is really empty.' },
+      { category: 'fix', ru: 'Длинный диалог с ИИ больше не выгружается в облако заново каждые две минуты — в журнале пропадут повторяющиеся «Получено с других устройств».', en: 'A long AI dialogue is no longer re-uploaded every two minutes — the repeating «Received from other devices» log entries disappear.' },
       { category: 'fix', ru: 'Первый вход на новом устройстве: окна синхронизации, сейфа и загрузки из облака — по одному, а не стопкой; согласие на поиск по смыслу не спрашивается заново посреди разговора.', en: 'First sign-in on a new device: sync, vault and cloud-download windows appear one at a time; consent to semantic search isn’t asked again mid-conversation.' },
     ],
   },
