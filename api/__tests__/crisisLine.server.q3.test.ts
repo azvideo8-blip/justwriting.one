@@ -4,7 +4,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'events';
 
-const { streamTextMock, tryReserve } = vi.hoisted(() => ({ streamTextMock: vi.fn(), tryReserve: vi.fn() }));
+const { streamTextMock, tryReserve, generateMock } = vi.hoisted(() => ({
+  streamTextMock: vi.fn(), tryReserve: vi.fn(), generateMock: vi.fn(),
+}));
 
 vi.mock('ai', async (importOriginal) => {
   const actual = await importOriginal<typeof import('ai')>();
@@ -12,6 +14,13 @@ vi.mock('ai', async (importOriginal) => {
     ...actual,
     streamText: streamTextMock.mockImplementation(() => ({ pipeTextStreamToResponse: vi.fn() })),
   };
+});
+
+// П6 (самопроверка): тот же сигнал проверяется и на втором сервере — вызываемом
+// маршруте chatWithAI, а не только на потоковом.
+vi.mock('../ai/provider', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../ai/provider')>();
+  return { ...actual, generate: (...a: unknown[]) => generateMock(...(a as [])) };
 });
 
 vi.mock('../postgresAiContext', () => ({
@@ -111,5 +120,43 @@ describe('Q-3/R-6: кризисный сигнал в запросе прова�
     const system = await reasoningSystem();
     expect(system).toContain(CRISIS);
     expect(system.indexOf(CRISIS)).toBeLessThan(system.indexOf(FENCE));
+  });
+});
+
+// П6: вызываемый маршрут (functions chatWithAI) собирается теми же
+// `assembleChatPromptParams`, но проверялся только потоковый.
+describe('Q-3/R-6: тот же сигнал на вызываемом маршруте', () => {
+  beforeEach(() => {
+    generateMock.mockReset();
+    generateMock.mockResolvedValue({ text: 'ок', tokensIn: 10, tokensOut: 5, model: 'm' });
+  });
+
+  async function sentSystemCallable(data: Record<string, unknown>): Promise<string> {
+    const { chatWithAILogic } = await import('../ai/chatWithAI.logic');
+    const ctx = {
+      checkAndIncrementLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-10-07' }),
+      checkDailyLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-10-07' }),
+      checkAndIncrementBulkLimit: vi.fn().mockResolvedValue({ ok: true, day: '2026-10-07' }),
+      refundDailyLimit: vi.fn().mockResolvedValue(undefined),
+      refundBulkLimit: vi.fn().mockResolvedValue(undefined),
+      refundGlobalRequest: vi.fn().mockResolvedValue(undefined),
+      tryReserveGlobalRequest: vi.fn().mockResolvedValue({ date: '2026-10-07', shardId: '0', allowance: 8192 }),
+      recordUsage: vi.fn().mockResolvedValue(undefined),
+      getDailyLimitCount: vi.fn(),
+      getUserDailyLimit: vi.fn().mockResolvedValue(20),
+      isAdmin: vi.fn().mockResolvedValue(false),
+    } as never;
+    await chatWithAILogic(ctx, 'u_q3', { personaId: 'cbt', messages: TURN, documentContent: 'Сегодня опять не спалось.', ...data });
+    return String(generateMock.mock.calls[0]?.[0]?.system ?? '');
+  }
+
+  it('crisis: true — строка есть и стоит до первого фенса', async () => {
+    const system = await sentSystemCallable({ crisis: true });
+    expect(system).toContain(CRISIS);
+    expect(system.indexOf(CRISIS)).toBeLessThan(system.indexOf(FENCE));
+  });
+
+  it('без поля crisis — строки нет', async () => {
+    expect(await sentSystemCallable({})).not.toContain(CRISIS);
   });
 });
