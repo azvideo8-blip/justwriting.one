@@ -145,9 +145,16 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   // Log unexpected reasoning once per session
   const reasoningMismatchReportedRef = useRef(false);
 
+  const prevDialogueIdRef = useRef(dialogueId);
   useEffect(() => {
+    const prev = prevDialogueIdRef.current;
+    prevDialogueIdRef.current = dialogueId;
+    // Новый диалог получает id после первого ответа (useAIPageData). Это тот же
+    // разговор: сброс стирал прилипший поиск и заметку-тему, второй ход («а мы
+    // тогда помирились?») шёл без найденных заметок, и модель сочиняла их
+    // содержание (аудит диалогов, раунд 2, provider-log 769→781).
+    if (prev === null && dialogueId !== null) return;
     context.resetSession();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: setCrisisActive(true) пишет отправка по детекту риска. Здесь сброс при смене диалога, а не вывод значения
     setCrisisActive(false);
     // Кнопка «Посмотреть в других записях» относится к ответу прошлого диалога.
     setLastTurnScope(null);
