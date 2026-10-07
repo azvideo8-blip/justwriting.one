@@ -4,7 +4,8 @@ import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
-import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, REASONING_LANGUAGE_RULE } from '../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
+import { needsEnglishNudge } from '../src/shared/ai/languageNudge.js';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
@@ -495,10 +496,21 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
         // «без хода мысли» относится только к пути с выключенным рассуждением.
         reasoning: reasoning === true,
       });
-  const inputEstimate = estimateInputTokens([
-    reasoning === true ? `${systemPrompt}\n\n${REASONING_LANGUAGE_RULE}` : systemPrompt,
-    ...parsed.data.messages.map(m => m.content),
-  ]);
+  // DLG-Q4 (Fable T-7 + T-19): реплика на латинице при русском архиве просит
+  // подсказку языка у последней реплики — иначе модель отвечает по-русски 0 из 6.
+  // Подсказка живёт только в запросе провайдеру, в хранимый диалог не едет.
+  // Служебным вызовам не ставится: у них другой системный промпт и другой смысл.
+  const sanitizedMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInputShared(m.content) }));
+  const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+  const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(lastUserText) ? 'en' : 'ru';
+  const providerRequest = reasoning === true
+    ? withReasoningLanguage(systemPrompt, sanitizedMessages, replyLang)
+    : { system: systemPrompt, messages: withEnglishNudge(sanitizedMessages, replyLang) };
+  const providerMessages = providerRequest.messages;
+
+  // X-3: резерв считается уже по итоговому тексту — с подсказкой языка, иначе
+  // недооценка ровно на неё.
+  const inputEstimate = estimateInputTokens([providerRequest.system, ...providerMessages.map(m => m.content)]);
   const reservation = await postgresAiContext.tryReserveGlobalRequest(maxOutputTokens + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
@@ -528,8 +540,6 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
 
-  const providerMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInputShared(m.content) }));
-
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
 
   if (reasoning) {
@@ -538,8 +548,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     // line out of this prompt — that line is for the reasoning-off path only.
     // X-3: сам промпт собран до резерва (с `reasoning: true`), здесь лишь
     // правило о языке рассуждений.
-    const { system: reasoningSystem, messages: reasoningMessages } = withReasoningLanguage(systemPrompt, providerMessages);
-    await streamOpenRouterReasoning(res, uid, activeModel, reasoningSystem, reasoningMessages, isInternalCall, reservation, chargedDay, inputEstimate);
+    await streamOpenRouterReasoning(res, uid, activeModel, providerRequest.system, providerMessages, isInternalCall, reservation, chargedDay, inputEstimate);
     return;
   }
 
@@ -561,7 +570,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   let streamErrorOccurred: unknown = null;
   const result = streamText({
     model: chatModel,
-    system: systemPrompt,
+    system: providerRequest.system,
     messages: providerMessages,
     maxOutputTokens,
     abortSignal: controller.signal,

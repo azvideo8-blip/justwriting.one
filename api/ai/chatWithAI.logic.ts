@@ -2,7 +2,8 @@
 import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation } from '../../src/shared/ai/aiPolicy.js';
 import { generate } from './provider';
-import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, REASONING_LANGUAGE_RULE } from '../../src/shared/ai/buildChatPrompt.js';
+import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../../src/shared/ai/buildChatPrompt.js';
+import { needsEnglishNudge } from '../../src/shared/ai/languageNudge.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = chatInputSchema;
@@ -53,16 +54,28 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     ? (customSystemPrompt ? `${INTERNAL_SYSTEM_PROMPT}\n\n${customSystemPrompt}` : INTERNAL_SYSTEM_PROMPT)
     : buildChatSystemPrompt(assembleChatPromptParams(parsed.data));
 
+  // DLG-Q4: подсказка языка у последней реплики — только запросу провайдеру,
+  // в хранимый диалог не едет. Служебным вызовам не ставится.
+  const sanitizedMessages = messages.map(m => ({
+    role: m.role,
+    content: sanitizeAiInput(m.content),
+  }));
+  const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+  const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(lastUserText) ? 'en' : 'ru';
+
+  // Режим рассуждений — то же правило о языке, что в потоковом пути (api/chat.ts).
+  const request = reasoning === true
+    ? withReasoningLanguage(systemInstruction, sanitizedMessages, replyLang)
+    : { system: systemInstruction, messages: withEnglishNudge(sanitizedMessages, replyLang) };
+
   // AUD-19 & FU-4: вход тоже резервируется — см. api/chat.ts.
   // Составная квота: allowance = maxTokens + inputEstimate.
   // X-3: оценивается ровно тот текст, что уйдёт провайдеру: собранный сервером
   // системный промпт (в нём уже лежат заметка, портрет, память и guard'ы) плюс
   // реплики хода. До правки системный промпт в оценку не попадал вовсе, и ход
-  // «привет» резервировал ~1 065 токена против ~3 000 списанных.
-  const inputEstimate = estimateInputTokens([
-    reasoning === true ? `${systemInstruction}\n\n${REASONING_LANGUAGE_RULE}` : systemInstruction,
-    ...messages.map(m => m.content),
-  ]);
+  // «привет» резервировал ~1 065 токена против ~3 000 списанных. Считается уже
+  // итоговый текст — с правилом языка и подсказкой.
+  const inputEstimate = estimateInputTokens([request.system, ...request.messages.map(m => m.content)]);
   const reservation = await ctx.tryReserveGlobalRequest(maxTokens + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
@@ -73,16 +86,6 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     throw new AiError('resource-exhausted', 'Free-tier daily limit reached for the whole app. Try again tomorrow.');
   }
   callRes.attachGlobalReservation(reservation, inputEstimate);
-
-  const providerMessages = messages.map(m => ({
-    role: m.role,
-    content: sanitizeAiInput(m.content),
-  }));
-
-  // Режим рассуждений — то же правило о языке, что в потоковом пути (api/chat.ts).
-  const request = reasoning === true
-    ? withReasoningLanguage(systemInstruction, providerMessages)
-    : { system: systemInstruction, messages: providerMessages };
 
   let gen;
   try {

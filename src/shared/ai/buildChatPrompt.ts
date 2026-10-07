@@ -5,6 +5,7 @@
 // and 500s the whole /api/chat endpoint. Vite resolves the .js → .ts for the SPA.
 import { z } from 'zod';
 import { PERSONA_PROMPTS, TOPIC_GUARD, NOTES_GUARD_BASE, NOTES_SEARCH_GUARD, OPEN_QUESTION_POOL, REFLECTION_GUIDE, SAFETY_GUIDE } from './prompts.js';
+import { ENGLISH_NUDGE } from './languageNudge.js';
 
 // DLG-Q3: сигнал кризиса — дословно из variants/v6.json (run.mjs:61).
 const CRISIS_LINE = `ЭТОТ ХОД — КРИЗИСНЫЙ (сработал детектор риска): следуй протоколу БЕЗОПАСНОСТЬ выше — тепло, телефоны, вопрос о человеке рядом, без архива и дел.`;
@@ -66,14 +67,44 @@ export function noteScopeRule(scope: NoteScope): string {
 export const REASONING_LANGUAGE_RULE = 'ВАЖНО: и внутренние рассуждения (chain-of-thought / reasoning), и финальный ответ веди ТОЛЬКО на русском языке. Никогда не думай на английском или китайском.';
 export const REASONING_LANGUAGE_NUDGE = '(Думай по-русски и ответь по-русски.)';
 
+// DLG-Q4: то же для английской реплики. Без этого правила ход на английском с
+// включённым рассуждением получал из system «рассуждения и ответ ТОЛЬКО на
+// русском» — прямое противоречие подсказке языка.
+export const REASONING_LANGUAGE_RULE_EN = 'IMPORTANT: reason and answer ONLY in English. Never reason in Chinese.';
+export const REASONING_LANGUAGE_NUDGE_EN = '(Think in English and answer in English.)';
+
+export type ReplyLanguage = 'ru' | 'en';
+
 /** Системный промпт и сообщения для запроса с включённым рассуждением. */
-export function withReasoningLanguage<M extends { role: string; content: string }>(system: string, messages: M[]): { system: string; messages: M[] } {
+export function withReasoningLanguage<M extends { role: string; content: string }>(
+  system: string,
+  messages: M[],
+  lang: ReplyLanguage = 'ru',
+): { system: string; messages: M[] } {
+  const rule = lang === 'en' ? REASONING_LANGUAGE_RULE_EN : REASONING_LANGUAGE_RULE;
+  const nudge = lang === 'en' ? REASONING_LANGUAGE_NUDGE_EN : REASONING_LANGUAGE_NUDGE;
   return {
-    system: `${system}\n\n${REASONING_LANGUAGE_RULE}`,
-    messages: messages.map((m, i) =>
-      i === messages.length - 1 && m.role === 'user' ? { ...m, content: `${m.content}\n\n${REASONING_LANGUAGE_NUDGE}` } : m,
-    ),
+    system: `${system}\n\n${rule}`,
+    messages: atLastUserMessage(messages, m => `${m.content}\n\n${nudge}`),
   };
+}
+
+/**
+ * DLG-Q4: обычный ход (без рассуждения) — подсказка языка у последней реплики
+ * пользователя. Только в запросе провайдеру: в хранимый диалог она не едет.
+ */
+export function withEnglishNudge<M extends { role: string; content: string }>(messages: M[], lang: ReplyLanguage = 'en'): M[] {
+  if (lang !== 'en') return messages;
+  return atLastUserMessage(messages, m => `${m.content}\n\n${ENGLISH_NUDGE}`);
+}
+
+function atLastUserMessage<M extends { role: string; content: string }>(messages: M[], decorate: (m: M) => string): M[] {
+  let last = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'user') { last = i; break; }
+  }
+  if (last < 0) return messages;
+  return messages.map((m, i) => (i === last ? { ...m, content: decorate(m) } : m));
 }
 
 /**
