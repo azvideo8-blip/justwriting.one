@@ -12,7 +12,7 @@ export type { AIErrorCode };
 // abort perfectly good generations before the answer came back.
 const GEN_TIMEOUT_MS = 115_000;
 
-export type AIAction = 'accents' | 'ideas' | 'summarize' | 'continue' | 'gratitude' | 'achievements';
+export type AIAction = 'accents' | 'ideas' | 'summarize' | 'punctuate' | 'gratitude' | 'achievements';
 export type AIMessage = { role: 'user' | 'assistant'; content: string; type?: 'chat' | 'system' | undefined };
 
 export type AIResult =
