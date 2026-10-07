@@ -12,7 +12,7 @@ import { AIService } from './AIService';
 import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
-import { shouldRunFullSearch } from '../utils/aiChatTransport';
+import { shouldRunFullSearch, asksForSimilarNotes } from '../utils/aiChatTransport';
 import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIChatMemoryService } from './AIChatMemoryService';
@@ -233,8 +233,11 @@ export function useAIChatContext(personaId: string): {
     const noteIntentNoText = !attached?.content && noteAnalysisIntent;
 
     // The forced turn: use the provided query and force the search
-    const explicitSearch = forcedSearchQuery ? true : shouldRunFullSearch(text, !!attached);
-    const effectiveQuery = forcedSearchQuery ?? text;
+    let explicitSearch = forcedSearchQuery ? true : shouldRunFullSearch(text, !!attached);
+    let effectiveQuery = forcedSearchQuery ?? text;
+    // DLG-Q7: запрос, построенный из приложенной заметки (просьба посмотреть
+    // похожее). Отличает этот ход от обычного поиска по тексту реплики.
+    let similarNotesQuery: string | undefined;
 
     let searchContext: string | undefined;
     let attachedBlock: string | undefined;
@@ -282,6 +285,29 @@ export function useAIChatContext(personaId: string): {
       }
     }
 
+    // DLG-Q7 (Fable T-11): «поищи похожее», «другие заметки ещё посмотри» при
+    // приложенной заметке — это просьба поискать по ТЕМАТИКЕ заметки. Прежний ход
+    // оставался строгим (поиск не запускался вовсе) либо искал по тексту реплики,
+    // и Редактор честно отвечал «по этому запросу в базе ничего не нашлось».
+    // Запрос строится из самой заметки: разбор, если он есть, иначе название +
+    // начало тела. Тело скрытой от ИИ заметки в запрос не попадает.
+    if (!forcedSearchQuery && attached && !isAttachedExcluded && params.scope === 'wide' && asksForSimilarNotes(text)) {
+      const summary = attached.documentId ? await summaryAt(attached.documentId) : undefined;
+      const fromSummary = [summary?.summary, ...(summary?.themes ?? [])].filter(Boolean).join('. ');
+      if (fromSummary.trim()) {
+        similarNotesQuery = fromSummary;
+      } else {
+        const title = attached.documentId ? (await docAt(attached.documentId))?.title : undefined;
+        const body = attachedContent.replace(/\s+/g, ' ').trim().slice(0, 600);
+        const built = [title, body].filter(Boolean).join('. ');
+        if (built.trim()) similarNotesQuery = built;
+      }
+      if (similarNotesQuery) {
+        explicitSearch = true;
+        effectiveQuery = similarNotesQuery;
+      }
+    }
+
     // Строгий ход: заметка, портрет (фон — правило в системном промпте) и, при
     // кризисе, телефоны помощи. Поиск, хронология, «недавнее» и память здесь
     // раньше запускались по тексту хода, и модель приписывала приложенной
@@ -307,8 +333,8 @@ export function useAIChatContext(personaId: string): {
       const stickySearch = !explicitSearch && stickyTurnsRef.current > 0 && lastSearchQueryRef.current.length > 0;
       if (explicitSearch) {
         stickyTurnsRef.current = 4;
-        lastSearchQueryRef.current = text;
-        lastSearchNamesRef.current = [...new Set(text.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
+        lastSearchQueryRef.current = effectiveQuery;
+        lastSearchNamesRef.current = [...new Set(effectiveQuery.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [])];
       } else if (stickySearch) {
         stickyTurnsRef.current -= 1;
       }
@@ -574,6 +600,11 @@ export function useAIChatContext(personaId: string): {
             if (excludedSet.size > 0) {
               allNotes = allNotes.filter(n => !excludedSet.has(n.documentId));
             }
+            // DLG-Q7: приложенная заметка уже в контексте отдельным блоком —
+            // второй раз она в результатах не нужна.
+            if (similarNotesQuery && attached?.documentId) {
+              allNotes = allNotes.filter(n => n.documentId !== attached.documentId);
+            }
           }
 
           if (allNotes.length > 0) {
@@ -646,7 +677,7 @@ export function useAIChatContext(personaId: string): {
 
             const corpus = await getCorpusStats(db);
             const noteBlock = (
-              `\n\nРезультаты поиска по архиву заметок (запрос: "${text}"). ` +
+              `\n\nРезультаты поиска по архиву заметок (запрос: "${effectiveQuery}"). ` +
               `Искал по ВСЕЙ базе: ${corpus.total} заметок, ${corpus.from} — ${corpus.to}. ` +
               `Найдено заметок: ${allNotes.length} (отобрано ${selectedNotes.length} по релевантности). ` +
               `Это наиболее релевантные заметки по запросу. Если ответа в них нет — так и скажи, не домысливай.\n\n` +
@@ -663,7 +694,10 @@ export function useAIChatContext(personaId: string): {
             // archive", the exact claim this block exists to prevent.
             const corpus = await getCorpusStats(db);
             searchContext = (searchContext ?? '') +
-              `\n\n[Поиск по ВСЕЙ базе (${corpus.total} заметок, ${corpus.from} — ${corpus.to}) по запросу "${text}" ` +
+              (similarNotesQuery
+                ? `\n\n[Поиск похожих записей: ничего не найдено. Других записей на эту тему в найденном нет — скажи об этом прямо и НЕ выдумывай их.]`
+                : '') +
+              `\n\n[Поиск по ВСЕЙ базе (${corpus.total} заметок, ${corpus.from} — ${corpus.to}) по запросу "${effectiveQuery}" ` +
               `не нашёл подходящих заметок. Скажи, что по этому запросу в базе ничего не нашлось (НЕ «нет доступа»), ` +
               `предложи переформулировать. КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.` +
               (semanticIndexMissing
