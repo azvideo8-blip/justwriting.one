@@ -33,6 +33,10 @@ describe('Q-5: строка открытого плана', () => {
     expect(extractDocumentIdsFromText('[#local_abc · 2026-09-20]')).toEqual(['local_abc']);
     expect(extractDocumentIdsFromText('[#a][#b]')).toEqual(['a', 'b']);
     expect(extractDocumentIdsFromText('[#a · 2026-01-01] [#a · 2026-01-02]')).toEqual(['a']);
+    // П2 (самопроверка): импортированные заметки живут по номеру с точкой, и без
+    // неё ссылка модели на такой план вырезалась — id вообще не доходил до allowlist.
+    expect(extractDocumentIdsFromText('[#1720194283.716586 · 20260920]')).toEqual(['1720194283.716586']);
+    expect(extractDocumentIdsFromText('[- #planned-что-то]')).toEqual([]);
   });
 
   it('дата в шапке плана — как у шапок заметок, без дефисов', async () => {

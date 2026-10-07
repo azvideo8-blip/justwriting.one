@@ -70,7 +70,10 @@ export function extractDocumentIdsFromText(text: string | null | undefined): str
   // DLG-Q5: шапка вида `[#id · дата]` (блок открытых планов, шапки заметок) —
   // это тоже ссылка. Прежний регэксп брал только `[#id]` и sanitizeCitations
   // вырезал правильную ссылку модели на план.
-  const matches = text.matchAll(/\[#([a-zA-Z0-9_-]+)(?:\s·[^\]\n]*)?\]/g);
+  // R-2/П2: у импортированных заметок номер с точкой («1720194283.716586») — без
+  // неё их планы и найденное не попадали в allowlist, и чистка ответа вырезала
+  // верную ссылку.
+  const matches = text.matchAll(/\[#([a-zA-Z0-9_.-]+)(?:\s·[^\]\n]*)?\]/g);
   const ids: string[] = [];
   for (const m of matches) {
     if (m[1]) ids.push(m[1]);
