@@ -22,3 +22,4 @@ grant select on public.admin_users_view to authenticated;
 revoke all on public.applied_migrations from authenticated, anon;
 revoke all on public.ai_global_daily from authenticated, anon;
 revoke all on public.ai_cooldown from authenticated, anon;
+revoke all on public.service_accounts from authenticated, anon;
