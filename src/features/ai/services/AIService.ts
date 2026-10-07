@@ -144,6 +144,8 @@ export const AIService = {
     responseLength?: 'short' | 'standard' | 'detailed' | undefined;
     reasoning?: boolean | undefined;
     callType?: 'auto_name' | 'follow_up' | 'query_expand' | 'system_task' | undefined;
+    /** DLG-Q3: кризисный ход — провайдеру сигнал ставит сервер, не текст заметки. */
+    crisis?: boolean | undefined;
   }, opts?: CallAiOptions): Promise<AIResult> {
 
     try {

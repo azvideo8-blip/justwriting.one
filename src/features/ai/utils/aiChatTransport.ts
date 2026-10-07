@@ -254,6 +254,8 @@ export async function streamChat(params: {
   noteScope?: NoteScope | undefined;
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
+  /** DLG-Q3: кризисный ход — сигнал уезжает отдельным полем, не текстом в контексте. */
+  crisis?: boolean | undefined;
   signal?: AbortSignal | undefined;
   onChunk: (partial: string, reasoning: string | null) => void;
 }): Promise<string> {
@@ -288,6 +290,7 @@ export async function streamChat(params: {
       noteScope: params.noteScope,
       responseLength: params.responseLength,
       reasoning: params.reasoning,
+      crisis: params.crisis,
     }),
     signal: params.signal ?? null,
   });
@@ -439,6 +442,8 @@ export async function callableChat(params: {
   responseLength?: 'short' | 'standard' | 'detailed' | undefined;
   reasoning?: boolean | undefined;
   callType?: 'auto_name' | 'follow_up' | 'query_expand' | undefined;
+  /** DLG-Q3: кризисный ход — сигнал уезжает отдельным полем, не текстом в контексте. */
+  crisis?: boolean | undefined;
   /** SB-4: уход со страницы должен обрывать и этот путь, не только стрим. */
   signal?: AbortSignal | undefined;
 }): Promise<string> {
@@ -453,6 +458,7 @@ export async function callableChat(params: {
     responseLength: params.responseLength,
     reasoning: params.reasoning,
     callType: params.callType,
+    crisis: params.crisis,
   }, params.signal ? { signal: params.signal } : undefined);
 
 

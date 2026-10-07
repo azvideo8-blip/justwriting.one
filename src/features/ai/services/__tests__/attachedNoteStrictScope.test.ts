@@ -52,20 +52,45 @@ describe('приложенная заметка: строгий и широки�
   });
 });
 
+// DLG-Q3 (Fable T-6): телефоны раньше уезжали текстом инструкции внутри
+// searchContext, то есть в DATA_CONTEXT_BEGIN, где модели велено инструкции не
+// выполнять. Флаг `crisis` остаётся, телефоны — в SAFETY_GUIDE, сигнал хода
+// собирает сервер.
+const CRISIS_MARKERS = /Интегрируй|кризисном состоянии/i;
+
 describe('кризис в приложенной заметке', () => {
-  it('строгий ход с вопросом «разбери» всё равно даёт телефоны помощи', async () => {
+  async function crisisTurn(scope: 'note' | 'wide', text: string, attached?: { documentId: string; content: string }) {
     const db = await getLocalDb();
     await db.put('documents', { id: 'doc_risk', title: 'Ночь', currentVersion: 1, lastSessionAt: Date.now() } as never);
     const { result } = renderHook(() => useAIChatContext('coach'));
-    const ctx = await result.current.buildContext({
-      text: 'Разбери эту заметку',
-      attached: { documentId: 'doc_risk', content: 'Каждую ночь думаю про суицид.' },
+    return result.current.buildContext({
+      text,
+      attached: attached ?? null,
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,
-      scope: 'note',
+      scope,
     });
-    expect(ctx.searchContext).toContain('8-800-333-44-34');
+  }
+
+  it('строгий ход: флаг есть, инструкции о кризисе в контексте нет', async () => {
+    const ctx = await crisisTurn('note', 'Разбери эту заметку', { documentId: 'doc_risk', content: 'Каждую ночь думаю про суицид.' });
+    expect(ctx.crisis).toBe(true);
+    expect(ctx.searchContext).toContain('Каждую ночь думаю про суицид.');
+    expect(ctx.searchContext).not.toMatch(CRISIS_MARKERS);
+    expect(ctx.searchContext).not.toContain('8-800-333-44-34');
+  });
+
+  it('обычный ход: то же — поиск и память не получают кризисную инструкцию', async () => {
+    const ctx = await crisisTurn('wide', 'не хочу жить, всё бессмысленно');
+    expect(ctx.crisis).toBe(true);
+    expect(ctx.searchContext ?? '').not.toMatch(CRISIS_MARKERS);
+    expect(ctx.searchContext ?? '').not.toContain('8-800-333-44-34');
+  });
+
+  it('ненокризисный ход флаг не поднимает', async () => {
+    const ctx = await crisisTurn('wide', 'расскажи про вчерашнюю пробежку');
+    expect(ctx.crisis).toBe(false);
   });
 });
 

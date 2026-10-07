@@ -1,5 +1,4 @@
 import { useRef } from 'react';
-import { CRISIS_RESOURCES_LINE_RU } from '../../../shared/ai/crisisResources';
 import { getLocalDb } from '../../../core/storage/localDb';
 import type { LocalDocument, AIDocumentSummary } from '../../../core/storage/localDb';
 import { loadDocumentSnapshot, loadSummarySnapshot } from '../utils/retrieval/docSnapshot';
@@ -46,11 +45,6 @@ export interface AttachedNoteRef {
 
 // S-56: отказ по согласию — состояние, а не сбой: в журнал деградаций не идёт.
 const isConsentError = (error: string) => error === 'AI_CONSENT_REQUIRED' || error === 'INDEXING_CONSENT_REQUIRED';
-
-const CRISIS_RESOURCE_TEXT =
-  `Пользователь находится в кризисном состоянии. Интегрируй в свой ответ контакты служб поддержки:\n` +
-  `${CRISIS_RESOURCES_LINE_RU}.\n` +
-  `Отвечай тепло, эмпатично, не давай советов, поддерживай.`;
 
 // S-39: блок каждой приложенной заметки начинается шапкой `[#id · дата]` +
 // маркер (см. useAIPageData; у старых ходов в названии бывают кавычки и
@@ -299,7 +293,7 @@ export function useAIChatContext(personaId: string): {
       return {
         userPortrait: userPortrait ?? null,
         customPersona: customSystemPrompt,
-        searchContext: crisis ? `${CRISIS_RESOURCE_TEXT}\n\n${noteBlock}` : noteBlock,
+        searchContext: noteBlock,
         documentMood: mood,
         memoryContext: null,
         injectedDocumentIds: [...new Set(injectedDocumentIds)],
@@ -717,11 +711,6 @@ export function useAIChatContext(personaId: string): {
         } catch (e) {
           reportError(e, { action: '[useAIChatContext] memory integration failed' });
         }
-      }
-
-      // Crisis resources check
-      if (crisis) {
-        searchContext = searchContext ? `${CRISIS_RESOURCE_TEXT}\n\n${searchContext}` : CRISIS_RESOURCE_TEXT;
       }
 
       // Contact Doors check

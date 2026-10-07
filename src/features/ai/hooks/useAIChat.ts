@@ -519,7 +519,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       let fullText: string;
 
       if (Date.now() < _streamUnavailableUntil) {
-        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, signal: controller.signal });
+        fullText = await callableChat({ personaId: effectivePersonaId, customSystemPrompt, messages: apiMessages, documentContent: searchContext, userPortrait: safePortrait, memoryContext, noteScope, responseLength: effectiveResponseLength, reasoning: effectiveReasoning, crisis, signal: controller.signal });
       } else {
         try {
           fullText = await streamChat({
@@ -533,7 +533,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
             noteScope,
             responseLength: effectiveResponseLength,
             reasoning: effectiveReasoning,
-
+            crisis,
             signal: controller.signal,
             onChunk: (partial, reasoning) => {
               const cleanPartial = sanitizeFirstSeenDates(
