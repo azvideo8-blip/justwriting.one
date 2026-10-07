@@ -526,6 +526,19 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
   };
 
   const activeDialogue = dialogue ?? dialogues.find(d => d.id === activeDialogueId) ?? null;
+  // Смена персоны, пришедшая с другого устройства, становится выбором и здесь:
+  // иначе шапка показывала прежнюю, а следующий ход шёл от её имени. Срабатывает
+  // только на смену персоны САМОГО диалога — собственный выбор не откатывает.
+  const dialoguePersonaId = activeDialogue?.personaId;
+  const prevDialoguePersonaRef = useRef(dialoguePersonaId);
+  useEffect(() => {
+    const prev = prevDialoguePersonaRef.current;
+    prevDialoguePersonaRef.current = dialoguePersonaId;
+    if (dialoguePersonaId && dialoguePersonaId !== prev && dialoguePersonaId !== selectedPersonaId) {
+      setSelectedPersonaId(dialoguePersonaId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- реагируем только на персону диалога
+  }, [dialoguePersonaId]);
   const displayMessages = activeDialogue?.messages ?? EMPTY_MESSAGES;
 
   const activePersona = allPersonas.find(p => p.id === selectedPersonaId) ?? allPersonas[0];

@@ -210,8 +210,17 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialogueId]);
 
+  // Персону в диалог пишет только ВЫБОР в этом чате. Раньше эффект срабатывал и
+  // на обновление диалога синхронизацией: смена персоны с другого устройства
+  // тут же перезаписывалась своей, два открытых чата с разными персонами
+  // перебивали друг друга бесконечно и выгружали диалог на каждом проходе
+  // (стенд, сценарий 6; прод, 2026-10-07 — head переписывался раз в 2 минуты).
+  const lastSelectedPersonaRef = useRef(personaId);
   useEffect(() => {
     if (!dialogueId || !personaId || !dialogue) return;
+    const selectionChanged = lastSelectedPersonaRef.current !== personaId;
+    lastSelectedPersonaRef.current = personaId;
+    if (!selectionChanged) return;
     if (dialogue.personaId === personaId) return;
 
     let active = true;
