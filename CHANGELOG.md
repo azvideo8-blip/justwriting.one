@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.32 — 2026-10-07
+
+- **[RU]** ИИ больше не теряет найденные заметки на втором вопросе нового диалога. Раньше уточнение после «о чём была моя заметка про…» шло без них, и ИИ мог досочинить то, чего в дневнике нет.
+- **[EN]** The AI no longer loses the notes it found on the second question of a new dialogue. A follow-up to «what was my note about…» used to go without them, and the AI could make up things that aren't in the diary.
+- **[RU]** ИИ обращается на «ты» весь диалог, ставит род по вашим записям, не начинает ответ с «Отличный вопрос» и не вставляет английские заголовки. «Ничего не нашлось» говорит, только когда поиск действительно пуст.
+- **[EN]** The AI keeps one form of address through a dialogue, matches grammatical gender to your notes, doesn't open with «Great question» and doesn't insert English headings. It says «nothing found» only when the search is really empty.
+- **[RU]** Первый вход на новом устройстве: окна синхронизации, сейфа и загрузки из облака появляются по одному, а не стопкой; согласие на поиск по смыслу, данное раньше, не спрашивается заново посреди разговора.
+- **[EN]** First sign-in on a new device: the sync, vault and cloud-download windows appear one at a time instead of stacked; consent to semantic search given earlier isn't asked again mid-conversation.
+- **[RU]** В админке служебный аккаунт помечен и не удаляется кнопкой «Удалить».
+- **[EN]** In the admin panel the service account is marked and can't be deleted with the «Delete» button.
+
 ## 0.9.31 — 2026-10-06
 
 - **[RU]** На «привет», «спасибо» или «как дела» ИИ отвечает на сказанное, а не пересказывает последние заметки. Заметки он поднимает, когда о них спрашивают или когда пишешь о себе — короткое «нет сил» или «мама умерла» получает контекст как раньше.
