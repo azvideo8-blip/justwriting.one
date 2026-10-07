@@ -6,6 +6,7 @@ import { setEncryptionEnabled, setProfileLoaded } from '../../../core/crypto/cry
 import { decryptLabels, migrateUnencryptedLabels, repairDoubleEncryptedLabels } from '../../../core/crypto/labelEncryption';
 import { ProfileService } from '../../../core/services/ProfileService';
 import { setAiConsent } from '../../../core/ai/aiConsent';
+import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
 import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { reportError } from '../../../shared/errors/reportError';
 import { useAuth } from './AuthContext';
@@ -98,6 +99,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
                     typeof parsed.data.aiConsentVersion === 'number' &&
                     parsed.data.aiConsentVersion >= AI_CONSENT_VERSION_REQUIRED;
                   setAiConsent(user.uid, hasConsent);
+                }
+
+                // Согласие на индексацию живёт на устройстве (localStorage), а в
+                // профиле — штамп. Без подтяжки новое устройство спрашивало заново
+                // посреди разговора, хотя человек давно согласился (аудит диалогов,
+                // раунд 2). Только включаем: снять по отсутствию штампа значило бы
+                // молча отключить поиск у тех, кто согласился до штампов в профиле.
+                if (
+                  parsed.data.indexingConsentAt != null &&
+                  typeof parsed.data.indexingConsentVersion === 'number' &&
+                  parsed.data.indexingConsentVersion >= INDEXING_CONSENT_VERSION &&
+                  getIndexingConsent(user.uid) === 'unanswered'
+                ) {
+                  setIndexingConsent(user.uid, 'granted');
                 }
 
                 setProfileLoaded(user.uid, true);
