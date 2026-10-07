@@ -38,7 +38,6 @@ export interface AIChatMessagesProps {
   onRegenerate: () => void;
   onSwitchVariant: (delta: number) => void;
   onCreateNote: (text: string) => void;
-  onApplyToNote?: ((text: string) => void) | undefined;
   onForcedSearch: (query: string) => void;
   dailyLimitRemaining: number;
   followUps: string[];
@@ -99,7 +98,6 @@ export function AIChatMessages(props: AIChatMessagesProps) {
     onRegenerate,
     onSwitchVariant,
     onCreateNote,
-    onApplyToNote,
     onForcedSearch,
     dailyLimitRemaining,
     followUps,
@@ -208,7 +206,6 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                   variantIndex={msg.variantIndex}
                   onSwitchVariant={i === lastAssistantIdx ? onSwitchVariant : undefined}
                   onCreateNote={() => { onCreateNote(msg.content); }}
-                  onApplyToNote={onApplyToNote ? () => { onApplyToNote(msg.content); } : undefined}
                   content={msg.content}
                   reasoning={msg.reasoning}
                 >

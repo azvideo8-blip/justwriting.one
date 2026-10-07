@@ -225,7 +225,6 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
           mono="H"
           onCopy={() => {}}
           onCreateNote={() => {}}
-          onApplyToNote={() => {}}
           onRegenerate={() => {}}
           onFeedback={() => {}}
           onDelete={() => {}}

@@ -81,7 +81,7 @@ export function AIPage() {
   const { profile } = useProfile();
   const userId = profile?.uid ?? 'guest';
   const { showToast } = useToast();
-  const { handleCreateNote, handleApplyToNote } = createNoteActions({ userId, linkedDocId, showToast });
+  const { handleCreateNote } = createNoteActions({ userId, showToast });
 
   const [memoryOpen, setMemoryOpen] = useState(false);
 
@@ -89,10 +89,6 @@ export function AIPage() {
 
   const navigate = useNavigate();
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
-
-  const applyToNoteHandler = selectedPersonaId === 'editor' && linkedDocId
-    ? (text: string) => { void handleApplyToNote(text); }
-    : undefined;
 
   return (
     <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
@@ -156,7 +152,6 @@ export function AIPage() {
           onRegenerate={() => { void handleRegenerate(); }}
           onSwitchVariant={(delta) => { void handleSwitchVariant(delta); }}
           onCreateNote={(text) => { void handleCreateNote(text); }}
-          onApplyToNote={applyToNoteHandler}
           onForcedSearch={(query) => { void triggerForcedSearch(query); }}
           dailyLimitRemaining={dailyLimit.remaining}
           followUps={followUps}

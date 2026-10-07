@@ -141,7 +141,6 @@ export const aiTranslations: Translations = {
   ai_attached_summary_title: { ru: 'Саммари: {title}', en: 'Summary: {title}' },
   ai_action_copy: { ru: 'копировать', en: 'copy' },
   ai_action_create_note: { ru: 'создать заметку', en: 'create note' },
-  ai_action_apply_to_note: { ru: 'применить к заметке', en: 'apply to note' },
   ai_action_regenerate: { ru: 'иначе', en: 'retry differently' },
   ai_action_thumbs_up: { ru: 'Полезный ответ', en: 'Helpful answer' },
   ai_action_thumbs_down: { ru: 'Не то', en: 'Not helpful' },

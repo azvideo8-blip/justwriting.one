@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createNoteActions } from '../noteActions';
 import { StorageService } from '../../../../../core/services/StorageService';
-import { LocalDocumentService } from '../../../../../core/services/LocalDocumentService';
 import { SyncService } from '../../../../../core/services/SyncService';
 import * as domainEvents from '../../../../../core/events/domainEvents';
 
@@ -37,7 +36,7 @@ describe('createNoteActions', () => {
   describe('handleCreateNote', () => {
     it('creates note, notifies user, emits domain event, and enqueues sync for auth user', async () => {
       vi.mocked(StorageService.saveNew).mockResolvedValue({ localId: 'local_abc' });
-      const actions = createNoteActions({ userId: 'u_test_1', linkedDocId: undefined, showToast });
+      const actions = createNoteActions({ userId: 'u_test_1', showToast });
 
       await actions.handleCreateNote('<p>Заголовок новой заметки\nВторая строка текста</p>');
 
@@ -61,7 +60,7 @@ describe('createNoteActions', () => {
 
     it('does not enqueue or sync when user is guest', async () => {
       vi.mocked(StorageService.saveNew).mockResolvedValue({ localId: 'local_guest' });
-      const actions = createNoteActions({ userId: 'guest_999', linkedDocId: undefined, showToast });
+      const actions = createNoteActions({ userId: 'guest_999', showToast });
 
       await actions.handleCreateNote('Заметка гостя');
 
@@ -78,7 +77,7 @@ describe('createNoteActions', () => {
     it('shows success toast even if cloud sync fails (task remains in queue)', async () => {
       vi.mocked(StorageService.saveNew).mockResolvedValue({ localId: 'local_fail' });
       vi.mocked(SyncService.syncOne).mockRejectedValue(new Error('Network error'));
-      const actions = createNoteActions({ userId: 'u_test_1', linkedDocId: undefined, showToast });
+      const actions = createNoteActions({ userId: 'u_test_1', showToast });
 
       await actions.handleCreateNote('Тестовая заметка');
 
@@ -88,65 +87,4 @@ describe('createNoteActions', () => {
     });
   });
 
-  describe('handleApplyToNote', () => {
-    it('shows error if linkedDocId is not provided', async () => {
-      const actions = createNoteActions({ userId: 'u_test_1', linkedDocId: undefined, showToast });
-
-      await actions.handleApplyToNote('Новый текст');
-
-      expect(showToast).toHaveBeenCalledWith('Нет связанной заметки', 'error');
-      expect(StorageService.saveVersion).not.toHaveBeenCalled();
-    });
-
-    it('updates version and enqueues sync if cloudSynced is false', async () => {
-      vi.mocked(LocalDocumentService.getDocument).mockResolvedValue({
-        id: 'local_existing',
-        title: 'Существующая заметка',
-        tags: ['работа'],
-        mood: 'calm',
-        labelId: 'label_1',
-      } as never);
-      vi.mocked(StorageService.saveVersion).mockResolvedValue({
-        forked: false,
-        cloudSynced: false,
-      });
-
-      const actions = createNoteActions({ userId: 'u_test_1', linkedDocId: 'local_existing', showToast });
-      await actions.handleApplyToNote('Обновленный текст заметки');
-
-      expect(StorageService.saveVersion).toHaveBeenCalledWith(
-        'u_test_1',
-        'local_existing',
-        expect.objectContaining({
-          title: 'Существующая заметка',
-          content: 'Обновленный текст заметки',
-          tags: ['работа'],
-        })
-      );
-      expect(showToast).toHaveBeenCalledWith('Заметка обновлена новым вариантом', 'success');
-      expect(emitSpy).toHaveBeenCalledWith({
-        type: 'note.saved',
-        documentId: 'local_existing',
-        userId: 'u_test_1',
-      });
-      expect(SyncService.addToQueue).toHaveBeenCalledWith('local_existing');
-      expect(SyncService.syncOne).toHaveBeenCalledWith('u_test_1', 'local_existing');
-    });
-
-    it('does not enqueue if saveVersion already cloudSynced', async () => {
-      vi.mocked(LocalDocumentService.getDocument).mockResolvedValue({
-        id: 'local_existing',
-        title: 'Заметка в облаке',
-      } as never);
-      vi.mocked(StorageService.saveVersion).mockResolvedValue({
-        forked: false,
-        cloudSynced: true,
-      });
-
-      const actions = createNoteActions({ userId: 'u_test_1', linkedDocId: 'local_existing', showToast });
-      await actions.handleApplyToNote('Новый текст');
-
-      expect(SyncService.addToQueue).not.toHaveBeenCalled();
-    });
-  });
 });
