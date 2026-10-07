@@ -25,7 +25,7 @@ describe('Q-5: строка открытого плана', () => {
       { id: 'c1', text: PLAN_TEXT, createdAt: Date.now(), date: '2026-09-20', documentId: 'local_abc' },
     ]);
     const block = await buildProactiveBlock({ personaId: 'coach', turnEmb: undefined });
-    expect(block).toContain(`- «${PLAN_TEXT}» [#local_abc · 2026-09-20]`);
+    expect(block).toContain(`- «${PLAN_TEXT}» [#local_abc · 20260920]`);
     expect(block).not.toContain('создано:');
   });
 
@@ -33,6 +33,14 @@ describe('Q-5: строка открытого плана', () => {
     expect(extractDocumentIdsFromText('[#local_abc · 2026-09-20]')).toEqual(['local_abc']);
     expect(extractDocumentIdsFromText('[#a][#b]')).toEqual(['a', 'b']);
     expect(extractDocumentIdsFromText('[#a · 2026-01-01] [#a · 2026-01-02]')).toEqual(['a']);
+  });
+
+  it('дата в шапке плана — как у шапок заметок, без дефисов', async () => {
+    vi.spyOn(AICommitmentService, 'getOpenCommitments').mockResolvedValue([
+      { id: 'c1', text: PLAN_TEXT, createdAt: Date.now(), date: '20260920', documentId: 'local_abc' },
+    ]);
+    const block = await buildProactiveBlock({ personaId: 'coach', turnEmb: undefined });
+    expect(block).toContain(`- «${PLAN_TEXT}» [#local_abc · 20260920]`);
   });
 
   it('ход чата: id плана попадает в allowlist цитат, план из скрытой заметки — нет', async () => {
@@ -55,7 +63,7 @@ describe('Q-5: строка открытого плана', () => {
       messageHistory: [],
       isFirstTurn: true,
     });
-    expect(ctx.searchContext ?? '').toContain('[#local_open · 2026-09-20]');
+    expect(ctx.searchContext ?? '').toContain('[#local_open · 20260920]');
     expect(ctx.injectedDocumentIds).toContain('local_open');
     expect(ctx.injectedDocumentIds).not.toContain('local_hidden');
     expect(ctx.searchContext ?? '').not.toContain('SECRET');

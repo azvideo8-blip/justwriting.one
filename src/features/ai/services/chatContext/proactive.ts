@@ -141,8 +141,10 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
     if (openCommitments.length > 0) {
       // DLG-Q5 (Fable T-9): дата извлечения вместо даты заметки — на стенде
       // все 25 планов выглядели «сегодня», а без id заметки модель сочиняла ссылки
-      // вида [#планирует-…]. Ссылка [#id · дата] — тот же формат, что у шапок заметок.
-      const commitmentsLines = openCommitments.map(c => `- «${c.text}» [#${c.documentId} · ${c.date}]`).join('\n');
+      // вида [#планирует-…]. Ссылка [#id · дата] — тот же формат, что у шапок заметок,
+      // включая запись даты (R-7): здесь она лежит как «2026-09-20», а в шапках —
+      // «20260920».
+      const commitmentsLines = openCommitments.map(c => `- «${c.text}» [#${c.documentId} · ${c.date.replace(/-/g, '')}]`).join('\n');
       const commitmentsBlock = `[Открытые планы / обязательства]\n${commitmentsLines}`;
       proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${commitmentsBlock}` : commitmentsBlock;
     }
