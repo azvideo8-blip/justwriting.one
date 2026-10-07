@@ -13,6 +13,7 @@ import { reportError } from '../../../shared/errors/reportError';
 import { detectRisk } from '../utils/riskDetect';
 import { analyzeDoors, aggregateDoors, doorLabel } from '../utils/contactDoors';
 import { shouldRunFullSearch, asksForSimilarNotes } from '../utils/aiChatTransport';
+import { detectPersonMentions, buildPersonQuotesBlock, personQuoteIds, type PersonNote } from './chatContext/personQuotes';
 import { isSmallTalkTurn, PSYCHE_PERSONAS } from '../utils/smallTalk';
 import { cosineSimilarity } from '../utils/vectorSearch';
 import { AIChatMemoryService } from './AIChatMemoryService';
@@ -97,6 +98,8 @@ export function useAIChatContext(personaId: string): {
   const lastSearchQueryRef = useRef('');
   const lastSearchNamesRef = useRef<string[]>([]);
   const recentContextInjectedRef = useRef(false);
+  // DLG-Q9: блок слов человека кэшируется на сессию по (люди, набор id заметок).
+  const personQuotesCacheRef = useRef<{ key: string; block: string | undefined } | null>(null);
 
   const resetSession = () => {
     stickyTurnsRef.current = 0;
@@ -107,6 +110,7 @@ export function useAIChatContext(personaId: string): {
     doorsCacheRef.current = null;
     messageCountRef.current = 0;
     recentContextInjectedRef.current = false;
+    personQuotesCacheRef.current = null;
     // Заметка-тема принадлежит диалогу: без сброса она ехала в «Новый диалог»
     // и делала его ходы строгими по чужой заметке (R3-005). Связанную заметку
     // диалог поднимает сам (useAIChat, d.documentId).
@@ -722,6 +726,61 @@ export function useAIChatContext(personaId: string): {
         });
         if (liteBlock) {
           searchContext = searchContext ? `${searchContext}\n\n${liteBlock}` : liteBlock;
+        }
+      }
+
+      // DLG-Q9 (Fable T-17): строки того человека, о котором спрашивают. Без
+      // такого блока модель подгоняет записи под реплику: «мама против», хотя в
+      // записях мама зовёт переезжать к ней (расхождение называет в 3–4 ходах из
+      // 9 с блоком и 0 из 9 без). В кризис архив не поднимаем, светский ход и
+      // строгий ход (он вышел раньше) блока не получают.
+      if (!smallTalk && !crisis) {
+        const persons = detectPersonMentions(text, {
+          selfName: getCurrentUser()?.displayName ?? undefined,
+          corpusText: allNotes.map(n => n.content).join('\n'),
+        });
+        if (persons.length > 0) {
+          const cacheKey = `${persons.map(p => p.key).join(',')}|${allNotes.map(n => n.documentId).sort().join(',')}`;
+          if (personQuotesCacheRef.current?.key !== cacheKey) {
+            let extraSearchUsed = false;
+            const chunks: string[] = [];
+            for (const person of persons) {
+              let pool = allNotes.filter(n => person.pattern.test(n.content));
+              if (pool.length === 0 && !extraSearchUsed && hasIndexingConsent(uid)) {
+                // Один дополнительный поиск на ход, тем же путём, что основной.
+                extraSearchUsed = true;
+                try {
+                  const extra = await searchNotesMulti([person.key], 5, {
+                    queryVector: await embedOnce(person.key),
+                    allEmbeddings: await AIEmbeddingService.getAll(),
+                  });
+                  pool = extra.notes;
+                } catch { /* поиск не удался — блока просто нет */ }
+              }
+              const notes: PersonNote[] = [];
+              for (const n of pool) {
+                // Тот же снимок хода и тот же фильтр приватности, что у поиска.
+                const doc = await docAt(n.documentId);
+                if (!doc || isExcludedFromAI(doc) || doc.trashedAt) continue;
+                if (!n.content.trim()) continue;
+                notes.push({ id: n.documentId, date: formatDateYYYYMMDD(n.lastSessionAt), text: n.content });
+              }
+              const block = buildPersonQuotesBlock(person, notes);
+              if (block) {
+                chunks.push(block);
+                injectedDocumentIds.push(...personQuoteIds(person, notes));
+              }
+            }
+            personQuotesCacheRef.current = { key: cacheKey, block: chunks.length > 0 ? chunks.join('\n\n') : undefined };
+          }
+          const personBlock = personQuotesCacheRef.current?.block;
+          if (personBlock) {
+            const marker = 'Результаты поиска по архиву';
+            const at = (searchContext ?? '').indexOf(marker);
+            searchContext = at > 0
+              ? `${(searchContext as string).slice(0, at)}${personBlock}\n\n${(searchContext as string).slice(at)}`
+              : `${searchContext ?? ''}\n\n${personBlock}`.trim();
+          }
         }
       }
 
