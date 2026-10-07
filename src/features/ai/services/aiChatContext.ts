@@ -743,7 +743,7 @@ export function useAIChatContext(personaId: string): {
               perNote.sort((a, b) => b.ts - a.ts);
               const doorsResult = aggregateDoors(perNote.slice(0, 20));
               if (!doorsResult.lowData && doorsResult.thinnestDoor && doorsResult.dominantDoor) {
-                doorHint = `\n\nНаблюдение: в записях пользователь чаще опирается на ${doorLabel(doorsResult.dominantDoor)}; ${doorLabel(doorsResult.thinnestDoor)} звучат реже. Если уместно — мягко, гипотезой пригласи заметить ${doorLabel(doorsResult.thinnestDoor)} под ${doorLabel(doorsResult.dominantDoor)}; не дави, дай возможность отказаться.`;
+                doorHint = `\n\nНаблюдение: в записях пользователь чаще опирается на ${doorLabel(doorsResult.dominantDoor)}; ${doorLabel(doorsResult.thinnestDoor)} звучат реже. Если уместно — мягко, гипотезой пригласи заметить ${doorLabel(doorsResult.thinnestDoor)} за ${doorLabel(doorsResult.dominantDoor)}; не дави, дай возможность отказаться.`;
               }
             }
             doorsCacheRef.current = { hint: doorHint };

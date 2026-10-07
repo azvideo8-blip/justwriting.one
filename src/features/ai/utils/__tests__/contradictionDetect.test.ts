@@ -31,6 +31,6 @@ describe('contradictionDetect', () => {
       { theme: 'работа', oldValence: 0.7, newValence: -0.6 }
     ];
     const block = formatContradictions(contradictions);
-    expect(block).toBe('[Внутреннее противоречие]: Твое отношение к теме "работа" изменилось (раньше: позитивно, сейчас: негативно).');
+    expect(block).toBe('[Внутреннее противоречие]: Отношение к теме «работа» изменилось (раньше: позитивно, сейчас: негативно).');
   });
 });

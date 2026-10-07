@@ -73,9 +73,9 @@ describe('X-1: светский ход идёт без архива', () => {
     const ctx = await build('привет');
 
     // База (851204bb) на этом же стенде даёт оба блока и один вызов embed.
-    expect(ctx.searchContext ?? '').not.toContain('[Что ты писал недавно]');
+    expect(ctx.searchContext ?? '').not.toContain('[Недавние записи]');
     expect(ctx.searchContext ?? '').not.toContain('[Возможно релевантные заметки]');
-    expect(ctx.memoryContext ?? '').not.toContain('[Что ты писал недавно]');
+    expect(ctx.memoryContext ?? '').not.toContain('[Недавние записи]');
     expect(embed).not.toHaveBeenCalled();
   });
 
@@ -94,7 +94,7 @@ describe('X-1: светский ход идёт без архива', () => {
 
   it('короткое сообщение о себе контекста не лишается', async () => {
     const ctx = await build('мне плохо');
-    expect(ctx.searchContext ?? '').toContain('[Что ты писал недавно]');
+    expect(ctx.searchContext ?? '').toContain('[Недавние записи]');
     expect(ctx.searchContext ?? '').toContain(NOTE_CHUNK);
   });
 
@@ -112,13 +112,13 @@ describe('X-1: светский ход идёт без архива', () => {
       ] as never,
       isFirstTurn: false,
     });
-    expect(ctx.searchContext ?? '').toContain('[Что ты писал недавно]');
+    expect(ctx.searchContext ?? '').toContain('[Недавние записи]');
   });
 
   it('короткое о беде вне словаря получает контекст: «мама умерла», «нет сил»', async () => {
     for (const text of ['мама умерла', 'нет сил']) {
       const ctx = await build(text);
-      expect(ctx.searchContext ?? '', text).toContain('[Что ты писал недавно]');
+      expect(ctx.searchContext ?? '', text).toContain('[Недавние записи]');
     }
   });
 });

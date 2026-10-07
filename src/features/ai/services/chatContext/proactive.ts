@@ -10,7 +10,7 @@ interface BuildProactiveBlockParams {
   turnEmb: number[] | undefined;
 }
 
-// «Что ты писал недавно» + память о прошлых сессиях. Инжектится один раз за
+// «Недавние записи» + память о прошлых сессиях. Инжектится один раз за
 // сессию — флаг recentContextInjectedRef остаётся в хуке.
 export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactiveBlockParams): Promise<string> {
   let proactiveBlock = '';
@@ -39,7 +39,7 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
       ? `\n\nПоследние заметки:\n${recentDocSummaries.join('\n')}`
       : '';
     if (digestsPart || notesPart) {
-      recentBlock = `[Что ты писал недавно]\n${digestsPart}${notesPart}`;
+      recentBlock = `[Недавние записи]\n${digestsPart}${notesPart}`;
     }
 
     const isPsychPersona = ['cbt', 'group_psychology'].includes(personaId);
@@ -143,7 +143,7 @@ export async function buildProactiveBlock({ personaId, turnEmb }: BuildProactive
       // все 25 планов выглядели «сегодня», а без id заметки модель сочиняла ссылки
       // вида [#планирует-…]. Ссылка [#id · дата] — тот же формат, что у шапок заметок.
       const commitmentsLines = openCommitments.map(c => `- «${c.text}» [#${c.documentId} · ${c.date}]`).join('\n');
-      const commitmentsBlock = `[Твои открытые планы / обязательства]\n${commitmentsLines}`;
+      const commitmentsBlock = `[Открытые планы / обязательства]\n${commitmentsLines}`;
       proactiveBlock = proactiveBlock ? `${proactiveBlock}\n\n${commitmentsBlock}` : commitmentsBlock;
     }
 

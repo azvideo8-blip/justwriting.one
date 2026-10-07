@@ -85,7 +85,7 @@ export function formatContradictions(contradictions: Contradiction[]): string {
     .map(c => {
       const oldState = c.oldValence > 0 ? 'позитивно' : 'негативно';
       const newState = c.newValence > 0 ? 'позитивно' : 'негативно';
-      return `[Внутреннее противоречие]: Твое отношение к теме "${c.theme}" изменилось (раньше: ${oldState}, сейчас: ${newState}).`;
+      return `[Внутреннее противоречие]: Отношение к теме «${c.theme}» изменилось (раньше: ${oldState}, сейчас: ${newState}).`;
     })
     .join('\n');
 }

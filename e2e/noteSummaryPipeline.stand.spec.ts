@@ -275,9 +275,9 @@ test('заметка → разбор → вектор → контекст: «�
   await expect(page.locator('textarea').first()).toBeVisible({ timeout: 20_000 });
   const helloContext = String((await sendAndCapture(page, 'привет')).documentContent ?? '');
   console.warn('[x7] «привет»: контекст', helloContext.length, 'знаков; архивных блоков:',
-    'недавнего =', helloContext.includes('[Что ты писал недавно]'),
+    'недавнего =', helloContext.includes('[Недавние записи]'),
     ', релевантных =', helloContext.includes('[Возможно релевантные заметки]'));
-  expect(helloContext).not.toContain('[Что ты писал недавно]');
+  expect(helloContext).not.toContain('[Недавние записи]');
   expect(helloContext).not.toContain('[Возможно релевантные заметки]');
 
   // 5. Вопрос про заметку: разбор этой заметки в запросе есть.
