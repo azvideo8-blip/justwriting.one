@@ -162,7 +162,14 @@ export function sanitizeCitations(
     if (whole[offset + match.length] === '(') return match;            // markdown-ссылка [текст](url)
     const bare = inner.trim();
     if (!/[а-яё«»#]/i.test(bare)) return match;                        // [1], [EN] — не выдумка
-    if (bare.startsWith('#') && allowed.has(bare.slice(1).trim())) return match; // признанная ссылка
+    if (bare.startsWith('#')) {
+      // R-2: модель иногда копирует шапку целиком — «[#local_a · 20261006]».
+      // Настоящий id этого хода остаётся, дата при этом не нужна: ссылка в
+      // интерфейсе живёт по номеру заметки.
+      const withDate = /^#([a-zA-Z0-9_-]+)(?:\s·[^\]\n]*)?$/.exec(bare);
+      const id = withDate?.[1];
+      if (id && allowed.has(id)) return `[#${id}]`;
+    }
     return UNRECOGNISED_MARKER;
   });
 
