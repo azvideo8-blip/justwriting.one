@@ -50,6 +50,10 @@ export interface DialogueHead {
   deletedAt?: number | undefined;
   deletedMessages?: { id: string; at: number }[] | undefined;
   lastExtractedMessageId?: string | undefined;
+  /** Позиционный курсор старых диалогов. Без него в head длинный старый диалог
+   *  никогда не совпадал с облачной копией по отпечатку и выгружался заново на
+   *  каждом проходе (прод, 2026-10-07: head переписывался раз в 2 минуты). */
+  lastExtractedIdx?: number | undefined;
   segments: SegmentRef[];
 }
 
@@ -197,6 +201,7 @@ export function headOf(d: AIDialogue, segments: SegmentRef[] = []): DialogueHead
   if (d.deletedAt !== undefined) head.deletedAt = d.deletedAt;
   if (d.deletedMessages !== undefined) head.deletedMessages = d.deletedMessages;
   if (d.lastExtractedMessageId !== undefined) head.lastExtractedMessageId = d.lastExtractedMessageId;
+  if (d.lastExtractedIdx !== undefined) head.lastExtractedIdx = d.lastExtractedIdx;
   return head;
 }
 
@@ -293,7 +298,7 @@ export function mergeHeads(a: DialogueHead, b: DialogueHead, now = Date.now()): 
   const deletedAt = Math.max(a.deletedAt ?? 0, b.deletedAt ?? 0);
   if (deletedAt > 0) head.deletedAt = deletedAt;
   if (deletedMessages.length > 0) head.deletedMessages = deletedMessages;
-  for (const k of ['documentId', 'responseLength', 'reasoning', 'closingSummary', 'archivedAt', 'lastExtractedMessageId'] as const) {
+  for (const k of ['documentId', 'responseLength', 'reasoning', 'closingSummary', 'archivedAt', 'lastExtractedMessageId', 'lastExtractedIdx'] as const) {
     const v = newer[k] ?? older[k];
     if (v !== undefined) (head as unknown as Record<string, unknown>)[k] = v;
   }
@@ -336,6 +341,7 @@ export function assembleDialogue(head: DialogueHead, segments: Map<string, Dialo
   if (head.deletedAt !== undefined) d.deletedAt = head.deletedAt;
   if (head.deletedMessages !== undefined) d.deletedMessages = head.deletedMessages;
   if (head.lastExtractedMessageId !== undefined) d.lastExtractedMessageId = head.lastExtractedMessageId;
+  if (head.lastExtractedIdx !== undefined) d.lastExtractedIdx = head.lastExtractedIdx;
   return d;
 }
 
