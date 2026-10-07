@@ -4,7 +4,22 @@
 
 - **[RU]** В ИИ-помощнике редактора вместо «Продолжить» — «Расставить знаки»: надиктованный голосом текст без точек и запятых возвращается с знаками препинания, заглавными буквами и абзацами. Слова не меняются — если ИИ тронет хоть одно слово, результат отбрасывается и текст остаётся как был.
 - **[EN]** In the editor's AI assistant, «Continue» is replaced with «Fix punctuation»: dictated text without periods and commas comes back with punctuation, capitals and paragraphs. Words never change — if the AI touches a single word, the result is discarded and your text stays as it was.
-
+- **[RU]** Собеседники отвечают короче и живее: один вопрос в конце, без таблиц, заголовков и разделов в разговоре.
+- **[EN]** The companions answer shorter and more alive: one question at the end, no tables, headings or sections in the conversation.
+- **[RU]** Меньше выдуманного: ссылки только на настоящие заметки, лишние скобки и непроверенные цитаты убираются из ответа.
+- **[EN]** Less invention: links only to real notes, stray brackets and unchecked quotes are removed from the answer.
+- **[RU]** На «нет сил, не хочу просыпаться» ИИ бережно спрашивает о безопасности и даёт телефоны помощи.
+- **[EN]** On «no strength left, I don't want to wake up» the AI gently asks about safety and gives helpline numbers.
+- **[RU]** На сообщение по-английски ИИ отвечает по-английски.
+- **[EN]** A message written in English gets an English answer.
+- **[RU]** Открытые планы показываются с заметкой, откуда они взяты.
+- **[EN]** Open plans are shown with the note they came from.
+- **[RU]** «Редактор» перерабатывает заметку в пост, а не копирует её дословно.
+- **[EN]** The «Editor» reworks a note into a post instead of copying it verbatim.
+- **[RU]** «Редактор» на «добавь из других заметок» ищет похожие записи, а если их нет — говорит об этом, а не досочиняет.
+- **[EN]** Asked to «add from other notes», the «Editor» looks for similar entries — and if there are none, says so instead of making them up.
+- **[RU]** «Редактор» показывает сверку с заметкой: какие имена и числа убраны из поста.
+- **[EN]** The «Editor» shows a check against the note: which names and numbers were removed from the post.
 ## 0.9.32 — 2026-10-07
 
 - **[RU]** Вернулся собеседник «Редактор» — он собирает из ваших заметок готовый пост для канала или блога: вашим голосом, только по тому, что вы написали, с заменой чужих имён на роли. Пост копируется одной кнопкой; в сами заметки ИИ по-прежнему ничего не пишет.

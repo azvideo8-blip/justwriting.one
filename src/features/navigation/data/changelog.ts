@@ -18,6 +18,14 @@ export const CHANGELOG: ChangelogRelease[] = [
     date: '2026-10-07',
     items: [
       { category: 'new', ru: 'В ИИ-помощнике редактора — «Расставить знаки» вместо «Продолжить»: надиктованный текст получает точки, запятые, заглавные и абзацы. Слова не меняются: если ИИ тронет хоть одно слово, результат отбрасывается.', en: 'The editor’s AI assistant has «Fix punctuation» instead of «Continue»: dictated text gets periods, commas, capitals and paragraphs. Words never change: if the AI touches a word, the result is discarded.' },
+      { category: 'improvement', ru: 'Собеседники отвечают короче и живее: один вопрос в конце, без таблиц, заголовков и разделов в разговоре.', en: 'The companions answer shorter and more alive: one question at the end, no tables, headings or sections in the conversation.' },
+      { category: 'fix', ru: 'Меньше выдуманного: ссылки только на настоящие заметки, лишние скобки и непроверенные цитаты убираются из ответа.', en: 'Less invention: links only to real notes, stray brackets and unchecked quotes are removed from the answer.' },
+      { category: 'improvement', ru: 'На «нет сил, не хочу просыпаться» ИИ бережно спрашивает о безопасности и даёт телефоны помощи.', en: 'On «no strength left, I don\'t want to wake up» the AI gently asks about safety and gives helpline numbers.' },
+      { category: 'new', ru: 'На сообщение по-английски ИИ отвечает по-английски.', en: 'A message written in English gets an English answer.' },
+      { category: 'improvement', ru: 'Открытые планы показываются с заметкой, откуда они взяты.', en: 'Open plans are shown with the note they came from.' },
+      { category: 'improvement', ru: '«Редактор» перерабатывает заметку в пост, а не копирует её дословно.', en: 'The «Editor» reworks a note into a post instead of copying it verbatim.' },
+      { category: 'fix', ru: '«Редактор» на «добавь из других заметок» ищет похожие записи, а если их нет — говорит об этом, а не досочиняет.', en: 'Asked to «add from other notes», the «Editor» looks for similar entries — and if there are none, says so instead of making them up.' },
+      { category: 'new', ru: '«Редактор» показывает сверку с заметкой: какие имена и числа убраны из поста.', en: 'The «Editor» shows a check against the note: which names and numbers were removed from the post.' },
     ],
   },
   {
