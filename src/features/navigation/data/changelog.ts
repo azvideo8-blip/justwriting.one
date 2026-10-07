@@ -14,6 +14,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.33',
+    date: '2026-10-07',
+    items: [
+      { category: 'new', ru: 'В ИИ-помощнике редактора — «Расставить знаки» вместо «Продолжить»: надиктованный текст получает точки, запятые, заглавные и абзацы. Слова не меняются: если ИИ тронет хоть одно слово, результат отбрасывается.', en: 'The editor’s AI assistant has «Fix punctuation» instead of «Continue»: dictated text gets periods, commas, capitals and paragraphs. Words never change: if the AI touches a word, the result is discarded.' },
+    ],
+  },
+  {
     version: '0.9.32',
     date: '2026-10-07',
     items: [
