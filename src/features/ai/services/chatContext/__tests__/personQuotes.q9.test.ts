@@ -156,6 +156,27 @@ describe('Q-9: блок в контексте хода', () => {
     expect(ctx.injectedDocumentIds).toContain(OPEN_DOC);
   });
 
+  // Ревью безопасности 0.9.33: блок кэшируется на сессию, а заметку могут скрыть
+  // от ИИ в другой вкладке посреди диалога. Права проверяются на каждом ходе.
+  it('заметку скрыли посреди диалога — на следующем ходе её строк в блоке нет', async () => {
+    const { result } = renderHook(() => useAIChatContext('coach'));
+    const turn = (text: string) => result.current.buildContext({
+      text, attached: null, mood: undefined, messageHistory: [], isFirstTurn: false,
+    });
+    const first = await turn('мама против, хотя прямо не говорит');
+    expect(first.searchContext ?? '').toContain('«Мама звонит каждый день»');
+
+    const same = await turn('мама против, хотя прямо не говорит');
+    expect(same.injectedDocumentIds).toContain(OPEN_DOC);
+
+    const db = await getLocalDb();
+    const doc = await db.get('documents', OPEN_DOC);
+    await db.put('documents', { ...doc, excludedFromAI: true } as never);
+    const second = await turn('мама против, хотя прямо не говорит');
+    expect(second.searchContext ?? '').not.toContain('Мама звонит каждый день');
+    expect(second.injectedDocumentIds ?? []).not.toContain(OPEN_DOC);
+  });
+
   it('скрытая от ИИ заметка в блок не попадает', async () => {
     const ctx = await run('мама против, хотя прямо не говорит');
     expect(ctx.searchContext ?? '').not.toContain('против любого переезда');

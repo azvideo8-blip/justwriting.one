@@ -99,7 +99,7 @@ export function useAIChatContext(personaId: string): {
   const lastSearchNamesRef = useRef<string[]>([]);
   const recentContextInjectedRef = useRef(false);
   // DLG-Q9: блок слов человека кэшируется на сессию по (люди, набор id заметок).
-  const personQuotesCacheRef = useRef<{ key: string; block: string | undefined } | null>(null);
+  const personQuotesCacheRef = useRef<{ key: string; block: string | undefined; ids: string[] } | null>(null);
 
   const resetSession = () => {
     stickyTurnsRef.current = 0;
@@ -754,8 +754,22 @@ export function useAIChatContext(personaId: string): {
         });
         if (persons.length > 0) {
           const cacheKey = `${persons.map(p => p.key).join(',')}|${allNotes.map(n => n.documentId).sort().join(',')}`;
-          if (personQuotesCacheRef.current?.key !== cacheKey) {
+          // Права проверяются на каждом ходе: заметку из блока могли скрыть от ИИ
+          // или удалить в другой вкладке или на другом устройстве, а ключ кэша
+          // её не видит (заметки дополнительного поиска в него не входят).
+          const cached = personQuotesCacheRef.current;
+          let cacheValid = cached?.key === cacheKey;
+          if (cached && cacheValid) {
+            for (const id of cached.ids) {
+              const doc = await docAt(id);
+              if (!doc || isExcludedFromAI(doc) || doc.trashedAt) { cacheValid = false; break; }
+            }
+          }
+          if (cacheValid && cached) {
+            injectedDocumentIds.push(...cached.ids);
+          } else {
             let extraSearchUsed = false;
+            const blockIds: string[] = [];
             const chunks: string[] = [];
             for (const person of persons) {
               let pool = allNotes.filter(n => person.pattern.test(n.content));
@@ -781,10 +795,12 @@ export function useAIChatContext(personaId: string): {
               const block = buildPersonQuotesBlock(person, notes);
               if (block) {
                 chunks.push(block);
-                injectedDocumentIds.push(...personQuoteIds(person, notes));
+                const ids = personQuoteIds(person, notes);
+                injectedDocumentIds.push(...ids);
+                blockIds.push(...ids);
               }
             }
-            personQuotesCacheRef.current = { key: cacheKey, block: chunks.length > 0 ? chunks.join('\n\n') : undefined };
+            personQuotesCacheRef.current = { key: cacheKey, block: chunks.length > 0 ? chunks.join('\n\n') : undefined, ids: [...new Set(blockIds)] };
           }
           const personBlock = personQuotesCacheRef.current?.block;
           if (personBlock) {
