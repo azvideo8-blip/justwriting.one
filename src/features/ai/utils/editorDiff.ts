@@ -15,19 +15,30 @@ const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
 const WORDS = /[А-ЯЁа-яё]{2,}|\d[\d\s.,:]{0,9}/g;
 const LOWER_WORD = new RegExp(`${LB}([а-яё][а-яё]{2,})${RB}`, 'g');
 const SENTENCE_START = /(?:^|[.!?…][\s\n]|\n)\s*$/;
-// Начало фразы — место, где с заглавной стоит всё подряд, а не только имена:
-// «Решила отменить», «Подготовить отчёт», «Важно не спорить», «Хочу спать»,
-// «Позвоню завтра». Имена так не кончаются, поэтому эти окончания для позиции в
-// начале фразы кандидата отсекают. Внутри фразы заглавное — почти всегда имя, там
-// фильтр не нужен.
-const VERB_OR_ADVERB_ENDING = /(?:ться|сь|ся|ть|ти|ла|ло|ли|но|ко|ет|ит|ут|ют|ем|им|ешь|ишь|у|ю)$/;
-// Мужское прошедшее время («Пошёл», «Взял») и имена на -л («Павел», «Михаил»)
-// кончаются одинаково. Различает их следующее слово: после имени обычно глагол,
-// после глагола — существительное или наречие.
+// Начало фразы — место, где с заглавной стоит всё подряд, а не только имена.
+// Окончания делятся на две группы (S-2, ревью 2):
+// · не-именные всегда: инфинитивы и возвратные (-ть, -ться, -сь, -ся, -ти),
+//   наречия и краткие формы (-но, -ко), личные 1/2 лица (-у, -ю, -ешь, -ишь) —
+//   такие имена в именительном не кончаются;
+// · двусмысленные: мужское прошедшее (-л, -ла, -ло, -ли) и личные формы
+//   (-ет, -ит, -ут, -ют, -ем, -им) — под них попадают Максим, Артём, Мила, Павел.
+//   Здесь решает следующее слово: после имени в дневнике стоит глагол, после
+//   глагола — существительное или наречие.
+const NEVER_A_NAME_ENDING = /(?:ться|сь|ся|ть|ти|но|ко|у|ю|ешь|ишь)$/;
+const AMBIGUOUS_NAME_ENDING = /(?:л|ла|ло|ли|ет|ит|ут|ют|ем|им)$/;
+// Конечная форма личного глагола (инфинитив на -ть сюда НЕ входит: «Хотим уехать»
+// — это не имя).
 const VERB_LIKE_ENDING = /(?:л|ла|ло|ли|ет|ит|ут|ют|ем|им|ешь|ишь)$/;
 // Список начал фразы свёрнут так же, как lower(): иначе «Днём» сверяется с
 // «днём» и не совпадает.
 const SENTENCE_HEAD_FOLDED = new Set([...SENTENCE_HEAD_WORDS].map(lower));
+
+/** Стоит ли в ближайших двух словах после кандидата личная глагольная форма. */
+function followedByVerb(text: string, wordEnd: number): boolean {
+  const rest = text.slice(wordEnd).replace(/^[^\p{L}]+/u, '');
+  const nextTwo = rest.split(/[^\p{L}]+/u).filter(Boolean).slice(0, 2).map(lower);
+  return nextTwo.some(w => VERB_LIKE_ENDING.test(w));
+}
 
 /**
  * Кандидаты в имена: слова с заглавной, не из стоп-листа и ни разу не виденные в
@@ -44,11 +55,8 @@ function properNouns(text: string): string[] {
     if (NAME_STOPWORDS.has(lw)) continue;
     if (lowercaseForms.has(lw)) continue;
     if (SENTENCE_START.test(text.slice(0, m.index))) {
-      if (SENTENCE_HEAD_FOLDED.has(lw) || VERB_OR_ADVERB_ENDING.test(lw)) continue;
-      if (lw.endsWith('л')) {
-        const next = lower(text.slice(m.index + word.length).match(/^\s+([а-яёА-ЯЁ]+)/)?.[1] ?? '');
-        if (!VERB_LIKE_ENDING.test(next)) continue;
-      }
+      if (SENTENCE_HEAD_FOLDED.has(lw) || NEVER_A_NAME_ENDING.test(lw)) continue;
+      if (AMBIGUOUS_NAME_ENDING.test(lw) && !followedByVerb(text, m.index + word.length)) continue;
     }
     if (!out.includes(word)) out.push(word);
   }

@@ -91,6 +91,20 @@ describe('Q-10: diffPostAgainstNote', () => {
     expect(diffPostAgainstNote('Кто-то звонил.', 'Михаил звонил.').namesRemoved).toEqual(['Михаил']);
   });
 
+  // S-2 (ревью 2): проверка следующего слова касалась только -л и теряла имена
+  // на -им, -ем, -ла.
+  it('имена на -им, -ем, -ла в начале фразы находятся', () => {
+    expect(diffPostAgainstNote('Друг позвонил утром.', 'Максим позвонил утром.').namesRemoved).toEqual(['Максим']);
+    expect(diffPostAgainstNote('Коллега опять опоздал.', 'Артём опять опоздал.').namesRemoved).toEqual(['Артём']);
+    expect(diffPostAgainstNote('Подруга пришла в гости.', 'Мила пришла в гости.').namesRemoved).toEqual(['Мила']);
+  });
+
+  it('но глагольные формы теми же проверками не становятся', () => {
+    for (const source of ['Решила не спорить.', 'Хотим уехать.', 'Важно было понять.', 'Подготовить отчёт до пятницы.']) {
+      expect(diffPostAgainstNote('Другое слово.', source).namesRemoved, source).toEqual([]);
+    }
+  });
+
   it('слово, которое в источнике хоть раз пишется со строчной, — не имя', () => {
     const d = diffPostAgainstNote('Всё решили завтра.', 'Маму звали вечером. Мы говорили про маму.');
     expect(d.namesRemoved).toEqual([]);
