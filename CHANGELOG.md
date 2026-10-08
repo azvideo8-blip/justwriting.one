@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.33 — 2026-10-07
+## 0.9.33 — 2026-10-08
 
 - **[RU]** В ИИ-помощнике редактора вместо «Продолжить» — «Расставить знаки»: надиктованный голосом текст без точек и запятых возвращается с знаками препинания, заглавными буквами и абзацами. Слова не меняются — если ИИ тронет хоть одно слово, результат отбрасывается и текст остаётся как был.
 - **[EN]** In the editor's AI assistant, «Continue» is replaced with «Fix punctuation»: dictated text without periods and commas comes back with punctuation, capitals and paragraphs. Words never change — if the AI touches a single word, the result is discarded and your text stays as it was.
