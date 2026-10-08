@@ -12,6 +12,8 @@
 - **[EN]** When you talk about someone close, the AI checks it against what your notes say about them.
 - **[RU]** На «нет сил, не хочу просыпаться» ИИ бережно спрашивает о безопасности и даёт телефоны помощи.
 - **[EN]** On «no strength left, I don't want to wake up» the AI gently asks about safety and gives helpline numbers.
+- **[RU]** Первым в списке телефонов помощи теперь идёт телефон доверия МЧС России +7 495 989-50-50 — номер подтверждён на официальном сайте; прежнюю линию 8-800-333-44-34 подтвердить не удалось.
+- **[EN]** The first help line in the list is now the EMERCOM of Russia helpline +7 495 989-50-50, confirmed on its official site; the previous hotline 8-800-333-44-34 could not be verified.
 - **[RU]** На сообщение по-английски ИИ отвечает по-английски.
 - **[EN]** A message written in English gets an English answer.
 - **[RU]** ИИ ссылается на заметку, из которой взят открытый план.

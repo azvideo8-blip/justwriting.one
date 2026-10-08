@@ -96,14 +96,14 @@ describe('кризис в приложенной заметке', () => {
     expect(ctx.crisis).toBe(true);
     expect(ctx.searchContext).toContain('Каждую ночь думаю про суицид.');
     expect(ctx.searchContext).not.toMatch(CRISIS_MARKERS);
-    expect(ctx.searchContext).not.toContain('8-800-333-44-34');
+    expect(ctx.searchContext).not.toContain('+7 495 989-50-50');
   });
 
   it('обычный ход: то же — поиск и память не получают кризисную инструкцию', async () => {
     const ctx = await crisisTurn('wide', 'не хочу жить, всё бессмысленно');
     expect(ctx.crisis).toBe(true);
     expect(ctx.searchContext ?? '').not.toMatch(CRISIS_MARKERS);
-    expect(ctx.searchContext ?? '').not.toContain('8-800-333-44-34');
+    expect(ctx.searchContext ?? '').not.toContain('+7 495 989-50-50');
   });
 
   it('ненокризисный ход флаг не поднимает', async () => {

@@ -6,7 +6,9 @@
 // модель при этом получала российские номера — сервис работает в России,
 // поэтому и в английском интерфейсе номера те же, переведены только подписи.
 export const CRISIS_RESOURCES_RU: ReadonlyArray<{ number: string; who: string; en: string }> = [
-  { number: '8-800-333-44-34', who: 'горячая линия психологической поддержки, бесплатно и круглосуточно', en: '8-800-333-44-34 — psychological support hotline, free and 24/7' },
+  // 8-800-333-44-34 убран 2026-10-08: оператора линии не нашёл ни один первоисточник
+  // (T-13 Fable). Номер МЧС подтверждён на psi.mchs.gov.ru.
+  { number: '+7 495 989-50-50', who: 'телефон доверия МЧС России, психологическая помощь', en: '+7 495 989-50-50 — EMERCOM of Russia helpline, psychological help' },
   { number: '051 (с мобильного: +7 495 051)', who: 'Московская служба психологической помощи населению', en: '051 (from a mobile: +7 495 051) — Moscow psychological help service' },
   { number: '8-800-2000-122', who: 'телефон доверия для детей, подростков и их родителей', en: '8-800-2000-122 — helpline for children, teenagers and their parents' },
   { number: '112', who: 'экстренные службы', en: '112 — emergency services' },

@@ -106,8 +106,8 @@ export const aiTranslations: Translations = {
     en: 'If you are struggling — you are not alone. You can call someone right now:',
   },
   ai_crisis_resource_1: {
-    ru: '8-800-333-44-34 — горячая линия психологической поддержки, бесплатно и круглосуточно',
-    en: '8-800-333-44-34 — psychological support hotline, free and 24/7',
+    ru: '+7 495 989-50-50 — телефон доверия МЧС России, психологическая помощь',
+    en: '+7 495 989-50-50 — EMERCOM of Russia helpline, psychological help',
   },
   ai_crisis_resource_2: {
     ru: '051 (с мобильного: +7 495 051) — Московская служба психологической помощи населению',
