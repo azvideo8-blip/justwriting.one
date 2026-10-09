@@ -3,6 +3,7 @@ import { getAiConsent } from '../../../core/ai/aiConsent';
 import { getLocalDb } from '../../../core/storage/localDb';
 import { MAX_AI_CONTENT_LENGTH } from '../../../shared/ai/buildChatPrompt';
 import { sameWords } from '../../../shared/ai/sameWords';
+import { transferPunctuation } from '../../../shared/ai/transferPunctuation';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { AIService } from './AIService';
@@ -14,6 +15,10 @@ import { AIService } from './AIService';
 // сказали вслух, и он обязан оказаться в заметке. Поэтому правило одно: что бы
 // ни случилось, возвращается исходный текст — диктовка не может провалиться
 // из-за пунктуации.
+
+/** Доля исходных слов, нашедших пару в ответе модели, ниже которой ответ
+ *  считается чужим. */
+const MIN_COVERAGE = 0.85;
 
 export type DictationPunctuateReason =
   | 'empty'
@@ -92,13 +97,21 @@ export async function punctuateDictation(
   try {
     const res = await AIService.process(raw, 'punctuate');
     if (!res.ok) return { text: raw, punctuated: false, reason: 'error' };
-    if (!sameWords(raw, res.text)) {
-      // Модель тронула слова (или ответ обрезан) — такой результат испортил бы
-      // текст человека. Список запросов при этом не расходуется, как в панели.
+    if (sameWords(raw, res.text)) {
+      consumeRequest();
+      return { text: res.text, punctuated: true };
+    }
+    // Модель тронула слова. На длинной диктовке это почти всегда одно-два
+    // «исправления» распознавания, и выбрасывать из-за них всю пунктуацию нельзя
+    // (0.9.34): знаки переносятся на исходные слова. Слова человека при этом не
+    // меняются никогда. Если совпало меньше MIN_COVERAGE слов — ответ не про этот
+    // текст (обрезан, переписан), вставляется исходник.
+    const moved = transferPunctuation(raw, res.text);
+    if (!moved || moved.coverage < MIN_COVERAGE || !sameWords(raw, moved.text)) {
       return { text: raw, punctuated: false, reason: 'words-changed' };
     }
     consumeRequest();
-    return { text: res.text, punctuated: true };
+    return { text: moved.text, punctuated: true };
   } catch {
     return { text: raw, punctuated: false, reason: 'error' };
   }

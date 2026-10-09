@@ -7,6 +7,7 @@
 //
 // Мутации: убрать сверку sameWords → (b) красный; убрать ветку note-hidden →
 // (e) красный; вернуть ветку vault → (f) красный.
+import { sameWords } from '../../../../shared/ai/sameWords';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { processMock, useRequestMock, getEncryptionEnabledMock, dbGetMock, limitState, authState, consentState } = vi.hoisted(() => ({
@@ -77,6 +78,20 @@ describe('D-3: punctuateDictation', () => {
     expect(res.punctuated).toBe(false);
     expect(res.reason).toBe('words-changed');
     expect(useRequestMock).not.toHaveBeenCalled();
+  });
+
+  // Hotfix 0.9.34 (прод, двухминутная диктовка): модель «починила» одно слово
+  // распознавания — и вся пунктуация выбрасывалась. Теперь знаки переносятся на
+  // исходные слова. Мутация: снова «слова не совпали → исходник» → красный.
+  it('(b2) модель исправила одно слово в длинном тексте: знаки есть, слова исходные', async () => {
+    const raw = 'утром вышли на пробежку было холодно толли от ветра толли от недосыпа потом пили чай и долго говорили о планах на осень';
+    processMock.mockResolvedValue({ ok: true, text: 'Утром вышли на пробежку. Было холодно: то ли от ветра, то ли от недосыпа. Потом пили чай и долго говорили о планах на осень.' });
+    const res = await punctuateDictation(raw, { documentId: 'doc_1' });
+    expect(res.punctuated).toBe(true);
+    expect(sameWords(raw, res.text)).toBe(true);
+    expect(res.text).toContain('Утром вышли на пробежку. Было холодно:');
+    expect(res.text.endsWith('осень.')).toBe(true);
+    expect(useRequestMock).toHaveBeenCalledTimes(1);
   });
 
   it('(c) каждая причина возвращает исходный текст и никогда не бросает', async () => {
