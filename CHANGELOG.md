@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.9.34 — 2026-10-09
+
+- **[RU]** Диктовка стала одной записью: пока говорите, видно распознаваемый текст и волну голоса; «Стоп» вставляет текст, «Отмена» его выбрасывает.
+- **[EN]** Dictation is now one recording: while you speak you see the recognised text and a voice wave; «Stop» inserts the text, «Cancel» discards it.
+- **[RU]** После «Стоп» ИИ сам расставляет знаки препинания в надиктованном — у кнопки микрофона метка ИИ и предупреждение, что уйдёт один запрос. Слова не меняются; без входа в аккаунт или без согласия на ИИ текст вставляется как сказан. Кнопка «Расставить знаки» из панели ИИ убрана.
+- **[EN]** After «Stop» the AI adds punctuation to what you dictated — the mic button shows an AI mark and a note that one request will be spent. Words never change; without an account or AI consent the text is inserted as spoken. The «Fix punctuation» button is gone from the AI panel.
+- **[RU]** Микрофон выключается, когда вы уходите с экрана письма во время диктовки, а надиктованное не попадает в другую заметку — если вы её открыли, текст можно скопировать.
+- **[EN]** The microphone turns off when you leave the writing screen mid-dictation, and dictated text never lands in another note — if you opened one, you can copy the text.
+- **[RU]** Заметка, приложенная посреди диалога, разбирается сама, а не через прошлую тему разговора.
+- **[EN]** A note attached in the middle of a conversation is discussed on its own, not through the earlier topic.
+- **[RU]** «Поищи в заметках, что у меня было с…» снова ищет по заметкам, а не отвечает одной сводкой за последние месяцы.
+- **[EN]** «Search my notes for what I had with…» searches the notes again instead of answering with a summary of recent months.
+- **[RU]** Длина ответа следует выбранной: «кратко» больше не разрастается в простыню.
+- **[EN]** Answer length follows your choice: «short» no longer grows into a wall of text.
+- **[RU]** Вопрос по-английски о русской заметке получает ответ по-английски.
+- **[EN]** A question in English about a Russian note gets an English answer.
+- **[RU]** Собеседник в технике КПТ задаёт один вопрос за раз и в подробном режиме.
+- **[EN]** The CBT companion asks one question at a time, in detailed mode too.
+- **[RU]** Темы профиля, собранные по заметкам, которые вы скрыли от ИИ или удалили, в разговор не попадают.
+- **[EN]** Profile themes built from notes you hid from the AI or deleted no longer reach the conversation.
+- **[RU]** Поиск находит человека в любом падеже («Оля», «с Олей», «Олю») и реже подмешивает посторонние заметки.
+- **[EN]** Search finds a person in any grammatical case and mixes in unrelated notes less often.
+- **[RU]** На новом устройстве смысловой поиск по старым заметкам готов в разы быстрее — не через неделю с лишним.
+- **[EN]** On a new device, meaning-based search over old notes is ready many times faster — not after more than a week.
+- **[RU]** «Редактор»: «найди ещё на эту тему» после поста ищет по теме поста; над постом — предупреждение, если в нём остались имена или названия; не просит приложить уже приложенную заметку; детали из других заметок не выдаются за вчерашние.
+- **[EN]** The «Editor»: «find more on this topic» after a post searches the post’s topic; a warning shows when names or titles remain in the post; it never asks to attach a note that is already attached; details from other notes are not told as yesterday’s.
+- **[RU]** Память о длинном разговоре больше не теряется целиком, если ответ ИИ оборвался.
+- **[EN]** Memory from a long conversation is no longer lost entirely when the AI reply is cut off.
+- **[RU]** Сообщения об ошибках ИИ-сервиса не попадают в журнал сервера вместе с текстом ваших заметок.
+- **[EN]** AI service error messages no longer reach the server log together with your note text.
+
 ## 0.9.33 — 2026-10-08
 
 - **[RU]** В ИИ-помощнике редактора вместо «Продолжить» — «Расставить знаки»: надиктованный голосом текст без точек и запятых возвращается с знаками препинания, заглавными буквами и абзацами. Слова не меняются — если ИИ тронет хоть одно слово, результат отбрасывается и текст остаётся как был.

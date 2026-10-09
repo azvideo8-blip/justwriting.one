@@ -14,6 +14,26 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.34',
+    date: '2026-10-09',
+    items: [
+      { category: 'new', ru: 'Диктовка стала одной записью: пока говорите, видно распознаваемый текст и волну голоса; «Стоп» вставляет текст, «Отмена» его выбрасывает.', en: 'Dictation is now one recording: while you speak you see the recognised text and a voice wave; «Stop» inserts the text, «Cancel» discards it.' },
+      { category: 'new', ru: 'После «Стоп» ИИ сам расставляет знаки препинания в надиктованном — у кнопки микрофона метка ИИ и предупреждение, что уйдёт один запрос. Слова не меняются; без входа в аккаунт или без согласия на ИИ текст вставляется как сказан. Кнопка «Расставить знаки» из панели ИИ убрана.', en: 'After «Stop» the AI adds punctuation to what you dictated — the mic button shows an AI mark and a note that one request will be spent. Words never change; without an account or AI consent the text is inserted as spoken. The «Fix punctuation» button is gone from the AI panel.' },
+      { category: 'fix', ru: 'Микрофон выключается, когда вы уходите с экрана письма во время диктовки, а надиктованное не попадает в другую заметку — если вы её открыли, текст можно скопировать.', en: 'The microphone turns off when you leave the writing screen mid-dictation, and dictated text never lands in another note — if you opened one, you can copy the text.' },
+      { category: 'fix', ru: 'Заметка, приложенная посреди диалога, разбирается сама, а не через прошлую тему разговора.', en: 'A note attached in the middle of a conversation is discussed on its own, not through the earlier topic.' },
+      { category: 'fix', ru: '«Поищи в заметках, что у меня было с…» снова ищет по заметкам, а не отвечает одной сводкой за последние месяцы.', en: '«Search my notes for what I had with…» searches the notes again instead of answering with a summary of recent months.' },
+      { category: 'improvement', ru: 'Длина ответа следует выбранной: «кратко» больше не разрастается в простыню.', en: 'Answer length follows your choice: «short» no longer grows into a wall of text.' },
+      { category: 'fix', ru: 'Вопрос по-английски о русской заметке получает ответ по-английски.', en: 'A question in English about a Russian note gets an English answer.' },
+      { category: 'improvement', ru: 'Собеседник в технике КПТ задаёт один вопрос за раз и в подробном режиме.', en: 'The CBT companion asks one question at a time, in detailed mode too.' },
+      { category: 'fix', ru: 'Темы профиля, собранные по заметкам, которые вы скрыли от ИИ или удалили, в разговор не попадают.', en: 'Profile themes built from notes you hid from the AI or deleted no longer reach the conversation.' },
+      { category: 'improvement', ru: 'Поиск находит человека в любом падеже («Оля», «с Олей», «Олю») и реже подмешивает посторонние заметки.', en: 'Search finds a person in any grammatical case and mixes in unrelated notes less often.' },
+      { category: 'improvement', ru: 'На новом устройстве смысловой поиск по старым заметкам готов в разы быстрее — не через неделю с лишним.', en: 'On a new device, meaning-based search over old notes is ready many times faster — not after more than a week.' },
+      { category: 'improvement', ru: '«Редактор»: «найди ещё на эту тему» после поста ищет по теме поста; над постом — предупреждение, если в нём остались имена или названия; не просит приложить уже приложенную заметку; детали из других заметок не выдаются за вчерашние.', en: 'The «Editor»: «find more on this topic» after a post searches the post’s topic; a warning shows when names or titles remain in the post; it never asks to attach a note that is already attached; details from other notes are not told as yesterday’s.' },
+      { category: 'fix', ru: 'Память о длинном разговоре больше не теряется целиком, если ответ ИИ оборвался.', en: 'Memory from a long conversation is no longer lost entirely when the AI reply is cut off.' },
+      { category: 'fix', ru: 'Сообщения об ошибках ИИ-сервиса не попадают в журнал сервера вместе с текстом ваших заметок.', en: 'AI service error messages no longer reach the server log together with your note text.' },
+    ],
+  },
+  {
     version: '0.9.33',
     date: '2026-10-08',
     items: [
