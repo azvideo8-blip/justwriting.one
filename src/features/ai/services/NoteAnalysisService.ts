@@ -218,7 +218,11 @@ export const NoteAnalysisService = {
     // успехом за половину работы.
     let indexed: IndexResult = 'error';
     try {
-      indexed = await indexDocument(documentId, true);
+      // П-6 (замер 08.10.2026): раньше здесь был `force` — разбор заметки всегда
+      // переписывал вектор, даже когда тот свежий (модель+размерность+схема+хэш
+      // совпали). Принуждение было нужно для смены нарезки, но смену нарезки
+      // закрывает номер схемы, а он входит в свежесть.
+      indexed = await indexDocument(documentId);
     } catch (e) {
       reportError(e, { action: 'noteAnalysis_embed', documentId });
     }

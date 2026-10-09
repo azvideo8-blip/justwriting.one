@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import MiniSearch from 'minisearch';
 
-const RRF_K = 60, KEYWORD_TOP = 40, RRF_FINAL = 15, RERANK_THRESHOLD = 0.88, RESURFACE_FLOOR = 0.35;
+const RRF_K = 60, KEYWORD_TOP = 40, RRF_FINAL = 15, RESURFACE_FLOOR = 0.35;
 
 const notes = JSON.parse(readFileSync('corpus-real.json', 'utf8'));
 const queries = JSON.parse(readFileSync('queries-real.json', 'utf8'));
@@ -38,13 +38,16 @@ const out = queries.map(q => {
   const topScore = vec[0]?.score ?? 0;
   const qLower = q.toLowerCase();
   const exactTitle = filtered.some(id => byId[id].title.toLowerCase().includes(qLower));
-  const bypassed = topScore >= RERANK_THRESHOLD || exactTitle;
+  // П-2: обход по косинусу из модели убран вместе с продовой веткой
+  // `topScore >= 0.88` (на шкале bge-m3 он не срабатывал ни разу). topScore
+  // остаётся в отчёте стенда как замер, а не как решение.
+  const bypassed = exactTitle;
 
   return {
     query: q,
     topScore: +topScore.toFixed(3),
     bypassed,
-    bypassReason: topScore >= RERANK_THRESHOLD ? 'score_threshold' : (exactTitle ? 'exact_title' : null),
+    bypassReason: exactTitle ? 'exact_title' : null,
     candidates: filtered,
     rrfTop5: filtered.slice(0, 5),
   };

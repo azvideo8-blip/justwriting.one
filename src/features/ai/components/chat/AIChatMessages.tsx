@@ -5,6 +5,7 @@ import type { ArchiveSession } from '../../../../shared/types/common';
 import { Button } from '../../../../shared/components/Button';
 import { useLanguage } from '../../../../shared/i18n';
 import { cn } from '../../../../core/utils/utils';
+import { ATTACHED_QUESTION_SEP } from '../../../../shared/ai/languageNudge';
 import {
   Monogram,
   AttachedNoteCard,
@@ -23,6 +24,7 @@ import { diffPostAgainstNote, postBody } from '../../utils/editorDiff';
 import { LocalVersionService } from '../../../../core/services/LocalVersionService';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
+import { getCurrentUser } from '../../../../core/auth';
 
 export interface AIChatMessagesProps {
   displayMessages: readonly ChatMessage[];
@@ -63,13 +65,12 @@ export interface AIChatMessagesProps {
   setCitationPreviewSession: (session: ArchiveSession) => void;
 }
 
-const ATTACHED_NOTE_SEPARATOR = '\n\n— — —\nВопрос: ';
 const ATTACHED_NOTE_MARKER_RE = /\[Прикреплена заметка: "([^"]+)"\]/g;
 
 function parseAttachedNotes(content: string, defaultTitle: string) {
-  const sepIdx = content.indexOf(ATTACHED_NOTE_SEPARATOR);
+  const sepIdx = content.indexOf(ATTACHED_QUESTION_SEP);
   const beforeSep = sepIdx >= 0 ? content.slice(0, sepIdx) : content;
-  const question = sepIdx >= 0 ? content.slice(sepIdx + ATTACHED_NOTE_SEPARATOR.length).trim() : '';
+  const question = sepIdx >= 0 ? content.slice(sepIdx + ATTACHED_QUESTION_SEP.length).trim() : '';
 
   const markers: { title: string; start: number; end: number }[] = [];
   for (const m of beforeSep.matchAll(ATTACHED_NOTE_MARKER_RE)) {
@@ -145,7 +146,9 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
   }, [source?.id, source?.title, source?.body, dialogueDocumentId]);
 
   const diff = useMemo(
-    () => (noteSourceIsPresent(noteText) ? diffPostAgainstNote(postBody(answer), noteText) : null),
+    () => (noteSourceIsPresent(noteText)
+      ? diffPostAgainstNote(postBody(answer), noteText, { selfName: getCurrentUser()?.displayName ?? undefined })
+      : null),
     [answer, noteText],
   );
   if (!diff) return null;
@@ -154,15 +157,28 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
   if (diff.namesRemoved.length) parts.push(`${t('ai_editor_diff_names_removed')} — ${diff.namesRemoved.join(', ')}`);
   if (diff.numbersRemoved.length) parts.push(`${t('ai_editor_diff_numbers_removed')} — ${diff.numbersRemoved.join(', ')}`);
   if (diff.rolesAdded.length) parts.push(`${t('ai_editor_diff_roles_added')} — ${diff.rolesAdded.join(', ')}`);
+  // ED-2: неубранные имена — не строчка «что изменилось», а предупреждение перед
+  // публикацией, поэтому оно над плашкой и в стилях accent-warning.
+  const hasKept = diff.namesKept.length > 0;
   // R-4: «ничего не изменено» — непроверяемое утверждение (имена в начале фразы
   // раньше не считались вовсе), поэтому при пустом результате плашки нет.
-  if (parts.length === 0) return null;
+  if (parts.length === 0 && !hasKept) return null;
 
   return (
-    <div className="mt-2 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-[11px] leading-relaxed text-text-main/55 w-fit max-w-full">
-      <span className="font-medium">{t('ai_editor_diff_title')}: </span>
-      <span>{parts.join('; ')}</span>
-    </div>
+    <>
+      {hasKept && (
+        <div className="mt-2 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-start gap-2 w-fit max-w-full">
+          <AlertTriangle size={13} className="shrink-0 text-accent-warning mt-0.5" />
+          <span>{t('ai_editor_diff_names_kept', { names: diff.namesKept.join(', ') })}</span>
+        </div>
+      )}
+      {parts.length > 0 && (
+        <div className="mt-2 px-3 py-1.5 rounded-xl bg-surface-card border border-border-subtle text-[11px] leading-relaxed text-text-main/55 w-fit max-w-full">
+          <span className="font-medium">{t('ai_editor_diff_title')}: </span>
+          <span>{parts.join('; ')}</span>
+        </div>
+      )}
+    </>
   );
 }
 

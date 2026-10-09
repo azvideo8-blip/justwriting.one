@@ -18,7 +18,7 @@ import {
   loadNotes,
 } from './fusion';
 import { findLiteralMatches, extractQuotes } from './literalMatches';
-import { RRF_K, VECTOR_TOP, KEYWORD_TOP, RRF_FINAL, RERANK_THRESHOLD, RESURFACE_FLOOR } from './types';
+import { RRF_K, VECTOR_TOP, KEYWORD_TOP, RRF_FINAL, RESURFACE_FLOOR } from './types';
 import type { RetrievedNote, SearchNotesOptions } from './types';
 import { isExcludedFromAI } from '../isExcludedFromAI';
 
@@ -131,9 +131,11 @@ export async function searchNotes(
   );
   const topIds = fused.slice(0, RRF_FINAL).map(f => f.id);
 
-  // TICKET-046: Bypass cloud rerank if top vector similarity is very high
-  // or there's an exact title match
-  const topScore = vectorMatches[0]?.score ?? 0;
+  // П-2 (замер 08.10.2026): порога «вектор достаточно хорош, реранк не нужен»
+  // больше нет — на шкале bge-m3 топ-1 косинус имеет медиану 0,564 и максимум
+  // 0,722, то есть ветка `topScore >= 0.88` не срабатывала ни разу за 116 запросов.
+  // Обходят реранк теперь только локальные доказательства: точное название и
+  // буквальные совпадения.
   const hasExactTitle = await hasExactTitleMatch(query, topIds);
 
   const exactTitleIds = await getExactTitleMatchIds(query, topIds);
@@ -170,8 +172,8 @@ export async function searchNotes(
 
   const scoreMap = new Map(fused.map(f => [f.id, f.score]));
 
-  if (topScore >= RERANK_THRESHOLD || hasExactTitle || literalBypass) {
-    const reason = topScore >= RERANK_THRESHOLD ? 'score_threshold' : (hasExactTitle ? 'exact_title' : 'literal_match');
+  if (hasExactTitle || literalBypass) {
+    const reason = hasExactTitle ? 'exact_title' : 'literal_match';
     opts?.onRerankMeta?.({ bypassed: true, bypassReason: reason });
     // Once some candidates contain the term verbatim, a candidate that does not
     // and has no real semantic score is noise: it reached the list on a weak

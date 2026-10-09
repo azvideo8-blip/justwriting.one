@@ -4,6 +4,7 @@ import { sanitizeAiInput, hasInjectionAttempt } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { estimateInputTokens, chargeCall } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 // SA-7: промпт, форма user-сообщения и разбор ответа — в общем модуле, оттуда
 // же их берёт харнес scripts/rerank-bench/. Копия в харнесе расходится с продом
 // молча и незаметно.
@@ -85,7 +86,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
 
     await callRes.settle('done');
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'rerank' }, reservation).catch(e =>
-      console.error('[AI rerank] usage record failed:', e),
+      console.error('[AI rerank] usage record failed:', safeErrorShape(e)),
     );
 
     return { documentIds: ids.slice(0, maxResults) };
@@ -94,7 +95,7 @@ export async function rerankNotesLogic(ctx: AiContext, uid: string, data: unknow
     if (e instanceof AiError) {
       throw e;
     }
-    console.error('[AI rerank] failed:', e);
+    console.error('[AI rerank] failed:', safeErrorShape(e));
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');

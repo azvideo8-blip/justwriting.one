@@ -6,6 +6,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { isDayLimitError } from '../types/aiErrors';
 import { isExcludedFromAI } from './isExcludedFromAI';
+import { isEmbeddingDownloadPending } from '../services/embeddingRestoreState';
 
 // docs/plan-2026-09-19-local-embeddings.md: embeddings moved off RouterAI to a
 // local CPU server (chat is unaffected, still RouterAI) — BAAI/bge-m3 is
@@ -22,7 +23,7 @@ export const CURRENT_EMBED_SCHEMA = 3;
 export type IndexResult = 'ok' | 'skip' | 'rate' | 'daily' | 'error';
 
 /** True when a stored embedding matches the current model/dim/schema. */
-function isFresh(emb: { model: string; dim: number; schemaV?: number } | undefined): boolean {
+export function isEmbeddingFresh(emb: { model: string; dim: number; schemaV?: number } | undefined): boolean {
   return !!emb && emb.model === CURRENT_EMBED_MODEL && emb.dim === CURRENT_EMBED_DIM && emb.schemaV === CURRENT_EMBED_SCHEMA;
 }
 
@@ -41,7 +42,7 @@ export async function findStaleDocuments(): Promise<string[]> {
   const stale: string[] = [];
   for (const doc of documents) {
     if (isExcludedFromAI(doc)) continue;
-    if (!isFresh(embMap.get(doc.id))) {
+    if (!isEmbeddingFresh(embMap.get(doc.id))) {
       stale.push(doc.id);
     }
   }
@@ -70,7 +71,7 @@ export async function indexDocument(documentId: string, force = false): Promise<
   // when E2E is locked) and would break the whole batch. findStaleDocuments
   // already works off the local store. `force` re-embeds even if fresh.
   const existing = await db.get('aiEmbeddings', documentId);
-  if (!force && existing && existing.contentHash === hash && isFresh(existing)) {
+  if (!force && existing && existing.contentHash === hash && isEmbeddingFresh(existing)) {
     return 'skip';
   }
 
@@ -143,7 +144,7 @@ export async function getIndexCoverage(): Promise<IndexCoverage> {
   // forever. A stale vector left on such a note isn't counted as indexed either.
   const indexable = new Set(documents.filter(d => !isExcludedFromAI(d)).map(d => d.id));
   const embeddings = await AIEmbeddingService.getAll();
-  const current = embeddings.filter(e => isFresh(e) && indexable.has(e.documentId));
+  const current = embeddings.filter(e => isEmbeddingFresh(e) && indexable.has(e.documentId));
   const lastProcessedAt = current.length > 0 ? Math.max(...current.map(e => e.processedAt)) : null;
   const stale = await findStaleDocuments();
   const unsynced = embeddings.filter(e => !e.cloudSyncedAt && !e.cloudSkipped).length;
@@ -203,7 +204,19 @@ export async function indexPending(opts?: {
     return { ok: 0, skipped: stale.length, failed: 0, stopped: null };
   }
   const stale = await findStaleDocuments();
-  const targets = opts?.limit ? stale.slice(0, opts.limit) : stale;
+  // П-6 (замер 08.10.2026): пока автоматическая догрузка векторов из облака не
+  // дошла до конца, заметку БЕЗ локальной записи не пересчитываем — её вектор
+  // лежит в облаке и доедет дешёвым чтением. Заметку с устаревшей Локальной
+  // записью трогаем как раньше: облачная копия такой заметки могла быть посчитана
+  // с другого текста, и ждать её незачем.
+  const waiting = isEmbeddingDownloadPending(uid ?? 'guest');
+  let pending = stale;
+  if (waiting) {
+    const db = await getLocalDb();
+    const haveLocal = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
+    pending = stale.filter(id => haveLocal.has(id));
+  }
+  const targets = opts?.limit ? pending.slice(0, opts.limit) : pending;
   return runIndex(targets, false, opts?.onProgress);
 }
 

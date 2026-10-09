@@ -4,6 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 const BELIEF_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -85,14 +86,14 @@ export async function summarizeBeliefClusterLogic(ctx: AiContext, uid: string, d
     await callRes.settle('done');
 
     ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'summarizeBeliefCluster' }, reservation).catch(e =>
-      console.error('[summarizeBeliefCluster] usage record failed:', e),
+      console.error('[summarizeBeliefCluster] usage record failed:', safeErrorShape(e)),
     );
 
     const cleanBelief = sanitizeAiResponse(result.text.trim());
     return { belief: cleanBelief };
   } catch (e) {
     await callRes.settle('failed');
-    console.error('[summarizeBeliefCluster] failed:', e);
+    console.error('[summarizeBeliefCluster] failed:', safeErrorShape(e));
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service is temporarily unavailable.');

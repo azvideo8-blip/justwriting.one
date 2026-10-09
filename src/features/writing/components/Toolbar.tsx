@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { FilePlus, Save, Square, Flag, Mic, MicOff } from 'lucide-react';
+import { FilePlus, Save, Square, Flag, Mic, MicOff, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { AIToggleButton } from './AIToggleButton';
-import { useGuardedSpeechInput } from '../hooks/useGuardedSpeechInput';
-import { useContentStore } from '../store/useContentStore';
+import { useDictation } from '../hooks/useDictation';
+import { dictationMicLabel } from '../hooks/dictationMicLabel';
 
 const PLAY_PATH = "M8 5v14l11-7z";
 const PAUSE_PATH = "M6 19h4V5H6v14zm8-14v14h4V5h-4z";
@@ -46,16 +46,8 @@ export function Toolbar({
 }: ToolbarProps) {
   const { t } = useLanguage();
   const { aiPanelOpen, setAiPanelOpen } = useWritingSettings();
-  const setContent = useContentStore(s => s.setContent);
 
-  const { isListening, toggleListening, hasSupport, isVaultActive } = useGuardedSpeechInput({
-    onTranscript: (text) => {
-      // Read the latest content from the store — a captured `content` would be stale
-      // across successive utterances (continuous dictation) and overwrite earlier text.
-      const cur = useContentStore.getState().content;
-      setContent(cur ? cur.trimEnd() + ' ' + text : text);
-    }
-  });
+  const { isListening, toggle, hasSupport, isVaultActive, aiNoticeRemaining } = useDictation();
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -132,21 +124,9 @@ export function Toolbar({
         {hasSupport && (
           <motion.button
             type="button"
-            onClick={() => { void toggleListening(); }}
-            title={
-              isListening
-                ? t('voice_stop')
-                : isVaultActive
-                ? `${t('voice_start')} (${t('voice_vault_badge')})`
-                : t('voice_start')
-            }
-            aria-label={
-              isListening
-                ? t('voice_stop')
-                : isVaultActive
-                ? `${t('voice_start')} (${t('voice_vault_badge')})`
-                : t('voice_start')
-            }
+            onClick={toggle}
+            title={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
+            aria-label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
             whileTap={{ scale: 0.82 }}
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             className={cn(
@@ -159,6 +139,13 @@ export function Toolbar({
             )}
           >
             {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            {aiNoticeRemaining !== null && !isListening && (
+              <Sparkles
+                size={9}
+                className="absolute -top-0.5 -right-0.5 text-accent-warning pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
             {isVaultActive && !isListening && (
               <span
                 className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent-warning pointer-events-none"

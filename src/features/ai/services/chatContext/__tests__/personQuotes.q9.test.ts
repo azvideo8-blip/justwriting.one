@@ -88,6 +88,33 @@ describe('Q-9: buildPersonQuotesBlock', () => {
   it('нет строк — нет блока', () => {
     expect(buildPersonQuotesBlock(person, [{ id: 'local_z', date: '2026-09-29', text: 'Про погоду.' }])).toBeNull();
   });
+
+  // П-5 (замер 08.10.2026): прежний шаблон `${Имя}[а-яё]*` знал только
+  // именительный. Если в записях человек упоминался в косвенном падеже, блок не
+  // строился — хотя реплика была именно про него. Это ошибка 0.9.33.
+  it('имя в записях стоит в косвенном падеже — блок строится', () => {
+    const byName = detectPersonMentions('Оля опять всё отменила', {
+      corpusText: 'сегодня Оля устала, вечером говорили с Олей',
+    })[0]!;
+    expect(byName.key).toBe('Оля');
+    const block = buildPersonQuotesBlock(byName, [
+      { id: 'local_n1', date: '2026-09-14', text: 'Сегодня говорили с Олей, она устала.' },
+      { id: 'local_n2', date: '2026-09-15', text: 'Оле обещал позвонить, но не позвонил.' },
+      { id: 'local_n3', date: '2026-09-16', text: 'Про погоду и ничего больше.' },
+    ])!;
+    expect(block).toContain('говорили с Олей');
+    expect(block).toContain('Оле обещал позвонить');
+    expect(block).not.toContain('погоду');
+  });
+
+  it('имя из реплики в косвенном падеже находит именительный в записях', () => {
+    const byName = detectPersonMentions('думал про Олю весь вечер', { corpusText: 'Оля сказала' })[0]!;
+    expect(byName.key).toBe('Олю');
+    const block = buildPersonQuotesBlock(byName, [
+      { id: 'local_n4', date: '2026-09-14', text: 'Оля сказала, что приедет в субботу.' },
+    ])!;
+    expect(block).toContain('Оля сказала, что приедет в субботу');
+  });
 });
 
 describe('Q-9: блок в контексте хода', () => {
@@ -192,6 +219,16 @@ describe('Q-9: блок в контексте хода', () => {
   it('светский ход — блока нет', async () => {
     const ctx = await run('привет');
     expect(ctx.searchContext ?? '').not.toContain('[Что в записях говорит/делает');
+  });
+
+  // V-5: инвариант плана MIND — на ходе чата ни одного нового вызова LLM.
+  // Дополнительный поиск по человеку идёт без облачного переранжирования.
+  it('дополнительный поиск по человеку не зовёт переранжирование', async () => {
+    const search = await seed();
+    await run('мама против, хотя прямо не говорит');
+    const byPerson = search.mock.calls.filter(c => (c[0] as string[]).every(q => /^(мама|папа|Оля|друг)$/i.test(q)));
+    expect(byPerson).toHaveLength(1);
+    expect((byPerson[0]![2] as { skipRerank?: boolean } | undefined)?.skipRerank).toBe(true);
   });
 
   it('дополнительный поиск — не больше одного за ход', async () => {

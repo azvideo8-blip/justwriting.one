@@ -20,7 +20,6 @@ import { AIChatMemoryService } from './AIChatMemoryService';
 import { AIMemoryAssembler, extractDocumentIdsFromText } from './AIMemoryAssembler';
 import { MemoryFlagsService } from './memoryFlags';
 import { setAIStage } from '../store/useAIStageStore';
-import { useAiLimitStore } from '../store/useAiLimitStore';
 import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { getSendPortraitInDialogue } from '../../../core/ai/portraitDialoguePreference';
@@ -35,6 +34,8 @@ import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
+import { postBody } from '../utils/editorDiff';
+import { nameForms, NEVER_MATCH } from '../utils/nameForms';
 
 /** Заметка-тема диалога. title/date идут в правило строгого хода (noteScope). */
 export interface AttachedNoteRef {
@@ -43,9 +44,6 @@ export interface AttachedNoteRef {
   title?: string;
   date?: string;
 }
-
-// S-56: отказ по согласию — состояние, а не сбой: в журнал деградаций не идёт.
-const isConsentError = (error: string) => error === 'AI_CONSENT_REQUIRED' || error === 'INDEXING_CONSENT_REQUIRED';
 
 // S-39: блок каждой приложенной заметки начинается шапкой `[#id · дата]` +
 // маркер (см. useAIPageData; у старых ходов в названии бывают кавычки и
@@ -57,6 +55,14 @@ const ATTACHED_BLOCK_HEAD = /^\[#([^\s\]·]+) · [^\]\n]*\]\n\[Прикрепл�
 // заметки (похожая строка в самом тексте) блока не начинает — иначе остаток
 // скрытой заметки за ней уходил в модель.
 const ATTACHED_BLOCK_SEP = '\n\n---\n\n';
+
+/**
+ * П-5: сколько заметок без вектора прочитать за ход ради поиска по имени.
+ * Потолок, а не часть поиска: на устройстве с недостроенным индексом без вектора
+ * может быть весь архив, и полный скан превратил бы один ход в сотни чтений
+ * IndexedDB (см. X-5 и П-6). Заметки берутся самые свежие.
+ */
+const NAME_SCAN_NO_VECTOR_LIMIT = 200;
 export async function hideExcludedNotes(content: string, db: Pick<Awaited<ReturnType<typeof getLocalDb>>, 'get'>): Promise<string> {
   const heads = [...content.matchAll(ATTACHED_BLOCK_HEAD)]
     .filter(h => h.index === 0 || content.slice(h.index - ATTACHED_BLOCK_SEP.length, h.index) === ATTACHED_BLOCK_SEP);
@@ -78,6 +84,27 @@ export async function hideExcludedNotes(content: string, db: Pick<Awaited<Return
     out += h[0] + (hidden ? '[заметка скрыта от ИИ]\n\n' : body);
   }
   return out;
+}
+
+/**
+ * ED-1: тема последнего ответа Редактора — тело до строки «— — —», 600 знаков.
+ * Пустого ответа не бывает на этом ходе, но пустое тело (сервисные строки до
+ * разделителя) возвращает undefined, и ход идёт по разбору заметки.
+ * Приватность: если ответ ссылается на заметку, которую с тех пор скрыли от ИИ
+ * или выбросили, ответ в запрос не берём — вместе с ним ушли бы её строки.
+ */
+export async function postTopicQuery(
+  history: ReadonlyArray<{ role: string; content: string }>,
+  docById: (id: string) => Promise<LocalDocument | undefined>,
+): Promise<string | undefined> {
+  const lastReply = [...history].reverse().find(m => m.role === 'assistant');
+  if (!lastReply) return undefined;
+  for (const id of extractCitationIds(lastReply.content)) {
+    const doc = await docById(id);
+    if (doc && (isExcludedFromAI(doc) || doc.trashedAt)) return undefined;
+  }
+  const body = postBody(lastReply.content).replace(/\s+/g, ' ').trim().slice(0, 600);
+  return body || undefined;
 }
 
 export function useAIChatContext(personaId: string): {
@@ -297,15 +324,27 @@ export function useAIChatContext(personaId: string): {
     // начало тела. Тело скрытой от ИИ заметки в запрос не попадает.
     if (!forcedSearchQuery && attached && !isAttachedExcluded && params.scope === 'wide' && asksForOtherNotes(text)) {
       if (asksForSimilarNotes(text)) {
-        const summary = attached.documentId ? await summaryAt(attached.documentId) : undefined;
-        const fromSummary = [summary?.summary, ...(summary?.themes ?? [])].filter(Boolean).join('. ');
-        if (fromSummary.trim()) {
-          similarNotesQuery = fromSummary;
+        // ED-1 (ревью 09.10): если в диалоге уже есть ответ Редактора, «эта
+        // тема» — тема ответа, а не всё, что разобрала заметка. Диагноз на
+        // синтетическом архиве: запрос из разбора многотемной заметки давал
+        // блок из 9 заметок, где 6 — про другие темы той же заметки.
+        const fromPost = await postTopicQuery(
+          params.messageHistory,
+          async id => (await docAt(id)) ?? undefined,
+        );
+        if (fromPost) {
+          similarNotesQuery = fromPost;
         } else {
-          const title = attached.documentId ? (await docAt(attached.documentId))?.title : undefined;
-          const body = attachedContent.replace(/\s+/g, ' ').trim().slice(0, 600);
-          const built = [title, body].filter(Boolean).join('. ');
-          if (built.trim()) similarNotesQuery = built;
+          const summary = attached.documentId ? await summaryAt(attached.documentId) : undefined;
+          const fromSummary = [summary?.summary, ...(summary?.themes ?? [])].filter(Boolean).join('. ');
+          if (fromSummary.trim()) {
+            similarNotesQuery = fromSummary;
+          } else {
+            const title = attached.documentId ? (await docAt(attached.documentId))?.title : undefined;
+            const body = attachedContent.replace(/\s+/g, ' ').trim().slice(0, 600);
+            const built = [title, body].filter(Boolean).join('. ');
+            if (built.trim()) similarNotesQuery = built;
+          }
         }
         if (similarNotesQuery) {
           explicitSearch = true;
@@ -374,7 +413,17 @@ export function useAIChatContext(personaId: string): {
 
           if (facets.length > 0 && hasIndexingConsent(uid)) {
             const searchQuery = explicitSearch ? effectiveQuery : lastSearchQueryRef.current;
-            const queryEmbResult = await AIService.embed({ content: searchQuery });
+            // П-7: один вектор реплики на ход. При явном поиске поисковый запрос
+            // совпадает с текстом реплики, а он уже векторизован выше (turnEmb,
+            // AUDIT-M5) — второй вызов на тот же текст стоил ход-user'у ещё одну
+            // единицу эмбеддингов. Для другого текста идёт прямой вызов, а не
+            // embedOnce: embedOnce возвращает только вектор и вешает отметку о
+            // дневном лимите лишь на путь «тот же текст», а здесь важен
+            // результат целиком (ниже — chat_facet_embed).
+            const reuseTurnVector = searchQuery === text && turnEmb !== undefined;
+            const queryEmbResult = reuseTurnVector
+              ? { ok: true as const, vectors: [turnEmb as number[]] }
+              : await AIService.embed({ content: searchQuery });
             if (!queryEmbResult.ok) {
               if (isDailyLimitError(queryEmbResult.error)) {
                 degradedDueToDailyLimit = true;
@@ -399,12 +448,30 @@ export function useAIChatContext(personaId: string): {
                 .slice(0, 3);
 
               if (matched.length > 0) {
-                const blocks = matched.map(m => {
-                  m.facet.noteIds.forEach(id => facetNoteIds.add(id));
-                  const notesMeta = m.facet.noteIds.length > 0 ? ` (заметки: ${m.facet.noteIds.length})` : '';
-                  return `Раздел "${m.facet.label}": ${m.facet.summary || 'описание отсутствует'}${notesMeta}`;
-                });
-                searchContext = `[Профиль пользователя: авто-выделенные темы]\n` + blocks.join('\n');
+                const blocks: string[] = [];
+                for (const m of matched) {
+                  // W-3: тема профиля — производный текст, собранный по своим
+                  // заметкам. Проверка идёт на каждом ходе по снимку хода (те же
+                  // docAt + isExcludedFromAI/trashedAt, что в блоке цитат
+                  // человека), потому что сокрытие заметки фасет не перестраивает.
+                  // Тема без видимых заметок не показывается; тема, у которой
+                  // хотя бы одна заметка скрыта или в корзине, не показывается
+                  // вовсе — её summary нельзя почистить на чтении, а формулировка
+                  // скрытой записи живёт именно в summary.
+                  const visible: string[] = [];
+                  let excluded = 0;
+                  for (const id of m.facet.noteIds) {
+                    const doc = await docAt(id);
+                    if (!doc || isExcludedFromAI(doc) || doc.trashedAt) excluded++;
+                    else visible.push(id);
+                  }
+                  if (visible.length === 0 || excluded > 0) continue;
+                  for (const id of visible) facetNoteIds.add(id);
+                  blocks.push(`Раздел "${m.facet.label}": ${m.facet.summary || 'описание отсутствует'} (заметки: ${visible.length})`);
+                }
+                if (blocks.length > 0) {
+                  searchContext = `[Профиль пользователя: авто-выделенные темы]\n` + blocks.join('\n');
+                }
               }
             }
           }
@@ -461,6 +528,11 @@ export function useAIChatContext(personaId: string): {
           ...effectiveQuery.match(/[А-ЯЁ][а-яё]{2,}/g) ?? [],
           ...lastSearchNamesRef.current,
         ])];
+        // П-5 (замер 08.10.2026): имя ищется по падежным формам. Строкой раньше
+        // было «граница + Имя + граница», то есть только именительный: на
+        // согласованном корпусе он видел 64 помеченные заметки из 73 (87 %), а
+        // формы по окончаниям — 69 (95 %) при нулевом лишнем.
+        const nameRegexes = candidateNames.map(nameForms).filter(re => re !== NEVER_MATCH);
 
         // Раньше здесь была картотека людей: имя → её noteIds. Картотека убрана
         // (D4.17), и вопрос про человека идёт обычным путём — поиском по тексту
@@ -521,15 +593,33 @@ export function useAIChatContext(personaId: string): {
             if (searchResult.degraded) semanticIndexMissing = true;
 
             const nameSearchIds = new Set<string>();
+            // Текст, прочитанный для поиска по имени без вектора: те же заметки
+            // включаются в контекст ниже, второе чтение IndexedDB не нужен.
+            const scannedContent = new Map<string, string>();
             const nameSearchEmb = candidateNames.length > 0 ? (allEmbeddings ?? await AIEmbeddingService.getAll()) : [];
-            const nameRegexes = candidateNames.map(name =>
-              new RegExp(`(?:^|[^а-яёА-ЯЁa-zA-Z0-9_])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^а-яёА-ЯЁa-zA-Z0-9_]|$)`)
-            );
             if (nameRegexes.length > 0) {
               for (const emb of nameSearchEmb) {
                 if (nameSearchIds.has(emb.documentId)) continue;
                 const texts = emb.chunkTexts ?? [];
                 if (texts.some((t: string) => nameRegexes.some(re => re.test(t)))) nameSearchIds.add(emb.documentId);
+              }
+              // П-5: этот блок читал только chunkTexts, то есть заметки с вектором.
+              // Без вектора заметка оставалась невидимой для поиска по имени — на
+              // устройстве, где индекс не достроен, это половина архива. Текст
+              // берётся из снимка хода; скрытые и корзина отсекаются тем же
+              // фильтром, что и везде. Потолок на чтение — чтобы ход на пустом
+              // индексе не превращался в полный скан архива (это задача П-6).
+              const embeddedIds = new Set(nameSearchEmb.map(e => e.documentId));
+              const docsAll = await (docsSnap ??= loadDocumentSnapshot());
+              const withoutVectors = [...docsAll.values()]
+                .filter(d => !embeddedIds.has(d.id) && !isExcludedFromAI(d) && !nameSearchIds.has(d.id))
+                .sort((a, b) => (b.lastSessionAt ?? 0) - (a.lastSessionAt ?? 0))
+                .slice(0, NAME_SCAN_NO_VECTOR_LIMIT);
+              for (const doc of withoutVectors) {
+                const content = await LocalVersionService.getLatestContent(doc.id);
+                if (!content) continue;
+                scannedContent.set(doc.id, content);
+                if (nameRegexes.some(re => re.test(`${doc.title ?? ''}\n${content}`))) nameSearchIds.add(doc.id);
               }
             }
 
@@ -553,7 +643,7 @@ export function useAIChatContext(personaId: string): {
             for (const docId of [...extraIds, ...nameIds]) {
               const doc = await docAt(docId); // X-5
               if (!doc || isExcludedFromAI(doc)) continue;
-              const content = await LocalVersionService.getLatestContent(docId);
+              const content = scannedContent.get(docId) ?? await LocalVersionService.getLatestContent(docId);
               if (!content) continue;
               allNotes.push({
                 documentId: docId,
@@ -563,48 +653,11 @@ export function useAIChatContext(personaId: string): {
                 lastSessionAt: doc.lastSessionAt,
               });
             }
-
-            const hasChatQuota = useAiLimitStore.getState().remaining > 0;
-            const cooldownActive = Number(localStorage.getItem('jw_ai_cooldown_until') || '0') > Date.now();
-            if (allNotes.length > 5 && hasChatQuota && !cooldownActive) {
-              try {
-                const candidates = await Promise.all(allNotes.map(async n => {
-                  let cardBody = n.content.slice(0, 400);
-                  try {
-                    const sum = await summaryAt(n.documentId); // X-5
-                    if (sum?.summary && sum.summary.trim().length >= 80) {
-                      cardBody = sum.summary.trim();
-                    }
-                  } catch { /* use 400-char content fallback */ }
-                  return {
-                    documentId: n.documentId,
-                    card: `${n.title}\n${cardBody}`,
-                  };
-                }));
-                setAIStage('rank');
-                const rr = await AIService.rerank({ query: effectiveQuery, candidates, maxResults: 8 });
-                // S-56: отказ по согласию — не деградация.
-                if (!rr.ok && !isConsentError(rr.error)) {
-                  reportAIDegradation({
-                    feature: 'chat_rerank',
-                    cause: rr.error,
-                    action: 'Реранжирование заметок в чате',
-                    impact: 'Использован исходный порядок заметок',
-                  });
-                }
-                if (rr.ok && rr.documentIds.length > 0) {
-                  const rerankOrder = new Map(rr.documentIds.map((id, i) => [id, i]));
-                  allNotes.sort((a, b) => {
-                    const ai = rerankOrder.get(a.documentId) ?? 999;
-                    const bi = rerankOrder.get(b.documentId) ?? 999;
-                    return ai - bi;
-                  });
-                  allNotes = allNotes.slice(0, 8);
-                }
-              } catch (e) {
-                reportError(e, { action: '[useAIChatContext] rerank failed, keeping original order' });
-              }
-            }
+            // П-1 (замер 08.10.2026): второго прохода переранжирования здесь больше
+            // нет. Он решал только состав top-8, а порядок показа пересобирается ниже
+            // по composite-оценке — то есть на выдачу не влиял, зато тратил второй
+            // сетевой вызов на ход и снимал 0,03 помеченных заметок из контекста.
+            // Первый проход остаётся внутри searchNotes.
           } catch (e) {
             searchFailed = true;
             reportError(e, { action: '[useAIChatContext] note search failed' });
@@ -630,10 +683,14 @@ export function useAIChatContext(personaId: string): {
             const remainingBudget = Math.max(5_000, 48_000 - existingContextLen);
             const BUDGET_CHARS = Math.min(25_000, remainingBudget);
             const now = Date.now();
+            // ED-1: на ходе «похожие записи» ищут не по словам реплики, а по
+            // построенному запросу, и вес слов обязан считаться по нему — иначе
+            // 0.3keyword всегда около нуля и блок размывается чужими темами.
+            const keywordSource = similarNotesQuery ? effectiveQuery : text;
             const scored = allNotes.map(n => {
               // RRF живёт в шкале ≤~0.05; нормализация — см. vectorScore01 (#104).
               const vs01 = vectorScore01(n.score);
-              const keywordScore = Math.min(1, (n.content.match(new RegExp(text.split(/\s+/).filter(w => w.length > 2).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'))?.length ?? 0) / 10);
+              const keywordScore = Math.min(1, (n.content.match(new RegExp(keywordSource.split(/\s+/).filter(w => w.length > 2).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi'))?.length ?? 0) / 10);
               const ageDays = (now - (n.lastSessionAt ?? now)) / 86_400_000;
               const recencyFactor = Math.exp(-ageDays / 365);
               return {
@@ -654,9 +711,12 @@ export function useAIChatContext(personaId: string): {
             for (const { note: n } of scored) {
               if (totalChars >= BUDGET_CHARS) break;
               let snippet: string;
-              if (candidateNames.length > 0) {
-                const namePositions = candidateNames
-                  .map(name => n.content.indexOf(name))
+              if (nameRegexes.length > 0) {
+                // П-5: позиция ищется по форме имени. Заметку, где имя только в
+                // дательном («с Олей»), находили, а кусок брали с начала — indexOf
+                // знал лишь именительный.
+                const namePositions = nameRegexes
+                  .map(re => re.exec(n.content)?.index ?? -1)
                   .filter(pos => pos >= 0);
                 if (namePositions.length > 0) {
                   const firstPos = Math.min(...namePositions);
@@ -705,22 +765,33 @@ export function useAIChatContext(personaId: string): {
           } else if (searchFailed) {
             searchContext = (searchContext ?? '') +
               `\n\n[СИСТЕМНОЕ СООБЩЕНИЕ: Поиск по базе не удался из-за технической ошибки. Сообщи пользователю "Я не смог выполнить поиск по вашим заметкам из-за технической ошибки." и КАТЕГОРИЧЕСКИ не делай выводов о том, есть ли у него такие заметки.]`;
-          } else if (!handledByTemporal) {
+          } else if (!handledByTemporal || explicitSearch) {
             // Appended, not assigned: with a note attached this used to be
             // skipped entirely, so a search that ran and found nothing left no
             // trace — and the model fell back to "I have no access to your
             // archive", the exact claim this block exists to prevent.
+            // W-1: то же «ничего не нашлось» пишется и когда ход разобран как
+            // хронологический, но человек явно просил поискать.
+            // ED-3: на ходе «похожие записи» оба блока сразу противоречат друг
+            // другу по тону (один говорит «в базе ничего нет», второй зовёт
+            // приложить заметку, которая уже приложена). Остаётся один блок —
+            // про похожие записи, — и к нему строка о том, что просить
+            // приложенную заметку не нужно.
             const corpus = await getCorpusStats(db);
-            searchContext = (searchContext ?? '') +
-              (similarNotesQuery
-                ? `\n\n[Поиск похожих записей: ничего не найдено. Других записей на эту тему в найденном нет — скажи об этом прямо и НЕ выдумывай их.]`
-                : '') +
-              `\n\n[Поиск по ВСЕЙ базе (${corpus.total} заметок, ${corpus.from} — ${corpus.to}) по запросу "${effectiveQuery}" ` +
-              `не нашёл подходящих заметок. Скажи, что по этому запросу в базе ничего не нашлось (НЕ «нет доступа»), ` +
-              `предложи переформулировать. КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.` +
-              (semanticIndexMissing
-                ? ` ВАЖНО: смысловой индекс заметок сейчас не построен, поэтому искал только по совпадению слов — предупреди об этом и предложи попробовать другие формулировки и точные слова из записей.]`
-                : `]`);
+            // Скрытая от ИИ приложенная заметка в контекст не попадает вовсе,
+            // поэтому и строка про «приложена» ей не показывается: иначе модель
+            // остаётся без текста, но с обещанием, что текст под рукой.
+            const attachedHint = attached && !isAttachedExcluded
+              ? ' Заметка приложена и у тебя есть — не проси приложить её.'
+              : '';
+            searchContext = (searchContext ?? '') + (similarNotesQuery
+              ? `\n\n[Поиск похожих записей: ничего не найдено. Других записей на эту тему в найденном нет — скажи об этом прямо и НЕ выдумывай их.${attachedHint}]`
+              : `\n\n[Поиск по ВСЕЙ базе (${corpus.total} заметок, ${corpus.from} — ${corpus.to}) по запросу "${effectiveQuery}" ` +
+                `не нашёл подходящих заметок. Скажи, что по этому запросу в базе ничего не нашлось (НЕ «нет доступа»), ` +
+                `предложи переформулировать.${attachedHint} КАТЕГОРИЧЕСКИ не выдумывай содержание его заметок и не приписывай ему того, чего нет.` +
+                (semanticIndexMissing
+                  ? ` ВАЖНО: смысловой индекс заметок сейчас не построен, поэтому искал только по совпадению слов — предупреди об этом и предложи попробовать другие формулировки и точные слова из записей.]`
+                  : `]`));
           }
         } catch (e) {
           reportError(e, { action: '[useAIChatContext] note formatting/budgeting failed' });
@@ -777,9 +848,13 @@ export function useAIChatContext(personaId: string): {
                 // Один дополнительный поиск на ход, тем же путём, что основной.
                 extraSearchUsed = true;
                 try {
+                  // V-5 (план MIND: 0 новых вызовов LLM на горячем пути): порядок
+                  // здесь не нужен — строки всё равно отбираются по имени, —
+                  // поэтому без облачного переранжирования.
                   const extra = await searchNotesMulti([person.key], 5, {
                     queryVector: await embedOnce(person.key),
                     allEmbeddings: await AIEmbeddingService.getAll(),
+                    skipRerank: true,
                   });
                   pool = extra.notes;
                 } catch { /* поиск не удался — блока просто нет */ }

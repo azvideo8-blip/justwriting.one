@@ -39,6 +39,7 @@ process.env.OPENROUTER_API_KEY = 'test-key';
 
 import { handleChat } from '../chat';
 import { buildChatSystemPrompt, assembleChatPromptParams, REASONING_LANGUAGE_RULE } from '../../src/shared/ai/buildChatPrompt.js';
+import { getMaxTokens } from '../../src/shared/ai/aiPolicy.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 class FakeReq extends EventEmitter {
@@ -79,8 +80,10 @@ const turnPayload = {
   documentMood: 'спокойно',
 };
 
-// Максимум вывода внешнего хода без рассуждения (getMaxTokens).
-const MAX_OUTPUT_TOKENS = 8192;
+// Максимум вывода внешнего хода без рассуждения (getMaxTokens). Берётся из
+// политики, а не числом: W-2 привязал его к выбранной длине ответа, и харнесс
+// не должен расходиться с продуктом.
+const MAX_OUTPUT_TOKENS = getMaxTokens(false, false, undefined, undefined);
 
 describe('X-3: резерв включает собранный системный промпт', () => {
   beforeEach(() => {

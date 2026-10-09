@@ -11,7 +11,7 @@ import {
   readSegmentVersion,
 } from '../../../core/services/dialogueSegments';
 import { LocalVersionService } from '../../../core/services/LocalVersionService';
-import { sha256Hex } from '../utils/embeddingIndexer';
+import { sha256Hex, isEmbeddingFresh } from '../utils/embeddingIndexer';
 import { getSessionKey } from '../../../core/crypto/encrypt';
 import { getEncryptionEnabled, maybeDecrypt } from '../../../core/crypto/cryptoHelpers';
 import {
@@ -34,51 +34,263 @@ import { getPendingAnalysisDeleteKeys } from './pendingAnalysisDeletes';
 import { getCurrentUser } from '../../../core/auth';
 import { isExcludedFromAI } from '../utils/isExcludedFromAI';
 import { invalidateEmbeddingIndexCache } from '../../../core/services/embeddingIndexCache';
+import { useAIStageStore } from '../store/useAIStageStore';
+import {
+  requestEmbeddingRestore, isEmbeddingRestoreRequested,
+  clearEmbeddingRestoreRequest,
+  isEmbeddingRestoreStarted, markEmbeddingRestoreStarted,
+  isEmbeddingRestoreDone, markEmbeddingRestoreDone, clearEmbeddingRestoreDone,
+  clearEmbeddingRestoreStarted,
+  getEmbeddingRestoreCursor, setEmbeddingRestoreCursor, clearEmbeddingRestoreCursor,
+  isEmbeddingRestoreStuck, noteEmbeddingRestoreProgress, clearEmbeddingRestoreStall,
+} from './embeddingRestoreState';
 
-const EMBED_RESTORE_FLAG_PREFIX = 'ai_embed_restore_requested_';
-const EMBED_RESTORE_CURSOR_PREFIX = 'ai_embed_restore_cursor_';
-const LEGACY_EMBED_RESTORE_FLAG = 'ai_embed_restore_requested';
-const LEGACY_EMBED_RESTORE_CURSOR = 'ai_embed_restore_cursor';
+/**
+ * П-6 (замер 08.10.2026): семантический индекс догружается из облака сам, если
+ * локально векторов нет хотя бы для половины заметок, доступных ИИ. Кнопка в
+ * диагностике осталась и значит «форсировать»: ею можно запустить догрузку
+ * поверх завершённой или при целом локальном индексе. Флаги и курсор — в
+ * ./embeddingRestoreState; наружу сервис отдаёт их как раньше (UI диагностики и
+ * тесты импортируют сервис).
+ */
+export { requestEmbeddingRestore, isEmbeddingRestoreRequested };
 
-/** Opt in to pulling the semantic index back from the cloud. Deliberately
- *  manual: the collection costs more read units than a whole free day. */
-export function requestEmbeddingRestore(userId: string): void {
-  if (!userId) return;
-  try { localStorage.setItem(`${EMBED_RESTORE_FLAG_PREFIX}${userId}`, '1'); } catch { /* ignore */ }
+/**
+ * П-6: догружать ли векторы автоматически.
+ *
+ * Запуск — свежих локальных векторов нет хотя бы для половины заметок, доступных
+ * ИИ. Порог именно «половина», а не «ноль»: на устройстве, где индекс недостроен
+ * на треть, догрузка тоже выгоднее пересчёта. Начатая догрузка продолжается и
+ * при покрытии выше порога, иначе она встала бы на середине архива и остаток
+ * пришлось бы пересчитывать через ИИ — ровно то, чего П-6 и избегает.
+ *
+ * Флаг «догрузка завершена» снимается только вручную (кнопка в диагностике) —
+ * кроме случая, когда локальных векторов нет совсем: это свежее или очищенное
+ * устройство, и начинать надо заново.
+ *
+ * Во время хода чата догрузка не идёт: `useAIStageStore.stage` — уже тот признак
+ * занятости, который чат выставляет на время сборки контекста и генерации.
+ */
+async function shouldAutoDownloadVectors(
+  userId: string,
+  db: Awaited<ReturnType<typeof getLocalDb>>,
+): Promise<boolean> {
+  const embeddings = await db.getAll('aiEmbeddings');
+  if (isEmbeddingRestoreDone(userId)) {
+    if (embeddings.length > 0) return false;
+    clearEmbeddingRestoreDone(userId);
+    clearEmbeddingRestoreStarted(userId);
+  }
+  if (useAIStageStore.getState().stage !== null) return false;
+  const visible = (await db.getAll('documents')).filter(d => !isExcludedFromAI(d));
+  if (visible.length === 0) return false;
+  if (isEmbeddingRestoreStarted(userId)) return true;
+  const fresh = embeddings.filter(e => isEmbeddingFresh(e)).length;
+  return fresh * 2 < visible.length;
 }
 
-export function isEmbeddingRestoreRequested(userId: string): boolean {
-  if (!userId) return false;
-  try {
-    // Drop unscoped keys on first read rather than migrating them (LS-4 Task 1)
-    localStorage.removeItem(LEGACY_EMBED_RESTORE_FLAG);
-    return localStorage.getItem(`${EMBED_RESTORE_FLAG_PREFIX}${userId}`) === '1';
-  } catch { return false; }
+/**
+ * Совпадает ли облачный вектор с текущим текстом заметки. Локального текста нет
+ * (заметка ещё не приехала) или хэш не записан — сравнивать нечего, запись
+ * принимается как раньше: `reattachOrphanedAnalysis` довяжет её позже.
+ */
+async function cloudVectorMatchesNote(decoded: AIDocumentEmbedding): Promise<boolean> {
+  if (!decoded.contentHash) return true;
+  const db = await getLocalDb();
+  const doc = await db.get('documents', decoded.documentId);
+  if (!doc || isExcludedFromAI(doc)) return true;
+  const content = await LocalVersionService.getLatestContent(decoded.documentId);
+  if (!content) return true;
+  return (await sha256Hex(content)) === decoded.contentHash;
 }
 
-function clearEmbeddingRestoreRequest(userId: string): void {
-  if (!userId) return;
-  try {
-    localStorage.removeItem(LEGACY_EMBED_RESTORE_FLAG);
-    localStorage.removeItem(LEGACY_EMBED_RESTORE_CURSOR);
-    localStorage.removeItem(`${EMBED_RESTORE_FLAG_PREFIX}${userId}`);
-    localStorage.removeItem(`${EMBED_RESTORE_CURSOR_PREFIX}${userId}`);
-  } catch { /* намеренно: хранилище недоступно — и флага в нём нет */ }
+/** Контекст одного прохода догрузки: что уже есть локально и что нельзя принимать. */
+interface EmbeddingRunContext {
+  db: Awaited<ReturnType<typeof getLocalDb>>;
+  existing: Set<string>;
+  deleted: { has(id: string): boolean };
+  needsRepair: boolean;
+  cloudHashes: Set<string>;
 }
 
-/** Where the last run stopped, so a budget-limited restore resumes tomorrow
- *  instead of paying for the same pages again. */
-function getEmbeddingRestoreCursor(userId: string): string {
-  if (!userId) return '';
-  try {
-    localStorage.removeItem(LEGACY_EMBED_RESTORE_CURSOR);
-    return localStorage.getItem(`${EMBED_RESTORE_CURSOR_PREFIX}${userId}`) ?? '';
-  } catch { return ''; }
+/**
+ * В-2: страницы облачного списка обрабатываются по мере чтения. Возвращает число
+ * записей, которые УПАЛИ (сбой расшифровки или записи), — не сознательные пропуски
+ * по хэшу или по удалению. По нему догрузка решает, переступать ли курсор за эту
+ * страницу: переступила — и записи страницы потеряны навсегда, следующий проход
+ * начнёт за ними, а недостающее `indexPending` пересчитает через ИИ.
+ */
+async function consumeEmbeddingPage(
+  rows: Record<string, unknown>[],
+  ctx: EmbeddingRunContext,
+  counters: { embeddings: number; failed: number },
+): Promise<number> {
+  let errored = 0;
+  for (const d of rows) {
+    const dId = d.id as string;
+    if (ctx.deleted.has(dId)) continue;
+    const alreadyLocal = ctx.existing.has(dId);
+    // Decoding an already-local record is pure CPU, no extra quota — worth it
+    // only when there is something to repair.
+    if (alreadyLocal && !ctx.needsRepair) continue;
+    try {
+      const decoded = await decodeCloudEmbedding(d, dId);
+      if (decoded.contentHash) ctx.cloudHashes.add(decoded.contentHash);
+      if (!alreadyLocal) {
+        // П-6: облачный вектор описывает тот текст, с которого его считали.
+        // Совпал хэш — запись закрывает заметку; не совпал — заметка ждёт
+        // пересчёта, а не получает вектор от чужого текста.
+        if (!(await cloudVectorMatchesNote(decoded))) continue;
+        await ctx.db.put('aiEmbeddings', { ...decoded, cloudSyncedAt: Date.now() });
+        counters.embeddings++;
+        // X-5: индекс построен по старому набору — сбрасываем на любой
+        // привезённой записи.
+        invalidateEmbeddingIndexCache();
+      }
+    } catch {
+      counters.failed++;
+      errored++;
+    }
+  }
+  return errored;
 }
 
-function setEmbeddingRestoreCursor(userId: string, id: string): void {
-  if (!userId) return;
-  try { localStorage.setItem(`${EMBED_RESTORE_CURSOR_PREFIX}${userId}`, id); } catch { /* ignore */ }
+/**
+ * В-1 (замер 08.10.2026): потолок и шаг догрузки. Наследство июля — 10 строк на
+ * чтение и 100 за проход — было задумано, когда читать было дороже, чем
+ * пересчитывать; с тех пор цена перевернулась, а на прежнем потолке архив в 1000
+ * заметок догружался десять суток (полный проход — раз в сутки). 300 за проход
+ * страницами по 50 дают тот же расход чтений, но догрузка заканчивается за
+ * несколько фоновых проходов.
+ */
+const EMBED_PAGE = 50;
+const EMBED_MAX_PER_RUN = 300;
+
+export interface EmbeddingDownloadOutcome {
+  embeddings: number;
+  failed: number;
+  markedSynced: number;
+  /** Догрузка закрыта этим проходом: курсор исчерпан либо сработала страховка В-1. */
+  finished: boolean;
+}
+
+/** Что один проход догрузки пишет в счётчики. */
+type EmbeddingCounters = Pick<EmbeddingDownloadOutcome, 'embeddings' | 'failed' | 'markedSynced'>;
+
+const NO_DOWNLOAD: EmbeddingDownloadOutcome = { embeddings: 0, failed: 0, markedSynced: 0, finished: false };
+
+/**
+ * Local records the cloud already holds, marked so they are not re-uploaded.
+ * Anything whose content hash the cloud already holds is present there under SOME
+ * key — re-attach re-keys locally and the hash finds it again after a wipe, so
+ * uploading it again buys nothing and costs a burst of multi-hundred-KB vector
+ * writes. Missing this is how the daily write quota went twice in one day.
+ */
+async function embeddingRunContext(
+  userId: string,
+  db: Awaited<ReturnType<typeof getLocalDb>>,
+  deleted: { has(id: string): boolean },
+): Promise<EmbeddingRunContext> {
+  const local = await db.getAll('aiEmbeddings');
+  return {
+    db,
+    existing: new Set(local.map(e => String(e.documentId))),
+    deleted,
+    needsRepair: local.some(
+      e => e.cloudSyncedAt === undefined && e.cloudSkipped !== true && Boolean(e.contentHash),
+    ),
+    cloudHashes: new Set<string>(),
+  };
+}
+
+/** Курсор исчерпан или догрузка закрыта: автоматический проход больше не начинается. */
+function closeEmbeddingRestore(userId: string): void {
+  markEmbeddingRestoreDone(userId);
+  clearEmbeddingRestoreRequest(userId);
+  clearEmbeddingRestoreCursor(userId);
+  clearEmbeddingRestoreStall(userId);
+}
+
+/**
+ * В-1: один проход догрузки — страницы облачного списка, начиная с курсора.
+ * Курсор переступает только полностью обработанную страницу (В-2). Две страховки
+ * от вечного ожидания: сутки «в пути» и три прохода без продвижения курсора
+ * закрывают догрузку, и `indexPending` возвращается к обычному пересчёту того,
+ * чего в облаке не оказалось. Счётчики пишет в `counters` вызывающего: падение
+ * чтения облака посреди прохода не должно обнулять уже привезённое.
+ */
+async function runEmbeddingDownload(
+  userId: string,
+  ctx: EmbeddingRunContext,
+  counters: EmbeddingCounters,
+): Promise<boolean> {
+  if (isEmbeddingRestoreStuck(userId)) {
+    closeEmbeddingRestore(userId);
+    return true;
+  }
+
+  const startCursor = getEmbeddingRestoreCursor(userId);
+  let cursorId: string | undefined = startCursor || undefined;
+  let exhausted = false;
+  let read = 0;
+  while (read < EMBED_MAX_PER_RUN) {
+    const res = await DataProvider.getUserEmbeddingsPaginated(userId, EMBED_PAGE, cursorId);
+    // N-39: конец списка решает число строк, которые отдал сервер (readCount),
+    // а не число своих после фильтра владельца: одна чужая строка в странице
+    // иначе объявляла восстановление законченным и снимала флаг.
+    if (res.readCount === 0) { exhausted = true; break; }
+
+    const errored = await consumeEmbeddingPage(res.items, ctx, counters);
+    read += res.items.length;
+    // В-2: упавшая страница остаётся за курсором — повтор начнёт с неё же.
+    if (errored > 0) break;
+    // Курсора нет — продолжать нечем: за последней страницей список кончился.
+    if (res.readCount < EMBED_PAGE || !res.nextCursorId) { exhausted = true; break; }
+    setEmbeddingRestoreCursor(userId, res.nextCursorId);
+    cursorId = res.nextCursorId;
+  }
+
+  if (ctx.needsRepair && ctx.cloudHashes.size > 0) {
+    for (const e of await ctx.db.getAll('aiEmbeddings')) {
+      if (e.cloudSyncedAt || e.cloudSkipped || !e.contentHash) continue;
+      if (!ctx.cloudHashes.has(e.contentHash)) continue;
+      await ctx.db.put('aiEmbeddings', { ...e, cloudSyncedAt: Date.now() });
+      counters.markedSynced++;
+    }
+  }
+
+  if (exhausted) {
+    closeEmbeddingRestore(userId);
+    return true;
+  }
+  // В-1: три прохода подряд курсор не сдвинулся — догрузка стоит, ждать нельзя.
+  if (noteEmbeddingRestoreProgress(userId, getEmbeddingRestoreCursor(userId) !== startCursor)) {
+    closeEmbeddingRestore(userId);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * В-1: продолжение начатой догрузки векторов — на КАЖДОМ фоновом проходе, а не раз
+ * в сутки. Первый запуск по-прежнему решает полный проход
+ * (`shouldAutoDownloadVectors`); здесь только то, что не дошло за прошлые разы.
+ * Пропуск, если чат отвечает (векторы не нужны посреди хода) или сейф заперт
+ * (расшифровка всё равно падает, а чтения облака уже заплачены).
+ */
+export async function continueEmbeddingDownload(userId: string): Promise<EmbeddingDownloadOutcome> {
+  if (!userId) return NO_DOWNLOAD;
+  // Застарелая догрузка сюда доходит: `runEmbeddingDownload` закрывает её и
+  // ставит «готово», а не молча возвращается.
+  if (!isEmbeddingRestoreStarted(userId) || isEmbeddingRestoreDone(userId)) return NO_DOWNLOAD;
+  if (useAIStageStore.getState().stage !== null) return NO_DOWNLOAD;
+  if (getEncryptionEnabled(userId) && !getSessionKey()) return NO_DOWNLOAD;
+  const db = await getLocalDb(userId);
+  const counters: EmbeddingCounters = { embeddings: 0, failed: 0, markedSynced: 0 };
+  const finished = await runEmbeddingDownload(userId, await embeddingRunContext(
+    userId, db, getPendingAnalysisDeleteKeys(userId) ?? { has: () => true },
+  ), counters);
+  return { ...counters, finished };
 }
 
 export interface AIRestoreResult {
@@ -165,8 +377,6 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
   }
 
   const db = await getLocalDb(userId);
-
-  const existingEmbeddings = new Set((await db.getAllKeys('aiEmbeddings')).map(String));
 
   // Журнал удалений разборов не читается — не знаем, какие разборы удалены:
   // вернуть удалённое хуже, чем не вернуть ничего (как у AI-сторов ниже).
@@ -482,71 +692,18 @@ export async function restoreAIDataFromCloud(userId: string, opts?: { sinceMs?: 
     reportError(e, { action: 'restoreAIData_local_store_records', userId });
   }
 
-  // Векторы — только при полном восстановлении: инкрементальный проход их не трогает.
+  // Векторы — только при полном восстановлении: инкрементальный проход их не трогает,
+  // а продолжение начатой догрузки идёт каждым фоновым проходом (`continueEmbeddingDownload`).
   if (sinceMs === undefined) try {
-    // Records already in the cloud must not be queued for upload. Anything
-    // whose content hash the cloud already holds is present there under SOME
-    // key — re-attach re-keys locally and the hash finds it again after a wipe,
-    // so uploading it again buys nothing and costs a burst of multi-hundred-KB
-    // vector writes. Missing this is how the daily write quota went twice in
-    // one day.
-    const localEmbeddings = await db.getAll('aiEmbeddings');
-    const needsRepair = localEmbeddings.some(
-      e => e.cloudSyncedAt === undefined && e.cloudSkipped !== true && Boolean(e.contentHash),
-    );
-    const cloudHashes = new Set<string>();
-
-    if (isEmbeddingRestoreRequested(userId)) {
-      const PAGE = 10;
-      const MAX_EMBEDS_PER_RUN = 100;
-      const docsPage: Record<string, unknown>[] = [];
-      let cursorId: string | undefined = getEmbeddingRestoreCursor(userId) || undefined;
-      while (docsPage.length < MAX_EMBEDS_PER_RUN) {
-        const res = await DataProvider.getUserEmbeddingsPaginated(userId, PAGE, cursorId);
-        // N-39: конец списка решает число строк, которые отдал сервер (readCount),
-        // а не число своих после фильтра владельца: одна чужая строка в странице
-        // иначе объявляла восстановление законченным и снимала флаг.
-        if (res.readCount === 0) { clearEmbeddingRestoreRequest(userId); break; }
-        
-        docsPage.push(...res.items);
-        cursorId = res.nextCursorId;
-        if (cursorId) {
-          setEmbeddingRestoreCursor(userId, cursorId);
-        }
-        
-        if (res.readCount < PAGE) { clearEmbeddingRestoreRequest(userId); break; }
-      }
-
-      for (const d of docsPage) {
-        const dId = d.id as string;
-        if (pendingAnalysisDeletes.has(dId)) continue;
-        const alreadyLocal = existingEmbeddings.has(dId);
-        // Decoding an already-local record is pure CPU, no extra quota — worth it
-        // only when there is something to repair.
-        if (alreadyLocal && !needsRepair) continue;
-        try {
-          const decoded = await decodeCloudEmbedding(d, dId);
-          if (decoded.contentHash) cloudHashes.add(decoded.contentHash);
-          if (!alreadyLocal) {
-            await db.put('aiEmbeddings', { ...decoded, cloudSyncedAt: Date.now() });
-            result.embeddings++;
-            // X-5: индекс построен по старому набору — сбрасываем на любой
-            // привезённой записи.
-            invalidateEmbeddingIndexCache();
-          }
-        } catch {
-          result.failed++;
-        }
-      }
-
-      if (needsRepair && cloudHashes.size > 0) {
-        for (const e of await db.getAll('aiEmbeddings')) {
-          if (e.cloudSyncedAt || e.cloudSkipped || !e.contentHash) continue;
-          if (!cloudHashes.has(e.contentHash)) continue;
-          await db.put('aiEmbeddings', { ...e, cloudSyncedAt: Date.now() });
-          result.markedSynced++;
-        }
-      }
+    // П-6 (замер 08.10.2026): кнопка в диагностике = «форсировать». Без неё
+    // догрузка начинается сама, если свежих локальных векторов нет хотя бы для
+    // половины заметок, доступных ИИ, автоматический проход ещё не завершён и
+    // чат сейчас не отвечает. Раньше без кнопки векторы не приезжали вовсе, и
+    // indexPending пересчитывал через ИИ весь архив нового устройства.
+    const forced = isEmbeddingRestoreRequested(userId);
+    if (forced || await shouldAutoDownloadVectors(userId, db)) {
+      markEmbeddingRestoreStarted(userId);
+      await runEmbeddingDownload(userId, await embeddingRunContext(userId, db, pendingAnalysisDeletes), result);
     }
   } catch (e) {
     result.sectionFailed = true;

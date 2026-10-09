@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Highlighter, RotateCcw, Heart, Trophy, Mic } from 'lucide-react';
+import { Sparkles, X, Copy, Check, Loader2, Wand2, Lightbulb, Highlighter, RotateCcw, Heart, Trophy } from 'lucide-react';
 import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
@@ -10,13 +10,11 @@ import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
 import { getCurrentUser } from '../../../core/auth';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
-import { sameWords } from '../../../shared/ai/sameWords';
 
 const AI_ACTIONS: { action: AIAction; icon: React.ReactNode; labelKey: string }[] = [
   { action: 'accents', icon: <Highlighter size={14} />, labelKey: 'ai_action_accents' },
   { action: 'ideas', icon: <Lightbulb size={14} />, labelKey: 'ai_action_ideas' },
   { action: 'summarize', icon: <Wand2 size={14} />, labelKey: 'ai_action_summarize' },
-  { action: 'punctuate', icon: <Mic size={14} />, labelKey: 'ai_action_punctuate' },
   { action: 'gratitude', icon: <Heart size={14} />, labelKey: 'ai_action_gratitude' },
   { action: 'achievements', icon: <Trophy size={14} />, labelKey: 'ai_action_achievements' },
 ];
@@ -42,9 +40,6 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [appliedActions, setAppliedActions] = useState<Set<AIAction>>(new Set());
-  // Текст, по которому расставлены знаки: применять результат к изменившемуся
-  // тексту нельзя — заменой стёрлось бы написанное после запроса.
-  const punctuateSourceRef = useRef<string | null>(null);
 
   const runAction = useCallback(async (action: AIAction, force: boolean) => {
     if (!force && results[action] !== undefined) {
@@ -72,15 +67,7 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
 
     const res: AIResult = await AIService.process(content, action);
 
-    if (res.ok && action === 'punctuate' && !sameWords(content, res.text)) {
-      // Модель тронула слова (или ответ обрезан) — такой «знаковый» результат
-      // текст человека испортил бы. Не показываем и не даём применить.
-      setError(t('ai_punctuate_words_changed'));
-      setLoading(false);
-      return;
-    }
     if (res.ok) {
-      if (action === 'punctuate') punctuateSourceRef.current = content;
       setResults(prev => ({ ...prev, [action]: res.text }));
       setAppliedActions(prev => { const n = new Set(prev); n.delete(action); return n; });
       consumeRequest();
@@ -94,18 +81,10 @@ export function AIPanelContent({ content = '', onApplyContent }: AIPanelContentP
     if (!activeAction || !onApplyContent) return;
     const text = results[activeAction];
     if (!text) return;
-    if (activeAction === 'punctuate') {
-      if (punctuateSourceRef.current !== content || !sameWords(content, text)) {
-        setError(t('ai_punctuate_stale'));
-        return;
-      }
-      onApplyContent(text);
-    } else {
-      const meta = AI_ACTIONS.find(a => a.action === activeAction);
-      const label = `${meta ? t(meta.labelKey) : ''} ${t('ai_from_ai')}:`.trim();
-      const base = content.trimEnd();
-      onApplyContent((base ? base + '\n\n' : '') + label + '\n' + text);
-    }
+    const meta = AI_ACTIONS.find(a => a.action === activeAction);
+    const label = `${meta ? t(meta.labelKey) : ''} ${t('ai_from_ai')}:`.trim();
+    const base = content.trimEnd();
+    onApplyContent((base ? base + '\n\n' : '') + label + '\n' + text);
     setAppliedActions(prev => new Set(prev).add(activeAction));
   }, [activeAction, results, content, onApplyContent, t]);
 

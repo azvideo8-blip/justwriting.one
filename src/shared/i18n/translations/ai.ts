@@ -57,6 +57,11 @@ export const aiTranslations: Translations = {
   ai_editor_diff_names_removed: { ru: 'убраны имена', en: 'names removed' },
   ai_editor_diff_roles_added: { ru: 'добавлены роли', en: 'roles added' },
   ai_editor_diff_numbers_removed: { ru: 'убраны числа', en: 'numbers removed' },
+  // ED-2: неубранные имена — предупреждение перед публикацией, а не строчка сверки.
+  // ED-2: код различает «имя» только по заглавной внутри фразы, поэтому в список
+  // попадают и топонимы с организациями (замер: 8 из 20 постов с названиями).
+  // Плашка честно просит проверить, а не заменить.
+  ai_editor_diff_names_kept: { ru: 'В посте остались имена или названия: {names} — проверь перед публикацией', en: 'Names or titles left in the post: {names} — check them before publishing' },
   ai_degraded_daily_limit_chat: { ru: 'Дневной лимит исчерпан: ответ сформирован без поиска по заметкам (восстановится завтра)', en: 'Daily limit reached: answer generated without note search (resets tomorrow)' },
   ai_persona_delete_confirm_title: { ru: 'Удалить персону?', en: 'Delete persona?' },
   ai_persona_delete_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },

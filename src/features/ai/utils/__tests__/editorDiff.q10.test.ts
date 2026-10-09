@@ -61,11 +61,11 @@ describe('Q-10: diffPostAgainstNote', () => {
     expect(diffPostAgainstNote('Встречу отменила. Позвонила позже.', 'Решила отменить встречу. Оля звонила.')
       .namesRemoved).toEqual(['Оля']);
     expect(diffPostAgainstNote('Сделать отчёт до конца недели.', 'Подготовить отчёт до пятницы.')).toEqual(
-      { namesRemoved: [], rolesAdded: [], numbersRemoved: [] });
+      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [] });
     expect(diffPostAgainstNote('Ночью спорить не стоит.', 'Важно не спорить ночью.')).toEqual(
-      { namesRemoved: [], rolesAdded: [], numbersRemoved: [] });
+      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [] });
     expect(diffPostAgainstNote('Никого не было.', 'Никто не звонил.')).toEqual(
-      { namesRemoved: [], rolesAdded: [], numbersRemoved: [] });
+      { namesRemoved: [], namesKept: [], rolesAdded: [], numbersRemoved: [] });
   });
 
   it('беглая гласная: «Лев» в форме «Льва» — имя осталось, «Льгота» — нет', () => {
@@ -122,9 +122,12 @@ describe('Q-10: diffPostAgainstNote', () => {
     expect(d.namesRemoved).toEqual([]);
   });
 
-  it('ничего не убрано — пустые списки, без ложных срабатываний', () => {
+  // ED-2: пост слово в слово равен заметке — значит убранного нет, а ВСЕ имена
+  // остались. Это не ложное срабатывание, это и есть случай, который плашка
+  // обязана показать.
+  it('ничего не убрано — пустые списки убранных, но все имена остались в посте', () => {
     const d = diffPostAgainstNote(NOTE, NOTE);
-    expect(d).toEqual({ namesRemoved: [], rolesAdded: [], numbersRemoved: [] });
+    expect(d).toEqual({ namesRemoved: [], namesKept: ['Тимур', 'Оля'], rolesAdded: [], numbersRemoved: [] });
   });
 
   it('суммы с «тыс» и «₽» считаются числами источника', () => {
@@ -136,5 +139,49 @@ describe('Q-10: diffPostAgainstNote', () => {
     const answer = 'Первая строка поста.\n\n— — —\nИз заметок: [#local_a]';
     expect(postBody(answer)).toBe('Первая строка поста.\n\n');
     expect(postBody('без разделителя')).toBe('без разделителя');
+  });
+});
+
+// ED-2: плашка обязана показывать неубранные имена, а не только убранные.
+describe('ED-2: namesKept — имена, которые пост не убрал', () => {
+  const SOURCE = 'Оля позвонила утром. Мы с Машей гуляли весь день. Вечером Лев забрал ключи.';
+
+  it('три имени в источнике, два остались — в namesKept ровно эти два', () => {
+    const post = 'Подруга позвонила утром. Мы гуляли с Машей весь день, а вечером Льва не было дома.';
+    const d = diffPostAgainstNote(post, SOURCE);
+    expect(d.namesRemoved).toEqual(['Оля']);
+    expect(d.namesKept).toEqual(['Машей', 'Лев']);
+  });
+
+  it('имя приехало не из этой заметки — всё равно видно', () => {
+    const d = diffPostAgainstNote('Вчера был долгий день, а Витя ещё и задержался.', 'Вчера был долгий день.');
+    expect(d.namesKept).toEqual(['Витя']);
+  });
+
+  it('начала фразы («Вчера», «Сегодня», «Работа», «Каркас») именами не становятся', () => {
+    const post = 'Вчера решили начать. Сегодня доделали фундамент. Работа встала. Каркас держится ровно.';
+    const d = diffPostAgainstNote(post, 'Собрались утром, обсудили сроки и разошлись.');
+    expect(d.namesKept).toEqual([]);
+  });
+
+  it('своё имя из профиля не считается чужим — в том числе в падеже', () => {
+    const d = diffPostAgainstNote('Мы с Олей говорили весь вечер.', 'Мы с Олей говорили весь вечер.', { selfName: 'Оля Иванцова' });
+    expect(d.namesKept).toEqual([]);
+    // Чужое рядом всё равно видно.
+    const both = diffPostAgainstNote('Мы с Олей и с Тиной говорили вечером.', 'Мы с Олей и с Тиной говорили вечером.', { selfName: 'Оля Иванцова' });
+    expect(both.namesKept).toEqual(['Тиной']);
+  });
+
+  it('пост без имён — пусто: ложных срабатываний нет', () => {
+    const posts = [
+      'Утро началось с кофе, и день пошёл ровно по плану.',
+      'Вчерашний разговор показался сухим, сегодня переформулирую.',
+      'Работа над чертежом встала: не хватает одной детали.',
+      'Каркас держится, а обшивку отложим до осени.',
+      'Ночью ветер, утром тишина, к вечеру снова дождь.',
+    ];
+    for (const post of posts) {
+      expect(diffPostAgainstNote(post, post).namesKept, post).toEqual([]);
+    }
   });
 });

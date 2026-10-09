@@ -77,7 +77,9 @@ describe('NoteAnalysisService', () => {
 
     expect(res).toEqual({ ok: true, indexed: 'ok' });
     expect(saveSummary).toHaveBeenCalledOnce();
-    expect(indexDocument).toHaveBeenCalledWith('doc_1', true);
+    // П-6: «принудительно» убрано — indexDocument сам решает по свежести
+    // (модель + размерность + схема + хэш содержимого).
+    expect(indexDocument).toHaveBeenCalledWith('doc_1');
   });
 
   /**

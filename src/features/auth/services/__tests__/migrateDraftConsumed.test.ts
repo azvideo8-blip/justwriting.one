@@ -51,7 +51,10 @@ describe('2.8 guest draft is consumed by migration', () => {
   it('S-55: when the user already has a draft, the guest draft becomes a note instead of being deleted', async () => {
     const guestDb = await getLocalDb();
     const userDb = await getLocalDb('user_2');
-    const at = Date.parse('2026-10-02T10:00:00+05:00');
+    // От даты черновика зависит и заголовок заметки, и TTL: readGuestDraft
+    // (migrateDocuments.ts:42) отсекает всё старше 7 дней, поэтому дата
+    // относительно «сейчас», а не литерал — иначе тест гаснет через неделю.
+    const at = Date.now() - 2 * 24 * 60 * 60 * 1000;
     await guestDb.put('drafts', { userId: 'guest_draft', content: 'гостевой текст, который нельзя терять', wordCount: 5, seconds: 40, wpm: 7, updatedAt: at } as never);
     await userDb.put('drafts', { userId: 'user_2', content: 'уже был черновик', updatedAt: Date.now() } as never);
 

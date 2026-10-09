@@ -11,8 +11,9 @@ import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { AIToggleButton } from './AIToggleButton';
-import { Mic, MicOff } from 'lucide-react';
-import { useGuardedSpeechInput } from '../hooks/useGuardedSpeechInput';
+import { Mic, MicOff, Sparkles } from 'lucide-react';
+import { useDictation } from '../hooks/useDictation';
+import { dictationMicLabel } from '../hooks/dictationMicLabel';
 
 function DottedProgress({ pct, color }: { pct: number; color: string }) {
   const n = 16;
@@ -75,23 +76,15 @@ export function MobileWriteToolbar({
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
   const { effectiveHeaderVisibility, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
-  const { wordCount, wpm, wpmHistory, setContent } = useContentStore(
+  const { wordCount, wpm, wpmHistory } = useContentStore(
     useShallow(s => ({
       wordCount: s.wordCount,
       wpm: s.wpm,
       wpmHistory: s.wpmHistory,
-      setContent: s.setContent,
     }))
   );
 
-  const { isListening, toggleListening, hasSupport, isVaultActive } = useGuardedSpeechInput({
-    onTranscript: (text) => {
-      // Read the latest content from the store — a captured `content` would be stale
-      // across successive utterances (continuous dictation) and overwrite earlier text.
-      const cur = useContentStore.getState().content;
-      setContent(cur ? cur.trimEnd() + ' ' + text : text);
-    }
-  });
+  const { isListening, toggle, hasSupport, isVaultActive, aiNoticeRemaining } = useDictation();
   const { seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, status } = useTimerStore(
     useShallow(s => ({
       seconds: s.seconds,
@@ -236,14 +229,8 @@ export function MobileWriteToolbar({
         {hasSupport && (
           <div className="relative">
             <IconButton
-              onClick={() => { void toggleListening(); }}
-              label={
-                isListening
-                  ? t('voice_stop')
-                  : isVaultActive
-                  ? `${t('voice_start')} (${t('voice_vault_badge')})`
-                  : t('voice_start')
-              }
+              onClick={toggle}
+              label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
               className={cn(
                 "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border",
                 isListening
@@ -254,6 +241,13 @@ export function MobileWriteToolbar({
               )}
               icon={isListening ? <MicOff size={16} /> : <Mic size={16} />}
             />
+            {aiNoticeRemaining !== null && !isListening && (
+              <Sparkles
+                size={10}
+                className="absolute -top-1 -right-1 text-accent-warning pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
             {isVaultActive && !isListening && (
               <span
                 className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-accent-warning pointer-events-none"

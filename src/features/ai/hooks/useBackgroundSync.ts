@@ -22,6 +22,8 @@ import { SyncService } from '../../../core/services/SyncService';
  *
  * - заметки и разбор, потерянные при очистке устройства, тянутся из облака;
  * - разбор, приехавший раньше своей заметки, привязывается к ней;
+ * - начатая догрузка векторов из облака продолжается каждым проходом (В-1), пока
+ *   не дойдёт до конца;
  * - векторы, посчитанные при запертом хранилище, дописываются в облако.
  *
  * Всё это — операции синхронизации, поэтому подчиняются тумблеру автосинка, а
@@ -56,7 +58,7 @@ export function useBackgroundSync(): void {
       if (!cloudSyncEnabled(uid)) return;
       // Лениво: сервис восстановления нужен только при включённой синхронизации,
       // а не на старте (бюджет стартового куска).
-      const { restoreAIDataFromCloud, reattachOrphanedAnalysis } = await import('../services/AIRestoreService');
+      const { restoreAIDataFromCloud, reattachOrphanedAnalysis, continueEmbeddingDownload } = await import('../services/AIRestoreService');
       // Раз в сутки на аккаунт: вернуть заметки и разбор, которых на
       // устройстве нет. Оба сканирования ниже читают только локальные
       // хранилища, поэтому после очистки они бы сочли, что ничего никогда
@@ -105,6 +107,17 @@ export function useBackgroundSync(): void {
         }
       } catch (e) {
         reportError(e, { action: 'backgroundSync_pullAIData' });
+      }
+
+      // В-1 (замер 08.10.2026): начатая догрузка векторов продолжается ЭТИМ
+      // проходом, а не следующим днём. Полный проход — раз в сутки (ключ выше),
+      // и на потолке прошлой сборки в 100 записей архив в 1000 заметок догружался
+      // десять суток, всё это время `indexPending` ждал облако и не трогал заметки,
+      // которых в нём нет вовсе. Первый запуск по-прежнему решает полный проход.
+      try {
+        await continueEmbeddingDownload(uid);
+      } catch (e) {
+        reportError(e, { action: 'backgroundSync_continueEmbeddingDownload' });
       }
 
       try {

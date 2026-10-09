@@ -5,6 +5,9 @@ import { UserProfile } from '../../types';
 import { GoalToast } from '../../shared/components/GoalToast';
 import { SeoHead } from '../../shared/i18n/SeoHead';
 
+// D-4: подключает пунктуацию диктовки (мостик writing → ai).
+import '../dictationAiWiring';
+
 import { WritingFinishModal } from '../../features/writing/components/WritingFinishModal';
 import { ShortcutsModal } from '../../features/writing/components/ShortcutsModal';
 import { FlowPulse } from '../../core/theme/FlowPulse';

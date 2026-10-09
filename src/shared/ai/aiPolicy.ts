@@ -89,16 +89,24 @@ export function validateInternalCallRestrictions(params: {
 }
 
 // The max token budget for a given call.
+//
+// W-2: потолок ответа внешнего хода следует за выбранной человеком длиной.
+// 8 192 на «кратко» означало, что лимит ничего не ограничивает: в живом прогоне
+// §4.7 два ответа из 372 разрослись до 7–16 тыс. знаков внутреннего монолога.
 export function getMaxTokens(
   isInternal: boolean,
   reasoning: boolean | null | undefined,
   callType?: InternalCallType | null | undefined,
+  responseLength?: 'short' | 'standard' | 'detailed' | null | undefined,
 ): number {
   if (isInternal) {
     if (callType === 'system_task') return 2048;
     return INTERNAL_CALL_RESTRICTIONS.maxTokens;
   }
-  return reasoning ? 16384 : 8192;
+  if (reasoning) return 16384;
+  if (responseLength === 'short') return 700;
+  if (responseLength === 'standard') return 1500;
+  return 3000;
 }
 
 // AUD-19: EFFECTIVE_TOKEN_LIMIT резервируется против ответа. Длинная заметка,

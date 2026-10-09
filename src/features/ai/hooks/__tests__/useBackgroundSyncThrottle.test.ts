@@ -18,6 +18,9 @@ vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }
 vi.mock('../../services/AIRestoreService', () => ({
   restoreAIDataFromCloud: (...a: unknown[]) => mockRestoreAi(...a),
   reattachOrphanedAnalysis: vi.fn().mockResolvedValue(undefined),
+  // В-1: фоновый проход зовёт продолжение догрузки; без этого экспорта в моке
+  // Vitest падает на обращении к нему и до восстановления заметок не доходит.
+  continueEmbeddingDownload: vi.fn().mockResolvedValue({ embeddings: 0, failed: 0, markedSynced: 0, finished: false }),
 }));
 
 vi.mock('../../services/AIEmbeddingService', () => ({

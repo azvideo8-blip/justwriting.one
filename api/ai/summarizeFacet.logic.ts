@@ -4,6 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt } from './pure
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 const FACET_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -75,7 +76,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     callRes.markProduced(result.text.length);
 
     callRes.recordUsage(result.tokensIn, result.tokensOut, { model: result.model, fn: 'facet' }).catch(e =>
-      console.error('[AI facet] usage record failed:', e),
+      console.error('[AI facet] usage record failed:', safeErrorShape(e)),
     );
 
     const text = result.text.trim();
@@ -113,7 +114,7 @@ export async function summarizeFacetLogic(ctx: AiContext, uid: string, data: unk
     return { label: cleanLabel, summary: cleanSummary };
   } catch (e) {
     await callRes.settle('failed');
-    console.error('[AI facet] failed:', e);
+    console.error('[AI facet] failed:', safeErrorShape(e));
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');

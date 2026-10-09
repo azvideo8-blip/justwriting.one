@@ -14,6 +14,7 @@ import { WritingEditor } from '../../features/writing/components/WritingEditor';
 import { WritingSetup } from '../../features/writing/components/WritingSetup';
 import { LifeLogPanel } from '../../features/writing/components/LifeLogPanel';
 import { BottomStats } from '../../features/writing/components/BottomStats';
+import { DictationChrome } from '../../features/writing/components/DictationBar';
 import { SessionGlow } from '../../features/writing/components/SessionGlow';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
 // каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
@@ -185,10 +186,13 @@ export function DesktopWritingLayout() {
                 onSetPromptTitle={session.setTitle}
               />
             ) : (
-            <WritingEditor
-              onKeyDown={handleEditorKeyDown}
-              onInput={handleEditorInput}
-            />
+            <>
+              <WritingEditor
+                onKeyDown={handleEditorKeyDown}
+                onInput={handleEditorInput}
+              />
+              <DictationChrome />
+            </>
             )}
             <SessionGlow
               phase={

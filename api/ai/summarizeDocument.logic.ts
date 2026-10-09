@@ -4,6 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse, splitFactsByModality, MAX_AI_CONTE
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 // ── Helpers (kept in sync with summarizeDocument.ts) ─────────────────────────
 
@@ -162,7 +163,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
     tokensOut = result.tokensOut;
     usedModel = result.model;
   } catch (e) {
-    console.error('[AI summarize] generation failed:', e);
+    console.error('[AI summarize] generation failed:', safeErrorShape(e));
     await callRes.settle('failed');
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
@@ -197,7 +198,7 @@ export async function summarizeDocumentLogic(ctx: AiContext, uid: string, data: 
 
   await callRes.settle('done');
   ctx.recordUsage(uid, tokensIn, tokensOut, { model: usedModel, fn: 'summarize' }, reservation)
-    .catch(e => console.error('[AI summarize] usage record failed:', e));
+    .catch(e => console.error('[AI summarize] usage record failed:', safeErrorShape(e)));
 
   const cyrRatio = (s: string) => {
     const cyr = (s.match(/[а-яёА-ЯЁ]/g) ?? []).length;

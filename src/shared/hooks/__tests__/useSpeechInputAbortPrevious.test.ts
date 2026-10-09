@@ -41,7 +41,7 @@ describe('B-5.5 (F-014) useSpeechInput aborts previous recognition engine before
   });
 
   it('aborts the first recognition engine when startListening is called a second time', () => {
-    const { result } = renderHook(() => useSpeechInput({ onTranscript: vi.fn() }), { wrapper: LanguageProvider });
+    const { result } = renderHook(() => useSpeechInput({ onSessionEnd: vi.fn() }), { wrapper: LanguageProvider });
 
     act(() => {
       result.current.startListening();

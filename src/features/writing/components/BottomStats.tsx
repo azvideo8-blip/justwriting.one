@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Square, Mic, MicOff } from 'lucide-react';
+import { Square, Mic, MicOff, Sparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '../../../core/utils/utils';
 import { useContentStore } from '../store/useContentStore';
@@ -11,7 +11,8 @@ import { useWritingSettings } from '../../../core/settings/WritingSettingsContex
 import { GoalPopup } from './GoalPopup';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
-import { useGuardedSpeechInput } from '../hooks/useGuardedSpeechInput';
+import { useDictation } from '../hooks/useDictation';
+import { dictationMicLabel } from '../hooks/dictationMicLabel';
 import { SaveStatus, type SaveStatusKind } from './SaveStatus';
 
 const PLAY_PATH = "M8 5v14l11-7z";
@@ -49,12 +50,7 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
     }))
   );
 
-  const { isListening, toggleListening, hasSupport } = useGuardedSpeechInput({
-    onTranscript: (text) => {
-      const cur = useContentStore.getState().content;
-      useContentStore.getState().setContent(cur ? cur.trimEnd() + ' ' + text : text);
-    },
-  });
+  const { isListening, toggle, hasSupport, isVaultActive, aiNoticeRemaining } = useDictation();
 
 
   const { status, seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, setWordGoal, setTimerDuration } = useTimerStore(
@@ -281,16 +277,23 @@ export function BottomStats({ onPlay, onPause, onStop, compact, saveStatus = 'id
         <SaveStatus saveStatus={saveStatus} saveErrorKind={saveErrorKind} />
         {hasSupport && (
           <IconButton
-            onClick={() => { void toggleListening(); }}
-            aria-label={isListening ? t('voice_stop') : t('voice_start')}
+            onClick={toggle}
+            aria-label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
             className={cn(
               "w-8 h-8 flex items-center justify-center transition-colors shrink-0 rounded-lg",
               isListening
                 ? "text-accent-danger bg-accent-danger/10 animate-pulse"
                 : "text-text-main hover:bg-text-main/5"
             )}
-            label={isListening ? t('voice_stop') : t('voice_start')}
-            icon={isListening ? <MicOff size={14} /> : <Mic size={14} />}
+            label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
+            icon={
+              <span className="relative flex items-center justify-center">
+                {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+                {aiNoticeRemaining !== null && !isListening && (
+                  <Sparkles size={8} className="absolute -top-1 -right-1 text-accent-warning" aria-hidden="true" />
+                )}
+              </span>
+            }
           />
         )}
         <IconButton

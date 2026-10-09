@@ -3,6 +3,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { LanguageProvider } from '../../../shared/i18n';
+import { authScreensTranslations } from '../../../shared/i18n/translations/authScreens';
 import { RestoreFromCloudModal } from '../../../app/modals/RestoreFromCloudModal';
 import { InviteWizard } from '../components/InviteWizard';
 import { IndexingConsentModal } from '../../ai/components/IndexingConsentModal';
@@ -92,6 +93,15 @@ describe('T-1 (a) User-facing dialogs English localization (no Cyrillic characte
       <PrivacyModal onAccepted={() => {}} />
     );
     expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+  });
+
+  // FX-4: экран согласия читает человек, а не разработчик. Внутренний жаргон
+  // («хоп», «second hop») в этом тексте появляться не может — ни на одном языке.
+  it('в тексте про третьи стороны нет внутреннего жаргона ни в ru, ни в en', () => {
+    const entry = authScreensTranslations.privacy_consent_third_party_p3;
+    expect(entry, 'ключ переименован — проверка стала бы вакуумной').toBeDefined();
+    expect(entry?.ru.toLowerCase()).not.toMatch(/хоп/);
+    expect(entry?.en.toLowerCase()).not.toMatch(/\bhop\b/);
   });
 });
 

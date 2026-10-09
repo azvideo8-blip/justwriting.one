@@ -17,6 +17,7 @@ import { useDialogueManager } from './useDialogueManager';
 import { usePersonaManager } from './usePersonaManager';
 import { useAttachmentManager } from './useAttachmentManager';
 import { getCurrentUser } from '../../../core/auth';
+import { ATTACHED_QUESTION_SEP } from '../../../shared/ai/languageNudge';
 import { getChatExtrasEnabled } from '../../../core/ai/chatExtrasPreference';
 import { DataProvider } from '../../../core/data';
 import { getIndexingConsent, setIndexingConsent, INDEXING_CONSENT_VERSION } from '../../../core/ai/indexingConsent';
@@ -321,13 +322,13 @@ export function useAIPageData(linkedDocId?: string, draftFacetId?: string) {
         // S-63: и в «не влезает» вопрос идёт за разделителем — иначе ход «маркер +
         // вопрос» неотличим от старого «маркер + тело» (aiChatTransport, порог 1500).
         const display = fits
-          ? `${formatRefTag(a)}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
-          : `${marker}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`;
+          ? `${formatRefTag(a)}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`
+          : `${marker}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
         id = await sendMessage(display, { content: formatRefTag(a), ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       } else {
         const display = fits
-          ? `${totalContent}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`
-          : `${markers.join('\n')}${text ? `\n\n— — —\nВопрос: ${text}` : ''}`;
+          ? `${totalContent}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`
+          : `${markers.join('\n')}${text ? `${ATTACHED_QUESTION_SEP}${text}` : ''}`;
         id = await sendMessage(display, { content: totalContent, ...(firstLocalDocId ? { documentId: firstLocalDocId } : {}), inline: fits }, undefined, undefined, sendOpts);
       }
     } else {

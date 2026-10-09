@@ -1037,19 +1037,20 @@ describe('reattachOrphanedAnalysis', () => {
     expect(localStore.aiSummaries.has('local_dead')).toBe(true);
   });
 
-  // N-39: провайдер отбрасывает чужие строки, и в странице своих меньше десяти.
-  // Конец списка — по числу строк, которые отдал сервер, иначе восстановление
-  // эмбеддингов объявлялось законченным на первой же такой странице.
+  // N-39: провайдер отбрасывает чужие строки, и в странице своих меньше, чем
+  // запрошено. Конец списка — по числу строк, которые отдал сервер, иначе
+  // восстановление эмбеддингов объявлялось законченным на первой же такой
+  // странице. Страница догрузки — 50 записей (В-1).
   it('a page thinned by the owner filter does not end the embedding restore', async () => {
     localStorage.clear();
     const { DataProvider } = await import('../../../../core/data');
     const spy = vi.spyOn(DataProvider, 'getUserEmbeddingsPaginated')
-      .mockResolvedValueOnce({ items: Array.from({ length: 9 }, (_, i) => ({ id: `e${i}` })), nextCursorId: 'e9', readCount: 10 })
+      .mockResolvedValueOnce({ items: Array.from({ length: 49 }, (_, i) => ({ id: `e${i}` })), nextCursorId: 'e50', readCount: 50 })
       .mockResolvedValueOnce({ items: [], readCount: 0 });
     requestEmbeddingRestore('user-n39');
     await restoreAIDataFromCloud('user-n39');
     // Вторая страница запрошена — значит, первая, прореженная фильтром, конец не объявила.
-    expect(spy.mock.calls.some(([, , cursor]) => cursor === 'e9')).toBe(true);
+    expect(spy.mock.calls.some(([, , cursor]) => cursor === 'e50')).toBe(true);
     spy.mockRestore();
   });
 });

@@ -4,6 +4,7 @@ import { sanitizeAiInput, MAX_AI_CONTENT_LENGTH } from './pure';
 import { embed } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 const inputSchema = z.object({
   content: z.string().min(1).max(200_000),
@@ -81,13 +82,13 @@ export async function embedDocumentLogic(ctx: AiContext, uid: string, data: unkn
     await callRes.settle('done');
 
     ctx.recordUsage(uid, result.tokens, 0, { model: result.model, fn: 'embed' }, reservation).catch(e =>
-      console.error('[AI embed] usage record failed:', e),
+      console.error('[AI embed] usage record failed:', safeErrorShape(e)),
     );
 
     return { vectors: result.vectors, chunks, model: result.model, dim: result.dim };
   } catch (e) {
     await callRes.settle('failed');
-    console.error('[AI embed] generation failed:', e);
+    console.error('[AI embed] generation failed:', safeErrorShape(e));
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');

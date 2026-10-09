@@ -4,6 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 const inputSchema = z.object({ digest: z.string().min(20).max(60_000) });
 
@@ -155,7 +156,7 @@ export async function deriveTaxonomyLogic(ctx: AiContext, uid: string, data: unk
     if (settled) {
       // DA-18: через callRes — у него защёлка usageRecorded; прямой ctx.recordUsage
       // писал расход второй раз, если settle('failed') уже его записал.
-      callRes.recordUsage(tokensIn, tokensOut, { model: usedModel, fn: 'taxonomy' }).catch(e => console.error('[ai] recordUsage failed (taxonomy)', e));
+      callRes.recordUsage(tokensIn, tokensOut, { model: usedModel, fn: 'taxonomy' }).catch(e => console.error('[ai] recordUsage failed (taxonomy)', safeErrorShape(e)));
     }
   }
 }

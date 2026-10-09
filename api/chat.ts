@@ -5,7 +5,9 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
 import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
-import { needsEnglishNudge } from '../src/shared/ai/languageNudge.js';
+import { logChatShape } from '../src/shared/ai/chatShape.js';
+import { safeErrorShape } from '../src/shared/ai/errorShape.js';
+import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.js';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
 import { AiError, type GlobalReservation } from '../src/shared/ai/context.js';
 import { MAX_REQUEST_BODY_BYTES, DAILY_LIMIT, ADMIN_DAILY_LIMIT } from './ai/pure';
@@ -213,7 +215,7 @@ async function streamOpenRouterReasoning(
     });
   } catch (err) {
     clearTimeout(timeoutId);
-    console.error('[api/chat] upstream request failed:', err);
+    console.error('[api/chat] upstream request failed:', safeErrorShape(err));
     await settlement.settle('failed');
     sendError(res, 504, 'UPSTREAM_TIMEOUT', 'AI provider did not respond in time.');
     return;
@@ -221,8 +223,9 @@ async function streamOpenRouterReasoning(
 
   if (!upstream.ok || !upstream.body) {
     clearTimeout(timeoutId);
-    const errBody = await upstream.text().catch(() => '');
-    console.error('[api/chat] reasoning upstream returned error:', upstream.status, errBody.slice(0, 200));
+    // W-4: тело ошибки не читается вовсе — провайдеры кладут в него эхо запроса,
+    // то есть текст заметки.
+    console.error('[api/chat] reasoning upstream returned error:', safeErrorShape(undefined, upstream.status));
     await settlement.settle('failed');
     sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider returned an error.');
     return;
@@ -287,7 +290,7 @@ async function streamOpenRouterReasoning(
         let chunk: OrChunk;
         try { chunk = JSON.parse(data) as OrChunk; } catch { continue; }
         if (chunk.error) {
-          console.error('[api/chat] reasoning upstream returned chunk error:', chunk.error);
+          console.error('[api/chat] reasoning upstream returned chunk error:', safeErrorShape(chunk.error, upstream.status));
           streamFailed = true;
           break;
         }
@@ -345,7 +348,7 @@ async function streamOpenRouterReasoning(
       }
     }
   } catch (streamErr) {
-    console.error('[api/chat] stream read failed:', streamErr);
+    console.error('[api/chat] stream read failed:', safeErrorShape(streamErr));
     streamFailed = true;
   }
 
@@ -473,7 +476,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   await attachQuotaHeaders(res, uid);
   const chargedDay = callRes.day;
 
-  const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning, parsed.data.callType);
+  const maxOutputTokens = getMaxTokens(isInternalCall, parsed.data.reasoning, parsed.data.callType, parsed.data.responseLength);
   // AUD-19 & FU-4: в резерв закладываем и вход — длинная заметка стоит токенов так же,
   // как ответ; иначе потолок защищал меньше, чем обещал.
   // Составная квота: allowance = maxOutputTokens + inputEstimate.
@@ -502,11 +505,24 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // Служебным вызовам не ставится: у них другой системный промпт и другой смысл.
   const sanitizedMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInputShared(m.content) }));
   const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
-  const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(lastUserText) ? 'en' : 'ru';
+  const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(questionPart(lastUserText)) ? 'en' : 'ru';
   const providerRequest = reasoning === true
     ? withReasoningLanguage(systemPrompt, sanitizedMessages, replyLang)
     : { system: systemPrompt, messages: withEnglishNudge(sanitizedMessages, replyLang) };
   const providerMessages = providerRequest.messages;
+
+  // A-4: из чего собран ход — только размеры, ни одного символа содержимого.
+  logChatShape({
+    personaId,
+    noteScope: parsed.data.noteScope,
+    crisis: parsed.data.crisis,
+    reasoning,
+    messages: providerMessages,
+    documentContent: parsed.data.documentContent,
+    userPortrait: parsed.data.userPortrait,
+    memoryContext: parsed.data.memoryContext,
+    system: providerRequest.system,
+  });
 
   // X-3: резерв считается уже по итоговому тексту — с подсказкой языка, иначе
   // недооценка ровно на неё.
@@ -590,7 +606,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     },
     onError: async (e) => {
       streamErrorOccurred = e;
-      console.error('[api/chat] streamText failed:', e);
+      console.error('[api/chat] streamText failed:', safeErrorShape(e));
       await settlement.settle('failed');
       if (!res.headersSent) {
         sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
@@ -633,7 +649,7 @@ function waitForNextOrAbort<T>(
     try {
       firstResult = await waitForNextOrAbort(iterator, controller.signal);
     } catch (err) {
-      console.error('[api/chat] streamText failed before response started:', err);
+      console.error('[api/chat] streamText failed before response started:', safeErrorShape(err));
       await settlement.settle('failed');
       if (!res.headersSent) {
         sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
@@ -688,7 +704,7 @@ function waitForNextOrAbort<T>(
         }
       }
     } catch (streamErr) {
-      console.error('[api/chat] stream read failed mid-stream:', streamErr);
+      console.error('[api/chat] stream read failed mid-stream:', safeErrorShape(streamErr));
       if (!res.destroyed && !controller.signal.aborted) res.write(STREAM_BROKEN_NOTE);
     } finally {
       clearTimeout(deadlineId);
@@ -701,7 +717,7 @@ function waitForNextOrAbort<T>(
     try {
       await Promise.resolve(result.pipeTextStreamToResponse(res));
     } catch (streamErr) {
-      console.error('[api/chat] pipe failed:', streamErr);
+      console.error('[api/chat] pipe failed:', safeErrorShape(streamErr));
       await settlement.settle('failed');
       if (!res.headersSent) sendError(res, 500, 'STREAM_FAILED');
     }

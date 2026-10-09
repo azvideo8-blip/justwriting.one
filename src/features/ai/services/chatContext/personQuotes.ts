@@ -6,6 +6,8 @@
 // Модуль чистый: ничего не читает из базы и не ищет. Распознаёт человека в
 // реплике и собирает блок его строк из переданных текстов.
 
+import { nameForms } from '../../utils/nameForms';
+
 export const LB = '(?:^|[^а-яёА-ЯЁ])';
 export const RB = '(?![а-яёА-ЯЁ])';
 
@@ -116,7 +118,11 @@ export function detectPersonMentions(
     if (found.some(f => f.mention.pattern.test(name))) continue;
     found.push({
       at: m.index,
-      mention: { key: name, pattern: new RegExp(`${LB}(${escapeRegExp(name)}[а-яё]*)${RB}`, 'i') },
+      // П-5 (замер 08.10.2026): формы по окончаниям вместо `${Имя}[а-яё]*`.
+      // Прежний шаблон требовал именительного: в записи «всё решили с Олей» слова
+      // человека не находились, и блок Q-9 не строился, хотя имя в реплике было.
+      // Это ошибка 0.9.33.
+      mention: { key: name, pattern: nameForms(name) },
     });
   }
 

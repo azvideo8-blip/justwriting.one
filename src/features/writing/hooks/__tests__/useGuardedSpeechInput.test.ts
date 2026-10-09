@@ -9,7 +9,7 @@ let mockIsListening = false;
 let mockHasSupport = true;
 
 vi.mock('../../../../shared/hooks/useSpeechInput', () => ({
-  useSpeechInput: (_props: { onTranscript: (t: string) => void }) => ({
+  useSpeechInput: (_props: { onSessionEnd: (t: string) => void }) => ({
     isListening: mockIsListening,
     startListening: mockStart,
     stopListening: mockStop,
@@ -58,7 +58,7 @@ describe('useGuardedSpeechInput', () => {
 
   it('prompts first-time user for confirmation before starting dictation', async () => {
     mockConfirm.mockResolvedValue(true);
-    const { result } = renderHook(() => useGuardedSpeechInput({ onTranscript: vi.fn() }));
+    const { result } = renderHook(() => useGuardedSpeechInput({ onSessionEnd: vi.fn() }));
 
     expect(result.current.isListening).toBe(false);
     await act(async () => {
@@ -75,8 +75,11 @@ describe('useGuardedSpeechInput', () => {
   });
 
   it('does not prompt again once notice has been seen for non-vault users', async () => {
+    // D-5: предупреждение переписано, поэтому его актуальная версия — v2.
+    // Ассерт прежний: видевший текущее предупреждение не дерётся вторично.
     localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN, '1');
-    const { result } = renderHook(() => useGuardedSpeechInput({ onTranscript: vi.fn() }));
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
+    const { result } = renderHook(() => useGuardedSpeechInput({ onSessionEnd: vi.fn() }));
 
     await act(async () => {
       await result.current.toggleListening();
@@ -86,9 +89,25 @@ describe('useGuardedSpeechInput', () => {
     expect(mockStart).toHaveBeenCalledTimes(1);
   });
 
+  it('D-5: показавший v1 видит переписанное предупреждение ещё раз — и только один раз', async () => {
+    localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN, '1');
+    mockConfirm.mockResolvedValue(true);
+    const { result } = renderHook(() => useGuardedSpeechInput({ onSessionEnd: vi.fn() }));
+
+    await act(async () => { await result.current.toggleListening(); });
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(mockConfirm).toHaveBeenCalledWith(expect.objectContaining({ message: 'voice_confirm_desc' }));
+    expect(localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2)).toBe('1');
+    expect(mockStart).toHaveBeenCalledTimes(1);
+
+    mockConfirm.mockClear();
+    await act(async () => { await result.current.toggleListening(); });
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
   it('does not start listening if user cancels first-time prompt', async () => {
     mockConfirm.mockResolvedValue(false);
-    const { result } = renderHook(() => useGuardedSpeechInput({ onTranscript: vi.fn() }));
+    const { result } = renderHook(() => useGuardedSpeechInput({ onSessionEnd: vi.fn() }));
 
     await act(async () => {
       await result.current.toggleListening();
@@ -105,7 +124,7 @@ describe('useGuardedSpeechInput', () => {
     mockVaultEnabled = true;
     mockConfirm.mockResolvedValue(true);
 
-    const { result } = renderHook(() => useGuardedSpeechInput({ onTranscript: vi.fn() }));
+    const { result } = renderHook(() => useGuardedSpeechInput({ onSessionEnd: vi.fn() }));
     expect(result.current.isVaultActive).toBe(true);
 
     await act(async () => {
@@ -122,7 +141,7 @@ describe('useGuardedSpeechInput', () => {
 
   it('stops listening if already listening without prompting', async () => {
     mockIsListening = true;
-    const { result } = renderHook(() => useGuardedSpeechInput({ onTranscript: vi.fn() }));
+    const { result } = renderHook(() => useGuardedSpeechInput({ onSessionEnd: vi.fn() }));
 
     await act(async () => {
       await result.current.toggleListening();

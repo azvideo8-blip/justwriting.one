@@ -35,6 +35,9 @@ export const STORAGE_KEYS = {
   LEGACY_STREAK_FREEZES: 'jw_streak_freezes',
   MIGRATION_DECLINED: (uid: string) => `jw_migration_declined_${uid}`,
   DICTATION_NOTICE_SEEN: 'jw_dictation_notice_seen',
+  // D-5: текст предупреждения изменился по существу (второй хоп — текст в ИИ-сервис),
+  // поэтому показываем его ещё раз тем, кто принял v1.
+  DICTATION_NOTICE_SEEN_V2: 'jw_dictation_notice_seen_v2',
   PENDING_RECOVERY_CODE: (uid: string) => `pending_recovery_code_${uid}`,
   /** V-1.1: шаг мастера приглашения по хэшу токена из ссылки (sessionStorage). */
   INVITE_WIZARD_STATE: (tokenHash: string) => `jw_invite_wizard_${tokenHash}`,

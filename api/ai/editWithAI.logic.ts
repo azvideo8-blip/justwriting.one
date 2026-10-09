@@ -4,6 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse, MAX_AI_CONTENT_LENGTH } from './pu
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { createCallReservation, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 // 'continue' остаётся для клиентов 0.9.32 и старше, ещё не обновившихся (кнопку
 // заменила «Расставить знаки» в 0.9.33); убрать после следующего релиза.
@@ -52,7 +53,7 @@ async function callModel(
   try {
     return await generate({ system: systemInstruction, messages, maxTokens: 4096, abortMs: 110_000 });
   } catch (e) {
-    console.error('[editWithAI] AI request failed:', e);
+    console.error('[editWithAI] AI request failed:', safeErrorShape(e));
     throw new AiError('internal', 'AI request failed.');
   }
 }
@@ -117,7 +118,7 @@ export async function editWithAILogic(ctx: AiContext, uid: string, data: unknown
   callRes.markProduced(result.text.length);
   await callRes.settle('done');
 
-  ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'edit' }, reservation).catch(e => console.error('[AI] usage record failed:', e));
+  ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'edit' }, reservation).catch(e => console.error('[AI] usage record failed:', safeErrorShape(e)));
 
   return { result: sanitizedOutput };
 }

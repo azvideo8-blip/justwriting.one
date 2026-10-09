@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { DesktopWritingLayout } from '../DesktopWritingLayout';
+import { ToastProvider } from '../../../shared/components/Toast';
 import { LanguageProvider } from '../../../shared/i18n';
 
 const state = vi.hoisted(() => ({
@@ -92,13 +93,13 @@ describe('DC-W4: SaveStatus на экране письма', () => {
 
   const renderLayout = () => render(
     <LanguageProvider>
-      <DesktopWritingLayout />
+      <ToastProvider><DesktopWritingLayout /></ToastProvider>
     </LanguageProvider>
   );
 
   const rerenderLayout = (tree: ReturnType<typeof renderLayout>) => tree.rerender(
     <LanguageProvider>
-      <DesktopWritingLayout />
+      <ToastProvider><DesktopWritingLayout /></ToastProvider>
     </LanguageProvider>
   );
 

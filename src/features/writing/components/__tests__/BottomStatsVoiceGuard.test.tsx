@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { BottomStats } from '../BottomStats';
+import { ToastProvider } from '../../../../shared/components/Toast';
 
 const mockConfirm = vi.fn();
 vi.mock('../../../../shared/components/ConfirmDialog', () => ({
@@ -18,8 +19,11 @@ let mockHasSupport = true;
 vi.mock('../../../../shared/hooks/useSpeechInput', () => ({
   useSpeechInput: () => ({
     isListening: mockIsListening,
+    liveText: '',
+    interimText: '',
     startListening: mockStartListening,
     stopListening: mockStopListening,
+    cancel: vi.fn(),
     hasSupport: mockHasSupport,
   }),
 }));
@@ -39,6 +43,16 @@ vi.mock('../../../../core/settings/WritingSettingsContext', () => ({
   }),
 }));
 
+// D-4: useDictation показывает тост через ToastProvider — без него хук падает.
+// Провайдер добавлен в обвязку рендера; ассерты про диалоги-подтверждения те же.
+function renderStats() {
+  return render(
+    <ToastProvider>
+      <BottomStats onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />
+    </ToastProvider>,
+  );
+}
+
 describe('D-14: BottomStats uses guarded speech input', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,13 +64,7 @@ describe('D-14: BottomStats uses guarded speech input', () => {
   it('prompts user with confirmation dialog before enabling speech input for the first time', async () => {
     mockConfirm.mockResolvedValue(true);
 
-    render(
-      <BottomStats
-        onPlay={vi.fn()}
-        onPause={vi.fn()}
-        onStop={vi.fn()}
-      />
-    );
+    renderStats();
 
     const micButton = screen.getByRole('button', { name: 'voice_start' });
     fireEvent.click(micButton);
@@ -70,13 +78,7 @@ describe('D-14: BottomStats uses guarded speech input', () => {
   it('does not start listening if user cancels confirmation dialog', async () => {
     mockConfirm.mockResolvedValue(false);
 
-    render(
-      <BottomStats
-        onPlay={vi.fn()}
-        onPause={vi.fn()}
-        onStop={vi.fn()}
-      />
-    );
+    renderStats();
 
     const micButton = screen.getByRole('button', { name: 'voice_start' });
     fireEvent.click(micButton);

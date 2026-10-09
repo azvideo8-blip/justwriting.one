@@ -7,6 +7,8 @@ import { LB, RB, ROLE_STEMS, NAME_STOPWORDS, SENTENCE_HEAD_WORDS } from '../serv
 
 export interface PostDiff {
   namesRemoved: string[];
+  /** Имена, которые пост НЕ убрал — то, что автор обязан увидеть до публикации. */
+  namesKept: string[];
   rolesAdded: string[];
   numbersRemoved: string[];
 }
@@ -46,7 +48,7 @@ function followedByVerb(text: string, wordEnd: number): boolean {
  * кандидат: в дневнике имя чаще всего стоит именно там, и прежний пропуск начала
  * фразы терял почти все имена (R-4).
  */
-function properNouns(text: string): string[] {
+function properNouns(text: string, rejectSentenceStart = false): string[] {
   const lowercaseForms = new Set([...text.matchAll(LOWER_WORD)].map(m => lower(m[1] ?? '')));
   const out: string[] = [];
   for (const m of text.matchAll(/[А-ЯЁ][а-яё]{2,}/g)) {
@@ -55,6 +57,10 @@ function properNouns(text: string): string[] {
     if (NAME_STOPWORDS.has(lw)) continue;
     if (lowercaseForms.has(lw)) continue;
     if (SENTENCE_START.test(text.slice(0, m.index))) {
+      // ED-2: на стороне поста начало фразы не разбираем вовсе — там с заглавной
+      // стоит всё подряд («Вчера», «Каркас»), а ложное имя в предупреждении
+      // дороже пропущенного.
+      if (rejectSentenceStart) continue;
       if (SENTENCE_HEAD_FOLDED.has(lw) || NEVER_A_NAME_ENDING.test(lw)) continue;
       if (AMBIGUOUS_NAME_ENDING.test(lw) && !followedByVerb(text, m.index + word.length)) continue;
     }
@@ -87,15 +93,47 @@ const NUMBER_RE = /(?:\d{1,3}[ \u00A0]\d{3}(?:[ \u00A0]\d{3})*|\d+(?:[.,:]\d+)?)
 const SUM_RE = /\d[\d\s.,:]{0,9}\s*(?:тыс\.?|руб(?:лей|ля|ль)?|₽|€|\$)/gi;
 
 /**
- * Что пост Редактора сделал с заметкой: какие имена и числа из неё пропали и
- * какие роли появились. `post` — текст ответа до строки «— — —», `source` —
- * тело заметки-источника.
+ * Что пост Редактора сделал с заметкой: какие имена и числа из неё пропали,
+ * какие имена остались и какие роли появились. `post` — текст ответа до строки
+ * «— — —», `source` — тело заметки-источника.
  */
-export function diffPostAgainstNote(post: string, source: string): PostDiff {
+export function diffPostAgainstNote(
+  post: string,
+  source: string,
+  opts: { selfName?: string | undefined } = {},
+): PostDiff {
   const postWords = post.match(WORDS) ?? [];
 
-  const namesRemoved = properNouns(source)
+  const sourceNames = properNouns(source);
+  const namesRemoved = sourceNames
     .filter(name => !postWords.some(w => nameSurvives(w, name)));
+
+  // ED-2: неубранное имя — ровно та дыра приватности, которую автор обязан
+  // увидеть сам. Свои имена (профиль) чужими не считаем — так же, как
+  // detectPersonMentions (R-5: сверка по каждому слову, «Имя Фамилия»), но
+  // при этом сверяется форма имени, а не строка целиком: «с Олей» — это та же Оля.
+  const selfNames = [...new Set((opts.selfName ?? '').split(/\s+/).map(lower).filter(Boolean))]
+    .map(w => (w.charAt(0).toUpperCase() + w.slice(1)));
+  const isSelf = (name: string) => selfNames.some(selfName => nameSurvives(name, selfName));
+
+  const namesKept: string[] = [];
+  const collect = (name: string) => {
+    if (isSelf(name)) return;
+    // Одно и то же имя в двух падежах не удваивает предупреждение.
+    if (namesKept.some(kept => nameSurvives(name, kept) || nameSurvives(kept, name))) return;
+    namesKept.push(name);
+  };
+  // ED-2: имя из заметки считается неубранным, только если оно подтверждено
+  // позицией: хоть раз написано с заглавной НЕ в начале фразы — в заметке или в
+  // посте. Без этого «Каркас держится» и «Спокойный тон» выходили в
+  // предупреждение об именах (замер: 2 ложных на 20 постов).
+  const corroborated = [...properNouns(source, true), ...properNouns(post, true)];
+  const isCorroborated = (name: string) => corroborated.some(c => nameSurvives(c, name) || nameSurvives(name, c));
+  for (const name of sourceNames) {
+    if (postWords.some(w => nameSurvives(w, name)) && isCorroborated(name)) collect(name);
+  }
+  // Имена, приехавшие не из этой заметки (ход «добавь из других записей»).
+  for (const name of properNouns(post, true)) collect(name);
 
   const rolePattern = (stems: string[]) => new RegExp(`${LB}(${stems.join('|')})${RB}`, 'i');
   const rolesAdded = ROLE_STEMS
@@ -112,7 +150,7 @@ export function diffPostAgainstNote(post: string, source: string): PostDiff {
     if (!post.includes(sum) && !post.includes(bare)) numbersRemoved.push(sum);
   }
 
-  return { namesRemoved, rolesAdded, numbersRemoved };
+  return { namesRemoved, namesKept, rolesAdded, numbersRemoved };
 }
 
 /** Текст поста — всё до первой строки «— — —» (после неё служебные строки модели). */

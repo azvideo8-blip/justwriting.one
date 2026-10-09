@@ -3,7 +3,9 @@ import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation } from '../../src/shared/ai/aiPolicy.js';
 import { generate } from './provider';
 import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../../src/shared/ai/buildChatPrompt.js';
-import { needsEnglishNudge } from '../../src/shared/ai/languageNudge.js';
+import { needsEnglishNudge, questionPart } from '../../src/shared/ai/languageNudge.js';
+import { logChatShape } from '../../src/shared/ai/chatShape.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = chatInputSchema;
@@ -46,7 +48,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   // DUP-1: Unified reservation lifetime
   const callRes = await acquireChatReservation(ctx, uid, isInternalCall, reasoning === true);
 
-  const maxTokens = getMaxTokens(isInternalCall, reasoning, parsed.data.callType);
+  const maxTokens = getMaxTokens(isInternalCall, reasoning, parsed.data.callType, parsed.data.responseLength);
 
   // DUP-2: Single shared prompt assembly
   const INTERNAL_SYSTEM_PROMPT = 'Ты — служебная функция приложения для дневника. Выполни ровно то, что просят, без пояснений.';
@@ -61,12 +63,25 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
     content: sanitizeAiInput(m.content),
   }));
   const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
-  const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(lastUserText) ? 'en' : 'ru';
+  const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(questionPart(lastUserText)) ? 'en' : 'ru';
 
   // Режим рассуждений — то же правило о языке, что в потоковом пути (api/chat.ts).
   const request = reasoning === true
     ? withReasoningLanguage(systemInstruction, sanitizedMessages, replyLang)
     : { system: systemInstruction, messages: withEnglishNudge(sanitizedMessages, replyLang) };
+
+  // A-4: форма запроса в журнал — размеры без содержимого (см. api/chat.ts).
+  logChatShape({
+    personaId,
+    noteScope: parsed.data.noteScope,
+    crisis: parsed.data.crisis,
+    reasoning,
+    messages: request.messages,
+    documentContent: parsed.data.documentContent,
+    userPortrait: parsed.data.userPortrait,
+    memoryContext: parsed.data.memoryContext,
+    system: request.system,
+  });
 
   // AUD-19 & FU-4: вход тоже резервируется — см. api/chat.ts.
   // Составная квота: allowance = maxTokens + inputEstimate.
@@ -100,7 +115,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   } catch (e) {
     const { classifyProviderFailure } = await import('./pure');
     const failure = classifyProviderFailure(e);
-    console.error(`[chatWithAI] AI request failed (${failure.reason}):`, e);
+    console.error(`[chatWithAI] AI request failed (${failure.reason}):`, safeErrorShape(e));
     await callRes.settle('failed');
     throw new AiError(failure.code, failure.reason);
   }
@@ -113,7 +128,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
   callRes.markProduced(gen.text.length);
   await callRes.settle('done');
 
-  ctx.recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }, reservation).catch(e => console.error('[AI chat] usage record failed:', e));
+  ctx.recordUsage(uid, gen.tokensIn, gen.tokensOut, { model: gen.model, fn: 'chat' }, reservation).catch(e => console.error('[AI chat] usage record failed:', safeErrorShape(e)));
 
   return { result: text };
 }

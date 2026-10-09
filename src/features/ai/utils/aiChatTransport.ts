@@ -2,6 +2,7 @@ import { getCurrentUser, getIdToken } from '../../../core/auth';
 import type { AIMessage } from '../services/AIService';
 import type { NoteScope } from '../../../shared/ai/buildChatPrompt';
 import { ATTACHED_NOTE_TITLE_MAX } from '../../../shared/ai/aiPolicy';
+import { ATTACHED_QUESTION_SEP } from '../../../shared/ai/languageNudge';
 import { AIService } from '../services/AIService';
 import { useAiLimitStore } from '../store/useAiLimitStore';
 import { isExcludedFromAI } from './isExcludedFromAI';
@@ -182,7 +183,7 @@ export function cleanAttachedTitle(title: string): string {
 // уходило в историю, в перегенерацию и в извлечение памяти целиком.
 const ATTACHED_HEAD = /^(?:\[#[^\]\n]*\]\n)?\[Прикреплена заметка: "/;
 const ATTACHED_MARKER = /^\[Прикреплена заметка: "([\s\S]*?)"\]$/gm;
-const QUESTION_SEP = '\n\n— — —\nВопрос: ';
+const QUESTION_SEP = ATTACHED_QUESTION_SEP;
 const LEGACY_BODY_MIN = 1500;
 
 export interface AttachedParseOptions {

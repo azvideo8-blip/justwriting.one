@@ -168,7 +168,9 @@ export async function buildTemporalBlocks(
     }
   } else if (temporalQuery.type === 'recent') {
     handledByTemporal = true;
-    skipSemantic = true;
+    // W-1: явная просьба поискать («поищи в заметках, что у меня было с…») не
+    // гасится хронологической сводкой — сводка остаётся, но поиск идёт.
+    skipSemantic = !explicitSearch;
     try {
       const digests = await AIMonthlyDigestService.getRecent(3);
       setAIStage('timeline');

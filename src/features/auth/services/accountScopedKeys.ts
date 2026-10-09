@@ -63,6 +63,12 @@ export function accountScopedLocalStorageKeys(uid: string): string[] {
     // запрос и курсор восстановления эмбеддингов (LS-4)
     `ai_embed_restore_requested_${uid}`,
     `ai_embed_restore_cursor_${uid}`,
+    // П-6: догрузка начиналась / завершена — по аккаунту, иначе выход одного
+    // человека снимал бы троттлинг другого
+    `ai_embed_restore_started_${uid}`,
+    `ai_embed_restore_done_${uid}`,
+    // В-1: сколько проходов подряд курсор догрузки не сдвинулся
+    `ai_embed_restore_stall_${uid}`,
     // ожидающий подтверждения код восстановления и признак авто-создания сейфа (F-01)
     `pending_recovery_code_${uid}`,
     `vault_auto_created_${uid}`,

@@ -19,7 +19,7 @@ import {
 } from './fusion';
 import { findLiteralMatches } from './literalMatches';
 import { cleanCache, getCached, putCache } from './resultCache';
-import { RRF_K, VECTOR_TOP, KEYWORD_TOP, RRF_FINAL, RERANK_THRESHOLD, RESURFACE_FLOOR } from './types';
+import { RRF_K, VECTOR_TOP, KEYWORD_TOP, RRF_FINAL, RESURFACE_FLOOR } from './types';
 import type { EmbeddingEntry, RetrievedNote } from './types';
 import { searchNotes } from './searchNotes';
 import { isExcludedFromAI } from '../isExcludedFromAI';
@@ -33,7 +33,7 @@ import { isExcludedFromAI } from '../isExcludedFromAI';
 export async function searchNotesMulti(
   queries: string[],
   maxResults = 5,
-  opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined },
+  opts?: { queryVector?: number[] | undefined; allEmbeddings?: EmbeddingEntry[] | undefined; minTime?: number | undefined; maxTime?: number | undefined; skipRerank?: boolean | undefined },
 ): Promise<{ notes: RetrievedNote[]; failed: boolean; degraded?: boolean }> {
   if (queries.length === 0) return { notes: [], failed: false };
 
@@ -180,9 +180,9 @@ export async function searchNotesMulti(
   );
   const topIds = fused.slice(0, RRF_FINAL).map(f => f.id);
 
-  // TICKET-046 & T-3: Bypass cloud rerank if top vector similarity is very high,
-  // there is an exact title match, quote match, or named entity match
-  const topScore = vectorMatches[0]?.score ?? 0;
+  // П-2: обходить реранк могут только локальные доказательства (точное название,
+  // цитата, именованное совпадение). Порог по косинусу (`topScore >= 0.88`) удалён
+  // и здесь: на шкале bge-m3 он не срабатывал ни разу.
   const hasExactTitle = await hasExactTitleMatch(queries[0]!, topIds);
 
   // T-3: local high-confidence signal — an exact quote or named-entity hit in a
@@ -213,7 +213,8 @@ export async function searchNotesMulti(
 
   // Bypass the cloud rerank when a strong local signal exists, and lift local
   // matches to the front (stable — the fused order is preserved otherwise).
-  if (topScore >= RERANK_THRESHOLD || hasExactTitle || matchedIds.size > 0) {
+  // V-5: вызывающий может сам запретить облачный реранк (горячий путь чата).
+  if (opts?.skipRerank || hasExactTitle || matchedIds.size > 0) {
     const scoreMap = new Map(fused.map(f => [f.id, f.score]));
     const ordered = [...filteredTopIds].sort(
       (a, b) => (matchedIds.has(b) ? 1 : 0) - (matchedIds.has(a) ? 1 : 0),

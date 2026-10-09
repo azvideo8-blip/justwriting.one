@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { DesktopWritingLayout } from '../DesktopWritingLayout';
+import { ToastProvider } from '../../../shared/components/Toast';
 import { WritingHeader } from '../../../features/writing/components/WritingHeader';
 import { LanguageProvider } from '../../../shared/i18n';
 
@@ -67,7 +68,7 @@ describe('DC-W5: дзен не двигает текст', () => {
   });
 
   const renderLayout = () => render(
-    <LanguageProvider><DesktopWritingLayout /></LanguageProvider>
+    <LanguageProvider><ToastProvider><DesktopWritingLayout /></ToastProvider></LanguageProvider>
   );
 
   it('gridTemplateColumns одинаковый до и после дзена', () => {
@@ -86,7 +87,7 @@ describe('DC-W5: дзен не двигает текст', () => {
     state.isZenActive = true;
     render(
       <LanguageProvider>
-        <WritingHeader onSave={vi.fn()} onNew={vi.fn()} onOpenLog={vi.fn()} />
+        <ToastProvider><WritingHeader onSave={vi.fn()} onNew={vi.fn()} onOpenLog={vi.fn()} /></ToastProvider>
       </LanguageProvider>
     );
 
@@ -101,7 +102,7 @@ describe('DC-W5: дзен не двигает текст', () => {
   it('в простом режиме шапка видима и не ловит лишний reveal', () => {
     render(
       <LanguageProvider>
-        <WritingHeader onSave={vi.fn()} onNew={vi.fn()} onOpenLog={vi.fn()} />
+        <ToastProvider><WritingHeader onSave={vi.fn()} onNew={vi.fn()} onOpenLog={vi.fn()} /></ToastProvider>
       </LanguageProvider>
     );
     const wrapper = screen.getByRole('button', { name: 'Сохранить' }).closest('div.w-full');

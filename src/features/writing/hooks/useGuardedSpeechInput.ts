@@ -7,11 +7,12 @@ import { useEncryptionStore } from '../../../core/crypto/useEncryptionStore';
 import { STORAGE_KEYS } from '../../../shared/constants/storageKeys';
 
 interface UseGuardedSpeechInputProps {
-  onTranscript: (text: string) => void;
+  onSessionEnd: (fullText: string) => void;
+  onError?: ((error: string) => void) | undefined;
 }
 
-export function useGuardedSpeechInput({ onTranscript }: UseGuardedSpeechInputProps) {
-  const { isListening, startListening, stopListening, hasSupport } = useSpeechInput({ onTranscript });
+export function useGuardedSpeechInput({ onSessionEnd, onError }: UseGuardedSpeechInputProps) {
+  const { isListening, liveText, interimText, startListening, stopListening, cancel, hasSupport } = useSpeechInput({ onSessionEnd, onError });
   const { confirm } = useConfirmDialog();
   const { t } = useLanguage();
   const { user } = useAuthStatus();
@@ -25,7 +26,9 @@ export function useGuardedSpeechInput({ onTranscript }: UseGuardedSpeechInputPro
     }
 
     const isVault = user ? useEncryptionStore.getState().getEncryptionEnabled(user.uid) : false;
-    const noticeSeen = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN) === '1';
+    // D-5: предупреждение переписано (текст диктовки уходит в ИИ-сервис за знаками
+    // препинания), поэтому оно показывается ещё раз тем, кто видел только v1.
+    const noticeSeen = typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2) === '1';
 
     if (isVault) {
       const ok = await confirm({
@@ -44,7 +47,10 @@ export function useGuardedSpeechInput({ onTranscript }: UseGuardedSpeechInputPro
       });
       if (!ok) return;
       try {
+        // v1 остаётся записанным: откат на предыдущую сборку не должен снова
+        // показывать старое предупреждение человеку, который уже согласился.
         localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN, '1');
+        localStorage.setItem(STORAGE_KEYS.DICTATION_NOTICE_SEEN_V2, '1');
       } catch {
         // ignore quota/private mode errors
       }
@@ -55,9 +61,12 @@ export function useGuardedSpeechInput({ onTranscript }: UseGuardedSpeechInputPro
 
   return {
     isListening,
+    liveText,
+    interimText,
     toggleListening,
     startListening,
     stopListening,
+    cancel,
     hasSupport,
     isVaultActive,
   };

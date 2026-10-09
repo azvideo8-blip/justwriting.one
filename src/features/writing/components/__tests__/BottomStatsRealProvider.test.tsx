@@ -24,8 +24,16 @@ vi.mock('../../store/useTimerStore', () => ({
   getState: () => ({ status: 'writing' }),
 }));
 
-vi.mock('../../hooks/useGuardedSpeechInput', () => ({
-  useGuardedSpeechInput: () => ({ isListening: false, toggleListening: vi.fn(), hasSupport: false }),
+// D-4: BottomStats читает состояние диктовки из useDictation — мок переезжает на
+// него, ассерты не меняются.
+vi.mock('../../hooks/useDictation', () => ({
+  useDictation: () => ({
+    isListening: false,
+    toggle: vi.fn(),
+    hasSupport: false,
+    isVaultActive: false,
+    aiNoticeRemaining: null,
+  }),
 }));
 
 vi.mock('../GoalPopup', () => ({ GoalPopup: () => null }));

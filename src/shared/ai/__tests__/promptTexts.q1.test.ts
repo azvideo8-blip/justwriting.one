@@ -35,6 +35,12 @@ describe('Q-1: тексты промптов', () => {
     expect(SAFETY_GUIDE).toContain('СЕРАЯ ЗОНА');
   });
 
+  // ED-5: деталь из другой заметки живёт в своём времени.
+  it('ED-5: чужая деталь не получает «вчера/сегодня/сейчас»', () => {
+    expect(PERSONA_PROMPTS.editor).toContain('A detail from another note keeps its own time');
+    expect(PERSONA_PROMPTS.editor).toContain('never «вчера», «сегодня» or «сейчас»');
+  });
+
   it('редактор описывает формат ответа и дозапрос деталей', () => {
     expect(PERSONA_PROMPTS.editor).toContain('Из заметок:');
     expect(PERSONA_PROMPTS.editor).toContain('— — —');
@@ -46,6 +52,16 @@ describe('Q-1: тексты промптов', () => {
     const banned = /Thought Detective|Core Aspiration|Micro-Action/;
     for (const id of ['cbt', 'coach', 'group_psychology'] as const) {
       expect(PERSONA_PROMPTS[id]).not.toMatch(banned);
+    }
+  });
+
+  it('W-5: CBT в detailed-режиме не обещает 2–3 вопроса', () => {
+    // Общее правило ОДИН ВОПРОС и обещание чейнджлога 0.9.33 противоречили этой
+    // строке: в длинном режиме персона получала «2–3 Socratic questions».
+    expect(PERSONA_PROMPTS.cbt).not.toContain('2–3 Socratic');
+    expect(PERSONA_PROMPTS.cbt).toContain('one Socratic question');
+    for (const id of Object.keys(PERSONA_PROMPTS) as Array<keyof typeof PERSONA_PROMPTS>) {
+      expect(PERSONA_PROMPTS[id]).not.toMatch(/2.3 Socratic/);
     }
   });
 });

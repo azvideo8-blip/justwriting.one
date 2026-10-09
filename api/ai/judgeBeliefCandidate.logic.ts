@@ -4,6 +4,7 @@ import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { generate } from './provider';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 import { chargeCall, parseCharge, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 
 const JUDGE_MODEL = process.env.AI_FACET_MODEL ?? 'deepseek/deepseek-v4-flash';
 
@@ -107,7 +108,7 @@ export async function judgeBeliefCandidateLogic(ctx: AiContext, uid: string, dat
     callRes.markProduced(result.text.length);
     await callRes.settle('done');
 
-    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judgeBeliefCandidate' }, reservation).catch(e => console.error('[ai] recordUsage failed (judgeBeliefCandidate)', e));
+    ctx.recordUsage(uid, result.tokensIn, result.tokensOut, { model: result.model, fn: 'judgeBeliefCandidate' }, reservation).catch(e => console.error('[ai] recordUsage failed (judgeBeliefCandidate)', safeErrorShape(e)));
 
     let txt = result.text.trim();
     if (txt.startsWith('```')) {

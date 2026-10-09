@@ -1,6 +1,7 @@
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIEmbeddingService } from '../AIEmbeddingService';
 import { topKMultiWithChunkIndex } from '../../utils/vectorSearch';
+import { LITE_FLOOR } from '../../utils/retrieval/types';
 import { reportError } from '../../../../shared/errors/reportError';
 import { formatDateYYYYMMDD } from './corpusStats';
 import { isExcludedFromAI } from '../../utils/isExcludedFromAI';
@@ -29,7 +30,10 @@ export async function buildLiteRetrievalBlock(deps: LiteRetrievalDeps): Promise<
       return true;
     }).map(d => d.id));
     const filteredEmb = allEmb.filter(e => usable.has(e.documentId));
-    const results = topKMultiWithChunkIndex(turnEmb, filteredEmb.map(e => ({ id: e.documentId, vectors: e.vectors })), 3);
+    const results = topKMultiWithChunkIndex(turnEmb, filteredEmb.map(e => ({ id: e.documentId, vectors: e.vectors })), 3)
+      // П-4: лёгкий поиск без порога превращался в шум на запросах, где ответа
+      // в архиве нет. Сравниваем с исходным косинусом, не с ранговым значением.
+      .filter(r => ((r as { rawScore?: number }).rawScore ?? r.score) >= LITE_FLOOR);
     if (results.length === 0) return null;
     const parts = [];
     let idx = 0;

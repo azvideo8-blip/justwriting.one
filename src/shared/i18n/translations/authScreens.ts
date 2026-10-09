@@ -53,8 +53,8 @@ export const authScreensTranslations: Translations = {
     en: 'The provider is RouterAI (Russia). It does not store request contents, but by default it may route requests to overseas services that compute responses and do not provide such guarantees.',
   },
   privacy_consent_third_party_p3: {
-    ru: 'Голосовой ввод (диктовка) использует встроенное распознавание речи браузера: аудиозапись передаётся серверам вендора браузера (Google или Apple) для перевода в текст.',
-    en: 'Voice input (dictation) uses browser-native speech recognition: audio recordings are transmitted to browser vendor servers (Google or Apple) for speech-to-text transcription.',
+    ru: 'Голосовой ввод (диктовка) использует встроенное распознавание речи браузера: аудиозапись передаётся серверам вендора браузера (Google или Apple) для перевода в текст. Если вы вошли в аккаунт и согласились на обработку ИИ, распознанный текст затем отправляется нашему ИИ-сервису, чтобы расставить знаки препинания; слова при этом не меняются.',
+    en: 'Voice input (dictation) uses browser-native speech recognition: audio recordings are transmitted to browser vendor servers (Google or Apple) for speech-to-text transcription. If you are signed in and have agreed to AI processing, the recognised text is then sent to our AI service to add punctuation; the words are not changed.',
   },
   privacy_consent_third_party_p4: {
     ru: 'Если в заметке упомянуты другие люди, их слова и обстоятельства уходят вместе с текстом. Отдельной картотеки упомянутых людей приложение не ведёт.',

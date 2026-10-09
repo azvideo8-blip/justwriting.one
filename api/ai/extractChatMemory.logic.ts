@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { sanitizeAiInput, sanitizeAiResponse, hasInjectionAttempt, isIrrealis } from './pure';
 import { generate } from './provider';
+import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 import { chargeCall, MEMORY_EXTRACT_MAX_MESSAGES, MEMORY_EXTRACT_MAX_MESSAGE_CHARS, INTERNAL_CALL_MAX_INPUT_CHARS, estimateInputTokens } from '../../src/shared/ai/aiPolicy.js';
@@ -36,6 +37,27 @@ const SYSTEM_PROMPT = `Извлеки долговременные единиц�
 
 const VALID_KINDS = ['fact', 'insight', 'commitment', 'preference'];
 
+// ED-6: 1000 токенов — потолок, который выкачка упирала на длинном диалоге
+// (запись ровно в 1000 выходных токенов = обрезанный массив).
+const MAX_OUTPUT_TOKENS = 2000;
+
+/** ED-6: ответ обрезан на середине массива — собираем только целые объекты.
+ *  Обрыв всегда в хвосте, поэтому неполный последний объект в регулярку не
+ *  попадает и теряется один, а не весь вывод. */
+export function salvageMemories(text: string): { kind: string; text: string }[] {
+  const out: { kind: string; text: string }[] = [];
+  for (const m of text.matchAll(/\{[^{}]*\}/g)) {
+    try {
+      const obj = JSON.parse(m[0]) as unknown;
+      if (obj && typeof obj === 'object') {
+        const { kind, text: body } = obj as { kind?: unknown; text?: unknown };
+        if (typeof kind === 'string' && typeof body === 'string') out.push({ kind, text: body });
+      }
+    } catch { /* объект с обрывом или мусором — пропускаем */ }
+  }
+  return out;
+}
+
 export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
   if (!parsed.success) {
@@ -53,7 +75,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     .join('\n\n');
 
   const inputEstimate = estimateInputTokens([SYSTEM_PROMPT, conversationText]);
-  const reservation = await ctx.tryReserveGlobalRequest(1000 + inputEstimate);
+  const reservation = await ctx.tryReserveGlobalRequest(MAX_OUTPUT_TOKENS + inputEstimate);
   if (reservation && 'error' in reservation) {
     await callRes.settle('failed');
     throw new AiError('unavailable', 'Database temporarily unavailable.');
@@ -68,7 +90,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     const result = await generate({
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: `[CONVERSATION_START]\n${conversationText}\n[CONVERSATION_END]` }],
-      maxTokens: 1000,
+      maxTokens: MAX_OUTPUT_TOKENS,
       model: FACET_MODEL,
       abortMs: 50_000,
     });
@@ -76,7 +98,7 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     callRes.markProduced(result.text.length);
 
     callRes.recordUsage(result.tokensIn, result.tokensOut, { model: result.model, fn: 'extractMemory' }).catch(e =>
-      console.error('[AI memory] usage record failed:', e),
+      console.error('[AI memory] usage record failed:', safeErrorShape(e)),
     );
 
     const cleaned = sanitizeAiResponse(result.text).trim();
@@ -91,6 +113,10 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
           memories = JSON.parse(jsonMatch[0]);
         } catch { /* return empty */ }
       }
+      // ED-6: обрезанный массив не имеет закрывающей скобки, и прежний фолбэк на
+      // этом молча терял весь вывод — «ничего не сохранено» при полностью
+      // оплаченном запросе. Собираем целые объекты.
+      if (memories.length === 0) memories = salvageMemories(cleaned);
     }
 
     if (!Array.isArray(memories) || memories.length === 0) {
@@ -111,7 +137,9 @@ export async function extractChatMemoryLogic(ctx: AiContext, uid: string, data: 
     return { memories };
   } catch (e) {
     await callRes.settle('failed');
-    console.error('[AI memory] failed:', e);
+    // W-4: текст ошибки провайдера может цитировать вход, то есть текст
+    // заметок человека — в журнал идёт форма ошибки, не сообщение.
+    console.error('[AI memory] failed:', safeErrorShape(e));
     const msg = String((e as { message?: string })?.message ?? e);
     if (/spending cap|quota|RESOURCE_EXHAUSTED|exceeded/i.test(msg)) {
       throw new AiError('resource-exhausted', 'AI service is temporarily unavailable (quota/spend limit). Try again later.');

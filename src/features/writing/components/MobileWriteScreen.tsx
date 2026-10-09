@@ -8,6 +8,7 @@ import { formatTime } from '../../../core/utils/formatTime';
 import { AnimatePresence, motion } from 'motion/react';
 import { MobileFocusScreen } from './MobileFocusScreen';
 import { MobileWriteToolbar } from './MobileWriteToolbar';
+import { DictationChrome } from './DictationBar';
 import { MobileGoalSheet } from './MobileGoalSheet';
 import { getFontStack } from '../utils/fontStack';
 import { KeystrokeTracker } from '../utils/keystrokeTracker';
@@ -352,6 +353,8 @@ export function MobileWriteScreen({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <DictationChrome />
 
       <AnimatePresence>
         {!showZen && (

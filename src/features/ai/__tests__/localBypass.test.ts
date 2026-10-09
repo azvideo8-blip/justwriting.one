@@ -73,11 +73,23 @@ describe('local bypass pre-pass (T-3)', () => {
       lastSessionAt: Date.now(),
       version: 1,
     } as any);
+    // Второй кандидат с тем же именем: гейт обхода по локальному совпадению в
+    // `searchNotes` (literalBypass) требует ДВА попадания либо одно + дословную
+    // цитату в запросе. Одно попадание сознательно считается дешёвым.
+    await db.put('documents', {
+      id: 'doc_entity_match_2',
+      title: 'Командировка',
+      lastSessionAt: Date.now(),
+      version: 1,
+    } as any);
 
     // Mock version store
     vi.spyOn(LocalVersionService, 'getLatestContent').mockImplementation(async (id) => {
       if (id === 'doc_entity_match') {
         return 'Мы приехали в город Санкт-Петербург.';
+      }
+      if (id === 'doc_entity_match_2') {
+        return 'В Петербурге совещание перенесли на четверг.';
       }
       return '';
     });
@@ -92,12 +104,28 @@ describe('local bypass pre-pass (T-3)', () => {
       contentHash: 'test-hash',
       processedAt: Date.now(),
     });
+    await db.put('aiEmbeddings', {
+      documentId: 'doc_entity_match_2',
+      vectors: [new Array(1536).fill(0.1)],
+      chunkTexts: ['В Петербурге совещание перенесли на четверг.'],
+      model: 'test',
+      dim: 1536,
+      contentHash: 'test-hash-2',
+      processedAt: Date.now(),
+    });
 
-    // Perform search with a capitalized named entity >= 3 chars
-    const result = await searchNotesMulti(['Расскажи про Санкт-Петербург'], 5);
+    // ВАЖНО (П-2): прежний запрос был «Расскажи про Санкт-Петербург» с ОДНОЙ
+    // заметкой, и обход держался не на именованном совпадении, а на мёртвом
+    // пороге `topScore >= 0.88`: запрос и заметка векторизованы одним mock-вектором,
+    // косинус = 1,0. Токен с дефисом `extractNamedEntities` именем не считает
+    // (в регулярке нет `-`), поэтому до П-2 тест проверял не то, что заявлял.
+    // Теперь сюжет честный: имя без дефиса и два кандидата с ним. Дефисные
+    // топонимы («Санкт-Петербург» целиком) парсер по-прежнему не видит — это
+    // открытая находка, а не регрессия П-2.
+    const result = await searchNotesMulti(['Расскажи про Петербург'], 5);
     const results = result.notes;
-    
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0]?.documentId).toBe('doc_entity_match');
+
+    expect(results.length).toBeGreaterThan(1);
+    expect(results.map(r => r.documentId)).toContain('doc_entity_match');
   });
 });

@@ -133,5 +133,34 @@ describe('Q-10: плашка сверки поста с заметкой', () =>
     expect(plate).toContain('Оля');
     expect(plate).toContain('Тимур');
   });
+
+  // ED-2: неубранное имя — предупреждение перед публикацией, и оно над плашкой.
+  it('оставленное имя — предупреждение надо плашкой, плашка на месте', async () => {
+    renderChat('editor', 'Оля позвонила утром, и это надо учесть.\n\n— — —\nИз заметок: [#local_editor_note]');
+    await waitFor(() => expect(screen.getByText(/Сверка с заметкой/)).toBeInTheDocument());
+    const warning = screen.getByText(/В посте остались имена/);
+    expect(warning.textContent).toContain('Оля');
+    // ED-2 + ревизия: заглавное внутри фразы — это и топоним, поэтому плашка
+    // просит проверить, а не утверждает, что нашла только имена.
+    expect(warning.textContent).toContain('имена или названия');
+    expect(warning.textContent).toContain('проверь перед публикацией');
+    // Плашка сверки не поехала: имена убранных и числа как раньше.
+    const plate = screen.getByText(/Сверка с заметкой/).parentElement?.textContent ?? '';
+    expect(plate).toContain('убраны имена — Тимур');
+    expect(plate).toContain('убраны числа');
+    // Предупреждение стоит первым в DOM относительно плашки.
+    const plateEl = screen.getByText(/Сверка с заметкой/).closest('div');
+    const warnEl = warning.closest('div');
+    expect(warnEl && plateEl ? warnEl.compareDocumentPosition(plateEl) & Node.DOCUMENT_POSITION_FOLLOWING : 0).toBeTruthy();
+  });
+
+  it('нечего показывать — ни плашки, ни предупреждения', async () => {
+    const db = await getLocalDb();
+    await db.put('versions', { id: 'ver_3', documentId: NOTE_ID, version: 3, content: 'Каркас держится, обшивку отложим.' } as never);
+    renderChat('editor', 'Каркас держится, обшивку отложим.\n\n— — —\nИз заметок: [#local_editor_note]');
+    await new Promise(r => setTimeout(r, 30));
+    expect(screen.queryByText(/Сверка с заметкой/)).toBeNull();
+    expect(screen.queryByText(/В посте остались имена/)).toBeNull();
+  });
 });
 
