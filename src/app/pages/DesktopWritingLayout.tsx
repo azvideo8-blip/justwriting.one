@@ -191,7 +191,13 @@ export function DesktopWritingLayout() {
                 onKeyDown={handleEditorKeyDown}
                 onInput={handleEditorInput}
               />
-              <DictationChrome />
+              {/* Панель записи — поверх низа редактора, а не под ним: редактор
+                  занимает всю высоту блока с overflow-hidden, и панель «после»
+                  него оказывалась за обрезанным краем — человек не видел записи
+                  вовсе (0.9.34, Яндекс на Mac). */}
+              <div className="absolute inset-x-0 bottom-0 z-20">
+                <DictationChrome />
+              </div>
             </>
             )}
             <SessionGlow

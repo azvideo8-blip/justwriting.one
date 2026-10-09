@@ -45,13 +45,13 @@ describe('распознавание: жизненный цикл экземпл
     expect(rec.start).toHaveBeenCalledTimes(1);
   });
 
-  it('Z2: после ошибки network (с доставкой) onend не перезапускает движок', () => {
+  it('Z2: после непродолжаемого сбоя (с доставкой) onend не перезапускает движок', () => {
     const onSessionEnd = vi.fn();
     const { result } = renderHook(() => useSpeechInput({ onSessionEnd }), { wrapper: LanguageProvider });
     act(() => { result.current.startListening(); });
     const rec = instances[0]!;
     act(() => { rec.onstart?.(); rec.onresult?.(ev(0, 'раз')); });
-    act(() => { rec.onerror?.({ error: 'network' }); rec.onend?.(); });
+    act(() => { rec.onerror?.({ error: 'service-not-allowed' }); rec.onend?.(); });
     expect(onSessionEnd).toHaveBeenCalledWith('раз');
     expect(rec.start).toHaveBeenCalledTimes(1);
   });

@@ -50,6 +50,22 @@ interface UseSpeechInputProps {
 // на том же экземпляре, но два перезапуска подряд без нового результата — это
 // захлебнувшийся движок, а не тишина человека: дальше крутить бессмысленно.
 const RESTART_GUARD_MS = 1000;
+// Подряд идущие перезапуски без единого результата (человек замолчал, сеть
+// пропала). Дальше крутить микрофон вхолостую нельзя: отдаём собранное.
+const MAX_EMPTY_RESTARTS = 3;
+// Сбои, после которых сессию надо продолжить, а не закончить: «network» Chrome и
+// Яндекс-браузер отдают примерно через минуту непрерывной записи, «no-speech» —
+// на паузе. До 0.9.34 фразы вставлялись по одной, и такой обрыв терял одну
+// фразу; теперь текст копится до Stop, и обрыв не должен заканчивать запись.
+const RECOVERABLE_ERRORS = new Set(['network', 'no-speech']);
+
+const fold = (s: string) => s.trim().toLowerCase();
+/** Тот же финал повторно или его наращивание (Android Chrome шлёт «привет»,
+ *  потом «привет мир» в тот же слот) — это не новая фраза. */
+function sameOrGrowing(prev: string, next: string): boolean {
+  const a = fold(prev), b = fold(next);
+  return a === b || b.startsWith(a) || a.startsWith(b);
+}
 
 export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
   const [isListening, setIsListening] = useState(false);
@@ -82,6 +98,7 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
   const deliveredRef = useRef(false);
   const resultsSinceRestartRef = useRef(0);
   const lastRestartAtRef = useRef<number | null>(null);
+  const emptyRestartsRef = useRef(0);
   const { language, t } = useLanguage();
   const { showToast } = useToast();
 
@@ -155,6 +172,7 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
     deliveredRef.current = false;
     resultsSinceRestartRef.current = 0;
     lastRestartAtRef.current = null;
+    emptyRestartsRef.current = 0;
     setLiveText('');
 
     const recognition = new SpeechRecognition();
@@ -182,7 +200,17 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
         if (!res) continue;
         const transcript = res[0]?.transcript ?? '';
         if (res.isFinal) {
-          finalsRef.current[indexOffsetRef.current + i] = transcript;
+          let slot = indexOffsetRef.current + i;
+          const prev = finalsRef.current[slot];
+          // Яндекс-браузер в continuous-режиме отдаёт каждую новую фразу снова
+          // под индексом 0: запись по индексу оставляла только последнюю фразу
+          // («что-то вставилось, но не всё», 0.9.34). Другая фраза в занятом
+          // слоте — новая фраза: она встаёт в конец, и счёт сдвигается за неё.
+          if (prev && !sameOrGrowing(prev, transcript)) {
+            slot = finalsRef.current.length;
+            indexOffsetRef.current = slot - i;
+          }
+          finalsRef.current[slot] = transcript;
           // Финальная фраза пришла на то же место, где висел черновик, — хвост
           // больше не нужен, иначе liveText покажет слово дважды.
           interimRef.current = '';
@@ -202,8 +230,9 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
       // флаг новой сессии.
       if (!isCurrent()) return;
       if (event.error !== 'aborted') {
-        if (event.error === 'no-speech' && finalsRef.current.filter(Boolean).length === 0) {
-          // Тишина: ни тоста, ни вставки.
+        if (RECOVERABLE_ERRORS.has(event.error) && !wantStopRef.current) {
+          // Сессию продолжит onend (ветка перезапуска); если перезапуски пойдут
+          // вхолостую, там же собранное и отдадут.
         } else {
           let msg = t('voice_error') + ': ' + event.error;
           if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
@@ -216,8 +245,11 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
           // за onerror обычно следует onend, а туда-обратно уже не дойдёт.
           deliver();
         }
+      } else {
+        setIsListening(false);
       }
-      setIsListening(false);
+      // Для продолжаемых сбоев isListening не сбрасываем: иначе панель записи
+      // мигала бы на каждом перезапуске, а метр заново просил бы микрофон.
     };
 
     recognition.onend = () => {
@@ -238,6 +270,11 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
       const lastRestart = lastRestartAtRef.current;
       if (lastRestart !== null && resultsSinceRestartRef.current === 0 && now - lastRestart < RESTART_GUARD_MS) {
         showToast(t('voice_error') + ': no-restart', 'error');
+        deliver();
+        return;
+      }
+      emptyRestartsRef.current = resultsSinceRestartRef.current === 0 ? emptyRestartsRef.current + 1 : 0;
+      if (emptyRestartsRef.current > MAX_EMPTY_RESTARTS) {
         deliver();
         return;
       }

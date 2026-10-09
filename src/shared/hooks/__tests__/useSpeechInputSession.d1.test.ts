@@ -166,13 +166,16 @@ describe('D-1: сессия диктовки', () => {
     expect(onSessionEnd).toHaveBeenCalledWith('Раз, два.');
   });
 
-  it('(f) network с распознанным текстом → тост и доставка; no-speech без текста → ни того, ни другого', () => {
+  // 0.9.34 (Яндекс на Mac): «network» приходит примерно через минуту записи и
+  // теперь продолжаемый (см. useSpeechInputYandex.hotfix.test.ts). Путь «сбой с
+  // доставкой» проверяется на непродолжаемом сбое.
+  it('(f) непродолжаемый сбой с распознанным текстом → тост и доставка; no-speech без текста → ни того, ни другого', () => {
     const first = mount();
     act(() => { first.result.current.startListening(); });
     const recA = instances[0]!;
     act(() => { recA.onstart?.(); });
     act(() => { recA.onresult?.(resultEvent(0, [{ transcript: 'Успели поймать.', isFinal: true }])); });
-    act(() => { recA.onerror?.({ error: 'network' }); });
+    act(() => { recA.onerror?.({ error: 'service-not-allowed' }); });
     expect(showToastMock).toHaveBeenCalled();
     expect(first.onSessionEnd).toHaveBeenCalledWith('Успели поймать.');
     // onend после onerror не должен доставлять второй раз.
