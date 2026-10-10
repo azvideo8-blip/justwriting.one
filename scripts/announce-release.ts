@@ -3,6 +3,7 @@
  * выкатки. Текст — верхняя запись CHANGELOG (то же, что видно в приложении).
  * Сбой объявления выкатку не роняет: прод уже обновлён и проверен.
  */
+import { setDefaultResultOrder } from 'node:dns';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -42,7 +43,33 @@ function build(version: string, items: ChangelogRelease['items'], dropped: numbe
   return text;
 }
 
+/**
+ * Сеть до Telegram с прода нестабильна: по IPv4 запрос таймаутит три раза из
+ * четырёх, по IPv6 проходит (замер 10.10.2026, объявление 0.9.35 потерялось на
+ * «fetch failed»). Сетевой сбой и 429/5xx повторяются; 4xx — нет: это ответ.
+ */
+export async function sendWithRetry(
+  send: () => Promise<Response>,
+  attempts = 4,
+  delayMs = 5_000,
+): Promise<Response> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, delayMs));
+    try {
+      const res = await send();
+      if (res.ok || (res.status < 500 && res.status !== 429)) return res;
+      lastError = new Error(`HTTP ${res.status}`);
+      if (i === attempts - 1) return res;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError;
+}
+
 async function main(): Promise<void> {
+  setDefaultResultOrder('ipv6first');
   const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chatId, TELEGRAM_THREAD_ID: threadId } = process.env;
   if (!token || !chatId) {
     console.log('Объявление пропущено: не заданы TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.');
@@ -66,7 +93,7 @@ async function main(): Promise<void> {
   if (!text) {
     console.log(`Версия ${release.version} служебная — не объявляем.`);
   } else {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const res = await sendWithRetry(() => fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -76,7 +103,8 @@ async function main(): Promise<void> {
         parse_mode: 'HTML',
         disable_web_page_preview: true,
       }),
-    });
+      signal: AbortSignal.timeout(15_000),
+    }));
     if (!res.ok) {
       // Тело ответа Telegram не содержит токена; URL с токеном не печатаем.
       console.log(`::warning::Объявление не отправлено: Telegram ответил ${res.status} ${await res.text()}`);
