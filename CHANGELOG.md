@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.35 — 2026-10-10
+
+- **[RU]** Разбор приложенной заметки видит похожие записи других дней: ИИ может связать сегодняшнее с тем, что было раньше, со ссылкой на ту запись — и не путает её с этой заметкой.
+- **[EN]** Discussing an attached note, the AI now sees similar entries from other days: it can link today to what happened before, with a link to that entry — without mixing it up with this note.
+- **[RU]** Найденная заметка попадает в разговор тем местом, о котором спрашивают, а не первыми строками — главное в длинных записях больше не теряется.
+- **[EN]** A found note enters the conversation at the part you asked about, not its first lines — the main point of long entries is no longer lost.
+- **[RU]** На «перечисли все мои … за октябрь» ИИ видит все записи месяца по датам и не утверждает, что перечислил всё, если видел не всё.
+- **[EN]** On «list all my … for October» the AI sees every entry of the month by date and no longer claims completeness when it saw only part.
+- **[RU]** Сомнение остаётся сомнением: «не уверен, хочу ли» ИИ не превращает в «не хочешь».
+- **[EN]** A doubt stays a doubt: the AI no longer turns «not sure I want» into «you don’t want».
+- **[RU]** «Редактор»: предупреждает, если в посте упомянута работа с клиентами; «сделай подробнее» добирает материал из заметки, а не досочиняет; короткое «давай, собери» после найденных записей их не теряет.
+- **[EN]** The «Editor» warns when a post mentions work with clients; «make it longer» uses material from the note instead of inventing; a short «go ahead» after found entries keeps them.
+- **[RU]** Профиль описывает вас, а не людей, о которых вы пишете.
+- **[EN]** Your profile describes you, not the people you write about.
+
 ## 0.9.34 — 2026-10-09
 
 - **[RU]** Диктовка стала одной записью: пока говорите, видно распознаваемый текст и волну голоса; «Стоп» вставляет текст, «Отмена» его выбрасывает.
