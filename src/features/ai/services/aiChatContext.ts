@@ -33,6 +33,7 @@ import { buildProactiveBlock } from './chatContext/proactive';
 import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
+import { buildRelatedDaysBlock } from './chatContext/relatedDays';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { postBody } from '../utils/editorDiff';
 import { nameForms, NEVER_MATCH } from '../utils/nameForms';
@@ -105,6 +106,63 @@ export async function postTopicQuery(
   }
   const body = postBody(lastReply.content).replace(/\s+/g, ' ').trim().slice(0, 600);
   return body || undefined;
+}
+
+/**
+ * LD-6: короткое согласие после широкого хода с результатами держит область
+ * предыдущего хода. Третий ход «давай, собери, только без …» turnScope считает
+ * строгим, а строгий возврат стоит раньше липкого поиска — найденные заметки
+ * исчезали, и Редактор собирал пост только из приложенной заметки.
+ * Список держим коротким: это дословные ответы на предложение, а не тема хода.
+ */
+const CONSENT_WORDS = ['да', 'давай', 'собери', 'делай', 'ок', 'хорошо', 'согласен', 'го'] as const;
+const CONSENT_MAX_WORDS = 8;
+// Чем закончился последний ответ, чтобы согласие относилось к нему: вопрос или
+// явное предложение сделать.
+const PROPOSAL_TAIL = /(?:хочешь|предлож|собер|сдела|давай)/iu;
+
+function isConsentTurn(text: string): boolean {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > CONSENT_MAX_WORDS) return false;
+  const first = (words[0] ?? '').replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '').toLowerCase();
+  return (CONSENT_WORDS as readonly string[]).includes(first);
+}
+
+function endsWithProposal(reply: string): boolean {
+  const tail = reply.trim().slice(-200);
+  return /\?\s*$/.test(tail) || PROPOSAL_TAIL.test(tail);
+}
+
+/**
+ * LD-7: позиция материала в найденной заметке — по чанку, ближайшему к вектору
+ * запроса. Без этого окно бралось с начала заметки, а дневниковая запись —
+ * 5–6 тысяч знаков, и главное в ней стоит во второй половине.
+ * null — чанков нет, их текст не сошёлся с телом (заметку правили после
+ * индексации), запроса без вектора нет, или заметка короче окна: тогда whole
+ * note и так попадает в контекст, а сдвиг только отрезал бы её голову.
+ */
+function bestChunkPosition(
+  content: string,
+  emb: { vectors?: number[][]; chunkTexts?: string[] } | undefined,
+  queryEmb: number[] | undefined,
+  windowChars: number,
+): number | null {
+  const texts = emb?.chunkTexts;
+  const vectors = emb?.vectors;
+  if (!queryEmb?.length || !texts?.length || !vectors?.length) return null;
+  if (content.length <= windowChars) return null;
+  let best = -1;
+  let bestSim = -Infinity;
+  for (let i = 0; i < Math.min(texts.length, vectors.length); i++) {
+    const v = vectors[i];
+    const t = texts[i];
+    if (!v?.length || !t) continue;
+    const sim = cosineSimilarity(queryEmb, v);
+    if (sim > bestSim) { bestSim = sim; best = i; }
+  }
+  if (best < 0) return null;
+  const pos = content.indexOf(texts[best] ?? '');
+  return pos >= 0 ? pos : null;
 }
 
 export function useAIChatContext(personaId: string): {
@@ -192,7 +250,16 @@ export function useAIChatContext(personaId: string): {
       onDailyLimitError: () => { degradedDueToDailyLimit = true; },
     });
     // Строгий ход по заметке ничего не ищет — и вектор реплики ему не нужен.
-    const strictNoteTurn = params.scope === 'note' && !!attached;
+    // LD-6: короткое согласие после широкого хода с результатами и предложением
+    // в конце ответа — продолжение того хода, а не новый строгий разбор заметки.
+    const lastAssistantReply = [...params.messageHistory].reverse().find(m => m.role === 'assistant');
+    const consentContinuation = params.scope === 'note' && !!attached
+      && stickyTurnsRef.current > 0
+      && lastSearchQueryRef.current.length > 0
+      && !!lastAssistantReply
+      && isConsentTurn(text)
+      && endsWithProposal(lastAssistantReply.content);
+    const strictNoteTurn = params.scope === 'note' && !!attached && !consentContinuation;
     // Кризис ищем и в приложенной заметке: текст хода теперь — только вопрос.
     const crisis = detectRisk(attached ? `${text}\n${attached.content}` : text).isRisk;
     if (!strictNoteTurn && !smallTalk && text.trim().length > 0 && hasIndexingConsent(uid)) {
@@ -372,10 +439,27 @@ export function useAIChatContext(personaId: string): {
       // Название носит маркер в реплике человека (`[Прикреплена заметка: "…"]`),
       // поэтому список собирается из реплик этого хода, а не из блока.
       const turnText = [text, ...(params.messageHistory ?? []).filter(m => m.role === 'user').map(m => m.content)].join('\n');
+      // Фон из прошлых дней (0.9.35): суть похожих записей перед заметкой.
+      // Не для Редактора — его пост пишется из того, что дал автор, а других
+      // заметок он просит явно. Не для скрытой заметки — её вектор не читаем.
+      let related: ReturnType<typeof buildRelatedDaysBlock> = null;
+      if (effectivePersonaId !== 'editor' && attached?.documentId && !isAttachedExcluded && attachedBlock) {
+        try {
+          related = buildRelatedDaysBlock(
+            attached.documentId,
+            await AIEmbeddingService.getAll(),
+            await (docsSnap ??= loadDocumentSnapshot()),
+            await (summariesSnap ??= loadSummarySnapshot()),
+          );
+        } catch (e) {
+          reportError(e, { action: '[useAIChatContext] related days failed' });
+        }
+      }
+      if (related) injectedDocumentIds.push(...related.ids);
       return {
         userPortrait: userPortrait ?? null,
         customPersona: customSystemPrompt,
-        searchContext: noteBlock,
+        searchContext: related ? `${related.block}\n\n${noteBlock}` : noteBlock,
         documentMood: mood,
         memoryContext: null,
         injectedDocumentIds: [...new Set(injectedDocumentIds)],
@@ -482,6 +566,7 @@ export function useAIChatContext(personaId: string): {
 
       let handledByTemporal = false;
       let skipSemantic = false;
+      let periodWindow: { minTime: number; maxTime: number } | undefined;
       let searchFailed = false;
       let semanticIndexMissing = false;
       let allNotes: RetrievedNote[] = [];
@@ -502,6 +587,7 @@ export function useAIChatContext(personaId: string): {
         db,
       });
       handledByTemporal = temporal.outcome.handledByTemporal;
+      periodWindow = temporal.periodWindow;
       skipSemantic = temporal.outcome.skipSemantic;
       minTime = temporal.outcome.minTime;
       maxTime = temporal.outcome.maxTime;
@@ -701,6 +787,9 @@ export function useAIChatContext(personaId: string): {
 
             const CONTEXT_RADIUS = 500;
             const PER_NOTE_CHARS = 2_000;
+            // LD-7: индекс чанков заметки — справочник по id, а не поиск по
+            // массиву на каждую заметку хода.
+            const embByDoc = new Map((allEmbeddings ?? []).map(e => [e.documentId, e]));
             const selectedNotes: Array<{
               note: typeof scored[0]['note'];
               snippet: string;
@@ -728,9 +817,19 @@ export function useAIChatContext(personaId: string): {
                   snippet = n.content.slice(0, PER_NOTE_CHARS);
                 }
               } else {
-                snippet = n.content.length > PER_NOTE_CHARS
-                  ? n.content.slice(0, PER_NOTE_CHARS) + '…'
-                  : n.content;
+                // LD-7: без имени в запросе окно берётся вокруг чанка,
+                // ближайшего к вектору запроса, а не строго с начала заметки.
+                const chunkPos = bestChunkPosition(n.content, embByDoc.get(n.documentId), queryEmb, PER_NOTE_CHARS);
+                if (chunkPos === null) {
+                  snippet = n.content.length > PER_NOTE_CHARS
+                    ? n.content.slice(0, PER_NOTE_CHARS) + '…'
+                    : n.content;
+                } else {
+                  const start = Math.max(0, chunkPos - CONTEXT_RADIUS);
+                  snippet = n.content.slice(start, start + PER_NOTE_CHARS);
+                  if (start > 0) snippet = '…' + snippet;
+                  if (start + PER_NOTE_CHARS < n.content.length) snippet += '…';
+                }
               }
 
               setAIStage('summaries');
@@ -953,6 +1052,23 @@ export function useAIChatContext(personaId: string): {
           reportError(e, { action: '[useAIChatContext] contact doors failed' });
         }
       }
+
+      // LD-8: «за период N заметок, в материалах полный текст у M». До этого ход
+      // «перечисли все мои X за октябрь» отвечал из топ-10 и утверждал, что это
+      // все записи; теперь полнота материалов сказано вслух.
+      if (periodWindow) {
+        const docsAll = await (docsSnap ??= loadDocumentSnapshot());
+        const inPeriod = [...docsAll.values()].filter(d => !isExcludedFromAI(d)
+          && typeof d.lastSessionAt === 'number'
+          && d.lastSessionAt >= periodWindow.minTime && d.lastSessionAt <= periodWindow.maxTime);
+        const injected = new Set(injectedDocumentIds);
+        const fullText = inPeriod.filter(d => injected.has(d.id)).length;
+        if (inPeriod.length > 0 && fullText < inPeriod.length) {
+          searchContext = (searchContext ?? '') +
+            `\n\n[Полнота материалов] за период ${inPeriod.length} заметок, в материалах полный текст у ${fullText}. ` +
+            `Остальных текстов у тебя нет — не говори, что перечислил все записи периода.`;
+        }
+      }
     } else {
       searchContext =
         `ВНИМАНИЕ: пользователь просит разобрать заметку, но ЕЁ ТЕКСТ НЕ ПРИЛОЖЕН к этому сообщению и его нет в контексте. ` +
@@ -1031,6 +1147,7 @@ export function useAIChatContext(personaId: string): {
       allowedFirstSeenDates: [...new Set(allowedFirstSeenDates)],
       degradedReason: degradedDueToDailyLimit ? 'daily_limit' : undefined,
       crisis,
+      ...(consentContinuation ? { effectiveScope: 'wide' as const } : {}),
     };
 
   };

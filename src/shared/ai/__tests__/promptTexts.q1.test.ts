@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  NOTES_GUARD_BASE,
   OPEN_QUESTION_POOL,
   PERSONA_PROMPTS,
   REFLECTION_GUIDE,
@@ -63,5 +64,17 @@ describe('Q-1: тексты промптов', () => {
     for (const id of Object.keys(PERSONA_PROMPTS) as Array<keyof typeof PERSONA_PROMPTS>) {
       expect(PERSONA_PROMPTS[id]).not.toMatch(/2.3 Socratic/);
     }
+  });
+
+  // LD-2: сомнение человека не имеет превращаться в вывод о нём.
+  it('LD-2: сомнение остаётся сомнением', () => {
+    expect(NOTES_GUARD_BASE).toContain('СОМНЕНИЕ ОСТАЁТСЯ СОМНИЕМ');
+    expect(NOTES_GUARD_BASE).toContain('не превращай в вывод, решение или факт о нём');
+  });
+
+  // LD-5: «подробнее» добирается только неиспользованным материалом.
+  it('LD-5: длина добирается материалом заметки, а не выдумкой', () => {
+    expect(PERSONA_PROMPTS.editor).toContain('is filled ONLY with material from the notes that this version does not use yet');
+    expect(PERSONA_PROMPTS.editor).toContain('make the post as long as the material allows');
   });
 });

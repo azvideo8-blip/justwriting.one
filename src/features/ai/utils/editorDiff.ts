@@ -11,6 +11,8 @@ export interface PostDiff {
   namesKept: string[];
   rolesAdded: string[];
   numbersRemoved: string[];
+  /** LD-1: в посте назван клиент, пациент, сессия или терапия. */
+  clientStoryInPost: boolean;
 }
 
 const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
@@ -92,6 +94,29 @@ function nameSurvives(postWord: string, name: string): boolean {
 const NUMBER_RE = /(?:\d{1,3}[ \u00A0]\d{3}(?:[ \u00A0]\d{3})*|\d+(?:[.,:]\d+)?)/g;
 const SUM_RE = /\d[\d\s.,:]{0,9}\s*(?:тыс\.?|руб(?:лей|ля|ль)?|₽|€|\$)/gi;
 
+// LD-1: для автора, который работает с людьми, сеанс клиента — не «ещё один
+// персонаж без имени», а чужая история в уязвимом положении. PRIVACY Редактора
+// этого не покрывает, поэтому плашка предупреждает по маркеру слова. Правило в
+// тексте промпта мерилось (10 прогонов на руку) и откатано: замер не сдвинулся.
+const CLIENT_STORY_RE = new RegExp(
+  `${LB}(?:клиент\\p{L}*|пациент\\p{L}*|терапи\\p{L}*|на сессии(?![а-яёА-ЯЁ])|сессия с(?![а-яёА-ЯЁ]))${RB}`,
+  'iu',
+);
+// Исключение: сам автор был клиентом. Считается по двум оборотам — «у моего
+// терапевта» (родительный) под них не попадает, и там предупреждение останется
+// ложным: это известное слепое пятно правила.
+const OWN_THERAPY_RE = /мо(?:й|я|ему|ей) терапевт|на (?:свою|мою) терапию/i;
+const CLIENT_IN_NOTE_RE = /клиент|пациент/i;
+
+/**
+ * LD-1: пост упоминает работу с клиентами. Только тело поста — служебные строки
+ * модели после «— — —» не считаются.
+ */
+export function mentionsClientStory(post: string, source: string): boolean {
+  if (!CLIENT_STORY_RE.test(post)) return false;
+  return !(OWN_THERAPY_RE.test(source) && !CLIENT_IN_NOTE_RE.test(source));
+}
+
 /**
  * Что пост Редактора сделал с заметкой: какие имена и числа из неё пропали,
  * какие имена остались и какие роли появились. `post` — текст ответа до строки
@@ -150,7 +175,7 @@ export function diffPostAgainstNote(
     if (!post.includes(sum) && !post.includes(bare)) numbersRemoved.push(sum);
   }
 
-  return { namesRemoved, namesKept, rolesAdded, numbersRemoved };
+  return { namesRemoved, namesKept, rolesAdded, numbersRemoved, clientStoryInPost: mentionsClientStory(post, source) };
 }
 
 /** Текст поста — всё до первой строки «— — —» (после неё служебные строки модели). */

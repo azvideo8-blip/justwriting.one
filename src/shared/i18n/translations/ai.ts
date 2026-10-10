@@ -62,6 +62,9 @@ export const aiTranslations: Translations = {
   // попадают и топонимы с организациями (замер: 8 из 20 постов с названиями).
   // Плашка честно просит проверить, а не заменить.
   ai_editor_diff_names_kept: { ru: 'В посте остались имена или названия: {names} — проверь перед публикацией', en: 'Names or titles left in the post: {names} — check them before publishing' },
+  // LD-1: чужая история в публичном посте. Предупреждение, а не фильтр: ничего
+  // не вырезается, автор решает сам.
+  ai_editor_diff_client_story: { ru: 'В посте упомянута работа с клиентами — проверь, не раскрыта ли чужая история', en: 'The post mentions work with clients — check that someone else\u2019s story is not disclosed' },
   ai_degraded_daily_limit_chat: { ru: 'Дневной лимит исчерпан: ответ сформирован без поиска по заметкам (восстановится завтра)', en: 'Daily limit reached: answer generated without note search (resets tomorrow)' },
   ai_persona_delete_confirm_title: { ru: 'Удалить персону?', en: 'Delete persona?' },
   ai_persona_delete_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },

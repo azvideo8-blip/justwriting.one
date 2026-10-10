@@ -15,6 +15,10 @@ export interface ChatContextResult {
   degradedReason?: 'daily_limit' | undefined;
   /** Острый риск в реплике или приложенной заметке: UI показывает телефоны помощи. */
   crisis?: boolean;
+  /** Режим хода, если контекст его поменял (LD-6: согласие после широкого хода).
+   *  По нему строится правило заметки на сервере — иначе модель получала бы
+   *  «анализируй только заметку» рядом с результатами поиска. */
+  effectiveScope?: 'note' | 'wide' | undefined;
 }
 
 export interface BuildContextParams {

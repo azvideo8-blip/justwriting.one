@@ -499,7 +499,6 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
       const question = options?.question ?? text;
       const scope = effectiveAttached ? turnScope(question, { forceWide: options?.forceWide }) : undefined;
       const subjectNote = context.getAttachedNote();
-      const noteScope = scope ? noteScopeFor(scope, subjectNote) : undefined;
 
       // For attached notes the last user message goes to the API as a short
       // marker; the full note text travels via documentContent (see below).
@@ -574,6 +573,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         allowedFirstSeenDates,
         degradedReason,
         crisis,
+        effectiveScope,
       } = await context.buildContext({
         text: question,
         scope,
@@ -592,6 +592,12 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
 
       // Телефоны помощи показывает интерфейс, а не только модель в тексте ответа.
       if (crisis) setCrisisActive(true);
+
+      // LD-6 (ревью): контекст может расширить ход (согласие после широкого хода
+      // с найденными записями). Правило заметки для сервера строится по
+      // фактическому режиму, а не по turnScope реплики.
+      const turnMode = effectiveScope ?? scope;
+      const noteScope = turnMode ? noteScopeFor(turnMode, subjectNote) : undefined;
 
       setAIStage('answer');
       // Inject today's date so the model can reason about "вчера", "на этой неделе" etc.
@@ -779,7 +785,7 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
         await AIDialogueService.appendMessage(currentDialogue.id, text, savedText, savedReasoning, searchReq, degradedReason);
       }
       turnSaved = true;
-      setLastTurnScope(scope ?? null);
+      setLastTurnScope(turnMode ?? null);
       // Link the dialogue to the attached note so it stays grounded after reload.
       if (attached?.documentId && attached.documentId.startsWith('local_')) {
         await AIDialogueService.setDocumentId(currentDialogue.id, attached.documentId);

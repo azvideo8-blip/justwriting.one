@@ -160,9 +160,12 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
   // ED-2: неубранные имена — не строчка «что изменилось», а предупреждение перед
   // публикацией, поэтому оно над плашкой и в стилях accent-warning.
   const hasKept = diff.namesKept.length > 0;
+  // LD-1: чужая история в посте — второе предупреждение в том же стиле. Оно о
+  // том, чего плашка сверки не видит: имён в посте может не быть вовсе.
+  const hasClientStory = diff.clientStoryInPost;
   // R-4: «ничего не изменено» — непроверяемое утверждение (имена в начале фразы
   // раньше не считались вовсе), поэтому при пустом результате плашки нет.
-  if (parts.length === 0 && !hasKept) return null;
+  if (parts.length === 0 && !hasKept && !hasClientStory) return null;
 
   return (
     <>
@@ -170,6 +173,12 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
         <div className="mt-2 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-start gap-2 w-fit max-w-full">
           <AlertTriangle size={13} className="shrink-0 text-accent-warning mt-0.5" />
           <span>{t('ai_editor_diff_names_kept', { names: diff.namesKept.join(', ') })}</span>
+        </div>
+      )}
+      {hasClientStory && (
+        <div className="mt-2 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-start gap-2 w-fit max-w-full">
+          <AlertTriangle size={13} className="shrink-0 text-accent-warning mt-0.5" />
+          <span>{t('ai_editor_diff_client_story')}</span>
         </div>
       )}
       {parts.length > 0 && (
