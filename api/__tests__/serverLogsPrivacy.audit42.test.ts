@@ -277,6 +277,21 @@ describe('W-4: места печати сбоя провайдера', () => {
     expect(loggedText()).toContain('[chatWithAI] AI request failed (BAD_REQUEST): name=Error');
     expect(loggedMarkers()).toEqual([]);
   });
+
+  // DR-8: новая служебная строка `[chat-end]` — только перечисление и размеры.
+  // Проверка двусторонняя: строка обязана появиться (иначе тест пустой),
+  // маркеры в ней обязаны отсутствовать.
+  it('[chat-end] печатает причину и размеры, но не содержимое', async () => {
+    const frame = JSON.stringify({ choices: [{ delta: { content: M_NOTE }, finish_reason: 'stop' }] });
+    fetchImpl = async () => new Response(sseStream([`data: ${frame}\n\n`, 'data: [DONE]\n\n']), { status: 200 });
+    await sendStream({ reasoning: true });
+    expect(loggedText()).toContain('[chat-end]');
+    expect(loggedMarkers()).toEqual([]);
+    const line = logs.find(l => l.includes('[chat-end]')) ?? '';
+    const parsed = JSON.parse(line.split('[chat-end]')[1]!.trim()) as Record<string, unknown>;
+    expect(Object.keys(parsed).sort()).toEqual(['finish', 'ms', 'out_tokens']);
+    expect(parsed.finish).toBe('stop');
+  });
 });
 
 const SUMMARY_JSON = JSON.stringify({

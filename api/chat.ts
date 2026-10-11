@@ -5,7 +5,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
 import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
-import { logChatShape } from '../src/shared/ai/chatShape.js';
+import { logChatShape, chatEndRecorder, type ChatEndSignals } from '../src/shared/ai/chatShape.js';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.js';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
@@ -37,6 +37,9 @@ function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Prom
 
 const AI_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
 const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
+// DR-8: потолок вывода в ветве рассуждений — он же признак `finish=length` для
+// строк, где провайдер не прислал finish_reason.
+const REASONING_MAX_TOKENS = 16_384;
 // Ограничение контура обработки (ст. 12 152-ФЗ). Проверено 2026-09-20:
 // эмбеддинги теперь локальные и флага не замечают; включение флага упирается
 // в смену модели на `yandex/*`, так как deepseek/deepseek-v4-flash под ru недоступен.
@@ -116,7 +119,7 @@ async function getChatModel() {
 type OrDelta = { reasoning_content?: string; reasoning?: string; content?: string };
 type OrChunk = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
-  choices?: Array<{ delta?: OrDelta }>;
+  choices?: Array<{ delta?: OrDelta; finish_reason?: string | null }>;
   error?: unknown;
 };
 
@@ -183,6 +186,7 @@ async function streamOpenRouterReasoning(
   chargedDay: string,
   estimatedInputTokens?: number,
 ): Promise<void> {
+  const startedAt = Date.now();
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, estimatedInputTokens, 'reasoning');
 
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -193,7 +197,10 @@ async function streamOpenRouterReasoning(
     return;
   }
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  // DR-8: срок поднят тем же флагом, что и в обычной ветке, — иначе «deadline»
+  // в журнале неотличим от «провайдер сам закончил».
+  let timedOut = false;
+  const timeoutId = setTimeout(() => { timedOut = true; controller.abort(); }, 120_000);
   let upstream: Response;
   try {
     upstream = await fetch(`${AI_BASE_URL}/chat/completions`, {
@@ -207,7 +214,7 @@ async function streamOpenRouterReasoning(
         model,
         messages: [{ role: 'system', content: system }, ...messages],
         stream: true,
-        max_tokens: 16384,
+        max_tokens: REASONING_MAX_TOKENS,
         ...(providerRouting ? { provider: providerRouting } : {}),
         reasoning: { effort: CHAT_REASONING_EFFORT },
         stream_options: { include_usage: true },
@@ -245,6 +252,10 @@ async function streamOpenRouterReasoning(
   let tokensOut = 0;
   let contentAccum = '';
   let sawNativeReasoning = false;
+  // DR-8: причина, по которой ход кончился. Только перечисление и размеры.
+  let providerFinish: string | null = null;
+  let clientClosed = false;
+  const endChat = chatEndRecorder(startedAt);
 
   // Клиент ушёл до первого байта содержимого — слот не использован, возвращаем
   // его. AG-VERIFY-2 (находка 1, замер на проде 2026-08-23): флаг раньше
@@ -262,6 +273,7 @@ async function streamOpenRouterReasoning(
   let sawUpstreamChunk = false;
 
   res.on('close', () => {
+    clientClosed = true;
     controller.abort();
     void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
   });
@@ -298,6 +310,8 @@ async function streamOpenRouterReasoning(
           tokensIn = chunk.usage.prompt_tokens ?? tokensIn;
           tokensOut = chunk.usage.completion_tokens ?? tokensOut;
         }
+        const finish = chunk.choices?.[0]?.finish_reason;
+        if (finish) providerFinish = finish;
         const delta = chunk.choices?.[0]?.delta;
         if (!delta) continue;
         const reasoning = delta.reasoning_content ?? delta.reasoning;
@@ -373,6 +387,16 @@ async function streamOpenRouterReasoning(
       console.error('[api/chat] usage record failed:', e);
     }
   }
+  // DR-8: одна строка на ход, ДО res.end(): end() эмитит 'close', и после него
+  // штатный конец выглядел бы как уход клиента.
+  endChat({
+    clientClosed,
+    providerError: streamFailed,
+    timedOut,
+    providerFinish,
+    outTokens: tokensOut,
+    maxTokens: REASONING_MAX_TOKENS,
+  });
   res.end();
 }
 
@@ -557,6 +581,8 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   }
 
   const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
+  // DR-8: отсчёт длительности хода — отсюда, где начинается обращение к поставщику.
+  const startedAt = Date.now();
 
   if (reasoning) {
     // AG-MEM-1: reasoning is provider-side (`reasoning: { effort: CHAT_REASONING_EFFORT }`
@@ -574,16 +600,31 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // только proxy_read_timeout nginx.
   let timedOut = false;
   const deadlineId = setTimeout(() => { timedOut = true; controller.abort(); }, 150_000);
+  // DR-8: причина окончания хода — только перечисление и размеры.
+  const endChat = chatEndRecorder(startedAt);
+  let clientClosed = false;
+  let tokensOut = 0;
 
   // Уход клиента: обрываем запрос к поставщику (иначе он досчитывает ответ,
   // который никто не прочитает) и возвращаем слот.
   res.on('close', () => {
+    clientClosed = true;
     clearTimeout(deadlineId);
     controller.abort();
     void settlement.settle('closed').catch((e) => console.error('[chat] settle on close', e));
   });
 
   let streamErrorOccurred: unknown = null;
+  // DR-8: сигналы на момент окончания хода; recorder печатает ровно одну строку,
+  // поэтому вызывать его можно в каждой точке выхода.
+  const endSignals = (): ChatEndSignals => ({
+    clientClosed,
+    providerError: streamErrorOccurred !== null,
+    timedOut,
+    providerFinish: null,
+    outTokens: tokensOut,
+    maxTokens: maxOutputTokens,
+  });
   const result = streamText({
     model: chatModel,
     system: providerRequest.system,
@@ -598,9 +639,10 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
       settlement.markUpstreamProduced(delta.length);
     },
     onFinish: async ({ totalUsage }) => {
+      tokensOut = totalUsage?.outputTokens ?? tokensOut;
       await settlement.settle('done', {
         tokensIn: totalUsage?.inputTokens ?? 0,
-        tokensOut: totalUsage?.outputTokens ?? 0,
+        tokensOut,
         model: activeModel,
       });
     },
@@ -651,6 +693,9 @@ function waitForNextOrAbort<T>(
     } catch (err) {
       console.error('[api/chat] streamText failed before response started:', safeErrorShape(err));
       await settlement.settle('failed');
+      // DR-8: строка пишется ДО sendError — end() в составе ответа эмитит 'close',
+      // и штатный отказ провайдера был бы записан как уход клиента.
+      endChat(endSignals());
       if (!res.headersSent) {
         sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
       }
@@ -658,10 +703,12 @@ function waitForNextOrAbort<T>(
     }
 
     if (controller.signal.aborted || res.destroyed) {
+      endChat(endSignals());
       return;
     }
 
     if (streamErrorOccurred || settlement.settled) {
+      endChat(endSignals());
       if (!res.headersSent) {
         sendError(res, 502, 'UPSTREAM_ERROR', 'AI provider failed before response started');
       }
@@ -669,6 +716,7 @@ function waitForNextOrAbort<T>(
     }
 
     if (firstResult.done) {
+      endChat(endSignals());
       if (!res.headersSent) {
         res.writeHead(200, {
           'Content-Type': 'text/plain; charset=utf-8',
@@ -709,6 +757,8 @@ function waitForNextOrAbort<T>(
     } finally {
       clearTimeout(deadlineId);
       if (timedOut && !res.destroyed && !res.writableEnded) res.write(STREAM_BROKEN_NOTE);
+      // DR-8: до res.end(): end() эмитит 'close', и штатный конец стал бы уходом.
+      endChat(endSignals());
       if (!res.writableEnded) {
         res.end();
       }
@@ -719,7 +769,10 @@ function waitForNextOrAbort<T>(
     } catch (streamErr) {
       console.error('[api/chat] pipe failed:', safeErrorShape(streamErr));
       await settlement.settle('failed');
+      endChat(endSignals());
       if (!res.headersSent) sendError(res, 500, 'STREAM_FAILED');
+      return;
     }
+    endChat(endSignals());
   }
 }

@@ -75,6 +75,49 @@ describe('фон из прошлых дней: отбор', () => {
   });
 });
 
+describe('фон из прошлых дней: относительная дата строки (DR-3)', () => {
+  const local = (y: number, mo: number, d: number, h = 12, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime();
+  const pair = (noteAt: number | undefined, relAt: number) => {
+    const docs = new Map<string, LocalDocument>([
+      ['att', { id: 'att', title: 'att', currentVersion: 1, ...(noteAt ? { lastSessionAt: noteAt } : {}) } as unknown as LocalDocument],
+      ['rel', { id: 'rel', title: 'rel', currentVersion: 1, lastSessionAt: relAt } as unknown as LocalDocument],
+    ]);
+    const summaries = new Map<string, AIDocumentSummary>([['rel', sum('rel', 'СУТЬ_rel')]]);
+    const embeddings = [emb('att', near(0)), emb('rel', near(0.1))];
+    return buildRelatedDaysBlock('att', embeddings, docs, summaries)!.block;
+  };
+
+  it('двумя днями раньше → «за 2 дн. до этой заметки»', () => {
+    expect(pair(local(2026, 10, 9), local(2026, 10, 7))).toContain('· за 2 дн. до этой заметки]');
+  });
+
+  it('тот же локальный день при разных часах → «в тот же день»', () => {
+    expect(pair(local(2026, 10, 9, 8, 15), local(2026, 10, 9, 22, 40))).toContain('· в тот же день]');
+  });
+
+  it('тремя днями позже → «через 3 дн. после этой заметки»', () => {
+    expect(pair(local(2026, 10, 9), local(2026, 10, 12))).toContain('· через 3 дн. после этой заметки]');
+  });
+
+  // Мутация «считать по UTC-дням»: 23:30 и 00:30 следующих суток — один и тот же
+  // UTC-день, метка станет «в тот же день» и порядок дней перевернётся.
+  it('граница суток: 23:30 и 00:30 следующих локальных суток → один день', () => {
+    expect(pair(local(2026, 10, 9, 23, 30), local(2026, 10, 10, 0, 30))).toContain('· через 1 дн. после этой заметки]');
+  });
+
+  it('у приложенной заметки нет даты → метки нет, строка как была', () => {
+    const block = pair(undefined, local(2026, 10, 7));
+    expect(block).toMatch(/\[#rel · \d{4}-\d{2}-\d{2}\] СУТЬ_rel/);
+    expect(block).not.toContain('дн. до');
+    expect(block).not.toContain('тот же день');
+  });
+
+  it('метрика считается по локальным суткам, а не по разнице в мс', () => {
+    // Ровно 24 часа разницы при 20:00 → 20:00: сутки, а не «тот же день».
+    expect(pair(local(2026, 10, 9, 20), local(2026, 10, 10, 20))).toContain('· через 1 дн. после этой заметки]');
+  });
+});
+
 describe('фон из прошлых дней: строгий ход', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();

@@ -29,6 +29,23 @@ function centroid(vectors: number[][]): number[] | null {
 
 export interface RelatedDays { block: string; ids: string[] }
 
+// DR-3: модель переворачивает порядок и расстояние дат — запись, написанную ДО
+// приложенной, называет написанной после (кейс 5), трёхдневную зовёт «неделю
+// назад» (кейс 7). Обе даты знает код, поэтому метку считает он. Считается по
+// локальным календарным суткам: суточное окно у пользователя ночное, и разница в
+// мс или UTC-сутки путают «в тот же день» с «через день».
+function localDay(t: number): number {
+  const d = new Date(t);
+  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+export function relativeDayLabel(noteAt: number | undefined, at: number): string {
+  if (!noteAt) return '';
+  const diff = Math.round((localDay(at) - localDay(noteAt)) / 86_400_000);
+  if (diff === 0) return ' · в тот же день';
+  return diff < 0 ? ` · за ${-diff} дн. до этой заметки` : ` · через ${diff} дн. после этой заметки`;
+}
+
 export function buildRelatedDaysBlock(
   attachedId: string,
   embeddings: AIDocumentEmbedding[],
@@ -57,9 +74,10 @@ export function buildRelatedDaysBlock(
   if (scored.length === 0) return null;
 
   const picked = scored.sort((a, b) => b.sim - a.sim).slice(0, MAX_DAYS).sort((a, b) => a.at - b.at);
+  const noteAt = docs.get(attachedId)?.lastSessionAt;
   const lines = picked.map(p => {
     const s = p.summary.length > SUMMARY_CHARS ? `${p.summary.slice(0, SUMMARY_CHARS)}…` : p.summary;
-    return `[#${p.id} · ${formatDateYYYYMMDD(p.at)}] ${s}`;
+    return `[#${p.id} · ${formatDateYYYYMMDD(p.at)}${relativeDayLabel(noteAt, p.at)}] ${s}`;
   });
   return {
     block: '[Другие дни — фон, НЕ эта заметка: суть похожих записей. Связь с ними называй как связь с другим днём, со ссылкой [#id]; их содержание этой заметке не приписывай и не цитируй]\n' + lines.join('\n'),

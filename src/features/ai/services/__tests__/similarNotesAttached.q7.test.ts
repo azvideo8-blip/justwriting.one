@@ -5,8 +5,8 @@ import { useAIChatContext } from '../aiChatContext';
 import { getLocalDb } from '../../../../core/storage/localDb';
 import { AIService } from '../AIService';
 import * as noteRetriever from '../../utils/noteRetriever';
-import { turnScope } from '../../utils/turnScope';
-import { asksForSimilarNotes } from '../../utils/aiChatTransport';
+import { turnScope, type TurnScope } from '../../utils/turnScope';
+import { asksForOtherNotes, asksForSimilarNotes } from '../../utils/aiChatTransport';
 
 vi.mock('../../../../shared/errors/reportError', () => ({ reportError: vi.fn() }));
 vi.mock('../../../../shared/i18n', () => ({ useLanguage: () => ({ language: 'ru', t: (k: string) => k }) }));
@@ -25,6 +25,20 @@ describe('Q-7: turnScope слышит просьбы о других запис�
     ['что тут главное?', 'note'],
   ])('%s → %s', (text, expected) => {
     expect(turnScope(text)).toBe(expected);
+  });
+});
+
+// DR-1: просьба об других записях в творительном падеже множественного числа
+// («с другими заметками») — прежняя форма `друг(?:ие|их|им)` её не видела: после
+// «другим» идёт «и», а не пробел.
+describe('Q-7: asksForOtherNotes', () => {
+  it.each([
+    'найди похожее в других заметках',
+    'поищи в других записях',
+    'свяжи с другими заметками',
+    'о связях с другими записями',
+  ])('%s', text => {
+    expect(asksForOtherNotes(text)).toBe(true);
   });
 });
 
@@ -77,7 +91,7 @@ describe('Q-7: запрос строится из приложенной зам�
     return search;
   }
 
-  async function run(text: string, attachedContent: string) {
+  async function run(text: string, attachedContent: string, scope: TurnScope = 'wide') {
     const { result } = renderHook(() => useAIChatContext('editor'));
     return result.current.buildContext({
       text,
@@ -85,7 +99,7 @@ describe('Q-7: запрос строится из приложенной зам�
       mood: undefined,
       messageHistory: [],
       isFirstTurn: true,
-      scope: 'wide',
+      scope,
     });
   }
 
@@ -153,5 +167,15 @@ describe('Q-7: запрос строится из приложенной зам�
     expect(search).toHaveBeenCalled();
     const queries = search.mock.calls.map(c => c[0]!.join(' '));
     expect(queries.some(q => q.includes('маму'))).toBe(true);
+  });
+
+  // DR-1 (находки 7–8): «свяжи с другими заметками» обязан дойти до поиска —
+  // иначе модель связывает по коротким строкам и выдумывает сцены.
+  it('«свяжи с другими заметками»: ход широкий и в контексте приезжает блок найденного', async () => {
+    const turn = 'свяжи с другими заметками';
+    expect(turnScope(turn)).toBe('wide');
+    await seed({ summary: 'Про бег и усталость перед стартом', themes: ['Бег'] });
+    const ctx = await run(turn, 'Тело приложенной заметки про утренний бег.', turnScope(turn));
+    expect(ctx.searchContext ?? '').toContain('Результаты поиска по архиву');
   });
 });

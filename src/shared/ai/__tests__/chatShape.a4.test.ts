@@ -82,8 +82,12 @@ describe('A-4: форма запроса в журнал — только раз
     const stream = readFileSync(join(root, 'api/chat.ts'), 'utf8');
     const callable = readFileSync(join(root, 'api/ai/chatWithAI.logic.ts'), 'utf8');
 
-    expect(stream).toContain("import { logChatShape } from '../src/shared/ai/chatShape.js'");
-    expect(callable).toContain("import { logChatShape } from '../../src/shared/ai/chatShape.js'");
+    // Форма проверки — регэксп, а не точная строка: с DR-8 из того же модуля
+    // импортируют не только logChatShape.
+    const importsShape = (src: string, prefix: string) =>
+      new RegExp(`import \\{[^}]*\\blogChatShape\\b[^}]*\\} from '${prefix}src/shared/ai/chatShape\\.js'`).test(src);
+    expect(importsShape(stream, '../')).toBe(true);
+    expect(importsShape(callable, '../../')).toBe(true);
     // вызов — после сборки providerRequest, иначе в строке не та форма, что ушла провайдеру
     expect(stream.indexOf('logChatShape({')).toBeGreaterThan(stream.indexOf('const providerRequest'));
     expect(callable.indexOf('logChatShape({')).toBeGreaterThan(callable.indexOf('const request ='));

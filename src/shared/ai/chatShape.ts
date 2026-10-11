@@ -59,3 +59,50 @@ export function logChatShape(input: ChatShapeInput): void {
   // eslint-disable-next-line no-console -- A-4: уровень info для служебной строки журнала; больше нигде в src не используется
   console.info('[chat-shape]', JSON.stringify(chatShape(input)));
 }
+
+// DR-8: подробный ответ встал на середине слова, и по журналу нельзя было
+// разобрать почему — серверный срок (150 с), клиент, провайдер или лимит токенов.
+// Одна строка на ход: причина, длительность и выданные токены. Перечисление и
+// числа, текста нет по построению (см. serverLogsPrivacy.audit42).
+export type ChatEndReason = 'stop' | 'length' | 'provider_error' | 'deadline' | 'client_abort';
+
+export interface ChatEndSignals {
+  /** Клиент ушёл (res 'close') — важнее всех остальных сигналов. */
+  clientClosed: boolean;
+  providerError: boolean;
+  timedOut: boolean;
+  /** finish_reason от поставщика, если он приходил ('stop' | 'length' | …). */
+  providerFinish?: string | null | undefined;
+  outTokens: number;
+  maxTokens: number;
+}
+
+/** Порядок проверок = приоритет причин: уход клиента видно даже при «stop». */
+export function chatEndReason(s: ChatEndSignals): ChatEndReason {
+  if (s.clientClosed) return 'client_abort';
+  if (s.providerError) return 'provider_error';
+  if (s.timedOut) return 'deadline';
+  if (s.providerFinish === 'length') return 'length';
+  if (s.maxTokens > 0 && s.outTokens >= s.maxTokens) return 'length';
+  return 'stop';
+}
+
+/**
+ * Recorder на один ход: печатает `[chat-end]` ровно один раз. Возвращает функцию,
+ * потому что у хода несколько точек выхода (штатный конец, ошибка, уход клиента),
+ * а строка обязана быть одна.
+ */
+export function chatEndRecorder(startedAt: number): (signals: ChatEndSignals) => void {
+  let written = false;
+  return (signals) => {
+    if (written) return;
+    written = true;
+    const line = JSON.stringify({
+      finish: chatEndReason(signals),
+      ms: Math.max(0, Date.now() - startedAt),
+      out_tokens: signals.outTokens,
+    });
+    // eslint-disable-next-line no-console -- DR-8: служебная строка журнала, размеры и перечисление
+    console.info('[chat-end]', line);
+  };
+}

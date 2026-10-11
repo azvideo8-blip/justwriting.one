@@ -18,7 +18,14 @@ export interface PostDiff {
 const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
 const WORDS = /[А-ЯЁа-яё]{2,}|\d[\d\s.,:]{0,9}/g;
 const LOWER_WORD = new RegExp(`${LB}([а-яё][а-яё]{2,})${RB}`, 'g');
-const SENTENCE_START = /(?:^|[.!?…][\s\n]|\n)\s*$/;
+const SENTENCE_START = new RegExp(
+  '(?:^|[.!?…][\\s\\n]|\\n)\\s*$'
+  // DR-4: в транскрипте реплика начинается после метки говорящего, а не после
+  // точки. Без этого первое слово каждой реплики становилось кандидатом в имена,
+  // и «Убраны имена» выдавало десятки обычных слов («Решила», «Кажется», «Важно»).
+  // Метка — это начало строки, необязательный таймкод и слова до двоеточия.
+  + '|(?:^|\\n)[ \\t]*(?:\\[?\\d{1,2}:\\d{2}(?::\\d{2})?\\]?[ \\t]+)?[^\\n:]{1,40}:[ \\t]*$',
+);
 // Начало фразы — место, где с заглавной стоит всё подряд, а не только имена.
 // Окончания делятся на две группы (S-2, ревью 2):
 // · не-именные всегда: инфинитивы и возвратные (-ть, -ться, -сь, -ся, -ти),
@@ -76,6 +83,11 @@ function properNouns(text: string, rejectSentenceStart = false): string[] {
  * общее начало не короче `max(2, min(длин) − 1)` и слово не длиннее имени больше
  * чем на две буквы. Строчные «олень», «анализ», «лето» не подходят — за имя
  * отвечает заглавная, а «Анализ» отсекает ограничение по длине.
+ * DR-4: слово поста короче трёх букв формой имени не считается. «Не», «Он», «Ах»
+ * открывают каждую вторую фразу транскрипта и «переживали» любое имя на «Не-…»
+ * («Неля» жила в посте со словом «Не»). Формула `min(длин) − 1` сохранена: без
+ * неё падежная форма трёхбуквенного имени («Оля» → «Олю») переставала узнаваться,
+ * а это закреплённый кейс R-4.
  */
 function nameSurvives(postWord: string, name: string): boolean {
   if (!/^[А-ЯЁ]/.test(postWord)) return false;
@@ -84,6 +96,7 @@ function nameSurvives(postWord: string, name: string): boolean {
   // начала с «лев» там нет, а имя не убрано. Дальше проверяется согласная после
   // «ь», иначе «льгота» или «львица» сошли бы за форму имени «Лев».
   if (b[0] === a[0] && b[1] === 'ь' && b[2] !== undefined && b[2] === a[2]) return true;
+  if (b.length < 3) return false;
   if (b.length > a.length + 2) return false;
   const need = Math.max(2, Math.min(a.length, b.length) - 1);
   let shared = 0;
@@ -93,6 +106,14 @@ function nameSurvives(postWord: string, name: string): boolean {
 
 const NUMBER_RE = /(?:\d{1,3}[ \u00A0]\d{3}(?:[ \u00A0]\d{3})*|\d+(?:[.,:]\d+)?)/g;
 const SUM_RE = /\d[\d\s.,:]{0,9}\s*(?:тыс\.?|руб(?:лей|ля|ль)?|₽|€|\$)/gi;
+// DR-4: таймкоды транскрипта — не числа источника: пост, собранный из записи
+// разговора, терял десятки «чисел» вида 00:12:03. Буквальное «пропускать любой
+// \d{1,2}:\d{2}» выбросило бы и «напомнила про 5:50», которое закреплено в
+// кейсах Q-10, поэтому время узнаёт по позиции: начало строки (в квадратных
+// скобках или без) и полный формат чч:мм:сс в любом месте.
+const LINE_TIMECODE = /^[ \t]*\[?\d{1,2}:\d{2}(?::\d{2})?\]?[ \t]*/gm;
+const FULL_TIMECODE = /\b\d{1,2}:\d{2}:\d{2}\b/g;
+const stripTimecodes = (s: string) => s.replace(LINE_TIMECODE, ' ').replace(FULL_TIMECODE, ' ');
 
 // LD-1: для автора, который работает с людьми, сеанс клиента — не «ещё один
 // персонаж без имени», а чужая история в уязвимом положении. PRIVACY Редактора
@@ -102,11 +123,22 @@ const CLIENT_STORY_RE = new RegExp(
   `${LB}(?:клиент\\p{L}*|пациент\\p{L}*|терапи\\p{L}*|на сессии(?![а-яёА-ЯЁ])|сессия с(?![а-яёА-ЯЁ]))${RB}`,
   'iu',
 );
-// Исключение: сам автор был клиентом. Считается по двум оборотам — «у моего
-// терапевта» (родительный) под них не попадает, и там предупреждение останется
-// ложным: это известное слепое пятно правила.
-const OWN_THERAPY_RE = /мо(?:й|я|ему|ей) терапевт|на (?:свою|мою) терапию/i;
 const CLIENT_IN_NOTE_RE = /клиент|пациент/i;
+// Исключение по заметке: сам автор был клиентом. Считается по двум оборотам —
+// «у моего терапевта» (родительный) под них не попадает, и там предупреждение
+// останется ложным: это известное слепое пятно правила.
+const OWN_THERAPY_IN_SOURCE_RE = /мо(?:й|я|ему|ей) терапевт|на (?:свою|мою) терапию/i;
+// DR-5: решает ПОСТ. Прежнее исключение смотрело на заметку: транскрипт СВОЕЙ
+// сессии обычно содержит историю клиента (ту, что автор принёс), поэтому
+// «нет слова о клиенте в заметке» не срабатывал, и пост о собственной терапии
+// получал предупреждение про работу с клиентами.
+const OWN_THERAPY_IN_POST = [
+  /мо\p{L}* терапевт/iu,
+  /терапевт\p{L}* (?:сказал|спросил|предложил|ответил|рассказал|посоветовал)/iu,
+  /на (?:моей|своей) (?:сессии|терапии)/iu,
+  /у меня на сессии/iu,
+  /я (?:приш|прин)\p{L}* на сесси\p{L}*/iu,
+];
 
 /**
  * LD-1: пост упоминает работу с клиентами. Только тело поста — служебные строки
@@ -114,7 +146,11 @@ const CLIENT_IN_NOTE_RE = /клиент|пациент/i;
  */
 export function mentionsClientStory(post: string, source: string): boolean {
   if (!CLIENT_STORY_RE.test(post)) return false;
-  return !(OWN_THERAPY_RE.test(source) && !CLIENT_IN_NOTE_RE.test(source));
+  if (/клиент\p{L}*|пациент\p{L}*/iu.test(post)) return true;
+  if (OWN_THERAPY_IN_POST.some(re => re.test(post))) return false;
+  // Заметка по-прежнему решает один случай: своей терапией занят автор, и
+  // клиентов в его записи нет вовсе.
+  return !(OWN_THERAPY_IN_SOURCE_RE.test(source) && !CLIENT_IN_NOTE_RE.test(source));
 }
 
 /**
@@ -165,14 +201,16 @@ export function diffPostAgainstNote(
     .filter(role => rolePattern(role.stems).test(post) && !rolePattern(role.stems).test(source))
     .map(role => role.key);
 
+  const numbersFrom = stripTimecodes(source);
+  const numbersInto = stripTimecodes(post);
   const numbersRemoved: string[] = [];
-  for (const num of new Set([...source.matchAll(NUMBER_RE)].map(m => m[0].trim()))) {
-    if (!post.includes(num)) numbersRemoved.push(num);
+  for (const num of new Set([...numbersFrom.matchAll(NUMBER_RE)].map(m => m[0].trim()))) {
+    if (!numbersInto.includes(num)) numbersRemoved.push(num);
   }
-  for (const sum of new Set([...source.matchAll(SUM_RE)].map(m => m[0].replace(/\s+/g, ' ').trim()))) {
+  for (const sum of new Set([...numbersFrom.matchAll(SUM_RE)].map(m => m[0].replace(/\s+/g, ' ').trim()))) {
     const bare = sum.split(/\s/)[0]!;
     if (numbersRemoved.includes(bare)) continue;
-    if (!post.includes(sum) && !post.includes(bare)) numbersRemoved.push(sum);
+    if (!numbersInto.includes(sum) && !numbersInto.includes(bare)) numbersRemoved.push(sum);
   }
 
   return { namesRemoved, namesKept, rolesAdded, numbersRemoved, clientStoryInPost: mentionsClientStory(post, source) };

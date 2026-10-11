@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../../core/auth';
 import { hasIndexingConsent } from '../../../core/ai/indexingConsent';
 import { isTombstoned, stampMessage, tombstoneDialogue, withMessageIds } from '../../../core/storage/dialogueMerge';
 import { toApiContent, legacyNoteHidden } from '../utils/aiChatTransport';
+import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 
 import { writeFacetStore } from '../../../core/services/facetLock';
 
@@ -44,6 +45,48 @@ async function removeDialogueFromFacets(dialogueId: string): Promise<void> {
 
 function currentLanguage(): 'ru' | 'en' {
   return localStorage.getItem(STORAGE_KEYS.APP_LANGUAGE) === 'en' ? 'en' : 'ru';
+}
+
+// DR-7: экспорт диалога — единственный способ разобрать ход перечитать. Из него
+// выпадали две вещи: текст приложенной заметки (ход хранит маркер и вопрос, тело
+// едет отдельным блоком) и «ход мыслей» ответа (живёт в msg.reasoning). Текст
+// берётся ТЕКУЩИЙ из локального хранилища — заметку могли поправить после хода;
+// наружу при этом ничего не уходит.
+const ATTACHED_HEAD_ID = /\[#([^\]\s·]+) · /g;
+const ATTACHED_MARKER = '[Прикреплена заметка: "';
+
+type LocalDb = Awaited<ReturnType<typeof getLocalDb>>;
+
+async function latestVersionContent(db: LocalDb, documentId: string): Promise<string | null> {
+  const versions = await db.getAllFromIndex('versions', 'by-document', documentId);
+  if (versions.length === 0) return null;
+  versions.sort((a, b) => b.version - a.version);
+  return versions[0]?.content ?? null;
+}
+
+/** Цитата под маркером заметки: её текущий текст либо заглушка, если её нет в открытом доступе ИИ. */
+async function attachedNoteAppendix(
+  content: string,
+  documentId: string | undefined,
+  db: LocalDb,
+  hiddenLabel: string,
+): Promise<string> {
+  if (!content.includes(ATTACHED_MARKER)) return '';
+  const usable = (id: string) => !isPastedAttachmentId(id);
+  const ids = [...new Set([...content.matchAll(ATTACHED_HEAD_ID)].map(m => m[1]!).filter(usable))];
+  // Старый ход без шапки `[#id · дата]`: заметка диалога — единственный адрес.
+  if (ids.length === 0 && documentId && usable(documentId)) ids.push(documentId);
+  const blocks: string[] = [];
+  for (const id of ids) {
+    const doc = await db.get('documents', id);
+    // Скрытая от ИИ, в корзине или удалённая заметка текстом не делится.
+    if (isExcludedFromAI(doc)) { blocks.push(`> ${hiddenLabel}`); continue; }
+    const text = await latestVersionContent(db, id);
+    // Короткое тело стоит в ходу дословно (useAIPageData, `inline`): не дублируем.
+    if (!text || content.includes(text)) continue;
+    blocks.push(text.split('\n').map(line => `> ${line}`).join('\n'));
+  }
+  return blocks.length > 0 ? `\n\n${blocks.join('\n\n')}` : '';
 }
 
 export const AIDialogueService = {
@@ -507,15 +550,28 @@ export const AIDialogueService = {
       ? `# Диалог с ${dialogue.personaName} ${dialogue.personaEmoji}\nДата: ${dateStr}${docLine}\n\n---\n\n`
       : `# Dialogue with ${dialogue.personaName} ${dialogue.personaEmoji}\nDate: ${dateStr}${docLine}\n\n---\n\n`;
     const userLabel = lang === 'ru' ? 'Пользователь' : 'User';
+    const hiddenLabel = lang === 'ru'
+      ? '[текст заметки не выгружен: скрыта от ИИ]'
+      : '[note text not exported: hidden from AI]';
+    const reasoningLabel = lang === 'ru' ? 'Ход мыслей' : 'Reasoning';
 
-    const messages = dialogue.messages
-      .filter(m => m.type !== 'system')
-      .map(m =>
-        m.role === 'user'
-          ? `**${userLabel}:** ${m.content}`
-          : `**${dialogue.personaName}:** ${m.content}`
-      ).join('\n\n');
+    const parts: string[] = [];
+    for (const m of dialogue.messages) {
+      if (m.type === 'system') continue;
+      if (m.role === 'user') {
+        parts.push(`**${userLabel}:** ${m.content}${await attachedNoteAppendix(m.content, dialogue.documentId, db, hiddenLabel)}`);
+        continue;
+      }
+      // DR-7: свёрнутый блок ПЕРЕД репликой ответа — там чаще всего и начинается
+      // ошибка. Строка `**Коуч:** …` остаётся целой, иначе в markdown блок
+      // прилипал бы к имени и разбор стал бы нечитаемым.
+      const reasoning = m.reasoning?.trim();
+      const block = reasoning
+        ? `<details><summary>${reasoningLabel}</summary>\n\n${reasoning}\n\n</details>\n\n`
+        : '';
+      parts.push(`${block}**${dialogue.personaName}:** ${m.content}`);
+    }
 
-    return header + messages;
+    return header + parts.join('\n\n');
   },
 };
