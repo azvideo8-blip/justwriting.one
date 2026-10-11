@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.37 — 2026-10-11
+
+- **[RU]** ИИ-собеседники работают на новой модели: внимательнее к приложенным заметкам и длинным расшифровкам, не теряют середину текста и отвечают примерно вдвое быстрее.
+- **[EN]** The AI companions run on a new model: more attentive to attached notes and long transcripts, they no longer lose the middle of a text and answer about twice as fast.
+- **[RU]** ИИ больше не берёт в кавычки то, чего вы не писали: фраза, которой нет в ваших записях, остаётся пересказом, а не «вашими словами».
+- **[EN]** The AI no longer puts quotation marks around things you didn’t write: a phrase absent from your notes stays a paraphrase, not «your words».
+- **[RU]** «Редактор» предупреждает, если в посте остались слова другого человека из вашей заметки.
+- **[EN]** The «Editor» warns when a post still contains another person’s words from your note.
+
 ## 0.9.36 — 2026-10-11
 
 - **[RU]** Просьба «свяжи с другими заметками» или «расскажи о связях с прошлыми записями» теперь ищет по архиву, а не разбирает только приложенную заметку.

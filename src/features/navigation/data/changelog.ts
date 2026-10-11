@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.37',
+    date: '2026-10-11',
+    items: [
+      { category: 'improvement', ru: 'ИИ-собеседники работают на новой модели: внимательнее к приложенным заметкам и длинным расшифровкам, не теряют середину текста и отвечают примерно вдвое быстрее.', en: 'The AI companions run on a new model: more attentive to attached notes and long transcripts, they no longer lose the middle of a text and answer about twice as fast.' },
+      { category: 'fix', ru: 'ИИ больше не берёт в кавычки то, чего вы не писали: фраза, которой нет в ваших записях, остаётся пересказом, а не «вашими словами».', en: 'The AI no longer puts quotation marks around things you didn’t write: a phrase absent from your notes stays a paraphrase, not «your words».' },
+      { category: 'improvement', ru: '«Редактор» предупреждает, если в посте остались слова другого человека из вашей заметки.', en: 'The «Editor» warns when a post still contains another person’s words from your note.' },
+    ],
+  },
+  {
     version: '0.9.36',
     date: '2026-10-11',
     items: [
