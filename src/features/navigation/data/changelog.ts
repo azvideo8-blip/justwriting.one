@@ -14,6 +14,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.36',
+    date: '2026-10-11',
+    items: [
+      { category: 'fix', ru: 'Просьба «свяжи с другими заметками» или «расскажи о связях с прошлыми записями» теперь ищет по архиву, а не разбирает только приложенную заметку.', en: '«Link this with my other notes» or «tell me about links with past entries» now searches the archive instead of discussing only the attached note.' },
+      { category: 'improvement', ru: 'Похожие записи других дней приходят с подсказкой, когда они написаны относительно этой заметки, — ИИ меньше путает «до» и «после».', en: 'Similar entries from other days now say when they were written relative to this note — the AI mixes up «before» and «after» less often.' },
+      { category: 'fix', ru: '«Редактор»: плашки под постом из расшифровки больше не принимают начала реплик за имена и таймкоды за числа; предупреждение о работе с клиентами не появляется на посте о собственной терапии.', en: 'The «Editor»: plates under a post made from a transcript no longer mistake line openings for names or timecodes for numbers; the client-work warning no longer appears on a post about your own therapy.' },
+      { category: 'improvement', ru: 'Скачанный диалог содержит текст приложенной заметки (если она не скрыта от ИИ) и ход мыслей ИИ.', en: 'A downloaded dialogue now includes the attached note’s text (unless hidden from the AI) and the AI’s reasoning.' },
+      { category: 'improvement', ru: 'Разбирая одну заметку, ИИ берёт из профиля только то, как с вами говорить, и не подменяет заметку темами прошлых записей.', en: 'When discussing a single note, the AI uses only the «how to talk to you» part of your profile and no longer substitutes themes from past entries for the note.' },
+    ],
+  },
+  {
     version: '0.9.35',
     date: '2026-10-10',
     items: [
