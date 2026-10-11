@@ -95,8 +95,10 @@ open — a conflict fork from a background sync, in practice — could index wit
 a press. It was removed in September 2026. Today the only callers of
 `indexDocument` are the analyse button and the one-time indexing pass.
 
-Models are configurable by environment variable. Chat defaults to
-`deepseek/deepseek-v4-flash` (`OPENROUTER_MODEL`, RouterAI). The embedding
+Models are configurable by environment variable. Live dialogue turns default to
+`deepseek/deepseek-v4.1-flash` (`AI_CHAT_MODEL`, RouterAI); service calls —
+summaries, punctuation, rerank, profile — default to `deepseek/deepseek-v4-flash`
+(`OPENROUTER_MODEL`). The embedding
 model is whatever `OPENROUTER_EMBED_MODEL` names; the code default is
 `qwen/qwen3-embedding-8b` (4096 dimensions), the model used before the
 September 2026 move to local compute. The local server runs `BAAI/bge-m3`

@@ -43,6 +43,18 @@ function hits(pairs: Array<[string, string]>, label: string) {
   return found;
 }
 
+// MD-4: тот же бюджет нужен новой плашке о чужих словах — иначе она шумит на
+// каждом посте и автор перестаёт в неё верить.
+function foreignHits(pairs: Array<[string, string]>, label: string) {
+  const found: Array<Record<string, unknown>> = [];
+  for (const [post, source] of pairs) {
+    const d = diffPostAgainstNote(post, source);
+    if (d.foreignSpeechInPost) found.push({ label, post });
+  }
+  console.log(`MD4_BUDGET ${label}`, JSON.stringify(found, null, 2));
+  return found;
+}
+
 describe('ED-2 бюджет ложных срабатываний', () => {
   it('печатает попадания по 20 постам без имён и по фикстурам репозитория', () => {
     const synth = hits(SYNTH, 'synth');
@@ -53,5 +65,10 @@ describe('ED-2 бюджет ложных срабатываний', () => {
     expect(synth).toHaveLength(0);
     // Каждое попадание по фикстурам — настоящее имя (Оля осталась в посте).
     expect(new Set(repo.flatMap(r => r.kept as string[]))).toEqual(new Set(['Оля']));
+  });
+
+  it('плашка MD-4: не больше одного ложного на 20 постов', () => {
+    expect(foreignHits(SYNTH, 'synth')).toHaveLength(0);
+    expect(foreignHits(REPO, 'repo')).toHaveLength(0);
   });
 });

@@ -230,7 +230,8 @@ Read by the API service (`api/`). Defaults are from the code.
 | `OPENROUTER_API_KEY` | yes | AI provider key (RouterAI) |
 | `AI_BASE_URL` | no | Provider base URL, default `https://routerai.ru/api/v1` |
 | `AI_EMBED_BASE_URL` | no | Separate embeddings server (the local one); unset = embeddings go to `AI_BASE_URL` |
-| `OPENROUTER_MODEL` | no | Chat model, default `deepseek/deepseek-v4-flash` |
+| `OPENROUTER_MODEL` | no | Model for service calls (summaries, punctuation, rerank, profile), default `deepseek/deepseek-v4-flash` |
+| `AI_CHAT_MODEL` | no | Model for live dialogue turns (streaming chat, reasoning mode and its fallback), default `deepseek/deepseek-v4.1-flash` |
 | `OPENROUTER_EMBED_MODEL` | no | Embedding model, default `qwen/qwen3-embedding-8b`; changing it invalidates stored vectors |
 | `AI_SUMMARY_MODEL`, `AI_FACET_MODEL` | no | Models for analysis / profile tasks, default `deepseek/deepseek-v4-flash` |
 | `AI_PROVIDER_COUNTRY` | no | Provider routing restriction (`country`); unset = none |

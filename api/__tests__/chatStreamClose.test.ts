@@ -227,9 +227,10 @@ describe('3.8 stream disconnect', () => {
     // AG-BILL-2: сигнал close пришёл ДО первого куска поставщика — в этот
     // момент upstreamProduced ещё ложь, и резерв возвращается как холостой.
     // Токены, приехавшие позже в никуда, видны только в recordUsage.
+    // MD-1: чат идёт на `AI_CHAT_MODEL`, поэтому в usage пишется v4.1-flash.
     expect(refundGlobal).toHaveBeenCalledTimes(1);
     expect(recordUsage).toHaveBeenCalledWith(
-      'u_stream', 10, 3, { model: 'deepseek/deepseek-v4-flash', fn: 'chat-stream' }, { date: '2026-08-20', shardId: '0', allowance: 8192 },
+      'u_stream', 10, 3, { model: 'deepseek/deepseek-v4.1-flash', fn: 'chat-stream' }, { date: '2026-08-20', shardId: '0', allowance: 8192 },
     );
   });
 

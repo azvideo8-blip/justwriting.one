@@ -5,7 +5,9 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { requireSession } from './auth';
 import { postgresAiContext } from './postgresAiContext';
 import { buildChatSystemPrompt, sanitizeAiInputShared, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../src/shared/ai/buildChatPrompt.js';
+import { resolveAiChatModel, resolveChatModel } from '../src/shared/ai/requestConfig.js';
 import { logChatShape, chatEndRecorder, type ChatEndSignals } from '../src/shared/ai/chatShape.js';
+import { auditAnswer, type AnswerAudit } from '../src/shared/ai/answerAudit.js';
 import { safeErrorShape } from '../src/shared/ai/errorShape.js';
 import { needsEnglishNudge, questionPart } from '../src/shared/ai/languageNudge.js';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, createCallReservation, acquireChatReservation, type CallReservation, type SettleReason, type CallReservationUsage } from '../src/shared/ai/aiPolicy.js';
@@ -36,7 +38,14 @@ function readBody(req: IncomingMessage, maxBytes = MAX_REQUEST_BODY_BYTES): Prom
 }
 
 const AI_BASE_URL = process.env.AI_BASE_URL ?? 'https://routerai.ru/api/v1';
-const ACTIVE_CHAT_MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-flash';
+// MD-1: у диалога своя модель (`AI_CHAT_MODEL`), служебные `generate()` —
+// по-прежнему на `OPENROUTER_MODEL`. Замер: v4.1-flash проваливает 24 % ходов
+// против 39 % у v4-flash при том же промпте и коде (стенд arch-2026-10-11).
+const ACTIVE_CHAT_MODEL = resolveAiChatModel();
+// Ревью MD-1: служебные вызовы через этот же маршрут (`callType`: название
+// диалога, сводка, профиль) — не живой диалог и на новой модели не мерились.
+// Они остаются на модели служебных `generate()`.
+const SERVICE_MODEL = resolveChatModel();
 // DR-8: потолок вывода в ветве рассуждений — он же признак `finish=length` для
 // строк, где провайдер не прислал finish_reason.
 const REASONING_MAX_TOKENS = 16_384;
@@ -82,8 +91,8 @@ const ruOnlyFetch: typeof fetch = async (input, init) => {
   return fetch(input, init);
 };
 
-async function getActiveModel(): Promise<string> {
-  return ACTIVE_CHAT_MODEL;
+async function getActiveModel(isInternalCall = false): Promise<string> {
+  return isInternalCall ? SERVICE_MODEL : ACTIVE_CHAT_MODEL;
 }
 
 async function attachQuotaHeaders(res: ServerResponse, uid: string): Promise<void> {
@@ -108,12 +117,12 @@ async function attachQuotaHeaders(res: ServerResponse, uid: string): Promise<voi
   } catch { /* head успел уйти раньше — тело ответа важнее счётчика */ }
 }
 
-async function getChatModel() {
+async function getChatModel(isInternalCall = false) {
   return createOpenAI({
     baseURL: AI_BASE_URL,
     ...(process.env.OPENROUTER_API_KEY ? { apiKey: process.env.OPENROUTER_API_KEY } : {}),
     fetch: ruOnlyFetch,
-  }).chat(ACTIVE_CHAT_MODEL);
+  }).chat(isInternalCall ? SERVICE_MODEL : ACTIVE_CHAT_MODEL);
 }
 
 type OrDelta = { reasoning_content?: string; reasoning?: string; content?: string };
@@ -185,6 +194,7 @@ async function streamOpenRouterReasoning(
   reservation: GlobalReservation | null,
   chargedDay: string,
   estimatedInputTokens?: number,
+  answerAudit?: (answer: string) => AnswerAudit | null,
 ): Promise<void> {
   const startedAt = Date.now();
   const settlement = createSettlement(uid, isInternalCall, reservation, chargedDay, estimatedInputTokens, 'reasoning');
@@ -252,6 +262,10 @@ async function streamOpenRouterReasoning(
   let tokensOut = 0;
   let contentAccum = '';
   let sawNativeReasoning = false;
+  // MD-2: ответ хода в канале content — то, с чем сверяются счётчики `[chat-end]`.
+  // Накоплен в памяти этого запроса и в журнал не попадает вовсе (печатается
+  // только форма: булевы и число).
+  let answerText = '';
   // DR-8: причина, по которой ход кончился. Только перечисление и размеры.
   let providerFinish: string | null = null;
   let clientClosed = false;
@@ -316,6 +330,7 @@ async function streamOpenRouterReasoning(
         if (!delta) continue;
         const reasoning = delta.reasoning_content ?? delta.reasoning;
         const content = delta.content;
+        if (content) answerText += content;
         settlement.markUpstreamProduced((reasoning?.length ?? 0) + (content?.length ?? 0));
         if (reasoning) {
           sawNativeReasoning = true;
@@ -396,6 +411,7 @@ async function streamOpenRouterReasoning(
     providerFinish,
     outTokens: tokensOut,
     maxTokens: REASONING_MAX_TOKENS,
+    audit: answerAudit?.(answerText) ?? null,
   });
   res.end();
 }
@@ -528,6 +544,13 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   // Подсказка живёт только в запросе провайдеру, в хранимый диалог не едет.
   // Служебным вызовам не ставится: у них другой системный промпт и другой смысл.
   const sanitizedMessages = messages.map(m => ({ role: m.role, content: sanitizeAiInputShared(m.content) }));
+  // MD-3: чем клиент сверяет цитаты ответа — то же собрание, что `materialsText`
+  // в useAIChat (ограда данных + память + реплики человека этого хода). Реплики
+  // берутся до санитайза, как и на клиенте; расхождение возможным не считаем:
+  // санитайз снимает управляющие маркеры, а не текст цитат.
+  const quoteMaterials = [parsed.data.documentContent, parsed.data.memoryContext,
+    ...messages.filter(m => m.role === 'user').map(m => m.content)].filter(Boolean).join('\n');
+  const answerAudit = (answer: string): AnswerAudit | null => auditAnswer(answer, parsed.data.documentContent, quoteMaterials);
   const lastUserText = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const replyLang: ReplyLanguage = !isInternalCall && needsEnglishNudge(questionPart(lastUserText)) ? 'en' : 'ru';
   const providerRequest = reasoning === true
@@ -580,7 +603,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     return;
   }
 
-  const [activeModel, chatModel] = await Promise.all([getActiveModel(), getChatModel()]);
+  const [activeModel, chatModel] = await Promise.all([getActiveModel(isInternalCall), getChatModel(isInternalCall)]);
   // DR-8: отсчёт длительности хода — отсюда, где начинается обращение к поставщику.
   const startedAt = Date.now();
 
@@ -590,7 +613,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     // line out of this prompt — that line is for the reasoning-off path only.
     // X-3: сам промпт собран до резерва (с `reasoning: true`), здесь лишь
     // правило о языке рассуждений.
-    await streamOpenRouterReasoning(res, uid, activeModel, providerRequest.system, providerMessages, isInternalCall, reservation, chargedDay, inputEstimate);
+    await streamOpenRouterReasoning(res, uid, activeModel, providerRequest.system, providerMessages, isInternalCall, reservation, chargedDay, inputEstimate, answerAudit);
     return;
   }
 
@@ -604,6 +627,9 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
   const endChat = chatEndRecorder(startedAt);
   let clientClosed = false;
   let tokensOut = 0;
+  // MD-2: то же, что видит человек, — для счётчиков `[chat-end]`. В журнал идёт
+  // только форма ответа (см. answerAudit), накопленное живёт до конца запроса.
+  let answerText = '';
 
   // Уход клиента: обрываем запрос к поставщику (иначе он досчитывает ответ,
   // который никто не прочитает) и возвращаем слот.
@@ -624,6 +650,7 @@ export async function handleChat(req: IncomingMessage, res: ServerResponse): Pro
     providerFinish: null,
     outTokens: tokensOut,
     maxTokens: maxOutputTokens,
+    audit: answerAudit(answerText),
   });
   const result = streamText({
     model: chatModel,
@@ -733,6 +760,7 @@ function waitForNextOrAbort<T>(
     });
 
     if (firstResult.value && !res.destroyed) {
+      answerText += firstResult.value;
       res.write(firstResult.value);
     }
 
@@ -741,6 +769,7 @@ function waitForNextOrAbort<T>(
         const { done, value } = await waitForNextOrAbort(iterator, controller.signal);
         if (done || controller.signal.aborted || res.destroyed) break;
         if (value && !res.destroyed) {
+          answerText += value;
           const canContinue = res.write(value);
           if (!canContinue && !res.destroyed) {
             // Клиент ушёл, не дочитав, — 'drain' не придёт никогда; ждём и 'close'.

@@ -281,7 +281,7 @@ describe('W-4: места печати сбоя провайдера', () => {
   // DR-8: новая служебная строка `[chat-end]` — только перечисление и размеры.
   // Проверка двусторонняя: строка обязана появиться (иначе тест пустой),
   // маркеры в ней обязаны отсутствовать.
-  it('[chat-end] печатает причину и размеры, но не содержимое', async () => {
+  it('[chat-end] печатает причину, размеры и счётчики аудита — но не содержимое', async () => {
     const frame = JSON.stringify({ choices: [{ delta: { content: M_NOTE }, finish_reason: 'stop' }] });
     fetchImpl = async () => new Response(sseStream([`data: ${frame}\n\n`, 'data: [DONE]\n\n']), { status: 200 });
     await sendStream({ reasoning: true });
@@ -289,8 +289,33 @@ describe('W-4: места печати сбоя провайдера', () => {
     expect(loggedMarkers()).toEqual([]);
     const line = logs.find(l => l.includes('[chat-end]')) ?? '';
     const parsed = JSON.parse(line.split('[chat-end]')[1]!.trim()) as Record<string, unknown>;
-    expect(Object.keys(parsed).sort()).toEqual(['finish', 'ms', 'out_tokens']);
+    // MD-2 и MD-3: ход с материалами дополняет строку четырьмя полями — два
+    // булевых и два числа.
+    expect(Object.keys(parsed).sort()).toEqual([
+      'empty_claim_with_results', 'finish', 'foreign_ids', 'ms', 'note_text_denied', 'out_tokens', 'quote_unquoted',
+    ]);
     expect(parsed.finish).toBe('stop');
+    expect(parsed.note_text_denied).toBe(false);
+    expect(parsed.empty_claim_with_results).toBe(false);
+    expect(parsed.foreign_ids).toBe(0);
+    expect(parsed.quote_unquoted).toBe(0);
+  });
+
+  // MD-2: счётчики включаются — и всё равно не печатают ни ответа, ни текста
+  // заметки: в журнал идут только булевы и числа.
+  it('[chat-end] при сработавших счётчиках не содержит ни ответа, ни заметки', async () => {
+    const answer = `Похоже, «${M_TITLE}» — ${M_NOTE} без текста. Ищи [#5742], и «${M_MEMORY} не повторится к среде».`;
+    const frame = JSON.stringify({ choices: [{ delta: { content: answer }, finish_reason: 'stop' }] });
+    fetchImpl = async () => new Response(sseStream([`data: ${frame}\n\n`, 'data: [DONE]\n\n']), { status: 200 });
+    await sendStream({ reasoning: true });
+    const line = logs.find(l => l.includes('[chat-end]')) ?? '';
+    const parsed = JSON.parse(line.split('[chat-end]')[1]!.trim()) as Record<string, unknown>;
+    expect(parsed.note_text_denied).toBe(true);
+    expect(parsed.foreign_ids).toBe(1);
+    // MD-3: кавычка, собранная из маркеров, засчитана — и ни один маркер не
+    // появился в журнале.
+    expect(parsed.quote_unquoted).toBe(1);
+    expect(loggedMarkers()).toEqual([]);
   });
 });
 

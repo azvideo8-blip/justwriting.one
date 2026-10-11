@@ -6,6 +6,7 @@
 // собран ход» без единого символа пользовательского текста: логи читаются кем
 // угодно, а приложение пишет про людей.
 import type { NoteScope } from './buildChatPrompt.js';
+import type { AnswerAudit } from './answerAudit.js';
 
 const PERSONA_IDS = ['group_psychology', 'cbt', 'coach', 'editor', 'parts', 'custom'] as const;
 
@@ -62,8 +63,9 @@ export function logChatShape(input: ChatShapeInput): void {
 
 // DR-8: подробный ответ встал на середине слова, и по журналу нельзя было
 // разобрать почему — серверный срок (150 с), клиент, провайдер или лимит токенов.
-// Одна строка на ход: причина, длительность и выданные токены. Перечисление и
-// числа, текста нет по построению (см. serverLogsPrivacy.audit42).
+// Одна строка на ход: причина, длительность и выданные токены, с 0.9.37 — плюс
+// аудит ответа против материалов (MD-2). Перечисление, булевы и числа, текста нет
+// по построению (см. serverLogsPrivacy.audit42).
 export type ChatEndReason = 'stop' | 'length' | 'provider_error' | 'deadline' | 'client_abort';
 
 export interface ChatEndSignals {
@@ -75,6 +77,13 @@ export interface ChatEndSignals {
   providerFinish?: string | null | undefined;
   outTokens: number;
   maxTokens: number;
+  /**
+   * MD-2: аудит ответа против материалов хода (`auditAnswer`). Поля добавляются
+   * к строке только когда они есть — без материалов хода считать нечего, и
+   * состав строки остаётся прежним. Четыре поля: два булевых и два числа, текста
+   * нет.
+   */
+  audit?: AnswerAudit | null | undefined;
 }
 
 /** Порядок проверок = приоритет причин: уход клиента видно даже при «stop». */
@@ -101,6 +110,7 @@ export function chatEndRecorder(startedAt: number): (signals: ChatEndSignals) =>
       finish: chatEndReason(signals),
       ms: Math.max(0, Date.now() - startedAt),
       out_tokens: signals.outTokens,
+      ...(signals.audit ?? {}),
     });
     // eslint-disable-next-line no-console -- DR-8: служебная строка журнала, размеры и перечисление
     console.info('[chat-end]', line);

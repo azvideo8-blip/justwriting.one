@@ -65,6 +65,9 @@ export const aiTranslations: Translations = {
   // LD-1: чужая история в публичном посте. Предупреждение, а не фильтр: ничего
   // не вырезается, автор решает сам.
   ai_editor_diff_client_story: { ru: 'В посте упомянута работа с клиентами — проверь, не раскрыта ли чужая история', en: 'The post mentions work with clients — check that someone else\u2019s story is not disclosed' },
+  // MD-4: дословные слова другого человека в публичном посте. Плашка, а не фильтр:
+  // решает автор.
+  ai_editor_diff_foreign_speech: { ru: 'В посте остались слова другого человека — проверь перед публикацией', en: 'Another person\u2019s words are still in the post — check before publishing' },
   ai_degraded_daily_limit_chat: { ru: 'Дневной лимит исчерпан: ответ сформирован без поиска по заметкам (восстановится завтра)', en: 'Daily limit reached: answer generated without note search (resets tomorrow)' },
   ai_persona_delete_confirm_title: { ru: 'Удалить персону?', en: 'Delete persona?' },
   ai_persona_delete_confirm_message: { ru: 'Действие необратимо.', en: 'This action cannot be undone.' },

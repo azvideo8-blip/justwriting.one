@@ -3,12 +3,20 @@ import { sanitizeAiInput, sanitizeAiResponse } from './pure';
 import { validateInternalCallRestrictions, getMaxTokens, estimateInputTokens, assertNoSystemPromptInjection, acquireChatReservation } from '../../src/shared/ai/aiPolicy.js';
 import { generate } from './provider';
 import { buildChatSystemPrompt, assembleChatPromptParams, chatInputSchema, withReasoningLanguage, withEnglishNudge, type ReplyLanguage } from '../../src/shared/ai/buildChatPrompt.js';
+import { resolveAiChatModel, resolveChatModel } from '../../src/shared/ai/requestConfig.js';
 import { needsEnglishNudge, questionPart } from '../../src/shared/ai/languageNudge.js';
 import { logChatShape } from '../../src/shared/ai/chatShape.js';
 import { safeErrorShape } from '../../src/shared/ai/errorShape.js';
 import { AiError, type AiContext } from '../../src/shared/ai/context.js';
 
 const inputSchema = chatInputSchema;
+
+// MD-1: этот путь — фолбэк потокового чата, поэтому модель у него своя
+// (`AI_CHAT_MODEL`), та же, что в api/chat.ts: один разговор не должен
+// отвечаться двумя моделями, а служебные generate() — молча ехать на чатной.
+const CHAT_MODEL = resolveAiChatModel();
+// Ревью MD-1: служебные вызовы (`callType`) — на модели служебных generate().
+const SERVICE_MODEL = resolveChatModel();
 
 export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown): Promise<unknown> {
   const parsed = inputSchema.safeParse(data);
@@ -108,6 +116,7 @@ export async function chatWithAILogic(ctx: AiContext, uid: string, data: unknown
       system: request.system,
       messages: request.messages,
       maxTokens,
+      model: isInternalCall ? SERVICE_MODEL : CHAT_MODEL,
       abortMs: 110_000,
       // Same effort as CHAT_REASONING_EFFORT in api/chat.ts (streaming path).
       reasoningEffort: reasoning === true ? 'low' : undefined,

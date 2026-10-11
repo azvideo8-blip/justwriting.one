@@ -32,6 +32,7 @@ import {
   _streamUnavailableUntil
 } from '../utils/aiChatTransport';
 import { sanitizeFirstSeenDates } from '../utils/dateGuard';
+import { normalizeQuoteText, unquoteAbsent } from '../../../shared/ai/quoteGuard';
 import { CITATION_RE, isRecognisedCitation, extractSearchRequest } from '../shared/citationPatterns';
 import { setAIStage } from '../store/useAIStageStore';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
@@ -79,17 +80,9 @@ const isConsentCode = (msg: string): msg is ConsentCode => (CONSENT_CODES as rea
 // квоты), без записи в журнал и без «Попробуй позже».
 const DISALLOWED_PHRASE = 'DISALLOWED_PHRASE';
 
-// Нормализка для сравнения цитаты с материалами: регистр, ё→е, кавычки,
-// пунктуация и пробелы схлопываются — цитата обязана совпадать по содержанию, а
-// не по оформлению.
-export function normalizeQuoteText(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/ё/g, 'е')
-    .replace(/[«»"'`“”]/g, '')
-    .replace(/[\s\p{P}\p{S}]+/gu, ' ')
-    .trim();
-}
+// Нормализка для сравнения цитаты с материалами — в src/shared/ai/quoteGuard.ts:
+// то же правило считает `quote_unquoted` на сервере (MD-2/MD-3), и две реализации
+// разойтись не должны.
 
 // DLG-Q8 (Fable T-18): любые другие квадратные скобки. Модель оформляет ссылкой
 // то, чем она не является: [«Новая копилка», 18.09.2026], [из заметок],
@@ -104,14 +97,6 @@ const STRAY_BRACKET_RE = /\[([^[\]\n]{1,120})\]/g;
 // П5 (самопроверка): без левой границы маска ловила части внутри других слов —
 // «в предзаписи «черновик»» переписывалось, хотя о заметке речи не было.
 const TITLE_REF_RE = /(^|[^а-яёА-ЯЁ])((?:заметк|запис|текст)[а-яё]*)\s+«([^»\n]{2,60})»/gi;
-
-// Цитата в «ёлочках» длиннее трёх слов, приписанная человеку («ты пишешь»,
-// «в заметке», «твои слова») и отсутствующая в материалах — это не его слова.
-// Кавычки снимаем, текст оставляем. Гипотезы («может быть, внутри звучит…») не
-// трогаем: их модель предлагает, а не приписывает.
-const QUOTE_RE = /«([^»\n]{1,400})»/g;
-const ATTRIBUTION_RE = /(?:ты\s+(?:пишешь|пишете|писал|писала|писали|говоришь|сказал|сказала)|как\s+ты\s+(?:сама|сам)\s+пиш\w*|в\s+(?:заметк|запис)\w*|твои\s+слова|твоя\s+фраза)[^«»]{0,40}$/i;
-const HEDGE_RE = /(?:вроде|типа|например|может\s+быть|возможно|похоже|как\s+будто|звучит|мысль|примерно|наверн\w*|условно|предполож\w*|гипотез|если\s+бы|внутри|гвоздь|формулировк|вопрос|спроси|не\s+увер\w*)[^«»]{0,60}$/i;
 
 // Чекбокс списка и латинская сноска — не ссылка и не выдумка. `[x]` и `[1]`
 // иначе съедал CITATION_RE (его вторая ветка — `[a-zA-Z0-9_-]+`, то есть любой
@@ -188,17 +173,11 @@ export function sanitizeCitations(
     });
   }
 
-  // (б) DLG-Q8: приписанная цитата, которой нет ни в материалах, ни в истории.
-  if (materialsText) {
-    const hay = materialsHay;
-    cleaned = cleaned.replace(QUOTE_RE, (match, quote: string, offset: number, whole: string) => {
-      if (quote.trim().split(/\s+/).length <= 3) return match;
-      const before = whole.slice(Math.max(0, offset - 80), offset);
-      if (!ATTRIBUTION_RE.test(before) || HEDGE_RE.test(before)) return match;
-      if (hay.includes(normalizeQuoteText(quote))) return match;
-      return quote;
-    });
-  }
+  // (б) MD-3: кавычки, которых нет в материалах хода. Ранее снималось только то,
+  // что модель приписала человеку («ты пишешь …»), и щадили гипотезы; на стенде
+  // недословной считается любая цитата от 4 слов, и правило в промпте её не
+  // держит (S5: 19/24 на базе). Слова остаются, «примерно:» не добавляется.
+  if (materialsText) cleaned = unquoteAbsent(cleaned, materialsText).text;
 
   // Clean up punctuation and whitespace around the removed citation.
   // A list of references ("Источники: [#a], [#b].") loses its separator with the

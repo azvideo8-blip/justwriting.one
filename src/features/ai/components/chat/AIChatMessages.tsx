@@ -163,9 +163,13 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
   // LD-1: чужая история в посте — второе предупреждение в том же стиле. Оно о
   // том, чего плашка сверки не видит: имён в посте может не быть вовсе.
   const hasClientStory = diff.clientStoryInPost;
+  // MD-4: слова другого человека, переехавшие в пост дословно. LD-1 и DR-5 ловят
+  // маркер слова («клиент», «терапия»), а здесь — саму реплику: пост может быть
+  // без единого имени и всё равно цитировать чужой голос.
+  const hasForeignSpeech = diff.foreignSpeechInPost;
   // R-4: «ничего не изменено» — непроверяемое утверждение (имена в начале фразы
   // раньше не считались вовсе), поэтому при пустом результате плашки нет.
-  if (parts.length === 0 && !hasKept && !hasClientStory) return null;
+  if (parts.length === 0 && !hasKept && !hasClientStory && !hasForeignSpeech) return null;
 
   return (
     <>
@@ -179,6 +183,12 @@ function EditorPostDiff({ answer, source, dialogueDocumentId }: { answer: string
         <div className="mt-2 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-start gap-2 w-fit max-w-full">
           <AlertTriangle size={13} className="shrink-0 text-accent-warning mt-0.5" />
           <span>{t('ai_editor_diff_client_story')}</span>
+        </div>
+      )}
+      {hasForeignSpeech && (
+        <div className="mt-2 px-3 py-1.5 rounded-xl bg-accent-warning/10 border border-accent-warning/20 text-xs text-accent-warning/90 font-medium flex items-start gap-2 w-fit max-w-full">
+          <AlertTriangle size={13} className="shrink-0 text-accent-warning mt-0.5" />
+          <span>{t('ai_editor_diff_foreign_speech')}</span>
         </div>
       )}
       {parts.length > 0 && (

@@ -4,6 +4,7 @@
 // убираем: без неё модель хуже держит приватность (§10.5 отчёта замера).
 
 import { LB, RB, ROLE_STEMS, NAME_STOPWORDS, SENTENCE_HEAD_WORDS } from '../services/chatContext/personQuotes';
+import { postKeepsForeignWords } from '../../../shared/ai/foreignSpeech';
 
 export interface PostDiff {
   namesRemoved: string[];
@@ -13,6 +14,8 @@ export interface PostDiff {
   numbersRemoved: string[];
   /** LD-1: в посте назван клиент, пациент, сессия или терапия. */
   clientStoryInPost: boolean;
+  /** MD-4: в теле поста остался фрагмент чужой прямой речи из заметки. */
+  foreignSpeechInPost: boolean;
 }
 
 const lower = (s: string) => s.replace(/ё/g, 'е').toLowerCase();
@@ -213,7 +216,14 @@ export function diffPostAgainstNote(
     if (!numbersInto.includes(sum) && !numbersInto.includes(bare)) numbersRemoved.push(sum);
   }
 
-  return { namesRemoved, namesKept, rolesAdded, numbersRemoved, clientStoryInPost: mentionsClientStory(post, source) };
+  return {
+    namesRemoved,
+    namesKept,
+    rolesAdded,
+    numbersRemoved,
+    clientStoryInPost: mentionsClientStory(post, source),
+    foreignSpeechInPost: postKeepsForeignWords(post, source),
+  };
 }
 
 /** Текст поста — всё до первой строки «— — —» (после неё служебные строки модели). */

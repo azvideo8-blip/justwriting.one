@@ -21,10 +21,16 @@
  *   Режим reasoning в чате включается тем же полем, которым его шлёт api/chat.ts.
  * - `temperature` не задаётся вообще: прод её не шлёт, и любое значение в
  *   харнесе — это другая модель поведения, чем у живого ответа.
- * - модель — `OPENROUTER_MODEL` с тем же фолбэком, что в проде.
+ * - модель — `OPENROUTER_MODEL` с тем же фолбэком, что в проде. У ходов живого
+ *   диалога своя модель (`AI_CHAT_MODEL`, см. `resolveAiChatModel` ниже):
+ *   замер стенда arch-2026-10-11 двигает чат, а служебные вызовы (саммари,
+ *   пунктуация, ранжирование, профиль) на этой модели не измерялись.
  */
 
 export const DEFAULT_CHAT_MODEL = 'deepseek/deepseek-v4-flash';
+/** Модель ходов диалога. Отдельный env с 0.9.37 (MD-1): смена чата не должна
+ *  молча менять модель служебных вызовов, и наоборот. */
+export const DEFAULT_AI_CHAT_MODEL = 'deepseek/deepseek-v4.1-flash';
 export const DEFAULT_CHAT_BASE_URL = 'https://routerai.ru/api/v1';
 export const DEFAULT_MAX_TOKENS = 4096;
 
@@ -37,6 +43,16 @@ export interface ChatMessage {
 
 export function resolveChatModel(): string {
   return process.env.OPENROUTER_MODEL ?? DEFAULT_CHAT_MODEL;
+}
+
+/**
+ * Модель живого диалога: потоковый ход и ветвь рассуждений в `api/chat.ts`,
+ * плюс фолбэк `chatWithAI` (тот же разговор не должен отвечать двумя моделями).
+ * Все `generate()` без явной модели (саммари, пунктуация, ранжирование, профиль,
+ * память) остаются на `resolveChatModel()`.
+ */
+export function resolveAiChatModel(): string {
+  return process.env.AI_CHAT_MODEL ?? DEFAULT_AI_CHAT_MODEL;
 }
 
 export function resolveChatBaseUrl(): string {
