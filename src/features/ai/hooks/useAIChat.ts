@@ -256,8 +256,13 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- НЕ производное: у setDialogue девять писателей (загрузка, отправка, переименование, удаление). Здесь только сброс на null
     if (!dialogueId) { setDialogue(null); return; }
+    // Чтение, опоздавшее к смене диалога или размонтированию, отбрасывается:
+    // иначе под новым id вставал прошлый диалог, а в тестах setState уходил
+    // в снесённое окружение.
+    let cancelled = false;
     const refresh = () => {
       void AIDialogueService.get(dialogueId).then(async d => {
+        if (cancelled) return;
         setDialogue(prev => {
           if (!d) return null;
           if (!prev || prev.id !== d.id) return d;
@@ -281,14 +286,14 @@ export function useAIChat(dialogueId: string | null, personaId: string, response
           try {
             const content = await LocalVersionService.getLatestContent(d.documentId);
             const doc = await LocalDocumentService.getDocument(d.documentId);
-            if (content) context.setAttachedNote({ content, documentId: d.documentId, ...(doc ? noteMetaFor(doc) : {}) });
+            if (content && !cancelled) context.setAttachedNote({ content, documentId: d.documentId, ...(doc ? noteMetaFor(doc) : {}) });
           } catch { /* non-critical */ }
         }
       });
     };
     refresh();
     window.addEventListener('dialogue-updated', refresh);
-    return () => window.removeEventListener('dialogue-updated', refresh);
+    return () => { cancelled = true; window.removeEventListener('dialogue-updated', refresh); };
     // context is a stable ref-backed wrapper; getAttachedNote/setAttachedNote are personaId-independent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialogueId]);
