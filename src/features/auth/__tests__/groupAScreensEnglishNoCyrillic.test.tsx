@@ -25,10 +25,24 @@ vi.mock('../../../core/services/LocalStorageService', () => ({
 }));
 
 vi.mock('../../../core/services/DocumentService', () => ({
+
+
   DocumentService: {
     getUserDocuments: vi.fn().mockResolvedValue([]),
   },
 }));
+
+
+/** Портал (MB-4) выносит окно в document.body. Смотреть надо на отрендеренное
+ *  целиком: container после портала пуст, и проверка «нет кириллицы» прошла бы
+ *  на пустоте, а снимок усох бы до нуля. */
+function renderedHtml(): string {
+  return document.body.innerHTML;
+}
+
+function renderedText(): string {
+  return document.body.textContent ?? '';
+}
 
 function renderInEnglish(ui: React.ReactElement) {
   localStorage.setItem('app_language', 'en');
@@ -48,7 +62,7 @@ describe('T-1 (a) User-facing dialogs English localization (no Cyrillic characte
   });
 
   it('RestoreFromCloudModal has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <RestoreFromCloudModal
         open={true}
         onClose={() => {}}
@@ -56,43 +70,43 @@ describe('T-1 (a) User-facing dialogs English localization (no Cyrillic characte
         initialCloudCount={5}
       />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('InviteWizard has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <InviteWizard email="test@example.com" />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('IndexingConsentModal has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <IndexingConsentModal
         isOpen={true}
         onConsent={() => {}}
         onRefuse={() => {}}
       />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('OtherUserDataModal has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <OtherUserDataModal
         open={true}
         onClose={() => {}}
         onClear={async () => {}}
       />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('PrivacyModal has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <PrivacyModal onAccepted={() => {}} />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   // FX-4: экран согласия читает человек, а не разработчик. Внутренний жаргон
@@ -123,7 +137,7 @@ describe('T-1 (a) Russian rendering unchanged', () => {
   });
 
   it('RestoreFromCloudModal matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <RestoreFromCloudModal
         open={true}
         onClose={() => {}}
@@ -131,43 +145,48 @@ describe('T-1 (a) Russian rendering unchanged', () => {
         initialCloudCount={5}
       />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('InviteWizard matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <InviteWizard email="test@example.com" />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('IndexingConsentModal matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <IndexingConsentModal
         isOpen={true}
         onConsent={() => {}}
         onRefuse={() => {}}
       />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('OtherUserDataModal matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <OtherUserDataModal
         open={true}
         onClose={() => {}}
         onClear={async () => {}}
       />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('PrivacyModal matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <PrivacyModal onAccepted={() => {}} />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 });
 

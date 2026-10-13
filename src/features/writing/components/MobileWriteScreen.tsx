@@ -225,6 +225,11 @@ export function MobileWriteScreen({
 
   const fontFamilyStr = getFontStack(fontFamily);
 
+  // Клавиатура поднимает столбец над собой; без неё — над нижней панелью.
+  const toolbarStackStyle: React.CSSProperties = keyboardHeight > 130
+    ? { bottom: `${keyboardHeight + 8}px` }
+    : { bottom: 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))' };
+
   return (
     <>
       {/* not-a-modal: fullscreen mobile screen */}
@@ -354,22 +359,27 @@ export function MobileWriteScreen({
         )}
       </AnimatePresence>
 
-      <DictationChrome />
-
-      <AnimatePresence>
-        {!showZen && (
-          <MobileWriteToolbar
-            onPlay={onPlay}
-            onPause={onPause}
-            onStop={onStop}
-            onNew={onNew}
-            onGoalClick={() => setShowGoalSheet(true)}
-            streamMode={streamMode}
-            onToggleStreamMode={toggleStreamMode}
-            keyboardHeight={keyboardHeight}
-          />
-        )}
-      </AnimatePresence>
+      {/* MB-5: панель записи и панель управления — один столбец над нижней
+          панелью. Раньше DictationChrome лежал в потоке flex-col, а тулбар —
+          absolute поверх него, и от панели записи оставались обрывки
+          («Будет…», «(осталось…»): «Остановить» и живые слова были закрыты
+          тулбаром и чипом «Журнал». Теперь панель стоит ровно над тулбаром
+          (gap 8 px) и не перекрывается ни им, ни чипом, ни клавиатурой. */}
+      <div className="absolute left-4 right-4 z-40 flex flex-col gap-2" style={toolbarStackStyle}>
+        <DictationChrome />
+        {/* MB-2: в дзене панель остаётся — «Стоп», микрофон и пауза должны быть
+            достижимы одним касанием. Прячем только статистику. */}
+        <MobileWriteToolbar
+          onPlay={onPlay}
+          onPause={onPause}
+          onStop={onStop}
+          onNew={onNew}
+          onGoalClick={() => setShowGoalSheet(true)}
+          streamMode={streamMode}
+          onToggleStreamMode={toggleStreamMode}
+          hideStats={showZen}
+        />
+      </div>
 
       <AnimatePresence>
         {focusMode && (

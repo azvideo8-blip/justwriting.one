@@ -8,7 +8,11 @@ export default defineConfig({
   testDir: './e2e',
   // Стендовые спеки (*.stand.spec.ts) гоняются своим конфигом (playwright.s38.config.ts)
   // и читают scripts/stand/.env.stand при загрузке — в обычном наборе их нет.
-  testIgnore: [/accountSwitch\.spec\.ts/, /\.stand\.spec\.ts$/],
+  // e2e/mobile/ — тоже отдельный прогон (playwright.mobile.config.ts): им нужен
+  // стенд, потому что мобильный макет открывается по праву аккаунта из базы (MB-1).
+  // Без этой строки обычный `--project=chromium` тащит мобильные спеки на dev-сервер
+  // и падает на входе.
+  testIgnore: [/accountSwitch\.spec\.ts/, /\.stand\.spec\.ts$/, /mobile[\\/]/],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

@@ -102,6 +102,18 @@ vi.mock('../../writing/contexts/WritingSessionContext', () => ({
 
 import { ToastProvider } from '../../../shared/components/Toast';
 
+/** Портал (MB-4) выносит окно в document.body. Смотреть надо на отрендеренное
+ *  целиком: container после портала пуст, и проверка «нет кириллицы» прошла бы
+ *  на пустоте, а снимок усох бы до нуля. */
+function renderedHtml(): string {
+  return document.body.innerHTML;
+}
+
+function renderedText(): string {
+  return document.body.textContent ?? '';
+}
+
+
 function renderInEnglish(ui: React.ReactElement) {
   localStorage.setItem('app_language', 'en');
   return render(
@@ -147,39 +159,39 @@ describe('T-1 (b) Settings, Editor, Guide and Archive screens English localizati
   });
 
   it('AccountAISection has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <AccountAISection userId="u123" />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('SyncSettingsSection has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <SyncSettingsSection userId="u123" />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('EditorTab has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <EditorTab />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('WritingFinishModal has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <WritingFinishModal
         isOpen={true}
         onSave={async () => null}
         onCancel={() => {}}
       />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('DocumentPreview has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <DocumentPreview
         session={mockSession}
         onClose={() => {}}
@@ -187,53 +199,53 @@ describe('T-1 (b) Settings, Editor, Guide and Archive screens English localizati
         onAttach={() => {}}
       />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('GuidePage has no Cyrillic text when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <GuidePage />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('AboutSettingsSection has no Cyrillic text or attrs when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <AboutSettingsSection />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('ProfileHero has no Cyrillic text or attrs when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <ProfileHero user={{ uid: 'u123', email: 'test@example.com' } as any} profile={{ streakDays: 3 } as any} isGuest={false} onStartSession={() => {}} />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('Sidebar has no Cyrillic text or attrs when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <Sidebar isAdmin={true} />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('BottomNav has no Cyrillic text or attrs when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <BottomNav isAdmin={true} />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('InlineTags has no Cyrillic text or attrs when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <InlineTags tags={['tag1']} onChange={() => {}} />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('ArchiveTagBar has no Cyrillic text or attrs when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <ArchiveTagBar
         allTags={['tag1']}
         selectedTags={[]}
@@ -249,11 +261,11 @@ describe('T-1 (b) Settings, Editor, Guide and Archive screens English localizati
         showControls={true}
       />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 
   it('ArchiveLabelBar has no Cyrillic text or attrs when rendered in English', () => {
-    const { container } = renderInEnglish(
+    renderInEnglish(
       <ArchiveLabelBar
         labels={[{ id: 'l1', name: 'Label 1', color: '#ff0000' }]}
         selectedLabels={[]}
@@ -276,7 +288,7 @@ describe('T-1 (b) Settings, Editor, Guide and Archive screens English localizati
         showControls={true}
       />
     );
-    expect(container.innerHTML).not.toMatch(/[а-яёА-ЯЁ]/);
+    expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });
 });
 
@@ -287,39 +299,43 @@ describe('T-1 (b) Russian rendering unchanged', () => {
   });
 
   it('AccountAISection matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <AccountAISection userId="u123" />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('SyncSettingsSection matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <SyncSettingsSection userId="u123" />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('EditorTab matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <EditorTab />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('WritingFinishModal matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <WritingFinishModal
         isOpen={true}
         onSave={async () => null}
         onCancel={() => {}}
       />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('DocumentPreview matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <DocumentPreview
         session={mockSession}
         onClose={() => {}}
@@ -327,13 +343,15 @@ describe('T-1 (b) Russian rendering unchanged', () => {
         onAttach={() => {}}
       />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 
   it('GuidePage matches Russian snapshot', () => {
-    const { container } = renderInRussian(
+    renderInRussian(
       <GuidePage />
     );
-    expect(container.textContent).toMatchSnapshot();
+    expect(renderedText().length, 'портал уехал из снимка').toBeGreaterThan(30);
+    expect(renderedText()).toMatchSnapshot();
   });
 });

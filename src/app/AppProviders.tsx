@@ -8,6 +8,7 @@ import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { LoginModalProvider } from '../features/auth/contexts/LoginModalContext';
 import { AuthProvider } from '../features/auth/contexts/AuthContext';
 import { ProfileProvider } from '../features/auth/contexts/ProfileContext';
+import { MobileLayoutAccessProvider } from './MobileLayoutAccessProvider';
 import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { ReactNode, lazy, Suspense, useEffect, useMemo, useRef } from 'react';
@@ -163,28 +164,32 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ProfileProvider>
-          <AnalyticsProvider>
-            <LanguageProvider>
-              <ThemeProvider>
-                <WritingSettingsProvider>
-                  <ToastProvider>
-                    <LoginModalProvider>
-                      <AuthAwareSettingsProvider>
-                        <HelmetProvider>
-                          <PrivacyGuard>
-                            <SyncManager />
-                            {children}
-                          </PrivacyGuard>
-                        </HelmetProvider>
-                      </AuthAwareSettingsProvider>
-                    </LoginModalProvider>
-                  </ToastProvider>
-                </WritingSettingsProvider>
-              </ThemeProvider>
-            </LanguageProvider>
-          </AnalyticsProvider>
-        </ProfileProvider>
+        {/* MB-1: право на мобильный макет читается один раз здесь, а не по RPC
+            на каждого из 15 потребителей useLayoutMode. */}
+        <MobileLayoutAccessProvider>
+          <ProfileProvider>
+            <AnalyticsProvider>
+              <LanguageProvider>
+                <ThemeProvider>
+                  <WritingSettingsProvider>
+                    <ToastProvider>
+                      <LoginModalProvider>
+                        <AuthAwareSettingsProvider>
+                          <HelmetProvider>
+                            <PrivacyGuard>
+                              <SyncManager />
+                              {children}
+                            </PrivacyGuard>
+                          </HelmetProvider>
+                        </AuthAwareSettingsProvider>
+                      </LoginModalProvider>
+                    </ToastProvider>
+                  </WritingSettingsProvider>
+                </ThemeProvider>
+              </LanguageProvider>
+            </AnalyticsProvider>
+          </ProfileProvider>
+        </MobileLayoutAccessProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

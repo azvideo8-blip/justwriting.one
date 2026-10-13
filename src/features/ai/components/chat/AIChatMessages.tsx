@@ -470,10 +470,13 @@ export function AIChatMessages(props: AIChatMessagesProps) {
               вместо красной плашки «техническая ошибка». */}
           {consentRequired && (
             <div className="flex justify-center" role="status">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-xs text-brand-soft">
-                <span>{t(consentRequired === 'INDEXING_CONSENT_REQUIRED' ? 'ai_chat_indexing_consent_hint' : 'ai_chat_consent_hint')}</span>
-                <Button onClick={onOpenSettings} className="ml-1 underline shrink-0">{t('settings_open')}</Button>
-                <Button onClick={clearError} className="underline shrink-0">{t('ai_close')}</Button>
+              {/* MB-6: на 360 px текст стоял в один ряд с двумя ссылками и
+                  сжимался в столбик по слову, а «Закрыть» уезжал за край. Текст
+                  получает ширину, кнопки переносятся, цели касания — 44 px. */}
+              <div className="flex flex-wrap items-center gap-2 px-4 py-2 rounded-xl bg-brand-soft/10 border border-brand-soft/20 text-xs text-brand-soft">
+                <span className="min-w-[200px] flex-1">{t(consentRequired === 'INDEXING_CONSENT_REQUIRED' ? 'ai_chat_indexing_consent_hint' : 'ai_chat_consent_hint')}</span>
+                <Button onClick={onOpenSettings} className="ml-1 underline shrink-0 min-h-[44px]">{t('settings_open')}</Button>
+                <Button onClick={clearError} className="underline shrink-0 min-h-[44px]">{t('ai_close')}</Button>
               </div>
             </div>
           )}

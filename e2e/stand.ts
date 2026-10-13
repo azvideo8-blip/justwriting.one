@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 let cachedEnv: Record<string, string> | null = null;
 
-function env(): Record<string, string> {
+export function standEnv(): Record<string, string> {
   if (!cachedEnv) {
     const text = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../scripts/stand/.env.stand'), 'utf8');
     cachedEnv = Object.fromEntries(text.split('\n').filter(Boolean).map(l => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)]; }));
@@ -16,10 +16,12 @@ function env(): Record<string, string> {
 }
 
 export function getStandUrl(): string {
-  return env().STAND_URL!;
+  return standEnv().STAND_URL!;
 }
 
 export const STAND_URL = (typeof process !== 'undefined' && process.env.STAND_URL) || 'http://localhost:3000';
+
+export interface StandAccount { email: string; password: string; uid: string }
 
 /** То же, что src/core/auth/authSecret.ts: в GoTrue уходит не пароль, а производное. */
 export function deriveAuthSecret(password: string, email: string): string {
@@ -36,7 +38,7 @@ export function freshPassword(): string {
 }
 
 async function admin(path: string, body: unknown): Promise<Record<string, unknown>> {
-  const e = env();
+  const e = standEnv();
   const res = await fetch(`${e.STAND_GOTRUE_URL}/admin/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', apikey: e.SERVICE_KEY!, Authorization: `Bearer ${e.SERVICE_KEY}` },
@@ -47,7 +49,7 @@ async function admin(path: string, body: unknown): Promise<Record<string, unknow
   return json;
 }
 
-export async function createUser(tag: string): Promise<{ email: string; password: string; uid: string }> {
+export async function createUser(tag: string): Promise<StandAccount> {
   const email = freshEmail(tag);
   const password = freshPassword();
   const u = await admin('users', { email, password: deriveAuthSecret(password, email), email_confirm: true });

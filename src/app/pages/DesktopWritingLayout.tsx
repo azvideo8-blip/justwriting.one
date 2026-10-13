@@ -16,6 +16,7 @@ import { LifeLogPanel } from '../../features/writing/components/LifeLogPanel';
 import { BottomStats } from '../../features/writing/components/BottomStats';
 import { DictationChrome } from '../../features/writing/components/DictationBar';
 import { SessionGlow } from '../../features/writing/components/SessionGlow';
+import { hasOnlyTouchPointer } from '../../shared/utils/touchPointer';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
 // каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
 function LiveAIPanelContent() {
@@ -266,7 +267,9 @@ export function DesktopWritingLayout() {
             exit={{ opacity: 0 }}
             className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[var(--z-panel)] px-4 py-2 rounded-xl bg-surface-card/60 backdrop-blur-xl text-xs text-text-main/70 pointer-events-none"
           >
-            {t(silenceMode ? 'zen_hint_silence' : 'zen_hint')}
+            {hasOnlyTouchPointer()
+              ? t(silenceMode ? 'zen_hint_silence_touch' : 'zen_hint_touch')
+              : t(silenceMode ? 'zen_hint_silence' : 'zen_hint')}
           </motion.div>
         )}
       </AnimatePresence>

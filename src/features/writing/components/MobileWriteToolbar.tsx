@@ -23,7 +23,7 @@ function DottedProgress({ pct, color }: { pct: number; color: string }) {
     boxShadow: i === filled - 1 && filled > 0 ? `0 0 5px ${color}` : 'none',
   });
   return (
-    <div className="flex gap-0.5 mt-1" >
+    <div className="flex gap-0.5 mt-1 max-w-full overflow-hidden" >
       {Array.from({ length: n }, (_, i) => (
         <span
           key={i}
@@ -46,7 +46,7 @@ function MiniSpark({ history, color }: { history: { timestamp: number; wpm: numb
     return `${x},${y}`;
   }).join(' ');
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block opacity-70" >
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block opacity-70 max-w-full" preserveAspectRatio="xMidYMid meet" >
       <polyline
         points={points}
         fill="none"
@@ -68,11 +68,12 @@ interface MobileWriteToolbarProps {
   onToggleStreamMode?: (() => void) | undefined;
   onNew?: (() => void) | undefined;
   isRunning?: boolean | undefined;
-  keyboardHeight?: number | undefined;
+  /** MB-2: дзен на телефоне прячет статистику, но не кнопки. */
+  hideStats?: boolean | undefined;
 }
 
 export function MobileWriteToolbar({
-  onPlay, onPause, onStop, onGoalClick, streamMode, onToggleStreamMode, onNew, keyboardHeight
+  onPlay, onPause, onStop, onGoalClick, streamMode, onToggleStreamMode, onNew, hideStats
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
   const { effectiveHeaderVisibility, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
@@ -112,10 +113,9 @@ export function MobileWriteToolbar({
       ? `0 0 8px ${wpmHex}`
       : 'none',
   };
+  // MB-5: панель стоит в общем столбце с панелью записи, поэтому её собственный
+  // bottom ушёл в MobileWriteScreen — иначе столбец нельзя было согласовать.
   const toolbarStyle = {
-    bottom: keyboardHeight && keyboardHeight > 130
-      ? `${keyboardHeight + 8}px`
-      : 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))',
     border: streamMode ? '1px solid var(--accent-danger)' : '1px solid var(--border-light)',
     boxShadow: streamMode ? '0 0 12px color-mix(in srgb, var(--accent-danger) 20%, transparent)' : 'none',
   };
@@ -137,10 +137,11 @@ export function MobileWriteToolbar({
 
   return (
     <div
+      data-write-toolbar
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchEnd}
-      className="absolute left-4 right-4 bg-[var(--surface-card)] backdrop-blur-md rounded-[20px] py-3 px-4 flex items-center gap-0 transition-[border-color,box-shadow] duration-300"
+      className="w-full bg-[var(--surface-card)] backdrop-blur-md rounded-[20px] py-3 px-4 flex items-center gap-0 transition-[border-color,box-shadow] duration-300"
       style={toolbarStyle}
     >
       {streamMode && (
@@ -148,11 +149,11 @@ export function MobileWriteToolbar({
           {t('stream_mode_label')}
         </div>
       )}
-      <div className="flex-1 flex gap-0">
-        {effectiveHeaderVisibility.sessionWords && (
+      <div className="flex-1 flex gap-0 empty:hidden min-w-0 overflow-hidden">
+        {!hideStats && effectiveHeaderVisibility.sessionWords && (
           <div
             onClick={onGoalClick}
-            className="flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
+            className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-0 overflow-hidden")}
             role="button"
             tabIndex={0}
             aria-label={t('writing_mode_words')}
@@ -172,16 +173,16 @@ export function MobileWriteToolbar({
                 color={getWpmHex(wpm)}
               />
             )}
-            <span className={cn("text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em]", wordGoal > 0 ? "mt-px" : "mt-[3px]")}>
+            <span className={cn("text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em]", wordGoal > 0 ? "mt-px" : "mt-[3px]", "max-[399px]:hidden")}>
               {t('header_sessionWords')}
             </span>
           </div>
         )}
 
-        {effectiveHeaderVisibility.sessionTime && (
+        {!hideStats && effectiveHeaderVisibility.sessionTime && (
           <div
             onClick={onGoalClick}
-            className="flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]" 
+            className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-0 overflow-hidden", "max-[379px]:hidden")}
             role="button"
             tabIndex={0}
             aria-label={t('writing_mode_timer')}
@@ -190,7 +191,7 @@ export function MobileWriteToolbar({
             <span className="text-[17px] font-medium text-[var(--text-main)] leading-none font-mono tabular-nums">
               {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
             </span>
-            <span className="text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em] mt-0.5">
+            <span className="text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em] mt-0.5 max-[399px]:hidden">
               {timerDuration > 0
                 ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)}${t('goal_time_min')}`
                 : t('header_time')}
@@ -198,8 +199,8 @@ export function MobileWriteToolbar({
           </div>
         )}
 
-        {effectiveHeaderVisibility.wpm && (
-          <div className="flex-1 flex flex-col gap-px" >
+        {!hideStats && effectiveHeaderVisibility.wpm && (
+          <div className={cn("flex-1 flex flex-col gap-px", "min-w-0 overflow-hidden", "max-[429px]:hidden")}>
             <div className="flex items-center gap-1.25 leading-none">
               <div
                 className="w-[7px] h-[7px] rounded-full shrink-0 transition-[background,box-shadow] duration-500"
@@ -210,20 +211,20 @@ export function MobileWriteToolbar({
               </span>
             </div>
             <MiniSpark history={wpmHistory} color={getWpmHex(wpm)} />
-            <span className="text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em] mt-0.5">
+            <span className="text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em] mt-0.5 max-[399px]:hidden">
               {t('header_wpm')}
             </span>
           </div>
         )}
       </div>
 
-      <div className="w-px h-9 bg-[var(--border-light)] mx-3" />
+      {!hideStats && <div className={cn("w-px h-9 bg-[var(--border-light)] mx-3", "max-[359px]:mx-1")} />}
 
-      <div className="flex gap-1.5" >
+      <div className="flex gap-1.5 shrink-0" >
         <AIToggleButton
           active={aiPanelOpen}
           onClick={() => setAiPanelOpen(!aiPanelOpen)}
-          className="w-11 h-11 rounded-xl"
+          className="w-11 h-11 rounded-xl shrink-0"
         />
 
         {hasSupport && (
@@ -232,7 +233,7 @@ export function MobileWriteToolbar({
               onClick={toggle}
               label={dictationMicLabel(isListening, isVaultActive, aiNoticeRemaining !== null, t)}
               className={cn(
-                "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border",
+                "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border shrink-0",
                 isListening
                   ? "border-accent-danger bg-accent-danger/10 text-accent-danger animate-pulse"
                   : isVaultActive
@@ -261,7 +262,7 @@ export function MobileWriteToolbar({
           onClick={isRunning ? onPause : onPlay}
           label={isRunning ? t('pause') : t('play')}
           className={cn(
-            "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border",
+            "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border shrink-0",
             isRunning ? "border-[var(--border-light)] bg-[var(--surface-card)] text-[var(--text-main)] opacity-70" : "border-[var(--flow-pulse-color,var(--brand-primary)/0.4)] bg-[var(--flow-pulse-color,var(--brand-primary)/0.12)] text-[var(--flow-pulse-color,var(--brand-primary))] opacity-100"
           )}
           icon={isRunning ? (
@@ -281,7 +282,7 @@ export function MobileWriteToolbar({
           disabled={isIdle}
           label={t('stop')}
           className={cn(
-            "w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent flex items-center justify-center",
+            "w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent flex items-center justify-center shrink-0",
             isIdle ? "text-[var(--text-subtle)] cursor-default" : "text-[var(--text-muted)] cursor-pointer"
           )}
           icon={
@@ -295,7 +296,7 @@ export function MobileWriteToolbar({
           <IconButton
             onClick={onNew}
             label={t('topbar_new')}
-            className="w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent text-[var(--text-muted)] flex items-center justify-center cursor-pointer ml-1"
+            className="w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent text-[var(--text-muted)] flex items-center justify-center cursor-pointer ml-1 shrink-0"
             icon={
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="12" y1="5" x2="12" y2="19"/>

@@ -52,9 +52,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // MB-11: долгое нажатие открывает переименование, и по нему же надо подавить
+  // «обычный» клик, иначе тот же палец открыл бы ещё и заметку.
+  const longPressFiredRef = React.useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     e.stopPropagation();
+    longPressFiredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
       if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         try {
@@ -63,6 +67,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           // ignore
         }
       }
+      longPressFiredRef.current = true;
       setTitleDraft(session.title || '');
       setEditingTitle(true);
     }, 600);
@@ -238,7 +243,17 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               "text-[15px] font-medium text-text-main leading-snug truncate transition-colors flex items-center gap-1.5",
               session._locked || session._decryptionError ? "cursor-pointer" : "hover:text-brand-soft"
             )}
-            onClick={session._locked || session._decryptionError ? onOpen : (e => e.stopPropagation())}
+            onClick={session._locked || session._decryptionError ? onOpen : (e => {
+              e.stopPropagation();
+              // MB-11 (F-24): на телефоне одиночный тап по заголовку открывает
+              // заметку. Двойной клик там не угадывается, а «Предпросмотр» в
+              // листе действий — это не «открыть». Долгое нажатие остаётся
+              // переименованием. Десктоп не тронут: там клик по заголовку
+              // гасится намеренно (строка редактируется двойным кликом).
+              if (!isMobile) return;
+              if (longPressFiredRef.current) { longPressFiredRef.current = false; return; }
+              onOpen();
+            })}
             onDoubleClick={e => {
               if (session._locked || session._decryptionError) {
                 onOpen();

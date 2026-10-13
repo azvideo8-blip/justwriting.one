@@ -115,7 +115,9 @@ export function AppShell() {
           {layoutMode === 'desktop' ? (
             <Sidebar isAdmin={isAdmin} onOpenSettings={openSettings} />
           ) : (
-            !showZen && <BottomNav isAdmin={isAdmin} />
+            // MB-2: в мобильном макете дзен не прячет нижнюю панель — на телефоне
+            // это единственный путь к другим вкладкам.
+            <BottomNav isAdmin={isAdmin} />
           )}
           <ConnectionStatusBanner showZen={showZen} />
         </>
@@ -128,13 +130,20 @@ export function AppShell() {
           : cn(
               "min-h-screen pt-8",
               layoutMode === 'desktop' && "pl-20 pr-4",
-              layoutMode !== 'desktop' && (showZen ? "pb-4 px-4" : "pb-20 px-4")
+              // MB-2: панель остаётся видимой и в дзене, поэтому отступ под неё
+              // не уменьшается. MB-7: плюс 32 px под чип «Активность» — он висит
+              // над панелью всегда (не только при ошибке), и без этого закрывал
+              // последнюю строку списка, счётчик квоты в чате и «Выйти» в
+              // настройках. Компенсируется отступом, а не переносом чипа внутрь:
+              // панель уже забита вкладками, а на 320 px с пятой вкладкой
+              // (F-7) теснота там — предмет отдельной правки.
+              layoutMode !== 'desktop' && "pb-28 px-4"
             )
       )}>
         <AppRoutes />
       </main>
 
-      {/* [U-03] спейсер h-28 убран: pb-20 на main уже компенсирует высоту BottomNav */}
+      {/* [U-03] спейсер h-28 убран: отступ main компенсирует высоту BottomNav (MB-7 — вместе с чипом) */}
       <LoginModalOverlay open={loginModalOpen} />
       {!isResetPassword && !queued && <RecoveryCodeGate />}
       {!queued && <GuestMigrationGate />}

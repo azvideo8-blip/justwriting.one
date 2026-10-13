@@ -40,6 +40,10 @@ export const writingTranslations: Translations = {
   swipe_down_hint: { ru: '↓ Смахни вниз, чтобы скрыть всё и сфокусироваться', en: '↓ Swipe down to hide everything and focus' },
   zen_hint: { ru: 'Двигай мышь, чтобы вернуть интерфейс', en: 'Move the mouse to bring the interface back' },
   zen_hint_silence: { ru: 'Подведи мышь к краю экрана', en: 'Move the mouse to the screen edge' },
+  // MB-2: на экране без мыши эти две строки обманывают человека — интерфейс
+  // возвращается касанием (слушатель touchstart есть в WritingSettingsContext).
+  zen_hint_touch: { ru: 'Коснись экрана, чтобы вернуть интерфейс', en: 'Touch the screen to bring the interface back' },
+  zen_hint_silence_touch: { ru: 'Коснись края экрана', en: 'Touch the edge of the screen' },
 
   editor_title_placeholder: { ru: 'Заголовок...', en: 'Title...' },
   editor_saving: { ru: 'Сохранение...', en: 'Saving...' },

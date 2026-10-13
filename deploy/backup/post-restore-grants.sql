@@ -17,6 +17,12 @@ grant execute on function public.increment_document_sessions(text, integer) to a
 -- для PUBLIC, и чужой rpc считает чужие заметки.
 revoke all on function public.sync_document_stats(text, bigint, bigint) from public, anon;
 grant execute on function public.sync_document_stats(text, bigint, bigint) to authenticated;
+-- 0041 (MB-1): право на мобильный макет. Функция security definer читает
+-- service_accounts (0040, deny-all для клиентов) от имени владельца; если
+-- восстановление вернёт ей EXECUTE для PUBLIC, спросить чужое право сможет и
+-- аноним, а это уже не «boolean про себя».
+revoke all on function public.mobile_layout_allowed() from public, anon;
+grant execute on function public.mobile_layout_allowed() to authenticated;
 revoke all on public.admin_users_view from public, anon;
 grant select on public.admin_users_view to authenticated;
 revoke all on public.applied_migrations from authenticated, anon;

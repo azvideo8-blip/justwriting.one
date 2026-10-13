@@ -9,7 +9,11 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', '.claude/**', '.vercel/**', 'scripts/**', 'deploy/**'],
+    // MB-12: после локального e2e в дереве лежат playwright-report/ и test-results/
+    // со минифицированными бандлами трассировки — `eslint .` спотыкается о них,
+    // а не о код. В CI порядок шагов этого не показывает (lint раньше e2e).
+    ignores: ['dist/**', 'node_modules/**', '.claude/**', '.vercel/**', 'scripts/**', 'deploy/**',
+              'playwright-report/**', 'test-results/**'],
   },
   js.configs.recommended,
   // N-59: public/ — загрузочный скрипт и сервис-воркер, выполняются до React;

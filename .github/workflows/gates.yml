@@ -124,6 +124,10 @@ jobs:
           # его отсутствия не заметят; этот шаг падает, если триггер снять.
           docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/server_stamp.test.sql
 
+          # MB-1: право на мобильный макет (0041) — функция от имени владельца,
+          # ветка служебных аккаунтов и отсутствие права у anon.
+          docker exec -i "$CONTAINER_NAME" psql -U postgres -v ON_ERROR_STOP=1 < supabase/tests/mobile_layout_access.test.sql
+
           export DATABASE_URL="postgres://postgres:postgres@127.0.0.1:5439/postgres"
 
           echo "TB-02/TB-03 Step A: Injecting canary..."

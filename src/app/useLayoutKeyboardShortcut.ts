@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useLayoutMode, MOBILE_LAYOUT_ENABLED } from '../shared/hooks/useLayoutMode';
+import { useMobileLayoutAccess } from '../shared/hooks/useMobileLayoutAccess';
 
 // Cmd+M (Mac) / Ctrl+M (Win/Linux) toggles desktop ↔ mobile layout.
 // Note: Cmd+M on macOS minimises the window by default; the app needs to be
@@ -8,12 +9,13 @@ import { useLayoutMode, MOBILE_LAYOUT_ENABLED } from '../shared/hooks/useLayoutM
 // from also acting on the key.
 export function useLayoutKeyboardShortcut() {
   const { layoutMode, setLayoutMode } = useLayoutMode();
+  // MB-1: переключать макет могут только те, кому он разрешён.
+  const allowed = useMobileLayoutAccess();
   const layoutModeRef = useRef(layoutMode);
   useEffect(() => { layoutModeRef.current = layoutMode; }, [layoutMode]);
 
   useEffect(() => {
-    // D-15: While mobile layout is disabled, shortcut is a no-op
-    if (!MOBILE_LAYOUT_ENABLED) return;
+    if (!(MOBILE_LAYOUT_ENABLED || allowed)) return;
 
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
@@ -25,5 +27,5 @@ export function useLayoutKeyboardShortcut() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [setLayoutMode]);
+  }, [setLayoutMode, allowed]);
 }

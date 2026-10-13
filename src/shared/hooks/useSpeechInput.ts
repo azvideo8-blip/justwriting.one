@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '../i18n';
 import { useToast } from '../components/Toast';
+import { hasOnlyTouchPointer } from '../utils/touchPointer';
 
 interface SpeechRecognitionResult {
   isFinal: boolean;
@@ -94,6 +95,10 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
   // остаётся: новые индексы сдвигаются на уже записанное.
   const indexOffsetRef = useRef(0);
   const wantStopRef = useRef(false);
+  // MB-10: `aborted` — это не «браузер оборвал, надо продолжить», а «сессию
+  // закрыли». Без этого флага onend после aborted перезапускал движок, и после
+  // возврата из фона микрофон писал снова сам (findings-G G3: starts: 2).
+  const abortedRef = useRef(false);
   const cancelledRef = useRef(false);
   const deliveredRef = useRef(false);
   const resultsSinceRestartRef = useRef(0);
@@ -168,6 +173,7 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
     interimRef.current = '';
     indexOffsetRef.current = 0;
     wantStopRef.current = false;
+    abortedRef.current = false;
     cancelledRef.current = false;
     deliveredRef.current = false;
     resultsSinceRestartRef.current = 0;
@@ -246,6 +252,9 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
           deliver();
         }
       } else {
+        // `aborted`: конец сессии, а не пауза. Досказывать будет onend — там
+        // flag отдаёт собранное и НЕ перезапускает.
+        abortedRef.current = true;
         setIsListening(false);
       }
       // Для продолжаемых сбоев isListening не сбрасываем: иначе панель записи
@@ -260,7 +269,7 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
         setIsListening(false);
         return;
       }
-      if (wantStopRef.current) {
+      if (wantStopRef.current || abortedRef.current) {
         deliver();
         return;
       }
@@ -295,6 +304,19 @@ export function useSpeechInput({ onSessionEnd, onError }: UseSpeechInputProps) {
     recognitionRef.current = recognition;
     recognition.start();
   }, [hasSupport, language, publishLive, deliver, onError, showToast, t]);
+
+  // MB-10: уход в фон во время записи — то же самое, что нажатие «Стоп»:
+  // собранное отдаётся и дописывается, микрофон остаётся выключенным.
+  // Только на сенсорных устройствах: на компьютере «фон» — это и соседняя
+  // вкладка, и окно, закрытое другим окном; диктовку там прежде не рвало.
+  useEffect(() => {
+    if (!isListening || !hasOnlyTouchPointer()) return;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') stopListening();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [isListening, stopListening]);
 
   useEffect(() => {
     return () => {

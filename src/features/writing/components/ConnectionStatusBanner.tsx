@@ -39,6 +39,13 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
   }, [uid]);
   const vaultLocked = Boolean(uid) && encryptionEnabled === true && !isVaultUnlocked;
 
+  // MB-8 (F-8): на телефоне баннер встаёт в поток над содержимым, а не лежит
+  // fixed поверх заголовков страниц и шапки чата. Сам баннер остаётся — это
+  // честное состояние, а не украшение.
+  const BANNER_POSITION = isMobile
+    ? 'relative z-[var(--z-overlay)] mx-auto mt-[calc(env(safe-area-inset-top,0px)+12px)]'
+    : 'fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]';
+
   useEffect(() => {
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
@@ -71,7 +78,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           className={cn(
-            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
+            BANNER_POSITION,
             "flex items-center gap-2 backdrop-blur-xl border font-medium whitespace-nowrap",
             isMobile
               ? "px-3 py-1.5 rounded-xl text-xs bg-accent-warning/15 border-accent-warning/30 text-accent-warning"
@@ -92,7 +99,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           className={cn(
-            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
+            BANNER_POSITION,
             "flex items-center gap-2 backdrop-blur-xl border font-medium",
             isMobile
               ? "px-3 py-1.5 rounded-xl text-xs bg-accent-warning/15 border-accent-warning/30 text-accent-warning max-w-[calc(100vw-32px)]"
@@ -112,7 +119,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           className={cn(
-            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
+            BANNER_POSITION,
             "flex items-center gap-2 backdrop-blur-xl border font-medium",
             isMobile
               ? "px-3 py-1.5 rounded-xl text-xs bg-accent-warning/15 border-accent-warning/30 text-accent-warning max-w-[calc(100vw-32px)]"
@@ -124,7 +131,11 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('open-vault-unlock'))}
-            className="shrink-0 underline underline-offset-2 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-warning/50 rounded"
+            className={cn(
+              "shrink-0 underline underline-offset-2 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-warning/50 rounded",
+              // Цель касания не 16 px высотой (F-8: «Открыть сейф» была 84×16).
+              isMobile && "min-h-[44px] px-3 py-2"
+            )}
           >
             {t('vault_locked_open')}
           </button>
@@ -138,7 +149,7 @@ export function ConnectionStatusBanner({ showZen }: ConnectionStatusBannerProps)
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           className={cn(
-            "fixed left-1/2 -translate-x-1/2 z-[var(--z-overlay)] top-[calc(env(safe-area-inset-top,0px)+12px)]",
+            BANNER_POSITION,
             "flex items-center gap-2 backdrop-blur-xl border font-medium whitespace-nowrap",
             isMobile
               ? "px-3 py-1.5 rounded-xl text-xs bg-accent-success/15 border-accent-success/30 text-accent-success"

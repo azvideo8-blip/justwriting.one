@@ -5,6 +5,8 @@ import { useLanguage } from '../../../shared/i18n';
 // Вкладка настроек редактора нужна только когда панель открыта (бюджет бандла).
 const EditorTab = lazy(() => import('./EditorTab').then(m => ({ default: m.EditorTab })));
 import { useFocusTrap } from '../../../shared/hooks/useFocusTrap';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { usePanelHistory } from '../../../shared/hooks/usePanelHistory';
 import { APP_VERSION } from '../../../version';
 import { IconButton } from '../../../shared/components/IconButton';
 
@@ -38,6 +40,10 @@ export function SettingsPanel({ isOpen, onClose, userId, onRefreshLifeLog }: Set
   const reducedMotion = useReducedMotion();
 
   useFocusTrap(panelRef, isOpen);
+  // MB-9: в мобильном макете «назад» закрывает панель настроек, а не уводит
+  // с страницы (F-29: из неё browser back вёл на предыдущий сайт).
+  const { layoutMode } = useLayoutMode();
+  usePanelHistory(isOpen, onClose, layoutMode !== 'desktop');
 
   useEffect(() => {
     if (isOpen) {

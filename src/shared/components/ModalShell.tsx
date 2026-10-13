@@ -1,12 +1,23 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { useModalEscape } from '../hooks/useModalEscape';
+import { useLayoutMode } from '../hooks/useLayoutMode';
+import { usePanelHistory } from '../hooks/usePanelHistory';
 
 // AUDIT-part2 3.1: единый примитив модалки. Хуки решают поведение
 // (Escape, фокус-трап), но не гарантируют разметку — role/aria-modal/
 // stopPropagation живут здесь, поэтому новая модалка физически не может
 // повторить ситуацию M21 («10 модалок без трапа»).
+//
+// MB-4 (F-4, F-23): окно рендерится порталом в document.body. Внутри `main`
+// этого нельзя: у main `relative z-10` — свой контекст наложения, а BottomNav
+// лежит снаружи со слоем --z-sidebar, и любое окно внутри main оказывается под
+// панелью («Сохранить» в окне завершения) — а `fixed` внутри предка с
+// transform/backdrop-filter считается от него, из-за чего листы архива уезжали
+// за левый край (x=−36) и страница за ними оставалась кликабельной.
+// Проще снять z-10 с main нельзя: им прижат ThemeBackground.
 
 const BACKDROP_Z: Record<'modal' | 'critical' | 'sheet', string> = {
   modal: 'z-[var(--z-modal)]',
@@ -57,8 +68,11 @@ export function ModalShell({
   className,
 }: ModalShellProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const { layoutMode } = useLayoutMode();
   useModalEscape(open && variant === 'modal', onClose);
   useFocusTrap(ref, open);
+  // MB-9: на телефоне «назад» закрывает лист/модалку, а не уводит из приложения.
+  usePanelHistory(open, onClose, layoutMode !== 'desktop');
 
   // Блокировка прокрутки фона на время модалки.
   useEffect(() => {
@@ -70,9 +84,9 @@ export function ModalShell({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
       className={variant === 'sheet' ? SHEET_BACKDROP : MODAL_BACKDROP(z)}
       onClick={onClose}
@@ -94,6 +108,7 @@ export function ModalShell({
       >
         {children}
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   );
 }

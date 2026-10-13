@@ -150,7 +150,13 @@ jobs:
         # 2026-10-07 (0.9.32): 442000 → 450000. Факт 439736 (ещё +3 КБ сверху
         # до порога): промпт «Редактора» (PERSONA_PROMPTS тянет в клиент окно
         # описания персоны), очередь окон первого входа, окно «Регистрация».
-        MAX_INDEX=450000   # index-*.js fail-порог (байты)
+        # 2026-10-13 (0.9.38): 450000 → 460000. Факт 450088 против 442515 на 0.9.37
+        # (+7,6 КБ). Мобильный макет открыт по праву аккаунта (MB-1): раньше при
+        # константе 'desktop' сборщик выкидывал BottomNav и мобильные ветки как
+        # недостижимые (строки BottomNav в index 0.9.37 нет), теперь они живые. Плюс
+        # сам MB: RPC права, история листов (MB-9), портал модалок (MB-4). Gzip
+        # 131413 из 131500 — тот порог не тронут и остаётся связывающим.
+        MAX_INDEX=460000   # index-*.js fail-порог (байты)
         # R3-045: vendor был только предупреждением, а суммы не мерил никто —
         # новый чанк рос без гейта. 2026-09-30: самый большой vendor 363372
         # (docx), весь JS 3783407 в 97 файлах. Потолки — с запасом ~5–10%.
@@ -234,8 +240,52 @@ jobs:
         # защита от убежавших часов держится на одном триггере из 0037, а миграции
         # перезаписываются часто; без этой строчки удалённый триггер ронял бы
         # гейты в ноль.
-        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql; do cat "$f"; echo; done; } \
+        # mobile_layout_access.test.sql — MB-1: право на мобильный макет отдаёт база
+        # (0041), и это единственное место, где видно, что ветка служебных аккаунтов
+        # в функции есть, а у anon права на исполнение нет.
+        { for f in supabase/tests/_auth_setup.sql supabase/migrations/*.sql supabase/tests/rls.test.sql supabase/tests/server_stamp.test.sql supabase/tests/mobile_layout_access.test.sql; do cat "$f"; echo; done; } \
           | docker exec -i "${{ job.services.postgres.id }}" psql -U postgres -v ON_ERROR_STOP=1
+
+  # MB-12: мобильные спеки (e2e/mobile/*.spec.ts) под проектом Mobile Chrome.
+  # Отдельный джоб, а не шаг в build: спекам нужен живой стек (мобильный макет
+  # открывается по праву аккаунта, MB-1, а право даёт база), то есть локальный
+  # стенд. На VPS-раннере :3000 держит продовый API, и up.sh на занятом порту
+  # отказывается стартовать — здесь же порты свободны, а docker есть.
+  # Mobile Safari (WebKit) НЕ включён: ни одна спека этой партии не снималась в
+  # WebKit, а единственная известная WebKit-разница (F-20, чтение `users` после
+  # входа) сначала проверяется ревьюером на проде — см. MX-6.
+  # Раннер — как у build/rls: push идёт на своём VPS (минуты GitHub кончились),
+  # машины GitHub — только для PR и ручного hosted. С `ubuntu-latest` на каждый
+  # push джоб не стартовал бы, CI коммита был бы красным, и выкатка (deploy.yml
+  # ждёт зелёный CI) не проходила бы. Порты стенда (3300…3313, 8999, 3013, 5442)
+  # на VPS свободны: :3000 и :5432 держит прод, поэтому здесь и не дефолтные.
+  mobile-e2e:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Use Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: '24'
+        cache: npm
+    - run: npm ci
+    - name: Install Playwright (Chromium — проект Mobile Chrome)
+      # Без --with-deps, как в build: на VPS нет sudo, системные библиотеки там уже
+      # стоят (build гоняет e2e в том же chromium).
+      run: npx playwright install chromium
+    - name: Mobile e2e discovery check
+      # Тот же guarding шаг, что «E2E test discovery check» выше: --list ловит и
+      # мобильные спеки, иначе опечатка в testMatch обходится «зелёным» CI без
+      # единого теста.
+      run: |
+        OUTPUT=$(npx playwright test -c playwright.mobile.config.ts --project="Mobile Chrome" --list)
+        echo "$OUTPUT"
+        echo "$OUTPUT" | grep -q "Total: [1-9][0-9]* tests" || { echo "::error::мобильные спеки не находятся (0 тестов)"; exit 1; }
+        N=$(echo "$OUTPUT" | sed -n 's/.*Total: \([0-9]*\) tests.*/\1/p')
+        [ "$N" -ge 12 ] || { echo "::error::мобильных тестов $N, ожидалось не меньше 12 (MB-2…MB-11)"; exit 1; }
+    - name: Mobile e2e on the stand
+      run: bash scripts/ci/mobile-e2e.sh
 
   # R5-008: джоб только для PR не от Dependabot. Сегодня таких нет (владелец
   # пушит в main), поэтому он не исполнялся ни разу — но и не мёртв: первый
