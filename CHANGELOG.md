@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.38 — 2026-10-13
+
+- **[RU]** При быстром переключении между диалогами в открытом диалоге больше не появляются сообщения из предыдущего.
+- **[EN]** Switching quickly between dialogues no longer shows messages from the previous one in the dialogue you opened.
+- **[RU]** Диктовка больше не включает микрофон сама, если браузер прервал запись: сказанное сохраняется в заметке, а продолжить можно кнопкой микрофона.
+- **[EN]** Dictation no longer turns the microphone back on by itself when the browser interrupts recording: what you said is saved to the note, and you can continue with the microphone button.
+
 ## 0.9.37 — 2026-10-11
 
 - **[RU]** ИИ-собеседники работают на новой модели: внимательнее к приложенным заметкам и длинным расшифровкам, не теряют середину текста и отвечают быстрее.

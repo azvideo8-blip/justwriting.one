@@ -14,6 +14,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.38',
+    date: '2026-10-13',
+    items: [
+      { category: 'fix', ru: 'При быстром переключении между диалогами в открытом диалоге больше не появляются сообщения из предыдущего.', en: 'Switching quickly between dialogues no longer shows messages from the previous one in the dialogue you opened.' },
+      { category: 'fix', ru: 'Диктовка больше не включает микрофон сама, если браузер прервал запись: сказанное сохраняется в заметке, а продолжить можно кнопкой микрофона.', en: 'Dictation no longer turns the microphone back on by itself when the browser interrupts recording: what you said is saved to the note, and you can continue with the microphone button.' },
+    ],
+  },
+  {
     version: '0.9.37',
     date: '2026-10-11',
     items: [
