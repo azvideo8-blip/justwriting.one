@@ -2,7 +2,7 @@
 // «Начать», ни окна режима. Проверка «/» на отсутствие бокового скролла вернулась
 // сюда: экран-заглушка, который его давал, удалён.
 import { expect, test } from '@playwright/test';
-import { fullyInViewport, openVaultFromBanner, shot, signInMobile } from './harness';
+import { fullyInViewport, openVaultFromBanner, shot, signInMobile, waitForQuietDialogs } from './harness';
 
 const SIZES = [{ w: 360, h: 640 }, { w: 390, h: 844 }];
 
@@ -100,14 +100,18 @@ for (const { w, h } of SIZES) {
     test('на / нет горизонтального скролла', async ({ page }) => {
       await signInMobile(page, `mr6-overflow-${w}`);
       await page.goto('/');
-      // Меряем, когда страница успокоилась: первый CI-прогон 0.9.39 поймал на 360
-      // блок посреди анимации появления (x=-86..130), которого через секунду уже
-      // нет, а на 390 и локально тот же тест зелёный. Элемент, который торчит за
-      // край постоянно, не пропадёт и через 10 с — проверка его по-прежнему ловит.
+      // Окна первого запуска (синхронизация) на медленном CI приходят и после
+      // входа; замер — не действие, обработчик окон на него не срабатывает. Их
+      // декоративные слои и ловились как «x=-86..130» (снимок CI 38600255832:
+      // открыто «Синхронизация с облаком»). Сначала тишина окон, потом замер,
+      // и сами окна в замер не идут: проверяется страница, а не оверлей.
+      await waitForQuietDialogs(page);
       const measure = () => page.evaluate(() => {
         const vw = document.documentElement.clientWidth;
         const out: string[] = [];
+        if (document.documentElement.scrollWidth > vw + 1) out.push(`scrollWidth ${document.documentElement.scrollWidth} > ${vw}`);
         for (const el of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+          if (el.closest('[role="dialog"]')) continue;
           const r = el.getBoundingClientRect();
           if (r.width && (r.right > vw + 1 || r.left < -1)) {
             out.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]} x=${Math.round(r.left)}..${Math.round(r.right)}`);

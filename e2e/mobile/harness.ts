@@ -263,7 +263,9 @@ export async function waitForQuietDialogs(page: Page, budgetMs = 25_000): Promis
       }).length)
       .catch(() => 0);
     if (visible === 0) {
-      if (++quiet >= 3) return true;
+      // 5 × 400 мс: окно синхронизации на медленном CI приходит и через ~1,5 с
+      // после входа, три пустых проверки (1,2 с) его пропускали (CI 38600255832).
+      if (++quiet >= 5) return true;
     } else {
       quiet = 0;
       await dismissFirstLoginDialogs(page, true, 6_000);
