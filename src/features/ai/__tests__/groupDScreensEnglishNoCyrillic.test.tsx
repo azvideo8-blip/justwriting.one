@@ -14,6 +14,19 @@ import { MemoryAssemblerDiagnostics } from '../components/MemoryAssemblerDiagnos
 import { QueueExplorer } from '../components/QueueExplorer';
 import { SyncDiagnostics } from '../components/SyncDiagnostics';
 
+// Чтения профиля из облака у страницы профиля (метки и портрет) в jsdom падают
+// без сети, и их ошибка иногда писалась в консоль уже после конца теста —
+// vitest считал это ошибкой выхода и ронял CI (0.9.39, «Closing rpc while
+// onUserConsoleLog was pending»). Тест про язык интерфейса, не про чтение.
+vi.mock('../../../core/services/ProfileService', async (importActual) => {
+  const actual = await importActual<typeof import('../../../core/services/ProfileService')>();
+  return { ...actual, ProfileService: { ...actual.ProfileService, getProfile: vi.fn().mockResolvedValue({ data: null, error: false }) } };
+});
+vi.mock('../services/AIProfileService', async (importActual) => {
+  const actual = await importActual<typeof import('../services/AIProfileService')>();
+  return { ...actual, AIProfileService: { ...actual.AIProfileService, getPortrait: vi.fn().mockResolvedValue(null), isPortraitStale: vi.fn().mockResolvedValue(false) } };
+});
+
 vi.mock('../../../shared/components/Toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
   ToastProvider: ({ children }: { children: React.ReactNode }) => children,
