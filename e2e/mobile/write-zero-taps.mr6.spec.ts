@@ -106,20 +106,23 @@ for (const { w, h } of SIZES) {
       // открыто «Синхронизация с облаком»). Сначала тишина окон, потом замер,
       // и сами окна в замер не идут: проверяется страница, а не оверлей.
       await waitForQuietDialogs(page);
+      // Проверяется сама прокрутка: декоративные пятна фона медленно плавают и
+      // заходят за край (x=-94..140, x=-3..395 на чистом экране, CI 38604785289),
+      // но обрезаны и прокрутки не дают — по рамкам элементов тест был случайным.
+      // Список вылезающих элементов — только подсказка в тексте ошибки.
       const measure = () => page.evaluate(() => {
         const vw = document.documentElement.clientWidth;
-        const out: string[] = [];
-        if (document.documentElement.scrollWidth > vw + 1) out.push(`scrollWidth ${document.documentElement.scrollWidth} > ${vw}`);
+        const sw = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+        if (sw <= vw + 1) return 'ok';
+        const hints: string[] = [];
         for (const el of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
           if (el.closest('[role="dialog"]')) continue;
           const r = el.getBoundingClientRect();
-          if (r.width && (r.right > vw + 1 || r.left < -1)) {
-            out.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]} x=${Math.round(r.left)}..${Math.round(r.right)}`);
-          }
+          if (r.width && r.right > vw + 1) hints.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]} x=${Math.round(r.left)}..${Math.round(r.right)}`);
         }
-        return out.slice(0, 5);
+        return `scrollWidth ${sw} > ${vw}: ${hints.slice(0, 5).join(', ')}`;
       });
-      await expect.poll(measure, { timeout: 10_000, intervals: [500, 1_000] }).toEqual([]);
+      await expect.poll(measure, { timeout: 10_000, intervals: [500, 1_000] }).toBe('ok');
     });
   });
 }
