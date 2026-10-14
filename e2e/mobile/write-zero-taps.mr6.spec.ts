@@ -55,6 +55,11 @@ for (const { w, h } of SIZES) {
       const dialog = page.getByRole('dialog').last();
       await expect(dialog, 'окно завершения не открылось').toBeVisible({ timeout: 15_000 });
       await dialog.getByRole('button', { name: /Сохранить/ }).click();
+      // Окно закрывается в onSuccess — то есть после того, как запись легла.
+      // Без этого goto ниже перезагружал страницу через 250 мс после «Сохранить»
+      // и обрывал шифрование и запись (CI 0.9.39: «запись не появилась в архиве»).
+      await expect(page.locator('[aria-labelledby="finish-modal-title"]'), 'окно завершения не закрылось — сохранение не дошло')
+        .toBeHidden({ timeout: 20_000 });
       // WebKit роняет «Frame load interrupted», если `goto` стартует в тот момент,
       // когда приложение само дописывает навигацию после сохранения. Пробуем ещё
       // раз: запись в архиве по-прежнему проверяет следующий expect, поэтому
