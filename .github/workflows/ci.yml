@@ -293,6 +293,15 @@ jobs:
         [ "$N" -ge 40 ] || { echo "::error::мобильных тестов $N, ожидалось не меньше 40 (MB-2…MB-11, MR-1…MR-11)"; exit 1; }
     - name: Mobile e2e on the stand
       run: bash scripts/ci/mobile-e2e.sh
+    # Снимки упавших мобильных тестов: без них разбор падения в CI шёл вслепую
+    # (0.9.39: «блок за левым краем» на 360 — что за блок, видно только на снимке).
+    - name: Upload mobile e2e failures
+      if: failure()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: mobile-e2e-failures
+        path: test-results/
+        retention-days: 7
 
   # R5-008: джоб только для PR не от Dependabot. Сегодня таких нет (владелец
   # пушит в main), поэтому он не исполнялся ни разу — но и не мёртв: первый

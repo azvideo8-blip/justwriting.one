@@ -95,7 +95,11 @@ for (const { w, h } of SIZES) {
     test('на / нет горизонтального скролла', async ({ page }) => {
       await signInMobile(page, `mr6-overflow-${w}`);
       await page.goto('/');
-      const offenders = await page.evaluate(() => {
+      // Меряем, когда страница успокоилась: первый CI-прогон 0.9.39 поймал на 360
+      // блок посреди анимации появления (x=-86..130), которого через секунду уже
+      // нет, а на 390 и локально тот же тест зелёный. Элемент, который торчит за
+      // край постоянно, не пропадёт и через 10 с — проверка его по-прежнему ловит.
+      const measure = () => page.evaluate(() => {
         const vw = document.documentElement.clientWidth;
         const out: string[] = [];
         for (const el of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
@@ -106,7 +110,7 @@ for (const { w, h } of SIZES) {
         }
         return out.slice(0, 5);
       });
-      expect(offenders, `горизонтальный скролл на /: ${offenders.join(', ')}`).toEqual([]);
+      await expect.poll(measure, { timeout: 10_000, intervals: [500, 1_000] }).toEqual([]);
     });
   });
 }
