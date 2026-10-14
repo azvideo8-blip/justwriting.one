@@ -17,6 +17,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.40',
+    date: '2026-10-14',
+    // Тихий выпуск: правки мобильного макета, пока он закрыт для всех (итог — 0.10.0).
+    announce: false,
+    items: [
+      { category: 'fix', ru: 'Исправлены мелкие недоработки.', en: 'Minor fixes.' },
+    ],
+  },
+  {
     version: '0.9.39',
     date: '2026-10-14',
     items: [
