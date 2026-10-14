@@ -381,6 +381,11 @@ export function DocumentPreview({
       exit={{ opacity: 0, transform: isMobile ? "translateY(100%)" : "translateX(20px)" }}
       transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
       className="glass-panel custom-scrollbar fixed z-[var(--z-panel)] flex flex-col"
+      // MR-9: на телефоне предпросмотр — это шит, и он должен быть доступен как
+      // dialog (спека ищет роль, а не класс). Десктопная панель остаётся панелью.
+      role={isMobile ? 'dialog' : undefined}
+      aria-modal={isMobile ? true : undefined}
+      aria-label={isMobile ? (session?.title || t('common_untitled')) : undefined}
       style={isMobile ? {
         left: 0,
         right: 0,

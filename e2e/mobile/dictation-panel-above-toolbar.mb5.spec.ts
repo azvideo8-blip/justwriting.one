@@ -3,7 +3,7 @@
 // аудита Fable), не живое распознавание.
 import { expect, test } from '@playwright/test';
 import {
-  DICTATION_ENGINE, emitSpeech, pickFreeFlow, shot, signInMobile, startDictation, zenOff,
+  DICTATION_ENGINE, emitSpeech, shot, signInMobile, startDictation, zenOff,
 } from './harness';
 
 test.use({ viewport: { width: 360, height: 640 } });
@@ -16,8 +16,8 @@ test.describe('MB-5: панель диктовки над панелью инс�
     await zenOff(page);
     await signInMobile(page, 'mb5-dict');
 
-    await page.getByRole('button', { name: /^Начать$/ }).click();
-    expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+    // MR-6 (направление A): редактор открыт сразу, «Начать» и лист режима не нужны.
+    await page.goto('/');
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     await editor.click();

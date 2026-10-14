@@ -93,6 +93,8 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
     const { container } = render(
       <LanguageProvider>
         <AIChatComposer
+          isMobile={false}
+          keyboardHeight={0}
           inputText={"Some text longer than 1500 characters so that the note paste button appears. ".repeat(30)}
           setInputText={() => {}}
           inputRef={{ current: null }}
@@ -145,6 +147,8 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
           allPersonas={[{ id: 'p1', name: 'Helper', emoji: '🤖', isPreset: true }]}
           openPersonaDetail={() => {}}
           onCreatePersona={() => {}}
+          onOpenDialogues={() => {}}
+          onNewDialogue={() => {}}
         />
       </LanguageProvider>
     );

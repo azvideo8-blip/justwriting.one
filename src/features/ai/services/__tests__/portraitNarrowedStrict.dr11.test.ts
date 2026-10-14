@@ -63,12 +63,14 @@ describe('DR-11: портрет в строгом ходе', () => {
     expect(ctx.userPortrait).toContain('Стиль общения');
   });
 
-  it('если раздела о коммуникации нет, строгий ход не остаётся без портрета', async () => {
+  // PX-1 (кейс 9.8) меняет букву этого случая: раньше при старом формате
+  // портрета (без раздела «Стиль общения») в строгий ход уходил весь портрет.
+  it('если раздела о коммуникации нет, строгий ход остаётся без портрета', async () => {
     const db = await getLocalDb();
     await db.put('aiPortrait', {
       id: 'singleton', portrait: '# Психологический портрет пользователя\n\n## Темы и интересы\nРемонт и пешие маршруты.\n', updatedAt: Date.now(),
     } as never);
     const ctx = await run('note');
-    expect(ctx.userPortrait ?? '').toContain('пешие маршруты');
+    expect(ctx.userPortrait).toBeNull();
   });
 });

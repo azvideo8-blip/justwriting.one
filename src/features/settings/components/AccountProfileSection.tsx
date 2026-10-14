@@ -7,6 +7,9 @@ import { useLoginModal } from '../../../app/useLoginModal';
 import { emitDomainEvent } from '../../../core/events/domainEvents';
 import { useToast } from '../../../shared/components/Toast';
 import { Section } from './SettingsHelpers';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { SettingRow } from '../../../shared/components/MeScreenHelpers';
+import { cn } from '../../../core/utils/utils';
 import { Button } from '../../../shared/components/Button';
 import { SignOutConfirmModal } from '../../auth/components/SignOutConfirmModal';
 
@@ -15,7 +18,8 @@ interface AccountProfileSectionProps {
 }
 
 export function AccountProfileSection({ userId: _userId }: AccountProfileSectionProps) {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+  const { layoutMode } = useLayoutMode();
   const { isAuthenticated } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const { showToast } = useToast();
@@ -67,6 +71,32 @@ export function AccountProfileSection({ userId: _userId }: AccountProfileSection
               </div>
             </div>
           </div>
+
+          {/* MR-5: язык переехал в «Профиль → Настройки»: шестерёнка профиля
+              открывает настройки приложения, и язык должен быть там же. Только
+              в мобильном макете: на десктопе язык остаётся в «Редакторе», второй
+              переключатель на /settings — изменение десктопа (ревью 0.9.39). */}
+          {layoutMode === 'mobile' && <div className="pt-2 border-t border-border-subtle">
+            <SettingRow label={t('settings_language')}>
+              <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
+                {(['ru', 'en'] as const).map(lang => (
+                  <Button
+                    type="button"
+                    key={lang}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLanguage(lang)}
+                    className={cn(
+                      'px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium',
+                      language === lang ? 'bg-white/[0.08] text-text-main' : 'bg-transparent text-text-main/50'
+                    )}
+                  >
+                    {lang.toUpperCase()}
+                  </Button>
+                ))}
+              </div>
+            </SettingRow>
+          </div>}
 
           <div className="pt-2 border-t border-border-subtle">
             <Button

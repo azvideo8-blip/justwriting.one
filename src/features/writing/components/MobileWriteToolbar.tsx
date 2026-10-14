@@ -153,7 +153,7 @@ export function MobileWriteToolbar({
         {!hideStats && effectiveHeaderVisibility.sessionWords && (
           <div
             onClick={onGoalClick}
-            className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-0 overflow-hidden")}
+            className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-11 overflow-hidden")}
             role="button"
             tabIndex={0}
             aria-label={t('writing_mode_words')}
@@ -182,7 +182,7 @@ export function MobileWriteToolbar({
         {!hideStats && effectiveHeaderVisibility.sessionTime && (
           <div
             onClick={onGoalClick}
-            className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-0 overflow-hidden", "max-[379px]:hidden")}
+            className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-11 overflow-hidden", "max-[379px]:hidden")}
             role="button"
             tabIndex={0}
             aria-label={t('writing_mode_timer')}
@@ -280,7 +280,7 @@ export function MobileWriteToolbar({
         <IconButton
           onClick={onStop}
           disabled={isIdle}
-          label={t('stop')}
+          label={t('writing_done')}
           className={cn(
             "w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent flex items-center justify-center shrink-0",
             isIdle ? "text-[var(--text-subtle)] cursor-default" : "text-[var(--text-muted)] cursor-pointer"

@@ -4,6 +4,9 @@ import { useTimerStore } from '../store/useTimerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useLanguage } from '../../../shared/i18n';
+import { useSettings } from '../../../core/settings/SettingsContext';
+import { useKeyboardHeight } from '../../../shared/hooks/useKeyboardHeight';
+import { useStartOnFirstInput } from '../hooks/useStartOnFirstInput';
 import { formatTime } from '../../../core/utils/formatTime';
 import { AnimatePresence, motion } from 'motion/react';
 import { MobileFocusScreen } from './MobileFocusScreen';
@@ -16,6 +19,17 @@ import { getWpmHex } from '../utils/wpmColors';
 import { cn } from '../../../core/utils/utils';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
 import { getPromptOfDay } from '../utils/promptOfDay';
+import type { SessionType } from '../store/types';
+
+// Ревью 0.9.39: жетон всегда говорил «Поток», хотя первая буква запускает
+// режим, оставшийся от прошлой сессии (таймер, цель по словам, дедлайн).
+const MODE_LABEL: Record<SessionType, string> = {
+  free: 'writing_mode_flow',
+  stopwatch: 'writing_mode_flow',
+  timer: 'writing_mode_timer',
+  words: 'writing_mode_words',
+  'finish-by': 'writing_mode_deadline',
+};
 
 interface MobileWriteScreenProps {
   onPlay: () => void;
@@ -26,12 +40,23 @@ interface MobileWriteScreenProps {
   saveErrorKind?: 'quota' | 'unknown' | null;
   keystrokeTrackerRef?: React.RefObject<KeystrokeTracker>;
   renderAiPanel?: (open: boolean, onClose: () => void) => React.ReactNode;
+  /** MR-6: «Писать» открывает редактор — экран-заглушка больше не нужен. */
+  status?: string;
+  streakDays?: number;
+  /** Режим, с которым стартует сессия по первой букве (может остаться от прошлой). */
+  sessionType?: SessionType;
+  onOpenSetup?: () => void;
+  hasDraft?: boolean;
+  restoreDraft?: () => void;
+  discardDraft?: () => void;
 }
 
 export function MobileWriteScreen({
-  onPlay, onPause, onStop, onNew, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel
+  onPlay, onPause, onStop, onNew, saveStatus, saveErrorKind, keystrokeTrackerRef, renderAiPanel,
+  status: statusProp, streakDays = 0, sessionType = 'free', onOpenSetup, hasDraft, restoreDraft, discardDraft,
 }: MobileWriteScreenProps) {
-  const { t, tp } = useLanguage();
+  const { t, tp, language } = useLanguage();
+  const { openSettings } = useSettings();
   const { content, setContent, title, setTitle, wordCount, wpm } = useContentStore(
     useShallow(s => ({
       content: s.content,
@@ -51,6 +76,18 @@ export function MobileWriteScreen({
       sessionStartWords: s.sessionStartWords,
     }))
   );
+  // MR-6: первый символ начинает запись — тот же закон, что на десктопе.
+  const playRef = useRef(onPlay);
+  // MR-11: ref пишется в эффекте, а не во время рендера (react-hooks/refs).
+  useEffect(() => { playRef.current = onPlay; }, [onPlay]);
+  const isIdleState = (statusProp ?? status) === 'idle';
+  const [discardConfirm, setDiscardConfirm] = useState(false);
+  const { handleEditorKeyDown: startOnKey, handleEditorInput: startOnInput } = useStartOnFirstInput({
+    status: statusProp ?? status,
+    play: playRef,
+    onKeystroke: () => keystrokeTrackerRef?.current?.record(),
+  });
+
   const { fontFamily, fontSize, isZenActive, zenModeEnabled, streamMode, toggleStreamMode, autoHideCursor, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
 
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
@@ -61,17 +98,10 @@ export function MobileWriteScreen({
 
   const isRunning = status === 'writing';
   const isPaused = status === 'paused';
-  const isIdle = status === 'idle';
   const showZen = isZenActive && zenModeEnabled;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!e.metaKey && !e.ctrlKey && !e.altKey && keystrokeTrackerRef?.current) {
-      keystrokeTrackerRef.current.record();
-    }
-
-    if ((isIdle || isPaused) && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-      onPlay();
-    }
+    startOnKey(e);
 
     if (streamMode) {
       if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -85,12 +115,7 @@ export function MobileWriteScreen({
   };
 
   const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-    if (isIdle || isPaused) {
-      const val = (e.target as HTMLTextAreaElement).value;
-      if (val.length > 0) {
-        onPlay();
-      }
-    }
+    startOnInput(e);
   };
 
   const handleBeforeInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -155,8 +180,7 @@ export function MobileWriteScreen({
   const swipeTouchStartY = useRef<number>(0);
   const swipeTouchStartX = useRef<number>(0);
 
-  const [keyboardHeight, setKeyboardHeight] = useState(120);
-  const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const keyboardHeight = useKeyboardHeight();
   const prevMilestoneRef = useRef(0);
 
   useEffect(() => {
@@ -174,37 +198,6 @@ export function MobileWriteScreen({
     }
   }, [status]);
 
-  useEffect(() => {
-    const hintShown = localStorage.getItem('focus_swipe_hint_shown');
-    if (hintShown) return;
-    // hideTimer must be cleared from the effect cleanup — a function returned
-    // from inside a setTimeout callback is discarded, not run on unmount
-    let hideTimer: ReturnType<typeof setTimeout> | undefined;
-    const showTimer = setTimeout(() => {
-      setShowSwipeHint(true);
-      hideTimer = setTimeout(() => {
-        setShowSwipeHint(false);
-        localStorage.setItem('focus_swipe_hint_shown', 'true');
-      }, 4000);
-    }, 0);
-    return () => {
-      clearTimeout(showTimer);
-      if (hideTimer) clearTimeout(hideTimer);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
-    const handleResize = () => {
-      const vv = window.visualViewport;
-      if (!vv) return;
-      const offset = window.innerHeight - vv.height;
-      const padBottom = offset > 0 ? Math.max(16, offset + 16) : 120;
-      setKeyboardHeight(padBottom);
-    };
-    window.visualViewport.addEventListener('resize', handleResize);
-    return () => window.visualViewport?.removeEventListener('resize', handleResize);
-  }, []);
 
   const handleEditorTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -243,6 +236,13 @@ export function MobileWriteScreen({
             exit={{ opacity: 0 }}
             className="flex items-center justify-between px-5 pt-3 pb-2 gap-3 pt-[calc(env(safe-area-inset-top,0px)+12px)]"
           >
+            {isIdleState ? (
+              <div className="flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)]">
+                <span className="text-[13px] font-medium text-[var(--text-main)] tabular-nums">
+                  {streakDays} {tp('home_streak_days', streakDays)}
+                </span>
+              </div>
+            ) : (
             <div className={cn(
               "flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)]",
               isRunning ? "bg-[var(--surface-elevated)]" : "bg-[var(--surface-card)]"
@@ -255,7 +255,13 @@ export function MobileWriteScreen({
                 {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
               </span>
             </div>
+            )}
 
+            {isIdleState ? (
+              <span className="flex-1 text-center text-[13px] font-medium text-[var(--text-muted)]">
+                {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })}
+              </span>
+            ) : (
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -265,6 +271,17 @@ export function MobileWriteScreen({
               enterKeyHint="done"
               className="flex-1 bg-transparent border-none outline-none text-base font-medium text-[var(--text-muted)] text-center font-sans"
             />
+            )}
+
+            {/* MR-5: настройки редактора живут в редакторе — «Aa» справа. */}
+            <button
+              type="button"
+              onClick={() => openSettings()}
+              aria-label={t('settings_title')}
+              className="w-11 h-11 shrink-0 -mr-2 flex items-center justify-center rounded-xl border border-[var(--border-light)] text-[13px] font-semibold text-[var(--text-muted)]"
+            >
+              Aa
+            </button>
 
             <div className="text-[10px] font-mono text-[var(--text-subtle)] tracking-[0.06em] uppercase min-w-[60px] text-right tabular-nums">
               {saveStatus === 'saving' ? t('save_status_saving') :
@@ -275,6 +292,62 @@ export function MobileWriteScreen({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* MR-7: в дзене шапка сворачивается в одну строку 30 px — время, слова и
+      статус сохранения. Раньше в дзене не было ни чего, и человек терял счёт. */}
+      {showZen && (
+        <div data-testid="zen-header-row" className="flex items-center h-[30px] px-5 gap-3 shrink-0 pt-[env(safe-area-inset-top,0px)]">
+          <span className="font-mono text-[12px] tabular-nums text-[var(--text-muted)] truncate">
+            {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+            {' · '}
+            {sessionWords} {tp('writing_words', sessionWords)}
+          </span>
+          <span className="flex-1" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.06em] text-[var(--text-subtle)] tabular-nums shrink-0">
+            {saveStatus === 'saving' ? t('save_status_saving') :
+             saveStatus === 'saved' ? t('save_status_saved') :
+             saveStatus === 'cloud-stale' ? <span className="text-[var(--accent-warning)]">{t('editor_cloud_stale')}</span> :
+             saveStatus === 'error' ? <span className="text-[var(--accent-danger)]">{t('editor_error_save')}</span> : ''}
+          </span>
+        </div>
+      )}
+
+      {!showZen && isIdleState && (
+        <div className="px-5 pb-2 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenSetup?.()}
+            aria-label={t('writing_mode_token')}
+            className="self-start flex items-center gap-2 min-h-11 py-1.5 px-3 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)] text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            <span>{t(MODE_LABEL[sessionType])}</span>
+            <span aria-hidden="true">·</span>
+            <span className="tabular-nums">{wordCount} {tp('writing_words', wordCount)}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+
+          {hasDraft && (
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-2">
+              <span className="flex-1 min-w-0 text-[12px] text-[var(--text-muted)] truncate">{t('draft_restore_prompt')}</span>
+              <button type="button" onClick={() => restoreDraft?.()} className="h-9 px-3 rounded-lg text-[12px] font-semibold text-[var(--brand-primary)]">
+                {t('draft_restore')}
+              </button>
+              <button type="button" onClick={() => setDiscardConfirm(true)} className="h-9 px-3 rounded-lg text-[12px] font-medium text-[var(--text-muted)] border border-[var(--border-light)]">
+                {t('draft_discard')}
+              </button>
+            </div>
+          )}
+          {discardConfirm && (
+            <div role="dialog" aria-modal="true" aria-labelledby="discard-draft-title" className="rounded-xl border border-[var(--border-light)] bg-[var(--surface-popup,#151021)] p-3 space-y-2">
+              <span id="discard-draft-title" className="block text-[12px] text-[var(--text-main)]">{t('draft_discard_confirm')}</span>
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => setDiscardConfirm(false)} className="h-9 px-3 rounded-lg text-[12px] text-[var(--text-muted)]">{t('common_cancel')}</button>
+                <button type="button" onClick={() => { setDiscardConfirm(false); discardDraft?.(); }} className="h-9 px-3 rounded-lg text-[12px] font-semibold text-[var(--accent-danger)]">{t('draft_discard')}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div
         ref={editorAreaRef}
@@ -293,7 +366,6 @@ export function MobileWriteScreen({
           onCopy={e => { if (streamMode) e.preventDefault(); }}
           onPaste={e => { if (streamMode) e.preventDefault(); }}
           placeholder={content.trim() === '' ? getPromptOfDay(t) : t('writing_placeholder')}
-          autoFocus
           inputMode="text"
           className={lighthouseActive ? 'lighthouse-pulse' : ''}
           style={{
@@ -344,20 +416,6 @@ export function MobileWriteScreen({
         </div>
       )}
 
-      <AnimatePresence>
-        {showSwipeHint && isRunning && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-[100px] left-6 right-6 z-40 bg-[var(--surface-card)] backdrop-blur-md border border-white/10 rounded-xl p-3 flex justify-center pointer-events-none"
-          >
-            <span className="text-xs text-[var(--text-muted)] font-medium">
-              {t('swipe_down_hint')}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* MB-5: панель записи и панель управления — один столбец над нижней
           панелью. Раньше DictationChrome лежал в потоке flex-col, а тулбар —

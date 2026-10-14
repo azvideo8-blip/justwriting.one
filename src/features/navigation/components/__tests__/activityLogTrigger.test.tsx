@@ -67,23 +67,17 @@ describe('AG-BG-2: Activity Log Triggers (Sidebar & BottomNav)', () => {
     expect(screen.getByRole('dialog', { name: /журнал активности/i })).toBeInTheDocument();
   });
 
-  it('mobile bottom nav trigger is visible, clicks to open panel', () => {
+  it('MR-4: нижняя панель больше не держит триггер журнала — он переехал в «Профиль»', () => {
     renderWithProviders(
       <MemoryRouter initialEntries={['/']}>
-        <BottomNav isAdmin={false} />
+        <BottomNav />
         <ActivityLogBadge />
       </MemoryRouter>
     );
 
-    const trigger = screen.getByRole('button', { name: /журнал активности/i });
-    expect(trigger).toBeInTheDocument();
-    expect(trigger).toHaveTextContent(/журнал/i);
-
-    expect(screen.queryByRole('dialog', { name: /журнал активности/i })).toBeNull();
-
-    fireEvent.click(trigger);
-    expect(useActivityLogStore.getState().panelOpen).toBe(true);
-    expect(screen.getByRole('dialog', { name: /журнал активности/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /журнал активности/i })).toBeNull();
+    // Открыть панель по-прежнему можно: десктопный триггер в сайдбаре (кейс выше)
+    // и строка «Журнал активности» в «Профиле» — её проверяет e2e MR-4.
   });
 
   it('derives visual state: shows error styling when newest entry is an error, changes to success/info', () => {
@@ -142,7 +136,7 @@ describe('AG-BG-2: Activity Log Triggers (Sidebar & BottomNav)', () => {
   it('BottomNav marks the tab of the router location, not of window.location', () => {
     renderWithProviders(
       <MemoryRouter initialEntries={['/archive']}>
-        <BottomNav isAdmin={false} />
+        <BottomNav />
       </MemoryRouter>
     );
     const current = screen.getAllByRole('button').filter(b => b.getAttribute('aria-current') === 'page');

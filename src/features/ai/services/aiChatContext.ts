@@ -34,7 +34,7 @@ import { buildTemporalBlocks } from './chatContext/temporalBlocks';
 import { buildAggregateThemeBlock } from './chatContext/aggregateStats';
 import { buildLiteRetrievalBlock } from './chatContext/liteRetrieval';
 import { buildRelatedDaysBlock } from './chatContext/relatedDays';
-import { communicationSection } from '../../../shared/ai/portraitSections';
+import { strictTurnPortrait } from '../../../shared/ai/portraitSections';
 import { isExcludedFromAI, isPastedAttachmentId } from '../utils/isExcludedFromAI';
 import { postBody } from '../utils/editorDiff';
 import { nameForms, NEVER_MATCH } from '../utils/nameForms';
@@ -457,12 +457,13 @@ export function useAIChatContext(personaId: string): {
         }
       }
       if (related) injectedDocumentIds.push(...related.ids);
-      // DR-11: в строгом ходе от портрета остаётся только часть о том, как
-      // говорить. Темы и паттерны из прошлых записей модель поднимала в целый
-      // тред «центральная тема ваших заметок» и выдавала его за вывод из этого
-      // текста (кейс 8). Правило в промпте усилить нельзя (LD-3: 1/20 → 6/20),
-      // поэтому рычаг кодовый. Раздела нет — слать нечего, портрет остаётся.
-      const strictPortrait = communicationSection(userPortrait) ?? userPortrait ?? null;
+      // DR-11 + PX-1: в строгом ходе от портрета остаётся только часть о том, как
+      // говорить, а при старом формате (нет раздела «Стиль общения») портрет в
+      // ход не едет вовсе: темы и паттерны модель поднимала в целый тред
+      // «центральная тема ваших заметок» и выдавала его за вывод из этого текста
+      // (кейс 8, кейс 9.8). Правило в промпте усилить нельзя (LD-3: 1/20 → 6/20),
+      // поэтому рычаг кодовый.
+      const strictPortrait = strictTurnPortrait(userPortrait);
       return {
         userPortrait: strictPortrait,
         customPersona: customSystemPrompt,

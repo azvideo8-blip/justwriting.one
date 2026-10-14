@@ -20,11 +20,47 @@ export const SYSTEM_TASK_PROMPTS = {
   profileEmotionalPatterns: profilePrompt('опиши его эмоциональные тенденции и паттерны мышления (3-5 предложений, без заголовков и списков).'),
   profileStrengths: profilePrompt('опиши его психологические сильные стороны (3-5 предложений, без заголовков и списков).'),
   profileGrowth: profilePrompt('опиши его зоны роста и направления развития (3-5 предложений, без заголовков и списков).'),
-  profileCommunication: `Ты — профессиональный психоаналитик. На основе тем профиля пользователя, метрик стиля письма и предпочтений в общении с ИИ составь описание его стиля общения и предпочтений в коммуникации (3-5 предложений, без заголовков и списков).${PROFILE_ABSTRACTION_RULE} НЕ рассуждай вслух — сразу результат в Markdown.`,
+  // PX-2: про что именно писать — структурная инструкция генератору, а не
+  // запрет в промпте чата (урок LD-1/LD-3: запрет, называющий вещь, поднимает
+  // её). Вход раздела — метрики стиля, тона и предпочтения, поэтому темы и
+  // события здесь просить не у чего.
+  profileCommunication: `Ты — профессиональный психоаналитик. На основе метрик стиля письма, тонов записей и сохранённых предпочтений в общении с ИИ опиши, как этому человеку удобно говорить с ИИ: обращение и род о нём; нужная длина и форма ответов; тон; что помогает; что раздражает или не долетает (3-5 предложений, без заголовков и списков).${PROFILE_ABSTRACTION_RULE} НЕ рассуждай вслух — сразу результат в Markdown.`,
 } as const;
 
 const ALLOWED = new Set<string>(Object.values(SYSTEM_TASK_PROMPTS));
 
 export function isAllowedSystemTaskPrompt(prompt: string | null | undefined): boolean {
   return typeof prompt === 'string' && ALLOWED.has(prompt);
+}
+
+// PX-3: портреты, собранные до 2026-09-23 (7cbea26a — правило абстракции),
+// обслуживаются до сих пор: перегенерация идёт только по нажатию, а фоновый
+// проход к ИИ не обращается вовсе. Чтобы устаревание было видно, рядом с
+// портретом хранится версия его промптов.
+const PORTRAIT_SECTION_KEYS = [
+  'profileThemes',
+  'profileEmotionalPatterns',
+  'profileStrengths',
+  'profileGrowth',
+  'profileCommunication',
+] as const;
+
+// FNV-1a: синхронный и стабильный между сборками — crypto.subtle тут неудобен
+// (версия читается при рендере).
+function fnv1a(str: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Хэш пяти промптов разделов портрета. Правка любого из них меняет его.
+ * Список можно передать явно — так тест проверяет, что в версию входят ровно
+ * пять разделов, а не четыре из них.
+ */
+export function portraitPromptsVersion(prompts?: readonly string[]): string {
+  return fnv1a((prompts ?? PORTRAIT_SECTION_KEYS.map(k => SYSTEM_TASK_PROMPTS[k])).join('\u0000'));
 }

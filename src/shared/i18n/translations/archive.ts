@@ -2,6 +2,15 @@ import { Translations } from '../types';
 
 export const archiveTranslations: Translations = {
   archive_search_placeholder: { ru: 'Поиск по заметкам...', en: 'Search notes...' },
+  // MR-8: мобильная шапка архива — заголовок, поиск и один лист «⋯».
+  archive_more: { ru: 'Ещё', en: 'More' },
+  archive_menu_view: { ru: 'Вид', en: 'View' },
+  archive_menu_sort: { ru: 'Сортировка', en: 'Sort' },
+  archive_menu_tags: { ru: 'Теги и метки', en: 'Tags and labels' },
+  archive_menu_calendar: { ru: 'Календарь и статистика', en: 'Calendar and stats' },
+  archive_menu_back_to_notes: { ru: 'К заметкам', en: 'Back to notes' },
+  archive_menu_clear_trash: { ru: 'Очистить корзину', en: 'Empty trash' },
+  archive_trash_days: { ru: '10 дней', en: '10 days' },
   archive_load_error: { ru: 'Ошибка при загрузке заметок', en: 'Error loading notes' },
   archive_cloud_load_error: { ru: 'Не удалось загрузить облачные документы. Показаны только локальные.', en: 'Failed to load cloud documents. Showing local only.' },
   archive_list: { ru: 'Список', en: 'List' },

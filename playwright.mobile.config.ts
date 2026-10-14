@@ -27,5 +27,9 @@ export default defineConfig({
   projects: [
     { name: 'Mobile Chrome', use: { ...devices['Pixel 5'] } },
     { name: 'Mobile Safari', use: { ...devices['iPhone 12'] } },
+    // MR-4: 320×568 — ширина, на которой пять вкладок давали горизонтальный скролл.
+    // Пока только на спек MR-4: остальные мобильные спеки задают вьюпорт сами,
+    // и раскатывать 320 на все 12 файлов — отдельный заход (MR-11/MR-12).
+    { name: 'Mobile 320', testMatch: 'mobile/four-tabs.mr4.spec.ts', use: { ...devices['Pixel 5'], viewport: { width: 320, height: 568 } } },
   ],
 });

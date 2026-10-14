@@ -15,7 +15,6 @@ vi.mock('../../features/writing/contexts/WritingSessionContext', () => ({
 vi.mock('../../features/writing/hooks/useGuestWritingSession', () => ({ useGuestWritingSession: () => ({}) }));
 vi.mock('../../features/writing/hooks/useCloudWritingSession', () => ({ useCloudWritingSession: () => ({}) }));
 vi.mock('../../features/writing/components/MobileWriteScreen', () => ({ MobileWriteScreen: () => null }));
-vi.mock('../../features/writing/components/MobileHomeScreen', () => ({ MobileHomeScreen: () => null }));
 vi.mock('../../features/writing/components/MobileSessionSetupSheet', () => ({ MobileSessionSetupSheet: () => null }));
 vi.mock('../../features/writing/components/WritingFinishModal', () => ({ WritingFinishModal: () => null }));
 vi.mock('../../features/writing/components/ShortcutsModal', () => ({ ShortcutsModal: () => null }));

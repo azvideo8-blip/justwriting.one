@@ -17,6 +17,7 @@ import { BottomStats } from '../../features/writing/components/BottomStats';
 import { DictationChrome } from '../../features/writing/components/DictationBar';
 import { SessionGlow } from '../../features/writing/components/SessionGlow';
 import { hasOnlyTouchPointer } from '../../shared/utils/touchPointer';
+import { useStartOnFirstInput } from '../../features/writing/hooks/useStartOnFirstInput';
 // Текст нужен только ИИ-панели: подписка здесь, а не в раскладке, иначе на
 // каждое нажатие перерисовывалась вся раскладка с нижней панелью (EA-9).
 function LiveAIPanelContent() {
@@ -67,23 +68,13 @@ export function DesktopWritingLayout() {
   const handlePause = useCallback(() => { void onPause(); }, [onPause]);
   const handleStop = useCallback(() => { void onStop(); }, [onStop]);
 
-  const handleEditorKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-      keystrokeTrackerRef.current.record();
-    }
-    if ((session.status === 'idle' || session.status === 'paused') && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-      handlePlayRef.current();
-    }
-  }, [session.status, keystrokeTrackerRef, handlePlayRef]);
-
-  const handleEditorInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
-    if (session.status === 'idle' || session.status === 'paused') {
-      const val = (e.target as HTMLTextAreaElement).value;
-      if (val.length > 0) {
-        handlePlayRef.current();
-      }
-    }
-  }, [session.status, handlePlayRef]);
+  // T-6: логика «первый символ начинает сессию» общая с телефоном.
+  const recordKeystroke = useCallback(() => keystrokeTrackerRef.current.record(), [keystrokeTrackerRef]);
+  const { handleEditorKeyDown, handleEditorInput } = useStartOnFirstInput({
+    status: session.status,
+    play: handlePlayRef,
+    onKeystroke: recordKeystroke,
+  });
 
   React.useEffect(() => {
     const el = editorColRef.current;

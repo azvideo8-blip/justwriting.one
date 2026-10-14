@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import type { AppUser } from '../../core/auth/types';
 import { UserProfile } from '../../types';
-import { calculateStreak } from '../../core/utils/utils';
+import { calculateStreak, cn } from '../../core/utils/utils';
 import { useLocalStorage } from '../../shared/hooks/useLocalStorage';
 import { z } from 'zod';
 import { AdaptiveContainer } from '../../shared/components/Layout/AdaptiveContainer';
@@ -12,6 +12,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../shared/components/Button';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { ArchiveHeader, type SortMode } from '../../features/archive/components/ArchiveHeader';
+import { MobileArchiveHeader } from '../../features/archive/components/MobileArchiveHeader';
+import { MobileArchiveMenuSheet } from '../../features/archive/components/MobileArchiveMenuSheet';
 import { useToast } from '../../shared/components/Toast';
 import { ArchiveTagBar } from '../../features/archive/components/ArchiveTagBar';
 import { ArchiveLabelBar } from '../../features/archive/components/ArchiveLabelBar';
@@ -28,6 +30,7 @@ import { useLabelEditor } from '../../features/archive/hooks/useLabelEditor';
 import { useArchiveGrouping } from '../../features/archive/hooks/useArchiveGrouping';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
 import { rebuildWordCloud } from '../../features/archive/hooks/useArchiveWordCloud';
+
 import { ArchiveTrashView } from '../../features/archive/components/ArchiveTrashView';
 
 import { NoteAnalysisService } from '../../features/ai/services/NoteAnalysisService';
@@ -52,6 +55,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
   const userId = useUserId(user);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  // MR-8: на телефоне остальные контролы шапки живут в этом листе.
+  const [archiveMenuOpen, setArchiveMenuOpen] = useState(false);
   const [showTagLabelBars, setShowTagLabelBars] = useState(false);
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
@@ -242,10 +247,35 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
           multiple
           style={{ display: 'none' }}
         />
-        <div className="flex gap-0 min-w-[320px] flex-1 min-h-0">
+        {/* MR-4: min-w-[320px] нужен десктопной колонке, а на телефоне складывался
+            с отступами main и давал горизонтальный скролл на 320. */}
+        <div className={cn("flex gap-0 flex-1 min-h-0", !isMobile && "min-w-[320px]")}>
           <div className="flex-1 min-w-0 pr-0 lg:pr-8 flex flex-col min-h-0">
             <div className="shrink-0">
-            <ArchiveHeader
+            {isMobile ? (
+              <>
+                <MobileArchiveHeader
+                  title={activeTab === 'notes' ? t('nav_notes') : t('archive_tab_trash')}
+                  countLabel={tp('archive_count', activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length)}
+                  searchQuery={searchQuery} searchInputRef={searchInputRef} onSearchChange={setSearchQuery}
+                  onOpenMenu={() => setArchiveMenuOpen(true)}
+                  allTags={allTags} selectedTags={selectedTags}
+                  onToggleTag={tag => setSelectedTags(prev => (prev.includes(tag) ? prev.filter(x => x !== tag) : [...prev, tag]))}
+                />
+                <MobileArchiveMenuSheet
+                  open={archiveMenuOpen}
+                  onClose={() => setArchiveMenuOpen(false)}
+                  viewMode={viewMode} onViewModeChange={setViewMode}
+                  sortMode={sortMode} onSortModeChange={setSortMode} sortLabels={sortLabels}
+                  onOpenTags={() => setShowTagLabelBars(true)}
+                  onOpenCalendar={() => setIsFilterOpen(true)}
+                  activeTab={activeTab} onTabChange={setActiveTab}
+                  trashCount={trashedSessions.length}
+                  onClearTrash={() => setEmptyTrashConfirm(true)}
+                />
+              </>
+            ) : (
+              <ArchiveHeader
               title={activeTab === 'notes' ? t('nav_notes') : t('archive_tab_trash')}
               count={activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length}
               countLabel={tp('archive_count', activeTab === 'notes' ? sortedSessions.length : filteredTrashedSessions.length)}
@@ -267,6 +297,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
               trashTabLabel={t('archive_tab_trash')}
               trashCount={trashedSessions.length}
             />
+            )}
             {activeTab === 'notes' && (
               isMobile ? (
                 showTagLabelBars && (allTags.length > 0 || profileLabels.length > 0) && (
@@ -346,6 +377,7 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                   onOpenPreview={s => void openPreview(s)}
                   dateLocale={dateLocale}
                   t={t}
+                  isMobile={isMobile}
                 />
               </div>
             ) : (

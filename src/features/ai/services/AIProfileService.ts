@@ -1,7 +1,7 @@
 import { getLocalDb } from '../../../core/storage/localDb';
 import { getPortraitEpoch } from '../../../core/ai/portraitEpoch';
 import { cloudSyncEnabled } from '../../../core/sync/cloudSyncEnabled';
-import { SYSTEM_TASK_PROMPTS } from '../../../shared/ai/systemTaskPrompts';
+import { SYSTEM_TASK_PROMPTS, portraitPromptsVersion } from '../../../shared/ai/systemTaskPrompts';
 import { AIService } from './AIService';
 import { getCurrentUser } from '../../../core/auth';
 import { DataProvider } from '../../../core/data';
@@ -76,7 +76,13 @@ async function sha256Hex(str: string): Promise<string> {
 }
 
 export const AIProfileService = {
-  async savePortrait(portraitMarkdown: string): Promise<void> {
+  /**
+   * `staleSections`: хоть один раздел взят из кэша, собранного по прежним
+   * промптам (лимит фона кончился или вызов упал). Такой портрет не помечается
+   * текущей версией — иначе строка «собран по прежним правилам» пропала бы, а
+   * старый текст остался (ревью 0.9.39).
+   */
+  async savePortrait(portraitMarkdown: string, opts: { staleSections?: boolean } = {}): Promise<void> {
     localStorage.setItem(portraitCacheKey(getCurrentUser()?.uid), portraitMarkdown);
 
     try {
@@ -87,7 +93,11 @@ export const AIProfileService = {
         id: 'singleton',
         portrait: portraitMarkdown,
         updatedAt: Date.now(),
-        generatedAtDelta
+        generatedAtDelta,
+        // PX-3: версия промптов, по которым собран портрет. Без неё нельзя
+        // отличить портрет прежних правил от текущего — а перегенерация идёт
+        // только по нажатию человека.
+        ...(opts.staleSections ? {} : { promptVersion: portraitPromptsVersion() }),
       });
       LocalStoreSyncService.scheduleStoreSync('aiPortrait', 'singleton');
     } catch (e) {
@@ -181,6 +191,27 @@ export const AIProfileService = {
     return null;
   },
 
+  /**
+   * PX-3: устаревшим считается портрет, собранный по другим промптам разделов
+   * (или без версии вовсе — такие жили до правила абстракции 2026-09-23).
+   * Только чтение: пересборка — по нажатию человека, фоновых вызовов ИИ нет.
+   */
+  async isPortraitStale(): Promise<boolean> {
+    const current = portraitPromptsVersion();
+    try {
+      const db = await getLocalDb();
+      const cached = await db.get('aiPortrait', 'singleton');
+      if (cached?.portrait) return cached.promptVersion !== current;
+    } catch (e) {
+      console.error('[AIProfileService] Failed to read portrait version:', e);
+      return false;
+    }
+    // Портрет доехал только в localStorage (после очистки устройства облако
+    // отдаёт текст без версии) — предложение обновления честно показываем.
+    const local = localStorage.getItem(portraitCacheKey(getCurrentUser()?.uid));
+    return !!local;
+  },
+
   async generate(opts?: CallAiOptions): Promise<{ ok: true; markdown: string } | { ok: false; error: string }> {
     const startEpoch = getPortraitEpoch();
     try {
@@ -204,6 +235,7 @@ export const AIProfileService = {
       const styleMetrics = analyzeWritingStyle(styleContents);
       const styleBlock = `\n\n[Метрики стиля письма: средняя длина слова ${styleMetrics.avgWordLength.toFixed(1)} симв, средняя длина предложения ${styleMetrics.avgSentenceLength.toFixed(1)} слов, восклицания ${styleMetrics.exclamationRate.toFixed(2)} на предложение, вопросы ${styleMetrics.questionRate.toFixed(2)} на предложение]`;
 
+      const allSummaries = await db.getAll('aiSummaries');
       let baseInput = '';
       if (facets.length >= 3) {
         baseInput = facets
@@ -211,7 +243,6 @@ export const AIProfileService = {
           .map(f => `**${f.label}** (${f.noteCount} заметок): ${f.summary}`)
           .join('\n');
       } else {
-        const allSummaries = await db.getAll('aiSummaries');
         if (allSummaries.length < 3) {
           return { ok: false, error: 'NOT_ENOUGH_DATA' };
         }
@@ -224,6 +255,14 @@ export const AIProfileService = {
           return parts.join('\n');
         }).join('\n\n');
       }
+
+      // PX-2: у раздела «Стиль общения» больше нет baseInput — на всех сводках с
+      // их темами и инсайтами. Модель пересказывала темы и писала раздел на
+      // несколько экранов с подзаголовками, где список ключевых тем (кейс 9.9).
+      // Вход раздела — то, что и про «как говорить»: метрики стиля, тона записей
+      // и предпочтения из памяти; текстов сводок, тем и инсайтов в нём нет.
+      const tones = [...new Set(allSummaries.map(s => s.tone?.trim()).filter((t): t is string => !!t))];
+      const toneBlock = tones.length ? `\n\n[Тоны записей: ${tones.join(', ')}]` : '';
 
       // Load cached sections
       let cache: PortraitCacheData = {};
@@ -270,11 +309,32 @@ export const AIProfileService = {
           key: 'communication_prefs' as const,
           title: 'Стиль общения',
           prompt: SYSTEM_TASK_PROMPTS.profileCommunication,
-          input: baseInput + styleBlock + (preferences ? `\n\nПредпочтения: ${preferences}` : ''),
+          input: styleBlock + toneBlock + (preferences ? `\n\nПредпочтения: ${preferences}` : ''),
         },
       ];
 
+      // PX-2: раздел про общение — проза в 3–5 предложений. Заголовки, пункты или
+      // простыня означают, что модель описала темы, а не то, как говорить.
+      const sectionShapeBad = (text: string): boolean =>
+        /^#{2,6}\s/m.test(text)
+        || /^\s*(?:[-—•]|\d+[.)])\s/m.test(text)
+        || text.length > 900;
+
+      const callSection = async (sec: (typeof sections)[number]): Promise<string | null> => {
+        const result = await AIService.chat({
+          personaId: 'custom',
+          callType: 'system_task',
+          customSystemPrompt: sec.prompt,
+          messages: [{
+            role: 'user',
+            content: `${sec.title} на основе данных:\n\n${sec.input}\n\n3-5 предложений, без заголовков и списков.`,
+          }],
+        }, ...(opts ? [opts] : []));
+        return result.ok && result.text ? result.text : null;
+      };
+
       const activeSections: Record<string, string> = {};
+      let staleSections = false;
       const generated = new Set<string>();
 
       for (const sec of sections) {
@@ -291,26 +351,34 @@ export const AIProfileService = {
         } else {
           // Regenerate section if budget allows
           if (AIBackgroundBudget.canSpend(1)) {
-            const result = await AIService.chat({
-              personaId: 'custom',
-              callType: 'system_task',
-              customSystemPrompt: sec.prompt,
-              messages: [{
-                role: 'user',
-                content: `${sec.title} на основе данных:\n\n${sec.input}\n\n3-5 предложений, без заголовков и списков.`,
-              }],
-            }, ...(opts ? [opts] : []));
+            const first = await callSection(sec);
 
-            if (result.ok && result.text) {
-              activeSections[sec.key] = result.text;
-              cache[sec.key] = { content: result.text, hash };
-              generated.add(sec.key);
+            if (first !== null) {
               AIBackgroundBudget.spend(1);
+              let text = first;
+              if (sec.key === 'communication_prefs' && sectionShapeBad(text)) {
+                // Один повторный вызов. Не исправилось — оставляем как есть:
+                // строгий ход от тем защищает PX-1, а в журнал идёт только длина.
+                if (AIBackgroundBudget.canSpend(1)) {
+                  const again = await callSection(sec);
+                  if (again !== null) {
+                    AIBackgroundBudget.spend(1);
+                    text = again;
+                  }
+                }
+                if (sectionShapeBad(text)) {
+                  reportError(new Error(`communication_prefs: ${text.length} зн. после ретрая, форма не выдержана`), { action: 'ai_profile_section_shape' });
+                }
+              }
+              activeSections[sec.key] = text;
+              cache[sec.key] = { content: text, hash };
+              generated.add(sec.key);
             } else {
               // Fallback to cache if request fails
               if (cached?.content) {
                 activeSections[sec.key] = cached.content;
                 generated.add(sec.key);
+                if (cached.hash !== hash) staleSections = true;
               } else {
                 activeSections[sec.key] = 'Раздел находится в процессе анализа…';
               }
@@ -320,6 +388,7 @@ export const AIProfileService = {
             if (cached?.content) {
               activeSections[sec.key] = cached.content;
               generated.add(sec.key);
+              if (cached.hash !== hash) staleSections = true;
             } else {
               activeSections[sec.key] = 'Раздел находится в процессе анализа…';
             }
@@ -361,7 +430,7 @@ ${activeSections.growth}
 ${activeSections.communication_prefs}
 `;
 
-      await this.savePortrait(finalMarkdown);
+      await this.savePortrait(finalMarkdown, { staleSections });
       return { ok: true, markdown: finalMarkdown };
     } catch (e) {
       reportError(e, { action: 'ai_profile_generate' });

@@ -4,7 +4,9 @@ import { AIChatComposer, type AIChatComposerProps } from '../AIChatComposer';
 import { renderWithProviders } from '../../../../../test/utils/render';
 
 const defaultProps: AIChatComposerProps = {
-  inputText: 'Hello',
+  isMobile: false,
+      keyboardHeight: 0,
+      inputText: 'Hello',
   setInputText: vi.fn(),
   inputRef: { current: null },
   isLoading: false,
@@ -96,7 +98,9 @@ describe('AIChatComposer quota indicator', () => {
 describe('AIChatComposer — приложенная заметка без вопроса', () => {
   const noteProps = {
     ...defaultProps,
-    inputText: '',
+    isMobile: false,
+      keyboardHeight: 0,
+      inputText: '',
     pendingAttachments: [{ title: 'Аскеза 6', lastSessionAt: new Date(2026, 8, 29, 12).getTime() }],
     onAnalyzeNote: vi.fn(),
     onRelateNote: vi.fn(),

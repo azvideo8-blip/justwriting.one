@@ -8,7 +8,7 @@
 // кнопки отзывается сама кнопка». Центр ловил кнопку и до правки (разница была в
 // 7 px), а нижняя четверть — нет.
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { fullyInViewport, pickFreeFlow, shot, signInMobile, zenOff } from './harness';
+import { fullyInViewport, shot, signInMobile, zenOff } from './harness';
 
 interface Box { x: number; y: number; width: number; height: number }
 
@@ -41,15 +41,15 @@ test.describe('MB-4: окно завершения над нижней пане�
     await zenOff(page);
     await signInMobile(page, 'mb4-finish');
 
-    await page.getByRole('button', { name: /^Начать$/ }).click();
-    expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+    // MR-6 (направление A): редактор открыт сразу, «Начать» и лист режима не нужны.
+    await page.goto('/');
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     // Длинный текст — как в улике F-4: окно выше экрана, и ряд кнопок упирается
     // в нижнюю панель.
     await editor.fill('Проверка окна завершения на телефоне. ' + 'Один два три четыре пять. '.repeat(6));
 
-    await page.getByRole('button', { name: /^Стоп$/ }).click();
+    await page.getByRole('button', { name: /^Готово$/ }).click();
     const dialog = page.getByRole('dialog').first();
     await expect(dialog).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(1_200);
@@ -88,12 +88,12 @@ test.describe('MB-4: лист действий с заметкой на 320 px',
     await signInMobile(page, 'mb4-sheet');
 
     // Заметка нужна, чтобы открыть её лист действий: пишем и сохраняем.
-    await page.getByRole('button', { name: /^Начать$/ }).click();
-    expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+    // MR-6 (направление A): редактор открыт сразу, «Начать» и лист режима не нужны.
+    await page.goto('/');
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     await editor.fill('Заметка для листа действий. Раз два три.');
-    await page.getByRole('button', { name: /^Стоп$/ }).click();
+    await page.getByRole('button', { name: /^Готово$/ }).click();
     const finish = page.getByRole('dialog').first();
     await expect(finish).toBeVisible({ timeout: 15_000 });
     await finish.getByRole('button', { name: /^Сохранить$/ }).click();
@@ -137,12 +137,12 @@ test.describe('MB-4: лист действий с заметкой на 320 px',
     await zenOff(page);
     await signInMobile(page, 'mb4-nested');
 
-    await page.getByRole('button', { name: /^Начать$/ }).click();
-    expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+    // MR-6 (направление A): редактор открыт сразу, «Начать» и лист режима не нужны.
+    await page.goto('/');
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
     await editor.fill('Заметка для вложенного подтверждения. Раз два.');
-    await page.getByRole('button', { name: /^Стоп$/ }).click();
+    await page.getByRole('button', { name: /^Готово$/ }).click();
     const finish = page.getByRole('dialog').first();
     await expect(finish).toBeVisible({ timeout: 15_000 });
     await finish.getByRole('button', { name: /^Сохранить$/ }).click();

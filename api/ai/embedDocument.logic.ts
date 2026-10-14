@@ -14,7 +14,10 @@ const CHUNK_CHAR_LIMIT = 1_000;
 const CHUNK_OVERLAP = 150;
 const MAX_CHUNKS = 200;
 
-function chunkText(text: string): string[] {
+/** Окна для индексации: 1000 знаков, перекрытие 150, потолок 200. Экспортировано
+ * для стенда замера «связанных дней» (scripts/ai-bench) — самодельная копия
+ * нарезки расходится с продом и меряет не то. */
+export function chunkText(text: string): string[] {
   if (text.length <= CHUNK_CHAR_LIMIT) return [text];
   const chunks: string[] = [];
   let start = 0;

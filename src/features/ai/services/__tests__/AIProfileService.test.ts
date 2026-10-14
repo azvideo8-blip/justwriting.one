@@ -12,6 +12,7 @@ const {
   mockCurrentUser,
   mockMaybeEncrypt,
   mockMaybeDecrypt,
+  mockReportError,
 } = vi.hoisted(() => {
   return {
     mockGet: vi.fn(),
@@ -24,6 +25,7 @@ const {
     mockCurrentUser: { uid: 'test-user-123' },
     mockMaybeEncrypt: vi.fn((data) => Promise.resolve({ ...data, encrypted: true })),
     mockMaybeDecrypt: vi.fn((data) => Promise.resolve({ ...data, decrypted: true })),
+    mockReportError: vi.fn(),
   };
 });
 
@@ -62,9 +64,16 @@ vi.mock('../AIService', () => ({
   },
 }));
 
+// PX-2: предупреждение о форме раздела проверяется как факт вызова; текст в него
+// не попадает, поэтому в тесте важен сам вызов и только длина в сообщении.
+vi.mock('../../../../shared/errors/reportError', () => ({
+  reportError: (...args: unknown[]) => mockReportError(...args),
+}));
+
 import { AIProfileService } from '../AIProfileService';
 import { AIService } from '../AIService';
 import { invalidatePortrait } from '../../../../core/ai/portraitEpoch';
+import { SYSTEM_TASK_PROMPTS, portraitPromptsVersion } from '../../../../shared/ai/systemTaskPrompts';
 
 describe('AIProfileService', () => {
   beforeEach(() => {
@@ -257,6 +266,42 @@ describe('AIProfileService', () => {
       expect(localStorage.getItem('ai_user_portrait_test-user-123')).toBe(expectedMarkdown);
     });
 
+    // Ревью 0.9.39: пересборка, которая взяла раздел из кэша прежних промптов
+    // (вызов упал или кончился лимит фона), не помечает портрет текущей версией —
+    // иначе строка «собран по прежним правилам» пропала бы при старом тексте.
+    // Мутация: всегда ставить promptVersion → красный первый кейс.
+    it('раздел из кэша прежних промптов — портрет сохраняется без текущей версии', async () => {
+      const old = { content: 'Старый текст раздела.', hash: 'hash-of-old-prompts' };
+      localStorage.setItem('ai_portrait_sections_test-user-123', JSON.stringify({
+        themes: old, emotional_patterns: old, strengths: old, growth: old, communication_prefs: old,
+      }));
+      mockGetAll
+        .mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([])
+        .mockResolvedValueOnce(dummySummaries) // generate: aiSummaries
+        .mockResolvedValue(dummySummaries);    // savePortrait: aiSummaries
+      mockGetAllFromIndex.mockResolvedValue([]);
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: false, error: 'provider down' } as never);
+
+      const res = await AIProfileService.generate();
+      expect(res.ok).toBe(true);
+      const saved = mockPut.mock.calls.find(c => c[0] === 'aiPortrait')?.[1] as { promptVersion?: string } | undefined;
+      expect(saved).toBeDefined();
+      expect(saved).not.toHaveProperty('promptVersion');
+    });
+
+    it('все разделы свежие — портрет сохраняется с текущей версией', async () => {
+      mockGetAll
+        .mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([])
+        .mockResolvedValueOnce(dummySummaries)
+        .mockResolvedValue(dummySummaries);
+      mockGetAllFromIndex.mockResolvedValue([]);
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'Свежий текст раздела.' });
+
+      await AIProfileService.generate();
+      const saved = mockPut.mock.calls.find(c => c[0] === 'aiPortrait')?.[1] as { promptVersion?: string } | undefined;
+      expect(saved?.promptVersion).toBe(portraitPromptsVersion());
+    });
+
     // R3-009: удаление заметки посреди прохода сносит портрет; проход, начатый
     // до удаления, не должен дописать его обратно (и увезти в облако).
     it('does not save a portrait when a note was deleted during generation', async () => {
@@ -333,6 +378,141 @@ describe('AIProfileService', () => {
       expect(AIService.chat).toHaveBeenCalled();
       const growthMarkdown = localStorage.getItem('ai_user_portrait_test-user-123');
       expect(growthMarkdown).not.toContain('STALE pre-abstraction-rule content');
+    });
+  });
+
+  // PX-2: раздел «Стиль общения» строится на данных о коммуникации, а не на всех
+  // сводках с их темами и инсайтами (иначе модель пересказывает темы — кейс 9.9).
+  // Сводки ниже выдуманные: имена, сюжеты и детали не из живого архива.
+  describe('PX-2: вход и форма раздела «Стиль общения»', () => {
+    const pxSummaries = [
+      { documentId: 'px-1', summary: 'Ремонт в гараже и разговор с братом про крышу', tone: 'тревожный', themes: ['гараж'], insights: ['боюсь просить о помощи'], frequentWords: [], processedAt: 1 },
+      { documentId: 'px-2', summary: 'Соревнование по жиму и запись в секцию', tone: 'спокойный', themes: ['секция'], insights: ['довожу начатое до конца'], frequentWords: [], processedAt: 2 },
+      { documentId: 'px-3', summary: 'Поездка к тёте и разговор про старую машину', tone: 'усталый', themes: ['машина'], insights: ['откладываю трудный разговор'], frequentWords: [], processedAt: 3 },
+    ];
+
+    const stub = () => {
+      mockGetAll
+        .mockResolvedValueOnce([])          // aiProfileFacets
+        .mockResolvedValueOnce([])          // aiChatMemory
+        .mockResolvedValueOnce([])          // documents
+        .mockResolvedValueOnce(pxSummaries); // aiSummaries
+      mockGetAllFromIndex.mockResolvedValue([]);
+    };
+    type ChatArg = { customSystemPrompt?: string; messages: Array<{ content: string }> };
+    const calls = () => vi.mocked(AIService.chat).mock.calls.map(c => c[0] as unknown as ChatArg);
+    const commCall = () => calls().find(c => c.customSystemPrompt === SYSTEM_TASK_PROMPTS.profileCommunication);
+
+    it('вход раздела — метрики, тона и предпочтения; ни сути сводок, ни тем, ни инсайтов', async () => {
+      stub();
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'Обращение на «ты», короткие ответы.' });
+
+      await AIProfileService.generate();
+
+      const content = commCall()!.messages[0]!.content;
+      expect(content).toContain('Метрики стиля письма');
+      expect(content).toContain('Тоны записей: тревожный, спокойный, усталый');
+      for (const leak of ['Ремонт в гараже', 'гараж', 'секцию', 'крышу', 'боюсь просить о помощи', 'Суть:', 'Темы:', 'Запись 1:']) {
+        expect(content, leak).not.toContain(leak);
+      }
+    });
+
+    it('остальные четыре раздела остаются на прежнем входе', async () => {
+      stub();
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'текст раздела' });
+
+      await AIProfileService.generate();
+
+      const others = calls().filter(c => c.customSystemPrompt !== SYSTEM_TASK_PROMPTS.profileCommunication);
+      expect(others).toHaveLength(4);
+      for (const c of others) {
+        expect(c.messages[0]!.content).toContain('Ремонт в гараже');
+        expect(c.messages[0]!.content).not.toContain('Тоны записей');
+      }
+    });
+
+    it('плохая форма раздела — ровно один повтор, текст остаётся, в журнал идёт только длина', async () => {
+      stub();
+      vi.mocked(AIService.chat).mockImplementation(async (params) => ({
+        ok: true,
+        text: (params as ChatArg).customSystemPrompt === SYSTEM_TASK_PROMPTS.profileCommunication
+          ? '### Темы\n- ремонт в гараже\n- секция'
+          : 'текст раздела',
+      }));
+
+      const res = await AIProfileService.generate();
+
+      expect(res.ok).toBe(true);
+      // Фальсификация: без ретрая было бы 5 вызовов, со вторым ретраем — 7.
+      expect(vi.mocked(AIService.chat)).toHaveBeenCalledTimes(6);
+      const markdown = (res as { ok: true; markdown: string }).markdown;
+      expect(markdown).toContain('### Темы');
+      expect(mockReportError).toHaveBeenCalledTimes(1);
+      const message = String((mockReportError.mock.calls[0]![0] as Error).message);
+      expect(message).toMatch(/\d+ зн/);
+      expect(message).not.toContain('гараж');
+    });
+
+    it('хорошая форма раздела — повтора нет', async () => {
+      stub();
+      vi.mocked(AIService.chat).mockResolvedValue({ ok: true, text: 'Обращение на «ты», женский род, короткие ответы без списков.' });
+
+      await AIProfileService.generate();
+
+      expect(vi.mocked(AIService.chat)).toHaveBeenCalledTimes(5);
+      expect(mockReportError).not.toHaveBeenCalled();
+    });
+  });
+
+  // PX-3: портреты прежних правил (до правила абстракции 2026-09-23) обслуживаются
+  // до сих пор, потому что перегенерация идёт только по нажатию. Рядом с портретом
+  // хранится версия промптов разделов; без неё портрет считается устаревшим.
+  describe('PX-3: версия промптов у сохранённого портрета', () => {
+    it('savePortrait пишет promptVersion', async () => {
+      mockSetDoc.mockResolvedValue(undefined);
+
+      await AIProfileService.savePortrait('# Портрет\n');
+
+      const rec = mockPut.mock.calls.find(c => c[0] === 'aiPortrait')?.[1] as { promptVersion?: string };
+      expect(rec.promptVersion).toMatch(/^[0-9a-f]{8}$/);
+      expect(rec.promptVersion).toBe(portraitPromptsVersion());
+    });
+
+    it('запись без версии (портрет прежних правил) — устаревший', async () => {
+      mockGet.mockResolvedValueOnce({ id: 'singleton', portrait: 'старый портрет', updatedAt: 1, generatedAtDelta: 3 });
+      expect(await AIProfileService.isPortraitStale()).toBe(true);
+    });
+
+    it('версия совпадает — не устаревший', async () => {
+      mockGet.mockResolvedValueOnce({ id: 'singleton', portrait: 'портрет', updatedAt: 1, generatedAtDelta: 3, promptVersion: portraitPromptsVersion() });
+      expect(await AIProfileService.isPortraitStale()).toBe(false);
+    });
+
+    it('версия расходится — устаревший', async () => {
+      mockGet.mockResolvedValueOnce({ id: 'singleton', portrait: 'портрет', updatedAt: 1, generatedAtDelta: 3, promptVersion: 'deadbeef' });
+      expect(await AIProfileService.isPortraitStale()).toBe(true);
+    });
+
+    it('в локальном хранилище портрет без версии (облако после очистки устройства) — устаревший', async () => {
+      mockGet.mockResolvedValueOnce(undefined);
+      localStorage.setItem('ai_user_portrait_test-user-123', 'портрет из облака');
+      expect(await AIProfileService.isPortraitStale()).toBe(true);
+    });
+
+    it('портрета нет вовсе — ничего не устарело', async () => {
+      mockGet.mockResolvedValueOnce(undefined);
+      expect(await AIProfileService.isPortraitStale()).toBe(false);
+    });
+
+    it('чтение записи упало — подсказку не показываем', async () => {
+      mockGet.mockRejectedValueOnce(new Error('db'));
+      expect(await AIProfileService.isPortraitStale()).toBe(false);
+    });
+
+    it('isPortraitStale не обращается к ИИ', async () => {
+      mockGet.mockResolvedValueOnce({ id: 'singleton', portrait: 'портрет', updatedAt: 1, promptVersion: 'ffffffff' });
+      await AIProfileService.isPortraitStale();
+      expect(AIService.chat).not.toHaveBeenCalled();
     });
   });
 });

@@ -18,28 +18,12 @@ export const lifelogTranslations: Translations = {
   lifelog_just_now:    { ru: 'только что', en: 'just now' },
   lifelog_close:       { ru: 'Закрыть', en: 'Close' },
 
-  greeting_morning:   { ru: 'Доброе утро',    en: 'Good morning' },
-  greeting_day:       { ru: 'Добрый день',     en: 'Good afternoon' },
-  greeting_evening:   { ru: 'Добрый вечер',    en: 'Good evening' },
-  greeting_night:     { ru: 'Доброй ночи',     en: 'Good night' },
-  greeting_question:  { ru: 'что на уме?',     en: "what's on your mind?" },
-
   home_streak_days:      { ru: 'дней', en: 'days' },
   home_streak_days_one:  { ru: 'день', en: 'day' },
   home_streak_days_few:  { ru: 'дня',  en: 'days' },
   home_streak_days_many: { ru: 'дней', en: 'days' },
-  home_nudge_today:   { ru: 'Сегодня ты ещё не писал — самое время начать практику.', en: "You haven't written today — a good moment to start." },
-  home_cta:           { ru: 'Начать',          en: 'Start' },
   profile_cta:        { ru: 'Написать сейчас', en: 'Write now' },
-  home_cta_hint:      { ru: 'или просто начни писать',  en: 'or just start typing' },
-  home_today_words:   { ru: 'слов сегодня',    en: 'words today' },
-  home_today_flow:    { ru: 'в потоке',        en: 'in flow' },
-  home_recent:        { ru: 'Недавние',        en: 'Recent' },
 
   focus_exit_hint:   { ru: 'свайп вверх — выйти', en: 'swipe up to exit' },
-
-
-
-  pull_to_refresh: { ru: 'Потяни для обновления', en: 'Pull to refresh' },
   sync_cloud_unknown: { ru: 'Облако недоступно', en: 'Cloud unavailable' },
 };

@@ -1,9 +1,11 @@
-import { memo } from 'react';
+import { memo, useRef, useState } from 'react';
 import { format, Locale } from 'date-fns';
-import { Trash2, RotateCcw, Clock } from 'lucide-react';
+import { Trash2, RotateCcw, Clock, MoreVertical } from 'lucide-react';
 import { motion } from 'motion/react';
 import { ArchiveSession } from '../types';
 import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { cn } from '../../../core/utils/utils';
 
@@ -23,6 +25,12 @@ function formatDaysLeft(days: number, t: (key: string, args?: Record<string, str
   return t('archive_trash_days_left_many', { days });
 }
 
+function rowTitle(session: ArchiveSession, t: (key: string) => string): string {
+  return session.title?.trim()
+    || (session.content ? session.content.split('\n').map(l => l.trim()).find(l => l.length > 0) : undefined)
+    || (!session._isLocal && session._hasCloudCopy ? t('archive_cloud_only_note') : t('session_untitled'));
+}
+
 interface ArchiveTrashViewProps {
   trashedSessions: ArchiveSession[];
   onRestore: (session: ArchiveSession) => Promise<void>;
@@ -31,6 +39,96 @@ interface ArchiveTrashViewProps {
   onOpenPreview?: (session: ArchiveSession) => void;
   dateLocale?: Locale;
   t: (key: string, args?: Record<string, string | number>) => string;
+  /** MR-10: на телефоне строки компактные, а действия — под «⋯». */
+  isMobile?: boolean;
+}
+
+/**
+ * MR-10: мобильная строка корзины — 64 px, как ряд заметок: заголовок слева,
+ * «осталось N дней» справа, действия в листе (по «⋯» или долгому нажатию).
+ * Десктопная карточка с двумя кнопками на телефоне давала 190 px на запись.
+ */
+function MobileTrashRow({
+  session, daysLeft, onOpenPreview, onRestore, onDeletePermanently, t,
+}: {
+  session: ArchiveSession;
+  daysLeft: number;
+  onOpenPreview?: (session: ArchiveSession) => void;
+  onRestore: (session: ArchiveSession) => Promise<void>;
+  onDeletePermanently: (session: ArchiveSession) => void;
+  t: ArchiveTrashViewProps['t'];
+}) {
+  const [open, setOpen] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+  const titleId = `trash-row-menu-${session.id}`;
+
+  const startPress = () => {
+    longPressFired.current = false;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      longPressFired.current = true;
+      setOpen(true);
+    }, 500);
+  };
+
+  const cancelPress = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const openFromTap = () => {
+    if (longPressFired.current) { longPressFired.current = false; return; }
+    onOpenPreview?.(session);
+  };
+
+  return (
+    <div
+      className="flex items-center gap-3 h-16 px-3 border-b border-border-subtle last:border-b-0"
+      onTouchStart={startPress}
+      onTouchMove={cancelPress}
+      onTouchEnd={cancelPress}
+    >
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={openFromTap}>
+        <div className="text-[15px] text-text-main truncate">{rowTitle(session, t)}</div>
+        <div className="text-[12px] text-text-main/50 truncate">
+          {formatDaysLeft(daysLeft, t)}
+          {session.wordCount > 0 && ` · ${session.wordCount} ${t('archive_stat_words')}`}
+        </div>
+      </div>
+      <IconButton
+        onClick={() => setOpen(true)}
+        className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-text-main/60"
+        label={t('archive_note_actions')}
+        icon={<MoreVertical size={20} aria-hidden="true" />}
+      />
+      {open && (
+        <ModalShell open={open} onClose={() => setOpen(false)} labelId={titleId} variant="sheet">
+          <div className="flex flex-col min-h-0 flex-1">
+            <h2 id={titleId} className="px-4 pt-4 pb-2 text-base font-bold text-text-main">{rowTitle(session, t)}</h2>
+            <button
+              type="button"
+              className="w-full h-12 flex items-center gap-3 px-4 text-left text-sm text-text-main border-b border-border-subtle"
+              onClick={() => { setOpen(false); void onRestore(session); }}
+            >
+              <RotateCcw size={16} aria-hidden="true" />
+              <span className="flex-1">{t('archive_trash_restore')}</span>
+            </button>
+            <button
+              type="button"
+              className="w-full h-12 flex items-center gap-3 px-4 text-left text-sm text-accent-danger"
+              onClick={() => { setOpen(false); onDeletePermanently(session); }}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+              <span className="flex-1">{t('archive_trash_delete_forever')}</span>
+            </button>
+          </div>
+        </ModalShell>
+      )}
+    </div>
+  );
 }
 
 export const ArchiveTrashView = memo(function ArchiveTrashView({
@@ -41,6 +139,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
   onOpenPreview,
   dateLocale,
   t,
+  isMobile = false,
 }: ArchiveTrashViewProps) {
   if (trashedSessions.length === 0) {
     return (
@@ -50,6 +149,29 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
           title={t('archive_trash_empty')}
           description={t('archive_trash_empty_desc')}
         />
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col py-2">
+        <div className="flex items-center px-3 pb-2 text-sm text-text-main/60">
+          {trashedSessions.length} {t('archive_count')}
+        </div>
+        <div className="flex flex-col overflow-y-auto">
+          {trashedSessions.map(session => (
+            <MobileTrashRow
+              key={session.id}
+              session={session}
+              daysLeft={getDaysRemaining(session.trashedAt)}
+              {...(onOpenPreview ? { onOpenPreview } : {})}
+              onRestore={onRestore}
+              onDeletePermanently={onDeletePermanently}
+              t={t}
+            />
+          ))}
+        </div>
       </div>
     );
   }
@@ -89,9 +211,7 @@ export const ArchiveTrashView = memo(function ArchiveTrashView({
               >
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-base font-medium text-text-main truncate">
-                    {session.title?.trim() ||
-                      (session.content ? session.content.split('\n').map(l => l.trim()).find(l => l.length > 0) : undefined) ||
-                      (!session._isLocal && session._hasCloudCopy ? t('archive_cloud_only_note') : t('session_untitled'))}
+                    {rowTitle(session, t)}
                   </h3>
                   <div
                     className={cn(

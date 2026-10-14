@@ -1,15 +1,12 @@
-import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../../shared/i18n';
 import { cn } from '../../../core/utils/utils';
 import { useAuthStatus } from '../../../app/useAuthStatus';
 import { useLoginModal } from '../../../app/useLoginModal';
-import { Shield, Sparkles, Activity, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
-
-const RECENT_ACTIVITY_MS = 10_000;
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -36,17 +33,19 @@ const ArchiveIcon = () => (
 );
 
 
-interface BottomNavProps {
-  isAdmin: boolean;
-}
-
-export function BottomNav({ isAdmin }: BottomNavProps) {
+/**
+ * MR-4: четыре вкладки у всех. Пятой была «Диагностика» — на 320 px пять вкладок
+ * давали 329 px и горизонтальный скролл; теперь она строка в «Профиле». Чипы
+ * «Активность» и «Синхронизация» висели на 32 px над панелью и перекрывали
+ * последнюю строку списка, композер и «Выйти» — их состояние стала показывать
+ * точка на вкладке «Профиль».
+ */
+export function BottomNav() {
   const navigate = useNavigate();
   // Без этой подписки `location` ниже — глобальный window.location: подсветка
   // вкладки не пересчитывалась бы при переходах (T-1b это и сломал).
   const location = useLocation();
-  const { t, tp: rawTp } = useLanguage();
-  const tp = typeof rawTp === 'function' ? rawTp : ((k: string, count: number) => t(k, { count: String(count) }));
+  const { t } = useLanguage();
   const { isGuest, user } = useAuthStatus();
   const { openLoginModal } = useLoginModal();
   const syncStatus = useSyncStatus(user?.uid ?? null);
@@ -60,32 +59,15 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
     && syncStatus.status !== 'sync_off';
 
   const entries = useActivityLogStore(s => s.entries);
-  const openActivityPanel = useActivityLogStore(s => s.setPanelOpen);
   const newestLevel = entries[0]?.level;
-  const isNewestError = newestLevel === 'error';
-  const isNewestWarning = newestLevel === 'warning';
-  const errorCount = entries.filter(e => e.level === 'error').length;
-  const warnCount = entries.filter(e => e.level === 'warning').length;
-  const mostRecentTime = entries[0]?.time;
-
-  const [isRecent, setIsRecent] = useState(false);
-  useEffect(() => {
-    const elapsed = mostRecentTime === undefined ? Infinity : Date.now() - mostRecentTime;
-    if (elapsed >= RECENT_ACTIVITY_MS) {
-      const off = setTimeout(() => setIsRecent(false), 0);
-      return () => clearTimeout(off);
-    }
-    const on = setTimeout(() => setIsRecent(true), 0);
-    const off = setTimeout(() => setIsRecent(false), RECENT_ACTIVITY_MS - elapsed);
-    return () => { clearTimeout(on); clearTimeout(off); };
-  }, [mostRecentTime]);
+  const hasActivityAlert = newestLevel === 'error' || newestLevel === 'warning';
+  const showAlertDot = showSyncIndicator || hasActivityAlert;
 
   const tabs = [
     { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
     { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <ArchiveIcon /> },
     { id: 'ai' as const, path: '/ai',          label: 'AI',                    icon: <Sparkles size={22} strokeWidth={1.6} aria-hidden="true" /> },
     { id: 'me' as const,   path: '/me',       label: t('nav_profile_short'),  icon: <MeIcon /> },
-    ...(isAdmin ? [{ id: 'diagnostics' as const, path: '/diagnostics', label: t('admin_tab_diagnostics'), icon: <Shield size={22} strokeWidth={1.6} aria-hidden="true" /> } as const] : []),
   ];
 
   type Tab = typeof tabs[number];
@@ -99,7 +81,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
       }
     }
     // If guest taps auth-required tab — open login modal
-    if (isGuest && (tab.id === 'ai' || tab.id === 'diagnostics')) {
+    if (isGuest && tab.id === 'ai') {
       openLoginModal();
       return;
     }
@@ -112,70 +94,10 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
   };
 
   return (
-    <div
+    <nav
       className="fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe"
+      aria-label={t('nav_aria_label')}
     >
-      <button
-        type="button"
-        onClick={() => openActivityPanel(true)}
-        aria-label={t('activity_log_aria')}
-        className={cn(
-          "absolute -top-8 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-md transition-colors",
-          isNewestError
-            ? "bg-accent-danger/15 border border-accent-danger/30 text-accent-danger"
-            : isNewestWarning
-              ? "bg-accent-warning/15 border border-accent-warning/30 text-accent-warning"
-              : (newestLevel === 'success' || isRecent)
-                ? "bg-accent-success/15 border border-accent-success/30 text-accent-success"
-                : "bg-surface-card/80 border border-border-subtle text-text-main/60 hover:text-text-main"
-        )}
-        title={
-          isNewestError
-            ? tp('activity_errors', errorCount)
-            : isNewestWarning
-              ? tp('activity_warnings', warnCount)
-              : (newestLevel === 'success' || isRecent)
-                ? t('activity_log_active')
-                : t('activity_log_label')
-        }
-      >
-        {isNewestError ? (
-          <AlertCircle size={14} className="shrink-0" />
-        ) : isNewestWarning ? (
-          <AlertTriangle size={14} className="shrink-0" />
-        ) : (newestLevel === 'success' || isRecent) ? (
-          <CheckCircle2 size={14} className="shrink-0" />
-        ) : (
-          <Activity size={14} className="shrink-0" />
-        )}
-        <span>
-          {isNewestError
-            ? tp('activity_errors', errorCount)
-            : isNewestWarning
-              ? tp('activity_warnings', warnCount)
-              : (newestLevel === 'success' || isRecent)
-                ? t('activity_log_active')
-                : t('activity_log_label')}
-        </span>
-      </button>
-      {showSyncIndicator && (
-        <button
-          onClick={() => void navigate('/settings')}
-          className="absolute -top-8 right-3 flex items-center gap-1.5 px-2 py-1 rounded-full bg-accent-warning/15 border border-accent-warning/30 text-accent-warning text-xs font-medium"
-          title={t(
-            syncStatus.status === 'offline' ? 'sync_paused_no_network'
-              : syncStatus.status === 'cloud_unavailable' ? 'sync_paused_cloud_unavailable'
-              : syncStatus.status === 'ai_store_unsynced' ? 'sync_ai_store_pending'
-              : 'sync_paused_pending',
-            syncStatus.status === 'pending' ? { count: String(syncStatus.pendingCount) }
-              : syncStatus.status === 'ai_store_unsynced' ? { count: String(syncStatus.aiStorePendingCount + syncStatus.aiStoreDeadCount) }
-              : undefined
-          )}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-accent-warning animate-pulse" />
-          {t('sync_indicator_label')}
-        </button>
-      )}
       {tabs.map(tab => {
         const active = isActive(tab);
         return (
@@ -185,18 +107,25 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
             aria-label={tab.label}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              "flex flex-col items-center gap-[3px] py-1 px-2 bg-transparent border-none cursor-pointer transition-colors duration-150",
+              "relative flex min-w-16 flex-col items-center gap-[3px] py-1 px-2 bg-transparent border-none cursor-pointer transition-colors duration-150",
               active ? "text-text-main font-semibold" : "text-text-main/60 hover:text-text-main",
-              isGuest && ['ai'].includes(tab.id) ? "opacity-40" : ""
+              isGuest && tab.id === 'ai' ? "opacity-40" : ""
             )}
           >
             {tab.icon}
+            {tab.id === 'me' && showAlertDot && (
+              <span
+                data-testid="tab-dot"
+                aria-hidden="true"
+                className="absolute top-0.5 right-[22%] w-2 h-2 rounded-full bg-accent-warning"
+              />
+            )}
             <span className="text-label-sm font-sans tracking-[0.02em]">
               {tab.label}
             </span>
           </Button>
         );
       })}
-    </div>
+    </nav>
   );
 }

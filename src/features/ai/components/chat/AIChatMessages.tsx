@@ -261,7 +261,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
       {/* z-0, не выше: шапка и поле ввода стоят на z-10, и их выпадающие
           списки обязаны ложиться поверх сообщений. Фон-свечение — тоже z-0, но
           раньше в DOM, поэтому остаётся под сообщениями. */}
-      <div className="relative z-0 flex-1 overflow-y-auto px-6 py-7">
+      <div className={cn("relative z-0 flex-1 overflow-y-auto px-6 py-7", isMobile && "min-h-0")}>
         <div className="max-w-[1600px] mx-auto flex flex-col gap-7" aria-live="polite">
           {proactiveHint && !activeDialogueId && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-brand-soft/10 border border-brand-soft/20 text-sm text-brand-soft">
@@ -269,9 +269,9 @@ export function AIChatMessages(props: AIChatMessagesProps) {
               <span className="flex-1">{proactiveHint}</span>
               <Button
                 onClick={() => { if (proactiveHint) setInputText(proactiveHint.replace(/.*«|».*/, '').trim()); }}
-                className="text-xs font-bold px-3 py-1 rounded-lg bg-brand-soft/20 hover:bg-brand-soft/30"
+                className={cn("text-xs font-bold px-3 py-1 rounded-lg bg-brand-soft/20 hover:bg-brand-soft/30", isMobile && "min-h-11")}
               >
-                {isMobile ? 'OK' : t('ai_discuss')}
+                {t('ai_discuss')}
               </Button>
             </div>
           )}
@@ -289,7 +289,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                     type="button"
                     onClick={() => onSuggestion(s)}
                     disabled={isLoading || dailyLimitRemaining === 0}
-                    className="px-4 py-2.5 rounded-xl bg-surface-card border border-border-subtle text-sm text-text-main/80 hover:border-brand-soft/40 hover:text-text-main transition-colors disabled:opacity-40"
+                    className={cn("px-4 py-2.5 rounded-xl bg-surface-card border border-border-subtle text-sm text-text-main/80 hover:border-brand-soft/40 hover:text-text-main transition-colors disabled:opacity-40", isMobile && "min-h-11")}
                   >
                     {s}
                   </button>

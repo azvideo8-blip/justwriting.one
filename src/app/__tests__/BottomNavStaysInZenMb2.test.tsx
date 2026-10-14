@@ -62,8 +62,9 @@ describe('MB-2: нижняя панель и отступ в дзене', () => 
     zen.isZenActive = true;
     renderShell();
     // MB-7 поднял отступ до pb-28 — под панель (72) плюс чип «Активность» (32).
+    // MR-4: чипов больше нет, отступ снова «высота панели + safe area».
     // Смысл этой проверки не изменился: в дзене он не должен уменьшаться.
-    expect(mainClasses()).toContain('pb-28');
+    expect(mainClasses()).toContain('pb-safe-nav');
     expect(mainClasses()).not.toContain('pb-4');
   });
 

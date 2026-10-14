@@ -2,6 +2,16 @@ import { Translations } from '../types';
 
 export const aiTranslations: Translations = {
   ai_new_dialogue: { ru: 'Новый диалог', en: 'New dialogue' },
+  // MR-1: лист диалогов на телефоне.
+  ai_dialogues_open: { ru: 'Диалоги', en: 'Dialogues' },
+  ai_dialogues_search_placeholder: { ru: 'Поиск по диалогам', en: 'Search dialogues' },
+  ai_dialogues_today: { ru: 'Сегодня', en: 'Today' },
+  ai_dialogues_this_week: { ru: 'На этой неделе', en: 'This week' },
+  ai_dialogues_earlier: { ru: 'Раньше', en: 'Earlier' },
+  ai_dialogues_archived_row: { ru: 'Архив диалогов', en: 'Dialogue archive' },
+  ai_dialogues_active_row: { ru: 'Активные диалоги', en: 'Active dialogues' },
+  ai_dialogue_note_ref: { ru: 'к заметке', en: 'on note' },
+  ai_more: { ru: 'Ещё', en: 'More' },
   ai_active: { ru: 'Активные', en: 'Active' },
   ai_archive: { ru: 'Архив', en: 'Archive' },
   ai_no_active_dialogues: { ru: 'Нет активных диалогов', en: 'No active dialogues' },
@@ -27,6 +37,13 @@ export const aiTranslations: Translations = {
   ai_write_placeholder: { ru: 'Сообщение для: {name}…', en: 'Message for {name}…' },
   ai_send: { ru: 'Отправить', en: 'Send' },
   ai_processing: { ru: 'Обработка…', en: 'Processing…' },
+  // MR-2: на телефоне кнопка остановки — иконка, имя нужно давать отдельно.
+  ai_stop: { ru: 'Остановить ответ', en: 'Stop response' },
+  // MR-3: лист выбора собеседника на телефоне.
+  ai_persona_sheet_title: { ru: 'Собеседник', en: 'Companion' },
+  ai_persona_sheet_footer: { ru: 'Выбор собеседника начинает новый диалог.', en: 'Choosing a companion starts a new dialogue.' },
+  ai_persona_create_row: { ru: 'Своя персона', en: 'Custom persona' },
+  ai_persona_detail: { ru: 'О собеседнике', en: 'About the companion' },
   ai_delete_message: { ru: 'Удалить сообщение', en: 'Delete message' },
   ai_quota_chat: { ru: 'чат', en: 'chat' },
   ai_quota_reasoning: { ru: 'рассуждения', en: 'reasoning' },
@@ -223,6 +240,10 @@ export const aiTranslations: Translations = {
   ai_portrait_title: { ru: 'Психологический портрет', en: 'Psychological portrait' },
   ai_generated_tag: { ru: 'сгенерировано ИИ', en: 'AI-generated' },
   ai_portrait_generating: { ru: 'Генерация…', en: 'Generating…' },
+  ai_portrait_stale_rules: {
+    ru: 'Портрет собран по прежним правилам — обновите, чтобы он стал короче и без имён.',
+    en: 'This portrait was built under the earlier rules — refresh it to make it shorter and without names.',
+  },
   ai_portrait_refresh: { ru: 'Обновить', en: 'Refresh' },
   ai_portrait_generate: { ru: 'Сгенерировать', en: 'Generate' },
   ai_portrait_export_md: { ru: 'Экспорт .md', en: 'Export .md' },

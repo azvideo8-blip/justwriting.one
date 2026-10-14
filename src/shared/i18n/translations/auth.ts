@@ -38,6 +38,7 @@ export const authTranslations: Translations = {
   draft_restore_prompt:       { ru: 'Найден несохранённый черновик.', en: 'An unsaved draft was found.' },
   draft_restore:              { ru: 'Восстановить',                   en: 'Restore' },
   draft_discard:              { ru: 'Удалить',                        en: 'Discard' },
+  draft_discard_confirm:      { ru: 'Удалить черновик? Текст пропадёт.', en: 'Delete the draft? The text will be gone.' },
 
   migration_found_title:        { ru: 'Локальные записи найдены',             en: 'Local records found' },
   migration_found_hint:         { ru: 'У тебя {count} локальных записей. Переместить их в аккаунт?', en: 'You have {count} local records. Move them to your account?' },

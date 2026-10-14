@@ -3,6 +3,8 @@ import { Cloud } from "lucide-react";
 import { Button } from "../../../shared/components/Button";
 import { ModalShell } from "../../../shared/components/ModalShell";
 import { useLanguage } from "../../../shared/i18n";
+import { useLayoutMode } from "../../../shared/hooks/useLayoutMode";
+import { cn } from "../../../core/utils/utils";
 import { useAuthStatus } from "../../../features/auth/hooks/useAuthStatus";
 import { STORAGE_KEYS } from "../../../shared/constants/storageKeys";
 import { SyncService } from "../../../core/services/SyncService";
@@ -15,6 +17,8 @@ interface SyncConsentModalProps {
 
 export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
   const { t } = useLanguage();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
 
   const handleEnable = () => {
     if (userId) {
@@ -56,14 +60,14 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
           <Button
             variant="primary"
             onClick={handleEnable}
-            className="w-full justify-center py-2.5 text-sm font-medium"
+            className={cn("w-full justify-center py-2.5 text-sm font-medium", isMobile && "min-h-11")}
           >
             {t('sync_consent_enable')}
           </Button>
           <Button
             variant="ghost"
             onClick={handleKeepOff}
-            className="w-full justify-center py-2.5 text-sm font-medium text-text-muted hover:text-text-primary"
+            className={cn("w-full justify-center py-2.5 text-sm font-medium text-text-muted hover:text-text-primary", isMobile && "min-h-11")}
           >
             {t('sync_consent_keep_off')}
           </Button>

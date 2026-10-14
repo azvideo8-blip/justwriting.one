@@ -2,7 +2,7 @@
 // ландшафте, и тап по ней открывает окно завершения. Дзен выключен, чтобы
 // проверка была про геометрию панели, а не про дзен (это MB-2).
 import { expect, test } from '@playwright/test';
-import { fullyInViewport, pickFreeFlow, shot, signInMobile, zenOff } from './harness';
+import { fullyInViewport, shot, signInMobile, zenOff } from './harness';
 
 const CASES = [
   { tag: '320x568', viewport: { width: 320, height: 568 } },
@@ -19,15 +19,15 @@ for (const c of CASES) {
       await zenOff(page);
       await signInMobile(page, 'mb3-fit');
 
-      await page.getByRole('button', { name: /^Начать$/ }).click();
-      expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+    // MR-6 (направление A): редактор открыт сразу, «Начать» и лист режима не нужны.
+    await page.goto('/');
 
       const editor = page.locator('textarea').first();
       await editor.waitFor({ state: 'visible', timeout: 30_000 });
       await editor.click();
       await editor.pressSequentially('проверка ширины панели на телефоне', { delay: 5 });
 
-      const stop = page.getByRole('button', { name: /^Стоп$/ });
+      const stop = page.getByRole('button', { name: /^Готово$/ });
       await expect(stop).toBeVisible({ timeout: 10_000 });
       const box = await stop.boundingBox();
       expect(box, 'у «Стоп» нет геометрии').not.toBeNull();

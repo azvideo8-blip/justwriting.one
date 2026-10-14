@@ -73,6 +73,7 @@
      бьют каскадом темы (.theme-*), и переопределения вроде --brand-soft в
      «Тёплом» не работали. */
   :root {
+    --bottom-nav-height: 56px;
     --brand-primary: #7D4FD1;
     --brand-soft: #A583E8;
     --brand-deep: #4A2A8A;
@@ -494,7 +495,7 @@ textarea {
     padding-bottom: env(safe-area-inset-bottom);
   }
   .pb-safe-nav {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 56px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--bottom-nav-height));
   }
   .no-scrollbar {
     -ms-overflow-style: none;

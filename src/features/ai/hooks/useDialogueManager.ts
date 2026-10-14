@@ -29,10 +29,13 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
     await loadDialogues();
   }, [loadDialogues]);
 
-  const handleArchive = useCallback(async () => {
-    if (activeDialogueId) {
-      await AIDialogueService.archive(activeDialogueId);
-      setActiveDialogueId(null);
+  // id по умолчанию — активный диалог (так вызывала шапка); лист MR-1 передаёт
+  // id строки, чтобы архивировать и удалять не только текущий разговор.
+  const handleArchive = useCallback(async (id?: string) => {
+    const target = id ?? activeDialogueId;
+    if (target) {
+      await AIDialogueService.archive(target);
+      if (target === activeDialogueId) setActiveDialogueId(null);
       await loadDialogues();
     }
   }, [activeDialogueId, loadDialogues]);
@@ -42,15 +45,16 @@ export function useDialogueManager({ confirmDialog }: DialogueManagerParams) {
     await loadDialogues();
   }, [loadDialogues]);
 
-  const handleDelete = useCallback(async () => {
-    if (activeDialogueId) {
+  const handleDelete = useCallback(async (id?: string) => {
+    const target = id ?? activeDialogueId;
+    if (target) {
       const ok = await confirmDialog({
         title: t('ai_delete_dialogue_confirm_title'),
         message: t('ai_delete_dialogue_confirm_message'),
       });
       if (!ok) return;
-      await AIDialogueService.delete(activeDialogueId);
-      setActiveDialogueId(null);
+      await AIDialogueService.delete(target);
+      if (target === activeDialogueId) setActiveDialogueId(null);
       await loadDialogues();
     }
   }, [activeDialogueId, confirmDialog, loadDialogues, t]);

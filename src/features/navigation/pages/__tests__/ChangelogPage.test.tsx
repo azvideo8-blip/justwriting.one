@@ -10,6 +10,11 @@ describe('ChangelogPage', () => {
     localStorage.clear();
   });
 
+  // Явный потолок только этому тесту: в изоляции он занимает 0,15–0,6 с, но в
+  // полном наборе (760 файлов, jsdom на каждый) не успевал в дефолтные 5 с —
+  // `Error: Test timed out in 5000ms` в 3 прогонах из 4 13.10.2026. Общий
+  // `testTimeout` в конфиге не трогаем: он есть только у этого теста, потому что
+  // у всех остальных падение по умолчанию и должно оставаться сигналом.
   it('marks the changelog as seen for the current version on mount', () => {
     expect(useChangelogSeenStore.getState().hasUnseen).toBe(true);
 
@@ -21,5 +26,5 @@ describe('ChangelogPage', () => {
 
     expect(useChangelogSeenStore.getState().hasUnseen).toBe(false);
     expect(localStorage.getItem('last_seen_changelog_version')).toBe(APP_VERSION);
-  });
+  }, 20_000);
 });

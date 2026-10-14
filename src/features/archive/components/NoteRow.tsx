@@ -55,8 +55,11 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   // MB-11: долгое нажатие открывает переименование, и по нему же надо подавить
   // «обычный» клик, иначе тот же палец открыл бы ещё и заметку.
   const longPressFiredRef = React.useRef(false);
+  // MR-9: на телефоне долгое нажатие ведёт в лист действий, порог — 500 мс.
+  const longPressMs = isMobile ? 500 : 600;
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (session._locked || session._decryptionError) return;
     e.stopPropagation();
     longPressFiredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
@@ -68,9 +71,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
         }
       }
       longPressFiredRef.current = true;
-      setTitleDraft(session.title || '');
-      setEditingTitle(true);
-    }, 600);
+      if (isMobile) {
+        setActionsSheetOpen(true);
+      } else {
+        setTitleDraft(session.title || '');
+        setEditingTitle(true);
+      }
+    }, longPressMs);
   };
 
   const handleTouchMove = () => {
@@ -85,6 +92,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+  };
+
+  /** MR-9: на телефоне весь ряд — одна цель касания, открывающая заметку. */
+  const handleRowTap = () => {
+    if (longPressFiredRef.current) { longPressFiredRef.current = false; return; }
+    onOpen();
   };
 
   // DC-A3: `getSessionDate` обнуляет время, поэтому метка строится от точного
@@ -157,8 +170,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
     <div
       // Полоса метки слева и лёгкая подкраска строки её цветом — вернули по
       // просьбе владельца: метку видно краем глаза, точка терялась.
-      className={cn("grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2 grid-cols-[auto_1fr_auto]", label ? "" : "border-l-transparent")}
+      className={cn("grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2 grid-cols-[auto_1fr_auto]", label ? "" : "border-l-transparent", isMobile && "min-h-[60px] active:bg-text-main/[0.04]")}
       style={label ? { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, transparent)`, boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)` } : undefined}
+      onClick={isMobile ? handleRowTap : undefined}
+      onTouchStart={isMobile ? handleTouchStart : undefined}
+      onTouchMove={isMobile ? handleTouchMove : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : undefined}
       onContextMenu={e => {
         if (isMobile) return;
         e.preventDefault();
@@ -168,12 +185,17 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
       <div className="shrink-0 relative">
         <div
           className="cursor-pointer"
-          onClick={openDateTimeEditor}
-          title={t('archive_edit_date')}
+          onClick={isMobile ? undefined : openDateTimeEditor}
+          title={isMobile ? undefined : t('archive_edit_date')}
         >
-          {/* DC-A3: обычная Inter, tabular-nums, одна строка — не переносится. */}
-          <div className="text-[13px] text-text-main/60 leading-tight hover:text-text-main/70 tabular-nums whitespace-nowrap">
-            {dateTimeLabel}
+          {/* DC-A3: обычная Inter, tabular-nums, одна строка — не переносится.
+              MR-9: на телефоне день уже назван группой строк, поэтому в колонке
+              остаётся только время — mono, шириной 44 px. */}
+          <div className={cn(
+            'leading-tight whitespace-nowrap text-text-main/60 hover:text-text-main/70',
+            isMobile ? 'min-w-11 text-[12px] font-mono' : 'text-[13px] tabular-nums'
+          )}>
+            {isMobile ? (sessionTime ? format(sessionTime, 'HH:mm') : '—') : dateTimeLabel}
           </div>
         </div>
         {editingDateTime && (
@@ -243,17 +265,13 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               "text-[15px] font-medium text-text-main leading-snug truncate transition-colors flex items-center gap-1.5",
               session._locked || session._decryptionError ? "cursor-pointer" : "hover:text-brand-soft"
             )}
-            onClick={session._locked || session._decryptionError ? onOpen : (e => {
-              e.stopPropagation();
-              // MB-11 (F-24): на телефоне одиночный тап по заголовку открывает
-              // заметку. Двойной клик там не угадывается, а «Предпросмотр» в
-              // листе действий — это не «открыть». Долгое нажатие остаётся
-              // переименованием. Десктоп не тронут: там клик по заголовку
-              // гасится намеренно (строка редактируется двойным кликом).
-              if (!isMobile) return;
-              if (longPressFiredRef.current) { longPressFiredRef.current = false; return; }
-              onOpen();
-            })}
+            onClick={session._locked || session._decryptionError
+              ? (e => { e.stopPropagation(); onOpen(); })
+              // MR-9: открытие заметки на телефоне несёт весь ряд, поэтому здесь
+              // ничего не гасится — гашение и было причиной «тап по заголовку
+              // ничего не делает». Десктоп не тронут: клик по заголовку гасится
+              // намеренно, строка редактируется двойным кликом.
+              : (e => { if (!isMobile) e.stopPropagation(); })}
             onDoubleClick={e => {
               if (session._locked || session._decryptionError) {
                 onOpen();
@@ -263,9 +281,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
               setTitleDraft(session.title || '');
               setEditingTitle(true);
             }}
-            onTouchStart={session._locked || session._decryptionError ? undefined : handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            // Десктопный макет на сенсорном экране (телефоны без мобильного
+            // макета — почти все): долгое нажатие на заголовок открывает
+            // переименование, как до MR-9. В мобильном макете касания несёт ряд.
+            onTouchStart={isMobile || session._locked || session._decryptionError ? undefined : handleTouchStart}
+            onTouchMove={isMobile ? undefined : handleTouchMove}
+            onTouchEnd={isMobile ? undefined : handleTouchEnd}
             title={session._locked || session._decryptionError ? undefined : t('archive_edit_title_hint')}
           >
             {!session._isLocal && session._hasCloudCopy && (
@@ -309,19 +330,29 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           </div>
         )}
         {session.content && (
-          <p className="text-sm text-text-main/60 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer text-pretty"  onClick={onOpen}>
+          <p className="text-sm text-text-main/60 leading-relaxed line-clamp-1 sm:line-clamp-2 mb-2 cursor-pointer text-pretty" onClick={isMobile ? undefined : onOpen}>
             {highlightText(getSearchContext(session.content, searchQuery), searchQuery ?? '')}
           </p>
         )}
-        <InlineTags
-          variant="row"
-          tags={session.tags || []}
-          onChange={(newTags) => onTagsChange?.(session, newTags)}
-          allTags={allTags}
-          isAdding={tagInputOpen}
-          onStartAdding={() => setTagInputOpen(true)}
-          onStopAdding={() => setTagInputOpen(false)}
-        />
+        {!isMobile || tagInputOpen ? (
+          // На телефоне чипсы тегов видны только пока открыт ввод тега из листа
+          // действий («Добавить тег») — иначе ряд остаётся текстовым.
+          <InlineTags
+            variant="row"
+            tags={session.tags || []}
+            onChange={(newTags) => onTagsChange?.(session, newTags)}
+            allTags={allTags}
+            isAdding={tagInputOpen}
+            onStartAdding={() => setTagInputOpen(true)}
+            onStopAdding={() => setTagInputOpen(false)}
+          />
+        ) : ((session.tags?.length ?? 0) > 0 && (
+          // MR-9: на телефоне теги — текст, а не цели касания: правка остаётся в
+          // предпросмотре и в листе действий.
+          <p className="font-mono text-[12px] text-text-main/45 truncate">
+            {session.tags!.map(tag => `#${tag}`).join(' ')}
+          </p>
+        ))}
 
       </div>
 
@@ -330,10 +361,16 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           <>
             <IconButton
               onClick={e => { e.stopPropagation(); setActionsSheetOpen(true); }}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-text-main/60 hover:bg-text-main/5 active:bg-text-main/10"
+              className="w-11 h-11 flex items-center justify-center rounded-lg text-text-main/60 hover:bg-text-main/5 active:bg-text-main/10"
               label={t('archive_note_actions')}
-              icon={<MoreVertical size={18} aria-hidden="true" />}
+              icon={<MoreVertical size={20} aria-hidden="true" />}
             />
+            {/* Лист рендерится порталом в body, но события React всплывают по
+                дереву компонентов — до ряда. Клики гасит колонка выше, а касания
+                нет: палец, задержанный в листе на полсекунды, заводил таймер
+                долгого нажатия ряда, и следующий тап по ряду проглатывался
+                (ревью 0.9.39). `contents` — без влияния на раскладку. */}
+            <div className="contents" onTouchStart={e => e.stopPropagation()}>
             <AnimatePresence>
               {actionsSheetOpen && (
                 <MobileNoteActionsSheet
@@ -356,6 +393,7 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
                 />
               )}
             </AnimatePresence>
+            </div>
           </>
         ) : (
           <>

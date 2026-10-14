@@ -14,7 +14,6 @@ import { FlowPulse } from '../../core/theme/FlowPulse';
 import { CancelConfirmModal } from '../../shared/components/CancelConfirmModal';
 
 import { MobileWriteScreen } from '../../features/writing/components/MobileWriteScreen';
-import { MobileHomeScreen } from '../../features/writing/components/MobileHomeScreen';
 import { MobileSessionSetupSheet } from '../../features/writing/components/MobileSessionSetupSheet';
 
 import { useGuestWritingSession } from '../../features/writing/hooks/useGuestWritingSession';
@@ -70,8 +69,6 @@ const WritingPageUI = React.memo(function WritingPageUI() {
     flow,
     actions,
     lifeLogGroups,
-    lifeLogSummary,
-    refreshLifeLog,
     streakDays,
     streakForModal,
     isFinishModalOpen,
@@ -96,7 +93,6 @@ const WritingPageUI = React.memo(function WritingPageUI() {
     handlePause,
     handleNew,
     handleCancel,
-    handleContinueSessionOrDoc,
   } = { ...actions, handleCancel: session.handleCancel };
 
   const sessionStatus = session.status;
@@ -109,23 +105,17 @@ const WritingPageUI = React.memo(function WritingPageUI() {
 
   const mainContent = (() => {
     if (isMobile) {
-      if (sessionStatus === 'idle')
-        return (
-          <MobileHomeScreen
-            userId={session.userId}
-            streakDays={streakDays}
-            sessionGroups={lifeLogGroups}
-            summary={lifeLogSummary}
-            onStart={() => setSetupMode('selection')}
-            onContinue={(s) => void handleContinueSessionOrDoc(s)}
-            hasDraft={session.hasDraft}
-            restoreDraft={() => void session.restoreDraft()}
-            discardDraft={() => void session.discardDraft()}
-            onRefresh={refreshLifeLog}
-          />
-        );
+      // MR-6 (направление A): «Писать» открывает редактор. Экран-заглушка с
+      // «Начать» удалён: до первой буквы было три тапа и одно лишнее окно.
       return (
         <MobileWriteScreen
+          status={sessionStatus}
+          streakDays={streakDays}
+          sessionType={session.sessionType}
+          onOpenSetup={() => setSetupMode('selection')}
+          hasDraft={session.hasDraft}
+          restoreDraft={() => void session.restoreDraft()}
+          discardDraft={() => void session.discardDraft()}
           onPlay={() => void handlePlay()}
           onPause={() => void handlePause()}
           onStop={() => void onFinishClick()}

@@ -6,6 +6,7 @@ export const commonTranslations: Translations = {
   common_got_it: { ru: 'Понятно', en: 'Got it' },
   close: { ru: 'Закрыть', en: 'Close' },
   nav_write: { ru: 'Писать', en: 'Write' },
+  nav_aria_label: { ru: 'Нижняя навигация', en: 'Bottom navigation' },
   nav_notes: { ru: 'Заметки', en: 'Notes' },
   nav_profile: { ru: 'Профиль', en: 'Profile' },
   nav_about: { ru: 'О приложении', en: 'About' },
@@ -14,7 +15,6 @@ export const commonTranslations: Translations = {
   skip_to_content: { ru: 'Перейти к содержимому', en: 'Skip to content' },
   nav_notes_short: { ru: 'Заметки', en: 'Notes' },
   nav_profile_short: { ru: 'Профиль', en: 'Profile' },
-  nav_me: { ru: 'Профиль', en: 'Profile' },
   nav_login: { ru: 'Войти', en: 'Sign in' },
   nav_logout: { ru: 'Выйти', en: 'Sign out' },
 
@@ -270,6 +270,13 @@ export const commonTranslations: Translations = {
   nav_diagnostics: { ru: 'Диагностика', en: 'Diagnostics' },
   activity_log_aria: { ru: 'Журнал активности', en: 'Activity log' },
   activity_log_label: { ru: 'Журнал', en: 'Log' },
+  // MR-4: статусные строки в «Профиле» — сюда переехали чипы из нижней панели.
+  me_status_vault: { ru: 'Сейф', en: 'Vault' },
+  me_status_vault_open: { ru: 'разблокирован', en: 'unlocked' },
+  me_status_vault_locked: { ru: 'заперт', en: 'locked' },
+  me_status_quiet: { ru: 'тихо', en: 'quiet' },
+  me_status_sync_off: { ru: 'автоотправка выключена', en: 'auto-upload off' },
+  // MR-4: статусные строки в «Профиле» — сюда переехали чипы из нижней панели.
   activity_log_active: { ru: 'Активность', en: 'Activity' },
   activity_errors_one: { ru: '{count} ошибка', en: '{count} error' },
   activity_errors_few: { ru: '{count} ошибки', en: '{count} errors' },

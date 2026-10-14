@@ -104,7 +104,6 @@ export const settingsTranslations: Translations = {
   storage_download_in_progress: { ru: 'Заметка уже загружается', en: 'This note is already being downloaded' },
 
   offline_working_locally: { ru: 'Нет соединения — работаем локально', en: 'Offline — working locally' },
-  offline_syncing: { ru: 'Синхронизируется...', en: 'Syncing...' },
   offline_synced: { ru: 'Все данные синхронизированы', en: 'All data synced' },
   offline_compact: { ru: 'Офлайн', en: 'Offline' },
   vault_locked_banner: { ru: 'Сейф заперт — синхронизация на паузе. Написанное сохраняется на устройстве.', en: 'Vault is locked — sync is paused. Your writing is saved on this device.' },

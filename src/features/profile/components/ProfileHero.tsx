@@ -4,7 +4,9 @@ import type { AppUser } from '../../../core/auth/types';
 import { Pencil, PenLine } from 'lucide-react';
 import { UserProfile } from '../../../types';
 import { ProfileService } from '../../../core/services/ProfileService';
+import { cn } from '../../../core/utils/utils';
 import { useLanguage } from '../../../shared/i18n';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
 import { IconButton } from '../../../shared/components/IconButton';
 import { Button } from '../../../shared/components/Button';
@@ -28,6 +30,8 @@ interface ProfileHeroProps {
 
 export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileHeroProps) {
   const { t, tp, language } = useLanguage();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(profile?.nickname || user?.displayName || '');
 
@@ -102,8 +106,8 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             )}
             {!isGuest && (
               <IconButton onClick={() => setEditingName(true)}
-                className="text-text-main/60 hover:text-text-main transition-colors"
-                label="Edit name"
+                className={cn('text-text-main/60 hover:text-text-main transition-colors', isMobile && 'w-11 h-11')}
+                label={t('profile_edit_name')}
                 icon={<Pencil size={14} />}
               />
             )}
@@ -132,7 +136,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
             <Button
               onClick={onStartSession}
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium text-text-main/60 hover:text-text-main border border-border-subtle hover:border-text-main/30 transition-colors w-full sm:w-auto"
+              className={cn("flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium text-text-main/60 hover:text-text-main border border-border-subtle hover:border-text-main/30 transition-colors w-full sm:w-auto", isMobile && "min-h-11")}
             >
               <PenLine size={13} />
               {t('profile_cta')}

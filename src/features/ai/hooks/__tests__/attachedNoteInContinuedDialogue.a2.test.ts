@@ -137,7 +137,15 @@ function noteB(): string {
 }
 const NOTE_B = noteB();
 
-const PORTRAIT = 'ПОРТРЕТ МАРАФОН: человек пишет по вечерам, главное в записях — бег и выносливость; ценит точность формулировок и не любит ободрения.';
+// PX-1: в строгом ходе от портрета остаётся раздел «Стиль общения», поэтому
+// фикстура — продовый формат (пять разделов с заголовками `## …`), а не одна
+// строка: иначе строгий ход идёт без портрета и порядок фенсов нечего проверять.
+const PORTRAIT = '# Психологический портрет пользователя\n\n'
+  + '## Темы и интересы\nГлавное в записях — бег и выносливость; человек пишет по вечерам.\n\n'
+  + '## Эмоциональные паттерны\nРаздражение копится молча и выходит задним числом.\n\n'
+  + '## Сильные стороны\nДоводит начатое до конца, если шаг назван.\n\n'
+  + '## Зоны роста\nПросит о помощи поздно.\n\n'
+  + '## Стиль общения\nПОРТРЕТ МАРАФОН: обращение на «ты», ценит точность формулировок и не любит ободрения.\n';
 
 const PAST_QUESTIONS = [
   'разбери мою норму по шагам',
@@ -270,7 +278,8 @@ function fenceOffsets(sent: Sent): { note: number; portrait: number; memory: num
     rnd: SEEDED_RND,
   });
   const note = system.lastIndexOf(`[#${DOC_B} · ${DAY_B}]`);
-  const portrait = system.indexOf(PORTRAIT.slice(0, 20));
+  // фенс портрета ищется по шапке ограды: в строгий ход едет только раздел, а не весь текст
+  const portrait = system.indexOf('данные профиля пользователя');
   return { note, portrait, memory: system.indexOf('данные памяти о пользователе') };
 }
 
@@ -358,7 +367,7 @@ describe('A-2: приложенная заметка в продолженном
       memoryChars: (sent.memoryContext ?? '').length,
       systemChars: system.length,
       noteFenceAt: system.lastIndexOf(`[#${DOC_B} · ${DAY_B}]`),
-      portraitFenceAt: system.indexOf(PORTRAIT.slice(0, 20)),
+      portraitFenceAt: system.indexOf('данные профиля пользователя'),
     };
     console.log('A2_SHAPE ' + JSON.stringify(shape));
     if (process.env.A2_DUMP_CASE) console.log('A2_CASE ' + JSON.stringify(sent));

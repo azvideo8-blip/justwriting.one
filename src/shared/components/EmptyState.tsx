@@ -28,7 +28,8 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
         <button
           type="button"
           onClick={action.onClick}
-          className="mt-2 px-6 py-2.5 rounded-2xl bg-text-main text-surface-base font-bold text-sm hover:opacity-90 transition-colors"
+          // MR-11: кнопка пустого состояния была 236×40 — ниже цели касания.
+          className="mt-2 min-h-11 px-6 py-2.5 rounded-2xl bg-text-main text-surface-base font-bold text-sm hover:opacity-90 transition-colors"
         >
           {action.label}
         </button>

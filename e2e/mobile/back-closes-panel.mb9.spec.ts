@@ -2,21 +2,19 @@
 // На телефоне в PWA это единственный путь назад; аппаратная «назад» Android и
 // свайп iOS ведут себя так же.
 import { expect, test, type Page } from '@playwright/test';
-import { pickFreeFlow, shot, signInMobile, zenOff } from './harness';
+import { shot, signInMobile, waitForQuietDialogs, zenOff } from './harness';
 
 test.use({ viewport: { width: 360, height: 640 } });
 
-/** Заголовок панели настроек — единственный надёжный признак, что панель открыта. */
-const settingsTitle = (page: Page) => page.locator('#settings-title');
-
 /** Сохраняет заметку, чтобы в архиве было с чем работать. */
 async function saveOneNote(page: Page, text: string): Promise<void> {
-  await page.getByRole('button', { name: /^Начать$/ }).click();
-  expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+  // MR-6 (направление A): редактор открыт сразу, «Начать» и лист режима больше
+  // не нужны, чтобы просто написать заметку.
+  await page.goto('/');
   const editor = page.locator('textarea').first();
   await editor.waitFor({ state: 'visible', timeout: 30_000 });
   await editor.fill(text);
-  await page.getByRole('button', { name: /^Стоп$/ }).click();
+  await page.getByRole('button', { name: /^Готово$/ }).click();
   const finish = page.getByRole('dialog').first();
   await expect(finish).toBeVisible({ timeout: 15_000 });
   await finish.getByRole('button', { name: /^Сохранить$/ }).click();
@@ -24,21 +22,25 @@ async function saveOneNote(page: Page, text: string): Promise<void> {
 }
 
 test.describe('MB-9: назад закрывает панель', () => {
-  test('«Я → Настройки»: browser back закрывает панель, остаёшься на /me', async ({ page }) => {
+  test('«Я → Настройки»: «назад» возвращает на /me, а не уходит из приложения', async ({ page }) => {
     await zenOff(page);
     await signInMobile(page, 'mb9-settings');
 
     await page.goto('/me');
+    // На WebKit окно первого запуска может приехать уже после перехода на «Я» и
+    // перехватить клик по шестерёнке (в полном прогоне 12.10 это и уронило тест).
+    await waitForQuietDialogs(page, 20_000);
     const settings = page.getByRole('button', { name: /^Настройки$/ }).first();
     await expect(settings, 'кнопки «Настройки» на «Я» нет').toBeVisible({ timeout: 20_000 });
     await settings.click();
 
-    await expect(settingsTitle(page), 'панель настроек не открылась').toBeVisible({ timeout: 15_000 });
+    // MR-5: шестерёнка «Профиля» ведёт в настройки приложения — это переход, а
+    // не панель, так что «назад» должен вернуть на /me.
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 15_000 }).toBe('/settings');
     await shot(page, 'mb9-settings-open-360');
 
     await page.goBack();
-    await expect(settingsTitle(page), '«назад» не закрыл панель настроек').toBeHidden({ timeout: 15_000 });
-    expect(new URL(page.url()).pathname, '«назад» увёл со страницы').toBe('/me');
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 15_000 }).toBe('/me');
     await shot(page, 'mb9-settings-after-back-360');
   });
 
@@ -62,8 +64,10 @@ test.describe('MB-9: назад закрывает панель', () => {
     // Запись листа снята закрытием — значит «назад» обязан увести со страницы,
     // а не открыть лист-призрак.
     await page.goBack();
-    await page.waitForTimeout(1_500);
-    expect(new URL(page.url()).pathname, '«назад» не ушёл со страницы архива').not.toBe('/archive');
+    // WebKit дописывает навигацию «назад» заметно дольше фиксированных 1,5 с:
+    // ждём через poll, иначе тест падает на ещё не завершившемся переходе.
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 10_000 })
+      .not.toBe('/archive');
     await expect(page.getByRole('dialog'), 'лист открылся сам («призрак»)').toHaveCount(0);
     await shot(page, 'mb9-after-close-then-back');
   });

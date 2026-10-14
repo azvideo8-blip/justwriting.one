@@ -18,6 +18,9 @@ export interface AIChatComposerProps {
   isLoading: boolean;
   onStop: () => void;
   onSend: () => void;
+  /** MR-2: на телефоне композер стоит над панелью навигации и едет за клавиатурой. */
+  isMobile: boolean;
+  keyboardHeight: number;
   pendingAttachments: PendingAttachment[];
   removePendingAttachment: (idx: number) => void;
   onPasteAsNote: () => void;
@@ -83,6 +86,8 @@ export function AIChatComposer(props: AIChatComposerProps) {
     isLoading,
     onStop,
     onSend,
+    isMobile,
+    keyboardHeight,
     pendingAttachments,
     removePendingAttachment,
     onPasteAsNote,
@@ -170,7 +175,12 @@ export function AIChatComposer(props: AIChatComposerProps) {
         </div>
       )}
 
-      <div className="relative z-10 px-6 py-4 border-t border-border-subtle">
+      <div
+        className={isMobile
+          ? 'relative z-10 shrink-0 px-3 pt-2 pb-2 border-t border-border-subtle'
+          : 'relative z-10 px-6 py-4 border-t border-border-subtle'}
+        style={isMobile ? { paddingBottom: `calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + ${keyboardHeight}px)` } : undefined}
+      >
         <div>
           {pendingAttachments.length === 0 && inputText.trim().length > 1500 && (
             <button
@@ -219,11 +229,17 @@ export function AIChatComposer(props: AIChatComposerProps) {
               <span>{quotaNoticeText}</span>
             </div>
           )}
-          <div className="flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors min-w-0">
+          <div className={cn(
+            "flex items-end gap-2.5 p-2.5 pl-3.5 rounded-2xl bg-surface-card border border-border-subtle focus-within:border-brand-soft/40 transition-colors min-w-0",
+            isMobile && "gap-2"
+          )}>
             <div className="relative" ref={attachMenuRef}>
               <IconButton
                 onClick={() => setAttachMenuOpen(!attachMenuOpen)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-elevated border border-border-subtle text-text-main/45 hover:text-text-main/70 transition-colors shrink-0"
+                className={cn(
+                  "flex items-center justify-center rounded-lg bg-surface-elevated border border-border-subtle text-text-main/45 hover:text-text-main/70 transition-colors shrink-0",
+                  isMobile ? "w-11 h-11" : "w-8 h-8"
+                )}
                 title={t('ai_attach')}
                 label={t('ai_attach')}
                 icon={<Plus size={15} />}
@@ -269,7 +285,11 @@ export function AIChatComposer(props: AIChatComposerProps) {
             {isLoading ? (
               <Button
                 onClick={onStop}
-                className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-surface-elevated border border-border-subtle text-text-main/80 text-[13.5px] font-semibold hover:text-text-main transition-[color,background-color,border-color,opacity] duration-200"
+                aria-label={t('ai_stop')}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl shrink-0 bg-surface-elevated border border-border-subtle text-text-main/80 text-[13.5px] font-semibold hover:text-text-main transition-[color,background-color,border-color,opacity] duration-200",
+                  isMobile ? "w-11 h-11 justify-center px-0" : "px-3 py-2.5 md:px-4"
+                )}
               >
                 <span className="w-3.5 h-3.5 rounded-full border-2 border-text-main/30 border-t-text-main/80 animate-spin" />
                 <span className="hidden md:inline">{t('ai_processing')}</span>
@@ -279,7 +299,11 @@ export function AIChatComposer(props: AIChatComposerProps) {
               <Button
                 onClick={onSend}
                 disabled={(!inputText.trim() && pendingAttachments.length === 0) || outOfQuota}
-                className="flex items-center gap-2 px-3 py-2.5 md:px-4 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-surface-base text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200"
+                aria-label={t('ai_send')}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl shrink-0 bg-gradient-to-b from-brand-soft to-brand-primary text-surface-base text-[13.5px] font-semibold shadow-[0_4px_16px_rgba(125,79,209,0.35)] disabled:opacity-40 disabled:shadow-none transition-[color,background-color,box-shadow,opacity] duration-200",
+                  isMobile ? "w-11 h-11 justify-center px-0" : "px-3 py-2.5 md:px-4"
+                )}
               >
                 <span className="hidden md:inline">{t('ai_send')}</span>
                 <ArrowRight size={14} />
@@ -287,7 +311,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-3.5 mt-2.5 flex-wrap">
+          <div className={cn("flex items-center gap-3.5 mt-2.5 flex-wrap", isMobile && "mt-1 text-[11px]")}>
             <span className="flex items-center gap-1.5 text-[10px] font-mono text-text-main/60 flex-wrap">
               {quotaUnknown ? (
                 <span>{t('ai_quota_unavailable')}</span>

@@ -36,3 +36,6 @@ corpus-real.json
 
 # impeccable critique snapshots (local)
 .impeccable/
+
+# Векторы стенда замеров (синтетика, но большая; пересоздаётся командой выше)
+scripts/ai-bench/.cache/

@@ -1,6 +1,6 @@
-// MB-11 (F-24): на телефоне одиночный тап по заголовку открывает заметку,
-// долгое нажатие остаётся переименованием. Десктоп не тронут: там клик по
-// заголовку гасится намеренно, открывает двойной клик.
+// MB-11 (F-24): на телефоне одиночный тап по заголовку открывает заметку.
+// MR-9 перенёс открытие на весь ряд, а долгое нажатие — в лист действий.
+// Десктоп не тронут: там клик по заголовку гасится намеренно, открывает двойной клик.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { getSessionKey } from '../../../../core/crypto/encrypt';
@@ -63,16 +63,52 @@ describe('MB-11: один тап открывает заметку', () => {
     expect(screen.getByDisplayValue('Яблоки и глазурь'), 'двойной клик не открыл поле переименования').toBeTruthy();
   });
 
-  it('долгое нажатие на телефоне — переименование, и оно не открывает заметку', () => {
+  it('долгое нажатие на телефоне открывает лист действий, и тот же палец не открывает заметку', () => {
+    // MR-9 перенёс долгое нажатие с инлайн-переименования на лист действий:
+    // «Переименовать» живёт там же, где и остальное.
     vi.useFakeTimers();
     const onOpen = renderRow();
     const el = titleEl();
     act(() => { fireEvent.touchStart(el, { touches: [{ clientX: 5, clientY: 5 }] }); });
-    act(() => { vi.advanceTimersByTime(700); });
+    act(() => { vi.advanceTimersByTime(600); });
     vi.useRealTimers();
 
-    expect(screen.getByDisplayValue('Яблоки и глазурь'), 'долгое нажатие не открыло переименование').toBeTruthy();
+    expect(screen.getByRole('dialog'), 'долгое нажатие не открыло лист действий').toBeTruthy();
+    expect(screen.queryByDisplayValue('Яблоки и глазурь'), 'долгое нажатие открыло инлайн-переименование').toBeNull();
     fireEvent.click(el);
     expect(onOpen, 'после долгого нажатия тот же палец открыл ещё и заметку').not.toHaveBeenCalled();
+  });
+
+  // Ревью 0.9.39: телефоны без мобильного макета (почти все) получают десктоп,
+  // и долгое нажатие на заголовок там открывало переименование. MR-9 повесил
+  // касания только на мобильный ряд — эта возможность пропала.
+  // Мутация: убрать onTouchStart с заголовка в десктопном макете → красный.
+  it('десктопный макет на сенсорном экране: долгое нажатие на заголовок — переименование', () => {
+    layoutMode = 'desktop';
+    vi.useFakeTimers();
+    renderRow();
+    act(() => { fireEvent.touchStart(titleEl(), { touches: [{ clientX: 5, clientY: 5 }] }); });
+    act(() => { vi.advanceTimersByTime(700); });
+    vi.useRealTimers();
+    expect(screen.getByDisplayValue('Яблоки и глазурь'), 'долгое нажатие не открыло переименование').toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // Ревью 0.9.39: лист действий — портал, и касания из него всплывают по дереву
+  // React до ряда. Палец, задержанный в листе, заводил долгое нажатие ряда, и
+  // следующий тап по ряду проглатывался.
+  // Мутация: убрать onTouchStart-гашение вокруг листа → красный.
+  it('палец, задержанный в листе действий, не съедает следующий тап по ряду', () => {
+    layoutMode = 'mobile';
+    const onOpen = renderRow();
+    fireEvent.click(screen.getByRole('button', { name: 'archive_note_actions' }));
+    vi.useFakeTimers();
+    act(() => { fireEvent.touchStart(screen.getByRole('dialog'), { touches: [{ clientX: 5, clientY: 5 }] }); });
+    act(() => { vi.advanceTimersByTime(700); });
+    act(() => { fireEvent.touchEnd(screen.getByRole('dialog')); });
+    vi.useRealTimers();
+    // Лист ещё открыт и сам показывает заголовок; заголовок ряда — первый в DOM.
+    fireEvent.click(screen.getAllByText('Яблоки и глазурь')[0]!);
+    expect(onOpen, 'тап по ряду после касания в листе не открыл заметку').toHaveBeenCalledTimes(1);
   });
 });

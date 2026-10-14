@@ -12,7 +12,9 @@ vi.mock('../../../../shared/i18n', () => ({
 
 function props(over: Partial<AIChatComposerProps> = {}): AIChatComposerProps {
   return {
-    inputText: 'текст',
+    isMobile: false,
+      keyboardHeight: 0,
+      inputText: 'текст',
     setInputText: () => {},
     inputRef: createRef<HTMLTextAreaElement>(),
     isLoading: false,

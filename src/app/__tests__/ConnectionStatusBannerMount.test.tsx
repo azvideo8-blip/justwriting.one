@@ -4,7 +4,6 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { DesktopWritingLayout } from '../pages/DesktopWritingLayout';
-import { MobileHomeScreen } from '../../features/writing/components/MobileHomeScreen';
 import { MobileWriteScreen } from '../../features/writing/components/MobileWriteScreen';
 import { useEncryptionStore } from '../../core/crypto/useEncryptionStore';
 
@@ -64,6 +63,8 @@ vi.mock('../../shared/hooks/useLayoutMode', () => ({
 vi.mock('../../shared/i18n', () => ({
   useLanguage: () => ({
     t: (k: string) => k,
+    // MR-6: idle-шапка письма считает стрик через tp() — без него мок падал.
+    tp: (k: string) => k,
   }),
 }));
 
@@ -206,13 +207,10 @@ describe('AG-2: ConnectionStatusBanner deduplication', () => {
   it('renders exactly one role="status" banner on mobile home screen', () => {
     mockLayoutMode = 'mobile';
     currentRouteContent = (
-      <MobileHomeScreen
-        userId={userId}
-        streakDays={3}
-        sessionGroups={[]}
-        summary={{ totalWords: 0, totalMinutes: 0 }}
-        onStart={vi.fn()}
-        onContinue={vi.fn()}
+      <MobileWriteScreen
+        onPlay={vi.fn()}
+        onPause={vi.fn()}
+        onStop={vi.fn()}
       />
     );
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-// MB-2 (F-1): на телефоне дзен прячет только статистику. «Стоп», микрофон и пауза
+// MB-2 (F-1): на телефоне дзен прячет только статистику. «Готово», микрофон и пауза
 // обязаны оставаться достижимыми одним касанием — иначе сессию нельзя завершить.
 const zen = vi.hoisted(() => ({ isZenActive: false }));
 
@@ -52,17 +52,17 @@ describe('MB-2: дзен на телефоне не съедает управл�
 
   it('без дзена: кнопки и статистика на месте', () => {
     render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'stop' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'writing_done' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'pause' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'voice_start' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'writing_mode_words' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'writing_mode_timer' })).toBeTruthy();
   });
 
-  it('в дзене: «Стоп», пауза и микрофон остаются, статистика прячется', () => {
+  it('в дзене: «Готово», пауза и микрофон остаются, статистика прячется', () => {
     zen.isZenActive = true;
     render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'stop' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'writing_done' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'pause' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'voice_start' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'writing_mode_words' })).toBeNull();
@@ -115,4 +115,25 @@ describe('MB-2: подсказка дзена по типу указателя',
     // Десктопные строки не тронуты.
     expect(ru('zen_hint')).toMatch(/мыш/);
   });
+
+  it('MR-7: в дзене остаётся одна строка шапки, поля названия и подсказки свайпа нет', () => {
+    zen.isZenActive = true;
+    const { container } = render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+    // Одна строка 30 px с временем и словами.
+    const row = screen.getByTestId('zen-header-row');
+    expect(row.className).toContain('h-[30px]');
+    expect(row?.textContent).toContain('writing_words');
+    // Поле названия в дзене скрыто.
+    expect(screen.queryByRole('textbox', { name: /topbar_title_placeholder/ })).toBeNull();
+    // Подсказка «смахни вниз» убрана совсем.
+    expect(container.textContent).not.toContain('swipe_down_hint');
+  });
+
+  it('MR-7: без дзена подсказки свайпа тоже нет (жест остался)', () => {
+    zen.isZenActive = false;
+    const { container } = render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
+    expect(container.textContent).not.toContain('swipe_down_hint');
+    expect(screen.queryByTestId('zen-header-row')).toBeNull();
+  });
+
 });

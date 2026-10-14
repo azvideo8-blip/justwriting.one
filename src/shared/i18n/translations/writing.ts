@@ -4,6 +4,9 @@ export const writingTranslations: Translations = {
   writing_select_mode: { ru: 'Выбери режим', en: 'Select Mode' },
   writing_how_to_write: { ru: 'Как ты хочешь писать сегодня?', en: 'How do you want to write today?' },
   writing_mode_flow: { ru: 'Свободный поток', en: 'Free Flow' },
+  // MR-6: токен режима под шапкой на телефоне.
+  writing_mode_token: { ru: 'Режим сессии', en: 'Session mode' },
+  writing_done: { ru: 'Готово', en: 'Done' },
   writing_mode_flow_desc: { ru: 'Просто секундомер. Пишите сколько угодно.', en: 'Just a stopwatch. Write as much as you want.' },
   writing_mode_timer: { ru: 'По таймеру', en: 'Timer' },
   writing_mode_timer_desc: { ru: 'Установи время. Фокусируйся до звонка.', en: 'Set a time. Focus until the bell.' },
@@ -37,7 +40,6 @@ export const writingTranslations: Translations = {
   stream_mode_blocked: { ru: 'В режиме потока удаление отключено', en: 'Deletion is disabled in Stream Mode' },
   stream_mode_exit_confirm: { ru: 'Выйти из режима потока сознания?', en: 'Exit Stream Mode?' },
   stream_mode_exit_desc: { ru: 'Вы вернетесь к обычному режиму написания. Все ограничения на удаление текста будут сняты.', en: 'You will return to the regular writing mode. All text deletion restrictions will be lifted.' },
-  swipe_down_hint: { ru: '↓ Смахни вниз, чтобы скрыть всё и сфокусироваться', en: '↓ Swipe down to hide everything and focus' },
   zen_hint: { ru: 'Двигай мышь, чтобы вернуть интерфейс', en: 'Move the mouse to bring the interface back' },
   zen_hint_silence: { ru: 'Подведи мышь к краю экрана', en: 'Move the mouse to the screen edge' },
   // MB-2: на экране без мыши эти две строки обманывают человека — интерфейс

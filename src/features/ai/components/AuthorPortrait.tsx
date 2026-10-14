@@ -19,12 +19,16 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
   const [portraitText, setPortraitText] = useState<string | null>(null);
   const [portraitGenerating, setPortraitGenerating] = useState(false);
   const [summariesCount, setSummariesCount] = useState(0);
+  // PX-3: портрет собран по прежним правилам. Флаг читается из локальной записи:
+  // при открытии Профила к ИИ не обращаются, пересборка — только по нажатию.
+  const [stalePortrait, setStalePortrait] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       const portrait = await AIProfileService.getPortrait();
       setPortraitText(portrait);
+      setStalePortrait(!!portrait && await AIProfileService.isPortraitStale());
 
       const db = await getLocalDb();
       const summaries = await db.getAll('aiSummaries');
@@ -51,6 +55,9 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
       const result = await AIProfileService.generate();
       if (result.ok) {
         setPortraitText(result.markdown);
+        // Строка «собран по прежним правилам» — по сохранённой версии: пересборка,
+        // взявшая раздел из старого кэша, её оставляет (ревью 0.9.39).
+        setStalePortrait(await AIProfileService.isPortraitStale());
         showToast('Психологический портрет обновлён', 'success');
         // Refresh summariesCount
         const db = await getLocalDb();
@@ -114,6 +121,11 @@ export function AuthorPortrait({ readOnly = false }: AuthorPortraitProps = {}) {
           </div>
         )}
       </div>
+      {portraitText && stalePortrait && (
+        <p className="px-5 pt-3 text-[11px] leading-snug text-text-main/40">
+          {t('ai_portrait_stale_rules')}
+        </p>
+      )}
       <div className="px-5 py-4 max-h-60 overflow-y-auto text-xs text-text-main/60 leading-relaxed">
         {portraitText ? (
           <MarkdownRenderer content={portraitText} />

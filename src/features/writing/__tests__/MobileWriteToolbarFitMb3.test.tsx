@@ -48,9 +48,12 @@ describe('MB-3: панель письма сжимается на статист
     const { container } = render(<MobileWriteToolbar onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
     const words = screen.getByRole('button', { name: 'writing_mode_words' });
     const time = screen.getByRole('button', { name: 'writing_mode_timer' });
-    expect(words.className).toContain('min-w-0');
+    // MR-11: нижняя граница сжатия — 44 px, а не ноль. Смысл MB-3 остался:
+    // панель отдаёт статистику, а не кнопки; просто сжатая ячейка всё ещё
+    // достижима пальцем (на 390 px они сжимались в 26 px).
+    expect(words.className).toContain('min-w-11');
     expect(words.className).toContain('overflow-hidden');
-    expect(time.className).toContain('min-w-0');
+    expect(time.className).toContain('min-w-11');
     // min-h-[44px] из L-11 остаётся: сжатие не должно уменьшать цель касания.
     expect(words.className).toContain('min-h-[44px]');
     expect(time.className).toContain('min-h-[44px]');
@@ -63,7 +66,7 @@ describe('MB-3: панель письма сжимается на статист
 
   it('в дзене статистика скрыта, а кнопки — нет', () => {
     render(<MobileWriteToolbar onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} hideStats />);
-    expect(screen.getByRole('button', { name: 'stop' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'writing_done' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'writing_mode_words' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'writing_mode_timer' })).toBeNull();
   });

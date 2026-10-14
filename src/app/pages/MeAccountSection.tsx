@@ -30,7 +30,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
               size="sm"
               onClick={() => setLanguage(lang)}
               className={cn(
-                "px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium",
+                "min-w-11 min-h-11 px-3 py-1 rounded-md border-none cursor-pointer text-xs font-medium",
                 language === lang
                   ? "bg-white/[0.08] text-[rgba(232,236,233,0.9)]"
                   : "bg-transparent text-[rgba(74,81,77,1)]"
@@ -47,7 +47,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
           variant="secondary"
           size="sm"
           onClick={() => openSettings()}
-          className="text-xs px-3 py-1.5"
+          className="min-h-11 text-xs px-3 py-1.5"
         >
           {t('settings_open_panel')}
         </Button>
@@ -62,7 +62,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
             variant="primary"
             size="sm"
             onClick={onSignIn}
-            className="text-xs font-semibold px-4 py-1.5 rounded-lg"
+            className="min-h-11 text-xs font-semibold px-4 py-1.5 rounded-lg"
           >
             {t('nav_login')}
           </Button>
@@ -71,7 +71,7 @@ export function MeAccountSection({ user, onSignOut, onSignIn }: MeAccountSection
             variant="secondary"
             size="sm"
             onClick={onSignOut}
-            className="text-xs text-accent-danger/70 hover:text-accent-danger px-3 py-1.5"
+            className="min-h-11 text-xs text-accent-danger/70 hover:text-accent-danger px-3 py-1.5"
           >
             {t('nav_logout')}
           </Button>

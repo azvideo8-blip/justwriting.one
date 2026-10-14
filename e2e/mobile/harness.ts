@@ -18,9 +18,13 @@ export type Account = StandAccount;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-/** Куда класть снимки: по умолчанию в приватный docs-репозиторий, вне кода. */
+/**
+ * Куда класть снимки: по умолчанию в приватный docs-репозиторий, вне кода.
+ * Папка своя на каждый пакет: снимки предыдущего пакета — это улики «до», и
+ * переснимать их поверх нельзя.
+ */
 export const SHOTS = process.env.JW_MOBILE_SHOTS
-  ?? resolve(HERE, '..', '..', '..', 'justwriting-docs', 'audit-evidence', 'qoder-mobile-2026-10-12', 'shots');
+  ?? resolve(HERE, '..', '..', '..', 'justwriting-docs', 'audit-evidence', 'qoder-mobile-redesign-2026-10-13', 'shots');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,6 +42,15 @@ const DIALOG_GO = /^(Продолжить|Понятно|Закрыть|Гото
 
 /** SQL через psql контейнера стенда; сверхпользователь, минуя PostgREST. */
 function psql(sql: string): void {
+  // Машина без Docker: тот же postgres, но вызванный напрямую. Ключевая
+  // переменная стоит только на нативном стенде — в CI пути не меняется.
+  const bin = process.env.STAND_PSQL_BIN;
+  if (bin) {
+    const port = standEnv().STAND_PG_PORT ?? '5440';
+    execFileSync(bin, ['-h', '127.0.0.1', '-p', port, '-U', 'postgres', '-d', 'postgres',
+      '-v', 'ON_ERROR_STOP=1', '-q'], { input: sql, stdio: ['pipe', 'inherit', 'inherit'] });
+    return;
+  }
   execFileSync(
     'docker',
     ['exec', '-i', 'jw-stand-db', 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q'],
@@ -69,6 +82,11 @@ export async function createMobileAccount(tag: string): Promise<Account> {
  * Согласие на ИИ в базе стенда. Кнопка «Предоставить согласие» в UI не работает,
  * пока сейф заперт (аудит Fable, §3), а спеку про подсказку согласия нужен
  * аккаунт с согласием и без — поэтому согласие выдаётся напрямую.
+ *
+ * MR-12: вызывать только ПОСЛЕ первого входа. Строка в `public.users` создаётся
+ * при первом входе, до неё `UPDATE` задевает 0 строк и молча «не работает»: чат
+ * отвечает «разрешите использование ИИ в настройках», и спек падает не на правке,
+ * а на севе. После выдачи — перезагрузить страницу.
  */
 export function grantAiConsent(uid: string, version = 3): void {
   if (!UUID.test(uid)) throw new Error('grantAiConsent: uid не uuid');
@@ -224,6 +242,33 @@ export async function unlockVaultIfAsked(page: Page, password: string, wait = 6_
   return true;
 }
 
+/**
+ * Тишина окон первого запуска: на WebKit модалка «Выбери режим» и вопрос о
+ * синхронизации приезжают и через 10 секунд после входа. Если спек начнёт
+ * действовать до тишины, его первый клик упрётся в открытое окно, а
+ * автообработчик будет зацикливаться на кнопке «Готово» этого окна.
+ */
+export async function waitForQuietDialogs(page: Page, budgetMs = 25_000): Promise<boolean> {
+  const deadline = Date.now() + budgetMs;
+  let quiet = 0;
+  while (Date.now() < deadline) {
+    const visible = await page.locator('[role="dialog"]')
+      .evaluateAll(els => els.filter(e => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }).length)
+      .catch(() => 0);
+    if (visible === 0) {
+      if (++quiet >= 3) return true;
+    } else {
+      quiet = 0;
+      await dismissFirstLoginDialogs(page, true, 6_000);
+    }
+    await page.waitForTimeout(400);
+  }
+  return false;
+}
+
 /** Вход и проход через окна первого запуска. */
 export async function login(page: Page, u: Account): Promise<void> {
   await page.goto('/login');
@@ -240,6 +285,7 @@ export async function login(page: Page, u: Account): Promise<void> {
   await page.locator('input[type="password"]').press('Enter');
   await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 90_000 });
   await dismissFirstLoginDialogs(page, true);
+  if (!(await waitForQuietDialogs(page))) console.warn('[login] окно не закрылось за 25 с:', page.url());
   await unlockVaultIfAsked(page, u.password);
 }
 
@@ -277,19 +323,28 @@ export function horizontalOverflow(page: Page): Promise<Overflow> {
   });
 }
 
-export interface SmallTarget { label: string; w: number; h: number }
+export interface SmallTarget { label: string; w: number; h: number; cls: string }
 
 export function smallTargets(page: Page, min = 44): Promise<SmallTarget[]> {
   return page.evaluate((limit) => {
-    const out: { label: string; w: number; h: number }[] = [];
+    const out: { label: string; w: number; h: number; cls: string }[] = [];
     const sel = 'button, a, input[type="checkbox"], input[type="submit"], [role="button"]';
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
+      // `sr-only` (skip-link) — 1×1 ровно потому, что он скрыт до фокуса:
+      // целью касания он становится только в фокусе клавиатурой, и проверяется
+      // отдельно. Считаем его по clip-path, а не по классу — класс может быть
+      // собран иначе.
+      const st = getComputedStyle(el);
+      if (st.clipPath !== 'none' || /^rect\((0px|1px)/.test(st.clip)) continue;
       if (r.width >= limit && r.height >= limit) continue;
       const label = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('title') || '')
         .trim().replace(/\s+/g, ' ').slice(0, 60);
-      out.push({ label, w: Math.round(r.width), h: Math.round(r.height) });
+      // Класс нужен, чтобы найти нарушителя в исходниках: метка-подпись часто
+      // собирается из нескольких строк и по ней ничего не находится.
+      const cls = (typeof el.className === 'string' ? el.className : '').trim().slice(0, 70);
+      out.push({ label, w: Math.round(r.width), h: Math.round(r.height), cls });
     }
     return out.slice(0, 40);
   }, min);
@@ -348,6 +403,25 @@ export function emitSpeech(page: Page, kind: string, payload: unknown): Promise<
 
 export function speechCounters(page: Page): Promise<{ starts: number; aborts: number; stops: number; log: string[] }> {
   return page.evaluate(() => (window as unknown as { __speech: { starts: number; aborts: number; stops: number; log: string[] } }).__speech);
+}
+
+/**
+ * Открывает сейф, если страница застала его запертым. Баннер «Сейф заперт —
+ * синхронизация на паузе» на телефоне стоит в потоке (relative) и сдвигает весь
+ * список вниз: спекам про геометрию макета нужен разблокированный сейф, иначе
+ * первая строка меряется ниже, чем её нарисовал макет. Путь пользовательский —
+ * кнопка «Открыть сейф» в самом баннере.
+ */
+export async function openVaultFromBanner(page: Page, password: string, settleMs = 8_000): Promise<boolean> {
+  const open = page.getByRole('button', { name: /^Открыть сейф$/ }).first();
+  // Ключ сессии мог восстановиться из кэша устройства: сначала даём баннеру уйти
+  // самому, иначе клик открывает диалог разблокировки на пустом месте.
+  const gone = await open.waitFor({ state: 'detached', timeout: settleMs }).then(() => true, () => false);
+  if (gone) return false;
+  await open.click();
+  if (!(await unlockVaultIfAsked(page, password))) return false;
+  await open.waitFor({ state: 'detached', timeout: 20_000 }).catch(() => {});
+  return true;
 }
 
 /**

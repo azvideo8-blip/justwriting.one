@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getSessionDate } from '../../../core/utils/utils';
+import { getSessionDate, cn } from '../../../core/utils/utils';
 import { IconButton } from '../../../shared/components/IconButton';
 import { useLanguage } from '../../../shared/i18n';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Session } from '../../../types';
 
 function getDayLabels(locale: string): string[] {
@@ -37,6 +38,8 @@ interface HoveredCellState {
 
 export function Heatmap({ sessions }: { sessions: Session[] }) {
   const { t, tp, language } = useLanguage();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
   const [offset, setOffset] = useState(0);
   const [hoveredCell, setHoveredCell] = useState<HoveredCellState | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -165,13 +168,13 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
 
           <div className="flex items-center gap-1">
             <IconButton onClick={() => setOffset(o => o + 1)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors"
-              label="Previous"
+              className={cn('flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors', isMobile ? 'w-11 h-11' : 'w-7 h-7')}
+              label={t('profile_period_prev')}
               icon={<ChevronLeft size={14} />}
             />
             <IconButton onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
-              label="Next"
+              className={cn('flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default', isMobile ? 'w-11 h-11' : 'w-7 h-7')}
+              label={t('profile_period_next')}
               icon={<ChevronRight size={14} />}
             />
           </div>
@@ -183,6 +186,7 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
           width={svgWidth}
           height={svgHeight}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          data-testid="heatmap"
           className="max-w-none"
         >
           {/* Weekday labels */}
@@ -262,31 +266,47 @@ export function Heatmap({ sessions }: { sessions: Session[] }) {
                         });
                       }
                     }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const parentRect = containerRef.current?.getBoundingClientRect();
-                        if (parentRect) {
-                          setHoveredCell({
-                            wi,
-                            di,
-                            x: rect.left - parentRect.left + rect.width / 2,
-                            y: rect.top - parentRect.top,
-                            text: `${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`
-                          });
+                    // MR-11: на телефоне ячейка 15×15 — картинка с подписью, а
+                    // не кнопка: 193 «цели» меньше 44 px на экране. Десктоп
+                    // остаётся фокусируемым (ENTER/пробел показывают подсказку).
+                    role={isMobile ? 'img' : 'button'}
+                    {...(isMobile ? {} : {
+                      tabIndex: 0,
+                      onKeyDown: (e: React.KeyboardEvent) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const parentRect = containerRef.current?.getBoundingClientRect();
+                          if (parentRect) {
+                            setHoveredCell({
+                              wi,
+                              di,
+                              x: rect.left - parentRect.left + rect.width / 2,
+                              y: rect.top - parentRect.top,
+                              text: `${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`
+                            });
+                          }
                         }
-                      }
-                    }}
+                      },
+                    })}
+                    aria-label={`${day.date.toLocaleDateString(language)} — ${tp('archive_word_count', day.words)}`}
                   />
                 );
               })}
             </g>
           ))}
         </svg>
+        {isMobile && (() => {
+          // MR-11: вместо 193 подписей-кнопок — одна строка-сводка.
+          const flat = cells.flat();
+          const days = flat.filter(d => d.words > 0).length;
+          const words = flat.reduce((acc, d) => acc + d.words, 0);
+          return (
+            <p className="mt-2 font-mono text-[12px] text-text-main/60">
+              {t('profile_heatmap_summary', { days, words })}
+            </p>
+          );
+        })()}
       </div>
 
       {/* Tooltip */}

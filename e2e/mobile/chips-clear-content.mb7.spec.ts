@@ -1,46 +1,40 @@
-// MB-7 (F-6): чип «Активность» (и «Синхронизация») висят на 32 px над нижней
-// панелью. Пока main компенсировал только высоту панели, чип закрывал последнюю
-// строку списка заметок, счётчик квоты в чате и «Выйти» в настройках.
+// MB-7 (F-6): содержимое не прячется под плавающими чипами над нижней панелью.
+//
+// MR-4 сами чипы («Активность», «Синхронизация») удалил — их состояние переехало
+// в строки «Профиля», а на вкладке «Профиль» загорается точка. Проверка поэтому
+// переформулирована: чипов над панелью больше нет ни на одном экране, а последний
+// рядок списка при прокрутке в самый конец остаётся над панелью.
 import { expect, test } from '@playwright/test';
-import { pickFreeFlow, shot, signInMobile, zenOff } from './harness';
+import { shot, signInMobile, zenOff } from './harness';
 
-test.use({ viewport: { width: 360, height: 640 } });
+const TITLE = 'Запись для отступа под панелью';
 
-const TITLE = 'Запись для чипа активности';
-
-/**
- * Главное для MB-7: список, прокрученный до конца, обязан заканчиваться ВЫШЕ
- * чипа. Мерить надо дно прокрутки (vh − padding-bottom у main), а не конкретную
- * строку: на коротком архиве из одной заметки строка и так на середине экрана,
- * и проверка была бы вакуумной.
- */
-async function contentEndsAboveChip(page: import('@playwright/test').Page): Promise<{ contentBottom: number; chipTop: number; navTop: number }> {
+/** Дно прокручиваемой области и верх панели: рядок обязан помещаться между ними. */
+async function clearance(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
+    const nav = document.querySelector('nav');
     const main = document.getElementById('main-content');
-    const chipEl = document.querySelector('[aria-label="Журнал активности"]');
-    const navEl = document.querySelector('[class*="--z-sidebar"]');
-    if (!main || !chipEl || !navEl) throw new Error('нет чипа, панели или main');
-    const pb = parseFloat(getComputedStyle(main).paddingBottom) || 0;
+    if (!nav || !main) return null;
     return {
-      contentBottom: Math.round(window.innerHeight - pb),
-      chipTop: Math.round(chipEl.getBoundingClientRect().top),
-      navTop: Math.round(navEl.getBoundingClientRect().top),
+      navTop: Math.round(nav.getBoundingClientRect().top),
+      mainBottom: Math.round(main.getBoundingClientRect().bottom),
+      paddingBottom: parseFloat(getComputedStyle(main).paddingBottom) || 0,
     };
   });
 }
 
-test.describe('MB-7: содержимое не прячется под чип над нижней панелью', () => {
-  test('последняя строка архива не под чипом, «Выйти» в настройках тоже', async ({ page }) => {
-    await zenOff(page);
-    await signInMobile(page, 'mb7-chips');
+test.use({ viewport: { width: 360, height: 640 } });
 
-    // Заметка с заголовком, чтобы строку было чем назвать.
-    await page.getByRole('button', { name: /^Начать$/ }).click();
-    expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+test.describe('MB-7: ничего не висит над нижней панелью', () => {
+  test('чипов нет, последняя строка архива не под панелью', async ({ page }) => {
+    await zenOff(page);
+    await signInMobile(page, 'mb7-clearance');
+
+    // Направление A (MR-6): редактор открыт сразу, «Начать» больше не нужно.
     const editor = page.locator('textarea').first();
     await editor.waitFor({ state: 'visible', timeout: 30_000 });
-    await editor.fill('Одна строка для проверки отступа под чипом. Раз два три.');
-    await page.getByRole('button', { name: /^Стоп$/ }).click();
+    await editor.fill('Одна строка для проверки отступа под панелью. Раз два три.');
+    await page.getByRole('button', { name: /^Готово$/ }).click();
     const finish = page.getByRole('dialog').first();
     await expect(finish).toBeVisible({ timeout: 15_000 });
     const titleInput = finish.getByLabel(/Название/).first();
@@ -48,51 +42,25 @@ test.describe('MB-7: содержимое не прячется под чип н
     await finish.getByRole('button', { name: /^Сохранить$/ }).click();
     await page.waitForTimeout(2_000);
 
-    await page.getByRole('button', { name: 'Заметки' }).click();
+    for (const path of ['/archive', '/settings', '/ai']) {
+      await page.goto(path);
+      await expect(page.locator('[aria-label="Журнал активности"]'), `чип журнала вернулся на ${path}`).toHaveCount(0);
+      await expect(page.locator('[aria-label="Синхронизация"]'), `чип синхронизации вернулся на ${path}`).toHaveCount(0);
+    }
+
+    await page.goto('/archive');
     const row = page.getByText(TITLE).first();
     await expect(row, 'заметка не появилась в архиве').toBeVisible({ timeout: 20_000 });
-    await row.scrollIntoViewIfNeeded();
-    // Прокручиваем список в конец: именно последний рядок и закрывался чипом.
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(400);
-
-    const geometry = await page.evaluate(() => {
-      const chipEl = document.querySelector('[aria-label="Журнал активности"]');
-      const rows = Array.from(document.querySelectorAll('[class*="grid items-start gap-3 px-3 py-4"]'));
-      const last = rows[rows.length - 1];
-      if (!chipEl || !last) return null;
-      const c = chipEl.getBoundingClientRect();
-      const r = last.getBoundingClientRect();
-      return { chipTop: Math.round(c.top), chipBottom: Math.round(c.bottom), rowTop: Math.round(r.top), rowBottom: Math.round(r.bottom) };
-    });
-    const clearance = await contentEndsAboveChip(page);
-    console.warn('[mb7] архив', JSON.stringify(geometry), 'до дна прокрутки', JSON.stringify(clearance));
-    expect(geometry, 'не нашлись чип и строка').not.toBeNull();
-    expect(clearance.contentBottom, `список, прокрученный до конца, уходит под чип: дно ${clearance.contentBottom} > чип ${clearance.chipTop}`)
-      .toBeLessThanOrEqual(clearance.chipTop);
+    const gap = await clearance(page);
+    expect(gap, 'не нашлись панель и main').not.toBeNull();
+    // Отступ снизу обязан покрывать панель (56 px) плюс safe area.
+    expect(gap!.paddingBottom, `отступ main слишком мал: ${gap!.paddingBottom} px`).toBeGreaterThanOrEqual(56);
+    const box = await row.boundingBox();
+    expect(box, 'у строки нет геометрии').not.toBeNull();
+    expect(box!.y + box!.height, `последняя строка ушла под панель (${Math.round(box!.y + box!.height)} > ${gap!.navTop})`)
+      .toBeLessThanOrEqual(gap!.navTop + 1);
     await shot(page, 'mb7-archive-last-row-360');
-
-    await page.goto('/settings');
-    const exit = page.getByRole('button', { name: /^Выйти$/ }).first();
-    await expect(exit, 'кнопки «Выйти» нет на /settings').toBeVisible({ timeout: 20_000 });
-    await exit.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(400);
-    const settings = await page.evaluate(() => {
-      const chipEl = document.querySelector('[aria-label="Журнал активности"]');
-      const btns = Array.from(document.querySelectorAll('button')).filter(b => /^Выйти$/.test((b.textContent ?? '').trim()));
-      const last = btns[btns.length - 1];
-      if (!chipEl || !last) return null;
-      const c = chipEl.getBoundingClientRect();
-      const r = last.getBoundingClientRect();
-      return { chipTop: Math.round(c.top), exitTop: Math.round(r.top), exitBottom: Math.round(r.bottom), h: Math.round(r.height) };
-    });
-    const clearanceSettings = await contentEndsAboveChip(page);
-    console.warn('[mb7] настройки', JSON.stringify(settings), 'до дна прокрутки', JSON.stringify(clearanceSettings));
-    expect(settings, 'не нашлись чип и «Выйти»').not.toBeNull();
-    // Высота «Выйти» (38 px) — это F-18/MN-2, цели касания: отдельная правка
-    // следующего batches, здесь проверяется только перекрытие чипом.
-    expect(clearanceSettings.contentBottom, 'низ содержимого ушёл под чип')
-      .toBeLessThanOrEqual(clearanceSettings.chipTop);
-    await shot(page, 'mb7-settings-sign-out-360');
   });
 });

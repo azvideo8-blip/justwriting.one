@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Info } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
 import { DocumentPickerModal } from '../../features/ai/components/DocumentPickerModal';
@@ -11,15 +10,13 @@ import { DocumentPreview } from '../../features/archive/components/DocumentPrevi
 import type { ArchiveSession } from '../../shared/types/common';
 import { useToast } from '../../shared/components/Toast';
 import { useProfile } from '../../features/auth/contexts/ProfileContext';
-import { personaVisual } from '../../features/ai/constants/personaVisuals';
 import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
-import { useLanguage } from '../../shared/i18n';
+import { useKeyboardHeight } from '../../shared/hooks/useKeyboardHeight';
 import { cn } from '../../core/utils/utils';
-import { IconButton } from '../../shared/components/IconButton';
 import { useAIPageData } from '../../features/ai/hooks/useAIPageData';
-import { Button } from '../../shared/components/Button';
 import { AIChatSidebar } from '../../features/ai/components/chat/AIChatSidebar';
 import { AIChatHeader } from '../../features/ai/components/chat/AIChatHeader';
+import { MobileDialogueListSheet } from '../../features/ai/components/chat/MobileDialogueListSheet';
 import { AIChatMessages } from '../../features/ai/components/chat/AIChatMessages';
 import { AIChatComposer } from '../../features/ai/components/chat/AIChatComposer';
 import { createNoteActions } from '../../features/ai/components/chat/noteActions';
@@ -42,7 +39,6 @@ export function AIPage() {
   }, [draftFacetId, searchParams, setSearchParams]);
   const { layoutMode } = useLayoutMode();
   const isMobile = layoutMode === 'mobile';
-  const { t } = useLanguage();
 
   const {
     dialogues, archivedDialogues, activeDialogueId, setActiveDialogueId,
@@ -85,6 +81,10 @@ export function AIPage() {
   const { handleCreateNote } = createNoteActions({ userId, showToast });
 
   const [memoryOpen, setMemoryOpen] = useState(false);
+  // MR-1: на телефоне список диалогов живёт в листе, который открывает ☰ в шапке.
+  const [dialoguesOpen, setDialoguesOpen] = useState(false);
+  // MR-2: композер поднимается над панелью и следует за клавиатурой.
+  const keyboardHeight = useKeyboardHeight(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -92,7 +92,7 @@ export function AIPage() {
   const [previewSession, setPreviewSession] = useState<ArchiveSession | null>(null);
 
   return (
-    <div className={cn("h-screen bg-surface-base flex", isMobile ? "flex-col" : "flex-row")}>
+    <div className={cn("bg-surface-base flex", isMobile ? "h-[100dvh] flex-col" : "h-screen flex-row")}>
       {!isMobile && (
         <AIChatSidebar
           dialogues={dialogues}
@@ -106,7 +106,7 @@ export function AIPage() {
         />
       )}
 
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className={cn("flex-1 flex flex-col min-w-0 relative", isMobile && "min-h-0")}>
         <div
           className="pointer-events-none absolute inset-0 z-0"
           style={{ background: `radial-gradient(circle at 80% 6%, ${headerVisual.color}14, transparent 44%)` }}
@@ -134,6 +134,8 @@ export function AIPage() {
           allPersonas={allPersonas}
           openPersonaDetail={openPersonaDetail}
           onCreatePersona={() => setCreatePersonaOpen(true)}
+          onOpenDialogues={() => setDialoguesOpen(true)}
+          onNewDialogue={() => { setDialoguesOpen(false); void handleNewDialogue(); }}
         />
 
         <AIChatMessages
@@ -173,6 +175,8 @@ export function AIPage() {
         />
 
         <AIChatComposer
+          isMobile={isMobile}
+          keyboardHeight={keyboardHeight}
           inputText={inputText}
           setInputText={setInputText}
           inputRef={inputRef}
@@ -205,34 +209,24 @@ export function AIPage() {
       </div>
 
       {isMobile && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06]">
-          <div className="flex gap-1 overflow-x-auto px-3 py-2 no-scrollbar">
-            {allPersonas.slice(0, 5).map(p => {
-              const v = personaVisual(p.id, p.name);
-              return (
-                <div key={p.id} className="relative shrink-0 flex items-center gap-0.5">
-                  <Button
-                    onClick={() => setSelectedPersonaId(p.id)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs",
-                      selectedPersonaId === p.id ? "text-text-main" : "text-text-main/60"
-                    )}
-                    style={selectedPersonaId === p.id ? { background: `${v.color}1c` } : undefined}
-                  >
-                    <span className="w-[7px] h-[7px] rounded-full" style={{ background: v.color, opacity: 0.85 }} />
-                    {p.name}
-                  </Button>
-                  <IconButton
-                    onClick={e => { e.stopPropagation(); openPersonaDetail(p); }}
-                    className="w-5 h-5 rounded-full text-text-main/60 hover:text-text-main flex items-center justify-center"
-                    label={t('ai_description_prompt')}
-                    icon={<Info size={12} />}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <MobileDialogueListSheet
+          open={dialoguesOpen}
+          onClose={() => setDialoguesOpen(false)}
+          dialogues={dialogues}
+          archivedDialogues={archivedDialogues}
+          activeDialogueId={activeDialogueId}
+          showArchived={showArchived}
+          setShowArchived={setShowArchived}
+          onSelectDialogue={(id, personaId) => {
+            setActiveDialogueId(id);
+            setSelectedPersonaId(personaId);
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onRename={(id, title) => { void handleRenameDialogue(id, title); }}
+          onArchive={(id) => { void handleArchive(id); }}
+          onUnarchive={(id) => { void handleUnarchive(id); }}
+          onDelete={(id) => { void handleDelete(id); }}
+        />
       )}
 
       <DocumentPickerModal isOpen={docPickerOpen} onClose={() => setDocPickerOpen(false)} onSelect={(doc) => void handleDocSelect(doc)} />

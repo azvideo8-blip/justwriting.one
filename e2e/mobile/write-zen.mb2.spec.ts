@@ -3,7 +3,7 @@
 // подождать; проверить, что кнопка завершения сессии на месте и целиком в экране.
 // Десктопный дзен проверяет vitest (BottomNavStaysInZenMb2).
 import { expect, test } from '@playwright/test';
-import { fullyInViewport, pickFreeFlow, shot, signInMobile } from './harness';
+import { fullyInViewport, shot, signInMobile } from './harness';
 
 test.use({ viewport: { width: 360, height: 640 } });
 
@@ -12,8 +12,8 @@ const TWENTY_WORDS = Array.from({ length: 20 }, (_, i) => `слово${i + 1}`).
 test('MB-2: после начала письма «Стоп» видна и целиком в экране, вкладки остаются', async ({ page }) => {
   await signInMobile(page, 'mb2-zen');
 
-  await page.getByRole('button', { name: /^Начать$/ }).click();
-  expect(await pickFreeFlow(page), 'лист «Выбери режим» не открылся').toBe(true);
+    // MR-6 (направление A): редактор открыт сразу, «Начать» и лист режима не нужны.
+    await page.goto('/');
 
   const editor = page.locator('textarea').first();
   await editor.waitFor({ state: 'visible', timeout: 30_000 });
@@ -24,7 +24,7 @@ test('MB-2: после начала письма «Стоп» видна и це
   // экранная клавиатура даёт их постоянно.
   await page.waitForTimeout(1_200);
 
-  const stop = page.getByRole('button', { name: /^Стоп$/ });
+  const stop = page.getByRole('button', { name: /^Готово$/ });
   await expect(stop, '«Стоп» пропала в дзене').toBeVisible({ timeout: 10_000 });
   expect(await fullyInViewport(stop), '«Стоп» частично за краем экрана').toBe(true);
 

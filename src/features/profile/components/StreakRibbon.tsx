@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Snowflake } from 'lucide-react';
 import { getSessionDate, calculateStreak, calculateBestStreak, cn } from '../../../core/utils/utils';
 import { wasFreezeUsedThisMonth } from '../../../core/utils/streakFreeze';
 import { useLanguage } from '../../../shared/i18n';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { Session } from '../../../types';
 import { IconButton } from '../../../shared/components/IconButton';
 
@@ -16,6 +17,8 @@ interface StreakDay {
 
 export function StreakRibbon({ sessions }: { sessions: Session[] }) {
   const { t, language } = useLanguage();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
   const [offset, setOffset] = useState(0);
   const reducedMotion = useReducedMotion();
 
@@ -76,13 +79,13 @@ export function StreakRibbon({ sessions }: { sessions: Session[] }) {
         </h2>
         <div className="flex items-center gap-1">
           <IconButton onClick={() => setOffset(o => o + 1)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors"
-            label="Previous"
+            className={cn('flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors', isMobile ? 'w-11 h-11' : 'w-7 h-7')}
+            label={t('profile_period_prev')}
             icon={<ChevronLeft size={14} />}
           />
           <IconButton onClick={() => setOffset(o => Math.max(0, o - 1))} disabled={offset === 0}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default"
-            label="Next"
+            className={cn('flex items-center justify-center rounded-lg text-text-main/60 hover:text-text-main hover:bg-text-main/5 transition-colors disabled:opacity-20 disabled:cursor-default', isMobile ? 'w-11 h-11' : 'w-7 h-7')}
+            label={t('profile_period_next')}
             icon={<ChevronRight size={14} />}
           />
         </div>

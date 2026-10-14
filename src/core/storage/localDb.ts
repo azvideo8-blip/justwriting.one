@@ -335,6 +335,8 @@ export interface AIPortrait {
   portrait: string;
   updatedAt: number;
   generatedAtDelta: number;
+  /** PX-3: хэш промптов разделов, по которым собран портрет; нет — портрет прежних правил. */
+  promptVersion?: string;
 }
 
 export interface ThemeEvidence {

@@ -232,7 +232,7 @@ describe('T-1 (b) Settings, Editor, Guide and Archive screens English localizati
 
   it('BottomNav has no Cyrillic text or attrs when rendered in English', () => {
     renderInEnglish(
-      <BottomNav isAdmin={true} />
+      <BottomNav />
     );
     expect(renderedHtml(), 'проверка стала бы вакуумной').not.toMatch(/[а-яёА-ЯЁ]/);
   });

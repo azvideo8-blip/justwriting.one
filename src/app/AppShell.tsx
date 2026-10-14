@@ -102,7 +102,7 @@ export function AppShell() {
           const textarea = document.querySelector<HTMLTextAreaElement>('#main-content textarea');
           if (textarea) { textarea.focus(); } else { document.getElementById('main-content')?.focus(); }
         }}
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[var(--z-skip)] focus:px-4 focus:py-2 focus:bg-surface-card focus:text-text-main focus:rounded-xl focus:border focus:border-border-subtle"
+        className="sr-only focus:not-sr-only focus:min-h-11 focus:fixed focus:top-4 focus:left-4 focus:z-[var(--z-skip)] focus:px-4 focus:py-2 focus:bg-surface-card focus:text-text-main focus:rounded-xl focus:border focus:border-border-subtle"
       >
         {t('skip_to_content')}
       </a>
@@ -117,7 +117,7 @@ export function AppShell() {
           ) : (
             // MB-2: в мобильном макете дзен не прячет нижнюю панель — на телефоне
             // это единственный путь к другим вкладкам.
-            <BottomNav isAdmin={isAdmin} />
+            <BottomNav />
           )}
           <ConnectionStatusBanner showZen={showZen} />
         </>
@@ -137,7 +137,7 @@ export function AppShell() {
               // настройках. Компенсируется отступом, а не переносом чипа внутрь:
               // панель уже забита вкладками, а на 320 px с пятой вкладкой
               // (F-7) теснота там — предмет отдельной правки.
-              layoutMode !== 'desktop' && "pb-28 px-4"
+              layoutMode !== 'desktop' && "pb-safe-nav px-4"
             )
       )}>
         <AppRoutes />
