@@ -103,14 +103,18 @@ set session_replication_role = origin;`);
  */
 async function tap(loc: Locator): Promise<boolean> {
   if (await loc.click({ timeout: 1_500 }).then(() => true, () => false)) return true;
+  // Элемента уже нет (окно закрылось от прошлого нажатия) — запасные ветки ниже
+  // ждали бы его по actionTimeout, 20 с каждая: 40 с пустого ожидания в каждом
+  // тесте, почти вся длительность мобильного набора в CI (замер 0.9.39).
+  if (!(await loc.count().catch(() => 0))) return false;
   // Нативный el.click(): скрытый input с реактивным onChange (галочка
   // «Я сохранил код» рисуется соседним span). dispatchEvent('click') тоже
   // возвращает успех, даже если состояние не изменилось, — поэтому он последним.
-  if (await loc.evaluate(el => { (el as HTMLElement & { click?: () => void }).click?.(); return true; }).catch(() => false)) {
+  if (await loc.evaluate(el => { (el as HTMLElement & { click?: () => void }).click?.(); return true; }, undefined, { timeout: 1_500 }).catch(() => false)) {
     await loc.page().waitForTimeout(150);
     return true;
   }
-  return loc.dispatchEvent('click').then(() => true, () => false);
+  return loc.dispatchEvent('click', undefined, { timeout: 1_500 }).then(() => true, () => false);
 }
 
 /**

@@ -268,17 +268,41 @@ jobs:
     runs-on: ${{ (github.event_name == 'pull_request' || inputs.hosted) && 'ubuntu-latest' || fromJSON('["self-hosted","justwriting-vps"]') }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+    # Мобильный набор — самый долгий джоб на единственном раннере. Он нужен, когда
+    # меняется то, что видит телефон или чем стенд поднимается; правки документов,
+    # других воркфлоу и одних только vitest-тестов его не задевают. Ручной запуск
+    # и push без известной базы гоняют его всегда.
+    - name: Does this push touch the app?
+      id: gate
+      run: |
+        BASE="${{ github.event.before }}"
+        if [ "${{ github.event_name }}" != "push" ] || [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+          echo "run=true" >> "$GITHUB_OUTPUT"; echo "база неизвестна — гоняем"; exit 0
+        fi
+        CHANGED=$(git diff --name-only "$BASE" "${{ github.sha }}")
+        echo "$CHANGED"
+        if echo "$CHANGED" | grep -v '/__tests__/' | grep -qE '^(src/|e2e/|api/|supabase/|public/|scripts/stand/|scripts/ci/|playwright\.mobile\.config\.ts$|package(-lock)?\.json$|index\.html$|vite\.config\.ts$|tsconfig[^/]*\.json$|\.github/workflows/ci\.yml$)'; then
+          echo "run=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "run=false" >> "$GITHUB_OUTPUT"; echo "::notice::мобильный e2e пропущен: приложение в этом push не менялось"
+        fi
     - name: Use Node.js
+      if: steps.gate.outputs.run == 'true'
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: '24'
         cache: npm
-    - run: npm ci
+    - if: steps.gate.outputs.run == 'true'
+      run: npm ci
     - name: Install Playwright (Chromium — проект Mobile Chrome)
+      if: steps.gate.outputs.run == 'true'
       # Без --with-deps, как в build: на VPS нет sudo, системные библиотеки там уже
       # стоят (build гоняет e2e в том же chromium).
       run: npx playwright install chromium
     - name: Mobile e2e discovery check
+      if: steps.gate.outputs.run == 'true'
       # Тот же guarding шаг, что «E2E test discovery check» выше: --list ловит и
       # мобильные спеки, иначе опечатка в testMatch обходится «зелёным» CI без
       # единого теста.
@@ -292,6 +316,7 @@ jobs:
         # MB-2…MB-11 и перестал ловить потерю целой группы.
         [ "$N" -ge 40 ] || { echo "::error::мобильных тестов $N, ожидалось не меньше 40 (MB-2…MB-11, MR-1…MR-11)"; exit 1; }
     - name: Mobile e2e on the stand
+      if: steps.gate.outputs.run == 'true'
       run: bash scripts/ci/mobile-e2e.sh
     # Снимки упавших мобильных тестов: без них разбор падения в CI шёл вслепую
     # (0.9.39: «блок за левым краем» на 360 — что за блок, видно только на снимке).
