@@ -33,5 +33,8 @@ export function useLayoutMode() {
 
   const layoutMode: LayoutMode = (MOBILE_LAYOUT_ENABLED || allowed) ? storedMode : 'desktop';
 
-  return { layoutMode, setLayoutMode };
+  // MC-6: чего человек хочет, ещё до ответа базы. Окно первого входа по этому
+  // признаку понимает, что ему есть смысл подождать RPC, а не показывать
+  // десктопный набор окон.
+  return { layoutMode, setLayoutMode, mobilePreferred: storedMode === 'mobile' };
 }

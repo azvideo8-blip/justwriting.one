@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, File, Paperclip, Copy, Trash2, RefreshCw, ThumbsUp, ThumbsDown, ChevronLeft, ChevronRight, FilePlus, MoreHorizontal } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
+import { cn } from '../../../core/utils/utils';
+import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
 import { useLanguage } from '../../../shared/i18n';
 
 const ATTACHED_NOTE_RE = /^(?:\[#[^\]]*\]\s*)?\[Прикреплена заметка: "([^"]+)"\]/;
@@ -70,6 +73,7 @@ export function AttachedNoteCard({ content }: { content: string }) {
             {noteContent}
           </div>
         )}
+
       </div>
     </div>
   );
@@ -154,12 +158,16 @@ export const AssistantTurn = React.memo(
     variantIndex,
     onSwitchVariant,
     onCreateNote,
+    isMobile = false,
     content: _content,
     reasoning: _reasoning,
   }: {
     name: string;
     color: string;
     mono: string;
+    /** MC-5: на телефоне ответ ИИ — текст, а не пузырь: без колонки аватара и
+     *  без левого бордера, действия — рядом иконок 44 px + «⋯». */
+    isMobile?: boolean | undefined;
     children: React.ReactNode;
     onCopy?: () => void;
     onDelete?: () => void;
@@ -173,21 +181,45 @@ export const AssistantTurn = React.memo(
     reasoning?: string | undefined;
   }) {
   const { t } = useLanguage();
-  const borderStyle = { borderLeft: `2px solid ${color}40` };
+  const [moreOpen, setMoreOpen] = useState(false);
+  const borderStyle = isMobile ? undefined : { borderLeft: `2px solid ${color}40` };
+  const iconAction = 'h-11 w-11 rounded-xl';
+  const moreActions = [onRegenerate, onSwitchVariant, onFeedback, onDelete].some(Boolean);
   return (
     <div className="flex gap-4 w-full self-start">
-      <Monogram color={color} mono={mono} size={36} />
+      {!isMobile && <Monogram color={color} mono={mono} size={36} />}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2.5 mb-2">
-          <span className="text-[13px] font-semibold text-text-main">{name}</span>
+          <span className={cn('text-[13px] font-semibold', isMobile ? 'text-brand-soft' : 'text-text-main')}>{name}</span>
         </div>
         <div
-          className="text-[15px] leading-[1.65] text-text-main/90 pl-[18px]"
+          data-testid="assistant-text"
+          className={
+            isMobile
+              ? 'min-w-0 text-[length:calc(var(--reading-size)-1px)] leading-[var(--reading-lh)] text-[var(--ink)]'
+              : 'text-[15px] leading-[1.65] text-text-main/90 pl-[18px]'
+          }
           style={borderStyle}
         >
           {children}
         </div>
-        {(onCopy || onDelete || onRegenerate || onFeedback || onCreateNote) && (
+        {isMobile && (onCopy || onCreateNote || onFeedback || onRegenerate || onDelete) && (
+          <div className="mt-1 flex items-center gap-1">
+            {onCopy && (
+              <IconButton onClick={onCopy} label={t('ai_action_copy')} className={iconAction} icon={<Copy size={18} aria-hidden="true" />} />
+            )}
+            {onCreateNote && (
+              <IconButton onClick={onCreateNote} label={t('ai_action_create_note')} className={iconAction} icon={<FilePlus size={18} aria-hidden="true" />} />
+            )}
+            {onFeedback && (
+              <IconButton onClick={() => onFeedback('up')} label={t('ai_action_thumbs_up')} className={iconAction} icon={<ThumbsUp size={18} aria-hidden="true" />} />
+            )}
+            {moreActions && (
+              <IconButton onClick={() => setMoreOpen(true)} label={t('ai_action_more')} className={iconAction} icon={<MoreHorizontal size={18} aria-hidden="true" />} />
+            )}
+          </div>
+        )}
+        {!isMobile && (onCopy || onDelete || onRegenerate || onFeedback || onCreateNote) && (
           <div className="flex gap-1 mt-3 -ml-2 flex-wrap">
             {onCopy && (
               <Button
@@ -265,6 +297,61 @@ export const AssistantTurn = React.memo(
               </Button>
             )}
           </div>
+        )}
+
+        {isMobile && moreOpen && (
+          <ModalShell open onClose={() => setMoreOpen(false)} labelId="assistant-turn-more-title" variant="sheet">
+            <div className="p-4 space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+              <h2 id="assistant-turn-more-title" className="text-sm font-semibold text-text-main">{t('ai_action_more')}</h2>
+              {onRegenerate && (
+                <Button
+                  onClick={() => { onRegenerate(); setMoreOpen(false); }}
+                  className="min-h-11 w-full justify-start gap-2 rounded-xl border border-border-subtle px-3 text-[15px] text-text-main"
+                >
+                  <RefreshCw size={16} aria-hidden="true" /> {t('ai_action_regenerate')}
+                </Button>
+              )}
+              {onSwitchVariant && variants && variants.length > 1 && (
+                <div className="flex items-center justify-between rounded-xl border border-border-subtle px-3 py-2 text-[14px] text-text-main/70">
+                  <span>{t('ai_action_variants')}</span>
+                  <span className="flex items-center gap-2">
+                    <IconButton
+                      onClick={() => onSwitchVariant(-1)}
+                      disabled={(variantIndex ?? 0) === 0}
+                      label={t('ai_action_prev_variant')}
+                      className="h-11 w-11"
+                      icon={<ChevronLeft size={18} aria-hidden="true" />}
+                    />
+                    <span className="tabular-nums">{(variantIndex ?? variants.length - 1) + 1}/{variants.length}</span>
+                    <IconButton
+                      onClick={() => onSwitchVariant(1)}
+                      disabled={(variantIndex ?? variants.length - 1) >= variants.length - 1}
+                      label={t('ai_action_next_variant')}
+                      className="h-11 w-11"
+                      icon={<ChevronRight size={18} aria-hidden="true" />}
+                    />
+                  </span>
+                </div>
+              )}
+              {onFeedback && (
+                <Button
+                  onClick={() => { onFeedback('down'); setMoreOpen(false); }}
+                  className="min-h-11 w-full justify-start gap-2 rounded-xl border border-border-subtle px-3 text-[15px] text-text-main"
+                >
+                  <ThumbsDown size={16} aria-hidden="true" /> {t('ai_action_thumbs_down')}
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  onClick={() => { onDelete(); setMoreOpen(false); }}
+                  className="min-h-11 w-full justify-start gap-2 rounded-xl px-3 text-[15px] text-accent-danger"
+                  variant="danger"
+                >
+                  <Trash2 size={16} aria-hidden="true" /> {t('ai_action_delete')}
+                </Button>
+              )}
+            </div>
+          </ModalShell>
         )}
       </div>
     </div>

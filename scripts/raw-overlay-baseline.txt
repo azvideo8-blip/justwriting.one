@@ -17,6 +17,11 @@ src/features/writing/components/MobileWriteToolbar.tsx
 src/shared/components/ConfirmDialog.tsx:190
 src/shared/components/ConfirmModal.tsx:29
 src/shared/components/CancelConfirmModal.tsx:47
-src/shared/components/RecoveryCodeDisplayModal.tsx:67
+# MC-6: из RecoveryCodeDisplayModal вырезаны обработчики копирования и
+# скачивания (те же действия нужны степперу первого входа), оверлей сдвинулся
+# на строку выше. Запись переведена в путь без номера, как у четырёх диалогов
+# выше: долг тот же — миграция на ModalShell, а привязка к номеру ломается на
+# любой правке шапки файла.
+src/shared/components/RecoveryCodeDisplayModal.tsx
 src/shared/components/ModalWrapper.tsx:50
 

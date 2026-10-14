@@ -29,10 +29,10 @@ describe('D-26: InlineTags typography and localization', () => {
     expect(screen.queryByRole('button', { name: 'Remove Tag' })).toBeNull();
   });
 
-  it('formats AI chat placeholder with "Сообщение для: {name}…"', () => {
+  it('uses a quiet AI chat composer placeholder', () => {
     const { result } = renderHook(() => useLanguage(), { wrapper: LanguageProvider });
-    const placeholder = result.current.t('ai_write_placeholder', { name: 'Группа психологов' });
-    expect(placeholder).toBe('Сообщение для: Группа психологов…');
+    const placeholder = result.current.t('ai_write_placeholder');
+    expect(placeholder).toBe('Написать…');
     expect(placeholder).not.toContain('Напишите');
   });
 });

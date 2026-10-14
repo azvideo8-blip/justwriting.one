@@ -18,6 +18,8 @@ interface FinishModalStatsProps {
   sessionGroups: { date: Date; sessions: unknown[] }[];
   readingMinutes: number;
   t: (k: string, params?: Record<string, string | number>) => string;
+  /** MC-3: стрик склоняется («1 день подряд», «5 дней подряд»). */
+  tp: (k: string, count: number) => string;
   isMobile: boolean;
   statsExpanded: boolean;
   setStatsExpanded: (v: boolean) => void;
@@ -37,12 +39,16 @@ export function FinishModalStats({
   sessionGroups,
   readingMinutes,
   t,
+  tp,
   isMobile,
   statsExpanded,
   setStatsExpanded,
   totalWords,
   totalDuration,
 }: FinishModalStatsProps) {
+  // Ревью 0.9.40: на десктопе крупная цифра серии остаётся, как до MC-3; склоняется
+  // только слово под ней («день / дня / дней подряд»), из той же строки без числа.
+  const streakWord = tp('finish_streak_days', streakDays).replace(/^\s*\d+\s*/, '');
   const borderStyle = {
     borderImage: 'linear-gradient(to bottom, transparent, var(--color-border-subtle), transparent) 1',
     borderLeft: '1px solid',
@@ -66,7 +72,7 @@ export function FinishModalStats({
             {streakDays > 0 ? (
               <div className="text-center">
                 <div className="text-3xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
-                <div className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-0.5">{t('finish_streak_days')}</div>
+                <div className="text-label font-bold uppercase tracking-widest text-text-main/60 mt-0.5">{streakWord}</div>
                 <StreakDots sessionGroups={sessionGroups} variant="modal" />
               </div>
             ) : (
@@ -133,7 +139,7 @@ export function FinishModalStats({
       {streakDays > 0 ? (
         <div className="text-center">
           <div className="text-2xl font-mono font-bold text-brand-primary tabular-nums">{streakDays}</div>
-          <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/60 mt-1">{t('finish_streak_days')}</div>
+          <div className="text-label-sm font-bold uppercase tracking-widest text-text-main/60 mt-1">{streakWord}</div>
           <StreakDots sessionGroups={sessionGroups} variant="modal" />
         </div>
       ) : (

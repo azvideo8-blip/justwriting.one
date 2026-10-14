@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, renderHook, waitFor } from "@testing-library/react";
 import "fake-indexeddb/auto";
-import { SyncConsentModal, useSyncConsentCheck } from "../SyncConsentModal";
+import { SyncConsentModal } from "../SyncConsentModal";
+import { useSyncConsentCheck } from "../useSyncConsentCheck";
 import { STORAGE_KEYS } from "../../../../shared/constants/storageKeys";
 import { SyncService } from "../../../../core/services/SyncService";
 import { getLocalDb } from "../../../../core/storage/localDb";

@@ -10,6 +10,9 @@ export interface ChangelogRelease {
   version: string;
   date: string;
   items: ChangelogItem[];
+  /** false — выпуск не объявляется в Telegram: тихие правки мобильного макета,
+   *  пока он закрыт для всех (решение владельца 2026-10-14; итог — в 0.10.0). */
+  announce?: false;
 }
 
 export const CHANGELOG: ChangelogRelease[] = [

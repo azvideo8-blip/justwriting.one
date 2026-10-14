@@ -169,9 +169,18 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
   return (
     <div
       // Полоса метки слева и лёгкая подкраска строки её цветом — вернули по
-      // просьбе владельца: метку видно краем глаза, точка терялась.
-      className={cn("grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle border-l-2 grid-cols-[auto_1fr_auto]", label ? "" : "border-l-transparent", isMobile && "min-h-[60px] active:bg-text-main/[0.04]")}
-      style={label ? { borderLeftColor: label.color, background: `color-mix(in srgb, ${label.color} 4%, transparent)`, boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)` } : undefined}
+      // просьбе владельца: метку видно краем глаза, точка терялась. На телефоне
+      // остаётся только подкраска (MC-7).
+      className={cn("grid items-start gap-3 px-3 py-4 pr-3 rounded-xl hover:bg-text-main/[0.025] transition-colors group border border-transparent hover:border-border-subtle grid-cols-[auto_1fr_auto]", !isMobile && "border-l-2", !isMobile && !label && "border-l-transparent", isMobile && "press min-h-[60px] active:bg-text-main/[0.04]")}
+      style={label ? (isMobile
+        // MC-7: на телефоне метка остаётся только подложкой — цветной левая
+        // полоса и внутренняя подсветка делали из списка полосатую таблицу.
+        ? { background: `color-mix(in srgb, ${label.color} 4%, transparent)` }
+        : {
+          borderLeftColor: label.color,
+          background: `color-mix(in srgb, ${label.color} 4%, transparent)`,
+          boxShadow: `inset 3px 0 8px color-mix(in srgb, ${label.color} 15%, transparent)`,
+        }) : undefined}
       onClick={isMobile ? handleRowTap : undefined}
       onTouchStart={isMobile ? handleTouchStart : undefined}
       onTouchMove={isMobile ? handleTouchMove : undefined}
@@ -289,11 +298,12 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
             onTouchEnd={isMobile ? undefined : handleTouchEnd}
             title={session._locked || session._decryptionError ? undefined : t('archive_edit_title_hint')}
           >
-            {!session._isLocal && session._hasCloudCopy && (
+            {!isMobile && !session._isLocal && session._hasCloudCopy && (
               <span className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-soft/10 text-brand-soft shrink-0 border border-brand-soft/20">
                 {t('archive_cloud_only')}
               </span>
             )}
+            {/* Ревью 0.9.40: и на телефоне — единственный знак, что заметка не уходит в облако. */}
             {session._isTooLargeForSync && (
               <span
                 className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent-warning/10 text-accent-warning shrink-0 border border-accent-warning/20"
@@ -348,8 +358,9 @@ function NoteRow({ session, onOpen, t, language, onDelete, onTagsChange, onStora
           />
         ) : ((session.tags?.length ?? 0) > 0 && (
           // MR-9: на телефоне теги — текст, а не цели касания: правка остаётся в
-          // предпросмотре и в листе действий.
-          <p className="font-mono text-[12px] text-text-main/45 truncate">
+          // предпросмотре и в листе действий. MC-7: цвет — `--text-subtle`,
+          // брендовый оставлен действиям, теги не должны перетягивать взгляд.
+          <p className="font-mono text-[12px] text-[var(--text-subtle)] truncate">
             {session.tags!.map(tag => `#${tag}`).join(' ')}
           </p>
         ))}

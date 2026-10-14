@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuthStatus } from '../useAuthStatus';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { useLanguage } from '../../shared/i18n';
+import { useLayoutMode } from '../../shared/hooks/useLayoutMode';
 import { RestoreFromCloudModal } from '../modals/RestoreFromCloudModal';
 import { AccountProfileSection } from '../../features/settings/components/AccountProfileSection';
 import { SyncSettingsSection } from '../../features/settings/components/SyncSettingsSection';
@@ -17,6 +18,11 @@ export function SettingsPage() {
   const { user } = useAuthStatus();
   const userId = useUserId(user);
   const location = useLocation();
+  const { layoutMode } = useLayoutMode();
+  // MC-7: на телефоне разделы — это заголовок, подпись и один список. Номера
+  // «01/02» и рамка вокруг содержимого остаются десктопу: там они navigации
+  // не мешают, а на узком экране рамка внутри рамки съедает ширину строк.
+  const isMobile = layoutMode === 'mobile';
 
   useEffect(() => {
     const rawHash = location.hash.replace(/^#/, '') || new URLSearchParams(location.search).get('tab');
@@ -101,13 +107,15 @@ export function SettingsPage() {
                   кончается один раздел и начинается другой. Раньше всё лежало
                   одним потоком и сливалось. */}
               <div className="space-y-1">
+                {!isMobile && (
                 <div className="font-mono text-[10px] uppercase tracking-widest text-text-main/60">
                   {String(s.n).padStart(2, '0')}
                 </div>
+                )}
                 <h2 className="text-lg font-medium tracking-tight text-text-main">{s.title}</h2>
                 <p className="text-sm text-text-main/60 leading-relaxed">{s.desc}</p>
               </div>
-              <div className="rounded-2xl border border-border-subtle bg-text-main/[0.02] p-4 sm:p-5">
+              <div className={isMobile ? 'space-y-4' : 'rounded-2xl border border-border-subtle bg-text-main/[0.02] p-4 sm:p-5'}>
                 {s.node}
               </div>
             </section>
@@ -117,13 +125,15 @@ export function SettingsPage() {
               как настройка оно не должно. */}
           <section id="danger-section" className="scroll-mt-12 space-y-4 pt-4 border-t border-border-subtle">
             <div className="space-y-1">
+              {!isMobile && (
               <div className="font-mono text-[10px] uppercase tracking-widest text-accent-danger/60">
                 06
               </div>
+              )}
               <h2 className="text-lg font-medium tracking-tight text-accent-danger">{t('settings_sec_danger')}</h2>
               <p className="text-sm text-text-main/60 leading-relaxed">{t('settings_sec_danger_desc')}</p>
             </div>
-            <div className="rounded-2xl border border-accent-danger/30 bg-accent-danger/[0.03] p-4 sm:p-5">
+            <div className={isMobile ? 'space-y-4' : 'rounded-2xl border border-accent-danger/30 bg-accent-danger/[0.03] p-4 sm:p-5'}>
               <AccountDeleteSection userId={userId} />
             </div>
           </section>

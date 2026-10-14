@@ -14,7 +14,10 @@ vi.mock('../../features/auth/hooks/useAdminStatus', () => ({ useAdminStatus: () 
 vi.mock('../../features/auth/contexts/LoginModalContext', () => ({ useLoginModal: () => ({ loginModalOpen: false }) }));
 vi.mock('../../core/settings/SettingsContext', () => ({ useSettings: () => ({ openSettings: vi.fn() }) }));
 vi.mock('../../core/settings/WritingSettingsContext', () => ({ useWritingSettings: () => ({ isZenActive: false, zenModeEnabled: false, silenceMode: false }) }));
-vi.mock('../../shared/hooks/useLayoutMode', () => ({ useLayoutMode: () => ({ layoutMode: 'desktop' }) }));
+let layoutMode: 'desktop' | 'mobile' = 'desktop';
+vi.mock('../../shared/hooks/useLayoutMode', () => ({
+  useLayoutMode: () => ({ layoutMode, setLayoutMode: vi.fn(), mobilePreferred: layoutMode === 'mobile' }),
+}));
 vi.mock('../../shared/i18n', () => ({ useLanguage: () => ({ t: (k: string) => k }) }));
 vi.mock('../../core/sync/useSyncStatus', () => ({ useSyncStatus: () => ({ status: 'synced', pendingCount: 0 }) }));
 vi.mock('../../shared/components/Toast', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
@@ -56,5 +59,19 @@ describe('окна первого входа — по одному', () => {
   it('после ответа загрузка из облака появляется', async () => {
     renderShell(false);
     expect(await screen.findByTestId('restore-from-cloud')).toBeTruthy();
+  });
+
+  // MC-6: на телефоне вместо окон стоит полноэкранный степпер. Он не окно, но
+  // очередь за ним держать обязан: иначе «Загрузка из облака» и код
+  // восстановления вылезут под шагами.
+  it('на телефоне, пока открыт степпер, загрузка из облака тоже ждёт', async () => {
+    layoutMode = 'mobile';
+    try {
+      renderShell(true);
+      await new Promise(r => setTimeout(r, 1_000));
+      expect(screen.queryAllByTestId('restore-from-cloud')).toHaveLength(0);
+    } finally {
+      layoutMode = 'desktop';
+    }
   });
 });

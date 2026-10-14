@@ -41,6 +41,16 @@ export interface AIChatHeaderProps {
   /** MR-1: ☰ открывает лист диалогов, «Новый диалог» заводит пустой. */
   onOpenDialogues: () => void;
   onNewDialogue: () => void;
+  /** MP-4: остатки дневного лимита — одной строкой в листе «⋯», а не полосой
+   *  под композером. */
+  quota?: AIChatHeaderQuota | undefined;
+}
+
+export interface AIChatHeaderQuota {
+  chatRemaining: number;
+  chatTotal: number;
+  reasoningRemaining: number;
+  reasoningTotal: number;
 }
 
 export function AIChatHeader(props: AIChatHeaderProps) {
@@ -68,6 +78,7 @@ export function AIChatHeader(props: AIChatHeaderProps) {
     onCreatePersona,
     onOpenDialogues,
     onNewDialogue,
+    quota,
   } = props;
   const { t } = useLanguage();
 
@@ -138,8 +149,10 @@ export function AIChatHeader(props: AIChatHeaderProps) {
               style={{ background: `${headerVisual.color}14`, borderColor: `${headerVisual.color}55`, borderWidth: 1 }}
             >
               <Monogram color={headerVisual.color} mono={headerVisual.mono} size={18} />
+              {/* MP-3: роль в токене не участвует — на 375–390 px она не
+                  сжималась («shrink-0») и резала имя до «Г…». Роль остаётся
+                  второй строкой листа персон (MR-3). */}
               <span className="truncate">{activePersonaName}</span>
-              {activeRole && <span className="text-[10px] shrink-0" style={{ color: headerVisual.color }}>{activeRole}</span>}
             </button>
           </div>
           <IconButton
@@ -212,6 +225,16 @@ export function AIChatHeader(props: AIChatHeaderProps) {
                   <span className={cn('w-2 h-2 rounded-full', reasoning ? 'bg-brand-soft' : 'bg-text-main/20')} />
                 </button>
               </div>
+              {quota !== undefined && (
+                <div className="w-full min-h-11 flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-border-subtle text-xs text-text-main/70">
+                  <span>{t('ai_quota_today')}</span>
+                  <span className="font-mono text-right">
+                    {t('ai_quota_chat')} {quota.chatRemaining}/{quota.chatTotal}
+                    {' · '}
+                    {t('ai_quota_reasoning')} {quota.reasoningRemaining}/{quota.reasoningTotal}
+                  </span>
+                </div>
+              )}
               {mobileRename ? (
                 <div className="space-y-2">
                   <input

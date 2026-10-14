@@ -420,6 +420,8 @@ export function ArchivePage({ user, profile }: ArchiveViewProps) {
                 onContinue={s => void navigate('/', { state: { sessionToContinue: s } })}
                 onTagsChange={(s, tags) => void handleTagsChange(s, tags)} onLabelChange={(s, label) => void handleLabelChange(s, label)}
                 onAddLabel={(label) => void addLabel(label)} labels={profileLabels} allTags={allTags}
+                onTitleChange={(s, title) => void handleTitleChange(s, title)}
+                onDelete={s => setDeleteConfirm(s)} onStorageChange={() => void fetchSessions()}
                 onAnalyzeNote={id => NoteAnalysisService.analyze(id)}
                 fetchSummary={async id => (await AISummaryService.get(id)) ?? null}
                 fetchRelatedNotes={id => findRelatedNotes({ docId: id }, { maxResults: 4 })}

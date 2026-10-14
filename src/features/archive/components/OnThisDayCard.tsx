@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { CalendarClock, ArrowRight, X } from 'lucide-react';
+import { CalendarClock, ArrowRight, ChevronRight, X } from 'lucide-react';
 import { format, subMonths, subYears } from 'date-fns';
 import { getSessionDate, getSessionDates } from '../../../core/utils/utils';
 import { getDateLocale } from '../../../core/utils/dateUtils';
 import { useLanguage } from '../../../shared/i18n';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { ArchiveSession } from '../types';
 
 const DISMISS_KEY = 'onthisday_dismissed';
@@ -50,6 +51,8 @@ export function OnThisDayCard({ sessions, onOpen }: {
   onOpen: (s: ArchiveSession) => void;
 }) {
   const { t, language } = useLanguage();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
   const reducedMotion = useReducedMotion();
   const [dismissedId, setDismissedId] = useState<string | null>(() => {
     try { return localStorage.getItem(DISMISS_KEY); } catch { return null; }
@@ -76,6 +79,35 @@ export function OnThisDayCard({ sessions, onOpen }: {
       setDismissing(true);
     }
   };
+
+  // MC-7: на телефоне напоминание — обычная строка: нет карточки в карточке,
+  // нет цветного левого края и плашки с датой. Дата и заголовок читаются в
+  // одной строке, стрелка справа говорит «откроется».
+  if (isMobile) {
+    return (
+      <div className="flex items-center border-b border-[var(--border-light)]">
+        <button
+          type="button"
+          onClick={() => onOpen(session)}
+          className="press flex-1 min-w-0 flex items-center gap-2.5 px-1 py-3 min-h-11 text-left"
+        >
+          <CalendarClock size={16} className="shrink-0 text-[var(--text-subtle)]" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--text-main)]">
+            {t('archive_on_this_day_title')} {label}: {session.title || t('archive_untitled')}
+          </span>
+          <ChevronRight size={16} className="shrink-0 text-[var(--text-subtle)]" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label={t('archive_on_this_day_dismiss')}
+          className="w-11 h-11 shrink-0 flex items-center justify-center text-[var(--text-subtle)]"
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence onExitComplete={() => setDismissedId(session.id)}>

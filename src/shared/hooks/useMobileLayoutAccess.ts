@@ -15,6 +15,15 @@ import { createContext, useContext } from 'react';
  */
 export const MobileLayoutAccessContext = createContext(false);
 
+/** Отвечает ли база про текущего человека (MC-6). `false` — это и «ещё не
+ *  прочитано», и «прочитано, но отказано». Окну первого входа нужен именно
+ *  признак ответа: без него оно успевает мелькнуть чужим набором окон. */
+export const MobileLayoutAccessAnsweredContext = createContext(true);
+
 export function useMobileLayoutAccess(): boolean {
   return useContext(MobileLayoutAccessContext);
+}
+
+export function useMobileLayoutAccessAnswered(): boolean {
+  return useContext(MobileLayoutAccessAnsweredContext);
 }

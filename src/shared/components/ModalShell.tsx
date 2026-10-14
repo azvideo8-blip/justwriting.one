@@ -55,6 +55,8 @@ export interface ModalShellProps {
   variant?: 'modal' | 'sheet';
   /** Слой бэкдропа: critical — поверх всего (unlock, consent). */
   z?: 'modal' | 'critical' | 'sheet';
+  /** MC-3: лист на весь экран (чтение и «Записано.»), а не на 85 % высоты. */
+  fullHeight?: boolean;
   className?: string;
 }
 
@@ -65,6 +67,7 @@ export function ModalShell({
   children,
   variant = 'modal',
   z = variant === 'sheet' ? 'sheet' : 'modal',
+  fullHeight = false,
   className,
 }: ModalShellProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -102,7 +105,7 @@ export function ModalShell({
         {...ANIMATION[variant]}
         className={
           variant === 'sheet'
-            ? `relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] rounded-t-[28px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe ${className ?? ''}`
+            ? `relative z-10 w-full max-w-lg bg-surface-card border-t border-white/[0.06] overflow-hidden flex flex-col shadow-[0_-8px_32px_rgba(0,0,0,0.4)] pb-safe ${fullHeight ? 'h-[100dvh] max-h-[100dvh] rounded-none' : 'rounded-t-[28px] max-h-[85vh]'} ${className ?? ''}`
             : `relative z-10 w-full max-w-lg ${className ?? ''}`
         }
       >

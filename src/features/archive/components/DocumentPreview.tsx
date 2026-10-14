@@ -14,6 +14,7 @@ import { CopyNoteModal } from './CopyNoteModal';
 import { InlineTags } from './InlineTags';
 import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { MobileNoteReader } from './MobileNoteReader';
 
 import type { AIDocumentSummary } from '../../../core/storage/localDb';
 import { Button } from '../../../shared/components/Button';
@@ -30,8 +31,8 @@ import { isBlankTitle } from '../../../shared/utils/titleUtils';
 const relatedNotesCache = new Map<string, RelatedNote[]>();
 
 export function DocumentPreview({
-  session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, labels, allTags, onAttach,
-  onAnalyzeNote, fetchSummary, fetchRelatedNotes, context,
+  session: propSession, onClose, onContinue, onTagsChange, onLabelChange, onAddLabel, onTitleChange, labels, allTags, onAttach,
+  onAnalyzeNote, fetchSummary, fetchRelatedNotes, context, onDelete, onStorageChange,
 }: {
   session: ArchiveSession | null;
   onClose: () => void;
@@ -39,6 +40,8 @@ export function DocumentPreview({
   onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
   onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
   onAddLabel?: ((label: { name: string; color: string; id?: string }) => void) | undefined;
+  /** Ревью 0.9.40: переименование из читалки на телефоне — тот же путь, что у строки списка. */
+  onTitleChange?: ((session: ArchiveSession, title: string) => void) | undefined;
   labels?: Label[] | undefined;
   allTags?: string[] | undefined;
   onAttach?: ((documentId: string) => void) | undefined;
@@ -46,6 +49,9 @@ export function DocumentPreview({
   fetchSummary?: ((sessionId: string) => Promise<AIDocumentSummary | null>) | undefined;
   fetchRelatedNotes?: ((sessionId: string) => Promise<RelatedNote[]>) | undefined;
   context?: string | undefined;
+  /** MP-1: лист «⋯» в читалке должен уметь то же, что строка заметки. */
+  onDelete?: ((session: ArchiveSession) => void) | undefined;
+  onStorageChange?: (() => void) | undefined;
 }) {
   const [session, setSession] = useState<ArchiveSession | null>(propSession);
 
@@ -372,6 +378,33 @@ export function DocumentPreview({
     }
     setCreatingLabel(false);
   };
+
+  // MP-1: на телефоне заметка — полноэкранная читалка, а не шит с шапкой из
+  // метаданных. Десктопная панель ниже не меняется.
+  if (isMobile) {
+    return (
+      <MobileNoteReader
+        session={session}
+        onClose={onClose}
+        onContinue={onContinue}
+        onTagsChange={onTagsChange}
+        onLabelChange={onLabelChange}
+        labels={labels}
+        allTags={allTags}
+        {...(onDelete ? { onDelete } : {})}
+        {...(onStorageChange ? { onStorageChange } : {})}
+        summary={summary}
+        analyzing={analyzing}
+        justFinished={justFinished}
+        analyzeError={analyzeError}
+        onAnalyze={() => void handleAnalyzeNote()}
+        {...(onAddLabel ? { onAddLabel } : {})}
+        {...(onTitleChange ? { onTitleChange: (s: ArchiveSession, title: string) => { onTitleChange(s, title); setSession({ ...s, title }); } } : {})}
+        relatedNotes={relatedNotes}
+        onSelectRelated={id => void handleSelectRelatedNote(id)}
+      />
+    );
+  }
 
   return (
     <motion.div

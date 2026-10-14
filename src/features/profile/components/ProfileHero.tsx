@@ -133,17 +133,20 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             </AnimatePresence>
           </div>
 
+          {!isMobile && (
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-stretch sm:items-center">
             <Button
               onClick={onStartSession}
-              className={cn("flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium text-text-main/60 hover:text-text-main border border-border-subtle hover:border-text-main/30 transition-colors w-full sm:w-auto", isMobile && "min-h-11")}
+              className={cn("flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium text-text-main/60 hover:text-text-main border border-border-subtle hover:border-text-main/30 transition-colors w-full sm:w-auto")}
             >
               <PenLine size={13} />
               {t('profile_cta')}
             </Button>
           </div>
+          )}
         </div>
 
+        {!isMobile && (
         <div className="text-center md:text-right w-full md:w-auto border border-border-subtle rounded-xl p-3 bg-surface-card/45">
           <div className="font-mono text-label text-text-main/60 uppercase tracking-widest mb-1">
             {t('profile_member_since')}
@@ -155,6 +158,7 @@ export function ProfileHero({ user, profile, isGuest, onStartSession }: ProfileH
             {streakDays} {tp('home_streak_days', streakDays)}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -6,8 +6,11 @@ import { cn } from '../../core/utils/utils';
 import { Button } from '../../shared/components/Button';
 import { IconButton } from '../../shared/components/IconButton';
 import { ModalShell } from '../../shared/components/ModalShell';
-import { buildNoteActions } from '../../features/archive/components/noteActions';
+import { buildNoteActions, type NoteActionId, type NoteActionItem, type NoteMenuSection } from '../../features/archive/components/noteActions';
 import { useNoteStorageActions } from '../../features/archive/components/useNoteStorageActions';
+
+/** MP-1: локальная/облачная копия остаётся вне телефона (решение владельца в MR). */
+const LOCAL_CLOUD_ITEMS: NoteActionId[] = ['download', 'upload', 'removeLocal', 'removeCloud'];
 
 interface MobileNoteActionsSheetProps {
   isOpen: boolean;
@@ -39,6 +42,11 @@ interface MobileNoteActionsSheetProps {
   onAIClick?: (() => void) | undefined;
   aiExclusionLoading?: boolean | undefined;
   onAIExclusionClick?: (() => void) | undefined;
+  /** MP-1: лист открыт из читалки. Пункт «open» тогда ведёт в редактор и
+   *  называется «Изменить», а выбор метки и облачные копии в нём не живут —
+   *  метка и теги правятся в «ⓘ», синхронизация остаётся на десктопе. */
+  fromReader?: boolean | undefined;
+  onCopy?: (() => void) | undefined;
 }
 
 /** Лист действий на телефоне. DC-A3: список строит та же функция
@@ -61,6 +69,8 @@ export function MobileNoteActionsSheet({
   onAIClick,
   aiExclusionLoading,
   onAIExclusionClick,
+  fromReader,
+  onCopy,
 }: MobileNoteActionsSheetProps) {
   const { t } = useLanguage();
   const [showLabelsSelector, setShowLabelsSelector] = useState(false);
@@ -93,7 +103,9 @@ export function MobileNoteActionsSheet({
     currentLabelId: session.labelId,
     onLabelChange,
     onOpen: () => { onOpen(); onClose(); },
+    ...(fromReader ? { openLabel: t('archive_edit_action') } : {}),
     onRename: () => { onRename(); onClose(); },
+    ...(onCopy ? { onCopy: () => { onCopy(); onClose(); } } : {}),
     ...(onAddTag ? { onAddTag: () => { onAddTag(); onClose(); } } : {}),
     ...(onAIClick
       ? { ai: { processed: !!aiProcessed, loading: !!aiLoading, onClick: onAIClick } }
@@ -102,10 +114,38 @@ export function MobileNoteActionsSheet({
       ? { exclusion: { excluded: !!session.excludedFromAI, loading: !!aiExclusionLoading, onClick: onAIExclusionClick } }
       : {}),
     onDelete: () => { onDelete(); onClose(); },
-  });
+  }).filter(section => !(fromReader && section.kind === 'action' && LOCAL_CLOUD_ITEMS.includes(section.id)));
 
   const labelsSection = sections.find(s => s.kind === 'labels');
   const selectedLabel = labels?.find(l => l.id === session.labelId);
+  // MC-9: удаление всегда последнее и отделено отступом — между ним и
+  // остальными пунктами нет соседства «Открыть / Удалить».
+  const isDanger = (section: NoteMenuSection): section is NoteActionItem =>
+    section.kind === 'action' && section.group === 'danger';
+  const dangerSections = sections.filter(isDanger);
+  const listSections: NoteMenuSection[] = sections.filter(section => !isDanger(section));
+
+  const row = (section: NoteActionItem) => {
+    const Icon = section.icon;
+    const isStorageAction = section.group === 'storage';
+    return (
+      <Button
+        key={section.id}
+        onClick={section.onSelect}
+        className={cn(
+          'w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left font-medium transition-colors border',
+          section.destructive
+            ? 'text-accent-danger bg-accent-danger/10 border-accent-danger/20 active:bg-accent-danger/20'
+            : isStorageAction && (section.id === 'upload' || section.id === 'download')
+              ? 'text-brand-primary bg-brand-primary/10 border-brand-primary/20 active:bg-brand-primary/20 font-semibold'
+              : 'text-text-main/80 bg-white/[0.02] border-white/[0.04] active:bg-white/[0.06]',
+        )}
+      >
+        <Icon size={18} className={section.destructive ? undefined : 'text-text-main/60'} aria-hidden="true" />
+        <span>{section.label}</span>
+      </Button>
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -146,30 +186,9 @@ export function MobileNoteActionsSheet({
         </div>
 
         {/* Action Options List */}
-        <div className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
+        <div data-testid="note-actions-list" className="px-6 py-5 overflow-y-auto no-scrollbar space-y-2 pb-[calc(env(safe-area-inset-bottom,0px)+88px)]">
           {!showLabelsSelector ? (
-            sections.map(section => {
-              if (section.kind === 'labels') return null;
-              const Icon = section.icon;
-              const isStorageAction = section.group === 'storage';
-              return (
-                <Button
-                  key={section.id}
-                  onClick={section.onSelect}
-                  className={cn(
-                    'w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm text-left font-medium transition-colors border',
-                    section.destructive
-                      ? 'text-accent-danger bg-accent-danger/10 border-accent-danger/20 active:bg-accent-danger/20'
-                      : isStorageAction && (section.id === 'upload' || section.id === 'download')
-                        ? 'text-brand-primary bg-brand-primary/10 border-brand-primary/20 active:bg-brand-primary/20 font-semibold'
-                        : 'text-text-main/80 bg-white/[0.02] border-white/[0.04] active:bg-white/[0.06]',
-                  )}
-                >
-                  <Icon size={18} className={section.destructive ? undefined : 'text-text-main/60'} aria-hidden="true" />
-                  <span>{section.label}</span>
-                </Button>
-              );
-            })
+            listSections.map(section => (section.kind === 'labels' ? null : row(section)))
           ) : (
             // Labels Sub-selector
             <div className="space-y-3">
@@ -202,7 +221,7 @@ export function MobileNoteActionsSheet({
             </div>
           )}
 
-          {labelsSection !== undefined && !showLabelsSelector && (
+          {labelsSection !== undefined && !showLabelsSelector && !fromReader && (
             <Button
               onClick={() => setShowLabelsSelector(true)}
               className="w-full min-h-[48px] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-text-main/80 bg-white/[0.02] border border-white/[0.04] active:bg-white/[0.06] transition-colors text-left"
@@ -210,6 +229,12 @@ export function MobileNoteActionsSheet({
               <Tag size={18} className="text-text-main/60" aria-hidden="true" />
               <span>{t('archive_assign_label')}</span>
             </Button>
+          )}
+
+          {!showLabelsSelector && dangerSections.length > 0 && (
+            <div data-testid="note-actions-danger" className="mt-5 space-y-2">
+              {dangerSections.map(section => row(section))}
+            </div>
           )}
         </div>
 

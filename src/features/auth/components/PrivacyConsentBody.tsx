@@ -2,29 +2,19 @@ import React from 'react';
 import { DataProvider } from '../../../core/data';
 import { AI_CONSENT_VERSION_REQUIRED } from '../../../core/constants/privacyVersion';
 import { useLanguage } from '../../../shared/i18n';
+import { cn } from '../../../core/utils/utils';
 
 /**
  * Текст согласия и две галочки — одни и те же в окне при первом входе
  * (PrivacyModal) и в мастере приглашения (ON-2). Юридический текст обязан
  * быть один: два экземпляра рано или поздно разъедутся.
  */
-export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent }: {
-  checked: boolean;
-  onChecked: (v: boolean) => void;
-  aiConsent: boolean;
-  onAiConsent: (v: boolean) => void;
-}) {
+/** Юридический текст согласия — отдельная часть, чтобы степпер первого входа
+ *  (MC-6) мог показать его целиком под ссылкой, не переписывая формулировки. */
+export function PrivacyConsentText() {
   const { t } = useLanguage();
 
   return (
-    <>
-    <p className="text-xs text-text-main/60 mb-4">
-      {t('privacy_consent_intro')}
-    </p>
-
-    {/* Текст обязан совпадать с тем, что приложение делает на самом деле:
-        это не пояснение, а согласие, которое человек даёт.
-        Меняется поведение — правится и этот текст, в том же коммите. */}
     <div className="space-y-4 text-sm text-text-main/70 leading-relaxed">
       <div className="space-y-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-text-main/80">{t('privacy_consent_storage_title')}</h3>
@@ -43,16 +33,35 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
 
       <p className="text-xs pt-1">{t('privacy_consent_links_prefix')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_privacy_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>.</p>
     </div>
+  );
+}
 
-    <div className="pt-4 border-t border-border-subtle/50 space-y-3 mt-4">
+/**
+ * Две галочки согласия. `large` — телефон: 15 px подпись и квадрат 24 px,
+ * чтобы поле было видно и попасть в него было чем. На десктопе вариант не
+ * используется, разметка остаётся прежней.
+ */
+export function PrivacyConsentCheckboxes({ checked, onChecked, aiConsent, onAiConsent, large = false }: {
+  checked: boolean;
+  onChecked: (v: boolean) => void;
+  aiConsent: boolean;
+  onAiConsent: (v: boolean) => void;
+  large?: boolean;
+}) {
+  const { t } = useLanguage();
+  const box = large ? 'h-6 w-6 mt-1' : 'mt-0.5';
+  const caption = large ? 'text-[15px]' : 'text-xs';
+
+  return (
+    <div className={cn('border-t border-border-subtle/50', large ? 'pt-5 space-y-4 mt-5' : 'pt-4 space-y-3 mt-4')}>
       <label className="flex items-start gap-3 cursor-pointer">
         <input
           type="checkbox"
           checked={checked}
           onChange={e => onChecked(e.target.checked)}
-          className="mt-0.5 accent-brand-soft shrink-0"
+          className={cn('accent-brand-soft shrink-0', box)}
         />
-        <span className="text-xs text-text-main/70">
+        <span className={cn('text-text-main/70', caption)}>
           <span className="font-semibold text-text-main">{t('privacy_consent_required_label')}</span>
           {t('privacy_consent_accept_before')}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_data_policy')}</a>{t('privacy_consent_and')}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_terms')}</a>
         </span>
@@ -68,14 +77,42 @@ export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent 
           type="checkbox"
           checked={aiConsent}
           onChange={e => onAiConsent(e.target.checked)}
-          className="mt-0.5 accent-brand-soft shrink-0"
+          className={cn('accent-brand-soft shrink-0', box)}
         />
-        <span className="text-xs text-text-main/70">
+        <span className={cn('text-text-main/70', caption)}>
           <span className="font-semibold text-text-main">{t('privacy_consent_ai_label')}</span>
           {t('privacy_consent_ai_text_before')}<a href="/consent" target="_blank" rel="noopener noreferrer" className="text-brand-soft underline">{t('privacy_consent_ai_link')}</a>{t('privacy_consent_ai_text_after')}
         </span>
       </label>
     </div>
+  );
+}
+
+export function PrivacyConsentBody({ checked, onChecked, aiConsent, onAiConsent }: {
+  checked: boolean;
+  onChecked: (v: boolean) => void;
+  aiConsent: boolean;
+  onAiConsent: (v: boolean) => void;
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <>
+    <p className="text-xs text-text-main/60 mb-4">
+      {t('privacy_consent_intro')}
+    </p>
+
+    {/* Текст обязан совпадать с тем, что приложение делает на самом деле:
+        это не пояснение, а согласие, которое человек даёт.
+        Меняется поведение — правится и этот текст, в том же коммите. */}
+    <PrivacyConsentText />
+
+    <PrivacyConsentCheckboxes
+      checked={checked}
+      onChecked={onChecked}
+      aiConsent={aiConsent}
+      onAiConsent={onAiConsent}
+    />
     </>
   );
 }

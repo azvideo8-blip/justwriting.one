@@ -6,9 +6,12 @@ import { useWritingSettings } from '../../../core/settings/WritingSettingsContex
 import { useLanguage } from '../../../shared/i18n';
 import { useSettings } from '../../../core/settings/SettingsContext';
 import { useKeyboardHeight } from '../../../shared/hooks/useKeyboardHeight';
+import { useKeyboardState } from '../../../shared/hooks/useKeyboardState';
 import { useStartOnFirstInput } from '../hooks/useStartOnFirstInput';
 import { formatTime } from '../../../core/utils/formatTime';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { useSaveMomentStore, SAVE_MOMENT_MS, SAVE_WARNING_MS } from '../store/useSaveMomentStore';
+import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { MobileFocusScreen } from './MobileFocusScreen';
 import { MobileWriteToolbar } from './MobileWriteToolbar';
 import { DictationChrome } from './DictationBar';
@@ -18,19 +21,10 @@ import { KeystrokeTracker } from '../utils/keystrokeTracker';
 import { getWpmHex } from '../utils/wpmColors';
 import { cn } from '../../../core/utils/utils';
 import { useAutoHideCursor } from '../hooks/useAutoHideCursor';
-import { getPromptOfDay } from '../utils/promptOfDay';
 import type { SessionType } from '../store/types';
 
 // Ревью 0.9.39: жетон всегда говорил «Поток», хотя первая буква запускает
 // режим, оставшийся от прошлой сессии (таймер, цель по словам, дедлайн).
-const MODE_LABEL: Record<SessionType, string> = {
-  free: 'writing_mode_flow',
-  stopwatch: 'writing_mode_flow',
-  timer: 'writing_mode_timer',
-  words: 'writing_mode_words',
-  'finish-by': 'writing_mode_deadline',
-};
-
 interface MobileWriteScreenProps {
   onPlay: () => void;
   onPause: () => void;
@@ -219,8 +213,36 @@ export function MobileWriteScreen({
   const fontFamilyStr = getFontStack(fontFamily);
 
   // Клавиатура поднимает столбец над собой; без неё — над нижней панелью.
-  const toolbarStackStyle: React.CSSProperties = keyboardHeight > 130
-    ? { bottom: `${keyboardHeight + 8}px` }
+  // MC-2: когда панель прячется, её высоту прибавлять не за что, и столбец
+  // встаёт на 8 px над краем экрана (или над клавиатурой, если она легла
+  // поверх вьюпорта, а не сожгла его).
+  const keyboardState = useKeyboardState();
+
+  // MC-4: момент после «Сохранить» — тихая строка в шапке письма вместо
+  // всплывающего тоста, а «ещё не в облаке» — та же строка предупреждением
+  // (3 с вместо 1,2 с): оно обязано остаться видимым.
+  const saveMoment = useSaveMomentStore(s => s.moment);
+  const reducedMotion = useReducedMotion();
+  const streakShown = useCountUp(streakDays, 300);
+  useEffect(() => {
+    if (!saveMoment) return;
+    const ms = saveMoment.warningText !== null ? SAVE_WARNING_MS : SAVE_MOMENT_MS;
+    const timer = setTimeout(() => { useSaveMomentStore.getState().clear(); }, ms);
+    return () => clearTimeout(timer);
+  }, [saveMoment]);
+  // Окно завершения получает серу после сохранения (`streakForModal`), экран
+  // письма — до: разница и есть «серия выросла этой записью».
+  const streakGrew = saveMoment !== null && saveMoment.streakDays !== null
+    && saveMoment.streakDays > streakDays;
+  const saveMomentLine = saveMoment === null ? '' : saveMoment.warningText ?? [
+    `${t('save_moment_saved')} · ${tp('archive_word_count', saveMoment.words)}`,
+    streakGrew
+      ? `${t('save_moment_streak')} ${saveMoment.streakDays ?? streakDays} ${tp('home_streak_days', saveMoment.streakDays ?? streakDays)}`
+      : '',
+  ].filter(Boolean).join(' · ');
+
+  const toolbarStackStyle: React.CSSProperties = keyboardState.up
+    ? { bottom: `${Math.max(8, keyboardState.overlay + 8)}px` }
     : { bottom: 'calc(env(safe-area-inset-bottom, 16px) + var(--bottom-nav-height, 72px))' };
 
   return (
@@ -236,12 +258,27 @@ export function MobileWriteScreen({
             exit={{ opacity: 0 }}
             className="flex items-center justify-between px-5 pt-3 pb-2 gap-3 pt-[calc(env(safe-area-inset-top,0px)+12px)]"
           >
-            {isIdleState ? (
-              <div className="flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)]">
-                <span className="text-[13px] font-medium text-[var(--text-main)] tabular-nums">
-                  {streakDays} {tp('home_streak_days', streakDays)}
-                </span>
-              </div>
+            {saveMoment !== null ? (
+              /* MC-4: на 1,2 с (или 3 с у предупреждения) шапка письма говорит
+                 «Записано · 36 слов» вместо всего остального. */
+              <span
+                role="status"
+                data-testid="save-moment"
+                className={cn(
+                  'flex-1 truncate text-[13px] font-medium tabular-nums',
+                  saveMoment.warningText !== null ? 'text-[var(--accent-warning)]' : 'text-[var(--accent-success)]',
+                )}
+              >
+                {saveMomentLine}
+              </span>
+            ) : isIdleState ? (
+              streakDays >= 1 ? (
+                <div className="flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)]">
+                  <span className="text-[13px] font-medium text-[var(--text-main)] tabular-nums">
+                    {streakShown} {tp('home_streak_days', streakDays)}
+                  </span>
+                </div>
+              ) : <span className="min-w-11" aria-hidden="true" />
             ) : (
             <div className={cn(
               "flex items-center gap-1.5 py-1 px-3 rounded-full border border-[var(--border-light)]",
@@ -257,9 +294,14 @@ export function MobileWriteScreen({
             </div>
             )}
 
-            {isIdleState ? (
+            {saveMoment === null && (isIdleState ? (
+              /* MC-1: дата словами («Среда, 14 октября») — сокращённое «ср»
+                 читалось как часть интерфейса, а не как день. */
               <span className="flex-1 text-center text-[13px] font-medium text-[var(--text-muted)]">
-                {new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })}
+                {(() => {
+                  const label = new Date().toLocaleDateString(language === 'en' ? 'en-US' : 'ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+                  return label.charAt(0).toUpperCase() + label.slice(1);
+                })()}
               </span>
             ) : (
             <input
@@ -271,7 +313,7 @@ export function MobileWriteScreen({
               enterKeyHint="done"
               className="flex-1 bg-transparent border-none outline-none text-base font-medium text-[var(--text-muted)] text-center font-sans"
             />
-            )}
+            ))}
 
             {/* MR-5: настройки редактора живут в редакторе — «Aa» справа. */}
             <button
@@ -312,20 +354,10 @@ export function MobileWriteScreen({
         </div>
       )}
 
-      {!showZen && isIdleState && (
+      {/* MC-1: второй строки в idle больше нет — токен режима уехал в панель
+        письма. Здесь остаются только баннер черновика и его подтверждение. */}
+      {!showZen && isIdleState && (hasDraft || discardConfirm) && (
         <div className="px-5 pb-2 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => onOpenSetup?.()}
-            aria-label={t('writing_mode_token')}
-            className="self-start flex items-center gap-2 min-h-11 py-1.5 px-3 rounded-full border border-[var(--border-light)] bg-[var(--surface-card)] text-[12px] font-medium text-[var(--text-muted)]"
-          >
-            <span>{t(MODE_LABEL[sessionType])}</span>
-            <span aria-hidden="true">·</span>
-            <span className="tabular-nums">{wordCount} {tp('writing_words', wordCount)}</span>
-            <span aria-hidden="true">▾</span>
-          </button>
-
           {hasDraft && (
             <div className="flex items-center gap-2 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)] px-3 py-2">
               <span className="flex-1 min-w-0 text-[12px] text-[var(--text-muted)] truncate">{t('draft_restore_prompt')}</span>
@@ -355,6 +387,24 @@ export function MobileWriteScreen({
         onTouchStart={handleEditorTouchStart}
         onTouchEnd={handleEditorTouchEnd}
       >
+        {/* MC-4: сохранённый текст уходит мягко — призрак гаснет за 200 мс с
+            размытием в 2 px (при `prefers-reduced-motion` — только прозрачность
+            и 120 мс). */}
+        <AnimatePresence>
+          {saveMoment !== null && saveMoment.text !== '' && content === '' && (
+            <motion.p
+              key={saveMoment.id}
+              aria-hidden="true"
+              initial={{ opacity: 1, filter: 'blur(0px)' }}
+              animate={{ opacity: 0, filter: reducedMotion ? 'blur(0px)' : 'blur(2px)' }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reducedMotion ? 0.12 : 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="pointer-events-none absolute inset-x-6 top-0 whitespace-pre-wrap text-pretty text-[18px] leading-[1.7] text-[var(--text-main)]"
+            >
+              {saveMoment.text}
+            </motion.p>
+          )}
+        </AnimatePresence>
         <textarea
           ref={textareaRef}
           value={content}
@@ -365,7 +415,7 @@ export function MobileWriteScreen({
           onCut={e => { if (streamMode) e.preventDefault(); }}
           onCopy={e => { if (streamMode) e.preventDefault(); }}
           onPaste={e => { if (streamMode) e.preventDefault(); }}
-          placeholder={content.trim() === '' ? getPromptOfDay(t) : t('writing_placeholder')}
+          placeholder={t('writing_placeholder_mobile')}
           inputMode="text"
           className={lighthouseActive ? 'lighthouse-pulse' : ''}
           style={{
@@ -435,6 +485,8 @@ export function MobileWriteScreen({
           onGoalClick={() => setShowGoalSheet(true)}
           streamMode={streamMode}
           onToggleStreamMode={toggleStreamMode}
+          onOpenSetup={onOpenSetup}
+          sessionType={sessionType}
           hideStats={showZen}
         />
       </div>

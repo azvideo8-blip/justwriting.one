@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Sparkles, Check } from 'lucide-react';
+import { Sparkles, Check, X } from 'lucide-react';
 
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '../../../core/utils/utils';
@@ -9,6 +9,7 @@ import { useLanguage } from '../../../shared/i18n';
 import { useCountUp } from '../../../shared/hooks/useCountUp';
 import { useContentStore } from '../store/useContentStore';
 import { useTimerStore } from '../store/useTimerStore';
+import { useSaveMomentStore } from '../store/useSaveMomentStore';
 import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
 import { useWritingSettings } from '../../../core/settings/WritingSettingsContext';
 import { useServiceAction } from '../../../shared/hooks/useServiceAction';
@@ -16,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { FinishModalStats } from './FinishModalStats';
 import { FinishModalTags } from './FinishModalTags';
 import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
 import { useToast } from '../../../shared/components/Toast';
 import { ModalShell } from '../../../shared/components/ModalShell';
 import { readingTimeMinutes } from '../../../shared/utils/readingTime';
@@ -551,6 +553,23 @@ function WritingFinishModalBody({
   const finalTitle = titleInputValue.trim() || title || '';
   const heading = buildFinishHeading({ sessionWords, sessionSeconds, quietStats, t, tp });
 
+  // MC-3: на телефоне под заголовком — одна тихая строка из тех же кусочков, что
+  // и заголовок (тикет просит переиспользовать `finish_written_heading`), и эхо
+  // первой фразы текста.
+  const finishSubline = sessionWords > 0
+    ? [
+      tp('archive_word_count', sessionWords),
+      sessionSeconds < 60 ? t('finish_duration_under_minute') : tp('duration_minutes', Math.floor(sessionSeconds / 60)),
+      t('reading_time', { n: readingMinutes }),
+    ].join(' · ')
+    : '';
+  const firstSentence = (() => {
+    const plain = content.replace(/\s+/g, ' ').trim();
+    if (!plain) return '';
+    const match = plain.match(/[^.!?…]+[.!?…]/);
+    return (match ? match[0] : plain).slice(0, 180).trim();
+  })();
+
   // Одно действие на все кнопки: сохранить (с выбранным настроением) и, по желанию,
   // сразу уйти обсуждать заметку в чат. Второго шага с настроением больше нет.
   const finishSave = (discuss: boolean) => {
@@ -583,20 +602,37 @@ function WritingFinishModalBody({
           const isTooLarge = savedIsTooLargeRef.current;
           const currentUid = getCurrentUser()?.uid ?? getOrCreateGuestId();
           onCancel();
-          if (cloudSynced) {
+          // MC-4 (поправка ревьюера): с «Сохранить» уходят четыре тоста. Успех на
+          // телефоне заменяется тихой строкой в шапке письма, а три случая
+          // «ещё не в облаке» обязаны остаться видимыми — теми же словами, но
+          // предупреждением и дольше (3 с вместо 1,2 с).
+          const warningText = cloudSynced
+            ? null
+            : isTooLarge
+              ? t('save_too_large_cloud_warning')
+              : (currentUid.startsWith('guest_') || !cloudSyncEnabled(currentUid))
+                // D-12 / D-22: у гостя облака нет вовсе, а при выключенной
+                // автосинхронизации в облако не уходит ничего — обещать
+                // «отправится позже» нельзя.
+                ? t('save_local_device_only')
+                : t('save_local_only_queued');
+          if (isMobile) {
+            useSaveMomentStore.getState().announce({
+              words: sessionWords,
+              streakDays,
+              warningText,
+              text: content,
+            });
+            navigator.vibrate?.(12);
+            // Ревью 0.9.40: «Обсудить с ИИ» уводит на /ai, и строка экрана письма
+            // не видна — предупреждение «не в облаке» уходит обычным тостом.
+            if (discuss && warningText !== null) showToast(warningText, isTooLarge ? 'warning' : undefined);
+          } else if (warningText === null) {
             showToast(t('save_success'), 'success');
           } else if (isTooLarge) {
-            showToast(
-              t('save_too_large_cloud_warning'),
-              'warning'
-            );
-          } else if (currentUid.startsWith('guest_') || !cloudSyncEnabled(currentUid)) {
-            // D-12 / D-22: у гостя облака нет вовсе, а при выключенной
-            // автосинхронизации в облако не уходит ничего — обещать
-            // «отправится позже» нельзя.
-            showToast(t('save_local_device_only'));
+            showToast(warningText, 'warning');
           } else {
-            showToast(t('save_local_only_queued'));
+            showToast(warningText);
           }
           if (discuss && docId) void navigate(`/ai?doc=${docId}`);
         },
@@ -609,12 +645,13 @@ function WritingFinishModalBody({
       open={isOpen}
       onClose={onCancel}
       labelId="finish-modal-title"
-      variant="modal"
+      variant={isMobile ? 'sheet' : 'modal'}
+      fullHeight={isMobile}
       className={cn(
-        "bg-surface-card text-text-main shadow-[0_0_60px_rgba(0,0,0,0.8)]",
+        "bg-surface-card text-text-main",
         isMobile
-          ? "h-full flex flex-col overflow-hidden"
-          : "rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar border border-border-subtle"
+          ? "finish-sheet-full flex flex-col overflow-hidden"
+          : "shadow-[0_0_60px_rgba(0,0,0,0.8)] rounded-3xl p-8 max-h-[90vh] overflow-y-auto no-scrollbar border border-border-subtle h-auto"
       )}
     >
         <AnimatePresence mode="wait" initial={false}>
@@ -627,69 +664,96 @@ function WritingFinishModalBody({
             transition={slideTransition}
             className="flex-1 flex flex-col overflow-hidden"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle shrink-0">
+            {/* MC-3: одна строка сверху — «×» (= «Вернуться к тексту»), и всё. */}
+            <div className="flex items-start justify-end gap-2 px-3 pt-2 shrink-0">
               {showCelebration && <CelebrationBadge reduced={!!reducedMotion} />}
-              <h3 id="finish-modal-title" className="text-lg font-bold text-text-main">{heading}</h3>
+              <IconButton
+                onClick={onCancel}
+                className="h-11 w-11 rounded-full text-text-main/60"
+                label={t('close')}
+                icon={<X size={22} aria-hidden="true" />}
+              />
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 no-scrollbar">
-              {!quietStats && (
-              <FinishModalStats
-                animWords={animWords}
-                animSeconds={animSeconds}
-                animWpm={animWpm}
-                sessionSeconds={sessionSeconds}
-                totalPauseSeconds={totalPauseSeconds}
-                avgWpm={avgWpm}
-                wpmHistory={wpmHistory}
-                streakDays={streakDays}
-                sessionGroups={sessionGroups}
-                readingMinutes={readingMinutes}
-                t={t}
-                isMobile={isMobile}
-                statsExpanded={statsExpanded}
-                setStatsExpanded={setStatsExpanded}
-                totalWords={wordCount}
-                totalDuration={totalAccumulatedSeconds}
-              />
+            <div className="custom-scrollbar flex-1 overflow-y-auto px-5">
+              <h3 id="finish-modal-title" className="font-serif text-[32px] font-medium leading-[1.15] text-text-main">
+                {t('finish_written_bare')}
+              </h3>
+              {finishSubline && (
+                <p className="mt-1 text-[15px] leading-[1.4] text-text-muted">{finishSubline}</p>
               )}
-              <FinishModalTags
-                tags={tags}
-                setTags={setTags}
-                allSuggestions={allSuggestions}
-                labelId={labelId}
-                setLabelId={setLabelId}
-                labels={labels}
-                tagInputRef={tagInputRef}
-                t={t}
-                isMobile={isMobile}
-                tagsExpanded={tagsExpanded}
-                setTagsExpanded={setTagsExpanded}
-                formExpanded={formExpanded}
-                setFormExpanded={setFormExpanded}
-                titleInputValue={titleInputValue}
-                setEditTitle={setEditTitle}
-              />
-              <MoodRow
-                selectedMood={selectedMood}
-                onSelect={setSelectedMood}
-                disabled={isSaving}
-                echoText={echoText}
-                t={t}
-              />
+              {firstSentence && (
+                <p className="mt-4 line-clamp-2 font-serif text-[16px] italic leading-[1.45] text-text-muted">
+                  {firstSentence}
+                </p>
+              )}
+
+              <div className="mt-6">
+                <FinishModalTags
+                  tags={tags}
+                  setTags={setTags}
+                  allSuggestions={allSuggestions}
+                  labelId={labelId}
+                  setLabelId={setLabelId}
+                  labels={labels}
+                  tagInputRef={tagInputRef}
+                  t={t}
+                  isMobile={isMobile}
+                  layout="plain"
+                  titlePlaceholder={firstSentence.slice(0, 40)}
+                  tagsExpanded={tagsExpanded}
+                  setTagsExpanded={setTagsExpanded}
+                  formExpanded={formExpanded}
+                  setFormExpanded={setFormExpanded}
+                  titleInputValue={titleInputValue}
+                  setEditTitle={setEditTitle}
+                />
+              </div>
+
+              {/* Владелец: настроение остаётся, но тихой строкой. */}
+              <div className="mt-6 opacity-70">
+                <MoodRow
+                  selectedMood={selectedMood}
+                  onSelect={setSelectedMood}
+                  disabled={isSaving}
+                  echoText={echoText}
+                  t={t}
+                />
+              </div>
             </div>
 
-            <div className="px-4 pt-3 border-t border-border-subtle bg-surface-card shrink-0 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
-              <FinishActions
-                isSaving={isSaving}
-                canSave={wordCount > 0}
-                isMobile={isMobile}
-                onSave={() => finishSave(false)}
-                onDiscuss={() => finishSave(true)}
-                onBack={onCancel}
-                onLater={onSkipSave}
-                t={t}
-              />
+            <div className="shrink-0 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={onSkipSave}
+                  title={t('finish_save_later_hint')}
+                  className="min-h-11 px-2 text-[14px] text-text-muted"
+                >
+                  {t('finish_save_later')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  disabled={isSaving}
+                  onClick={() => void finishSave(true)}
+                  className="min-h-11 gap-1.5 px-2 text-[14px] text-brand-soft"
+                >
+                  {t('finish_discuss_ai')}
+                  <span aria-hidden="true">→</span>
+                </Button>
+              </div>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => void finishSave(false)}
+                isLoading={isSaving}
+                disabled={wordCount <= 0}
+                className="mt-2 h-[52px] w-full rounded-2xl text-[16px] font-semibold"
+              >
+                {t('common_save')}
+              </Button>
             </div>
           </motion.div>
         ) : (
@@ -719,6 +783,7 @@ function WritingFinishModalBody({
             sessionGroups={sessionGroups}
             readingMinutes={readingMinutes}
             t={t}
+            tp={tp}
             isMobile={isMobile}
             statsExpanded={statsExpanded}
             setStatsExpanded={setStatsExpanded}

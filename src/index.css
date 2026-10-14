@@ -66,6 +66,14 @@
   --line-height-normal: 1.4;
   --line-height-relaxed: 1.6;
   --line-height-loose: 1.8;
+
+  /* MC-5: типографика чтения. Объявлены один раз здесь, а используют их только
+     мобильные ветки (тикет C1, решение владельца 2): десктоп остаётся на 15 px.
+     `--ink` — тот же основной текст, но чуть плотнее фона: 87 % --text-main. */
+  --reading-size: 17px;
+  --reading-lh: 1.6;
+  --reading-gutter: 20px;
+  --ink: color-mix(in srgb, var(--text-main) 87%, var(--bg-base));
 }
 
 @layer base {
@@ -484,6 +492,30 @@ textarea {
   }
   .archive-grid-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* MP-2: мобильная сетка — две колонки. Стоит после `.archive-grid-list`, поэтому
+     берёт верх при равной специфичности; класс ставят только мобильные списки. */
+  .archive-grid-two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* MC-8: отклик на нажатие пальцем. Только на тач-устройствах (`hover: none`),
+     чтобы не менять поведение мыши; список свойств вместо `transition: all`. */
+  @media (hover: none) {
+    .press {
+      transition:
+        transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+        background-color 150ms ease,
+        color 150ms ease;
+    }
+    .press:active {
+      transform: scale(0.97);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .press,
+    .press:active {
+      transform: none;
+    }
   }
   .archive-grid-item {
     max-width: 400px;

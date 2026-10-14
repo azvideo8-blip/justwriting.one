@@ -30,6 +30,7 @@ describe('S-20: FinishModalStats word counts and session metrics', () => {
     sessionGroups: [],
     readingMinutes: 1,
     t,
+    tp: (k: string, n: number) => `${n} ${k}`,
     isMobile: false,
     statsExpanded: true,
     setStatsExpanded: vi.fn(),

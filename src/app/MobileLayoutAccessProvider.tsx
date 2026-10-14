@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { getSupabase } from '../core/supabase/client';
 import { useAuth } from '../features/auth/contexts/AuthContext';
-import { MobileLayoutAccessContext } from '../shared/hooks/useMobileLayoutAccess';
+import { MobileLayoutAccessContext, MobileLayoutAccessAnsweredContext } from '../shared/hooks/useMobileLayoutAccess';
 import { reportError } from '../shared/errors/reportError';
 
 /**
@@ -45,10 +45,15 @@ export function MobileLayoutAccessProvider({ children }: { children: ReactNode }
   }, [uid]);
 
   const allowed = uid !== null && answer !== null && answer.uid === uid && answer.allowed;
+  // MC-6: «ответа ещё нет» и «ответа нет, потому что отказано» — разные
+  // состояния. Окно первого входа держит паузу ровно до первого из них.
+  const answered = uid === null || (answer !== null && answer.uid === uid);
 
   return (
-    <MobileLayoutAccessContext.Provider value={allowed}>
-      {children}
-    </MobileLayoutAccessContext.Provider>
+    <MobileLayoutAccessAnsweredContext.Provider value={answered}>
+      <MobileLayoutAccessContext.Provider value={allowed}>
+        {children}
+      </MobileLayoutAccessContext.Provider>
+    </MobileLayoutAccessAnsweredContext.Provider>
   );
 }

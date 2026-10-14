@@ -55,6 +55,9 @@ export interface AIChatMessagesProps {
   starters: string[];
   activeDialogueId: string | null;
   activePersonaName: string;
+  /** MC-9: «Диалог с …» требует творительного падежа; у самодельных персон
+   *  его нет — там заголовок собирается через «Диалог: …». */
+  activePersonaNameInstrumental?: string | undefined;
   headerVisual: PersonaVisual;
   proactiveHint: string | null;
   setInputText: (v: string) => void;
@@ -232,6 +235,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
     starters,
     activeDialogueId,
     activePersonaName,
+    activePersonaNameInstrumental,
     headerVisual,
     proactiveHint,
     setInputText,
@@ -261,7 +265,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
       {/* z-0, не выше: шапка и поле ввода стоят на z-10, и их выпадающие
           списки обязаны ложиться поверх сообщений. Фон-свечение — тоже z-0, но
           раньше в DOM, поэтому остаётся под сообщениями. */}
-      <div className={cn("relative z-0 flex-1 overflow-y-auto px-6 py-7", isMobile && "min-h-0")}>
+      <div className={cn("relative z-0 flex-1 overflow-y-auto py-7", isMobile ? 'min-h-0 px-5' : "px-6")}>
         <div className="max-w-[1600px] mx-auto flex flex-col gap-7" aria-live="polite">
           {proactiveHint && !activeDialogueId && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-brand-soft/10 border border-brand-soft/20 text-sm text-brand-soft">
@@ -279,8 +283,14 @@ export function AIChatMessages(props: AIChatMessagesProps) {
             <div className="flex flex-col items-center justify-center gap-4 text-center py-24">
               <Monogram color={headerVisual.color} mono={headerVisual.mono} size={56} />
               <div>
-                <p className="text-base font-medium text-text-main/70">{t('ai_start_dialogue', { name: activePersonaName })}</p>
-                <p className="text-xs text-text-main/60 mt-1.5">{t('ai_select_persona')}</p>
+                <p className="text-base font-medium text-text-main/70">
+                  {activePersonaNameInstrumental
+                    ? t('ai_dialogue_with', { name: activePersonaNameInstrumental })
+                    : t('ai_dialogue_anon', { name: activePersonaName })}
+                </p>
+                {!activePersonaName && (
+                  <p className="text-xs text-text-main/60 mt-1.5">{t('ai_select_persona')}</p>
+                )}
               </div>
               <div className="flex flex-col gap-2 w-full max-w-sm">
                 {starters.map(s => (
@@ -323,6 +333,7 @@ export function AIChatMessages(props: AIChatMessagesProps) {
                 <AssistantTurn
                   key={i}
                   name={convPersonaName}
+                  isMobile={isMobile}
                   color={convVisual.color}
                   mono={convVisual.mono}
                   onCopy={() => onCopyMessage(msg.content)}
@@ -446,13 +457,13 @@ export function AIChatMessages(props: AIChatMessagesProps) {
           )}
 
           {streamingMessage !== null && (
-            <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono} content={streamingMessage}>
+            <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono} isMobile={isMobile} content={streamingMessage}>
               <MarkdownRenderer content={processCitations(streamingMessage)} onCitationClick={handleCitationClick} />
             </AssistantTurn>
           )}
 
           {isLoading && !streamingMessage && (
-            <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono}>
+            <AssistantTurn name={convPersonaName} color={convVisual.color} mono={convVisual.mono} isMobile={isMobile}>
                <ThinkingIndicator name={convPersonaName} />
             </AssistantTurn>
           )}

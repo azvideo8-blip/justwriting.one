@@ -14,6 +14,7 @@ import {
 } from '../utils/lifeLogUtils';
 import { LifeLogDocument, DailySummary, SessionGroup } from '../types/lifeLog';
 import { reportError } from '../../../shared/errors/reportError';
+import { onDomainEvent } from '../../../core/events/domainEvents';
 
 interface UseLifeLogReturn {
   sessionGroups: SessionGroup[];
@@ -113,6 +114,15 @@ export function useLifeLog(userId: string, isGuest: boolean): UseLifeLogReturn {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch from local and cloud stores on mount/user change
     void fetchSessions();
   }, [fetchSessions]);
+
+  // MC-4: `handleSave` обновляет лог жизни у СВОЕГО экземпляра хука, а шапка
+  // письма читает другой — из-за этого счётчик серии жил до перезагрузки
+  // страницы. Подписка на событие сохранения носит весть всем экземплярам.
+  useEffect(() => onDomainEvent((e) => {
+    if (e.type !== 'note.saved') return;
+    if (e.userId !== undefined && e.userId !== userId) return;
+    void fetchSessions();
+  }), [fetchSessions, userId]);
 
   const summary = useMemo(
     () => computeDailySummary(unifiedDocuments, startOfToday),

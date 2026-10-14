@@ -22,6 +22,7 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 /** null — объявлять нечего: выпуск только служебный. */
 export function formatAnnouncement(release: ChangelogRelease): string | null {
+  if (release.announce === false) return null;
   const items = release.items.filter(i => !i.ru.startsWith('Служебный выпуск'));
   if (items.length === 0) return null;
   // Не влезло в лимит Telegram — отбрасываем пункты с конца целиком: обрезка

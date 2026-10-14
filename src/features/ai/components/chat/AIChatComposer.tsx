@@ -4,6 +4,7 @@ import { Paperclip, Plus, ArrowRight, Square, X } from 'lucide-react';
 import { Button } from '../../../../shared/components/Button';
 import { IconButton } from '../../../../shared/components/IconButton';
 import { useLanguage } from '../../../../shared/i18n';
+import { useKeyboardState } from '../../../../shared/hooks/useKeyboardState';
 import { cn } from '../../../../core/utils/utils';
 
 export interface PendingAttachment {
@@ -43,7 +44,6 @@ export interface AIChatComposerProps {
   reasoningLimit?: number;
   reasoning?: boolean;
   maxInputChars: number;
-  personaName: string;
   crisisActive: boolean;
   dismissCrisis: () => void;
 }
@@ -107,11 +107,11 @@ export function AIChatComposer(props: AIChatComposerProps) {
     reasoningLimit,
     reasoning,
     maxInputChars,
-    personaName,
     crisisActive,
     dismissCrisis,
   } = props;
   const { t, language } = useLanguage();
+  const keyboard = useKeyboardState();
 
   // Заметка приложена, вопроса нет — приложение само спрашивает, что с ней
   // сделать; модель не зовём, пока человек не выбрал.
@@ -144,6 +144,11 @@ export function AIChatComposer(props: AIChatComposerProps) {
   const quotaNoticeText = isReasoningOnly
     ? t('ai_quota_reasoning_exhausted')
     : t('ai_quota_exhausted');
+
+  // MP-4: на телефоне полоса лимита под композером теснится между капсулой и
+  // вкладками, а её числа переехали в лист «⋯» шапки. Остаться здесь может
+  // только предупреждение: ≤ 3 сообщений, выбитый лимит или «данные недоступны».
+  const showQuotaLine = !isMobile || quotaUnknown || dailyLimitRemaining <= 3 || reasoningRem <= 3;
 
   useEffect(() => {
     const el = inputRef.current;
@@ -179,7 +184,14 @@ export function AIChatComposer(props: AIChatComposerProps) {
         className={isMobile
           ? 'relative z-10 shrink-0 px-3 pt-2 pb-2 border-t border-border-subtle'
           : 'relative z-10 px-6 py-4 border-t border-border-subtle'}
-        style={isMobile ? { paddingBottom: `calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + ${keyboardHeight}px)` } : undefined}
+        style={isMobile ? {
+          // MC-2: с клавиатурой нижняя панель убрана, поэтому её высота в отступ
+          // больше не входит — капсула встаёт на 8 px над клавиатурой (или над
+          // краем экрана, когда клавиатура сжала вьюпорт, а не легла поверх).
+          paddingBottom: keyboard.up
+            ? `${Math.max(8, keyboard.overlay + 8)}px`
+            : `calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + ${keyboardHeight}px)`,
+        } : undefined}
       >
         <div>
           {pendingAttachments.length === 0 && inputText.trim().length > 1500 && (
@@ -277,7 +289,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }}
-              placeholder={outOfQuota ? quotaNoticeText : t('ai_write_placeholder', { name: personaName })}
+              placeholder={outOfQuota ? quotaNoticeText : t('ai_write_placeholder')}
               disabled={isLoading || outOfQuota}
               rows={1}
               className="flex-1 min-w-0 bg-transparent py-1.5 text-base text-text-main placeholder:text-text-main/40 outline-none disabled:opacity-40 resize-none overflow-y-auto max-h-40"
@@ -312,6 +324,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
           </div>
 
           <div className={cn("flex items-center gap-3.5 mt-2.5 flex-wrap", isMobile && "mt-1 text-[11px]")}>
+            {showQuotaLine && (
             <span className="flex items-center gap-1.5 text-[10px] font-mono text-text-main/60 flex-wrap">
               {quotaUnknown ? (
                 <span>{t('ai_quota_unavailable')}</span>
@@ -336,6 +349,7 @@ export function AIChatComposer(props: AIChatComposerProps) {
                 </>
               )}
             </span>
+            )}
             <div className="flex-1" />
             <span className={cn(
               "text-[10px] font-mono",

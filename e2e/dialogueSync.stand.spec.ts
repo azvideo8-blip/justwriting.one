@@ -121,7 +121,7 @@ async function dismissFirstLoginDialogs(page: Page, syncOn: boolean): Promise<vo
     for (const dialog of await page.getByRole('dialog').all()) {
       if (!(await dialog.isVisible().catch(() => false))) continue;
       open = true;
-      for (const name of [/Я сохранил/, /Обязательно: Я прочитал/]) {
+      for (const name of [/Код сохранён|Я сохранил/, /Обязательно: Я прочитал/]) {
         const box = dialog.getByRole('checkbox', { name });
         if (await box.isVisible().catch(() => false) && !(await box.isChecked().catch(() => true))) await box.check({ timeout: 2_000 }).catch(() => {});
       }

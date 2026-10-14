@@ -64,6 +64,20 @@ export const authScreensTranslations: Translations = {
     ru: 'Подробнее: ',
     en: 'Learn more: ',
   },
+  // MC-6: три полноэкранных шага первого входа на телефоне. Пустили — то же
+  // согласие и те же записи, что окна, только крупнее и по одному за раз.
+  first_run_step: { ru: 'Шаг {current} из {total}', en: 'Step {current} of {total}' },
+  first_run_policy_title: { ru: 'Что происходит с вашим текстом', en: 'What happens to your text' },
+  first_run_policy_link: { ru: 'Читать политику полностью', en: 'Read the full policy' },
+  first_run_policy_link_close: { ru: 'Свернуть политику', en: 'Hide the full policy' },
+  first_run_next: { ru: 'Дальше', en: 'Next' },
+  first_run_cloud_title: { ru: 'Облако', en: 'Cloud' },
+  first_run_sync_switch: { ru: 'Синхронизация с облаком', en: 'Sync with the cloud' },
+  first_run_restore_switch_one: { ru: 'Загрузить {count} заметку из облака', en: 'Download {count} note from the cloud' },
+  first_run_restore_switch_few: { ru: 'Загрузить {count} заметки из облака', en: 'Download {count} notes from the cloud' },
+  first_run_restore_switch_many: { ru: 'Загрузить {count} заметок из облака', en: 'Download {count} notes from the cloud' },
+  first_run_finish: { ru: 'Начать писать', en: 'Start writing' },
+  first_run_skip: { ru: 'Пропустить', en: 'Skip' },
   privacy_consent_privacy_policy: {
     ru: 'Политика конфиденциальности',
     en: 'Privacy Policy',

@@ -24,12 +24,19 @@ async function saveNote(page: Page, text: string, title: string): Promise<void> 
   const titleInput = finish.getByLabel(/Название/).first();
   if (await titleInput.isVisible().catch(() => false)) await titleInput.fill(title);
   await finish.getByRole('button', { name: /^Сохранить$/ }).click();
-  await page.waitForTimeout(1_500);
+  // Барьер сохранения вместо фиксированной паузы (CI 0.9.39): окно завершения
+  // закрывается в onSuccess, то есть когда запись легла.
+  await expect(page.locator('[aria-labelledby="finish-modal-title"]'), 'окно завершения не закрылось — сохранение не дошло')
+    .toBeHidden({ timeout: 20_000 });
 }
 
-/** Предпросмотр заметки — панель .glass-panel, не role=dialog. */
-function previewPanel(page: Page): Locator {
-  return page.locator('.glass-panel');
+/**
+ * Предпросмотр заметки на телефоне. MP-1 заменил шит `.glass-panel` полноэкранной
+ * читалкой, у которой `role=dialog` и `aria-label` = заголовок заметки, поэтому
+ * панель ищется по роли, а не по классу.
+ */
+function previewPanel(page: Page, title: string): Locator {
+  return page.getByRole('dialog', { name: title }).first();
 }
 
 test.describe('MB-11: один тап, корзина и B4', () => {
@@ -43,7 +50,7 @@ test.describe('MB-11: один тап, корзина и B4', () => {
     await expect(title, 'заметка не появилась в архиве').toBeVisible({ timeout: 20_000 });
 
     await title.click();
-    const preview = previewPanel(page);
+    const preview = previewPanel(page, 'Запись про тап');
     await expect(preview, 'одиночный тап по заголовку не открыл заметку').toBeVisible({ timeout: 10_000 });
     const openedText = await preview.innerText().catch(() => '');
     console.warn('[mb11] после тапа открыто:', openedText.replace(/\s+/g, ' ').slice(0, 140));

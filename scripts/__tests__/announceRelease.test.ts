@@ -21,6 +21,15 @@ describe('formatAnnouncement', () => {
       .toBe('<b>Версия 1 обновлена</b>\n\n<b>Новое</b>\n• Видно людям');
   });
 
+  // Тихий выпуск (announce: false) не объявляется, даже если пункт виден людям.
+  // Мутация: убрать проверку announce в formatAnnouncement → красный.
+  it('skips a release marked announce: false', () => {
+    expect(formatAnnouncement({
+      version: '0.9.40', date: '', announce: false,
+      items: [{ category: 'fix', ru: 'Исправлены мелкие недоработки', en: 'Minor fixes' }],
+    })).toBeNull();
+  });
+
   it('fits the Telegram limit by dropping whole items, never cutting HTML', () => {
     const item = { category: 'fix' as const, ru: '<&>'.repeat(300), en: '' };
     const text = formatAnnouncement({ version: '1', date: '', items: [item, item, item, item] })!;

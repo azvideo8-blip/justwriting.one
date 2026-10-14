@@ -113,7 +113,6 @@ describe('T-1 (c) AI panel components English localization (no Cyrillic characte
           dailyLimitRemaining={10}
           dailyLimitTotal={30}
           maxInputChars={4000}
-          personaName="Helper"
           crisisActive={true}
           dismissCrisis={() => {}}
         />

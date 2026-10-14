@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n';
 import { useToast } from './Toast';
 import { Button } from './Button';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { copyRecoveryCode, downloadRecoveryCode } from './recoveryCodeActions';
 
 interface RecoveryCodeDisplayModalProps {
   recoveryCode: string;
@@ -30,30 +31,19 @@ export function RecoveryCodeDisplayModal({
   useFocusTrap(modalRef, true);
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(recoveryCode);
+    if (await copyRecoveryCode(recoveryCode)) {
       setCopied(true);
       showToast(t('enc_recovery_code_copied'), 'success');
       setTimeout(() => setCopied(false), 3000);
-    } catch {
+    } else {
       showToast(t('error_generic'), 'error');
     }
   };
 
   const handleDownload = () => {
-    try {
-      const fileContent = `${t('enc_recovery_file_header')}\n\n${recoveryCode}\n\n${t('enc_recovery_file_footer')}`;
-      const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'justwriting-recovery-code.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    if (downloadRecoveryCode(recoveryCode, t)) {
       showToast(t('enc_recovery_file_downloaded'), 'success');
-    } catch {
+    } else {
       showToast(t('error_generic'), 'error');
     }
   };

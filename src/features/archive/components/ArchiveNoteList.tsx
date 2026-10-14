@@ -17,6 +17,8 @@ import { useToast } from '../../../shared/components/Toast';
 import { Button } from '../../../shared/components/Button';
 import { reportError } from '../../../shared/errors/reportError';
 import { getCurrentUser } from '../../../core/auth';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { formatDayHeader } from '../utils/dayHeaders';
 import { aiErrorToText } from '../../../shared/ai/aiErrorUtils';
 
 const GridItem = memo<ComponentPropsWithoutRef<'div'>>(
@@ -57,6 +59,10 @@ interface ArchiveNoteListProps {
 }
 
 const gridListClassName = 'grid gap-4 mt-3 archive-grid-list';
+// MP-2: на телефоне три колонки оставляют карточке ~110 px — текст не читается.
+// Класс общей сетки сохранён (на него смотрят спеки MR-8), колонки считает
+// модификатор, который ставится только мобильной ветке.
+const gridListClassNameMobile = 'grid gap-3 mt-3 archive-grid-list archive-grid-two-col';
 const gridItemClassName = '';
 const gridComponents = { Item: GridItem };
 
@@ -77,6 +83,16 @@ export function ArchiveNoteList({
   const navigate = useNavigate();
   const reducedMotion = useReducedMotion();
   const { tp } = useLanguage();
+  const { layoutMode } = useLayoutMode();
+  const isMobileView = layoutMode === 'mobile';
+  const gridListClass = isMobileView ? gridListClassNameMobile : gridListClassName;
+  // MC-7: на телефоне заголовок дня — одно слово-дата, без счётчиков и без
+  // линейки между ними: прокрутка списка читается как текст, а не как отчёт.
+  const dayHeader = (dateKey: string) => (
+    <div data-testid="archive-day-header" className="flex items-center py-3">
+      <span className="text-[13px] font-semibold text-[var(--text-muted)]">{formatDayHeader(dateKey, t, dateLocale)}</span>
+    </div>
+  );
   const { showToast } = useToast();
   const { confirm: confirmDialog } = useConfirmDialog();
   const [aiProcessedMap, setAiProcessedMap] = useState<Record<string, boolean>>({});
@@ -240,7 +256,7 @@ export function ArchiveNoteList({
           computeItemKey={(_, s) => s.id}
           className="custom-scrollbar h-full"
           components={gridComponents}
-          listClassName={gridListClassName}
+          listClassName={gridListClass}
           itemClassName={gridItemClassName}
           itemContent={(index, session) => (
             <GridNoteCard
@@ -309,6 +325,7 @@ export function ArchiveNoteList({
           if (sessions.length === 0) return null;
           return (
             <div key={dateKey} className="mb-2">
+              {isMobileView ? dayHeader(dateKey) : (
               <div className="flex items-center gap-3 py-4 pr-1">
                 <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest whitespace-nowrap">
                   {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
@@ -327,7 +344,9 @@ export function ArchiveNoteList({
                   )}
                 </span>
               </div>
-              <div className="grid gap-4 archive-grid-list">
+              )}
+              {/* Десктоп — как до MP: без отступа под заголовком дня (ревью 0.9.40). */}
+              <div className={isMobileView ? gridListClass : 'grid gap-4 archive-grid-list'}>
                 {sessions.map(session => (
                   <div key={session.id} className="archive-grid-item">
                     <GridNoteCard
@@ -370,6 +389,7 @@ export function ArchiveNoteList({
         if (sessions.length === 0) return null;
         return (
           <div key={dateKey}>
+            {isMobileView ? dayHeader(dateKey) : (
             <div className="flex items-center gap-3 py-5 pr-1">
               <span className="font-mono text-label-sm text-text-main/60 uppercase tracking-widest whitespace-nowrap">
                 {format(new Date(dateKey), 'd MMM', { locale: dateLocale })}
@@ -388,6 +408,7 @@ export function ArchiveNoteList({
                 )}
               </span>
             </div>
+            )}
             {sessions.map(session => (
               <NoteRow
                 key={session.id}

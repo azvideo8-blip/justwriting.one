@@ -15,8 +15,8 @@ export function usePersonaManager() {
     setCustomPersonas(list);
   }, []);
 
-  const allPersonas: { id: string; name: string; emoji: string; isPreset: boolean; systemPrompt?: string }[] = [
-    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true })),
+  const allPersonas: { id: string; name: string; emoji: string; isPreset: boolean; systemPrompt?: string; nameInstrumental?: string }[] = [
+    ...PRESET_PERSONAS.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: true, nameInstrumental: p.nameInstrumental })),
     ...customPersonas.map(p => ({ id: p.id, name: p.name, emoji: p.emoji, isPreset: false, systemPrompt: p.systemPrompt })),
   ];
 

@@ -31,7 +31,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Имена целей онбординга — с русскими и английскими вариантами: обход EN и
 // тёмной темы (§1.4) снимает те же окна в английской локали, а галочка согласия
 // ищется по доступному имени.
-const BOX_NAMES = [/Я сохранил|saved the recovery/i, /прочитал|I have read/i];
+const BOX_NAMES = [/Код сохранён|сохранил|recovery code saved|saved the (recovery )?code/i, /прочитал|I have read/i];
 const SYNC_ON = /Включить синхронизацию|^Turn sync on$/i;
 const SYNC_OFF = /Оставить выключенной|^Leave it off$/i;
 // Узкий набор для обработчика: он живёт весь прогон, и широкие слова вроде
@@ -192,6 +192,44 @@ export async function autoHandlers(page: Page, password: string, opts: { autoUnl
   }, { times: 10 });
 }
 
+/**
+ * MC-6: на телефоне первый вход — не стоп окон, а три полноэкранных шага.
+ * Окно онбординга для specs больше не `role=dialog`, поэтому у харнесса
+ * появляется отдельная ветка: пройти шаги, пока экран жив. Делает ровно то же,
+ * что делал с окнами: ставит обязательные галочки, при `forgetDevice` снимает
+ * переключатель «Это моё устройство», при `syncOn === false` выключает облако.
+ */
+async function walkFirstRunStepper(page: Page, syncOn: boolean, forgetDevice: boolean, seen: string[]): Promise<boolean> {
+  const stepper = page.locator('[data-testid="first-run-stepper"]');
+  if (!(await stepper.isVisible().catch(() => false))) return false;
+
+  const title = await stepper.getByRole('heading').first().innerText().catch(() => '');
+  if (title && !seen.includes(title)) seen.push(title);
+
+  let acted = false;
+  for (const name of [/Обязательно|прочитал|required|I have read/i, /Код сохранён|сохранил|Recovery code saved|saved the code/i]) {
+    if (await tickBox(stepper, name)) acted = true;
+  }
+  if (forgetDevice) {
+    const device = stepper.getByRole('switch', { name: /мо[ёе] устройство|This is my device/i }).first();
+    if (await device.count().catch(() => 0) && (await device.getAttribute('aria-checked')) === 'true') {
+      acted = (await tap(device)) || acted;
+    }
+  }
+  if (!syncOn) {
+    const sync = stepper.getByRole('switch', { name: /Синхронизация с облаком|Sync with the cloud/i }).first();
+    if (await sync.count().catch(() => 0) && (await sync.getAttribute('aria-checked')) === 'true') {
+      acted = (await tap(sync)) || acted;
+    }
+  }
+
+  const next = stepper.getByRole('button', { name: /^(Продолжить|Дальше|Начать писать|Continue|Next|Start writing)$/ }).first();
+  if (await next.isVisible().catch(() => false) && await next.isEnabled().catch(() => false)) {
+    acted = (await tap(next)) || acted;
+  }
+  return acted;
+}
+
 export async function dismissFirstLoginDialogs(page: Page, syncOn = true, budgetMs = 40_000, forgetDevice = false): Promise<string[]> {
   const seen: string[] = [];
   const deadline = Date.now() + budgetMs;
@@ -199,6 +237,8 @@ export async function dismissFirstLoginDialogs(page: Page, syncOn = true, budget
   while (Date.now() < deadline) {
     let acted = false;
     let open = false;
+    // MC-6: сначала степпер — на мобильном макете окон первого входа нет вовсе.
+    if (await walkFirstRunStepper(page, syncOn, forgetDevice, seen)) acted = true;
     for (const dialog of await page.getByRole('dialog').all()) {
       if (!(await dialog.isVisible().catch(() => false))) continue;
       open = true;
@@ -213,10 +253,10 @@ export async function dismissFirstLoginDialogs(page: Page, syncOn = true, budget
         // что событие ушло.
         if (await tickBox(dialog, name)) acted = true;
       }
-      // «Это мой компьютер» по умолчанию стоит: сейф запоминается на устройстве,
+      // «Это моё устройство» по умолчанию стоит: сейф запоминается на устройстве,
       // и после перезагрузки он разблокирован. Для спеки про запертый сейф его
-      // надо снять — это тот же путь, что «снимите галочку, если устройство чужое».
-      if (forgetDevice && (await untickBox(dialog, /Это мой компьютер/))) acted = true;
+      // надо снять — это тот же путь, что «не спрашивать здесь пароль шифрования».
+      if (forgetDevice && (await untickBox(dialog, /мо[ёе] устройство|Это мой компьютер|my device/i))) acted = true;
       const sync = dialog.getByRole('button', { name: syncOn ? SYNC_ON : SYNC_OFF });
       const go = dialog.getByRole('button', { name: DIALOG_GO });
       if (await sync.isVisible().catch(() => false)) acted = (await tap(sync)) || acted;
@@ -247,16 +287,17 @@ export async function unlockVaultIfAsked(page: Page, password: string, wait = 6_
 }
 
 /**
- * Тишина окон первого запуска: на WebKit модалка «Выбери режим» и вопрос о
- * синхронизации приезжают и через 10 секунд после входа. Если спек начнёт
- * действовать до тишины, его первый клик упрётся в открытое окно, а
- * автообработчик будет зацикливаться на кнопке «Готово» этого окна.
+ * Тишина первого запуска: на WebKit модалка «Выбери режим» и вопрос о
+ * синхронизации приезжают и через 10 секунд после входа, а на телефоне тем же
+ * временем стоит полноэкранный степпер (MC-6). Если спек начнёт действовать до
+ * тишины, его первый клик упрётся в открытое окно, а автообработчик будет
+ * зацикливаться на кнопке «Готово» этого окна.
  */
 export async function waitForQuietDialogs(page: Page, budgetMs = 25_000): Promise<boolean> {
   const deadline = Date.now() + budgetMs;
   let quiet = 0;
   while (Date.now() < deadline) {
-    const visible = await page.locator('[role="dialog"]')
+    const visible = await page.locator('[role="dialog"], [data-testid="first-run-stepper"]')
       .evaluateAll(els => els.filter(e => {
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0;
@@ -293,6 +334,37 @@ export async function login(page: Page, u: Account): Promise<void> {
   await dismissFirstLoginDialogs(page, true);
   if (!(await waitForQuietDialogs(page))) console.warn('[login] окно не закрылось за 25 с:', page.url());
   await unlockVaultIfAsked(page, u.password);
+  await waitForMobileSettled(page, u.password);
+}
+
+/**
+ * MC-6: очередь первого входа на телефоне держится, пока идут шаги степпера, и
+ * после них приложение ещё догружается: право на мобильный макет приходит RPC,
+ * ключ сейфа читается из IndexedDB, и в этом окне на экране мелькает и
+ * десктопная рейка, и баннер «Сейф заперт — Открыть сейф». Спек, который
+ * считает цели над полем сразу после входа, ловил именно этот переходный кадр.
+ * therefore вход считается законченным, только когда мобильная оболочка
+ * простояла без баннера и без окна разблокировки два цикла подряд.
+ */
+export async function waitForMobileSettled(page: Page, password: string, budgetMs = 25_000): Promise<boolean> {
+  const deadline = Date.now() + budgetMs;
+  const nav = page.locator('[data-testid="mobile-bottom-nav"]');
+  const banner = page.getByRole('button', { name: /^Открыть сейф$/ });
+  let quiet = 0;
+  while (Date.now() < deadline) {
+    const unlocked = await unlockVaultIfAsked(page, password, 1_000);
+    const opened = await openVaultFromBanner(page, password, 1_500);
+    if (unlocked || opened) { quiet = 0; continue; }
+    const bannerVisible = await banner.first().isVisible().catch(() => false);
+    const navVisible = await nav.first().isVisible().catch(() => false);
+    if (!bannerVisible && navVisible) {
+      if (++quiet >= 2) return true;
+    } else {
+      quiet = 0;
+    }
+    await page.waitForTimeout(250);
+  }
+  return false;
 }
 
 /** Лист «Выбери режим» после «Начать»: берём «Свободный поток». */
@@ -444,7 +516,7 @@ export async function signInMobileLockedVault(page: Page, tag: string): Promise<
   await page.locator('input[type="password"]').press('Enter');
   await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 90_000 });
   await dismissFirstLoginDialogs(page, true, 40_000, true);
-  // Запертый сейф = ключ устройства не сохранён. Галочка «Это мой компьютер»
+  // Запертый сейф = ключ устройства не сохранён. Галочка «Это моё устройство»
   // снимается в окне кода, но кэш ключей (`jw-keycache`, IndexedDB) чистим явно:
   // иначе прогон зависит от того, успел ли он сохраниться до этого шага.
   await page.evaluate(async (uid: string) => {

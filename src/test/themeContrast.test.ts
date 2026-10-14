@@ -103,3 +103,29 @@ describe('DC-A1: cascade layering and day-group count markup', () => {
     }
   });
 });
+
+/**
+ * MC-5 §5: `--ink` (87 % --text-main на фоне темы) — цвет читаемого текста на
+ * телефоне. Это обычный текст 17 px, порога «крупный» тут нет: он обязан держать
+ * 7:1 во всех темах переключателя.
+ */
+function mixHex(fg: string, bg: string, pct: number): string {
+  const chan = (h: string, i: number) => parseInt(h.replace('#', '').slice(i, i + 2), 16);
+  return '#' + [0, 2, 4].map(i => Math.round(chan(fg, i) * pct + chan(bg, i) * (1 - pct)))
+    .map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+describe('--ink держит 7:1 в каждой теме (MC-5)', () => {
+  it('объявлен как color-mix 87 % основного текста', () => {
+    expect(css).toMatch(/--ink:\s*color-mix\(in srgb, var\(--text-main\) 87%, var\(--bg-base\)\)/);
+  });
+
+  for (const [, name, block] of themes) {
+    const bg = varIn(block!, 'bg-base');
+    const fg = varIn(block!, 'text-main');
+    if (!bg || !fg) continue;
+    it(`${name}: --ink на --bg-base ≥ 7:1`, () => {
+      expect(ratio(mixHex(fg, bg, 0.87), bg)).toBeGreaterThanOrEqual(7);
+    });
+  }
+});

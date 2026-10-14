@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../shared/utils/cn';
+import { useLayoutMode } from '../hooks/useLayoutMode';
 
 interface ToastAction {
   label: string;
@@ -43,14 +44,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const { layoutMode } = useLayoutMode();
   // EA-12: стабильное значение контекста — иначе каждый тост перерисовывал всех потребителей.
   const toastValue = useMemo(() => ({ showToast }), [showToast]);
 
   return (
     <ToastContext.Provider value={toastValue}>
       {children}
-      <div 
-        className="fixed bottom-24 right-4 z-[var(--z-skip)] flex flex-col gap-2 pointer-events-none"
+      <div
+        className={cn(
+          'fixed z-[var(--z-skip)] flex flex-col gap-2 pointer-events-none',
+          // MC-4 §5: на телефоне тост не ложится на панель инструментов —
+          // отступ равен высоте панели вкладок (+ безопасная зона) плюс 12 px,
+          // и сам он на всю ширину с полями 16 px.
+          layoutMode === 'mobile'
+            ? 'left-4 right-4 bottom-[calc(env(safe-area-inset-bottom,0px)+var(--bottom-nav-height,56px)+12px)]'
+            : 'bottom-24 right-4',
+        )}
         aria-live="polite"
         aria-atomic="false"
         role="status"

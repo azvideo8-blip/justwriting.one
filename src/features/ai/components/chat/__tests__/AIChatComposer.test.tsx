@@ -27,7 +27,6 @@ const defaultProps: AIChatComposerProps = {
   reasoningLimit: 5,
   reasoning: false,
   maxInputChars: 1000,
-  personaName: 'Writer',
   crisisActive: false,
   dismissCrisis: vi.fn(),
 };

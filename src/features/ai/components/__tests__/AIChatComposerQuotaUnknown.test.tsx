@@ -32,7 +32,6 @@ function props(over: Partial<AIChatComposerProps> = {}): AIChatComposerProps {
     dailyLimitRemaining: 12,
     dailyLimitTotal: 30,
     maxInputChars: 8000,
-    personaName: 'Марк',
     crisisActive: false,
     dismissCrisis: () => {},
     ...over,

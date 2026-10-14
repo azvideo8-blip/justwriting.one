@@ -1,0 +1,415 @@
+// MP-1: читалка заметки на телефоне — полноэкранный режим для чтения. шапка из
+// одной строки («‹ Заметки» · «ⓘ» · «⋯»), в теле только заголовок и текст.
+// Дата, слова, время чтения, метка, теги и разбор живут в «ⓘ», правка и
+// удаление — в «⋯» (тот же лист, что у строки заметки).
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { format } from 'date-fns';
+import { Info, MoreHorizontal } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArchiveSession } from '../types';
+import { Label } from '../../../types';
+import { useLanguage } from '../../../shared/i18n';
+import { useToast } from '../../../shared/components/Toast';
+import { Button } from '../../../shared/components/Button';
+import { IconButton } from '../../../shared/components/IconButton';
+import { ModalShell } from '../../../shared/components/ModalShell';
+import { InlineTags } from './InlineTags';
+import { CopyNoteModal } from './CopyNoteModal';
+import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
+import { usePanelHistory } from '../../../shared/hooks/usePanelHistory';
+import { readingTimeMinutes } from '../../../shared/utils/readingTime';
+import { isBlankTitle } from '../../../shared/utils/titleUtils';
+import { getDateLocale, toDate } from '../../../core/utils/dateUtils';
+import { getCurrentUser } from '../../../core/auth';
+import { toggleAIExclusion } from '../services/archiveCrud';
+import { reportError } from '../../../shared/errors/reportError';
+import type { AIDocumentSummary } from '../../../core/storage/localDb';
+import type { RelatedNote } from '../../../shared/types/common';
+import { LABEL_PRESET_COLORS } from '../../../core/constants/labelColors';
+
+interface MobileNoteReaderProps {
+  session: ArchiveSession;
+  onClose: () => void;
+  onContinue: (session: ArchiveSession) => void;
+  onTagsChange?: ((session: ArchiveSession, tags: string[]) => void) | undefined;
+  onLabelChange?: ((session: ArchiveSession, labelId: string | undefined) => void) | undefined;
+  labels?: Label[] | undefined;
+  allTags?: string[] | undefined;
+  onDelete?: ((session: ArchiveSession) => void) | undefined;
+  onStorageChange?: (() => void) | undefined;
+  summary?: AIDocumentSummary | null | undefined;
+  analyzing?: boolean | undefined;
+  justFinished?: boolean | undefined;
+  analyzeError?: string | null | undefined;
+  onAnalyze?: (() => void) | undefined;
+  /** Ревью 0.9.40: новая метка с телефона — тот же `addLabel`, что на десктопе. */
+  onAddLabel?: ((label: { name: string; color: string }) => void) | undefined;
+  /** Ревью 0.9.40: «Изменить название» переименовывает, а не открывает редактор. */
+  onTitleChange?: ((session: ArchiveSession, title: string) => void) | undefined;
+  /** Ревью 0.9.40: «Связанные записи» — в конце текста, как в десктопной панели. */
+  relatedNotes?: RelatedNote[] | undefined;
+  onSelectRelated?: ((documentId: string) => void) | undefined;
+}
+
+export function MobileNoteReader({
+  session, onClose, onContinue, onTagsChange, onLabelChange, labels, allTags,
+  onDelete, onStorageChange, summary, analyzing, justFinished, analyzeError, onAnalyze,
+  onAddLabel, onTitleChange, relatedNotes, onSelectRelated,
+}: MobileNoteReaderProps) {
+  const { t, tp, language } = useLanguage();
+  // MP-1/Safari: читалка — не окно, поэтому прокрутку страницы за собой не
+  // закрывала. На WebKit из-за этого появлялся классический скроллбар, и
+  // полноэкранный слой оказывался на 5 px меньше вьюпорта (проверено снимком).
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+  const { showToast } = useToast();
+  const user = getCurrentUser();
+  // Лист действий меряется на того, кто открыл заметку: гостю облачные пути не
+  // показываются, а заметки гостя лежат под `session.userId`.
+  const actorId = user?.uid ?? session.userId;
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [exclusionLoading, setExclusionLoading] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [creatingLabel, setCreatingLabel] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState<string>(LABEL_PRESET_COLORS[0]!);
+  const createLabel = () => {
+    const name = newLabelName.trim();
+    if (!name || !onAddLabel) return;
+    onAddLabel({ name, color: newLabelColor });
+    setNewLabelName('');
+    setNewLabelColor(LABEL_PRESET_COLORS[0]!);
+    setCreatingLabel(false);
+  };
+  const saveTitle = () => {
+    const title = titleDraft.trim();
+    if (title && onTitleChange && title !== session.title) onTitleChange(session, title);
+    setRenameOpen(false);
+  };
+  // MB-9: «назад» и свайп закрывают читалку, а не уводят из приложения.
+  usePanelHistory(true, onClose, true);
+
+  const date = toDate(session.createdAt) ?? new Date();
+  const currentLabel = labels?.find(l => l.id === session.labelId);
+  const readable = !session._locked && !session._decryptionError && !session._contentNotLoaded;
+  const title = session._locked
+    ? t('archive_note_locked')
+    : session._decryptionError
+      ? t('archive_decryption_error')
+      : (!isBlankTitle(session.title) ? session.title : undefined) || t('session_untitled');
+
+  const handleExclusionClick = () => {
+    const nextExcluded = !session.excludedFromAI;
+    setExclusionLoading(true);
+    void toggleAIExclusion(session, nextExcluded, user, actorId)
+      .then(() => {
+        onStorageChange?.();
+        showToast(nextExcluded ? t('ai_note_excluded') : t('ai_note_include'), 'success');
+      })
+      .catch(e => {
+        reportError(e, { action: 'reader_toggle_ai_exclusion', documentId: session.id });
+        showToast(t('error_generic_action'), 'error');
+      })
+      .finally(() => setExclusionLoading(false));
+  };
+
+  // MB-4: портал в body. Внутри `main` `fixed` считается от предка с
+  // transform/backdrop-filter, и « полноэкранный» лист упирался в край контента
+  // (в e2e MP-1 это видно как левый край x=32 вместо 0).
+  return createPortal(
+    <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      initial={{ opacity: 0, transform: 'translateY(100%)' }}
+      animate={{ opacity: 1, transform: 'translateY(0px)' }}
+      exit={{ opacity: 0, transform: 'translateY(100%)' }}
+      transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+      // not-a-modal: fullscreen mobile screen — читалка не окно, а экран
+      // (тот же путь, что `MobileWriteScreen`, `MobileFocusScreen`,
+      // `MobileSessionSetupSheet`); листы «ⓘ» и «⋯» внутри неё идут через
+      // `ModalShell`.
+      className="fixed inset-0 z-[var(--z-panel)] flex flex-col bg-[var(--bg-base)] text-text-main"
+      data-testid="note-reader"
+    >
+      <header className="flex shrink-0 items-center justify-between gap-2 px-2 pt-[env(safe-area-inset-top,0px)]">
+        <Button
+          onClick={onClose}
+          className="min-h-11 rounded-xl px-3 text-[15px] text-text-main/70 hover:text-text-main"
+        >
+          ‹ {t('nav_notes_short')}
+        </Button>
+        <div className="flex items-center gap-1">
+          <IconButton
+            onClick={() => setInfoOpen(true)}
+            className="h-11 w-11 rounded-xl"
+            label={t('reader_info')}
+            icon={<Info size={20} aria-hidden="true" />}
+          />
+          <IconButton
+            onClick={() => setActionsOpen(true)}
+            className="h-11 w-11 rounded-xl"
+            label={t('archive_note_actions')}
+            icon={<MoreHorizontal size={20} aria-hidden="true" />}
+          />
+        </div>
+      </header>
+
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-[var(--reading-gutter)] pb-8 pt-2">
+        <h1 className="font-serif text-[26px] leading-[1.2] text-text-main">{title}</h1>
+        {session._locked ? (
+          <div className="mt-6 rounded-2xl border border-accent-warning/20 bg-accent-warning/5 p-5 text-center">
+            <p className="text-[15px] text-text-main/80">{t('archive_locked_preview_desc')}</p>
+            <Button
+              onClick={() => {
+                onClose();
+                window.dispatchEvent(new CustomEvent('open-vault-unlock'));
+              }}
+              className="mt-3 rounded-xl bg-brand-soft/20 px-4 py-2 text-[15px] text-brand-soft"
+            >
+              {t('archive_unlock')}
+            </Button>
+          </div>
+        ) : session._decryptionError ? (
+          <p className="mt-4 text-[17px] text-accent-danger">{t('archive_decryption_error')}</p>
+        ) : session._contentNotLoaded ? (
+          <p className="mt-4 text-[17px] text-text-main/60">{t('common_loading')}</p>
+        ) : (
+          <p data-testid="reader-body" className="mt-3 whitespace-pre-wrap text-[length:var(--reading-size)] leading-[var(--reading-lh)] text-pretty text-[var(--ink)]">
+            {session.content || <span className="italic text-text-main/60">{t('archive_no_content')}</span>}
+          </p>
+        )}
+        {readable && (relatedNotes?.length ?? 0) > 0 && onSelectRelated && (
+          <section data-testid="reader-related" className="mt-10 border-t border-border-subtle/60 pt-5">
+            <h2 className="text-[13px] font-semibold text-[var(--text-muted)]">{t('archive_related_notes')}</h2>
+            <ul className="mt-2">
+              {relatedNotes!.map(note => (
+                <li key={note.documentId}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectRelated(note.documentId)}
+                    className="flex min-h-12 w-full items-center justify-between gap-3 py-2 text-left"
+                  >
+                    <span className="truncate text-[15px] text-text-main/85">{note.title}</span>
+                    <span className="shrink-0 text-[13px] text-text-subtle">{note.date}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {infoOpen && (
+          <ModalShell open={infoOpen} onClose={() => setInfoOpen(false)} labelId="note-reader-info-title" variant="sheet">
+            <div className="custom-scrollbar max-h-[80dvh] overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+              <div className="flex items-center justify-between py-3">
+                <h3 id="note-reader-info-title" className="text-[17px] font-semibold text-text-main">
+                  {t('reader_info')}
+                </h3>
+                <IconButton
+                  onClick={() => setInfoOpen(false)}
+                  className="h-11 w-11 rounded-xl"
+                  label={t('close')}
+                  icon={<span aria-hidden="true">✕</span>}
+                />
+              </div>
+
+              <div className="text-[13px] text-[var(--text-subtle)]">
+                {format(date, 'd MMMM yyyy, HH:mm', { locale: getDateLocale(language) })}
+                {' · '}
+                {tp('archive_word_count', session.wordCount || 0)}
+                {' · '}
+                {t('reading_time', { n: readingTimeMinutes(session.wordCount || 0) })}
+                {' · '}
+                {Math.round((session.duration || 0) / 60)} {t('goal_time_min')}
+              </div>
+
+              {((labels?.length ?? 0) > 0 || onAddLabel) && onLabelChange && (
+                <div className="mt-5">
+                  <div className="text-[13px] uppercase tracking-wider text-text-subtle">
+                    {t('archive_assign_label')}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {currentLabel && (
+                      <Button
+                        onClick={() => onLabelChange(session, undefined)}
+                        className="min-h-11 rounded-xl border border-border-subtle px-3 text-[15px] text-text-main/60"
+                      >
+                        {t('archive_no_label')}
+                      </Button>
+                    )}
+                    {labels?.map(l => (
+                      <Button
+                        key={l.id}
+                        onClick={() => onLabelChange(session, session.labelId === l.id ? undefined : l.id)}
+                        aria-pressed={session.labelId === l.id}
+                        className="min-h-11 gap-2 rounded-xl border px-3 text-[15px]"
+                        style={{
+                          borderColor: session.labelId === l.id ? l.color : 'var(--border-light)',
+                          background: session.labelId === l.id ? `color-mix(in srgb, ${l.color} 14%, transparent)` : 'transparent',
+                        }}
+                      >
+                        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: l.color }} />
+                        {l.name}
+                      </Button>
+                    ))}
+                    {onAddLabel && !creatingLabel && (
+                      <Button
+                        onClick={() => setCreatingLabel(true)}
+                        className="min-h-11 rounded-xl border border-dashed border-border-subtle px-3 text-[15px] text-text-main/60"
+                      >
+                        + {t('archive_add_label')}
+                      </Button>
+                    )}
+                  </div>
+                  {onAddLabel && creatingLabel && (
+                    <div className="mt-3 flex flex-col gap-3">
+                      <input
+                        value={newLabelName}
+                        onChange={e => setNewLabelName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') createLabel(); }}
+                        placeholder={t('archive_label_name_placeholder')}
+                        aria-label={t('archive_label_name_placeholder')}
+                        className="min-h-11 rounded-xl border border-border-subtle bg-transparent px-3 text-[15px] text-text-main outline-none"
+                      />
+                      <div className="flex items-center gap-1">
+                        {LABEL_PRESET_COLORS.map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setNewLabelColor(c)}
+                            aria-label={c}
+                            aria-pressed={newLabelColor === c}
+                            className="flex h-11 w-11 items-center justify-center"
+                          >
+                            <span
+                              className="h-6 w-6 rounded-full"
+                              style={{ background: c, boxShadow: newLabelColor === c ? '0 0 0 2px var(--bg-base), 0 0 0 4px var(--text-main)' : undefined }}
+                            />
+                          </button>
+                        ))}
+                        <div className="flex-1" />
+                        <Button onClick={() => setCreatingLabel(false)} className="min-h-11 px-3 text-[15px] text-text-main/60">
+                          {t('common_cancel')}
+                        </Button>
+                        <Button
+                          onClick={createLabel}
+                          disabled={!newLabelName.trim()}
+                          className="min-h-11 rounded-xl px-3 text-[15px] font-medium text-text-main disabled:opacity-40"
+                        >
+                          {t('common_save')}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-5">
+                <div className="text-[13px] uppercase tracking-wider text-text-subtle">
+                  {t('finish_tags')}
+                </div>
+                <InlineTags
+                  tags={session.tags || []}
+                  onChange={tags => onTagsChange?.(session, tags)}
+                  allTags={allTags}
+                />
+              </div>
+
+              <div className="mt-5">
+                <div className="text-[13px] uppercase tracking-wider text-text-subtle">
+                  {t('archive_preview_ai_title')}
+                </div>
+                {summary ? (
+                  <div className="mt-2 space-y-2">
+                    {summary.summary && (
+                      <p className="text-[15px] italic leading-[1.5] text-text-main/80">{summary.summary}</p>
+                    )}
+                    <Button
+                      onClick={() => onAnalyze?.()}
+                      disabled={analyzing}
+                      className="min-h-11 rounded-xl bg-brand-soft/10 px-3 text-[15px] text-brand-soft"
+                    >
+                      {t('reader_update_analysis')}
+                    </Button>
+                  </div>
+                ) : session.excludedFromAI ? (
+                  <p className="mt-2 text-[15px] italic text-text-main/50">{t('archive_preview_ai_excluded')}</p>
+                ) : analyzing ? (
+                  <p className="mt-2 text-[15px] italic text-text-main/50">{t('archive_preview_analyzing')}</p>
+                ) : justFinished ? (
+                  <p className="mt-2 text-[15px] text-brand-soft">{t('archive_preview_refresh_hint')}</p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <Button
+                      onClick={() => onAnalyze?.()}
+                      className="min-h-11 rounded-xl bg-brand-soft/10 px-3 text-[15px] text-brand-soft"
+                    >
+                      {t('archive_preview_analyze_btn')}
+                    </Button>
+                    {analyzeError && <p className="text-[14px] text-accent-danger">{analyzeError}</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </ModalShell>
+        )}
+      </AnimatePresence>
+
+      {actionsOpen && (
+        <MobileNoteActionsSheet
+          isOpen={actionsOpen}
+          onClose={() => setActionsOpen(false)}
+          session={session}
+          userId={actorId}
+          labels={labels}
+          fromReader
+          onOpen={() => onContinue(session)}
+          onRename={() => {
+            if (onTitleChange) { setTitleDraft(isBlankTitle(session.title) ? '' : (session.title ?? '')); setRenameOpen(true); }
+            else onContinue(session);
+          }}
+          onCopy={() => setCopyOpen(true)}
+          onDelete={() => onDelete?.(session)}
+          onLabelChange={labelId => onLabelChange?.(session, labelId)}
+          onStorageChange={() => onStorageChange?.()}
+          aiExclusionLoading={exclusionLoading}
+          onAIExclusionClick={readable ? handleExclusionClick : undefined}
+        />
+      )}
+
+      {copyOpen && (
+        <CopyNoteModal open={copyOpen} onClose={() => setCopyOpen(false)} session={session} />
+      )}
+
+      {renameOpen && (
+        <ModalShell open={renameOpen} onClose={() => setRenameOpen(false)} labelId="note-reader-rename-title" variant="sheet">
+          <div className="p-5 pb-[calc(env(safe-area-inset-bottom,0px)+20px)]">
+            <h2 id="note-reader-rename-title" className="text-[17px] font-semibold text-text-main">{t('archive_rename_title')}</h2>
+            <input
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveTitle(); }}
+              aria-label={t('archive_rename_title')}
+              className="mt-4 min-h-12 w-full rounded-xl border border-border-subtle bg-transparent px-3 text-[17px] text-text-main outline-none"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button onClick={() => setRenameOpen(false)} className="min-h-11 px-4 text-[15px] text-text-main/60">{t('common_cancel')}</Button>
+              <Button onClick={saveTitle} disabled={!titleDraft.trim()} className="min-h-11 rounded-xl px-4 text-[15px] font-medium text-text-main disabled:opacity-40">{t('common_save')}</Button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
+    </motion.div>,
+    document.body,
+  );
+}

@@ -4,6 +4,8 @@ import { ArchiveSession } from '../types';
 import { ArchiveStats } from './ArchiveStats';
 import { Calendar } from './Calendar';
 import { useLanguage } from '../../../shared/i18n';
+import { getDateLocale } from '../../../core/utils/dateUtils';
+import { formatDayHeader } from '../utils/dayHeaders';
 import { Button } from '../../../shared/components/Button';
 import { IconButton } from '../../../shared/components/IconButton';
 import { ModalShell } from '../../../shared/components/ModalShell';
@@ -43,7 +45,11 @@ export function MobileArchiveSidebarSheet({
   maxCount,
   onWordClick,
 }: MobileArchiveSidebarSheetProps) {
-  const { t } = useLanguage();
+  const { t, tp, language } = useLanguage();
+  const locale = getDateLocale(language);
+  // MC-7: счётчики ушли из заголовков списка сюда — в прокрутке заметки
+  // читаются как текст, а цифры живут там, где их и спрашивают.
+  const dayKeys = Object.keys(sessionsByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).slice(0, 10);
 
   const handleSelectWord = (word: string) => {
     onWordClick(word);
@@ -122,6 +128,28 @@ export function MobileArchiveSidebarSheet({
               />
             </div>
           </div>
+
+          {dayKeys.length > 0 && (
+            <>
+              <div className="h-px bg-white/[0.06]" />
+
+              <div className="space-y-3">
+                <span className="font-mono text-label text-text-main/60 uppercase tracking-widest block">
+                  {t('archive_days_counts_title')}
+                </span>
+                <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] divide-y divide-white/[0.04]">
+                  {dayKeys.map(key => (
+                    <div key={key} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[13px]">
+                      <span className="min-w-0 truncate text-text-main">{formatDayHeader(key, t, locale)}</span>
+                      <span className="shrink-0 text-text-main/60">
+                        {tp('archive_note_count', sessionsByDate[key] ?? 0)} · {tp('archive_word_count', wordsByDate?.[key] ?? 0)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           {wordCloud.length > 0 && (
             <>

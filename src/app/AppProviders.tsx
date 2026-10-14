@@ -11,12 +11,21 @@ import { ProfileProvider } from '../features/auth/contexts/ProfileContext';
 import { MobileLayoutAccessProvider } from './MobileLayoutAccessProvider';
 import { AnalyticsProvider } from '../features/auth/contexts/AnalyticsContext';
 import { HelmetProvider } from 'react-helmet-async';
-import { ReactNode, lazy, Suspense, useEffect, useMemo, useRef } from 'react';
+import { ReactNode, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePrivacyCheck } from '../features/auth/components/usePrivacyCheck';
+import { useLayoutMode } from '../shared/hooks/useLayoutMode';
+import { useMobileLayoutAccessAnswered } from '../shared/hooks/useMobileLayoutAccess';
+import { decideFirstRunShell, FIRST_RUN_ACCESS_WAIT_MS } from './firstRunShell';
 // Окно политики нужно редко — грузится лениво, проверка выше остаётся в стартовом куске.
 const PrivacyModal = lazy(() => import('../features/auth/components/PrivacyModal').then(m => ({ default: m.PrivacyModal })));
-import { SyncConsentModal, useSyncConsentCheck } from '../features/settings/components/SyncConsentModal';
+// MC-6: степпер первого входа — только телефон, и тоже лениво: на десктопе он
+// не монтируется вовсе, и его кусок не платит за стартовый бандл.
+const FirstRunFlow = lazy(() => import('../features/auth/components/FirstRunStepper').then(m => ({ default: m.FirstRunFlow })));
+import { useSyncConsentCheck } from '../features/settings/components/useSyncConsentCheck';
+// MC-6: окно вопроса об облаке грузится лениво — на телефоне его заменяет
+// степпер, и таскать его разметку в index-кусок больше незачем.
+const SyncConsentModal = lazy(() => import('../features/settings/components/SyncConsentModal').then(m => ({ default: m.SyncConsentModal })));
 import { useAuthStatus } from '../features/auth/hooks/useAuthStatus';
 import { getOrCreateGuestId } from '../core/storage/localDb';
 
@@ -54,7 +63,27 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
   const isResetPassword = location.pathname.startsWith('/reset-password');
   const { showPrivacy, setShowPrivacy } = usePrivacyCheck(isResetPassword);
   const { showConsent, setShowConsent } = useSyncConsentCheck(isResetPassword);
+  const { layoutMode, mobilePreferred } = useLayoutMode();
+  const accessAnswered = useMobileLayoutAccessAnswered();
+  const [accessTimedOut, setAccessTimedOut] = useState(false);
+  const [stepperOpen, setStepperOpen] = useState(false);
   useBackgroundSync();
+
+  // MC-6: право на мобильный макет приходит RPC уже после входа. Пока ответа
+  // нет, окно первого входа молчит — иначе телефон успел бы показать десктопный
+  // стек и тут же его сменить. Ждём не больше FIRST_RUN_ACCESS_WAIT_MS.
+  useEffect(() => {
+    if (accessAnswered) return;
+    const id = setTimeout(() => setAccessTimedOut(true), FIRST_RUN_ACCESS_WAIT_MS);
+    return () => clearTimeout(id);
+  }, [accessAnswered]);
+
+  const firstRunShell = decideFirstRunShell({
+    mobileLayout: layoutMode === 'mobile',
+    mobilePreferred,
+    accessAnswered,
+    timedOut: accessTimedOut,
+  });
 
   useEffect(() => {
     return initAiDomainEvents();
@@ -74,17 +103,39 @@ function PrivacyGuard({ children }: { children: ReactNode }) {
     );
   }, [user]);
 
-  const earlierQuestionOpen = isAuthenticated && !isResetPassword && (showPrivacy || showConsent);
+  // Очередь за `PrivacyGuard` (код восстановления, загрузка из облака) обязана
+  // молчать, пока открыт степпер или пока мы ещё не знаем, чем отвечать на
+  // вопросы входа.
+  const firstRunOpen = firstRunShell === 'hold'
+    ? true
+    : firstRunShell === 'stepper'
+      ? stepperOpen
+      : (showPrivacy || showConsent);
+  const earlierQuestionOpen = isAuthenticated && !isResetPassword && firstRunOpen;
   return (
     <EarlierQuestionOpenContext.Provider value={earlierQuestionOpen}>
       {children}
-      {isAuthenticated && !isResetPassword && showPrivacy && (
+      {isAuthenticated && !isResetPassword && firstRunShell === 'stepper' && user && (
+        <Suspense fallback={null}>
+          <FirstRunFlow
+            uid={user.uid}
+            showPrivacy={showPrivacy}
+            showConsent={showConsent}
+            onPrivacyDone={() => setShowPrivacy(false)}
+            onConsentDone={() => setShowConsent(false)}
+            onOpenChange={setStepperOpen}
+          />
+        </Suspense>
+      )}
+      {isAuthenticated && !isResetPassword && firstRunShell === 'dialogs' && showPrivacy && (
         <Suspense fallback={null}>
           <PrivacyModal onAccepted={() => setShowPrivacy(false)} />
         </Suspense>
       )}
-      {isAuthenticated && !isResetPassword && !showPrivacy && showConsent && user && (
-        <SyncConsentModal userId={user.uid} onClose={() => setShowConsent(false)} />
+      {isAuthenticated && !isResetPassword && firstRunShell === 'dialogs' && !showPrivacy && showConsent && user && (
+        <Suspense fallback={null}>
+          <SyncConsentModal userId={user.uid} onClose={() => setShowConsent(false)} />
+        </Suspense>
       )}
     </EarlierQuestionOpenContext.Provider>
   );

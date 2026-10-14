@@ -21,6 +21,11 @@ interface FinishModalTagsProps {
   setFormExpanded: (v: boolean) => void;
   titleInputValue: string;
   setEditTitle: (v: string) => void;
+  /** MC-3: на телефоне «Записано.» — три обычные строки без карточек и без
+   *  раскрытия; `card` — прежний вид. */
+  layout?: 'card' | 'plain';
+  /** MC-3 T5: подсказка в поле названия — первые слова самого текста. */
+  titlePlaceholder?: string;
 }
 
 export function FinishModalTags({
@@ -39,6 +44,8 @@ export function FinishModalTags({
   setFormExpanded,
   titleInputValue,
   setEditTitle,
+  layout = 'card',
+  titlePlaceholder,
 }: FinishModalTagsProps) {
   const toggleTag = (tag: string) => {
     if (tags.includes(tag)) {
@@ -47,6 +54,108 @@ export function FinishModalTags({
       setTags([...tags, tag]);
     }
   };
+  const titleHint = titlePlaceholder || t('editor_title_placeholder');
+
+  const addTagInput = (className: string) => (
+    <Input
+      ref={tagInputRef}
+      type="text"
+      aria-label={t('finish_add_tag')}
+      placeholder={t('finish_add_tag')}
+      className={className}
+      onBlur={(e) => {
+        const val = e.currentTarget.value.trim();
+        if (val && !tags.includes(val)) {
+          setTags([...tags, val]);
+          e.currentTarget.value = '';
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          const val = e.currentTarget.value.trim();
+          if (val && !tags.includes(val)) {
+            setTags([...tags, val]);
+            e.currentTarget.value = '';
+          }
+          e.preventDefault();
+        }
+      }}
+    />
+  );
+
+  // MC-3: те же контролы, что и в карточках, но тремя строками: название, метка,
+  // теги. Никаких раскрывающихся шапок — в листе они только множат контролы.
+  if (isMobile && layout === 'plain') {
+    return (
+      <div className="space-y-5">
+        <div className="space-y-1.5">
+          <div className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">{t('finish_title_label')}</div>
+          <Input
+            type="text"
+            aria-label={t('finish_title_label')}
+            value={titleInputValue}
+            onChange={e => setEditTitle(e.target.value)}
+            placeholder={titleHint}
+            maxLength={200}
+            className="min-h-11 rounded-xl border border-border-subtle bg-transparent px-3 text-[16px] text-text-main outline-none placeholder:text-text-subtle focus:border-text-main/40"
+          />
+        </div>
+
+        {labels.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">{t('finish_labels')}</div>
+            <div className="flex flex-wrap gap-2">
+              {labels.map(label => (
+                <Button
+                  type="button"
+                  key={label.id}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLabelId(labelId === label.id ? undefined : label.id)}
+                  aria-pressed={labelId === label.id}
+                  className={cn(
+                    'min-h-11 gap-2 rounded-full border px-3 text-[14px] font-medium',
+                    labelId === label.id ? 'border-text-main/40 text-text-main' : 'border-border-subtle text-text-main/60',
+                  )}
+                  style={{ backgroundColor: labelId === label.id ? `${label.color}22` : undefined }}
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
+                  {label.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <div className="text-[13px] font-semibold uppercase tracking-wider text-text-subtle">{t('finish_tags')}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Лист держит бюджет контролов (MC-3 ≤ 14): подсказок не больше
+                трёх, остальное человек допишет сам в поле ниже. */}
+            {allSuggestions.slice(0, 3).map(tag => (
+              <Button
+                type="button"
+                key={tag}
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleTag(tag)}
+                aria-pressed={tags.includes(tag)}
+                className={cn(
+                  'min-h-11 rounded-full border px-3 text-[14px] font-medium',
+                  tags.includes(tag)
+                    ? 'border-text-main/40 bg-text-main/10 text-text-main'
+                    : 'border-border-subtle text-text-main/60',
+                )}
+              >
+                #{tag}
+              </Button>
+            ))}
+          </div>
+          {addTagInput('min-h-11 rounded-xl border border-border-subtle bg-transparent px-3 text-[15px] text-text-main outline-none placeholder:text-text-subtle focus:border-text-main/40')}
+        </div>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (

@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Cloud } from "lucide-react";
 import { Button } from "../../../shared/components/Button";
 import { ModalShell } from "../../../shared/components/ModalShell";
 import { useLanguage } from "../../../shared/i18n";
 import { useLayoutMode } from "../../../shared/hooks/useLayoutMode";
 import { cn } from "../../../core/utils/utils";
-import { useAuthStatus } from "../../../features/auth/hooks/useAuthStatus";
-import { STORAGE_KEYS } from "../../../shared/constants/storageKeys";
 import { SyncService } from "../../../core/services/SyncService";
 import { setCloudSyncEnabled } from "../../../core/sync/cloudSyncEnabled";
 
@@ -74,61 +72,4 @@ export function SyncConsentModal({ onClose, userId }: SyncConsentModalProps) {
         </div>
     </ModalShell>
   );
-}
-
-/** suspended: пока открыт мастер приглашения, вопрос задаёт он сам. Проверка
- * перезапускается, когда мастер закрылся, и читает уже записанный им ответ —
- * иначе окно всплывало по решению, принятому до мастера. */
-export function useSyncConsentCheck(suspended = false) {
-  const { user, isAuthenticated, isGuest, authState } = useAuthStatus();
-  const [showConsent, setShowConsent] = useState(false);
-
-  useEffect(() => {
-    // Only ask when explicitly authenticated and auth is fully ready
-    if (suspended || authState !== 'authenticated' || !isAuthenticated || isGuest || !user) {
-      // Defer to avoid synchronous setState in effect body
-      const t = setTimeout(() => setShowConsent(false), 0);
-      return () => clearTimeout(t);
-    }
-
-    let cancelled = false;
-    const checkLocalDocs = async () => {
-      // LS-2: Adopt legacy unscoped keys for the first signed-in account that reads them
-      const scopedEnabled = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid));
-      const scopedAsked = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid));
-      if (scopedEnabled === null && scopedAsked === null) {
-        const legacyEnabled = localStorage.getItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED);
-        const legacyAsked = localStorage.getItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ASKED);
-        if (legacyEnabled !== null || legacyAsked !== null) {
-          if (legacyEnabled !== null) {
-            localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid), legacyEnabled);
-            localStorage.removeItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ENABLED);
-          }
-          if (legacyAsked !== null) {
-            localStorage.setItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid), legacyAsked);
-            localStorage.removeItem(STORAGE_KEYS.LEGACY_AUTO_SYNC_ASKED);
-          }
-        }
-      }
-
-      // If auto_sync_enabled key is already set or auto_sync_asked is already set, don't ask
-      if (
-        localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ENABLED(user.uid)) !== null ||
-        localStorage.getItem(STORAGE_KEYS.AUTO_SYNC_ASKED(user.uid)) !== null
-      ) {
-        if (!cancelled) setShowConsent(false);
-        return;
-      }
-
-      // D-22: Показывать каждому аккаунту при первом входе, даже если заметок ещё нет.
-      if (!cancelled) {
-        setShowConsent(true);
-      }
-    };
-
-    void checkLocalDocs();
-    return () => { cancelled = true; };
-  }, [user, isAuthenticated, isGuest, authState, suspended]);
-
-  return { showConsent, setShowConsent };
 }

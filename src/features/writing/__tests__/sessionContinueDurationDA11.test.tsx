@@ -107,6 +107,7 @@ describe('DA-11: Window completion: time and wpm when continuing old note', () =
         sessionGroups={[]}
         readingMinutes={4}
         t={t}
+        tp={(k: string, n: number) => `${n} ${k}`}
         isMobile={false}
         statsExpanded={true}
         setStatsExpanded={vi.fn()}

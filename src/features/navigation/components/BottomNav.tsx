@@ -7,6 +7,9 @@ import { Sparkles } from 'lucide-react';
 import { Button } from '../../../shared/components/Button';
 import { useSyncStatus } from '../../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../../shared/activity/useActivityLogStore';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { useKeyboardState } from '../../../shared/hooks/useKeyboardState';
+import { useReducedMotion } from 'motion/react';
 
 const PenIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
@@ -63,6 +66,15 @@ export function BottomNav() {
   const hasActivityAlert = newestLevel === 'error' || newestLevel === 'warning';
   const showAlertDot = showSyncIndicator || hasActivityAlert;
 
+  // MC-2: на письме и в чате поднятая клавиатура забирает нижнюю панель — она
+  // встанет над клавиатурой и съест строки текста. На остальных экранах панель
+  // остаётся (поле поиска в «Заметках» — отложено по решению владельца).
+  const { layoutMode } = useLayoutMode();
+  const keyboard = useKeyboardState();
+  const reducedMotion = useReducedMotion();
+  const hidesForKeyboard = layoutMode === 'mobile' && keyboard.up
+    && (location.pathname === '/' || location.pathname === '/ai');
+
   const tabs = [
     { id: 'write' as const, path: '/',        label: t('nav_write'),          icon: <PenIcon /> },
     { id: 'archive' as const, path: '/archive', label: t('nav_notes_short'),  icon: <ArchiveIcon /> },
@@ -95,8 +107,18 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe"
+      data-testid="mobile-bottom-nav"
+      className={cn(
+        'fixed bottom-0 left-0 right-0 z-[var(--z-sidebar)] bg-surface-card/85 backdrop-blur-xl border-t border-white/[0.06] flex justify-around pt-2 pb-safe',
+        hidesForKeyboard && 'translate-y-full',
+      )}
+      style={{
+        transitionProperty: 'transform',
+        transitionDuration: reducedMotion ? '0s' : '180ms',
+        transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+      }}
       aria-label={t('nav_aria_label')}
+      aria-hidden={hidesForKeyboard ? true : undefined}
     >
       {tabs.map(tab => {
         const active = isActive(tab);

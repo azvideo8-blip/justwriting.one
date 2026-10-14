@@ -1,10 +1,11 @@
-import { Cloud, ExternalLink, EyeOff, HardDrive, Pencil, Sparkles, Tag, Trash2, type LucideIcon } from 'lucide-react';
+import { Cloud, Copy, ExternalLink, EyeOff, HardDrive, Pencil, Sparkles, Tag, Trash2, type LucideIcon } from 'lucide-react';
 import { Label } from '../../../types';
 import { MenuEntry } from '../../../shared/components/Menu';
 import { AIExclusion, NoteStorageActions, StorageDoc } from './useNoteStorageActions';
 
 export type NoteActionId =
   | 'open'
+  | 'copy'
   | 'rename'
   | 'addTag'
   | 'download'
@@ -61,7 +62,11 @@ export interface NoteActionsInput {
   currentLabelId?: string | undefined;
   onLabelChange?: ((labelId: string | undefined) => void) | undefined;
   onOpen: () => void;
+  /** Подпись пункта «open» — в читалке (MP-1) тот же путь ведёт в редактор. */
+  openLabel?: string | undefined;
   onRename: () => void;
+  /** «Скопировать как» — только там, где есть окно копии (читалка MP-1). */
+  onCopy?: (() => void) | undefined;
   /** Пункт «Добавить тег» — только там, где есть инлайн-поле ввода (десктоп, DC-A4). */
   onAddTag?: (() => void) | undefined;
   ai?: NoteAIState | undefined;
@@ -75,7 +80,7 @@ const isGuest = (userId: string) => !userId || userId.startsWith('guest_');
  *  и лист действий на телефоне. Разойтись по составу, порядку, подписям и
  *  обработчикам они уже не могут. */
 export function buildNoteActions(input: NoteActionsInput): NoteMenuSection[] {
-  const { t, doc, userId, storage, labels, currentLabelId, onLabelChange, onOpen, onRename, onAddTag, ai, exclusion, onDelete } = input;
+  const { t, doc, userId, storage, labels, currentLabelId, onLabelChange, onOpen, openLabel, onRename, onCopy, onAddTag, ai, exclusion, onDelete } = input;
 
   const sections: NoteMenuSection[] = [];
   const action = (
@@ -97,8 +102,11 @@ export function buildNoteActions(input: NoteActionsInput): NoteMenuSection[] {
     });
   };
 
-  action('open', 'main', t('archive_preview'), ExternalLink, onOpen);
+  action('open', 'main', openLabel ?? t('archive_preview'), ExternalLink, onOpen);
   action('rename', 'main', t('archive_rename_title'), Pencil, onRename);
+  if (onCopy) {
+    action('copy', 'main', t('archive_copy_modal_title'), Copy, onCopy);
+  }
 
   if (onLabelChange && ((labels !== undefined && labels.length > 0) || currentLabelId)) {
     const options: NoteLabelOption[] = [];

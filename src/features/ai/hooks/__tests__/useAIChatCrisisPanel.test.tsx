@@ -39,7 +39,6 @@ function ChatHarness({ text }: { text: string }) {
         dailyLimitRemaining={10}
         dailyLimitTotal={30}
         maxInputChars={1000}
-        personaName="Editor"
         crisisActive={chat.crisisActive}
         dismissCrisis={chat.dismissCrisis}
       />

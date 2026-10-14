@@ -136,6 +136,12 @@ export function AIPage() {
           onCreatePersona={() => setCreatePersonaOpen(true)}
           onOpenDialogues={() => setDialoguesOpen(true)}
           onNewDialogue={() => { setDialoguesOpen(false); void handleNewDialogue(); }}
+          quota={{
+            chatRemaining: dailyLimit.remaining,
+            chatTotal: dailyLimit.limit,
+            reasoningRemaining: dailyLimit.reasoningRemaining ?? 5,
+            reasoningTotal: dailyLimit.reasoningLimit ?? 5,
+          }}
         />
 
         <AIChatMessages
@@ -164,6 +170,7 @@ export function AIPage() {
           starters={starters}
           activeDialogueId={activeDialogueId}
           activePersonaName={activePersona?.name ?? ''}
+          activePersonaNameInstrumental={activePersona?.nameInstrumental}
           headerVisual={headerVisual}
           proactiveHint={proactiveHint}
           setInputText={setInputText}
@@ -202,7 +209,6 @@ export function AIPage() {
           reasoningLimit={dailyLimit.reasoningLimit}
           reasoning={reasoning}
           maxInputChars={MAX_INPUT_CHARS}
-          personaName={activePersona?.name ?? ''}
           crisisActive={crisisActive}
           dismissCrisis={dismissCrisis}
         />

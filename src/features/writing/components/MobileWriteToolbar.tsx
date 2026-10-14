@@ -14,6 +14,8 @@ import { AIToggleButton } from './AIToggleButton';
 import { Mic, MicOff, Sparkles } from 'lucide-react';
 import { useDictation } from '../hooks/useDictation';
 import { dictationMicLabel } from '../hooks/dictationMicLabel';
+import { MODE_LABEL } from '../utils/sessionModeLabels';
+import type { SessionType } from '../store/types';
 
 function DottedProgress({ pct, color }: { pct: number; color: string }) {
   const n = 16;
@@ -64,16 +66,21 @@ interface MobileWriteToolbarProps {
   onPause: () => void;
   onStop: () => void;
   onGoalClick?: (() => void) | undefined;
+  /** MC-1: тап по токену режима — то же окно настройки сессии, что в шапке. */
+  onOpenSetup?: (() => void) | undefined;
   streamMode?: boolean | undefined;
   onToggleStreamMode?: (() => void) | undefined;
   onNew?: (() => void) | undefined;
   isRunning?: boolean | undefined;
+  /** MC-1: режим показывает экран письма (у него `session.sessionType`);
+   *  без пропа панель берёт тот же `sessionType` из стора. */
+  sessionType?: SessionType | undefined;
   /** MB-2: дзен на телефоне прячет статистику, но не кнопки. */
   hideStats?: boolean | undefined;
 }
 
 export function MobileWriteToolbar({
-  onPlay, onPause, onStop, onGoalClick, streamMode, onToggleStreamMode, onNew, hideStats
+  onPlay, onPause, onStop, onGoalClick, onOpenSetup, streamMode, onToggleStreamMode, onNew, hideStats, sessionType: sessionTypeProp
 }: MobileWriteToolbarProps) {
   const { t } = useLanguage();
   const { effectiveHeaderVisibility, aiPanelOpen, setAiPanelOpen } = useWritingSettings();
@@ -86,7 +93,7 @@ export function MobileWriteToolbar({
   );
 
   const { isListening, toggle, hasSupport, isVaultActive, aiNoticeRemaining } = useDictation();
-  const { seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, status } = useTimerStore(
+  const { seconds, wordGoal, timerDuration, sessionStartWords, sessionStartSeconds, status, sessionType } = useTimerStore(
     useShallow(s => ({
       seconds: s.seconds,
       wordGoal: s.wordGoal,
@@ -94,14 +101,20 @@ export function MobileWriteToolbar({
       sessionStartWords: s.sessionStartWords,
       sessionStartSeconds: s.sessionStartSeconds,
       status: s.status,
+      sessionType: s.sessionType,
     }))
   );
 
   const sessionWords = wordCount - sessionStartWords;
   const sessionSeconds = Math.max(0, seconds - sessionStartSeconds);
-  const timeRemaining = timerDuration > 0
-    ? Math.max(0, timerDuration - sessionSeconds)
-    : sessionSeconds;
+  // MP-5: панель письма показывает то же, что токен режима (0.9.39 назвал реальный
+  // `sessionType`). Цель по словам живёт только в режиме слов, обратный отсчёт —
+  // только в таймере и «закончить к»; в свободном потоке и секундомере время идёт
+  // вперёд. Раньше и то, и другое включалось от самих чисел в настройках.
+  const sessionModeType = sessionTypeProp ?? sessionType;
+  const showWordGoal = sessionModeType === 'words' && wordGoal > 0;
+  const showCountdown = (sessionModeType === 'timer' || sessionModeType === 'finish-by') && timerDuration > 0;
+  const cellTime = showCountdown ? Math.max(0, timerDuration - sessionSeconds) : sessionSeconds;
 
   const [showExitConfirm, setShowExitConfirm] = React.useState(false);
   const isRunning = status === 'writing';
@@ -150,7 +163,21 @@ export function MobileWriteToolbar({
         </div>
       )}
       <div className="flex-1 flex gap-0 empty:hidden min-w-0 overflow-hidden">
-        {!hideStats && effectiveHeaderVisibility.sessionWords && (
+        {!hideStats && (
+          /* MC-1: токен режима переехал сюда из второй строки экрана письма. До
+             первой буквы на телефоне остаётся одна строка сверху и панель. */
+          <button
+            type="button"
+            onClick={() => onOpenSetup?.()}
+            aria-label={t('writing_mode_token')}
+            className="flex min-h-11 shrink-0 items-center gap-1.5 max-w-[52%] clickable-target-expansion rounded-full border border-[var(--border-light)] bg-[var(--surface-card)] px-3 text-[12px] font-medium text-[var(--text-muted)]"
+          >
+            <span className="truncate">{t(MODE_LABEL[sessionModeType])}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+        )}
+
+        {!hideStats && !isIdle && effectiveHeaderVisibility.sessionWords && (
           <div
             onClick={onGoalClick}
             className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-11 overflow-hidden")}
@@ -161,25 +188,25 @@ export function MobileWriteToolbar({
           >
             <span className="text-[17px] font-medium text-[var(--text-main)] leading-none">
               {sessionWords}
-              {wordGoal > 0 && (
+              {showWordGoal && (
                 <span className="text-[11px] text-[var(--text-muted)] ml-0.5">
                   /{wordGoal}
                 </span>
               )}
             </span>
-            {wordGoal > 0 && (
+            {showWordGoal && (
               <DottedProgress
                 pct={sessionWords / wordGoal}
                 color={getWpmHex(wpm)}
               />
             )}
-            <span className={cn("text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em]", wordGoal > 0 ? "mt-px" : "mt-[3px]", "max-[399px]:hidden")}>
+            <span className={cn("text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em]", showWordGoal ? "mt-px" : "mt-[3px]", "max-[399px]:hidden")}>
               {t('header_sessionWords')}
             </span>
           </div>
         )}
 
-        {!hideStats && effectiveHeaderVisibility.sessionTime && (
+        {!hideStats && !isIdle && effectiveHeaderVisibility.sessionTime && (
           <div
             onClick={onGoalClick}
             className={cn("flex-1 min-h-[44px] justify-center flex flex-col gap-px cursor-pointer [-webkit-tap-highlight-color:transparent]", "min-w-11 overflow-hidden", "max-[379px]:hidden")}
@@ -189,17 +216,17 @@ export function MobileWriteToolbar({
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onGoalClick?.(); } }}
           >
             <span className="text-[17px] font-medium text-[var(--text-main)] leading-none font-mono tabular-nums">
-              {timerDuration > 0 ? formatTime(timeRemaining) : formatTime(sessionSeconds)}
+              {formatTime(cellTime)}
             </span>
             <span className="text-[9px] text-[var(--text-subtle)] uppercase tracking-[0.06em] mt-0.5 max-[399px]:hidden">
-              {timerDuration > 0
+              {showCountdown
                 ? `${t('goal_time_of')} ${Math.round(timerDuration / 60)}${t('goal_time_min')}`
                 : t('header_time')}
             </span>
           </div>
         )}
 
-        {!hideStats && effectiveHeaderVisibility.wpm && (
+        {!hideStats && !isIdle && effectiveHeaderVisibility.wpm && (
           <div className={cn("flex-1 flex flex-col gap-px", "min-w-0 overflow-hidden", "max-[429px]:hidden")}>
             <div className="flex items-center gap-1.25 leading-none">
               <div
@@ -221,11 +248,15 @@ export function MobileWriteToolbar({
       {!hideStats && <div className={cn("w-px h-9 bg-[var(--border-light)] mx-3", "max-[359px]:mx-1")} />}
 
       <div className="flex gap-1.5 shrink-0" >
-        <AIToggleButton
-          active={aiPanelOpen}
-          onClick={() => setAiPanelOpen(!aiPanelOpen)}
-          className="w-11 h-11 rounded-xl shrink-0"
-        />
+        {/* MC-1: переключатель ИИ живёт только во время сессии — в idle он был
+            четвёртой целью в панели до первой буквы. */}
+        {!isIdle && (
+          <AIToggleButton
+            active={aiPanelOpen}
+            onClick={() => setAiPanelOpen(!aiPanelOpen)}
+            className="w-11 h-11 rounded-xl shrink-0"
+          />
+        )}
 
         {hasSupport && (
           <div className="relative">
@@ -258,41 +289,49 @@ export function MobileWriteToolbar({
           </div>
         )}
 
-        <IconButton
-          onClick={isRunning ? onPause : onPlay}
-          label={isRunning ? t('pause') : t('play')}
-          className={cn(
-            "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border shrink-0",
-            isRunning ? "border-[var(--border-light)] bg-[var(--surface-card)] text-[var(--text-main)] opacity-70" : "border-[var(--flow-pulse-color,var(--brand-primary)/0.4)] bg-[var(--flow-pulse-color,var(--brand-primary)/0.12)] text-[var(--flow-pulse-color,var(--brand-primary))] opacity-100"
-          )}
-          icon={isRunning ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="7" y="5" width="4" height="14" rx="1"/>
-              <rect x="13" y="5" width="4" height="14" rx="1"/>
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-          )}
-        />
+        {/* MC-1: в idle кнопки запуска нет — сессию начинает первая буква (MR-6).
+            Переключатель паузы остаётся только для начатой сессии. */}
+        {!isIdle && (
+          <IconButton
+            onClick={isRunning ? onPause : onPlay}
+            label={isRunning ? t('pause') : t('play')}
+            className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer border shrink-0",
+              // MC-1 §5: залатана иконка воспроизведения — `var(--flow-pulse-color,…)`
+              // с tailwind-фолбэком внутри var() не применялся, и фон со значком
+              // были одного цвета (#A583E8 в тёмном, #8B7E74 в светлом). Теперь
+              // значок рисуется цветом фона на сплошной подложке.
+              isRunning ? "border-[var(--border-light)] bg-[var(--surface-card)] text-[var(--text-main)] opacity-70" : "border-[var(--flow-pulse-color)] bg-[var(--flow-pulse-color)] text-[var(--bg-base)]"
+            )}
+            icon={isRunning ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="7" y="5" width="4" height="14" rx="1"/>
+                <rect x="13" y="5" width="4" height="14" rx="1"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            )}
+          />
+        )}
 
-        <IconButton
+        {/* MC-1: «Готово» — слово в пилюле 44 px вместо иконки квадрата. */}
+        <button
+          type="button"
           onClick={onStop}
           disabled={isIdle}
-          label={t('writing_done')}
+          aria-label={t('writing_done')}
           className={cn(
-            "w-11 h-11 rounded-xl border border-[var(--border-light)] bg-transparent flex items-center justify-center shrink-0",
-            isIdle ? "text-[var(--text-subtle)] cursor-default" : "text-[var(--text-muted)] cursor-pointer"
+            "min-h-11 shrink-0 rounded-full px-4 clickable-target-expansion text-[14px] font-semibold transition-opacity",
+            isIdle ? "cursor-default opacity-45" : "cursor-pointer opacity-100"
           )}
-          icon={
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="6" width="12" height="12" rx="1.5"/>
-            </svg>
-          }
-        />
+          style={{ background: 'var(--text-main)', color: 'var(--bg-base)' }}
+        >
+          {t('writing_done')}
+        </button>
 
-        {onNew && isIdle && (
+        {onNew && sessionWords > 0 && (
           <IconButton
             onClick={onNew}
             label={t('topbar_new')}

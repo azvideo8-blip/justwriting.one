@@ -1,12 +1,11 @@
-import { useState } from 'react';
+import { type ReactNode } from 'react';
+import { differenceInCalendarDays, format } from 'date-fns';
 import { useLanguage } from '../../shared/i18n';
 import { UserProfile } from '../../types';
 import type { AppUser } from '../../core/auth/types';
-import { getOrCreateGuestId } from '../../core/storage/localDb';
 import { Settings, ChevronRight } from 'lucide-react';
 import { useUserId } from '../../shared/hooks/useUserId';
 import { IconButton } from '../../shared/components/IconButton';
-import { Button } from '../../shared/components/Button';
 import { ProfileHero } from '../../features/profile/components/ProfileHero';
 import { KPIStrip } from '../../features/profile/components/KPIStrip';
 import { StreakRibbon } from '../../features/profile/components/StreakRibbon';
@@ -15,7 +14,6 @@ import { HourRhythm } from '../../features/profile/components/HourRhythm';
 import { Achievements } from '../../features/profile/components/Achievements';
 import { MoodTrend } from '../../features/profile/components/MoodTrend';
 import { useNavigate } from 'react-router-dom';
-import { ProfileService } from '../../core/services/ProfileService';
 import { MobilePageHeader } from '../../shared/components/MobilePageHeader';
 import { MeAccountSection } from './MeAccountSection';
 import { useLoginModal } from '../useLoginModal';
@@ -25,6 +23,7 @@ import { useSyncStatus } from '../../core/sync/useSyncStatus';
 import { useActivityLogStore } from '../../shared/activity/useActivityLogStore';
 import { useEncryptionStore } from '../../core/crypto/useEncryptionStore';
 import { useAdminStatus } from '../../features/auth/hooks/useAdminStatus';
+import { getDateLocale } from '../../core/utils/dateUtils';
 
 interface MobileMeScreenProps {
   user: AppUser | null;
@@ -90,8 +89,19 @@ function MobileStatusCard({ uid }: { uid: string | null }) {
   );
 }
 
+/** MC-7: группа профиля — 13 px подпись и строки под ней. Рамки нет: карточка
+ *  в карточке на узком экране превращает список в набор плашек. */
+function MeGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-1">
+      <h2 className="text-[13px] font-semibold text-[var(--text-muted)]">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
 export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
-  const { t } = useLanguage();
+  const { t, tp, language } = useLanguage();
   const navigate = useNavigate();
   const userId = useUserId(user);
   const { openLoginModal } = useLoginModal();
@@ -99,15 +109,9 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
 
   const { sessions, kpiStats, loading: loadingSessions, refresh: _refresh } = useProfileStats(userId, user);
 
-  const [achievementsResetKey, setAchievementsResetKey] = useState(0);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-
-  const handleResetAchievements = async () => {
-    const targetUserId = user?.uid || getOrCreateGuestId();
-    await ProfileService.resetAchievements(targetUserId);
-    setAchievementsResetKey(k => k + 1);
-    setShowResetConfirm(false);
-  };
+  const createdDate = user?.metadata?.creationTime ? new Date(user.metadata.creationTime) : null;
+  const practiceDays = createdDate ? Math.max(0, differenceInCalendarDays(new Date(), createdDate)) : 0;
+  const streakDays = profile?.streakDays ?? 0;
 
 
   return (
@@ -138,19 +142,45 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
               <LoadingSkeleton lines={4} className="p-4 bg-white/[0.02] border border-white/[0.04] rounded-2xl" />
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* 1. Profile Hero (Avatar, Name, Edit) */}
-              <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] p-4">
-                <ProfileHero
-                  user={user}
-                  profile={profile}
-                  isGuest={isGuest}
-                  onStartSession={() => void navigate('/')}
-                />
-              </div>
+            <div className="space-y-5">
+              {/* MC-7: шапка без рамки — карточка в карточке съедала ширину и
+                  делала экран «набором плашек». */}
+              <ProfileHero
+                user={user}
+                profile={profile}
+                isGuest={isGuest}
+                onStartSession={() => void navigate('/')}
+              />
 
-              {/* MR-4/MR-5: статусы — сразу под карточкой аккаунта */}
-              <MobileStatusCard uid={user?.uid ?? null} />
+              {/* MC-7: группы по 13 px вместо mono-uppercase ярлыков. */}
+              <MeGroup title={t('me_group_practice')}>
+                <div className="flex items-center justify-between gap-3 px-1 py-2.5 text-sm">
+                  {practiceDays > 0 && createdDate ? (
+                    <>
+                      <span className="shrink-0 text-text-main/70">{t('profile_member_since')}</span>
+                      <span className="min-w-0 truncate text-right text-[var(--text-muted)]">
+                        {format(createdDate, 'd MMMM', { locale: getDateLocale(language) })} · {practiceDays} {tp('home_streak_days', practiceDays)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-text-main/70">{t('me_first_entry_today')}</span>
+                  )}
+                </div>
+                {streakDays > 0 && (
+                  <div className="flex items-center justify-between gap-3 px-1 py-2.5 text-sm border-t border-white/[0.04]">
+                    <span className="shrink-0 text-text-main/70">{t('me_streak_row')}</span>
+                    <span className="min-w-0 truncate text-right text-[var(--text-muted)]">
+                      {streakDays} {tp('home_streak_days', streakDays)}
+                    </span>
+                  </div>
+                )}
+              </MeGroup>
+
+              <MeGroup title={t('me_group_state')}>
+                {/* MR-4/MR-5: статусы — строки группы, а не отдельная карточка. */}
+                <MobileStatusCard uid={user?.uid ?? null} />
+              </MeGroup>
+
               {/* MR-5: переключателя «Статистика / Аккаунт» нет — карточка аккаунта
               идёт сразу за статусами; язык и выход при этом доступны и в
               /settings#account. */}
@@ -163,53 +193,26 @@ export function MobileMeScreen({ user, profile }: MobileMeScreenProps) {
               <StreakRibbon sessions={sessions} />
 
               {/* 4. Heatmap Activity */}
-              <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] p-4">
-                <div className="text-[11px] font-medium text-[rgba(74,81,77,0.7)] uppercase tracking-wider mb-3">
-                  {t('profile_act_map')}
-                </div>
+              <MeGroup title={t('profile_act_map')}>
                 <Heatmap sessions={sessions} />
-              </div>
+              </MeGroup>
 
               {/* 5. Hour Rhythm */}
-              <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] p-4">
-                <div className="text-[11px] font-medium text-[rgba(74,81,77,0.7)] uppercase tracking-wider mb-3">
-                  {t('profile_rhythm')}
-                </div>
+              <MeGroup title={t('profile_rhythm')}>
                 <HourRhythm sessions={sessions} />
-              </div>
+              </MeGroup>
 
               {/* 6. Mood Trend */}
-              <MoodTrend userId={userId} className="rounded-2xl border border-white/[0.04] bg-white/[0.01] p-4" />
+              <MoodTrend userId={userId} className="py-4" />
 
-              {/* 7. Achievements */}
-              <div className="rounded-2xl border border-white/[0.04] bg-white/[0.01] p-4">
+              {/* 7. Achievements — сброс достижений живёт в настройках (MC-7):
+                  в профиле он был единственной разрушительной кнопкой. */}
+              <MeGroup title={t('profile_achievements_title')}>
                 <Achievements
-                  key={achievementsResetKey}
                   stats={kpiStats}
                   sessions={sessions}
                 />
-
-                {/* Reset Achievements action */}
-                <div className="mt-4 pt-3 border-t border-border-subtle flex justify-end items-center gap-2">
-                  {showResetConfirm ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-label-sm text-accent-danger/70 font-mono">
-                        {t('profile_ach_reset_confirm')}
-                      </span>
-                      <Button variant="danger" size="sm" onClick={() => void handleResetAchievements()} className="min-h-11 text-label-sm font-medium uppercase tracking-widest">
-                        {t('profile_ach_reset')}
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(false)} className="min-h-11 text-label-sm font-medium uppercase tracking-widest">
-                        ✕
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(true)} className="min-h-11 font-mono text-label-sm text-text-main/60 hover:text-accent-danger/50 uppercase tracking-widest">
-                      {t('profile_ach_reset')}
-                    </Button>
-                  )}
-                </div>
-              </div>
+              </MeGroup>
             </div>
           )
         )}

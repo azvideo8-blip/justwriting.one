@@ -68,7 +68,7 @@ vi.mock('../../../core/settings/WritingSettingsContext', () => ({
 describe('MobileWriteScreen - Stream Mode & Keystrokes', () => {
   it('should block backspace and delete keydowns in Stream Mode', () => {
     render(<MobileWriteScreen onPlay={vi.fn()} onPause={vi.fn()} onStop={vi.fn()} />);
-    const textarea = screen.getByPlaceholderText('writing_placeholder');
+    const textarea = screen.getByPlaceholderText('writing_placeholder_mobile');
 
     const backspaceEvent = fireEvent.keyDown(textarea, { key: 'Backspace' });
     expect(backspaceEvent).toBe(false); // default was prevented

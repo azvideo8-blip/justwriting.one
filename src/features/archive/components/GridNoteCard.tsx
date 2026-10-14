@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import React, { useState, useRef, memo } from 'react';
 import { motion } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
 import { Lock, AlertCircle, MoreHorizontal } from 'lucide-react';
@@ -13,6 +13,8 @@ import { Menu } from '../../../shared/components/Menu';
 import { useConfirmDialog } from '../../../shared/components/ConfirmDialog';
 import { StorageButtons } from './StorageButtons';
 import { useNoteMenu } from './useNoteMenu';
+import { useLayoutMode } from '../../../shared/hooks/useLayoutMode';
+import { MobileNoteActionsSheet } from '../../../app/components/MobileNoteActionsSheet';
 
 interface GridNoteCardProps {
   session: ArchiveSession;
@@ -56,7 +58,12 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
 }) => {
   const { t, tp, language } = useLanguage();
   const { prompt } = useConfirmDialog();
+  const { layoutMode } = useLayoutMode();
+  const isMobile = layoutMode === 'mobile';
   const [tagInputOpen, setTagInputOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
   const sessionTime = session.sessionStartTime
     ? new Date(session.sessionStartTime)
     : session.createdAt instanceof Date ? session.createdAt : new Date();
@@ -83,6 +90,91 @@ export const GridNoteCard = memo<GridNoteCardProps>(({
     locale: getDateLocale(language),
     addSuffix: true,
   });
+
+  // MP-2: на телефоне карточка — только текст. Вход в лист действий один:
+  // долгое нажатие, тот же порог и то же гашение кликa, что у строки списка.
+  const startLongPress = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    longPressFired.current = false;
+    longPressTimer.current = setTimeout(() => {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try {
+          navigator.vibrate(60);
+        } catch {
+          // ignore
+        }
+      }
+      longPressFired.current = true;
+      setActionsOpen(true);
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleCardTap = () => {
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return;
+    }
+    onClick();
+  };
+
+  if (isMobile) {
+    return (
+      <div
+        className="flex h-full min-h-11 cursor-pointer flex-col gap-2 rounded-2xl border border-border-subtle bg-surface-card p-4 active:bg-text-main/[0.04]"
+        style={label ? { background: `color-mix(in srgb, ${label.color} 4%, var(--surface-card))` } : undefined}
+        onClick={handleCardTap}
+        onTouchStart={startLongPress}
+        onTouchMove={cancelLongPress}
+        onTouchEnd={cancelLongPress}
+      >
+        {session._locked ? (
+          <h4 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-text-main/70">
+            <Lock size={15} className="shrink-0 text-accent-warning/80" aria-label={t('archive_note_locked')} />
+            <span className="truncate">{t('archive_note_locked')}</span>
+          </h4>
+        ) : session._decryptionError ? (
+          <h4 className="flex items-center gap-1.5 text-[15px] italic leading-snug text-accent-danger/80">
+            <AlertCircle size={15} className="shrink-0" aria-label={t('archive_decryption_error')} />
+            <span className="truncate">{t('archive_decryption_error')}</span>
+          </h4>
+        ) : session.title ? (
+          <h4 className="line-clamp-2 text-[15px] font-semibold leading-snug text-text-main">
+            {highlightText(session.title, searchQuery)}
+          </h4>
+        ) : null}
+        <p className="line-clamp-6 whitespace-pre-wrap text-[14px] leading-[1.45] text-pretty text-text-main/70">
+          {highlightText(session.content, searchQuery)}
+        </p>
+
+        {actionsOpen && (
+          <MobileNoteActionsSheet
+            isOpen={actionsOpen}
+            onClose={() => setActionsOpen(false)}
+            session={session}
+            userId={userId}
+            labels={labels}
+            onOpen={onClick}
+            onRename={() => { void rename(); }}
+            onDelete={() => onDelete?.(session)}
+            onLabelChange={labelId => onLabelChange?.(session, labelId)}
+            onStorageChange={() => onStorageChange?.()}
+            aiProcessed={aiProcessed}
+            aiLoading={aiLoading}
+            {...(onAIClick ? { onAIClick } : {})}
+            aiExclusionLoading={!!aiExclusionLoading}
+            {...(onAIExclusionClick ? { onAIExclusionClick } : {})}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <motion.div
