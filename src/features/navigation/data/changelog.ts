@@ -14,6 +14,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: '0.9.39',
+    date: '2026-10-14',
+    items: [
+      { category: 'improvement', ru: 'Разбирая одну заметку, ИИ больше не получает из портрета перечень тем ваших записей — только то, как с вами говорить.', en: 'When discussing a single note, the AI no longer receives the list of themes from your portrait — only how to talk to you.' },
+      { category: 'improvement', ru: 'Раздел портрета «Стиль общения» после обновления становится коротким и описывает только то, как с вами говорить, без пересказа тем.', en: 'After a refresh, the portrait’s «Communication style» section is short and describes only how to talk to you, without retelling your themes.' },
+      { category: 'new', ru: 'Если портрет собран по прежним правилам, в Профиле появляется подсказка обновить его. Портрет пересобирается только по вашему нажатию.', en: 'If your portrait was built under the previous rules, Profile suggests refreshing it. The portrait is rebuilt only when you press the button.' },
+    ],
+  },
+  {
     version: '0.9.38',
     date: '2026-10-13',
     items: [
